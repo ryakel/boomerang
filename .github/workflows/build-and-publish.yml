@@ -3,7 +3,6 @@ name: Build and Publish
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -21,6 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -37,7 +38,6 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      # QEMU is required for cross-platform builds (arm64 on x64 runner)
       - name: Set up QEMU
         if: github.event_name == 'push'
         uses: docker/setup-qemu-action@v3
@@ -61,12 +61,19 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=latest
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Get version tag
+        if: github.event_name == 'push'
+        id: version
+        run: |
+          TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
+          if [ -n "$TAG" ]; then
+            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}" >> $GITHUB_OUTPUT
+          else
+            echo "tags=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build and push Docker image
         if: github.event_name == 'push'
@@ -75,7 +82,9 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ${{ steps.version.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
