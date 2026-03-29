@@ -1,0 +1,16 @@
+services:
+  boomerang:
+    build: .
+    ports:
+      - "${PORT:-3001}:${PORT:-3001}"
+    environment:
+      - PORT=${PORT:-3001}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - NOTION_INTEGRATION_TOKEN=${NOTION_INTEGRATION_TOKEN:-}
+      - DB_PATH=/data/boomerang.db
+    volumes:
+      - boomerang-data:/data
+    restart: unless-stopped
+
+volumes:
+  boomerang-data:
