@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, createTask } from '../store'
 
-export function useRoutines(addTaskToList) {
+export function useRoutines() {
   const [routines, setRoutines] = useState(loadRoutines)
 
   useEffect(() => {

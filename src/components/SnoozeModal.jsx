@@ -1,6 +1,6 @@
 import { getSnoozeOptions } from '../store'
 
-export default function SnoozeModal({ task, onSnooze, onClose, onReframe }) {
+export default function SnoozeModal({ task, onSnooze, onClose }) {
   const options = getSnoozeOptions()
 
   return (

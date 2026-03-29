@@ -124,12 +124,6 @@ function App() {
     return true
   }).length
 
-  const dueRoutineCount = routines.filter(r => {
-    if (r.paused) return false
-    const hasOpen = tasks.some(t => t.routine_id === r.id && t.status === 'open')
-    return !hasOpen
-  }).length
-
   const filteredStale = filterTasks(staleTasks)
   const filteredUpNext = filterTasks(upNextTasks)
   const filteredSnoozed = filterTasks(snoozedTasks)

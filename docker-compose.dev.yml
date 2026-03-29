@@ -1,6 +1,6 @@
 services:
   boomerang:
-    image: ghcr.io/ryakel/boomerang:latest
+    build: .
     ports:
       - "${PORT:-3001}:${PORT:-3001}"
     environment:
