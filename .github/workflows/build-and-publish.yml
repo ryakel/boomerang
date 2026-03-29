@@ -1,23 +1,30 @@
-name: Build and Publish
+name: Docker Builder
 
 on:
+  workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
+    tags:
+      - "*"
   pull_request:
     branches: [main]
+
+permissions:
+  contents: write
+  actions: write
+  packages: write
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  docker:
+    name: Build and Publish
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -38,53 +45,75 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Set Docker Tag
+        id: tag
+        run: |
+          if [[ $GITHUB_REF == refs/heads/main ]]; then
+            DOCKER_TAG="latest"
+          else
+            DOCKER_TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=${DOCKER_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Bump version and push tag
+        if: github.ref == 'refs/heads/main'
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_release_rules: major:major,breaking:major,minor:minor,patch:patch,fix:patch
+
+      - name: Create a GitHub release
+        if: github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          body: ${{ steps.tag_version.outputs.changelog }}
+
       - name: Set up QEMU
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        if: github.event_name == 'push'
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=sha
-
-      - name: Get version tag
-        if: github.event_name == 'push'
-        id: version
-        run: |
-          TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
-          if [ -n "$TAG" ]; then
-            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}" >> $GITHUB_OUTPUT
-          else
-            echo "tags=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build and push Docker image
-        if: github.event_name == 'push'
+      # Tag push — build with just that tag
+      - name: Build and Push Tag Image
+        if: startsWith(github.ref, 'refs/tags/')
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          sbom: true
+          provenance: mode=max
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ steps.meta.outputs.tags }}
-            ${{ steps.version.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Main push — build with latest + auto-bumped version tag
+      - name: Build and Push Main Image
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          sbom: true
+          provenance: mode=max
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag_version.outputs.new_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
