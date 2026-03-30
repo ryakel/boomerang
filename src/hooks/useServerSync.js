@@ -32,7 +32,7 @@ function taskSummary(tasks) {
   return `${tasks.length} total (${open} open, ${done} done)`
 }
 
-export function useServerSync(tasks, routines, onHydrate) {
+export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const clientId = useRef(crypto.randomUUID()).current
   const debounceTimer = useRef(null)
   const hydrated = useRef(false)
@@ -99,12 +99,12 @@ export function useServerSync(tasks, routines, onHydrate) {
           serverVersion.current = msg.version
           remoteLog(`SSE: connected, server v${msg.version}, appVersion=${msg.appVersion}`)
 
-          // Force reload if client is running a different version than the server
+          // Show update modal if client is running a different version than the server
           const clientVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
           if (msg.appVersion && clientVersion !== 'dev' && msg.appVersion !== clientVersion) {
-            remoteLog(`SSE: VERSION MISMATCH — client=${clientVersion} server=${msg.appVersion}, reloading`)
+            remoteLog(`SSE: VERSION MISMATCH — client=${clientVersion} server=${msg.appVersion}`)
             flushLogs()
-            window.location.reload()
+            if (onVersionMismatch) onVersionMismatch(msg.appVersion)
             return
           }
 

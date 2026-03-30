@@ -1469,3 +1469,35 @@
   text-decoration: none;
   font-size: 12px;
 }
+
+/* Update modal */
+.update-modal {
+  background: var(--surface);
+  border: 1px solid var(--surface-hover);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  max-width: 280px;
+  width: 90%;
+}
+.update-modal p {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--text);
+}
+.update-modal-sub {
+  font-size: 13px !important;
+  color: var(--text-dim) !important;
+  margin-bottom: 16px !important;
+}
+.update-modal-btn {
+  background: #4A9EFF;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+}

@@ -66,7 +66,12 @@ function App() {
     if (data.labels) saveLabels(data.labels)
   }, [hydrateTasks, hydrateRoutines])
 
-  const flushSync = useServerSync(tasks, routines, hydrateFromServer)
+  const [updateVersion, setUpdateVersion] = useState(null)
+  const flushSync = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
+    setUpdateVersion(newVersion)
+    // Auto-reload after 4 seconds if user doesn't tap the button
+    setTimeout(() => window.location.reload(), 4000)
+  })
 
   const { onTouchStart, onTouchEnd } = usePullToRefresh(useCallback(() => {
     setRefreshing(true)
@@ -441,6 +446,18 @@ function App() {
             setToast(null)
           }}
         />
+      )}
+
+      {updateVersion && (
+        <div className="sheet-overlay" style={{ zIndex: 9999 }}>
+          <div className="update-modal">
+            <p>Update available: <strong>{updateVersion}</strong></p>
+            <p className="update-modal-sub">Refreshing automatically...</p>
+            <button className="update-modal-btn" onClick={() => window.location.reload()}>
+              Reload now
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
