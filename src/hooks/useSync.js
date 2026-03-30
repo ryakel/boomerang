@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { saveTasks, saveRoutines, saveSettings, saveLabels } from '../store'
+import { saveTasks, saveRoutines } from '../store'
 
 const DEBOUNCE_MS = 500
 
@@ -25,12 +25,12 @@ export function useSync(tasks, routines, onHydrate) {
         if (data && Object.keys(data).length > 0) {
           // Server has data — hydrate into React state + localStorage
           skipNextPush.current = true
+          // onHydrate persists tasks/routines to React state and
+          // settings/labels to localStorage
           onHydrate(data)
-          // Also persist to localStorage so store reads work
+          // Also persist tasks/routines to localStorage so store reads work
           if (data.tasks) saveTasks(data.tasks)
           if (data.routines) saveRoutines(data.routines)
-          if (data.settings) saveSettings(data.settings)
-          if (data.labels) saveLabels(data.labels)
         } else {
           // Server empty — push current state up
           pushState(tasks, routines)

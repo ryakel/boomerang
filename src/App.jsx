@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import './App.css'
-import { loadLabels, loadSettings, saveSettings, sortTasks, computeDailyStats, computeStreak } from './store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
 import { inferSize } from './api'
 import { useTasks } from './hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from './hooks/useRoutines'
@@ -61,6 +61,9 @@ function App() {
   const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
     if (data.routines) hydrateRoutines(data.routines)
+    // Also persist settings/labels so localStorage stays in sync with server
+    if (data.settings) saveSettings(data.settings)
+    if (data.labels) saveLabels(data.labels)
   }, [hydrateTasks, hydrateRoutines])
 
   const flushSync = useSync(tasks, routines, hydrateFromServer)

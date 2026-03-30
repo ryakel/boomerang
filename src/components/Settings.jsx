@@ -51,7 +51,18 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
           setLabels(data.labels)
         }
         if (data.settings) setSettings({ ...loadSettings(), ...data.settings })
-        window.location.reload()
+        // Push imported data to server before reloading so it isn't
+        // overwritten by stale server data on the next hydration cycle
+        const payload = {}
+        if (data.tasks) payload.tasks = data.tasks
+        if (data.routines) payload.routines = data.routines
+        if (data.settings) payload.settings = data.settings
+        if (data.labels) payload.labels = data.labels
+        fetch('/api/data', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).finally(() => window.location.reload())
       } catch {
         alert('Invalid backup file')
       }
