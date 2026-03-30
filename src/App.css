@@ -1308,6 +1308,59 @@
   margin-right: 0;
 }
 
+.notes-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.research-btn {
+  background: rgba(74, 158, 255, 0.15);
+  color: #4A9EFF;
+}
+
+.research-prompt-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.research-prompt-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid var(--text-dim);
+}
+
+.research-prompt-input:focus {
+  outline: none;
+  border-color: #4A9EFF;
+}
+
+.research-prompt-input::placeholder {
+  color: var(--text-dim);
+}
+
+.research-go-btn {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(74, 158, 255, 0.15);
+  color: #4A9EFF;
+}
+
+.research-go-btn:disabled {
+  opacity: 0.4;
+}
+
+.research-go-btn:active:not(:disabled) {
+  opacity: 0.7;
+}
+
 /* Date input */
 .date-input {
   color-scheme: dark;

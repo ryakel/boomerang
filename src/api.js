@@ -138,6 +138,19 @@ export async function polishNotes(title, rawNotes) {
   return JSON.parse(match[0])
 }
 
+// --- Research ---
+export async function researchTask(title, existingNotes, prompt) {
+  const system = `You are a research assistant for someone with ADHD. Given a task and a research question, provide practical, actionable research notes. Be specific and concrete — links, steps, options, pros/cons. Format as bullet points starting with "- ". Keep it concise but thorough. Don't repeat what's already in the existing notes. Return JSON only: {"notes": "the research notes as a string with line breaks between bullets"}`
+
+  const context = existingNotes ? `\nExisting notes:\n${existingNotes}` : ''
+  const user = `Task: "${title}"${context}\n\nResearch question: "${prompt}"\n\nProvide research notes. JSON only.`
+
+  const text = await callClaude(system, user)
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('Could not parse research results')
+  return JSON.parse(match[0])
+}
+
 // --- Reframe ---
 export async function reframeTask(taskTitle, snoozeCount, blocker) {
   const system = `You are a task coach for someone with ADHD. When a task keeps getting snoozed, help break it down or reframe it into actionable steps. Be practical and specific. Respond with JSON only — an array of 1-3 strings, each a new task title that replaces the original stuck task.`

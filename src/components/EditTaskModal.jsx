@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS } from '../store'
-import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard } from '../api'
+import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard } from '../api'
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -15,6 +15,9 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const [selectedTags, setSelectedTags] = useState(task.tags || [])
   const [dueDate, setDueDate] = useState(task.due_date || '')
   const [polishing, setPolishing] = useState(false)
+  const [showResearch, setShowResearch] = useState(false)
+  const [researchPrompt, setResearchPrompt] = useState('')
+  const [researching, setResearching] = useState(false)
   const [notionState, setNotionState] = useState(null)
   const [notionCreating, setNotionCreating] = useState(false)
   const [notionResult, setNotionResult] = useState(
@@ -140,6 +143,23 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     finally { setPolishing(false) }
   }
 
+  const handleResearch = async (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (!researchPrompt.trim()) return
+    setResearching(true)
+    try {
+      const result = await researchTask(title || 'Untitled task', notes, researchPrompt.trim())
+      if (result.notes) {
+        const separator = notes.trim() ? '\n\n' : ''
+        setNotes(prev => (prev.trim() ? prev.trim() + separator : '') + result.notes)
+      }
+      setResearchPrompt('')
+      setShowResearch(false)
+    } catch { /* ignore */ }
+    finally { setResearching(false) }
+  }
+
   const handleInferSize = async (e) => {
     e.stopPropagation()
     e.preventDefault()
@@ -210,10 +230,38 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             value={notes}
             onChange={e => setNotes(e.target.value)}
           />
-          {notes.trim() && (
-            <button className="polish-btn" onClick={handlePolish} disabled={polishing}>
-              {polishing ? <span className="spinner" /> : '✨'} {polishing ? 'Polishing...' : 'Polish'}
+          <div className="notes-actions">
+            {notes.trim() && (
+              <button className="polish-btn" onClick={handlePolish} disabled={polishing}>
+                {polishing ? <span className="spinner" /> : '✨'} {polishing ? 'Polishing...' : 'Polish'}
+              </button>
+            )}
+            <button
+              className="polish-btn research-btn"
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowResearch(!showResearch) }}
+              disabled={researching}
+            >
+              {researching ? <span className="spinner" /> : '🔍'} {researching ? 'Researching...' : 'Research'}
             </button>
+          </div>
+          {showResearch && (
+            <div className="research-prompt-row">
+              <input
+                className="research-prompt-input"
+                placeholder="What do you need to know?"
+                value={researchPrompt}
+                onChange={e => setResearchPrompt(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleResearch(e) }}
+                autoFocus
+              />
+              <button
+                className="research-go-btn"
+                onClick={handleResearch}
+                disabled={!researchPrompt.trim() || researching}
+              >
+                Go
+              </button>
+            </div>
           )}
         </div>
 
