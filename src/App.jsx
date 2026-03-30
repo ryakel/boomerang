@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import './App.css'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, isActiveTask } from './store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
 import { inferSize } from './api'
 import { useTasks } from './hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from './hooks/useRoutines'

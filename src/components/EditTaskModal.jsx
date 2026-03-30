@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS } from '../store'
-import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
+import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard } from '../api'
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -27,6 +27,14 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const [customDays, setCustomDays] = useState(14)
   const [attachments, setAttachments] = useState(task.attachments || [])
   const [attachError, setAttachError] = useState(null)
+  const [checklist, setChecklist] = useState(task.checklist || [])
+  const [newCheckItem, setNewCheckItem] = useState('')
+  const [comments, setComments] = useState(task.comments || [])
+  const [newComment, setNewComment] = useState('')
+  const [trelloResult, setTrelloResult] = useState(
+    task.trello_card_id ? { id: task.trello_card_id, url: task.trello_card_url } : null
+  )
+  const [trelloPushing, setTrelloPushing] = useState(false)
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
   const labels = loadLabels()
@@ -58,7 +66,11 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         size: size || null,
         notion_page_id: notionResult?.id || null,
         notion_url: notionResult?.url || null,
+        trello_card_id: trelloResult?.id || null,
+        trello_card_url: trelloResult?.url || null,
         attachments,
+        checklist,
+        comments,
       })
     }
     onClose()
@@ -261,6 +273,96 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             ))}
           </div>
         )}
+
+        {/* Checklist */}
+        <div className="settings-label" style={{ marginBottom: 6, marginTop: 4 }}>Checklist</div>
+        <div className="checklist-edit-section">
+          {checklist.map((item) => (
+            <div key={item.id} className="checklist-edit-item">
+              <input
+                type="checkbox"
+                className="checklist-checkbox"
+                checked={item.completed}
+                onChange={() => {
+                  setChecklist(prev => prev.map(i =>
+                    i.id === item.id ? { ...i, completed: !i.completed } : i
+                  ))
+                }}
+              />
+              <input
+                className="checklist-edit-input"
+                value={item.text}
+                onChange={e => {
+                  setChecklist(prev => prev.map(i =>
+                    i.id === item.id ? { ...i, text: e.target.value } : i
+                  ))
+                }}
+              />
+              <button className="checklist-delete" onClick={() => {
+                setChecklist(prev => prev.filter(i => i.id !== item.id))
+              }}>x</button>
+            </div>
+          ))}
+          <div className="checklist-add-row">
+            <input
+              className="checklist-add-input"
+              placeholder="Add item..."
+              value={newCheckItem}
+              onChange={e => setNewCheckItem(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newCheckItem.trim()) {
+                  setChecklist(prev => [...prev, { id: crypto.randomUUID(), text: newCheckItem.trim(), completed: false }])
+                  setNewCheckItem('')
+                }
+              }}
+            />
+            <button
+              className="checklist-add-btn"
+              disabled={!newCheckItem.trim()}
+              onClick={() => {
+                if (newCheckItem.trim()) {
+                  setChecklist(prev => [...prev, { id: crypto.randomUUID(), text: newCheckItem.trim(), completed: false }])
+                  setNewCheckItem('')
+                }
+              }}
+            >+</button>
+          </div>
+        </div>
+
+        {/* Comments */}
+        <div className="settings-label" style={{ marginBottom: 6, marginTop: 4 }}>Comments</div>
+        <div className="comments-section">
+          {comments.length > 0 && comments.map(c => (
+            <div key={c.id} className="comment-item">
+              <div className="comment-text">{c.text}</div>
+              <div className="comment-time">{new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+            </div>
+          ))}
+          <div className="comment-input-row">
+            <input
+              className="comment-input"
+              placeholder="Add a comment..."
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newComment.trim()) {
+                  setComments(prev => [...prev, { id: crypto.randomUUID(), text: newComment.trim(), created_at: new Date().toISOString() }])
+                  setNewComment('')
+                }
+              }}
+            />
+            <button
+              className="comment-add-btn"
+              disabled={!newComment.trim()}
+              onClick={() => {
+                if (newComment.trim()) {
+                  setComments(prev => [...prev, { id: crypto.randomUUID(), text: newComment.trim(), created_at: new Date().toISOString() }])
+                  setNewComment('')
+                }
+              }}
+            >Add</button>
+          </div>
+        </div>
 
         {/* Recurring toggle */}
         {!isAlreadyRoutine && (
