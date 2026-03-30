@@ -1,17 +1,85 @@
 import { useState, useRef, useEffect } from 'react'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS } from '../store'
-import { getKeyStatus } from '../api'
+import { getKeyStatus, trelloStatus, trelloBoards, trelloBoardLists } from '../api'
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
 export default function Settings({ onClose, onClearCompleted, onClearAll }) {
   const [activeTab, setActiveTab] = useState('Tasks')
   const [settings, setSettings] = useState(loadSettings)
-  const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false })
+  const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
 
   useEffect(() => {
     getKeyStatus().then(setEnvKeys)
   }, [])
+
+  // Trello connection state
+  const [trelloConnecting, setTrelloConnecting] = useState(false)
+  const [trelloConnected, setTrelloConnected] = useState(false)
+  const [trelloUsername, setTrelloUsername] = useState(null)
+  const [trelloBoardsList, setTrelloBoardsList] = useState([])
+  const [trelloListsList, setTrelloListsList] = useState([])
+  const [trelloError, setTrelloError] = useState(null)
+
+  const handleTrelloConnect = async () => {
+    setTrelloConnecting(true)
+    setTrelloError(null)
+    try {
+      const status = await trelloStatus()
+      if (status.connected) {
+        setTrelloConnected(true)
+        setTrelloUsername(status.username)
+        const boards = await trelloBoards()
+        setTrelloBoardsList(boards)
+      } else {
+        setTrelloError('Could not connect. Check your API key and token.')
+      }
+    } catch (err) {
+      setTrelloError(err.message)
+    } finally {
+      setTrelloConnecting(false)
+    }
+  }
+
+  const handleTrelloBoardSelect = async (boardId) => {
+    const board = trelloBoardsList.find(b => b.id === boardId)
+    if (!board) return
+    update('trello_board_id', boardId)
+    update('trello_board_name', board.name)
+    update('trello_list_id', '')
+    update('trello_list_name', '')
+    setTrelloListsList([])
+    try {
+      const lists = await trelloBoardLists(boardId)
+      setTrelloListsList(lists)
+    } catch (err) {
+      setTrelloError(err.message)
+    }
+  }
+
+  const handleTrelloListSelect = (listId) => {
+    const list = trelloListsList.find(l => l.id === listId)
+    if (!list) return
+    update('trello_list_id', listId)
+    update('trello_list_name', list.name)
+  }
+
+  // Auto-check Trello connection if credentials are already saved
+  useEffect(() => {
+    const s = loadSettings()
+    if ((s.trello_api_key && s.trello_token) || envKeys.trello) {
+      trelloStatus().then(status => {
+        if (status.connected) {
+          setTrelloConnected(true)
+          setTrelloUsername(status.username)
+          if (s.trello_board_id) {
+            trelloBoards().then(setTrelloBoardsList).catch(() => {})
+            trelloBoardLists(s.trello_board_id).then(setTrelloListsList).catch(() => {})
+          }
+        }
+      }).catch(() => {})
+    }
+  }, [envKeys.trello])
 
   const [labels, setLabels] = useState(loadLabels)
   const [newLabelName, setNewLabelName] = useState('')
@@ -321,6 +389,104 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
               onChange={e => update('notion_token', e.target.value)}
               style={{ marginBottom: 0, fontSize: 13 }}
             />
+          )}
+
+          <div className="settings-label" style={{ marginTop: 16 }}>Trello</div>
+          {envKeys.trello ? (
+            <div className="env-key-status">Set by environment variable</div>
+          ) : (
+            <>
+              <input
+                className="add-input"
+                type="password"
+                placeholder="API Key"
+                value={settings.trello_api_key || ''}
+                onChange={e => update('trello_api_key', e.target.value)}
+                style={{ marginBottom: 8, fontSize: 13 }}
+              />
+              <input
+                className="add-input"
+                type="password"
+                placeholder="Token"
+                value={settings.trello_token || ''}
+                onChange={e => update('trello_token', e.target.value)}
+                style={{ marginBottom: 0, fontSize: 13 }}
+              />
+            </>
+          )}
+
+          {trelloConnected ? (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                Connected as <strong style={{ color: 'var(--text-primary)' }}>{trelloUsername}</strong>
+              </div>
+
+              {settings.trello_board_name && settings.trello_list_name ? (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                  Syncing to: <strong style={{ color: 'var(--text-primary)' }}>{settings.trello_board_name}</strong> → <strong style={{ color: 'var(--text-primary)' }}>{settings.trello_list_name}</strong>
+                  <button
+                    className="ci-clear-btn"
+                    style={{ marginLeft: 8 }}
+                    onClick={() => {
+                      update('trello_board_id', '')
+                      update('trello_board_name', '')
+                      update('trello_list_id', '')
+                      update('trello_list_name', '')
+                      setTrelloListsList([])
+                    }}
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : null}
+
+              {!settings.trello_board_id && (
+                <>
+                  <div className="settings-label" style={{ marginBottom: 6 }}>Board</div>
+                  <select
+                    className="add-input"
+                    style={{ fontSize: 13, marginBottom: 8 }}
+                    value=""
+                    onChange={e => handleTrelloBoardSelect(e.target.value)}
+                  >
+                    <option value="" disabled>Select a board...</option>
+                    {trelloBoardsList.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              {settings.trello_board_id && !settings.trello_list_id && trelloListsList.length > 0 && (
+                <>
+                  <div className="settings-label" style={{ marginBottom: 6 }}>List</div>
+                  <select
+                    className="add-input"
+                    style={{ fontSize: 13, marginBottom: 0 }}
+                    value=""
+                    onChange={e => handleTrelloListSelect(e.target.value)}
+                  >
+                    <option value="" disabled>Select a list...</option>
+                    {trelloListsList.map(l => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+            </div>
+          ) : (
+            <button
+              className="ci-upload-btn"
+              style={{ marginTop: 8 }}
+              disabled={trelloConnecting || (!settings.trello_api_key && !envKeys.trello)}
+              onClick={handleTrelloConnect}
+            >
+              {trelloConnecting ? 'Connecting...' : 'Connect'}
+            </button>
+          )}
+
+          {trelloError && (
+            <div style={{ color: 'var(--accent)', fontSize: 12, marginTop: 8 }}>{trelloError}</div>
           )}
         </div>
       )}

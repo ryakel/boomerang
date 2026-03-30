@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { loadTasks, saveTasks, createTask, isStale, isSnoozed } from '../store'
+import { loadTasks, saveTasks, createTask, isStale, isSnoozed, isActiveTask } from '../store'
 
 function remoteLog(...args) {
   const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
@@ -96,7 +96,7 @@ export function useTasks() {
   const uncompleteTask = useCallback((id) => {
     remoteLog('uncompleteTask:', `id=${id.slice(0, 8)}`)
     setTasks(prev => prev.map(t =>
-      t.id === id ? { ...t, status: 'open', completed_at: null, last_touched: new Date().toISOString() } : t
+      t.id === id ? { ...t, status: 'not_started', completed_at: null, last_touched: new Date().toISOString() } : t
     ))
   }, [])
 
@@ -110,6 +110,17 @@ export function useTasks() {
     setTasks([])
   }, [])
 
+  const changeStatus = useCallback((id, newStatus) => {
+    remoteLog('changeStatus:', `id=${id.slice(0, 8)}`, '→', newStatus)
+    setTasks(prev => prev.map(t => {
+      if (t.id !== id) return t
+      const updates = { status: newStatus, last_touched: new Date().toISOString() }
+      if (newStatus === 'done') updates.completed_at = new Date().toISOString()
+      if (t.status === 'done' && newStatus !== 'done') updates.completed_at = null
+      return { ...t, ...updates }
+    }))
+  }, [])
+
   const hydrateTasks = useCallback((data) => {
     if (Array.isArray(data)) {
       const done = data.filter(t => t.status === 'done').length
@@ -119,16 +130,18 @@ export function useTasks() {
     }
   }, [])
 
-  const openTasks = tasks.filter(t => t.status === 'open')
+  const openTasks = tasks.filter(t => isActiveTask(t))
   const staleTasks = openTasks.filter(t => isStale(t))
   const snoozedTasks = openTasks.filter(t => isSnoozed(t))
-  const upNextTasks = openTasks.filter(t => !isStale(t) && !isSnoozed(t))
+  const waitingTasks = openTasks.filter(t => (t.status === 'waiting') && !isStale(t) && !isSnoozed(t))
+  const upNextTasks = openTasks.filter(t => t.status !== 'waiting' && !isStale(t) && !isSnoozed(t))
 
   return {
     tasks,
     openTasks,
     staleTasks,
     snoozedTasks,
+    waitingTasks,
     upNextTasks,
     addTask,
     addSpawnedTasks,
@@ -137,6 +150,7 @@ export function useTasks() {
     replaceTask,
     updateTask,
     uncompleteTask,
+    changeStatus,
     clearCompleted,
     clearAll,
     hydrateTasks,

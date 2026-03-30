@@ -7,6 +7,8 @@ function getApiHeaders() {
   const headers = { 'Content-Type': 'application/json' }
   if (settings.anthropic_api_key) headers['x-anthropic-key'] = settings.anthropic_api_key
   if (settings.notion_token) headers['x-notion-token'] = settings.notion_token
+  if (settings.trello_api_key) headers['x-trello-key'] = settings.trello_api_key
+  if (settings.trello_token) headers['x-trello-token'] = settings.trello_token
   return headers
 }
 
@@ -95,8 +97,9 @@ When should this be due? JSON only.`
 
 // --- What Now ---
 export async function getWhatNow(tasks, time, energy) {
+  const ACTIVE = ['not_started', 'doing', 'waiting', 'open']
   const openTasks = tasks
-    .filter(t => t.status === 'open')
+    .filter(t => ACTIVE.includes(t.status))
     .map(t => `- "${t.title}" (${t.size || 'unsized'}, ${t.tags.join(', ') || 'no tags'}, ${Math.floor((Date.now() - new Date(t.last_touched).getTime()) / 86400000)}d old, snoozed ${t.snooze_count}x)`)
     .join('\n')
 
@@ -195,7 +198,7 @@ export async function getKeyStatus() {
     const res = await fetch('/api/keys/status')
     return res.json()
   } catch {
-    return { anthropic: false, notion: false }
+    return { anthropic: false, notion: false, trello: false }
   }
 }
 
@@ -229,4 +232,56 @@ export async function generateNotionContent(taskTitle, taskNotes, isRecurring = 
   const user = `Create Notion page content for:\nTask: "${taskTitle}"${taskNotes ? `\nNotes: ${taskNotes}` : ''}\n\nWrite the content as plain text lines.`
 
   return callClaude(system, user)
+}
+
+// --- Trello ---
+export async function trelloStatus() {
+  try {
+    const res = await fetch('/api/trello/status', { headers: getApiHeaders() })
+    return res.json()
+  } catch {
+    return { connected: false }
+  }
+}
+
+export async function trelloBoards() {
+  const res = await fetch('/api/trello/boards', { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to fetch boards')
+  return res.json()
+}
+
+export async function trelloBoardLists(boardId) {
+  const res = await fetch(`/api/trello/boards/${boardId}/lists`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to fetch lists')
+  return res.json()
+}
+
+export async function trelloCreateCard(name, desc, idList) {
+  const res = await fetch('/api/trello/cards', {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ name, desc, idList }),
+  })
+  if (!res.ok) throw new Error('Failed to create card')
+  return res.json()
+}
+
+export async function trelloUpdateCard(cardId, updates) {
+  const res = await fetch(`/api/trello/cards/${cardId}`, {
+    method: 'PATCH',
+    headers: getApiHeaders(),
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error('Failed to update card')
+  return res.json()
+}
+
+export async function trelloSyncCards(idList) {
+  const res = await fetch('/api/trello/sync', {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ idList }),
+  })
+  if (!res.ok) throw new Error('Failed to sync cards')
+  return res.json()
 }

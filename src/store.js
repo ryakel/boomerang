@@ -34,6 +34,12 @@ const DEFAULT_LABELS = [
   { id: 'follow-up', name: 'follow-up', color: '#FFB347' },
 ]
 
+const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
+
+function isActiveTask(task) {
+  return ACTIVE_STATUSES.includes(task.status) || task.status === 'open'
+}
+
 const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }
 const SIZE_POINTS = { XS: 1, S: 2, M: 5, L: 10, XL: 20 }
 
@@ -92,7 +98,7 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
   return {
     id: crypto.randomUUID(),
     title,
-    status: 'open',
+    status: 'not_started',
     tags,
     notes,
     due_date: dueDate,
@@ -105,9 +111,13 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     reframe_notes: null,
     notion_page_id: null,
     notion_url: null,
+    trello_card_id: null,
+    trello_card_url: null,
     routine_id: null,
     size: null,
     attachments: [],
+    checklist: [],
+    comments: [],
   }
 }
 
@@ -156,7 +166,7 @@ export function formatCadence(routine) {
 }
 
 export function isStale(task) {
-  if (task.status !== 'open') return false
+  if (!isActiveTask(task)) return false
   if (task.snoozed_until && new Date(task.snoozed_until) > new Date()) return false
   const elapsed = Date.now() - new Date(task.last_touched).getTime()
   return elapsed > task.staleness_days * 86400000
@@ -167,7 +177,7 @@ export function isSnoozed(task) {
 }
 
 export function isOverdue(task) {
-  if (!task.due_date || task.status !== 'open') return false
+  if (!task.due_date || !isActiveTask(task)) return false
   const due = parseDateLocal(task.due_date)
   due.setHours(23, 59, 59, 999)
   return Date.now() > due.getTime()
@@ -370,4 +380,4 @@ export function computeTaskPoints(task) {
   return Math.round(base * speedMultiplier)
 }
 
-export { LABEL_COLORS, RECURRENCE_OPTIONS, SIZE_POINTS }
+export { ACTIVE_STATUSES, isActiveTask, LABEL_COLORS, RECURRENCE_OPTIONS, SIZE_POINTS }

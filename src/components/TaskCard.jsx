@@ -1,7 +1,14 @@
 import { useState, useRef, useCallback } from 'react'
-import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld } from '../store'
+import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES } from '../store'
 
-export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog, onFindRelated }) {
+const STATUS_META = {
+  not_started: { label: 'Not Started', color: 'var(--text-dim)' },
+  doing: { label: 'Doing', color: '#4A9EFF' },
+  waiting: { label: 'Waiting', color: '#FFB347' },
+  done: { label: 'Done', color: '#52C97F' },
+}
+
+export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog, onFindRelated, onStatusChange, onUpdate }) {
   const [expanded, setExpanded] = useState(false)
   const [scrolledEnd, setScrolledEnd] = useState(false)
   const actionsRef = useRef(null)
@@ -35,6 +42,9 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
       onClick={() => setExpanded(!expanded)}
     >
       <div className="task-card-top">
+        {task.status !== 'backlog' && STATUS_META[task.status] && (
+          <span className="status-indicator" style={{ background: STATUS_META[task.status].color }} title={STATUS_META[task.status].label} />
+        )}
         <span className="task-title">{task.title}</span>
         <div className="task-card-right">
           {task.size && (
@@ -72,8 +82,45 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
 
       {expanded && (
         <>
+          {task.status !== 'backlog' && onStatusChange && (
+            <div className="status-selector" onClick={e => e.stopPropagation()}>
+              {[...ACTIVE_STATUSES, 'done'].map(s => (
+                <button
+                  key={s}
+                  className={`status-btn${task.status === s || (task.status === 'open' && s === 'not_started') ? ' active' : ''}`}
+                  style={{ '--status-color': STATUS_META[s].color }}
+                  onClick={() => onStatusChange(task.id, s)}
+                >
+                  {STATUS_META[s].label}
+                </button>
+              ))}
+            </div>
+          )}
           {task.notes && (
             <div className="task-notes">{task.notes}</div>
+          )}
+          {task.checklist?.length > 0 && (
+            <div className="checklist-section" onClick={e => e.stopPropagation()}>
+              <div className="checklist-progress">
+                {task.checklist.filter(i => i.completed).length}/{task.checklist.length} items
+              </div>
+              {task.checklist.map(item => (
+                <label key={item.id} className="checklist-item">
+                  <input
+                    type="checkbox"
+                    className="checklist-checkbox"
+                    checked={item.completed}
+                    onChange={() => {
+                      const updated = task.checklist.map(i =>
+                        i.id === item.id ? { ...i, completed: !i.completed } : i
+                      )
+                      onUpdate(task.id, { checklist: updated })
+                    }}
+                  />
+                  <span className={`checklist-text${item.completed ? ' completed' : ''}`}>{item.text}</span>
+                </label>
+              ))}
+            </div>
           )}
           {task.attachments?.length > 0 && (
             <div className="attachment-list" onClick={e => e.stopPropagation()}>

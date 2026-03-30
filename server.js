@@ -17,11 +17,15 @@ try {
 // --- Environment (fallback keys — user can override via UI) ---
 let envApiKey = process.env.ANTHROPIC_API_KEY
 let envNotionToken = process.env.NOTION_INTEGRATION_TOKEN
+let envTrelloKey = process.env.TRELLO_API_KEY
+let envTrelloToken = process.env.TRELLO_TOKEN
 
 if (existsSync('.env')) {
   const envFile = readFileSync('.env', 'utf-8')
   envApiKey = envApiKey || envFile.match(/(?:VITE_)?ANTHROPIC_API_KEY="?([^"\n]+)"?/)?.[1]
   envNotionToken = envNotionToken || envFile.match(/NOTION_INTEGRATION_TOKEN="?([^"\n]+)"?/)?.[1]
+  envTrelloKey = envTrelloKey || envFile.match(/TRELLO_API_KEY="?([^"\n]+)"?/)?.[1]
+  envTrelloToken = envTrelloToken || envFile.match(/TRELLO_TOKEN="?([^"\n]+)"?/)?.[1]
 }
 
 // Helper: resolve API key from request header or env var
@@ -31,6 +35,12 @@ function getAnthropicKey(req) {
 
 function getNotionToken(req) {
   return req.headers['x-notion-token'] || envNotionToken || null
+}
+
+function getTrelloAuth(req) {
+  const key = req.headers['x-trello-key'] || envTrelloKey || null
+  const token = req.headers['x-trello-token'] || envTrelloToken || null
+  return { key, token }
 }
 
 // --- Express ---
@@ -57,6 +67,7 @@ app.get('/api/keys/status', (req, res) => {
   res.json({
     anthropic: !!envApiKey,
     notion: !!envNotionToken,
+    trello: !!(envTrelloKey && envTrelloToken),
   })
 })
 
@@ -308,6 +319,127 @@ function extractTitle(page) {
   return 'Untitled'
 }
 
+// --- Trello API proxy ---
+const TRELLO_BASE = 'https://api.trello.com/1'
+
+app.get('/api/trello/status', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.json({ connected: false })
+  try {
+    const response = await fetch(`${TRELLO_BASE}/members/me?key=${key}&token=${token}`)
+    const data = await response.json()
+    res.json({ connected: response.ok, username: data.username || null })
+  } catch {
+    res.json({ connected: false })
+  }
+})
+
+app.get('/api/trello/boards', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'No Trello credentials configured. Add them in Settings or set TRELLO_API_KEY and TRELLO_TOKEN env vars.' })
+  try {
+    const response = await fetch(`${TRELLO_BASE}/members/me/boards?fields=name,url,closed&key=${key}&token=${token}`)
+    const data = await response.json()
+    const boards = (data || []).filter(b => !b.closed)
+    res.json(boards)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.get('/api/trello/boards/:id/lists', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const response = await fetch(`${TRELLO_BASE}/boards/${req.params.id}/lists?fields=name,closed&key=${key}&token=${token}`)
+    const data = await response.json()
+    const lists = (data || []).filter(l => !l.closed)
+    res.json(lists)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/trello/cards', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const { name, desc, idList, pos } = req.body
+    const response = await fetch(`${TRELLO_BASE}/cards?key=${key}&token=${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, desc, idList, pos }),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.patch('/api/trello/cards/:id', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const response = await fetch(`${TRELLO_BASE}/cards/${req.params.id}?key=${key}&token=${token}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.delete('/api/trello/cards/:id', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const response = await fetch(`${TRELLO_BASE}/cards/${req.params.id}?key=${key}&token=${token}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ closed: true }),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.get('/api/trello/cards/:id', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const response = await fetch(`${TRELLO_BASE}/cards/${req.params.id}?key=${key}&token=${token}`)
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/trello/sync', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const { idList } = req.body
+    if (!idList) return res.status(400).json({ error: 'idList is required' })
+    const response = await fetch(`${TRELLO_BASE}/lists/${idList}/cards?fields=name,desc,closed,idList,pos,due,labels,url&key=${key}&token=${token}`)
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // --- Static file serving (production) ---
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -330,6 +462,7 @@ initDb(dbPath).then(() => {
     console.log(`Boomerang running on http://localhost:${PORT}`)
     console.log(`Anthropic API key: ${envApiKey ? 'from env' : 'user-provided via UI'}`)
     console.log(`Notion token: ${envNotionToken ? 'from env' : 'user-provided via UI'}`)
+    console.log(`Trello: ${envTrelloKey && envTrelloToken ? 'from env' : 'user-provided via UI'}`)
   })
 }).catch(err => {
   console.error('Failed to initialize database:', err)

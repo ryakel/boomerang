@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import './App.css'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, isActiveTask } from './store'
 import { inferSize } from './api'
 import { useTasks } from './hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from './hooks/useRoutines'
@@ -25,9 +25,9 @@ import { usePullToRefresh } from './hooks/usePullToRefresh'
 
 function App() {
   const {
-    tasks, openTasks, staleTasks, snoozedTasks, upNextTasks,
+    tasks, openTasks, staleTasks, snoozedTasks, waitingTasks, upNextTasks,
     addTask, addSpawnedTasks, completeTask, snoozeTask, replaceTask,
-    updateTask, uncompleteTask, clearCompleted, clearAll, hydrateTasks,
+    updateTask, uncompleteTask, changeStatus, clearCompleted, clearAll, hydrateTasks,
   } = useTasks()
 
   const {
@@ -163,8 +163,16 @@ function App() {
   }
 
   const handleBacklog = useCallback((id, toBacklog) => {
-    updateTask(id, { status: toBacklog ? 'backlog' : 'open', last_touched: new Date().toISOString() })
+    updateTask(id, { status: toBacklog ? 'backlog' : 'not_started', last_touched: new Date().toISOString() })
   }, [updateTask])
+
+  const handleStatusChange = useCallback((id, newStatus) => {
+    if (newStatus === 'done') {
+      handleComplete(id)
+    } else {
+      changeStatus(id, newStatus)
+    }
+  }, [changeStatus, handleComplete])
 
   const handleSnooze = (task) => {
     const settings = loadSettings()
@@ -198,6 +206,7 @@ function App() {
   const backlogTasks = tasks.filter(t => t.status === 'backlog')
   const filteredStale = sortTasks(filterTasks(staleTasks), sortBy)
   const filteredUpNext = sortTasks(filterTasks(upNextTasks), sortBy)
+  const filteredWaiting = sortTasks(filterTasks(waitingTasks), sortBy)
   const filteredSnoozed = sortTasks(filterTasks(snoozedTasks), sortBy)
   const filteredBacklog = sortTasks(filterTasks(backlogTasks), sortBy)
 
@@ -280,7 +289,7 @@ function App() {
 
       <div className="task-list" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {refreshing && <div className="refresh-indicator">Refreshing...</div>}
-        {filteredStale.length === 0 && filteredUpNext.length === 0 && filteredSnoozed.length === 0 && (
+        {filteredStale.length === 0 && filteredUpNext.length === 0 && filteredWaiting.length === 0 && filteredSnoozed.length === 0 && (
           <div className="empty-state">
             No tasks yet.<br />Add one below to get started.
           </div>
@@ -290,7 +299,7 @@ function App() {
           <>
             <div className="section-label">Stale</div>
             {filteredStale.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} />
             ))}
           </>
         )}
@@ -299,7 +308,16 @@ function App() {
           <>
             <div className="section-label">Up Next</div>
             {filteredUpNext.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} />
+            ))}
+          </>
+        )}
+
+        {filteredWaiting.length > 0 && (
+          <>
+            <div className="section-label">Waiting</div>
+            {filteredWaiting.map(t => (
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} />
             ))}
           </>
         )}
@@ -308,7 +326,7 @@ function App() {
           <>
             <div className="section-label">Snoozed</div>
             {filteredSnoozed.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} />
             ))}
           </>
         )}
@@ -320,7 +338,7 @@ function App() {
               Backlog ({filteredBacklog.length})
             </button>
             {backlogOpen && filteredBacklog.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} />
             ))}
           </>
         )}
