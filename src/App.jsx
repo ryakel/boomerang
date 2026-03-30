@@ -63,7 +63,7 @@ function App() {
     if (data.routines) hydrateRoutines(data.routines)
   }, [hydrateTasks, hydrateRoutines])
 
-  useSync(tasks, routines, hydrateFromServer)
+  const flushSync = useSync(tasks, routines, hydrateFromServer)
 
   const { onTouchStart, onTouchEnd } = usePullToRefresh(useCallback(() => {
     setRefreshing(true)
@@ -105,6 +105,7 @@ function App() {
     setShowSortDropdown(false)
     const current = loadSettings()
     saveSettings({ ...current, sort_by: value })
+    flushSync()
   }
 
   const settings = loadSettings()
@@ -369,9 +370,9 @@ function App() {
 
       {showSettings && (
         <Settings
-          onClose={() => setShowSettings(false)}
-          onClearCompleted={() => { clearCompleted(); setShowSettings(false) }}
-          onClearAll={() => { clearAll(); saveSettings({}); setShowSettings(false) }}
+          onClose={() => { setShowSettings(false); flushSync() }}
+          onClearCompleted={() => { clearCompleted(); setShowSettings(false); flushSync() }}
+          onClearAll={() => { clearAll(); saveSettings({}); setShowSettings(false); flushSync() }}
         />
       )}
 
