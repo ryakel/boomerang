@@ -819,6 +819,206 @@
   background: transparent;
 }
 
+/* Status indicator & selector */
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-selector {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+.status-btn {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.status-btn.active {
+  font-weight: 600;
+}
+
+.status-btn:active {
+  opacity: 0.7;
+}
+
+/* Checklist (inline in TaskCard) */
+.checklist-section {
+  margin-top: 10px;
+}
+
+.checklist-progress {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.checklist-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #52C97F;
+  flex-shrink: 0;
+}
+
+.checklist-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.checklist-text.completed {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+/* Checklist (edit modal) */
+.checklist-edit-section {
+  margin-bottom: 8px;
+}
+
+.checklist-edit-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.checklist-edit-input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid transparent;
+}
+
+.checklist-edit-input:focus {
+  border-color: var(--text-dim);
+  outline: none;
+}
+
+.checklist-delete {
+  font-size: 16px;
+  color: var(--text-dim);
+  padding: 4px 6px;
+  flex-shrink: 0;
+}
+
+.checklist-delete:active {
+  color: var(--accent);
+}
+
+.checklist-add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.checklist-add-input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid transparent;
+}
+
+.checklist-add-input:focus {
+  border-color: var(--text-dim);
+  outline: none;
+}
+
+.checklist-add-btn {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+}
+
+.checklist-add-btn:active {
+  opacity: 0.7;
+}
+
+/* Comments (edit modal) */
+.comment-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--surface-hover);
+}
+
+.comment-item:last-child {
+  border-bottom: none;
+}
+
+.comment-text {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.comment-time {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.comment-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.comment-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid transparent;
+}
+
+.comment-input:focus {
+  border-color: var(--text-dim);
+  outline: none;
+}
+
+.comment-add-btn {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+}
+
+.comment-add-btn:active {
+  opacity: 0.7;
+}
+
 /* Settings */
 .settings-overlay {
   position: fixed;
