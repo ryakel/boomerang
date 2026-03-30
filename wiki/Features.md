@@ -79,10 +79,27 @@ Browser push notifications with configurable options:
   - Overdue tasks — tasks past their due date
   - Stale tasks — tasks untouched beyond the staleness threshold
   - General nudges — motivational messages (AI-generated when custom instructions are set, otherwise from a built-in list of ADHD-friendly messages)
+  - Stale task percentage warning — notification when the percentage of stale tasks exceeds a configurable threshold
+  - Size-based reminders — advance reminders based on task size: XL tasks 3 days before due, L tasks 2 days before, M tasks 1 day before
+  - AI small-task nudge — suggests a specific XS or S task by name in the notification, encouraging you to knock out a quick win
+
+## Sorting
+
+Tasks can be sorted via a dropdown in the header. Available sort options:
+
+- **Age** — oldest tasks first (default)
+- **Due date** — earliest due date first
+- **Size** — smallest effort first
+- **Name** — alphabetical by title
+
+## Pull-to-Refresh
+
+On touch devices, pull down on the task list to refresh data from the server.
 
 ## Motivational Toasts
 
-- **Completion toasts** — context-aware messages when you complete a task. Quick messages for same-day tasks, normal messages for recent tasks, celebratory messages for long-standing tasks. Shows days on list and today's completion count.
+- **Completion toasts** — context-aware messages when you complete a task. Quick messages for same-day tasks, normal messages for recent tasks, celebratory messages for long-standing tasks. Shows days on list, today's completion count, and points earned.
+- **Undo button** — each completion toast includes an Undo button with a 4-second window to reverse the completion
 - **Reopen toasts** — encouraging messages when you reopen a task from the done list ("Back in the ring", "Round two — you got this", etc.)
 
 ## Done List
@@ -98,6 +115,52 @@ Browser push notifications with configurable options:
 - **Export**: downloads a JSON backup of all tasks, routines, settings, and labels
 - **Import**: upload a previously exported JSON file to restore data (triggers a page reload)
 - Available in Settings under the "Data" section
+
+## Activity Rings and Points
+
+Apple Fitness-inspired activity rings track your daily progress:
+
+- **Tasks ring (green)** — progress toward your daily task completion goal
+- **Points ring (orange)** — progress toward your daily points goal
+- **Streak ring (blue)** — current streak of consecutive days meeting your goals
+
+### Points System
+
+Each completed task earns points based on its T-shirt size:
+- XS = 1 point, S = 2, M = 5, L = 10, XL = 20
+
+Speed bonuses reward fast turnaround:
+- Completed same day as created: **2x** points
+- Completed within 2 days: **1.5x** points
+
+### Ring Display
+
+- **Mini rings** appear in the header for at-a-glance progress
+- **Full rings** are shown on the Analytics screen with detailed breakdowns
+
+## Analytics
+
+Accessible via the chart icon in the header, the Analytics screen shows:
+
+- **Activity rings** — full-size daily progress rings
+- **Current streak** — consecutive days meeting your daily goals
+- **Longest streak** — your all-time best streak
+- **Best daily points** — highest points scored in a single day
+- **Best daily tasks** — most tasks completed in a single day
+- **Vacation mode** — freezes your streak so time away doesn't reset it. Resume when you're back.
+- **Reset streaks** — clears all streak data, with double confirmation to prevent accidents
+
+## Find Related (Notion)
+
+From any expanded task card, use the "Find Related" button to search your Notion workspace for related pages. Results can be linked to the task, or you can create a new Notion page directly from the search results. This supplements the existing Notion linking available in Add and Edit modals.
+
+## Smart Recurrence
+
+When a routine spawns a new task instance, AI can suggest an appropriate due date based on the routine's notes, cadence, and completion history. This helps recurring tasks get realistic deadlines instead of a generic default.
+
+## File Attachments
+
+Attach files to any task (5 MB limit per file). Attachments can be added in the Add Task modal or Edit Task modal, and are viewable in the expanded task card.
 
 ## Version Display
 

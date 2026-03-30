@@ -53,7 +53,9 @@ docker run -d \
 ## First Tasks
 
 1. Type a task in the quick-add bar at the bottom and hit Enter
-2. Tap the "+" button with empty text to open the full Add Task modal with notes, labels, due dates, size, and Notion linking
-3. Tap a task to expand it — Done, Snooze, Extend, Edit, and Backlog actions appear
+2. Tap the "+" button with empty text to open the full Add Task modal with notes, labels, due dates, size, Notion linking, and file attachments
+3. Tap a task to expand it — Done, Snooze, Extend, Edit, Find Related, and Backlog actions appear
 4. Hover over a task to see quick-action buttons (edit, done)
 5. Try "What can I do right now?" for AI-powered task suggestions (requires Anthropic API key)
+6. Check the activity rings in the header to see your daily progress on tasks, points, and streak
+7. Tap the chart icon in the header to open the Analytics screen for detailed stats and streak management

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, createTask } from '../store'
+import { suggestRoutineDueDate } from '../api'
 
 export function useRoutines() {
   const [routines, setRoutines] = useState(loadRoutines)
@@ -74,4 +75,21 @@ export function useRoutines() {
     spawnDueTasks,
     hydrateRoutines,
   }
+}
+
+export async function enhanceSpawnedTasks(spawnedTasks, routines) {
+  for (const task of spawnedTasks) {
+    if (!task.routine_id) continue
+    const routine = routines.find(r => r.id === task.routine_id)
+    if (!routine || !routine.notes) continue
+
+    try {
+      const lastCompleted = routine.completed_history.length > 0
+        ? routine.completed_history[routine.completed_history.length - 1]
+        : null
+      const result = await suggestRoutineDueDate(routine.title, routine.notes, routine.cadence, lastCompleted)
+      if (result?.date) task.due_date = result.date
+    } catch { /* use default date */ }
+  }
+  return spawnedTasks
 }

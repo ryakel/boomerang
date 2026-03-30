@@ -59,11 +59,18 @@ All settings are accessible via the gear icon in the header:
 - Enable/disable browser push notifications
 - Check frequency: 15m, 30m, 1h, 2h (default: 30m)
 - Toggles for: overdue tasks, stale tasks, general nudges
+- Stale task percentage threshold — configurable percentage at which a warning notification fires
 
 ### Data
 - **Export** — download JSON backup of all tasks, routines, settings, and labels
 - **Import** — upload a JSON backup to restore data
 
+### Activity Rings and Goals
+- **Daily task goal** — number of tasks to complete per day for the Tasks ring (default: configurable)
+- **Daily points goal** — point target per day for the Points ring (default: configurable)
+- **Vacation mode** — toggle to freeze your streak while you're away; resume when you return
+
 ### Danger Zone
 - **Clear completed tasks** — removes all done tasks
+- **Reset streaks** — clears all streak and analytics data (requires double confirmation)
 - **Clear all data** — deletes all tasks, routines, settings, labels, and history (requires confirmation)

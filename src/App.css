@@ -337,6 +337,28 @@
   color: var(--text-dim);
 }
 
+.action-btn.find-related {
+  background: rgba(74, 158, 255, 0.12);
+  color: #4A9EFF;
+}
+
+.related-result {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-size: 14px;
+  color: var(--text);
+  text-align: left;
+  margin-bottom: 6px;
+  transition: background 0.15s;
+}
+
+.related-result:active {
+  background: var(--surface-hover);
+}
+
 /* Backlog section */
 .backlog-toggle {
   display: flex;
@@ -1373,4 +1395,56 @@
   padding: 4px;
   display: flex;
   align-items: center;
+}
+
+/* Attachments */
+.attachment-list {
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.attachment-name {
+  flex: 1;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.attachment-remove {
+  color: var(--text-dim);
+  font-size: 14px;
+  padding: 2px 4px;
+}
+
+.attach-btn {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.attachment-link {
+  color: #4A9EFF;
+  text-decoration: none;
+  font-size: 12px;
 }

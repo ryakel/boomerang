@@ -2,6 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { loadLabels, loadSettings, getDefaultDueDate } from '../store'
 import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
+function formatFileSize(bytes) {
+  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
+  return `${Math.round(bytes / 1024)} KB`
+}
+
+const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
+
 export default function AddTaskModal({ onAdd, onClose }) {
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
@@ -13,7 +20,10 @@ export default function AddTaskModal({ onAdd, onClose }) {
   const [notionState, setNotionState] = useState(null) // null | 'searching' | {action, pages, page_id, reason}
   const [notionCreating, setNotionCreating] = useState(false)
   const [notionResult, setNotionResult] = useState(null) // {id, url}
+  const [attachments, setAttachments] = useState([])
+  const [attachError, setAttachError] = useState(null)
   const inputRef = useRef(null)
+  const fileInputRef = useRef(null)
   const labels = loadLabels()
 
   useEffect(() => {
@@ -26,8 +36,41 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
   const handleSubmit = () => {
     if (!title.trim()) return
-    onAdd(title.trim(), selectedTags, dueDate || null, notes.trim(), notionResult, size)
+    onAdd(title.trim(), selectedTags, dueDate || null, notes.trim(), notionResult, size, attachments)
     onClose()
+  }
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files)
+    if (!files.length) return
+    setAttachError(null)
+    const currentTotal = attachments.reduce((sum, a) => sum + a.size, 0)
+    const newTotal = currentTotal + files.reduce((sum, f) => sum + f.size, 0)
+    if (newTotal > MAX_TOTAL_SIZE) {
+      setAttachError(`Total attachments exceed 5 MB limit (${formatFileSize(newTotal)})`)
+      e.target.value = ''
+      return
+    }
+    const readers = files.map(file => new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve({
+        id: crypto.randomUUID(),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        data: reader.result.split(',')[1],
+      })
+      reader.readAsDataURL(file)
+    }))
+    Promise.all(readers).then(results => {
+      setAttachments(prev => [...prev, ...results])
+    })
+    e.target.value = ''
+  }
+
+  const removeAttachment = (id) => {
+    setAttachments(prev => prev.filter(a => a.id !== id))
+    setAttachError(null)
   }
 
   const handlePolish = async (e) => {
@@ -158,6 +201,32 @@ export default function AddTaskModal({ onAdd, onClose }) {
             </button>
           ))}
         </div>
+
+        {/* Attachments */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={handleFileSelect}
+        />
+        <button className="attach-btn" onClick={() => fileInputRef.current?.click()}>
+          + Attach files
+        </button>
+        {attachError && (
+          <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{attachError}</div>
+        )}
+        {attachments.length > 0 && (
+          <div className="attachment-list">
+            {attachments.map(a => (
+              <div key={a.id} className="attachment-item">
+                <span className="attachment-name">{a.name}</span>
+                <span className="attachment-size">{formatFileSize(a.size)}</span>
+                <button className="attachment-remove" onClick={() => removeAttachment(a.id)}>x</button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Notion integration */}
         <div className="settings-label" style={{ marginBottom: 6 }}>Notion</div>

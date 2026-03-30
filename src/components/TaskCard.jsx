@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld } from '../store'
 
-export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog }) {
+export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog, onFindRelated }) {
   const [expanded, setExpanded] = useState(false)
 
   const stale = isStale(task)
@@ -66,6 +66,26 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
           {task.notes && (
             <div className="task-notes">{task.notes}</div>
           )}
+          {task.attachments?.length > 0 && (
+            <div className="attachment-list" onClick={e => e.stopPropagation()}>
+              {task.attachments.map(a => {
+                const openAttachment = () => {
+                  const byteChars = atob(a.data)
+                  const byteArray = new Uint8Array(byteChars.length)
+                  for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i)
+                  const blob = new Blob([byteArray], { type: a.type || 'application/octet-stream' })
+                  window.open(URL.createObjectURL(blob), '_blank')
+                }
+                return (
+                  <div key={a.id} className="attachment-item">
+                    <a className="attachment-link" href="#" onClick={(e) => { e.preventDefault(); openAttachment() }}>
+                      {a.name}
+                    </a>
+                  </div>
+                )
+              })}
+            </div>
+          )}
           {task.notion_url && (
             <a href={task.notion_url} target="_blank" rel="noopener" className="notion-link" onClick={e => e.stopPropagation()}>
               Open in Notion ↗
@@ -111,6 +131,14 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
                 onClick={(e) => { e.stopPropagation(); onBacklog(task.id, false) }}
               >
                 Activate
+              </button>
+            )}
+            {!task.notion_page_id && onFindRelated && (
+              <button
+                className="action-btn find-related"
+                onClick={(e) => { e.stopPropagation(); onFindRelated(task) }}
+              >
+                Find related
               </button>
             )}
           </div>

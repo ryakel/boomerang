@@ -35,6 +35,19 @@ CREATE TABLE IF NOT EXISTS app_data (
 
 Collections stored: `tasks`, `routines`, `settings`, `labels`.
 
+### Task Data Model — Attachments
+
+Each task object may include an `attachments` array. Each attachment entry contains a file name, MIME type, and base64-encoded file data. Attachments are stored inline in the task JSON and synced through the same localStorage/SQLite pipeline as all other task data. The maximum file size per attachment is 5 MB.
+
+### Smart Recurrence Flow
+
+When a routine spawns a new task instance, the app can invoke the AI (via `/api/messages`) to suggest an appropriate due date. The AI considers:
+- The routine's notes and title
+- The configured cadence (daily, weekly, monthly, etc.)
+- Recent completion history for prior instances
+
+If the AI returns a suggested date, it is applied to the newly spawned task. This runs only when an Anthropic API key is configured; otherwise the default due date setting is used.
+
 ## API Key Resolution
 
 ```

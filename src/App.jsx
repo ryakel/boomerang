@@ -3,7 +3,7 @@ import './App.css'
 import { loadLabels, loadSettings, saveSettings, sortTasks, computeDailyStats, computeStreak } from './store'
 import { inferSize } from './api'
 import { useTasks } from './hooks/useTasks'
-import { useRoutines } from './hooks/useRoutines'
+import { useRoutines, enhanceSpawnedTasks } from './hooks/useRoutines'
 import TaskCard from './components/TaskCard'
 import AddTaskModal from './components/AddTaskModal'
 import SnoozeModal from './components/SnoozeModal'
@@ -17,6 +17,7 @@ import EditTaskModal from './components/EditTaskModal'
 import ExtendModal from './components/ExtendModal'
 import Logo from './components/Logo'
 import Analytics from './components/Analytics'
+import FindRelatedModal from './components/FindRelatedModal'
 import { MiniRings } from './components/Rings'
 import { useNotifications } from './hooks/useNotifications'
 import { useSync } from './hooks/useSync'
@@ -50,6 +51,7 @@ function App() {
   const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
+  const [relatedTarget, setRelatedTarget] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const sortRef = useRef(null)
   const quickRef = useRef(null)
@@ -75,7 +77,15 @@ function App() {
   // Spawn routine tasks on load and every minute
   useEffect(() => {
     const spawned = spawnDueTasks(tasks)
-    if (spawned.length > 0) addSpawnedTasks(spawned)
+    if (spawned.length > 0) {
+      addSpawnedTasks(spawned)
+      // Try to enhance with AI dates (non-blocking)
+      enhanceSpawnedTasks(spawned, routines).then(enhanced => {
+        for (const t of enhanced) {
+          if (t.due_date) updateTask(t.id, { due_date: t.due_date })
+        }
+      }).catch(() => {})
+    }
   }, [routines]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close sort dropdown on outside click
@@ -267,7 +277,7 @@ function App() {
           <>
             <div className="section-label">Stale</div>
             {filteredStale.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} />
             ))}
           </>
         )}
@@ -276,7 +286,7 @@ function App() {
           <>
             <div className="section-label">Up Next</div>
             {filteredUpNext.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} />
             ))}
           </>
         )}
@@ -285,7 +295,7 @@ function App() {
           <>
             <div className="section-label">Snoozed</div>
             {filteredSnoozed.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} />
             ))}
           </>
         )}
@@ -297,7 +307,7 @@ function App() {
               Backlog ({filteredBacklog.length})
             </button>
             {backlogOpen && filteredBacklog.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} />
             ))}
           </>
         )}
@@ -326,8 +336,8 @@ function App() {
       </div>
 
       {showAdd && (
-        <AddTaskModal onAdd={(title, tags, dueDate, notes, notion, size) => {
-          const taskId = addTask(title, tags, dueDate, notes, notion, size)
+        <AddTaskModal onAdd={(title, tags, dueDate, notes, notion, size, attachments) => {
+          const taskId = addTask(title, tags, dueDate, notes, notion, size, attachments)
           // Auto-infer size if not manually set
           if (!size && title) {
             inferSize(title, notes).then(inferred => {
@@ -378,6 +388,17 @@ function App() {
           task={extendTarget}
           onExtend={(id, newDate) => { updateTask(id, { due_date: newDate }); setExtendTarget(null) }}
           onClose={() => setExtendTarget(null)}
+        />
+      )}
+
+      {relatedTarget && (
+        <FindRelatedModal
+          task={relatedTarget}
+          onLink={(taskId, page) => {
+            updateTask(taskId, { notion_page_id: page.id, notion_url: page.url })
+            setRelatedTarget(null)
+          }}
+          onClose={() => setRelatedTarget(null)}
         />
       )}
 

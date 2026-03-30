@@ -16,7 +16,7 @@ function withCustomInstructions(systemPrompt) {
   return `${systemPrompt}\n\nThe user has provided these custom instructions for how you should communicate and behave. Follow them closely:\n---\n${custom_instructions.trim()}\n---`
 }
 
-async function callClaude(systemPrompt, userMessage) {
+export async function callClaude(systemPrompt, userMessage) {
   const res = await fetch(PROXY_URL, {
     method: 'POST',
     headers: getApiHeaders(),
@@ -65,6 +65,29 @@ export async function inferSize(title, notes = '') {
     if (!match) return null
     const result = JSON.parse(match[0])
     return result.size || null
+  } catch {
+    return null
+  }
+}
+
+// --- Routine due date suggestion ---
+export async function suggestRoutineDueDate(title, notes, cadence, lastCompleted) {
+  const today = new Date().toISOString().split('T')[0]
+  const system = `You suggest optimal due dates for recurring tasks. Consider the task description, notes, cadence, and when it was last completed. Return JSON only: {"date": "YYYY-MM-DD", "reason": "one sentence"}`
+
+  const user = `Recurring task: "${title}"
+Cadence: ${cadence}
+Last completed: ${lastCompleted || 'never'}
+Today: ${today}
+${notes ? `Notes: ${notes}` : ''}
+
+When should this be due? JSON only.`
+
+  try {
+    const text = await callClaude(system, user)
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    return JSON.parse(match[0])
   } catch {
     return null
   }

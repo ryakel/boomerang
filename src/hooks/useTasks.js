@@ -14,13 +14,14 @@ export function useTasks() {
     return () => clearInterval(interval)
   }, [])
 
-  const addTask = useCallback((title, tags = [], dueDate = null, notes = '', notion = null, size = null) => {
+  const addTask = useCallback((title, tags = [], dueDate = null, notes = '', notion = null, size = null, attachments = []) => {
     const task = createTask(title, tags, dueDate, notes)
     if (notion) {
       task.notion_page_id = notion.id
       task.notion_url = notion.url
     }
     if (size) task.size = size
+    if (attachments.length > 0) task.attachments = attachments
     setTasks(prev => [task, ...prev])
     return task.id
   }, [])

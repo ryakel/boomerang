@@ -51,13 +51,17 @@ boomerang/
 │   │   ├── Routines.jsx        # Recurring task management (add, pause, resume, delete)
 │   │   ├── DoneList.jsx        # Completion history grouped by date, with reopen
 │   │   ├── Settings.jsx        # App settings, API keys, labels, notifications, data export/import
-│   │   ├── Toast.jsx           # Motivational completion/reopen toasts
+│   │   ├── Toast.jsx           # Motivational completion/reopen toasts with undo and points
+│   │   ├── Analytics.jsx       # Analytics screen (streaks, best stats, vacation mode)
+│   │   ├── Rings.jsx           # Activity rings component (tasks, points, streak)
+│   │   ├── FindRelatedModal.jsx # Search Notion from a task card, link or create pages
 │   │   └── Logo.jsx            # Boomerang icon SVG component
 │   └── hooks/
 │       ├── useTasks.js         # Task state management (add, complete, snooze, update, uncomplete)
 │       ├── useRoutines.js      # Routine state management (add, delete, pause, spawn)
 │       ├── useSync.js          # localStorage ↔ SQLite sync (hydrate on load, debounced push)
-│       └── useNotifications.js # Browser push notifications (overdue, stale, AI nudges)
+│       ├── useNotifications.js # Browser push notifications (overdue, stale, AI nudges, size-based reminders)
+│       └── usePullToRefresh.js # Pull-to-refresh touch gesture on task list
 ├── public/
 │   ├── favicon.svg         # Boomerang icon
 │   ├── icon-192.svg        # PWA icon

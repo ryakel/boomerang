@@ -89,6 +89,7 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     notion_url: null,
     routine_id: null,
     size: null,
+    attachments: [],
   }
 }
 
