@@ -44,66 +44,81 @@ export function useSync(tasks, routines, onHydrate) {
   const skipNextPush = useRef(false)
   const latestState = useRef({ tasks, routines })
 
-  // Keep latest state ref updated for beforeunload
+  // Keep latest state ref updated for beforeunload and visibility sync
   useEffect(() => {
     latestState.current = { tasks, routines }
   }, [tasks, routines])
 
-  // On mount: pull data from server and reconcile with localStorage
-  useEffect(() => {
-    remoteLog('--- PAGE LOAD ---')
-    remoteLog('mount: localStorage has', taskSummary(tasks))
-    remoteLog('mount: localStorage has', routines.length, 'routines')
-    remoteLog('mount: localModified=', getLocalModified())
-
-    let lsLabels = null
-    try { lsLabels = JSON.parse(localStorage.getItem('boom_labels_v1')) } catch { /* parse error */ }
-    remoteLog('mount: localStorage labels=', labelSummary(lsLabels))
-
-    remoteLog('mount: fetching GET /api/data...')
-    fetch('/api/data')
+  // Shared reconciliation: fetch server data and merge based on timestamps
+  const reconcile = useCallback((reason) => {
+    const local = latestState.current
+    remoteLog(`${reason}: fetching GET /api/data...`)
+    return fetch('/api/data')
       .then(res => {
         if (!res.ok) throw new Error(`sync fetch failed: ${res.status}`)
         return res.json()
       })
       .then(data => {
         const serverKeys = Object.keys(data)
-        remoteLog('mount: server responded with collections=', serverKeys.join(','))
-        remoteLog('mount: server tasks=', taskSummary(data.tasks))
-        remoteLog('mount: server labels=', labelSummary(data.labels))
-        remoteLog('mount: server _lastModified=', data._lastModified || 'none')
+        remoteLog(`${reason}: server tasks=`, taskSummary(data.tasks), '_lastModified=', data._lastModified || 'none')
 
         if (data && serverKeys.length > 0) {
           const serverModified = data._lastModified || 0
           const localModified = getLocalModified()
-          remoteLog('mount: COMPARING — localModified=', localModified, 'serverModified=', serverModified)
+          remoteLog(`${reason}: COMPARING — local=`, localModified, 'server=', serverModified)
 
           if (localModified > serverModified) {
-            remoteLog('mount: ✦ LOCAL IS NEWER → pushing local to server (not hydrating)')
-            pushState(tasks, routines)
-          } else {
-            remoteLog('mount: ✦ SERVER WINS → hydrating from server into React + localStorage')
+            remoteLog(`${reason}: ✦ LOCAL IS NEWER → pushing local to server`)
+            pushState(local.tasks, local.routines)
+          } else if (serverModified > localModified) {
+            remoteLog(`${reason}: ✦ SERVER IS NEWER → hydrating from server`)
             skipNextPush.current = true
             onHydrate(data)
             if (data.tasks) saveTasks(data.tasks)
             if (data.routines) saveRoutines(data.routines)
             setLocalModified(serverModified)
-            remoteLog('mount: hydration done, localModified set to', serverModified)
+          } else {
+            remoteLog(`${reason}: timestamps match, no action needed`)
           }
         } else {
-          remoteLog('mount: server is EMPTY → pushing local state to server')
-          pushState(tasks, routines)
+          remoteLog(`${reason}: server is EMPTY → pushing local state`)
+          pushState(local.tasks, local.routines)
         }
       })
       .catch(err => {
-        remoteLog('mount: fetch FAILED:', err.message, '→ working offline')
+        remoteLog(`${reason}: fetch FAILED:`, err.message)
       })
-      .finally(() => {
-        hydrated.current = true
-        remoteLog('mount: hydrated=true, ready for change tracking')
-        flushLogs()
-      })
+  }, [onHydrate])
+
+  // On mount: initial reconciliation
+  useEffect(() => {
+    remoteLog('--- PAGE LOAD ---')
+    remoteLog('mount: localStorage has', taskSummary(tasks))
+    remoteLog('mount: localModified=', getLocalModified())
+
+    let lsLabels = null
+    try { lsLabels = JSON.parse(localStorage.getItem('boom_labels_v1')) } catch { /* parse error */ }
+    remoteLog('mount: localStorage labels=', labelSummary(lsLabels))
+
+    reconcile('mount').finally(() => {
+      hydrated.current = true
+      remoteLog('mount: hydrated=true, ready for change tracking')
+      flushLogs()
+    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-sync when the app becomes visible (switching between PWA and browser,
+  // or returning to the tab after using another app)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && hydrated.current) {
+        remoteLog('--- VISIBILITY: app became visible, re-syncing ---')
+        reconcile('visibility')
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [reconcile])
 
   // Flush pending sync on page unload to prevent data loss
   useEffect(() => {
@@ -115,7 +130,6 @@ export function useSync(tasks, routines, onHydrate) {
       const payload = buildPayload(latestState.current.tasks, latestState.current.routines)
       if (payload) {
         const line = `beforeunload: sendBeacon tasks=${taskSummary(payload.tasks)} _lastModified=${payload._lastModified}`
-        // Use sendBeacon for both the data and the log since we're unloading
         navigator.sendBeacon(
           '/api/log',
           new Blob([JSON.stringify({ lines: [`[SYNC] ${line}`] })], { type: 'application/json' })
