@@ -394,8 +394,17 @@
   gap: 4px;
 }
 
-.task-card:hover .hover-actions {
-  display: flex;
+@media (hover: hover) {
+  .task-card:hover .hover-actions {
+    display: flex;
+  }
+}
+
+/* Always show action buttons on touch devices */
+@media (hover: none) {
+  .hover-actions {
+    display: flex;
+  }
 }
 
 .hover-btn {
@@ -411,12 +420,24 @@
   transition: background 0.1s, color 0.1s;
 }
 
-.hover-btn:hover {
+/* Only apply hover styles on devices with a real pointer (not touch) */
+@media (hover: hover) {
+  .hover-btn:hover {
+    background: var(--text-dim);
+    color: var(--bg);
+  }
+  .hover-btn-done:hover {
+    background: #52C97F;
+    color: #fff;
+  }
+}
+
+/* Tap feedback on touch devices */
+.hover-btn:active {
   background: var(--text-dim);
   color: var(--bg);
 }
-
-.hover-btn-done:hover {
+.hover-btn-done:active {
   background: #52C97F;
   color: #fff;
 }
