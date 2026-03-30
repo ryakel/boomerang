@@ -107,6 +107,18 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     setNotionState(null)
   }
 
+  const handleTrelloPush = async () => {
+    if (!title.trim()) return
+    const settings = loadSettings()
+    if (!settings.trello_list_id) return
+    setTrelloPushing(true)
+    try {
+      const card = await trelloCreateCard(title.trim(), notes.trim(), settings.trello_list_id)
+      setTrelloResult({ id: card.id, url: card.url })
+    } catch { /* ignore */ }
+    finally { setTrelloPushing(false) }
+  }
+
   const handlePolish = async (e) => {
     e.stopPropagation()
     e.preventDefault()
@@ -452,6 +464,24 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         ) : (
           <button className="ci-upload-btn" onClick={handleNotionSearch} disabled={!title.trim()}>
             Find or create Notion page
+          </button>
+        )}
+
+        {/* Trello */}
+        <div className="settings-label" style={{ marginBottom: 6, marginTop: 4 }}>Trello</div>
+        {trelloResult ? (
+          <div className="notion-linked">
+            <span>Linked to Trello</span>
+            <a href={trelloResult.url} target="_blank" rel="noopener" className="notion-link">Open ↗</a>
+            <button className="ci-clear-btn" onClick={() => setTrelloResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
+          </div>
+        ) : (
+          <button
+            className="ci-upload-btn"
+            onClick={handleTrelloPush}
+            disabled={trelloPushing || !title.trim()}
+          >
+            {trelloPushing ? <><span className="spinner" /> Pushing...</> : 'Push to Trello'}
           </button>
         )}
 
