@@ -8,6 +8,8 @@
     "build": "vite build",
     "start": "node server.js",
     "lint": "eslint .",
+    "test": "sh scripts/smoke-test.sh",
+    "prepare": "git config core.hooksPath .githooks || true",
     "preview": "vite preview"
   },
   "dependencies": {
