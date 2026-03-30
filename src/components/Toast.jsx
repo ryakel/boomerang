@@ -64,7 +64,7 @@ function getMotivation(daysOnList, todayCount) {
   return { message, subtitle }
 }
 
-export default function Toast({ task, todayCount, variant = 'complete', onDone }) {
+export default function Toast({ task, todayCount, variant = 'complete', onDone, onUndo }) {
   let message, subtitle
 
   if (variant === 'reopen') {
@@ -78,7 +78,7 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone }
   }
 
   useEffect(() => {
-    const timer = setTimeout(onDone, 2500)
+    const timer = setTimeout(onDone, 4000)
     return () => clearTimeout(timer)
   }, [onDone])
 
@@ -86,10 +86,23 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone }
 
   return (
     <div className={`toast ${isReopen ? 'toast-reopen' : ''}`} onClick={onDone}>
-      <div className="toast-message" style={isReopen ? { color: 'var(--accent)' } : undefined}>
-        {message}
+      <div className="toast-content">
+        <div className="toast-message" style={isReopen ? { color: 'var(--accent)' } : undefined}>
+          {message}
+        </div>
+        <div className="toast-subtitle">{subtitle}</div>
       </div>
-      <div className="toast-subtitle">{subtitle}</div>
+      {onUndo && variant === 'complete' && (
+        <button
+          className="toast-undo"
+          onClick={(e) => {
+            e.stopPropagation()
+            onUndo()
+          }}
+        >
+          Undo
+        </button>
+      )}
     </div>
   )
 }

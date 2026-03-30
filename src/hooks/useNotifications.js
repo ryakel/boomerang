@@ -106,6 +106,23 @@ export function useNotifications(tasks) {
         }
       }
 
+      // Check for high percentage of old tasks
+      if (settings.stale_warn_pct > 0) {
+        const oldTasks = openTasks.filter(t => {
+          const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
+          return age > (settings.stale_warn_days || 7)
+        })
+        const pct = openTasks.length > 0 ? Math.round(oldTasks.length / openTasks.length * 100) : 0
+        if (pct >= settings.stale_warn_pct) {
+          new Notification('Tasks piling up', {
+            body: `${pct}% of your tasks have been open for ${settings.stale_warn_days}+ days`,
+            icon: '/icon-192.png',
+            tag: 'stale-warn',
+          })
+          return
+        }
+      }
+
       // General nudge
       if (settings.notif_nudge !== false && openTasks.length > 0) {
         const message = await getAINudge(openTasks.length)

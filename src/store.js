@@ -14,10 +14,13 @@ const DEFAULT_SETTINGS = {
   notif_nudge: true,
   default_due_days: 7,
   max_open_tasks: 10,
+  stale_warn_days: 7,
+  stale_warn_pct: 50,
   custom_instructions: '',
   anthropic_api_key: '',
   notion_token: '',
   notion_parent_page_id: '',
+  sort_by: 'age',
 }
 
 const DEFAULT_LABELS = [
@@ -221,6 +224,37 @@ export function getDefaultDueDate() {
   const d = new Date()
   d.setDate(d.getDate() + days)
   return d.toISOString().split('T')[0]
+}
+
+const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }
+
+export function sortTasks(list, sortBy) {
+  const sorted = [...list]
+  switch (sortBy) {
+    case 'due_date':
+      sorted.sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0
+        if (!a.due_date) return 1
+        if (!b.due_date) return -1
+        return a.due_date.localeCompare(b.due_date)
+      })
+      break
+    case 'size':
+      sorted.sort((a, b) => {
+        const aVal = SIZE_ORDER[a.size] || 0
+        const bVal = SIZE_ORDER[b.size] || 0
+        return bVal - aVal
+      })
+      break
+    case 'name':
+      sorted.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
+      break
+    case 'age':
+    default:
+      sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      break
+  }
+  return sorted
 }
 
 export { LABEL_COLORS, RECURRENCE_OPTIONS }

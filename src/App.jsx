@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import './App.css'
-import { loadLabels, loadSettings, saveSettings } from './store'
+import { loadLabels, loadSettings, saveSettings, sortTasks } from './store'
 import { inferSize } from './api'
 import { useTasks } from './hooks/useTasks'
 import { useRoutines } from './hooks/useRoutines'
@@ -18,6 +18,7 @@ import ExtendModal from './components/ExtendModal'
 import Logo from './components/Logo'
 import { useNotifications } from './hooks/useNotifications'
 import { useSync } from './hooks/useSync'
+import { usePullToRefresh } from './hooks/usePullToRefresh'
 
 function App() {
   const {
@@ -44,20 +45,54 @@ function App() {
   const [quickText, setQuickText] = useState('')
   const [toast, setToast] = useState(null)
   const [backlogOpen, setBacklogOpen] = useState(false)
+  const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
+  const [showSortDropdown, setShowSortDropdown] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const sortRef = useRef(null)
   const quickRef = useRef(null)
 
   const labels = loadLabels()
   useNotifications(tasks)
-  useSync(tasks, routines, useCallback((data) => {
+  const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
     if (data.routines) hydrateRoutines(data.routines)
-  }, [hydrateTasks, hydrateRoutines]))
+  }, [hydrateTasks, hydrateRoutines])
+
+  useSync(tasks, routines, hydrateFromServer)
+
+  const { onTouchStart, onTouchEnd } = usePullToRefresh(useCallback(() => {
+    setRefreshing(true)
+    fetch('/api/data')
+      .then(r => r.json())
+      .then(data => { if (data && Object.keys(data).length > 0) hydrateFromServer(data) })
+      .catch(() => {})
+      .finally(() => setTimeout(() => setRefreshing(false), 500))
+  }, [hydrateFromServer]))
 
   // Spawn routine tasks on load and every minute
   useEffect(() => {
     const spawned = spawnDueTasks(tasks)
     if (spawned.length > 0) addSpawnedTasks(spawned)
   }, [routines]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close sort dropdown on outside click
+  useEffect(() => {
+    if (!showSortDropdown) return
+    const handleClick = (e) => {
+      if (sortRef.current && !sortRef.current.contains(e.target)) {
+        setShowSortDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showSortDropdown])
+
+  const handleSortChange = (value) => {
+    setSortBy(value)
+    setShowSortDropdown(false)
+    const current = loadSettings()
+    saveSettings({ ...current, sort_by: value })
+  }
 
   const todayCount = useMemo(() => {
     const todayStr = new Date().toDateString()
@@ -127,10 +162,10 @@ function App() {
   }).length
 
   const backlogTasks = tasks.filter(t => t.status === 'backlog')
-  const filteredStale = filterTasks(staleTasks)
-  const filteredUpNext = filterTasks(upNextTasks)
-  const filteredSnoozed = filterTasks(snoozedTasks)
-  const filteredBacklog = filterTasks(backlogTasks)
+  const filteredStale = sortTasks(filterTasks(staleTasks), sortBy)
+  const filteredUpNext = sortTasks(filterTasks(upNextTasks), sortBy)
+  const filteredSnoozed = sortTasks(filterTasks(snoozedTasks), sortBy)
+  const filteredBacklog = sortTasks(filterTasks(backlogTasks), sortBy)
 
   return (
     <div className="app">
@@ -146,6 +181,27 @@ function App() {
           <span className={`open-count ${settings.max_open_tasks && nonSnoozedCount > settings.max_open_tasks ? 'open-count-warn' : ''}`}>
             {nonSnoozedCount} open
           </span>
+          <div className="sort-wrapper" ref={sortRef}>
+            <button className="sort-btn" onClick={() => setShowSortDropdown(!showSortDropdown)}>↕</button>
+            {showSortDropdown && (
+              <div className="sort-dropdown">
+                {[
+                  { value: 'age', label: 'Age' },
+                  { value: 'due_date', label: 'Due date' },
+                  { value: 'size', label: 'Size' },
+                  { value: 'name', label: 'Name' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    className={`sort-option ${sortBy === opt.value ? 'active' : ''}`}
+                    onClick={() => handleSortChange(opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {todayCount > 0 ? (
             <button className="today-count" onClick={() => setShowDone(true)}>
               {todayCount} done today
@@ -184,7 +240,8 @@ function App() {
         </button>
       </div>
 
-      <div className="task-list">
+      <div className="task-list" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {refreshing && <div className="refresh-indicator">Refreshing...</div>}
         {filteredStale.length === 0 && filteredUpNext.length === 0 && filteredSnoozed.length === 0 && (
           <div className="empty-state">
             No tasks yet.<br />Add one below to get started.
@@ -330,6 +387,11 @@ function App() {
           todayCount={todayCount}
           variant={toast.variant || 'complete'}
           onDone={() => setToast(null)}
+          onUndo={() => {
+            const taskToUndo = toast.variant ? toast.task : toast
+            uncompleteTask(taskToUndo.id)
+            setToast(null)
+          }}
         />
       )}
     </div>

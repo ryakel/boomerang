@@ -351,6 +351,28 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
               />
               <span>General nudges</span>
             </label>
+
+            <div className="settings-label" style={{ marginTop: 16 }}>Warn when tasks pile up</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                className="settings-input"
+                type="number"
+                min="0"
+                max="100"
+                value={settings.stale_warn_pct ?? 50}
+                onChange={e => update('stale_warn_pct', parseInt(e.target.value) || 0)}
+              />
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>% older than</span>
+              <input
+                className="settings-input"
+                type="number"
+                min="1"
+                max="90"
+                value={settings.stale_warn_days ?? 7}
+                onChange={e => update('stale_warn_days', parseInt(e.target.value) || 7)}
+              />
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>days</span>
+            </div>
           </div>
         )}
       </div>

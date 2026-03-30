@@ -54,6 +54,53 @@
   font-weight: 600;
 }
 
+/* Sort */
+.sort-wrapper {
+  position: relative;
+}
+
+.sort-btn {
+  font-size: 16px;
+  color: var(--text-dim);
+  padding: 2px 6px;
+}
+
+.sort-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  z-index: 50;
+  min-width: 120px;
+}
+
+.sort-option {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  border-radius: 6px;
+}
+
+.sort-option.active {
+  color: var(--accent);
+  background: var(--surface-hover);
+}
+
+/* Pull to refresh */
+.refresh-indicator {
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
 .today-count {
   font-size: 12px;
   font-weight: 600;
