@@ -101,7 +101,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
       <div className="settings-header">
         <button className="settings-back" onClick={onClose}>← Back</button>
         <div className="sheet-title" style={{ margin: 0 }}>Settings</div>
-        <div style={{ width: 50 }} />
+        <span className="version-label">v{__APP_VERSION__}</span>
       </div>
 
       <div className="settings-group">
