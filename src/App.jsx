@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import './App.css'
-import { loadLabels, loadSettings, saveSettings, sortTasks } from './store'
+import { loadLabels, loadSettings, saveSettings, sortTasks, computeDailyStats, computeStreak } from './store'
 import { inferSize } from './api'
 import { useTasks } from './hooks/useTasks'
 import { useRoutines } from './hooks/useRoutines'
@@ -16,6 +16,8 @@ import Routines from './components/Routines'
 import EditTaskModal from './components/EditTaskModal'
 import ExtendModal from './components/ExtendModal'
 import Logo from './components/Logo'
+import Analytics from './components/Analytics'
+import { MiniRings } from './components/Rings'
 import { useNotifications } from './hooks/useNotifications'
 import { useSync } from './hooks/useSync'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
@@ -47,6 +49,7 @@ function App() {
   const [backlogOpen, setBacklogOpen] = useState(false)
   const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
+  const [showAnalytics, setShowAnalytics] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const sortRef = useRef(null)
   const quickRef = useRef(null)
@@ -98,6 +101,14 @@ function App() {
     const todayStr = new Date().toDateString()
     return tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr).length
   }, [tasks])
+
+  const dailyStats = useMemo(() => computeDailyStats(tasks), [tasks])
+  const streak = useMemo(() => computeStreak(tasks, settings), [tasks, settings])
+  const miniRingsData = useMemo(() => [
+    { progress: (settings.daily_task_goal || 3) > 0 ? dailyStats.tasksToday / (settings.daily_task_goal || 3) : 0, color: '#52C97F' },
+    { progress: (settings.daily_points_goal || 15) > 0 ? dailyStats.pointsToday / (settings.daily_points_goal || 15) : 0, color: '#FFB347' },
+    { progress: streak > 0 ? Math.min(streak / 7, 1) : 0, color: '#4A9EFF' },
+  ], [dailyStats, streak, settings])
 
   const handleComplete = useCallback((id) => {
     const task = tasks.find(t => t.id === id)
@@ -175,9 +186,13 @@ function App() {
             <Logo size={24} />
             <span className="wordmark">BOOMERANG</span>
           </div>
-          <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button className="analytics-icon" onClick={() => setShowAnalytics(true)}>📊</button>
+            <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
+          </div>
         </div>
         <div className="header-stats">
+          <MiniRings rings={miniRingsData} onClick={() => setShowAnalytics(true)} />
           <span className={`open-count ${settings.max_open_tasks && nonSnoozedCount > settings.max_open_tasks ? 'open-count-warn' : ''}`}>
             {nonSnoozedCount} open
           </span>
@@ -348,6 +363,10 @@ function App() {
           onClearCompleted={() => { clearCompleted(); setShowSettings(false) }}
           onClearAll={() => { clearAll(); saveSettings({}); setShowSettings(false) }}
         />
+      )}
+
+      {showAnalytics && (
+        <Analytics tasks={tasks} onClose={() => setShowAnalytics(false)} />
       )}
 
       {showDone && (

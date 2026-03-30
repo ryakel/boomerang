@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { computeTaskPoints } from '../store'
 
 const MESSAGES_QUICK = [
   'Speed run.',
@@ -75,6 +76,8 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
       (Date.now() - new Date(task.created_at).getTime()) / 86400000
     )
     ;({ message, subtitle } = getMotivation(daysOnList, todayCount))
+    const pts = computeTaskPoints(task)
+    subtitle += ` · +${pts} pts`
   }
 
   useEffect(() => {

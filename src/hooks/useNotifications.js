@@ -76,6 +76,26 @@ export function useNotifications(tasks) {
         return
       }
 
+      // Size-based upcoming reminders
+      const sizeLeadDays = { XL: 3, L: 2, M: 1 }
+      const upcomingBySize = openTasks.filter(t => {
+        if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
+        const dueDate = new Date(t.due_date)
+        const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
+        return daysUntilDue > 0 && daysUntilDue <= sizeLeadDays[t.size]
+      })
+
+      if (upcomingBySize.length > 0) {
+        const t = upcomingBySize[0]
+        const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
+        new Notification(`${t.size} task due soon`, {
+          body: `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`,
+          icon: '/icon-192.png',
+          tag: 'size-reminder',
+        })
+        return
+      }
+
       // Check for overdue tasks
       if (settings.notif_overdue !== false) {
         const overdueTasks = openTasks.filter(isOverdue)
@@ -123,8 +143,21 @@ export function useNotifications(tasks) {
         }
       }
 
-      // General nudge
+      // General nudge — prefer suggesting a small task
       if (settings.notif_nudge !== false && openTasks.length > 0) {
+        // Check for quick wins first
+        const smallTasks = openTasks.filter(t => t.size === 'XS' || t.size === 'S')
+        if (smallTasks.length > 0) {
+          const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
+          new Notification('Quick win available', {
+            body: `Got 5 min? Try: "${pick.title}" (${pick.size})`,
+            icon: '/icon-192.png',
+            tag: 'nudge',
+          })
+          return
+        }
+
+        // Fall back to AI or generic nudge
         const message = await getAINudge(openTasks.length)
         new Notification('Boomerang', {
           body: message,

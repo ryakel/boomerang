@@ -1266,3 +1266,111 @@
   font-size: 14px;
   line-height: 1.6;
 }
+
+/* Rings */
+.mini-rings {
+  cursor: pointer;
+}
+
+.ring-track {
+  fill: none;
+  opacity: 0.15;
+}
+
+.ring-fill {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Analytics */
+.analytics-rings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0;
+}
+
+.ring-legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 16px;
+  font-size: 13px;
+}
+
+.ring-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ring-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--text);
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.vacation-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 20px;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.vacation-btn.active {
+  background: rgba(82, 201, 127, 0.12);
+  color: #52C97F;
+}
+
+.reset-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 8px;
+  background: rgba(255, 98, 64, 0.1);
+  color: var(--accent);
+}
+
+.analytics-icon {
+  font-size: 18px;
+  color: var(--text-dim);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
