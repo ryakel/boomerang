@@ -3,7 +3,16 @@ import cors from 'cors'
 import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
+import { execSync } from 'child_process'
 import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bumpVersion } from './db.js'
+
+// --- App version (same logic as vite.config.js) ---
+let appVersion
+try {
+  appVersion = execSync('git describe --tags --always').toString().trim()
+} catch {
+  appVersion = process.env.APP_VERSION || 'dev'
+}
 
 // --- Environment (fallback keys — user can override via UI) ---
 let envApiKey = process.env.ANTHROPIC_API_KEY
@@ -69,9 +78,9 @@ app.get('/api/events', (req, res) => {
     'Connection': 'keep-alive',
     'X-Accel-Buffering': 'no', // disable nginx buffering
   })
-  // Send current version on connect
+  // Send current data version and app version on connect
   const version = getVersion()
-  res.write(`data: ${JSON.stringify({ type: 'connected', version })}\n\n`)
+  res.write(`data: ${JSON.stringify({ type: 'connected', version, appVersion })}\n\n`)
   sseClients.add(res)
   console.log(`[SSE] client connected (${sseClients.size} total), version=${version}`)
 

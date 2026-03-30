@@ -10,6 +10,8 @@ RUN npm run build
 
 # Stage 2: Production
 FROM node:22-alpine
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force

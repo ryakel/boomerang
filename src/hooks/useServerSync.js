@@ -97,7 +97,17 @@ export function useServerSync(tasks, routines, onHydrate) {
 
         if (msg.type === 'connected') {
           serverVersion.current = msg.version
-          remoteLog(`SSE: connected, server v${msg.version}`)
+          remoteLog(`SSE: connected, server v${msg.version}, appVersion=${msg.appVersion}`)
+
+          // Force reload if client is running a different version than the server
+          const clientVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
+          if (msg.appVersion && clientVersion !== 'dev' && msg.appVersion !== clientVersion) {
+            remoteLog(`SSE: VERSION MISMATCH — client=${clientVersion} server=${msg.appVersion}, reloading`)
+            flushLogs()
+            window.location.reload()
+            return
+          }
+
           fetchAndHydrate('initial').finally(() => {
             hydrated.current = true
             remoteLog('SSE: hydrated, ready for sync')
