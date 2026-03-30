@@ -127,6 +127,19 @@ export function useServerSync(tasks, routines, onHydrate) {
     }
   }, [clientId, fetchAndHydrate])
 
+  // Re-sync when app becomes visible (covers iOS killing SSE in background,
+  // mobile browser tab switches, and PWA resume)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && hydrated.current) {
+        remoteLog('visibility: app became visible, checking for updates')
+        fetchAndHydrate('visibility')
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [fetchAndHydrate])
+
   // Debounced push whenever tasks or routines change
   useEffect(() => {
     if (!hydrated.current) return

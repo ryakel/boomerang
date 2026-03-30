@@ -16,13 +16,29 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': `http://localhost:${process.env.PORT || 3001}`,
+      '/api': {
+        target: `http://localhost:${process.env.PORT || 3001}`,
+        // SSE requires no response buffering
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
+            if (req.url === '/api/events') {
+              proxyRes.headers['cache-control'] = 'no-cache'
+              proxyRes.headers['x-accel-buffering'] = 'no'
+            }
+          })
+        },
+      },
     },
   },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallbackDenylist: [/^\/api/],
+      },
       manifest: {
         name: 'Boomerang',
         short_name: 'Boomerang',
