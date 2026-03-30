@@ -2,10 +2,40 @@ import { useEffect, useRef, useCallback } from 'react'
 import { saveTasks, saveRoutines, getLocalModified, setLocalModified } from '../store'
 
 const DEBOUNCE_MS = 500
-const TAG = '[SYNC]'
 
-function log(...args) {
-  console.log(TAG, ...args)
+// Buffer log lines and send to server in batches so we don't spam requests
+const _logBuffer = []
+let _logTimer = null
+function remoteLog(...args) {
+  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+  console.log('[SYNC]', line)
+  _logBuffer.push(`[SYNC] ${line}`)
+  if (!_logTimer) {
+    _logTimer = setTimeout(flushLogs, 200)
+  }
+}
+function flushLogs() {
+  _logTimer = null
+  if (_logBuffer.length === 0) return
+  const lines = _logBuffer.splice(0)
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lines }),
+  }).catch(() => {})
+}
+
+function taskSummary(tasks) {
+  if (!Array.isArray(tasks)) return 'n/a'
+  const done = tasks.filter(t => t.status === 'done').length
+  const open = tasks.filter(t => t.status === 'open').length
+  const backlog = tasks.filter(t => t.status === 'backlog').length
+  return `${tasks.length} total (${open} open, ${done} done, ${backlog} backlog)`
+}
+
+function labelSummary(labels) {
+  if (!Array.isArray(labels)) return 'n/a'
+  return `${labels.length} labels: [${labels.map(l => l.name).join(', ')}]`
 }
 
 export function useSync(tasks, routines, onHydrate) {
@@ -21,8 +51,16 @@ export function useSync(tasks, routines, onHydrate) {
 
   // On mount: pull data from server and reconcile with localStorage
   useEffect(() => {
-    log('mount: fetching /api/data...')
-    log('mount: localStorage has', tasks.length, 'tasks,', routines.length, 'routines, localModified=', getLocalModified())
+    remoteLog('--- PAGE LOAD ---')
+    remoteLog('mount: localStorage has', taskSummary(tasks))
+    remoteLog('mount: localStorage has', routines.length, 'routines')
+    remoteLog('mount: localModified=', getLocalModified())
+
+    let lsLabels = null
+    try { lsLabels = JSON.parse(localStorage.getItem('boom_labels_v1')) } catch { /* parse error */ }
+    remoteLog('mount: localStorage labels=', labelSummary(lsLabels))
+
+    remoteLog('mount: fetching GET /api/data...')
     fetch('/api/data')
       .then(res => {
         if (!res.ok) throw new Error(`sync fetch failed: ${res.status}`)
@@ -30,59 +68,62 @@ export function useSync(tasks, routines, onHydrate) {
       })
       .then(data => {
         const serverKeys = Object.keys(data)
-        const serverTaskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
-        const serverDoneCount = Array.isArray(data.tasks) ? data.tasks.filter(t => t.status === 'done').length : 0
-        log('mount: server responded with collections=', serverKeys, 'tasks=', serverTaskCount, `(${serverDoneCount} done)`)
+        remoteLog('mount: server responded with collections=', serverKeys.join(','))
+        remoteLog('mount: server tasks=', taskSummary(data.tasks))
+        remoteLog('mount: server labels=', labelSummary(data.labels))
+        remoteLog('mount: server _lastModified=', data._lastModified || 'none')
 
         if (data && serverKeys.length > 0) {
           const serverModified = data._lastModified || 0
           const localModified = getLocalModified()
-          log('mount: comparing timestamps — local=', localModified, 'server=', serverModified)
+          remoteLog('mount: COMPARING — localModified=', localModified, 'serverModified=', serverModified)
 
           if (localModified > serverModified) {
-            log('mount: LOCAL IS NEWER → pushing local to server')
+            remoteLog('mount: ✦ LOCAL IS NEWER → pushing local to server (not hydrating)')
             pushState(tasks, routines)
           } else {
-            log('mount: SERVER IS NEWER OR EQUAL → hydrating from server')
+            remoteLog('mount: ✦ SERVER WINS → hydrating from server into React + localStorage')
             skipNextPush.current = true
             onHydrate(data)
             if (data.tasks) saveTasks(data.tasks)
             if (data.routines) saveRoutines(data.routines)
             setLocalModified(serverModified)
-            log('mount: hydration complete, set localModified=', serverModified)
+            remoteLog('mount: hydration done, localModified set to', serverModified)
           }
         } else {
-          log('mount: server is EMPTY → pushing local state up')
+          remoteLog('mount: server is EMPTY → pushing local state to server')
           pushState(tasks, routines)
         }
       })
       .catch(err => {
-        log('mount: fetch FAILED:', err.message, '→ working offline')
+        remoteLog('mount: fetch FAILED:', err.message, '→ working offline')
       })
       .finally(() => {
         hydrated.current = true
-        log('mount: hydrated flag set to true')
+        remoteLog('mount: hydrated=true, ready for change tracking')
+        flushLogs()
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Flush pending sync on page unload to prevent data loss
   useEffect(() => {
     const handleBeforeUnload = () => {
-      log('beforeunload: flushing via sendBeacon')
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current)
         debounceTimer.current = null
       }
       const payload = buildPayload(latestState.current.tasks, latestState.current.routines)
       if (payload) {
-        const taskCount = Array.isArray(payload.tasks) ? payload.tasks.length : 0
-        log('beforeunload: sending', taskCount, 'tasks, _lastModified=', payload._lastModified)
+        const line = `beforeunload: sendBeacon tasks=${taskSummary(payload.tasks)} _lastModified=${payload._lastModified}`
+        // Use sendBeacon for both the data and the log since we're unloading
+        navigator.sendBeacon(
+          '/api/log',
+          new Blob([JSON.stringify({ lines: [`[SYNC] ${line}`] })], { type: 'application/json' })
+        )
         navigator.sendBeacon(
           '/api/data',
           new Blob([JSON.stringify(payload)], { type: 'application/json' })
         )
-      } else {
-        log('beforeunload: no payload to send')
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -92,21 +133,19 @@ export function useSync(tasks, routines, onHydrate) {
   // Debounced push whenever tasks or routines change
   useEffect(() => {
     if (!hydrated.current) {
-      log('effect: skipping push — not yet hydrated')
       return
     }
     if (skipNextPush.current) {
-      log('effect: skipping push — skipNextPush flag set (hydration)')
+      remoteLog('effect: skip push (hydration cycle)')
       skipNextPush.current = false
       return
     }
 
-    const doneCount = tasks.filter(t => t.status === 'done').length
-    log('effect: tasks/routines changed — scheduling push in', DEBOUNCE_MS, 'ms (tasks=', tasks.length, `${doneCount} done,`, 'routines=', routines.length, ')')
+    remoteLog('effect: tasks/routines changed →', taskSummary(tasks), '| scheduling push in', DEBOUNCE_MS, 'ms')
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
-      log('debounce: pushing now')
+      remoteLog('debounce: timer fired, pushing now')
       pushState(tasks, routines)
     }, DEBOUNCE_MS)
 
@@ -117,7 +156,7 @@ export function useSync(tasks, routines, onHydrate) {
 
   // Manual flush for settings/labels changes (not tracked as React state)
   const flush = useCallback(() => {
-    log('flush: manual flush called (settings/labels)')
+    remoteLog('flush: manual flush (settings/labels changed)')
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     pushState(latestState.current.tasks, latestState.current.routines)
   }, [])
@@ -147,13 +186,11 @@ function buildPayload(tasks, routines) {
 function pushState(tasks, routines) {
   const payload = buildPayload(tasks, routines)
   if (!payload) {
-    log('pushState: no payload, skipping')
+    remoteLog('pushState: no payload, skipping')
     return
   }
 
-  const taskCount = Array.isArray(payload.tasks) ? payload.tasks.length : 0
-  const doneCount = Array.isArray(payload.tasks) ? payload.tasks.filter(t => t.status === 'done').length : 0
-  log('pushState: PUT /api/data — tasks=', taskCount, `(${doneCount} done)`, 'routines=', Array.isArray(payload.routines) ? payload.routines.length : 0, '_lastModified=', payload._lastModified)
+  remoteLog('pushState: PUT /api/data — tasks=', taskSummary(payload.tasks), 'labels=', labelSummary(payload.labels), '_lastModified=', payload._lastModified)
 
   fetch('/api/data', {
     method: 'PUT',
@@ -161,10 +198,12 @@ function pushState(tasks, routines) {
     body: JSON.stringify(payload),
   })
     .then(res => {
-      if (!res.ok) log('pushState: server responded with', res.status)
-      else log('pushState: success')
+      if (!res.ok) remoteLog('pushState: server responded', res.status)
+      else remoteLog('pushState: ✓ success')
+      flushLogs()
     })
     .catch(err => {
-      log('pushState: FAILED:', err.message)
+      remoteLog('pushState: ✗ FAILED:', err.message)
+      flushLogs()
     })
 }

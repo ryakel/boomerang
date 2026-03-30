@@ -1,6 +1,16 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadTasks, saveTasks, createTask, isStale, isSnoozed } from '../store'
 
+function remoteLog(...args) {
+  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+  // Fire-and-forget log relay to server
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lines: [`[TASKS] ${line}`] }),
+  }).catch(() => {})
+}
+
 export function useTasks() {
   const [tasks, setTasks] = useState(loadTasks)
 
@@ -15,6 +25,7 @@ export function useTasks() {
   }, [])
 
   const addTask = useCallback((title, tags = [], dueDate = null, notes = '', notion = null, size = null, attachments = []) => {
+    remoteLog('addTask:', title)
     const task = createTask(title, tags, dueDate, notes)
     if (notion) {
       task.notion_page_id = notion.id
@@ -28,12 +39,14 @@ export function useTasks() {
 
   const addSpawnedTasks = useCallback((spawnedTasks) => {
     if (spawnedTasks.length === 0) return
+    remoteLog('addSpawnedTasks:', spawnedTasks.length, 'tasks')
     setTasks(prev => [...spawnedTasks, ...prev])
   }, [])
 
   const completeTask = useCallback((id) => {
     let completed = null
     setTasks(prev => {
+      const task = prev.find(t => t.id === id)
       const next = prev.map(t => {
         if (t.id === id) {
           completed = { ...t, status: 'done', completed_at: new Date().toISOString() }
@@ -41,13 +54,14 @@ export function useTasks() {
         }
         return t
       })
-      console.log(`[TASKS] completeTask id=${id.slice(0, 8)} → done count: ${next.filter(t => t.status === 'done').length}/${next.length}`)
+      remoteLog('completeTask:', task?.title, `id=${id.slice(0, 8)}`, `→ ${next.filter(t => t.status === 'done').length}/${next.length} done`)
       return next
     })
     return completed
   }, [])
 
   const snoozeTask = useCallback((id, until) => {
+    remoteLog('snoozeTask:', `id=${id.slice(0, 8)}`, 'until=', until.toISOString())
     setTasks(prev => prev.map(t =>
       t.id === id ? {
         ...t,
@@ -59,6 +73,7 @@ export function useTasks() {
   }, [])
 
   const replaceTask = useCallback((id, newTitles, tags = []) => {
+    remoteLog('replaceTask:', `id=${id.slice(0, 8)}`, '→', newTitles)
     setTasks(prev => {
       const idx = prev.findIndex(t => t.id === id)
       if (idx === -1) return prev
@@ -69,30 +84,37 @@ export function useTasks() {
   }, [])
 
   const updateTask = useCallback((id, updates) => {
-    console.log(`[TASKS] updateTask id=${id.slice(0, 8)} keys=[${Object.keys(updates)}]`)
+    remoteLog('updateTask:', `id=${id.slice(0, 8)}`, 'keys=', Object.keys(updates).join(','), 'values=', Object.entries(updates).map(([k, v]) => {
+      if (k === 'notes' || k === 'attachments') return `${k}=(${String(v).length} chars)`
+      return `${k}=${v}`
+    }).join(', '))
     setTasks(prev => prev.map(t =>
       t.id === id ? { ...t, ...updates, last_touched: new Date().toISOString() } : t
     ))
   }, [])
 
   const uncompleteTask = useCallback((id) => {
+    remoteLog('uncompleteTask:', `id=${id.slice(0, 8)}`)
     setTasks(prev => prev.map(t =>
       t.id === id ? { ...t, status: 'open', completed_at: null, last_touched: new Date().toISOString() } : t
     ))
   }, [])
 
   const clearCompleted = useCallback(() => {
+    remoteLog('clearCompleted')
     setTasks(prev => prev.filter(t => t.status !== 'done'))
   }, [])
 
   const clearAll = useCallback(() => {
+    remoteLog('clearAll')
     setTasks([])
   }, [])
 
   const hydrateTasks = useCallback((data) => {
     if (Array.isArray(data)) {
-      const doneCount = data.filter(t => t.status === 'done').length
-      console.log(`[TASKS] hydrateTasks ← ${data.length} tasks (${doneCount} done)`)
+      const done = data.filter(t => t.status === 'done').length
+      const open = data.filter(t => t.status === 'open').length
+      remoteLog('hydrateTasks:', data.length, `tasks (${open} open, ${done} done)`)
       setTasks(data)
     }
   }, [])

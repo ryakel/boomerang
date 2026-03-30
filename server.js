@@ -34,6 +34,17 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
 })
 
+// --- Client-side log relay (so all diagnostics appear in the server terminal) ---
+app.post('/api/log', (req, res) => {
+  const lines = req.body?.lines
+  if (Array.isArray(lines)) {
+    for (const line of lines) {
+      console.log(`[CLIENT] ${line}`)
+    }
+  }
+  res.json({ ok: true })
+})
+
 // --- Key status route (tells frontend what's configured via env) ---
 app.get('/api/keys/status', (req, res) => {
   res.json({

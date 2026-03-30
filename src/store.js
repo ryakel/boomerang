@@ -78,36 +78,14 @@ export function setLocalModified(ts) {
   localStorage.setItem(MODIFIED_KEY, String(ts))
 }
 
-export function loadTasks() {
-  const tasks = load(TASKS_KEY, [])
-  const doneCount = tasks.filter(t => t.status === 'done').length
-  console.log(`[STORE] loadTasks → ${tasks.length} tasks (${doneCount} done)`)
-  return tasks
-}
-export function saveTasks(tasks) {
-  const doneCount = tasks.filter(t => t.status === 'done').length
-  console.log(`[STORE] saveTasks ← ${tasks.length} tasks (${doneCount} done)`, new Error().stack?.split('\n')[2]?.trim())
-  save(TASKS_KEY, tasks); touchModified()
-}
+export function loadTasks() { return load(TASKS_KEY, []) }
+export function saveTasks(tasks) { save(TASKS_KEY, tasks); touchModified() }
 export function loadSettings() { return { ...DEFAULT_SETTINGS, ...load(SETTINGS_KEY, {}) } }
-export function saveSettings(settings) {
-  console.log('[STORE] saveSettings')
-  save(SETTINGS_KEY, settings); touchModified()
-}
-export function loadLabels() {
-  const labels = load(LABELS_KEY, DEFAULT_LABELS)
-  console.log(`[STORE] loadLabels → ${labels.length} labels: [${labels.map(l => l.name).join(', ')}]`)
-  return labels
-}
-export function saveLabels(labels) {
-  console.log(`[STORE] saveLabels ← ${labels.length} labels: [${labels.map(l => l.name).join(', ')}]`, new Error().stack?.split('\n')[2]?.trim())
-  save(LABELS_KEY, labels); touchModified()
-}
+export function saveSettings(settings) { save(SETTINGS_KEY, settings); touchModified() }
+export function loadLabels() { return load(LABELS_KEY, DEFAULT_LABELS) }
+export function saveLabels(labels) { save(LABELS_KEY, labels); touchModified() }
 export function loadRoutines() { return load(ROUTINES_KEY, []) }
-export function saveRoutines(routines) {
-  console.log(`[STORE] saveRoutines ← ${routines.length} routines`)
-  save(ROUTINES_KEY, routines); touchModified()
-}
+export function saveRoutines(routines) { save(ROUTINES_KEY, routines); touchModified() }
 
 export function createTask(title, tags = [], dueDate = null, notes = '') {
   const now = new Date().toISOString()
