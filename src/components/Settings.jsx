@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { loadSettings, saveSettings, loadLabels, saveLabels, LABEL_COLORS } from '../store'
+import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS } from '../store'
 
 export default function Settings({ onClose, onClearCompleted, onClearAll }) {
   const [settings, setSettings] = useState(loadSettings)
@@ -7,6 +7,48 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0])
   const fileInputRef = useRef(null)
+  const dataImportRef = useRef(null)
+
+  const handleExportData = () => {
+    const data = {
+      tasks: loadTasks(),
+      routines: loadRoutines(),
+      settings: loadSettings(),
+      labels: loadLabels(),
+      exported_at: new Date().toISOString(),
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `boomerang-backup-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportData = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        if (data.tasks) saveTasks(data.tasks)
+        if (data.routines) saveRoutines(data.routines)
+        if (data.settings) saveSettings(data.settings)
+        if (data.labels) {
+          saveLabels(data.labels)
+          setLabels(data.labels)
+        }
+        if (data.settings) setSettings({ ...loadSettings(), ...data.settings })
+        window.location.reload()
+      } catch {
+        alert('Invalid backup file')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0]
@@ -265,6 +307,26 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
             </label>
           </div>
         )}
+      </div>
+
+      {/* Data export/import */}
+      <div className="settings-group">
+        <div className="settings-label">Data</div>
+        <div className="ci-actions">
+          <button className="ci-upload-btn" onClick={handleExportData}>
+            Export
+          </button>
+          <input
+            ref={dataImportRef}
+            type="file"
+            accept=".json"
+            onChange={handleImportData}
+            hidden
+          />
+          <button className="ci-upload-btn" onClick={() => dataImportRef.current?.click()}>
+            Import
+          </button>
+        </div>
       </div>
 
       {/* Danger Zone */}
