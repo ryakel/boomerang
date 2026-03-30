@@ -59,7 +59,8 @@ boomerang/
 │   └── hooks/
 │       ├── useTasks.js         # Task state management (add, complete, snooze, update, uncomplete)
 │       ├── useRoutines.js      # Routine state management (add, delete, pause, spawn)
-│       ├── useSync.js          # localStorage ↔ SQLite sync (hydrate on load, debounced push)
+│       ├── useServerSync.js    # SSE-based server sync (real-time cross-client, debounced push, visibility resume)
+│       ├── useSync.js          # (deprecated) Old localStorage ↔ SQLite sync
 │       ├── useNotifications.js # Browser push notifications (overdue, stale, AI nudges, size-based reminders)
 │       └── usePullToRefresh.js # Pull-to-refresh touch gesture on task list
 ├── public/

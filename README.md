@@ -18,6 +18,7 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - Notion integration — link or create pages for tasks
 - Custom labels, due dates, extension system
 - Push notifications with ADHD-friendly nudges
+- Real-time cross-client sync via Server-Sent Events (SSE)
 - Dark theme, mobile-first PWA — installable to home screen
 
 ## Configuration

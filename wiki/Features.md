@@ -42,7 +42,8 @@ All AI features use Claude (claude-sonnet-4-20250514) via a server-side proxy. T
 - **What Now** — a guided flow that asks how much time you have (5-10 min, 30 min, a couple hours) and your energy level (running on fumes, moderate, I've got it), then recommends 1-3 tasks with reasons. You can mark tasks done directly from the suggestions.
 - **Polish** — takes messy brain-dump notes and turns them into clear, actionable bullet points. Also cleans up the task title if it's vague. Automatically triggers date inference and size inference on the polished content.
 - **Date inference** — extracts due dates from natural language in task titles and notes ("do this by Friday", "end of month", etc.). Runs automatically after polishing if no due date is set.
-- **Size inference** — estimates task effort as a T-shirt size (XS through XL) based on the task description. Runs automatically after polishing.
+- **Size inference** — estimates task effort as a T-shirt size (XS through XL) based on the task description. Runs automatically after polishing, on quick-add (title only), and on full add when no size is manually set.
+- **Auto size button** — in the Add and Edit task modals, a ✨ Auto button lets you manually trigger AI size inference at any time. Re-evaluates based on the current title and notes.
 - **Reframe** — when a task has been snoozed past the reframe threshold (default: 3 times), the next snooze attempt opens a reframe modal instead. You describe what's blocking you, and the AI breaks the stuck task into 1-3 actionable replacement tasks.
 - **Smart nudges** — when browser notifications are enabled and custom instructions are set, notification nudge messages are AI-generated to match your communication style. Falls back to built-in messages when AI is unavailable.
 - **AI custom instructions** — a text field in Settings that shapes all AI output across every feature. Can be imported from or exported to a `.md` or `.txt` file.
@@ -91,6 +92,15 @@ Tasks can be sorted via a dropdown in the header. Available sort options:
 - **Due date** — earliest due date first
 - **Size** — smallest effort first
 - **Name** — alphabetical by title
+
+## Cross-Client Sync
+
+Multiple clients (e.g. PWA + browser tab on the same phone) stay in sync via Server-Sent Events (SSE):
+
+- **Real-time updates** — when you edit in one client, the other receives the change within ~1 second
+- **Automatic reconnect** — if the SSE connection drops (mobile background throttling, network interruption), it auto-reconnects
+- **Visibility resume** — switching back to the app triggers an immediate sync check as a safety net
+- **Stale client protection** — the server rejects writes from old cached JavaScript to prevent data loss
 
 ## Pull-to-Refresh
 

@@ -4,7 +4,7 @@ A personal ADHD task manager that won't let things disappear. Tasks always come 
 
 ## What It Does
 
-Boomerang is built around the idea that dismissal is never free. Every "not now" requires a "then when." Tasks that go untouched become stale. Tasks that get snoozed too many times trigger an AI-powered reframe. Optional AI features help you polish notes, pick what to work on, and break down stuck tasks.
+Boomerang is built around the idea that dismissal is never free. Every "not now" requires a "then when." Tasks that go untouched become stale. Tasks that get snoozed too many times trigger an AI-powered reframe. Optional AI features help you polish notes, pick what to work on, and break down stuck tasks. Multiple clients stay in sync in real time via Server-Sent Events.
 
 ## Quick Start
 

@@ -4,10 +4,13 @@
 
 ```
 Browser (React PWA)
-  ├── localStorage (fast cache)
+  ├── localStorage (offline cache)
+  ├── EventSource /api/events ──> SSE (real-time sync)
   └── fetch /api/* ──> Express Server
                           ├── /api/health       → Health check (returns {status: "ok"})
-                          ├── /api/data          → SQLite (GET all, PUT all, PATCH collection, DELETE all)
+                          ├── /api/events       → Server-Sent Events for cross-client sync
+                          ├── /api/data          → SQLite (GET all, PUT all, POST all, PATCH collection, DELETE all)
+                          ├── /api/log           → Client log relay (diagnostics in server terminal)
                           ├── /api/messages      → Anthropic Claude API proxy
                           ├── /api/notion/*      → Notion API proxy (search, pages, status)
                           └── /api/keys/status   → Reports which API keys are set via env vars
@@ -15,14 +18,37 @@ Browser (React PWA)
 
 ## Data Flow
 
-1. **On app load**: Frontend fetches `GET /api/data` and hydrates both React state and localStorage from SQLite. If the server has data, it takes precedence. If the server is empty, the frontend pushes its current localStorage state up to the server.
-2. **During use**: All reads come from localStorage (instant). All writes go to localStorage AND are debounced (500ms) then pushed via `PUT /api/data` to SQLite.
-3. **Offline**: If the server is unreachable, the app continues to work from localStorage. Data syncs when the server becomes available again.
+1. **On app load**: React renders immediately from localStorage (fast first paint). An SSE connection opens to `/api/events`, which returns the current server version. The client then fetches `GET /api/data` and hydrates React state and localStorage from SQLite. If the server is empty, the client pushes its localStorage state up.
+2. **During use**: All writes go to React state → localStorage (instant) → debounced (300ms) `PUT /api/data` to SQLite. The server bumps a version counter and broadcasts the new version to all SSE clients.
+3. **Cross-client sync**: When a client receives an SSE update from a *different* client (identified by `_clientId`), it fetches the latest data from the server and hydrates. Updates from the client's own writes are acknowledged without refetching.
+4. **Visibility resume**: When the app becomes visible (tab switch, phone unlock), the client fetches the latest server state as a safety net — covers SSE connections killed by iOS background throttling or proxy timeouts.
+5. **Page unload**: Any pending changes are flushed via `navigator.sendBeacon` (POST) before the page closes.
+6. **Offline**: If the server is unreachable, the app continues to work from localStorage. SSE auto-reconnects when connectivity returns, and the client syncs on reconnect.
+
+## SSE (Server-Sent Events)
+
+The server maintains a set of active SSE connections. Each data write (PUT, POST, PATCH, DELETE) bumps a monotonic version counter and broadcasts a message to all connected clients:
+
+```json
+{ "type": "update", "version": 42, "sourceClientId": "cafbe117-..." }
+```
+
+On initial connection, the server sends:
+
+```json
+{ "type": "connected", "version": 42 }
+```
+
+A keep-alive ping (`: ping\n\n`) is sent every 30 seconds to prevent proxy/load-balancer timeouts.
+
+### Stale Client Guard
+
+Writes to `PUT /api/data` or `POST /api/data` that do not include a `_clientId` in the request body are silently rejected (200 response, no data written). This prevents stale PWA service worker caches — which may still be running old JavaScript — from overwriting current data.
 
 ## Storage
 
-- **localStorage** (`boom_tasks_v1`, `boom_routines_v1`, `boom_settings_v1`, `boom_labels_v1`) — browser-side cache for fast reads
-- **SQLite** (`/data/boomerang.db`) — single table `app_data` with collection name (text) as primary key and JSON blob as value. Source of truth for persistence. Uses sql.js (SQLite compiled to WebAssembly, running in-process in Node.js).
+- **localStorage** (`boom_tasks_v1`, `boom_routines_v1`, `boom_settings_v1`, `boom_labels_v1`) — browser-side cache for fast initial render and offline fallback
+- **SQLite** (`/data/boomerang.db`) — single table `app_data` with collection name (text) as primary key and JSON blob as value. **Source of truth.** Uses sql.js (SQLite compiled to WebAssembly, running in-process in Node.js).
 
 ### SQLite Schema
 
@@ -33,7 +59,7 @@ CREATE TABLE IF NOT EXISTS app_data (
 )
 ```
 
-Collections stored: `tasks`, `routines`, `settings`, `labels`.
+Collections stored: `tasks`, `routines`, `settings`, `labels`, `_version`.
 
 ### Task Data Model — Attachments
 
@@ -74,10 +100,13 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 |--------|------|-------------|
 | `GET` | `/api/health` | Health check |
 | `GET` | `/api/keys/status` | Reports env var key availability |
-| `GET` | `/api/data` | Get all data from SQLite |
-| `PUT` | `/api/data` | Replace all data in SQLite |
+| `GET` | `/api/events` | SSE endpoint for real-time cross-client sync |
+| `GET` | `/api/data` | Get all data from SQLite (includes `_version`) |
+| `PUT` | `/api/data` | Replace all data in SQLite (requires `_clientId`) |
+| `POST` | `/api/data` | Same as PUT — for `navigator.sendBeacon` (requires `_clientId`) |
 | `PATCH` | `/api/data/:collection` | Update a single collection |
 | `DELETE` | `/api/data` | Clear all data |
+| `POST` | `/api/log` | Client log relay (diagnostics to server terminal) |
 | `POST` | `/api/messages` | Proxy to Anthropic Claude API |
 | `POST` | `/api/notion/search` | Search Notion pages |
 | `GET` | `/api/notion/pages/:id` | Get a Notion page |
@@ -89,6 +118,8 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 
 The app is a Progressive Web App:
 - Service worker (generated by vite-plugin-pwa) precaches all static assets
+- `skipWaiting` and `clientsClaim` ensure new versions activate immediately
+- `navigateFallbackDenylist: [/^\/api/]` prevents the service worker from intercepting API routes (including SSE)
 - Installable to mobile home screen
 - Works offline for viewing/editing tasks (API features require connectivity)
 - Auto-updates when new versions are deployed (`registerType: 'autoUpdate'`)
