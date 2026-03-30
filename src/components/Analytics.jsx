@@ -18,8 +18,24 @@ export default function Analytics({ tasks, onClose }) {
   ]
 
   const [vacationMode, setVacationMode] = useState(settings.vacation_mode || false)
+  const [showVacationPicker, setShowVacationPicker] = useState(false)
+  const [customDays, setCustomDays] = useState('')
+  const todayStr = new Date().toISOString().split('T')[0]
+  const [isFreeDay, setIsFreeDay] = useState(() => (settings.free_days || []).includes(todayStr))
   const [resetState, setResetState] = useState('idle') // 'idle' | 'confirming'
   const resetTimer = useRef(null)
+
+  // Check if vacation has expired
+  useEffect(() => {
+    if (vacationMode && settings.vacation_end) {
+      const endDate = new Date(settings.vacation_end)
+      if (new Date() >= endDate) {
+        const current = loadSettings()
+        saveSettings({ ...current, vacation_mode: false, vacation_end: null, vacation_started: null })
+        setVacationMode(false)
+      }
+    }
+  }, [vacationMode, settings.vacation_end])
 
   useEffect(() => {
     return () => {
@@ -27,24 +43,37 @@ export default function Analytics({ tasks, onClose }) {
     }
   }, [])
 
-  const handleVacationToggle = () => {
+  const handleVacationClick = () => {
+    if (vacationMode) {
+      // Turn off vacation
+      const current = loadSettings()
+      saveSettings({
+        ...current,
+        vacation_mode: false,
+        vacation_started: null,
+        vacation_end: null,
+        streak_current: streak,
+      })
+      setVacationMode(false)
+    } else {
+      setShowVacationPicker(true)
+    }
+  }
+
+  const startVacation = (days) => {
     const current = loadSettings()
-    const newMode = !vacationMode
-    const updates = {
+    const end = new Date()
+    end.setDate(end.getDate() + days)
+    saveSettings({
       ...current,
-      vacation_mode: newMode,
-      vacation_started: newMode ? new Date().toISOString() : null,
-    }
-    if (!newMode) {
-      // Preserve streak when coming back from vacation
-      updates.streak_current = streak
-    }
-    if (newMode) {
-      // Freeze current streak
-      updates.streak_current = streak
-    }
-    saveSettings(updates)
-    setVacationMode(newMode)
+      vacation_mode: true,
+      vacation_started: new Date().toISOString(),
+      vacation_end: end.toISOString(),
+      streak_current: streak,
+    })
+    setVacationMode(true)
+    setShowVacationPicker(false)
+    setCustomDays('')
   }
 
   const handleReset = () => {
@@ -107,16 +136,70 @@ export default function Analytics({ tasks, onClose }) {
         </div>
       </div>
 
-      <button
-        className={`vacation-btn ${vacationMode ? 'active' : ''}`}
-        onClick={handleVacationToggle}
-      >
-        {vacationMode ? 'On vacation' : 'Vacation mode'}
-      </button>
+      <div className="streak-actions-row">
+        <button
+          className={`vacation-btn ${vacationMode ? 'active' : ''}`}
+          onClick={handleVacationClick}
+        >
+          {vacationMode ? 'End vacation' : 'Vacation mode'}
+        </button>
+        <button
+          className={`free-day-btn ${isFreeDay ? 'active' : ''}`}
+          onClick={() => {
+            const current = loadSettings()
+            const freeDays = new Set(current.free_days || [])
+            if (isFreeDay) {
+              freeDays.delete(todayStr)
+            } else {
+              freeDays.add(todayStr)
+            }
+            saveSettings({ ...current, free_days: [...freeDays] })
+            setIsFreeDay(!isFreeDay)
+          }}
+        >
+          {isFreeDay ? 'Free day on' : 'Free day'}
+        </button>
+      </div>
+
+      {showVacationPicker && (
+        <div className="vacation-picker">
+          <div className="vacation-picker-title">How long?</div>
+          <div className="vacation-picker-options">
+            <button className="vacation-option" onClick={() => startVacation(3)}>3 days</button>
+            <button className="vacation-option" onClick={() => startVacation(5)}>5 days</button>
+            <button className="vacation-option" onClick={() => startVacation(7)}>7 days</button>
+          </div>
+          <div className="vacation-custom-row">
+            <input
+              type="number"
+              className="vacation-custom-input"
+              placeholder="Custom days"
+              min="1"
+              max="365"
+              value={customDays}
+              onChange={e => setCustomDays(e.target.value)}
+              onClick={e => e.stopPropagation()}
+            />
+            <button
+              className="vacation-option vacation-custom-go"
+              disabled={!customDays || customDays < 1}
+              onClick={() => startVacation(parseInt(customDays, 10))}
+            >
+              Go
+            </button>
+          </div>
+          <button className="vacation-picker-cancel" onClick={() => { setShowVacationPicker(false); setCustomDays('') }}>
+            Cancel
+          </button>
+        </div>
+      )}
 
       {vacationMode && settings.vacation_started && (
         <div style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center', marginTop: 6 }}>
           Streak frozen since {new Date(settings.vacation_started).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          {settings.vacation_end && (
+            <> · ends {new Date(settings.vacation_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
+          )}
         </div>
       )}
 
