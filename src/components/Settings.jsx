@@ -2,13 +2,17 @@ import { useState, useRef, useEffect } from 'react'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS } from '../store'
 import { getKeyStatus } from '../api'
 
+const TABS = ['Tasks', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
+
 export default function Settings({ onClose, onClearCompleted, onClearAll }) {
+  const [activeTab, setActiveTab] = useState('Tasks')
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false })
 
   useEffect(() => {
     getKeyStatus().then(setEnvKeys)
   }, [])
+
   const [labels, setLabels] = useState(loadLabels)
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0])
@@ -76,16 +80,11 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
   const addLabel = () => {
     const name = newLabelName.trim()
     if (!name) return
-    const newLabel = {
-      id: crypto.randomUUID(),
-      name,
-      color: newLabelColor,
-    }
+    const newLabel = { id: crypto.randomUUID(), name, color: newLabelColor }
     const next = [...labels, newLabel]
     setLabels(next)
     saveLabels(next)
     setNewLabelName('')
-    // Cycle to next color
     const idx = LABEL_COLORS.indexOf(newLabelColor)
     setNewLabelColor(LABEL_COLORS[(idx + 1) % LABEL_COLORS.length])
   }
@@ -104,322 +103,293 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
         <span className="version-label">{__APP_VERSION__}</span>
       </div>
 
+      <div className="settings-tabs">
+        {TABS.map(tab => (
+          <button
+            key={tab}
+            className={`settings-tab ${activeTab === tab ? 'settings-tab-active' : ''}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Tasks */}
+      {activeTab === 'Tasks' && (
+        <div className="settings-group">
+          <div className="settings-label">Default due date (days from now)</div>
+          <div className="settings-hint">0 = no default</div>
+          <input
+            className="settings-input"
+            type="number"
+            min="0"
+            max="90"
+            value={settings.default_due_days ?? 7}
+            onChange={e => update('default_due_days', parseInt(e.target.value) || 0)}
+          />
+
+          <div className="settings-label" style={{ marginTop: 16 }}>Staleness threshold (days)</div>
+          <input
+            className="settings-input"
+            type="number"
+            min="1"
+            max="30"
+            value={settings.staleness_days}
+            onChange={e => update('staleness_days', parseInt(e.target.value) || 1)}
+          />
+
+          <div className="settings-label" style={{ marginTop: 16 }}>Reframe trigger (snooze count)</div>
+          <input
+            className="settings-input"
+            type="number"
+            min="1"
+            max="20"
+            value={settings.reframe_threshold}
+            onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
+          />
+
+          <div className="settings-label" style={{ marginTop: 16 }}>Max open tasks</div>
+          <div className="settings-hint">Warns when you exceed this. 0 = no limit.</div>
+          <input
+            className="settings-input"
+            type="number"
+            min="0"
+            max="100"
+            value={settings.max_open_tasks ?? 10}
+            onChange={e => update('max_open_tasks', parseInt(e.target.value) || 0)}
+          />
+        </div>
+      )}
+
+      {/* AI */}
+      {activeTab === 'AI' && (
+        <div className="settings-group">
+          <div className="settings-label">Custom Instructions</div>
+          <div className="settings-hint">
+            How should the AI talk to you? Shapes all AI features.
+          </div>
+          <textarea
+            className="custom-instructions-input"
+            placeholder="e.g. Keep it casual and short. Don't sugarcoat. I respond better to direct language."
+            value={settings.custom_instructions || ''}
+            onChange={e => update('custom_instructions', e.target.value)}
+          />
+          <div className="ci-actions">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md,.txt,.markdown"
+              onChange={handleFileUpload}
+              hidden
+            />
+            <button className="ci-upload-btn" onClick={() => fileInputRef.current?.click()}>
+              Import
+            </button>
+            <button
+              className="ci-upload-btn"
+              onClick={() => {
+                const text = settings.custom_instructions || ''
+                const blob = new Blob([text], { type: 'text/markdown' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'boomerang-instructions.md'
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+              disabled={!settings.custom_instructions?.trim()}
+              style={!settings.custom_instructions?.trim() ? { opacity: 0.4 } : {}}
+            >
+              Export
+            </button>
+            {settings.custom_instructions?.trim() && (
+              <button className="ci-clear-btn" onClick={() => update('custom_instructions', '')}>
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Labels */}
+      {activeTab === 'Labels' && (
+        <div className="settings-group">
+          <div className="label-list">
+            {labels.map(label => (
+              <div key={label.id} className="label-row">
+                <span className="label-swatch" style={{ background: label.color }} />
+                <span className="label-name">{label.name}</span>
+                <button className="label-remove" onClick={() => removeLabel(label.id)}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="label-add-row">
+            <div className="color-picker">
+              {LABEL_COLORS.map(c => (
+                <button
+                  key={c}
+                  className={`color-dot ${newLabelColor === c ? 'color-dot-active' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setNewLabelColor(c)}
+                />
+              ))}
+            </div>
+            <div className="label-add-input-row">
+              <input
+                className="add-input"
+                placeholder="New label..."
+                value={newLabelName}
+                onChange={e => setNewLabelName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addLabel()}
+                style={{ marginBottom: 0 }}
+              />
+              <button
+                className="submit-btn"
+                disabled={!newLabelName.trim()}
+                onClick={addLabel}
+                style={{ width: 'auto', padding: '10px 20px', marginTop: 0 }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Integrations */}
-      <div className="settings-group">
-        <div className="settings-label">Integrations</div>
-        {envKeys.anthropic ? (
-          <div className="env-key-status">Anthropic API key set by environment variable</div>
-        ) : (
-          <div style={{ marginBottom: 10 }}>
+      {activeTab === 'Integrations' && (
+        <div className="settings-group">
+          <div className="settings-label">Anthropic (Claude AI)</div>
+          {envKeys.anthropic ? (
+            <div className="env-key-status">Set by environment variable</div>
+          ) : (
             <input
               className="add-input"
               type="password"
-              placeholder="Anthropic API key (sk-ant-...)"
+              placeholder="API key (sk-ant-...)"
               value={settings.anthropic_api_key || ''}
               onChange={e => update('anthropic_api_key', e.target.value)}
-              style={{ marginBottom: 0, fontSize: 13 }}
+              style={{ marginBottom: 12, fontSize: 13 }}
             />
-          </div>
-        )}
-        {envKeys.notion ? (
-          <div className="env-key-status">Notion token set by environment variable</div>
-        ) : (
-          <div>
+          )}
+
+          <div className="settings-label" style={{ marginTop: 8 }}>Notion</div>
+          {envKeys.notion ? (
+            <div className="env-key-status">Set by environment variable</div>
+          ) : (
             <input
               className="add-input"
               type="password"
-              placeholder="Notion integration token (ntn_...)"
+              placeholder="Integration token (ntn_...)"
               value={settings.notion_token || ''}
               onChange={e => update('notion_token', e.target.value)}
               style={{ marginBottom: 0, fontSize: 13 }}
             />
-          </div>
-        )}
-      </div>
-
-      <div className="settings-divider" />
-
-      {/* AI */}
-      <div className="settings-group">
-        <div className="settings-label">AI</div>
-        <div className="settings-hint">
-          How should the AI talk to you? Shapes all AI features.
-        </div>
-        <textarea
-          className="custom-instructions-input"
-          placeholder="e.g. Keep it casual and short. Don't sugarcoat. I respond better to direct language."
-          value={settings.custom_instructions || ''}
-          onChange={e => update('custom_instructions', e.target.value)}
-        />
-        <div className="ci-actions">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".md,.txt,.markdown"
-            onChange={handleFileUpload}
-            hidden
-          />
-          <button
-            className="ci-upload-btn"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Import
-          </button>
-          <button
-            className="ci-upload-btn"
-            onClick={() => {
-              const text = settings.custom_instructions || ''
-              const blob = new Blob([text], { type: 'text/markdown' })
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url
-              a.download = 'boomerang-instructions.md'
-              a.click()
-              URL.revokeObjectURL(url)
-            }}
-            disabled={!settings.custom_instructions?.trim()}
-            style={!settings.custom_instructions?.trim() ? { opacity: 0.4 } : {}}
-          >
-            Export
-          </button>
-          {settings.custom_instructions?.trim() && (
-            <button
-              className="ci-clear-btn"
-              onClick={() => update('custom_instructions', '')}
-            >
-              Clear
-            </button>
           )}
         </div>
-      </div>
-
-      <div className="settings-divider" />
-
-      {/* Tasks */}
-      <div className="settings-group">
-        <div className="settings-label">Tasks</div>
-
-        <div className="settings-label" style={{ marginTop: 0 }}>Default due date (days from now)</div>
-        <div className="settings-hint">0 = no default</div>
-        <input
-          className="settings-input"
-          type="number"
-          min="0"
-          max="90"
-          value={settings.default_due_days ?? 7}
-          onChange={e => update('default_due_days', parseInt(e.target.value) || 0)}
-        />
-
-        <div className="settings-label" style={{ marginTop: 16 }}>Staleness threshold (days)</div>
-        <input
-          className="settings-input"
-          type="number"
-          min="1"
-          max="30"
-          value={settings.staleness_days}
-          onChange={e => update('staleness_days', parseInt(e.target.value) || 1)}
-        />
-
-        <div className="settings-label" style={{ marginTop: 16 }}>Reframe trigger (snooze count)</div>
-        <input
-          className="settings-input"
-          type="number"
-          min="1"
-          max="20"
-          value={settings.reframe_threshold}
-          onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
-        />
-
-        <div className="settings-label" style={{ marginTop: 16 }}>Max open tasks</div>
-        <div className="settings-hint">
-          Warns when you exceed this. 0 = no limit.
-        </div>
-        <input
-          className="settings-input"
-          type="number"
-          min="0"
-          max="100"
-          value={settings.max_open_tasks ?? 10}
-          onChange={e => update('max_open_tasks', parseInt(e.target.value) || 0)}
-        />
-      </div>
-
-      <div className="settings-divider" />
-
-      {/* Labels */}
-      <div className="settings-group">
-        <div className="settings-label">Labels</div>
-        <div className="label-list">
-          {labels.map(label => (
-            <div key={label.id} className="label-row">
-              <span className="label-swatch" style={{ background: label.color }} />
-              <span className="label-name">{label.name}</span>
-              <button className="label-remove" onClick={() => removeLabel(label.id)}>✕</button>
-            </div>
-          ))}
-        </div>
-        <div className="label-add-row">
-          <div className="color-picker">
-            {LABEL_COLORS.map(c => (
-              <button
-                key={c}
-                className={`color-dot ${newLabelColor === c ? 'color-dot-active' : ''}`}
-                style={{ background: c }}
-                onClick={() => setNewLabelColor(c)}
-              />
-            ))}
-          </div>
-          <div className="label-add-input-row">
-            <input
-              className="add-input"
-              placeholder="New label..."
-              value={newLabelName}
-              onChange={e => setNewLabelName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addLabel()}
-              style={{ marginBottom: 0 }}
-            />
-            <button
-              className="submit-btn"
-              disabled={!newLabelName.trim()}
-              onClick={addLabel}
-              style={{ width: 'auto', padding: '10px 20px', marginTop: 0 }}
-            >
-              Add
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="settings-divider" />
+      )}
 
       {/* Notifications */}
-      <div className="settings-group">
-        <div className="settings-label">Notifications</div>
-        <button
-          className={`notif-toggle ${settings.notifications_enabled ? 'notif-on' : ''}`}
-          onClick={async () => {
-            if (!settings.notifications_enabled) {
-              const perm = await Notification.requestPermission()
-              if (perm === 'granted') {
-                update('notifications_enabled', true)
-              }
-            } else {
-              update('notifications_enabled', false)
-            }
-          }}
-        >
-          {settings.notifications_enabled ? 'Notifications on' : 'Enable notifications'}
-        </button>
-
-        {settings.notifications_enabled && (
-          <div className="notif-options">
-            <div className="settings-label" style={{ marginTop: 16 }}>Check every</div>
-            <div className="notif-freq-row">
-              {[15, 30, 60, 120].map(min => (
-                <button
-                  key={min}
-                  className={`notif-freq ${(settings.notif_frequency || 30) === min ? 'notif-freq-active' : ''}`}
-                  onClick={() => update('notif_frequency', min)}
-                >
-                  {min < 60 ? `${min}m` : `${min / 60}h`}
-                </button>
-              ))}
-            </div>
-
-            <div className="settings-label" style={{ marginTop: 16 }}>Notify me about</div>
-            <label className="notif-check">
-              <input
-                type="checkbox"
-                checked={settings.notif_overdue !== false}
-                onChange={e => update('notif_overdue', e.target.checked)}
-              />
-              <span>Overdue tasks</span>
-            </label>
-            <label className="notif-check">
-              <input
-                type="checkbox"
-                checked={settings.notif_stale !== false}
-                onChange={e => update('notif_stale', e.target.checked)}
-              />
-              <span>Stale tasks</span>
-            </label>
-            <label className="notif-check">
-              <input
-                type="checkbox"
-                checked={settings.notif_nudge !== false}
-                onChange={e => update('notif_nudge', e.target.checked)}
-              />
-              <span>General nudges</span>
-            </label>
-
-            <div className="settings-label" style={{ marginTop: 16 }}>Warn when tasks pile up</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                className="settings-input"
-                type="number"
-                min="0"
-                max="100"
-                value={settings.stale_warn_pct ?? 50}
-                onChange={e => update('stale_warn_pct', parseInt(e.target.value) || 0)}
-              />
-              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>% older than</span>
-              <input
-                className="settings-input"
-                type="number"
-                min="1"
-                max="90"
-                value={settings.stale_warn_days ?? 7}
-                onChange={e => update('stale_warn_days', parseInt(e.target.value) || 7)}
-              />
-              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>days</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-divider" />
-
-      {/* Data */}
-      <div className="settings-group">
-        <div className="settings-label">Data</div>
-        <div className="ci-actions">
-          <button className="ci-upload-btn" onClick={handleExportData}>
-            Export
-          </button>
-          <input
-            ref={dataImportRef}
-            type="file"
-            accept=".json"
-            onChange={handleImportData}
-            hidden
-          />
-          <button className="ci-upload-btn" onClick={() => dataImportRef.current?.click()}>
-            Import
-          </button>
-        </div>
-      </div>
-
-      <div className="settings-divider" />
-
-      {/* Danger Zone */}
-      <div className="danger-zone">
-        <div className="settings-label">Danger Zone</div>
-        <div className="danger-zone-buttons">
-          <button className="settings-danger" onClick={onClearCompleted}>
-            Clear completed tasks
-          </button>
+      {activeTab === 'Notifications' && (
+        <div className="settings-group">
           <button
-            className="settings-danger settings-danger-full"
-            onClick={() => {
-              if (window.confirm('This will delete all tasks, settings, and history. Are you sure?')) {
-                onClearAll()
+            className={`notif-toggle ${settings.notifications_enabled ? 'notif-on' : ''}`}
+            onClick={async () => {
+              if (!settings.notifications_enabled) {
+                const perm = await Notification.requestPermission()
+                if (perm === 'granted') update('notifications_enabled', true)
+              } else {
+                update('notifications_enabled', false)
               }
             }}
           >
-            Clear all data
+            {settings.notifications_enabled ? 'Notifications on' : 'Enable notifications'}
           </button>
+
+          {settings.notifications_enabled && (
+            <div className="notif-options">
+              <div className="settings-label" style={{ marginTop: 16 }}>Check every</div>
+              <div className="notif-freq-row">
+                {[15, 30, 60, 120].map(min => (
+                  <button
+                    key={min}
+                    className={`notif-freq ${(settings.notif_frequency || 30) === min ? 'notif-freq-active' : ''}`}
+                    onClick={() => update('notif_frequency', min)}
+                  >
+                    {min < 60 ? `${min}m` : `${min / 60}h`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="settings-label" style={{ marginTop: 16 }}>Notify me about</div>
+              <label className="notif-check">
+                <input type="checkbox" checked={settings.notif_overdue !== false} onChange={e => update('notif_overdue', e.target.checked)} />
+                <span>Overdue tasks</span>
+              </label>
+              <label className="notif-check">
+                <input type="checkbox" checked={settings.notif_stale !== false} onChange={e => update('notif_stale', e.target.checked)} />
+                <span>Stale tasks</span>
+              </label>
+              <label className="notif-check">
+                <input type="checkbox" checked={settings.notif_nudge !== false} onChange={e => update('notif_nudge', e.target.checked)} />
+                <span>General nudges</span>
+              </label>
+
+              <div className="settings-label" style={{ marginTop: 16 }}>Warn when tasks pile up</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  className="settings-input"
+                  type="number" min="0" max="100"
+                  value={settings.stale_warn_pct ?? 50}
+                  onChange={e => update('stale_warn_pct', parseInt(e.target.value) || 0)}
+                />
+                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>% older than</span>
+                <input
+                  className="settings-input"
+                  type="number" min="1" max="90"
+                  value={settings.stale_warn_days ?? 7}
+                  onChange={e => update('stale_warn_days', parseInt(e.target.value) || 7)}
+                />
+                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>days</span>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* Data */}
+      {activeTab === 'Data' && (
+        <>
+          <div className="settings-group">
+            <div className="settings-label">Export / Import</div>
+            <div className="ci-actions">
+              <button className="ci-upload-btn" onClick={handleExportData}>Export</button>
+              <input ref={dataImportRef} type="file" accept=".json" onChange={handleImportData} hidden />
+              <button className="ci-upload-btn" onClick={() => dataImportRef.current?.click()}>Import</button>
+            </div>
+          </div>
+
+          <div className="danger-zone">
+            <div className="settings-label">Danger Zone</div>
+            <div className="danger-zone-buttons">
+              <button className="settings-danger" onClick={onClearCompleted}>
+                Clear completed tasks
+              </button>
+              <button
+                className="settings-danger settings-danger-full"
+                onClick={() => {
+                  if (window.confirm('This will delete all tasks, settings, and history. Are you sure?')) {
+                    onClearAll()
+                  }
+                }}
+              >
+                Clear all data
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

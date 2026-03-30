@@ -765,6 +765,34 @@
   text-align: right;
 }
 
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-tab {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  background: transparent;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.settings-tab-active {
+  color: var(--text);
+  background: var(--surface);
+}
+
 .settings-group {
   margin-bottom: 28px;
 }
@@ -804,12 +832,12 @@
 
 .custom-instructions-input {
   width: 100%;
-  min-height: 60px;
-  max-height: 120px;
-  padding: 10px 14px;
+  min-height: 280px;
+  max-height: 60vh;
+  padding: 14px;
   border-radius: var(--radius);
   background: var(--bg);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text);
   resize: vertical;
   line-height: 1.5;
