@@ -107,6 +107,8 @@ function App() {
     saveSettings({ ...current, sort_by: value })
   }
 
+  const settings = loadSettings()
+
   const todayCount = useMemo(() => {
     const todayStr = new Date().toDateString()
     return tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr).length
@@ -174,8 +176,6 @@ function App() {
       setShowAdd(true)
     }
   }
-
-  const settings = loadSettings()
 
   const nonSnoozedCount = openTasks.filter(t => {
     if (t.snoozed_until && new Date(t.snoozed_until) > new Date()) return false
