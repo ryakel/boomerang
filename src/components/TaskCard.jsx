@@ -42,8 +42,8 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
       onClick={() => setExpanded(!expanded)}
     >
       <div className="task-card-top">
-        {task.status !== 'backlog' && STATUS_META[task.status] && (
-          <span className="status-indicator" style={{ background: STATUS_META[task.status].color }} title={STATUS_META[task.status].label} />
+        {task.status !== 'backlog' && (STATUS_META[task.status] || task.status === 'open') && (
+          <span className="status-indicator" style={{ background: (STATUS_META[task.status] || STATUS_META.not_started).color }} title={(STATUS_META[task.status] || STATUS_META.not_started).label} />
         )}
         <span className="task-title">{task.title}</span>
         <div className="task-card-right">
