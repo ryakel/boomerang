@@ -92,7 +92,18 @@ app.get('/api/data', (req, res) => {
   res.json(data)
 })
 
+// Guard: reject writes from stale cached JS (old code won't include _clientId)
+function guardStaleClient(req, res) {
+  if (!req.body._clientId) {
+    console.log(`[SYNC] REJECTED stale ${req.method} /api/data — no _clientId (old cached JS)`)
+    res.json({ ok: true }) // 200 so old code doesn't retry
+    return true
+  }
+  return false
+}
+
 app.put('/api/data', (req, res) => {
+  if (guardStaleClient(req, res)) return
   const clientId = req.body._clientId
   const body = { ...req.body }
   delete body._clientId
@@ -104,6 +115,7 @@ app.put('/api/data', (req, res) => {
 
 // POST does the same as PUT — needed because navigator.sendBeacon only sends POST
 app.post('/api/data', (req, res) => {
+  if (guardStaleClient(req, res)) return
   const clientId = req.body._clientId
   const body = { ...req.body }
   delete body._clientId
