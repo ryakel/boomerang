@@ -77,7 +77,7 @@ export default function WhatNow({ tasks, onClose, onComplete }) {
             <>
               <div className="what-now-question">Try these</div>
               <div className="what-now-options">
-                {suggestions.map((s, i) => {
+                {suggestions.picks.map((s, i) => {
                   const match = tasks.find(t => t.status === 'open' && t.title === s.task)
                   return (
                     <div key={i} className="suggestion-card">
@@ -99,6 +99,35 @@ export default function WhatNow({ tasks, onClose, onComplete }) {
                   )
                 })}
               </div>
+              {suggestions.stretch && (
+                <>
+                  <div className="what-now-question stretch-label">Feeling ambitious?</div>
+                  <div className="what-now-options">
+                    {(() => {
+                      const s = suggestions.stretch
+                      const match = tasks.find(t => t.status === 'open' && t.title === s.task)
+                      return (
+                        <div className="suggestion-card stretch-card">
+                          <div className="suggestion-top">
+                            <div>
+                              <div className="suggestion-name">{s.task}</div>
+                              <div className="suggestion-reason">{s.reason}</div>
+                            </div>
+                            {match && (
+                              <button
+                                className="action-btn done suggestion-done"
+                                onClick={() => onComplete(match.id)}
+                              >
+                                Done ✓
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </>
+              )}
               <button className="submit-btn" style={{ marginTop: 20, maxWidth: 320 }} onClick={onClose}>
                 Got it
               </button>

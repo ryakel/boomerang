@@ -105,14 +105,22 @@ export async function getWhatNow(tasks, time, energy) {
 Tasks have t-shirt sizes: XS (~5 min), S (~15 min), M (~30-60 min), L (~half day), XL (~full day+).
 HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.
 
-Respond with JSON only — an array of 1-3 objects with "task" (exact task title from the list) and "reason" (one sentence why this is a good pick right now).`
+Respond with JSON only — an object with two fields:
+- "picks": array of 1-3 objects with "task" (exact task title from the list) and "reason" (one sentence why this is a good pick right now).
+- "stretch": if there are fewer than 3 picks, include ONE optional stretch suggestion — a task one size up from what the time/energy normally allows. Same shape: { "task", "reason" }. Omit this field if you already have 3 picks or there's nothing reasonable to stretch to.`
 
-  const user = `Here are my open tasks:\n${openTasks}\n\nI have ${time} and my energy is "${energy}".\n\nWhich 1-3 tasks should I tackle? Return JSON array only.`
+  const user = `Here are my open tasks:\n${openTasks}\n\nI have ${time} and my energy is "${energy}".\n\nWhat should I work on? Return JSON object only.`
 
   const text = await callClaude(system, user)
-  const match = text.match(/\[[\s\S]*\]/)
-  if (!match) throw new Error('Could not parse suggestions')
-  return JSON.parse(match[0])
+  const objMatch = text.match(/\{[\s\S]*\}/)
+  if (objMatch) {
+    const parsed = JSON.parse(objMatch[0])
+    if (parsed.picks) return parsed
+  }
+  // Fallback: old array format
+  const arrMatch = text.match(/\[[\s\S]*\]/)
+  if (arrMatch) return { picks: JSON.parse(arrMatch[0]) }
+  throw new Error('Could not parse suggestions')
 }
 
 // --- Polish notes ---

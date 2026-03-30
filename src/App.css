@@ -807,6 +807,18 @@
   line-height: 1.4;
 }
 
+.stretch-label {
+  margin-top: 16px;
+  font-size: 13px !important;
+  color: var(--text-dim) !important;
+  opacity: 0.85;
+}
+
+.stretch-card {
+  border: 1px dashed var(--text-dim);
+  background: transparent;
+}
+
 /* Settings */
 .settings-overlay {
   position: fixed;
