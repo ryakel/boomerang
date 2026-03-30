@@ -34,7 +34,7 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend 
             </span>
           )}
           <div className="hover-actions" onClick={e => e.stopPropagation()}>
-            <button className="hover-btn" onClick={() => onEdit(task)} title="Edit">✎</button>
+            <button className="hover-btn" onClick={() => { setExpanded(false); onEdit(task) }} title="Edit">✎</button>
             <button className="hover-btn hover-btn-done" onClick={() => onComplete(task.id)} title="Done">✓</button>
           </div>
         </div>
@@ -91,7 +91,7 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend 
             )}
             <button
               className="action-btn edit"
-              onClick={(e) => { e.stopPropagation(); onEdit(task) }}
+              onClick={(e) => { e.stopPropagation(); setExpanded(false); onEdit(task) }}
             >
               Edit
             </button>

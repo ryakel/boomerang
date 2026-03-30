@@ -1,8 +1,14 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS } from '../store'
+import { getKeyStatus } from '../api'
 
 export default function Settings({ onClose, onClearCompleted, onClearAll }) {
   const [settings, setSettings] = useState(loadSettings)
+  const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false })
+
+  useEffect(() => {
+    getKeyStatus().then(setEnvKeys)
+  }, [])
   const [labels, setLabels] = useState(loadLabels)
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0])
@@ -100,29 +106,34 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
 
       <div className="settings-group">
         <div className="settings-label">API Keys</div>
-        <div className="settings-hint">
-          Keys set here override server defaults. Stored locally.
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <input
-            className="add-input"
-            type="password"
-            placeholder="Anthropic API key (sk-ant-...)"
-            value={settings.anthropic_api_key || ''}
-            onChange={e => update('anthropic_api_key', e.target.value)}
-            style={{ marginBottom: 0, fontSize: 13 }}
-          />
-        </div>
-        <div>
-          <input
-            className="add-input"
-            type="password"
-            placeholder="Notion integration token (ntn_...)"
-            value={settings.notion_token || ''}
-            onChange={e => update('notion_token', e.target.value)}
-            style={{ marginBottom: 0, fontSize: 13 }}
-          />
-        </div>
+        {envKeys.anthropic ? (
+          <div className="env-key-status">Anthropic API key set by environment variable</div>
+        ) : (
+          <div style={{ marginBottom: 10 }}>
+            <input
+              className="add-input"
+              type="password"
+              placeholder="Anthropic API key (sk-ant-...)"
+              value={settings.anthropic_api_key || ''}
+              onChange={e => update('anthropic_api_key', e.target.value)}
+              style={{ marginBottom: 0, fontSize: 13 }}
+            />
+          </div>
+        )}
+        {envKeys.notion ? (
+          <div className="env-key-status">Notion token set by environment variable</div>
+        ) : (
+          <div>
+            <input
+              className="add-input"
+              type="password"
+              placeholder="Notion integration token (ntn_...)"
+              value={settings.notion_token || ''}
+              onChange={e => update('notion_token', e.target.value)}
+              style={{ marginBottom: 0, fontSize: 13 }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="settings-group">

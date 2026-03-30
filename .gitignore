@@ -13,6 +13,9 @@ dist-ssr
 # Database
 *.db
 
+# Backups
+backup-*.json
+
 # Logs
 logs
 *.log

@@ -125,11 +125,15 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <div className="wordmark-lockup">
-          <Logo size={24} />
-          <span className="wordmark">BOOMERANG</span>
+        <div className="header-top">
+          <div className="wordmark-lockup">
+            <Logo size={24} />
+            <span className="wordmark">BOOMERANG</span>
+          </div>
+          <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
         </div>
-        <div className="header-right">
+        <div className="header-stats">
+          <span className="open-count">{nonSnoozedCount}/{openTasks.length + tasks.filter(t => t.status === 'done').length} open</span>
           {todayCount > 0 ? (
             <button className="today-count" onClick={() => setShowDone(true)}>
               {todayCount} done today
@@ -139,8 +143,6 @@ function App() {
               Done
             </button>
           ) : null}
-          <span className="open-count">{nonSnoozedCount} open</span>
-          <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
         </div>
       </header>
 

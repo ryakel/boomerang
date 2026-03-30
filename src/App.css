@@ -10,11 +10,23 @@
 /* Header */
 .header {
   display: flex;
+  flex-direction: column;
+  padding: 12px 20px 6px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.header-top {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px 8px;
-  padding-top: max(16px, env(safe-area-inset-top));
-  flex-shrink: 0;
+}
+
+.header-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .wordmark-lockup {
@@ -29,12 +41,6 @@
   font-size: 20px;
   letter-spacing: -0.5px;
   color: var(--text);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 
 .open-count {
@@ -678,6 +684,15 @@
   color: var(--text-dim);
 }
 
+.env-key-status {
+  font-size: 12px;
+  color: #52C97F;
+  padding: 10px 14px;
+  background: rgba(82, 201, 127, 0.08);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
 .ci-actions {
   display: flex;
   gap: 8px;
@@ -774,7 +789,6 @@
 
 /* Notes input */
 .notes-wrapper {
-  position: relative;
   margin-bottom: 16px;
 }
 
@@ -782,7 +796,6 @@
   width: 100%;
   min-height: 80px;
   padding: 12px 16px;
-  padding-bottom: 40px;
   border-radius: var(--radius);
   background: var(--bg);
   font-size: 14px;
@@ -796,9 +809,7 @@
 }
 
 .polish-btn {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
+  margin-top: 8px;
   padding: 6px 14px;
   border-radius: 16px;
   background: rgba(164, 120, 255, 0.15);
