@@ -2,6 +2,7 @@ const TASKS_KEY = 'boom_tasks_v1'
 const SETTINGS_KEY = 'boom_settings_v1'
 const LABELS_KEY = 'boom_labels_v1'
 const ROUTINES_KEY = 'boom_routines_v1'
+const MODIFIED_KEY = 'boom_last_modified'
 
 const DEFAULT_SETTINGS = {
   staleness_days: 2,
@@ -63,14 +64,28 @@ function save(key, data) {
   localStorage.setItem(key, JSON.stringify(data))
 }
 
+// Touch the local modification timestamp — used by useSync to detect
+// whether localStorage is newer than the server on hydration.
+function touchModified() {
+  localStorage.setItem(MODIFIED_KEY, String(Date.now()))
+}
+
+export function getLocalModified() {
+  return parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10)
+}
+
+export function setLocalModified(ts) {
+  localStorage.setItem(MODIFIED_KEY, String(ts))
+}
+
 export function loadTasks() { return load(TASKS_KEY, []) }
-export function saveTasks(tasks) { save(TASKS_KEY, tasks) }
+export function saveTasks(tasks) { save(TASKS_KEY, tasks); touchModified() }
 export function loadSettings() { return { ...DEFAULT_SETTINGS, ...load(SETTINGS_KEY, {}) } }
-export function saveSettings(settings) { save(SETTINGS_KEY, settings) }
+export function saveSettings(settings) { save(SETTINGS_KEY, settings); touchModified() }
 export function loadLabels() { return load(LABELS_KEY, DEFAULT_LABELS) }
-export function saveLabels(labels) { save(LABELS_KEY, labels) }
+export function saveLabels(labels) { save(LABELS_KEY, labels); touchModified() }
 export function loadRoutines() { return load(ROUTINES_KEY, []) }
-export function saveRoutines(routines) { save(ROUTINES_KEY, routines) }
+export function saveRoutines(routines) { save(ROUTINES_KEY, routines); touchModified() }
 
 export function createTask(title, tags = [], dueDate = null, notes = '') {
   const now = new Date().toISOString()

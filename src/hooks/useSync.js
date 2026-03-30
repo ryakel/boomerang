@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { saveTasks, saveRoutines } from '../store'
+import { saveTasks, saveRoutines, getLocalModified, setLocalModified } from '../store'
 
 const DEBOUNCE_MS = 500
 
@@ -14,7 +14,7 @@ export function useSync(tasks, routines, onHydrate) {
     latestState.current = { tasks, routines }
   }, [tasks, routines])
 
-  // On mount: pull data from server and hydrate localStorage + React state
+  // On mount: pull data from server and reconcile with localStorage
   useEffect(() => {
     fetch('/api/data')
       .then(res => {
@@ -23,14 +23,22 @@ export function useSync(tasks, routines, onHydrate) {
       })
       .then(data => {
         if (data && Object.keys(data).length > 0) {
-          // Server has data — hydrate into React state + localStorage
-          skipNextPush.current = true
-          // onHydrate persists tasks/routines to React state and
-          // settings/labels to localStorage
-          onHydrate(data)
-          // Also persist tasks/routines to localStorage so store reads work
-          if (data.tasks) saveTasks(data.tasks)
-          if (data.routines) saveRoutines(data.routines)
+          const serverModified = data._lastModified || 0
+          const localModified = getLocalModified()
+
+          if (localModified > serverModified) {
+            // Local data is newer (e.g. push hadn't finished before refresh)
+            // Push local state to server instead of hydrating
+            pushState(tasks, routines)
+          } else {
+            // Server data is same age or newer — hydrate from server
+            skipNextPush.current = true
+            onHydrate(data)
+            if (data.tasks) saveTasks(data.tasks)
+            if (data.routines) saveRoutines(data.routines)
+            // Align local timestamp with server so next comparison works
+            setLocalModified(serverModified)
+          }
         } else {
           // Server empty — push current state up
           pushState(tasks, routines)
@@ -51,7 +59,7 @@ export function useSync(tasks, routines, onHydrate) {
         clearTimeout(debounceTimer.current)
         debounceTimer.current = null
       }
-      // Use sendBeacon for reliable delivery during page unload
+      // sendBeacon only sends POST — server has a matching POST handler
       const payload = buildPayload(latestState.current.tasks, latestState.current.routines)
       if (payload) {
         navigator.sendBeacon(
@@ -98,13 +106,18 @@ function buildPayload(tasks, routines) {
   try { labels = JSON.parse(localStorage.getItem('boom_labels_v1')) } catch { /* */ }
 
   const data = {}
-  // Always include arrays even when empty — so clearing all tasks/routines syncs
   if (Array.isArray(tasks)) data.tasks = tasks
   if (Array.isArray(routines)) data.routines = routines
   if (settings) data.settings = settings
   if (labels) data.labels = labels
 
-  return Object.keys(data).length > 0 ? data : null
+  if (Object.keys(data).length === 0) return null
+
+  // Include local modification timestamp so the server stores it and
+  // the next hydration can compare freshness
+  data._lastModified = getLocalModified()
+
+  return data
 }
 
 function pushState(tasks, routines) {

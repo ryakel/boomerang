@@ -52,6 +52,12 @@ app.put('/api/data', (req, res) => {
   res.json({ ok: true })
 })
 
+// POST does the same as PUT — needed because navigator.sendBeacon only sends POST
+app.post('/api/data', (req, res) => {
+  setAllData(req.body)
+  res.json({ ok: true })
+})
+
 app.patch('/api/data/:collection', (req, res) => {
   setData(req.params.collection, req.body)
   res.json({ ok: true })
