@@ -20,7 +20,7 @@ import Analytics from './components/Analytics'
 import FindRelatedModal from './components/FindRelatedModal'
 import { MiniRings } from './components/Rings'
 import { useNotifications } from './hooks/useNotifications'
-import { useSync } from './hooks/useSync'
+import { useServerSync } from './hooks/useServerSync'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
 
 function App() {
@@ -66,7 +66,7 @@ function App() {
     if (data.labels) saveLabels(data.labels)
   }, [hydrateTasks, hydrateRoutines])
 
-  const flushSync = useSync(tasks, routines, hydrateFromServer)
+  const flushSync = useServerSync(tasks, routines, hydrateFromServer)
 
   const { onTouchStart, onTouchEnd } = usePullToRefresh(useCallback(() => {
     setRefreshing(true)

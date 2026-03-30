@@ -3,7 +3,7 @@ import cors from 'cors'
 import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
-import { initDb, getAllData, setAllData, setData, clearAllData } from './db.js'
+import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bumpVersion } from './db.js'
 
 // --- Environment (fallback keys — user can override via UI) ---
 let envApiKey = process.env.ANTHROPIC_API_KEY
@@ -34,13 +34,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
 })
 
-// --- Client-side log relay (so all diagnostics appear in the server terminal) ---
+// --- Client log relay ---
 app.post('/api/log', (req, res) => {
   const lines = req.body?.lines
   if (Array.isArray(lines)) {
-    for (const line of lines) {
-      console.log(`[CLIENT] ${line}`)
-    }
+    for (const line of lines) console.log(`[CLIENT] ${line}`)
   }
   res.json({ ok: true })
 })
@@ -53,66 +51,80 @@ app.get('/api/keys/status', (req, res) => {
   })
 })
 
-// --- Data routes ---
+// --- SSE (Server-Sent Events) for cross-client sync ---
+const sseClients = new Set()
 
-// Guard: reject writes from stale cached code that would overwrite newer data.
-// Current code always includes _lastModified; old cached service worker JS does not.
-function guardStaleWrite(req, res) {
-  const incoming = req.body
-  if (!incoming._lastModified) {
-    // No timestamp → stale cached code. Check if server already has newer data.
-    const current = getAllData()
-    if (current._lastModified) {
-      console.log(`[SYNC] REJECTED stale ${req.method} /api/data (no _lastModified, server has ${current._lastModified})`)
-      res.json({ ok: true }) // 200 so old code doesn't retry
-      return true
-    }
+function broadcast(version, sourceClientId) {
+  const msg = JSON.stringify({ type: 'update', version, sourceClientId })
+  for (const client of sseClients) {
+    client.write(`data: ${msg}\n\n`)
   }
-  return false
+  console.log(`[SSE] broadcast v${version} to ${sseClients.size} client(s) (source: ${sourceClientId || 'server'})`)
 }
 
+app.get('/api/events', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no', // disable nginx buffering
+  })
+  // Send current version on connect
+  const version = getVersion()
+  res.write(`data: ${JSON.stringify({ type: 'connected', version })}\n\n`)
+  sseClients.add(res)
+  console.log(`[SSE] client connected (${sseClients.size} total), version=${version}`)
+
+  // Keep-alive ping every 30s to prevent proxy timeouts
+  const keepAlive = setInterval(() => res.write(': ping\n\n'), 30000)
+
+  req.on('close', () => {
+    clearInterval(keepAlive)
+    sseClients.delete(res)
+    console.log(`[SSE] client disconnected (${sseClients.size} remaining)`)
+  })
+})
+
+// --- Data routes ---
 app.get('/api/data', (req, res) => {
   const data = getAllData()
-  const collections = Object.keys(data)
-  const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
-  const routineCount = Array.isArray(data.routines) ? data.routines.length : 0
-  const doneCount = Array.isArray(data.tasks) ? data.tasks.filter(t => t.status === 'done').length : 0
-  console.log(`[SYNC] GET /api/data → collections=[${collections}] tasks=${taskCount} (${doneCount} done) routines=${routineCount} _lastModified=${data._lastModified || 'none'}`)
+  data._version = getVersion()
   res.json(data)
 })
 
 app.put('/api/data', (req, res) => {
-  if (guardStaleWrite(req, res)) return
-  const data = req.body
-  const collections = Object.keys(data)
-  const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
-  const routineCount = Array.isArray(data.routines) ? data.routines.length : 0
-  const doneCount = Array.isArray(data.tasks) ? data.tasks.filter(t => t.status === 'done').length : 0
-  console.log(`[SYNC] PUT /api/data ← collections=[${collections}] tasks=${taskCount} (${doneCount} done) routines=${routineCount} _lastModified=${data._lastModified || 'none'}`)
-  setAllData(data)
-  res.json({ ok: true })
+  const clientId = req.body._clientId
+  const body = { ...req.body }
+  delete body._clientId
+  delete body._version
+  const newVersion = setAllData(body)
+  broadcast(newVersion, clientId)
+  res.json({ ok: true, version: newVersion })
 })
 
 // POST does the same as PUT — needed because navigator.sendBeacon only sends POST
 app.post('/api/data', (req, res) => {
-  if (guardStaleWrite(req, res)) return
-  const data = req.body
-  const collections = Object.keys(data)
-  const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
-  const doneCount = Array.isArray(data.tasks) ? data.tasks.filter(t => t.status === 'done').length : 0
-  console.log(`[SYNC] POST /api/data (beacon) ← collections=[${collections}] tasks=${taskCount} (${doneCount} done) _lastModified=${data._lastModified || 'none'}`)
-  setAllData(data)
-  res.json({ ok: true })
+  const clientId = req.body._clientId
+  const body = { ...req.body }
+  delete body._clientId
+  delete body._version
+  const newVersion = setAllData(body)
+  broadcast(newVersion, clientId)
+  res.json({ ok: true, version: newVersion })
 })
 
 app.patch('/api/data/:collection', (req, res) => {
   setData(req.params.collection, req.body)
-  res.json({ ok: true })
+  const newVersion = bumpVersion()
+  broadcast(newVersion, null)
+  res.json({ ok: true, version: newVersion })
 })
 
 app.delete('/api/data', (req, res) => {
   clearAllData()
-  res.json({ ok: true })
+  const newVersion = bumpVersion()
+  broadcast(newVersion, null)
+  res.json({ ok: true, version: newVersion })
 })
 
 // --- Claude API proxy ---

@@ -77,18 +77,38 @@ export function getAllData() {
   return result
 }
 
+export function getVersion() {
+  const stmt = db.prepare("SELECT data_json FROM app_data WHERE collection = '_version'")
+  let v = 0
+  if (stmt.step()) {
+    try { v = JSON.parse(stmt.getAsObject().data_json) } catch { /* */ }
+  }
+  stmt.free()
+  return v
+}
+
+export function bumpVersion() {
+  const v = getVersion() + 1
+  db.run(
+    `INSERT INTO app_data (collection, data_json) VALUES ('_version', ?)
+     ON CONFLICT(collection) DO UPDATE SET data_json = excluded.data_json`,
+    [JSON.stringify(v)]
+  )
+  return v
+}
+
 export function setAllData(data) {
   for (const [collection, value] of Object.entries(data)) {
-    const json = JSON.stringify(value)
-    console.log(`[DB] upsert collection="${collection}" size=${json.length} bytes`)
+    if (collection === '_clientId') continue // strip client metadata
     db.run(
       `INSERT INTO app_data (collection, data_json) VALUES (?, ?)
        ON CONFLICT(collection) DO UPDATE SET data_json = excluded.data_json`,
-      [collection, json]
+      [collection, JSON.stringify(value)]
     )
   }
+  const newVersion = bumpVersion()
   persist()
-  console.log(`[DB] persisted to ${dbPath}`)
+  return newVersion
 }
 
 export function clearAllData() {
