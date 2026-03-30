@@ -21,6 +21,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     task.notion_page_id ? { id: task.notion_page_id, url: task.notion_url } : null
   )
   const [size, setSize] = useState(task.size || null)
+  const [sizing, setSizing] = useState(false)
   const [makeRecurring, setMakeRecurring] = useState(false)
   const [cadence, setCadence] = useState('weekly')
   const [customDays, setCustomDays] = useState(14)
@@ -113,6 +114,18 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
       if (inferredSize) setSize(inferredSize)
     } catch { /* ignore */ }
     finally { setPolishing(false) }
+  }
+
+  const handleInferSize = async (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (!title.trim()) return
+    setSizing(true)
+    try {
+      const inferred = await inferSize(title, notes)
+      if (inferred) setSize(inferred)
+    } catch { /* ignore */ }
+    finally { setSizing(false) }
   }
 
   const handleFileSelect = (e) => {
@@ -218,6 +231,9 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               {s}
             </button>
           ))}
+          <button className="polish-btn" onClick={handleInferSize} disabled={sizing || !title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
+            {sizing ? <span className="spinner" /> : '✨'} {sizing ? 'Sizing...' : 'Auto'}
+          </button>
         </div>
 
         {/* Attachments */}

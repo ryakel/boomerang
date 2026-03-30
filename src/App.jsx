@@ -173,9 +173,13 @@ function App() {
   const handleQuickAdd = () => {
     const text = quickText.trim()
     if (text) {
-      addTask(text)
+      const taskId = addTask(text)
       setQuickText('')
       quickRef.current?.blur()
+      // Auto-infer size from title alone
+      inferSize(text).then(inferred => {
+        if (inferred) updateTask(taskId, { size: inferred })
+      }).catch(() => {})
     } else {
       setShowAdd(true)
     }

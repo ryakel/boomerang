@@ -16,6 +16,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
   const [dueDate, setDueDate] = useState(getDefaultDueDate)
   const [polishing, setPolishing] = useState(false)
   const [size, setSize] = useState(null)
+  const [sizing, setSizing] = useState(false)
   const [polishError, setPolishError] = useState(null)
   const [notionState, setNotionState] = useState(null) // null | 'searching' | {action, pages, page_id, reason}
   const [notionCreating, setNotionCreating] = useState(false)
@@ -98,6 +99,18 @@ export default function AddTaskModal({ onAdd, onClose }) {
     } finally {
       setPolishing(false)
     }
+  }
+
+  const handleInferSize = async (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (!title.trim()) return
+    setSizing(true)
+    try {
+      const inferred = await inferSize(title, notes)
+      if (inferred) setSize(inferred)
+    } catch { /* ignore */ }
+    finally { setSizing(false) }
   }
 
   const handleNotionSearch = async () => {
@@ -200,6 +213,9 @@ export default function AddTaskModal({ onAdd, onClose }) {
               {s}
             </button>
           ))}
+          <button className="polish-btn" onClick={handleInferSize} disabled={sizing || !title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
+            {sizing ? <span className="spinner" /> : '✨'} {sizing ? 'Sizing...' : 'Auto'}
+          </button>
         </div>
 
         {/* Attachments */}
