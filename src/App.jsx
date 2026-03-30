@@ -49,12 +49,6 @@ function App() {
   useSync(tasks, routines, useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
     if (data.routines) hydrateRoutines(data.routines)
-    if (data.settings) {
-      localStorage.setItem('boom_settings_v1', JSON.stringify(data.settings))
-    }
-    if (data.labels) {
-      localStorage.setItem('boom_labels_v1', JSON.stringify(data.labels))
-    }
   }, [hydrateTasks, hydrateRoutines]))
 
   // Spawn routine tasks on load and every minute

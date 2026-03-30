@@ -29,6 +29,11 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+// --- Health check ---
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' })
+})
+
 // --- Key status route (tells frontend what's configured via env) ---
 app.get('/api/keys/status', (req, res) => {
   res.json({

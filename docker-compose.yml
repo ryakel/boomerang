@@ -1,3 +1,5 @@
+name: boomerang
+
 services:
   boomerang:
     image: ghcr.io/ryakel/boomerang:latest
@@ -10,6 +12,12 @@ services:
       - DB_PATH=/data/boomerang.db
     volumes:
       - boomerang-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${PORT:-3001}/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
 volumes:
