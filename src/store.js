@@ -296,7 +296,9 @@ export function computeDailyStats(tasks) {
 export function computeStreak(tasks, settings) {
   if (settings.vacation_mode) return settings.streak_current || 0
 
-  // Count consecutive days with at least 1 completion, working backward from today
+  const freeDays = new Set(settings.free_days || [])
+
+  // Count consecutive days with at least 1 completion (or a free day), working backward from today
   const completionDates = new Set()
   for (const t of tasks) {
     if (t.status === 'done' && t.completed_at) {
@@ -306,13 +308,13 @@ export function computeStreak(tasks, settings) {
 
   let streak = 0
   const d = new Date()
-  // Check today first - if nothing done today, check if yesterday had completions
-  if (!completionDates.has(d.toDateString())) {
+  // Check today first - if nothing done today and not a free day, check yesterday
+  if (!completionDates.has(d.toDateString()) && !freeDays.has(d.toISOString().split('T')[0])) {
     d.setDate(d.getDate() - 1)
-    if (!completionDates.has(d.toDateString())) return 0
+    if (!completionDates.has(d.toDateString()) && !freeDays.has(d.toISOString().split('T')[0])) return 0
   }
 
-  while (completionDates.has(d.toDateString())) {
+  while (completionDates.has(d.toDateString()) || freeDays.has(d.toISOString().split('T')[0])) {
     streak++
     d.setDate(d.getDate() - 1)
   }

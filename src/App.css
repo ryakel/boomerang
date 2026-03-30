@@ -1402,13 +1402,18 @@
   margin-top: 4px;
 }
 
+.streak-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
 .vacation-btn {
-  width: 100%;
+  flex: 1;
   padding: 14px;
   border-radius: var(--radius);
   font-size: 14px;
   font-weight: 500;
-  margin-top: 20px;
   background: var(--surface);
   color: var(--text-muted);
 }
@@ -1416,6 +1421,21 @@
 .vacation-btn.active {
   background: rgba(82, 201, 127, 0.12);
   color: #52C97F;
+}
+
+.free-day-btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.free-day-btn.active {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34D399;
 }
 
 .reset-btn {

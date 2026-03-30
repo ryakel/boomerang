@@ -18,6 +18,8 @@ export default function Analytics({ tasks, onClose }) {
   ]
 
   const [vacationMode, setVacationMode] = useState(settings.vacation_mode || false)
+  const todayStr = new Date().toISOString().split('T')[0]
+  const [isFreeDay, setIsFreeDay] = useState(() => (settings.free_days || []).includes(todayStr))
   const [resetState, setResetState] = useState('idle') // 'idle' | 'confirming'
   const resetTimer = useRef(null)
 
@@ -107,12 +109,30 @@ export default function Analytics({ tasks, onClose }) {
         </div>
       </div>
 
-      <button
-        className={`vacation-btn ${vacationMode ? 'active' : ''}`}
-        onClick={handleVacationToggle}
-      >
-        {vacationMode ? 'On vacation' : 'Vacation mode'}
-      </button>
+      <div className="streak-actions-row">
+        <button
+          className={`vacation-btn ${vacationMode ? 'active' : ''}`}
+          onClick={handleVacationToggle}
+        >
+          {vacationMode ? 'On vacation' : 'Vacation mode'}
+        </button>
+        <button
+          className={`free-day-btn ${isFreeDay ? 'active' : ''}`}
+          onClick={() => {
+            const current = loadSettings()
+            const freeDays = new Set(current.free_days || [])
+            if (isFreeDay) {
+              freeDays.delete(todayStr)
+            } else {
+              freeDays.add(todayStr)
+            }
+            saveSettings({ ...current, free_days: [...freeDays] })
+            setIsFreeDay(!isFreeDay)
+          }}
+        >
+          {isFreeDay ? 'Free day on' : 'Free day'}
+        </button>
+      </div>
 
       {vacationMode && settings.vacation_started && (
         <div style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center', marginTop: 6 }}>
