@@ -13,6 +13,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const [notionResult, setNotionResult] = useState(
     task.notion_page_id ? { id: task.notion_page_id, url: task.notion_url } : null
   )
+  const [size, setSize] = useState(task.size || null)
   const [makeRecurring, setMakeRecurring] = useState(false)
   const [cadence, setCadence] = useState('weekly')
   const [customDays, setCustomDays] = useState(14)
@@ -43,6 +44,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         notes: notes.trim(),
         tags: selectedTags,
         due_date: dueDate || null,
+        size: size || null,
         notion_page_id: notionResult?.id || null,
         notion_url: notionResult?.url || null,
       })
@@ -157,6 +159,19 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               onClick={() => toggleTag(label.id)}
             >
               {label.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="settings-label" style={{ marginBottom: 6 }}>Size</div>
+        <div className="size-selector">
+          {['XS', 'S', 'M', 'L', 'XL'].map(s => (
+            <button
+              key={s}
+              className={`size-select-btn size-${s.toLowerCase()}${size === s ? ' selected' : ''}`}
+              onClick={() => setSize(size === s ? null : s)}
+            >
+              {s}
             </button>
           ))}
         </div>

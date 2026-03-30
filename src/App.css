@@ -199,6 +199,27 @@
 .size-l  { background: rgba(255, 98, 64, 0.15); color: #FF6240; }
 .size-xl { background: rgba(244, 114, 182, 0.15); color: #F472B6; }
 
+.size-selector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.size-select-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border: 2px solid transparent;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.size-select-btn.selected {
+  border-color: currentColor;
+}
+
 /* Task notes */
 .task-notes {
   font-size: 13px;
@@ -694,6 +715,12 @@
 
 .settings-group {
   margin-bottom: 28px;
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--surface-hover);
+  margin: 20px 0;
 }
 
 .settings-label {

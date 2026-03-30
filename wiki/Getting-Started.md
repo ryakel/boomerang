@@ -12,14 +12,24 @@ docker run -d \
   --name boomerang \
   -p 3001:3001 \
   -v boomerang-data:/data \
-  ghcr.io/ryakel/boomerang:main
+  ghcr.io/ryakel/boomerang:latest
 ```
 
 Open `http://localhost:3001`.
 
-## Adding API Keys
+## API Keys (Optional)
 
-API keys can be configured two ways:
+Both the Anthropic API key and the Notion integration token are **optional**. The app works fully without them — you just won't have access to AI features or Notion integration.
+
+**Without an Anthropic API key**, the following features are disabled:
+- Polish (AI cleanup of messy notes)
+- What Now (AI task recommendations based on time and energy)
+- Reframe (AI breakdown of repeatedly-snoozed tasks)
+- Date inference (extracting due dates from natural language)
+- Size inference (AI-estimated T-shirt sizing during polish)
+- Smart nudges (AI-generated notification messages)
+
+**Without a Notion token**, Notion search, page linking, and page creation are disabled.
 
 ### Option 1: Environment Variables (server-wide default)
 
@@ -29,20 +39,21 @@ docker run -d \
   -v boomerang-data:/data \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   -e NOTION_INTEGRATION_TOKEN=ntn_... \
-  ghcr.io/ryakel/boomerang:main
+  ghcr.io/ryakel/boomerang:latest
 ```
 
 ### Option 2: In the UI (per-user override)
 
-1. Open Settings (gear icon)
+1. Open Settings (gear icon in the header)
 2. Under "API Keys", paste your Anthropic and/or Notion keys
-3. Keys are stored locally and sent with each request
+3. Keys are stored in your browser's localStorage and sent as request headers
 
-UI keys override environment variables.
+**Priority**: Keys set in the UI take precedence over environment variables. If an environment variable is already set, the Settings UI shows a notice instead of the input field.
 
 ## First Tasks
 
 1. Type a task in the quick-add bar at the bottom and hit Enter
-2. Tap the "+" button with empty text to open the full Add Task modal with notes, labels, and due dates
-3. Tap a task to expand it — Done, Snooze, Extend, and Edit actions appear
-4. Try "What can I do right now?" for AI-powered task suggestions
+2. Tap the "+" button with empty text to open the full Add Task modal with notes, labels, due dates, size, and Notion linking
+3. Tap a task to expand it — Done, Snooze, Extend, Edit, and Backlog actions appear
+4. Hover over a task to see quick-action buttons (edit, done)
+5. Try "What can I do right now?" for AI-powered task suggestions (requires Anthropic API key)

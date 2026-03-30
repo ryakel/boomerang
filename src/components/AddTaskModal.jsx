@@ -146,6 +146,19 @@ export default function AddTaskModal({ onAdd, onClose }) {
           ))}
         </div>
 
+        <div className="settings-label" style={{ marginBottom: 6 }}>Size</div>
+        <div className="size-selector">
+          {['XS', 'S', 'M', 'L', 'XL'].map(s => (
+            <button
+              key={s}
+              className={`size-select-btn size-${s.toLowerCase()}${size === s ? ' selected' : ''}`}
+              onClick={() => setSize(size === s ? null : s)}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
         {/* Notion integration */}
         <div className="settings-label" style={{ marginBottom: 6 }}>Notion</div>
         {notionResult ? (
@@ -186,13 +199,6 @@ export default function AddTaskModal({ onAdd, onClose }) {
           <button className="ci-upload-btn" onClick={handleNotionSearch} disabled={!title.trim()}>
             Find or create Notion page
           </button>
-        )}
-
-        {size && (
-          <div className="size-badge" style={{ marginTop: 12 }}>
-            <span className={`size-pill size-${size.toLowerCase()}`}>{size}</span>
-            <span className="settings-hint" style={{ marginBottom: 0 }}>AI-estimated effort</span>
-          </div>
         )}
 
         <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 12 }}>

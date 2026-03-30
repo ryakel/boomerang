@@ -12,7 +12,7 @@ git clone https://github.com/ryakel/boomerang.git
 cd boomerang
 npm install
 cp .env.example .env
-# Edit .env with your API keys (or add them in the UI later)
+# Edit .env with your API keys (or add them in the UI later — both are optional)
 ```
 
 ## Running Locally
@@ -33,39 +33,39 @@ Open `http://localhost:5173`. The Vite dev server proxies `/api/*` requests to t
 
 ```
 boomerang/
-├── server.js              # Express API server
-├── db.js                  # SQLite data layer
+├── server.js              # Express API server (Claude proxy, Notion proxy, data routes, health check)
+├── db.js                  # SQLite data layer (sql.js, JSON blob storage)
 ├── src/
-│   ├── App.jsx            # Main app component
+│   ├── App.jsx            # Main app component (task list, sections, bottom bar, modals)
 │   ├── App.css            # All styles
-│   ├── api.js             # API client (Claude, Notion, data sync)
-│   ├── store.js           # Data model, localStorage, helpers
+│   ├── api.js             # API client (Claude AI, Notion, key status, data sync)
+│   ├── store.js           # Data model, localStorage, helpers (tasks, routines, settings, labels)
 │   ├── components/
-│   │   ├── AddTaskModal    # Task creation with notes, polish, Notion
-│   │   ├── EditTaskModal   # Task editing with recurring conversion
-│   │   ├── TaskCard        # Individual task display
-│   │   ├── SnoozeModal     # Snooze options
-│   │   ├── ReframeModal    # AI task reframing
-│   │   ├── ExtendModal     # Due date extension
-│   │   ├── WhatNow         # AI task suggestions
-│   │   ├── Routines        # Recurring task management
-│   │   ├── DoneList        # Completion history
-│   │   ├── Settings        # App settings + API keys
-│   │   ├── Toast           # Motivational toasts
-│   │   ├── AdminPanel      # (future) User management
-│   │   └── Logo            # Boomerang icon component
+│   │   ├── AddTaskModal.jsx    # Task creation with notes, polish, size, due date, labels, Notion
+│   │   ├── EditTaskModal.jsx   # Task editing with all fields + convert-to-routine option
+│   │   ├── TaskCard.jsx        # Individual task display with hover actions, expanded actions
+│   │   ├── SnoozeModal.jsx     # Snooze options (tonight, tomorrow, weekend, next week)
+│   │   ├── ReframeModal.jsx    # AI task reframing when snooze threshold exceeded
+│   │   ├── ExtendModal.jsx     # Due date extension (+1d, +1w, +2w, custom date)
+│   │   ├── WhatNow.jsx         # AI task suggestions (time + energy → recommendations)
+│   │   ├── Routines.jsx        # Recurring task management (add, pause, resume, delete)
+│   │   ├── DoneList.jsx        # Completion history grouped by date, with reopen
+│   │   ├── Settings.jsx        # App settings, API keys, labels, notifications, data export/import
+│   │   ├── Toast.jsx           # Motivational completion/reopen toasts
+│   │   └── Logo.jsx            # Boomerang icon SVG component
 │   └── hooks/
-│       ├── useTasks        # Task state management
-│       ├── useRoutines     # Routine state management
-│       ├── useSync         # localStorage ↔ SQLite sync
-│       └── useNotifications # Browser push notifications
+│       ├── useTasks.js         # Task state management (add, complete, snooze, update, uncomplete)
+│       ├── useRoutines.js      # Routine state management (add, delete, pause, spawn)
+│       ├── useSync.js          # localStorage ↔ SQLite sync (hydrate on load, debounced push)
+│       └── useNotifications.js # Browser push notifications (overdue, stale, AI nudges)
 ├── public/
 │   ├── favicon.svg         # Boomerang icon
 │   ├── icon-192.svg        # PWA icon
 │   └── icon-512.svg        # PWA icon
 ├── wiki/                   # Documentation (synced to GitHub Wiki)
-├── Dockerfile              # Multi-stage, multi-arch
-├── docker-compose.yml
+├── Dockerfile              # Multi-stage, multi-arch build with APP_VERSION arg
+├── docker-compose.yml      # Compose config with healthcheck
+├── vite.config.js          # Vite config with PWA plugin, version injection, API proxy
 └── .github/workflows/
     ├── build-and-publish.yml  # CI + GHCR publish
     └── wiki-sync.yml          # Wiki content sync
@@ -83,7 +83,7 @@ boomerang/
 ## Tech Stack
 
 - **Frontend**: React 19, Vite, PWA (vite-plugin-pwa)
-- **Backend**: Express 5, sql.js (SQLite)
+- **Backend**: Express 5, sql.js (SQLite in-process)
 - **AI**: Anthropic Claude API (claude-sonnet-4-20250514)
 - **Integrations**: Notion API
 - **Deployment**: Docker (node:22-alpine), GitHub Actions, GHCR

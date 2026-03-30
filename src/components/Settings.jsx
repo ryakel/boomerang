@@ -104,8 +104,9 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
         <span className="version-label">v{__APP_VERSION__}</span>
       </div>
 
+      {/* Integrations */}
       <div className="settings-group">
-        <div className="settings-label">API Keys</div>
+        <div className="settings-label">Integrations</div>
         {envKeys.anthropic ? (
           <div className="env-key-status">Anthropic API key set by environment variable</div>
         ) : (
@@ -136,8 +137,11 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
         )}
       </div>
 
+      <div className="settings-divider" />
+
+      {/* AI */}
       <div className="settings-group">
-        <div className="settings-label">AI Custom Instructions</div>
+        <div className="settings-label">AI</div>
         <div className="settings-hint">
           How should the AI talk to you? Shapes all AI features.
         </div>
@@ -189,8 +193,13 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
         </div>
       </div>
 
+      <div className="settings-divider" />
+
+      {/* Tasks */}
       <div className="settings-group">
-        <div className="settings-label">Default due date (days from now)</div>
+        <div className="settings-label">Tasks</div>
+
+        <div className="settings-label" style={{ marginTop: 0 }}>Default due date (days from now)</div>
         <div className="settings-hint">0 = no default</div>
         <input
           className="settings-input"
@@ -200,10 +209,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
           value={settings.default_due_days ?? 7}
           onChange={e => update('default_due_days', parseInt(e.target.value) || 0)}
         />
-      </div>
 
-      <div className="settings-group">
-        <div className="settings-label">Staleness threshold (days)</div>
+        <div className="settings-label" style={{ marginTop: 16 }}>Staleness threshold (days)</div>
         <input
           className="settings-input"
           type="number"
@@ -212,10 +219,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
           value={settings.staleness_days}
           onChange={e => update('staleness_days', parseInt(e.target.value) || 1)}
         />
-      </div>
 
-      <div className="settings-group">
-        <div className="settings-label">Reframe trigger (snooze count)</div>
+        <div className="settings-label" style={{ marginTop: 16 }}>Reframe trigger (snooze count)</div>
         <input
           className="settings-input"
           type="number"
@@ -224,7 +229,29 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
           value={settings.reframe_threshold}
           onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
         />
+
+        <div className="settings-label" style={{ marginTop: 16 }}>Task count display</div>
+        <div className="settings-hint">
+          What the denominator in the header task count represents.
+        </div>
+        <div className="notif-freq-row">
+          {[
+            { value: 'all', label: 'All' },
+            { value: 'open', label: 'Open only' },
+            { value: 'active', label: 'Active' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              className={`notif-freq ${(settings.task_count_total || 'all') === opt.value ? 'notif-freq-active' : ''}`}
+              onClick={() => update('task_count_total', opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      <div className="settings-divider" />
 
       {/* Labels */}
       <div className="settings-group">
@@ -269,6 +296,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
           </div>
         </div>
       </div>
+
+      <div className="settings-divider" />
 
       {/* Notifications */}
       <div className="settings-group">
@@ -333,7 +362,9 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
         )}
       </div>
 
-      {/* Data export/import */}
+      <div className="settings-divider" />
+
+      {/* Data */}
       <div className="settings-group">
         <div className="settings-label">Data</div>
         <div className="ci-actions">
@@ -352,6 +383,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
           </button>
         </div>
       </div>
+
+      <div className="settings-divider" />
 
       {/* Danger Zone */}
       <div className="danger-zone">

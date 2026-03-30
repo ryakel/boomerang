@@ -118,6 +118,8 @@ function App() {
     }
   }
 
+  const settings = loadSettings()
+
   const nonSnoozedCount = openTasks.filter(t => {
     if (t.snoozed_until && new Date(t.snoozed_until) > new Date()) return false
     return true
@@ -140,7 +142,14 @@ function App() {
           <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
         </div>
         <div className="header-stats">
-          <span className="open-count">{nonSnoozedCount}/{openTasks.length + tasks.filter(t => t.status === 'done').length} open</span>
+          <span className="open-count">
+            {settings.task_count_total === 'open'
+              ? `${nonSnoozedCount} open`
+              : settings.task_count_total === 'active'
+                ? `${nonSnoozedCount}/${openTasks.length + backlogTasks.length} open`
+                : `${nonSnoozedCount}/${openTasks.length + tasks.filter(t => t.status === 'done').length} open`
+            }
+          </span>
           {todayCount > 0 ? (
             <button className="today-count" onClick={() => setShowDone(true)}>
               {todayCount} done today
