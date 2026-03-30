@@ -47,6 +47,13 @@ export function useServerSync(tasks, routines, onHydrate) {
 
   // Fetch server data and hydrate local state
   const fetchAndHydrate = useCallback((reason) => {
+    // Cancel any pending push — we're about to get fresh server state,
+    // so pushing stale local state would cause a race condition
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+      debounceTimer.current = null
+      remoteLog(`${reason}: cancelled pending push`)
+    }
     remoteLog(`${reason}: fetching /api/data`)
     return fetch('/api/data')
       .then(res => {
