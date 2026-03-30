@@ -53,6 +53,23 @@ export async function inferDate(title, notes = '') {
   return result.date || null
 }
 
+// --- T-shirt sizing ---
+export async function inferSize(title, notes = '') {
+  const system = `You estimate task effort using T-shirt sizes: XS (under 5 min, trivial), S (5-15 min, quick), M (15-60 min, moderate), L (1-4 hours, significant), XL (4+ hours or multi-day). Consider complexity, steps involved, and dependencies. Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL"}`
+
+  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nEstimate the effort size. JSON only.`
+
+  try {
+    const text = await callClaude(system, user)
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const result = JSON.parse(match[0])
+    return result.size || null
+  } catch {
+    return null
+  }
+}
+
 // --- What Now ---
 export async function getWhatNow(tasks, time, energy) {
   const openTasks = tasks

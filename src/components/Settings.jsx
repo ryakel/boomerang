@@ -190,6 +190,19 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
       </div>
 
       <div className="settings-group">
+        <div className="settings-label">Default due date (days from now)</div>
+        <div className="settings-hint">0 = no default</div>
+        <input
+          className="settings-input"
+          type="number"
+          min="0"
+          max="90"
+          value={settings.default_due_days ?? 7}
+          onChange={e => update('default_due_days', parseInt(e.target.value) || 0)}
+        />
+      </div>
+
+      <div className="settings-group">
         <div className="settings-label">Staleness threshold (days)</div>
         <input
           className="settings-input"

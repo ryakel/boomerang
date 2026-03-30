@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = {
   notif_overdue: true,
   notif_stale: true,
   notif_nudge: true,
+  default_due_days: 7,
   custom_instructions: '',
   anthropic_api_key: '',
   notion_token: '',
@@ -79,6 +80,7 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     notion_page_id: null,
     notion_url: null,
     routine_id: null,
+    size: null,
   }
 }
 
@@ -209,6 +211,15 @@ export function formatSnoozeLabel(dateStr) {
 export function daysOld(task) {
   const elapsed = Date.now() - new Date(task.last_touched).getTime()
   return Math.floor(elapsed / 86400000)
+}
+
+export function getDefaultDueDate() {
+  const settings = loadSettings()
+  const days = settings.default_due_days
+  if (!days || days <= 0) return ''
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
 }
 
 export { LABEL_COLORS, RECURRENCE_OPTIONS }

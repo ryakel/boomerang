@@ -42,6 +42,7 @@ function App() {
   const [extendTarget, setExtendTarget] = useState(null)
   const [quickText, setQuickText] = useState('')
   const [toast, setToast] = useState(null)
+  const [backlogOpen, setBacklogOpen] = useState(false)
   const quickRef = useRef(null)
 
   const labels = loadLabels()
@@ -93,6 +94,10 @@ function App() {
     return list.filter(t => t.tags.includes(activeFilter))
   }
 
+  const handleBacklog = useCallback((id, toBacklog) => {
+    updateTask(id, { status: toBacklog ? 'backlog' : 'open', last_touched: new Date().toISOString() })
+  }, [updateTask])
+
   const handleSnooze = (task) => {
     const settings = loadSettings()
     if (task.snooze_count >= settings.reframe_threshold) {
@@ -118,9 +123,11 @@ function App() {
     return true
   }).length
 
+  const backlogTasks = tasks.filter(t => t.status === 'backlog')
   const filteredStale = filterTasks(staleTasks)
   const filteredUpNext = filterTasks(upNextTasks)
   const filteredSnoozed = filterTasks(snoozedTasks)
+  const filteredBacklog = filterTasks(backlogTasks)
 
   return (
     <div className="app">
@@ -183,7 +190,7 @@ function App() {
           <>
             <div className="section-label">Stale</div>
             {filteredStale.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} />
             ))}
           </>
         )}
@@ -192,7 +199,7 @@ function App() {
           <>
             <div className="section-label">Up Next</div>
             {filteredUpNext.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} />
             ))}
           </>
         )}
@@ -201,7 +208,19 @@ function App() {
           <>
             <div className="section-label">Snoozed</div>
             {filteredSnoozed.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} />
+            ))}
+          </>
+        )}
+
+        {filteredBacklog.length > 0 && (
+          <>
+            <button className="backlog-toggle" onClick={() => setBacklogOpen(!backlogOpen)}>
+              <span className={`backlog-arrow ${backlogOpen ? 'open' : ''}`}>▶</span>
+              Backlog ({filteredBacklog.length})
+            </button>
+            {backlogOpen && filteredBacklog.map(t => (
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} />
             ))}
           </>
         )}

@@ -108,7 +108,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   return (
     <div className="sheet-overlay" onClick={onClose}>
       <div className="sheet" onClick={e => e.stopPropagation()}>
-        <div className="sheet-handle" />
+        <button className="sheet-handle" onClick={() => { if (title.trim()) handleSubmit(); else onClose(); }} />
         <div className="sheet-title">Edit Task</div>
 
         <input

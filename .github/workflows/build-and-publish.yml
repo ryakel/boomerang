@@ -97,6 +97,7 @@ jobs:
           sbom: true
           provenance: mode=max
           platforms: linux/amd64,linux/arm64
+          build-args: APP_VERSION=${{ steps.tag.outputs.tag }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
           cache-from: type=gha
@@ -112,6 +113,7 @@ jobs:
           sbom: true
           provenance: mode=max
           platforms: linux/amd64,linux/arm64
+          build-args: APP_VERSION=${{ steps.tag_version.outputs.new_tag }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag_version.outputs.new_tag }}

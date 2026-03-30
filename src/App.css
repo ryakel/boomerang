@@ -177,6 +177,28 @@
   opacity: 0.85;
 }
 
+/* Size pills */
+.size-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.size-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.size-xs { background: rgba(82, 201, 127, 0.15); color: #52C97F; }
+.size-s  { background: rgba(74, 158, 255, 0.15); color: #4A9EFF; }
+.size-m  { background: rgba(255, 179, 71, 0.15); color: #FFB347; }
+.size-l  { background: rgba(255, 98, 64, 0.15); color: #FF6240; }
+.size-xl { background: rgba(244, 114, 182, 0.15); color: #F472B6; }
+
 /* Task notes */
 .task-notes {
   font-size: 13px;
@@ -235,6 +257,33 @@
 .action-btn.edit {
   background: rgba(138, 138, 154, 0.15);
   color: var(--text-muted);
+}
+
+.action-btn.backlog {
+  background: rgba(90, 90, 106, 0.15);
+  color: var(--text-dim);
+}
+
+/* Backlog section */
+.backlog-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.backlog-arrow {
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+
+.backlog-arrow.open {
+  transform: rotate(90deg);
 }
 
 /* Hover action buttons */

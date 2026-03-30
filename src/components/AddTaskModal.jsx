@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
-import { loadLabels, loadSettings } from '../store'
-import { polishNotes, inferDate, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
+import { loadLabels, loadSettings, getDefaultDueDate } from '../store'
+import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
 export default function AddTaskModal({ onAdd, onClose }) {
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [selectedTags, setSelectedTags] = useState([])
-  const [dueDate, setDueDate] = useState('')
+  const [dueDate, setDueDate] = useState(getDefaultDueDate)
   const [polishing, setPolishing] = useState(false)
+  const [size, setSize] = useState(null)
   const [polishError, setPolishError] = useState(null)
   const [notionState, setNotionState] = useState(null) // null | 'searching' | {action, pages, page_id, reason}
   const [notionCreating, setNotionCreating] = useState(false)
@@ -25,7 +26,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
   const handleSubmit = () => {
     if (!title.trim()) return
-    onAdd(title.trim(), selectedTags, dueDate || null, notes.trim(), notionResult)
+    onAdd(title.trim(), selectedTags, dueDate || null, notes.trim(), notionResult, size)
     onClose()
   }
 
@@ -42,13 +43,13 @@ export default function AddTaskModal({ onAdd, onClose }) {
       setTitle(newTitle)
       setNotes(newNotes)
 
-      // Infer date from polished content
-      if (!dueDate) {
-        try {
-          const inferred = await inferDate(newTitle, newNotes)
-          if (inferred) setDueDate(inferred)
-        } catch { /* date inference is optional */ }
-      }
+      // Infer date and size from polished content
+      const [inferredDate, inferredSize] = await Promise.all([
+        !dueDate ? inferDate(newTitle, newNotes).catch(() => null) : Promise.resolve(null),
+        inferSize(newTitle, newNotes),
+      ])
+      if (inferredDate) setDueDate(inferredDate)
+      if (inferredSize) setSize(inferredSize)
     } catch (err) {
       setPolishError(err.message)
     } finally {
@@ -92,7 +93,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
   return (
     <div className="sheet-overlay" onClick={onClose}>
       <div className="sheet" onClick={e => e.stopPropagation()}>
-        <div className="sheet-handle" />
+        <button className="sheet-handle" onClick={() => { if (title.trim()) handleSubmit(); else onClose(); }} />
         <div className="sheet-title">Add Task</div>
 
         <input
@@ -187,7 +188,14 @@ export default function AddTaskModal({ onAdd, onClose }) {
           </button>
         )}
 
-        <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
+        {size && (
+          <div className="size-badge" style={{ marginTop: 12 }}>
+            <span className={`size-pill size-${size.toLowerCase()}`}>{size}</span>
+            <span className="settings-hint" style={{ marginBottom: 0 }}>AI-estimated effort</span>
+          </div>
+        )}
+
+        <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 12 }}>
           Add Task
         </button>
       </div>

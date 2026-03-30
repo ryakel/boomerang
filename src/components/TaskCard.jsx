@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld } from '../store'
 
-export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend }) {
+export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog }) {
   const [expanded, setExpanded] = useState(false)
 
   const stale = isStale(task)
@@ -28,6 +28,9 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend 
       <div className="task-card-top">
         <span className="task-title">{task.title}</span>
         <div className="task-card-right">
+          {task.size && (
+            <span className={`size-pill size-${task.size.toLowerCase()}`}>{task.size}</span>
+          )}
           {metaText && (
             <span className={`task-meta ${overdue && !snoozed ? 'task-meta-overdue' : ''}`}>
               {metaText}
@@ -95,6 +98,21 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend 
             >
               Edit
             </button>
+            {task.status !== 'backlog' ? (
+              <button
+                className="action-btn backlog"
+                onClick={(e) => { e.stopPropagation(); onBacklog(task.id, true) }}
+              >
+                Backlog
+              </button>
+            ) : (
+              <button
+                className="action-btn snooze"
+                onClick={(e) => { e.stopPropagation(); onBacklog(task.id, false) }}
+              >
+                Activate
+              </button>
+            )}
           </div>
         </>
       )}
