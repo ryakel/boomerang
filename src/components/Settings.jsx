@@ -101,7 +101,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
       <div className="settings-header">
         <button className="settings-back" onClick={onClose}>← Back</button>
         <div className="sheet-title" style={{ margin: 0 }}>Settings</div>
-        <span className="version-label">v{__APP_VERSION__}</span>
+        <span className="version-label">{__APP_VERSION__}</span>
       </div>
 
       {/* Integrations */}
@@ -230,25 +230,18 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
           onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
         />
 
-        <div className="settings-label" style={{ marginTop: 16 }}>Task count display</div>
+        <div className="settings-label" style={{ marginTop: 16 }}>Max open tasks</div>
         <div className="settings-hint">
-          What the denominator in the header task count represents.
+          Warns when you exceed this. 0 = no limit.
         </div>
-        <div className="notif-freq-row">
-          {[
-            { value: 'all', label: 'All' },
-            { value: 'open', label: 'Open only' },
-            { value: 'active', label: 'Active' },
-          ].map(opt => (
-            <button
-              key={opt.value}
-              className={`notif-freq ${(settings.task_count_total || 'all') === opt.value ? 'notif-freq-active' : ''}`}
-              onClick={() => update('task_count_total', opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <input
+          className="settings-input"
+          type="number"
+          min="0"
+          max="100"
+          value={settings.max_open_tasks ?? 10}
+          onChange={e => update('max_open_tasks', parseInt(e.target.value) || 0)}
+        />
       </div>
 
       <div className="settings-divider" />

@@ -64,6 +64,17 @@ export function useNotifications(tasks) {
       lastCheck.current = now
 
       const openTasks = tasks.filter(t => t.status === 'open')
+      const nonSnoozed = openTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
+
+      // Check for too many open tasks
+      if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {
+        new Notification('Too many open tasks', {
+          body: `You have ${nonSnoozed.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`,
+          icon: '/icon-192.png',
+          tag: 'too-many',
+        })
+        return
+      }
 
       // Check for overdue tasks
       if (settings.notif_overdue !== false) {

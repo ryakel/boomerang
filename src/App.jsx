@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import './App.css'
 import { loadLabels, loadSettings, saveSettings } from './store'
+import { inferSize } from './api'
 import { useTasks } from './hooks/useTasks'
 import { useRoutines } from './hooks/useRoutines'
 import TaskCard from './components/TaskCard'
@@ -142,13 +143,8 @@ function App() {
           <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
         </div>
         <div className="header-stats">
-          <span className="open-count">
-            {settings.task_count_total === 'open'
-              ? `${nonSnoozedCount} open`
-              : settings.task_count_total === 'active'
-                ? `${nonSnoozedCount}/${openTasks.length + backlogTasks.length} open`
-                : `${nonSnoozedCount}/${openTasks.length + tasks.filter(t => t.status === 'done').length} open`
-            }
+          <span className={`open-count ${settings.max_open_tasks && nonSnoozedCount > settings.max_open_tasks ? 'open-count-warn' : ''}`}>
+            {nonSnoozedCount} open
           </span>
           {todayCount > 0 ? (
             <button className="today-count" onClick={() => setShowDone(true)}>
@@ -258,7 +254,15 @@ function App() {
       </div>
 
       {showAdd && (
-        <AddTaskModal onAdd={addTask} onClose={() => setShowAdd(false)} />
+        <AddTaskModal onAdd={(title, tags, dueDate, notes, notion, size) => {
+          const taskId = addTask(title, tags, dueDate, notes, notion, size)
+          // Auto-infer size if not manually set
+          if (!size && title) {
+            inferSize(title, notes).then(inferred => {
+              if (inferred) updateTask(taskId, { size: inferred })
+            }).catch(() => {})
+          }
+        }} onClose={() => setShowAdd(false)} />
       )}
 
       {snoozeTarget && (

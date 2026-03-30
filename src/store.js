@@ -13,7 +13,7 @@ const DEFAULT_SETTINGS = {
   notif_stale: true,
   notif_nudge: true,
   default_due_days: 7,
-  task_count_total: 'all',
+  max_open_tasks: 10,
   custom_instructions: '',
   anthropic_api_key: '',
   notion_token: '',

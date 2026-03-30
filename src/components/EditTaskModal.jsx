@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS } from '../store'
-import { polishNotes, inferDate, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
+import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
 export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose }) {
   const [title, setTitle] = useState(task.title)
@@ -94,12 +94,12 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
       const newNotes = result.notes || notes
       setTitle(newTitle)
       setNotes(newNotes)
-      if (!dueDate) {
-        try {
-          const inferred = await inferDate(newTitle, newNotes)
-          if (inferred) setDueDate(inferred)
-        } catch { /* date inference is optional */ }
-      }
+      const [inferredDate, inferredSize] = await Promise.all([
+        !dueDate ? inferDate(newTitle, newNotes).catch(() => null) : Promise.resolve(null),
+        !size ? inferSize(newTitle, newNotes) : Promise.resolve(null),
+      ])
+      if (inferredDate) setDueDate(inferredDate)
+      if (inferredSize) setSize(inferredSize)
     } catch { /* ignore */ }
     finally { setPolishing(false) }
   }

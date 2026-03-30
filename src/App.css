@@ -49,6 +49,11 @@
   color: var(--text-muted);
 }
 
+.open-count-warn {
+  color: #FF3B30;
+  font-weight: 600;
+}
+
 .today-count {
   font-size: 12px;
   font-weight: 600;

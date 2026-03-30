@@ -22,6 +22,7 @@ export function useTasks() {
     }
     if (size) task.size = size
     setTasks(prev => [task, ...prev])
+    return task.id
   }, [])
 
   const addSpawnedTasks = useCallback((spawnedTasks) => {
