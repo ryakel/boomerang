@@ -12,6 +12,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
     <title>Boomerang</title>
+    <script>
+      // Apply saved theme before first paint to prevent flash
+      try {
+        var s = JSON.parse(localStorage.getItem('boom_settings_v1'))
+        if (s && s.theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light')
+          document.querySelector('meta[name="theme-color"]').content = '#F5F5F7'
+        }
+      } catch(e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

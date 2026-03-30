@@ -73,7 +73,7 @@
   background: var(--surface);
   border-radius: var(--radius-sm);
   padding: 4px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 16px var(--shadow);
   z-index: 50;
   min-width: 120px;
 }
@@ -507,7 +507,7 @@
 .sheet-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-bg);
   z-index: 100;
   display: flex;
   align-items: flex-end;
@@ -853,6 +853,25 @@
   letter-spacing: 0.5px;
   color: var(--text-dim);
   margin-bottom: 8px;
+}
+
+.theme-toggle-row {
+  display: flex;
+  gap: 8px;
+}
+.theme-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+.theme-btn-active {
+  background: var(--accent);
+  color: #fff;
 }
 
 .settings-input {
@@ -1217,7 +1236,7 @@
   min-width: 220px;
   max-width: 340px;
   animation: toastIn 0.3s ease;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px var(--shadow);
 }
 
 .toast-reopen {

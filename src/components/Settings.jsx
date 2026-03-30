@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS } from '../store'
 import { getKeyStatus } from '../api'
 
-const TABS = ['Tasks', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
+const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
 export default function Settings({ onClose, onClearCompleted, onClearAll }) {
   const [activeTab, setActiveTab] = useState('Tasks')
@@ -126,10 +126,34 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
         ))}
       </div>
 
-      {/* Tasks */}
-      {activeTab === 'Tasks' && (
+      {/* General */}
+      {activeTab === 'General' && (
         <div className="settings-group">
-          <div className="settings-label">Default due date (days from now)</div>
+          <div className="settings-label">Theme</div>
+          <div className="theme-toggle-row">
+            <button
+              className={`theme-btn ${(settings.theme || 'dark') === 'dark' ? 'theme-btn-active' : ''}`}
+              onClick={() => {
+                update('theme', 'dark')
+                document.documentElement.setAttribute('data-theme', 'dark')
+                document.querySelector('meta[name="theme-color"]').content = '#0B0B0F'
+              }}
+            >
+              Dark
+            </button>
+            <button
+              className={`theme-btn ${settings.theme === 'light' ? 'theme-btn-active' : ''}`}
+              onClick={() => {
+                update('theme', 'light')
+                document.documentElement.setAttribute('data-theme', 'light')
+                document.querySelector('meta[name="theme-color"]').content = '#F5F5F7'
+              }}
+            >
+              Light
+            </button>
+          </div>
+
+          <div className="settings-label" style={{ marginTop: 16 }}>Default due date (days from now)</div>
           <div className="settings-hint">0 = no default</div>
           <input
             className="settings-input"

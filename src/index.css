@@ -20,6 +20,21 @@
   --radius-sm: 8px;
   --font-body: 'DM Sans', sans-serif;
   --font-display: 'Syne', sans-serif;
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --shadow: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] {
+  --bg: #F5F5F7;
+  --surface: #FFFFFF;
+  --surface-hover: #E8E8EC;
+  --accent: #E8542E;
+  --accent-hover: #D4421C;
+  --text: #1A1A1F;
+  --text-muted: #6B6B7A;
+  --text-dim: #9A9AAA;
+  --overlay-bg: rgba(0, 0, 0, 0.3);
+  --shadow: rgba(0, 0, 0, 0.12);
 }
 
 html, body, #root {
