@@ -3,7 +3,7 @@ import cors from 'cors'
 import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
-import { initDb, getAllData, setAllData, setData, clearAllData } from './db.js'
+import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bumpVersion } from './db.js'
 
 // --- Environment (fallback keys — user can override via UI) ---
 let envApiKey = process.env.ANTHROPIC_API_KEY
@@ -34,6 +34,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
 })
 
+// --- Client log relay ---
+app.post('/api/log', (req, res) => {
+  const lines = req.body?.lines
+  if (Array.isArray(lines)) {
+    for (const line of lines) console.log(`[CLIENT] ${line}`)
+  }
+  res.json({ ok: true })
+})
+
 // --- Key status route (tells frontend what's configured via env) ---
 app.get('/api/keys/status', (req, res) => {
   res.json({
@@ -42,24 +51,80 @@ app.get('/api/keys/status', (req, res) => {
   })
 })
 
+// --- SSE (Server-Sent Events) for cross-client sync ---
+const sseClients = new Set()
+
+function broadcast(version, sourceClientId) {
+  const msg = JSON.stringify({ type: 'update', version, sourceClientId })
+  for (const client of sseClients) {
+    client.write(`data: ${msg}\n\n`)
+  }
+  console.log(`[SSE] broadcast v${version} to ${sseClients.size} client(s) (source: ${sourceClientId || 'server'})`)
+}
+
+app.get('/api/events', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no', // disable nginx buffering
+  })
+  // Send current version on connect
+  const version = getVersion()
+  res.write(`data: ${JSON.stringify({ type: 'connected', version })}\n\n`)
+  sseClients.add(res)
+  console.log(`[SSE] client connected (${sseClients.size} total), version=${version}`)
+
+  // Keep-alive ping every 30s to prevent proxy timeouts
+  const keepAlive = setInterval(() => res.write(': ping\n\n'), 30000)
+
+  req.on('close', () => {
+    clearInterval(keepAlive)
+    sseClients.delete(res)
+    console.log(`[SSE] client disconnected (${sseClients.size} remaining)`)
+  })
+})
+
 // --- Data routes ---
 app.get('/api/data', (req, res) => {
-  res.json(getAllData())
+  const data = getAllData()
+  data._version = getVersion()
+  res.json(data)
 })
 
 app.put('/api/data', (req, res) => {
-  setAllData(req.body)
-  res.json({ ok: true })
+  const clientId = req.body._clientId
+  const body = { ...req.body }
+  delete body._clientId
+  delete body._version
+  const newVersion = setAllData(body)
+  broadcast(newVersion, clientId)
+  res.json({ ok: true, version: newVersion })
+})
+
+// POST does the same as PUT — needed because navigator.sendBeacon only sends POST
+app.post('/api/data', (req, res) => {
+  const clientId = req.body._clientId
+  const body = { ...req.body }
+  delete body._clientId
+  delete body._version
+  const newVersion = setAllData(body)
+  broadcast(newVersion, clientId)
+  res.json({ ok: true, version: newVersion })
 })
 
 app.patch('/api/data/:collection', (req, res) => {
   setData(req.params.collection, req.body)
-  res.json({ ok: true })
+  const newVersion = bumpVersion()
+  broadcast(newVersion, null)
+  res.json({ ok: true, version: newVersion })
 })
 
 app.delete('/api/data', (req, res) => {
   clearAllData()
-  res.json({ ok: true })
+  const newVersion = bumpVersion()
+  broadcast(newVersion, null)
+  res.json({ ok: true, version: newVersion })
 })
 
 // --- Claude API proxy ---
