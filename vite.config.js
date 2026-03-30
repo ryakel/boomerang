@@ -23,6 +23,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        // Never let the service worker handle API routes
+        navigateFallbackDenylist: [/^\/api/],
+      },
       manifest: {
         name: 'Boomerang',
         short_name: 'Boomerang',

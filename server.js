@@ -54,6 +54,23 @@ app.get('/api/keys/status', (req, res) => {
 })
 
 // --- Data routes ---
+
+// Guard: reject writes from stale cached code that would overwrite newer data.
+// Current code always includes _lastModified; old cached service worker JS does not.
+function guardStaleWrite(req, res) {
+  const incoming = req.body
+  if (!incoming._lastModified) {
+    // No timestamp → stale cached code. Check if server already has newer data.
+    const current = getAllData()
+    if (current._lastModified) {
+      console.log(`[SYNC] REJECTED stale ${req.method} /api/data (no _lastModified, server has ${current._lastModified})`)
+      res.json({ ok: true }) // 200 so old code doesn't retry
+      return true
+    }
+  }
+  return false
+}
+
 app.get('/api/data', (req, res) => {
   const data = getAllData()
   const collections = Object.keys(data)
@@ -65,6 +82,7 @@ app.get('/api/data', (req, res) => {
 })
 
 app.put('/api/data', (req, res) => {
+  if (guardStaleWrite(req, res)) return
   const data = req.body
   const collections = Object.keys(data)
   const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
@@ -77,6 +95,7 @@ app.put('/api/data', (req, res) => {
 
 // POST does the same as PUT — needed because navigator.sendBeacon only sends POST
 app.post('/api/data', (req, res) => {
+  if (guardStaleWrite(req, res)) return
   const data = req.body
   const collections = Object.keys(data)
   const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
