@@ -33,6 +33,9 @@ const DEFAULT_LABELS = [
   { id: 'follow-up', name: 'follow-up', color: '#FFB347' },
 ]
 
+const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }
+const SIZE_POINTS = { XS: 1, S: 2, M: 5, L: 10, XL: 20 }
+
 const LABEL_COLORS = [
   '#4A9EFF', '#52C97F', '#FFB347', '#FF6240', '#A78BFA',
   '#F472B6', '#34D399', '#FBBF24', '#60A5FA', '#FB923C',
@@ -231,8 +234,6 @@ export function getDefaultDueDate() {
   return d.toISOString().split('T')[0]
 }
 
-const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }
-
 export function sortTasks(list, sortBy) {
   const sorted = [...list]
   switch (sortBy) {
@@ -261,8 +262,6 @@ export function sortTasks(list, sortBy) {
   }
   return sorted
 }
-
-const SIZE_POINTS = { XS: 1, S: 2, M: 5, L: 10, XL: 20 }
 
 export function computeDailyStats(tasks) {
   const todayStr = new Date().toDateString()
