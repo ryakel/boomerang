@@ -33,13 +33,17 @@ export function useTasks() {
 
   const completeTask = useCallback((id) => {
     let completed = null
-    setTasks(prev => prev.map(t => {
-      if (t.id === id) {
-        completed = { ...t, status: 'done', completed_at: new Date().toISOString() }
-        return completed
-      }
-      return t
-    }))
+    setTasks(prev => {
+      const next = prev.map(t => {
+        if (t.id === id) {
+          completed = { ...t, status: 'done', completed_at: new Date().toISOString() }
+          return completed
+        }
+        return t
+      })
+      console.log(`[TASKS] completeTask id=${id.slice(0, 8)} → done count: ${next.filter(t => t.status === 'done').length}/${next.length}`)
+      return next
+    })
     return completed
   }, [])
 
@@ -65,6 +69,7 @@ export function useTasks() {
   }, [])
 
   const updateTask = useCallback((id, updates) => {
+    console.log(`[TASKS] updateTask id=${id.slice(0, 8)} keys=[${Object.keys(updates)}]`)
     setTasks(prev => prev.map(t =>
       t.id === id ? { ...t, ...updates, last_touched: new Date().toISOString() } : t
     ))
@@ -86,6 +91,8 @@ export function useTasks() {
 
   const hydrateTasks = useCallback((data) => {
     if (Array.isArray(data)) {
+      const doneCount = data.filter(t => t.status === 'done').length
+      console.log(`[TASKS] hydrateTasks ← ${data.length} tasks (${doneCount} done)`)
       setTasks(data)
     }
   }, [])

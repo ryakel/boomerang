@@ -44,17 +44,34 @@ app.get('/api/keys/status', (req, res) => {
 
 // --- Data routes ---
 app.get('/api/data', (req, res) => {
-  res.json(getAllData())
+  const data = getAllData()
+  const collections = Object.keys(data)
+  const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
+  const routineCount = Array.isArray(data.routines) ? data.routines.length : 0
+  const doneCount = Array.isArray(data.tasks) ? data.tasks.filter(t => t.status === 'done').length : 0
+  console.log(`[SYNC] GET /api/data → collections=[${collections}] tasks=${taskCount} (${doneCount} done) routines=${routineCount} _lastModified=${data._lastModified || 'none'}`)
+  res.json(data)
 })
 
 app.put('/api/data', (req, res) => {
-  setAllData(req.body)
+  const data = req.body
+  const collections = Object.keys(data)
+  const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
+  const routineCount = Array.isArray(data.routines) ? data.routines.length : 0
+  const doneCount = Array.isArray(data.tasks) ? data.tasks.filter(t => t.status === 'done').length : 0
+  console.log(`[SYNC] PUT /api/data ← collections=[${collections}] tasks=${taskCount} (${doneCount} done) routines=${routineCount} _lastModified=${data._lastModified || 'none'}`)
+  setAllData(data)
   res.json({ ok: true })
 })
 
 // POST does the same as PUT — needed because navigator.sendBeacon only sends POST
 app.post('/api/data', (req, res) => {
-  setAllData(req.body)
+  const data = req.body
+  const collections = Object.keys(data)
+  const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
+  const doneCount = Array.isArray(data.tasks) ? data.tasks.filter(t => t.status === 'done').length : 0
+  console.log(`[SYNC] POST /api/data (beacon) ← collections=[${collections}] tasks=${taskCount} (${doneCount} done) _lastModified=${data._lastModified || 'none'}`)
+  setAllData(data)
   res.json({ ok: true })
 })
 

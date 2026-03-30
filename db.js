@@ -79,13 +79,16 @@ export function getAllData() {
 
 export function setAllData(data) {
   for (const [collection, value] of Object.entries(data)) {
+    const json = JSON.stringify(value)
+    console.log(`[DB] upsert collection="${collection}" size=${json.length} bytes`)
     db.run(
       `INSERT INTO app_data (collection, data_json) VALUES (?, ?)
        ON CONFLICT(collection) DO UPDATE SET data_json = excluded.data_json`,
-      [collection, JSON.stringify(value)]
+      [collection, json]
     )
   }
   persist()
+  console.log(`[DB] persisted to ${dbPath}`)
 }
 
 export function clearAllData() {
