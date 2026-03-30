@@ -100,7 +100,12 @@ export async function getWhatNow(tasks, time, energy) {
     .map(t => `- "${t.title}" (${t.size || 'unsized'}, ${t.tags.join(', ') || 'no tags'}, ${Math.floor((Date.now() - new Date(t.last_touched).getTime()) / 86400000)}d old, snoozed ${t.snooze_count}x)`)
     .join('\n')
 
-  const system = `You are a helpful assistant for someone with ADHD. You help them pick the right task to work on right now. Be warm, direct, and practical. No fluff. Never be preachy or condescending. Tasks have t-shirt sizes (XS/S/M/L/XL) — match size to their available time and energy (e.g. low energy → suggest XS/S tasks). Respond with JSON only — an array of 1-3 objects with "task" (exact task title from the list) and "reason" (one sentence why this is a good pick right now).`
+  const system = `You are a helpful assistant for someone with ADHD. You help them pick the right task to work on right now. Be warm, direct, and practical. No fluff. Never be preachy or condescending.
+
+Tasks have t-shirt sizes: XS (~5 min), S (~15 min), M (~30-60 min), L (~half day), XL (~full day+).
+HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.
+
+Respond with JSON only — an array of 1-3 objects with "task" (exact task title from the list) and "reason" (one sentence why this is a good pick right now).`
 
   const user = `Here are my open tasks:\n${openTasks}\n\nI have ${time} and my energy is "${energy}".\n\nWhich 1-3 tasks should I tackle? Return JSON array only.`
 
