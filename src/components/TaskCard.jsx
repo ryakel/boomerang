@@ -1,8 +1,17 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld } from '../store'
 
 export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog, onFindRelated }) {
   const [expanded, setExpanded] = useState(false)
+  const [scrolledEnd, setScrolledEnd] = useState(false)
+  const actionsRef = useRef(null)
+
+  const handleActionsScroll = useCallback(() => {
+    const el = actionsRef.current
+    if (!el) return
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4
+    setScrolledEnd(atEnd)
+  }, [])
 
   const stale = isStale(task)
   const snoozed = isSnoozed(task)
@@ -91,56 +100,58 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
               Open in Notion ↗
             </a>
           )}
-          <div className="task-actions">
-            <button
-              className="action-btn done"
-              onClick={(e) => { e.stopPropagation(); onComplete(task.id) }}
-            >
-              Done ✓
-            </button>
-            <button
-              className="action-btn snooze"
-              onClick={(e) => { e.stopPropagation(); onSnooze(task) }}
-            >
-              Snooze
-            </button>
-            {task.due_date && (
+          <div className={`task-actions-wrap ${scrolledEnd ? 'scrolled-end' : ''}`}>
+            <div className="task-actions" ref={actionsRef} onScroll={handleActionsScroll}>
               <button
-                className="action-btn extend"
-                onClick={(e) => { e.stopPropagation(); onExtend(task) }}
+                className="action-btn done"
+                onClick={(e) => { e.stopPropagation(); onComplete(task.id) }}
               >
-                Extend
+                Done ✓
               </button>
-            )}
-            <button
-              className="action-btn edit"
-              onClick={(e) => { e.stopPropagation(); setExpanded(false); onEdit(task) }}
-            >
-              Edit
-            </button>
-            {task.status !== 'backlog' ? (
-              <button
-                className="action-btn backlog"
-                onClick={(e) => { e.stopPropagation(); onBacklog(task.id, true) }}
-              >
-                Backlog
-              </button>
-            ) : (
               <button
                 className="action-btn snooze"
-                onClick={(e) => { e.stopPropagation(); onBacklog(task.id, false) }}
+                onClick={(e) => { e.stopPropagation(); onSnooze(task) }}
               >
-                Activate
+                Snooze
               </button>
-            )}
-            {!task.notion_page_id && onFindRelated && (
+              {task.due_date && (
+                <button
+                  className="action-btn extend"
+                  onClick={(e) => { e.stopPropagation(); onExtend(task) }}
+                >
+                  Extend
+                </button>
+              )}
               <button
-                className="action-btn find-related"
-                onClick={(e) => { e.stopPropagation(); onFindRelated(task) }}
+                className="action-btn edit"
+                onClick={(e) => { e.stopPropagation(); setExpanded(false); onEdit(task) }}
               >
-                Find related
+                Edit
               </button>
-            )}
+              {task.status !== 'backlog' ? (
+                <button
+                  className="action-btn backlog"
+                  onClick={(e) => { e.stopPropagation(); onBacklog(task.id, true) }}
+                >
+                  Backlog
+                </button>
+              ) : (
+                <button
+                  className="action-btn snooze"
+                  onClick={(e) => { e.stopPropagation(); onBacklog(task.id, false) }}
+                >
+                  Activate
+                </button>
+              )}
+              {!task.notion_page_id && onFindRelated && (
+                <button
+                  className="action-btn find-related"
+                  onClick={(e) => { e.stopPropagation(); onFindRelated(task) }}
+                >
+                  Find related
+                </button>
+              )}
+            </div>
           </div>
         </>
       )}

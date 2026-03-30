@@ -294,7 +294,14 @@ export function computeDailyStats(tasks) {
 }
 
 export function computeStreak(tasks, settings) {
-  if (settings.vacation_mode) return settings.streak_current || 0
+  if (settings.vacation_mode) {
+    // Auto-expire vacation if end date has passed
+    if (settings.vacation_end && new Date() >= new Date(settings.vacation_end)) {
+      // Expired — treat vacation days as free days for streak calculation below
+    } else {
+      return settings.streak_current || 0
+    }
+  }
 
   const freeDays = new Set(settings.free_days || [])
 
