@@ -39,6 +39,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   )
   const [trelloPushing, setTrelloPushing] = useState(false)
   const [trelloLists, setTrelloLists] = useState([])
+  const [trelloConfigured] = useState(() => {
+    const s = loadSettings()
+    return !!(s.trello_board_id || s.trello_list_mapping)
+  })
   const [trelloPushListId, setTrelloPushListId] = useState(() => {
     const s = loadSettings()
     const status = task.status === 'backlog' ? 'not_started' : (task.status || 'not_started')
@@ -53,9 +57,15 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     inputRef.current?.focus()
     const s = loadSettings()
     if (s.trello_board_id) {
-      trelloBoardLists(s.trello_board_id).then(setTrelloLists).catch(() => {})
+      trelloBoardLists(s.trello_board_id).then(lists => {
+        setTrelloLists(lists)
+        // If no list selected yet, default to the first one
+        if (!trelloPushListId && lists.length > 0) {
+          setTrelloPushListId(lists[0].id)
+        }
+      }).catch(() => {})
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleTag = (id) => {
     setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
@@ -551,7 +561,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               <a href={trelloResult.url} target="_blank" rel="noopener" className="connection-link">Trello ↗</a>
               <button className="connection-unlink" onClick={() => setTrelloResult(null)} title="Unlink">✕</button>
             </div>
-          ) : (
+          ) : trelloConfigured ? (
             <button
               className="ci-upload-btn"
               onClick={handleTrelloPush}
@@ -559,7 +569,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             >
               {trelloPushing ? <><span className="spinner" /> Pushing...</> : 'Trello'}
             </button>
-          )}
+          ) : null}
         </div>
 
         <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
