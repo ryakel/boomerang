@@ -9,7 +9,7 @@
 | `ANTHROPIC_API_KEY` | No | — | Default Claude API key for AI features (users can override in UI) |
 | `NOTION_INTEGRATION_TOKEN` | No | — | Default Notion integration token (users can override in UI) |
 | `TRELLO_API_KEY` | No | — | Trello API key for card sync (users can override in UI) |
-| `TRELLO_TOKEN` | No | — | Trello user token for card sync (users can override in UI) |
+| `TRELLO_SECRET` | No | — | Trello API secret for card sync (users can override in UI) |
 | `APP_VERSION` | No | `dev` | Version string injected at build time (used if git tags are unavailable) |
 
 **None are required.** The app starts and works fully without API keys. AI features (Polish, What Now, Reframe, date inference, size inference, smart nudges) are disabled without an Anthropic key. Notion features are disabled without a Notion token.

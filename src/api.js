@@ -8,7 +8,7 @@ function getApiHeaders() {
   if (settings.anthropic_api_key) headers['x-anthropic-key'] = settings.anthropic_api_key
   if (settings.notion_token) headers['x-notion-token'] = settings.notion_token
   if (settings.trello_api_key) headers['x-trello-key'] = settings.trello_api_key
-  if (settings.trello_token) headers['x-trello-token'] = settings.trello_token
+  if (settings.trello_secret) headers['x-trello-token'] = settings.trello_secret
   return headers
 }
 

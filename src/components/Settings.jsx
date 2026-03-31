@@ -91,7 +91,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
   // Auto-check Trello connection if credentials are already saved
   useEffect(() => {
     const s = loadSettings()
-    if ((s.trello_api_key && s.trello_token) || envKeys.trello) {
+    if ((s.trello_api_key && s.trello_secret) || envKeys.trello) {
       trelloStatus().then(status => {
         if (status.connected) {
           setTrelloConnected(true)
@@ -457,9 +457,9 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
               <input
                 className="add-input"
                 type="password"
-                placeholder="Token"
-                value={settings.trello_token || ''}
-                onChange={e => update('trello_token', e.target.value)}
+                placeholder="Secret"
+                value={settings.trello_secret || ''}
+                onChange={e => update('trello_secret', e.target.value)}
                 style={{ marginBottom: 0, fontSize: 13 }}
               />
             </>

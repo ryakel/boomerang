@@ -18,14 +18,14 @@ try {
 let envApiKey = process.env.ANTHROPIC_API_KEY
 let envNotionToken = process.env.NOTION_INTEGRATION_TOKEN
 let envTrelloKey = process.env.TRELLO_API_KEY
-let envTrelloToken = process.env.TRELLO_TOKEN
+let envTrelloToken = process.env.TRELLO_SECRET
 
 if (existsSync('.env')) {
   const envFile = readFileSync('.env', 'utf-8')
   envApiKey = envApiKey || envFile.match(/(?:VITE_)?ANTHROPIC_API_KEY="?([^"\n]+)"?/)?.[1]
   envNotionToken = envNotionToken || envFile.match(/NOTION_INTEGRATION_TOKEN="?([^"\n]+)"?/)?.[1]
   envTrelloKey = envTrelloKey || envFile.match(/TRELLO_API_KEY="?([^"\n]+)"?/)?.[1]
-  envTrelloToken = envTrelloToken || envFile.match(/TRELLO_TOKEN="?([^"\n]+)"?/)?.[1]
+  envTrelloToken = envTrelloToken || envFile.match(/TRELLO_SECRET="?([^"\n]+)"?/)?.[1]
 }
 
 // Helper: resolve API key from request header or env var
@@ -336,7 +336,7 @@ app.get('/api/trello/status', async (req, res) => {
 
 app.get('/api/trello/boards', async (req, res) => {
   const { key, token } = getTrelloAuth(req)
-  if (!key || !token) return res.status(400).json({ error: 'No Trello credentials configured. Add them in Settings or set TRELLO_API_KEY and TRELLO_TOKEN env vars.' })
+  if (!key || !token) return res.status(400).json({ error: 'No Trello credentials configured. Add them in Settings or set TRELLO_API_KEY and TRELLO_SECRET env vars.' })
   try {
     const response = await fetch(`${TRELLO_BASE}/members/me/boards?fields=name,url,closed&key=${key}&token=${token}`)
     const data = await response.json()

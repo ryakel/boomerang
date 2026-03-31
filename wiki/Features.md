@@ -88,7 +88,7 @@ Bidirectional sync between Boomerang tasks and Trello cards.
 5. Select a **Board** from the dropdown
 6. Select a **List** within that board (this is where new cards will be created)
 
-Alternatively, set `TRELLO_API_KEY` and `TRELLO_TOKEN` environment variables.
+Alternatively, set `TRELLO_API_KEY` and `TRELLO_SECRET` environment variables.
 
 ### Features
 

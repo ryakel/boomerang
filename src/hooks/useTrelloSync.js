@@ -19,7 +19,7 @@ export function useTrelloSync(tasks, setTasks) {
   const isTrelloConfigured = useCallback(() => {
     const settings = loadSettings()
     return !!(
-      (settings.trello_api_key && settings.trello_token && settings.trello_list_id) ||
+      (settings.trello_api_key && settings.trello_secret && settings.trello_list_id) ||
       (settings.trello_list_id) // env-based credentials
     )
   }, [])

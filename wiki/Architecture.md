@@ -80,7 +80,7 @@ If the AI returns a suggested date, it is applied to the newly spawned task. Thi
 ```
 Request arrives at /api/messages or /api/notion/*
   → Check x-anthropic-key / x-notion-token / x-trello-key+x-trello-token header (user-provided via UI)
-  → Fall back to ANTHROPIC_API_KEY / NOTION_INTEGRATION_TOKEN / TRELLO_API_KEY+TRELLO_TOKEN env var
+  → Fall back to ANTHROPIC_API_KEY / NOTION_INTEGRATION_TOKEN / TRELLO_API_KEY+TRELLO_SECRET env var
   → Also checks .env file for the same keys
   → If neither: return 400 with helpful error message
 ```
