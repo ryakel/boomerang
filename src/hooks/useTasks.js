@@ -110,6 +110,11 @@ export function useTasks() {
     setTasks([])
   }, [])
 
+  const deleteTask = useCallback((id) => {
+    remoteLog('deleteTask:', `id=${id.slice(0, 8)}`)
+    setTasks(prev => prev.filter(t => t.id !== id))
+  }, [])
+
   const changeStatus = useCallback((id, newStatus) => {
     remoteLog('changeStatus:', `id=${id.slice(0, 8)}`, '→', newStatus)
     setTasks(prev => prev.map(t => {
@@ -153,6 +158,7 @@ export function useTasks() {
     uncompleteTask,
     changeStatus,
     clearCompleted,
+    deleteTask,
     clearAll,
     hydrateTasks,
   }
