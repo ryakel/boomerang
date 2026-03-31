@@ -589,32 +589,85 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
           {settings.notifications_enabled && (
             <div className="notif-options">
-              <div className="settings-label" style={{ marginTop: 16 }}>Check every</div>
-              <div className="notif-freq-row">
-                {[15, 30, 60, 120].map(min => (
-                  <button
-                    key={min}
-                    className={`notif-freq ${(settings.notif_frequency || 30) === min ? 'notif-freq-active' : ''}`}
-                    onClick={() => update('notif_frequency', min)}
-                  >
-                    {min < 60 ? `${min}m` : `${min / 60}h`}
-                  </button>
-                ))}
+              <div className="settings-label" style={{ marginTop: 16 }}>Notify me about</div>
+
+              <div className="notif-type-row">
+                <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                  <input type="checkbox" checked={settings.notif_overdue !== false} onChange={e => update('notif_overdue', e.target.checked)} />
+                  <span>Overdue tasks</span>
+                </label>
+                {settings.notif_overdue !== false && (
+                  <div className="notif-freq-row" style={{ marginLeft: 8 }}>
+                    {[15, 30, 60, 120].map(min => (
+                      <button
+                        key={min}
+                        className={`notif-freq ${(settings.notif_freq_overdue ?? 30) === min ? 'notif-freq-active' : ''}`}
+                        onClick={() => update('notif_freq_overdue', min)}
+                      >
+                        {min < 60 ? `${min}m` : `${min / 60}h`}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="settings-label" style={{ marginTop: 16 }}>Notify me about</div>
-              <label className="notif-check">
-                <input type="checkbox" checked={settings.notif_overdue !== false} onChange={e => update('notif_overdue', e.target.checked)} />
-                <span>Overdue tasks</span>
-              </label>
-              <label className="notif-check">
-                <input type="checkbox" checked={settings.notif_stale !== false} onChange={e => update('notif_stale', e.target.checked)} />
-                <span>Stale tasks</span>
-              </label>
-              <label className="notif-check">
-                <input type="checkbox" checked={settings.notif_nudge !== false} onChange={e => update('notif_nudge', e.target.checked)} />
-                <span>General nudges</span>
-              </label>
+              <div className="notif-type-row">
+                <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                  <input type="checkbox" checked={settings.notif_stale !== false} onChange={e => update('notif_stale', e.target.checked)} />
+                  <span>Stale tasks</span>
+                </label>
+                {settings.notif_stale !== false && (
+                  <div className="notif-freq-row" style={{ marginLeft: 8 }}>
+                    {[15, 30, 60, 120].map(min => (
+                      <button
+                        key={min}
+                        className={`notif-freq ${(settings.notif_freq_stale ?? 30) === min ? 'notif-freq-active' : ''}`}
+                        onClick={() => update('notif_freq_stale', min)}
+                      >
+                        {min < 60 ? `${min}m` : `${min / 60}h`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="notif-type-row">
+                <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                  <input type="checkbox" checked={settings.notif_nudge !== false} onChange={e => update('notif_nudge', e.target.checked)} />
+                  <span>General nudges</span>
+                </label>
+                {settings.notif_nudge !== false && (
+                  <div className="notif-freq-row" style={{ marginLeft: 8 }}>
+                    {[15, 30, 60, 120].map(min => (
+                      <button
+                        key={min}
+                        className={`notif-freq ${(settings.notif_freq_nudge ?? 60) === min ? 'notif-freq-active' : ''}`}
+                        onClick={() => update('notif_freq_nudge', min)}
+                      >
+                        {min < 60 ? `${min}m` : `${min / 60}h`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="notif-type-row">
+                <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                  <input type="checkbox" checked disabled style={{ opacity: 0.5 }} />
+                  <span>Size-based reminders</span>
+                </label>
+                <div className="notif-freq-row" style={{ marginLeft: 8 }}>
+                  {[15, 30, 60, 120].map(min => (
+                    <button
+                      key={min}
+                      className={`notif-freq ${(settings.notif_freq_size ?? 60) === min ? 'notif-freq-active' : ''}`}
+                      onClick={() => update('notif_freq_size', min)}
+                    >
+                      {min < 60 ? `${min}m` : `${min / 60}h`}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div className="settings-label" style={{ marginTop: 16 }}>Warn when tasks pile up</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -632,6 +685,20 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   onChange={e => update('stale_warn_days', parseInt(e.target.value) || 7)}
                 />
                 <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>days</span>
+              </div>
+              <div className="notif-type-row" style={{ marginTop: 8 }}>
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>Pile-up check frequency</span>
+                <div className="notif-freq-row" style={{ marginLeft: 8 }}>
+                  {[15, 30, 60, 120].map(min => (
+                    <button
+                      key={min}
+                      className={`notif-freq ${(settings.notif_freq_pileup ?? 120) === min ? 'notif-freq-active' : ''}`}
+                      onClick={() => update('notif_freq_pileup', min)}
+                    >
+                      {min < 60 ? `${min}m` : `${min / 60}h`}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

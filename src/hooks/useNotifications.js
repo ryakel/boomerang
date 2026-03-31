@@ -48,56 +48,100 @@ async function getAINudge(taskCount) {
   }
 }
 
+function getFreqMs(settings, key, fallback) {
+  const val = settings[key]
+  return (val != null ? val : (settings.notif_frequency || fallback)) * 60 * 1000
+}
+
 export function useNotifications(tasks) {
-  const lastCheck = useRef(Date.now())
+  const lastChecks = useRef({
+    overdue: 0,
+    stale: 0,
+    nudge: 0,
+    size: 0,
+    pileup: 0,
+  })
 
   useEffect(() => {
     const settings = loadSettings()
     if (!settings.notifications_enabled) return
     if (!('Notification' in window) || Notification.permission !== 'granted') return
 
-    const frequencyMs = (settings.notif_frequency || 30) * 60 * 1000
+    // Compute per-type frequencies
+    const freqs = {
+      overdue: getFreqMs(settings, 'notif_freq_overdue', 30),
+      stale: getFreqMs(settings, 'notif_freq_stale', 30),
+      nudge: getFreqMs(settings, 'notif_freq_nudge', 60),
+      size: getFreqMs(settings, 'notif_freq_size', 60),
+      pileup: getFreqMs(settings, 'notif_freq_pileup', 120),
+    }
+
+    // Tick at the shortest frequency so we don't miss any
+    const tickMs = Math.min(...Object.values(freqs))
 
     const check = async () => {
       const now = Date.now()
-      if (now - lastCheck.current < frequencyMs) return
-      lastCheck.current = now
+      const lc = lastChecks.current
 
       const openTasks = tasks.filter(t => t.status === 'open')
       const nonSnoozed = openTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
 
-      // Check for too many open tasks
-      if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {
-        new Notification('Too many open tasks', {
-          body: `You have ${nonSnoozed.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`,
-          icon: '/icon-192.png',
-          tag: 'too-many',
-        })
-        return
+      // Check for too many open tasks (pile-up)
+      if (now - lc.pileup >= freqs.pileup) {
+        lc.pileup = now
+
+        if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {
+          new Notification('Too many open tasks', {
+            body: `You have ${nonSnoozed.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`,
+            icon: '/icon-192.png',
+            tag: 'too-many',
+          })
+        }
+
+        // Check for high percentage of old tasks
+        if (settings.stale_warn_pct > 0) {
+          const oldTasks = openTasks.filter(t => {
+            const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
+            return age > (settings.stale_warn_days || 7)
+          })
+          const pct = openTasks.length > 0 ? Math.round(oldTasks.length / openTasks.length * 100) : 0
+          if (pct >= settings.stale_warn_pct) {
+            new Notification('Tasks piling up', {
+              body: `${pct}% of your tasks have been open for ${settings.stale_warn_days}+ days`,
+              icon: '/icon-192.png',
+              tag: 'stale-warn',
+            })
+          }
+        }
       }
 
       // Size-based upcoming reminders
-      const sizeLeadDays = { XL: 3, L: 2, M: 1 }
-      const upcomingBySize = openTasks.filter(t => {
-        if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
-        const dueDate = new Date(t.due_date)
-        const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
-        return daysUntilDue > 0 && daysUntilDue <= sizeLeadDays[t.size]
-      })
+      if (now - lc.size >= freqs.size) {
+        lc.size = now
 
-      if (upcomingBySize.length > 0) {
-        const t = upcomingBySize[0]
-        const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
-        new Notification(`${t.size} task due soon`, {
-          body: `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`,
-          icon: '/icon-192.png',
-          tag: 'size-reminder',
+        const sizeLeadDays = { XL: 3, L: 2, M: 1 }
+        const upcomingBySize = openTasks.filter(t => {
+          if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
+          const dueDate = new Date(t.due_date)
+          const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
+          return daysUntilDue > 0 && daysUntilDue <= sizeLeadDays[t.size]
         })
-        return
+
+        if (upcomingBySize.length > 0) {
+          const t = upcomingBySize[0]
+          const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
+          new Notification(`${t.size} task due soon`, {
+            body: `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`,
+            icon: '/icon-192.png',
+            tag: 'size-reminder',
+          })
+        }
       }
 
       // Check for overdue tasks
-      if (settings.notif_overdue !== false) {
+      if (settings.notif_overdue !== false && now - lc.overdue >= freqs.overdue) {
+        lc.overdue = now
+
         const overdueTasks = openTasks.filter(isOverdue)
         if (overdueTasks.length > 0) {
           const names = overdueTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
@@ -107,12 +151,13 @@ export function useNotifications(tasks) {
             icon: '/icon-192.png',
             tag: 'overdue',
           })
-          return
         }
       }
 
       // Check for stale tasks
-      if (settings.notif_stale !== false) {
+      if (settings.notif_stale !== false && now - lc.stale >= freqs.stale) {
+        lc.stale = now
+
         const staleTasks = openTasks.filter(isStale)
         if (staleTasks.length > 0) {
           const names = staleTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
@@ -122,29 +167,13 @@ export function useNotifications(tasks) {
             icon: '/icon-192.png',
             tag: 'stale',
           })
-          return
         }
       }
 
-      // Check for high percentage of old tasks
-      if (settings.stale_warn_pct > 0) {
-        const oldTasks = openTasks.filter(t => {
-          const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
-          return age > (settings.stale_warn_days || 7)
-        })
-        const pct = openTasks.length > 0 ? Math.round(oldTasks.length / openTasks.length * 100) : 0
-        if (pct >= settings.stale_warn_pct) {
-          new Notification('Tasks piling up', {
-            body: `${pct}% of your tasks have been open for ${settings.stale_warn_days}+ days`,
-            icon: '/icon-192.png',
-            tag: 'stale-warn',
-          })
-          return
-        }
-      }
+      // General nudge
+      if (settings.notif_nudge !== false && now - lc.nudge >= freqs.nudge && openTasks.length > 0) {
+        lc.nudge = now
 
-      // General nudge — prefer suggesting a small task
-      if (settings.notif_nudge !== false && openTasks.length > 0) {
         // Check for quick wins first
         const smallTasks = openTasks.filter(t => t.size === 'XS' || t.size === 'S')
         if (smallTasks.length > 0) {
@@ -154,21 +183,20 @@ export function useNotifications(tasks) {
             icon: '/icon-192.png',
             tag: 'nudge',
           })
-          return
+        } else {
+          // Fall back to AI or generic nudge
+          const message = await getAINudge(openTasks.length)
+          new Notification('Boomerang', {
+            body: message,
+            icon: '/icon-192.png',
+            tag: 'nudge',
+          })
         }
-
-        // Fall back to AI or generic nudge
-        const message = await getAINudge(openTasks.length)
-        new Notification('Boomerang', {
-          body: message,
-          icon: '/icon-192.png',
-          tag: 'nudge',
-        })
       }
     }
 
     check()
-    const interval = setInterval(check, frequencyMs)
+    const interval = setInterval(check, tickMs)
     return () => clearInterval(interval)
   }, [tasks])
 }

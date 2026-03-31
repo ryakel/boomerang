@@ -1477,6 +1477,23 @@
   gap: 8px;
 }
 
+.notif-type-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.notif-type-row .notif-freq-row {
+  gap: 4px;
+}
+
+.notif-type-row .notif-freq {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
 .notif-freq {
   padding: 8px 16px;
   border-radius: var(--radius-sm);
