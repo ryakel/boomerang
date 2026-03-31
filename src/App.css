@@ -479,6 +479,10 @@
   background: #52C97F;
 }
 
+.swipe-delete {
+  background: #FF3B30;
+}
+
 .swipe-deleting {
   animation: swipe-fade-out 0.25s ease forwards;
 }
