@@ -457,7 +457,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
               <input
                 className="add-input"
                 type="password"
-                placeholder="Secret"
+                placeholder="Token (generated via authorize link — not the Secret)"
                 value={settings.trello_secret || ''}
                 onChange={e => update('trello_secret', e.target.value)}
                 style={{ marginBottom: 0, fontSize: 13 }}

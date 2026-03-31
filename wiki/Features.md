@@ -81,14 +81,44 @@ Bidirectional sync between Boomerang tasks and Trello cards.
 
 ### Setup
 
-1. Go to https://trello.com/power-ups/admin and get your **API Key**
-2. On the same page, click the link to generate a **Token** (authorize for your account)
-3. In Boomerang, go to **Settings → Integrations → Trello**
-4. Paste your API Key and Token, then click **Connect**
-5. Select a **Board** from the dropdown
-6. Select a **List** within that board (this is where new cards will be created)
+The Trello admin page shows an "API Key" and a "Secret" — **the Secret is NOT what you need.** The Trello REST API uses a Key + Token pair. The token is generated separately by authorizing your app.
 
-Alternatively, set `TRELLO_API_KEY` and `TRELLO_SECRET` environment variables.
+#### Step-by-step
+
+1. Go to https://trello.com/power-ups/admin
+2. Create a new Power-Up (or select an existing one) to get your **API Key**
+3. Generate a **Token** — on the same page, look for the link that says "Token" or "generate a Token". This opens an authorization page where you grant Boomerang read/write access. If you don't see the link, visit this URL directly (replace `YOUR_API_KEY` with your actual key):
+   ```
+   https://trello.com/1/authorize?expiration=never&name=Boomerang&scope=read,write&response_type=token&key=YOUR_API_KEY
+   ```
+4. Copy the long token string shown after you click **Allow**
+
+#### In Boomerang (UI)
+
+1. Go to **Settings → Integrations → Trello**
+2. Paste your **API Key** and **Token** (labeled "Secret" in the UI), then click **Connect**
+3. Select a **Board** from the dropdown
+4. Select a **List** within that board — this is where new cards will be created
+
+#### Via environment variables (Docker/Portainer)
+
+Set these two env vars in your container:
+
+```
+TRELLO_API_KEY=your_api_key
+TRELLO_SECRET=the_token_you_generated_above
+```
+
+> **Note:** Despite the env var name `TRELLO_SECRET`, the value should be the **token** you generated in step 3 above, NOT the "Secret" shown on the Trello admin page. Those are different things.
+
+### How to use it
+
+Once connected and a board/list is selected:
+
+- **Push a task to Trello** — Open any task (tap to expand), then tap **Edit**. In the Edit modal, scroll to the **Trello** section and tap **Push to Trello**. This creates a card on your selected list with the task title as the card name and notes as the description.
+- **View linked card** — After pushing, the task shows "Linked to Trello" with a direct link to open the card in Trello.
+- **Unlink** — Tap "Unlink" to disconnect the task from the Trello card (doesn't delete the card).
+- **Pull from Trello** — Cards created directly in Trello on your synced list will automatically appear as tasks in Boomerang on your next visit.
 
 ### Features
 
