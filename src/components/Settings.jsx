@@ -180,9 +180,11 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
   }
 
   const update = (key, value) => {
-    const next = { ...settings, [key]: value }
-    setSettings(next)
-    saveSettings(next)
+    setSettings(prev => {
+      const next = { ...prev, [key]: value }
+      saveSettings(next)
+      return next
+    })
   }
 
   const addLabel = () => {
