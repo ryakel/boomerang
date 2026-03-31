@@ -458,11 +458,17 @@
   justify-content: center;
   width: 70px;
   border: none;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
   cursor: pointer;
-  letter-spacing: 0.3px;
+}
+
+.swipe-action-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .swipe-edit {

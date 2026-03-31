@@ -127,8 +127,16 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
       {/* Action buttons (only when swiping left / right-to-left) */}
       {(swipeX < 0 || swipeOpen) && (
         <div className="swipe-actions-left">
-          <button className="swipe-action-btn swipe-edit" onClick={(e) => { e.stopPropagation(); closeSwipe(); onEdit(task) }}>Edit</button>
-          <button className="swipe-action-btn swipe-complete" onClick={(e) => { e.stopPropagation(); closeSwipe(); onComplete(task.id) }}>Done</button>
+          <button className="swipe-action-btn swipe-edit" onClick={(e) => { e.stopPropagation(); closeSwipe(); onEdit(task) }}>
+            <svg className="swipe-action-icon" viewBox="0 0 24 24">
+              <path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+            </svg>
+          </button>
+          <button className="swipe-action-btn swipe-complete" onClick={(e) => { e.stopPropagation(); closeSwipe(); onComplete(task.id) }}>
+            <svg className="swipe-action-icon" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </button>
         </div>
       )}
 
