@@ -46,6 +46,16 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
           <span className="status-indicator" style={{ background: (STATUS_META[task.status] || STATUS_META.not_started).color }} title={(STATUS_META[task.status] || STATUS_META.not_started).label} />
         )}
         <span className="task-title">{task.title}</span>
+        {(task.notion_page_id || task.trello_card_id) && (
+          <span className="task-link-icons" onClick={e => e.stopPropagation()}>
+            {task.notion_url && (
+              <a href={task.notion_url} target="_blank" rel="noopener" className="task-link-icon" title="Open in Notion">N</a>
+            )}
+            {task.trello_card_url && (
+              <a href={task.trello_card_url} target="_blank" rel="noopener" className="task-link-icon" title="Open in Trello">T</a>
+            )}
+          </span>
+        )}
         <div className="task-card-right">
           {task.size && (
             <span className={`size-pill size-${task.size.toLowerCase()}`}>{task.size}</span>

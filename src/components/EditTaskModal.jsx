@@ -486,24 +486,6 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         {/* Connections */}
         <div className="settings-label" style={{ marginBottom: 8, marginTop: 4 }}>Connections</div>
 
-        {/* Notion linked status */}
-        {notionResult && (
-          <div className="notion-linked" style={{ marginBottom: 8 }}>
-            <span>Linked to Notion</span>
-            <a href={notionResult.url} target="_blank" rel="noopener" className="notion-link">Open ↗</a>
-            <button className="ci-clear-btn" onClick={() => setNotionResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
-          </div>
-        )}
-
-        {/* Trello linked status */}
-        {trelloResult && (
-          <div className="notion-linked" style={{ marginBottom: 8 }}>
-            <span>Linked to Trello</span>
-            <a href={trelloResult.url} target="_blank" rel="noopener" className="notion-link">Open ↗</a>
-            <button className="ci-clear-btn" onClick={() => setTrelloResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
-          </div>
-        )}
-
         {/* Notion in-progress states */}
         {!notionResult && notionState === 'searching' && (
           <div className="notion-searching" style={{ marginBottom: 8 }}><span className="spinner" /> Searching Notion...</div>
@@ -552,14 +534,24 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           </select>
         )}
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          {!notionResult && !notionState && (
+        {/* Connection buttons — linked items become open links */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {notionResult ? (
+            <div className="connection-linked-btn">
+              <a href={notionResult.url} target="_blank" rel="noopener" className="connection-link">Notion ↗</a>
+              <button className="connection-unlink" onClick={() => setNotionResult(null)} title="Unlink">✕</button>
+            </div>
+          ) : !notionState && (
             <button className="ci-upload-btn" onClick={handleNotionSearch} disabled={!title.trim()}>
               Notion
             </button>
           )}
-          {!trelloResult && (
+          {trelloResult ? (
+            <div className="connection-linked-btn">
+              <a href={trelloResult.url} target="_blank" rel="noopener" className="connection-link">Trello ↗</a>
+              <button className="connection-unlink" onClick={() => setTrelloResult(null)} title="Unlink">✕</button>
+            </div>
+          ) : (
             <button
               className="ci-upload-btn"
               onClick={handleTrelloPush}
