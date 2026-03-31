@@ -11,7 +11,9 @@ Every task always comes back. Dismissal is never free — every "not now" requir
 - **Edit tasks** — full edit modal with all fields, including the ability to convert a one-off task into a routine
 - **Hover action buttons** — edit and done buttons appear on hover over any task card
 - **Expanded actions** — tap a task to expand it and reveal Done, Snooze, Extend, Edit, and Backlog buttons
-- **Statuses** — open, snoozed, stale, backlog, done
+- **Statuses** — not started, doing, waiting, done (plus backlog as a separate concept). Change status directly from the expanded task card.
+- **Checklists** — add checklist items to any task. Toggle items directly from the expanded card without opening the edit modal. Progress shown as "2/5 items".
+- **Comments** — append timestamped notes/comments to tasks from the edit modal. Useful for tracking updates on longer-running tasks.
 - **Due dates** — with overdue detection and visual indicators (days overdue, due today, due tomorrow, etc.)
 - **Default due dates** — configurable number of days from now (default: 7), applied automatically to new tasks. Set to 0 to disable.
 - **Extend due dates** — quick presets (+1 day, +1 week, +2 weeks) or pick a custom date via the extend modal
@@ -23,7 +25,8 @@ Every task always comes back. Dismissal is never free — every "not now" requir
 Tasks are organized into sections on the main screen:
 
 - **Stale** — tasks untouched for longer than the staleness threshold (default: 2 days)
-- **Up Next** — active tasks that are not stale or snoozed
+- **Up Next** — active tasks (not started + doing) that are not stale or snoozed
+- **Waiting** — tasks marked as blocked/waiting on someone
 - **Snoozed** — tasks with a future snooze date, showing when they'll return
 - **Backlog** — someday/maybe tasks in a collapsible section at the bottom. Move tasks to backlog to keep them out of your active list without losing them.
 
@@ -39,8 +42,9 @@ The header shows a task count with configurable display modes:
 
 All AI features use Claude (claude-sonnet-4-20250514) via a server-side proxy. They are fully disabled if no API key is configured — the rest of the app works normally without them.
 
-- **What Now** — a guided flow that asks how much time you have (5-10 min, 30 min, a couple hours) and your energy level (running on fumes, moderate, I've got it), then recommends 1-3 tasks with reasons. You can mark tasks done directly from the suggestions.
+- **What Now** — a guided flow that asks how much time you have (5-10 min, 30 min, a couple hours) and your energy level (running on fumes, moderate, I've got it), then recommends 1-3 tasks with reasons. Enforces hard rules matching task size to available time and energy. When fewer than 3 picks are available, shows a "Feeling ambitious?" stretch suggestion one size up. You can mark tasks done directly from the suggestions.
 - **Polish** — takes messy brain-dump notes and turns them into clear, actionable bullet points. Also cleans up the task title if it's vague. Automatically triggers date inference and size inference on the polished content.
+- **Research** — from the edit modal, click Research to ask a question about the task. Claude generates practical research notes (steps, options, pros/cons) that append to the task's existing notes. Useful for tasks where you need to figure out *how* before you can start.
 - **Date inference** — extracts due dates from natural language in task titles and notes ("do this by Friday", "end of month", etc.). Runs automatically after polishing if no due date is set.
 - **Size inference** — estimates task effort as a T-shirt size (XS through XL) based on the task description. Runs automatically after polishing, on quick-add (title only), and on full add when no size is manually set.
 - **Auto size button** — in the Add and Edit task modals, a ✨ Auto button lets you manually trigger AI size inference at any time. Re-evaluates based on the current title and notes.
@@ -70,6 +74,28 @@ Recurring tasks with configurable cadence:
 - **Parent page** — new pages are created under a configurable parent page ID, or under the first accessible page if none is set
 - **Open in Notion** — linked tasks show an "Open in Notion" link when expanded
 - **Routine support** — routines can also be linked to Notion pages
+
+## Trello Integration (requires Trello API key + token)
+
+Bidirectional sync between Boomerang tasks and Trello cards.
+
+### Setup
+
+1. Go to https://trello.com/power-ups/admin and get your **API Key**
+2. On the same page, click the link to generate a **Token** (authorize for your account)
+3. In Boomerang, go to **Settings → Integrations → Trello**
+4. Paste your API Key and Token, then click **Connect**
+5. Select a **Board** from the dropdown
+6. Select a **List** within that board (this is where new cards will be created)
+
+Alternatively, set `TRELLO_API_KEY` and `TRELLO_TOKEN` environment variables.
+
+### Features
+
+- **Push to Trello** — from the Edit modal, push any task to your configured Trello list as a card. The task title becomes the card name, notes become the description.
+- **Linked cards** — once pushed, the task shows "Linked to Trello" with a link to open the card directly in Trello, and an Unlink button.
+- **Pull from Trello** — the sync hook can pull cards from your configured list and create matching tasks locally (via `useTrelloSync` hook).
+- **Board/list selection** — configure which board and list to sync with in Settings. Change anytime.
 
 ## Notifications
 
@@ -157,7 +183,8 @@ Accessible via the chart icon in the header, the Analytics screen shows:
 - **Longest streak** — your all-time best streak
 - **Best daily points** — highest points scored in a single day
 - **Best daily tasks** — most tasks completed in a single day
-- **Vacation mode** — freezes your streak so time away doesn't reset it. Resume when you're back.
+- **Vacation mode** — freezes your streak so time away doesn't reset it. Choose a duration (3 days, 5 days, 7 days, or custom) and it auto-expires when the end date passes. End early if you're back sooner.
+- **Free day** — one-tap button to pause your streak for a single day without entering vacation mode. Togglable on/off for today.
 - **Reset streaks** — clears all streak data, with double confirmation to prevent accidents
 
 ## Find Related (Notion)

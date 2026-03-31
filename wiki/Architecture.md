@@ -13,6 +13,7 @@ Browser (React PWA)
                           ├── /api/log           → Client log relay (diagnostics in server terminal)
                           ├── /api/messages      → Anthropic Claude API proxy
                           ├── /api/notion/*      → Notion API proxy (search, pages, status)
+                          ├── /api/trello/*      → Trello API proxy (boards, lists, cards, sync)
                           └── /api/keys/status   → Reports which API keys are set via env vars
 ```
 
@@ -78,17 +79,17 @@ If the AI returns a suggested date, it is applied to the newly spawned task. Thi
 
 ```
 Request arrives at /api/messages or /api/notion/*
-  → Check x-anthropic-key / x-notion-token header (user-provided via UI)
-  → Fall back to ANTHROPIC_API_KEY / NOTION_INTEGRATION_TOKEN env var
-  → Also checks .env file for ANTHROPIC_API_KEY or VITE_ANTHROPIC_API_KEY
+  → Check x-anthropic-key / x-notion-token / x-trello-key+x-trello-token header (user-provided via UI)
+  → Fall back to ANTHROPIC_API_KEY / NOTION_INTEGRATION_TOKEN / TRELLO_API_KEY+TRELLO_TOKEN env var
+  → Also checks .env file for the same keys
   → If neither: return 400 with helpful error message
 ```
 
-Keys set in the UI are stored in localStorage settings and sent as custom request headers (`x-anthropic-key`, `x-notion-token`). They never touch the server's filesystem or database — the server only forwards them to the external API in the appropriate format (Anthropic uses `x-api-key` header, Notion uses `Authorization: Bearer` header).
+Keys set in the UI are stored in localStorage settings and sent as custom request headers (`x-anthropic-key`, `x-notion-token`, `x-trello-key`, `x-trello-token`). They never touch the server's filesystem or database — the server only forwards them to the external API in the appropriate format (Anthropic uses `x-api-key` header, Notion uses `Authorization: Bearer` header).
 
 ### Key Status Endpoint
 
-`GET /api/keys/status` returns `{ anthropic: boolean, notion: boolean }` indicating whether each key is configured via environment variable. The frontend uses this to decide whether to show the API key input fields or a "set by environment variable" notice in Settings.
+`GET /api/keys/status` returns `{ anthropic: boolean, notion: boolean, trello: boolean }` indicating whether each key is configured via environment variable. The frontend uses this to decide whether to show the API key input fields or a "set by environment variable" notice in Settings.
 
 ## Health Endpoint
 
@@ -113,6 +114,14 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `POST` | `/api/notion/pages` | Create a Notion page |
 | `PATCH` | `/api/notion/pages/:id` | Append content to a Notion page |
 | `GET` | `/api/notion/status` | Check Notion connection status |
+| `GET` | `/api/trello/status` | Check Trello connection status |
+| `GET` | `/api/trello/boards` | List user's Trello boards |
+| `GET` | `/api/trello/boards/:id/lists` | Get lists in a Trello board |
+| `POST` | `/api/trello/cards` | Create a Trello card |
+| `PATCH` | `/api/trello/cards/:id` | Update a Trello card |
+| `DELETE` | `/api/trello/cards/:id` | Archive a Trello card |
+| `GET` | `/api/trello/cards/:id` | Get a single Trello card |
+| `POST` | `/api/trello/sync` | Pull cards from a Trello list |
 
 ## PWA
 

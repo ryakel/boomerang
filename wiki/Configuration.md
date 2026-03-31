@@ -8,6 +8,8 @@
 | `DB_PATH` | No | `./boomerang.db` (local) or `/data/boomerang.db` (Docker) | SQLite database file path |
 | `ANTHROPIC_API_KEY` | No | — | Default Claude API key for AI features (users can override in UI) |
 | `NOTION_INTEGRATION_TOKEN` | No | — | Default Notion integration token (users can override in UI) |
+| `TRELLO_API_KEY` | No | — | Trello API key for card sync (users can override in UI) |
+| `TRELLO_TOKEN` | No | — | Trello user token for card sync (users can override in UI) |
 | `APP_VERSION` | No | `dev` | Version string injected at build time (used if git tags are unavailable) |
 
 **None are required.** The app starts and works fully without API keys. AI features (Polish, What Now, Reframe, date inference, size inference, smart nudges) are disabled without an Anthropic key. Notion features are disabled without a Notion token.
@@ -32,6 +34,7 @@ All settings are accessible via the gear icon in the header:
 ### API Keys
 - **Anthropic API key** — for AI features. Stored in localStorage, sent as `x-anthropic-key` header. Hidden when env var is set.
 - **Notion integration token** — for Notion features. Stored in localStorage, sent as `x-notion-token` header. Hidden when env var is set.
+- **Trello API key + token** — for Trello card sync. Stored in localStorage, sent as `x-trello-key` and `x-trello-token` headers. Hidden when env vars are set. After entering credentials, click Connect to select a board and list.
 
 ### AI Custom Instructions
 - Free-text field that shapes all AI output (Polish, What Now, Reframe, smart nudges)
@@ -68,7 +71,8 @@ All settings are accessible via the gear icon in the header:
 ### Activity Rings and Goals
 - **Daily task goal** — number of tasks to complete per day for the Tasks ring (default: configurable)
 - **Daily points goal** — point target per day for the Points ring (default: configurable)
-- **Vacation mode** — toggle to freeze your streak while you're away; resume when you return
+- **Vacation mode** — freeze your streak with a duration picker (3, 5, 7 days, or custom). Auto-expires when the end date passes.
+- **Free day** — pause streak for a single day without entering vacation mode
 
 ### Danger Zone
 - **Clear completed tasks** — removes all done tasks
