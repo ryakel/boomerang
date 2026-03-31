@@ -33,7 +33,7 @@ function App() {
 
   const {
     routines, addRoutine, deleteRoutine, togglePause,
-    completeRoutine, spawnDueTasks, hydrateRoutines,
+    completeRoutine, updateRoutine, spawnDueTasks, hydrateRoutines,
   } = useRoutines()
 
   const [activeFilter, setActiveFilter] = useState('all')
@@ -458,6 +458,7 @@ function App() {
           onAdd={addRoutine}
           onDelete={deleteRoutine}
           onTogglePause={togglePause}
+          onUpdate={updateRoutine}
           onClose={() => setShowRoutines(false)}
         />
       )}

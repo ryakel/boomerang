@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from 'react'
 import { loadLabels, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../store'
 
-export default function Routines({ routines, onAdd, onDelete, onTogglePause, onClose }) {
+export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onClose }) {
   const [showAdd, setShowAdd] = useState(false)
+  const [editingRoutine, setEditingRoutine] = useState(null)
   const [title, setTitle] = useState('')
   const [cadence, setCadence] = useState('weekly')
   const [customDays, setCustomDays] = useState(14)
@@ -10,13 +11,42 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onC
   const [notes, setNotes] = useState('')
   const labels = loadLabels()
 
-  const handleAdd = () => {
-    if (!title.trim()) return
-    onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim())
+  const resetForm = () => {
     setTitle('')
     setNotes('')
     setCadence('weekly')
+    setCustomDays(14)
+    setSelectedTags([])
     setShowAdd(false)
+    setEditingRoutine(null)
+  }
+
+  const handleAdd = () => {
+    if (!title.trim()) return
+    onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim())
+    resetForm()
+  }
+
+  const handleEdit = (routine) => {
+    setEditingRoutine(routine)
+    setTitle(routine.title)
+    setCadence(routine.cadence)
+    setCustomDays(routine.custom_days || 14)
+    setSelectedTags(routine.tags || [])
+    setNotes(routine.notes || '')
+    setShowAdd(true)
+  }
+
+  const handleSaveEdit = () => {
+    if (!title.trim() || !editingRoutine) return
+    onUpdate(editingRoutine.id, {
+      title: title.trim(),
+      cadence,
+      custom_days: cadence === 'custom' ? customDays : null,
+      tags: selectedTags,
+      notes: notes.trim(),
+    })
+    resetForm()
   }
 
   const toggleTag = (id) => {
@@ -31,7 +61,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onC
       <div className="settings-header">
         <button className="settings-back" onClick={onClose}>← Back</button>
         <div className="sheet-title" style={{ margin: 0 }}>Routines</div>
-        <button className="settings-back" onClick={() => setShowAdd(true)} style={{ color: 'var(--accent)' }}>+ New</button>
+        <button className="settings-back" onClick={() => { resetForm(); setShowAdd(true) }} style={{ color: 'var(--accent)' }}>+ New</button>
       </div>
 
       {routines.length === 0 && !showAdd && (
@@ -95,8 +125,10 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onC
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="submit-btn" disabled={!title.trim()} onClick={handleAdd}>Add Routine</button>
-            <button className="what-now-dismiss" onClick={() => setShowAdd(false)} style={{ marginTop: 0, padding: '10px 16px' }}>Cancel</button>
+            <button className="submit-btn" disabled={!title.trim()} onClick={editingRoutine ? handleSaveEdit : handleAdd}>
+              {editingRoutine ? 'Save Changes' : 'Add Routine'}
+            </button>
+            <button className="what-now-dismiss" onClick={resetForm} style={{ marginTop: 0, padding: '10px 16px' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -105,7 +137,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onC
         <>
           <div className="section-label">Active</div>
           {active.map(r => (
-            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onTogglePause={onTogglePause} />
+            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onTogglePause={onTogglePause} onEdit={handleEdit} />
           ))}
         </>
       )}
@@ -114,7 +146,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onC
         <>
           <div className="section-label">Paused</div>
           {paused.map(r => (
-            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onTogglePause={onTogglePause} />
+            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onTogglePause={onTogglePause} onEdit={handleEdit} />
           ))}
         </>
       )}
@@ -125,7 +157,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onC
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140
 
-function RoutineCard({ routine, onDelete, onTogglePause }) {
+function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
   const [expanded, setExpanded] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -216,24 +248,17 @@ function RoutineCard({ routine, onDelete, onTogglePause }) {
       )}
       {(swipeX < 0 || swipeOpen) && (
         <div className="swipe-actions-left">
-          <button className="swipe-action-btn swipe-edit" onClick={(e) => { e.stopPropagation(); closeSwipe(); onTogglePause(routine.id) }}>
+          <button className="swipe-action-btn swipe-edit" onClick={(e) => { e.stopPropagation(); closeSwipe(); onEdit(routine) }}>
+            <svg className="swipe-action-icon" viewBox="0 0 24 24">
+              <path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+            </svg>
+          </button>
+          <button className="swipe-action-btn swipe-complete" onClick={(e) => { e.stopPropagation(); closeSwipe(); onTogglePause(routine.id) }}>
             <svg className="swipe-action-icon" viewBox="0 0 24 24">
               {routine.paused
                 ? <polygon points="5 3 19 12 5 21 5 3" />
                 : <><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></>
               }
-            </svg>
-          </button>
-          <button className="swipe-action-btn swipe-delete" onClick={(e) => {
-            e.stopPropagation()
-            closeSwipe()
-            if (window.confirm(`Delete routine "${routine.title}"?`)) onDelete(routine.id)
-          }}>
-            <svg className="swipe-delete-icon" viewBox="0 0 24 24">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-              <line x1="10" y1="11" x2="10" y2="17" />
-              <line x1="14" y1="11" x2="14" y2="17" />
             </svg>
           </button>
         </div>
@@ -272,6 +297,12 @@ function RoutineCard({ routine, onDelete, onTogglePause }) {
         )}
         {expanded && (
           <div className="task-actions">
+            <button
+              className="action-btn edit"
+              onClick={e => { e.stopPropagation(); setExpanded(false); onEdit(routine) }}
+            >
+              Edit
+            </button>
             <button
               className="action-btn snooze"
               onClick={e => { e.stopPropagation(); onTogglePause(routine.id) }}

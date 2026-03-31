@@ -34,6 +34,12 @@ export function useRoutines() {
     ))
   }, [])
 
+  const updateRoutine = useCallback((id, updates) => {
+    setRoutines(prev => prev.map(r =>
+      r.id === id ? { ...r, ...updates } : r
+    ))
+  }, [])
+
   const updateRoutineNotion = useCallback((id, notionPageId, notionUrl) => {
     setRoutines(prev => prev.map(r =>
       r.id === id ? { ...r, notion_page_id: notionPageId, notion_url: notionUrl } : r
@@ -71,6 +77,7 @@ export function useRoutines() {
     deleteRoutine,
     togglePause,
     completeRoutine,
+    updateRoutine,
     updateRoutineNotion,
     spawnDueTasks,
     hydrateRoutines,
