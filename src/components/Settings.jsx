@@ -478,52 +478,30 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
                 Connected as <strong style={{ color: 'var(--text-primary)' }}>{trelloUsername}</strong>
               </div>
 
-              {settings.trello_board_name && settings.trello_list_name ? (
-                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                  Syncing to: <strong style={{ color: 'var(--text-primary)' }}>{settings.trello_board_name}</strong> → <strong style={{ color: 'var(--text-primary)' }}>{settings.trello_list_name}</strong>
-                  <button
-                    className="ci-clear-btn"
-                    style={{ marginLeft: 8 }}
-                    onClick={() => {
-                      update('trello_board_id', '')
-                      update('trello_board_name', '')
-                      update('trello_list_id', '')
-                      update('trello_list_name', '')
-                      setTrelloListsList([])
-                    }}
-                  >
-                    Change
-                  </button>
-                </div>
-              ) : null}
+              <div className="settings-label" style={{ marginBottom: 6 }}>Board</div>
+              <select
+                className="add-input"
+                style={{ fontSize: 13, marginBottom: 8 }}
+                value={settings.trello_board_id || ''}
+                onChange={e => handleTrelloBoardSelect(e.target.value)}
+              >
+                <option value="" disabled>Select a board...</option>
+                {trelloBoardsList.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
 
-              {!settings.trello_board_id && (
+              {settings.trello_board_id && (
                 <>
-                  <div className="settings-label" style={{ marginBottom: 6 }}>Board</div>
-                  <select
-                    className="add-input"
-                    style={{ fontSize: 13, marginBottom: 8 }}
-                    value=""
-                    onChange={e => handleTrelloBoardSelect(e.target.value)}
-                  >
-                    <option value="" disabled>Select a board...</option>
-                    {trelloBoardsList.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                </>
-              )}
-
-              {settings.trello_board_id && !settings.trello_list_id && (
-                <>
-                  <div className="settings-label" style={{ marginBottom: 6 }}>List</div>
+                  <div className="settings-label" style={{ marginBottom: 6 }}>Default list</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>You can choose a different list when pushing each task.</div>
                   {loadingLists ? (
                     <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading lists...</div>
                   ) : (
                     <select
                       className="add-input"
                       style={{ fontSize: 13, marginBottom: 0 }}
-                      value=""
+                      value={settings.trello_list_id || ''}
                       onChange={e => handleTrelloListSelect(e.target.value)}
                     >
                       <option value="" disabled>Select a list...</option>

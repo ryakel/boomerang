@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS } from '../store'
-import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard } from '../api'
+import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloBoardLists } from '../api'
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -38,12 +38,18 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     task.trello_card_id ? { id: task.trello_card_id, url: task.trello_card_url } : null
   )
   const [trelloPushing, setTrelloPushing] = useState(false)
+  const [trelloLists, setTrelloLists] = useState([])
+  const [trelloPushListId, setTrelloPushListId] = useState(() => loadSettings().trello_list_id || '')
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
   const labels = loadLabels()
 
   useEffect(() => {
     inputRef.current?.focus()
+    const s = loadSettings()
+    if (s.trello_board_id) {
+      trelloBoardLists(s.trello_board_id).then(setTrelloLists).catch(() => {})
+    }
   }, [])
 
   const toggleTag = (id) => {
@@ -111,12 +117,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   }
 
   const handleTrelloPush = async () => {
-    if (!title.trim()) return
-    const settings = loadSettings()
-    if (!settings.trello_list_id) return
+    if (!title.trim() || !trelloPushListId) return
     setTrelloPushing(true)
     try {
-      const card = await trelloCreateCard(title.trim(), notes.trim(), settings.trello_list_id)
+      const card = await trelloCreateCard(title.trim(), notes.trim(), trelloPushListId)
       setTrelloResult({ id: card.id, url: card.url })
     } catch { /* ignore */ }
     finally { setTrelloPushing(false) }
@@ -524,13 +528,28 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             <button className="ci-clear-btn" onClick={() => setTrelloResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
           </div>
         ) : (
-          <button
-            className="ci-upload-btn"
-            onClick={handleTrelloPush}
-            disabled={trelloPushing || !title.trim()}
-          >
-            {trelloPushing ? <><span className="spinner" /> Pushing...</> : 'Push to Trello'}
-          </button>
+          <>
+            {trelloLists.length > 0 && (
+              <select
+                className="add-input"
+                style={{ fontSize: 13, marginBottom: 8 }}
+                value={trelloPushListId}
+                onChange={e => setTrelloPushListId(e.target.value)}
+              >
+                <option value="" disabled>Select a list...</option>
+                {trelloLists.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            )}
+            <button
+              className="ci-upload-btn"
+              onClick={handleTrelloPush}
+              disabled={trelloPushing || !title.trim() || !trelloPushListId}
+            >
+              {trelloPushing ? <><span className="spinner" /> Pushing...</> : 'Push to Trello'}
+            </button>
+          </>
         )}
 
         <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
