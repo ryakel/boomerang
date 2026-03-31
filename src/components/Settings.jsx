@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS } from '../store'
-import { getKeyStatus, trelloStatus, trelloBoards, trelloBoardLists } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists } from '../api'
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
@@ -12,6 +12,30 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
   useEffect(() => {
     getKeyStatus().then(setEnvKeys)
   }, [])
+
+  // Anthropic connection state
+  const [anthropicStatus, setAnthropicStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
+  const handleAnthropicConnect = async () => {
+    setAnthropicStatus('checking')
+    try {
+      await callClaude('Respond with just "ok".', 'ping')
+      setAnthropicStatus('connected')
+    } catch {
+      setAnthropicStatus('error')
+    }
+  }
+
+  // Notion connection state
+  const [notionConnected, setNotionConnected] = useState(null) // null | 'checking' | { connected, bot }
+  const handleNotionConnect = async () => {
+    setNotionConnected('checking')
+    try {
+      const status = await notionStatus()
+      setNotionConnected(status)
+    } catch {
+      setNotionConnected({ connected: false })
+    }
+  }
 
   // Trello connection state
   const [trelloConnecting, setTrelloConnecting] = useState(false)
@@ -372,12 +396,25 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
               type="password"
               placeholder="API key (sk-ant-...)"
               value={settings.anthropic_api_key || ''}
-              onChange={e => update('anthropic_api_key', e.target.value)}
-              style={{ marginBottom: 12, fontSize: 13 }}
+              onChange={e => { update('anthropic_api_key', e.target.value); setAnthropicStatus(null) }}
+              style={{ marginBottom: 8, fontSize: 13 }}
             />
           )}
+          {anthropicStatus === 'connected' ? (
+            <div className="integration-status connected">Connected</div>
+          ) : anthropicStatus === 'error' ? (
+            <div className="integration-status error">Connection failed — check your key</div>
+          ) : (
+            <button
+              className="ci-upload-btn"
+              disabled={anthropicStatus === 'checking' || (!settings.anthropic_api_key && !envKeys.anthropic)}
+              onClick={handleAnthropicConnect}
+            >
+              {anthropicStatus === 'checking' ? 'Checking...' : 'Connect'}
+            </button>
+          )}
 
-          <div className="settings-label" style={{ marginTop: 8 }}>Notion</div>
+          <div className="settings-label" style={{ marginTop: 16 }}>Notion</div>
           {envKeys.notion ? (
             <div className="env-key-status">Set by environment variable</div>
           ) : (
@@ -386,9 +423,22 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
               type="password"
               placeholder="Integration token (ntn_...)"
               value={settings.notion_token || ''}
-              onChange={e => update('notion_token', e.target.value)}
-              style={{ marginBottom: 0, fontSize: 13 }}
+              onChange={e => { update('notion_token', e.target.value); setNotionConnected(null) }}
+              style={{ marginBottom: 8, fontSize: 13 }}
             />
+          )}
+          {notionConnected && notionConnected !== 'checking' && notionConnected.connected ? (
+            <div className="integration-status connected">Connected{notionConnected.bot ? ` as ${notionConnected.bot}` : ''}</div>
+          ) : notionConnected && notionConnected !== 'checking' && !notionConnected.connected ? (
+            <div className="integration-status error">Connection failed — check your token</div>
+          ) : (
+            <button
+              className="ci-upload-btn"
+              disabled={notionConnected === 'checking' || (!settings.notion_token && !envKeys.notion)}
+              onClick={handleNotionConnect}
+            >
+              {notionConnected === 'checking' ? 'Checking...' : 'Connect'}
+            </button>
           )}
 
           <div className="settings-label" style={{ marginTop: 16 }}>Trello</div>

@@ -1164,6 +1164,24 @@
   margin-bottom: 8px;
 }
 
+.integration-status {
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.integration-status.connected {
+  color: #52C97F;
+  background: rgba(82, 201, 127, 0.08);
+}
+
+.integration-status.error {
+  color: var(--accent);
+  background: rgba(255, 98, 64, 0.08);
+}
+
 .ci-actions {
   display: flex;
   gap: 8px;
