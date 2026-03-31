@@ -138,6 +138,7 @@ export function useTasks() {
 
   return {
     tasks,
+    setTasks,
     openTasks,
     staleTasks,
     snoozedTasks,

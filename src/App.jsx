@@ -22,10 +22,11 @@ import { MiniRings } from './components/Rings'
 import { useNotifications } from './hooks/useNotifications'
 import { useServerSync } from './hooks/useServerSync'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
+import { useTrelloSync } from './hooks/useTrelloSync'
 
 function App() {
   const {
-    tasks, openTasks, staleTasks, snoozedTasks, waitingTasks, upNextTasks,
+    tasks, setTasks, openTasks, staleTasks, snoozedTasks, waitingTasks, upNextTasks,
     addTask, addSpawnedTasks, completeTask, snoozeTask, replaceTask,
     updateTask, uncompleteTask, changeStatus, clearCompleted, clearAll, hydrateTasks,
   } = useTasks()
@@ -58,6 +59,8 @@ function App() {
 
   const labels = loadLabels()
   useNotifications(tasks)
+  const { syncTrello, pushStatusToTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
+
   const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
     if (data.routines) hydrateRoutines(data.routines)
@@ -172,7 +175,12 @@ function App() {
     } else {
       changeStatus(id, newStatus)
     }
-  }, [changeStatus, handleComplete])
+    // Push status to Trello if linked (fire-and-forget)
+    const task = tasks.find(t => t.id === id)
+    if (task?.trello_card_id) {
+      pushStatusToTrello(task, newStatus)
+    }
+  }, [changeStatus, handleComplete, tasks, pushStatusToTrello])
 
   const handleSnooze = (task) => {
     const settings = loadSettings()
@@ -403,6 +411,8 @@ function App() {
           onClose={() => { setShowSettings(false); flushSync() }}
           onClearCompleted={() => { clearCompleted(); setShowSettings(false); flushSync() }}
           onClearAll={() => { clearAll(); saveSettings({}); setShowSettings(false); flushSync() }}
+          onTrelloSync={syncTrello}
+          trelloSyncing={trelloSyncing}
         />
       )}
 

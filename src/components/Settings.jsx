@@ -4,7 +4,7 @@ import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, tre
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
-export default function Settings({ onClose, onClearCompleted, onClearAll }) {
+export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing }) {
   const [activeTab, setActiveTab] = useState('General')
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
@@ -511,6 +511,46 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
                     </select>
                   )}
                 </>
+              )}
+
+              {/* Sync controls */}
+              <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  className="ci-upload-btn"
+                  disabled={trelloSyncing}
+                  onClick={onTrelloSync}
+                >
+                  {trelloSyncing ? 'Syncing...' : 'Sync Now'}
+                </button>
+                {settings.trello_last_sync && (
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                    Last: {new Date(settings.trello_last_sync).toLocaleString()}
+                  </span>
+                )}
+              </div>
+
+              {/* List mapping display */}
+              {settings.trello_list_mapping && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Status mapping</div>
+                  {Object.entries(settings.trello_list_mapping).map(([status, listId]) => {
+                    const list = trelloListsList.find(l => l.id === listId)
+                    return (
+                      <div key={status} style={{ fontSize: 12, color: 'var(--text-primary)', marginBottom: 2 }}>
+                        {list?.name || listId} → <strong>{status}</strong>
+                      </div>
+                    )
+                  })}
+                  <button
+                    className="ci-clear-btn"
+                    style={{ marginTop: 4 }}
+                    onClick={() => {
+                      update('trello_list_mapping', null)
+                    }}
+                  >
+                    Re-infer mapping
+                  </button>
+                </div>
               )}
             </div>
           ) : (

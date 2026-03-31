@@ -440,6 +440,27 @@ app.post('/api/trello/sync', async (req, res) => {
   }
 })
 
+app.post('/api/trello/sync-all-lists', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const { listIds } = req.body
+    if (!Array.isArray(listIds) || listIds.length === 0) return res.status(400).json({ error: 'listIds array is required' })
+    const result = {}
+    await Promise.all(listIds.map(async (listId) => {
+      const response = await fetch(`${TRELLO_BASE}/lists/${listId}/cards?fields=name,desc,closed,idList,pos,due,labels,url&key=${key}&token=${token}`)
+      if (response.ok) {
+        result[listId] = await response.json()
+      } else {
+        result[listId] = []
+      }
+    }))
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // --- Static file serving (production) ---
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

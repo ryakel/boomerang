@@ -304,3 +304,25 @@ export async function trelloSyncCards(idList) {
   if (!res.ok) throw new Error('Failed to sync cards')
   return res.json()
 }
+
+export async function trelloSyncAllLists(listIds) {
+  const res = await fetch('/api/trello/sync-all-lists', {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ listIds }),
+  })
+  if (!res.ok) throw new Error('Failed to sync lists')
+  return res.json()
+}
+
+export async function inferTrelloListMapping(lists) {
+  const prompt = `Here are the Trello lists for a board:\n${JSON.stringify(lists.map(l => ({ id: l.id, name: l.name })))}\n\nMap each list to one of these task statuses based on the list name:\n- not_started (for "to do", "backlog", "new", "todo" type lists)\n- doing (for "in progress", "working", "active" type lists)\n- waiting (for "on hold", "blocked", "waiting", "review" type lists)\n- done (for "done", "complete", "finished", "archived" type lists)\n\nReturn ONLY a JSON object like: {"not_started":"listId","doing":"listId","waiting":"listId","done":"listId"}\nOmit any status that has no matching list. JSON only, no explanation.`
+  const result = await callClaude(prompt, 'You map Trello list names to task statuses. Return only valid JSON, nothing else.')
+  return JSON.parse(result)
+}
+
+export async function aiDedupTrelloCards(cards, tasks) {
+  const prompt = `Match these Trello cards to existing tasks if they refer to the same thing (even if worded differently).\n\nTrello cards (unlinked):\n${JSON.stringify(cards.map(c => ({ id: c.id, name: c.name, desc: (c.desc || '').slice(0, 100) })))}\n\nExisting tasks (unlinked):\n${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, notes: (t.notes || '').slice(0, 100) })))}\n\nReturn ONLY JSON: {"matches":[{"card_id":"...","task_id":"..." or null,"confidence":0.0-1.0}]}\n- confidence >= 0.85 means auto-link\n- null task_id means create a new task\nJSON only.`
+  const result = await callClaude(prompt, 'You match Trello cards to existing tasks. Only match when clearly the same work item. Return only valid JSON.')
+  return JSON.parse(result)
+}

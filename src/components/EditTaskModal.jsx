@@ -39,7 +39,12 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   )
   const [trelloPushing, setTrelloPushing] = useState(false)
   const [trelloLists, setTrelloLists] = useState([])
-  const [trelloPushListId, setTrelloPushListId] = useState(() => loadSettings().trello_list_id || '')
+  const [trelloPushListId, setTrelloPushListId] = useState(() => {
+    const s = loadSettings()
+    const status = task.status === 'backlog' ? 'not_started' : (task.status || 'not_started')
+    const mappedList = s.trello_list_mapping?.[status]
+    return mappedList || s.trello_list_id || ''
+  })
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
   const labels = loadLabels()
@@ -216,6 +221,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     <div className="sheet-overlay" onClick={onClose}>
       <div className="sheet" onClick={e => e.stopPropagation()}>
         <button className="sheet-handle" onClick={() => { if (title.trim()) handleSubmit(); else onClose(); }} />
+        <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
         <div className="sheet-title">Edit Task</div>
 
         <input

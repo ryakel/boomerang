@@ -26,6 +26,14 @@ const DEFAULT_SETTINGS = {
   daily_points_goal: 15,
   vacation_mode: false,
   vacation_started: null,
+  trello_api_key: '',
+  trello_secret: '',
+  trello_board_id: '',
+  trello_board_name: '',
+  trello_list_id: '',
+  trello_list_name: '',
+  trello_list_mapping: null,
+  trello_last_sync: null,
 }
 
 const DEFAULT_LABELS = [

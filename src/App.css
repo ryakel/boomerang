@@ -555,6 +555,7 @@
 }
 
 .sheet {
+  position: relative;
   background: var(--surface);
   border-radius: 20px 20px 0 0;
   padding: 24px 20px;
@@ -577,6 +578,28 @@
   border-radius: 2px;
   background: var(--text-dim);
   margin: 0 auto 20px;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-hover);
+  color: var(--text-dim);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.15s, color 0.15s;
+}
+.modal-close-btn:hover {
+  background: var(--text-dim);
+  color: var(--text-primary);
 }
 
 .sheet-title {
