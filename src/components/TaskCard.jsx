@@ -62,8 +62,8 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
     if (swipeX > SWIPE_THRESHOLD) {
       // Swiped right (left-to-right) → delete
       setSwipeTriggered('right')
-      setSwipeX(300)
-      setTimeout(() => onDelete(task.id), 250)
+      setSwipeX(400)
+      setTimeout(() => onDelete(task.id), 300)
     } else if (swipeX < -SWIPE_THRESHOLD) {
       // Swiped left (right-to-left) → reveal Edit + Complete buttons
       setSwipeOpen(true)
@@ -114,7 +114,14 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
   return (
     <div className={`swipe-container ${swipeTriggered === 'right' ? 'swipe-deleting' : ''}`}>
       {/* Delete background (revealed by swiping right / left-to-right) */}
-      <div className="swipe-bg-right">🗑️</div>
+      <div className="swipe-bg-delete">
+        <svg className="swipe-delete-icon" viewBox="0 0 24 24">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+          <line x1="10" y1="11" x2="10" y2="17" />
+          <line x1="14" y1="11" x2="14" y2="17" />
+        </svg>
+      </div>
       {/* Action buttons (revealed by swiping left / right-to-left) */}
       <div className="swipe-actions-left">
         <button className="swipe-action-btn swipe-edit" onClick={(e) => { e.stopPropagation(); closeSwipe(); onEdit(task) }}>Edit</button>

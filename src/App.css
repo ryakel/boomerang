@@ -420,21 +420,27 @@
   margin-bottom: 8px;
 }
 
-.swipe-bg-right {
+.swipe-bg-delete {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
+  width: 100%;
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  font-size: 22px;
-  background: #FF3B30;
+  padding-left: 20px;
   justify-content: flex-start;
-  width: 100%;
-  color: #fff;
-  font-weight: 700;
-  font-size: 26px;
+  background: #FF3B30;
+}
+
+.swipe-delete-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .swipe-actions-left {
@@ -460,7 +466,7 @@
 }
 
 .swipe-edit {
-  background: #4A9EFF;
+  background: #8E8E93;
 }
 
 .swipe-complete {
