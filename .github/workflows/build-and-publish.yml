@@ -130,3 +130,16 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag_version.outputs.new_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Connect to Tailscale
+        if: github.ref == 'refs/heads/main'
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          tags: tag:ci
+          version: latest
+
+      - name: Trigger Portainer redeploy
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl -f -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
