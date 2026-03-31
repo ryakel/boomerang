@@ -477,23 +477,39 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           </div>
         )}
 
-        {/* Notion */}
-        <div className="settings-label" style={{ marginBottom: 6, marginTop: 4 }}>Notion</div>
-        {notionResult ? (
-          <div className="notion-linked">
+        {/* Connections */}
+        <div className="settings-label" style={{ marginBottom: 8, marginTop: 4 }}>Connections</div>
+
+        {/* Notion linked status */}
+        {notionResult && (
+          <div className="notion-linked" style={{ marginBottom: 8 }}>
             <span>Linked to Notion</span>
             <a href={notionResult.url} target="_blank" rel="noopener" className="notion-link">Open ↗</a>
             <button className="ci-clear-btn" onClick={() => setNotionResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
           </div>
-        ) : notionState === 'searching' ? (
-          <div className="notion-searching"><span className="spinner" /> Searching Notion...</div>
-        ) : notionState?.action === 'error' ? (
-          <div>
+        )}
+
+        {/* Trello linked status */}
+        {trelloResult && (
+          <div className="notion-linked" style={{ marginBottom: 8 }}>
+            <span>Linked to Trello</span>
+            <a href={trelloResult.url} target="_blank" rel="noopener" className="notion-link">Open ↗</a>
+            <button className="ci-clear-btn" onClick={() => setTrelloResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
+          </div>
+        )}
+
+        {/* Notion in-progress states */}
+        {!notionResult && notionState === 'searching' && (
+          <div className="notion-searching" style={{ marginBottom: 8 }}><span className="spinner" /> Searching Notion...</div>
+        )}
+        {!notionResult && notionState?.action === 'error' && (
+          <div style={{ marginBottom: 8 }}>
             <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{notionState.reason}</div>
             <button className="ci-upload-btn" onClick={handleNotionSearch}>Retry</button>
           </div>
-        ) : notionState ? (
-          <div className="notion-suggestions">
+        )}
+        {!notionResult && notionState && notionState !== 'searching' && notionState.action !== 'error' && (
+          <div className="notion-suggestions" style={{ marginBottom: 8 }}>
             {notionState.pages?.length > 0 && (
               <>
                 <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>{notionState.reason}</div>
@@ -513,44 +529,40 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               {notionCreating ? <><span className="spinner" /> Creating...</> : '+ Create new Notion page'}
             </button>
           </div>
-        ) : (
-          <button className="ci-upload-btn" onClick={handleNotionSearch} disabled={!title.trim()}>
-            Find or create Notion page
-          </button>
         )}
 
-        {/* Trello */}
-        <div className="settings-label" style={{ marginBottom: 6, marginTop: 4 }}>Trello</div>
-        {trelloResult ? (
-          <div className="notion-linked">
-            <span>Linked to Trello</span>
-            <a href={trelloResult.url} target="_blank" rel="noopener" className="notion-link">Open ↗</a>
-            <button className="ci-clear-btn" onClick={() => setTrelloResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
-          </div>
-        ) : (
-          <>
-            {trelloLists.length > 0 && (
-              <select
-                className="add-input"
-                style={{ fontSize: 13, marginBottom: 8 }}
-                value={trelloPushListId}
-                onChange={e => setTrelloPushListId(e.target.value)}
-              >
-                <option value="" disabled>Select a list...</option>
-                {trelloLists.map(l => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
-            )}
+        {/* Trello list picker (when not yet linked) */}
+        {!trelloResult && trelloLists.length > 0 && (
+          <select
+            className="add-input"
+            style={{ fontSize: 13, marginBottom: 8 }}
+            value={trelloPushListId}
+            onChange={e => setTrelloPushListId(e.target.value)}
+          >
+            <option value="" disabled>Trello list...</option>
+            {trelloLists.map(l => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {!notionResult && !notionState && (
+            <button className="ci-upload-btn" onClick={handleNotionSearch} disabled={!title.trim()}>
+              Notion
+            </button>
+          )}
+          {!trelloResult && (
             <button
               className="ci-upload-btn"
               onClick={handleTrelloPush}
               disabled={trelloPushing || !title.trim() || !trelloPushListId}
             >
-              {trelloPushing ? <><span className="spinner" /> Pushing...</> : 'Push to Trello'}
+              {trelloPushing ? <><span className="spinner" /> Pushing...</> : 'Trello'}
             </button>
-          </>
-        )}
+          )}
+        </div>
 
         <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
           {makeRecurring ? 'Convert to Routine' : 'Save Changes'}
