@@ -96,8 +96,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
         if (status.connected) {
           setTrelloConnected(true)
           setTrelloUsername(status.username)
+          trelloBoards().then(setTrelloBoardsList).catch(() => {})
           if (s.trello_board_id) {
-            trelloBoards().then(setTrelloBoardsList).catch(() => {})
             trelloBoardLists(s.trello_board_id).then(setTrelloListsList).catch(() => {})
           }
         }
