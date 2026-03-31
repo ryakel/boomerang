@@ -9,6 +9,8 @@ services:
       - PORT=${PORT:-3001}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - NOTION_INTEGRATION_TOKEN=${NOTION_INTEGRATION_TOKEN:-}
+      - TRELLO_API_KEY=${TRELLO_API_KEY:-}
+      - TRELLO_TOKEN=${TRELLO_TOKEN:-}
       - DB_PATH=/data/boomerang.db
     volumes:
       - boomerang-data:/data

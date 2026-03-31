@@ -5,7 +5,7 @@ import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, tre
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
 export default function Settings({ onClose, onClearCompleted, onClearAll }) {
-  const [activeTab, setActiveTab] = useState('Tasks')
+  const [activeTab, setActiveTab] = useState('General')
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
 
