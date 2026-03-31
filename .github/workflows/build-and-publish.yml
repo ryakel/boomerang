@@ -133,6 +133,8 @@ jobs:
 
       - name: Connect to Tailscale
         if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        id: tailscale
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TS_AUTHKEY }}
@@ -140,6 +142,6 @@ jobs:
           version: latest
 
       - name: Trigger Portainer redeploy
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.tailscale.outcome == 'success'
         run: |
           curl -f -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
