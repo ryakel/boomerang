@@ -65,6 +65,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
     }
   }
 
+  const [loadingLists, setLoadingLists] = useState(false)
+
   const handleTrelloBoardSelect = async (boardId) => {
     const board = trelloBoardsList.find(b => b.id === boardId)
     if (!board) return
@@ -73,11 +75,14 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
     update('trello_list_id', '')
     update('trello_list_name', '')
     setTrelloListsList([])
+    setLoadingLists(true)
     try {
       const lists = await trelloBoardLists(boardId)
       setTrelloListsList(lists)
     } catch (err) {
       setTrelloError(err.message)
+    } finally {
+      setLoadingLists(false)
     }
   }
 
@@ -507,20 +512,24 @@ export default function Settings({ onClose, onClearCompleted, onClearAll }) {
                 </>
               )}
 
-              {settings.trello_board_id && !settings.trello_list_id && trelloListsList.length > 0 && (
+              {settings.trello_board_id && !settings.trello_list_id && (
                 <>
                   <div className="settings-label" style={{ marginBottom: 6 }}>List</div>
-                  <select
-                    className="add-input"
-                    style={{ fontSize: 13, marginBottom: 0 }}
-                    value=""
-                    onChange={e => handleTrelloListSelect(e.target.value)}
-                  >
-                    <option value="" disabled>Select a list...</option>
-                    {trelloListsList.map(l => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
+                  {loadingLists ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading lists...</div>
+                  ) : (
+                    <select
+                      className="add-input"
+                      style={{ fontSize: 13, marginBottom: 0 }}
+                      value=""
+                      onChange={e => handleTrelloListSelect(e.target.value)}
+                    >
+                      <option value="" disabled>Select a list...</option>
+                      {trelloListsList.map(l => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </>
               )}
             </div>
