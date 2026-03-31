@@ -53,6 +53,33 @@ function getFreqMs(settings, key, fallback) {
   return (val != null ? val : (settings.notif_frequency || fallback)) * 60 * 1000
 }
 
+function getHighPriorityFreqMs(task) {
+  if (!task.due_date) return 24 * 60 * 60 * 1000 // daily if no due date
+  const now = new Date()
+  const due = new Date(task.due_date + 'T00:00:00')
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  const diffDays = Math.round((dueDay - today) / 86400000)
+
+  if (diffDays > 0) return 24 * 60 * 60 * 1000 // daily before due date
+  if (diffDays === 0) return 60 * 60 * 1000 // hourly on due date
+  return 30 * 60 * 1000 // every 30 min when overdue
+}
+
+function isInHighPriNotifWindow(task) {
+  const hour = new Date().getHours()
+  if (!task.due_date) return hour >= 8 && hour < 22 // daily: 8am-10pm
+  const now = new Date()
+  const due = new Date(task.due_date + 'T00:00:00')
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  const diffDays = Math.round((dueDay - today) / 86400000)
+
+  if (diffDays > 0) return hour >= 8 && hour < 22 // daily: 8am-10pm
+  if (diffDays === 0) return hour >= 8 && hour < 22 // due date: 8am-10pm
+  return hour >= 6 && hour < 22 // overdue: 6am-10pm
+}
+
 export function useNotifications(tasks) {
   const lastChecks = useRef({
     overdue: 0,
@@ -61,6 +88,7 @@ export function useNotifications(tasks) {
     size: 0,
     pileup: 0,
   })
+  const highPriLastChecks = useRef({}) // per-task last check times
 
   useEffect(() => {
     const settings = loadSettings()
@@ -77,11 +105,60 @@ export function useNotifications(tasks) {
     }
 
     // Tick at the shortest frequency so we don't miss any
-    const tickMs = Math.min(...Object.values(freqs))
+    const tickMs = Math.min(...Object.values(freqs), 60 * 1000) // at least every minute for high-priority
 
     const check = async () => {
       const now = Date.now()
       const lc = lastChecks.current
+
+      // High-priority notifications — independent per-task timers
+      const activeTasks = tasks.filter(t => t.status !== 'done' && t.status !== 'backlog')
+      const highPriTasks = activeTasks.filter(t => t.high_priority && (!t.snoozed_until || new Date(t.snoozed_until) <= new Date()))
+      const hpLc = highPriLastChecks.current
+      let hpNotifCount = 0
+
+      for (const task of highPriTasks) {
+        if (hpNotifCount >= 3) break // cap per cycle
+        if (!isInHighPriNotifWindow(task)) continue
+
+        const freq = getHighPriorityFreqMs(task)
+        const lastCheck = hpLc[task.id] || 0
+
+        if (now - lastCheck >= freq) {
+          hpLc[task.id] = now
+          const dueDate = task.due_date ? new Date(task.due_date + 'T00:00:00') : null
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+
+          let body
+          if (dueDate) {
+            const diffDays = Math.round((dueDate - today) / 86400000)
+            if (diffDays < 0) {
+              body = `"${task.title}" is ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} overdue`
+            } else if (diffDays === 0) {
+              body = `"${task.title}" is due today — don't miss it`
+            } else if (diffDays === 1) {
+              body = `"${task.title}" is due tomorrow`
+            } else {
+              body = `"${task.title}" is due in ${diffDays} days`
+            }
+          } else {
+            body = `"${task.title}" is marked high priority`
+          }
+
+          new Notification('HIGH PRIORITY', {
+            body,
+            icon: '/icon-192.png',
+            tag: `high-pri-${task.id.slice(0, 8)}`,
+          })
+          hpNotifCount++
+        }
+      }
+
+      // Clean up old entries for tasks that are no longer high priority
+      for (const id of Object.keys(hpLc)) {
+        if (!highPriTasks.some(t => t.id === id)) delete hpLc[id]
+      }
 
       const openTasks = tasks.filter(t => t.status === 'open')
       const nonSnoozed = openTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())

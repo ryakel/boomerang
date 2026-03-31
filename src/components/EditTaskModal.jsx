@@ -37,6 +37,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const [trelloResult, setTrelloResult] = useState(
     task.trello_card_id ? { id: task.trello_card_id, url: task.trello_card_url } : null
   )
+  const [highPriority, setHighPriority] = useState(task.high_priority || false)
   const [trelloPushing, setTrelloPushing] = useState(false)
   const [trelloLists, setTrelloLists] = useState([])
   const [trelloConfigured] = useState(() => {
@@ -88,6 +89,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         tags: selectedTags,
         due_date: dueDate || null,
         size: size || null,
+        high_priority: highPriority,
         notion_page_id: notionResult?.id || null,
         notion_url: notionResult?.url || null,
         trello_card_id: trelloResult?.id || null,
@@ -327,6 +329,14 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             {sizing ? <span className="spinner" /> : '✨'} {sizing ? 'Sizing...' : 'Auto'}
           </button>
         </div>
+
+        <button
+          className={`priority-toggle ${highPriority ? 'active' : ''}`}
+          onClick={() => setHighPriority(!highPriority)}
+          style={{ marginBottom: 12 }}
+        >
+          <span style={{ fontWeight: 800 }}>!</span> High Priority
+        </button>
 
         {/* Attachments */}
         <input

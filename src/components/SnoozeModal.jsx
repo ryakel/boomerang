@@ -1,7 +1,7 @@
-import { getSnoozeOptions } from '../store'
+import { getSnoozeOptions, getSnoozeOptionsShort } from '../store'
 
 export default function SnoozeModal({ task, onSnooze, onClose }) {
-  const options = getSnoozeOptions()
+  const options = task.high_priority ? getSnoozeOptionsShort() : getSnoozeOptions()
 
   return (
     <div className="sheet-overlay" onClick={onClose}>

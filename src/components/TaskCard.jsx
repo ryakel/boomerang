@@ -142,7 +142,7 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
 
       <div
         ref={cardRef}
-        className={`task-card ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''}`}
+        className={`task-card ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : ''}`}
         style={{
           transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
           transition: swiping ? 'none' : 'transform 0.25s ease',
@@ -168,6 +168,7 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
             </span>
           )}
           <div className="task-card-right">
+            {task.high_priority && <span className="priority-pill">!</span>}
             {task.size && (
               <span className={`size-pill size-${task.size.toLowerCase()}`}>{task.size}</span>
             )}

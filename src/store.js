@@ -3,6 +3,7 @@ const SETTINGS_KEY = 'boom_settings_v1'
 const LABELS_KEY = 'boom_labels_v1'
 const ROUTINES_KEY = 'boom_routines_v1'
 const MODIFIED_KEY = 'boom_last_modified'
+const ACTIVITY_LOG_KEY = 'boom_activity_log_v1'
 
 const DEFAULT_SETTINGS = {
   staleness_days: 2,
@@ -18,6 +19,8 @@ const DEFAULT_SETTINGS = {
   notif_freq_nudge: 60,
   notif_freq_size: 60,
   notif_freq_pileup: 120,
+  notif_freq_highpri: null,
+  notif_highpri_escalate: true,
   default_due_days: 7,
   max_open_tasks: 10,
   stale_warn_days: 7,
@@ -127,6 +130,7 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     trello_card_id: null,
     trello_card_url: null,
     routine_id: null,
+    high_priority: false,
     size: null,
     attachments: [],
     checklist: [],
@@ -142,6 +146,7 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
     custom_days: customDays, // for 'custom': number of days between
     tags,
     notes,
+    high_priority: false,
     notion_page_id: null,
     notion_url: null,
     created_at: new Date().toISOString(),
@@ -391,6 +396,61 @@ export function computeTaskPoints(task) {
   const daysOnList = Math.max(0, Math.floor((completedAt.getTime() - new Date(task.created_at).getTime()) / 86400000))
   const speedMultiplier = daysOnList === 0 ? 2 : daysOnList <= 2 ? 1.5 : 1
   return Math.round(base * speedMultiplier)
+}
+
+// Activity log — tracks task lifecycle events for recovery
+const MAX_ACTIVITY_LOG = 500
+
+export function loadActivityLog() {
+  try {
+    return JSON.parse(localStorage.getItem(ACTIVITY_LOG_KEY) || '[]')
+  } catch { return [] }
+}
+
+export function saveActivityLog(log) {
+  localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify(log))
+}
+
+export function logActivity(action, task) {
+  const log = loadActivityLog()
+  log.unshift({
+    id: crypto.randomUUID(),
+    action, // 'created' | 'completed' | 'deleted' | 'status_changed' | 'edited' | 'snoozed' | 'priority_changed'
+    task_id: task.id,
+    task_title: task.title,
+    task_snapshot: { ...task },
+    timestamp: new Date().toISOString(),
+  })
+  // Keep log bounded
+  if (log.length > MAX_ACTIVITY_LOG) log.length = MAX_ACTIVITY_LOG
+  saveActivityLog(log)
+}
+
+export function getSnoozeOptionsShort() {
+  const now = new Date()
+  const hour = now.getHours()
+
+  const later = new Date(now)
+  later.setTime(now.getTime() + 2 * 3600000) // 2 hours from now
+
+  const tonight = new Date(now)
+  if (hour >= 19) { tonight.setTime(now.getTime() + 2 * 3600000) }
+  else { tonight.setHours(20, 0, 0, 0) }
+
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(9, 0, 0, 0)
+
+  const dayAfter = new Date(now)
+  dayAfter.setDate(dayAfter.getDate() + 2)
+  dayAfter.setHours(9, 0, 0, 0)
+
+  return [
+    { label: '2 Hours', date: later },
+    { label: 'Tonight', date: tonight },
+    { label: 'Tomorrow', date: tomorrow },
+    { label: 'Day After', date: dayAfter },
+  ]
 }
 
 export { ACTIVE_STATUSES, isActiveTask, LABEL_COLORS, RECURRENCE_OPTIONS, SIZE_POINTS }

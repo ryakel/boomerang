@@ -4,7 +4,7 @@ import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, tre
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
-export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing }) {
+export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onShowActivityLog }) {
   const [activeTab, setActiveTab] = useState('General')
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
@@ -589,6 +589,15 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
           {settings.notifications_enabled && (
             <div className="notif-options">
+              <div className="settings-label" style={{ marginTop: 16 }}>High priority</div>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                Always on. Daily reminders before due, hourly on due date, every 30min when overdue (6am-10pm).
+              </div>
+              <label className="notif-check">
+                <input type="checkbox" checked={settings.notif_highpri_escalate !== false} onChange={e => update('notif_highpri_escalate', e.target.checked)} />
+                <span>Repeat until addressed</span>
+              </label>
+
               <div className="settings-label" style={{ marginTop: 16 }}>Notify me about</div>
 
               <div className="notif-type-row">
@@ -715,6 +724,13 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               <input ref={dataImportRef} type="file" accept=".json" onChange={handleImportData} hidden />
               <button className="ci-upload-btn" onClick={() => dataImportRef.current?.click()}>Import</button>
             </div>
+          </div>
+
+          <div className="settings-group">
+            <div className="settings-label">Activity</div>
+            <button className="ci-upload-btn" onClick={onShowActivityLog}>
+              View Activity Log
+            </button>
           </div>
 
           <div className="danger-zone">

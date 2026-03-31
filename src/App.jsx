@@ -18,6 +18,7 @@ import ExtendModal from './components/ExtendModal'
 import Logo from './components/Logo'
 import Analytics from './components/Analytics'
 import FindRelatedModal from './components/FindRelatedModal'
+import ActivityLog from './components/ActivityLog'
 import { MiniRings } from './components/Rings'
 import { useNotifications } from './hooks/useNotifications'
 import { useServerSync } from './hooks/useServerSync'
@@ -52,6 +53,7 @@ function App() {
   const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showActivityLog, setShowActivityLog] = useState(false)
   const [relatedTarget, setRelatedTarget] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const sortRef = useRef(null)
@@ -413,6 +415,7 @@ function App() {
           onClearAll={() => { clearAll(); saveSettings({}); setShowSettings(false); flushSync() }}
           onTrelloSync={syncTrello}
           trelloSyncing={trelloSyncing}
+          onShowActivityLog={() => { setShowSettings(false); setShowActivityLog(true) }}
         />
       )}
 
@@ -460,6 +463,16 @@ function App() {
           onTogglePause={togglePause}
           onUpdate={updateRoutine}
           onClose={() => setShowRoutines(false)}
+        />
+      )}
+
+      {showActivityLog && (
+        <ActivityLog
+          onRestore={(snapshot) => {
+            setTasks(prev => [snapshot, ...prev])
+            setShowActivityLog(false)
+          }}
+          onClose={() => setShowActivityLog(false)}
         />
       )}
 

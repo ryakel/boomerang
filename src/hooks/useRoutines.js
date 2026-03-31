@@ -9,8 +9,9 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes)
+    if (highPriority) routine.high_priority = true
     setRoutines(prev => [routine, ...prev])
     return routine
   }, [])
@@ -60,6 +61,7 @@ export function useRoutines() {
       task.routine_id = routine.id
       task.notion_page_id = routine.notion_page_id
       task.notion_url = routine.notion_url
+      if (routine.high_priority) task.high_priority = true
       spawned.push(task)
     })
     return spawned

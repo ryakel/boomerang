@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { loadTasks, saveTasks, createTask, isStale, isSnoozed, isActiveTask } from '../store'
+import { loadTasks, saveTasks, createTask, isStale, isSnoozed, isActiveTask, logActivity } from '../store'
 
 function remoteLog(...args) {
   const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
@@ -24,7 +24,7 @@ export function useTasks() {
     return () => clearInterval(interval)
   }, [])
 
-  const addTask = useCallback((title, tags = [], dueDate = null, notes = '', notion = null, size = null, attachments = []) => {
+  const addTask = useCallback((title, tags = [], dueDate = null, notes = '', notion = null, size = null, attachments = [], highPriority = false) => {
     remoteLog('addTask:', title)
     const task = createTask(title, tags, dueDate, notes)
     if (notion) {
@@ -33,6 +33,7 @@ export function useTasks() {
     }
     if (size) task.size = size
     if (attachments.length > 0) task.attachments = attachments
+    if (highPriority) task.high_priority = true
     setTasks(prev => [task, ...prev])
     return task.id
   }, [])
@@ -54,6 +55,7 @@ export function useTasks() {
         }
         return t
       })
+      if (task) logActivity('completed', task)
       remoteLog('completeTask:', task?.title, `id=${id.slice(0, 8)}`, `→ ${next.filter(t => t.status === 'done').length}/${next.length} done`)
       return next
     })
@@ -112,7 +114,11 @@ export function useTasks() {
 
   const deleteTask = useCallback((id) => {
     remoteLog('deleteTask:', `id=${id.slice(0, 8)}`)
-    setTasks(prev => prev.filter(t => t.id !== id))
+    setTasks(prev => {
+      const task = prev.find(t => t.id === id)
+      if (task) logActivity('deleted', task)
+      return prev.filter(t => t.id !== id)
+    })
   }, [])
 
   const changeStatus = useCallback((id, newStatus) => {

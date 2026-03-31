@@ -9,6 +9,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
   const [customDays, setCustomDays] = useState(14)
   const [selectedTags, setSelectedTags] = useState([])
   const [notes, setNotes] = useState('')
+  const [highPriority, setHighPriority] = useState(false)
   const labels = loadLabels()
 
   const resetForm = () => {
@@ -17,13 +18,14 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setCadence('weekly')
     setCustomDays(14)
     setSelectedTags([])
+    setHighPriority(false)
     setShowAdd(false)
     setEditingRoutine(null)
   }
 
   const handleAdd = () => {
     if (!title.trim()) return
-    onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim())
+    onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim(), highPriority)
     resetForm()
   }
 
@@ -34,6 +36,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setCustomDays(routine.custom_days || 14)
     setSelectedTags(routine.tags || [])
     setNotes(routine.notes || '')
+    setHighPriority(routine.high_priority || false)
     setShowAdd(true)
   }
 
@@ -45,6 +48,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
       custom_days: cadence === 'custom' ? customDays : null,
       tags: selectedTags,
       notes: notes.trim(),
+      high_priority: highPriority,
     })
     resetForm()
   }
@@ -124,6 +128,13 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
               </button>
             ))}
           </div>
+          <button
+            className={`priority-toggle ${highPriority ? 'active' : ''}`}
+            onClick={() => setHighPriority(!highPriority)}
+            style={{ marginBottom: 16 }}
+          >
+            <span style={{ fontWeight: 800 }}>!</span> High Priority
+          </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="submit-btn" disabled={!title.trim()} onClick={editingRoutine ? handleSaveEdit : handleAdd}>
               {editingRoutine ? 'Save Changes' : 'Add Routine'}
@@ -265,7 +276,7 @@ function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
       )}
 
       <div
-        className={`task-card ${routine.paused ? 'snoozed' : ''}`}
+        className={`task-card ${routine.paused ? 'snoozed' : ''} ${routine.high_priority ? 'high-priority' : ''}`}
         style={{
           transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
           transition: swiping ? 'none' : 'transform 0.25s ease',
@@ -277,6 +288,7 @@ function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
       >
         <div className="task-card-top">
           <span className="task-title">{routine.title}</span>
+          {routine.high_priority && <span className="priority-pill">!</span>}
           <span className="task-meta">{formatCadence(routine)}</span>
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>

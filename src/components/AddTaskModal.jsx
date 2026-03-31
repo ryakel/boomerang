@@ -21,6 +21,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
   const [notionState, setNotionState] = useState(null) // null | 'searching' | {action, pages, page_id, reason}
   const [notionCreating, setNotionCreating] = useState(false)
   const [notionResult, setNotionResult] = useState(null) // {id, url}
+  const [highPriority, setHighPriority] = useState(false)
   const [attachments, setAttachments] = useState([])
   const [attachError, setAttachError] = useState(null)
   const inputRef = useRef(null)
@@ -37,7 +38,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
   const handleSubmit = () => {
     if (!title.trim()) return
-    onAdd(title.trim(), selectedTags, dueDate || null, notes.trim(), notionResult, size, attachments)
+    onAdd(title.trim(), selectedTags, dueDate || null, notes.trim(), notionResult, size, attachments, highPriority)
     onClose()
   }
 
@@ -217,6 +218,14 @@ export default function AddTaskModal({ onAdd, onClose }) {
             {sizing ? <span className="spinner" /> : '✨'} {sizing ? 'Sizing...' : 'Auto'}
           </button>
         </div>
+
+        <button
+          className={`priority-toggle ${highPriority ? 'active' : ''}`}
+          onClick={() => setHighPriority(!highPriority)}
+          style={{ marginBottom: 12 }}
+        >
+          <span style={{ fontWeight: 800 }}>!</span> High Priority
+        </button>
 
         {/* Attachments */}
         <input
