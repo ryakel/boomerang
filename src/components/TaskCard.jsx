@@ -9,20 +9,27 @@ const STATUS_META = {
 }
 
 const SWIPE_THRESHOLD = 70
+const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
 export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog, onStatusChange, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
+  const [swipeOpen, setSwipeOpen] = useState(false) // true when action buttons are revealed
   const [swipeTriggered, setSwipeTriggered] = useState(null) // 'left' | 'right' | null
   const touchStartRef = useRef(null)
   const cardRef = useRef(null)
 
+  const closeSwipe = useCallback(() => {
+    setSwipeOpen(false)
+    setSwipeX(0)
+  }, [])
+
   const handleTouchStart = useCallback((e) => {
     const touch = e.touches[0]
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() }
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now(), startSwipeX: swipeX }
     setSwipeTriggered(null)
-  }, [])
+  }, [swipeX])
 
   const handleTouchMove = useCallback((e) => {
     if (!touchStartRef.current) return
@@ -38,8 +45,10 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
 
     if (Math.abs(dx) > 10) {
       setSwiping(true)
-      // Resistance at the edges
-      const clamped = Math.max(-150, Math.min(150, dx))
+      const base = touchStartRef.current.startSwipeX || 0
+      const raw = base + dx
+      // Only allow swiping left (negative) for action reveal, and right (positive) for delete
+      const clamped = Math.max(-160, Math.min(150, raw))
       setSwipeX(clamped)
     }
   }, [swiping])
@@ -50,29 +59,41 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
       return
     }
 
-    if (swipeX < -SWIPE_THRESHOLD) {
-      // Swiped left → delete
-      setSwipeTriggered('left')
-      setSwipeX(-300) // animate off screen
-      setTimeout(() => onDelete(task.id), 250)
-    } else if (swipeX > SWIPE_THRESHOLD) {
-      // Swiped right → done
+    if (swipeX > SWIPE_THRESHOLD) {
+      // Swiped right (left-to-right) → delete
       setSwipeTriggered('right')
       setSwipeX(300)
-      setTimeout(() => onComplete(task.id), 250)
+      setTimeout(() => onDelete(task.id), 250)
+    } else if (swipeX < -SWIPE_THRESHOLD) {
+      // Swiped left (right-to-left) → reveal Edit + Complete buttons
+      setSwipeOpen(true)
+      setSwipeX(SWIPE_OPEN_OFFSET)
     } else {
-      setSwipeX(0)
+      // Snap back
+      if (swipeOpen && swipeX > SWIPE_OPEN_OFFSET + 30) {
+        // Swiped back to close
+        closeSwipe()
+      } else if (swipeOpen) {
+        setSwipeX(SWIPE_OPEN_OFFSET)
+      } else {
+        setSwipeX(0)
+      }
     }
 
     touchStartRef.current = null
     setTimeout(() => setSwiping(false), 300)
-  }, [swipeX, task.id, onDelete, onComplete])
+  }, [swipeX, swipeOpen, task.id, onDelete, closeSwipe])
 
   const handleClick = useCallback(() => {
     // Don't toggle if we just finished a swipe
     if (swiping || swipeTriggered) return
+    // Close swipe if open
+    if (swipeOpen) {
+      closeSwipe()
+      return
+    }
     setExpanded(prev => !prev)
-  }, [swiping, swipeTriggered])
+  }, [swiping, swipeTriggered, swipeOpen, closeSwipe])
 
   const stale = isStale(task)
   const snoozed = isSnoozed(task)
@@ -91,10 +112,14 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
   }
 
   return (
-    <div className={`swipe-container ${swipeTriggered === 'left' ? 'swipe-deleting' : ''} ${swipeTriggered === 'right' ? 'swipe-completing' : ''}`}>
-      {/* Background revealed by swipe */}
-      <div className="swipe-bg-left">🗑️</div>
-      <div className="swipe-bg-right">✓</div>
+    <div className={`swipe-container ${swipeTriggered === 'right' ? 'swipe-deleting' : ''}`}>
+      {/* Delete background (revealed by swiping right / left-to-right) */}
+      <div className="swipe-bg-right">🗑️</div>
+      {/* Action buttons (revealed by swiping left / right-to-left) */}
+      <div className="swipe-actions-left">
+        <button className="swipe-action-btn swipe-edit" onClick={(e) => { e.stopPropagation(); closeSwipe(); onEdit(task) }}>Edit</button>
+        <button className="swipe-action-btn swipe-complete" onClick={(e) => { e.stopPropagation(); closeSwipe(); onComplete(task.id) }}>Done</button>
+      </div>
 
       <div
         ref={cardRef}

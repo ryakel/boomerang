@@ -419,27 +419,16 @@
   margin-bottom: 8px;
 }
 
-.swipe-bg-left,
 .swipe-bg-right {
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 0;
   display: flex;
   align-items: center;
   padding: 0 24px;
   font-size: 22px;
-}
-
-.swipe-bg-left {
-  right: 0;
   background: #FF3B30;
-  justify-content: flex-end;
-  width: 100%;
-}
-
-.swipe-bg-right {
-  left: 0;
-  background: #52C97F;
   justify-content: flex-start;
   width: 100%;
   color: #fff;
@@ -447,11 +436,38 @@
   font-size: 26px;
 }
 
-.swipe-deleting {
-  animation: swipe-fade-out 0.25s ease forwards;
+.swipe-actions-left {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  align-items: stretch;
+  z-index: 1;
 }
 
-.swipe-completing {
+.swipe-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+}
+
+.swipe-edit {
+  background: #4A9EFF;
+}
+
+.swipe-complete {
+  background: #52C97F;
+}
+
+.swipe-deleting {
   animation: swipe-fade-out 0.25s ease forwards;
 }
 
