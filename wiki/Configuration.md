@@ -9,7 +9,7 @@
 | `ANTHROPIC_API_KEY` | No | — | Default Claude API key for AI features (users can override in UI) |
 | `NOTION_INTEGRATION_TOKEN` | No | — | Default Notion integration token (users can override in UI) |
 | `TRELLO_API_KEY` | No | — | Trello API key for card sync (users can override in UI) |
-| `TRELLO_SECRET` | No | — | Trello API secret for card sync (users can override in UI) |
+| `TRELLO_SECRET` | No | — | Trello API token for card sync — despite the name, this is the **token** from the authorize URL, NOT the "Secret" from the Trello admin page (users can override in UI) |
 | `APP_VERSION` | No | `dev` | Version string injected at build time (used if git tags are unavailable) |
 
 **None are required.** The app starts and works fully without API keys. AI features (Polish, What Now, Reframe, date inference, size inference, smart nudges) are disabled without an Anthropic key. Notion features are disabled without a Notion token.
@@ -25,7 +25,7 @@ For each request, the server resolves keys in this order:
 
 If neither is set, AI and Notion API calls return a 400 with a descriptive error message. The rest of the app continues to function normally.
 
-When an environment variable is set, the Settings UI shows a status message ("Anthropic API key set by environment variable") instead of the input field, since the env var is already providing the key.
+When an environment variable is set, the Settings UI shows a "Set by environment variable" status message instead of the input field, since the env var is already providing the key. This applies to Anthropic, Notion, and Trello credentials.
 
 ## Settings (in-app)
 

@@ -122,6 +122,7 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `DELETE` | `/api/trello/cards/:id` | Archive a Trello card |
 | `GET` | `/api/trello/cards/:id` | Get a single Trello card |
 | `POST` | `/api/trello/sync` | Pull cards from a Trello list |
+| `POST` | `/api/trello/sync-all-lists` | Pull cards from multiple Trello lists at once |
 
 ## PWA
 

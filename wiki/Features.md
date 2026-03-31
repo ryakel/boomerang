@@ -9,8 +9,9 @@ Every task always comes back. Dismissal is never free — every "not now" requir
 - **Quick add** — type and hit Enter from the bottom bar to instantly create a task
 - **Full add modal** — title, notes, due date, labels, T-shirt size, and Notion link
 - **Edit tasks** — full edit modal with all fields, including the ability to convert a one-off task into a routine
-- **Hover action buttons** — edit and done buttons appear on hover over any task card
-- **Expanded actions** — tap a task to expand it and reveal Done, Snooze, Extend, Edit, and Backlog buttons
+- **Swipe gestures** — iMessage-style swipe actions on task cards. Swipe right-to-left to reveal Edit and Done buttons. Swipe left-to-right to delete. Clean SVG icons (pencil, checkmark, trash) instead of text labels.
+- **Delete tasks** — delete any task via swipe gesture or from the expanded card actions
+- **Expanded actions** — tap a task to expand it and reveal Done, Snooze, Extend, Edit, Backlog, and Delete buttons
 - **Statuses** — not started, doing, waiting, done (plus backlog as a separate concept). Change status directly from the expanded task card.
 - **Checklists** — add checklist items to any task. Toggle items directly from the expanded card without opening the edit modal. Progress shown as "2/5 items".
 - **Comments** — append timestamped notes/comments to tasks from the edit modal. Useful for tracking updates on longer-running tasks.
@@ -72,12 +73,17 @@ Recurring tasks with configurable cadence:
 - **AI-suggested linking** — when searching, AI evaluates whether any found pages are a good match or if a new page should be created
 - **Create pages** — AI generates structured Notion page content from the task title and notes, then creates the page in Notion
 - **Parent page** — new pages are created under a configurable parent page ID, or under the first accessible page if none is set
+- **Connection indicators** — linked tasks show an "N" badge next to the title. Tap to open the Notion page directly.
 - **Open in Notion** — linked tasks show an "Open in Notion" link when expanded
 - **Routine support** — routines can also be linked to Notion pages
 
+## Connections (Edit Modal)
+
+The Edit Task modal has a combined **Connections** section showing both Notion and Trello integration buttons. When a task is linked to an integration, the button turns into a green badge showing the connection status with "Open" (to view in the external app) and "×" (to unlink) actions. This replaces separate integration sections with a unified UI.
+
 ## Trello Integration (requires Trello API key + token)
 
-Bidirectional sync between Boomerang tasks and Trello cards.
+Bidirectional sync between Boomerang tasks and Trello cards with AI-powered list mapping and automatic deduplication.
 
 ### Setup
 
@@ -111,21 +117,46 @@ TRELLO_SECRET=the_token_you_generated_above
 
 > **Note:** Despite the env var name `TRELLO_SECRET`, the value should be the **token** you generated in step 3 above, NOT the "Secret" shown on the Trello admin page. Those are different things.
 
+### Bidirectional Sync
+
+Trello lists map to Boomerang statuses:
+
+| Trello List | Boomerang Status |
+|-------------|-----------------|
+| To Do | not_started |
+| In Progress | doing |
+| On Hold | waiting |
+| Done | done |
+
+The mapping is **AI-inferred** — when you first connect a board, Claude analyzes your list names and automatically maps them to Boomerang statuses. You can re-infer the mapping at any time from Settings. Backlog is a Boomerang-only concept with no Trello equivalent.
+
+#### How sync works
+
+- **On app open**: Boomerang pulls cards from all mapped Trello lists, updates statuses on already-linked tasks, and uses AI deduplication (0.85 confidence threshold) to auto-link new Trello cards to matching Boomerang tasks
+- **On visibility change**: Sync runs again when you switch back to the app
+- **Manual sync**: Hit "Sync Now" in Settings → Integrations → Trello to force a sync
+- **Status push**: When you change a task's status in Boomerang, the linked Trello card is automatically moved to the corresponding list
+
 ### How to use it
 
 Once connected and a board/list is selected:
 
-- **Push a task to Trello** — Open any task (tap to expand), then tap **Edit**. In the Edit modal, scroll to the **Trello** section and tap **Push to Trello**. This creates a card on your selected list with the task title as the card name and notes as the description.
-- **View linked card** — After pushing, the task shows "Linked to Trello" with a direct link to open the card in Trello.
-- **Unlink** — Tap "Unlink" to disconnect the task from the Trello card (doesn't delete the card).
-- **Pull from Trello** — Cards created directly in Trello on your synced list will automatically appear as tasks in Boomerang on your next visit.
+- **Push a task to Trello** — Open any task (tap to expand), then tap **Edit**. In the Connections section, tap **Push to Trello**. This creates a card on the appropriate list with the task title as the card name and notes as the description.
+- **Connection indicators** — Linked tasks show N (Notion) and T (Trello) badges next to the title. Tap a badge to open the linked page/card directly.
+- **View linked card** — In the Edit modal, connected integrations show as green badges with an "Open" link and an unlink button.
+- **Unlink** — Tap the × on a connection badge to disconnect the task from the Trello card (doesn't delete the card).
+- **Pull from Trello** — Cards created directly in Trello are automatically pulled and matched to existing tasks or created as new tasks on sync.
 
 ### Features
 
-- **Push to Trello** — from the Edit modal, push any task to your configured Trello list as a card. The task title becomes the card name, notes become the description.
-- **Linked cards** — once pushed, the task shows "Linked to Trello" with a link to open the card directly in Trello, and an Unlink button.
-- **Pull from Trello** — the sync hook can pull cards from your configured list and create matching tasks locally (via `useTrelloSync` hook).
-- **Board/list selection** — configure which board and list to sync with in Settings. Change anytime.
+- **Push to Trello** — from the Edit modal's Connections section, push any task to Trello. The AI selects the appropriate list based on the task's current status and the inferred list mapping.
+- **Linked cards** — once pushed, the Trello connection shows as a green badge with a direct link to open the card in Trello, and an unlink button.
+- **Pull from Trello** — the `useTrelloSync` hook pulls cards from all mapped lists, updates linked task statuses, and uses AI to deduplicate new cards against existing tasks.
+- **Status sync** — changing a task's status in Boomerang automatically moves the linked Trello card to the matching list.
+- **AI deduplication** — when new Trello cards are found, Claude compares them to existing tasks and auto-links matches above the confidence threshold. Only truly new cards create new tasks.
+- **Board/list selection** — configure which board and default list to sync with in Settings. Change anytime.
+- **Sync Now button** — manual sync trigger in Settings with last-sync timestamp display.
+- **List mapping display** — view and re-infer the AI-generated list mapping in Settings.
 
 ## Notifications
 

@@ -16,6 +16,8 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - AI-powered task suggestions, note polishing, date inference, and reframing
 - Recurring tasks (routines) with automatic scheduling
 - Notion integration — link or create pages for tasks
+- Trello integration — bidirectional sync with AI-inferred list mapping and auto-dedup
+- iMessage-style swipe gestures — swipe left for Edit/Done, swipe right to delete
 - Custom labels, due dates, extension system
 - Push notifications with ADHD-friendly nudges
 - Real-time cross-client sync via Server-Sent Events (SSE)
@@ -30,6 +32,8 @@ docker run -d -p 3001:3001 \
   -v boomerang-data:/data \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   -e NOTION_INTEGRATION_TOKEN=ntn_... \
+  -e TRELLO_API_KEY=your_api_key \
+  -e TRELLO_SECRET=your_trello_token \
   ghcr.io/ryakel/boomerang:main
 ```
 

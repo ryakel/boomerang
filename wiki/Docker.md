@@ -8,7 +8,7 @@ Single container running Node.js 22 on Alpine Linux. Serves both the static Reac
 Container (node:22-alpine)
   └── Express server
         ├── Static files (React PWA from /app/dist)
-        ├── API proxy (Claude, Notion)
+        ├── API proxy (Claude, Notion, Trello)
         ├── Data persistence (SQLite at /data/boomerang.db)
         ├── Health check endpoint (/api/health)
         └── Listening on $PORT (default 3001)
@@ -36,6 +36,8 @@ services:
       - PORT=${PORT:-3001}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - NOTION_INTEGRATION_TOKEN=${NOTION_INTEGRATION_TOKEN:-}
+      - TRELLO_API_KEY=${TRELLO_API_KEY:-}
+      - TRELLO_SECRET=${TRELLO_SECRET:-}
       - DB_PATH=/data/boomerang.db
     volumes:
       - boomerang-data:/data

@@ -43,7 +43,7 @@ boomerang/
 │   ├── components/
 │   │   ├── AddTaskModal.jsx    # Task creation with notes, polish, size, due date, labels, Notion
 │   │   ├── EditTaskModal.jsx   # Task editing with all fields + convert-to-routine option
-│   │   ├── TaskCard.jsx        # Individual task display with hover actions, expanded actions
+│   │   ├── TaskCard.jsx        # Individual task display with swipe gestures, expanded actions
 │   │   ├── SnoozeModal.jsx     # Snooze options (tonight, tomorrow, weekend, next week)
 │   │   ├── ReframeModal.jsx    # AI task reframing when snooze threshold exceeded
 │   │   ├── ExtendModal.jsx     # Due date extension (+1d, +1w, +2w, custom date)
@@ -61,6 +61,7 @@ boomerang/
 │       ├── useRoutines.js      # Routine state management (add, delete, pause, spawn)
 │       ├── useServerSync.js    # SSE-based server sync (real-time cross-client, debounced push, visibility resume)
 │       ├── useSync.js          # (deprecated) Old localStorage ↔ SQLite sync
+│       ├── useTrelloSync.js    # Bidirectional Trello sync (pull, push status, AI dedup, list mapping)
 │       ├── useNotifications.js # Browser push notifications (overdue, stale, AI nudges, size-based reminders)
 │       └── usePullToRefresh.js # Pull-to-refresh touch gesture on task list
 ├── public/
@@ -90,5 +91,5 @@ boomerang/
 - **Frontend**: React 19, Vite, PWA (vite-plugin-pwa)
 - **Backend**: Express 5, sql.js (SQLite in-process)
 - **AI**: Anthropic Claude API (claude-sonnet-4-20250514)
-- **Integrations**: Notion API
+- **Integrations**: Notion API, Trello REST API
 - **Deployment**: Docker (node:22-alpine), GitHub Actions, GHCR

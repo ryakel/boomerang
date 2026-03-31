@@ -31,6 +31,8 @@ Both the Anthropic API key and the Notion integration token are **optional**. Th
 
 **Without a Notion token**, Notion search, page linking, and page creation are disabled.
 
+**Without Trello credentials**, Trello board sync, card pushing, and bidirectional status sync are disabled.
+
 ### Option 1: Environment Variables (server-wide default)
 
 ```bash
@@ -39,6 +41,8 @@ docker run -d \
   -v boomerang-data:/data \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   -e NOTION_INTEGRATION_TOKEN=ntn_... \
+  -e TRELLO_API_KEY=your_api_key \
+  -e TRELLO_SECRET=your_trello_token \
   ghcr.io/ryakel/boomerang:latest
 ```
 
@@ -54,8 +58,8 @@ docker run -d \
 
 1. Type a task in the quick-add bar at the bottom and hit Enter
 2. Tap the "+" button with empty text to open the full Add Task modal with notes, labels, due dates, size, Notion linking, and file attachments
-3. Tap a task to expand it — Done, Snooze, Extend, Edit, Find Related, and Backlog actions appear
-4. Hover over a task to see quick-action buttons (edit, done)
+3. Tap a task to expand it — Done, Snooze, Extend, Edit, Backlog, and Delete actions appear
+4. Swipe a task right-to-left to reveal Edit and Done buttons, or left-to-right to delete
 5. Try "What can I do right now?" for AI-powered task suggestions (requires Anthropic API key)
 6. Check the activity rings in the header to see your daily progress on tasks, points, and streak
 7. Tap the chart icon in the header to open the Analytics screen for detailed stats and streak management
