@@ -131,7 +131,8 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
         console.log(`[TrelloSync] auto-linked card "${card.name}" to task ${matchedTaskId.slice(0, 8)}`)
       } else {
         // Create new task
-        const task = createTask(card.name, [], card.due || null, card.desc || '')
+        const dueDate = card.due ? card.due.slice(0, 10) : null // Trello sends ISO timestamp, we need YYYY-MM-DD
+        const task = createTask(card.name, [], dueDate, card.desc || '')
         task.trello_card_id = card.id
         task.trello_card_url = card.url || null
         task.status = status
