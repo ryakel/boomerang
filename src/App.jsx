@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import './App.css'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
-import { inferSize } from './api'
+import { inferSize, trelloUpdateCard } from './api'
 import { useTasks } from './hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from './hooks/useRoutines'
 import TaskCard from './components/TaskCard'
@@ -162,6 +162,15 @@ function App() {
     setToast({ task, variant: 'reopen' })
   }, [uncompleteTask, pushStatusToTrello])
 
+  const handleDelete = useCallback((id) => {
+    const task = tasks.find(t => t.id === id)
+    // Archive the card on Trello so it doesn't get re-imported on next sync
+    if (task?.trello_card_id) {
+      trelloUpdateCard(task.trello_card_id, { closed: true }).catch(() => {})
+    }
+    deleteTask(id)
+  }, [tasks, deleteTask])
+
   const handleConvertToRoutine = useCallback((taskId, { title, cadence, customDays, tags, notes }) => {
     addRoutine(title, cadence, customDays, tags, notes)
     // Remove the original one-off task since it's now a routine
@@ -317,7 +326,7 @@ function App() {
           <>
             <div className="section-label">Stale</div>
             {filteredStale.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={deleteTask} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
             ))}
           </>
         )}
@@ -326,7 +335,7 @@ function App() {
           <>
             <div className="section-label">Up Next</div>
             {filteredUpNext.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={deleteTask} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
             ))}
           </>
         )}
@@ -335,7 +344,7 @@ function App() {
           <>
             <div className="section-label">Waiting</div>
             {filteredWaiting.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={deleteTask} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
             ))}
           </>
         )}
@@ -344,7 +353,7 @@ function App() {
           <>
             <div className="section-label">Snoozed</div>
             {filteredSnoozed.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={deleteTask} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
             ))}
           </>
         )}
@@ -356,7 +365,7 @@ function App() {
               Backlog ({filteredBacklog.length})
             </button>
             {backlogOpen && filteredBacklog.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={deleteTask} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
             ))}
           </>
         )}
