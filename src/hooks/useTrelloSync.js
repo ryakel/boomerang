@@ -18,6 +18,8 @@ function buildReverseLookup(mapping) {
 
 export function useTrelloSync(tasks, setTasks, changeStatus) {
   const syncingRef = useRef(false)
+  const tasksRef = useRef(tasks)
+  tasksRef.current = tasks
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState(() => loadSettings().trello_last_sync || null)
   const [syncError, setSyncError] = useState(null)
@@ -60,8 +62,8 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
 
     const cardsByList = await trelloSyncAllLists(listIds)
 
-    // Build set of all known trello card IDs
-    const currentTasks = tasks
+    // Build set of all known trello card IDs (use ref for fresh snapshot)
+    const currentTasks = tasksRef.current
     const linkedCardIds = new Set(currentTasks.filter(t => t.trello_card_id).map(t => t.trello_card_id))
 
     const newCards = []
@@ -96,23 +98,46 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
       return
     }
 
-    // AI dedup: match new cards against unlinked tasks
+    // Dedup: first try exact title match, then fall back to AI
     const unlinkedTasks = currentTasks.filter(t => !t.trello_card_id && t.status !== 'done')
-    let matches = []
+    const matchMap = new Map()
 
-    if (unlinkedTasks.length > 0) {
+    // Pass 1: exact title match (case-insensitive)
+    const titleIndex = new Map()
+    for (const t of unlinkedTasks) {
+      const key = t.title.toLowerCase().trim()
+      if (!titleIndex.has(key)) titleIndex.set(key, t.id)
+    }
+    const remainingCards = []
+    for (const nc of newCards) {
+      const key = nc.card.name.toLowerCase().trim()
+      const matchedId = titleIndex.get(key)
+      if (matchedId) {
+        matchMap.set(nc.card.id, matchedId)
+        titleIndex.delete(key) // don't double-match
+        console.log(`[TrelloSync] exact title match: "${nc.card.name}" → ${matchedId.slice(0, 8)}`)
+      } else {
+        remainingCards.push(nc)
+      }
+    }
+
+    // Pass 2: AI dedup for remaining unmatched cards
+    if (remainingCards.length > 0 && unlinkedTasks.length > 0) {
       try {
         const dedupResult = await aiDedupTrelloCards(
-          newCards.map(nc => nc.card),
+          remainingCards.map(nc => nc.card),
           unlinkedTasks
         )
-        matches = dedupResult.matches || []
+        const matches = dedupResult.matches || []
+        for (const m of matches) {
+          if (m.task_id && m.confidence >= 0.85 && !matchMap.has(m.card_id)) {
+            matchMap.set(m.card_id, m.task_id)
+          }
+        }
       } catch (err) {
         console.error('[TrelloSync] AI dedup failed, creating all as new:', err.message)
       }
     }
-
-    const matchMap = new Map(matches.filter(m => m.task_id && m.confidence >= 0.85).map(m => [m.card_id, m.task_id]))
     const tasksToAdd = []
     const tasksToUpdate = []
 
@@ -154,7 +179,7 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
       })
       console.log(`[TrelloSync] imported ${tasksToAdd.length} new, linked ${tasksToUpdate.length} existing`)
     }
-  }, [tasks, setTasks, changeStatus, ensureMapping])
+  }, [setTasks, changeStatus, ensureMapping])
 
   // Push: move Trello card when Boomerang status changes
   const pushStatusToTrello = useCallback(async (task, newStatus) => {
