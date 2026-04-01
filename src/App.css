@@ -1436,6 +1436,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
   transition: opacity 0.15s;
 }
 
@@ -1456,6 +1457,7 @@
 
 .notes-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
