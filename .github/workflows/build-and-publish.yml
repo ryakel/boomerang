@@ -140,7 +140,6 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          version: latest
 
       - name: Trigger Portainer redeploy
         if: github.ref == 'refs/heads/main' && steps.tailscale.outcome == 'success'
