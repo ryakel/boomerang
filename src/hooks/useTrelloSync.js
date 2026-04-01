@@ -95,8 +95,9 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
 
         if (linkedCardIds.has(card.id)) {
           // Existing linked task — check if status needs updating
+          // Never revert 'done' or 'backlog' — these are terminal/local-only states
           const existingTask = currentTasks.find(t => t.trello_card_id === card.id)
-          if (existingTask && existingTask.status !== status && existingTask.status !== 'backlog') {
+          if (existingTask && existingTask.status !== status && existingTask.status !== 'backlog' && existingTask.status !== 'done') {
             statusUpdates.push({ taskId: existingTask.id, newStatus: status })
           }
         } else {

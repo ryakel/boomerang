@@ -144,15 +144,23 @@ function App() {
     if (task?.routine_id) {
       completeRoutine(task.routine_id)
     }
+    // Push completion to Trello so the card moves to the done list
+    if (task?.trello_card_id) {
+      pushStatusToTrello(task, 'done')
+    }
     if (task) {
       setToast({ ...task, completed_at: new Date().toISOString() })
     }
-  }, [tasks, completeTask, completeRoutine])
+  }, [tasks, completeTask, completeRoutine, pushStatusToTrello])
 
   const handleUncomplete = useCallback((task) => {
     uncompleteTask(task.id)
+    // Push reopened status back to Trello
+    if (task?.trello_card_id) {
+      pushStatusToTrello(task, 'not_started')
+    }
     setToast({ task, variant: 'reopen' })
-  }, [uncompleteTask])
+  }, [uncompleteTask, pushStatusToTrello])
 
   const handleConvertToRoutine = useCallback((taskId, { title, cadence, customDays, tags, notes }) => {
     addRoutine(title, cadence, customDays, tags, notes)
