@@ -107,6 +107,58 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
       }
     }
 
+    // Reconcile: push done/status changes from Boomerang → Trello for linked tasks
+    // that are out of sync (e.g. completed before the push fix was deployed)
+    const listMapping = loadSettings().trello_list_mapping
+    const cardListLookup = {} // cardId → current listId on Trello
+    for (const [listId, cards] of Object.entries(cardsByList)) {
+      for (const card of cards) {
+        if (!card.closed) cardListLookup[card.id] = listId
+      }
+    }
+    const reconcilePromises = []
+    for (const task of currentTasks) {
+      if (!task.trello_card_id || task.status === 'backlog') continue
+      const currentListId = cardListLookup[task.trello_card_id]
+      if (!currentListId) continue // card not found in any fetched list
+      const expectedStatus = STATUS_FOR_LIST[currentListId]
+      if (expectedStatus === task.status) continue // already in sync
+
+      if (task.status === 'done') {
+        const doneListId = listMapping?.done
+        if (doneListId && currentListId !== doneListId) {
+          remoteLog(`[TrelloSync] reconcile: moving "${task.title}" to done list`)
+          reconcilePromises.push(
+            trelloUpdateCard(task.trello_card_id, { idList: doneListId }).catch(err =>
+              remoteLog(`[TrelloSync] reconcile ERROR: ${err.message}`)
+            )
+          )
+        } else if (!doneListId) {
+          remoteLog(`[TrelloSync] reconcile: archiving "${task.title}" (no done list)`)
+          reconcilePromises.push(
+            trelloUpdateCard(task.trello_card_id, { closed: true }).catch(err =>
+              remoteLog(`[TrelloSync] reconcile ERROR: ${err.message}`)
+            )
+          )
+        }
+      } else {
+        // Non-done task whose Trello list doesn't match — push Boomerang status to Trello
+        const targetListId = listMapping?.[task.status]
+        if (targetListId && currentListId !== targetListId) {
+          remoteLog(`[TrelloSync] reconcile: moving "${task.title}" to ${task.status} list`)
+          reconcilePromises.push(
+            trelloUpdateCard(task.trello_card_id, { idList: targetListId }).catch(err =>
+              remoteLog(`[TrelloSync] reconcile ERROR: ${err.message}`)
+            )
+          )
+        }
+      }
+    }
+    if (reconcilePromises.length > 0) {
+      await Promise.all(reconcilePromises)
+      remoteLog(`[TrelloSync] reconciled ${reconcilePromises.length} card(s)`)
+    }
+
     // Apply status updates from Trello
     for (const { taskId, newStatus } of statusUpdates) {
       changeStatus(taskId, newStatus)
