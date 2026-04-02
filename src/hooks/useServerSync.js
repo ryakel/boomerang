@@ -43,6 +43,13 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const savedTimer = useRef(null)
   const versionMismatchFired = useRef(false)
 
+  // If we just reloaded for a version update, skip all version checks this page load
+  // to prevent a double-reload cycle when cached JS still reports the old version
+  if (!versionMismatchFired.current && sessionStorage.getItem('boom_reloading_for_update')) {
+    sessionStorage.removeItem('boom_reloading_for_update')
+    versionMismatchFired.current = true
+  }
+
   // Stable ref for callback so closures always see latest
   const onVersionMismatchRef = useRef(onVersionMismatch)
   onVersionMismatchRef.current = onVersionMismatch

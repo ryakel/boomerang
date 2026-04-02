@@ -74,6 +74,7 @@ function App() {
   const [updateVersion, setUpdateVersion] = useState(null)
   const { flush: flushSync, checkVersion, syncStatus } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
     setUpdateVersion(newVersion)
+    sessionStorage.setItem('boom_reloading_for_update', 'true')
     setTimeout(() => window.location.reload(), 4000)
   })
 
