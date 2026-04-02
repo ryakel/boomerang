@@ -104,15 +104,32 @@ function isInHighPriNotifWindow(task) {
   return hour >= 6 && hour < 22 // overdue: 6am-10pm
 }
 
+const LAST_CHECKS_KEY = 'boom_notif_last_checks'
+const HP_LAST_CHECKS_KEY = 'boom_notif_hp_last_checks'
+
+function loadLastChecks() {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_CHECKS_KEY)) || { overdue: 0, stale: 0, nudge: 0, size: 0, pileup: 0 }
+  } catch { return { overdue: 0, stale: 0, nudge: 0, size: 0, pileup: 0 } }
+}
+
+function saveLastChecks(checks) {
+  localStorage.setItem(LAST_CHECKS_KEY, JSON.stringify(checks))
+}
+
+function loadHpLastChecks() {
+  try {
+    return JSON.parse(localStorage.getItem(HP_LAST_CHECKS_KEY)) || {}
+  } catch { return {} }
+}
+
+function saveHpLastChecks(checks) {
+  localStorage.setItem(HP_LAST_CHECKS_KEY, JSON.stringify(checks))
+}
+
 export function useNotifications(tasks) {
-  const lastChecks = useRef({
-    overdue: 0,
-    stale: 0,
-    nudge: 0,
-    size: 0,
-    pileup: 0,
-  })
-  const highPriLastChecks = useRef({}) // per-task last check times
+  const lastChecks = useRef(loadLastChecks())
+  const highPriLastChecks = useRef(loadHpLastChecks())
 
   useEffect(() => {
     const settings = loadSettings()
@@ -264,6 +281,10 @@ export function useNotifications(tasks) {
           sendNotification('nudge', 'Boomerang', message, 'nudge')
         }
       }
+
+      // Persist throttle timestamps so they survive app reloads
+      saveLastChecks(lc)
+      saveHpLastChecks(hpLc)
     }
 
     check()
