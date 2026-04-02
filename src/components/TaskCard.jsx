@@ -8,7 +8,6 @@ const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action but
 
 export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false)
-  const [statusPickerOpen, setStatusPickerOpen] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const [swipeOpen, setSwipeOpen] = useState(false) // true when action buttons are revealed
@@ -265,30 +264,19 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
                 )}
               </button>
               {task.status !== 'backlog' && onStatusChange && (
-                <div className="toolbar-pill-wrapper">
-                  <button
-                    className="toolbar-pill status"
-                    style={{ '--status-color': (STATUS_META[task.status] || STATUS_META.not_started).color }}
-                    onClick={() => setStatusPickerOpen(!statusPickerOpen)}
-                    title={(STATUS_META[task.status] || STATUS_META.not_started).label}
-                  >
-                    <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" /><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" /></svg>
-                  </button>
-                  {statusPickerOpen && (
-                    <div className="status-picker">
-                      {ACTIVE_STATUSES.map(s => (
-                        <button
-                          key={s}
-                          className={`status-picker-opt${(task.status === s || (task.status === 'open' && s === 'not_started')) ? ' active' : ''}`}
-                          style={{ '--status-color': STATUS_META[s].color }}
-                          onClick={() => { onStatusChange(task.id, s); setStatusPickerOpen(false) }}
-                        >
-                          {STATUS_META[s].label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <button
+                  className="toolbar-pill status"
+                  style={{ '--status-color': (STATUS_META[task.status] || STATUS_META.not_started).color }}
+                  onClick={() => {
+                    const current = task.status === 'open' ? 'not_started' : task.status
+                    const idx = STATUS_CYCLE.indexOf(current)
+                    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length]
+                    onStatusChange(task.id, next)
+                  }}
+                  title={(STATUS_META[task.status] || STATUS_META.not_started).label}
+                >
+                  <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" /><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" /></svg>
+                </button>
               )}
             </div>
           </>

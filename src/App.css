@@ -417,51 +417,6 @@
   background: color-mix(in srgb, var(--status-color) 18%, transparent);
   color: var(--status-color);
 }
-
-.toolbar-pill-wrapper {
-  flex: 1;
-  position: relative;
-  display: flex;
-}
-
-.toolbar-pill-wrapper .toolbar-pill {
-  flex: 1;
-}
-
-.status-picker {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 4px;
-  background: var(--surface);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  padding: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  z-index: 10;
-  white-space: nowrap;
-}
-
-.status-picker-opt {
-  padding: 6px 12px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  transition: all 0.15s;
-}
-
-.status-picker-opt.active {
-  background: color-mix(in srgb, var(--status-color) 18%, transparent);
-  color: var(--status-color);
-}
-
-.status-picker-opt:active {
-  opacity: 0.7;
-}
-
 /* Danger zone in edit modal */
 .modal-danger-zone {
   margin-top: 20px;
