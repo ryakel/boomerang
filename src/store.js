@@ -21,6 +21,9 @@ const DEFAULT_SETTINGS = {
   notif_freq_pileup: 120,
   notif_freq_highpri: null,
   notif_highpri_escalate: true,
+  quiet_hours_enabled: false,
+  quiet_hours_start: '22:00',
+  quiet_hours_end: '08:00',
   default_due_days: 7,
   max_open_tasks: 10,
   stale_warn_days: 7,
@@ -424,6 +427,36 @@ export function logActivity(action, task) {
   // Keep log bounded
   if (log.length > MAX_ACTIVITY_LOG) log.length = MAX_ACTIVITY_LOG
   saveActivityLog(log)
+}
+
+const NOTIF_LOG_KEY = 'boom_notif_log_v1'
+const MAX_NOTIF_LOG = 200
+
+export function loadNotifLog() {
+  try {
+    return JSON.parse(localStorage.getItem(NOTIF_LOG_KEY) || '[]')
+  } catch { return [] }
+}
+
+export function saveNotifLog(log) {
+  localStorage.setItem(NOTIF_LOG_KEY, JSON.stringify(log))
+}
+
+export function logNotification(type, title, body) {
+  const log = loadNotifLog()
+  log.unshift({
+    id: crypto.randomUUID(),
+    type,
+    title,
+    body,
+    timestamp: new Date().toISOString(),
+  })
+  if (log.length > MAX_NOTIF_LOG) log.length = MAX_NOTIF_LOG
+  saveNotifLog(log)
+}
+
+export function clearNotifLog() {
+  localStorage.removeItem(NOTIF_LOG_KEY)
 }
 
 export function getSnoozeOptionsShort() {

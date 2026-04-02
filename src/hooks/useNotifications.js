@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { loadSettings, isStale, isOverdue } from '../store'
+import { loadSettings, isStale, isOverdue, logNotification } from '../store'
 
 const FALLBACK_NUDGES = [
   "Got 2 minutes? Even one tiny thing counts.",
@@ -46,6 +46,27 @@ async function getAINudge(taskCount) {
   } catch {
     return pickRandom(FALLBACK_NUDGES)
   }
+}
+
+function isInQuietHours(settings) {
+  if (!settings.quiet_hours_enabled) return false
+  const now = new Date()
+  const currentMins = now.getHours() * 60 + now.getMinutes()
+  const [startH, startM] = (settings.quiet_hours_start || '22:00').split(':').map(Number)
+  const [endH, endM] = (settings.quiet_hours_end || '08:00').split(':').map(Number)
+  const startMins = startH * 60 + startM
+  const endMins = endH * 60 + endM
+
+  if (startMins <= endMins) {
+    return currentMins >= startMins && currentMins < endMins
+  }
+  // Wraps midnight (e.g. 22:00 - 08:00)
+  return currentMins >= startMins || currentMins < endMins
+}
+
+function sendNotification(type, title, body, tag) {
+  new Notification(title, { body, icon: '/icon-192.png', tag })
+  logNotification(type, title, body)
 }
 
 function getFreqMs(settings, key, fallback) {
@@ -108,6 +129,8 @@ export function useNotifications(tasks) {
     const tickMs = Math.min(...Object.values(freqs), 60 * 1000) // at least every minute for high-priority
 
     const check = async () => {
+      if (isInQuietHours(settings)) return
+
       const now = Date.now()
       const lc = lastChecks.current
 
@@ -146,11 +169,7 @@ export function useNotifications(tasks) {
             body = `"${task.title}" is marked high priority`
           }
 
-          new Notification('HIGH PRIORITY', {
-            body,
-            icon: '/icon-192.png',
-            tag: `high-pri-${task.id.slice(0, 8)}`,
-          })
+          sendNotification('high_priority', 'HIGH PRIORITY', body, `high-pri-${task.id.slice(0, 8)}`)
           hpNotifCount++
         }
       }
@@ -168,11 +187,7 @@ export function useNotifications(tasks) {
         lc.pileup = now
 
         if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {
-          new Notification('Too many open tasks', {
-            body: `You have ${nonSnoozed.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`,
-            icon: '/icon-192.png',
-            tag: 'too-many',
-          })
+          sendNotification('pileup', 'Too many open tasks', `You have ${nonSnoozed.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`, 'too-many')
         }
 
         // Check for high percentage of old tasks
@@ -183,11 +198,7 @@ export function useNotifications(tasks) {
           })
           const pct = openTasks.length > 0 ? Math.round(oldTasks.length / openTasks.length * 100) : 0
           if (pct >= settings.stale_warn_pct) {
-            new Notification('Tasks piling up', {
-              body: `${pct}% of your tasks have been open for ${settings.stale_warn_days}+ days`,
-              icon: '/icon-192.png',
-              tag: 'stale-warn',
-            })
+            sendNotification('pileup', 'Tasks piling up', `${pct}% of your tasks have been open for ${settings.stale_warn_days}+ days`, 'stale-warn')
           }
         }
       }
@@ -207,11 +218,7 @@ export function useNotifications(tasks) {
         if (upcomingBySize.length > 0) {
           const t = upcomingBySize[0]
           const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
-          new Notification(`${t.size} task due soon`, {
-            body: `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`,
-            icon: '/icon-192.png',
-            tag: 'size-reminder',
-          })
+          sendNotification('size', `${t.size} task due soon`, `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`, 'size-reminder')
         }
       }
 
@@ -223,11 +230,7 @@ export function useNotifications(tasks) {
         if (overdueTasks.length > 0) {
           const names = overdueTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
           const extra = overdueTasks.length > 2 ? ` and ${overdueTasks.length - 2} more` : ''
-          new Notification('Overdue tasks', {
-            body: `${names}${extra} — past due date`,
-            icon: '/icon-192.png',
-            tag: 'overdue',
-          })
+          sendNotification('overdue', 'Overdue tasks', `${names}${extra} — past due date`, 'overdue')
         }
       }
 
@@ -239,11 +242,7 @@ export function useNotifications(tasks) {
         if (staleTasks.length > 0) {
           const names = staleTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
           const extra = staleTasks.length > 2 ? ` and ${staleTasks.length - 2} more` : ''
-          new Notification('Tasks going stale', {
-            body: `${names}${extra} — haven't been touched in a while`,
-            icon: '/icon-192.png',
-            tag: 'stale',
-          })
+          sendNotification('stale', 'Tasks going stale', `${names}${extra} — haven't been touched in a while`, 'stale')
         }
       }
 
@@ -255,19 +254,11 @@ export function useNotifications(tasks) {
         const smallTasks = openTasks.filter(t => t.size === 'XS' || t.size === 'S')
         if (smallTasks.length > 0) {
           const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
-          new Notification('Quick win available', {
-            body: `Got 5 min? Try: "${pick.title}" (${pick.size})`,
-            icon: '/icon-192.png',
-            tag: 'nudge',
-          })
+          sendNotification('nudge', 'Quick win available', `Got 5 min? Try: "${pick.title}" (${pick.size})`, 'nudge')
         } else {
           // Fall back to AI or generic nudge
           const message = await getAINudge(openTasks.length)
-          new Notification('Boomerang', {
-            body: message,
-            icon: '/icon-192.png',
-            tag: 'nudge',
-          })
+          sendNotification('nudge', 'Boomerang', message, 'nudge')
         }
       }
     }

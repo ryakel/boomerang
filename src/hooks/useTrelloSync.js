@@ -2,6 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask } from '../store'
 import { trelloSyncAllLists, trelloUpdateCard, trelloBoardLists, inferTrelloListMapping, aiDedupTrelloCards } from '../api'
 
+function remoteLog(...args) {
+  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+  console.log(line)
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lines: [line] }),
+  }).catch(() => {})
+}
+
 // Status ↔ Trello list mapping
 const STATUS_FOR_LIST = {} // populated at runtime from settings
 const LIST_FOR_STATUS = {} // reverse lookup
@@ -18,6 +28,8 @@ function buildReverseLookup(mapping) {
 
 export function useTrelloSync(tasks, setTasks, changeStatus) {
   const syncingRef = useRef(false)
+  const tasksRef = useRef(tasks)
+  tasksRef.current = tasks
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState(() => loadSettings().trello_last_sync || null)
   const [syncError, setSyncError] = useState(null)
@@ -42,10 +54,10 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
       const next = { ...loadSettings(), trello_list_mapping: mapping }
       saveSettings(next)
       buildReverseLookup(mapping)
-      console.log('[TrelloSync] AI inferred list mapping:', mapping)
+      remoteLog('[TrelloSync] AI inferred list mapping:', mapping)
       return mapping
     } catch (err) {
-      console.error('[TrelloSync] failed to infer list mapping:', err.message)
+      remoteLog('[TrelloSync] ERROR: failed to infer list mapping:', err.message)
       return null
     }
   }, [])
@@ -60,28 +72,37 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
 
     const cardsByList = await trelloSyncAllLists(listIds)
 
-    // Build set of all known trello card IDs
-    const currentTasks = tasks
+    // Build set of all known trello card IDs (use ref for fresh snapshot)
+    const currentTasks = tasksRef.current
     const linkedCardIds = new Set(currentTasks.filter(t => t.trello_card_id).map(t => t.trello_card_id))
+
+    remoteLog(`[TrelloSync] pull: ${currentTasks.length} total tasks, ${linkedCardIds.size} already linked to Trello`)
+    // Log all linked card IDs for debugging
+    const linkedList = currentTasks.filter(t => t.trello_card_id).map(t => `${t.title.slice(0, 30)}=${t.trello_card_id.slice(0, 8)}`)
+    remoteLog(`[TrelloSync] linked tasks:`, linkedList)
 
     const newCards = []
     const statusUpdates = []
 
     for (const [listId, cards] of Object.entries(cardsByList)) {
       const status = STATUS_FOR_LIST[listId]
-      if (!status) continue
+      if (!status) { remoteLog(`[TrelloSync] skipping list ${listId} — no status mapping`); continue }
+
+      remoteLog(`[TrelloSync] list ${listId} (${status}): ${cards.length} cards`)
 
       for (const card of cards) {
         if (card.closed) continue
 
         if (linkedCardIds.has(card.id)) {
           // Existing linked task — check if status needs updating
+          // Never revert 'done' or 'backlog' — these are terminal/local-only states
           const existingTask = currentTasks.find(t => t.trello_card_id === card.id)
-          if (existingTask && existingTask.status !== status && existingTask.status !== 'backlog') {
+          if (existingTask && existingTask.status !== status && existingTask.status !== 'backlog' && existingTask.status !== 'done') {
             statusUpdates.push({ taskId: existingTask.id, newStatus: status })
           }
         } else {
           newCards.push({ card, status })
+          remoteLog(`[TrelloSync] unlinked card: "${card.name}" (id=${card.id.slice(0, 8)})`)
         }
       }
     }
@@ -92,27 +113,53 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
     }
 
     if (newCards.length === 0) {
-      console.log('[TrelloSync] no new cards to import')
+      remoteLog('[TrelloSync] no new cards to import')
       return
     }
 
-    // AI dedup: match new cards against unlinked tasks
-    const unlinkedTasks = currentTasks.filter(t => !t.trello_card_id && t.status !== 'done')
-    let matches = []
+    remoteLog(`[TrelloSync] ${newCards.length} unlinked cards to process:`, newCards.map(nc => nc.card.name))
 
-    if (unlinkedTasks.length > 0) {
-      try {
-        const dedupResult = await aiDedupTrelloCards(
-          newCards.map(nc => nc.card),
-          unlinkedTasks
-        )
-        matches = dedupResult.matches || []
-      } catch (err) {
-        console.error('[TrelloSync] AI dedup failed, creating all as new:', err.message)
+    // Dedup: first try exact title match, then fall back to AI
+    const unlinkedTasks = currentTasks.filter(t => !t.trello_card_id && t.status !== 'done')
+    remoteLog(`[TrelloSync] ${unlinkedTasks.length} unlinked local tasks for dedup:`, unlinkedTasks.map(t => t.title))
+    const matchMap = new Map()
+
+    // Pass 1: exact title match (case-insensitive)
+    const titleIndex = new Map()
+    for (const t of unlinkedTasks) {
+      const key = t.title.toLowerCase().trim()
+      if (!titleIndex.has(key)) titleIndex.set(key, t.id)
+    }
+    const remainingCards = []
+    for (const nc of newCards) {
+      const key = nc.card.name.toLowerCase().trim()
+      const matchedId = titleIndex.get(key)
+      if (matchedId) {
+        matchMap.set(nc.card.id, matchedId)
+        titleIndex.delete(key) // don't double-match
+        remoteLog(`[TrelloSync] exact title match: "${nc.card.name}" → ${matchedId.slice(0, 8)}`)
+      } else {
+        remainingCards.push(nc)
       }
     }
 
-    const matchMap = new Map(matches.filter(m => m.task_id && m.confidence >= 0.85).map(m => [m.card_id, m.task_id]))
+    // Pass 2: AI dedup for remaining unmatched cards
+    if (remainingCards.length > 0 && unlinkedTasks.length > 0) {
+      try {
+        const dedupResult = await aiDedupTrelloCards(
+          remainingCards.map(nc => nc.card),
+          unlinkedTasks
+        )
+        const matches = dedupResult.matches || []
+        for (const m of matches) {
+          if (m.task_id && m.confidence >= 0.85 && !matchMap.has(m.card_id)) {
+            matchMap.set(m.card_id, m.task_id)
+          }
+        }
+      } catch (err) {
+        remoteLog('[TrelloSync] ERROR: AI dedup failed, creating all as new:', err.message)
+      }
+    }
     const tasksToAdd = []
     const tasksToUpdate = []
 
@@ -128,7 +175,7 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
             status,
           }
         })
-        console.log(`[TrelloSync] auto-linked card "${card.name}" to task ${matchedTaskId.slice(0, 8)}`)
+        remoteLog(`[TrelloSync] auto-linked card "${card.name}" to task ${matchedTaskId.slice(0, 8)}`)
       } else {
         // Create new task
         const dueDate = card.due ? card.due.slice(0, 10) : null // Trello sends ISO timestamp, we need YYYY-MM-DD
@@ -137,24 +184,27 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
         task.trello_card_url = card.url || null
         task.status = status
         tasksToAdd.push(task)
-        console.log(`[TrelloSync] created task for card "${card.name}" (${status})`)
+        remoteLog(`[TrelloSync] created task for card "${card.name}" (${status})`)
       }
     }
 
     // Apply changes
     if (tasksToAdd.length > 0 || tasksToUpdate.length > 0) {
       setTasks(prev => {
+        remoteLog(`[TrelloSync] setTasks updater: prev has ${prev.length} tasks, ${prev.filter(t => t.trello_card_id).length} linked`)
         let next = [...prev]
         // Apply updates (auto-links)
         for (const { id, updates } of tasksToUpdate) {
           next = next.map(t => t.id === id ? { ...t, ...updates, last_touched: new Date().toISOString() } : t)
         }
         // Add new tasks
-        return [...tasksToAdd, ...next]
+        const result = [...tasksToAdd, ...next]
+        remoteLog(`[TrelloSync] setTasks result: ${result.length} tasks, ${result.filter(t => t.trello_card_id).length} linked`)
+        return result
       })
-      console.log(`[TrelloSync] imported ${tasksToAdd.length} new, linked ${tasksToUpdate.length} existing`)
+      remoteLog(`[TrelloSync] imported ${tasksToAdd.length} new, linked ${tasksToUpdate.length} existing`)
     }
-  }, [tasks, setTasks, changeStatus, ensureMapping])
+  }, [setTasks, changeStatus, ensureMapping])
 
   // Push: move Trello card when Boomerang status changes
   const pushStatusToTrello = useCallback(async (task, newStatus) => {
@@ -167,9 +217,9 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
 
     try {
       await trelloUpdateCard(task.trello_card_id, { idList: targetListId })
-      console.log(`[TrelloSync] moved card "${task.title}" to ${newStatus} list`)
+      remoteLog(`[TrelloSync] moved card "${task.title}" to ${newStatus} list`)
     } catch (err) {
-      console.error(`[TrelloSync] failed to move card:`, err.message)
+      remoteLog(`[TrelloSync] ERROR: failed to move card:`, err.message)
     }
   }, [])
 
@@ -187,7 +237,7 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
       const s = loadSettings()
       saveSettings({ ...s, trello_last_sync: now })
     } catch (err) {
-      console.error('[TrelloSync] sync failed:', err.message)
+      remoteLog('[TrelloSync] ERROR: sync failed:', err.message)
       setSyncError(err.message)
     } finally {
       syncingRef.current = false
