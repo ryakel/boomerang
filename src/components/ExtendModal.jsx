@@ -31,7 +31,7 @@ export default function ExtendModal({ task, onExtend, onClose }) {
     <div className="sheet-overlay" onClick={onClose}>
       <div className="sheet" onClick={e => e.stopPropagation()}>
         <div className="sheet-handle" />
-        <div className="sheet-title">Extend Due Date</div>
+        <div className="sheet-title">{task.due_date ? 'Extend Due Date' : 'Set Due Date'}</div>
         <div className="sheet-subtitle">
           {task.title}
           {task.due_date && (
