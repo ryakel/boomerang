@@ -74,8 +74,13 @@ function App() {
   const [updateVersion, setUpdateVersion] = useState(null)
   const { flush: flushSync, checkVersion, syncStatus } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
     setUpdateVersion(newVersion)
-    sessionStorage.setItem('boom_reloading_for_update', 'true')
-    setTimeout(() => window.location.reload(), 4000)
+    // Unregister service worker so reload fetches fresh assets from server
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (const r of regs) r.unregister()
+      })
+    }
+    setTimeout(() => window.location.reload(), 1500)
   })
 
   const { onTouchStart, onTouchEnd } = usePullToRefresh(useCallback(() => {
@@ -523,7 +528,10 @@ function App() {
           <div className="update-modal">
             <p>Update available: <strong>{updateVersion}</strong></p>
             <p className="update-modal-sub">Refreshing automatically...</p>
-            <button className="update-modal-btn" onClick={() => window.location.reload()}>
+            <button className="update-modal-btn" onClick={() => {
+              if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(regs => { for (const r of regs) r.unregister() })
+              window.location.reload()
+            }}>
               Reload now
             </button>
           </div>
