@@ -382,19 +382,75 @@
 }
 
 /* Expanded task actions */
-.task-actions {
+/* Icon toolbar (replaces old action buttons) */
+.task-toolbar {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-  animation: slideDown 0.15s ease;
+  gap: 10px;
+  justify-content: center;
+  padding: 10px 0 4px;
 }
 
-@keyframes slideDown {
-  from { opacity: 0; max-height: 0; margin-top: 0; }
-  to { opacity: 1; max-height: 100px; margin-top: 12px; }
+.toolbar-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 36px;
+  border-radius: 18px;
+  transition: opacity 0.15s;
 }
 
+.toolbar-pill svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+  stroke: currentColor;
+  fill: none;
+}
+
+.toolbar-pill:active { opacity: 0.7; }
+
+.toolbar-pill.done { background: rgba(82, 201, 127, 0.18); color: #52C97F; }
+.toolbar-pill.snooze { background: rgba(255, 98, 64, 0.18); color: #FF6240; }
+.toolbar-pill.edit { background: rgba(138, 138, 154, 0.15); color: var(--text-muted); }
+.toolbar-pill.extend { background: rgba(74, 158, 255, 0.18); color: #4A9EFF; }
+.toolbar-pill.status {
+  background: color-mix(in srgb, var(--status-color) 18%, transparent);
+  color: var(--status-color);
+}
+
+/* Danger zone in edit modal */
+.modal-danger-zone {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 8px;
+}
+
+.danger-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.danger-btn.secondary {
+  background: rgba(90, 90, 106, 0.15);
+  color: var(--text-dim);
+}
+
+.danger-btn.secondary:active { opacity: 0.7; }
+
+.danger-btn.delete {
+  background: rgba(255, 59, 48, 0.18);
+  color: #FF3B30;
+}
+
+.danger-btn.delete:active { opacity: 0.7; }
+
+/* Legacy action-btn (still used by ActivityLog, WhatNow) */
 .action-btn {
   flex-shrink: 0;
   padding: 7px 16px;
@@ -406,44 +462,10 @@
   transition: opacity 0.15s ease;
 }
 
-.action-btn:active {
-  opacity: 0.7;
-}
-
-.action-btn.done {
-  background: rgba(82, 201, 127, 0.18);
-  color: #52C97F;
-}
-
-.action-btn.snooze {
-  background: rgba(255, 98, 64, 0.18);
-  color: #FF6240;
-}
-
-.action-btn.extend {
-  background: rgba(74, 158, 255, 0.18);
-  color: #4A9EFF;
-}
-
-.action-btn.edit {
-  background: rgba(138, 138, 154, 0.15);
-  color: var(--text-muted);
-}
-
-.action-btn.backlog {
-  background: rgba(90, 90, 106, 0.15);
-  color: var(--text-dim);
-}
-
-.action-btn.find-related {
-  background: rgba(74, 158, 255, 0.15);
-  color: #4A9EFF;
-}
-
-.action-btn.delete {
-  background: rgba(255, 59, 48, 0.18);
-  color: #FF3B30;
-}
+.action-btn:active { opacity: 0.7; }
+.action-btn.done { background: rgba(82, 201, 127, 0.18); color: #52C97F; }
+.action-btn.snooze { background: rgba(255, 98, 64, 0.18); color: #FF6240; }
+.action-btn.edit { background: rgba(138, 138, 154, 0.15); color: var(--text-muted); }
 
 .related-result {
   display: block;

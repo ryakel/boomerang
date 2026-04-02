@@ -56,6 +56,13 @@ const DEFAULT_LABELS = [
 
 const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
 
+const STATUS_META = {
+  not_started: { label: 'Not Started', color: 'var(--text-dim)' },
+  doing: { label: 'Doing', color: '#4A9EFF' },
+  waiting: { label: 'Waiting', color: '#FFB347' },
+  done: { label: 'Done', color: '#52C97F' },
+}
+
 function isActiveTask(task) {
   return ACTIVE_STATUSES.includes(task.status) || task.status === 'open'
 }
@@ -507,4 +514,4 @@ export function getSnoozeOptionsShort() {
   ]
 }
 
-export { ACTIVE_STATUSES, isActiveTask, LABEL_COLORS, RECURRENCE_OPTIONS, SIZE_POINTS }
+export { ACTIVE_STATUSES, STATUS_META, isActiveTask, LABEL_COLORS, RECURRENCE_OPTIONS, SIZE_POINTS }

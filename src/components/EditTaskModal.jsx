@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { loadLabels, loadSettings, RECURRENCE_OPTIONS } from '../store'
+import { loadLabels, loadSettings, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloBoardLists } from '../api'
 
 function formatFileSize(bytes) {
@@ -9,7 +9,7 @@ function formatFileSize(bytes) {
 
 const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
 
-export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose }) {
+export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onStatusChange }) {
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes || '')
   const [selectedTags, setSelectedTags] = useState(task.tags || [])
@@ -38,6 +38,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     task.trello_card_id ? { id: task.trello_card_id, url: task.trello_card_url } : null
   )
   const [highPriority, setHighPriority] = useState(task.high_priority || false)
+  const [currentStatus, setCurrentStatus] = useState(task.status === 'open' ? 'not_started' : task.status)
   const [trelloPushing, setTrelloPushing] = useState(false)
   const [trelloLists, setTrelloLists] = useState([])
   const [trelloConfigured] = useState(() => {
@@ -305,6 +306,27 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           value={title}
           onChange={e => setTitle(e.target.value)}
         />
+
+        {onStatusChange && currentStatus !== 'backlog' && (
+          <>
+            <div className="settings-label" style={{ marginBottom: 6 }}>Status</div>
+            <div className="status-selector">
+              {[...ACTIVE_STATUSES, 'done'].map(s => (
+                <button
+                  key={s}
+                  className={`status-btn${currentStatus === s ? ' active' : ''}`}
+                  style={{ '--status-color': STATUS_META[s].color }}
+                  onClick={() => {
+                    setCurrentStatus(s)
+                    onStatusChange(task.id, s)
+                  }}
+                >
+                  {STATUS_META[s].label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="settings-label" style={{ marginBottom: 6 }}>Notes</div>
         <div className="notes-wrapper">
@@ -648,6 +670,27 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
             Convert to Routine
           </button>
+        )}
+
+        {(onDelete || onBacklog) && (
+          <div className="modal-danger-zone">
+            {onBacklog && (
+              task.status !== 'backlog' ? (
+                <button className="danger-btn secondary" onClick={() => { onBacklog(task.id, true); onClose() }}>
+                  Move to Backlog
+                </button>
+              ) : (
+                <button className="danger-btn secondary" onClick={() => { onBacklog(task.id, false); onClose() }}>
+                  Activate
+                </button>
+              )
+            )}
+            {onDelete && (
+              <button className="danger-btn delete" onClick={() => { onDelete(task.id); onClose() }}>
+                Delete Task
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

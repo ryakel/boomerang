@@ -1,17 +1,12 @@
 import { useState, useRef, useCallback } from 'react'
-import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES } from '../store'
+import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META } from '../store'
 
-const STATUS_META = {
-  not_started: { label: 'Not Started', color: 'var(--text-dim)' },
-  doing: { label: 'Doing', color: '#4A9EFF' },
-  waiting: { label: 'Waiting', color: '#FFB347' },
-  done: { label: 'Done', color: '#52C97F' },
-}
+const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
-export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog, onStatusChange, onUpdate, onDelete }) {
+export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -200,20 +195,6 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
 
         {expanded && (
           <>
-            {task.status !== 'backlog' && onStatusChange && (
-              <div className="status-selector" onClick={e => e.stopPropagation()}>
-                {[...ACTIVE_STATUSES, 'done'].map(s => (
-                  <button
-                    key={s}
-                    className={`status-btn${task.status === s || (task.status === 'open' && s === 'not_started') ? ' active' : ''}`}
-                    style={{ '--status-color': STATUS_META[s].color }}
-                    onClick={() => onStatusChange(task.id, s)}
-                  >
-                    {STATUS_META[s].label}
-                  </button>
-                ))}
-              </div>
-            )}
             {task.notes && (
               <div className="task-notes">{task.notes}</div>
             )}
@@ -265,19 +246,36 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
                 Open in Notion ↗
               </a>
             )}
-            <div className="task-actions">
-              <button className="action-btn done" onClick={(e) => { e.stopPropagation(); onComplete(task.id) }}>Done ✓</button>
-              <button className="action-btn snooze" onClick={(e) => { e.stopPropagation(); onSnooze(task) }}>Snooze</button>
+            <div className="task-toolbar" onClick={e => e.stopPropagation()}>
+              <button className="toolbar-pill done" onClick={() => onComplete(task.id)} title="Done">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>
+              </button>
+              <button className="toolbar-pill snooze" onClick={() => onSnooze(task)} title="Snooze">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+              </button>
+              <button className="toolbar-pill edit" onClick={() => { setExpanded(false); onEdit(task) }} title="Edit">
+                <svg viewBox="0 0 24 24"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+              </button>
               {task.due_date && (
-                <button className="action-btn extend" onClick={(e) => { e.stopPropagation(); onExtend(task) }}>Extend</button>
+                <button className="toolbar-pill extend" onClick={() => onExtend(task)} title="Extend">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="12" y1="11" x2="12" y2="17" /><line x1="9" y1="14" x2="15" y2="14" /></svg>
+                </button>
               )}
-              <button className="action-btn edit" onClick={(e) => { e.stopPropagation(); setExpanded(false); onEdit(task) }}>Edit</button>
-              {task.status !== 'backlog' ? (
-                <button className="action-btn backlog" onClick={(e) => { e.stopPropagation(); onBacklog(task.id, true) }}>Backlog</button>
-              ) : (
-                <button className="action-btn snooze" onClick={(e) => { e.stopPropagation(); onBacklog(task.id, false) }}>Activate</button>
+              {task.status !== 'backlog' && onStatusChange && (
+                <button
+                  className="toolbar-pill status"
+                  style={{ '--status-color': (STATUS_META[task.status] || STATUS_META.not_started).color }}
+                  onClick={() => {
+                    const current = task.status === 'open' ? 'not_started' : task.status
+                    const idx = STATUS_CYCLE.indexOf(current)
+                    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length]
+                    onStatusChange(task.id, next)
+                  }}
+                  title={(STATUS_META[task.status] || STATUS_META.not_started).label}
+                >
+                  <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" /><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" /></svg>
+                </button>
               )}
-              <button className="action-btn delete" onClick={(e) => { e.stopPropagation(); onDelete(task.id) }}>Delete</button>
             </div>
           </>
         )}

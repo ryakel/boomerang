@@ -477,6 +477,9 @@ function App() {
           onSave={updateTask}
           onConvertToRoutine={handleConvertToRoutine}
           onClose={() => setEditTarget(null)}
+          onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
+          onBacklog={(id, toBacklog) => { handleBacklog(id, toBacklog); setEditTarget(null) }}
+          onStatusChange={handleStatusChange}
         />
       )}
 
