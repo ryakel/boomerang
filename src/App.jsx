@@ -72,7 +72,7 @@ function App() {
   }, [hydrateTasks, hydrateRoutines])
 
   const [updateVersion, setUpdateVersion] = useState(null)
-  const flushSync = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
+  const { flush: flushSync, checkVersion } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
     setUpdateVersion(newVersion)
     // Auto-reload after 4 seconds if user doesn't tap the button
     setTimeout(() => window.location.reload(), 4000)
@@ -86,6 +86,13 @@ function App() {
       .catch(() => {})
       .finally(() => setTimeout(() => setRefreshing(false), 500))
   }, [hydrateFromServer]))
+
+  // Check for app updates whenever a view opens
+  useEffect(() => {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || editTarget || showAdd || showWhatNow) {
+      checkVersion()
+    }
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, editTarget, showAdd, showWhatNow, checkVersion])
 
   // Spawn routine tasks on load and every minute
   useEffect(() => {

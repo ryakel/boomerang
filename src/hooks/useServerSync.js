@@ -235,7 +235,22 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       })
   }
 
-  return flush
+  // Check app version against server on demand (e.g. on view navigation)
+  const checkVersion = useCallback(() => {
+    fetch('/api/health')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!data?.appVersion) return
+        const clientVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
+        if (clientVersion !== 'dev' && data.appVersion !== clientVersion) {
+          remoteLog(`version check: mismatch client=${clientVersion} server=${data.appVersion}`)
+          if (onVersionMismatch) onVersionMismatch(data.appVersion)
+        }
+      })
+      .catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { flush, checkVersion }
 }
 
 function buildPayload(tasks, routines) {
