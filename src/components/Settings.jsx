@@ -1,6 +1,56 @@
 import { useState, useRef, useEffect } from 'react'
-import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS } from '../store'
+import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification } from '../store'
 import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists } from '../api'
+
+const NOTIF_TYPE_LABELS = {
+  high_priority: 'High Priority',
+  overdue: 'Overdue',
+  stale: 'Stale',
+  nudge: 'Nudge',
+  size: 'Size',
+  pileup: 'Pile-up',
+  test: 'Test',
+}
+
+function NotificationHistory() {
+  const [log, setLog] = useState(() => loadNotifLog())
+  const [expanded, setExpanded] = useState(false)
+
+  if (log.length === 0) {
+    return <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No notifications yet.</div>
+  }
+
+  const shown = expanded ? log : log.slice(0, 5)
+
+  return (
+    <div className="notif-history">
+      {shown.map(entry => (
+        <div key={entry.id} className="notif-history-item">
+          <div className="notif-history-header">
+            <span className="notif-history-type">{NOTIF_TYPE_LABELS[entry.type] || entry.type}</span>
+            <span className="notif-history-time">
+              {new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {' '}
+              {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+            </span>
+          </div>
+          <div className="notif-history-title">{entry.title}</div>
+          <div className="notif-history-body">{entry.body}</div>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        {log.length > 5 && (
+          <button className="ci-upload-btn" onClick={() => setExpanded(!expanded)}>
+            {expanded ? 'Show less' : `Show all (${log.length})`}
+          </button>
+        )}
+        <button className="ci-clear-btn" onClick={() => { clearNotifLog(); setLog([]) }}>
+          Clear history
+        </button>
+      </div>
+    </div>
+  )
+}
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
@@ -589,9 +639,38 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
           {settings.notifications_enabled && (
             <div className="notif-options">
+              {/* Quiet Hours */}
+              <div className="settings-label" style={{ marginTop: 16 }}>Quiet hours</div>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                Silence all notifications during these hours.
+              </div>
+              <label className="notif-check">
+                <input type="checkbox" checked={!!settings.quiet_hours_enabled} onChange={e => update('quiet_hours_enabled', e.target.checked)} />
+                <span>Enable quiet hours</span>
+              </label>
+              {settings.quiet_hours_enabled && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                  <input
+                    type="time"
+                    className="settings-input"
+                    value={settings.quiet_hours_start || '22:00'}
+                    onChange={e => update('quiet_hours_start', e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>to</span>
+                  <input
+                    type="time"
+                    className="settings-input"
+                    value={settings.quiet_hours_end || '08:00'}
+                    onChange={e => update('quiet_hours_end', e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+              )}
+
               <div className="settings-label" style={{ marginTop: 16 }}>High priority</div>
               <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                Always on. Daily reminders before due, hourly on due date, every 30min when overdue (6am-10pm).
+                Always on. Daily reminders before due, hourly on due date, every 30min when overdue.
               </div>
               <label className="notif-check">
                 <input type="checkbox" checked={settings.notif_highpri_escalate !== false} onChange={e => update('notif_highpri_escalate', e.target.checked)} />
@@ -606,16 +685,16 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   <span>Overdue tasks</span>
                 </label>
                 {settings.notif_overdue !== false && (
-                  <div className="notif-freq-row" style={{ marginLeft: 8 }}>
-                    {[15, 30, 60, 120].map(min => (
-                      <button
-                        key={min}
-                        className={`notif-freq ${(settings.notif_freq_overdue ?? 30) === min ? 'notif-freq-active' : ''}`}
-                        onClick={() => update('notif_freq_overdue', min)}
-                      >
-                        {min < 60 ? `${min}m` : `${min / 60}h`}
-                      </button>
-                    ))}
+                  <div className="notif-freq-input" style={{ marginLeft: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                    <input
+                      className="settings-input"
+                      type="number" min="1" max="1440"
+                      value={settings.notif_freq_overdue ?? 30}
+                      onChange={e => update('notif_freq_overdue', Math.max(1, parseInt(e.target.value) || 1))}
+                      style={{ width: 56, textAlign: 'center' }}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
                   </div>
                 )}
               </div>
@@ -626,16 +705,16 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   <span>Stale tasks</span>
                 </label>
                 {settings.notif_stale !== false && (
-                  <div className="notif-freq-row" style={{ marginLeft: 8 }}>
-                    {[15, 30, 60, 120].map(min => (
-                      <button
-                        key={min}
-                        className={`notif-freq ${(settings.notif_freq_stale ?? 30) === min ? 'notif-freq-active' : ''}`}
-                        onClick={() => update('notif_freq_stale', min)}
-                      >
-                        {min < 60 ? `${min}m` : `${min / 60}h`}
-                      </button>
-                    ))}
+                  <div className="notif-freq-input" style={{ marginLeft: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                    <input
+                      className="settings-input"
+                      type="number" min="1" max="1440"
+                      value={settings.notif_freq_stale ?? 30}
+                      onChange={e => update('notif_freq_stale', Math.max(1, parseInt(e.target.value) || 1))}
+                      style={{ width: 56, textAlign: 'center' }}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
                   </div>
                 )}
               </div>
@@ -646,16 +725,16 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   <span>General nudges</span>
                 </label>
                 {settings.notif_nudge !== false && (
-                  <div className="notif-freq-row" style={{ marginLeft: 8 }}>
-                    {[15, 30, 60, 120].map(min => (
-                      <button
-                        key={min}
-                        className={`notif-freq ${(settings.notif_freq_nudge ?? 60) === min ? 'notif-freq-active' : ''}`}
-                        onClick={() => update('notif_freq_nudge', min)}
-                      >
-                        {min < 60 ? `${min}m` : `${min / 60}h`}
-                      </button>
-                    ))}
+                  <div className="notif-freq-input" style={{ marginLeft: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                    <input
+                      className="settings-input"
+                      type="number" min="1" max="1440"
+                      value={settings.notif_freq_nudge ?? 60}
+                      onChange={e => update('notif_freq_nudge', Math.max(1, parseInt(e.target.value) || 1))}
+                      style={{ width: 56, textAlign: 'center' }}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
                   </div>
                 )}
               </div>
@@ -665,16 +744,16 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   <input type="checkbox" checked disabled style={{ opacity: 0.5 }} />
                   <span>Size-based reminders</span>
                 </label>
-                <div className="notif-freq-row" style={{ marginLeft: 8 }}>
-                  {[15, 30, 60, 120].map(min => (
-                    <button
-                      key={min}
-                      className={`notif-freq ${(settings.notif_freq_size ?? 60) === min ? 'notif-freq-active' : ''}`}
-                      onClick={() => update('notif_freq_size', min)}
-                    >
-                      {min < 60 ? `${min}m` : `${min / 60}h`}
-                    </button>
-                  ))}
+                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                  <input
+                    className="settings-input"
+                    type="number" min="1" max="1440"
+                    value={settings.notif_freq_size ?? 60}
+                    onChange={e => update('notif_freq_size', Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{ width: 56, textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
                 </div>
               </div>
 
@@ -696,19 +775,38 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                 <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>days</span>
               </div>
               <div className="notif-type-row" style={{ marginTop: 8 }}>
-                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>Pile-up check frequency</span>
-                <div className="notif-freq-row" style={{ marginLeft: 8 }}>
-                  {[15, 30, 60, 120].map(min => (
-                    <button
-                      key={min}
-                      className={`notif-freq ${(settings.notif_freq_pileup ?? 120) === min ? 'notif-freq-active' : ''}`}
-                      onClick={() => update('notif_freq_pileup', min)}
-                    >
-                      {min < 60 ? `${min}m` : `${min / 60}h`}
-                    </button>
-                  ))}
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>Pile-up check</span>
+                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                  <input
+                    className="settings-input"
+                    type="number" min="1" max="1440"
+                    value={settings.notif_freq_pileup ?? 120}
+                    onChange={e => update('notif_freq_pileup', Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{ width: 56, textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
                 </div>
               </div>
+
+              {/* Test notification */}
+              <button
+                className="ci-upload-btn"
+                style={{ marginTop: 16 }}
+                onClick={() => {
+                  if ('Notification' in window && Notification.permission === 'granted') {
+                    const body = 'This is a test notification from Boomerang.'
+                    new Notification('Test Notification', { body, icon: '/icon-192.png', tag: 'test' })
+                    logNotification('test', 'Test Notification', body)
+                  }
+                }}
+              >
+                Send test notification
+              </button>
+
+              {/* Notification History */}
+              <div className="settings-label" style={{ marginTop: 20 }}>Notification history</div>
+              <NotificationHistory />
             </div>
           )}
         </div>

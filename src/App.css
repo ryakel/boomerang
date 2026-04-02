@@ -1437,6 +1437,7 @@
   align-items: center;
   gap: 4px;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: opacity 0.15s;
 }
 
@@ -1460,6 +1461,7 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+  overflow: visible;
 }
 
 .research-btn {
@@ -1603,6 +1605,63 @@
   height: 18px;
   accent-color: var(--accent);
   cursor: pointer;
+}
+
+.notif-freq-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.notif-freq-input .settings-input {
+  margin: 0;
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+/* Notification history */
+.notif-history {
+  margin-top: 8px;
+}
+
+.notif-history-item {
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+}
+
+.notif-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.notif-history-type {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+}
+
+.notif-history-time {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.notif-history-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.notif-history-body {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .settings-danger {
