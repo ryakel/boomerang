@@ -72,9 +72,11 @@ function App() {
   }, [hydrateTasks, hydrateRoutines])
 
   const [updateVersion, setUpdateVersion] = useState(null)
+  const updateVersionRef = useRef(null)
   const { flush: flushSync, checkVersion, syncStatus } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
+    if (updateVersionRef.current) return // already showing update prompt
+    updateVersionRef.current = newVersion
     setUpdateVersion(newVersion)
-    // Auto-reload after 4 seconds if user doesn't tap the button
     setTimeout(() => window.location.reload(), 4000)
   })
 
