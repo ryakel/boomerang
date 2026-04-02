@@ -278,29 +278,19 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       {/* General */}
       {activeTab === 'General' && (
         <div className="settings-group">
-          <div className="settings-label">Theme</div>
-          <div className="theme-toggle-row">
-            <button
-              className={`theme-btn ${(settings.theme || 'dark') === 'dark' ? 'theme-btn-active' : ''}`}
-              onClick={() => {
-                update('theme', 'dark')
-                document.documentElement.setAttribute('data-theme', 'dark')
-                document.querySelector('meta[name="theme-color"]').content = '#0B0B0F'
+          <label className="notif-check">
+            <input
+              type="checkbox"
+              checked={(settings.theme || 'dark') === 'dark'}
+              onChange={e => {
+                const theme = e.target.checked ? 'dark' : 'light'
+                update('theme', theme)
+                document.documentElement.setAttribute('data-theme', theme)
+                document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0B0B0F' : '#F5F5F7'
               }}
-            >
-              Dark
-            </button>
-            <button
-              className={`theme-btn ${settings.theme === 'light' ? 'theme-btn-active' : ''}`}
-              onClick={() => {
-                update('theme', 'light')
-                document.documentElement.setAttribute('data-theme', 'light')
-                document.querySelector('meta[name="theme-color"]').content = '#F5F5F7'
-              }}
-            >
-              Light
-            </button>
-          </div>
+            />
+            <span>Dark mode</span>
+          </label>
 
           <div className="settings-label" style={{ marginTop: 16 }}>Default due date (days from now)</div>
           <div className="settings-hint">0 = no default</div>
@@ -623,19 +613,22 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       {/* Notifications */}
       {activeTab === 'Notifications' && (
         <div className="settings-group">
-          <button
-            className={`notif-toggle ${settings.notifications_enabled ? 'notif-on' : ''}`}
-            onClick={async () => {
-              if (!settings.notifications_enabled) {
-                const perm = await Notification.requestPermission()
-                if (perm === 'granted') update('notifications_enabled', true)
-              } else {
-                update('notifications_enabled', false)
-              }
-            }}
-          >
-            {settings.notifications_enabled ? 'Notifications on' : 'Enable notifications'}
-          </button>
+          <label className="notif-check">
+            <input
+              type="checkbox"
+              checked={!!settings.notifications_enabled}
+              onChange={async (e) => {
+                if (e.target.checked) {
+                  const perm = await Notification.requestPermission()
+                  if (perm === 'granted') update('notifications_enabled', true)
+                  else e.target.checked = false
+                } else {
+                  update('notifications_enabled', false)
+                }
+              }}
+            />
+            <span>Notifications</span>
+          </label>
 
           {settings.notifications_enabled && (
             <div className="notif-options">
