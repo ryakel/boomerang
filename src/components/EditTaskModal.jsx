@@ -52,6 +52,8 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   })
   const [justSaved, setJustSaved] = useState(false)
   const savedTimer = useRef(null)
+  const autoSaveTimer = useRef(null)
+  const initialRender = useRef(true)
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
   const labels = loadLabels()
@@ -61,6 +63,38 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     clearTimeout(savedTimer.current)
     savedTimer.current = setTimeout(() => setJustSaved(false), 2000)
   }, [])
+
+  // Auto-save on any field change (debounced 1s)
+  useEffect(() => {
+    // Skip the initial render — don't save on mount
+    if (initialRender.current) {
+      initialRender.current = false
+      return
+    }
+    if (!title.trim() || makeRecurring) return
+
+    clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(() => {
+      onSave(task.id, {
+        title: title.trim(),
+        notes: notes.trim(),
+        tags: selectedTags,
+        due_date: dueDate || null,
+        size: size || null,
+        high_priority: highPriority,
+        notion_page_id: notionResult?.id || null,
+        notion_url: notionResult?.url || null,
+        trello_card_id: trelloResult?.id || null,
+        trello_card_url: trelloResult?.url || null,
+        attachments,
+        checklist,
+        comments,
+      })
+      flashSaved()
+    }, 1000)
+
+    return () => clearTimeout(autoSaveTimer.current)
+  }, [title, notes, selectedTags, dueDate, size, highPriority, notionResult, trelloResult, attachments, checklist, comments]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -242,10 +276,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const isAlreadyRoutine = !!task.routine_id
 
   const handleClose = () => {
+    clearTimeout(autoSaveTimer.current)
     if (title.trim() && !makeRecurring) {
       saveChanges()
       flashSaved()
-      // Brief delay so user sees the green flash before modal closes
       setTimeout(onClose, 300)
     } else {
       onClose()
