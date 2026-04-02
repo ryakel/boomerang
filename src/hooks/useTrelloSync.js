@@ -211,9 +211,25 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
     if (!task.trello_card_id) return
     if (newStatus === 'backlog') return // backlog is Boomerang-only
     const mapping = loadSettings().trello_list_mapping
-    if (!mapping) return
+    if (!mapping) {
+      remoteLog(`[TrelloSync] no list mapping configured — skipping push for "${task.title}"`)
+      return
+    }
     const targetListId = mapping[newStatus]
-    if (!targetListId) return
+    if (!targetListId) {
+      // For 'done' with no mapped list, archive the card so it doesn't re-import
+      if (newStatus === 'done') {
+        try {
+          await trelloUpdateCard(task.trello_card_id, { closed: true })
+          remoteLog(`[TrelloSync] archived card "${task.title}" (no done list mapped)`)
+        } catch (err) {
+          remoteLog(`[TrelloSync] ERROR: failed to archive card:`, err.message)
+        }
+      } else {
+        remoteLog(`[TrelloSync] no list mapped for status "${newStatus}" — skipping push for "${task.title}"`)
+      }
+      return
+    }
 
     try {
       await trelloUpdateCard(task.trello_card_id, { idList: targetListId })

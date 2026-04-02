@@ -203,10 +203,11 @@ function App() {
 
   const handleStatusChange = useCallback((id, newStatus) => {
     if (newStatus === 'done') {
+      // handleComplete already pushes to Trello
       handleComplete(id)
-    } else {
-      changeStatus(id, newStatus)
+      return
     }
+    changeStatus(id, newStatus)
     // Push status to Trello if linked (fire-and-forget)
     const task = tasks.find(t => t.id === id)
     if (task?.trello_card_id) {
