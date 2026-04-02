@@ -588,9 +588,13 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           ) : null}
         </div>
 
-        {makeRecurring && (
+        {makeRecurring ? (
           <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
             Convert to Routine
+          </button>
+        ) : (
+          <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
+            Save Changes
           </button>
         )}
       </div>
