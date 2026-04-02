@@ -19,9 +19,41 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - Trello integration — bidirectional sync with AI-inferred list mapping and auto-dedup
 - iMessage-style swipe gestures — swipe left for Edit/Done, swipe right to delete
 - Custom labels, due dates, extension system
-- Push notifications with ADHD-friendly nudges
 - Real-time cross-client sync via Server-Sent Events (SSE)
-- Dark theme, mobile-first PWA — installable to home screen
+- Dark mode toggle, mobile-first PWA — installable to home screen
+- iOS-style toggle switches for all on/off settings
+
+### Notifications
+
+Configurable notification types with ADHD-friendly defaults:
+
+| Type | Description | Default frequency |
+|------|-------------|-------------------|
+| High priority | Escalating reminders — before due (24h), on due date (1h), overdue (0.5h) | 3-stage escalation |
+| Overdue | Alerts for past-due tasks | configurable (hours) |
+| Stale | Nudges for tasks that haven't been touched | configurable (hours) |
+| Nudges | General ADHD-friendly pokes | configurable (hours) |
+| Size-based | Reminders scaled by task size | configurable (hours) |
+| Pile-up warnings | Alerts when too many tasks accumulate | configurable (hours) |
+
+All frequencies are set in hours (supports fractional values, e.g. `0.25` = 15 minutes).
+
+- **Quiet hours** — configurable DND window with start/end times
+- **Notification history** — last 200 notifications stored in localStorage
+- **Throttle persistence** — timestamps persist in localStorage across reloads (no duplicate notifications on refresh)
+- **Test notification button** in settings for verifying setup
+
+### iOS / PWA
+
+- Full-square PNG icons (180, 192, 512) for proper iOS home screen display
+- `apple-touch-icon.png` included
+- Installable as a PWA on all platforms
+
+### Infrastructure
+
+- Version check on every view/modal navigation (hits `/api/health`)
+- Docker multi-stage build with QEMU-safe arm64 support
+- `sharp` used as a devDependency for icon generation
 
 ## Configuration
 

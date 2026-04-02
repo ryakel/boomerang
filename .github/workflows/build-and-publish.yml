@@ -7,8 +7,20 @@ on:
       - main
     tags:
       - "*"
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - ".github/workflows/**"
+      - "LICENSE*"
+      - ".gitignore"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - ".github/workflows/**"
+      - "LICENSE*"
+      - ".gitignore"
 
 permissions:
   contents: write
