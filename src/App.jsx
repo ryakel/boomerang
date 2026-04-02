@@ -433,6 +433,7 @@ function App() {
           onTrelloSync={syncTrello}
           trelloSyncing={trelloSyncing}
           onShowActivityLog={() => { setShowSettings(false); setShowActivityLog(true) }}
+          syncStatus={syncStatus}
         />
       )}
 

@@ -235,6 +235,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         <button className="sheet-handle" onClick={() => { if (title.trim()) handleSubmit(); else onClose(); }} />
         <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
         <div className="sheet-title">Edit Task</div>
+        <div className="autosave-hint">Changes save automatically</div>
 
         <input
           ref={inputRef}
