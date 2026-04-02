@@ -242,8 +242,8 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         <div className="sheet-title">Edit Task</div>
         <div className="edit-task-header-row">
           <div className="autosave-hint">Changes save automatically</div>
-          <button className="submit-btn edit-save-btn" disabled={!title.trim()} onClick={handleSubmit}>
-            Save
+          <button className="edit-save-icon" disabled={!title.trim()} onClick={handleSubmit} title="Save now">
+            💾
           </button>
         </div>
 
