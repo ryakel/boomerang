@@ -69,22 +69,25 @@ function sendNotification(type, title, body, tag) {
   logNotification(type, title, body)
 }
 
-function getFreqMs(settings, key, fallback) {
+function getFreqMs(settings, key, fallbackHours) {
   const val = settings[key]
-  return (val != null ? val : (settings.notif_frequency || fallback)) * 60 * 1000
+  const hours = val != null ? val : fallbackHours
+  return hours * 60 * 60 * 1000
 }
 
-function getHighPriorityFreqMs(task) {
-  if (!task.due_date) return 24 * 60 * 60 * 1000 // daily if no due date
+function getHighPriorityFreqMs(task, settings) {
   const now = new Date()
+  if (!task.due_date) {
+    return getFreqMs(settings, 'notif_freq_highpri_before', 24)
+  }
   const due = new Date(task.due_date + 'T00:00:00')
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
   const diffDays = Math.round((dueDay - today) / 86400000)
 
-  if (diffDays > 0) return 24 * 60 * 60 * 1000 // daily before due date
-  if (diffDays === 0) return 60 * 60 * 1000 // hourly on due date
-  return 30 * 60 * 1000 // every 30 min when overdue
+  if (diffDays > 0) return getFreqMs(settings, 'notif_freq_highpri_before', 24)
+  if (diffDays === 0) return getFreqMs(settings, 'notif_freq_highpri_due', 1)
+  return getFreqMs(settings, 'notif_freq_highpri_overdue', 0.5)
 }
 
 function isInHighPriNotifWindow(task) {
@@ -116,17 +119,17 @@ export function useNotifications(tasks) {
     if (!settings.notifications_enabled) return
     if (!('Notification' in window) || Notification.permission !== 'granted') return
 
-    // Compute per-type frequencies
+    // Compute per-type frequencies (values are in hours)
     const freqs = {
-      overdue: getFreqMs(settings, 'notif_freq_overdue', 30),
-      stale: getFreqMs(settings, 'notif_freq_stale', 30),
-      nudge: getFreqMs(settings, 'notif_freq_nudge', 60),
-      size: getFreqMs(settings, 'notif_freq_size', 60),
-      pileup: getFreqMs(settings, 'notif_freq_pileup', 120),
+      overdue: getFreqMs(settings, 'notif_freq_overdue', 0.5),
+      stale: getFreqMs(settings, 'notif_freq_stale', 0.5),
+      nudge: getFreqMs(settings, 'notif_freq_nudge', 1),
+      size: getFreqMs(settings, 'notif_freq_size', 1),
+      pileup: getFreqMs(settings, 'notif_freq_pileup', 2),
     }
 
-    // Tick at the shortest frequency so we don't miss any
-    const tickMs = Math.min(...Object.values(freqs), 60 * 1000) // at least every minute for high-priority
+    // Tick at the shortest frequency so we don't miss any (min 1 minute)
+    const tickMs = Math.max(Math.min(...Object.values(freqs), 60 * 1000), 60 * 1000)
 
     const check = async () => {
       if (isInQuietHours(settings)) return
@@ -144,7 +147,7 @@ export function useNotifications(tasks) {
         if (hpNotifCount >= 3) break // cap per cycle
         if (!isInHighPriNotifWindow(task)) continue
 
-        const freq = getHighPriorityFreqMs(task)
+        const freq = getHighPriorityFreqMs(task, settings)
         const lastCheck = hpLc[task.id] || 0
 
         if (now - lastCheck >= freq) {

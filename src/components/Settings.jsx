@@ -670,12 +670,54 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
               <div className="settings-label" style={{ marginTop: 16 }}>High priority</div>
               <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                Always on. Daily reminders before due, hourly on due date, every 30min when overdue.
+                Always on. Frequency escalates as due date approaches.
               </div>
               <label className="notif-check">
                 <input type="checkbox" checked={settings.notif_highpri_escalate !== false} onChange={e => update('notif_highpri_escalate', e.target.checked)} />
                 <span>Repeat until addressed</span>
               </label>
+              <div className="notif-type-row">
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>Before due</span>
+                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                  <input
+                    className="settings-input"
+                    type="number" min="0.25" max="168" step="0.25"
+                    value={settings.notif_freq_highpri_before ?? 24}
+                    onChange={e => update('notif_freq_highpri_before', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
+                    style={{ width: 56, textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
+                </div>
+              </div>
+              <div className="notif-type-row">
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>On due date</span>
+                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                  <input
+                    className="settings-input"
+                    type="number" min="0.25" max="24" step="0.25"
+                    value={settings.notif_freq_highpri_due ?? 1}
+                    onChange={e => update('notif_freq_highpri_due', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
+                    style={{ width: 56, textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
+                </div>
+              </div>
+              <div className="notif-type-row">
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>When overdue</span>
+                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                  <input
+                    className="settings-input"
+                    type="number" min="0.25" max="24" step="0.25"
+                    value={settings.notif_freq_highpri_overdue ?? 0.5}
+                    onChange={e => update('notif_freq_highpri_overdue', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
+                    style={{ width: 56, textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
+                </div>
+              </div>
 
               <div className="settings-label" style={{ marginTop: 16 }}>Notify me about</div>
 
@@ -689,12 +731,12 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                     <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
                     <input
                       className="settings-input"
-                      type="number" min="1" max="1440"
-                      value={settings.notif_freq_overdue ?? 30}
-                      onChange={e => update('notif_freq_overdue', Math.max(1, parseInt(e.target.value) || 1))}
+                      type="number" min="0.25" max="168" step="0.25"
+                      value={settings.notif_freq_overdue ?? 0.5}
+                      onChange={e => update('notif_freq_overdue', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
                       style={{ width: 56, textAlign: 'center' }}
                     />
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
                   </div>
                 )}
               </div>
@@ -709,12 +751,12 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                     <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
                     <input
                       className="settings-input"
-                      type="number" min="1" max="1440"
-                      value={settings.notif_freq_stale ?? 30}
-                      onChange={e => update('notif_freq_stale', Math.max(1, parseInt(e.target.value) || 1))}
+                      type="number" min="0.25" max="168" step="0.25"
+                      value={settings.notif_freq_stale ?? 0.5}
+                      onChange={e => update('notif_freq_stale', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
                       style={{ width: 56, textAlign: 'center' }}
                     />
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
                   </div>
                 )}
               </div>
@@ -729,12 +771,12 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                     <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
                     <input
                       className="settings-input"
-                      type="number" min="1" max="1440"
-                      value={settings.notif_freq_nudge ?? 60}
-                      onChange={e => update('notif_freq_nudge', Math.max(1, parseInt(e.target.value) || 1))}
+                      type="number" min="0.25" max="168" step="0.25"
+                      value={settings.notif_freq_nudge ?? 1}
+                      onChange={e => update('notif_freq_nudge', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
                       style={{ width: 56, textAlign: 'center' }}
                     />
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
                   </div>
                 )}
               </div>
@@ -748,12 +790,12 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
                   <input
                     className="settings-input"
-                    type="number" min="1" max="1440"
-                    value={settings.notif_freq_size ?? 60}
-                    onChange={e => update('notif_freq_size', Math.max(1, parseInt(e.target.value) || 1))}
+                    type="number" min="0.25" max="168" step="0.25"
+                    value={settings.notif_freq_size ?? 1}
+                    onChange={e => update('notif_freq_size', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
                     style={{ width: 56, textAlign: 'center' }}
                   />
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
                 </div>
               </div>
 
@@ -780,12 +822,12 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
                   <input
                     className="settings-input"
-                    type="number" min="1" max="1440"
-                    value={settings.notif_freq_pileup ?? 120}
-                    onChange={e => update('notif_freq_pileup', Math.max(1, parseInt(e.target.value) || 1))}
+                    type="number" min="0.25" max="168" step="0.25"
+                    value={settings.notif_freq_pileup ?? 2}
+                    onChange={e => update('notif_freq_pileup', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
                     style={{ width: 56, textAlign: 'center' }}
                   />
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
                 </div>
               </div>
 
