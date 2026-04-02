@@ -1593,7 +1593,7 @@
 .notif-check {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
   padding: 10px 0;
   font-size: 14px;
   color: var(--text);
@@ -1601,10 +1601,61 @@
 }
 
 .notif-check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 44px;
+  height: 26px;
+  background: var(--text-dim);
+  border-radius: 13px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  order: 1;
+}
+
+.notif-check input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.notif-check input[type="checkbox"]:checked {
+  background: var(--accent);
+}
+
+.notif-check input[type="checkbox"]:checked::after {
+  transform: translateX(18px);
+}
+
+.notif-check input[type="checkbox"]:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.notif-check span {
+  order: 0;
+}
+
+.notif-type-row .notif-check input[type="checkbox"] {
+  width: 36px;
+  height: 22px;
+  border-radius: 11px;
+}
+
+.notif-type-row .notif-check input[type="checkbox"]::after {
   width: 18px;
   height: 18px;
-  accent-color: var(--accent);
-  cursor: pointer;
+}
+
+.notif-type-row .notif-check input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
 }
 
 .notif-freq-input {
