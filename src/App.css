@@ -385,18 +385,17 @@
 /* Icon toolbar (replaces old action buttons) */
 .task-toolbar {
   display: flex;
-  gap: 10px;
-  justify-content: center;
+  gap: 8px;
   padding: 10px 0 4px;
 }
 
 .toolbar-pill {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 36px;
-  border-radius: 18px;
+  height: 40px;
+  border-radius: 20px;
   transition: opacity 0.15s;
 }
 
