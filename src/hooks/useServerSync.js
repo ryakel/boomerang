@@ -41,6 +41,17 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const serverVersion = useRef(0)
   const [syncStatus, setSyncStatus] = useState(null) // null | 'saving' | 'saved' | 'offline'
   const savedTimer = useRef(null)
+  const versionMismatchFired = useRef(false)
+
+  // Stable ref for callback so closures always see latest
+  const onVersionMismatchRef = useRef(onVersionMismatch)
+  onVersionMismatchRef.current = onVersionMismatch
+
+  const fireVersionMismatch = useCallback((newVersion) => {
+    if (versionMismatchFired.current) return
+    versionMismatchFired.current = true
+    if (onVersionMismatchRef.current) onVersionMismatchRef.current(newVersion)
+  }, [])
 
   // Keep latest state ref updated
   useEffect(() => {
@@ -106,7 +117,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           if (msg.appVersion && clientVersion !== 'dev' && msg.appVersion !== clientVersion) {
             remoteLog(`SSE: VERSION MISMATCH — client=${clientVersion} server=${msg.appVersion}`)
             flushLogs()
-            if (onVersionMismatch) onVersionMismatch(msg.appVersion)
+            fireVersionMismatch(msg.appVersion)
             return
           }
 
@@ -144,7 +155,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       if (es) es.close()
       if (reconnectTimer) clearTimeout(reconnectTimer)
     }
-  }, [clientId, fetchAndHydrate])
+  }, [clientId, fetchAndHydrate, fireVersionMismatch])
 
   // Re-sync when app becomes visible (covers iOS killing SSE in background,
   // mobile browser tab switches, and PWA resume)
@@ -246,6 +257,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
 
   // Check app version against server on demand (e.g. on view navigation)
   const checkVersion = useCallback(() => {
+    if (versionMismatchFired.current) return
     fetch('/api/health')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
@@ -253,11 +265,11 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         const clientVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
         if (clientVersion !== 'dev' && data.appVersion !== clientVersion) {
           remoteLog(`version check: mismatch client=${clientVersion} server=${data.appVersion}`)
-          if (onVersionMismatch) onVersionMismatch(data.appVersion)
+          fireVersionMismatch(data.appVersion)
         }
       })
       .catch(() => {})
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fireVersionMismatch])
 
   return { flush, checkVersion, syncStatus }
 }

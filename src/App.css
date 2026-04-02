@@ -757,20 +757,12 @@
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.3s, color 0.3s;
 }
 
 .autosave-pill-saved {
   background: rgba(82, 201, 127, 0.15);
   color: #52C97F;
-}
-
-.autosave-pill:active:not(:disabled) {
-  opacity: 0.7;
-}
-
-.autosave-pill:disabled {
-  opacity: 0.4;
 }
 
 .sheet-subtitle {

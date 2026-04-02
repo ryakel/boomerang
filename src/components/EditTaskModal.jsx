@@ -241,15 +241,15 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const today = new Date().toISOString().split('T')[0]
   const isAlreadyRoutine = !!task.routine_id
 
-  const handleSave = useCallback(() => {
-    if (!title.trim() || makeRecurring) return
-    saveChanges()
-    flashSaved()
-  }, [title, makeRecurring]) // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleClose = () => {
-    if (title.trim() && !makeRecurring) handleSubmit()
-    else onClose()
+    if (title.trim() && !makeRecurring) {
+      saveChanges()
+      flashSaved()
+      // Brief delay so user sees the green flash before modal closes
+      setTimeout(onClose, 300)
+    } else {
+      onClose()
+    }
   }
 
   return (
@@ -259,13 +259,9 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
         <div className="edit-task-title-row">
           <div className="sheet-title">Edit Task</div>
-          <button
-            className={`autosave-pill ${justSaved ? 'autosave-pill-saved' : ''}`}
-            onClick={handleSave}
-            disabled={!title.trim() || makeRecurring}
-          >
+          <span className={`autosave-pill ${justSaved ? 'autosave-pill-saved' : ''}`}>
             {justSaved ? '✓ Saved' : 'Auto Save'}
-          </button>
+          </span>
         </div>
 
         <input
