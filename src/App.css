@@ -43,6 +43,49 @@
   color: var(--text);
 }
 
+.sync-status {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 8px;
+  animation: fadeIn 0.15s ease;
+}
+
+.sync-saving {
+  color: var(--text-dim);
+}
+
+.sync-saved {
+  color: #52C97F;
+  animation: fadeIn 0.15s ease, fadeOut 0.3s ease 1.7s forwards;
+}
+
+.sync-offline {
+  color: #FF3B30;
+}
+
+.save-btn {
+  font-size: 16px;
+  color: var(--text-muted);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.save-btn:active {
+  color: #52C97F;
+  transform: scale(0.9);
+}
+
+.save-btn.just-saved {
+  color: #52C97F;
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; }
+}
+
 .open-count {
   font-size: 13px;
   font-weight: 500;

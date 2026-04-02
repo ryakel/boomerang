@@ -72,7 +72,7 @@ function App() {
   }, [hydrateTasks, hydrateRoutines])
 
   const [updateVersion, setUpdateVersion] = useState(null)
-  const { flush: flushSync, checkVersion } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
+  const { flush: flushSync, checkVersion, syncStatus } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
     setUpdateVersion(newVersion)
     // Auto-reload after 4 seconds if user doesn't tap the button
     setTimeout(() => window.location.reload(), 4000)
@@ -251,8 +251,20 @@ function App() {
           <div className="wordmark-lockup">
             <Logo size={24} />
             <span className="wordmark">BOOMERANG</span>
+            {syncStatus && (
+              <span className={`sync-status sync-${syncStatus}`}>
+                {syncStatus === 'saving' ? 'Saving...' : syncStatus === 'saved' ? 'Saved' : 'Offline'}
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button
+              className={`save-btn ${syncStatus === 'saved' ? 'just-saved' : ''}`}
+              onClick={() => flushSync()}
+              title="Save now"
+            >
+              💾
+            </button>
             <button className="analytics-icon" onClick={() => setShowAnalytics(true)}>📊</button>
             <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
           </div>

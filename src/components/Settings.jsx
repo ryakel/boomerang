@@ -669,6 +669,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                 <input type="checkbox" checked={settings.notif_highpri_escalate !== false} onChange={e => update('notif_highpri_escalate', e.target.checked)} />
                 <span>Repeat until addressed</span>
               </label>
+              {settings.notif_highpri_escalate !== false && (<>
               <div className="notif-type-row">
                 <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>Before due</span>
                 <div className="notif-freq-input" style={{ marginLeft: 8 }}>
@@ -711,6 +712,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
                 </div>
               </div>
+              </>)}
 
               <div className="settings-label" style={{ marginTop: 16 }}>Notify me about</div>
 

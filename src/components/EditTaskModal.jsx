@@ -229,11 +229,16 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const today = new Date().toISOString().split('T')[0]
   const isAlreadyRoutine = !!task.routine_id
 
+  const handleClose = () => {
+    if (title.trim() && !makeRecurring) handleSubmit()
+    else onClose()
+  }
+
   return (
-    <div className="sheet-overlay" onClick={onClose}>
+    <div className="sheet-overlay" onClick={handleClose}>
       <div className="sheet" onClick={e => e.stopPropagation()}>
-        <button className="sheet-handle" onClick={() => { if (title.trim()) handleSubmit(); else onClose(); }} />
-        <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
+        <button className="sheet-handle" onClick={handleClose} />
+        <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
         <div className="sheet-title">Edit Task</div>
 
         <input
@@ -582,9 +587,11 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           ) : null}
         </div>
 
-        <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
-          {makeRecurring ? 'Convert to Routine' : 'Save Changes'}
-        </button>
+        {makeRecurring && (
+          <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
+            Convert to Routine
+          </button>
+        )}
       </div>
     </div>
   )

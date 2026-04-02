@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { saveTasks, saveRoutines, saveSettings, saveLabels } from '../store'
 
 const DEBOUNCE_MS = 300
@@ -39,6 +39,8 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const skipNextPush = useRef(false)
   const latestState = useRef({ tasks, routines })
   const serverVersion = useRef(0)
+  const [syncStatus, setSyncStatus] = useState(null) // null | 'saving' | 'saved' | 'offline'
+  const savedTimer = useRef(null)
 
   // Keep latest state ref updated
   useEffect(() => {
@@ -215,6 +217,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     payload._clientId = clientId
 
     remoteLog('push: PUT /api/data — tasks=', taskSummary(payload.tasks))
+    setSyncStatus('saving')
 
     fetch('/api/data', {
       method: 'PUT',
@@ -222,15 +225,21 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       body: JSON.stringify(payload),
     })
       .then(res => {
-        if (!res.ok) remoteLog('push: server responded', res.status)
-        else return res.json().then(r => {
+        if (!res.ok) {
+          remoteLog('push: server responded', res.status)
+          setSyncStatus('offline')
+        } else return res.json().then(r => {
           serverVersion.current = r.version
           remoteLog('push: success v' + r.version)
+          setSyncStatus('saved')
+          if (savedTimer.current) clearTimeout(savedTimer.current)
+          savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
         })
         flushLogs()
       })
       .catch(err => {
         remoteLog('push: FAILED:', err.message)
+        setSyncStatus('offline')
         flushLogs()
       })
   }
@@ -250,7 +259,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       .catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { flush, checkVersion }
+  return { flush, checkVersion, syncStatus }
 }
 
 function buildPayload(tasks, routines) {
