@@ -80,7 +80,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
   }
 
-  const handleSubmit = () => {
+  const saveChanges = () => {
     if (!title.trim()) return
     if (makeRecurring) {
       onConvertToRoutine(task.id, {
@@ -107,6 +107,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         comments,
       })
     }
+  }
+
+  const handleSubmit = () => {
+    saveChanges()
     onClose()
   }
 
@@ -239,7 +243,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
 
   const handleSave = useCallback(() => {
     if (!title.trim() || makeRecurring) return
-    handleSubmit()
+    saveChanges()
     flashSaved()
   }, [title, makeRecurring]) // eslint-disable-line react-hooks/exhaustive-deps
 
