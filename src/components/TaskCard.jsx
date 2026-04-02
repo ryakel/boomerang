@@ -6,8 +6,8 @@ const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
-export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete }) {
-  const [expanded, setExpanded] = useState(false)
+export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, expandedId, onToggleExpand }) {
+  const expanded = expandedId === task.id
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const [swipeOpen, setSwipeOpen] = useState(false) // true when action buttons are revealed
@@ -87,8 +87,8 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
       closeSwipe()
       return
     }
-    setExpanded(prev => !prev)
-  }, [swiping, swipeTriggered, swipeOpen, closeSwipe])
+    onToggleExpand(expanded ? null : task.id)
+  }, [swiping, swipeTriggered, swipeOpen, closeSwipe, expanded, task.id, onToggleExpand])
 
   const stale = isStale(task)
   const snoozed = isSnoozed(task)
@@ -253,7 +253,7 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
               <button className="toolbar-pill snooze" onClick={() => onSnooze(task)} title="Snooze">
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
               </button>
-              <button className="toolbar-pill edit" onClick={() => { setExpanded(false); onEdit(task) }} title="Edit">
+              <button className="toolbar-pill edit" onClick={() => { onToggleExpand(null); onEdit(task) }} title="Edit">
                 <svg viewBox="0 0 24 24"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
               </button>
               <button className="toolbar-pill extend" onClick={() => onExtend(task)} title={task.due_date ? 'Extend' : 'Set due date'}>

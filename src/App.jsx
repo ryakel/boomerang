@@ -47,6 +47,7 @@ function App() {
   const [showRoutines, setShowRoutines] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [extendTarget, setExtendTarget] = useState(null)
+  const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [quickText, setQuickText] = useState('')
   const [toast, setToast] = useState(null)
   const [backlogOpen, setBacklogOpen] = useState(false)
@@ -338,7 +339,7 @@ function App() {
           <>
             <div className="section-label">Stale</div>
             {filteredStale.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -347,7 +348,7 @@ function App() {
           <>
             <div className="section-label">Up Next</div>
             {filteredUpNext.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -356,7 +357,7 @@ function App() {
           <>
             <div className="section-label">Waiting</div>
             {filteredWaiting.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -365,7 +366,7 @@ function App() {
           <>
             <div className="section-label">Snoozed</div>
             {filteredSnoozed.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -377,7 +378,7 @@ function App() {
               Backlog ({filteredBacklog.length})
             </button>
             {backlogOpen && filteredBacklog.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} />
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
