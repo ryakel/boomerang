@@ -8,13 +8,19 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Production
+# Stage 2: Install production deps on build platform to avoid QEMU issues
+FROM --platform=$BUILDPLATFORM node:22-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Stage 3: Production (runs on target platform)
 FROM node:22-alpine
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./
 COPY server.js db.js ./
 COPY --from=build /app/dist ./dist
 RUN mkdir -p /data
