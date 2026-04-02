@@ -738,10 +738,22 @@
   margin-bottom: 16px;
 }
 
+.edit-task-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .autosave-hint {
   font-size: 11px;
   color: var(--text-muted);
-  margin-bottom: 12px;
+}
+
+.edit-save-btn {
+  margin: 0;
+  padding: 6px 20px;
+  font-size: 14px;
 }
 
 .sheet-subtitle {

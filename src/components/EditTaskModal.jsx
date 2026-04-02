@@ -240,7 +240,12 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         <button className="sheet-handle" onClick={handleClose} />
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
         <div className="sheet-title">Edit Task</div>
-        <div className="autosave-hint">Changes save automatically</div>
+        <div className="edit-task-header-row">
+          <div className="autosave-hint">Changes save automatically</div>
+          <button className="submit-btn edit-save-btn" disabled={!title.trim()} onClick={handleSubmit}>
+            Save
+          </button>
+        </div>
 
         <input
           ref={inputRef}
@@ -588,13 +593,9 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           ) : null}
         </div>
 
-        {makeRecurring ? (
+        {makeRecurring && (
           <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
             Convert to Routine
-          </button>
-        ) : (
-          <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
-            Save Changes
           </button>
         )}
       </div>
