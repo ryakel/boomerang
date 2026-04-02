@@ -10,7 +10,6 @@ const DEFAULT_SETTINGS = {
   reframe_threshold: 3,
   digest_time: '07:00',
   notifications_enabled: false,
-  notif_frequency: 30,
   notif_overdue: true,
   notif_stale: true,
   notif_nudge: true,
@@ -107,7 +106,27 @@ export function setLocalModified(ts) {
 
 export function loadTasks() { return load(TASKS_KEY, []) }
 export function saveTasks(tasks) { save(TASKS_KEY, tasks); touchModified() }
-export function loadSettings() { return { ...DEFAULT_SETTINGS, ...load(SETTINGS_KEY, {}) } }
+export function loadSettings() {
+  const saved = load(SETTINGS_KEY, {})
+  // Migrate old minute-based frequency values to hours (one-time)
+  if (!saved._freq_migrated) {
+    const freqKeys = ['notif_freq_overdue', 'notif_freq_stale', 'notif_freq_nudge', 'notif_freq_size', 'notif_freq_pileup']
+    let migrated = false
+    for (const key of freqKeys) {
+      if (saved[key] != null && saved[key] > 10) {
+        saved[key] = Math.round((saved[key] / 60) * 100) / 100 // minutes → hours
+        migrated = true
+      }
+    }
+    if (migrated || Object.keys(saved).length > 0) {
+      saved._freq_migrated = true
+      save(SETTINGS_KEY, saved)
+    }
+  }
+  // Remove legacy notif_frequency field
+  delete saved.notif_frequency
+  return { ...DEFAULT_SETTINGS, ...saved }
+}
 export function saveSettings(settings) { save(SETTINGS_KEY, settings); touchModified() }
 export function loadLabels() { return load(LABELS_KEY, DEFAULT_LABELS) }
 export function saveLabels(labels) { save(LABELS_KEY, labels); touchModified() }

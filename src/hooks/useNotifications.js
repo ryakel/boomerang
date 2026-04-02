@@ -130,6 +130,7 @@ function saveHpLastChecks(checks) {
 export function useNotifications(tasks) {
   const lastChecks = useRef(loadLastChecks())
   const highPriLastChecks = useRef(loadHpLastChecks())
+  const running = useRef(false)
 
   useEffect(() => {
     const settings = loadSettings()
@@ -149,6 +150,12 @@ export function useNotifications(tasks) {
     const tickMs = Math.max(Math.min(...Object.values(freqs), 60 * 1000), 60 * 1000)
 
     const check = async () => {
+      if (running.current) return
+      running.current = true
+      try { await doCheck() } finally { running.current = false }
+    }
+
+    const doCheck = async () => {
       if (isInQuietHours(settings)) return
 
       const now = Date.now()
@@ -287,8 +294,9 @@ export function useNotifications(tasks) {
       saveHpLastChecks(hpLc)
     }
 
-    check()
+    // Delay first check by 5s to debounce rapid tasks changes (hydration, SSE, edits)
+    const firstTick = setTimeout(check, 5000)
     const interval = setInterval(check, tickMs)
-    return () => clearInterval(interval)
+    return () => { clearTimeout(firstTick); clearInterval(interval) }
   }, [tasks])
 }
