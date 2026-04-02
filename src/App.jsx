@@ -80,7 +80,7 @@ function App() {
         for (const r of regs) r.unregister()
       })
     }
-    setTimeout(() => window.location.reload(), 1500)
+    setTimeout(() => window.location.reload(), 1000)
   })
 
   const { onTouchStart, onTouchEnd } = usePullToRefresh(useCallback(() => {
