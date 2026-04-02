@@ -411,17 +411,17 @@
 }
 
 .action-btn.done {
-  background: rgba(82, 201, 127, 0.15);
+  background: rgba(82, 201, 127, 0.18);
   color: #52C97F;
 }
 
 .action-btn.snooze {
-  background: rgba(255, 98, 64, 0.15);
-  color: var(--accent);
+  background: rgba(255, 98, 64, 0.18);
+  color: #FF6240;
 }
 
 .action-btn.extend {
-  background: rgba(74, 158, 255, 0.15);
+  background: rgba(74, 158, 255, 0.18);
   color: #4A9EFF;
 }
 
@@ -436,12 +436,12 @@
 }
 
 .action-btn.find-related {
-  background: rgba(74, 158, 255, 0.12);
+  background: rgba(74, 158, 255, 0.15);
   color: #4A9EFF;
 }
 
 .action-btn.delete {
-  background: rgba(255, 59, 48, 0.15);
+  background: rgba(255, 59, 48, 0.18);
   color: #FF3B30;
 }
 
@@ -1026,8 +1026,8 @@
 }
 
 .status-btn.active {
-  background: rgba(74, 158, 255, 0.15);
-  color: #4A9EFF;
+  background: color-mix(in srgb, var(--status-color) 15%, transparent);
+  color: var(--status-color);
 }
 
 .status-btn:active {
