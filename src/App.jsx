@@ -27,7 +27,7 @@ import { useTrelloSync } from './hooks/useTrelloSync'
 
 function App() {
   const {
-    tasks, setTasks, openTasks, staleTasks, snoozedTasks, waitingTasks, upNextTasks,
+    tasks, setTasks, openTasks, staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks,
     addTask, addSpawnedTasks, completeTask, snoozeTask, replaceTask,
     updateTask, uncompleteTask, changeStatus, deleteTask, clearCompleted, clearAll, hydrateTasks,
   } = useTasks()
@@ -245,6 +245,7 @@ function App() {
 
   const backlogTasks = tasks.filter(t => t.status === 'backlog')
   const filteredStale = sortTasks(filterTasks(staleTasks), sortBy)
+  const filteredDoing = sortTasks(filterTasks(doingTasks), sortBy)
   const filteredUpNext = sortTasks(filterTasks(upNextTasks), sortBy)
   const filteredWaiting = sortTasks(filterTasks(waitingTasks), sortBy)
   const filteredSnoozed = sortTasks(filterTasks(snoozedTasks), sortBy)
@@ -329,10 +330,19 @@ function App() {
 
       <div className="task-list" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {refreshing && <div className="refresh-indicator">Refreshing...</div>}
-        {filteredStale.length === 0 && filteredUpNext.length === 0 && filteredWaiting.length === 0 && filteredSnoozed.length === 0 && (
+        {filteredStale.length === 0 && filteredDoing.length === 0 && filteredUpNext.length === 0 && filteredWaiting.length === 0 && filteredSnoozed.length === 0 && (
           <div className="empty-state">
             No tasks yet.<br />Add one below to get started.
           </div>
+        )}
+
+        {filteredDoing.length > 0 && (
+          <>
+            <div className="section-label">Doing</div>
+            {filteredDoing.map(t => (
+              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} />
+            ))}
+          </>
         )}
 
         {filteredStale.length > 0 && (

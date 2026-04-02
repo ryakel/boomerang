@@ -145,7 +145,8 @@ export function useTasks() {
   const staleTasks = openTasks.filter(t => isStale(t))
   const snoozedTasks = openTasks.filter(t => isSnoozed(t))
   const waitingTasks = openTasks.filter(t => (t.status === 'waiting') && !isStale(t) && !isSnoozed(t))
-  const upNextTasks = openTasks.filter(t => t.status !== 'waiting' && !isStale(t) && !isSnoozed(t))
+  const doingTasks = openTasks.filter(t => t.status === 'doing' && !isStale(t) && !isSnoozed(t))
+  const upNextTasks = openTasks.filter(t => t.status !== 'waiting' && t.status !== 'doing' && !isStale(t) && !isSnoozed(t))
 
   return {
     tasks,
@@ -154,6 +155,7 @@ export function useTasks() {
     staleTasks,
     snoozedTasks,
     waitingTasks,
+    doingTasks,
     upNextTasks,
     addTask,
     addSpawnedTasks,
