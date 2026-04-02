@@ -240,6 +240,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         <button className="sheet-handle" onClick={handleClose} />
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
         <div className="sheet-title">Edit Task</div>
+        <div className="autosave-hint">Changes save automatically</div>
 
         <input
           ref={inputRef}

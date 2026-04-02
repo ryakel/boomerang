@@ -54,7 +54,7 @@ function NotificationHistory() {
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
-export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onShowActivityLog }) {
+export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onShowActivityLog, syncStatus }) {
   const [activeTab, setActiveTab] = useState('General')
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
@@ -260,7 +260,9 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       <div className="settings-header">
         <button className="settings-back" onClick={onClose}>← Back</button>
         <div className="sheet-title" style={{ margin: 0 }}>Settings</div>
-        <span className="version-label">{__APP_VERSION__}</span>
+        <span className="version-label">
+          {syncStatus === 'saving' ? 'Saving...' : syncStatus === 'saved' ? 'Saved' : __APP_VERSION__}
+        </span>
       </div>
 
       <div className="settings-tabs">

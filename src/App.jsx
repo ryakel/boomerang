@@ -87,7 +87,7 @@ function App() {
       .finally(() => setTimeout(() => setRefreshing(false), 500))
   }, [hydrateFromServer]))
 
-  // Check for app updates whenever a view opens
+  // Check app version on every view/modal navigation
   useEffect(() => {
     if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || editTarget || showAdd || showWhatNow) {
       checkVersion()
@@ -251,20 +251,8 @@ function App() {
           <div className="wordmark-lockup">
             <Logo size={24} />
             <span className="wordmark">BOOMERANG</span>
-            {syncStatus && (
-              <span className={`sync-status sync-${syncStatus}`}>
-                {syncStatus === 'saving' ? 'Saving...' : syncStatus === 'saved' ? 'Saved' : 'Offline'}
-              </span>
-            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button
-              className={`save-btn ${syncStatus === 'saved' ? 'just-saved' : ''}`}
-              onClick={() => flushSync()}
-              title="Save now"
-            >
-              💾
-            </button>
             <button className="analytics-icon" onClick={() => setShowAnalytics(true)}>📊</button>
             <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
           </div>
@@ -452,6 +440,7 @@ function App() {
           onTrelloSync={syncTrello}
           trelloSyncing={trelloSyncing}
           onShowActivityLog={() => { setShowSettings(false); setShowActivityLog(true) }}
+          syncStatus={syncStatus}
         />
       )}
 
