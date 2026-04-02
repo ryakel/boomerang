@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloBoardLists } from '../api'
 
@@ -50,9 +50,17 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     const mappedList = s.trello_list_mapping?.[status]
     return mappedList || s.trello_list_id || ''
   })
+  const [justSaved, setJustSaved] = useState(false)
+  const savedTimer = useRef(null)
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
   const labels = loadLabels()
+
+  const flashSaved = useCallback(() => {
+    setJustSaved(true)
+    clearTimeout(savedTimer.current)
+    savedTimer.current = setTimeout(() => setJustSaved(false), 2000)
+  }, [])
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -229,6 +237,12 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const today = new Date().toISOString().split('T')[0]
   const isAlreadyRoutine = !!task.routine_id
 
+  const handleSave = useCallback(() => {
+    if (!title.trim() || makeRecurring) return
+    handleSubmit()
+    flashSaved()
+  }, [title, makeRecurring]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleClose = () => {
     if (title.trim() && !makeRecurring) handleSubmit()
     else onClose()
@@ -239,11 +253,14 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
       <div className="sheet" onClick={e => e.stopPropagation()}>
         <button className="sheet-handle" onClick={handleClose} />
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
-        <div className="sheet-title">Edit Task</div>
-        <div className="edit-task-header-row">
-          <div className="autosave-hint">Changes save automatically</div>
-          <button className="edit-save-icon" disabled={!title.trim()} onClick={handleSubmit} title="Save now">
-            💾
+        <div className="edit-task-title-row">
+          <div className="sheet-title">Edit Task</div>
+          <button
+            className={`autosave-pill ${justSaved ? 'autosave-pill-saved' : ''}`}
+            onClick={handleSave}
+            disabled={!title.trim() || makeRecurring}
+          >
+            {justSaved ? '✓ Saved' : 'Auto Save'}
           </button>
         </div>
 

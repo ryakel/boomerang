@@ -738,27 +738,39 @@
   margin-bottom: 16px;
 }
 
-.edit-task-header-row {
+.edit-task-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
 }
 
-.autosave-hint {
-  font-size: 11px;
-  color: var(--text-muted);
+.edit-task-title-row .sheet-title {
+  margin-bottom: 0;
 }
 
-.edit-save-icon {
-  font-size: 18px;
-  padding: 2px;
+.autosave-pill {
+  padding: 5px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text-muted);
-  transition: transform 0.15s;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
 }
 
-.edit-save-icon:active {
-  transform: scale(0.9);
+.autosave-pill-saved {
+  background: rgba(82, 201, 127, 0.15);
+  color: #52C97F;
+}
+
+.autosave-pill:active:not(:disabled) {
+  opacity: 0.7;
+}
+
+.autosave-pill:disabled {
+  opacity: 0.4;
 }
 
 .sheet-subtitle {
