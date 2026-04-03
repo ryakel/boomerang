@@ -222,7 +222,7 @@ function App() {
   const handleQuickAdd = () => {
     const text = quickText.trim()
     if (text) {
-      const taskId = addTask(text)
+      const taskId = addTask({ title: text })
       setQuickText('')
       quickRef.current?.blur()
       // Auto-infer size + energy from title alone
@@ -407,11 +407,11 @@ function App() {
       </div>
 
       {showAdd && (
-        <AddTaskModal onAdd={(title, tags, dueDate, notes, notion, size, attachments, highPriority, energy, energyLevel) => {
-          const taskId = addTask(title, tags, dueDate, notes, notion, size, attachments, highPriority, energy, energyLevel)
+        <AddTaskModal onAdd={(taskData) => {
+          const taskId = addTask(taskData)
           // Auto-infer size + energy if not manually set
-          if (!size && title) {
-            inferSize(title, notes).then(inferred => {
+          if (!taskData.size && taskData.title) {
+            inferSize(taskData.title, taskData.notes).then(inferred => {
               const updates = {}
               if (inferred.size) updates.size = inferred.size
               if (inferred.energy) updates.energy = inferred.energy

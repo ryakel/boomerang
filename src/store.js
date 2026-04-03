@@ -63,7 +63,6 @@ function isActiveTask(task) {
 }
 
 const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }
-const SIZE_POINTS = { XS: 1, S: 2, M: 5, L: 10, XL: 20 }
 
 // Energy/capacity types — what kind of effort a task demands
 const ENERGY_TYPES = [
@@ -74,11 +73,6 @@ const ENERGY_TYPES = [
   { id: 'creative', label: 'Creative', icon: '🎨' },
   { id: 'physical', label: 'Physical', icon: '💪' },
 ]
-
-// Energy drain intensity: 1=low, 2=medium, 3=high
-// Multiplier applied on top of SIZE_POINTS for scoring:
-//   final points = SIZE_POINTS[size] × ENERGY_MULTIPLIER[level] × speedMultiplier
-const ENERGY_MULTIPLIER = { 1: 1.0, 2: 1.5, 3: 2.0 }
 
 // Energy types that get more aggressive nagging (ADHD avoidance-prone)
 const AVOIDANCE_ENERGY_TYPES = ['confrontation', 'errand']
@@ -334,22 +328,9 @@ export function sortTasks(list, sortBy) {
   return sorted
 }
 
-export function computeDailyStats(tasks) {
-  const todayStr = new Date().toDateString()
-  const todayTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
-
-  let points = 0
-  for (const t of todayTasks) {
-    const base = SIZE_POINTS[t.size] || 1
-    // Energy multiplier: higher drain = more points (rewards tackling hard tasks)
-    const energyMult = ENERGY_MULTIPLIER[t.energyLevel] || 1.0
-    const daysOnList = Math.max(0, Math.floor((new Date(t.completed_at).getTime() - new Date(t.created_at).getTime()) / 86400000))
-    const speedMultiplier = daysOnList === 0 ? 2 : daysOnList <= 2 ? 1.5 : 1
-    points += Math.round(base * energyMult * speedMultiplier)
-  }
-
-  return { tasksToday: todayTasks.length, pointsToday: points }
-}
+// Scoring functions moved to src/scoring.js:
+// computeDailyStats, computeRecords, computeTaskPoints, calculateTaskPoints
+// Re-exported below for backward compatibility.
 
 export function computeStreak(tasks, settings) {
   if (settings.vacation_mode) {
@@ -385,49 +366,6 @@ export function computeStreak(tasks, settings) {
   }
 
   return streak
-}
-
-export function computeRecords(tasks) {
-  const byDay = {}
-  for (const t of tasks) {
-    if (t.status === 'done' && t.completed_at) {
-      const dayStr = new Date(t.completed_at).toDateString()
-      if (!byDay[dayStr]) byDay[dayStr] = { tasks: 0, points: 0 }
-      byDay[dayStr].tasks++
-      const base = SIZE_POINTS[t.size] || 1
-      const energyMult = ENERGY_MULTIPLIER[t.energyLevel] || 1.0
-      const daysOnList = Math.max(0, Math.floor((new Date(t.completed_at).getTime() - new Date(t.created_at).getTime()) / 86400000))
-      const speedMultiplier = daysOnList === 0 ? 2 : daysOnList <= 2 ? 1.5 : 1
-      byDay[dayStr].points += Math.round(base * energyMult * speedMultiplier)
-    }
-  }
-
-  let bestTasks = 0, bestPoints = 0, longestStreak = 0
-  for (const day of Object.values(byDay)) {
-    if (day.tasks > bestTasks) bestTasks = day.tasks
-    if (day.points > bestPoints) bestPoints = day.points
-  }
-
-  // Longest streak from sorted dates
-  const dates = Object.keys(byDay).map(d => new Date(d)).sort((a, b) => a - b)
-  let current = 1
-  for (let i = 1; i < dates.length; i++) {
-    const diff = (dates[i] - dates[i - 1]) / 86400000
-    if (Math.round(diff) === 1) { current++; if (current > longestStreak) longestStreak = current }
-    else { current = 1 }
-  }
-  if (current > longestStreak) longestStreak = current
-
-  return { bestTasks, bestPoints, longestStreak }
-}
-
-export function computeTaskPoints(task) {
-  const base = SIZE_POINTS[task.size] || 1
-  const energyMult = ENERGY_MULTIPLIER[task.energyLevel] || 1.0
-  const completedAt = task.completed_at ? new Date(task.completed_at) : new Date()
-  const daysOnList = Math.max(0, Math.floor((completedAt.getTime() - new Date(task.created_at).getTime()) / 86400000))
-  const speedMultiplier = daysOnList === 0 ? 2 : daysOnList <= 2 ? 1.5 : 1
-  return Math.round(base * energyMult * speedMultiplier)
 }
 
 // Activity log — tracks task lifecycle events for recovery
@@ -515,4 +453,7 @@ export function getSnoozeOptionsShort() {
   ]
 }
 
-export { ACTIVE_STATUSES, isActiveTask, LABEL_COLORS, RECURRENCE_OPTIONS, SIZE_POINTS, ENERGY_TYPES, ENERGY_MULTIPLIER, AVOIDANCE_ENERGY_TYPES }
+// Re-export scoring functions so existing imports from store.js keep working
+export { computeDailyStats, computeRecords, calculateTaskPoints as computeTaskPoints, SIZE_POINTS, ENERGY_MULTIPLIER } from './scoring.js'
+
+export { ACTIVE_STATUSES, isActiveTask, LABEL_COLORS, RECURRENCE_OPTIONS, ENERGY_TYPES, AVOIDANCE_ENERGY_TYPES }

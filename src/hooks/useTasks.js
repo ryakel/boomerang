@@ -24,7 +24,7 @@ export function useTasks() {
     return () => clearInterval(interval)
   }, [])
 
-  const addTask = useCallback((title, tags = [], dueDate = null, notes = '', notion = null, size = null, attachments = [], highPriority = false, energy = null, energyLevel = null) => {
+  const addTask = useCallback(({ title, tags = [], dueDate = null, notes = '', notion = null, size = null, attachments = [], highPriority = false, energy = null, energyLevel = null } = {}) => {
     remoteLog('addTask:', title)
     const task = createTask(title, tags, dueDate, notes)
     if (notion) {

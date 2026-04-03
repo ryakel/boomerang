@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask } from '../store'
 import { trelloSyncAllLists, trelloUpdateCard, trelloBoardLists, inferTrelloListMapping, aiDedupTrelloCards } from '../api'
-
-function remoteLog(...args) {
-  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
-  console.log(line)
-  fetch('/api/log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lines: [line] }),
-  }).catch(() => {})
-}
+import { deduplicateImports, remoteLog } from '../syncDedup'
 
 // Status ↔ Trello list mapping
 const STATUS_FOR_LIST = {} // populated at runtime from settings
@@ -119,47 +110,18 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
 
     remoteLog(`[TrelloSync] ${newCards.length} unlinked cards to process:`, newCards.map(nc => nc.card.name))
 
-    // Dedup: first try exact title match, then fall back to AI
+    // Dedup: exact title match, then AI (shared logic)
     const unlinkedTasks = currentTasks.filter(t => !t.trello_card_id && t.status !== 'done')
-    remoteLog(`[TrelloSync] ${unlinkedTasks.length} unlinked local tasks for dedup:`, unlinkedTasks.map(t => t.title))
-    const matchMap = new Map()
-
-    // Pass 1: exact title match (case-insensitive)
-    const titleIndex = new Map()
-    for (const t of unlinkedTasks) {
-      const key = t.title.toLowerCase().trim()
-      if (!titleIndex.has(key)) titleIndex.set(key, t.id)
-    }
-    const remainingCards = []
-    for (const nc of newCards) {
-      const key = nc.card.name.toLowerCase().trim()
-      const matchedId = titleIndex.get(key)
-      if (matchedId) {
-        matchMap.set(nc.card.id, matchedId)
-        titleIndex.delete(key) // don't double-match
-        remoteLog(`[TrelloSync] exact title match: "${nc.card.name}" → ${matchedId.slice(0, 8)}`)
-      } else {
-        remainingCards.push(nc)
-      }
-    }
-
-    // Pass 2: AI dedup for remaining unmatched cards
-    if (remainingCards.length > 0 && unlinkedTasks.length > 0) {
-      try {
-        const dedupResult = await aiDedupTrelloCards(
-          remainingCards.map(nc => nc.card),
-          unlinkedTasks
-        )
-        const matches = dedupResult.matches || []
-        for (const m of matches) {
-          if (m.task_id && m.confidence >= 0.85 && !matchMap.has(m.card_id)) {
-            matchMap.set(m.card_id, m.task_id)
-          }
-        }
-      } catch (err) {
-        remoteLog('[TrelloSync] ERROR: AI dedup failed, creating all as new:', err.message)
-      }
-    }
+    remoteLog(`[TrelloSync] ${unlinkedTasks.length} unlinked local tasks for dedup`)
+    const matchMap = await deduplicateImports({
+      items: newCards.map(nc => nc.card),
+      localTasks: unlinkedTasks,
+      getTitle: card => card.name,
+      getId: card => card.id,
+      aiDedupFn: aiDedupTrelloCards,
+      itemIdField: 'card_id',
+      logPrefix: '[TrelloSync]',
+    })
     const tasksToAdd = []
     const tasksToUpdate = []
 

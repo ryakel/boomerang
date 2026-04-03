@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask } from '../store'
 import { notionGetChildPages, notionGetBlocks, analyzeNotionPage, aiDedupNotionPages } from '../api'
-
-function remoteLog(...args) {
-  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
-  console.log(line)
-  fetch('/api/log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lines: [line] }),
-  }).catch(() => {})
-}
+import { deduplicateImports, remoteLog } from '../syncDedup'
 
 // Track last_edited_time per page to avoid re-analyzing unchanged pages
 const NOTION_PAGE_CACHE_KEY = 'boom_notion_page_cache'
@@ -62,38 +53,17 @@ export function useNotionSync(tasks, setTasks) {
       return
     }
 
-    // 3. Dedup: exact title match first, then AI
+    // 3. Dedup: exact title match, then AI (shared logic)
     const unlinkedTasks = currentTasks.filter(t => !t.notion_page_id && t.status !== 'done')
-    const matchMap = new Map() // page_id → task_id
-
-    // Pass 1: exact title match (case-insensitive)
-    const titleIndex = new Map()
-    for (const t of unlinkedTasks) {
-      titleIndex.set(t.title.toLowerCase().trim(), t.id)
-    }
-    for (const page of unlinkedPages) {
-      const match = titleIndex.get(page.title.toLowerCase().trim())
-      if (match) {
-        matchMap.set(page.id, match)
-        remoteLog(`[NotionSync] exact match: "${page.title}" → task ${match.slice(0, 8)}`)
-      }
-    }
-
-    // Pass 2: AI dedup for remaining unmatched
-    const stillUnmatched = unlinkedPages.filter(p => !matchMap.has(p.id))
-    if (stillUnmatched.length > 0 && unlinkedTasks.length > 0) {
-      try {
-        const aiResult = await aiDedupNotionPages(stillUnmatched, unlinkedTasks)
-        for (const m of (aiResult.matches || [])) {
-          if (m.task_id && m.confidence >= 0.85) {
-            matchMap.set(m.page_id, m.task_id)
-            remoteLog(`[NotionSync] AI match: page ${m.page_id.slice(0, 8)} → task ${m.task_id.slice(0, 8)} (${m.confidence})`)
-          }
-        }
-      } catch (err) {
-        remoteLog(`[NotionSync] AI dedup failed:`, err.message)
-      }
-    }
+    const matchMap = await deduplicateImports({
+      items: unlinkedPages,
+      localTasks: unlinkedTasks,
+      getTitle: p => p.title,
+      getId: p => p.id,
+      aiDedupFn: aiDedupNotionPages,
+      itemIdField: 'page_id',
+      logPrefix: '[NotionSync]',
+    })
 
     // 4. Link matched pages to existing tasks
     const linkUpdates = []
