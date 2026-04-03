@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, memo } from 'react'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, ENERGY_TYPES } from '../store'
 
 const STATUS_META = {
@@ -11,7 +11,7 @@ const STATUS_META = {
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
-export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog, onStatusChange, onUpdate, onDelete }) {
+export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onBacklog, onStatusChange, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -310,4 +310,4 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
       </div>
     </div>
   )
-}
+})
