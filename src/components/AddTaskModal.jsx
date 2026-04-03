@@ -44,7 +44,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
           />
           {form.notes.trim() && (
             <button className="polish-btn" onClick={form.handlePolish} disabled={form.polishing}>
-              {form.polishing ? <span className="spinner" /> : null} {form.polishing ? 'Polishing...' : 'Polish'}
+              {form.polishing ? <span className="spinner" /> : '✨'} {form.polishing ? 'Polishing...' : 'Polish'}
             </button>
           )}
         </div>
@@ -87,7 +87,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
             </button>
           ))}
           <button className="polish-btn" onClick={form.handleInferSize} disabled={form.sizing || !form.title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
-            {form.sizing ? <span className="spinner" /> : null} {form.sizing ? 'Sizing...' : 'Auto'}
+            {form.sizing ? <span className="spinner" /> : '✨'} {form.sizing ? 'Sizing...' : 'Auto'}
           </button>
         </div>
 

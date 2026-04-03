@@ -349,7 +349,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           <div className="notes-actions">
             {notes.trim() && (
               <button className="polish-btn" onClick={handlePolish} disabled={polishing}>
-                {polishing ? <span className="spinner" /> : null} {polishing ? 'Polishing...' : 'Polish'}
+                {polishing ? <span className="spinner" /> : '✨'} {polishing ? 'Polishing...' : 'Polish'}
               </button>
             )}
             <button
@@ -357,7 +357,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowResearch(!showResearch) }}
               disabled={researching}
             >
-              {researching ? <span className="spinner" /> : null} {researching ? 'Researching...' : 'Research'}
+              {researching ? <span className="spinner" /> : '🔍'} {researching ? 'Researching...' : 'Research'}
             </button>
           </div>
           {showResearch && (
@@ -420,7 +420,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             </button>
           ))}
           <button className="polish-btn" onClick={handleInferSize} disabled={sizing || !title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
-            {sizing ? <span className="spinner" /> : null} {sizing ? 'Sizing...' : 'Auto'}
+            {sizing ? <span className="spinner" /> : '✨'} {sizing ? 'Sizing...' : 'Auto'}
           </button>
         </div>
 

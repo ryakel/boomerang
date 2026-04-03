@@ -267,7 +267,7 @@ function App() {
             <span className="wordmark">BOOMERANG</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button className="analytics-icon" onClick={() => setShowAnalytics(true)}>Stats</button>
+            <button className="analytics-icon" onClick={() => setShowAnalytics(true)}>📊</button>
             <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
           </div>
         </div>
