@@ -433,7 +433,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               onClick={() => setEnergy(energy === et.id ? null : et.id)}
               title={et.label}
             >
-              {et.icon}
+              <span className={`energy-icon energy-type-icon ${et.iconClass}`} /> {et.label}
             </button>
           ))}
         </div>

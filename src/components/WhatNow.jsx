@@ -82,7 +82,7 @@ export default function WhatNow({ tasks, onClose, onComplete }) {
                 className="what-now-option what-now-capacity-btn"
                 onClick={() => handleCapacity(et.id)}
               >
-                {et.icon} {et.label}
+                <span className={`energy-icon energy-type-icon ${et.iconClass}`} /> {et.label}
               </button>
             ))}
             <button
