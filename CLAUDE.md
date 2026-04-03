@@ -12,6 +12,85 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
 
+### Energy/Capacity Tagging System
+AI-inferred energy tagging on every task — no manual fields to fill in.
+
+**Energy Types** — what kind of capacity a task demands:
+| Type | Icon | Meaning | Examples |
+|---|---|---|---|
+| `desk` | 💻 | Focused computer/paperwork | Update resume, pay bills, debug code |
+| `people` | 👥 | Social interaction | Lunch with coworker, team standup |
+| `errand` | 🏃 | Going somewhere physically | Pick up prescription, grocery run |
+| `confrontation` | ⚡ | Emotionally difficult interaction | Call insurance to dispute, give feedback |
+| `creative` | 🎨 | Open-ended thinking/making | Design logo, write blog post |
+| `physical` | 💪 | Bodily effort | Clean garage, mow lawn |
+
+**Energy Levels** — drain intensity (1-3):
+| Level | Display | Meaning |
+|---|---|---|
+| 1 | ⚡ | Low drain — easy, routine |
+| 2 | ⚡⚡ | Medium drain — requires focus |
+| 3 | ⚡⚡⚡ | High drain — significant willpower |
+
+**AI Inference:** `inferSize()` in `src/api.js` returns `{ size, energy, energyLevel }` in a single API call. Custom instructions influence inference (e.g., "phone calls are confrontation-level for me").
+
+**Tap-to-Cycle Override:** On task cards, tap the type emoji to cycle types, tap the bolts to cycle intensity. Zero-friction correction, saves immediately via `onUpdate`.
+
+**Points Formula:** `SIZE_POINTS[size] × ENERGY_MULTIPLIER[level] × speedMultiplier`
+- ENERGY_MULTIPLIER: { 1: 1.0, 2: 1.5, 3: 2.0 }
+- An XL⚡⚡⚡ task = 20 × 2.0 × speedMult = up to 80 points
+- This rewards tackling hard tasks — one high-drain task can crush the daily goal
+
+**Nagging Boost:** Avoidance-prone types (confrontation, errand) get more frequent notifications.
+- Avoidance type: interval / 1.3 (30% more frequent)
+- High drain (level 3): additional / 1.2
+- Combined max: ~1.56x more frequent for ⚡⚡⚡ confrontation tasks
+- Implementation: `applyAvoidanceBoost()` in `src/hooks/useNotifications.js`
+
+**What Now Capacity Filter:** Step 3 asks "What can you do right now?" with energy type options + "Anything" + skip link. Passed to `getWhatNow()` which instructs the AI to prefer matching tasks.
+
+**Known Limitations:**
+- AI may default to `desk` for ambiguous tasks
+- Tap-to-cycle doesn't have undo (just tap again to cycle forward)
+- Energy level selector only appears in modals after energy type is set (or after Auto inference)
+- Existing tasks without energy data score normally (multiplier defaults to 1.0)
+
+### Notion Pull Sync
+Pulls actionable tasks from Notion pages into Boomerang. Pages under a parent page are discovered, analyzed by AI, and converted to tasks.
+
+**Server Endpoints** (in `server.js`):
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/notion/blocks/:id` | Read page content (paginated), returns `{ blocks, plainText }` |
+| `GET /api/notion/children/:id` | List child pages of a parent |
+| `POST /api/notion/databases/:id/query` | Query a Notion database (future-proofing) |
+
+**Sync Flow** (`src/hooks/useNotionSync.js`):
+1. Fetch child pages of configured parent (`notion_sync_parent_id`)
+2. Match against existing tasks via `notion_page_id`
+3. For unlinked pages: exact title match → AI dedup (`aiDedupNotionPages`)
+4. For truly new pages: fetch content → `analyzeNotionPage()` → create task(s)
+5. One Notion page can produce multiple tasks (e.g., "furnace filter" → "buy filters" + "change filter")
+
+**Dedup Logic:**
+- Pass 1: exact title match (case-insensitive)
+- Pass 2: AI dedup with confidence threshold (≥0.85 = auto-link)
+- Only analyzes new or changed pages (tracks `last_edited_time` in localStorage cache)
+
+**Settings:**
+- `notion_sync_parent_id` — parent page whose children become tasks
+- `notion_sync_parent_title` — display name
+- `notion_last_sync` — timestamp of last sync
+- Configured in Settings → Integrations → Notion (when connected)
+
+**Rate Limiting:** 400ms delay between Notion API calls to respect ~3 req/sec limit.
+
+**Known Limitations:**
+- Deeply nested sub-pages (children of children) are not followed — only direct children
+- Database sync is endpoint-ready but not yet wired into the UI
+- Routine auto-creation from recurring patterns is a future enhancement
+- Page content is truncated to 4000 chars for AI analysis
+
 ### Notifications System
 - Configurable notification types: high priority (with 3-stage escalation), overdue, stale, nudges, size-based, pile-up warnings
 - All frequencies set in hours (supports fractional values, e.g. 0.25 = 15 min)
@@ -20,6 +99,7 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Notification history log — last 200 entries stored in localStorage
 - Throttle timestamps persist in localStorage across app reloads (prevents duplicate notifications)
 - Test notification button available in settings
+- **Avoidance boost**: confrontation/errand tasks get nagged ~30-56% more frequently
 
 ### Infrastructure
 - Version check on every view/modal navigation via `/api/health`
@@ -73,3 +153,52 @@ feat(tasks): add checklist support to task cards [M]
 - Keep subject under 72 characters
 - Use body for details when the change is M or larger
 - Breaking changes: add `BREAKING CHANGE:` in the commit body
+
+## Known Technical Debt & Future Migration Plans
+
+### Database: From JSON Blobs to Proper Schema (Priority: High, Timeline: Before 200+ tasks)
+
+**Current state:** sql.js stores data as JSON blobs in a single `app_data` table with two columns (`collection`, `data_json`). Each collection (tasks, routines, settings, labels) is one row containing the entire array serialized as JSON. All filtering, sorting, and searching happens client-side in JavaScript after loading the full dataset.
+
+**Why this will break:**
+- Every sync pushes the entire tasks array — at 200+ tasks with frequent edits, this becomes noticeable latency
+- Adding server-side search, filtering by status/energy/tags, or date-range queries is impossible without loading everything into memory
+- `db.export()` + `writeFileSync()` runs synchronously on every single write operation
+- No way to do incremental updates — changing one field on one task rewrites all tasks to disk
+
+**Target architecture:**
+- Promote tasks to a proper SQL table: `id, title, status, tags (JSON), notes, due_date, energy, energyLevel, size, created_at, completed_at, ...`
+- Add indexes on `status`, `due_date`, `energy`, `created_at` for common queries
+- Replace "ship entire collection" sync with per-record upserts (PATCH individual tasks)
+- Add a schema migration system (even a simple numbered-file approach)
+- Batch disk writes (flush every 5-10s instead of per-operation)
+
+**Migration path:**
+1. Add migration system first (version counter + SQL migration files)
+2. Create proper `tasks` table alongside existing `app_data` (dual-write during transition)
+3. Migrate server endpoints to query tasks table directly
+4. Move sort/filter logic to SQL queries on the server
+5. Update sync protocol to push/pull individual task diffs instead of full arrays
+6. Remove `app_data` tasks collection once migration is confirmed stable
+
+**What triggers this work:** Task count approaching 200, or adding any feature that requires server-side filtering (search, analytics dashboard, bulk operations).
+
+### Frontend: Prop Drilling & Render Performance (Priority: Medium)
+
+**Current state:** App.jsx passes 9+ callbacks down to TaskCard via props. No React.memo on TaskCard, so every state change in App re-renders all cards.
+
+**What to do when this becomes a problem:**
+- Add `TaskActionsContext` to eliminate prop drilling (biggest cognitive relief)
+- Wrap TaskCard in `React.memo` with task ID + updated_at comparison
+- Split App.css (2,281 lines) into per-component CSS files
+- Consider `useTransition` / `useOptimistic` from React 19 for perceived perf during sync
+
+**What triggers this work:** Adding 3+ more interactive features to TaskCard, or task list exceeding 100 items with noticeable scroll jank.
+
+### Offline Mutation Queue (Priority: Low-Medium)
+
+**Current state:** Mutations fire immediately to `/api/data`. If offline, the write silently fails. No retry, no indicator.
+
+**What to do:** Queue mutations in localStorage when offline, replay on reconnect, show sync status indicator in header.
+
+**What triggers this work:** Regular mobile usage on spotty connections, or first report of lost data from offline edits.

@@ -309,6 +309,111 @@ app.get('/api/notion/status', async (req, res) => {
   }
 })
 
+// Get all blocks (content) from a Notion page — paginated, returns structured + plaintext
+app.get('/api/notion/blocks/:id', async (req, res) => {
+  const token = getNotionToken(req)
+  if (!token) return res.status(400).json({ error: 'Notion not configured' })
+  try {
+    let allBlocks = []
+    let cursor = undefined
+    // Paginate through all blocks (Notion returns max 100 per request)
+    do {
+      const url = `${NOTION_BASE}/blocks/${req.params.id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`
+      const response = await fetch(url, { headers: makeNotionHeaders(token) })
+      const data = await response.json()
+      if (!response.ok) return res.status(response.status).json({ error: data.message || 'Failed to fetch blocks' })
+      allBlocks = allBlocks.concat(data.results || [])
+      cursor = data.has_more ? data.next_cursor : null
+    } while (cursor)
+
+    // Flatten blocks to plain text for AI consumption
+    const plainText = allBlocks.map(block => {
+      const type = block.type
+      const content = block[type]
+      if (!content) return ''
+      // Extract text from rich_text arrays
+      if (content.rich_text) {
+        const text = content.rich_text.map(rt => rt.plain_text).join('')
+        if (type === 'heading_1') return `# ${text}`
+        if (type === 'heading_2') return `## ${text}`
+        if (type === 'heading_3') return `### ${text}`
+        if (type === 'bulleted_list_item') return `- ${text}`
+        if (type === 'numbered_list_item') return `1. ${text}`
+        if (type === 'to_do') return `[${content.checked ? 'x' : ' '}] ${text}`
+        return text
+      }
+      return ''
+    }).filter(Boolean).join('\n')
+
+    res.json({ blocks: allBlocks, plainText })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Get child pages of a parent page (for sync: discover pages under a parent)
+app.get('/api/notion/children/:id', async (req, res) => {
+  const token = getNotionToken(req)
+  if (!token) return res.status(400).json({ error: 'Notion not configured' })
+  try {
+    let allChildren = []
+    let cursor = undefined
+    do {
+      const url = `${NOTION_BASE}/blocks/${req.params.id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`
+      const response = await fetch(url, { headers: makeNotionHeaders(token) })
+      const data = await response.json()
+      if (!response.ok) return res.status(response.status).json({ error: data.message || 'Failed to fetch children' })
+      allChildren = allChildren.concat(data.results || [])
+      cursor = data.has_more ? data.next_cursor : null
+    } while (cursor)
+
+    // Filter to child_page blocks and fetch their page details for title/url
+    const childPages = allChildren.filter(b => b.type === 'child_page')
+    const pages = await Promise.all(childPages.map(async (block) => {
+      try {
+        const pageRes = await fetch(`${NOTION_BASE}/pages/${block.id}`, { headers: makeNotionHeaders(token) })
+        const pageData = await pageRes.json()
+        return {
+          id: block.id,
+          title: block.child_page?.title || extractTitle(pageData),
+          url: pageData.url,
+          last_edited: pageData.last_edited_time,
+        }
+      } catch {
+        return { id: block.id, title: block.child_page?.title || 'Untitled', url: null, last_edited: null }
+      }
+    }))
+
+    res.json({ pages })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Query a Notion database (future-proofing for database-based sync)
+app.post('/api/notion/databases/:id/query', async (req, res) => {
+  const token = getNotionToken(req)
+  if (!token) return res.status(400).json({ error: 'Notion not configured' })
+  try {
+    const response = await fetch(`${NOTION_BASE}/databases/${req.params.id}/query`, {
+      method: 'POST',
+      headers: makeNotionHeaders(token),
+      body: JSON.stringify(req.body || {}),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json({ error: data.message || 'Database query failed' })
+    const pages = (data.results || []).map(page => ({
+      id: page.id,
+      title: extractTitle(page),
+      url: page.url,
+      last_edited: page.last_edited_time,
+    }))
+    res.json({ pages, has_more: data.has_more, next_cursor: data.next_cursor })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 function extractTitle(page) {
   const props = page.properties || {}
   for (const val of Object.values(props)) {

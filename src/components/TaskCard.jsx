@@ -1,12 +1,12 @@
-import { useState, useRef, useCallback } from 'react'
-import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META } from '../store'
+import { useState, useRef, useCallback, memo } from 'react'
+import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 
 const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
-export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, expandedId, onToggleExpand }) {
+export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, expandedId, onToggleExpand }) {
   const expanded = expandedId === task.id
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -164,6 +164,33 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
           )}
           <div className="task-card-right">
             {task.high_priority && <span className="priority-pill">!</span>}
+            {task.energy && (
+              <span
+                className="energy-indicator"
+                onClick={e => {
+                  e.stopPropagation()
+                  const types = ENERGY_TYPES.map(t => t.id)
+                  const idx = types.indexOf(task.energy)
+                  const next = types[(idx + 1) % types.length]
+                  onUpdate(task.id, { energy: next })
+                }}
+                title={ENERGY_TYPES.find(t => t.id === task.energy)?.label}
+              >
+                {ENERGY_TYPES.find(t => t.id === task.energy)?.icon}
+              </span>
+            )}
+            {task.energyLevel && (
+              <span
+                className="energy-level-indicator"
+                onClick={e => {
+                  e.stopPropagation()
+                  const next = (task.energyLevel % 3) + 1
+                  onUpdate(task.id, { energyLevel: next })
+                }}
+              >
+                {'⚡'.repeat(task.energyLevel)}
+              </span>
+            )}
             {task.size && (
               <span className={`size-pill size-${task.size.toLowerCase()}`}>{task.size}</span>
             )}
@@ -284,4 +311,4 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
       </div>
     </div>
   )
-}
+})

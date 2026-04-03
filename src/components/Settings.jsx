@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification } from '../store'
-import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages } from '../api'
 
 const NOTIF_TYPE_LABELS = {
   high_priority: 'High Priority',
@@ -54,7 +54,7 @@ function NotificationHistory() {
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
-export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onShowActivityLog, syncStatus }) {
+export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onShowActivityLog, syncStatus }) {
   const [activeTab, setActiveTab] = useState('General')
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
@@ -77,6 +77,48 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
   // Notion connection state
   const [notionConnected, setNotionConnected] = useState(null) // null | 'checking' | { connected, bot }
+  // Notion sync: search for parent page
+  const [notionSyncSearch, setNotionSyncSearch] = useState('')
+  const [notionSyncResults, setNotionSyncResults] = useState(null)
+  const [notionSyncSearching, setNotionSyncSearching] = useState(false)
+  const [notionSyncChildCount, setNotionSyncChildCount] = useState(null)
+
+  const handleNotionSyncSearch = async () => {
+    if (!notionSyncSearch.trim()) return
+    setNotionSyncSearching(true)
+    try {
+      const results = await notionSearch(notionSyncSearch.trim())
+      setNotionSyncResults(results.pages || [])
+    } catch {
+      setNotionSyncResults([])
+    } finally {
+      setNotionSyncSearching(false)
+    }
+  }
+
+  const handleSelectSyncParent = async (page) => {
+    update('notion_sync_parent_id', page.id)
+    update('notion_sync_parent_title', page.title)
+    setNotionSyncResults(null)
+    setNotionSyncSearch('')
+    // Fetch child count for display
+    try {
+      const children = await notionGetChildPages(page.id)
+      setNotionSyncChildCount(children.pages?.length || 0)
+    } catch {
+      setNotionSyncChildCount(null)
+    }
+  }
+
+  // Load child count on mount if sync parent is configured
+  useEffect(() => {
+    if (settings.notion_sync_parent_id) {
+      notionGetChildPages(settings.notion_sync_parent_id)
+        .then(r => setNotionSyncChildCount(r.pages?.length || 0))
+        .catch(() => setNotionSyncChildCount(null))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleNotionConnect = async () => {
     setNotionConnected('checking')
     try {
@@ -488,6 +530,87 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
             >
               {notionConnected === 'checking' ? 'Checking...' : 'Connect'}
             </button>
+          )}
+
+          {/* Notion Sync Configuration — only show when connected */}
+          {notionConnected && notionConnected.connected && (
+            <div style={{ marginTop: 12, padding: '12px', background: 'var(--surface)', borderRadius: 'var(--radius-sm)' }}>
+              <div className="settings-label" style={{ marginBottom: 8 }}>Notion Sync</div>
+              {settings.notion_sync_parent_id ? (
+                <div style={{ fontSize: 13 }}>
+                  <div style={{ marginBottom: 6 }}>
+                    Syncing from: <strong>{settings.notion_sync_parent_title || 'Selected page'}</strong>
+                    {notionSyncChildCount != null && (
+                      <span style={{ color: 'var(--text-dim)', marginLeft: 8 }}>({notionSyncChildCount} child pages)</span>
+                    )}
+                  </div>
+                  {settings.notion_last_sync && (
+                    <div style={{ color: 'var(--text-dim)', fontSize: 12, marginBottom: 8 }}>
+                      Last synced: {new Date(settings.notion_last_sync).toLocaleString()}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="ci-upload-btn"
+                      disabled={notionSyncing}
+                      onClick={onNotionSync}
+                    >
+                      {notionSyncing ? 'Syncing...' : 'Sync Now'}
+                    </button>
+                    <button
+                      className="ci-upload-btn"
+                      onClick={() => {
+                        update('notion_sync_parent_id', '')
+                        update('notion_sync_parent_title', '')
+                        setNotionSyncChildCount(null)
+                      }}
+                    >
+                      Change
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                    Select a parent page — its child pages will be pulled as tasks
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <input
+                      className="add-input"
+                      placeholder="Search Notion pages..."
+                      value={notionSyncSearch}
+                      onChange={e => setNotionSyncSearch(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleNotionSyncSearch()}
+                      style={{ flex: 1, fontSize: 13 }}
+                    />
+                    <button
+                      className="ci-upload-btn"
+                      disabled={notionSyncSearching || !notionSyncSearch.trim()}
+                      onClick={handleNotionSyncSearch}
+                    >
+                      {notionSyncSearching ? 'Searching...' : 'Search'}
+                    </button>
+                  </div>
+                  {notionSyncResults && notionSyncResults.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {notionSyncResults.map(page => (
+                        <button
+                          key={page.id}
+                          className="what-now-option"
+                          style={{ textAlign: 'left', fontSize: 13, padding: '8px 12px' }}
+                          onClick={() => handleSelectSyncParent(page)}
+                        >
+                          {page.title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {notionSyncResults && notionSyncResults.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No pages found</div>
+                  )}
+                </>
+              )}
+            </div>
           )}
 
           <div className="settings-label" style={{ marginTop: 16 }}>Trello</div>

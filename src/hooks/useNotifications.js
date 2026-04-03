@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { loadSettings, isStale, isOverdue, logNotification } from '../store'
+import { loadSettings, isStale, isOverdue, logNotification, AVOIDANCE_ENERGY_TYPES } from '../store'
 
 const FALLBACK_NUDGES = [
   "Got 2 minutes? Even one tiny thing counts.",
@@ -90,6 +90,17 @@ function getHighPriorityFreqMs(task, settings) {
   return getFreqMs(settings, 'notif_freq_highpri_overdue', 0.5)
 }
 
+// Avoidance boost: tasks with confrontation/errand energy get nagged more frequently.
+// Avoidance-prone type: 1.3x more frequent (interval / 1.3)
+// High drain (level 3): additional 1.2x (interval / 1.2)
+// Combined max: ~1.56x more frequent for ⚡⚡⚡ confrontation tasks
+function applyAvoidanceBoost(freqMs, task) {
+  if (!task.energy || !AVOIDANCE_ENERGY_TYPES.includes(task.energy)) return freqMs
+  let boost = 1.3
+  if (task.energyLevel === 3) boost *= 1.2
+  return Math.round(freqMs / boost)
+}
+
 function isInHighPriNotifWindow(task) {
   const hour = new Date().getHours()
   if (!task.due_date) return hour >= 8 && hour < 22 // daily: 8am-10pm
@@ -171,7 +182,7 @@ export function useNotifications(tasks) {
         if (hpNotifCount >= 3) break // cap per cycle
         if (!isInHighPriNotifWindow(task)) continue
 
-        const freq = getHighPriorityFreqMs(task, settings)
+        const freq = applyAvoidanceBoost(getHighPriorityFreqMs(task, settings), task)
         const lastCheck = hpLc[task.id] || 0
 
         if (now - lastCheck >= freq) {

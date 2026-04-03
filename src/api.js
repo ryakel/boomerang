@@ -55,20 +55,45 @@ export async function inferDate(title, notes = '') {
   return result.date || null
 }
 
-// --- T-shirt sizing ---
+// --- T-shirt sizing + energy inference ---
+// Returns { size, energy, energyLevel } in a single API call.
+// energy = type of capacity (desk|people|errand|confrontation|creative|physical)
+// energyLevel = drain intensity (1=low, 2=medium, 3=high)
+// Custom instructions influence inference (e.g. "phone calls are confrontation-level for me")
 export async function inferSize(title, notes = '') {
-  const system = `You estimate task effort using T-shirt sizes: XS (under 5 min, trivial), S (5-15 min, quick), M (15-60 min, moderate), L (1-4 hours, significant), XL (4+ hours or multi-day). Consider complexity, steps involved, and dependencies. Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL"}`
+  const system = `You estimate task effort and energy requirements for someone with ADHD.
 
-  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nEstimate the effort size. JSON only.`
+For SIZE, use T-shirt sizes: XS (under 5 min, trivial), S (5-15 min, quick), M (15-60 min, moderate), L (1-4 hours, significant), XL (4+ hours or multi-day). Consider complexity, steps involved, and dependencies.
+
+For ENERGY TYPE, determine what kind of capacity this task draws from:
+- "desk" — focused computer/paperwork (writing, coding, paying bills, data entry)
+- "people" — social interaction (meetings, lunch with someone, asking favors)
+- "errand" — going somewhere physically (pickup, returns, shopping, appointments)
+- "confrontation" — emotionally difficult interactions (disputes, difficult conversations, giving feedback, calling businesses to fight charges, anything the person likely dreads or avoids). Phone calls to businesses/bureaucracy default to confrontation.
+- "creative" — open-ended thinking/making (design, writing, planning, brainstorming)
+- "physical" — bodily effort (cleaning, moving, exercise, yard work, assembly)
+
+For ENERGY LEVEL, rate the drain intensity 1-3:
+- 1 = low drain, easy/routine (quick text, simple order, light tidying)
+- 2 = medium drain, requires focus/effort (presentation prep, store returns, moderate cleaning)
+- 3 = high drain, significant willpower needed (insurance disputes, deep cleaning, confrontational conversations)
+
+Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLevel": 1|2|3}`
+
+  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nEstimate size, energy type, and energy level. JSON only.`
 
   try {
     const text = await callClaude(system, user)
     const match = text.match(/\{[\s\S]*\}/)
-    if (!match) return null
+    if (!match) return { size: null, energy: null, energyLevel: null }
     const result = JSON.parse(match[0])
-    return result.size || null
+    return {
+      size: result.size || null,
+      energy: result.energy || null,
+      energyLevel: result.energyLevel || null,
+    }
   } catch {
-    return null
+    return { size: null, energy: null, energyLevel: null }
   }
 }
 
@@ -96,23 +121,33 @@ When should this be due? JSON only.`
 }
 
 // --- What Now ---
-export async function getWhatNow(tasks, time, energy) {
+// capacity = optional energy type filter (desk|people|errand|confrontation|creative|physical|null)
+export async function getWhatNow(tasks, time, energy, capacity = null) {
   const ACTIVE = ['not_started', 'doing', 'waiting', 'open']
+  const ENERGY_LABELS = { desk: '💻 Desk', people: '👥 People', errand: '🏃 Errand', confrontation: '⚡ Confrontation', creative: '🎨 Creative', physical: '💪 Physical' }
   const openTasks = tasks
     .filter(t => ACTIVE.includes(t.status))
-    .map(t => `- "${t.title}" (${t.size || 'unsized'}, ${t.tags.join(', ') || 'no tags'}, ${Math.floor((Date.now() - new Date(t.last_touched).getTime()) / 86400000)}d old, snoozed ${t.snooze_count}x)`)
+    .map(t => {
+      const energyInfo = t.energy ? `, energy: ${ENERGY_LABELS[t.energy] || t.energy} ${'⚡'.repeat(t.energyLevel || 1)}` : ''
+      return `- "${t.title}" (${t.size || 'unsized'}${energyInfo}, ${t.tags.join(', ') || 'no tags'}, ${Math.floor((Date.now() - new Date(t.last_touched).getTime()) / 86400000)}d old, snoozed ${t.snooze_count}x)`
+    })
     .join('\n')
+
+  const capacityRule = capacity
+    ? `\nCAPACITY FILTER: The user says they have "${capacity}" energy right now. STRONGLY prefer tasks matching this capacity type. Avoid suggesting tasks with a different energy type unless there are no matching tasks or the match is clearly the best option.`
+    : ''
 
   const system = `You are a helpful assistant for someone with ADHD. You help them pick the right task to work on right now. Be warm, direct, and practical. No fluff. Never be preachy or condescending.
 
 Tasks have t-shirt sizes: XS (~5 min), S (~15 min), M (~30-60 min), L (~half day), XL (~full day+).
-HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.
+Tasks also have energy types (desk, people, errand, confrontation, creative, physical) and drain levels (⚡=low, ⚡⚡=medium, ⚡⚡⚡=high).
+HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain (⚡) tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}
 
 Respond with JSON only — an object with two fields:
 - "picks": array of 1-3 objects with "task" (exact task title from the list) and "reason" (one sentence why this is a good pick right now).
 - "stretch": if there are fewer than 3 picks, include ONE optional stretch suggestion — a task one size up from what the time/energy normally allows. Same shape: { "task", "reason" }. Omit this field if you already have 3 picks or there's nothing reasonable to stretch to.`
 
-  const user = `Here are my open tasks:\n${openTasks}\n\nI have ${time} and my energy is "${energy}".\n\nWhat should I work on? Return JSON object only.`
+  const user = `Here are my open tasks:\n${openTasks}\n\nI have ${time} and my energy is "${energy}".${capacity ? ` I can do "${capacity}" type work right now.` : ''}\n\nWhat should I work on? Return JSON object only.`
 
   const text = await callClaude(system, user)
   const objMatch = text.match(/\{[\s\S]*\}/)
@@ -195,6 +230,68 @@ export async function notionUpdatePage(pageId, content) {
   })
   if (!res.ok) throw new Error('Failed to update Notion page')
   return res.json()
+}
+
+// Fetch all blocks (content) from a Notion page
+export async function notionGetBlocks(pageId) {
+  const res = await fetch(`/api/notion/blocks/${pageId}`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to fetch page blocks')
+  return res.json() // { blocks: [...], plainText: "..." }
+}
+
+// Get child pages under a parent page (for sync discovery)
+export async function notionGetChildPages(parentId) {
+  const res = await fetch(`/api/notion/children/${parentId}`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to fetch child pages')
+  return res.json() // { pages: [{ id, title, url, last_edited }] }
+}
+
+// AI analysis: read a Notion page's content and extract actionable tasks
+// One page can produce multiple tasks (e.g., "furnace filter" → "buy filters" + "change filter")
+export async function analyzeNotionPage(title, plainTextContent) {
+  const system = `You analyze Notion pages and extract actionable tasks for someone with ADHD. Given a page title and content, identify concrete tasks that need to be done.
+
+For each task, determine:
+- title: clear, actionable task title (imperative mood)
+- size: T-shirt size (XS/S/M/L/XL)
+- energy: type of capacity needed (desk/people/errand/confrontation/creative/physical)
+- energyLevel: drain intensity (1=low, 2=medium, 3=high)
+- due_date: ISO date (YYYY-MM-DD) if mentioned or inferable, null otherwise
+- notes: brief context from the page content
+- is_recurring: true if this seems like a recurring task (e.g., "change filter every 3 months")
+- recurrence: if recurring, the cadence (daily/weekly/monthly/quarterly/annually)
+
+One page might produce 0-5 tasks. If the page is purely informational with no actionable items, return an empty array.
+Return JSON only: {"tasks": [...]}`
+
+  const user = `Notion page: "${title}"\n\nContent:\n${plainTextContent.slice(0, 4000)}\n\nExtract actionable tasks. JSON only.`
+
+  try {
+    const text = await callClaude(system, user)
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return { tasks: [] }
+    return JSON.parse(match[0])
+  } catch {
+    return { tasks: [] }
+  }
+}
+
+// AI dedup: match Notion pages to existing Boomerang tasks to avoid duplicates
+export async function aiDedupNotionPages(pages, tasks) {
+  const userPrompt = `Match these Notion pages to existing tasks if they refer to the same thing (even if worded differently).
+
+Notion pages (unlinked):
+${JSON.stringify(pages.map(p => ({ id: p.id, title: p.title })))}
+
+Existing tasks (unlinked):
+${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, notes: (t.notes || '').slice(0, 100) })))}
+
+Return ONLY JSON: {"matches":[{"page_id":"...","task_id":"..." or null,"confidence":0.0-1.0}]}
+- confidence >= 0.85 means auto-link
+- null task_id means create new task(s)
+JSON only.`
+  const result = await callClaude('You match Notion pages to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt)
+  return extractJSON(result)
 }
 
 export async function notionStatus() {
