@@ -175,22 +175,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
           </div>
         </div>
 
-        {task.energy && (
-          <div className="task-energy-row">
-            <span className="energy-badge" title={ENERGY_TYPES.find(t => t.id === task.energy)?.label}>
-              <span className={`energy-icon ${ENERGY_TYPES.find(t => t.id === task.energy)?.iconClass}`} />
-              {task.energyLevel && (
-                <span className="energy-dots">
-                  <span className={`energy-dot dot-1${task.energyLevel >= 1 ? ' active' : ''}`} />
-                  {task.energyLevel >= 2 && <span className="energy-dot dot-2 active" />}
-                  {task.energyLevel >= 3 && <span className="energy-dot dot-3 active" />}
-                </span>
-              )}
-            </span>
-          </div>
-        )}
-
-        {task.tags.length > 0 && (
+        {(task.tags.length > 0 || task.energy) && (
           <div className="task-tags">
             {task.tags.map(tagId => {
               const label = labelMap[tagId]
@@ -205,6 +190,18 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
                 </span>
               )
             })}
+            {task.energy && (
+              <span className="energy-badge" title={ENERGY_TYPES.find(t => t.id === task.energy)?.label}>
+                <span className={`energy-icon ${ENERGY_TYPES.find(t => t.id === task.energy)?.iconClass}`} />
+                {task.energyLevel && (
+                  <span className="energy-dots">
+                    <span className={`energy-dot dot-1${task.energyLevel >= 1 ? ' active' : ''}`} />
+                    {task.energyLevel >= 2 && <span className="energy-dot dot-2 active" />}
+                    {task.energyLevel >= 3 && <span className="energy-dot dot-3 active" />}
+                  </span>
+                )}
+              </span>
+            )}
           </div>
         )}
 
