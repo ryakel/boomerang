@@ -153,3 +153,52 @@ feat(tasks): add checklist support to task cards [M]
 - Keep subject under 72 characters
 - Use body for details when the change is M or larger
 - Breaking changes: add `BREAKING CHANGE:` in the commit body
+
+## Known Technical Debt & Future Migration Plans
+
+### Database: From JSON Blobs to Proper Schema (Priority: High, Timeline: Before 200+ tasks)
+
+**Current state:** sql.js stores data as JSON blobs in a single `app_data` table with two columns (`collection`, `data_json`). Each collection (tasks, routines, settings, labels) is one row containing the entire array serialized as JSON. All filtering, sorting, and searching happens client-side in JavaScript after loading the full dataset.
+
+**Why this will break:**
+- Every sync pushes the entire tasks array — at 200+ tasks with frequent edits, this becomes noticeable latency
+- Adding server-side search, filtering by status/energy/tags, or date-range queries is impossible without loading everything into memory
+- `db.export()` + `writeFileSync()` runs synchronously on every single write operation
+- No way to do incremental updates — changing one field on one task rewrites all tasks to disk
+
+**Target architecture:**
+- Promote tasks to a proper SQL table: `id, title, status, tags (JSON), notes, due_date, energy, energyLevel, size, created_at, completed_at, ...`
+- Add indexes on `status`, `due_date`, `energy`, `created_at` for common queries
+- Replace "ship entire collection" sync with per-record upserts (PATCH individual tasks)
+- Add a schema migration system (even a simple numbered-file approach)
+- Batch disk writes (flush every 5-10s instead of per-operation)
+
+**Migration path:**
+1. Add migration system first (version counter + SQL migration files)
+2. Create proper `tasks` table alongside existing `app_data` (dual-write during transition)
+3. Migrate server endpoints to query tasks table directly
+4. Move sort/filter logic to SQL queries on the server
+5. Update sync protocol to push/pull individual task diffs instead of full arrays
+6. Remove `app_data` tasks collection once migration is confirmed stable
+
+**What triggers this work:** Task count approaching 200, or adding any feature that requires server-side filtering (search, analytics dashboard, bulk operations).
+
+### Frontend: Prop Drilling & Render Performance (Priority: Medium)
+
+**Current state:** App.jsx passes 9+ callbacks down to TaskCard via props. No React.memo on TaskCard, so every state change in App re-renders all cards.
+
+**What to do when this becomes a problem:**
+- Add `TaskActionsContext` to eliminate prop drilling (biggest cognitive relief)
+- Wrap TaskCard in `React.memo` with task ID + updated_at comparison
+- Split App.css (2,281 lines) into per-component CSS files
+- Consider `useTransition` / `useOptimistic` from React 19 for perceived perf during sync
+
+**What triggers this work:** Adding 3+ more interactive features to TaskCard, or task list exceeding 100 items with noticeable scroll jank.
+
+### Offline Mutation Queue (Priority: Low-Medium)
+
+**Current state:** Mutations fire immediately to `/api/data`. If offline, the write silently fails. No retry, no indicator.
+
+**What to do:** Queue mutations in localStorage when offline, replay on reconnect, show sync status indicator in header.
+
+**What triggers this work:** Regular mobile usage on spotty connections, or first report of lost data from offline edits.
