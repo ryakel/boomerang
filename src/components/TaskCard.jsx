@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES } from '../store'
+import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, ENERGY_TYPES } from '../store'
 
 const STATUS_META = {
   not_started: { label: 'Not Started', color: 'var(--text-dim)' },
@@ -171,6 +171,32 @@ export default function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend,
             {task.high_priority && <span className="priority-pill">!</span>}
             {task.size && (
               <span className={`size-pill size-${task.size.toLowerCase()}`}>{task.size}</span>
+            )}
+            {task.energy && (
+              <span className="energy-indicator" onClick={e => e.stopPropagation()}>
+                <span
+                  className="energy-type-tap"
+                  title={ENERGY_TYPES.find(e => e.id === task.energy)?.label || task.energy}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    // Tap to cycle through energy types
+                    const idx = ENERGY_TYPES.findIndex(et => et.id === task.energy)
+                    const next = ENERGY_TYPES[(idx + 1) % ENERGY_TYPES.length]
+                    onUpdate(task.id, { energy: next.id })
+                  }}
+                >{ENERGY_TYPES.find(e => e.id === task.energy)?.icon}</span>
+                <span
+                  className="energy-level-tap"
+                  title={`Energy level ${task.energyLevel || 1}/3`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    // Tap to cycle intensity: 1→2→3→1
+                    const current = task.energyLevel || 1
+                    const next = (current % 3) + 1
+                    onUpdate(task.id, { energyLevel: next })
+                  }}
+                >{'⚡'.repeat(task.energyLevel || 1)}</span>
+              </span>
             )}
             {metaText && (
               <span className={`task-meta ${overdue && !snoozed ? 'task-meta-overdue' : ''}`}>

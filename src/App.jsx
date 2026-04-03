@@ -24,6 +24,7 @@ import { useNotifications } from './hooks/useNotifications'
 import { useServerSync } from './hooks/useServerSync'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
 import { useTrelloSync } from './hooks/useTrelloSync'
+import { useNotionSync } from './hooks/useNotionSync'
 
 function App() {
   const {
@@ -62,6 +63,7 @@ function App() {
   const labels = loadLabels()
   useNotifications(tasks)
   const { syncTrello, pushStatusToTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
+  const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
 
   const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
@@ -223,9 +225,13 @@ function App() {
       const taskId = addTask(text)
       setQuickText('')
       quickRef.current?.blur()
-      // Auto-infer size from title alone
+      // Auto-infer size + energy from title alone
       inferSize(text).then(inferred => {
-        if (inferred) updateTask(taskId, { size: inferred })
+        const updates = {}
+        if (inferred.size) updates.size = inferred.size
+        if (inferred.energy) updates.energy = inferred.energy
+        if (inferred.energyLevel) updates.energyLevel = inferred.energyLevel
+        if (Object.keys(updates).length > 0) updateTask(taskId, updates)
       }).catch(() => {})
     } else {
       setShowAdd(true)
@@ -401,12 +407,16 @@ function App() {
       </div>
 
       {showAdd && (
-        <AddTaskModal onAdd={(title, tags, dueDate, notes, notion, size, attachments) => {
-          const taskId = addTask(title, tags, dueDate, notes, notion, size, attachments)
-          // Auto-infer size if not manually set
+        <AddTaskModal onAdd={(title, tags, dueDate, notes, notion, size, attachments, highPriority, energy, energyLevel) => {
+          const taskId = addTask(title, tags, dueDate, notes, notion, size, attachments, highPriority, energy, energyLevel)
+          // Auto-infer size + energy if not manually set
           if (!size && title) {
             inferSize(title, notes).then(inferred => {
-              if (inferred) updateTask(taskId, { size: inferred })
+              const updates = {}
+              if (inferred.size) updates.size = inferred.size
+              if (inferred.energy) updates.energy = inferred.energy
+              if (inferred.energyLevel) updates.energyLevel = inferred.energyLevel
+              if (Object.keys(updates).length > 0) updateTask(taskId, updates)
             }).catch(() => {})
           }
         }} onClose={() => setShowAdd(false)} />
@@ -439,6 +449,8 @@ function App() {
           onClearAll={() => { clearAll(); saveSettings({}); setShowSettings(false); flushSync() }}
           onTrelloSync={syncTrello}
           trelloSyncing={trelloSyncing}
+          onNotionSync={syncNotion}
+          notionSyncing={notionSyncing}
           onShowActivityLog={() => { setShowSettings(false); setShowActivityLog(true) }}
           syncStatus={syncStatus}
         />

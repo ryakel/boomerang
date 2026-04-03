@@ -369,6 +369,80 @@
   border-color: currentColor;
 }
 
+/* Energy indicator on task cards — tap-to-cycle type and level */
+.energy-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.energy-type-tap,
+.energy-level-tap {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  padding: 1px 2px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.energy-type-tap:active,
+.energy-level-tap:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Energy selector in modals — matches size-selector pattern */
+.energy-selector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.energy-select-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  border: 2px solid transparent;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.energy-select-btn.selected {
+  border-color: var(--accent);
+  background: rgba(255, 98, 64, 0.12);
+}
+
+.energy-level-btn {
+  font-size: 12px;
+  letter-spacing: -1px;
+}
+
+/* What Now capacity step */
+.what-now-capacity {
+  flex-wrap: wrap;
+}
+
+.what-now-capacity-btn {
+  flex: 0 0 auto;
+}
+
+.what-now-skip {
+  display: block;
+  margin: 8px auto 0;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* Task notes */
 .task-notes {
   font-size: 13px;

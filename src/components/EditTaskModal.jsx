@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { loadLabels, loadSettings, RECURRENCE_OPTIONS } from '../store'
+import { loadLabels, loadSettings, RECURRENCE_OPTIONS, ENERGY_TYPES } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloBoardLists } from '../api'
 
 function formatFileSize(bytes) {
@@ -24,6 +24,8 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     task.notion_page_id ? { id: task.notion_page_id, url: task.notion_url } : null
   )
   const [size, setSize] = useState(task.size || null)
+  const [energy, setEnergy] = useState(task.energy || null)
+  const [energyLevel, setEnergyLevel] = useState(task.energyLevel || null)
   const [sizing, setSizing] = useState(false)
   const [makeRecurring, setMakeRecurring] = useState(false)
   const [cadence, setCadence] = useState('weekly')
@@ -89,6 +91,8 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         tags: selectedTags,
         due_date: dueDate || null,
         size: size || null,
+        energy: energy || null,
+        energyLevel: energyLevel || null,
         high_priority: highPriority,
         notion_page_id: notionResult?.id || null,
         notion_url: notionResult?.url || null,
@@ -154,12 +158,14 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
       const newNotes = result.notes || notes
       setTitle(newTitle)
       setNotes(newNotes)
-      const [inferredDate, inferredSize] = await Promise.all([
+      const [inferredDate, inferred] = await Promise.all([
         !dueDate ? inferDate(newTitle, newNotes).catch(() => null) : Promise.resolve(null),
-        !size ? inferSize(newTitle, newNotes) : Promise.resolve(null),
+        !size ? inferSize(newTitle, newNotes) : Promise.resolve({ size: null, energy: null, energyLevel: null }),
       ])
       if (inferredDate) setDueDate(inferredDate)
-      if (inferredSize) setSize(inferredSize)
+      if (inferred.size) setSize(inferred.size)
+      if (inferred.energy) setEnergy(inferred.energy)
+      if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
     } catch { /* ignore */ }
     finally { setPolishing(false) }
   }
@@ -188,7 +194,9 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     setSizing(true)
     try {
       const inferred = await inferSize(title, notes)
-      if (inferred) setSize(inferred)
+      if (inferred.size) setSize(inferred.size)
+      if (inferred.energy) setEnergy(inferred.energy)
+      if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
     } catch { /* ignore */ }
     finally { setSizing(false) }
   }
@@ -330,6 +338,36 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             {sizing ? <span className="spinner" /> : '✨'} {sizing ? 'Sizing...' : 'Auto'}
           </button>
         </div>
+
+        <div className="settings-label" style={{ marginBottom: 6 }}>Energy Type</div>
+        <div className="energy-selector">
+          {ENERGY_TYPES.map(et => (
+            <button
+              key={et.id}
+              className={`energy-select-btn${energy === et.id ? ' selected' : ''}`}
+              onClick={() => setEnergy(energy === et.id ? null : et.id)}
+              title={et.label}
+            >
+              {et.icon}
+            </button>
+          ))}
+        </div>
+        {energy && (
+          <>
+            <div className="settings-label" style={{ marginBottom: 6 }}>Drain Level</div>
+            <div className="energy-selector">
+              {[1, 2, 3].map(lvl => (
+                <button
+                  key={lvl}
+                  className={`energy-select-btn energy-level-btn${energyLevel === lvl ? ' selected' : ''}`}
+                  onClick={() => setEnergyLevel(energyLevel === lvl ? null : lvl)}
+                >
+                  {'⚡'.repeat(lvl)}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <button
           className={`priority-toggle ${highPriority ? 'active' : ''}`}

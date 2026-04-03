@@ -24,7 +24,7 @@ export function useTasks() {
     return () => clearInterval(interval)
   }, [])
 
-  const addTask = useCallback((title, tags = [], dueDate = null, notes = '', notion = null, size = null, attachments = [], highPriority = false) => {
+  const addTask = useCallback((title, tags = [], dueDate = null, notes = '', notion = null, size = null, attachments = [], highPriority = false, energy = null, energyLevel = null) => {
     remoteLog('addTask:', title)
     const task = createTask(title, tags, dueDate, notes)
     if (notion) {
@@ -32,6 +32,8 @@ export function useTasks() {
       task.notion_url = notion.url
     }
     if (size) task.size = size
+    if (energy) task.energy = energy
+    if (energyLevel) task.energyLevel = energyLevel
     if (attachments.length > 0) task.attachments = attachments
     if (highPriority) task.high_priority = true
     setTasks(prev => [task, ...prev])

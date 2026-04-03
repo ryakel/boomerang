@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { loadLabels, loadSettings, getDefaultDueDate } from '../store'
+import { loadLabels, loadSettings, getDefaultDueDate, ENERGY_TYPES } from '../store'
 import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
 function formatFileSize(bytes) {
@@ -16,6 +16,8 @@ export default function AddTaskModal({ onAdd, onClose }) {
   const [dueDate, setDueDate] = useState(getDefaultDueDate)
   const [polishing, setPolishing] = useState(false)
   const [size, setSize] = useState(null)
+  const [energy, setEnergy] = useState(null)
+  const [energyLevel, setEnergyLevel] = useState(null)
   const [sizing, setSizing] = useState(false)
   const [polishError, setPolishError] = useState(null)
   const [notionState, setNotionState] = useState(null) // null | 'searching' | {action, pages, page_id, reason}
@@ -38,7 +40,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
   const handleSubmit = () => {
     if (!title.trim()) return
-    onAdd(title.trim(), selectedTags, dueDate || null, notes.trim(), notionResult, size, attachments, highPriority)
+    onAdd(title.trim(), selectedTags, dueDate || null, notes.trim(), notionResult, size, attachments, highPriority, energy, energyLevel)
     onClose()
   }
 
@@ -88,13 +90,15 @@ export default function AddTaskModal({ onAdd, onClose }) {
       setTitle(newTitle)
       setNotes(newNotes)
 
-      // Infer date and size from polished content
-      const [inferredDate, inferredSize] = await Promise.all([
+      // Infer date, size, and energy from polished content
+      const [inferredDate, inferred] = await Promise.all([
         !dueDate ? inferDate(newTitle, newNotes).catch(() => null) : Promise.resolve(null),
         inferSize(newTitle, newNotes),
       ])
       if (inferredDate) setDueDate(inferredDate)
-      if (inferredSize) setSize(inferredSize)
+      if (inferred.size) setSize(inferred.size)
+      if (inferred.energy) setEnergy(inferred.energy)
+      if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
     } catch (err) {
       setPolishError(err.message)
     } finally {
@@ -109,7 +113,9 @@ export default function AddTaskModal({ onAdd, onClose }) {
     setSizing(true)
     try {
       const inferred = await inferSize(title, notes)
-      if (inferred) setSize(inferred)
+      if (inferred.size) setSize(inferred.size)
+      if (inferred.energy) setEnergy(inferred.energy)
+      if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
     } catch { /* ignore */ }
     finally { setSizing(false) }
   }
@@ -218,6 +224,40 @@ export default function AddTaskModal({ onAdd, onClose }) {
             {sizing ? <span className="spinner" /> : '✨'} {sizing ? 'Sizing...' : 'Auto'}
           </button>
         </div>
+
+        {(energy || size) && (
+          <>
+            <div className="settings-label" style={{ marginBottom: 6 }}>Energy Type</div>
+            <div className="energy-selector">
+              {ENERGY_TYPES.map(et => (
+                <button
+                  key={et.id}
+                  className={`energy-select-btn${energy === et.id ? ' selected' : ''}`}
+                  onClick={() => setEnergy(energy === et.id ? null : et.id)}
+                  title={et.label}
+                >
+                  {et.icon}
+                </button>
+              ))}
+            </div>
+            {energy && (
+              <>
+                <div className="settings-label" style={{ marginBottom: 6 }}>Drain Level</div>
+                <div className="energy-selector">
+                  {[1, 2, 3].map(lvl => (
+                    <button
+                      key={lvl}
+                      className={`energy-select-btn energy-level-btn${energyLevel === lvl ? ' selected' : ''}`}
+                      onClick={() => setEnergyLevel(energyLevel === lvl ? null : lvl)}
+                    >
+                      {'⚡'.repeat(lvl)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
 
         <button
           className={`priority-toggle ${highPriority ? 'active' : ''}`}
