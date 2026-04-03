@@ -369,6 +369,13 @@
   border-color: currentColor;
 }
 
+/* Energy row — sits below the title/date row, right-aligned */
+.task-energy-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
 /* Energy badge on task cards — combined type icon + drain dots */
 .energy-badge {
   display: inline-flex;
