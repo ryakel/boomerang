@@ -124,11 +124,12 @@ When should this be due? JSON only.`
 // capacity = optional energy type filter (desk|people|errand|confrontation|creative|physical|null)
 export async function getWhatNow(tasks, time, energy, capacity = null) {
   const ACTIVE = ['not_started', 'doing', 'waiting', 'open']
-  const ENERGY_LABELS = { desk: '💻 Desk', people: '👥 People', errand: '🏃 Errand', confrontation: '⚡ Confrontation', creative: '🎨 Creative', physical: '💪 Physical' }
+  const ENERGY_LABELS = { desk: 'Desk', people: 'People', errand: 'Errand', confrontation: 'Confrontation', creative: 'Creative', physical: 'Physical' }
   const openTasks = tasks
     .filter(t => ACTIVE.includes(t.status))
     .map(t => {
-      const energyInfo = t.energy ? `, energy: ${ENERGY_LABELS[t.energy] || t.energy} ${'⚡'.repeat(t.energyLevel || 1)}` : ''
+      const drainLabel = t.energyLevel === 3 ? 'high' : t.energyLevel === 2 ? 'med' : 'low'
+      const energyInfo = t.energy ? `, energy: ${ENERGY_LABELS[t.energy] || t.energy} (${drainLabel} drain)` : ''
       return `- "${t.title}" (${t.size || 'unsized'}${energyInfo}, ${t.tags.join(', ') || 'no tags'}, ${Math.floor((Date.now() - new Date(t.last_touched).getTime()) / 86400000)}d old, snoozed ${t.snooze_count}x)`
     })
     .join('\n')
@@ -140,8 +141,8 @@ export async function getWhatNow(tasks, time, energy, capacity = null) {
   const system = `You are a helpful assistant for someone with ADHD. You help them pick the right task to work on right now. Be warm, direct, and practical. No fluff. Never be preachy or condescending.
 
 Tasks have t-shirt sizes: XS (~5 min), S (~15 min), M (~30-60 min), L (~half day), XL (~full day+).
-Tasks also have energy types (desk, people, errand, confrontation, creative, physical) and drain levels (⚡=low, ⚡⚡=medium, ⚡⚡⚡=high).
-HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain (⚡) tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}
+Tasks also have energy types (desk, people, errand, confrontation, creative, physical) and drain levels (low, med, high).
+HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}
 
 Respond with JSON only — an object with two fields:
 - "picks": array of 1-3 objects with "task" (exact task title from the list) and "reason" (one sentence why this is a good pick right now).

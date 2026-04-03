@@ -89,7 +89,7 @@ export default function WhatNow({ tasks, onClose, onComplete }) {
               className="what-now-option what-now-capacity-btn"
               onClick={() => handleCapacity(null)}
             >
-              🎯 Anything
+              Anything
             </button>
           </div>
           <button

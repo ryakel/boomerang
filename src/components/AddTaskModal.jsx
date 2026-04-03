@@ -44,7 +44,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
           />
           {form.notes.trim() && (
             <button className="polish-btn" onClick={form.handlePolish} disabled={form.polishing}>
-              {form.polishing ? <span className="spinner" /> : '✨'} {form.polishing ? 'Polishing...' : 'Polish'}
+              {form.polishing ? <span className="spinner" /> : null} {form.polishing ? 'Polishing...' : 'Polish'}
             </button>
           )}
         </div>
@@ -87,7 +87,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
             </button>
           ))}
           <button className="polish-btn" onClick={form.handleInferSize} disabled={form.sizing || !form.title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
-            {form.sizing ? <span className="spinner" /> : '✨'} {form.sizing ? 'Sizing...' : 'Auto'}
+            {form.sizing ? <span className="spinner" /> : null} {form.sizing ? 'Sizing...' : 'Auto'}
           </button>
         </div>
 
@@ -110,13 +110,17 @@ export default function AddTaskModal({ onAdd, onClose }) {
               <>
                 <div className="settings-label" style={{ marginBottom: 6 }}>Drain Level</div>
                 <div className="energy-selector">
-                  {[1, 2, 3].map(lvl => (
+                  {[
+                    { lvl: 1, label: 'Low', dotClass: 'dot-1' },
+                    { lvl: 2, label: 'Med', dotClass: 'dot-2' },
+                    { lvl: 3, label: 'High', dotClass: 'dot-3' },
+                  ].map(({ lvl, label, dotClass }) => (
                     <button
                       key={lvl}
                       className={`energy-select-btn energy-level-btn${form.energyLevel === lvl ? ' selected' : ''}`}
                       onClick={() => form.setEnergyLevel(form.energyLevel === lvl ? null : lvl)}
                     >
-                      {'⚡'.repeat(lvl)}
+                      <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
                     </button>
                   ))}
                 </div>

@@ -164,33 +164,6 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
           )}
           <div className="task-card-right">
             {task.high_priority && <span className="priority-pill">!</span>}
-            {task.energy && (
-              <span
-                className="energy-indicator"
-                onClick={e => {
-                  e.stopPropagation()
-                  const types = ENERGY_TYPES.map(t => t.id)
-                  const idx = types.indexOf(task.energy)
-                  const next = types[(idx + 1) % types.length]
-                  onUpdate(task.id, { energy: next })
-                }}
-                title={ENERGY_TYPES.find(t => t.id === task.energy)?.label}
-              >
-                {ENERGY_TYPES.find(t => t.id === task.energy)?.icon}
-              </span>
-            )}
-            {task.energyLevel && (
-              <span
-                className="energy-level-indicator"
-                onClick={e => {
-                  e.stopPropagation()
-                  const next = (task.energyLevel % 3) + 1
-                  onUpdate(task.id, { energyLevel: next })
-                }}
-              >
-                {'⚡'.repeat(task.energyLevel)}
-              </span>
-            )}
             {task.size && (
               <span className={`size-pill size-${task.size.toLowerCase()}`}>{task.size}</span>
             )}
@@ -202,7 +175,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
           </div>
         </div>
 
-        {task.tags.length > 0 && (
+        {(task.tags.length > 0 || task.energy) && (
           <div className="task-tags">
             {task.tags.map(tagId => {
               const label = labelMap[tagId]
@@ -217,6 +190,25 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
                 </span>
               )
             })}
+            {task.energy && (
+              <span
+                className="energy-badge"
+                onClick={e => {
+                  e.stopPropagation()
+                  onEdit(task)
+                }}
+                title={ENERGY_TYPES.find(t => t.id === task.energy)?.label}
+              >
+                <span className="energy-badge-label">{ENERGY_TYPES.find(t => t.id === task.energy)?.icon}</span>
+                {task.energyLevel && (
+                  <span className="energy-dots">
+                    <span className={`energy-dot dot-1${task.energyLevel >= 1 ? ' active' : ''}`} />
+                    {task.energyLevel >= 2 && <span className="energy-dot dot-2 active" />}
+                    {task.energyLevel >= 3 && <span className="energy-dot dot-3 active" />}
+                  </span>
+                )}
+              </span>
+            )}
           </div>
         )}
 

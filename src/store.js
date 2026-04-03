@@ -74,12 +74,12 @@ const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }
 
 // Energy/capacity types — what kind of effort a task demands
 const ENERGY_TYPES = [
-  { id: 'desk', label: 'Desk', icon: '💻' },
-  { id: 'people', label: 'People', icon: '👥' },
-  { id: 'errand', label: 'Errand', icon: '🏃' },
-  { id: 'confrontation', label: 'Confrontation', icon: '⚡' },
-  { id: 'creative', label: 'Creative', icon: '🎨' },
-  { id: 'physical', label: 'Physical', icon: '💪' },
+  { id: 'desk', label: 'Desk', icon: 'DSK' },
+  { id: 'people', label: 'People', icon: 'PPL' },
+  { id: 'errand', label: 'Errand', icon: 'ERR' },
+  { id: 'confrontation', label: 'Confrontation', icon: 'CFR' },
+  { id: 'creative', label: 'Creative', icon: 'CRE' },
+  { id: 'physical', label: 'Physical', icon: 'PHY' },
 ]
 
 // Energy types that get more aggressive nagging (ADHD avoidance-prone)
