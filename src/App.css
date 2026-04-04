@@ -398,139 +398,34 @@
 .energy-dot.dot-2.active { background: #FBBF24; }
 .energy-dot.dot-3.active { background: #FF6240; }
 
-/* Energy type CSS icons — small distinct shapes per type */
+/* Energy type icons — colored letter badges, uniform size */
 .energy-icon {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  position: relative;
-  flex-shrink: 0;
-}
-
-/* Desk — monitor shape */
-.ei-desk::before {
-  content: '';
-  position: absolute;
-  top: 1px;
-  left: 2px;
-  width: 12px;
-  height: 9px;
-  border: 1.5px solid #60A5FA;
-  border-radius: 2px;
-}
-.ei-desk::after {
-  content: '';
-  position: absolute;
-  bottom: 1px;
-  left: 5px;
-  width: 6px;
-  height: 0;
-  border-bottom: 1.5px solid #60A5FA;
-}
-
-/* People — person silhouette (head + shoulders) */
-.ei-people::before {
-  content: '';
-  position: absolute;
-  top: 1px;
-  left: 5px;
-  width: 6px;
-  height: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #A78BFA;
-}
-.ei-people::after {
-  content: '';
-  position: absolute;
-  bottom: 1px;
-  left: 2px;
-  width: 12px;
-  height: 6px;
-  border-radius: 6px 6px 0 0;
-  background: #A78BFA;
-}
-
-/* Errand — location pin */
-.ei-errand::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 3px;
-  width: 9px;
-  height: 9px;
-  border: 1.5px solid #34D399;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-}
-.ei-errand::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 6px;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #34D399;
-}
-
-/* Confrontation — warning triangle */
-.ei-confrontation::before {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 1px;
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-bottom: 12px solid #FF6240;
-}
-.ei-confrontation::after {
-  content: '!';
-  position: absolute;
-  top: 5px;
-  left: 0;
-  width: 16px;
-  text-align: center;
-  font-size: 8px;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 700;
   line-height: 1;
+  flex-shrink: 0;
   color: var(--bg, #1a1a2e);
 }
 
-/* Creative — star shape */
-.ei-creative::before {
-  content: '✦';
-  position: absolute;
-  top: 0;
-  left: 1px;
-  font-size: 15px;
-  line-height: 1;
-  color: #F472B6;
-}
+.ei-desk           { background: #60A5FA; }
+.ei-people         { background: #A78BFA; }
+.ei-errand         { background: #34D399; }
+.ei-confrontation  { background: #FF6240; }
+.ei-creative       { background: #F472B6; }
+.ei-physical       { background: #FBBF24; }
 
-/* Physical — dumbbell */
-.ei-physical::before {
-  content: '';
-  position: absolute;
-  top: 6px;
-  left: 3px;
-  width: 10px;
-  height: 3px;
-  background: #FBBF24;
-  border-radius: 1px;
-}
-.ei-physical::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 1px;
-  width: 3px;
-  height: 9px;
-  border-radius: 1px;
-  background: #FBBF24;
-  box-shadow: 11px 0 0 0 #FBBF24;
-}
+.ei-desk::before          { content: 'D'; }
+.ei-people::before        { content: 'S'; }
+.ei-errand::before        { content: 'E'; }
+.ei-confrontation::before { content: '!'; }
+.ei-creative::before      { content: 'C'; }
+.ei-physical::before      { content: 'P'; }
 
 /* Energy type selector buttons in modals */
 .energy-type-icon {
