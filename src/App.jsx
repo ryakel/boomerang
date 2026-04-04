@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { BarChart3, Settings as SettingsIcon } from 'lucide-react'
 import './App.css'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
 import { inferSize, trelloUpdateCard } from './api'
@@ -267,8 +268,8 @@ function App() {
             <span className="wordmark">BOOMERANG</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button className="analytics-icon" onClick={() => setShowAnalytics(true)}>📊</button>
-            <button className="settings-btn" onClick={() => setShowSettings(true)}>⚙</button>
+            <button className="analytics-icon" onClick={() => setShowAnalytics(true)}><BarChart3 size={20} /></button>
+            <button className="settings-btn" onClick={() => setShowSettings(true)}><SettingsIcon size={20} /></button>
           </div>
         </div>
         <div className="header-stats">

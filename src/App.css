@@ -428,8 +428,11 @@
 }
 
 .energy-level-btn {
+  width: auto;
+  height: auto;
+  padding: 6px 12px;
   font-size: 12px;
-  letter-spacing: -1px;
+  gap: 4px;
 }
 
 /* What Now capacity step */

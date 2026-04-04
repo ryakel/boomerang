@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloBoardLists } from '../api'
+import { Sparkles, Search } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
 
 function formatFileSize(bytes) {
@@ -350,7 +351,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           <div className="notes-actions">
             {notes.trim() && (
               <button className="polish-btn" onClick={handlePolish} disabled={polishing}>
-                {polishing ? <span className="spinner" /> : '✨'} {polishing ? 'Polishing...' : 'Polish'}
+                {polishing ? <span className="spinner" /> : <Sparkles size={14} />} {polishing ? 'Polishing...' : 'Polish'}
               </button>
             )}
             <button
@@ -358,7 +359,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowResearch(!showResearch) }}
               disabled={researching}
             >
-              {researching ? <span className="spinner" /> : '🔍'} {researching ? 'Researching...' : 'Research'}
+              {researching ? <span className="spinner" /> : <Search size={14} />} {researching ? 'Researching...' : 'Research'}
             </button>
           </div>
           {showResearch && (
@@ -421,7 +422,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             </button>
           ))}
           <button className="polish-btn" onClick={handleInferSize} disabled={sizing || !title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
-            {sizing ? <span className="spinner" /> : '✨'} {sizing ? 'Sizing...' : 'Auto'}
+            {sizing ? <span className="spinner" /> : <Sparkles size={14} />} {sizing ? 'Sizing...' : 'Auto'}
           </button>
         </div>
 

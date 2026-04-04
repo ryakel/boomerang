@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getWhatNow } from '../api'
 import { ENERGY_TYPES } from '../store'
+import { Target } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
 
 const TIME_OPTIONS = ['5–10 minutes', '30 minutes', 'A couple hours']
@@ -90,7 +91,7 @@ export default function WhatNow({ tasks, onClose, onComplete }) {
               className="what-now-option what-now-capacity-btn"
               onClick={() => handleCapacity(null)}
             >
-              🎯 Anything
+              <Target size={18} /> Anything
             </button>
           </div>
           <button
