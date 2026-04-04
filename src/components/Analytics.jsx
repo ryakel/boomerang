@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { FullRings } from './Rings'
 import { loadSettings, saveSettings } from '../store'
 
-export default function Analytics({ onClose }) {
+export default function Analytics({ onClose, isDesktop }) {
   const settings = loadSettings()
   const [stats, setStats] = useState(null)
 
@@ -103,14 +103,8 @@ export default function Analytics({ onClose }) {
 
   const centerLabel = `${pointsToday}`
 
-  return (
-    <div className="settings-overlay">
-      <div className="settings-header">
-        <button className="settings-back" onClick={onClose}>← Back</button>
-        <div className="sheet-title" style={{ margin: 0 }}>Analytics</div>
-        <div style={{ width: 50 }} />
-      </div>
-
+  const content = (
+    <>
       <FullRings rings={rings} label={centerLabel} />
 
       <div className="ring-legend">
@@ -217,6 +211,31 @@ export default function Analytics({ onClose }) {
       <button className="reset-btn" onClick={handleReset}>
         {resetState === 'confirming' ? 'Are you sure?' : 'Reset streaks'}
       </button>
+    </>
+  )
+
+  if (isDesktop) {
+    return (
+      <div className="sheet-overlay" onClick={onClose}>
+        <div className="sheet" onClick={e => e.stopPropagation()}>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
+          <div className="edit-task-title-row">
+            <div className="sheet-title">Analytics</div>
+          </div>
+          {content}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="settings-overlay">
+      <div className="settings-header">
+        <button className="settings-back" onClick={onClose}>← Back</button>
+        <div className="sheet-title" style={{ margin: 0 }}>Analytics</div>
+        <div style={{ width: 50 }} />
+      </div>
+      {content}
     </div>
   )
 }

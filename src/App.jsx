@@ -577,7 +577,7 @@ function App() {
       )}
 
       {showAnalytics && (
-        <Analytics onClose={() => setShowAnalytics(false)} />
+        <Analytics onClose={() => setShowAnalytics(false)} isDesktop={isDesktop} />
       )}
 
       {showDone && (
