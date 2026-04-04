@@ -2719,16 +2719,17 @@
     overflow-x: auto;
     padding: 0 24px 100px;
     min-height: 0;
+    align-items: flex-start;
   }
 
   .kanban-column {
-    flex: 1;
-    min-width: 200px;
+    width: 260px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    min-height: 0;
     background: var(--surface);
     border-radius: var(--radius-sm);
+    max-height: calc(100vh - 200px);
   }
 
   .kanban-column-header {
@@ -2769,6 +2770,45 @@
     text-align: center;
     padding: 24px 8px;
     opacity: 0.5;
+  }
+
+  .kanban-add-card {
+    padding: 8px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .kanban-add-card-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px 4px;
+    border-radius: var(--radius-sm);
+  }
+
+  .kanban-add-card-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .kanban-add-card-input {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text-primary);
+    border: 1px solid rgba(164, 120, 255, 0.3);
+    border-radius: var(--radius-sm);
+    outline: none;
+  }
+
+  .kanban-add-card-input:focus {
+    border-color: rgba(164, 120, 255, 0.6);
   }
 
   /* Compact desktop task cards */

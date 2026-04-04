@@ -1,7 +1,52 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import TaskCard from './TaskCard'
 
-function KanbanColumn({ title, tasks, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete }) {
+function AddCardInput({ onAdd }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus()
+  }, [open])
+
+  const submit = () => {
+    if (text.trim()) {
+      onAdd(text.trim())
+      setText('')
+    }
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <div className="kanban-add-card">
+        <button className="kanban-add-card-btn" onClick={() => setOpen(true)}>
+          + Add a card
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="kanban-add-card">
+      <input
+        ref={inputRef}
+        className="kanban-add-card-input"
+        placeholder="Enter a title..."
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') submit()
+          if (e.key === 'Escape') { setText(''); setOpen(false) }
+        }}
+        onBlur={submit}
+      />
+    </div>
+  )
+}
+
+function KanbanColumn({ title, tasks, defaultStatus, onAddTask, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete }) {
   return (
     <div className="kanban-column">
       <div className="kanban-column-header">
@@ -27,6 +72,9 @@ function KanbanColumn({ title, tasks, onComplete, onSnooze, onEdit, onExtend, on
           />
         ))}
       </div>
+      {defaultStatus && onAddTask && (
+        <AddCardInput onAdd={(title) => onAddTask(title, defaultStatus)} />
+      )}
     </div>
   )
 }
@@ -35,7 +83,7 @@ export default function KanbanBoard({
   filteredDoing, filteredStale, filteredUpNext,
   filteredWaiting, filteredSnoozed, filteredBacklog,
   onComplete, onSnooze, onEdit, onExtend,
-  onStatusChange, onUpdate, onDelete,
+  onStatusChange, onUpdate, onDelete, onAddTask,
 }) {
   // Redistribute stale tasks back into their status columns
   const { doing, upNext, waiting } = useMemo(() => {
@@ -50,7 +98,7 @@ export default function KanbanBoard({
     }
   }, [filteredStale, filteredDoing, filteredUpNext, filteredWaiting])
 
-  const callbacks = { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete }
+  const callbacks = { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onAddTask }
   const isEmpty = doing.length === 0 && upNext.length === 0 && waiting.length === 0 &&
     filteredSnoozed.length === 0 && filteredBacklog.length === 0
 
@@ -68,11 +116,11 @@ export default function KanbanBoard({
 
   return (
     <div className="kanban-board">
-      <KanbanColumn title="Doing" tasks={doing} {...callbacks} />
-      <KanbanColumn title="Up Next" tasks={upNext} {...callbacks} />
-      <KanbanColumn title="Waiting" tasks={waiting} {...callbacks} />
+      <KanbanColumn title="Doing" tasks={doing} defaultStatus="doing" {...callbacks} />
+      <KanbanColumn title="Up Next" tasks={upNext} defaultStatus="not_started" {...callbacks} />
+      <KanbanColumn title="Waiting" tasks={waiting} defaultStatus="waiting" {...callbacks} />
       <KanbanColumn title="Snoozed" tasks={filteredSnoozed} {...callbacks} />
-      <KanbanColumn title="Backlog" tasks={filteredBacklog} {...callbacks} />
+      <KanbanColumn title="Backlog" tasks={filteredBacklog} defaultStatus="backlog" {...callbacks} />
     </div>
   )
 }

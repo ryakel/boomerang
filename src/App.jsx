@@ -421,6 +421,10 @@ function App() {
           onStatusChange={handleStatusChange}
           onUpdate={updateTask}
           onDelete={handleDelete}
+          onAddTask={(title, status) => {
+            const taskId = addTask({ title })
+            if (status !== 'not_started') changeStatus(taskId, status)
+          }}
         />
       ) : (
       <div className="task-list" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
