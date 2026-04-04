@@ -1705,7 +1705,13 @@
 
 .integration-dot.connected { background: #52C97F; }
 .integration-dot.error { background: var(--accent); }
+.integration-dot.checking { background: #F59E0B; animation: pulse-dot 1s infinite; }
 .integration-dot.unconfigured { background: var(--text-dim); opacity: 0.4; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
 
 .integration-row-name {
   font-size: 13px;

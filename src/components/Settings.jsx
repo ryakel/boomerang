@@ -60,9 +60,39 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
 
+  // Load env key status, then auto-test env-provided integrations
   useEffect(() => {
-    getKeyStatus().then(setEnvKeys)
-  }, [])
+    getKeyStatus().then(keys => {
+      setEnvKeys(keys)
+      if (keys.anthropic) {
+        setAnthropicStatus('checking')
+        callClaude('Respond with just "ok".', 'ping')
+          .then(() => setAnthropicStatus('connected'))
+          .catch(() => setAnthropicStatus('error'))
+      }
+      if (keys.notion) {
+        setNotionConnected('checking')
+        notionStatus()
+          .then(s => setNotionConnected(s))
+          .catch(() => setNotionConnected({ connected: false }))
+      }
+      if (keys.trello) {
+        setTrelloConnecting(true)
+        trelloStatus()
+          .then(s => {
+            if (s.connected) {
+              setTrelloConnected(true)
+              setTrelloUsername(s.username)
+              return trelloBoards().then(setTrelloBoardsList)
+            } else {
+              setTrelloError('Environment variable set but connection failed.')
+            }
+          })
+          .catch(e => setTrelloError(e.message))
+          .finally(() => setTrelloConnecting(false))
+      }
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Anthropic connection state
   const [anthropicStatus, setAnthropicStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
@@ -489,11 +519,11 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               onClick={() => setExpandedIntegration(expandedIntegration === 'anthropic' ? null : 'anthropic')}
             >
               <span className={`backlog-arrow${expandedIntegration === 'anthropic' ? ' open' : ''}`}><ChevronRight size={12} /></span>
-              <span className={`integration-dot ${anthropicStatus === 'connected' ? 'connected' : anthropicStatus === 'error' ? 'error' : (settings.anthropic_api_key || envKeys.anthropic) ? 'unconfigured' : 'unconfigured'}`} />
+              <span className={`integration-dot ${anthropicStatus === 'connected' ? 'connected' : anthropicStatus === 'error' ? 'error' : anthropicStatus === 'checking' ? 'checking' : 'unconfigured'}`} />
               <span className="integration-row-name">Anthropic (Claude AI)</span>
               {expandedIntegration !== 'anthropic' && (
                 <span className="integration-row-summary">
-                  {anthropicStatus === 'connected' ? 'Connected' : envKeys.anthropic ? 'Environment variable' : settings.anthropic_api_key ? 'Key saved' : 'Not configured'}
+                  {anthropicStatus === 'checking' ? 'Checking...' : anthropicStatus === 'connected' ? 'Connected' : anthropicStatus === 'error' ? 'Error' : envKeys.anthropic ? 'Environment variable' : settings.anthropic_api_key ? 'Key saved' : 'Not configured'}
                 </span>
               )}
             </div>
@@ -519,16 +549,38 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   </>
                 )}
                 {anthropicStatus === 'connected' ? (
-                  <div className="integration-status connected">Connected</div>
+                  <>
+                    <div className="integration-status connected">Connected</div>
+                    {envKeys.anthropic ? (
+                      <button className="ci-upload-btn" onClick={handleAnthropicConnect}>
+                        {anthropicStatus === 'checking' ? 'Testing...' : 'Test'}
+                      </button>
+                    ) : (
+                      <button className="ci-clear-btn" onClick={() => {
+                        update('anthropic_api_key', '')
+                        setAnthropicStatus(null)
+                      }}>
+                        Disconnect
+                      </button>
+                    )}
+                  </>
                 ) : anthropicStatus === 'error' ? (
-                  <div className="integration-status error">Connection failed — check your key</div>
+                  <>
+                    <div className="integration-status error">Connection failed — check your key</div>
+                    <button
+                      className="ci-upload-btn"
+                      onClick={handleAnthropicConnect}
+                    >
+                      {envKeys.anthropic ? 'Retest' : 'Retry'}
+                    </button>
+                  </>
                 ) : (
                   <button
                     className="ci-upload-btn"
                     disabled={anthropicStatus === 'checking' || (!settings.anthropic_api_key && !envKeys.anthropic)}
                     onClick={handleAnthropicConnect}
                   >
-                    {anthropicStatus === 'checking' ? 'Checking...' : 'Connect'}
+                    {anthropicStatus === 'checking' ? 'Checking...' : envKeys.anthropic ? 'Test' : 'Connect'}
                   </button>
                 )}
               </div>
@@ -542,12 +594,14 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               onClick={() => setExpandedIntegration(expandedIntegration === 'notion' ? null : 'notion')}
             >
               <span className={`backlog-arrow${expandedIntegration === 'notion' ? ' open' : ''}`}><ChevronRight size={12} /></span>
-              <span className={`integration-dot ${notionConnected && notionConnected !== 'checking' && notionConnected.connected ? 'connected' : notionConnected && notionConnected !== 'checking' && !notionConnected.connected ? 'error' : 'unconfigured'}`} />
+              <span className={`integration-dot ${notionConnected === 'checking' ? 'checking' : notionConnected && notionConnected !== 'checking' && notionConnected.connected ? 'connected' : notionConnected && notionConnected !== 'checking' && !notionConnected.connected ? 'error' : 'unconfigured'}`} />
               <span className="integration-row-name">Notion</span>
               {expandedIntegration !== 'notion' && (
                 <span className="integration-row-summary">
-                  {notionConnected && notionConnected !== 'checking' && notionConnected.connected
+                  {notionConnected === 'checking' ? 'Checking...'
+                    : notionConnected && notionConnected !== 'checking' && notionConnected.connected
                     ? `Connected${notionConnected.bot ? ` as ${notionConnected.bot}` : ''}`
+                    : notionConnected && !notionConnected.connected ? 'Error'
                     : envKeys.notion ? 'Environment variable' : settings.notion_token ? 'Token saved' : 'Not configured'}
                 </span>
               )}
@@ -574,16 +628,33 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   </>
                 )}
                 {notionConnected && notionConnected !== 'checking' && notionConnected.connected ? (
-                  <div className="integration-status connected">Connected{notionConnected.bot ? ` as ${notionConnected.bot}` : ''}</div>
+                  <>
+                    <div className="integration-status connected">Connected{notionConnected.bot ? ` as ${notionConnected.bot}` : ''}</div>
+                    {envKeys.notion ? (
+                      <button className="ci-upload-btn" onClick={handleNotionConnect}>Test</button>
+                    ) : (
+                      <button className="ci-clear-btn" onClick={() => {
+                        update('notion_token', '')
+                        setNotionConnected(null)
+                      }}>
+                        Disconnect
+                      </button>
+                    )}
+                  </>
                 ) : notionConnected && notionConnected !== 'checking' && !notionConnected.connected ? (
-                  <div className="integration-status error">Connection failed — check your token</div>
+                  <>
+                    <div className="integration-status error">Connection failed — check your token</div>
+                    <button className="ci-upload-btn" onClick={handleNotionConnect}>
+                      {envKeys.notion ? 'Retest' : 'Retry'}
+                    </button>
+                  </>
                 ) : (
                   <button
                     className="ci-upload-btn"
                     disabled={notionConnected === 'checking' || (!settings.notion_token && !envKeys.notion)}
                     onClick={handleNotionConnect}
                   >
-                    {notionConnected === 'checking' ? 'Checking...' : 'Connect'}
+                    {notionConnected === 'checking' ? 'Checking...' : envKeys.notion ? 'Test' : 'Connect'}
                   </button>
                 )}
 
@@ -708,12 +779,13 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               onClick={() => setExpandedIntegration(expandedIntegration === 'trello' ? null : 'trello')}
             >
               <span className={`backlog-arrow${expandedIntegration === 'trello' ? ' open' : ''}`}><ChevronRight size={12} /></span>
-              <span className={`integration-dot ${trelloConnected ? 'connected' : 'unconfigured'}`} />
+              <span className={`integration-dot ${trelloConnected ? 'connected' : trelloConnecting ? 'checking' : trelloError ? 'error' : 'unconfigured'}`} />
               <span className="integration-row-name">Trello</span>
               {expandedIntegration !== 'trello' && (
                 <span className="integration-row-summary">
-                  {trelloConnected
-                    ? `Connected as ${trelloUsername}`
+                  {trelloConnecting ? 'Checking...'
+                    : trelloConnected ? `Connected as ${trelloUsername}`
+                    : trelloError ? 'Error'
                     : envKeys.trello ? 'Environment variable' : (settings.trello_api_key && settings.trello_secret) ? 'Credentials saved' : 'Not configured'}
                 </span>
               )}
@@ -752,9 +824,25 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
                 {trelloConnected ? (
                   <div>
-                    <div className="integration-status connected" style={{ marginBottom: 12 }}>
+                    <div className="integration-status connected" style={{ marginBottom: 8 }}>
                       Connected as <strong>{trelloUsername}</strong>
                     </div>
+                    {envKeys.trello ? (
+                      <button className="ci-upload-btn" style={{ marginBottom: 12 }} onClick={handleTrelloConnect}>
+                        {trelloConnecting ? 'Testing...' : 'Test'}
+                      </button>
+                    ) : (
+                      <button className="ci-clear-btn" style={{ marginBottom: 12 }} onClick={() => {
+                        update('trello_api_key', '')
+                        update('trello_secret', '')
+                        setTrelloConnected(false)
+                        setTrelloUsername(null)
+                        setTrelloBoardsList([])
+                        setTrelloListsList([])
+                      }}>
+                        Disconnect
+                      </button>
+                    )}
 
                     <div className="settings-label" style={{ marginBottom: 6 }}>Board</div>
                     <select
@@ -838,7 +926,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                     disabled={trelloConnecting || (!settings.trello_api_key && !envKeys.trello)}
                     onClick={handleTrelloConnect}
                   >
-                    {trelloConnecting ? 'Connecting...' : 'Connect'}
+                    {trelloConnecting ? 'Checking...' : envKeys.trello ? 'Test' : 'Connect'}
                   </button>
                 )}
 
