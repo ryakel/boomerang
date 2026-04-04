@@ -2689,3 +2689,167 @@
   cursor: pointer;
   width: 100%;
 }
+
+/* ============================================================
+   DESKTOP LAYOUT — Phase 1: Layout Foundation
+   All rules behind @media (min-width: 768px) so mobile is untouched.
+   ============================================================ */
+
+@media (min-width: 768px) {
+  /* Remove 600px cap — fill viewport with a comfortable max */
+  .app {
+    max-width: 1200px;
+    padding: 0 24px;
+  }
+
+  /* Header — breathing room */
+  .header {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 16px 32px 8px;
+  }
+
+  /* Tag filter bar */
+  .tag-bar {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 8px 32px 12px;
+  }
+
+  /* Task list — wider, centered */
+  .task-list {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 0 8px;
+    padding-bottom: 100px;
+  }
+
+  /* Section labels (DOING, UP NEXT, etc.) */
+  .section-label {
+    padding-left: 8px;
+  }
+
+  /* Bottom bar — narrower than content, rounded, elevated */
+  .bottom-bar {
+    max-width: 800px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Bottom sheets → centered dialogs */
+  .sheet-overlay {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sheet {
+    max-width: 640px;
+    max-height: 80vh;
+    border-radius: 20px;
+    margin: 20px;
+  }
+
+  .sheet-handle {
+    display: none;
+  }
+
+  /* Full-screen overlays (Settings, Analytics, DoneList, Routines, ActivityLog) */
+  .settings-overlay {
+    max-width: 720px;
+    margin: 0 auto;
+    border-right: 1px solid var(--surface-hover);
+    border-left: 1px solid var(--surface-hover);
+  }
+
+  /* WhatNow — more room */
+  .what-now-overlay {
+    padding: 60px 40px;
+  }
+
+  .what-now-options {
+    max-width: 400px;
+  }
+
+  /* Task cards — more padding */
+  .task-card {
+    padding: 14px 20px;
+  }
+
+  /* Scrollbars — show on desktop */
+  ::-webkit-scrollbar {
+    display: initial;
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--surface-hover);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-dim);
+  }
+
+  .settings-tabs::-webkit-scrollbar {
+    display: initial;
+    height: 4px;
+  }
+}
+
+/* ============================================================
+   DESKTOP POLISH — Phase 2: Hover States
+   Uses @media (hover: hover) which is ignored by touch devices.
+   ============================================================ */
+
+@media (hover: hover) {
+  .task-card:hover {
+    background: var(--surface-hover);
+    cursor: pointer;
+  }
+
+  .tag-pill:hover {
+    opacity: 0.85;
+  }
+
+  .what-now-option:hover {
+    background: var(--surface-hover);
+  }
+
+  .toolbar-pill:hover {
+    opacity: 0.8;
+  }
+
+  .sort-option:hover {
+    background: var(--surface-hover);
+  }
+
+  .settings-tab:hover {
+    color: var(--text-primary);
+  }
+
+  .ci-upload-btn:hover {
+    background: rgba(164, 120, 255, 0.2);
+  }
+
+  .ci-clear-btn:hover {
+    opacity: 0.8;
+  }
+
+  .integration-row:hover {
+    background: rgba(164, 120, 255, 0.08);
+  }
+
+  .checklist-item:hover {
+    background: var(--surface-hover);
+    border-radius: var(--radius-sm);
+  }
+}
