@@ -77,13 +77,12 @@ const ENERGY_TYPES = [
   { id: 'desk', label: 'Desk', icon: 'Monitor', color: '#60A5FA' },
   { id: 'people', label: 'People', icon: 'Users', color: '#A78BFA' },
   { id: 'errand', label: 'Errand', icon: 'MapPin', color: '#34D399' },
-  { id: 'confrontation', label: 'Confrontation', icon: 'Zap', color: '#FF6240' },
   { id: 'creative', label: 'Creative', icon: 'Palette', color: '#F472B6' },
   { id: 'physical', label: 'Physical', icon: 'Dumbbell', color: '#FBBF24' },
 ]
 
 // Energy types that get more aggressive nagging (ADHD avoidance-prone)
-const AVOIDANCE_ENERGY_TYPES = ['confrontation', 'errand']
+const AVOIDANCE_ENERGY_TYPES = ['errand']
 
 const LABEL_COLORS = [
   '#4A9EFF', '#52C97F', '#FFB347', '#FF6240', '#A78BFA',

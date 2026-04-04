@@ -1,6 +1,6 @@
-import { Monitor, Users, MapPin, Zap, Palette, Dumbbell } from 'lucide-react'
+import { Monitor, Users, MapPin, Palette, Dumbbell } from 'lucide-react'
 
-const ICON_MAP = { Monitor, Users, MapPin, Zap, Palette, Dumbbell }
+const ICON_MAP = { Monitor, Users, MapPin, Palette, Dumbbell }
 
 export default function EnergyIcon({ icon, color, size = 16 }) {
   const Icon = ICON_MAP[icon]

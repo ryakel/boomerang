@@ -129,11 +129,12 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
             ))}
           </div>
           <button
-            className={`priority-toggle ${highPriority ? 'active' : ''}`}
+            className={`priority-btn${highPriority ? ' priority-active' : ''}`}
             onClick={() => setHighPriority(!highPriority)}
             style={{ marginBottom: 16 }}
           >
-            <span style={{ fontWeight: 800 }}>!</span> High Priority
+            <span className="priority-label">Priority</span>
+            <span className="priority-icon">!</span>
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="submit-btn" disabled={!title.trim()} onClick={editingRoutine ? handleSaveEdit : handleAdd}>

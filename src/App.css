@@ -238,24 +238,41 @@
   flex-shrink: 0;
 }
 
-.priority-toggle {
-  display: flex;
+.priority-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  background: none;
+  border: 1px solid rgba(255, 220, 100, 0.15);
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-dim);
-  font-size: 13px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  padding: 6px 12px;
+  margin-bottom: 8px;
 }
 
-.priority-toggle.active {
-  border-color: #FF9500;
-  background: rgba(255, 149, 0, 0.1);
-  color: #FF9500;
+.priority-label {
+  font-size: 12px;
+  color: rgba(255, 220, 100, 0.4);
+}
+
+.priority-icon {
+  font-size: 16px;
+  font-weight: 800;
+  color: rgba(255, 220, 100, 0.35);
+  transition: color 0.15s ease;
+}
+
+.priority-active {
+  border-color: #FFD700;
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.priority-active .priority-label {
+  color: #FFD700;
+}
+
+.priority-active .priority-icon {
+  color: #FFD700;
 }
 
 .task-meta-overdue {
@@ -430,14 +447,17 @@
 .energy-type-btn {
   width: auto;
   height: auto;
-  padding: 6px 10px;
-  gap: 4px;
+  padding: 4px 6px;
+  gap: 2px;
   flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .energy-type-label {
-  font-size: 10px;
+  font-size: 9px;
   opacity: 0.7;
+  white-space: nowrap;
 }
 
 .energy-level-btn {

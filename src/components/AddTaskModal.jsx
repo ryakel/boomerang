@@ -111,7 +111,9 @@ export default function AddTaskModal({ onAdd, onClose }) {
             </div>
             {form.energy && (
               <>
-                <div className="settings-label" style={{ marginBottom: 6 }}>Drain Level</div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+                  <span className="settings-label" style={{ marginBottom: 0 }}>Energy Drain</span>
+                </div>
                 <div className="energy-selector">
                   {[
                     { lvl: 1, label: 'Low', dotClass: 'dot-1' },
@@ -133,11 +135,11 @@ export default function AddTaskModal({ onAdd, onClose }) {
         )}
 
         <button
-          className={`priority-toggle ${form.highPriority ? 'active' : ''}`}
+          className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
           onClick={() => form.setHighPriority(!form.highPriority)}
-          style={{ marginBottom: 12 }}
         >
-          <span style={{ fontWeight: 800 }}>!</span> High Priority
+          <span className="priority-label">Priority</span>
+          <span className="priority-icon">!</span>
         </button>
 
         {/* Attachments */}

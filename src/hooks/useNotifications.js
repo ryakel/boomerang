@@ -90,10 +90,10 @@ function getHighPriorityFreqMs(task, settings) {
   return getFreqMs(settings, 'notif_freq_highpri_overdue', 0.5)
 }
 
-// Avoidance boost: tasks with confrontation/errand energy get nagged more frequently.
+// Avoidance boost: errand tasks get nagged more frequently.
 // Avoidance-prone type: 1.3x more frequent (interval / 1.3)
 // High drain (level 3): additional 1.2x (interval / 1.2)
-// Combined max: ~1.56x more frequent for ⚡⚡⚡ confrontation tasks
+// Combined max: ~1.56x more frequent for high-drain errand tasks
 function applyAvoidanceBoost(freqMs, task) {
   if (!task.energy || !AVOIDANCE_ENERGY_TYPES.includes(task.energy)) return freqMs
   let boost = 1.3

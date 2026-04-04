@@ -57,9 +57,8 @@ export async function inferDate(title, notes = '') {
 
 // --- T-shirt sizing + energy inference ---
 // Returns { size, energy, energyLevel } in a single API call.
-// energy = type of capacity (desk|people|errand|confrontation|creative|physical)
+// energy = type of capacity (desk|people|errand|creative|physical)
 // energyLevel = drain intensity (1=low, 2=medium, 3=high)
-// Custom instructions influence inference (e.g. "phone calls are confrontation-level for me")
 export async function inferSize(title, notes = '') {
   const system = `You estimate task effort and energy requirements for someone with ADHD.
 
@@ -69,14 +68,13 @@ For ENERGY TYPE, determine what kind of capacity this task draws from:
 - "desk" — focused computer/paperwork (writing, coding, paying bills, data entry)
 - "people" — social interaction (meetings, lunch with someone, asking favors)
 - "errand" — going somewhere physically (pickup, returns, shopping, appointments)
-- "confrontation" — emotionally difficult interactions (disputes, difficult conversations, giving feedback, calling businesses to fight charges, anything the person likely dreads or avoids). Phone calls to businesses/bureaucracy default to confrontation.
 - "creative" — open-ended thinking/making (design, writing, planning, brainstorming)
 - "physical" — bodily effort (cleaning, moving, exercise, yard work, assembly)
 
 For ENERGY LEVEL, rate the drain intensity 1-3:
 - 1 = low drain, easy/routine (quick text, simple order, light tidying)
 - 2 = medium drain, requires focus/effort (presentation prep, store returns, moderate cleaning)
-- 3 = high drain, significant willpower needed (insurance disputes, deep cleaning, confrontational conversations)
+- 3 = high drain, significant willpower needed (difficult conversations, deep cleaning, complex social situations)
 
 Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLevel": 1|2|3}`
 
@@ -121,10 +119,10 @@ When should this be due? JSON only.`
 }
 
 // --- What Now ---
-// capacity = optional energy type filter (desk|people|errand|confrontation|creative|physical|null)
+// capacity = optional energy type filter (desk|people|errand|creative|physical|null)
 export async function getWhatNow(tasks, time, energy, capacity = null) {
   const ACTIVE = ['not_started', 'doing', 'waiting', 'open']
-  const ENERGY_LABELS = { desk: 'Desk', people: 'People', errand: 'Errand', confrontation: 'Confrontation', creative: 'Creative', physical: 'Physical' }
+  const ENERGY_LABELS = { desk: 'Desk', people: 'People', errand: 'Errand', creative: 'Creative', physical: 'Physical' }
   const openTasks = tasks
     .filter(t => ACTIVE.includes(t.status))
     .map(t => {
@@ -141,7 +139,7 @@ export async function getWhatNow(tasks, time, energy, capacity = null) {
   const system = `You are a helpful assistant for someone with ADHD. You help them pick the right task to work on right now. Be warm, direct, and practical. No fluff. Never be preachy or condescending.
 
 Tasks have t-shirt sizes: XS (~5 min), S (~15 min), M (~30-60 min), L (~half day), XL (~full day+).
-Tasks also have energy types (desk, people, errand, confrontation, creative, physical) and drain levels (low, med, high).
+Tasks also have energy types (desk, people, errand, creative, physical) and drain levels (low, med, high).
 HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}
 
 Respond with JSON only — an object with two fields:
@@ -255,7 +253,7 @@ export async function analyzeNotionPage(title, plainTextContent) {
 For each task, determine:
 - title: clear, actionable task title (imperative mood)
 - size: T-shirt size (XS/S/M/L/XL)
-- energy: type of capacity needed (desk/people/errand/confrontation/creative/physical)
+- energy: type of capacity needed (desk/people/errand/creative/physical)
 - energyLevel: drain intensity (1=low, 2=medium, 3=high)
 - due_date: ISO date (YYYY-MM-DD) if mentioned or inferable, null otherwise
 - notes: brief context from the page content
