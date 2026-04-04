@@ -171,7 +171,7 @@
 .task-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 20px 120px;
+  padding: 0 20px 140px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -750,8 +750,8 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 6px 20px;
-  padding-bottom: max(4px, env(safe-area-inset-bottom));
+  padding: 8px 20px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
   background: linear-gradient(transparent, var(--bg) 30%);
   max-width: 600px;
   margin: 0 auto;
@@ -765,7 +765,7 @@
   color: #fff;
   font-size: 15px;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   transition: background 0.15s ease;
 }
 
