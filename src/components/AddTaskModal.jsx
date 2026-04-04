@@ -111,15 +111,17 @@ export default function AddTaskModal({ onAdd, onClose }) {
             </div>
             {form.energy && (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-                  <span className="settings-label" style={{ marginBottom: 0 }}>Energy Drain</span>
-                  <button
-                    className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
-                    onClick={() => form.setHighPriority(!form.highPriority)}
-                  >
-                    <span className="priority-label">Priority</span>
-                    <span className="priority-icon">!</span>
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 6 }}>
+                  <span className="settings-label" style={{ marginBottom: 0, marginTop: 6 }}>Energy Drain</span>
+                  <div className="priority-group">
+                    <span className="settings-label" style={{ marginBottom: 4 }}>Priority</span>
+                    <button
+                      className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
+                      onClick={() => form.setHighPriority(!form.highPriority)}
+                    >
+                      !
+                    </button>
+                  </div>
                 </div>
                 <div className="energy-selector">
                   {[

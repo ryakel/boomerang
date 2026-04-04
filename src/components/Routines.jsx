@@ -128,14 +128,15 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
               </button>
             ))}
           </div>
-          <button
-            className={`priority-btn${highPriority ? ' priority-active' : ''}`}
-            onClick={() => setHighPriority(!highPriority)}
-            style={{ marginBottom: 16 }}
-          >
-            <span className="priority-label">Priority</span>
-            <span className="priority-icon">!</span>
-          </button>
+          <div className="priority-group" style={{ marginBottom: 16, alignItems: 'flex-start' }}>
+            <span className="settings-label" style={{ marginBottom: 4 }}>Priority</span>
+            <button
+              className={`priority-btn${highPriority ? ' priority-active' : ''}`}
+              onClick={() => setHighPriority(!highPriority)}
+            >
+              !
+            </button>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="submit-btn" disabled={!title.trim()} onClick={editingRoutine ? handleSaveEdit : handleAdd}>
               {editingRoutine ? 'Save Changes' : 'Add Routine'}

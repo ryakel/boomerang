@@ -440,15 +440,17 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-          <span className="settings-label" style={{ marginBottom: 0 }}>Energy Drain</span>
-          <button
-            className={`priority-btn${highPriority ? ' priority-active' : ''}`}
-            onClick={() => setHighPriority(!highPriority)}
-          >
-            <span className="priority-label">Priority</span>
-            <span className="priority-icon">!</span>
-          </button>
+        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 6 }}>
+          <span className="settings-label" style={{ marginBottom: 0, marginTop: 6 }}>Energy Drain</span>
+          <div className="priority-group">
+            <span className="settings-label" style={{ marginBottom: 4 }}>Priority</span>
+            <button
+              className={`priority-btn${highPriority ? ' priority-active' : ''}`}
+              onClick={() => setHighPriority(!highPriority)}
+            >
+              !
+            </button>
+          </div>
         </div>
         {energy && (
           <div className="energy-selector">
