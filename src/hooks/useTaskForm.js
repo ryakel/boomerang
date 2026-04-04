@@ -3,7 +3,7 @@
 // file attachments, and tag toggling.
 
 import { useState, useRef } from 'react'
-import { loadSettings } from '../store'
+import { loadSettings, loadLabels } from '../store'
 import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
 function formatFileSize(bytes) {
@@ -105,7 +105,9 @@ export function useTaskForm(initial = {}) {
     setNotionCreating(true)
     try {
       const settings = loadSettings()
-      const metadata = { tags: selectedTags, lastUpdated: new Date().toLocaleDateString() }
+      const labels = loadLabels()
+      const tagNames = selectedTags.map(id => labels.find(l => l.id === id)?.name || id)
+      const metadata = { tags: tagNames, lastUpdated: new Date().toLocaleDateString() }
       const content = await generateNotionContent(title, notes, false, metadata)
       const page = await notionCreatePage(title, content, settings.notion_parent_page_id || null)
       setNotionResult(page)

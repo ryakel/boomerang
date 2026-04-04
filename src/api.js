@@ -352,9 +352,9 @@ export async function generateNotionContent(taskTitle, taskNotes, isRecurring = 
     .replace(/\{last_updated\}/g, metadata.lastUpdated || now)
     .replace(/\{frequency\}/g, metadata.frequency || 'One-time')
     .replace(/\{last_performed\}/g, metadata.lastPerformed || 'N/A')
-    .replace(/\{tags\}/g, metadata.tags?.length ? metadata.tags.join(', ') : 'None')
+    .replace(/- \{tags\}/g, metadata.tags?.length ? metadata.tags.map(t => `- ${t}`).join('\n') : '- None')
 
-  const system = `You create structured Notion page content for tasks. You MUST follow the template structure below, filling each section with relevant content for the given task. Preserve all markdown formatting exactly: ## for headings, - [ ] for to-do items, > for callouts, --- for dividers, - for bullet points. Do not add or remove sections — only populate the existing ones. Lines that already have concrete values (dates, tags, frequency) must be kept exactly as-is.${recurring}
+  const system = `You create structured Notion page content for tasks. You MUST follow the template structure below, filling each section with relevant content for the given task. Preserve all markdown formatting exactly: ## for headings, - [ ] for to-do items, > for callouts, --- for dividers, - for bullet points. Do not add or remove sections — only populate the existing ones. Lines that already have concrete values (dates, tags, frequency) must be kept exactly as-is. For the Tags section, keep all existing tags and you may add a few more if clearly relevant.${recurring}
 
 Template:
 ${template}`

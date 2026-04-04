@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
+import { loadLabels } from '../store'
 
 export default function FindRelatedModal({ task, onLink, onClose }) {
   const [loading, setLoading] = useState(true)
@@ -28,8 +29,10 @@ export default function FindRelatedModal({ task, onLink, onClose }) {
   const handleCreateNew = async () => {
     setCreating(true)
     try {
+      const labels = loadLabels()
+      const tagNames = (task.tags || []).map(id => labels.find(l => l.id === id)?.name || id)
       const metadata = {
-        tags: task.tags || [],
+        tags: tagNames,
         lastUpdated: task.last_touched ? new Date(task.last_touched).toLocaleDateString() : new Date().toLocaleDateString(),
         lastPerformed: task.completed_at ? new Date(task.completed_at).toLocaleDateString() : undefined,
       }

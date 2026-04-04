@@ -173,8 +173,9 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     try {
       const settings = loadSettings()
       const routine = task.routine_id ? loadRoutines().find(r => r.id === task.routine_id) : null
+      const tagNames = selectedTags.map(id => labels.find(l => l.id === id)?.name || id)
       const metadata = {
-        tags: selectedTags,
+        tags: tagNames,
         lastUpdated: task.last_touched ? new Date(task.last_touched).toLocaleDateString() : new Date().toLocaleDateString(),
         lastPerformed: task.completed_at ? new Date(task.completed_at).toLocaleDateString() : undefined,
         frequency: routine ? formatCadence(routine) : undefined,
