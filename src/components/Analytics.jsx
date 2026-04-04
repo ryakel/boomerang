@@ -1,12 +1,24 @@
 import { useState, useRef, useEffect } from 'react'
 import { FullRings } from './Rings'
-import { loadSettings, saveSettings, computeDailyStats, computeStreak, computeRecords } from '../store'
+import { loadSettings, saveSettings } from '../store'
 
-export default function Analytics({ tasks, onClose }) {
+export default function Analytics({ onClose }) {
   const settings = loadSettings()
-  const { tasksToday, pointsToday } = computeDailyStats(tasks)
-  const streak = computeStreak(tasks, settings)
-  const { bestTasks, bestPoints, longestStreak } = computeRecords(tasks)
+  const [stats, setStats] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/analytics')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data) setStats(data) })
+      .catch(() => {})
+  }, [])
+
+  const tasksToday = stats?.tasksToday || 0
+  const pointsToday = stats?.pointsToday || 0
+  const streak = stats?.streak || 0
+  const bestTasks = stats?.bestTasks || 0
+  const bestPoints = stats?.bestPoints || 0
+  const longestStreak = stats?.longestStreak || 0
 
   const taskGoal = settings.daily_task_goal || 3
   const pointsGoal = settings.daily_points_goal || 15
@@ -84,7 +96,6 @@ export default function Analytics({ tasks, onClose }) {
       // Second tap — reset
       if (resetTimer.current) clearTimeout(resetTimer.current)
       setResetState('idle')
-      // Clear all completion history (mark all done tasks' completed_at as null won't work — just reset streak settings)
       const current = loadSettings()
       saveSettings({ ...current, streak_current: 0 })
     }

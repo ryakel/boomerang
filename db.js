@@ -394,9 +394,13 @@ export function queryTasks(filters = {}) {
     clauses.push('high_priority = 1')
   }
   if (filters.tag) {
-    // Search within JSON array using LIKE (simple approach for sql.js)
     clauses.push(`tags_json LIKE ?`)
     params.push(`%"${filters.tag}"%`)
+  }
+  if (filters.q) {
+    clauses.push(`(title LIKE ? OR notes LIKE ?)`)
+    const term = `%${filters.q}%`
+    params.push(term, term)
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
@@ -411,7 +415,16 @@ export function queryTasks(filters = {}) {
   }
   const order = sortMap[filters.sort] || 'created_at DESC'
 
-  const sql = `SELECT * FROM tasks ${where} ORDER BY ${order}`
+  // Pagination
+  let limitClause = ''
+  if (filters.limit) {
+    limitClause = ` LIMIT ${parseInt(filters.limit, 10)}`
+    if (filters.offset) {
+      limitClause += ` OFFSET ${parseInt(filters.offset, 10)}`
+    }
+  }
+
+  const sql = `SELECT * FROM tasks ${where} ORDER BY ${order}${limitClause}`
   const results = []
   const stmt = db.prepare(sql)
   if (params.length) stmt.bind(params)
@@ -420,6 +433,106 @@ export function queryTasks(filters = {}) {
   }
   stmt.free()
   return results
+}
+
+// ============================================================
+// Analytics queries
+// ============================================================
+
+const SIZE_POINTS = { XS: 1, S: 2, M: 5, L: 10, XL: 20 }
+const ENERGY_MULTIPLIER = { 1: 1.0, 2: 1.5, 3: 2.0 }
+
+function calcPoints(row) {
+  const base = SIZE_POINTS[row.size] || 1
+  const energyMult = ENERGY_MULTIPLIER[row.energy_level] || 1.0
+  const completedAt = row.completed_at ? new Date(row.completed_at) : new Date()
+  const daysOnList = Math.max(0, Math.floor((completedAt.getTime() - new Date(row.created_at).getTime()) / 86400000))
+  const speedMult = daysOnList === 0 ? 2 : daysOnList <= 2 ? 1.5 : 1
+  return Math.round(base * energyMult * speedMult)
+}
+
+export function getAnalytics(settings = {}) {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const todayStr = todayStart.toISOString()
+
+  // Today's stats
+  let tasksToday = 0
+  let pointsToday = 0
+  const stmt1 = db.prepare('SELECT * FROM tasks WHERE status = ? AND completed_at >= ?')
+  stmt1.bind(['done', todayStr])
+  while (stmt1.step()) {
+    tasksToday++
+    pointsToday += calcPoints(stmt1.getAsObject())
+  }
+  stmt1.free()
+
+  // All-time records: best day tasks, best day points, longest streak
+  const byDay = {}
+  const stmt2 = db.prepare('SELECT * FROM tasks WHERE status = ? AND completed_at IS NOT NULL')
+  stmt2.bind(['done'])
+  while (stmt2.step()) {
+    const row = stmt2.getAsObject()
+    const dayStr = new Date(row.completed_at).toDateString()
+    if (!byDay[dayStr]) byDay[dayStr] = { tasks: 0, points: 0 }
+    byDay[dayStr].tasks++
+    byDay[dayStr].points += calcPoints(row)
+  }
+  stmt2.free()
+
+  let bestTasks = 0, bestPoints = 0, longestStreak = 0
+  for (const day of Object.values(byDay)) {
+    if (day.tasks > bestTasks) bestTasks = day.tasks
+    if (day.points > bestPoints) bestPoints = day.points
+  }
+
+  // Longest streak from sorted dates
+  const dates = Object.keys(byDay).map(d => new Date(d)).sort((a, b) => a - b)
+  let current = 1
+  for (let i = 1; i < dates.length; i++) {
+    const diff = (dates[i] - dates[i - 1]) / 86400000
+    if (Math.round(diff) === 1) {
+      current++
+      if (current > longestStreak) longestStreak = current
+    } else {
+      current = 1
+    }
+  }
+  if (dates.length > 0 && current > longestStreak) longestStreak = current
+
+  // Current streak (consecutive days working backward from today)
+  const freeDays = new Set(settings.free_days || [])
+  let streak = 0
+  const d = new Date()
+  const todayDate = d.toDateString()
+  const todayISO = d.toISOString().split('T')[0]
+  if (!byDay[todayDate] && !freeDays.has(todayISO)) {
+    d.setDate(d.getDate() - 1)
+    if (!byDay[d.toDateString()] && !freeDays.has(d.toISOString().split('T')[0])) {
+      // No completions today or yesterday — streak is 0
+      streak = 0
+    } else {
+      while (byDay[d.toDateString()] || freeDays.has(d.toISOString().split('T')[0])) {
+        streak++
+        d.setDate(d.getDate() - 1)
+      }
+    }
+  } else {
+    while (byDay[d.toDateString()] || freeDays.has(d.toISOString().split('T')[0])) {
+      streak++
+      d.setDate(d.getDate() - 1)
+    }
+  }
+
+  if (settings.vacation_mode) {
+    if (settings.vacation_end && new Date() >= new Date(settings.vacation_end)) {
+      // Vacation expired — use calculated streak
+    } else {
+      streak = settings.streak_current || 0
+    }
+  }
+
+  return { tasksToday, pointsToday, bestTasks, bestPoints, longestStreak, streak }
 }
 
 // Sync the full tasks array — used by setAllData (bulk sync from client)

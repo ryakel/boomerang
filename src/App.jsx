@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { BarChart3, Settings as SettingsIcon } from 'lucide-react'
+import { BarChart3, Settings as SettingsIcon, Search } from 'lucide-react'
 import './App.css'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
 import { inferSize, trelloUpdateCard } from './api'
@@ -59,6 +59,10 @@ function App() {
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [relatedTarget, setRelatedTarget] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchTimer = useRef(null)
   const sortRef = useRef(null)
   const quickRef = useRef(null)
 
@@ -194,6 +198,21 @@ function App() {
     setEditTarget(null)
   }, [addRoutine, completeTask])
 
+  const handleSearch = useCallback((query) => {
+    setSearchQuery(query)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (!query.trim()) {
+      setSearchResults(null)
+      return
+    }
+    searchTimer.current = setTimeout(() => {
+      fetch(`/api/tasks?q=${encodeURIComponent(query.trim())}`)
+        .then(res => res.ok ? res.json() : [])
+        .then(results => setSearchResults(results))
+        .catch(() => setSearchResults(null))
+    }, 300)
+  }, [])
+
   const filterTasks = (list) => {
     if (activeFilter === 'all') return list
     if (activeFilter === 'routines') return list.filter(t => t.routine_id)
@@ -298,6 +317,9 @@ function App() {
               </div>
             )}
           </div>
+          <button className="sort-btn" onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) { setSearchQuery(''); setSearchResults(null) } }}>
+            <Search size={15} />
+          </button>
           {todayCount > 0 ? (
             <button className="today-count" onClick={() => setShowDone(true)}>
               {todayCount} done today
@@ -310,7 +332,45 @@ function App() {
         </div>
       </header>
 
-      <div className="tag-bar">
+      {searchOpen && (
+        <div className="search-bar" style={{ padding: '0 16px 8px' }}>
+          <input
+            type="text"
+            className="quick-input"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={e => handleSearch(e.target.value)}
+            autoFocus
+            style={{ width: '100%' }}
+          />
+        </div>
+      )}
+
+      {searchResults !== null && (
+        <div className="task-list" style={{ padding: '0 16px' }}>
+          <div className="section-label">
+            {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+          </div>
+          {searchResults.map(task => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onComplete={completeTask}
+              onSnooze={setSnoozeTarget}
+              onExpand={id => setExpandedTaskId(expandedTaskId === id ? null : id)}
+              expanded={expandedTaskId === task.id}
+              onEdit={setEditTarget}
+              onStatusChange={changeStatus}
+              onUpdate={updateTask}
+            />
+          ))}
+          {searchResults.length === 0 && (
+            <div className="empty-state">No tasks match your search.</div>
+          )}
+        </div>
+      )}
+
+      {searchResults === null && <><div className="tag-bar">
         <button
           className={`tag-pill ${activeFilter === 'all' ? 'active' : ''}`}
           onClick={() => setActiveFilter('all')}
@@ -400,7 +460,7 @@ function App() {
             ))}
           </>
         )}
-      </div>
+      </div></>}
 
       <div className="bottom-bar">
         <button className="what-now-btn" onClick={() => setShowWhatNow(true)}>
@@ -475,11 +535,11 @@ function App() {
       )}
 
       {showAnalytics && (
-        <Analytics tasks={tasks} onClose={() => setShowAnalytics(false)} />
+        <Analytics onClose={() => setShowAnalytics(false)} />
       )}
 
       {showDone && (
-        <DoneList tasks={tasks} onClose={() => setShowDone(false)} onUncomplete={handleUncomplete} />
+        <DoneList onClose={() => setShowDone(false)} onUncomplete={handleUncomplete} />
       )}
 
       {extendTarget && (

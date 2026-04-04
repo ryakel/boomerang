@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url'
 import path from 'path'
 import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bumpVersion, flushNow,
   upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
-  upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial } from './db.js'
+  upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
+  getAnalytics, getData } from './db.js'
 
 // --- App version ---
 const appVersion = process.env.APP_VERSION || 'dev'
@@ -153,6 +154,13 @@ app.delete('/api/data', (req, res) => {
   const newVersion = bumpVersion()
   broadcast(newVersion, null)
   res.json({ ok: true, version: newVersion })
+})
+
+// --- Analytics ---
+app.get('/api/analytics', (req, res) => {
+  // Read settings from app_data for streak/vacation logic
+  const settings = getData('settings') || {}
+  res.json(getAnalytics(settings))
 })
 
 // --- Per-record Task API ---

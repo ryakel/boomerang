@@ -1,4 +1,6 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+
+const PAGE_SIZE = 50
 
 function formatDate(iso) {
   const d = new Date(iso)
@@ -12,28 +14,56 @@ function daysOnList(task) {
   ))
 }
 
-export default function DoneList({ tasks, onClose, onUncomplete }) {
-  const doneTasks = useMemo(() =>
-    tasks
-      .filter(t => t.status === 'done' && t.completed_at)
-      .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at)),
-    [tasks]
-  )
+export default function DoneList({ onClose, onUncomplete }) {
+  const [doneTasks, setDoneTasks] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [hasMore, setHasMore] = useState(true)
+  const [offset, setOffset] = useState(0)
+
+  const fetchPage = useCallback((pageOffset) => {
+    return fetch(`/api/tasks?status=done&sort=completed_at&limit=${PAGE_SIZE}&offset=${pageOffset}`)
+      .then(res => res.ok ? res.json() : [])
+      .then(tasks => {
+        if (tasks.length < PAGE_SIZE) setHasMore(false)
+        return tasks
+      })
+  }, [])
+
+  useEffect(() => {
+    fetchPage(0)
+      .then(tasks => {
+        setDoneTasks(tasks)
+        setOffset(tasks.length)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [fetchPage])
+
+  const loadMore = () => {
+    fetchPage(offset).then(tasks => {
+      setDoneTasks(prev => [...prev, ...tasks])
+      setOffset(prev => prev + tasks.length)
+    })
+  }
+
+  const handleUncomplete = (task) => {
+    onUncomplete(task)
+    setDoneTasks(prev => prev.filter(t => t.id !== task.id))
+  }
 
   const todayStr = new Date().toDateString()
-  const todayTasks = doneTasks.filter(t => new Date(t.completed_at).toDateString() === todayStr)
-  const olderTasks = doneTasks.filter(t => new Date(t.completed_at).toDateString() !== todayStr)
+  const todayTasks = doneTasks.filter(t => t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
+  const olderTasks = doneTasks.filter(t => !t.completed_at || new Date(t.completed_at).toDateString() !== todayStr)
 
-  // Group older tasks by date
   const grouped = useMemo(() => {
     const groups = []
     let currentDate = null
     let currentGroup = null
     for (const t of olderTasks) {
-      const dateStr = new Date(t.completed_at).toDateString()
+      const dateStr = t.completed_at ? new Date(t.completed_at).toDateString() : 'Unknown'
       if (dateStr !== currentDate) {
         currentDate = dateStr
-        currentGroup = { date: formatDate(t.completed_at), tasks: [] }
+        currentGroup = { date: t.completed_at ? formatDate(t.completed_at) : 'Unknown', tasks: [] }
         groups.push(currentGroup)
       }
       currentGroup.tasks.push(t)
@@ -47,7 +77,7 @@ export default function DoneList({ tasks, onClose, onUncomplete }) {
       <span className="done-meta">
         {daysOnList(t) === 0 ? 'same day' : `${daysOnList(t)}d on list`}
       </span>
-      <button className="reopen-btn" onClick={() => onUncomplete(t)}>Reopen</button>
+      <button className="reopen-btn" onClick={() => handleUncomplete(t)}>Reopen</button>
     </div>
   )
 
@@ -59,7 +89,11 @@ export default function DoneList({ tasks, onClose, onUncomplete }) {
         <div style={{ width: 50 }} />
       </div>
 
-      {doneTasks.length === 0 && (
+      {loading && (
+        <div className="empty-state">Loading...</div>
+      )}
+
+      {!loading && doneTasks.length === 0 && (
         <div className="empty-state">
           Nothing completed yet.<br />You'll see your wins here.
         </div>
@@ -80,6 +114,16 @@ export default function DoneList({ tasks, onClose, onUncomplete }) {
           {group.tasks.map(renderCard)}
         </div>
       ))}
+
+      {hasMore && !loading && (
+        <button className="load-more-btn" onClick={loadMore} style={{
+          display: 'block', margin: '16px auto', padding: '8px 20px',
+          background: 'var(--card-bg)', color: 'var(--text-main)',
+          border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer',
+        }}>
+          Load more
+        </button>
+      )}
     </div>
   )
 }
