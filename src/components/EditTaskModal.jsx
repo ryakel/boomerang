@@ -358,16 +358,16 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           />
           <div className="notes-actions">
             {notes.trim() && (
-              <button className="polish-btn" onClick={handlePolish} disabled={polishing}>
-                {polishing ? <span className="spinner" /> : <Sparkles size={14} />} {polishing ? 'Polishing...' : 'Polish'}
+              <button className={`polish-btn${polishing ? ' loading' : ''}`} onClick={handlePolish} disabled={polishing}>
+                <Sparkles size={14} /> Polish
               </button>
             )}
             <button
-              className="polish-btn research-btn"
+              className={`polish-btn research-btn${researching ? ' loading' : ''}`}
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowResearch(!showResearch) }}
               disabled={researching}
             >
-              {researching ? <span className="spinner" /> : <Search size={14} />} {researching ? 'Researching...' : 'Research'}
+              <Search size={14} /> Research
             </button>
           </div>
           {showResearch && (

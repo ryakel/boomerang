@@ -1617,34 +1617,55 @@
 }
 
 .polish-btn {
-  margin-top: 8px;
+  position: relative;
   padding: 6px 14px;
   border-radius: 16px;
   background: rgba(164, 120, 255, 0.15);
   color: #A78BFA;
   font-size: 12px;
   font-weight: 600;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   white-space: nowrap;
   flex-shrink: 0;
+  overflow: hidden;
+  max-width: 100%;
   transition: opacity 0.15s;
+  z-index: 0;
+}
+
+.polish-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(164, 120, 255, 0.35);
+  transform: scaleX(0);
+  transform-origin: left;
+  z-index: -1;
+}
+
+.polish-btn.loading::before {
+  animation: pill-fill 3s ease-in-out infinite;
+}
+
+.research-btn::before {
+  background: rgba(74, 158, 255, 0.35);
+}
+
+@keyframes pill-fill {
+  0% { transform: scaleX(0); }
+  50% { transform: scaleX(1); }
+  100% { transform: scaleX(0); transform-origin: right; }
 }
 
 .polish-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 .polish-btn:active:not(:disabled) {
   opacity: 0.7;
-}
-
-.polish-btn .spinner {
-  width: 12px;
-  height: 12px;
-  border-width: 1.5px;
-  margin-right: 0;
 }
 
 .notes-actions {
@@ -1652,7 +1673,7 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .research-btn {

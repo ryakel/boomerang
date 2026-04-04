@@ -613,7 +613,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
             </div>
           )}
 
-          {notionConnected && notionConnected.connected && (
+          {(settings.notion_token || envKeys.notion) && (
             <div style={{ marginTop: 12 }}>
               <div className="settings-label">Page Template</div>
               <div className="settings-hint" style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
