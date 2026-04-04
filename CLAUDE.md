@@ -145,13 +145,9 @@ Completed. Tasks and routines now have proper SQL tables with individual columns
 
 **What triggers this work:** Adding 3+ more interactive features to TaskCard, or task list exceeding 100 items with noticeable scroll jank.
 
-### Offline Mutation Queue (Priority: Low-Medium)
+### ~~Offline Mutation Queue~~ — DONE
 
-**Current state:** Mutations fire immediately to `/api/tasks/:id`. If offline, the write silently fails. Sync status (`saving`/`saved`/`offline`) only visible in Settings, not in the main UI.
-
-**What to do:** Queue mutations in localStorage when offline, replay on reconnect, show sync status indicator in header.
-
-**What triggers this work:** Regular mobile usage on spotty connections, or first report of lost data from offline edits.
+Completed. Failed mutations are queued in `boom_mutation_queue` localStorage (capped at 200 entries) and replayed sequentially on reconnect (`online` event, SSE reconnect, or visibility change). Sync status indicator (Cloud/CloudOff icons) in the header shows saving/saved/offline state with pending queue count. Implemented in `useServerSync.js`.
 
 ### Research + File Attachments (Priority: Low)
 
