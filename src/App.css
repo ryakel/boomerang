@@ -882,6 +882,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+  padding-right: 48px;
 }
 
 .edit-task-title-row .sheet-title {
@@ -2821,8 +2822,21 @@
     background: var(--bg);
   }
 
+  .task-card-desktop .task-card-top {
+    flex-wrap: wrap;
+  }
+
   .task-card-desktop .task-title {
     font-size: 13px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    flex-basis: 100%;
+    margin-bottom: 4px;
+  }
+
+  .task-card-desktop .task-card-right {
+    margin-left: auto;
   }
 
   .task-card-desktop .task-tags {
@@ -2840,6 +2854,25 @@
 
   .task-card-desktop.snoozed {
     opacity: 0.7;
+  }
+
+  /* Kanban drag-and-drop */
+  .kanban-card-wrapper {
+    touch-action: none;
+  }
+
+  .kanban-card-wrapper.dragging {
+    opacity: 0.4;
+  }
+
+  .kanban-column.drag-over {
+    background: rgba(164, 120, 255, 0.08);
+    outline: 2px dashed rgba(164, 120, 255, 0.4);
+    outline-offset: -2px;
+  }
+
+  .kanban-column.drag-over .kanban-column-empty {
+    color: var(--accent);
   }
 
   /* Desktop hover action bar on cards */
@@ -2896,12 +2929,22 @@
     display: none;
   }
 
-  /* Full-screen overlays */
+  /* Full-screen overlays → desktop modal */
   .settings-overlay {
-    max-width: 720px;
-    margin: 0 auto;
-    border-right: 1px solid var(--surface-hover);
-    border-left: 1px solid var(--surface-hover);
+    max-width: 800px;
+    max-height: 85vh;
+    margin: 7vh auto 0;
+    border-radius: 12px 12px 0 0;
+    border: 1px solid var(--surface-hover);
+    box-shadow: 0 -4px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .settings-overlay::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
   }
 
   .what-now-overlay {

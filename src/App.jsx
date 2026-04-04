@@ -1,6 +1,11 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { BarChart3, Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X } from 'lucide-react'
+import { polyfill } from 'mobile-drag-drop'
+import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scroll-behaviour'
+import 'mobile-drag-drop/default.css'
 import './App.css'
+
+polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
 import { inferSize, trelloUpdateCard } from './api'
 import { useTasks } from './hooks/useTasks'
