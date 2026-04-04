@@ -100,11 +100,12 @@ export default function AddTaskModal({ onAdd, onClose }) {
               {ENERGY_TYPES.map(et => (
                 <button
                   key={et.id}
-                  className={`energy-select-btn${form.energy === et.id ? ' selected' : ''}`}
+                  className={`energy-select-btn energy-type-btn${form.energy === et.id ? ' selected' : ''}`}
                   onClick={() => form.setEnergy(form.energy === et.id ? null : et.id)}
                   title={et.label}
                 >
                   <EnergyIcon icon={et.icon} color={et.color} size={18} />
+                  <span className="energy-type-label">{et.label}</span>
                 </button>
               ))}
             </div>

@@ -427,6 +427,19 @@
   background: rgba(255, 98, 64, 0.12);
 }
 
+.energy-type-btn {
+  width: auto;
+  height: auto;
+  padding: 6px 10px;
+  gap: 4px;
+  flex-direction: column;
+}
+
+.energy-type-label {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
 .energy-level-btn {
   width: auto;
   height: auto;
