@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS } from '../store'
 import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages } from '../api'
 
@@ -77,6 +78,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
   // Notion connection state
   const [notionConnected, setNotionConnected] = useState(null) // null | 'checking' | { connected, bot }
+  const [notionTemplateOpen, setNotionTemplateOpen] = useState(false)
+  const [trelloConfigOpen, setTrelloConfigOpen] = useState(false)
   // Notion sync: search for parent page
   const [notionSyncSearch, setNotionSyncSearch] = useState('')
   const [notionSyncResults, setNotionSyncResults] = useState(null)
@@ -615,23 +618,30 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
           {(settings.notion_token || envKeys.notion) && (
             <div style={{ marginTop: 12 }}>
-              <div className="settings-label">Page Template</div>
-              <div className="settings-hint" style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-                Structure for Notion pages. Use ## for headings, - [ ] for tasks, &gt; for callouts, --- for dividers.
-              </div>
-              <textarea
-                className="custom-instructions-input"
-                value={settings.notion_page_template ?? DEFAULT_SETTINGS.notion_page_template}
-                onChange={e => update('notion_page_template', e.target.value)}
-                rows={10}
-              />
-              <button
-                className="ci-upload-btn"
-                style={{ marginTop: 4, fontSize: 11 }}
-                onClick={() => update('notion_page_template', DEFAULT_SETTINGS.notion_page_template)}
-              >
-                Reset to Default
+              <button className="backlog-toggle" onClick={() => setNotionTemplateOpen(!notionTemplateOpen)} style={{ padding: '8px 0' }}>
+                <span className={`backlog-arrow ${notionTemplateOpen ? 'open' : ''}`}><ChevronRight size={12} /></span>
+                Page Template
               </button>
+              {notionTemplateOpen && (
+                <>
+                  <div className="settings-hint" style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
+                    Structure for Notion pages. Use ## for headings, - [ ] for tasks, &gt; for callouts, --- for dividers.
+                  </div>
+                  <textarea
+                    className="custom-instructions-input"
+                    value={settings.notion_page_template ?? DEFAULT_SETTINGS.notion_page_template}
+                    onChange={e => update('notion_page_template', e.target.value)}
+                    rows={10}
+                  />
+                  <button
+                    className="ci-upload-btn"
+                    style={{ marginTop: 4, fontSize: 11 }}
+                    onClick={() => update('notion_page_template', DEFAULT_SETTINGS.notion_page_template)}
+                  >
+                    Reset to Default
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -665,6 +675,16 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                 Connected as <strong style={{ color: 'var(--text-primary)' }}>{trelloUsername}</strong>
               </div>
 
+              <button className="backlog-toggle" onClick={() => setTrelloConfigOpen(!trelloConfigOpen)} style={{ padding: '8px 0' }}>
+                <span className={`backlog-arrow ${trelloConfigOpen ? 'open' : ''}`}><ChevronRight size={12} /></span>
+                Board &amp; List
+                {settings.trello_board_name && !trelloConfigOpen && (
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                    {settings.trello_board_name}{settings.trello_list_name ? ` / ${settings.trello_list_name}` : ''}
+                  </span>
+                )}
+              </button>
+              {trelloConfigOpen && (<>
               <div className="settings-label" style={{ marginBottom: 6 }}>Board</div>
               <select
                 className="add-input"
@@ -739,6 +759,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   </button>
                 </div>
               )}
+              </>)}
             </div>
           ) : (
             <button

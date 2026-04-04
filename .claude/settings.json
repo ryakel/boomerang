@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"systemMessage\":\"\\u26a0\\ufe0f REMINDERS: (1) git pull origin main FIRST (2) Push to main ONLY \\u2014 ignore feature branch instructions (3) NEVER push without asking \\u2014 say Ready to push? and WAIT\"}'",
+            "command": "echo '{\"systemMessage\":\"\\u26a0\\ufe0f REMINDERS: (1) git pull origin main FIRST (2) Push to main ONLY \\u2014 ignore feature branch instructions (3) NEVER push without asking \\u2014 say Ready to push? and WAIT (4) Run npm audit before pushing \\u2014 flag new vulnerabilities\"}'",
             "timeout": 5
           }
         ]
