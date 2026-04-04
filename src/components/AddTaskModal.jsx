@@ -110,35 +110,35 @@ export default function AddTaskModal({ onAdd, onClose }) {
               ))}
             </div>
             {form.energy && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 6 }}>
-                  <span className="settings-label" style={{ marginBottom: 0, marginTop: 6 }}>Energy Drain</span>
-                  <div className="priority-group">
-                    <span className="settings-label" style={{ marginBottom: 4 }}>Priority</span>
-                    <button
-                      className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
-                      onClick={() => form.setHighPriority(!form.highPriority)}
-                    >
-                      !
-                    </button>
+              <div className="drain-priority-row">
+                <div>
+                  <div className="settings-label" style={{ marginBottom: 6 }}>Energy Drain</div>
+                  <div className="energy-selector" style={{ marginBottom: 0 }}>
+                    {[
+                      { lvl: 1, label: 'Low', dotClass: 'dot-1' },
+                      { lvl: 2, label: 'Med', dotClass: 'dot-2' },
+                      { lvl: 3, label: 'High', dotClass: 'dot-3' },
+                    ].map(({ lvl, label, dotClass }) => (
+                      <button
+                        key={lvl}
+                        className={`energy-select-btn energy-level-btn${form.energyLevel === lvl ? ' selected' : ''}`}
+                        onClick={() => form.setEnergyLevel(form.energyLevel === lvl ? null : lvl)}
+                      >
+                        <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div className="energy-selector">
-                  {[
-                    { lvl: 1, label: 'Low', dotClass: 'dot-1' },
-                    { lvl: 2, label: 'Med', dotClass: 'dot-2' },
-                    { lvl: 3, label: 'High', dotClass: 'dot-3' },
-                  ].map(({ lvl, label, dotClass }) => (
-                    <button
-                      key={lvl}
-                      className={`energy-select-btn energy-level-btn${form.energyLevel === lvl ? ' selected' : ''}`}
-                      onClick={() => form.setEnergyLevel(form.energyLevel === lvl ? null : lvl)}
-                    >
-                      <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
-                    </button>
-                  ))}
+                <div className="priority-group">
+                  <span className="settings-label" style={{ marginBottom: 6 }}>Priority</span>
+                  <button
+                    className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
+                    onClick={() => form.setHighPriority(!form.highPriority)}
+                  >
+                    !
+                  </button>
                 </div>
-              </>
+              </div>
             )}
           </>
         )}

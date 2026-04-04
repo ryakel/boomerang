@@ -238,6 +238,13 @@
   flex-shrink: 0;
 }
 
+.drain-priority-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .priority-group {
   display: flex;
   flex-direction: column;
