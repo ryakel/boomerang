@@ -159,7 +159,9 @@ Completed. Tasks and routines now have proper SQL tables with individual columns
 
 ### Desktop UI Phases (Priority: Medium)
 
-Phases 1-2 done (kanban board, hover states, drag-and-drop between columns). Remaining:
-- **Phase 3:** EditTaskModal as right-side drawer (480px) instead of bottom sheet on desktop
+Phases 1-2 done (kanban board, hover states, drag-and-drop between columns). Desktop modals done — Settings, Routines, Analytics, and Edit Task all use `sheet-overlay`/`sheet` container with X close button on desktop; mobile keeps full-screen `settings-overlay` with ← Back. "What Now" overlay uses CSS-only scrim on desktop. Bottom bar hidden on desktop; compact "What now?" button in header instead.
+
+Remaining:
+- **Phase 3:** EditTaskModal as right-side drawer (480px) instead of centered modal on desktop
 - **Phase 4:** Keyboard shortcuts (n=add, /=search, j/k=navigate, Escape=close, e=edit)
 - **Phase 5:** Richer desktop cards (notes preview, checklist progress bar, always-show tags)
