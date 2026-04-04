@@ -111,7 +111,7 @@ function save(key, data) {
   localStorage.setItem(key, JSON.stringify(data))
 }
 
-// Touch the local modification timestamp — used by useSync to detect
+// Touch the local modification timestamp — used to detect
 // whether localStorage is newer than the server on hydration.
 function touchModified() {
   localStorage.setItem(MODIFIED_KEY, String(Date.now()))

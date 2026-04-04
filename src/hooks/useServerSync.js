@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { saveTasks, saveRoutines, saveSettings, saveLabels } from '../store'
+import { serverCreateTask, serverUpdateTask, serverDeleteTask,
+  serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine } from '../api'
 
 const DEBOUNCE_MS = 300
 
@@ -43,14 +45,16 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const savedTimer = useRef(null)
   const versionMismatchFired = useRef(false)
 
+  // Track previous state for diffing
+  const prevTasks = useRef(null)
+  const prevRoutines = useRef(null)
+
   // If we just reloaded for a version update, skip all version checks this page load
-  // to prevent a double-reload cycle when cached JS still reports the old version
   if (!versionMismatchFired.current && sessionStorage.getItem('boom_reloading_for_update')) {
     sessionStorage.removeItem('boom_reloading_for_update')
     versionMismatchFired.current = true
   }
 
-  // Stable ref for callback so closures always see latest
   const onVersionMismatchRef = useRef(onVersionMismatch)
   onVersionMismatchRef.current = onVersionMismatch
 
@@ -67,8 +71,6 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
 
   // Fetch server data and hydrate local state
   const fetchAndHydrate = useCallback((reason) => {
-    // Cancel any pending push — we're about to get fresh server state,
-    // so pushing stale local state would cause a race condition
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current)
       debounceTimer.current = null
@@ -91,9 +93,12 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           if (data.routines) saveRoutines(data.routines)
           if (data.settings) saveSettings(data.settings)
           if (data.labels) saveLabels(data.labels)
+          // Update prev refs to prevent false diffs after hydration
+          prevTasks.current = data.tasks || []
+          prevRoutines.current = data.routines || []
         } else {
           remoteLog(`${reason}: server empty, pushing local state`)
-          pushState(latestState.current.tasks, latestState.current.routines)
+          pushBulkState(latestState.current.tasks, latestState.current.routines)
         }
       })
       .catch(err => {
@@ -111,7 +116,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       es = new EventSource('/api/events')
 
       es.onmessage = (event) => {
-        if (event.data.startsWith(':')) return // ping
+        if (event.data.startsWith(':')) return
         let msg
         try { msg = JSON.parse(event.data) } catch { return }
 
@@ -119,7 +124,6 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           serverVersion.current = msg.version
           remoteLog(`SSE: connected, server v${msg.version}, appVersion=${msg.appVersion}`)
 
-          // Show update modal if client is running a different version than the server
           const clientVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
           if (msg.appVersion && clientVersion !== 'dev' && msg.appVersion !== clientVersion) {
             remoteLog(`SSE: VERSION MISMATCH — client=${clientVersion} server=${msg.appVersion}`)
@@ -135,7 +139,6 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           })
         } else if (msg.type === 'update') {
           if (msg.sourceClientId === clientId) {
-            // Our own write echoed back, just update version
             serverVersion.current = msg.version
             remoteLog(`SSE: own write confirmed v${msg.version}`)
             return
@@ -148,7 +151,6 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
 
       es.onerror = () => {
         remoteLog('SSE: connection error, will auto-reconnect')
-        // EventSource auto-reconnects, but if it closes permanently we retry
         if (es.readyState === EventSource.CLOSED) {
           remoteLog('SSE: closed, manual reconnect in 3s')
           reconnectTimer = setTimeout(connect, 3000)
@@ -164,8 +166,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     }
   }, [clientId, fetchAndHydrate, fireVersionMismatch])
 
-  // Re-sync when app becomes visible (covers iOS killing SSE in background,
-  // mobile browser tab switches, and PWA resume)
+  // Re-sync when app becomes visible
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible' && hydrated.current) {
@@ -177,7 +178,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [fetchAndHydrate])
 
-  // Debounced push whenever tasks or routines change
+  // Debounced per-record push whenever tasks or routines change
   useEffect(() => {
     if (!hydrated.current) return
     if (skipNextPush.current) {
@@ -185,11 +186,9 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       return
     }
 
-    remoteLog('change: scheduling push in', DEBOUNCE_MS, 'ms')
-
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
-      pushState(latestState.current.tasks, latestState.current.routines)
+      pushChanges(latestState.current.tasks, latestState.current.routines)
     }, DEBOUNCE_MS)
 
     return () => {
@@ -197,7 +196,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     }
   }, [tasks, routines])
 
-  // Flush pending sync on page unload
+  // Flush pending sync on page unload — uses bulk endpoint (sendBeacon limitation)
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (debounceTimer.current) {
@@ -218,15 +217,97 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [clientId])
 
-  // Manual flush for settings/labels changes
+  // Manual flush for settings/labels changes (still bulk since those live in app_data)
   const flush = useCallback(() => {
     remoteLog('flush: manual (settings/labels changed)')
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    pushState(latestState.current.tasks, latestState.current.routines)
+    pushBulkState(latestState.current.tasks, latestState.current.routines)
   }, [])
 
-  // Push helper - uses clientId from closure
-  function pushState(tasks, routines) {
+  // Per-record change detection and push
+  function pushChanges(currentTasks, currentRoutines) {
+    const prev = prevTasks.current
+    const prevR = prevRoutines.current
+
+    // If no previous state, fall back to bulk push
+    if (!prev || !prevR) {
+      pushBulkState(currentTasks, currentRoutines)
+      return
+    }
+
+    const ops = []
+
+    // Diff tasks
+    const prevMap = new Map(prev.map(t => [t.id, t]))
+    const currMap = new Map((currentTasks || []).map(t => [t.id, t]))
+
+    // New or updated tasks
+    for (const [id, task] of currMap) {
+      const old = prevMap.get(id)
+      if (!old) {
+        ops.push(() => serverCreateTask(task, clientId))
+      } else if (JSON.stringify(old) !== JSON.stringify(task)) {
+        ops.push(() => serverUpdateTask(id, task, clientId))
+      }
+    }
+    // Deleted tasks
+    for (const id of prevMap.keys()) {
+      if (!currMap.has(id)) {
+        ops.push(() => serverDeleteTask(id))
+      }
+    }
+
+    // Diff routines
+    const prevRMap = new Map(prevR.map(r => [r.id, r]))
+    const currRMap = new Map((currentRoutines || []).map(r => [r.id, r]))
+
+    for (const [id, routine] of currRMap) {
+      const old = prevRMap.get(id)
+      if (!old) {
+        ops.push(() => serverCreateRoutine(routine, clientId))
+      } else if (JSON.stringify(old) !== JSON.stringify(routine)) {
+        ops.push(() => serverUpdateRoutine(id, routine, clientId))
+      }
+    }
+    for (const id of prevRMap.keys()) {
+      if (!currRMap.has(id)) {
+        ops.push(() => serverDeleteRoutine(id))
+      }
+    }
+
+    if (ops.length === 0) {
+      remoteLog('push: no changes detected')
+      prevTasks.current = currentTasks
+      prevRoutines.current = currentRoutines
+      return
+    }
+
+    remoteLog(`push: ${ops.length} per-record operation(s)`)
+    setSyncStatus('saving')
+
+    Promise.all(ops.map(op => op()))
+      .then(results => {
+        // Update server version from last result
+        for (const r of results) {
+          if (r?.version) serverVersion.current = r.version
+        }
+        prevTasks.current = currentTasks
+        prevRoutines.current = currentRoutines
+        remoteLog(`push: success, ${ops.length} ops, v${serverVersion.current}`)
+        setSyncStatus('saved')
+        if (savedTimer.current) clearTimeout(savedTimer.current)
+        savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
+        flushLogs()
+      })
+      .catch(err => {
+        remoteLog('push: per-record FAILED:', err.message, '— falling back to bulk')
+        // Fallback to bulk push on failure
+        pushBulkState(currentTasks, currentRoutines)
+      })
+  }
+
+  // Bulk push helper — fallback and used for settings/labels
+  function pushBulkState(tasks, routines) {
     const payload = buildPayload(tasks, routines)
     if (!payload) {
       remoteLog('push: no payload, skipping')
@@ -248,6 +329,8 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           setSyncStatus('offline')
         } else return res.json().then(r => {
           serverVersion.current = r.version
+          prevTasks.current = latestState.current.tasks
+          prevRoutines.current = latestState.current.routines
           remoteLog('push: success v' + r.version)
           setSyncStatus('saved')
           if (savedTimer.current) clearTimeout(savedTimer.current)
@@ -262,7 +345,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       })
   }
 
-  // Check app version against server on demand (e.g. on view navigation)
+  // Check app version against server on demand
   const checkVersion = useCallback(() => {
     if (versionMismatchFired.current) return
     fetch('/api/health')

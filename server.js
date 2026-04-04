@@ -4,7 +4,9 @@ import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import { execSync } from 'child_process'
-import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bumpVersion } from './db.js'
+import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bumpVersion, flushNow,
+  upsertTask, getTask, getAllTasks, deleteTask, queryTasks, updateTaskPartial,
+  upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial } from './db.js'
 
 // --- App version (same logic as vite.config.js) ---
 let appVersion
@@ -154,6 +156,84 @@ app.patch('/api/data/:collection', (req, res) => {
 
 app.delete('/api/data', (req, res) => {
   clearAllData()
+  const newVersion = bumpVersion()
+  broadcast(newVersion, null)
+  res.json({ ok: true, version: newVersion })
+})
+
+// --- Per-record Task API ---
+app.get('/api/tasks', (req, res) => {
+  const tasks = queryTasks(req.query)
+  res.json(tasks)
+})
+
+app.get('/api/tasks/:id', (req, res) => {
+  const task = getTask(req.params.id)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  res.json(task)
+})
+
+app.post('/api/tasks', (req, res) => {
+  const task = req.body
+  if (!task.id) return res.status(400).json({ error: 'Task must have an id' })
+  upsertTask(task)
+  const newVersion = bumpVersion()
+  broadcast(newVersion, req.body._clientId || null)
+  res.json({ task: getTask(task.id), version: newVersion })
+})
+
+app.patch('/api/tasks/:id', (req, res) => {
+  const clientId = req.body._clientId
+  const updates = { ...req.body }
+  delete updates._clientId
+  const task = updateTaskPartial(req.params.id, updates)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const newVersion = bumpVersion()
+  broadcast(newVersion, clientId || null)
+  res.json({ task, version: newVersion })
+})
+
+app.delete('/api/tasks/:id', (req, res) => {
+  deleteTask(req.params.id)
+  const newVersion = bumpVersion()
+  broadcast(newVersion, null)
+  res.json({ ok: true, version: newVersion })
+})
+
+// --- Per-record Routine API ---
+app.get('/api/routines', (req, res) => {
+  const routines = getAllRoutines()
+  res.json(routines)
+})
+
+app.get('/api/routines/:id', (req, res) => {
+  const routine = getRoutine(req.params.id)
+  if (!routine) return res.status(404).json({ error: 'Routine not found' })
+  res.json(routine)
+})
+
+app.post('/api/routines', (req, res) => {
+  const routine = req.body
+  if (!routine.id) return res.status(400).json({ error: 'Routine must have an id' })
+  upsertRoutine(routine)
+  const newVersion = bumpVersion()
+  broadcast(newVersion, req.body._clientId || null)
+  res.json({ routine: getRoutine(routine.id), version: newVersion })
+})
+
+app.patch('/api/routines/:id', (req, res) => {
+  const clientId = req.body._clientId
+  const updates = { ...req.body }
+  delete updates._clientId
+  const routine = updateRoutinePartial(req.params.id, updates)
+  if (!routine) return res.status(404).json({ error: 'Routine not found' })
+  const newVersion = bumpVersion()
+  broadcast(newVersion, clientId || null)
+  res.json({ routine, version: newVersion })
+})
+
+app.delete('/api/routines/:id', (req, res) => {
+  deleteRoutine(req.params.id)
   const newVersion = bumpVersion()
   broadcast(newVersion, null)
   res.json({ ok: true, version: newVersion })
@@ -594,3 +674,12 @@ initDb(dbPath).then(() => {
   console.error('Failed to initialize database:', err)
   process.exit(1)
 })
+
+// --- Graceful shutdown: flush DB to disk ---
+function shutdown(signal) {
+  console.log(`\n[DB] ${signal} received, flushing database...`)
+  flushNow()
+  process.exit(0)
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

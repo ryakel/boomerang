@@ -430,3 +430,66 @@ export async function aiDedupTrelloCards(cards, tasks) {
   const result = await callClaude('You match Trello cards to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt)
   return extractJSON(result)
 }
+
+// ============================================================
+// Per-record Task & Routine API
+// ============================================================
+
+export async function serverCreateTask(task, clientId) {
+  const res = await fetch('/api/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...task, _clientId: clientId }),
+  })
+  if (!res.ok) throw new Error(`create task failed: ${res.status}`)
+  return res.json()
+}
+
+export async function serverUpdateTask(id, updates, clientId) {
+  const res = await fetch(`/api/tasks/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...updates, _clientId: clientId }),
+  })
+  if (!res.ok) throw new Error(`update task failed: ${res.status}`)
+  return res.json()
+}
+
+export async function serverDeleteTask(id) {
+  const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`delete task failed: ${res.status}`)
+  return res.json()
+}
+
+export async function serverFetchTasks(filters = {}) {
+  const params = new URLSearchParams(filters)
+  const res = await fetch(`/api/tasks?${params}`)
+  if (!res.ok) throw new Error(`fetch tasks failed: ${res.status}`)
+  return res.json()
+}
+
+export async function serverCreateRoutine(routine, clientId) {
+  const res = await fetch('/api/routines', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...routine, _clientId: clientId }),
+  })
+  if (!res.ok) throw new Error(`create routine failed: ${res.status}`)
+  return res.json()
+}
+
+export async function serverUpdateRoutine(id, updates, clientId) {
+  const res = await fetch(`/api/routines/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...updates, _clientId: clientId }),
+  })
+  if (!res.ok) throw new Error(`update routine failed: ${res.status}`)
+  return res.json()
+}
+
+export async function serverDeleteRoutine(id) {
+  const res = await fetch(`/api/routines/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`delete routine failed: ${res.status}`)
+  return res.json()
+}
