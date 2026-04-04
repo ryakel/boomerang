@@ -171,7 +171,7 @@
 .task-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 20px 160px;
+  padding: 0 20px 140px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -750,22 +750,22 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 12px 20px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  background: linear-gradient(transparent, var(--bg) 20%);
+  padding: 8px 20px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, var(--bg) 30%);
   max-width: 600px;
   margin: 0 auto;
 }
 
 .what-now-btn {
   width: 100%;
-  padding: 14px;
+  padding: 12px;
   border-radius: var(--radius);
   background: var(--accent);
   color: #fff;
   font-size: 15px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   transition: background 0.15s ease;
 }
 
