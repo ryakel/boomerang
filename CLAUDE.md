@@ -153,6 +153,10 @@ Completed. Tasks and routines now have proper SQL tables with individual columns
 
 **What triggers this work:** Regular mobile usage on spotty connections, or first report of lost data from offline edits.
 
+### Research + File Attachments (Priority: Low)
+
+`researchTask()` in `src/api.js` only sends text (title, notes, prompt) to Claude. Attached files on a task are ignored during Research. To fix: pass `task.attachments` into `researchTask()`, convert base64 attachments to Claude API content blocks (image/document types), include in the API request. Attachments themselves store and display fine — just not wired into the Research flow.
+
 ### Desktop UI Phases (Priority: Medium)
 
 Phases 1-2 done (kanban board, hover states, drag-and-drop between columns). Remaining:
