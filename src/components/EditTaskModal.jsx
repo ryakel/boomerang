@@ -275,7 +275,17 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     if (!title.trim() || !trelloPushListId) return
     setTrelloPushing(true)
     try {
-      const card = await trelloCreateCard(title.trim(), notes.trim(), trelloPushListId)
+      // Build description with notes + checklists
+      let desc = notes.trim()
+      if (checklists.length > 0) {
+        const clText = checklists.map(cl => {
+          const header = `**${cl.name}**`
+          const items = cl.items.map(i => `- [${i.completed ? 'x' : ' '}] ${i.text}`).join('\n')
+          return `${header}\n${items}`
+        }).join('\n\n')
+        desc = desc ? `${desc}\n\n${clText}` : clText
+      }
+      const card = await trelloCreateCard(title.trim(), desc, trelloPushListId)
       setTrelloResult({ id: card.id, url: card.url })
     } catch { /* ignore */ }
     finally { setTrelloPushing(false) }
