@@ -73,9 +73,9 @@ function seedFromJsonBlobs() {
     const blob = getData('tasks')
     if (Array.isArray(blob) && blob.length > 0) {
       console.log(`[DB] Seeding ${blob.length} tasks from JSON blob into tasks table`)
-      for (const task of blob) {
-        upsertTask(task)
-      }
+      db.run('BEGIN TRANSACTION')
+      for (const task of blob) runUpsertTask(task)
+      db.run('COMMIT')
     }
   }
 
@@ -85,9 +85,9 @@ function seedFromJsonBlobs() {
     const blob = getData('routines')
     if (Array.isArray(blob) && blob.length > 0) {
       console.log(`[DB] Seeding ${blob.length} routines from JSON blob into routines table`)
-      for (const routine of blob) {
-        upsertRoutine(routine)
-      }
+      db.run('BEGIN TRANSACTION')
+      for (const routine of blob) runUpsertRoutine(routine)
+      db.run('COMMIT')
     }
   }
 }
@@ -199,12 +199,10 @@ export function setAllData(data) {
   for (const [collection, value] of Object.entries(data)) {
     if (collection === '_clientId') continue
     if (collection === 'tasks') {
-      // Write to proper tasks table
       syncTasksFromArray(value)
       continue
     }
     if (collection === 'routines') {
-      // Write to proper routines table
       syncRoutinesFromArray(value)
       continue
     }
@@ -299,34 +297,39 @@ function safeJsonParse(str, fallback) {
 // Task CRUD operations
 // ============================================================
 
-export function upsertTask(task) {
+const UPSERT_TASK_SQL = `
+  INSERT INTO tasks (id, title, status, notes, due_date, snoozed_until, snooze_count,
+    staleness_days, last_touched, created_at, completed_at, reframe_notes,
+    notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
+    high_priority, size, energy, energy_level, tags_json, attachments_json,
+    checklist_json, comments_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(id) DO UPDATE SET
+    title=excluded.title, status=excluded.status, notes=excluded.notes,
+    due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
+    snooze_count=excluded.snooze_count, staleness_days=excluded.staleness_days,
+    last_touched=excluded.last_touched, created_at=excluded.created_at,
+    completed_at=excluded.completed_at, reframe_notes=excluded.reframe_notes,
+    notion_page_id=excluded.notion_page_id, notion_url=excluded.notion_url,
+    trello_card_id=excluded.trello_card_id, trello_card_url=excluded.trello_card_url,
+    routine_id=excluded.routine_id, high_priority=excluded.high_priority,
+    size=excluded.size, energy=excluded.energy, energy_level=excluded.energy_level,
+    tags_json=excluded.tags_json, attachments_json=excluded.attachments_json,
+    checklist_json=excluded.checklist_json, comments_json=excluded.comments_json`
+
+function runUpsertTask(task) {
   const r = taskToRow(task)
-  db.run(`
-    INSERT INTO tasks (id, title, status, notes, due_date, snoozed_until, snooze_count,
-      staleness_days, last_touched, created_at, completed_at, reframe_notes,
-      notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
-      high_priority, size, energy, energy_level, tags_json, attachments_json,
-      checklist_json, comments_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      title=excluded.title, status=excluded.status, notes=excluded.notes,
-      due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
-      snooze_count=excluded.snooze_count, staleness_days=excluded.staleness_days,
-      last_touched=excluded.last_touched, created_at=excluded.created_at,
-      completed_at=excluded.completed_at, reframe_notes=excluded.reframe_notes,
-      notion_page_id=excluded.notion_page_id, notion_url=excluded.notion_url,
-      trello_card_id=excluded.trello_card_id, trello_card_url=excluded.trello_card_url,
-      routine_id=excluded.routine_id, high_priority=excluded.high_priority,
-      size=excluded.size, energy=excluded.energy, energy_level=excluded.energy_level,
-      tags_json=excluded.tags_json, attachments_json=excluded.attachments_json,
-      checklist_json=excluded.checklist_json, comments_json=excluded.comments_json
-  `, [
+  db.run(UPSERT_TASK_SQL, [
     r.id, r.title, r.status, r.notes, r.due_date, r.snoozed_until, r.snooze_count,
     r.staleness_days, r.last_touched, r.created_at, r.completed_at, r.reframe_notes,
     r.notion_page_id, r.notion_url, r.trello_card_id, r.trello_card_url, r.routine_id,
     r.high_priority, r.size, r.energy, r.energy_level, r.tags_json, r.attachments_json,
     r.checklist_json, r.comments_json,
   ])
+}
+
+export function upsertTask(task) {
+  runUpsertTask(task)
   schedulePersist()
 }
 
@@ -420,30 +423,35 @@ export function queryTasks(filters = {}) {
 }
 
 // Sync the full tasks array — used by setAllData (bulk sync from client)
+// Wrapped in a transaction for performance (single commit instead of N)
 function syncTasksFromArray(tasksArray) {
   if (!Array.isArray(tasksArray)) return
 
-  // Get existing task IDs
-  const existingIds = new Set()
-  const stmt = db.prepare('SELECT id FROM tasks')
-  while (stmt.step()) {
-    existingIds.add(stmt.getAsObject().id)
-  }
-  stmt.free()
-
-  // Upsert all incoming tasks
-  const incomingIds = new Set()
-  for (const task of tasksArray) {
-    if (!task.id) continue
-    incomingIds.add(task.id)
-    upsertTask(task)
-  }
-
-  // Delete tasks not in the incoming array (they were deleted on client)
-  for (const id of existingIds) {
-    if (!incomingIds.has(id)) {
-      db.run('DELETE FROM tasks WHERE id = ?', [id])
+  db.run('BEGIN TRANSACTION')
+  try {
+    const existingIds = new Set()
+    const stmt = db.prepare('SELECT id FROM tasks')
+    while (stmt.step()) {
+      existingIds.add(stmt.getAsObject().id)
     }
+    stmt.free()
+
+    const incomingIds = new Set()
+    for (const task of tasksArray) {
+      if (!task.id) continue
+      incomingIds.add(task.id)
+      runUpsertTask(task)
+    }
+
+    for (const id of existingIds) {
+      if (!incomingIds.has(id)) {
+        db.run('DELETE FROM tasks WHERE id = ?', [id])
+      }
+    }
+    db.run('COMMIT')
+  } catch (err) {
+    db.run('ROLLBACK')
+    throw err
   }
 }
 
@@ -493,24 +501,29 @@ function rowToRoutine(row) {
 // Routine CRUD operations
 // ============================================================
 
-export function upsertRoutine(routine) {
+const UPSERT_ROUTINE_SQL = `
+  INSERT INTO routines (id, title, cadence, custom_days, notes, high_priority,
+    energy, energy_level, notion_page_id, notion_url, created_at, paused,
+    tags_json, completed_history_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(id) DO UPDATE SET
+    title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
+    notes=excluded.notes, high_priority=excluded.high_priority, energy=excluded.energy,
+    energy_level=excluded.energy_level, notion_page_id=excluded.notion_page_id,
+    notion_url=excluded.notion_url, created_at=excluded.created_at, paused=excluded.paused,
+    tags_json=excluded.tags_json, completed_history_json=excluded.completed_history_json`
+
+function runUpsertRoutine(routine) {
   const r = routineToRow(routine)
-  db.run(`
-    INSERT INTO routines (id, title, cadence, custom_days, notes, high_priority,
-      energy, energy_level, notion_page_id, notion_url, created_at, paused,
-      tags_json, completed_history_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
-      notes=excluded.notes, high_priority=excluded.high_priority, energy=excluded.energy,
-      energy_level=excluded.energy_level, notion_page_id=excluded.notion_page_id,
-      notion_url=excluded.notion_url, created_at=excluded.created_at, paused=excluded.paused,
-      tags_json=excluded.tags_json, completed_history_json=excluded.completed_history_json
-  `, [
+  db.run(UPSERT_ROUTINE_SQL, [
     r.id, r.title, r.cadence, r.custom_days, r.notes, r.high_priority,
     r.energy, r.energy_level, r.notion_page_id, r.notion_url, r.created_at, r.paused,
     r.tags_json, r.completed_history_json,
   ])
+}
+
+export function upsertRoutine(routine) {
+  runUpsertRoutine(routine)
   schedulePersist()
 }
 
@@ -553,23 +566,30 @@ export function deleteRoutine(id) {
 function syncRoutinesFromArray(routinesArray) {
   if (!Array.isArray(routinesArray)) return
 
-  const existingIds = new Set()
-  const stmt = db.prepare('SELECT id FROM routines')
-  while (stmt.step()) {
-    existingIds.add(stmt.getAsObject().id)
-  }
-  stmt.free()
-
-  const incomingIds = new Set()
-  for (const routine of routinesArray) {
-    if (!routine.id) continue
-    incomingIds.add(routine.id)
-    upsertRoutine(routine)
-  }
-
-  for (const id of existingIds) {
-    if (!incomingIds.has(id)) {
-      db.run('DELETE FROM routines WHERE id = ?', [id])
+  db.run('BEGIN TRANSACTION')
+  try {
+    const existingIds = new Set()
+    const stmt = db.prepare('SELECT id FROM routines')
+    while (stmt.step()) {
+      existingIds.add(stmt.getAsObject().id)
     }
+    stmt.free()
+
+    const incomingIds = new Set()
+    for (const routine of routinesArray) {
+      if (!routine.id) continue
+      incomingIds.add(routine.id)
+      runUpsertRoutine(routine)
+    }
+
+    for (const id of existingIds) {
+      if (!incomingIds.has(id)) {
+        db.run('DELETE FROM routines WHERE id = ?', [id])
+      }
+    }
+    db.run('COMMIT')
+  } catch (err) {
+    db.run('ROLLBACK')
+    throw err
   }
 }
