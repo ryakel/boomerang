@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { BarChart3, Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X } from 'lucide-react'
+import { BarChart3, Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff } from 'lucide-react'
 import { polyfill } from 'mobile-drag-drop'
 import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scroll-behaviour'
 import 'mobile-drag-drop/default.css'
@@ -89,7 +89,7 @@ function App() {
   }, [hydrateTasks, hydrateRoutines])
 
   const [updateVersion, setUpdateVersion] = useState(null)
-  const { flush: flushSync, checkVersion, syncStatus } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
+  const { flush: flushSync, checkVersion, syncStatus, queueLength } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
     setUpdateVersion(newVersion)
     // Unregister service worker so reload fetches fresh assets from server
     if ('serviceWorker' in navigator) {
@@ -305,6 +305,16 @@ function App() {
           <span className={`open-count ${settings.max_open_tasks && nonSnoozedCount > settings.max_open_tasks ? 'open-count-warn' : ''}`}>
             {nonSnoozedCount} open
           </span>
+          {syncStatus && (
+            <span className={`sync-indicator sync-indicator-${syncStatus}`} title={
+              syncStatus === 'offline' ? `Offline${queueLength ? ` (${queueLength} pending)` : ''}` :
+              syncStatus === 'saving' ? 'Syncing...' : 'Synced'
+            }>
+              {syncStatus === 'offline' ? <CloudOff size={13} /> :
+               syncStatus === 'saving' ? <Cloud size={13} /> :
+               <Cloud size={13} />}
+            </span>
+          )}
           <div className="sort-wrapper" ref={sortRef}>
             <button className="sort-btn" onClick={() => setShowSortDropdown(!showSortDropdown)}><ArrowUpDown size={15} /></button>
             {showSortDropdown && (

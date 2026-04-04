@@ -4,6 +4,26 @@ import { serverCreateTask, serverUpdateTask, serverDeleteTask,
   serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine } from '../api'
 
 const DEBOUNCE_MS = 300
+const MUTATION_QUEUE_KEY = 'boom_mutation_queue'
+
+// --- Mutation queue helpers ---
+function loadQueue() {
+  try {
+    return JSON.parse(localStorage.getItem(MUTATION_QUEUE_KEY) || '[]')
+  } catch { return [] }
+}
+
+function saveQueue(queue) {
+  localStorage.setItem(MUTATION_QUEUE_KEY, JSON.stringify(queue))
+}
+
+function enqueueMutations(ops) {
+  const queue = loadQueue()
+  queue.push(...ops)
+  // Cap at 200 entries to avoid unbounded growth
+  if (queue.length > 200) queue.splice(0, queue.length - 200)
+  saveQueue(queue)
+}
 
 // Buffer log lines and send to server in batches
 const _logBuffer = []
@@ -169,6 +189,25 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     remoteLog(`push: ${ops.length} per-record operation(s)`)
     setSyncStatus('saving')
 
+    // Build serializable descriptions for queue fallback
+    const opDescriptions = []
+    for (const [id, task] of currMap) {
+      const old = prevMap.get(id)
+      if (!old) opDescriptions.push({ type: 'createTask', data: task })
+      else if (JSON.stringify(old) !== JSON.stringify(task)) opDescriptions.push({ type: 'updateTask', id, data: task })
+    }
+    for (const id of prevMap.keys()) {
+      if (!currMap.has(id)) opDescriptions.push({ type: 'deleteTask', id })
+    }
+    for (const [id, routine] of currRMap) {
+      const old = prevRMap.get(id)
+      if (!old) opDescriptions.push({ type: 'createRoutine', data: routine })
+      else if (JSON.stringify(old) !== JSON.stringify(routine)) opDescriptions.push({ type: 'updateRoutine', id, data: routine })
+    }
+    for (const id of prevRMap.keys()) {
+      if (!currRMap.has(id)) opDescriptions.push({ type: 'deleteRoutine', id })
+    }
+
     Promise.all(ops.map(op => op()))
       .then(results => {
         for (const r of results) {
@@ -183,10 +222,59 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         flushLogs()
       })
       .catch(err => {
-        remoteLog('push: per-record FAILED:', err.message, '— falling back to bulk')
-        pushBulkState(currentTasks, currentRoutines)
+        remoteLog('push: per-record FAILED:', err.message, '— queueing mutations')
+        enqueueMutations(opDescriptions)
+        setSyncStatus('offline')
+        // Still update prev so we don't re-diff the same changes
+        prevTasks.current = currentTasks
+        prevRoutines.current = currentRoutines
+        flushLogs()
       })
   }, [clientId, pushBulkState])
+
+  // Replay queued mutations
+  const replayQueue = useCallback(() => {
+    const queue = loadQueue()
+    if (queue.length === 0) return Promise.resolve()
+
+    remoteLog(`replay: ${queue.length} queued mutation(s)`)
+    setSyncStatus('saving')
+
+    const executors = {
+      createTask: (op) => serverCreateTask(op.data, clientId),
+      updateTask: (op) => serverUpdateTask(op.id, op.data, clientId),
+      deleteTask: (op) => serverDeleteTask(op.id),
+      createRoutine: (op) => serverCreateRoutine(op.data, clientId),
+      updateRoutine: (op) => serverUpdateRoutine(op.id, op.data, clientId),
+      deleteRoutine: (op) => serverDeleteRoutine(op.id),
+    }
+
+    // Execute sequentially to preserve order
+    let chain = Promise.resolve()
+    for (const op of queue) {
+      const exec = executors[op.type]
+      if (exec) {
+        chain = chain.then(() => exec(op)).then(r => {
+          if (r?.version) serverVersion.current = r.version
+        })
+      }
+    }
+
+    return chain
+      .then(() => {
+        saveQueue([])
+        remoteLog(`replay: success, ${queue.length} ops replayed`)
+        setSyncStatus('saved')
+        if (savedTimer.current) clearTimeout(savedTimer.current)
+        savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
+        flushLogs()
+      })
+      .catch(err => {
+        remoteLog(`replay: FAILED: ${err.message} — keeping queue`)
+        setSyncStatus('offline')
+        flushLogs()
+      })
+  }, [clientId])
 
   // Fetch server data and hydrate local state
   const fetchAndHydrate = useCallback((reason) => {
@@ -249,7 +337,9 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
             return
           }
 
-          fetchAndHydrate('initial').finally(() => {
+          fetchAndHydrate('initial').then(() => {
+            return replayQueue()
+          }).finally(() => {
             hydrated.current = true
             remoteLog('SSE: hydrated, ready for sync')
             flushLogs()
@@ -281,7 +371,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       if (es) es.close()
       if (reconnectTimer) clearTimeout(reconnectTimer)
     }
-  }, [clientId, fetchAndHydrate, fireVersionMismatch])
+  }, [clientId, fetchAndHydrate, fireVersionMismatch, replayQueue])
 
   // Re-sync when app becomes visible
   useEffect(() => {
@@ -294,6 +384,27 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [fetchAndHydrate])
+
+  // Detect online/offline and replay queue on reconnect
+  useEffect(() => {
+    const handleOnline = () => {
+      remoteLog('network: back online, replaying queue')
+      setSyncStatus(null)
+      replayQueue()
+    }
+    const handleOffline = () => {
+      remoteLog('network: went offline')
+      setSyncStatus('offline')
+    }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    // Set initial offline status if already offline
+    if (!navigator.onLine) setSyncStatus('offline')
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [replayQueue])
 
   // Debounced per-record push whenever tasks or routines change
   useEffect(() => {
@@ -357,7 +468,9 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       .catch(() => {})
   }, [fireVersionMismatch])
 
-  return { flush, checkVersion, syncStatus }
+  const queueLength = loadQueue().length
+
+  return { flush, checkVersion, syncStatus, queueLength }
 }
 
 function buildPayload(tasks, routines) {
