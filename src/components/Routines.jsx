@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { loadLabels, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../store'
 
-export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onClose }) {
+export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onClose, isDesktop }) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingRoutine, setEditingRoutine] = useState(null)
   const [title, setTitle] = useState('')
@@ -60,14 +60,8 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
   const active = routines.filter(r => !r.paused)
   const paused = routines.filter(r => r.paused)
 
-  return (
-    <div className="settings-overlay">
-      <div className="settings-header">
-        <button className="settings-back" onClick={onClose}>← Back</button>
-        <div className="sheet-title" style={{ margin: 0 }}>Routines</div>
-        <button className="settings-back" onClick={() => { resetForm(); setShowAdd(true) }} style={{ color: 'var(--accent)' }}>+ New</button>
-      </div>
-
+  const content = (
+    <>
       {routines.length === 0 && !showAdd && (
         <div className="empty-state">
           No routines yet.<br />Recurring tasks live here.
@@ -163,6 +157,32 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
           ))}
         </>
       )}
+    </>
+  )
+
+  if (isDesktop) {
+    return (
+      <div className="sheet-overlay" onClick={onClose}>
+        <div className="sheet" onClick={e => e.stopPropagation()}>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
+          <div className="edit-task-title-row">
+            <div className="sheet-title">Routines</div>
+            <button className="submit-btn" onClick={() => { resetForm(); setShowAdd(true) }} style={{ padding: '6px 14px', fontSize: 13 }}>+ New</button>
+          </div>
+          {content}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="settings-overlay">
+      <div className="settings-header">
+        <button className="settings-back" onClick={onClose}>← Back</button>
+        <div className="sheet-title" style={{ margin: 0 }}>Routines</div>
+        <button className="settings-back" onClick={() => { resetForm(); setShowAdd(true) }} style={{ color: 'var(--accent)' }}>+ New</button>
+      </div>
+      {content}
     </div>
   )
 }

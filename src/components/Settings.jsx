@@ -55,7 +55,7 @@ function NotificationHistory() {
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
-export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onShowActivityLog, syncStatus }) {
+export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onShowActivityLog, syncStatus, isDesktop }) {
   const [activeTab, setActiveTab] = useState('General')
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
@@ -330,17 +330,14 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
     saveLabels(next)
   }
 
-  return (
-    <div className="settings-overlay">
-      <div className="settings-header">
-        <button className="settings-back" onClick={onClose}>← Back</button>
-        <div className="sheet-title" style={{ margin: 0 }}>Settings</div>
-        <span className="version-label">
-          {syncStatus === 'saving' ? 'Saving...' : syncStatus === 'saved' ? 'Saved' : __APP_VERSION__}
-        </span>
-      </div>
+  const savePill = (
+    <span className={`autosave-pill ${syncStatus === 'saved' ? 'autosave-pill-saved' : ''}`}>
+      {syncStatus === 'saving' ? 'Saving...' : syncStatus === 'saved' ? '✓ Saved' : 'Auto Save'}
+    </span>
+  )
 
-      <div className="settings-tabs">
+  const tabBar = (
+    <div className="settings-tabs">
         {TABS.map(tab => (
           <button
             key={tab}
@@ -351,7 +348,10 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           </button>
         ))}
       </div>
+  )
 
+  const settingsContent = (
+    <>
       {/* General */}
       {activeTab === 'General' && (
         <div className="settings-group">
@@ -1218,6 +1218,36 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           </div>
         </>
       )}
+    </>
+  )
+
+  if (isDesktop) {
+    return (
+      <div className="sheet-overlay" onClick={onClose}>
+        <div className="sheet" onClick={e => e.stopPropagation()}>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
+          <div className="edit-task-title-row">
+            <div className="sheet-title">Settings</div>
+            {savePill}
+          </div>
+          {tabBar}
+          {settingsContent}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="settings-overlay">
+      <div className="settings-header">
+        <button className="settings-back" onClick={onClose}>← Back</button>
+        <div className="sheet-title" style={{ margin: 0 }}>Settings</div>
+        <span className="version-label">
+          {syncStatus === 'saving' ? 'Saving...' : syncStatus === 'saved' ? 'Saved' : __APP_VERSION__}
+        </span>
+      </div>
+      {tabBar}
+      {settingsContent}
     </div>
   )
 }

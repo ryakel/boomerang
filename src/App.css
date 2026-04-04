@@ -2925,31 +2925,7 @@
     display: none;
   }
 
-  /* Full-screen overlays → desktop modal */
-  .settings-overlay {
-    inset: auto;
-    position: fixed;
-    top: 7vh;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90vw;
-    max-width: 800px;
-    max-height: 85vh;
-    border-radius: 12px;
-    border: 1px solid var(--surface-hover);
-    box-shadow: 0 4px 40px rgba(0, 0, 0, 0.5);
-    overflow-y: auto;
-    background: var(--bg);
-    z-index: 200;
-  }
-
-  .settings-overlay::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: -1;
-  }
+  /* settings-overlay not used on desktop — Settings/Routines use sheet-overlay/sheet */
 
   .what-now-overlay {
     padding: 60px 40px;

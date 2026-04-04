@@ -572,6 +572,7 @@ function App() {
           notionSyncing={notionSyncing}
           onShowActivityLog={() => { setShowSettings(false); setShowActivityLog(true) }}
           syncStatus={syncStatus}
+          isDesktop={isDesktop}
         />
       )}
 
@@ -622,6 +623,7 @@ function App() {
           onTogglePause={togglePause}
           onUpdate={updateRoutine}
           onClose={() => setShowRoutines(false)}
+          isDesktop={isDesktop}
         />
       )}
 
