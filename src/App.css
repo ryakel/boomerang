@@ -750,7 +750,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 8px 20px 4px;
+  padding: 8px 20px 0;
   background: var(--bg);
   max-width: 600px;
   margin: 0 auto;
@@ -759,12 +759,23 @@
 .bottom-bar::before {
   content: '';
   position: absolute;
+  top: -40px;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(transparent, var(--bg));
+  pointer-events: none;
+}
+
+.bottom-bar::after {
+  content: '';
+  position: absolute;
   top: 0;
   left: 20px;
   right: 20px;
-  height: 1px;
+  height: 1.5px;
   background: var(--text-dim);
-  opacity: 0.2;
+  opacity: 0.3;
 }
 
 .what-now-btn {
