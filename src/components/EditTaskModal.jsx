@@ -440,34 +440,33 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             </button>
           ))}
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+          <span className="settings-label" style={{ marginBottom: 0 }}>Energy Drain</span>
+          <button
+            className={`priority-btn${highPriority ? ' priority-active' : ''}`}
+            onClick={() => setHighPriority(!highPriority)}
+          >
+            <span className="priority-label">Priority</span>
+            <span className="priority-icon">!</span>
+          </button>
+        </div>
         {energy && (
-          <>
-            <div className="settings-label" style={{ marginBottom: 6 }}>Energy Drain</div>
-            <div className="energy-selector">
-              {[
-                { lvl: 1, label: 'Low', dotClass: 'dot-1' },
-                { lvl: 2, label: 'Med', dotClass: 'dot-2' },
-                { lvl: 3, label: 'High', dotClass: 'dot-3' },
-              ].map(({ lvl, label, dotClass }) => (
-                <button
-                  key={lvl}
-                  className={`energy-select-btn energy-level-btn${energyLevel === lvl ? ' selected' : ''}`}
-                  onClick={() => setEnergyLevel(energyLevel === lvl ? null : lvl)}
-                >
-                  <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
-                </button>
-              ))}
-            </div>
-          </>
+          <div className="energy-selector">
+            {[
+              { lvl: 1, label: 'Low', dotClass: 'dot-1' },
+              { lvl: 2, label: 'Med', dotClass: 'dot-2' },
+              { lvl: 3, label: 'High', dotClass: 'dot-3' },
+            ].map(({ lvl, label, dotClass }) => (
+              <button
+                key={lvl}
+                className={`energy-select-btn energy-level-btn${energyLevel === lvl ? ' selected' : ''}`}
+                onClick={() => setEnergyLevel(energyLevel === lvl ? null : lvl)}
+              >
+                <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
+              </button>
+            ))}
+          </div>
         )}
-
-        <button
-          className={`priority-btn${highPriority ? ' priority-active' : ''}`}
-          onClick={() => setHighPriority(!highPriority)}
-        >
-          <span className="priority-label">Priority</span>
-          <span className="priority-icon">!</span>
-        </button>
 
         {/* Attachments */}
         <input

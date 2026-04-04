@@ -242,12 +242,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  margin-left: auto;
   background: none;
   border: 1px solid rgba(255, 220, 100, 0.15);
   border-radius: var(--radius);
   cursor: pointer;
-  padding: 6px 12px;
-  margin-bottom: 8px;
+  padding: 4px 10px;
 }
 
 .priority-label {
