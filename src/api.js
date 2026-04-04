@@ -342,9 +342,14 @@ export async function suggestNotionLink(taskTitle, taskNotes) {
 
 // --- AI-generated Notion page content ---
 export async function generateNotionContent(taskTitle, taskNotes, isRecurring = false) {
-  const context = isRecurring ? 'This is a recurring task, so include a checklist template that can be reused each time.' : ''
-  const system = `You create structured Notion page content for tasks. Write clear, actionable content with sections. Use plain text with line breaks. ${context} Keep it concise and practical.`
-  const user = `Create Notion page content for:\nTask: "${taskTitle}"${taskNotes ? `\nNotes: ${taskNotes}` : ''}\n\nWrite the content as plain text lines.`
+  const settings = loadSettings()
+  const template = settings.notion_page_template || ''
+  const recurring = isRecurring ? '\nThis is a recurring task — include a reusable checklist in the Action Items section.' : ''
+  const system = `You create structured Notion page content for tasks. You MUST follow the template structure below, filling each section with relevant content for the given task. Preserve all markdown formatting exactly: ## for headings, - [ ] for to-do items, > for callouts, --- for dividers, - for bullet points. Do not add or remove sections — only populate the existing ones.${recurring}
+
+Template:
+${template}`
+  const user = `Create Notion page content for:\nTask: "${taskTitle}"${taskNotes ? `\nNotes: ${taskNotes}` : ''}`
 
   return callClaude(system, user)
 }

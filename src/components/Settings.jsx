@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification } from '../store'
+import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS } from '../store'
 import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages } from '../api'
 
 const NOTIF_TYPE_LABELS = {
@@ -610,6 +610,28 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {notionConnected && notionConnected.connected && (
+            <div style={{ marginTop: 12 }}>
+              <div className="settings-label">Page Template</div>
+              <div className="settings-hint" style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
+                Structure for Notion pages. Use ## for headings, - [ ] for tasks, &gt; for callouts, --- for dividers.
+              </div>
+              <textarea
+                className="custom-instructions-input"
+                value={settings.notion_page_template ?? DEFAULT_SETTINGS.notion_page_template}
+                onChange={e => update('notion_page_template', e.target.value)}
+                rows={10}
+              />
+              <button
+                className="ci-upload-btn"
+                style={{ marginTop: 4, fontSize: 11 }}
+                onClick={() => update('notion_page_template', DEFAULT_SETTINGS.notion_page_template)}
+              >
+                Reset to Default
+              </button>
             </div>
           )}
 

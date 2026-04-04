@@ -5,7 +5,7 @@ const ROUTINES_KEY = 'boom_routines_v1'
 const MODIFIED_KEY = 'boom_last_modified'
 const ACTIVITY_LOG_KEY = 'boom_activity_log_v1'
 
-const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS = {
   staleness_days: 2,
   reframe_threshold: 3,
   digest_time: '07:00',
@@ -49,6 +49,7 @@ const DEFAULT_SETTINGS = {
   trello_list_name: '',
   trello_list_mapping: null,
   trello_last_sync: null,
+  notion_page_template: `## Overview\n> Context and background for this task\n\n## Notes\n- Key details from task notes\n\n## Action Items\n- [ ] First step\n- [ ] Second step\n- [ ] Third step\n\n---\n\n## Reference\n- Related links or resources`,
 }
 
 const DEFAULT_LABELS = [

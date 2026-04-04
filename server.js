@@ -274,6 +274,42 @@ function makeNotionHeaders(token) {
   }
 }
 
+function richText(str) {
+  return [{ type: 'text', text: { content: str } }]
+}
+
+function parseContentToBlocks(content) {
+  return content.split('\n').filter(Boolean).map(line => {
+    if (line.match(/^---+$/)) {
+      return { object: 'block', type: 'divider', divider: {} }
+    }
+    if (line.startsWith('### ')) {
+      return { object: 'block', type: 'heading_3', heading_3: { rich_text: richText(line.slice(4)) } }
+    }
+    if (line.startsWith('## ')) {
+      return { object: 'block', type: 'heading_2', heading_2: { rich_text: richText(line.slice(3)) } }
+    }
+    if (line.startsWith('# ')) {
+      return { object: 'block', type: 'heading_1', heading_1: { rich_text: richText(line.slice(2)) } }
+    }
+    if (line.match(/^- \[[ x]\] /)) {
+      const checked = line[3] === 'x'
+      return { object: 'block', type: 'to_do', to_do: { rich_text: richText(line.slice(6)), checked } }
+    }
+    if (line.startsWith('> ')) {
+      return { object: 'block', type: 'callout', callout: { rich_text: richText(line.slice(2)), icon: { type: 'emoji', emoji: '💡' } } }
+    }
+    if (line.match(/^\d+\. /)) {
+      const text = line.replace(/^\d+\. /, '')
+      return { object: 'block', type: 'numbered_list_item', numbered_list_item: { rich_text: richText(text) } }
+    }
+    if (line.startsWith('- ')) {
+      return { object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: richText(line.slice(2)) } }
+    }
+    return { object: 'block', type: 'paragraph', paragraph: { rich_text: richText(line) } }
+  })
+}
+
 app.post('/api/notion/search', async (req, res) => {
   const token = getNotionToken(req)
   if (!token) return res.status(400).json({ error: 'No Notion token configured. Add one in Settings or set NOTION_INTEGRATION_TOKEN env var.' })
@@ -318,11 +354,7 @@ app.post('/api/notion/pages', async (req, res) => {
   try {
     const { title, content, parentPageId } = req.body
     const headers = makeNotionHeaders(token)
-    const children = (content || '').split('\n').filter(Boolean).map(line => ({
-      object: 'block',
-      type: 'paragraph',
-      paragraph: { rich_text: [{ type: 'text', text: { content: line.replace(/^- /, '') } }] },
-    }))
+    const children = parseContentToBlocks(content || '')
 
     const body = {
       properties: { title: { title: [{ text: { content: title } }] } },
