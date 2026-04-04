@@ -92,7 +92,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           .finally(() => setTrelloConnecting(false))
       }
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // Anthropic connection state
   const [anthropicStatus, setAnthropicStatus] = useState(null) // null | 'checking' | 'connected' | 'error'

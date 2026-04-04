@@ -4,8 +4,6 @@ import { polyfill } from 'mobile-drag-drop'
 import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scroll-behaviour'
 import 'mobile-drag-drop/default.css'
 import './App.css'
-
-polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
 import { inferSize, trelloUpdateCard } from './api'
 import { useTasks } from './hooks/useTasks'
@@ -33,6 +31,8 @@ import { useServerSync } from './hooks/useServerSync'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
 import { useTrelloSync } from './hooks/useTrelloSync'
 import { useNotionSync } from './hooks/useNotionSync'
+
+polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 
 function App() {
   const {

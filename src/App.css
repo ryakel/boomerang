@@ -2949,10 +2949,23 @@
 
   .what-now-overlay {
     padding: 60px 40px;
+    background: transparent;
+  }
+
+  .what-now-overlay::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
   }
 
   .what-now-options {
     max-width: 400px;
+  }
+
+  .app.desktop .quick-add {
+    display: none;
   }
 
   /* Scrollbars — show on desktop */
