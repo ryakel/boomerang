@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url'
 import path from 'path'
 import { execSync } from 'child_process'
 import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bumpVersion, flushNow,
-  upsertTask, getTask, getAllTasks, deleteTask, queryTasks, updateTaskPartial,
+  upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial } from './db.js'
 
 // --- App version (same logic as vite.config.js) ---

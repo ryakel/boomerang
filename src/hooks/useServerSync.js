@@ -69,6 +69,125 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     latestState.current = { tasks, routines }
   }, [tasks, routines])
 
+  // Bulk push helper — fallback and used for settings/labels
+  const pushBulkState = useCallback(function pushBulkState(currentTasks, currentRoutines) {
+    const payload = buildPayload(currentTasks, currentRoutines)
+    if (!payload) {
+      remoteLog('push: no payload, skipping')
+      return
+    }
+    payload._clientId = clientId
+
+    remoteLog('push: PUT /api/data — tasks=', taskSummary(payload.tasks))
+    setSyncStatus('saving')
+
+    fetch('/api/data', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(res => {
+        if (!res.ok) {
+          remoteLog('push: server responded', res.status)
+          setSyncStatus('offline')
+        } else return res.json().then(r => {
+          serverVersion.current = r.version
+          prevTasks.current = latestState.current.tasks
+          prevRoutines.current = latestState.current.routines
+          remoteLog('push: success v' + r.version)
+          setSyncStatus('saved')
+          if (savedTimer.current) clearTimeout(savedTimer.current)
+          savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
+        })
+        flushLogs()
+      })
+      .catch(err => {
+        remoteLog('push: FAILED:', err.message)
+        setSyncStatus('offline')
+        flushLogs()
+      })
+  }, [clientId])
+
+  // Per-record change detection and push
+  const pushChanges = useCallback(function pushChanges(currentTasks, currentRoutines) {
+    const prev = prevTasks.current
+    const prevR = prevRoutines.current
+
+    // If no previous state, fall back to bulk push
+    if (!prev || !prevR) {
+      pushBulkState(currentTasks, currentRoutines)
+      return
+    }
+
+    const ops = []
+
+    // Diff tasks
+    const prevMap = new Map(prev.map(t => [t.id, t]))
+    const currMap = new Map((currentTasks || []).map(t => [t.id, t]))
+
+    // New or updated tasks
+    for (const [id, task] of currMap) {
+      const old = prevMap.get(id)
+      if (!old) {
+        ops.push(() => serverCreateTask(task, clientId))
+      } else if (JSON.stringify(old) !== JSON.stringify(task)) {
+        ops.push(() => serverUpdateTask(id, task, clientId))
+      }
+    }
+    // Deleted tasks
+    for (const id of prevMap.keys()) {
+      if (!currMap.has(id)) {
+        ops.push(() => serverDeleteTask(id))
+      }
+    }
+
+    // Diff routines
+    const prevRMap = new Map(prevR.map(r => [r.id, r]))
+    const currRMap = new Map((currentRoutines || []).map(r => [r.id, r]))
+
+    for (const [id, routine] of currRMap) {
+      const old = prevRMap.get(id)
+      if (!old) {
+        ops.push(() => serverCreateRoutine(routine, clientId))
+      } else if (JSON.stringify(old) !== JSON.stringify(routine)) {
+        ops.push(() => serverUpdateRoutine(id, routine, clientId))
+      }
+    }
+    for (const id of prevRMap.keys()) {
+      if (!currRMap.has(id)) {
+        ops.push(() => serverDeleteRoutine(id))
+      }
+    }
+
+    if (ops.length === 0) {
+      remoteLog('push: no changes detected')
+      prevTasks.current = currentTasks
+      prevRoutines.current = currentRoutines
+      return
+    }
+
+    remoteLog(`push: ${ops.length} per-record operation(s)`)
+    setSyncStatus('saving')
+
+    Promise.all(ops.map(op => op()))
+      .then(results => {
+        for (const r of results) {
+          if (r?.version) serverVersion.current = r.version
+        }
+        prevTasks.current = currentTasks
+        prevRoutines.current = currentRoutines
+        remoteLog(`push: success, ${ops.length} ops, v${serverVersion.current}`)
+        setSyncStatus('saved')
+        if (savedTimer.current) clearTimeout(savedTimer.current)
+        savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
+        flushLogs()
+      })
+      .catch(err => {
+        remoteLog('push: per-record FAILED:', err.message, '— falling back to bulk')
+        pushBulkState(currentTasks, currentRoutines)
+      })
+  }, [clientId, pushBulkState])
+
   // Fetch server data and hydrate local state
   const fetchAndHydrate = useCallback((reason) => {
     if (debounceTimer.current) {
@@ -88,12 +207,10 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           remoteLog(`${reason}: got v${serverVersion.current}, tasks=${taskSummary(data.tasks)}`)
           skipNextPush.current = true
           onHydrate(data)
-          // Cache in localStorage for offline/fast initial render
           if (data.tasks) saveTasks(data.tasks)
           if (data.routines) saveRoutines(data.routines)
           if (data.settings) saveSettings(data.settings)
           if (data.labels) saveLabels(data.labels)
-          // Update prev refs to prevent false diffs after hydration
           prevTasks.current = data.tasks || []
           prevRoutines.current = data.routines || []
         } else {
@@ -104,7 +221,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       .catch(err => {
         remoteLog(`${reason}: fetch failed: ${err.message}`)
       })
-  }, [onHydrate])
+  }, [onHydrate, pushBulkState])
 
   // SSE connection
   useEffect(() => {
@@ -194,7 +311,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-  }, [tasks, routines])
+  }, [tasks, routines, pushChanges])
 
   // Flush pending sync on page unload — uses bulk endpoint (sendBeacon limitation)
   useEffect(() => {
@@ -222,128 +339,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     remoteLog('flush: manual (settings/labels changed)')
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     pushBulkState(latestState.current.tasks, latestState.current.routines)
-  }, [])
-
-  // Per-record change detection and push
-  function pushChanges(currentTasks, currentRoutines) {
-    const prev = prevTasks.current
-    const prevR = prevRoutines.current
-
-    // If no previous state, fall back to bulk push
-    if (!prev || !prevR) {
-      pushBulkState(currentTasks, currentRoutines)
-      return
-    }
-
-    const ops = []
-
-    // Diff tasks
-    const prevMap = new Map(prev.map(t => [t.id, t]))
-    const currMap = new Map((currentTasks || []).map(t => [t.id, t]))
-
-    // New or updated tasks
-    for (const [id, task] of currMap) {
-      const old = prevMap.get(id)
-      if (!old) {
-        ops.push(() => serverCreateTask(task, clientId))
-      } else if (JSON.stringify(old) !== JSON.stringify(task)) {
-        ops.push(() => serverUpdateTask(id, task, clientId))
-      }
-    }
-    // Deleted tasks
-    for (const id of prevMap.keys()) {
-      if (!currMap.has(id)) {
-        ops.push(() => serverDeleteTask(id))
-      }
-    }
-
-    // Diff routines
-    const prevRMap = new Map(prevR.map(r => [r.id, r]))
-    const currRMap = new Map((currentRoutines || []).map(r => [r.id, r]))
-
-    for (const [id, routine] of currRMap) {
-      const old = prevRMap.get(id)
-      if (!old) {
-        ops.push(() => serverCreateRoutine(routine, clientId))
-      } else if (JSON.stringify(old) !== JSON.stringify(routine)) {
-        ops.push(() => serverUpdateRoutine(id, routine, clientId))
-      }
-    }
-    for (const id of prevRMap.keys()) {
-      if (!currRMap.has(id)) {
-        ops.push(() => serverDeleteRoutine(id))
-      }
-    }
-
-    if (ops.length === 0) {
-      remoteLog('push: no changes detected')
-      prevTasks.current = currentTasks
-      prevRoutines.current = currentRoutines
-      return
-    }
-
-    remoteLog(`push: ${ops.length} per-record operation(s)`)
-    setSyncStatus('saving')
-
-    Promise.all(ops.map(op => op()))
-      .then(results => {
-        // Update server version from last result
-        for (const r of results) {
-          if (r?.version) serverVersion.current = r.version
-        }
-        prevTasks.current = currentTasks
-        prevRoutines.current = currentRoutines
-        remoteLog(`push: success, ${ops.length} ops, v${serverVersion.current}`)
-        setSyncStatus('saved')
-        if (savedTimer.current) clearTimeout(savedTimer.current)
-        savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
-        flushLogs()
-      })
-      .catch(err => {
-        remoteLog('push: per-record FAILED:', err.message, '— falling back to bulk')
-        // Fallback to bulk push on failure
-        pushBulkState(currentTasks, currentRoutines)
-      })
-  }
-
-  // Bulk push helper — fallback and used for settings/labels
-  function pushBulkState(tasks, routines) {
-    const payload = buildPayload(tasks, routines)
-    if (!payload) {
-      remoteLog('push: no payload, skipping')
-      return
-    }
-    payload._clientId = clientId
-
-    remoteLog('push: PUT /api/data — tasks=', taskSummary(payload.tasks))
-    setSyncStatus('saving')
-
-    fetch('/api/data', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-      .then(res => {
-        if (!res.ok) {
-          remoteLog('push: server responded', res.status)
-          setSyncStatus('offline')
-        } else return res.json().then(r => {
-          serverVersion.current = r.version
-          prevTasks.current = latestState.current.tasks
-          prevRoutines.current = latestState.current.routines
-          remoteLog('push: success v' + r.version)
-          setSyncStatus('saved')
-          if (savedTimer.current) clearTimeout(savedTimer.current)
-          savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
-        })
-        flushLogs()
-      })
-      .catch(err => {
-        remoteLog('push: FAILED:', err.message)
-        setSyncStatus('offline')
-        flushLogs()
-      })
-  }
+  }, [pushBulkState])
 
   // Check app version against server on demand
   const checkVersion = useCallback(() => {
