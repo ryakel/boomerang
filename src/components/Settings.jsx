@@ -78,8 +78,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
   // Notion connection state
   const [notionConnected, setNotionConnected] = useState(null) // null | 'checking' | { connected, bot }
-  const [notionTemplateOpen, setNotionTemplateOpen] = useState(false)
-  const [trelloConfigOpen, setTrelloConfigOpen] = useState(false)
+  const [expandedIntegration, setExpandedIntegration] = useState(null) // 'anthropic' | 'notion' | 'trello' | null
+  const [showCredentials, setShowCredentials] = useState({}) // { anthropic: bool, notion: bool, trello: bool }
   // Notion sync: search for parent page
   const [notionSyncSearch, setNotionSyncSearch] = useState('')
   const [notionSyncResults, setNotionSyncResults] = useState(null)
@@ -480,301 +480,375 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
       {/* Integrations */}
       {activeTab === 'Integrations' && (
-        <div className="settings-group">
-          <div className="settings-label">Anthropic (Claude AI)</div>
-          {envKeys.anthropic ? (
-            <div className="env-key-status">Set by environment variable</div>
-          ) : (
-            <input
-              className="add-input"
-              type="password"
-              placeholder="API key (sk-ant-...)"
-              value={settings.anthropic_api_key || ''}
-              onChange={e => { update('anthropic_api_key', e.target.value); setAnthropicStatus(null) }}
-              style={{ marginBottom: 8, fontSize: 13 }}
-            />
-          )}
-          {anthropicStatus === 'connected' ? (
-            <div className="integration-status connected">Connected</div>
-          ) : anthropicStatus === 'error' ? (
-            <div className="integration-status error">Connection failed — check your key</div>
-          ) : (
-            <button
-              className="ci-upload-btn"
-              disabled={anthropicStatus === 'checking' || (!settings.anthropic_api_key && !envKeys.anthropic)}
-              onClick={handleAnthropicConnect}
-            >
-              {anthropicStatus === 'checking' ? 'Checking...' : 'Connect'}
-            </button>
-          )}
+        <div className="settings-group" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-          <div className="settings-label" style={{ marginTop: 16 }}>Notion</div>
-          {envKeys.notion ? (
-            <div className="env-key-status">Set by environment variable</div>
-          ) : (
-            <input
-              className="add-input"
-              type="password"
-              placeholder="Integration token (ntn_...)"
-              value={settings.notion_token || ''}
-              onChange={e => { update('notion_token', e.target.value); setNotionConnected(null) }}
-              style={{ marginBottom: 8, fontSize: 13 }}
-            />
-          )}
-          {notionConnected && notionConnected !== 'checking' && notionConnected.connected ? (
-            <div className="integration-status connected">Connected{notionConnected.bot ? ` as ${notionConnected.bot}` : ''}</div>
-          ) : notionConnected && notionConnected !== 'checking' && !notionConnected.connected ? (
-            <div className="integration-status error">Connection failed — check your token</div>
-          ) : (
-            <button
-              className="ci-upload-btn"
-              disabled={notionConnected === 'checking' || (!settings.notion_token && !envKeys.notion)}
-              onClick={handleNotionConnect}
+          {/* ── Anthropic (Claude AI) ── */}
+          <div>
+            <div
+              className={`integration-row${expandedIntegration === 'anthropic' ? ' expanded' : ''}`}
+              onClick={() => setExpandedIntegration(expandedIntegration === 'anthropic' ? null : 'anthropic')}
             >
-              {notionConnected === 'checking' ? 'Checking...' : 'Connect'}
-            </button>
-          )}
-
-          {/* Notion Sync Configuration — only show when connected */}
-          {notionConnected && notionConnected.connected && (
-            <div style={{ marginTop: 12, padding: '12px', background: 'var(--surface)', borderRadius: 'var(--radius-sm)' }}>
-              <div className="settings-label" style={{ marginBottom: 8 }}>Notion Sync</div>
-              {settings.notion_sync_parent_id ? (
-                <div style={{ fontSize: 13 }}>
-                  <div style={{ marginBottom: 6 }}>
-                    Syncing from: <strong>{settings.notion_sync_parent_title || 'Selected page'}</strong>
-                    {notionSyncChildCount != null && (
-                      <span style={{ color: 'var(--text-dim)', marginLeft: 8 }}>({notionSyncChildCount} child pages)</span>
-                    )}
-                  </div>
-                  {settings.notion_last_sync && (
-                    <div style={{ color: 'var(--text-dim)', fontSize: 12, marginBottom: 8 }}>
-                      Last synced: {new Date(settings.notion_last_sync).toLocaleString()}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      className="ci-upload-btn"
-                      disabled={notionSyncing}
-                      onClick={onNotionSync}
-                    >
-                      {notionSyncing ? 'Syncing...' : 'Sync Now'}
-                    </button>
-                    <button
-                      className="ci-upload-btn"
-                      onClick={() => {
-                        update('notion_sync_parent_id', '')
-                        update('notion_sync_parent_title', '')
-                        setNotionSyncChildCount(null)
-                      }}
-                    >
-                      Change
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                    Select a parent page — its child pages will be pulled as tasks
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                    <input
-                      className="add-input"
-                      placeholder="Search Notion pages..."
-                      value={notionSyncSearch}
-                      onChange={e => setNotionSyncSearch(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleNotionSyncSearch()}
-                      style={{ flex: 1, fontSize: 13 }}
-                    />
-                    <button
-                      className="ci-upload-btn"
-                      disabled={notionSyncSearching || !notionSyncSearch.trim()}
-                      onClick={handleNotionSyncSearch}
-                    >
-                      {notionSyncSearching ? 'Searching...' : 'Search'}
-                    </button>
-                  </div>
-                  {notionSyncResults && notionSyncResults.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {notionSyncResults.map(page => (
-                        <button
-                          key={page.id}
-                          className="what-now-option"
-                          style={{ textAlign: 'left', fontSize: 13, padding: '8px 12px' }}
-                          onClick={() => handleSelectSyncParent(page)}
-                        >
-                          {page.title}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {notionSyncResults && notionSyncResults.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No pages found</div>
-                  )}
-                </>
+              <span className={`backlog-arrow${expandedIntegration === 'anthropic' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${anthropicStatus === 'connected' ? 'connected' : anthropicStatus === 'error' ? 'error' : (settings.anthropic_api_key || envKeys.anthropic) ? 'unconfigured' : 'unconfigured'}`} />
+              <span className="integration-row-name">Anthropic (Claude AI)</span>
+              {expandedIntegration !== 'anthropic' && (
+                <span className="integration-row-summary">
+                  {anthropicStatus === 'connected' ? 'Connected' : envKeys.anthropic ? 'Environment variable' : settings.anthropic_api_key ? 'Key saved' : 'Not configured'}
+                </span>
               )}
             </div>
-          )}
-
-          {(settings.notion_token || envKeys.notion) && (
-            <div style={{ marginTop: 12 }}>
-              <button className="backlog-toggle" onClick={() => setNotionTemplateOpen(!notionTemplateOpen)} style={{ padding: '8px 0' }}>
-                <span className={`backlog-arrow ${notionTemplateOpen ? 'open' : ''}`}><ChevronRight size={12} /></span>
-                Page Template
-              </button>
-              {notionTemplateOpen && (
-                <>
-                  <div className="settings-hint" style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-                    Structure for Notion pages. Use ## for headings, - [ ] for tasks, &gt; for callouts, --- for dividers.
-                  </div>
-                  <textarea
-                    className="custom-instructions-input"
-                    value={settings.notion_page_template ?? DEFAULT_SETTINGS.notion_page_template}
-                    onChange={e => update('notion_page_template', e.target.value)}
-                    rows={10}
-                  />
+            {expandedIntegration === 'anthropic' && (
+              <div className="integration-body">
+                {envKeys.anthropic ? (
+                  <div className="env-key-status">Set by environment variable</div>
+                ) : (
+                  <>
+                    <button className="credentials-toggle" onClick={() => setShowCredentials(s => ({ ...s, anthropic: !s.anthropic }))}>
+                      {showCredentials.anthropic ? 'Hide' : 'Show'} API key
+                    </button>
+                    {showCredentials.anthropic && (
+                      <input
+                        className="add-input"
+                        type="password"
+                        placeholder="API key (sk-ant-...)"
+                        value={settings.anthropic_api_key || ''}
+                        onChange={e => { update('anthropic_api_key', e.target.value); setAnthropicStatus(null) }}
+                        style={{ marginBottom: 8, fontSize: 13 }}
+                      />
+                    )}
+                  </>
+                )}
+                {anthropicStatus === 'connected' ? (
+                  <div className="integration-status connected">Connected</div>
+                ) : anthropicStatus === 'error' ? (
+                  <div className="integration-status error">Connection failed — check your key</div>
+                ) : (
                   <button
                     className="ci-upload-btn"
-                    style={{ marginTop: 4, fontSize: 11 }}
-                    onClick={() => update('notion_page_template', DEFAULT_SETTINGS.notion_page_template)}
+                    disabled={anthropicStatus === 'checking' || (!settings.anthropic_api_key && !envKeys.anthropic)}
+                    onClick={handleAnthropicConnect}
                   >
-                    Reset to Default
+                    {anthropicStatus === 'checking' ? 'Checking...' : 'Connect'}
                   </button>
-                </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Notion ── */}
+          <div>
+            <div
+              className={`integration-row${expandedIntegration === 'notion' ? ' expanded' : ''}`}
+              onClick={() => setExpandedIntegration(expandedIntegration === 'notion' ? null : 'notion')}
+            >
+              <span className={`backlog-arrow${expandedIntegration === 'notion' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${notionConnected && notionConnected !== 'checking' && notionConnected.connected ? 'connected' : notionConnected && notionConnected !== 'checking' && !notionConnected.connected ? 'error' : 'unconfigured'}`} />
+              <span className="integration-row-name">Notion</span>
+              {expandedIntegration !== 'notion' && (
+                <span className="integration-row-summary">
+                  {notionConnected && notionConnected !== 'checking' && notionConnected.connected
+                    ? `Connected${notionConnected.bot ? ` as ${notionConnected.bot}` : ''}`
+                    : envKeys.notion ? 'Environment variable' : settings.notion_token ? 'Token saved' : 'Not configured'}
+                </span>
               )}
             </div>
-          )}
-
-          <div className="settings-label" style={{ marginTop: 16 }}>Trello</div>
-          {envKeys.trello ? (
-            <div className="env-key-status">Set by environment variable</div>
-          ) : (
-            <>
-              <input
-                className="add-input"
-                type="password"
-                placeholder="API Key"
-                value={settings.trello_api_key || ''}
-                onChange={e => update('trello_api_key', e.target.value)}
-                style={{ marginBottom: 8, fontSize: 13 }}
-              />
-              <input
-                className="add-input"
-                type="password"
-                placeholder="Token (generated via authorize link — not the Secret)"
-                value={settings.trello_secret || ''}
-                onChange={e => update('trello_secret', e.target.value)}
-                style={{ marginBottom: 0, fontSize: 13 }}
-              />
-            </>
-          )}
-
-          {trelloConnected ? (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                Connected as <strong style={{ color: 'var(--text-primary)' }}>{trelloUsername}</strong>
-              </div>
-
-              <button className="backlog-toggle" onClick={() => setTrelloConfigOpen(!trelloConfigOpen)} style={{ padding: '8px 0' }}>
-                <span className={`backlog-arrow ${trelloConfigOpen ? 'open' : ''}`}><ChevronRight size={12} /></span>
-                Board &amp; List
-                {settings.trello_board_name && !trelloConfigOpen && (
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-                    {settings.trello_board_name}{settings.trello_list_name ? ` / ${settings.trello_list_name}` : ''}
-                  </span>
+            {expandedIntegration === 'notion' && (
+              <div className="integration-body">
+                {envKeys.notion ? (
+                  <div className="env-key-status">Set by environment variable</div>
+                ) : (
+                  <>
+                    <button className="credentials-toggle" onClick={() => setShowCredentials(s => ({ ...s, notion: !s.notion }))}>
+                      {showCredentials.notion ? 'Hide' : 'Show'} token
+                    </button>
+                    {showCredentials.notion && (
+                      <input
+                        className="add-input"
+                        type="password"
+                        placeholder="Integration token (ntn_...)"
+                        value={settings.notion_token || ''}
+                        onChange={e => { update('notion_token', e.target.value); setNotionConnected(null) }}
+                        style={{ marginBottom: 8, fontSize: 13 }}
+                      />
+                    )}
+                  </>
                 )}
-              </button>
-              {trelloConfigOpen && (<>
-              <div className="settings-label" style={{ marginBottom: 6 }}>Board</div>
-              <select
-                className="add-input"
-                style={{ fontSize: 13, marginBottom: 8 }}
-                value={settings.trello_board_id || ''}
-                onChange={e => handleTrelloBoardSelect(e.target.value)}
-              >
-                <option value="" disabled>Select a board...</option>
-                {trelloBoardsList.map(b => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
+                {notionConnected && notionConnected !== 'checking' && notionConnected.connected ? (
+                  <div className="integration-status connected">Connected{notionConnected.bot ? ` as ${notionConnected.bot}` : ''}</div>
+                ) : notionConnected && notionConnected !== 'checking' && !notionConnected.connected ? (
+                  <div className="integration-status error">Connection failed — check your token</div>
+                ) : (
+                  <button
+                    className="ci-upload-btn"
+                    disabled={notionConnected === 'checking' || (!settings.notion_token && !envKeys.notion)}
+                    onClick={handleNotionConnect}
+                  >
+                    {notionConnected === 'checking' ? 'Checking...' : 'Connect'}
+                  </button>
+                )}
 
-              {settings.trello_board_id && (
-                <>
-                  <div className="settings-label" style={{ marginBottom: 6 }}>Default list</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>You can choose a different list when pushing each task.</div>
-                  {loadingLists ? (
-                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading lists...</div>
-                  ) : (
+                {/* Notion Sync Configuration — only show when connected */}
+                {notionConnected && notionConnected.connected && (
+                  <div style={{ marginTop: 12, padding: '12px', background: 'rgba(164, 120, 255, 0.04)', borderRadius: 'var(--radius-sm)' }}>
+                    <div className="settings-label" style={{ marginBottom: 8 }}>Notion Sync</div>
+                    {settings.notion_sync_parent_id ? (
+                      <div style={{ fontSize: 13 }}>
+                        <div style={{ marginBottom: 6 }}>
+                          Syncing from: <strong>{settings.notion_sync_parent_title || 'Selected page'}</strong>
+                          {notionSyncChildCount != null && (
+                            <span style={{ color: 'var(--text-dim)', marginLeft: 8 }}>({notionSyncChildCount} child pages)</span>
+                          )}
+                        </div>
+                        {settings.notion_last_sync && (
+                          <div style={{ color: 'var(--text-dim)', fontSize: 12, marginBottom: 8 }}>
+                            Last synced: {new Date(settings.notion_last_sync).toLocaleString()}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            className="ci-upload-btn"
+                            disabled={notionSyncing}
+                            onClick={onNotionSync}
+                          >
+                            {notionSyncing ? 'Syncing...' : 'Sync Now'}
+                          </button>
+                          <button
+                            className="ci-upload-btn"
+                            onClick={() => {
+                              update('notion_sync_parent_id', '')
+                              update('notion_sync_parent_title', '')
+                              setNotionSyncChildCount(null)
+                            }}
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                          Select a parent page — its child pages will be pulled as tasks
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                          <input
+                            className="add-input"
+                            placeholder="Search Notion pages..."
+                            value={notionSyncSearch}
+                            onChange={e => setNotionSyncSearch(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleNotionSyncSearch()}
+                            style={{ flex: 1, fontSize: 13 }}
+                          />
+                          <button
+                            className="ci-upload-btn"
+                            disabled={notionSyncSearching || !notionSyncSearch.trim()}
+                            onClick={handleNotionSyncSearch}
+                          >
+                            {notionSyncSearching ? 'Searching...' : 'Search'}
+                          </button>
+                        </div>
+                        {notionSyncResults && notionSyncResults.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {notionSyncResults.map(page => (
+                              <button
+                                key={page.id}
+                                className="what-now-option"
+                                style={{ textAlign: 'left', fontSize: 13, padding: '8px 12px' }}
+                                onClick={() => handleSelectSyncParent(page)}
+                              >
+                                {page.title}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {notionSyncResults && notionSyncResults.length === 0 && (
+                          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No pages found</div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Page Template — collapsible */}
+                {(settings.notion_token || envKeys.notion) && (
+                  <div style={{ marginTop: 12 }}>
+                    <button className="backlog-toggle" onClick={() => setShowCredentials(s => ({ ...s, notionTemplate: !s.notionTemplate }))} style={{ padding: '8px 0' }}>
+                      <span className={`backlog-arrow ${showCredentials.notionTemplate ? 'open' : ''}`}><ChevronRight size={12} /></span>
+                      Page Template
+                    </button>
+                    {showCredentials.notionTemplate && (
+                      <>
+                        <div className="settings-hint" style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
+                          Structure for Notion pages. Use ## for headings, - [ ] for tasks, &gt; for callouts, --- for dividers.
+                        </div>
+                        <textarea
+                          className="custom-instructions-input"
+                          value={settings.notion_page_template ?? DEFAULT_SETTINGS.notion_page_template}
+                          onChange={e => update('notion_page_template', e.target.value)}
+                          rows={10}
+                        />
+                        <button
+                          className="ci-upload-btn"
+                          style={{ marginTop: 4, fontSize: 11 }}
+                          onClick={() => update('notion_page_template', DEFAULT_SETTINGS.notion_page_template)}
+                        >
+                          Reset to Default
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Trello ── */}
+          <div>
+            <div
+              className={`integration-row${expandedIntegration === 'trello' ? ' expanded' : ''}`}
+              onClick={() => setExpandedIntegration(expandedIntegration === 'trello' ? null : 'trello')}
+            >
+              <span className={`backlog-arrow${expandedIntegration === 'trello' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${trelloConnected ? 'connected' : 'unconfigured'}`} />
+              <span className="integration-row-name">Trello</span>
+              {expandedIntegration !== 'trello' && (
+                <span className="integration-row-summary">
+                  {trelloConnected
+                    ? `Connected as ${trelloUsername}`
+                    : envKeys.trello ? 'Environment variable' : (settings.trello_api_key && settings.trello_secret) ? 'Credentials saved' : 'Not configured'}
+                </span>
+              )}
+            </div>
+            {expandedIntegration === 'trello' && (
+              <div className="integration-body">
+                {envKeys.trello ? (
+                  <div className="env-key-status">Set by environment variable</div>
+                ) : (
+                  <>
+                    <button className="credentials-toggle" onClick={() => setShowCredentials(s => ({ ...s, trello: !s.trello }))}>
+                      {showCredentials.trello ? 'Hide' : 'Show'} credentials
+                    </button>
+                    {showCredentials.trello && (
+                      <>
+                        <input
+                          className="add-input"
+                          type="password"
+                          placeholder="API Key"
+                          value={settings.trello_api_key || ''}
+                          onChange={e => update('trello_api_key', e.target.value)}
+                          style={{ marginBottom: 8, fontSize: 13 }}
+                        />
+                        <input
+                          className="add-input"
+                          type="password"
+                          placeholder="Token (generated via authorize link — not the Secret)"
+                          value={settings.trello_secret || ''}
+                          onChange={e => update('trello_secret', e.target.value)}
+                          style={{ marginBottom: 8, fontSize: 13 }}
+                        />
+                      </>
+                    )}
+                  </>
+                )}
+
+                {trelloConnected ? (
+                  <div>
+                    <div className="integration-status connected" style={{ marginBottom: 12 }}>
+                      Connected as <strong>{trelloUsername}</strong>
+                    </div>
+
+                    <div className="settings-label" style={{ marginBottom: 6 }}>Board</div>
                     <select
                       className="add-input"
-                      style={{ fontSize: 13, marginBottom: 0 }}
-                      value={settings.trello_list_id || ''}
-                      onChange={e => handleTrelloListSelect(e.target.value)}
+                      style={{ fontSize: 13, marginBottom: 8 }}
+                      value={settings.trello_board_id || ''}
+                      onChange={e => handleTrelloBoardSelect(e.target.value)}
                     >
-                      <option value="" disabled>Select a list...</option>
-                      {trelloListsList.map(l => (
-                        <option key={l.id} value={l.id}>{l.name}</option>
+                      <option value="" disabled>Select a board...</option>
+                      {trelloBoardsList.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
                       ))}
                     </select>
-                  )}
-                </>
-              )}
 
-              {/* Sync controls */}
-              <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button
-                  className="ci-upload-btn"
-                  disabled={trelloSyncing}
-                  onClick={onTrelloSync}
-                >
-                  {trelloSyncing ? 'Syncing...' : 'Sync Now'}
-                </button>
-                {settings.trello_last_sync && (
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                    Last: {new Date(settings.trello_last_sync).toLocaleString()}
-                  </span>
+                    {settings.trello_board_id && (
+                      <>
+                        <div className="settings-label" style={{ marginBottom: 6 }}>Default list</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>You can choose a different list when pushing each task.</div>
+                        {loadingLists ? (
+                          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading lists...</div>
+                        ) : (
+                          <select
+                            className="add-input"
+                            style={{ fontSize: 13, marginBottom: 0 }}
+                            value={settings.trello_list_id || ''}
+                            onChange={e => handleTrelloListSelect(e.target.value)}
+                          >
+                            <option value="" disabled>Select a list...</option>
+                            {trelloListsList.map(l => (
+                              <option key={l.id} value={l.id}>{l.name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </>
+                    )}
+
+                    {/* Sync controls */}
+                    <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button
+                        className="ci-upload-btn"
+                        disabled={trelloSyncing}
+                        onClick={onTrelloSync}
+                      >
+                        {trelloSyncing ? 'Syncing...' : 'Sync Now'}
+                      </button>
+                      {settings.trello_last_sync && (
+                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                          Last: {new Date(settings.trello_last_sync).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* List mapping display */}
+                    {settings.trello_list_mapping && (
+                      <div style={{ marginTop: 12 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Status mapping</div>
+                        {Object.entries(settings.trello_list_mapping).map(([status, listId]) => {
+                          const list = trelloListsList.find(l => l.id === listId)
+                          return (
+                            <div key={status} style={{ fontSize: 12, color: 'var(--text-primary)', marginBottom: 2 }}>
+                              {list?.name || listId} → <strong>{status}</strong>
+                            </div>
+                          )
+                        })}
+                        <button
+                          className="ci-clear-btn"
+                          style={{ marginTop: 4 }}
+                          onClick={() => {
+                            update('trello_list_mapping', null)
+                          }}
+                        >
+                          Re-infer mapping
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    className="ci-upload-btn"
+                    style={{ marginTop: 8 }}
+                    disabled={trelloConnecting || (!settings.trello_api_key && !envKeys.trello)}
+                    onClick={handleTrelloConnect}
+                  >
+                    {trelloConnecting ? 'Connecting...' : 'Connect'}
+                  </button>
+                )}
+
+                {trelloError && (
+                  <div style={{ color: 'var(--accent)', fontSize: 12, marginTop: 8 }}>{trelloError}</div>
                 )}
               </div>
+            )}
+          </div>
 
-              {/* List mapping display */}
-              {settings.trello_list_mapping && (
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Status mapping</div>
-                  {Object.entries(settings.trello_list_mapping).map(([status, listId]) => {
-                    const list = trelloListsList.find(l => l.id === listId)
-                    return (
-                      <div key={status} style={{ fontSize: 12, color: 'var(--text-primary)', marginBottom: 2 }}>
-                        {list?.name || listId} → <strong>{status}</strong>
-                      </div>
-                    )
-                  })}
-                  <button
-                    className="ci-clear-btn"
-                    style={{ marginTop: 4 }}
-                    onClick={() => {
-                      update('trello_list_mapping', null)
-                    }}
-                  >
-                    Re-infer mapping
-                  </button>
-                </div>
-              )}
-              </>)}
-            </div>
-          ) : (
-            <button
-              className="ci-upload-btn"
-              style={{ marginTop: 8 }}
-              disabled={trelloConnecting || (!settings.trello_api_key && !envKeys.trello)}
-              onClick={handleTrelloConnect}
-            >
-              {trelloConnecting ? 'Connecting...' : 'Connect'}
-            </button>
-          )}
-
-          {trelloError && (
-            <div style={{ color: 'var(--accent)', fontSize: 12, marginTop: 8 }}>{trelloError}</div>
-          )}
         </div>
       )}
 
