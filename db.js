@@ -62,6 +62,11 @@ function runMigrations() {
 
 // Post-migration data seeding: populate tasks/routines tables from JSON blobs
 function seedFromJsonBlobs() {
+  // Check that tables exist before seeding (migrations must have run first)
+  const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('tasks','routines')")
+  const tableNames = new Set((tables[0]?.values || []).map(r => r[0]))
+  if (!tableNames.has('tasks') || !tableNames.has('routines')) return
+
   // Seed tasks table from app_data JSON blob if tasks table is empty
   const taskCount = db.exec('SELECT COUNT(*) FROM tasks')
   if (taskCount[0]?.values[0]?.[0] === 0) {
