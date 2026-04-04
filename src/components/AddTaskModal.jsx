@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react'
 import { loadLabels, getDefaultDueDate, ENERGY_TYPES } from '../store'
 import { useTaskForm } from '../hooks/useTaskForm'
+import EnergyIcon from './EnergyIcon'
 
 export default function AddTaskModal({ onAdd, onClose }) {
   const form = useTaskForm({ dueDate: getDefaultDueDate() })
@@ -102,7 +103,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
                   onClick={() => form.setEnergy(form.energy === et.id ? null : et.id)}
                   title={et.label}
                 >
-                  <span className={`energy-icon energy-type-icon ${et.iconClass}`} />
+                  <EnergyIcon icon={et.icon} color={et.color} size={18} />
                 </button>
               ))}
             </div>

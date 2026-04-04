@@ -398,41 +398,6 @@
 .energy-dot.dot-2.active { background: #FBBF24; }
 .energy-dot.dot-3.active { background: #FF6240; }
 
-/* Energy type icons — colored letter badges, uniform size */
-.energy-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  flex-shrink: 0;
-  color: var(--bg, #1a1a2e);
-}
-
-.ei-desk           { background: #60A5FA; }
-.ei-people         { background: #A78BFA; }
-.ei-errand         { background: #34D399; }
-.ei-confrontation  { background: #FF6240; }
-.ei-creative       { background: #F472B6; }
-.ei-physical       { background: #FBBF24; }
-
-.ei-desk::before          { content: 'D'; }
-.ei-people::before        { content: 'S'; }
-.ei-errand::before        { content: 'E'; }
-.ei-confrontation::before { content: '!'; }
-.ei-creative::before      { content: 'C'; }
-.ei-physical::before      { content: 'P'; }
-
-/* Energy type selector buttons in modals */
-.energy-type-icon {
-  display: inline-block;
-  margin-right: 4px;
-  vertical-align: middle;
-}
 
 /* Energy selector in modals — matches size-selector pattern */
 .energy-selector {

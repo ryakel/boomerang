@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getWhatNow } from '../api'
 import { ENERGY_TYPES } from '../store'
+import EnergyIcon from './EnergyIcon'
 
 const TIME_OPTIONS = ['5–10 minutes', '30 minutes', 'A couple hours']
 const ENERGY_OPTIONS = ['Running on fumes', 'Moderate', "I've got it"]
@@ -82,7 +83,7 @@ export default function WhatNow({ tasks, onClose, onComplete }) {
                 className="what-now-option what-now-capacity-btn"
                 onClick={() => handleCapacity(et.id)}
               >
-                <span className={`energy-icon energy-type-icon ${et.iconClass}`} /> {et.label}
+                <EnergyIcon icon={et.icon} color={et.color} size={18} /> {et.label}
               </button>
             ))}
             <button

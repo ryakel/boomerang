@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloBoardLists } from '../api'
+import EnergyIcon from './EnergyIcon'
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -433,7 +434,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               onClick={() => setEnergy(energy === et.id ? null : et.id)}
               title={et.label}
             >
-              <span className={`energy-icon energy-type-icon ${et.iconClass}`} />
+              <EnergyIcon icon={et.icon} color={et.color} size={18} />
             </button>
           ))}
         </div>

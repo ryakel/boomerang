@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, memo } from 'react'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
+import EnergyIcon from './EnergyIcon'
 
 const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 
@@ -192,7 +193,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
             })}
             {task.energy && (
               <span className="energy-badge" title={ENERGY_TYPES.find(t => t.id === task.energy)?.label}>
-                <span className={`energy-icon ${ENERGY_TYPES.find(t => t.id === task.energy)?.iconClass}`} />
+                <EnergyIcon icon={ENERGY_TYPES.find(t => t.id === task.energy)?.icon} color={ENERGY_TYPES.find(t => t.id === task.energy)?.color} size={14} />
                 {task.energyLevel && (
                   <span className="energy-dots">
                     <span className={`energy-dot dot-1${task.energyLevel >= 1 ? ' active' : ''}`} />

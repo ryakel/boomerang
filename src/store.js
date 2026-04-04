@@ -74,12 +74,12 @@ const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }
 
 // Energy/capacity types — what kind of effort a task demands
 const ENERGY_TYPES = [
-  { id: 'desk', label: 'Desk', iconClass: 'ei-desk' },
-  { id: 'people', label: 'People', iconClass: 'ei-people' },
-  { id: 'errand', label: 'Errand', iconClass: 'ei-errand' },
-  { id: 'confrontation', label: 'Confrontation', iconClass: 'ei-confrontation' },
-  { id: 'creative', label: 'Creative', iconClass: 'ei-creative' },
-  { id: 'physical', label: 'Physical', iconClass: 'ei-physical' },
+  { id: 'desk', label: 'Desk', icon: 'Monitor', color: '#60A5FA' },
+  { id: 'people', label: 'People', icon: 'Users', color: '#A78BFA' },
+  { id: 'errand', label: 'Errand', icon: 'MapPin', color: '#34D399' },
+  { id: 'confrontation', label: 'Confrontation', icon: 'Zap', color: '#FF6240' },
+  { id: 'creative', label: 'Creative', icon: 'Palette', color: '#F472B6' },
+  { id: 'physical', label: 'Physical', icon: 'Dumbbell', color: '#FBBF24' },
 ]
 
 // Energy types that get more aggressive nagging (ADHD avoidance-prone)
