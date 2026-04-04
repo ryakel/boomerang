@@ -751,7 +751,7 @@
   left: 0;
   right: 0;
   padding: 8px 20px;
-  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  padding-bottom: max(4px, calc(env(safe-area-inset-bottom) - 12px));
   background: linear-gradient(transparent, var(--bg) 30%);
   max-width: 600px;
   margin: 0 auto;
