@@ -171,7 +171,7 @@
 .task-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 20px 120px;
+  padding: 0 20px 160px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -2407,7 +2407,7 @@
   margin-bottom: 16px !important;
 }
 .update-modal-btn {
-  background: #4A9EFF;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 10px;

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { BarChart3, Settings as SettingsIcon, Search } from 'lucide-react'
+import { BarChart3, Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X } from 'lucide-react'
 import './App.css'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
 import { inferSize, trelloUpdateCard } from './api'
@@ -297,7 +297,7 @@ function App() {
             {nonSnoozedCount} open
           </span>
           <div className="sort-wrapper" ref={sortRef}>
-            <button className="sort-btn" onClick={() => setShowSortDropdown(!showSortDropdown)}>↕</button>
+            <button className="sort-btn" onClick={() => setShowSortDropdown(!showSortDropdown)}><ArrowUpDown size={15} /></button>
             {showSortDropdown && (
               <div className="sort-dropdown">
                 {[
@@ -333,7 +333,7 @@ function App() {
       </header>
 
       {searchOpen && (
-        <div className="search-bar" style={{ padding: '0 16px 8px' }}>
+        <div className="search-bar" style={{ padding: '0 16px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
             type="text"
             className="quick-input"
@@ -341,8 +341,14 @@ function App() {
             value={searchQuery}
             onChange={e => handleSearch(e.target.value)}
             autoFocus
-            style={{ width: '100%' }}
+            style={{ flex: 1 }}
           />
+          <button
+            className="sort-btn"
+            onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults(null) }}
+          >
+            <X size={18} />
+          </button>
         </div>
       )}
 
@@ -452,7 +458,7 @@ function App() {
         {filteredBacklog.length > 0 && (
           <>
             <button className="backlog-toggle" onClick={() => setBacklogOpen(!backlogOpen)}>
-              <span className={`backlog-arrow ${backlogOpen ? 'open' : ''}`}>▶</span>
+              <span className={`backlog-arrow ${backlogOpen ? 'open' : ''}`}><ChevronRight size={12} /></span>
               Backlog ({filteredBacklog.length})
             </button>
             {backlogOpen && filteredBacklog.map(t => (
