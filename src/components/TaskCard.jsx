@@ -7,7 +7,7 @@ const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
-export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, expandedId, onToggleExpand }) {
+export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, expandedId, onToggleExpand, isDesktop }) {
   const expanded = expandedId === task.id
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -105,6 +105,73 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
     metaText = formatDueDate(task.due_date)
   } else if (days > 0) {
     metaText = `${days}d`
+  }
+
+  // Desktop: compact card, click opens edit modal, hover actions
+  if (isDesktop) {
+    return (
+      <div
+        className={`task-card task-card-desktop ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : ''}`}
+        onClick={() => onEdit(task)}
+      >
+        <div className="desktop-hover-actions">
+          <button title="Complete" onClick={e => { e.stopPropagation(); onComplete(task.id) }}>✓</button>
+          <button title="Snooze" onClick={e => { e.stopPropagation(); onSnooze(task.id) }}>💤</button>
+        </div>
+        <div className="task-card-top">
+          {task.status !== 'backlog' && (STATUS_META[task.status] || task.status === 'open') && (
+            <span className="status-indicator" style={{ background: (STATUS_META[task.status] || STATUS_META.not_started).color }} title={(STATUS_META[task.status] || STATUS_META.not_started).label} />
+          )}
+          <span className="task-title">{task.title}</span>
+          {(task.notion_page_id || task.trello_card_id) && (
+            <span className="task-link-icons" onClick={e => e.stopPropagation()}>
+              {task.notion_url && (
+                <a href={task.notion_url} target="_blank" rel="noopener" className="task-link-icon" title="Open in Notion">N</a>
+              )}
+              {task.trello_card_url && (
+                <a href={task.trello_card_url} target="_blank" rel="noopener" className="task-link-icon" title="Open in Trello">T</a>
+              )}
+            </span>
+          )}
+          <div className="task-card-right">
+            {task.high_priority && <span className="priority-pill">!</span>}
+            {task.size && (
+              <span className={`size-pill size-${task.size.toLowerCase()}`}>{task.size}</span>
+            )}
+            {metaText && (
+              <span className={`task-meta ${overdue && !snoozed ? 'task-meta-overdue' : ''}`}>
+                {metaText}
+              </span>
+            )}
+          </div>
+        </div>
+        {(task.tags.length > 0 || task.energy) && (
+          <div className="task-tags">
+            {task.tags.map(tagId => {
+              const label = labelMap[tagId]
+              if (!label) return null
+              return (
+                <span key={tagId} className="task-tag" style={{ background: `${label.color}22`, color: label.color }}>
+                  {label.name}
+                </span>
+              )
+            })}
+            {task.energy && (
+              <span className="energy-badge" title={ENERGY_TYPES.find(t => t.id === task.energy)?.label}>
+                <EnergyIcon icon={ENERGY_TYPES.find(t => t.id === task.energy)?.icon} color={ENERGY_TYPES.find(t => t.id === task.energy)?.color} size={14} />
+                {task.energyLevel && (
+                  <span className="energy-dots">
+                    <span className={`energy-dot dot-1${task.energyLevel >= 1 ? ' active' : ''}`} />
+                    {task.energyLevel >= 2 && <span className="energy-dot dot-2 active" />}
+                    {task.energyLevel >= 3 && <span className="energy-dot dot-3 active" />}
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (

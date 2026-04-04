@@ -21,6 +21,8 @@ import Analytics from './components/Analytics'
 import FindRelatedModal from './components/FindRelatedModal'
 import ActivityLog from './components/ActivityLog'
 import { MiniRings } from './components/Rings'
+import KanbanBoard from './components/KanbanBoard'
+import { useIsDesktop } from './hooks/useIsDesktop'
 import { useNotifications } from './hooks/useNotifications'
 import { useServerSync } from './hooks/useServerSync'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
@@ -38,6 +40,8 @@ function App() {
     routines, addRoutine, deleteRoutine, togglePause,
     completeRoutine, updateRoutine, spawnDueTasks, hydrateRoutines,
   } = useRoutines()
+
+  const isDesktop = useIsDesktop()
 
   const [activeFilter, setActiveFilter] = useState('all')
   const [showAdd, setShowAdd] = useState(false)
@@ -279,7 +283,7 @@ function App() {
   const filteredBacklog = sortTasks(filterTasks(backlogTasks), sortBy)
 
   return (
-    <div className="app">
+    <div className={`app${isDesktop ? ' desktop' : ''}`}>
       <header className="header">
         <div className="header-top">
           <div className="wordmark-lockup">
@@ -402,6 +406,23 @@ function App() {
         </button>
       </div>
 
+      {isDesktop ? (
+        <KanbanBoard
+          filteredDoing={filteredDoing}
+          filteredStale={filteredStale}
+          filteredUpNext={filteredUpNext}
+          filteredWaiting={filteredWaiting}
+          filteredSnoozed={filteredSnoozed}
+          filteredBacklog={filteredBacklog}
+          onComplete={handleComplete}
+          onSnooze={handleSnooze}
+          onEdit={setEditTarget}
+          onExtend={setExtendTarget}
+          onStatusChange={handleStatusChange}
+          onUpdate={updateTask}
+          onDelete={handleDelete}
+        />
+      ) : (
       <div className="task-list" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {refreshing && <div className="refresh-indicator">Refreshing...</div>}
         {filteredStale.length === 0 && filteredDoing.length === 0 && filteredUpNext.length === 0 && filteredWaiting.length === 0 && filteredSnoozed.length === 0 && (
@@ -466,7 +487,7 @@ function App() {
             ))}
           </>
         )}
-      </div></>}
+      </div>)}</>}
 
       <div className="bottom-bar">
         <button className="what-now-btn" onClick={() => setShowWhatNow(true)}>

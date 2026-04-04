@@ -2691,49 +2691,147 @@
 }
 
 /* ============================================================
-   DESKTOP LAYOUT — Phase 1: Layout Foundation
+   DESKTOP — Kanban Board Layout
    All rules behind @media (min-width: 768px) so mobile is untouched.
    ============================================================ */
 
 @media (min-width: 768px) {
-  /* Remove 600px cap — fill viewport with a comfortable max */
-  .app {
-    max-width: 1200px;
-    padding: 0 24px;
+  /* App container — full width on desktop */
+  .app.desktop {
+    max-width: 100%;
   }
 
-  /* Header — breathing room */
-  .header {
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
+  /* Header + tag bar adapt to full width */
+  .app.desktop .header {
+    max-width: 100%;
     padding: 16px 32px 8px;
   }
 
-  /* Tag filter bar */
-  .tag-bar {
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
+  .app.desktop .tag-bar {
     padding: 8px 32px 12px;
   }
 
-  /* Task list — wider, centered */
-  .task-list {
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
-    padding: 0 8px;
-    padding-bottom: 100px;
+  /* Kanban board */
+  .kanban-board {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    overflow-x: auto;
+    padding: 0 24px 100px;
+    min-height: 0;
   }
 
-  /* Section labels (DOING, UP NEXT, etc.) */
-  .section-label {
-    padding-left: 8px;
+  .kanban-column {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
   }
 
-  /* Bottom bar — narrower than content, rounded, elevated */
-  .bottom-bar {
+  .kanban-column-header {
+    position: sticky;
+    top: 0;
+    padding: 12px 12px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    z-index: 1;
+  }
+
+  .kanban-column-count {
+    background: var(--surface-hover);
+    color: var(--text-muted);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .kanban-column-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px 8px;
+  }
+
+  .kanban-column-empty {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 24px 8px;
+    opacity: 0.5;
+  }
+
+  /* Compact desktop task cards */
+  .task-card-desktop {
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    position: relative;
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+  }
+
+  .task-card-desktop .task-title {
+    font-size: 13px;
+  }
+
+  .task-card-desktop .task-tags {
+    margin-top: 4px;
+  }
+
+  .task-card-desktop .task-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .task-card-desktop.stale {
+    border-left: 3px solid var(--accent);
+  }
+
+  .task-card-desktop.snoozed {
+    opacity: 0.7;
+  }
+
+  /* Desktop hover action bar on cards */
+  .desktop-hover-actions {
+    display: none;
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    gap: 2px;
+    z-index: 2;
+  }
+
+  .desktop-hover-actions button {
+    background: var(--surface-hover);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .desktop-hover-actions button:hover {
+    color: var(--text-primary);
+    background: var(--surface);
+  }
+
+  /* Bottom bar — centered, floating */
+  .app.desktop .bottom-bar {
     max-width: 800px;
     left: 50%;
     transform: translateX(-50%);
@@ -2741,7 +2839,7 @@
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.2);
   }
 
-  /* Bottom sheets → centered dialogs */
+  /* Bottom sheets → centered dialogs on desktop */
   .sheet-overlay {
     align-items: center;
     justify-content: center;
@@ -2758,7 +2856,7 @@
     display: none;
   }
 
-  /* Full-screen overlays (Settings, Analytics, DoneList, Routines, ActivityLog) */
+  /* Full-screen overlays */
   .settings-overlay {
     max-width: 720px;
     margin: 0 auto;
@@ -2766,18 +2864,12 @@
     border-left: 1px solid var(--surface-hover);
   }
 
-  /* WhatNow — more room */
   .what-now-overlay {
     padding: 60px 40px;
   }
 
   .what-now-options {
     max-width: 400px;
-  }
-
-  /* Task cards — more padding */
-  .task-card {
-    padding: 14px 20px;
   }
 
   /* Scrollbars — show on desktop */
@@ -2797,6 +2889,10 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: var(--text-dim);
+  }
+
+  .kanban-column-body::-webkit-scrollbar {
+    width: 4px;
   }
 
   .settings-tabs::-webkit-scrollbar {
@@ -2851,5 +2947,13 @@
   .checklist-item:hover {
     background: var(--surface-hover);
     border-radius: var(--radius-sm);
+  }
+
+  .task-card-desktop:hover {
+    background: var(--surface-hover);
+  }
+
+  .task-card-desktop:hover .desktop-hover-actions {
+    display: flex;
   }
 }
