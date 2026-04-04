@@ -211,29 +211,54 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
             {task.notes && (
               <div className="task-notes">{task.notes}</div>
             )}
-            {task.checklist?.length > 0 && (
-              <div className="checklist-section" onClick={e => e.stopPropagation()}>
-                <div className="checklist-progress">
-                  {task.checklist.filter(i => i.completed).length}/{task.checklist.length} items
+            {/* Multi-checklists (new format) */}
+            {(task.checklists?.length > 0 || task.checklist?.length > 0) && (() => {
+              const lists = task.checklists?.length
+                ? task.checklists
+                : task.checklist?.length
+                  ? [{ id: 'legacy', name: 'Checklist', items: task.checklist }]
+                  : []
+              return lists.map(cl => (
+                <div key={cl.id} className="checklist-section" onClick={e => e.stopPropagation()}>
+                  {lists.length > 1 && <div className="checklist-card-name">{cl.name}</div>}
+                  <div className="checklist-progress">
+                    {cl.items.filter(i => i.completed).length}/{cl.items.length} items
+                  </div>
+                  {cl.items.length > 0 && (
+                    <div className="checklist-progress-bar-wrap" style={{ marginBottom: 4 }}>
+                      <div className="checklist-progress-bar">
+                        <div className="checklist-progress-fill" style={{ width: `${Math.round((cl.items.filter(i => i.completed).length / cl.items.length) * 100)}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {cl.items.map(item => (
+                    <label key={item.id} className="checklist-item">
+                      <input
+                        type="checkbox"
+                        className="checklist-checkbox"
+                        checked={item.completed}
+                        onChange={() => {
+                          if (task.checklists?.length) {
+                            const updated = task.checklists.map(c =>
+                              c.id === cl.id ? { ...c, items: c.items.map(i =>
+                                i.id === item.id ? { ...i, completed: !i.completed } : i
+                              )} : c
+                            )
+                            onUpdate(task.id, { checklists: updated })
+                          } else {
+                            const updated = task.checklist.map(i =>
+                              i.id === item.id ? { ...i, completed: !i.completed } : i
+                            )
+                            onUpdate(task.id, { checklist: updated })
+                          }
+                        }}
+                      />
+                      <span className={`checklist-text${item.completed ? ' completed' : ''}`}>{item.text}</span>
+                    </label>
+                  ))}
                 </div>
-                {task.checklist.map(item => (
-                  <label key={item.id} className="checklist-item">
-                    <input
-                      type="checkbox"
-                      className="checklist-checkbox"
-                      checked={item.completed}
-                      onChange={() => {
-                        const updated = task.checklist.map(i =>
-                          i.id === item.id ? { ...i, completed: !i.completed } : i
-                        )
-                        onUpdate(task.id, { checklist: updated })
-                      }}
-                    />
-                    <span className={`checklist-text${item.completed ? ' completed' : ''}`}>{item.text}</span>
-                  </label>
-                ))}
-              </div>
-            )}
+              ))
+            })()}
             {task.attachments?.length > 0 && (
               <div className="attachment-list" onClick={e => e.stopPropagation()}>
                 {task.attachments.map(a => {

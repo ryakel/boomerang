@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloBoardLists } from '../api'
-import { Sparkles, Search } from 'lucide-react'
+import { Sparkles, Search, ChevronRight, Trash2, Plus } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
 
 function formatFileSize(bytes) {
@@ -34,8 +34,81 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const [customDays, setCustomDays] = useState(14)
   const [attachments, setAttachments] = useState(task.attachments || [])
   const [attachError, setAttachError] = useState(null)
-  const [checklist, setChecklist] = useState(task.checklist || [])
-  const [newCheckItem, setNewCheckItem] = useState('')
+  // Migrate old flat checklist → named checklists
+  const [checklists, setChecklists] = useState(() => {
+    if (task.checklists?.length) return task.checklists
+    if (task.checklist?.length) return [{ id: crypto.randomUUID(), name: 'Checklist', items: task.checklist, hideCompleted: false }]
+    return []
+  })
+  const [newCheckItems, setNewCheckItems] = useState({}) // { checklistId: string }
+  const [confirmDeleteChecklist, setConfirmDeleteChecklist] = useState(null)
+  const dragRef = useRef(null) // { checklistId, itemId }
+  const [dragOver, setDragOver] = useState(null) // { checklistId, itemId }
+
+  const handleDragStart = (checklistId, itemId) => {
+    dragRef.current = { checklistId, itemId }
+  }
+
+  const handleDragOver = (e, checklistId, itemId) => {
+    e.preventDefault()
+    setDragOver({ checklistId, itemId })
+  }
+
+  const handleDragEnd = () => {
+    if (!dragRef.current || !dragOver) {
+      dragRef.current = null
+      setDragOver(null)
+      return
+    }
+    const src = dragRef.current
+    const dst = dragOver
+    dragRef.current = null
+    setDragOver(null)
+
+    if (src.checklistId === dst.checklistId && src.itemId === dst.itemId) return
+
+    setChecklists(prev => {
+      const next = prev.map(c => ({ ...c, items: [...c.items] }))
+      const srcList = next.find(c => c.id === src.checklistId)
+      const dstList = next.find(c => c.id === dst.checklistId)
+      if (!srcList || !dstList) return prev
+
+      const srcIdx = srcList.items.findIndex(i => i.id === src.itemId)
+      if (srcIdx === -1) return prev
+      const [item] = srcList.items.splice(srcIdx, 1)
+
+      const dstIdx = dstList.items.findIndex(i => i.id === dst.itemId)
+      if (dstIdx === -1) {
+        dstList.items.push(item)
+      } else {
+        dstList.items.splice(dstIdx, 0, item)
+      }
+      return next
+    })
+  }
+
+  const handleDropOnList = (e, checklistId) => {
+    e.preventDefault()
+    if (!dragRef.current) return
+    const src = dragRef.current
+    dragRef.current = null
+    setDragOver(null)
+
+    if (src.checklistId === checklistId) return
+
+    setChecklists(prev => {
+      const next = prev.map(c => ({ ...c, items: [...c.items] }))
+      const srcList = next.find(c => c.id === src.checklistId)
+      const dstList = next.find(c => c.id === checklistId)
+      if (!srcList || !dstList) return prev
+
+      const srcIdx = srcList.items.findIndex(i => i.id === src.itemId)
+      if (srcIdx === -1) return prev
+      const [item] = srcList.items.splice(srcIdx, 1)
+      dstList.items.push(item)
+      return next
+    })
+  }
   const [comments, setComments] = useState(task.comments || [])
   const [newComment, setNewComment] = useState('')
   const [trelloResult, setTrelloResult] = useState(
@@ -94,14 +167,15 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         trello_card_id: trelloResult?.id || null,
         trello_card_url: trelloResult?.url || null,
         attachments,
-        checklist,
+        checklists,
+        checklist: [], // clear old field after migration
         comments,
       })
       flashSaved()
     }, 1000)
 
     return () => clearTimeout(autoSaveTimer.current)
-  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, notionResult, trelloResult, attachments, checklist, comments]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, notionResult, trelloResult, attachments, checklists, comments]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -146,7 +220,8 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         trello_card_id: trelloResult?.id || null,
         trello_card_url: trelloResult?.url || null,
         attachments,
-        checklist,
+        checklists,
+        checklist: [],
         comments,
       })
     }
@@ -506,60 +581,161 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           </div>
         )}
 
-        {/* Checklist */}
-        <div className="settings-label" style={{ marginBottom: 6, marginTop: 4 }}>Checklist</div>
-        <div className="checklist-edit-section">
-          {checklist.map((item) => (
-            <div key={item.id} className="checklist-edit-item">
-              <input
-                type="checkbox"
-                className="checklist-checkbox"
-                checked={item.completed}
-                onChange={() => {
-                  setChecklist(prev => prev.map(i =>
-                    i.id === item.id ? { ...i, completed: !i.completed } : i
-                  ))
-                }}
-              />
-              <input
-                className="checklist-edit-input"
-                value={item.text}
-                onChange={e => {
-                  setChecklist(prev => prev.map(i =>
-                    i.id === item.id ? { ...i, text: e.target.value } : i
-                  ))
-                }}
-              />
-              <button className="checklist-delete" onClick={() => {
-                setChecklist(prev => prev.filter(i => i.id !== item.id))
-              }}>x</button>
-            </div>
-          ))}
-          <div className="checklist-add-row">
-            <input
-              className="checklist-add-input"
-              placeholder="Add item..."
-              value={newCheckItem}
-              onChange={e => setNewCheckItem(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && newCheckItem.trim()) {
-                  setChecklist(prev => [...prev, { id: crypto.randomUUID(), text: newCheckItem.trim(), completed: false }])
-                  setNewCheckItem('')
-                }
-              }}
-            />
-            <button
-              className="checklist-add-btn"
-              disabled={!newCheckItem.trim()}
-              onClick={() => {
-                if (newCheckItem.trim()) {
-                  setChecklist(prev => [...prev, { id: crypto.randomUUID(), text: newCheckItem.trim(), completed: false }])
-                  setNewCheckItem('')
-                }
-              }}
-            >+</button>
-          </div>
+        {/* Checklists */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 6 }}>
+          <div className="settings-label" style={{ margin: 0 }}>Checklists</div>
+          <button
+            className="checklist-add-list-btn"
+            onClick={() => {
+              setChecklists(prev => [...prev, {
+                id: crypto.randomUUID(),
+                name: 'Checklist',
+                items: [],
+                hideCompleted: false,
+              }])
+            }}
+          >
+            <Plus size={12} /> Add checklist
+          </button>
         </div>
+
+        {checklists.map((cl) => {
+          const completed = cl.items.filter(i => i.completed).length
+          const total = cl.items.length
+          const pct = total ? Math.round((completed / total) * 100) : 0
+          const visibleItems = cl.hideCompleted ? cl.items.filter(i => !i.completed) : cl.items
+          const hiddenCount = cl.hideCompleted ? cl.items.filter(i => i.completed).length : 0
+
+          return (
+            <div key={cl.id} className="checklist-group">
+              <div className="checklist-group-header">
+                <input
+                  className="checklist-name-input"
+                  value={cl.name}
+                  onChange={e => {
+                    setChecklists(prev => prev.map(c =>
+                      c.id === cl.id ? { ...c, name: e.target.value } : c
+                    ))
+                  }}
+                />
+                <div className="checklist-header-actions">
+                  {total > 0 && completed > 0 && (
+                    <button
+                      className="checklist-hide-toggle"
+                      onClick={() => {
+                        setChecklists(prev => prev.map(c =>
+                          c.id === cl.id ? { ...c, hideCompleted: !c.hideCompleted } : c
+                        ))
+                      }}
+                    >
+                      {cl.hideCompleted ? 'Show completed' : 'Hide completed'}
+                    </button>
+                  )}
+                  {confirmDeleteChecklist === cl.id ? (
+                    <span className="checklist-confirm-delete">
+                      Delete?
+                      <button onClick={() => {
+                        setChecklists(prev => prev.filter(c => c.id !== cl.id))
+                        setConfirmDeleteChecklist(null)
+                      }}>Yes</button>
+                      <button onClick={() => setConfirmDeleteChecklist(null)}>No</button>
+                    </span>
+                  ) : (
+                    <button
+                      className="checklist-delete-list"
+                      onClick={() => setConfirmDeleteChecklist(cl.id)}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {total > 0 && (
+                <div className="checklist-progress-bar-wrap">
+                  <div className="checklist-progress-bar">
+                    <div className="checklist-progress-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="checklist-progress-text">{completed}/{total}</span>
+                </div>
+              )}
+
+              <div className="checklist-edit-section" onDragOver={e => e.preventDefault()} onDrop={e => handleDropOnList(e, cl.id)}>
+                {visibleItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`checklist-edit-item${dragOver?.checklistId === cl.id && dragOver?.itemId === item.id ? ' drag-over' : ''}`}
+                    draggable
+                    onDragStart={() => handleDragStart(cl.id, item.id)}
+                    onDragOver={e => handleDragOver(e, cl.id, item.id)}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <span className="checklist-drag-handle">⠿</span>
+                    <input
+                      type="checkbox"
+                      className="checklist-checkbox"
+                      checked={item.completed}
+                      onChange={() => {
+                        setChecklists(prev => prev.map(c =>
+                          c.id === cl.id ? { ...c, items: c.items.map(i =>
+                            i.id === item.id ? { ...i, completed: !i.completed } : i
+                          )} : c
+                        ))
+                      }}
+                    />
+                    <input
+                      className="checklist-edit-input"
+                      value={item.text}
+                      onChange={e => {
+                        setChecklists(prev => prev.map(c =>
+                          c.id === cl.id ? { ...c, items: c.items.map(i =>
+                            i.id === item.id ? { ...i, text: e.target.value } : i
+                          )} : c
+                        ))
+                      }}
+                    />
+                    <button className="checklist-delete" onClick={() => {
+                      setChecklists(prev => prev.map(c =>
+                        c.id === cl.id ? { ...c, items: c.items.filter(i => i.id !== item.id) } : c
+                      ))
+                    }}>x</button>
+                  </div>
+                ))}
+                {hiddenCount > 0 && (
+                  <div className="checklist-hidden-count">{hiddenCount} completed item{hiddenCount > 1 ? 's' : ''} hidden</div>
+                )}
+                <div className="checklist-add-row">
+                  <input
+                    className="checklist-add-input"
+                    placeholder="Add item..."
+                    value={newCheckItems[cl.id] || ''}
+                    onChange={e => setNewCheckItems(prev => ({ ...prev, [cl.id]: e.target.value }))}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && (newCheckItems[cl.id] || '').trim()) {
+                        setChecklists(prev => prev.map(c =>
+                          c.id === cl.id ? { ...c, items: [...c.items, { id: crypto.randomUUID(), text: newCheckItems[cl.id].trim(), completed: false }] } : c
+                        ))
+                        setNewCheckItems(prev => ({ ...prev, [cl.id]: '' }))
+                      }
+                    }}
+                  />
+                  <button
+                    className="checklist-add-btn"
+                    disabled={!(newCheckItems[cl.id] || '').trim()}
+                    onClick={() => {
+                      if ((newCheckItems[cl.id] || '').trim()) {
+                        setChecklists(prev => prev.map(c =>
+                          c.id === cl.id ? { ...c, items: [...c.items, { id: crypto.randomUUID(), text: newCheckItems[cl.id].trim(), completed: false }] } : c
+                        ))
+                        setNewCheckItems(prev => ({ ...prev, [cl.id]: '' }))
+                      }
+                    }}
+                  >+</button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
 
         {/* Comments */}
         <div className="settings-label" style={{ marginBottom: 6, marginTop: 4 }}>Comments</div>
