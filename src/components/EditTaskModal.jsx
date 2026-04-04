@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { loadLabels, loadSettings, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
+import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloBoardLists } from '../api'
 import { Sparkles, Search } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
@@ -172,7 +172,14 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     setNotionCreating(true)
     try {
       const settings = loadSettings()
-      const content = await generateNotionContent(title, notes)
+      const routine = task.routine_id ? loadRoutines().find(r => r.id === task.routine_id) : null
+      const metadata = {
+        tags: selectedTags,
+        lastUpdated: task.last_touched ? new Date(task.last_touched).toLocaleDateString() : new Date().toLocaleDateString(),
+        lastPerformed: task.completed_at ? new Date(task.completed_at).toLocaleDateString() : undefined,
+        frequency: routine ? formatCadence(routine) : undefined,
+      }
+      const content = await generateNotionContent(title, notes, !!task.routine_id, metadata)
       const page = await notionCreatePage(title, content, settings.notion_parent_page_id || null)
       setNotionResult(page)
       setNotionState(null)

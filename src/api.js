@@ -341,11 +341,20 @@ export async function suggestNotionLink(taskTitle, taskNotes) {
 }
 
 // --- AI-generated Notion page content ---
-export async function generateNotionContent(taskTitle, taskNotes, isRecurring = false) {
+export async function generateNotionContent(taskTitle, taskNotes, isRecurring = false, metadata = {}) {
   const settings = loadSettings()
-  const template = settings.notion_page_template || ''
+  let template = settings.notion_page_template || ''
   const recurring = isRecurring ? '\nThis is a recurring task — include a reusable checklist in the Action Items section.' : ''
-  const system = `You create structured Notion page content for tasks. You MUST follow the template structure below, filling each section with relevant content for the given task. Preserve all markdown formatting exactly: ## for headings, - [ ] for to-do items, > for callouts, --- for dividers, - for bullet points. Do not add or remove sections — only populate the existing ones.${recurring}
+
+  // Pre-fill metadata placeholders with actual values
+  const now = new Date().toLocaleDateString()
+  template = template
+    .replace(/\{last_updated\}/g, metadata.lastUpdated || now)
+    .replace(/\{frequency\}/g, metadata.frequency || 'One-time')
+    .replace(/\{last_performed\}/g, metadata.lastPerformed || 'N/A')
+    .replace(/\{tags\}/g, metadata.tags?.length ? metadata.tags.join(', ') : 'None')
+
+  const system = `You create structured Notion page content for tasks. You MUST follow the template structure below, filling each section with relevant content for the given task. Preserve all markdown formatting exactly: ## for headings, - [ ] for to-do items, > for callouts, --- for dividers, - for bullet points. Do not add or remove sections — only populate the existing ones. Lines that already have concrete values (dates, tags, frequency) must be kept exactly as-is.${recurring}
 
 Template:
 ${template}`

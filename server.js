@@ -275,7 +275,18 @@ function makeNotionHeaders(token) {
 }
 
 function richText(str) {
-  return [{ type: 'text', text: { content: str } }]
+  // Parse **bold** segments into Notion rich text with annotations
+  const parts = []
+  const re = /\*\*(.+?)\*\*/g
+  let last = 0
+  let m
+  while ((m = re.exec(str)) !== null) {
+    if (m.index > last) parts.push({ type: 'text', text: { content: str.slice(last, m.index) } })
+    parts.push({ type: 'text', text: { content: m[1] }, annotations: { bold: true } })
+    last = re.lastIndex
+  }
+  if (last < str.length) parts.push({ type: 'text', text: { content: str.slice(last) } })
+  return parts.length > 0 ? parts : [{ type: 'text', text: { content: str } }]
 }
 
 function parseContentToBlocks(content) {

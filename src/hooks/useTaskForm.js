@@ -105,7 +105,8 @@ export function useTaskForm(initial = {}) {
     setNotionCreating(true)
     try {
       const settings = loadSettings()
-      const content = await generateNotionContent(title, notes)
+      const metadata = { tags: selectedTags, lastUpdated: new Date().toLocaleDateString() }
+      const content = await generateNotionContent(title, notes, false, metadata)
       const page = await notionCreatePage(title, content, settings.notion_parent_page_id || null)
       setNotionResult(page)
       setNotionState(null)

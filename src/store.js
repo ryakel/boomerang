@@ -49,7 +49,7 @@ export const DEFAULT_SETTINGS = {
   trello_list_name: '',
   trello_list_mapping: null,
   trello_last_sync: null,
-  notion_page_template: `## Overview\n> Context and background for this task\n\n## Notes\n- Key details from task notes\n\n## Action Items\n- [ ] First step\n- [ ] Second step\n- [ ] Third step\n\n---\n\n## Reference\n- Related links or resources`,
+  notion_page_template: `## Overview\n> Context and background for this task\n\n### Details\n- **Last Updated:** {last_updated}\n- **Frequency:** {frequency}\n- **Last Performed:** {last_performed}\n\n## Notes\n- Key details from task notes\n\n## Action Items\n- [ ] First step\n- [ ] Second step\n- [ ] Third step\n\n---\n\n## Reference\n- Related links or resources\n\n## Tags\n- {tags}`,
 }
 
 const DEFAULT_LABELS = [

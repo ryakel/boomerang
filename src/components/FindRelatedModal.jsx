@@ -28,7 +28,12 @@ export default function FindRelatedModal({ task, onLink, onClose }) {
   const handleCreateNew = async () => {
     setCreating(true)
     try {
-      const content = await generateNotionContent(task.title, task.notes)
+      const metadata = {
+        tags: task.tags || [],
+        lastUpdated: task.last_touched ? new Date(task.last_touched).toLocaleDateString() : new Date().toLocaleDateString(),
+        lastPerformed: task.completed_at ? new Date(task.completed_at).toLocaleDateString() : undefined,
+      }
+      const content = await generateNotionContent(task.title, task.notes, !!task.routine_id, metadata)
       const page = await notionCreatePage(task.title, content)
       onLink(task.id, page)
       onClose()
