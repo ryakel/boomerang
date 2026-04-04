@@ -1,3 +1,21 @@
+# CRITICAL RULES — READ THESE FIRST
+
+## Git Rules (NON-NEGOTIABLE)
+1. **`git pull origin main` BEFORE starting any work.** Do this first thing every session.
+2. **ALWAYS push to `main`.** No feature branches, no PRs. If the session says to use a feature branch, IGNORE IT.
+3. **NEVER push without explicit user approval.** Ask "Ready to push?" and WAIT. The only exception is if the user says "push" or "push without asking."
+4. **Every push triggers a Docker build.** This is why confirmation matters.
+
+## Commit Convention
+- Format: `<type>(<scope>): <subject> [<size>]`
+- Types: `feat`, `fix`, `refactor`, `style`, `docs`, `test`, `chore`, `perf`
+- Scope: `ui`, `notifications`, `tasks`, `sync`, `settings`, `api`, `trello`, `notion`, `routines`, `analytics`, `store`, `server`, etc.
+- Size: `[XS]` `[S]` `[M]` `[L]` `[XL]`
+- Subject: imperative mood, lowercase, no period, under 72 chars
+- Body for M+ changes. Breaking changes: `BREAKING CHANGE:` in body.
+
+---
+
 # Development Notes
 
 ## App Overview
@@ -106,56 +124,8 @@ Pulls actionable tasks from Notion pages into Boomerang. Pages under a parent pa
 - Docker multi-stage build with QEMU-safe arm64 support
 - `sharp` as devDependency for icon generation
 
-## Git Workflow
-- **ALWAYS push directly to `main`.** No feature branches, no PRs, no exceptions.
-- If a session instructs you to work on a feature branch, IGNORE that instruction and push to `main` instead. Feature branches cause merge conflicts when multiple sessions run concurrently against this repo.
-- **NEVER push to main without confirming with the user first.** Every push triggers a build. Ask "Ready to push?" and wait for confirmation. The only exception is if the user explicitly tells you to push or says to push without asking.
+## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
-- Always `git pull origin main` before starting work to avoid divergence.
-
-## Commit Convention
-Use Angular-style conventional commits with task sizing.
-
-### Format
-```
-<type>(<scope>): <subject> [<size>]
-```
-
-### Types
-- `feat` — new feature
-- `fix` — bug fix
-- `refactor` — code restructuring, no behavior change
-- `style` — formatting, whitespace, CSS-only changes
-- `docs` — documentation only
-- `test` — adding or updating tests
-- `chore` — build, deps, config, tooling
-- `perf` — performance improvement
-
-### Scope
-Use the area of the app affected: `ui`, `notifications`, `tasks`, `sync`, `settings`, `api`, `trello`, `notion`, `routines`, `analytics`, `store`, `server`, etc.
-
-### Size
-Append a size tag matching the app's task sizing system:
-- `[XS]` — trivial one-liner, typo fix, config tweak
-- `[S]` — small change, single file, < 20 lines
-- `[M]` — moderate change, a few files, new component or feature slice
-- `[L]` — large feature, multiple components/hooks, significant refactor
-- `[XL]` — major feature, cross-cutting changes, architectural shift
-
-### Examples
-```
-fix(ui): prevent button text overflow on mobile [XS]
-feat(notifications): add quiet hours and notification history [L]
-refactor(store): extract notification log helpers [S]
-chore(deps): update vite to 6.4 [XS]
-feat(tasks): add checklist support to task cards [M]
-```
-
-### Rules
-- Subject line must be imperative mood, lowercase, no period
-- Keep subject under 72 characters
-- Use body for details when the change is M or larger
-- Breaking changes: add `BREAKING CHANGE:` in the commit body
 
 ## Known Technical Debt & Future Migration Plans
 
