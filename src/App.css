@@ -2903,13 +2903,9 @@
     background: var(--surface);
   }
 
-  /* Bottom bar — centered, floating */
+  /* Bottom bar — hide on desktop, kanban columns have add-card */
   .app.desktop .bottom-bar {
-    max-width: 800px;
-    left: 50%;
-    transform: translateX(-50%);
-    border-radius: 16px 16px 0 0;
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.2);
+    display: none;
   }
 
   /* Bottom sheets → centered dialogs on desktop */
@@ -2931,12 +2927,18 @@
 
   /* Full-screen overlays → desktop modal */
   .settings-overlay {
+    inset: auto;
+    position: fixed;
+    top: 7vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90vw;
     max-width: 800px;
     max-height: 85vh;
-    margin: 7vh auto 0;
-    border-radius: 12px 12px 0 0;
+    border-radius: 12px;
     border: 1px solid var(--surface-hover);
-    box-shadow: 0 -4px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 40px rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
   }
 
   .settings-overlay::before {
@@ -2964,8 +2966,20 @@
     max-width: 400px;
   }
 
-  .app.desktop .quick-add {
-    display: none;
+  .what-now-btn-desktop {
+    padding: 6px 14px;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .what-now-btn-desktop:hover {
+    background: var(--accent-hover);
   }
 
   /* Scrollbars — show on desktop */

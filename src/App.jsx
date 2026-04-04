@@ -329,6 +329,11 @@ function App() {
           <button className="sort-btn" onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) { setSearchQuery(''); setSearchResults(null) } }}>
             <Search size={15} />
           </button>
+          {isDesktop && (
+            <button className="what-now-btn-desktop" onClick={() => setShowWhatNow(true)}>
+              What now?
+            </button>
+          )}
           {todayCount > 0 ? (
             <button className="today-count" onClick={() => setShowDone(true)}>
               {todayCount} done today

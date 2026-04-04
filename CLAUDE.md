@@ -128,51 +128,34 @@ Pulls actionable tasks from Notion pages into Boomerang. Pages under a parent pa
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
 
-## Known Technical Debt & Future Migration Plans
+## Known Technical Debt & Future Plans
 
-### Database: From JSON Blobs to Proper Schema (Priority: High, Timeline: Before 200+ tasks)
+### ~~Database: From JSON Blobs to Proper Schema~~ — DONE
 
-**Current state:** sql.js stores data as JSON blobs in a single `app_data` table with two columns (`collection`, `data_json`). Each collection (tasks, routines, settings, labels) is one row containing the entire array serialized as JSON. All filtering, sorting, and searching happens client-side in JavaScript after loading the full dataset.
+Completed. Tasks and routines now have proper SQL tables with individual columns, indexes (`status`, `due_date`, `energy`, `created_at`, `routine_id`, `completed_at`), per-record CRUD (POST/PATCH/DELETE), and batched disk writes every 3s. Migration system in place (`migrations/001-004`). Only settings and labels remain in `app_data` as JSON blobs (intentional — they're small and rarely updated).
 
-**Why this will break:**
-- Every sync pushes the entire tasks array — at 200+ tasks with frequent edits, this becomes noticeable latency
-- Adding server-side search, filtering by status/energy/tags, or date-range queries is impossible without loading everything into memory
-- `db.export()` + `writeFileSync()` runs synchronously on every single write operation
-- No way to do incremental updates — changing one field on one task rewrites all tasks to disk
+### Frontend: Prop Drilling & CSS Monolith (Priority: Medium)
 
-**Target architecture:**
-- Promote tasks to a proper SQL table: `id, title, status, tags (JSON), notes, due_date, energy, energyLevel, size, created_at, completed_at, ...`
-- Add indexes on `status`, `due_date`, `energy`, `created_at` for common queries
-- Replace "ship entire collection" sync with per-record upserts (PATCH individual tasks)
-- Add a schema migration system (even a simple numbered-file approach)
-- Batch disk writes (flush every 5-10s instead of per-operation)
-
-**Migration path:**
-1. Add migration system first (version counter + SQL migration files)
-2. Create proper `tasks` table alongside existing `app_data` (dual-write during transition)
-3. Migrate server endpoints to query tasks table directly
-4. Move sort/filter logic to SQL queries on the server
-5. Update sync protocol to push/pull individual task diffs instead of full arrays
-6. Remove `app_data` tasks collection once migration is confirmed stable
-
-**What triggers this work:** Task count approaching 200, or adding any feature that requires server-side filtering (search, analytics dashboard, bulk operations).
-
-### Frontend: Prop Drilling & Render Performance (Priority: Medium)
-
-**Current state:** App.jsx passes 9+ callbacks down to TaskCard via props. No React.memo on TaskCard, so every state change in App re-renders all cards.
+**Current state:** App.jsx passes 11-14 callbacks down to TaskCard via props. TaskCard is wrapped in `React.memo` (done), but no Context API is used.
 
 **What to do when this becomes a problem:**
 - Add `TaskActionsContext` to eliminate prop drilling (biggest cognitive relief)
-- Wrap TaskCard in `React.memo` with task ID + updated_at comparison
-- Split App.css (2,281 lines) into per-component CSS files
+- Split App.css (~3,000 lines) into per-component CSS files
 - Consider `useTransition` / `useOptimistic` from React 19 for perceived perf during sync
 
 **What triggers this work:** Adding 3+ more interactive features to TaskCard, or task list exceeding 100 items with noticeable scroll jank.
 
 ### Offline Mutation Queue (Priority: Low-Medium)
 
-**Current state:** Mutations fire immediately to `/api/data`. If offline, the write silently fails. No retry, no indicator.
+**Current state:** Mutations fire immediately to `/api/tasks/:id`. If offline, the write silently fails. Sync status (`saving`/`saved`/`offline`) only visible in Settings, not in the main UI.
 
 **What to do:** Queue mutations in localStorage when offline, replay on reconnect, show sync status indicator in header.
 
 **What triggers this work:** Regular mobile usage on spotty connections, or first report of lost data from offline edits.
+
+### Desktop UI Phases (Priority: Medium)
+
+Phases 1-2 done (kanban board, hover states, drag-and-drop between columns). Remaining:
+- **Phase 3:** EditTaskModal as right-side drawer (480px) instead of bottom sheet on desktop
+- **Phase 4:** Keyboard shortcuts (n=add, /=search, j/k=navigate, Escape=close, e=edit)
+- **Phase 5:** Richer desktop cards (notes preview, checklist progress bar, always-show tags)
