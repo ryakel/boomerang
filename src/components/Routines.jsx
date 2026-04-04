@@ -167,7 +167,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
           <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
           <div className="edit-task-title-row">
             <div className="sheet-title">Routines</div>
-            <button className="submit-btn" onClick={() => { resetForm(); setShowAdd(true) }} style={{ padding: '6px 14px', fontSize: 13 }}>+ New</button>
+            <button className="settings-back" onClick={() => { resetForm(); setShowAdd(true) }} style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 600 }}>+ New</button>
           </div>
           {content}
         </div>
