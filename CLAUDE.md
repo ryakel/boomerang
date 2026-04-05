@@ -223,6 +223,7 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 - Version check on every view/modal navigation via `/api/health`
 - Docker multi-stage build with QEMU-safe arm64 support
 - `sharp` as devDependency for icon generation
+- Dev seed system: `SEED_DB=1` populates DB with realistic ADHD test data at startup (Claude API or static fallback)
 
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.

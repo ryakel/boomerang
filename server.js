@@ -7,6 +7,7 @@ import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bump
   upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
   getAnalytics, getData } from './db.js'
+import { seedDatabase } from './seed.js'
 
 // --- App version ---
 const appVersion = process.env.APP_VERSION || 'dev'
@@ -1202,8 +1203,14 @@ if (existsSync(distPath)) {
 const PORT = process.env.PORT || 3001
 const dbPath = process.env.DB_PATH || './boomerang.db'
 
-initDb(dbPath).then(() => {
+initDb(dbPath).then(async () => {
   console.log(`Database: ${dbPath}`)
+
+  // Dev seed: SEED_DB=1 wipes the DB and loads test data (API-generated or static fallback)
+  if (process.env.SEED_DB === '1') {
+    await seedDatabase(envApiKey)
+  }
+
   app.listen(PORT, () => {
     console.log(`Boomerang running on http://localhost:${PORT}`)
     console.log(`Anthropic API key: ${envApiKey ? 'from env' : 'user-provided via UI'}`)

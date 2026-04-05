@@ -198,6 +198,26 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `DELETE` | `/api/tasks/:id` | Delete a task |
 | `GET` | `/api/analytics` | Get analytics data |
 
+## Dev Seed System
+
+The `SEED_DB=1` environment variable triggers database seeding on server startup (after `initDb()`). This is intended for development only.
+
+**Flow:**
+1. `server.js` detects `SEED_DB=1` after DB initialization
+2. `seed.js` is called with the Anthropic API key (if available)
+3. If API key exists: calls Claude API to generate fresh, randomized test data
+4. If no API key: loads static fallback from `scripts/seed-data.json`
+5. Calls `clearAllData()` + `setAllData()` + `flushNow()` to wipe and reload
+
+**Files:**
+- `seed.js` — startup seeder (imported by server.js)
+- `scripts/seed-data.json` — static fallback with 53 tasks, 7 routines, 12 labels
+- `scripts/generate-seed-data.js` — standalone script to regenerate the static JSON via API
+
+**Usage:** `SEED_DB=1 docker compose -f docker-compose.dev.yml up`
+
+The production `docker-compose.yml` does not expose `SEED_DB`, making accidental seeding impossible.
+
 ## PWA
 
 The app is a Progressive Web App:

@@ -13,6 +13,7 @@
 | `GOOGLE_CLIENT_ID` | No | — | Google OAuth Client ID for Calendar sync (users can add in UI) |
 | `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth Client Secret for Calendar sync (users can add in UI) |
 | `APP_VERSION` | No | `dev` | Version string injected at build time (used if git tags are unavailable) |
+| `SEED_DB` | No | `0` | Set to `1` to wipe and seed the database on startup with realistic test data. Uses Claude API if `ANTHROPIC_API_KEY` is set, otherwise falls back to static `scripts/seed-data.json`. Only exposed in `docker-compose.dev.yml`. |
 
 **None are required.** The app starts and works fully without API keys. AI features (Polish, What Now, Reframe, date inference, size inference, smart nudges) are disabled without an Anthropic key. Notion features are disabled without a Notion token.
 

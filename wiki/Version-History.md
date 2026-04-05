@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-05
 
+### Dev Tooling
+- feat(server): add dev seed system for realistic test data [M]
+  - `SEED_DB=1` at container startup wipes DB and loads messy ADHD-realistic test data
+  - Primary: calls Claude API to generate fresh data; fallback: static `scripts/seed-data.json`
+  - 53 tasks (mixed statuses, overdue, heavily snoozed, missing fields), 7 routines, 12 labels
+  - `scripts/generate-seed-data.js` for standalone regeneration with API key
+  - New files: `seed.js`, `scripts/seed-data.json`, `scripts/generate-seed-data.js`
+  - Modified: `server.js`, `docker-compose.dev.yml`, `Dockerfile`
+
 ### UI Consistency
 - `b48bf40` fix(ui): unified label picker dropdown with colored pills across all modals [M]
 - `pending` fix(ui): fix date pickers across entire app — consistent sizing and native styling [S]

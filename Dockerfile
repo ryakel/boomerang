@@ -21,8 +21,9 @@ ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
-COPY server.js db.js ./
+COPY server.js db.js seed.js ./
 COPY migrations ./migrations
+COPY scripts ./scripts
 COPY --from=build /app/dist ./dist
 RUN mkdir -p /data
 
