@@ -83,6 +83,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set Dev Version
+        id: devver
+        run: echo "version=dev-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
       - name: Build and Push Dev Image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
@@ -90,7 +94,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          build-args: APP_VERSION=dev
+          build-args: APP_VERSION=${{ steps.devver.outputs.version }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
           cache-from: type=gha
           cache-to: type=gha,mode=max
