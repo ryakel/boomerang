@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { saveTasks, saveRoutines, saveSettings, saveLabels } from '../store'
+import { saveTasks, saveRoutines, saveSettings, saveLabels, uuid } from '../store'
 import { serverCreateTask, serverUpdateTask, serverDeleteTask,
   serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine } from '../api'
 
@@ -55,7 +55,7 @@ function taskSummary(tasks) {
 }
 
 export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
-  const clientId = useRef(crypto.randomUUID()).current
+  const clientId = useRef(uuid()).current
   const debounceTimer = useRef(null)
   const hydrated = useRef(false)
   const skipNextPush = useRef(false)

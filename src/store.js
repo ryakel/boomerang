@@ -1,3 +1,12 @@
+// crypto.randomUUID is unavailable over plain HTTP (non-secure context)
+export const uuid = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? uuid()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+      })
+
 const TASKS_KEY = 'boom_tasks_v1'
 const SETTINGS_KEY = 'boom_settings_v1'
 const LABELS_KEY = 'boom_labels_v1'
@@ -170,7 +179,7 @@ export function saveRoutines(routines) { save(ROUTINES_KEY, routines); touchModi
 export function createTask(title, tags = [], dueDate = null, notes = '') {
   const now = new Date().toISOString()
   return {
-    id: crypto.randomUUID(),
+    id: uuid(),
     title,
     status: 'not_started',
     tags,
@@ -203,7 +212,7 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
 
 export function createRoutine(title, cadence, customDays = null, tags = [], notes = '') {
   return {
-    id: crypto.randomUUID(),
+    id: uuid(),
     title,
     cadence, // daily, weekly, monthly, quarterly, annually, custom
     custom_days: customDays, // for 'custom': number of days between
@@ -401,7 +410,7 @@ export function saveActivityLog(log) {
 export function logActivity(action, task) {
   const log = loadActivityLog()
   log.unshift({
-    id: crypto.randomUUID(),
+    id: uuid(),
     action, // 'created' | 'completed' | 'deleted' | 'status_changed' | 'edited' | 'snoozed' | 'priority_changed'
     task_id: task.id,
     task_title: task.title,
@@ -429,7 +438,7 @@ export function saveNotifLog(log) {
 export function logNotification(type, title, body) {
   const log = loadNotifLog()
   log.unshift({
-    id: crypto.randomUUID(),
+    id: uuid(),
     type,
     title,
     body,

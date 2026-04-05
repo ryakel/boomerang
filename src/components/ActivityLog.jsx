@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import './ActivityLog.css'
-import { loadActivityLog, saveActivityLog } from '../store'
+import { loadActivityLog, saveActivityLog, uuid } from '../store'
 
 const ACTION_LABELS = {
   created: 'Created',
@@ -47,7 +47,7 @@ export default function ActivityLog({ onRestore, onClose }) {
     const snapshot = { ...entry.task_snapshot }
     snapshot.status = 'not_started'
     snapshot.completed_at = null
-    snapshot.id = crypto.randomUUID() // new ID to avoid conflicts
+    snapshot.id = uuid() // new ID to avoid conflicts
     onRestore(snapshot)
   }
 

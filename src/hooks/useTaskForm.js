@@ -3,7 +3,7 @@
 // file attachments, and tag toggling.
 
 import { useState, useRef } from 'react'
-import { loadSettings, loadLabels } from '../store'
+import { loadSettings, loadLabels, uuid } from '../store'
 import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
 function formatFileSize(bytes) {
@@ -138,7 +138,7 @@ export function useTaskForm(initial = {}) {
     const readers = files.map(file => new Promise((resolve) => {
       const reader = new FileReader()
       reader.onload = () => resolve({
-        id: crypto.randomUUID(),
+        id: uuid(),
         name: file.name,
         type: file.type,
         size: file.size,

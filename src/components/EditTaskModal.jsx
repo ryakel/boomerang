@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import './EditTaskModal.css'
-import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
+import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES, uuid } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists } from '../api'
 import { Sparkles, Search, ChevronRight, Trash2, Plus } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
@@ -38,7 +38,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   // Migrate old flat checklist → named checklists
   const [checklists, setChecklists] = useState(() => {
     if (task.checklists?.length) return task.checklists
-    if (task.checklist?.length) return [{ id: crypto.randomUUID(), name: 'Checklist', items: task.checklist, hideCompleted: false }]
+    if (task.checklist?.length) return [{ id: uuid(), name: 'Checklist', items: task.checklist, hideCompleted: false }]
     return []
   })
   const [newCheckItems, setNewCheckItems] = useState({}) // { checklistId: string }
@@ -422,7 +422,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     const readers = files.map(file => new Promise((resolve) => {
       const reader = new FileReader()
       reader.onload = () => resolve({
-        id: crypto.randomUUID(),
+        id: uuid(),
         name: file.name,
         type: file.type,
         size: file.size,
@@ -693,7 +693,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             className="checklist-add-list-btn"
             onClick={() => {
               setChecklists(prev => [...prev, {
-                id: crypto.randomUUID(),
+                id: uuid(),
                 name: 'Checklist',
                 items: [],
                 hideCompleted: false,
@@ -818,7 +818,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
                     onKeyDown={e => {
                       if (e.key === 'Enter' && (newCheckItems[cl.id] || '').trim()) {
                         setChecklists(prev => prev.map(c =>
-                          c.id === cl.id ? { ...c, items: [...c.items, { id: crypto.randomUUID(), text: newCheckItems[cl.id].trim(), completed: false }] } : c
+                          c.id === cl.id ? { ...c, items: [...c.items, { id: uuid(), text: newCheckItems[cl.id].trim(), completed: false }] } : c
                         ))
                         setNewCheckItems(prev => ({ ...prev, [cl.id]: '' }))
                       }
@@ -830,7 +830,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
                     onClick={() => {
                       if ((newCheckItems[cl.id] || '').trim()) {
                         setChecklists(prev => prev.map(c =>
-                          c.id === cl.id ? { ...c, items: [...c.items, { id: crypto.randomUUID(), text: newCheckItems[cl.id].trim(), completed: false }] } : c
+                          c.id === cl.id ? { ...c, items: [...c.items, { id: uuid(), text: newCheckItems[cl.id].trim(), completed: false }] } : c
                         ))
                         setNewCheckItems(prev => ({ ...prev, [cl.id]: '' }))
                       }
@@ -859,7 +859,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               onChange={e => setNewComment(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter' && newComment.trim()) {
-                  setComments(prev => [...prev, { id: crypto.randomUUID(), text: newComment.trim(), created_at: new Date().toISOString() }])
+                  setComments(prev => [...prev, { id: uuid(), text: newComment.trim(), created_at: new Date().toISOString() }])
                   setNewComment('')
                 }
               }}
@@ -869,7 +869,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               disabled={!newComment.trim()}
               onClick={() => {
                 if (newComment.trim()) {
-                  setComments(prev => [...prev, { id: crypto.randomUUID(), text: newComment.trim(), created_at: new Date().toISOString() }])
+                  setComments(prev => [...prev, { id: uuid(), text: newComment.trim(), created_at: new Date().toISOString() }])
                   setNewComment('')
                 }
               }}

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
-import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS } from '../store'
+import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
 import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars } from '../api'
 
 const NOTIF_TYPE_LABELS = {
@@ -377,7 +377,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
   const addLabel = () => {
     const name = newLabelName.trim()
     if (!name) return
-    const newLabel = { id: crypto.randomUUID(), name, color: newLabelColor }
+    const newLabel = { id: uuid(), name, color: newLabelColor }
     const next = [...labels, newLabel]
     setLabels(next)
     saveLabels(next)
