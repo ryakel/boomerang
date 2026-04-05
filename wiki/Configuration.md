@@ -10,6 +10,8 @@
 | `NOTION_INTEGRATION_TOKEN` | No | — | Default Notion integration token (users can override in UI) |
 | `TRELLO_API_KEY` | No | — | Trello API key for card sync (users can override in UI) |
 | `TRELLO_SECRET` | No | — | Trello API token for card sync — despite the name, this is the **token** from the authorize URL, NOT the "Secret" from the Trello admin page (users can override in UI) |
+| `GOOGLE_CLIENT_ID` | No | — | Google OAuth Client ID for Calendar sync (users can add in UI) |
+| `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth Client Secret for Calendar sync (users can add in UI) |
 | `APP_VERSION` | No | `dev` | Version string injected at build time (used if git tags are unavailable) |
 
 **None are required.** The app starts and works fully without API keys. AI features (Polish, What Now, Reframe, date inference, size inference, smart nudges) are disabled without an Anthropic key. Notion features are disabled without a Notion token.
@@ -35,6 +37,7 @@ All settings are accessible via the gear icon in the header:
 - **Anthropic API key** — for AI features. Stored in localStorage, sent as `x-anthropic-key` header. Hidden when env var is set.
 - **Notion integration token** — for Notion features. Stored in localStorage, sent as `x-notion-token` header. Hidden when env var is set.
 - **Trello API key + token** — for Trello card sync. Stored in localStorage, sent as `x-trello-key` and `x-trello-token` headers. Hidden when env vars are set. After entering credentials, click Connect to select a board and list.
+- **Google Calendar Client ID + Secret** — for Google Calendar sync. Stored in localStorage, sent as `x-google-client-id` and `x-google-client-secret` headers. Hidden when env vars are set. After entering credentials, click Connect to complete OAuth flow and select a calendar.
 
 ### AI Custom Instructions
 - Free-text field that shapes all AI output (Polish, What Now, Reframe, smart nudges)

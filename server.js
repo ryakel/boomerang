@@ -16,6 +16,8 @@ let envApiKey = process.env.ANTHROPIC_API_KEY
 let envNotionToken = process.env.NOTION_INTEGRATION_TOKEN
 let envTrelloKey = process.env.TRELLO_API_KEY
 let envTrelloToken = process.env.TRELLO_SECRET
+let envGoogleClientId = process.env.GOOGLE_CLIENT_ID
+let envGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET
 
 if (existsSync('.env')) {
   const envFile = readFileSync('.env', 'utf-8')
@@ -23,6 +25,8 @@ if (existsSync('.env')) {
   envNotionToken = envNotionToken || envFile.match(/NOTION_INTEGRATION_TOKEN="?([^"\n]+)"?/)?.[1]
   envTrelloKey = envTrelloKey || envFile.match(/TRELLO_API_KEY="?([^"\n]+)"?/)?.[1]
   envTrelloToken = envTrelloToken || envFile.match(/TRELLO_SECRET="?([^"\n]+)"?/)?.[1]
+  envGoogleClientId = envGoogleClientId || envFile.match(/GOOGLE_CLIENT_ID="?([^"\n]+)"?/)?.[1]
+  envGoogleClientSecret = envGoogleClientSecret || envFile.match(/GOOGLE_CLIENT_SECRET="?([^"\n]+)"?/)?.[1]
 }
 
 // Helper: resolve API key from request header or env var
@@ -38,6 +42,54 @@ function getTrelloAuth(req) {
   const key = req.headers['x-trello-key'] || envTrelloKey || null
   const token = req.headers['x-trello-token'] || envTrelloToken || null
   return { key, token }
+}
+
+function getGoogleClientId(req) {
+  return req.headers['x-google-client-id'] || envGoogleClientId || null
+}
+
+function getGoogleClientSecret(req) {
+  return req.headers['x-google-client-secret'] || envGoogleClientSecret || null
+}
+
+// Google Calendar token management — tokens stored server-side in app_data
+const GCAL_TOKENS_KEY = 'gcal_tokens'
+const GCAL_BASE = 'https://www.googleapis.com/calendar/v3'
+
+async function getGCalAccessToken() {
+  const tokens = getData(GCAL_TOKENS_KEY)
+  if (!tokens?.refresh_token) return null
+
+  // Still valid (with 5-min buffer)
+  if (tokens.expiry_date && Date.now() < tokens.expiry_date - 300000) {
+    return tokens.access_token
+  }
+
+  // Refresh the token
+  const clientId = envGoogleClientId
+  const clientSecret = envGoogleClientSecret
+  if (!clientId || !clientSecret) return null
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: tokens.refresh_token,
+      grant_type: 'refresh_token',
+    }),
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    console.error('[GCal] Token refresh failed:', data.error_description || data.error)
+    return null
+  }
+
+  tokens.access_token = data.access_token
+  tokens.expiry_date = Date.now() + data.expires_in * 1000
+  setData(GCAL_TOKENS_KEY, tokens)
+  return tokens.access_token
 }
 
 // --- Express ---
@@ -65,6 +117,7 @@ app.get('/api/keys/status', (req, res) => {
     anthropic: !!envApiKey,
     notion: !!envNotionToken,
     trello: !!(envTrelloKey && envTrelloToken),
+    gcal: !!(envGoogleClientId && envGoogleClientSecret),
   })
 })
 
@@ -917,6 +970,226 @@ app.post('/api/trello/sync-all-lists', async (req, res) => {
   }
 })
 
+// ============================================================
+// Google Calendar
+// ============================================================
+
+const GCAL_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly'
+
+app.get('/api/gcal/auth-url', (req, res) => {
+  const clientId = getGoogleClientId(req)
+  if (!clientId) return res.status(400).json({ error: 'Google Client ID not configured' })
+
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/gcal/callback`
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: GCAL_SCOPES,
+    access_type: 'offline',
+    prompt: 'consent',
+  })
+  res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` })
+})
+
+app.get('/api/gcal/callback', async (req, res) => {
+  const { code } = req.query
+  if (!code) return res.status(400).send('Missing authorization code')
+
+  const clientId = envGoogleClientId
+  const clientSecret = envGoogleClientSecret
+  if (!clientId || !clientSecret) return res.status(500).send('Google credentials not configured on server')
+
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/gcal/callback`
+
+  try {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    })
+    const tokenData = await tokenRes.json()
+    if (!tokenRes.ok) {
+      console.error('[GCal] Token exchange failed:', tokenData)
+      return res.status(400).send(`OAuth error: ${tokenData.error_description || tokenData.error}`)
+    }
+
+    // Fetch user email for display
+    let email = null
+    try {
+      const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      })
+      if (profileRes.ok) {
+        const profile = await profileRes.json()
+        email = profile.email
+      }
+    } catch { /* non-critical */ }
+
+    // Store tokens server-side
+    setData(GCAL_TOKENS_KEY, {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expiry_date: Date.now() + tokenData.expires_in * 1000,
+      email,
+    })
+
+    res.send(`<!DOCTYPE html><html><body><script>
+      window.opener?.postMessage({ type: 'gcal-connected' }, '*');
+      document.body.textContent = 'Connected to Google Calendar! You can close this window.';
+    </script></body></html>`)
+  } catch (err) {
+    console.error('[GCal] Callback error:', err)
+    res.status(500).send('Failed to complete OAuth flow')
+  }
+})
+
+app.get('/api/gcal/status', (req, res) => {
+  const tokens = getData(GCAL_TOKENS_KEY)
+  if (tokens?.refresh_token) {
+    res.json({ connected: true, email: tokens.email || null })
+  } else {
+    res.json({ connected: false })
+  }
+})
+
+app.post('/api/gcal/disconnect', (req, res) => {
+  setData(GCAL_TOKENS_KEY, null)
+  res.json({ ok: true })
+})
+
+app.get('/api/gcal/calendars', async (req, res) => {
+  try {
+    const accessToken = await getGCalAccessToken()
+    if (!accessToken) return res.status(401).json({ error: 'Not connected to Google Calendar' })
+
+    const response = await fetch(`${GCAL_BASE}/users/me/calendarList`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+
+    const calendars = (data.items || []).map(c => ({
+      id: c.id,
+      summary: c.summary,
+      primary: c.primary || false,
+    }))
+    res.json(calendars)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/gcal/events', async (req, res) => {
+  try {
+    const accessToken = await getGCalAccessToken()
+    if (!accessToken) return res.status(401).json({ error: 'Not connected to Google Calendar' })
+
+    const { calendarId, event } = req.body
+    const calId = encodeURIComponent(calendarId || 'primary')
+    const response = await fetch(`${GCAL_BASE}/calendars/${calId}/events`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json({ eventId: data.id, htmlLink: data.htmlLink })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.patch('/api/gcal/events/:eventId', async (req, res) => {
+  try {
+    const accessToken = await getGCalAccessToken()
+    if (!accessToken) return res.status(401).json({ error: 'Not connected to Google Calendar' })
+
+    const { calendarId, event } = req.body
+    const calId = encodeURIComponent(calendarId || 'primary')
+    const eventId = encodeURIComponent(req.params.eventId)
+    const response = await fetch(`${GCAL_BASE}/calendars/${calId}/events/${eventId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json({ eventId: data.id })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.delete('/api/gcal/events/:eventId', async (req, res) => {
+  try {
+    const accessToken = await getGCalAccessToken()
+    if (!accessToken) return res.status(401).json({ error: 'Not connected to Google Calendar' })
+
+    const calendarId = req.query.calendarId || 'primary'
+    const calId = encodeURIComponent(calendarId)
+    const eventId = encodeURIComponent(req.params.eventId)
+    const response = await fetch(`${GCAL_BASE}/calendars/${calId}/events/${eventId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (response.status === 204 || response.status === 200) {
+      return res.json({ ok: true })
+    }
+    const data = await response.json().catch(() => ({}))
+    res.status(response.status).json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.get('/api/gcal/events', async (req, res) => {
+  try {
+    const accessToken = await getGCalAccessToken()
+    if (!accessToken) return res.status(401).json({ error: 'Not connected to Google Calendar' })
+
+    const calendarId = req.query.calendarId || 'primary'
+    const calId = encodeURIComponent(calendarId)
+    const params = new URLSearchParams({
+      singleEvents: 'true',
+      orderBy: 'startTime',
+      maxResults: '250',
+    })
+    if (req.query.timeMin) params.set('timeMin', req.query.timeMin)
+    if (req.query.timeMax) params.set('timeMax', req.query.timeMax)
+
+    const response = await fetch(`${GCAL_BASE}/calendars/${calId}/events?${params}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+
+    const events = (data.items || []).map(e => ({
+      id: e.id,
+      summary: e.summary || '',
+      description: e.description || '',
+      start: e.start,
+      end: e.end,
+      htmlLink: e.htmlLink,
+    }))
+    res.json(events)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // --- Static file serving (production) ---
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -940,6 +1213,7 @@ initDb(dbPath).then(() => {
     console.log(`Anthropic API key: ${envApiKey ? 'from env' : 'user-provided via UI'}`)
     console.log(`Notion token: ${envNotionToken ? 'from env' : 'user-provided via UI'}`)
     console.log(`Trello: ${envTrelloKey && envTrelloToken ? 'from env' : 'user-provided via UI'}`)
+    console.log(`Google Calendar: ${envGoogleClientId && envGoogleClientSecret ? 'from env' : 'user-provided via UI'}`)
   })
 }).catch(err => {
   console.error('Failed to initialize database:', err)

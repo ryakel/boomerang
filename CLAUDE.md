@@ -144,6 +144,61 @@ Push tasks to Trello with native checklists and attachments, then keep them in s
 | `DELETE /api/trello/checklists/:id` | Delete a checklist |
 | `POST /api/trello/cards/:id/attachments` | Upload attachment to card |
 
+### Google Calendar Sync (Bidirectional)
+Bidirectional sync between tasks and Google Calendar events. First integration to use OAuth 2.0.
+
+**Server Endpoints** (in `server.js`):
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/gcal/auth-url` | Generate Google OAuth consent URL |
+| `GET /api/gcal/callback` | OAuth callback — exchange code for tokens, store server-side |
+| `GET /api/gcal/status` | Check connection status (`{ connected, email }`) |
+| `POST /api/gcal/disconnect` | Clear stored OAuth tokens |
+| `GET /api/gcal/calendars` | List user's calendars for picker |
+| `POST /api/gcal/events` | Create a calendar event |
+| `PATCH /api/gcal/events/:eventId` | Update a calendar event |
+| `DELETE /api/gcal/events/:eventId` | Delete a calendar event |
+| `GET /api/gcal/events` | List events in a time range (for pull sync) |
+
+**OAuth Flow:**
+1. User enters Client ID + Secret in Settings (or sets env vars `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
+2. Click "Connect" → opens Google consent in popup
+3. Server exchanges auth code for access + refresh tokens, stores in `app_data` as `gcal_tokens`
+4. Popup sends `postMessage` → Settings UI updates
+
+**Token Management:** Server-side in `app_data` table. `getGCalAccessToken()` auto-refreshes with 5-min buffer. Client never sees OAuth tokens.
+
+**Push Sync** (`src/hooks/useExternalSync.js`):
+- Watches tasks with `due_date` for changes (title, date, status, notes)
+- Creates timed events via AI inference (`inferEventTime()`) or all-day events
+- Size → duration mapping: XS=15min, S=30min, M=60min, L=120min, XL=240min
+- Completing/deleting a task removes the calendar event (configurable)
+- 5-second per-task debounce, same as Trello/Notion sync
+- Failed operations queued in `boom_external_sync_queue`
+
+**Pull Sync** (`src/hooks/useGCalSync.js`):
+- Triggered by "Sync Now" or on app open (if `gcal_pull_enabled`)
+- Fetches events for next 30 days
+- Filters out already-linked events and events with "Managed by Boomerang" in description
+- Uses `deduplicateImports()` from `syncDedup.js` (exact title match + AI fuzzy)
+
+**Settings:**
+- `gcal_client_id`, `gcal_client_secret` — OAuth credentials
+- `gcal_calendar_id` — which calendar to sync with (default: `primary`)
+- `gcal_sync_enabled` — master toggle for push sync
+- `gcal_sync_statuses` — which task statuses sync (default: all active)
+- `gcal_use_timed_events` — AI-inferred times vs all-day (default: true)
+- `gcal_default_time`, `gcal_event_duration` — fallback time/duration
+- `gcal_remove_on_complete` — delete event on task completion (default: true)
+- `gcal_pull_enabled` — pull calendar events as tasks
+
+**Known Limitations:**
+- OAuth requires user to create a Google Cloud project (no centralized consent screen)
+- Redirect URI must match exactly (localhost:3001 by default)
+- Pull sync only looks 30 days ahead
+- No recurring event support (each routine-spawned task creates a new event)
+- AI time inference requires Anthropic API key; falls back to defaults without it
+
 ### Notifications System
 - Configurable notification types: high priority (with 3-stage escalation), overdue, stale, nudges, size-based, pile-up warnings
 - All frequencies set in hours (supports fractional values, e.g. 0.25 = 15 min)

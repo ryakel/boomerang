@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS } from '../store'
-import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars } from '../api'
 
 const NOTIF_TYPE_LABELS = {
   high_priority: 'High Priority',
@@ -56,7 +56,7 @@ function NotificationHistory() {
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
 
-export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onShowActivityLog, syncStatus, isDesktop }) {
+export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing, onShowActivityLog, syncStatus, isDesktop }) {
   const [activeTab, setActiveTab] = useState('General')
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
@@ -235,6 +235,67 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       }).catch(() => {})
     }
   }, [envKeys.trello])
+
+  // Google Calendar connection state
+  const [gcalConnected, setGcalConnected] = useState(false)
+  const [gcalEmail, setGcalEmail] = useState(null)
+  const [gcalConnecting, setGcalConnecting] = useState(false)
+  const [gcalError, setGcalError] = useState(null)
+  const [gcalCalendars, setGcalCalendars] = useState([])
+
+  const handleGcalConnect = async () => {
+    setGcalConnecting(true)
+    setGcalError(null)
+    try {
+      const { url } = await gcalGetAuthUrl()
+      window.open(url, '_blank', 'width=500,height=600')
+    } catch (err) {
+      setGcalError(err.message)
+    } finally {
+      setGcalConnecting(false)
+    }
+  }
+
+  // Listen for OAuth callback message
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.data?.type === 'gcal-connected') {
+        gcalStatus().then(s => {
+          setGcalConnected(s.connected)
+          setGcalEmail(s.email)
+          if (s.connected) {
+            gcalListCalendars().then(setGcalCalendars).catch(() => {})
+          }
+        })
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
+  // Auto-check GCal connection on mount
+  useEffect(() => {
+    gcalStatus().then(s => {
+      if (s.connected) {
+        setGcalConnected(true)
+        setGcalEmail(s.email)
+        gcalListCalendars().then(setGcalCalendars).catch(() => {})
+      }
+    }).catch(() => {})
+  }, [])
+
+  const handleGcalDisconnect = async () => {
+    try {
+      await gcalDisconnect()
+      setGcalConnected(false)
+      setGcalEmail(null)
+      setGcalCalendars([])
+      update('gcal_sync_enabled', false)
+      update('gcal_pull_enabled', false)
+    } catch (err) {
+      setGcalError(err.message)
+    }
+  }
 
   const [labels, setLabels] = useState(loadLabels)
   const [newLabelName, setNewLabelName] = useState('')
@@ -1009,6 +1070,206 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
                 {trelloError && (
                   <div style={{ color: 'var(--accent)', fontSize: 12, marginTop: 8 }}>{trelloError}</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Google Calendar ── */}
+          <div>
+            <div
+              className={`integration-row${expandedIntegration === 'gcal' ? ' expanded' : ''}`}
+              onClick={() => setExpandedIntegration(expandedIntegration === 'gcal' ? null : 'gcal')}
+            >
+              <span className={`backlog-arrow${expandedIntegration === 'gcal' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${gcalConnected ? 'connected' : gcalConnecting ? 'checking' : gcalError ? 'error' : 'unconfigured'}`} />
+              <span className="integration-row-name">Google Calendar</span>
+              {expandedIntegration !== 'gcal' && (
+                <span className="integration-row-summary">
+                  {gcalConnecting ? 'Connecting...'
+                    : gcalConnected ? `Connected${gcalEmail ? ` as ${gcalEmail}` : ''}`
+                    : gcalError ? 'Error'
+                    : envKeys.gcal ? 'Environment variable' : 'Not configured'}
+                </span>
+              )}
+            </div>
+            {expandedIntegration === 'gcal' && (
+              <div className="integration-body">
+                {!envKeys.gcal && (
+                  <>
+                    <button className="credentials-toggle" onClick={() => setShowCredentials(s => ({ ...s, gcal: !s.gcal }))}>
+                      {showCredentials.gcal ? 'Hide' : 'Show'} credentials
+                    </button>
+                    {showCredentials.gcal && (
+                      <>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
+                          Create OAuth credentials at <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-link)' }}>Google Cloud Console</a>. Enable the Google Calendar API first.
+                        </div>
+                        <input
+                          className="add-input"
+                          type="password"
+                          placeholder="Client ID"
+                          value={settings.gcal_client_id || ''}
+                          onChange={e => update('gcal_client_id', e.target.value)}
+                          style={{ marginBottom: 8, fontSize: 13 }}
+                        />
+                        <input
+                          className="add-input"
+                          type="password"
+                          placeholder="Client Secret"
+                          value={settings.gcal_client_secret || ''}
+                          onChange={e => update('gcal_client_secret', e.target.value)}
+                          style={{ marginBottom: 8, fontSize: 13 }}
+                        />
+                      </>
+                    )}
+                  </>
+                )}
+                {envKeys.gcal && !gcalConnected && (
+                  <div className="env-key-status">Set by environment variable</div>
+                )}
+
+                {gcalConnected ? (
+                  <div>
+                    <div className="integration-status connected" style={{ marginBottom: 8 }}>
+                      Connected{gcalEmail && <> as <strong>{gcalEmail}</strong></>}
+                    </div>
+                    <button className="ci-clear-btn" style={{ marginBottom: 12 }} onClick={handleGcalDisconnect}>
+                      Disconnect
+                    </button>
+
+                    {/* Calendar picker */}
+                    <div className="settings-label" style={{ marginBottom: 6 }}>Calendar</div>
+                    <select
+                      className="add-input"
+                      style={{ fontSize: 13, marginBottom: 12 }}
+                      value={settings.gcal_calendar_id || 'primary'}
+                      onChange={e => update('gcal_calendar_id', e.target.value)}
+                    >
+                      {gcalCalendars.length === 0 && <option value="primary">Primary</option>}
+                      {gcalCalendars.map(c => (
+                        <option key={c.id} value={c.id}>{c.summary}{c.primary ? ' (Primary)' : ''}</option>
+                      ))}
+                    </select>
+
+                    {/* Push sync toggle */}
+                    <label className="notif-check" style={{ marginBottom: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!settings.gcal_sync_enabled}
+                        onChange={e => update('gcal_sync_enabled', e.target.checked)}
+                      />
+                      <span>Sync tasks to Google Calendar</span>
+                    </label>
+
+                    {settings.gcal_sync_enabled && (
+                      <div style={{ marginLeft: 24, marginBottom: 12 }}>
+                        {/* Status filter */}
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Sync tasks with these statuses:</div>
+                        {['not_started', 'doing', 'waiting', 'open'].map(status => (
+                          <label key={status} className="notif-check" style={{ marginBottom: 2 }}>
+                            <input
+                              type="checkbox"
+                              checked={(settings.gcal_sync_statuses || []).includes(status)}
+                              onChange={e => {
+                                const current = settings.gcal_sync_statuses || []
+                                const next = e.target.checked
+                                  ? [...current, status]
+                                  : current.filter(s => s !== status)
+                                update('gcal_sync_statuses', next)
+                              }}
+                            />
+                            <span style={{ fontSize: 12 }}>{status.replace('_', ' ')}</span>
+                          </label>
+                        ))}
+
+                        {/* Timed events toggle */}
+                        <label className="notif-check" style={{ marginTop: 8, marginBottom: 4 }}>
+                          <input
+                            type="checkbox"
+                            checked={!!settings.gcal_use_timed_events}
+                            onChange={e => update('gcal_use_timed_events', e.target.checked)}
+                          />
+                          <span style={{ fontSize: 12 }}>AI-timed events (vs all-day)</span>
+                        </label>
+                        {!settings.gcal_use_timed_events && (
+                          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Tasks appear as all-day events</div>
+                        )}
+                        {settings.gcal_use_timed_events && (
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Fallback time:</span>
+                            <input
+                              type="time"
+                              className="settings-input"
+                              style={{ flex: 1 }}
+                              value={settings.gcal_default_time || '09:00'}
+                              onChange={e => update('gcal_default_time', e.target.value)}
+                            />
+                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Duration:</span>
+                            <input
+                              type="number"
+                              className="settings-input"
+                              style={{ width: 60 }}
+                              min={5}
+                              max={480}
+                              value={settings.gcal_event_duration || 60}
+                              onChange={e => update('gcal_event_duration', parseInt(e.target.value, 10) || 60)}
+                            />
+                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
+                          </div>
+                        )}
+
+                        {/* Remove on complete */}
+                        <label className="notif-check" style={{ marginTop: 4 }}>
+                          <input
+                            type="checkbox"
+                            checked={settings.gcal_remove_on_complete !== false}
+                            onChange={e => update('gcal_remove_on_complete', e.target.checked)}
+                          />
+                          <span style={{ fontSize: 12 }}>Remove events when tasks completed</span>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Pull sync toggle */}
+                    <label className="notif-check" style={{ marginBottom: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!settings.gcal_pull_enabled}
+                        onChange={e => update('gcal_pull_enabled', e.target.checked)}
+                      />
+                      <span>Pull calendar events as tasks</span>
+                    </label>
+
+                    {/* Sync controls */}
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button
+                        className="ci-upload-btn"
+                        disabled={gcalSyncing}
+                        onClick={onGCalSync}
+                      >
+                        {gcalSyncing ? 'Syncing...' : 'Sync Now'}
+                      </button>
+                      {settings.gcal_last_sync && (
+                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                          Last: {new Date(settings.gcal_last_sync).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="ci-upload-btn"
+                    style={{ marginTop: 8 }}
+                    disabled={gcalConnecting || (!settings.gcal_client_id && !envKeys.gcal)}
+                    onClick={handleGcalConnect}
+                  >
+                    {gcalConnecting ? 'Connecting...' : 'Connect'}
+                  </button>
+                )}
+
+                {gcalError && (
+                  <div style={{ color: 'var(--accent)', fontSize: 12, marginTop: 8 }}>{gcalError}</div>
                 )}
               </div>
             )}

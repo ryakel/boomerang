@@ -11,6 +11,8 @@ services:
       - NOTION_INTEGRATION_TOKEN=${NOTION_INTEGRATION_TOKEN:-}
       - TRELLO_API_KEY=${TRELLO_API_KEY:-}
       - TRELLO_SECRET=${TRELLO_SECRET:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - DB_PATH=/data/boomerang.db
     volumes:
       - boomerang-data:/data

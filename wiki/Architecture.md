@@ -14,6 +14,7 @@ Browser (React PWA)
                           ├── /api/messages      → Anthropic Claude API proxy
                           ├── /api/notion/*      → Notion API proxy (search, pages, status)
                           ├── /api/trello/*      → Trello API proxy (boards, lists, cards, sync)
+                          ├── /api/gcal/*        → Google Calendar API proxy (OAuth, events, calendars)
                           └── /api/keys/status   → Reports which API keys are set via env vars
 ```
 
@@ -181,6 +182,15 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `POST` | `/api/trello/cards/:id/attachments` | Upload attachment to card |
 | `POST` | `/api/trello/sync` | Pull cards from a Trello list |
 | `POST` | `/api/trello/sync-all-lists` | Pull cards from multiple Trello lists at once |
+| `GET` | `/api/gcal/auth-url` | Generate Google OAuth authorization URL |
+| `GET` | `/api/gcal/callback` | OAuth callback — exchanges code for tokens |
+| `GET` | `/api/gcal/status` | Check Google Calendar connection status |
+| `POST` | `/api/gcal/disconnect` | Clear stored OAuth tokens |
+| `GET` | `/api/gcal/calendars` | List user's Google Calendars |
+| `POST` | `/api/gcal/events` | Create a Google Calendar event |
+| `PATCH` | `/api/gcal/events/:eventId` | Update a Google Calendar event |
+| `DELETE` | `/api/gcal/events/:eventId` | Delete a Google Calendar event |
+| `GET` | `/api/gcal/events` | List events in a time range (for pull sync) |
 | `GET` | `/api/tasks` | Get tasks (with optional filters) |
 | `POST` | `/api/tasks` | Create a task |
 | `PATCH` | `/api/tasks/:id` | Update a task |

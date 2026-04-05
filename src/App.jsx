@@ -33,6 +33,7 @@ import { usePullToRefresh } from './hooks/usePullToRefresh'
 import { useTrelloSync } from './hooks/useTrelloSync'
 import { useNotionSync } from './hooks/useNotionSync'
 import { useExternalSync } from './hooks/useExternalSync'
+import { useGCalSync } from './hooks/useGCalSync'
 import { useToastPrefetch } from './hooks/useToastPrefetch'
 
 polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
@@ -82,6 +83,7 @@ function App() {
   useNotifications(tasks)
   const { syncTrello, pushStatusToTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
   const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
+  const { syncing: gcalSyncing, syncGCal } = useGCalSync(tasks, setTasks)
   useExternalSync(tasks, updateTask)
   const prefetchToast = useToastPrefetch(tasks, updateTask)
 
@@ -615,6 +617,8 @@ function App() {
           trelloSyncing={trelloSyncing}
           onNotionSync={syncNotion}
           notionSyncing={notionSyncing}
+          onGCalSync={syncGCal}
+          gcalSyncing={gcalSyncing}
           onShowActivityLog={() => { setShowSettings(false); setShowActivityLog(true) }}
           syncStatus={syncStatus}
           isDesktop={isDesktop}

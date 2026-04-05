@@ -1,0 +1,1 @@
+ALTER TABLE tasks ADD COLUMN gcal_event_id TEXT DEFAULT NULL;

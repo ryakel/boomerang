@@ -8,6 +8,10 @@ import {
   trelloDeleteChecklist,
   trelloGetChecklists,
   notionUpdatePage,
+  gcalCreateEvent,
+  gcalUpdateEvent,
+  gcalDeleteEvent,
+  inferEventTime,
 } from '../api'
 
 const DEBOUNCE_MS = 5000
@@ -33,10 +37,21 @@ function log(...args) {
   console.log('[ExternalSync]', ...args)
 }
 
+function buildEventDescription(task) {
+  const parts = []
+  if (task.notes) parts.push(task.notes)
+  if (task.size) parts.push(`Size: ${task.size}`)
+  if (task.energy) parts.push(`Energy: ${task.energy}`)
+  if (task.tags?.length) parts.push(`Tags: ${task.tags.join(', ')}`)
+  parts.push('\n---\nManaged by Boomerang')
+  return parts.join('\n')
+}
+
 // Extract only user-facing fields for diffing (ignore trello_*_id fields)
 function userFacingSnapshot(task) {
   return {
     title: task.title,
+    status: task.status,
     notes: task.notes,
     due_date: task.due_date,
     checklists: (task.checklists || []).map(cl => ({
@@ -291,23 +306,129 @@ export function useExternalSync(tasks, onUpdateTask) {
     }
   }, [])
 
-  // Watch for task changes and sync to Trello/Notion
+  const syncTaskToGCal = useCallback(async (task, prevTask) => {
+    const settings = loadSettings()
+    const calendarId = settings.gcal_calendar_id || 'primary'
+    const syncStatuses = settings.gcal_sync_statuses || ['not_started', 'doing', 'waiting', 'open']
+
+    if (task.gcal_event_id) {
+      // Task already linked to a calendar event
+      const shouldRemove = (
+        (task.status === 'done' && settings.gcal_remove_on_complete) ||
+        !task.due_date
+      )
+
+      if (shouldRemove) {
+        try {
+          await gcalDeleteEvent(task.gcal_event_id, calendarId)
+          onUpdateTaskRef.current(task.id, { gcal_event_id: null })
+          log(`deleted GCal event for "${task.title}"`)
+        } catch (err) {
+          log(`ERROR deleting GCal event:`, err.message)
+          enqueue([{ type: 'gcalDelete', eventId: task.gcal_event_id, calendarId }])
+        }
+        return
+      }
+
+      // Update if title or due_date changed
+      const titleChanged = task.title !== prevTask.title
+      const dateChanged = task.due_date !== prevTask.due_date
+      const notesChanged = task.notes !== prevTask.notes
+      if (titleChanged || dateChanged || notesChanged) {
+        const event = { summary: task.title }
+        if (notesChanged || titleChanged) {
+          event.description = buildEventDescription(task)
+        }
+        if (dateChanged && task.due_date) {
+          if (settings.gcal_use_timed_events) {
+            try {
+              const { time, duration } = await inferEventTime(task.title, task.notes, task.size, task.energy)
+              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+              event.start = { dateTime: `${task.due_date}T${time}:00`, timeZone: tz }
+              const endDate = new Date(`${task.due_date}T${time}:00`)
+              endDate.setMinutes(endDate.getMinutes() + duration)
+              event.end = { dateTime: endDate.toISOString(), timeZone: tz }
+            } catch {
+              event.start = { date: task.due_date }
+              event.end = { date: task.due_date }
+            }
+          } else {
+            event.start = { date: task.due_date }
+            event.end = { date: task.due_date }
+          }
+        }
+        try {
+          await gcalUpdateEvent(task.gcal_event_id, calendarId, event)
+          log(`updated GCal event for "${task.title}"`)
+        } catch (err) {
+          log(`ERROR updating GCal event:`, err.message)
+          enqueue([{ type: 'gcalUpdate', eventId: task.gcal_event_id, calendarId, event }])
+        }
+      }
+    } else if (task.due_date && syncStatuses.includes(task.status)) {
+      // Create new calendar event
+      let event
+      if (settings.gcal_use_timed_events) {
+        try {
+          const { time, duration } = await inferEventTime(task.title, task.notes, task.size, task.energy)
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+          const endDate = new Date(`${task.due_date}T${time}:00`)
+          endDate.setMinutes(endDate.getMinutes() + duration)
+          event = {
+            summary: task.title,
+            description: buildEventDescription(task),
+            start: { dateTime: `${task.due_date}T${time}:00`, timeZone: tz },
+            end: { dateTime: endDate.toISOString(), timeZone: tz },
+          }
+        } catch {
+          event = {
+            summary: task.title,
+            description: buildEventDescription(task),
+            start: { date: task.due_date },
+            end: { date: task.due_date },
+          }
+        }
+      } else {
+        event = {
+          summary: task.title,
+          description: buildEventDescription(task),
+          start: { date: task.due_date },
+          end: { date: task.due_date },
+        }
+      }
+
+      try {
+        const result = await gcalCreateEvent(calendarId, event)
+        onUpdateTaskRef.current(task.id, { gcal_event_id: result.eventId })
+        log(`created GCal event for "${task.title}"`)
+      } catch (err) {
+        log(`ERROR creating GCal event:`, err.message)
+        enqueue([{ type: 'gcalCreate', calendarId, event, taskId: task.id }])
+      }
+    }
+  }, [])
+
+  // Watch for task changes and sync to Trello/Notion/GCal
   useEffect(() => {
     if (!prevTasks.current || !Array.isArray(tasks)) return
 
     const settings = loadSettings()
     const hasTrello = !!settings.trello_board_id
     const hasNotion = !!settings.notion_sync_parent_id
+    const hasGCal = !!settings.gcal_sync_enabled
 
-    if (!hasTrello && !hasNotion) return
+    if (!hasTrello && !hasNotion && !hasGCal) return
 
     const currMap = new Map(tasks.map(t => [t.id, t]))
 
     for (const [id, task] of currMap) {
       const hasTrelloLink = task.trello_card_id && task.trello_sync_enabled !== false
       const hasNotionLink = !!task.notion_page_id
+      const hasGCalLink = !!task.gcal_event_id
+      // GCal sync applies to tasks with due_date or already linked events
+      const gcalApplies = hasGCal && (hasGCalLink || task.due_date)
 
-      if (!hasTrelloLink && !hasNotionLink) continue
+      if (!hasTrelloLink && !hasNotionLink && !gcalApplies) continue
 
       const prev = prevTasks.current.get(id)
       if (!prev) continue // new task, skip (will be handled by create flow)
@@ -325,12 +446,13 @@ export function useExternalSync(tasks, onUpdateTask) {
         delete debounceTimers.current[id]
         if (hasTrello && hasTrelloLink) syncTaskToTrello(task, prev)
         if (hasNotion && hasNotionLink) syncTaskToNotion(task, prev)
+        if (gcalApplies) syncTaskToGCal(task, prev)
       }, DEBOUNCE_MS)
     }
 
     // Update prev snapshot
     prevTasks.current = currMap
-  }, [tasks, syncTaskToTrello, syncTaskToNotion])
+  }, [tasks, syncTaskToTrello, syncTaskToNotion, syncTaskToGCal])
 
   // Replay queue on online event
   const replayQueue = useCallback(async () => {
@@ -360,6 +482,15 @@ export function useExternalSync(tasks, onUpdateTask) {
             break
           case 'updateNotionPage':
             await notionUpdatePage(op.pageId, op.updates)
+            break
+          case 'gcalCreate':
+            await gcalCreateEvent(op.calendarId, op.event)
+            break
+          case 'gcalUpdate':
+            await gcalUpdateEvent(op.eventId, op.calendarId, op.event)
+            break
+          case 'gcalDelete':
+            await gcalDeleteEvent(op.eventId, op.calendarId)
             break
         }
       } catch (err) {
