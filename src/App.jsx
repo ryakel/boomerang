@@ -83,7 +83,7 @@ function App() {
   const { syncTrello, pushStatusToTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
   const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
   useExternalSync(tasks, updateTask)
-  const prefetchToast = useToastPrefetch(updateTask)
+  const prefetchToast = useToastPrefetch(tasks, updateTask)
 
   const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
