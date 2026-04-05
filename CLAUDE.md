@@ -172,6 +172,8 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 - Watches tasks with `due_date` for changes (title, date, status, notes)
 - Creates timed events via AI inference (`inferEventTime()`) or all-day events
 - Size → duration mapping: XS=15min, S=30min, M=60min, L=120min, XL=240min
+- Per-task duration override (`gcal_duration` column) — user sets minutes in EditTaskModal, overrides AI/size defaults
+- Optional 15-min buffer on either side of events (`gcal_event_buffer` setting)
 - Completing/deleting a task removes the calendar event (configurable)
 - 5-second per-task debounce, same as Trello/Notion sync
 - Failed operations queued in `boom_external_sync_queue`
@@ -190,6 +192,7 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 - `gcal_use_timed_events` — AI-inferred times vs all-day (default: true)
 - `gcal_default_time`, `gcal_event_duration` — fallback time/duration
 - `gcal_remove_on_complete` — delete event on task completion (default: true)
+- `gcal_event_buffer` — add 15-min buffer on either side of timed events (default: false)
 - `gcal_pull_enabled` — pull calendar events as tasks
 
 **Known Limitations:**

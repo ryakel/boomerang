@@ -73,7 +73,8 @@ CREATE TABLE tasks (
   size TEXT, energy TEXT, energy_level INTEGER,
   tags_json TEXT, attachments_json TEXT,
   checklist_json TEXT, checklists_json TEXT, comments_json TEXT,
-  toast_messages_json TEXT
+  toast_messages_json TEXT,
+  gcal_event_id TEXT, gcal_duration INTEGER
 );
 
 -- Indexes on status, due_date, energy, created_at, routine_id, completed_at
@@ -85,7 +86,7 @@ CREATE TABLE app_data (
 );
 ```
 
-Migrations are in `migrations/001-006.sql` and run automatically on startup.
+Migrations are in `migrations/001-008.sql` and run automatically on startup.
 
 ### Task Data Model — Attachments
 

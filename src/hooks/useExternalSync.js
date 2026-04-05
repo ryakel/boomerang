@@ -54,6 +54,7 @@ function userFacingSnapshot(task) {
     status: task.status,
     notes: task.notes,
     due_date: task.due_date,
+    gcal_duration: task.gcal_duration,
     checklists: (task.checklists || []).map(cl => ({
       name: cl.name,
       items: (cl.items || []).map(item => ({
@@ -306,6 +307,45 @@ export function useExternalSync(tasks, onUpdateTask) {
     }
   }, [])
 
+  // Build timed event start/end with optional buffer
+  const buildTimedEvent = useCallback(async (task, settings) => {
+    const buffer = settings.gcal_event_buffer ? 15 : 0
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+    // Resolve duration: per-task override → AI inference → size fallback → global default
+    let time, duration
+    if (task.gcal_duration) {
+      // User set a specific duration — still need a time from AI
+      duration = task.gcal_duration
+      try {
+        const inferred = await inferEventTime(task.title, task.notes, task.size, task.energy)
+        time = inferred.time
+      } catch {
+        time = settings.gcal_default_time || '09:00'
+      }
+    } else {
+      try {
+        const inferred = await inferEventTime(task.title, task.notes, task.size, task.energy)
+        time = inferred.time
+        duration = inferred.duration
+      } catch {
+        time = settings.gcal_default_time || '09:00'
+        duration = settings.gcal_event_duration || 60
+      }
+    }
+
+    // Apply buffer: shift start earlier and end later
+    const startDate = new Date(`${task.due_date}T${time}:00`)
+    if (buffer) startDate.setMinutes(startDate.getMinutes() - buffer)
+    const endDate = new Date(`${task.due_date}T${time}:00`)
+    endDate.setMinutes(endDate.getMinutes() + duration + buffer)
+
+    return {
+      start: { dateTime: startDate.toISOString(), timeZone: tz },
+      end: { dateTime: endDate.toISOString(), timeZone: tz },
+    }
+  }, [])
+
   const syncTaskToGCal = useCallback(async (task, prevTask) => {
     const settings = loadSettings()
     const calendarId = settings.gcal_calendar_id || 'primary'
@@ -330,24 +370,21 @@ export function useExternalSync(tasks, onUpdateTask) {
         return
       }
 
-      // Update if title or due_date changed
+      // Update if relevant fields changed
       const titleChanged = task.title !== prevTask.title
       const dateChanged = task.due_date !== prevTask.due_date
       const notesChanged = task.notes !== prevTask.notes
-      if (titleChanged || dateChanged || notesChanged) {
+      const durationChanged = task.gcal_duration !== prevTask.gcal_duration
+      if (titleChanged || dateChanged || notesChanged || durationChanged) {
         const event = { summary: task.title }
         if (notesChanged || titleChanged) {
           event.description = buildEventDescription(task)
         }
-        if (dateChanged && task.due_date) {
+        if ((dateChanged || durationChanged) && task.due_date) {
           if (settings.gcal_use_timed_events) {
             try {
-              const { time, duration } = await inferEventTime(task.title, task.notes, task.size, task.energy)
-              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-              event.start = { dateTime: `${task.due_date}T${time}:00`, timeZone: tz }
-              const endDate = new Date(`${task.due_date}T${time}:00`)
-              endDate.setMinutes(endDate.getMinutes() + duration)
-              event.end = { dateTime: endDate.toISOString(), timeZone: tz }
+              const timing = await buildTimedEvent(task, settings)
+              Object.assign(event, timing)
             } catch {
               event.start = { date: task.due_date }
               event.end = { date: task.due_date }
@@ -370,15 +407,11 @@ export function useExternalSync(tasks, onUpdateTask) {
       let event
       if (settings.gcal_use_timed_events) {
         try {
-          const { time, duration } = await inferEventTime(task.title, task.notes, task.size, task.energy)
-          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-          const endDate = new Date(`${task.due_date}T${time}:00`)
-          endDate.setMinutes(endDate.getMinutes() + duration)
+          const timing = await buildTimedEvent(task, settings)
           event = {
             summary: task.title,
             description: buildEventDescription(task),
-            start: { dateTime: `${task.due_date}T${time}:00`, timeZone: tz },
-            end: { dateTime: endDate.toISOString(), timeZone: tz },
+            ...timing,
           }
         } catch {
           event = {
@@ -406,7 +439,7 @@ export function useExternalSync(tasks, onUpdateTask) {
         enqueue([{ type: 'gcalCreate', calendarId, event, taskId: task.id }])
       }
     }
-  }, [])
+  }, [buildTimedEvent])
 
   // Watch for task changes and sync to Trello/Notion/GCal
   useEffect(() => {

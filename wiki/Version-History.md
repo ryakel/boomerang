@@ -22,6 +22,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Migration 007: add `gcal_event_id` column to tasks table
   - New files: `src/hooks/useGCalSync.js`, `migrations/007_add_gcal_columns.sql`
   - Modified: `server.js`, `db.js`, `src/store.js`, `src/api.js`, `src/hooks/useExternalSync.js`, `src/components/Settings.jsx`, `src/App.jsx`
+- feat(gcal): add per-task duration override and event buffer [M]
+  - Per-task `gcal_duration` field in EditTaskModal (shown when due date is set)
+  - Duration priority: task override → AI inference → size-based → global default
+  - 15-min buffer checkbox in Settings adds breathing room around calendar events
+  - Migration 008: add `gcal_duration` column to tasks table
+  - Modified: `db.js`, `src/store.js`, `src/hooks/useExternalSync.js`, `src/components/EditTaskModal.jsx`, `src/components/Settings.jsx`
 
 ### Snooze
 - `fe40289` fix(ui): overhaul snooze options with context-aware labels and custom picker [M]

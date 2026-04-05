@@ -59,6 +59,7 @@ export const DEFAULT_SETTINGS = {
   gcal_event_duration: 60,
   gcal_remove_on_complete: true,
   gcal_pull_enabled: false,
+  gcal_event_buffer: false,
   gcal_last_sync: null,
   notion_page_template: `## Overview\n> Context and background for this task\n\n### Details\n- **Last Updated:** {last_updated}\n- **Frequency:** {frequency}\n- **Last Performed:** {last_performed}\n\n## Notes\n- Key details from task notes\n\n## Action Items\n- [ ] First step\n- [ ] Second step\n- [ ] Third step\n\n---\n\n## Reference\n- Related links or resources\n\n## Tags\n- {tags}`,
 }
@@ -187,6 +188,7 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     trello_card_id: null,
     trello_card_url: null,
     gcal_event_id: null,
+    gcal_duration: null,   // per-task duration override in minutes (null = use AI/size default)
     routine_id: null,
     high_priority: false,
     size: null,

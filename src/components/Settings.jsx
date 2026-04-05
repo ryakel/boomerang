@@ -1228,6 +1228,16 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                           />
                           <span style={{ fontSize: 12 }}>Remove events when tasks completed</span>
                         </label>
+
+                        {/* Event buffer */}
+                        <label className="notif-check" style={{ marginTop: 4 }}>
+                          <input
+                            type="checkbox"
+                            checked={!!settings.gcal_event_buffer}
+                            onChange={e => update('gcal_event_buffer', e.target.checked)}
+                          />
+                          <span style={{ fontSize: 12 }}>Add 15-min buffer around events</span>
+                        </label>
                       </div>
                     )}
 

@@ -116,6 +116,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     task.trello_card_id ? { id: task.trello_card_id, url: task.trello_card_url } : null
   )
   const [highPriority, setHighPriority] = useState(task.high_priority || false)
+  const [gcalDuration, setGcalDuration] = useState(task.gcal_duration || '')
   const [currentStatus, setCurrentStatus] = useState(task.status === 'open' ? 'not_started' : task.status)
   const [trelloPushing, setTrelloPushing] = useState(false)
   const [trelloLists, setTrelloLists] = useState([])
@@ -171,12 +172,13 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         checklists,
         checklist: [], // clear old field after migration
         comments,
+        gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
       })
       flashSaved()
     }, 1000)
 
     return () => clearTimeout(autoSaveTimer.current)
-  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, notionResult, trelloResult, attachments, checklists, comments]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, notionResult, trelloResult, attachments, checklists, comments, gcalDuration]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -224,6 +226,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         checklists,
         checklist: [],
         comments,
+        gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
       })
     }
   }
@@ -550,6 +553,23 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               min={today}
               onChange={e => setDueDate(e.target.value)}
             />
+            {dueDate && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Duration</span>
+                <input
+                  className="add-input"
+                  type="number"
+                  min="5"
+                  max="480"
+                  step="5"
+                  placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
+                  value={gcalDuration}
+                  onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
+                  style={{ width: 72, textAlign: 'center' }}
+                />
+                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
+              </div>
+            )}
           </>
         )}
 

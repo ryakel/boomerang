@@ -1,0 +1,1 @@
+ALTER TABLE tasks ADD COLUMN gcal_duration INTEGER DEFAULT NULL;

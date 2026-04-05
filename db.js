@@ -259,6 +259,7 @@ function taskToRow(task) {
     toast_messages_json: task.toast_messages ? JSON.stringify(task.toast_messages) : null,
     trello_sync_enabled: task.trello_sync_enabled == null ? null : task.trello_sync_enabled ? 1 : 0,
     gcal_event_id: task.gcal_event_id || null,
+    gcal_duration: task.gcal_duration ?? null,
   }
 }
 
@@ -293,6 +294,7 @@ function rowToTask(row) {
     toast_messages: safeJsonParse(row.toast_messages_json, null),
     trello_sync_enabled: row.trello_sync_enabled == null ? undefined : !!row.trello_sync_enabled,
     gcal_event_id: row.gcal_event_id || null,
+    gcal_duration: row.gcal_duration ?? null,
   }
 }
 
@@ -311,8 +313,8 @@ const UPSERT_TASK_SQL = `
     notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
     high_priority, size, energy, energy_level, tags_json, attachments_json,
     checklist_json, checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
-    gcal_event_id)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    gcal_event_id, gcal_duration)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -327,7 +329,8 @@ const UPSERT_TASK_SQL = `
     checklist_json=excluded.checklist_json, checklists_json=excluded.checklists_json,
     comments_json=excluded.comments_json, toast_messages_json=excluded.toast_messages_json,
     trello_sync_enabled=excluded.trello_sync_enabled,
-    gcal_event_id=excluded.gcal_event_id`
+    gcal_event_id=excluded.gcal_event_id,
+    gcal_duration=excluded.gcal_duration`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -337,7 +340,7 @@ function runUpsertTask(task) {
     r.notion_page_id, r.notion_url, r.trello_card_id, r.trello_card_url, r.routine_id,
     r.high_priority, r.size, r.energy, r.energy_level, r.tags_json, r.attachments_json,
     r.checklist_json, r.checklists_json, r.comments_json, r.toast_messages_json,
-    r.trello_sync_enabled, r.gcal_event_id,
+    r.trello_sync_enabled, r.gcal_event_id, r.gcal_duration,
   ])
 }
 
