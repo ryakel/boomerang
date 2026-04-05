@@ -655,6 +655,66 @@ app.get('/api/trello/cards/:id', async (req, res) => {
   }
 })
 
+// Create a checklist on a card
+app.post('/api/trello/cards/:id/checklists', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const { name } = req.body
+    const response = await fetch(`${TRELLO_BASE}/cards/${req.params.id}/checklists?key=${key}&token=${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Add an item to a checklist
+app.post('/api/trello/checklists/:id/checkItems', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const { name, checked } = req.body
+    const response = await fetch(`${TRELLO_BASE}/checklists/${req.params.id}/checkItems?key=${key}&token=${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, checked: checked ? 'true' : 'false' }),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Upload an attachment to a card (base64)
+app.post('/api/trello/cards/:id/attachments', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const { name, mimeType, data } = req.body
+    const buffer = Buffer.from(data, 'base64')
+    const formData = new FormData()
+    formData.append('name', name)
+    formData.append('file', new Blob([buffer], { type: mimeType }), name)
+    const response = await fetch(`${TRELLO_BASE}/cards/${req.params.id}/attachments?key=${key}&token=${token}`, {
+      method: 'POST',
+      body: formData,
+    })
+    const result = await response.json()
+    if (!response.ok) return res.status(response.status).json(result)
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.post('/api/trello/sync', async (req, res) => {
   const { key, token } = getTrelloAuth(req)
   if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })

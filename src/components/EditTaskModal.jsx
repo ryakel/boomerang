@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
-import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloBoardLists } from '../api'
+import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists } from '../api'
 import { Sparkles, Search, ChevronRight, Trash2, Plus } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
 
@@ -275,17 +275,23 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     if (!title.trim() || !trelloPushListId) return
     setTrelloPushing(true)
     try {
-      // Build description with notes + checklists
-      let desc = notes.trim()
-      if (checklists.length > 0) {
-        const clText = checklists.map(cl => {
-          const header = `**${cl.name}**`
-          const items = cl.items.map(i => `- [${i.completed ? 'x' : ' '}] ${i.text}`).join('\n')
-          return `${header}\n${items}`
-        }).join('\n\n')
-        desc = desc ? `${desc}\n\n${clText}` : clText
+      // Create card with notes only (checklists go as native Trello checklists)
+      const card = await trelloCreateCard(title.trim(), notes.trim(), trelloPushListId)
+
+      // Create native Trello checklists
+      for (const cl of checklists) {
+        if (!cl.items.length) continue
+        const trelloCl = await trelloCreateChecklist(card.id, cl.name || 'Checklist')
+        for (const item of cl.items) {
+          await trelloAddCheckItem(trelloCl.id, item.text, item.completed)
+        }
       }
-      const card = await trelloCreateCard(title.trim(), desc, trelloPushListId)
+
+      // Upload attachments
+      for (const att of attachments) {
+        await trelloUploadAttachment(card.id, att.name, att.type, att.data)
+      }
+
       setTrelloResult({ id: card.id, url: card.url })
     } catch { /* ignore */ }
     finally { setTrelloPushing(false) }
