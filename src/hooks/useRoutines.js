@@ -53,9 +53,9 @@ export function useRoutines() {
     const spawned = []
     routines.forEach(routine => {
       if (!isRoutineDue(routine)) return
-      // Don't spawn if there's already an open task for this routine
-      const hasOpen = existingTasks.some(t => t.routine_id === routine.id && t.status === 'open')
-      if (hasOpen) return
+      // Don't spawn if there's already an active task for this routine
+      const hasActive = existingTasks.some(t => t.routine_id === routine.id && t.status !== 'done')
+      if (hasActive) return
 
       const nextDue = getNextDueDate(routine)
       const task = createTask(routine.title, routine.tags, nextDue.toISOString().split('T')[0], routine.notes)
