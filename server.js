@@ -549,6 +549,72 @@ function extractTitle(page) {
   return 'Untitled'
 }
 
+// Notion file upload (requires newer API version)
+app.post('/api/notion/file-uploads', async (req, res) => {
+  const token = getNotionToken(req)
+  if (!token) return res.status(400).json({ error: 'Notion not configured' })
+  try {
+    const { filename, content_type } = req.body
+    const response = await fetch(`${NOTION_BASE}/file_uploads`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ filename, content_type }),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Send file to a Notion file upload
+app.post('/api/notion/file-uploads/:id/send', async (req, res) => {
+  const token = getNotionToken(req)
+  if (!token) return res.status(400).json({ error: 'Notion not configured' })
+  try {
+    const { data, filename, content_type } = req.body
+    const buffer = Buffer.from(data, 'base64')
+    const formData = new FormData()
+    formData.append('file', new Blob([buffer], { type: content_type }), filename)
+    const response = await fetch(`${NOTION_BASE}/file_uploads/${req.params.id}/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Notion-Version': '2022-06-28',
+      },
+      body: formData,
+    })
+    const result = await response.json()
+    if (!response.ok) return res.status(response.status).json(result)
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Append blocks to a Notion page (used for attaching uploaded files)
+app.post('/api/notion/blocks/:id/children', async (req, res) => {
+  const token = getNotionToken(req)
+  if (!token) return res.status(400).json({ error: 'Notion not configured' })
+  try {
+    const response = await fetch(`${NOTION_BASE}/blocks/${req.params.id}/children`, {
+      method: 'PATCH',
+      headers: makeNotionHeaders(token),
+      body: JSON.stringify(req.body),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // --- Trello API proxy ---
 const TRELLO_BASE = 'https://api.trello.com/1'
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
-import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists } from '../api'
+import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists } from '../api'
 import { Sparkles, Search, ChevronRight, Trash2, Plus } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
 
@@ -249,14 +249,40 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
       const settings = loadSettings()
       const routine = task.routine_id ? loadRoutines().find(r => r.id === task.routine_id) : null
       const tagNames = selectedTags.map(id => labels.find(l => l.id === id)?.name || id)
+      const energyType = energy ? ENERGY_TYPES.find(t => t.id === energy)?.label : undefined
       const metadata = {
         tags: tagNames,
         lastUpdated: task.last_touched ? new Date(task.last_touched).toLocaleDateString() : new Date().toLocaleDateString(),
         lastPerformed: task.completed_at ? new Date(task.completed_at).toLocaleDateString() : undefined,
         frequency: routine ? formatCadence(routine) : undefined,
+        dueDate: dueDate || undefined,
+        size: size || undefined,
+        energy: energyType || undefined,
+        energyLevel: energyLevel || undefined,
+        priority: highPriority ? 'High' : undefined,
+        status: task.status || undefined,
       }
-      const content = await generateNotionContent(title, notes, !!task.routine_id, metadata)
+
+      // Build enriched notes with checklists and attachment references
+      let enrichedNotes = notes.trim()
+      if (checklists.length > 0) {
+        const clText = checklists.map(cl => {
+          const header = `## ${cl.name || 'Checklist'}`
+          const items = cl.items.map(i => `- [${i.completed ? 'x' : ' '}] ${i.text}`).join('\n')
+          return `${header}\n${items}`
+        }).join('\n\n')
+        enrichedNotes = enrichedNotes ? `${enrichedNotes}\n\n${clText}` : clText
+      }
+      const content = await generateNotionContent(title, enrichedNotes, !!task.routine_id, metadata)
       const page = await notionCreatePage(title, content, settings.notion_parent_page_id || null)
+
+      // Upload attachments to the Notion page
+      for (const att of attachments) {
+        try {
+          await notionUploadFile(page.id, att.name, att.type, att.data)
+        } catch { /* continue with remaining attachments */ }
+      }
+
       setNotionResult(page)
       setNotionState(null)
     } catch (err) {

@@ -267,6 +267,48 @@ export async function notionUpdatePage(pageId, content) {
   return res.json()
 }
 
+export async function notionUploadFile(pageId, filename, contentType, base64Data) {
+  // Step 1: Create file upload
+  const createRes = await fetch('/api/notion/file-uploads', {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ filename, content_type: contentType }),
+  })
+  if (!createRes.ok) throw new Error('Failed to create Notion file upload')
+  const upload = await createRes.json()
+
+  // Step 2: Send the file
+  const sendRes = await fetch(`/api/notion/file-uploads/${upload.id}/send`, {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ data: base64Data, filename, content_type: contentType }),
+  })
+  if (!sendRes.ok) throw new Error('Failed to send file to Notion')
+
+  // Step 3: Append file block to the page
+  const isImage = contentType.startsWith('image/')
+  const blockType = isImage ? 'image' : 'file'
+  const block = {
+    object: 'block',
+    type: blockType,
+    [blockType]: {
+      type: 'file_upload',
+      file_upload: { id: upload.id },
+    },
+  }
+  if (!isImage) {
+    block[blockType].name = filename
+  }
+
+  const appendRes = await fetch(`/api/notion/blocks/${pageId}/children`, {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ children: [block] }),
+  })
+  if (!appendRes.ok) throw new Error('Failed to attach file to Notion page')
+  return appendRes.json()
+}
+
 // Fetch all blocks (content) from a Notion page
 export async function notionGetBlocks(pageId) {
   const res = await fetch(`/api/notion/blocks/${pageId}`, { headers: getApiHeaders() })
@@ -390,11 +432,21 @@ export async function generateNotionContent(taskTitle, taskNotes, isRecurring = 
     .replace(/\{last_performed\}/g, metadata.lastPerformed || 'N/A')
     .replace(/- \{tags\}/g, metadata.tags?.length ? metadata.tags.map(t => `- ${t}`).join('\n') : '- None')
 
-  const system = `You create structured Notion page content for tasks. You MUST follow the template structure below, filling each section with relevant content for the given task. Preserve all markdown formatting exactly: ## for headings, - [ ] for to-do items, > for callouts, --- for dividers, - for bullet points. Do not add or remove sections — only populate the existing ones. Lines that already have concrete values (dates, tags, frequency) must be kept exactly as-is. For the Tags section, keep all existing tags and you may add a few more if clearly relevant.${recurring}
+  // Build task details from metadata
+  const details = []
+  if (metadata.dueDate) details.push(`Due Date: ${metadata.dueDate}`)
+  if (metadata.size) details.push(`Size: ${metadata.size}`)
+  if (metadata.energy) details.push(`Energy Type: ${metadata.energy}`)
+  if (metadata.energyLevel) details.push(`Energy Level: ${'⚡'.repeat(metadata.energyLevel)}`)
+  if (metadata.priority) details.push(`Priority: ${metadata.priority}`)
+  if (metadata.status) details.push(`Status: ${metadata.status}`)
+  const detailsStr = details.length ? `\nTask details: ${details.join(', ')}` : ''
+
+  const system = `You create structured Notion page content for tasks. You MUST follow the template structure below, filling each section with relevant content for the given task. Preserve all markdown formatting exactly: ## for headings, - [ ] for to-do items, > for callouts, --- for dividers, - for bullet points. Do not add or remove sections — only populate the existing ones. Lines that already have concrete values (dates, tags, frequency) must be kept exactly as-is. For the Tags section, keep all existing tags and you may add a few more if clearly relevant. Include any checklists and attachment references from the notes as-is — do not summarize or remove them.${recurring}
 
 Template:
 ${template}`
-  const user = `Create Notion page content for:\nTask: "${taskTitle}"${taskNotes ? `\nNotes: ${taskNotes}` : ''}`
+  const user = `Create Notion page content for:\nTask: "${taskTitle}"${detailsStr}${taskNotes ? `\nNotes: ${taskNotes}` : ''}`
 
   return callClaude(system, user)
 }
