@@ -327,8 +327,13 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
 
       setTrelloResult({ id: card.id, url: card.url })
 
-      // Enable ongoing sync for this task
-      onSave(task.id, { trello_sync_enabled: true, checklists: updatedChecklists })
+      // Enable ongoing sync and persist card ID + checklist IDs together
+      onSave(task.id, {
+        trello_card_id: card.id,
+        trello_card_url: card.url,
+        trello_sync_enabled: true,
+        checklists: updatedChecklists,
+      })
     } catch { /* ignore */ }
     finally { setTrelloPushing(false) }
   }

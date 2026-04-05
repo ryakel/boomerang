@@ -6,6 +6,7 @@ import {
   trelloAddCheckItem,
   trelloUpdateCheckItem,
   trelloDeleteChecklist,
+  trelloGetChecklists,
 } from '../api'
 
 const DEBOUNCE_MS = 5000
@@ -50,6 +51,7 @@ function userFacingSnapshot(task) {
 export function useExternalSync(tasks, onUpdateTask) {
   const prevTasks = useRef(null)
   const debounceTimers = useRef({}) // per-task timers
+  const hydratedIds = useRef(new Set()) // track tasks we've already hydrated
   const onUpdateTaskRef = useRef(onUpdateTask)
   onUpdateTaskRef.current = onUpdateTask
 
@@ -60,9 +62,61 @@ export function useExternalSync(tasks, onUpdateTask) {
     }
   }, [tasks])
 
+  // Hydrate Trello IDs for pre-existing linked tasks that lack them
+  const hydrateChecklistIds = useCallback(async (task) => {
+    const cardId = task.trello_card_id
+    if (!cardId || hydratedIds.current.has(task.id)) return task
+
+    const checklists = task.checklists || []
+    const needsHydration = checklists.length > 0 && checklists.every(cl => !cl.trello_checklist_id)
+    if (!needsHydration) {
+      hydratedIds.current.add(task.id)
+      return task
+    }
+
+    try {
+      const trelloChecklists = await trelloGetChecklists(cardId)
+      const updatedChecklists = [...checklists]
+
+      for (let ci = 0; ci < updatedChecklists.length; ci++) {
+        const cl = updatedChecklists[ci]
+        // Match by name (case-insensitive)
+        const match = trelloChecklists.find(tc =>
+          tc.name.toLowerCase() === (cl.name || 'Checklist').toLowerCase()
+        )
+        if (!match) continue
+
+        const updatedItems = [...(cl.items || [])]
+        for (let ii = 0; ii < updatedItems.length; ii++) {
+          const item = updatedItems[ii]
+          // Match by text (case-insensitive)
+          const itemMatch = match.checkItems?.find(ci =>
+            ci.name.toLowerCase() === item.text.toLowerCase()
+          )
+          if (itemMatch) {
+            updatedItems[ii] = { ...item, trello_check_item_id: itemMatch.id }
+          }
+        }
+        updatedChecklists[ci] = { ...cl, trello_checklist_id: match.id, items: updatedItems }
+      }
+
+      onUpdateTaskRef.current(task.id, { checklists: updatedChecklists })
+      log(`hydrated Trello IDs for "${task.title}"`)
+      hydratedIds.current.add(task.id)
+      return { ...task, checklists: updatedChecklists }
+    } catch (err) {
+      log(`ERROR hydrating Trello IDs:`, err.message)
+      hydratedIds.current.add(task.id) // don't retry endlessly
+      return task
+    }
+  }, [])
+
   const syncTaskToTrello = useCallback(async (task, prevTask) => {
     const cardId = task.trello_card_id
     if (!cardId) return
+
+    // Hydrate IDs if needed before syncing
+    task = await hydrateChecklistIds(task)
 
     // Sync basic fields
     const fieldUpdates = {}
@@ -190,7 +244,7 @@ export function useExternalSync(tasks, onUpdateTask) {
       onUpdateTaskRef.current(task.id, { checklists: updatedChecklists })
       log(`wrote back Trello IDs for "${task.title}"`)
     }
-  }, [])
+  }, [hydrateChecklistIds])
 
   // Watch for task changes and sync to Trello
   useEffect(() => {
