@@ -15,7 +15,7 @@ import SnoozeModal from './components/SnoozeModal'
 import ReframeModal from './components/ReframeModal'
 import WhatNow from './components/WhatNow'
 import Settings from './components/Settings'
-import Toast from './components/Toast'
+import Toast, { prefetchToastMessage } from './components/Toast'
 import DoneList from './components/DoneList'
 import Routines from './components/Routines'
 import EditTaskModal from './components/EditTaskModal'
@@ -181,9 +181,10 @@ function App() {
       pushStatusToTrello(task, 'done')
     }
     if (task) {
+      prefetchToastMessage(task, 'complete', todayCount + 1)
       setToast({ ...task, completed_at: new Date().toISOString() })
     }
-  }, [tasks, completeTask, completeRoutine, pushStatusToTrello])
+  }, [tasks, completeTask, completeRoutine, pushStatusToTrello, todayCount])
 
   const handleUncomplete = useCallback((task) => {
     uncompleteTask(task.id)
@@ -191,6 +192,7 @@ function App() {
     if (task?.trello_card_id) {
       pushStatusToTrello(task, 'not_started')
     }
+    prefetchToastMessage(task, 'reopen', 0)
     setToast({ task, variant: 'reopen' })
   }, [uncompleteTask, pushStatusToTrello])
 

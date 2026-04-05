@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useRef } from 'react'
 import './Toast.css'
 import { computeTaskPoints } from '../store'
 import { generateToastMessage } from '../api'
@@ -42,26 +42,28 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
+// Pre-fetch AI message so it's ready before the toast mounts.
+// Returns a promise that resolves to the AI message or null.
+const aiCache = { pending: null, taskId: null }
+
+export function prefetchToastMessage(task, variant, todayCount) {
+  const daysOnList = Math.floor(
+    (Date.now() - new Date(task.created_at).getTime()) / 86400000
+  )
+  aiCache.taskId = task.id
+  aiCache.pending = generateToastMessage(task.title, variant, {
+    daysOnList,
+    todayCount,
+    energy: task.energy,
+    energyLevel: task.energyLevel,
+  }).catch(() => null)
+}
+
 function getStaticMessage(daysOnList, isReopen) {
   if (isReopen) return pickRandom(MESSAGES_REOPEN)
   if (daysOnList === 0) return pickRandom(MESSAGES_QUICK)
   if (daysOnList <= 3) return pickRandom(MESSAGES_NORMAL)
   return pickRandom(MESSAGES_LONG)
-}
-
-function getSubtitle(daysOnList, todayCount) {
-  let subtitle = ''
-  if (daysOnList === 0) {
-    subtitle = 'Same-day finish'
-  } else if (daysOnList === 1) {
-    subtitle = '1 day on the list'
-  } else {
-    subtitle = `${daysOnList} days on the list`
-  }
-  if (todayCount > 1) {
-    subtitle += ` · ${todayCount} done today`
-  }
-  return subtitle
 }
 
 export default function Toast({ task, todayCount, variant = 'complete', onDone, onUndo }) {
@@ -70,39 +72,48 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
     (Date.now() - new Date(task.created_at).getTime()) / 86400000
   )
 
-  // Compute static message and subtitle once on mount (no re-randomizing)
-  const staticMessage = useMemo(() => getStaticMessage(daysOnList, isReopen), []) // eslint-disable-line react-hooks/exhaustive-deps
-  const [message, setMessage] = useState(staticMessage)
+  // All values computed once — no state, no swaps, no re-renders
+  const frozen = useRef(null)
+  if (!frozen.current) {
+    const staticMsg = getStaticMessage(daysOnList, isReopen)
+    let subtitle
+    if (isReopen) {
+      subtitle = `"${task.title}" is back on the list`
+    } else {
+      const s = daysOnList === 0 ? 'Same-day finish'
+        : daysOnList === 1 ? '1 day on the list'
+        : `${daysOnList} days on the list`
+      const pts = computeTaskPoints(task)
+      subtitle = `${s}${todayCount > 1 ? ` · ${todayCount} done today` : ''} · +${pts} pts`
+    }
+    frozen.current = { message: staticMsg, subtitle }
+  }
 
-  const subtitle = useMemo(() => {
-    if (isReopen) return `"${task.title}" is back on the list`
-    const s = getSubtitle(daysOnList, todayCount)
-    const pts = computeTaskPoints(task)
-    return `${s} · +${pts} pts`
+  // Check if prefetched AI message is already resolved
+  useEffect(() => {
+    if (aiCache.pending && aiCache.taskId === task.id) {
+      const promise = aiCache.pending
+      aiCache.pending = null
+      aiCache.taskId = null
+      // Race: if AI already resolved, update the ref before paint
+      // If not, we just keep the static — no swap
+      promise.then(aiMsg => {
+        if (aiMsg && frozen.current) {
+          frozen.current.message = aiMsg
+        }
+      })
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Try AI generation in background, replace static if it arrives fast enough
-  useEffect(() => {
-    let cancelled = false
-    const timeout = setTimeout(() => { cancelled = true }, 3000)
-
-    generateToastMessage(task.title, variant, {
-      daysOnList,
-      todayCount,
-      energy: task.energy,
-      energyLevel: task.energyLevel,
-    }).then(aiMsg => {
-      clearTimeout(timeout)
-      if (!cancelled && aiMsg) setMessage(aiMsg)
-    }).catch(() => {})
-
-    return () => { cancelled = true; clearTimeout(timeout) }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
 
   useEffect(() => {
-    const timer = setTimeout(onDone, 4000)
+    const timer = setTimeout(() => onDoneRef.current(), 4000)
     return () => clearTimeout(timer)
-  }, [onDone])
+  }, [])
+
+  const { message, subtitle } = frozen.current
 
   return (
     <div className={`toast ${isReopen ? 'toast-reopen' : ''}`} onClick={onDone}>
