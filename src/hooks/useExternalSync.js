@@ -251,7 +251,8 @@ export function useExternalSync(tasks, onUpdateTask) {
     if (!prevTasks.current || !Array.isArray(tasks)) return
 
     const settings = loadSettings()
-    if (!settings.trello_api_key && !settings.trello_board_id) return
+    // Need at least a board configured (keys can come from env vars)
+    if (!settings.trello_board_id) return
 
     const currMap = new Map(tasks.map(t => [t.id, t]))
 
@@ -267,6 +268,8 @@ export function useExternalSync(tasks, onUpdateTask) {
       const prevSnap = JSON.stringify(userFacingSnapshot(prev))
       const currSnap = JSON.stringify(userFacingSnapshot(task))
       if (prevSnap === currSnap) continue
+
+      log(`change detected for "${task.title}", scheduling sync in ${DEBOUNCE_MS}ms`)
 
       // Debounce per-task
       if (debounceTimers.current[id]) clearTimeout(debounceTimers.current[id])
