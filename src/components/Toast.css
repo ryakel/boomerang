@@ -13,7 +13,7 @@
   text-align: center;
   min-width: 220px;
   max-width: 340px;
-  animation: toastIn 0.3s ease;
+  animation: toastIn 0.3s ease forwards;
   box-shadow: 0 8px 32px var(--shadow);
 }
 
