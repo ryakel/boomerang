@@ -91,6 +91,7 @@ Four preset options: Tonight, Tomorrow, This Weekend, Next Week. Each snooze inc
 Recurring tasks with configurable cadence:
 
 - **Frequencies**: daily, weekly, monthly, quarterly, annually, or custom (every N days)
+- **End date**: optional end date to auto-stop a routine (e.g., "study daily until exam day"). After the end date, no new tasks are spawned. Displayed on routine cards as "ends Mon DD".
 - **Management**: routines live in their own screen, accessible from the tag bar. Active and paused routines are shown separately.
 - **Auto-spawning**: when a routine is due, a task instance is automatically created in the main task list. Completing the instance logs the completion on the routine and schedules the next occurrence.
 - **Pause/resume**: routines can be paused without deleting them

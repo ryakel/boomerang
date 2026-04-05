@@ -25,7 +25,7 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 
 ### Key Features
 - Persistent nagging with snooze escalation and AI-powered reframing
-- Recurring tasks (routines), custom labels, due dates
+- Recurring tasks (routines) with optional end date, custom labels, due dates
 - Notion and Trello integrations (bidirectional sync)
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings

@@ -9,9 +9,10 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes)
     if (highPriority) routine.high_priority = true
+    if (endDate) routine.end_date = endDate
     setRoutines(prev => [routine, ...prev])
     return routine
   }, [])

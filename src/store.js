@@ -203,6 +203,7 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
     created_at: new Date().toISOString(),
     completed_history: [], // array of ISO date strings
     paused: false,
+    end_date: null,      // optional YYYY-MM-DD — routine auto-pauses after this date
   }
 }
 
@@ -225,6 +226,10 @@ export function getNextDueDate(routine) {
 
 export function isRoutineDue(routine) {
   if (routine.paused) return false
+  if (routine.end_date) {
+    const endOfDay = new Date(routine.end_date + 'T23:59:59')
+    if (Date.now() > endOfDay.getTime()) return false
+  }
   const nextDue = getNextDueDate(routine)
   return Date.now() >= nextDue.getTime()
 }

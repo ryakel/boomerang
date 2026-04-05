@@ -597,6 +597,7 @@ function routineToRow(routine) {
     paused: routine.paused ? 1 : 0,
     tags_json: JSON.stringify(routine.tags || []),
     completed_history_json: JSON.stringify(routine.completed_history || []),
+    end_date: routine.end_date || null,
   }
 }
 
@@ -616,6 +617,7 @@ function rowToRoutine(row) {
     paused: !!row.paused,
     tags: safeJsonParse(row.tags_json, []),
     completed_history: safeJsonParse(row.completed_history_json, []),
+    end_date: row.end_date || null,
   }
 }
 
@@ -626,21 +628,22 @@ function rowToRoutine(row) {
 const UPSERT_ROUTINE_SQL = `
   INSERT INTO routines (id, title, cadence, custom_days, notes, high_priority,
     energy, energy_level, notion_page_id, notion_url, created_at, paused,
-    tags_json, completed_history_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    tags_json, completed_history_json, end_date)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
     notes=excluded.notes, high_priority=excluded.high_priority, energy=excluded.energy,
     energy_level=excluded.energy_level, notion_page_id=excluded.notion_page_id,
     notion_url=excluded.notion_url, created_at=excluded.created_at, paused=excluded.paused,
-    tags_json=excluded.tags_json, completed_history_json=excluded.completed_history_json`
+    tags_json=excluded.tags_json, completed_history_json=excluded.completed_history_json,
+    end_date=excluded.end_date`
 
 function runUpsertRoutine(routine) {
   const r = routineToRow(routine)
   db.run(UPSERT_ROUTINE_SQL, [
     r.id, r.title, r.cadence, r.custom_days, r.notes, r.high_priority,
     r.energy, r.energy_level, r.notion_page_id, r.notion_url, r.created_at, r.paused,
-    r.tags_json, r.completed_history_json,
+    r.tags_json, r.completed_history_json, r.end_date,
   ])
 }
 

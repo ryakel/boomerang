@@ -10,6 +10,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
   const [selectedTags, setSelectedTags] = useState([])
   const [notes, setNotes] = useState('')
   const [highPriority, setHighPriority] = useState(false)
+  const [endDate, setEndDate] = useState('')
   const labels = loadLabels()
 
   const resetForm = () => {
@@ -19,13 +20,14 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setCustomDays(14)
     setSelectedTags([])
     setHighPriority(false)
+    setEndDate('')
     setShowAdd(false)
     setEditingRoutine(null)
   }
 
   const handleAdd = () => {
     if (!title.trim()) return
-    onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim(), highPriority)
+    onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim(), highPriority, endDate || null)
     resetForm()
   }
 
@@ -37,6 +39,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setSelectedTags(routine.tags || [])
     setNotes(routine.notes || '')
     setHighPriority(routine.high_priority || false)
+    setEndDate(routine.end_date || '')
     setShowAdd(true)
   }
 
@@ -49,6 +52,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
       tags: selectedTags,
       notes: notes.trim(),
       high_priority: highPriority,
+      end_date: endDate || null,
     })
     resetForm()
   }
@@ -122,14 +126,33 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
               </button>
             ))}
           </div>
-          <div className="priority-group" style={{ marginBottom: 16, alignItems: 'flex-start' }}>
-            <span className="settings-label" style={{ marginBottom: 4 }}>Priority</span>
+          <div className="priority-group" style={{ marginBottom: 16, alignItems: 'flex-start', flexDirection: 'row', gap: 8 }}>
+            <span className="settings-label" style={{ marginBottom: 0 }}>Priority</span>
             <button
               className={`priority-btn${highPriority ? ' priority-active' : ''}`}
               onClick={() => setHighPriority(!highPriority)}
             >
               !
             </button>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <div className="settings-label" style={{ marginBottom: 6 }}>End Date</div>
+            <input
+              className="settings-input"
+              type="date"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              placeholder="No end date"
+            />
+            {endDate && (
+              <button
+                className="what-now-dismiss"
+                onClick={() => setEndDate('')}
+                style={{ marginTop: 4, padding: '4px 8px', fontSize: 12 }}
+              >
+                Clear end date
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="submit-btn" disabled={!title.trim()} onClick={editingRoutine ? handleSaveEdit : handleAdd}>
@@ -263,7 +286,10 @@ function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
     ? new Date(routine.completed_history[routine.completed_history.length - 1])
     : null
 
+  const endedOrExpired = routine.end_date && new Date() > new Date(routine.end_date + 'T23:59:59')
+
   const nextLabel = routine.paused ? 'paused' :
+    endedOrExpired ? 'ended' :
     nextDue <= new Date() ? 'due now' :
     `next ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
 
@@ -315,6 +341,7 @@ function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
           {nextLabel}
+          {routine.end_date && ` · ends ${new Date(routine.end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
           {lastDone && ` · last done ${lastDone.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
           {routine.completed_history.length > 0 && ` · ${routine.completed_history.length}x completed`}
         </div>

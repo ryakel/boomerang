@@ -84,7 +84,7 @@ CREATE TABLE app_data (
 );
 ```
 
-Migrations are in `migrations/001-005.sql` and run automatically on startup.
+Migrations are in `migrations/001-006.sql` and run automatically on startup.
 
 ### Task Data Model — Attachments
 
