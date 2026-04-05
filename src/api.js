@@ -234,25 +234,35 @@ export async function reframeTask(taskTitle, snoozeCount, blocker) {
 }
 
 // --- Toast messages ---
-export async function generateToastMessage(taskTitle, variant, context = {}) {
-  const { daysOnList, todayCount, energy, energyLevel } = context
-  const system = `You write very short, punchy one-liner reactions (under 8 words) for a task management app. Be funny, irreverent, slightly sarcastic but always encouraging. Match the vibe of the situation. No quotes, no emoji, no punctuation at the end unless it's a question mark or exclamation. Return JSON only: {"message":"your line"}`
+export async function generateToastMessages(taskTitle, context = {}) {
+  const { energy, energyLevel } = context
+  const energyNote = energy === 'confrontation' ? ' This is a dreaded confrontation task.' : energy === 'errand' ? ' This is an errand.' : ''
+  const drainNote = energyLevel >= 3 ? ' High-drain task requiring serious willpower.' : ''
 
-  let situation
-  if (variant === 'reopen') {
-    situation = `The user just reopened a completed task: "${taskTitle}". They thought they were done but they weren't. Tease them gently.`
-  } else if (daysOnList === 0) {
-    situation = `The user completed "${taskTitle}" same day they created it. That's fast! Be impressed.${todayCount > 3 ? ` They've done ${todayCount} tasks today — they're on fire.` : ''}`
-  } else if (daysOnList > 7) {
-    situation = `The user FINALLY completed "${taskTitle}" after ${daysOnList} days of procrastinating. Celebrate the victory over avoidance.${energy === 'confrontation' ? ' This was a dreaded confrontation task.' : ''}${energyLevel >= 3 ? ' This was a high-drain task.' : ''}`
-  } else {
-    situation = `The user completed "${taskTitle}" after ${daysOnList} day(s). Normal completion. Be casually encouraging.${todayCount > 2 ? ` ${todayCount} done today.` : ''}`
-  }
+  const system = `You write short, punchy reactions for a task management app built for someone with ADHD. Be funny, irreverent, slightly sarcastic but always encouraging. Think "friend who roasts you lovingly." No emoji.
 
-  const text = await callClaude(system, situation)
+Return JSON with 4 scenarios, each having a "message" (headline, under 8 words, no ending period) and "subtitle" (color commentary, under 12 words, no ending period):
+
+{
+  "complete_quick": { "message": "...", "subtitle": "..." },
+  "complete_normal": { "message": "...", "subtitle": "..." },
+  "complete_long": { "message": "...", "subtitle": "..." },
+  "reopen": { "message": "...", "subtitle": "..." }
+}
+
+- complete_quick: They knocked it out same-day. Be impressed or playfully suspicious.
+- complete_normal: Completed after a few days. Casual encouragement.
+- complete_long: Completed after 7+ days of procrastinating. Celebrate the victory over avoidance, roast the delay.
+- reopen: They marked it done but it's back. Tease them.
+
+Make each one specific to the task title — generic motivational fluff is boring.`
+
+  const user = `Task: "${taskTitle}"${energyNote}${drainNote}\n\nGenerate all 4 toast message variants. JSON only.`
+
+  const text = await callClaude(system, user)
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('Bad response')
-  return JSON.parse(match[0]).message
+  return JSON.parse(match[0])
 }
 
 // --- Notion ---

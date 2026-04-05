@@ -15,7 +15,7 @@ import SnoozeModal from './components/SnoozeModal'
 import ReframeModal from './components/ReframeModal'
 import WhatNow from './components/WhatNow'
 import Settings from './components/Settings'
-import Toast, { prefetchToastMessage } from './components/Toast'
+import Toast from './components/Toast'
 import DoneList from './components/DoneList'
 import Routines from './components/Routines'
 import EditTaskModal from './components/EditTaskModal'
@@ -33,6 +33,7 @@ import { usePullToRefresh } from './hooks/usePullToRefresh'
 import { useTrelloSync } from './hooks/useTrelloSync'
 import { useNotionSync } from './hooks/useNotionSync'
 import { useExternalSync } from './hooks/useExternalSync'
+import { useToastPrefetch } from './hooks/useToastPrefetch'
 
 polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 
@@ -82,6 +83,7 @@ function App() {
   const { syncTrello, pushStatusToTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
   const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
   useExternalSync(tasks, updateTask)
+  const prefetchToast = useToastPrefetch(updateTask)
 
   const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
@@ -181,10 +183,9 @@ function App() {
       pushStatusToTrello(task, 'done')
     }
     if (task) {
-      prefetchToastMessage(task, 'complete', todayCount + 1)
       setToast({ ...task, completed_at: new Date().toISOString() })
     }
-  }, [tasks, completeTask, completeRoutine, pushStatusToTrello, todayCount])
+  }, [tasks, completeTask, completeRoutine, pushStatusToTrello])
 
   const handleUncomplete = useCallback((task) => {
     uncompleteTask(task.id)
@@ -192,7 +193,6 @@ function App() {
     if (task?.trello_card_id) {
       pushStatusToTrello(task, 'not_started')
     }
-    prefetchToastMessage(task, 'reopen', 0)
     setToast({ task, variant: 'reopen' })
   }, [uncompleteTask, pushStatusToTrello])
 
@@ -273,6 +273,7 @@ function App() {
         if (inferred.energy) updates.energy = inferred.energy
         if (inferred.energyLevel) updates.energyLevel = inferred.energyLevel
         if (Object.keys(updates).length > 0) updateTask(taskId, updates)
+        prefetchToast(taskId, text, inferred.energy, inferred.energyLevel)
       }).catch(() => {})
     } else {
       setShowAdd(true)
@@ -551,7 +552,10 @@ function App() {
               if (inferred.energy) updates.energy = inferred.energy
               if (inferred.energyLevel) updates.energyLevel = inferred.energyLevel
               if (Object.keys(updates).length > 0) updateTask(taskId, updates)
+              prefetchToast(taskId, taskData.title, inferred.energy, inferred.energyLevel)
             }).catch(() => {})
+          } else {
+            prefetchToast(taskId, taskData.title, taskData.energy, taskData.energyLevel)
           }
         }} onClose={() => setShowAdd(false)} />
       )}
@@ -621,7 +625,15 @@ function App() {
       {editTarget && (
         <EditTaskModal
           task={editTarget}
-          onSave={updateTask}
+          onSave={(id, updates) => {
+            updateTask(id, updates)
+            if (updates.title || updates.energy || updates.energyLevel) {
+              const task = tasks.find(t => t.id === id)
+              if (task) {
+                prefetchToast(id, updates.title || task.title, updates.energy || task.energy, updates.energyLevel || task.energyLevel)
+              }
+            }
+          }}
           onConvertToRoutine={handleConvertToRoutine}
           onClose={() => setEditTarget(null)}
           onDelete={(id) => { handleDelete(id); setEditTarget(null) }}

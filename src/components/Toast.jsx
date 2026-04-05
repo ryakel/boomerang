@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import './Toast.css'
 import { computeTaskPoints } from '../store'
-import { generateToastMessage } from '../api'
 
 const MESSAGES_QUICK = [
   'Speed run!',
@@ -42,21 +41,11 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
-// Pre-fetch AI message so it's ready before the toast mounts.
-// Returns a promise that resolves to the AI message or null.
-const aiCache = { pending: null, taskId: null }
-
-export function prefetchToastMessage(task, variant, todayCount) {
-  const daysOnList = Math.floor(
-    (Date.now() - new Date(task.created_at).getTime()) / 86400000
-  )
-  aiCache.taskId = task.id
-  aiCache.pending = generateToastMessage(task.title, variant, {
-    daysOnList,
-    todayCount,
-    energy: task.energy,
-    energyLevel: task.energyLevel,
-  }).catch(() => null)
+function getVariantKey(daysOnList, isReopen) {
+  if (isReopen) return 'reopen'
+  if (daysOnList === 0) return 'complete_quick'
+  if (daysOnList <= 3) return 'complete_normal'
+  return 'complete_long'
 }
 
 function getStaticMessage(daysOnList, isReopen) {
@@ -66,44 +55,37 @@ function getStaticMessage(daysOnList, isReopen) {
   return pickRandom(MESSAGES_LONG)
 }
 
+function getStaticSubtitle(daysOnList, todayCount, isReopen, taskTitle) {
+  if (isReopen) return `"${taskTitle}" is back on the list`
+  let s = daysOnList === 0 ? 'Same-day finish'
+    : daysOnList === 1 ? '1 day on the list'
+    : `${daysOnList} days on the list`
+  if (todayCount > 1) s += ` · ${todayCount} done today`
+  return s
+}
+
 export default function Toast({ task, todayCount, variant = 'complete', onDone, onUndo }) {
   const isReopen = variant === 'reopen'
   const daysOnList = Math.floor(
     (Date.now() - new Date(task.created_at).getTime()) / 86400000
   )
 
-  // All values computed once — no state, no swaps, no re-renders
+  // All values frozen on mount — zero state, zero re-renders
   const frozen = useRef(null)
   if (!frozen.current) {
-    const staticMsg = getStaticMessage(daysOnList, isReopen)
-    let subtitle
-    if (isReopen) {
-      subtitle = `"${task.title}" is back on the list`
-    } else {
-      const s = daysOnList === 0 ? 'Same-day finish'
-        : daysOnList === 1 ? '1 day on the list'
-        : `${daysOnList} days on the list`
-      const pts = computeTaskPoints(task)
-      subtitle = `${s}${todayCount > 1 ? ` · ${todayCount} done today` : ''} · +${pts} pts`
-    }
-    frozen.current = { message: staticMsg, subtitle }
-  }
+    const variantKey = getVariantKey(daysOnList, isReopen)
+    const ai = task.toast_messages?.[variantKey]
 
-  // Check if prefetched AI message is already resolved
-  useEffect(() => {
-    if (aiCache.pending && aiCache.taskId === task.id) {
-      const promise = aiCache.pending
-      aiCache.pending = null
-      aiCache.taskId = null
-      // Race: if AI already resolved, update the ref before paint
-      // If not, we just keep the static — no swap
-      promise.then(aiMsg => {
-        if (aiMsg && frozen.current) {
-          frozen.current.message = aiMsg
-        }
-      })
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    const message = ai?.message || getStaticMessage(daysOnList, isReopen)
+    const pts = isReopen ? 0 : computeTaskPoints(task)
+    const aiSub = ai?.subtitle
+    const staticSub = getStaticSubtitle(daysOnList, todayCount, isReopen, task.title)
+    const subtitle = aiSub
+      ? `${aiSub}${pts ? ` · +${pts} pts` : ''}`
+      : `${staticSub}${pts ? ` · +${pts} pts` : ''}`
+
+    frozen.current = { message, subtitle }
+  }
 
   const onDoneRef = useRef(onDone)
   onDoneRef.current = onDone
