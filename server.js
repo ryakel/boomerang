@@ -48,10 +48,6 @@ function getGoogleClientId(req) {
   return req.headers['x-google-client-id'] || envGoogleClientId || null
 }
 
-function getGoogleClientSecret(req) {
-  return req.headers['x-google-client-secret'] || envGoogleClientSecret || null
-}
-
 // Google Calendar token management — tokens stored server-side in app_data
 const GCAL_TOKENS_KEY = 'gcal_tokens'
 const GCAL_BASE = 'https://www.googleapis.com/calendar/v3'
