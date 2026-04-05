@@ -148,13 +148,17 @@ function loadFallback() {
 
 /**
  * Seed the database. Called from server.js after initDb() when SEED_DB=1.
+ * Always uses static seed data for fast, reliable startup.
+ * API generation available on demand via POST /api/dev/seed?generate=1
+ *
  * @param {string|undefined} apiKey - Anthropic API key (from env)
+ * @param {boolean} useApi - Force API generation (only from endpoint, never startup)
  */
-export async function seedDatabase(apiKey) {
-  console.log('[Seed] SEED_DB=1 detected — seeding database...')
+export async function seedDatabase(apiKey, useApi = false) {
+  console.log('[Seed] Seeding database...')
 
   let data
-  if (apiKey) {
+  if (useApi && apiKey) {
     try {
       data = await generateViaApi(apiKey)
     } catch (err) {

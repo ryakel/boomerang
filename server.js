@@ -1190,8 +1190,9 @@ app.get('/api/gcal/events', async (req, res) => {
 // --- Dev seed endpoint ---
 app.post('/api/dev/seed', async (req, res) => {
   try {
-    await seedDatabase(envApiKey)
-    res.json({ ok: true, message: 'Database seeded' })
+    const useApi = req.query.generate === '1'
+    await seedDatabase(envApiKey, useApi)
+    res.json({ ok: true, message: 'Database seeded' + (useApi ? ' (API-generated)' : ' (static)') })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
