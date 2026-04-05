@@ -1230,6 +1230,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           <div className="edit-task-title-row">
             <div className="sheet-title">Settings</div>
             {savePill}
+            <span className="version-label">{__APP_VERSION__}</span>
           </div>
           {tabBar}
           {settingsContent}

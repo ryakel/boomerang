@@ -6,8 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-05
 
+### Settings
+- `pending` fix(ui): show version number in desktop settings window [XS]
+
 ### Routines
-- `pending` feat(routines): add optional end date for routines and fix priority layout [M]
+- `5268c16` feat(routines): add optional end date for routines and fix priority layout [M]
 
 ### CI/CD
 - `2ba388f` chore(ci): add wiki path exclusion and dev branch pipeline [S]
