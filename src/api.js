@@ -9,6 +9,8 @@ function getApiHeaders() {
   if (settings.notion_token) headers['x-notion-token'] = settings.notion_token
   if (settings.trello_api_key) headers['x-trello-key'] = settings.trello_api_key
   if (settings.trello_secret) headers['x-trello-token'] = settings.trello_secret
+  if (settings.gcal_client_id) headers['x-google-client-id'] = settings.gcal_client_id
+  if (settings.gcal_client_secret) headers['x-google-client-secret'] = settings.gcal_client_secret
   return headers
 }
 
@@ -421,6 +423,7 @@ export async function getKeyStatus() {
       anthropic: !!data.anthropic,
       notion: !!data.notion,
       trello: !!data.trello,
+      gcal: !!data.gcal,
     }
   } catch {
     return { anthropic: false, notion: false, trello: false }
@@ -617,6 +620,113 @@ export async function inferTrelloListMapping(lists) {
 export async function aiDedupTrelloCards(cards, tasks) {
   const userPrompt = `Match these Trello cards to existing tasks if they refer to the same thing (even if worded differently).\n\nTrello cards (unlinked):\n${JSON.stringify(cards.map(c => ({ id: c.id, name: c.name, desc: (c.desc || '').slice(0, 100) })))}\n\nExisting tasks (unlinked):\n${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, notes: (t.notes || '').slice(0, 100) })))}\n\nReturn ONLY JSON: {"matches":[{"card_id":"...","task_id":"..." or null,"confidence":0.0-1.0}]}\n- confidence >= 0.85 means auto-link\n- null task_id means create a new task\nJSON only.`
   const result = await callClaude('You match Trello cards to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt)
+  return extractJSON(result)
+}
+
+// ============================================================
+// Google Calendar
+// ============================================================
+
+export async function gcalGetAuthUrl() {
+  const res = await fetch('/api/gcal/auth-url', { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to get auth URL')
+  return res.json()
+}
+
+export async function gcalStatus() {
+  try {
+    const res = await fetch('/api/gcal/status', { headers: getApiHeaders() })
+    return res.json()
+  } catch {
+    return { connected: false }
+  }
+}
+
+export async function gcalDisconnect() {
+  const res = await fetch('/api/gcal/disconnect', { method: 'POST', headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to disconnect')
+  return res.json()
+}
+
+export async function gcalListCalendars() {
+  const res = await fetch('/api/gcal/calendars', { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to fetch calendars')
+  return res.json()
+}
+
+export async function gcalCreateEvent(calendarId, event) {
+  const res = await fetch('/api/gcal/events', {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ calendarId, event }),
+  })
+  if (!res.ok) throw new Error('Failed to create event')
+  return res.json()
+}
+
+export async function gcalUpdateEvent(eventId, calendarId, event) {
+  const res = await fetch(`/api/gcal/events/${encodeURIComponent(eventId)}`, {
+    method: 'PATCH',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ calendarId, event }),
+  })
+  if (!res.ok) throw new Error('Failed to update event')
+  return res.json()
+}
+
+export async function gcalDeleteEvent(eventId, calendarId) {
+  const params = calendarId ? `?calendarId=${encodeURIComponent(calendarId)}` : ''
+  const res = await fetch(`/api/gcal/events/${encodeURIComponent(eventId)}${params}`, {
+    method: 'DELETE',
+    headers: getApiHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to delete event')
+  return res.json()
+}
+
+export async function gcalListEvents(timeMin, timeMax, calendarId) {
+  const params = new URLSearchParams()
+  if (timeMin) params.set('timeMin', timeMin)
+  if (timeMax) params.set('timeMax', timeMax)
+  if (calendarId) params.set('calendarId', calendarId)
+  const res = await fetch(`/api/gcal/events?${params}`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to fetch events')
+  return res.json()
+}
+
+const SIZE_TO_MINUTES = { XS: 15, S: 30, M: 60, L: 120, XL: 240 }
+
+export async function inferEventTime(title, notes, size, energy) {
+  const today = new Date().toISOString().split('T')[0]
+  const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+
+  const system = `You suggest a time of day and duration for calendar events based on task context. Today is ${today} (${dayOfWeek}).
+
+Guidelines:
+- desk/creative tasks → morning (09:00-11:00)
+- errands → midday (11:00-14:00)
+- people/confrontation → afternoon (13:00-16:00)
+- physical → flexible, often morning or evening
+- Size baseline: XS=15min, S=30min, M=60min, L=120min, XL=240min (adjust based on context)
+
+Return JSON only: {"time": "HH:MM", "duration": minutes_number}`
+
+  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}${size ? `\nSize: ${size}` : ''}${energy ? `\nEnergy type: ${energy}` : ''}\n\nSuggest a time and duration. JSON only.`
+
+  try {
+    const result = await callClaude(system, user)
+    return extractJSON(result)
+  } catch {
+    return {
+      time: loadSettings().gcal_default_time || '09:00',
+      duration: SIZE_TO_MINUTES[size] || loadSettings().gcal_event_duration || 60,
+    }
+  }
+}
+
+export async function aiDedupGCalEvents(events, tasks) {
+  const userPrompt = `Match these Google Calendar events to existing tasks if they refer to the same thing (even if worded differently).\n\nCalendar events (unlinked):\n${JSON.stringify(events.map(e => ({ id: e.id, summary: e.summary, description: (e.description || '').slice(0, 100) })))}\n\nExisting tasks (unlinked):\n${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, notes: (t.notes || '').slice(0, 100) })))}\n\nReturn ONLY JSON: {"matches":[{"event_id":"...","task_id":"..." or null,"confidence":0.0-1.0}]}\n- confidence >= 0.85 means auto-link\n- null task_id means create a new task\nJSON only.`
+  const result = await callClaude('You match Google Calendar events to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt)
   return extractJSON(result)
 }
 

@@ -21,6 +21,7 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - **File attachments** — attach files to tasks, auto-included in AI research queries
 - **Notion integration** — pull sync from parent page, ongoing bidirectional sync for linked tasks
 - **Trello integration** — push tasks with native checklists and attachments, ongoing bidirectional sync
+- **Google Calendar integration** — bidirectional sync with AI-inferred event times, OAuth 2.0
 - **Offline support** — mutation queue with auto-replay on reconnect, sync status indicator
 - **Real-time sync** — cross-client sync via Server-Sent Events (SSE)
 - **Desktop UI** — kanban board with drag-and-drop, responsive modals, hover states

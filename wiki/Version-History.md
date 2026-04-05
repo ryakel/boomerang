@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-05
 
+### Google Calendar Integration
+- feat(gcal): add bidirectional Google Calendar sync with OAuth 2.0 [XL]
+  - OAuth flow with server-side token management and auto-refresh
+  - Push sync: tasks with due dates create calendar events with AI-inferred times
+  - Pull sync: calendar events imported as tasks with AI deduplication
+  - Settings UI with calendar picker, status filter, timed/all-day toggle
+  - Migration 007: add `gcal_event_id` column to tasks table
+  - New files: `src/hooks/useGCalSync.js`, `migrations/007_add_gcal_columns.sql`
+  - Modified: `server.js`, `db.js`, `src/store.js`, `src/api.js`, `src/hooks/useExternalSync.js`, `src/components/Settings.jsx`, `src/App.jsx`
+
 ### Routines
 - `pending` feat(routines): add optional end date for routines and fix priority layout [M]
 

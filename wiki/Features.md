@@ -191,6 +191,49 @@ Once connected and a board/list is selected:
 - **Sync Now button** — manual sync trigger in Settings with last-sync timestamp display.
 - **List mapping display** — view and re-infer the AI-generated list mapping in Settings.
 
+## Google Calendar Integration (requires Google OAuth credentials)
+
+Bidirectional sync between Boomerang tasks and Google Calendar events with AI-inferred time slots and OAuth 2.0 authentication. Works with any Google account (Gmail, Workspace, etc.).
+
+### Setup
+
+#### Step-by-step (Google Cloud Console)
+
+1. Go to https://console.cloud.google.com/apis/credentials
+2. Create a project (or select an existing one)
+3. Enable the **Google Calendar API** (APIs & Services → Library → search "Calendar")
+4. Create **OAuth 2.0 Client ID** credentials (type: Web application)
+5. Add `http://localhost:3001/api/gcal/callback` as an authorized redirect URI (adjust port/host if needed)
+6. Copy the **Client ID** and **Client Secret**
+
+#### In Boomerang (UI)
+
+1. Go to **Settings → Integrations → Google Calendar**
+2. Paste your **Client ID** and **Client Secret**, then click **Connect**
+3. Complete the Google consent screen in the popup window
+4. Select which **Calendar** to sync with from the dropdown
+5. Enable **Sync tasks to Google Calendar** and configure sync options
+
+#### Via environment variables (Docker/Portainer)
+
+```
+GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_client_secret
+```
+
+### Features
+
+- **Push sync** — tasks with due dates are automatically synced as Google Calendar events. AI infers the optimal time of day and duration based on task title, size, and energy type.
+- **Pull sync** — calendar events can be pulled as Boomerang tasks via "Sync Now" or automatically on app open (when enabled). Events already pushed by Boomerang are filtered out.
+- **AI-timed events** — Claude suggests time slots (desk tasks → morning, errands → midday, people tasks → afternoon) and durations based on task size (XS=15min to XL=4h). Falls back to configurable defaults.
+- **All-day mode** — optionally create all-day events instead of timed events (toggle in settings).
+- **Configurable sync scope** — choose which task statuses sync (not_started, doing, waiting, open). Only tasks with due dates are synced.
+- **Auto-cleanup** — completing or deleting a task removes the calendar event (configurable).
+- **AI deduplication** — pull sync uses exact title match + AI fuzzy matching (0.85 confidence threshold) to avoid duplicating existing tasks.
+- **Offline queue** — failed GCal operations are queued alongside Trello/Notion operations (200 cap) and replayed on reconnect.
+- **Calendar picker** — choose which Google Calendar to sync with from your calendar list.
+- **OAuth 2.0** — secure server-side token management with automatic refresh. Tokens are stored in the database, never exposed to the browser.
+
 ## Notifications
 
 Browser push notifications with configurable options:

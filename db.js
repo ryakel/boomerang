@@ -258,6 +258,7 @@ function taskToRow(task) {
     comments_json: JSON.stringify(task.comments || []),
     toast_messages_json: task.toast_messages ? JSON.stringify(task.toast_messages) : null,
     trello_sync_enabled: task.trello_sync_enabled == null ? null : task.trello_sync_enabled ? 1 : 0,
+    gcal_event_id: task.gcal_event_id || null,
   }
 }
 
@@ -291,6 +292,7 @@ function rowToTask(row) {
     comments: safeJsonParse(row.comments_json, []),
     toast_messages: safeJsonParse(row.toast_messages_json, null),
     trello_sync_enabled: row.trello_sync_enabled == null ? undefined : !!row.trello_sync_enabled,
+    gcal_event_id: row.gcal_event_id || null,
   }
 }
 
@@ -308,8 +310,9 @@ const UPSERT_TASK_SQL = `
     staleness_days, last_touched, created_at, completed_at, reframe_notes,
     notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
     high_priority, size, energy, energy_level, tags_json, attachments_json,
-    checklist_json, checklists_json, comments_json, toast_messages_json, trello_sync_enabled)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    checklist_json, checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
+    gcal_event_id)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -323,7 +326,8 @@ const UPSERT_TASK_SQL = `
     tags_json=excluded.tags_json, attachments_json=excluded.attachments_json,
     checklist_json=excluded.checklist_json, checklists_json=excluded.checklists_json,
     comments_json=excluded.comments_json, toast_messages_json=excluded.toast_messages_json,
-    trello_sync_enabled=excluded.trello_sync_enabled`
+    trello_sync_enabled=excluded.trello_sync_enabled,
+    gcal_event_id=excluded.gcal_event_id`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -333,7 +337,7 @@ function runUpsertTask(task) {
     r.notion_page_id, r.notion_url, r.trello_card_id, r.trello_card_url, r.routine_id,
     r.high_priority, r.size, r.energy, r.energy_level, r.tags_json, r.attachments_json,
     r.checklist_json, r.checklists_json, r.comments_json, r.toast_messages_json,
-    r.trello_sync_enabled,
+    r.trello_sync_enabled, r.gcal_event_id,
   ])
 }
 
