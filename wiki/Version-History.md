@@ -7,7 +7,7 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 ## 2026-04-05
 
 ### UI Consistency
-- `pending` fix(ui): routine form cleanup — select dropdown, colored label pills, date fixes [M]
+- `pending` fix(ui): unified label picker dropdown with colored pills across all modals [M]
 
 ### Labels & Filters
 - `c093a69` feat(ui): drag-to-reorder labels and mobile label dropdown [M]

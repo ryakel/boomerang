@@ -554,18 +554,29 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         )}
 
         <div className="settings-label" style={{ marginBottom: 6 }}>Labels</div>
-        <div className="tag-selector">
-          {labels.map(label => (
-            <button
-              key={label.id}
-              className={`tag-toggle ${selectedTags.includes(label.id) ? 'selected' : ''}`}
-              style={selectedTags.includes(label.id) ? { background: label.color } : { '--tag-hover-color': label.color }}
-              onClick={() => toggleTag(label.id)}
-            >
-              {label.name}
-            </button>
+        <select
+          className="routine-select"
+          value=""
+          onChange={e => { if (e.target.value) toggleTag(e.target.value) }}
+        >
+          <option value="">Add label...</option>
+          {labels.filter(l => !selectedTags.includes(l.id)).map(label => (
+            <option key={label.id} value={label.id}>{label.name}</option>
           ))}
-        </div>
+        </select>
+        {selectedTags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            {selectedTags.map(id => {
+              const label = labels.find(l => l.id === id)
+              if (!label) return null
+              return (
+                <button key={id} className="routine-label-pill" style={{ background: label.color }} onClick={() => toggleTag(id)}>
+                  {label.name} <span style={{ marginLeft: 4, opacity: 0.7 }}>✕</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         <div className="settings-label" style={{ marginBottom: 6 }}>Size</div>
         <div className="size-selector">

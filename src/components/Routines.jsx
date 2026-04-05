@@ -118,18 +118,35 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
             style={{ minHeight: 50, marginBottom: 12 }}
           />
           <div className="settings-label" style={{ marginBottom: 6 }}>Labels</div>
-          <div className="tag-selector" style={{ flexWrap: 'wrap', marginBottom: 16 }}>
-            {labels.map(label => (
-              <button
-                key={label.id}
-                className={`tag-toggle ${selectedTags.includes(label.id) ? 'selected' : ''}`}
-                style={selectedTags.includes(label.id) ? { background: label.color, borderColor: label.color, color: '#fff' } : {}}
-                onClick={() => toggleTag(label.id)}
-              >
-                {label.name}
-              </button>
+          <select
+            className="routine-select"
+            value=""
+            onChange={e => { if (e.target.value) toggleTag(e.target.value) }}
+          >
+            <option value="">Add label...</option>
+            {labels.filter(l => !selectedTags.includes(l.id)).map(label => (
+              <option key={label.id} value={label.id}>{label.name}</option>
             ))}
-          </div>
+          </select>
+          {selectedTags.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+              {selectedTags.map(id => {
+                const label = labels.find(l => l.id === id)
+                if (!label) return null
+                return (
+                  <button
+                    key={id}
+                    className="routine-label-pill"
+                    style={{ background: label.color }}
+                    onClick={() => toggleTag(id)}
+                  >
+                    {label.name} <span style={{ marginLeft: 4, opacity: 0.7 }}>✕</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {selectedTags.length === 0 && <div style={{ marginBottom: 4 }} />}
           <div className="priority-group" style={{ marginBottom: 16, alignItems: 'flex-start', flexDirection: 'row', gap: 8 }}>
             <span className="settings-label" style={{ marginBottom: 0 }}>Priority</span>
             <button
@@ -142,10 +159,11 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
           <div style={{ marginBottom: 16 }}>
             <div className="settings-label" style={{ marginBottom: 6 }}>End Date</div>
             <input
-              className="add-input date-input"
+              className="routine-select"
               type="date"
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
+              style={{ marginBottom: 0 }}
             />
             {endDate && (
               <button
