@@ -320,7 +320,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     if (!researchPrompt.trim()) return
     setResearching(true)
     try {
-      const result = await researchTask(title || 'Untitled task', notes, researchPrompt.trim())
+      const result = await researchTask(title || 'Untitled task', notes, researchPrompt.trim(), attachments)
       if (result.notes) {
         const separator = notes.trim() ? '\n\n' : ''
         setNotes(prev => (prev.trim() ? prev.trim() + separator : '') + result.notes)

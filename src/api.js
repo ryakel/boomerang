@@ -173,13 +173,49 @@ export async function polishNotes(title, rawNotes) {
 }
 
 // --- Research ---
-export async function researchTask(title, existingNotes, prompt) {
-  const system = `You are a research assistant for someone with ADHD. Given a task and a research question, provide practical, actionable research notes. Be specific and concrete — links, steps, options, pros/cons. Format as bullet points starting with "- ". Keep it concise but thorough. Don't repeat what's already in the existing notes. Return JSON only: {"notes": "the research notes as a string with line breaks between bullets"}`
+export async function researchTask(title, existingNotes, prompt, attachments = []) {
+  const system = `You are a research assistant for someone with ADHD. Given a task and a research question, provide practical, actionable research notes. Be specific and concrete — links, steps, options, pros/cons. Format as bullet points starting with "- ". Keep it concise but thorough. Don't repeat what's already in the existing notes. If images or documents are attached, incorporate relevant details from them into your research. Return JSON only: {"notes": "the research notes as a string with line breaks between bullets"}`
 
   const context = existingNotes ? `\nExisting notes:\n${existingNotes}` : ''
-  const user = `Task: "${title}"${context}\n\nResearch question: "${prompt}"\n\nProvide research notes. JSON only.`
+  const textContent = `Task: "${title}"${context}\n\nResearch question: "${prompt}"\n\nProvide research notes. JSON only.`
 
-  const text = await callClaude(system, user)
+  // Build content blocks — text + any image/document attachments
+  const content = []
+
+  for (const att of attachments) {
+    if (att.type.startsWith('image/')) {
+      content.push({
+        type: 'image',
+        source: { type: 'base64', media_type: att.type, data: att.data },
+      })
+    } else if (att.type === 'application/pdf') {
+      content.push({
+        type: 'document',
+        source: { type: 'base64', media_type: att.type, data: att.data },
+      })
+    }
+  }
+
+  content.push({ type: 'text', text: textContent })
+
+  const res = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: withCustomInstructions(system),
+      messages: [{ role: 'user', content }],
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Claude API error: ${res.status} ${err}`)
+  }
+
+  const data = await res.json()
+  const text = data.content[0].text
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('Could not parse research results')
   return JSON.parse(match[0])

@@ -149,9 +149,9 @@ Completed. Tasks and routines now have proper SQL tables with individual columns
 
 Completed. Failed mutations are queued in `boom_mutation_queue` localStorage (capped at 200 entries) and replayed sequentially on reconnect (`online` event, SSE reconnect, or visibility change). Sync status indicator (Cloud/CloudOff icons) in the header shows saving/saved/offline state with pending queue count. Implemented in `useServerSync.js`.
 
-### Research + File Attachments (Priority: Low)
+### ~~Research + File Attachments~~ — DONE
 
-`researchTask()` in `src/api.js` only sends text (title, notes, prompt) to Claude. Attached files on a task are ignored during Research. To fix: pass `task.attachments` into `researchTask()`, convert base64 attachments to Claude API content blocks (image/document types), include in the API request. Attachments themselves store and display fine — just not wired into the Research flow.
+Completed. `researchTask()` in `src/api.js` now accepts an optional `attachments` array and converts image/PDF attachments to Claude API content blocks (image/document types). EditTaskModal passes `attachments` to `researchTask()` so attached files are included in Research queries.
 
 ### Desktop UI Phases (Priority: Medium)
 
