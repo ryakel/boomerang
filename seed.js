@@ -101,9 +101,13 @@ function defaultSettings() {
 }
 
 async function generateViaApi(apiKey) {
-  console.log('[Seed] Generating fresh data via Claude API...')
+  console.log('[Seed] Generating fresh data via Claude API (30s timeout)...')
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal: controller.signal,
     headers: {
       'content-type': 'application/json',
       'x-api-key': apiKey,
@@ -115,6 +119,8 @@ async function generateViaApi(apiKey) {
       messages: [{ role: 'user', content: buildPrompt() }],
     }),
   })
+
+  clearTimeout(timeout)
 
   if (!resp.ok) {
     const err = await resp.text()
