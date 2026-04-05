@@ -14,6 +14,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - `scripts/generate-seed-data.js` for standalone regeneration with API key
   - New files: `seed.js`, `scripts/seed-data.json`, `scripts/generate-seed-data.js`
   - Modified: `server.js`, `docker-compose.dev.yml`, `Dockerfile`
+- chore(ci): publish :dev container and isolate dev environment [S]
+  - Dev CI workflow now publishes `ghcr.io/ryakel/boomerang:dev` on push to `dev` branch
+  - `docker-compose.dev.yml` uses port 3002, `boomerang-dev` container/volume names, pulls `:dev` image
+  - PR builds still validate without pushing
+  - Modified: `.github/workflows/dev-ci.yml`, `docker-compose.dev.yml`
 
 ### UI Consistency
 - `b48bf40` fix(ui): unified label picker dropdown with colored pills across all modals [M]

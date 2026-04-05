@@ -1,12 +1,13 @@
 name: boomerang-dev
 
 services:
-  boomerang:
-    build: .
+  boomerang-dev:
+    image: ghcr.io/ryakel/boomerang:dev
+    container_name: boomerang-dev
     ports:
-      - "${PORT:-3001}:${PORT:-3001}"
+      - "${PORT:-3002}:${PORT:-3002}"
     environment:
-      - PORT=${PORT:-3001}
+      - PORT=${PORT:-3002}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - NOTION_INTEGRATION_TOKEN=${NOTION_INTEGRATION_TOKEN:-}
       - TRELLO_API_KEY=${TRELLO_API_KEY:-}
@@ -16,9 +17,9 @@ services:
       - DB_PATH=/data/boomerang.db
       - SEED_DB=${SEED_DB:-0}
     volumes:
-      - boomerang-data:/data
+      - boomerang-dev-data:/data
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${PORT:-3001}/api/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${PORT:-3002}/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -26,4 +27,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  boomerang-data:
+  boomerang-dev-data:

@@ -4,7 +4,7 @@
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `PORT` | No | `3001` | Server port |
+| `PORT` | No | `3001` (prod) / `3002` (dev) | Server port |
 | `DB_PATH` | No | `./boomerang.db` (local) or `/data/boomerang.db` (Docker) | SQLite database file path |
 | `ANTHROPIC_API_KEY` | No | — | Default Claude API key for AI features (users can override in UI) |
 | `NOTION_INTEGRATION_TOKEN` | No | — | Default Notion integration token (users can override in UI) |

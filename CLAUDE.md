@@ -197,7 +197,7 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 
 **Known Limitations:**
 - OAuth requires user to create a Google Cloud project (no centralized consent screen)
-- Redirect URI must match exactly (localhost:3001 by default)
+- Redirect URI must match exactly (localhost:3001 prod, localhost:3002 dev)
 - Pull sync only looks 30 days ahead
 - No recurring event support (each routine-spawned task creates a new event)
 - AI time inference requires Anthropic API key; falls back to defaults without it
