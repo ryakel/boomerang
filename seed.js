@@ -1,6 +1,9 @@
 /**
  * Dev seed system — populates the DB with realistic ADHD-messy test data.
  *
+ * Startup (SEED_DB=1): always uses static scripts/seed-data.json for instant boot.
+ * On demand: POST /api/dev/seed (static) or POST /api/dev/seed?generate=1 (API).
+ *
  * Activated by SEED_DB=1 at server startup (after initDb).
  * Primary path: calls Claude API to generate fresh data each time.
  * Fallback: loads scripts/seed-data.json if no API key is available.
