@@ -1,0 +1,185 @@
+/* Analytics — rings, stats grid, streak actions, vacation picker */
+
+.analytics-rings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0;
+}
+
+.ring-legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 16px;
+  font-size: 13px;
+}
+
+.ring-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ring-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--text);
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.streak-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.vacation-btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.vacation-btn.active {
+  background: rgba(82, 201, 127, 0.12);
+  color: #52C97F;
+}
+
+.free-day-btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.free-day-btn.active {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34D399;
+}
+
+.vacation-picker {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+
+.vacation-picker-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.vacation-picker-options {
+  display: flex;
+  gap: 8px;
+}
+
+.vacation-option {
+  flex: 1;
+  padding: 12px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  background: rgba(82, 201, 127, 0.12);
+  color: #52C97F;
+  text-align: center;
+}
+
+.vacation-option:active {
+  opacity: 0.7;
+}
+
+.vacation-custom-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.vacation-custom-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid var(--text-dim);
+}
+
+.vacation-custom-input::placeholder {
+  color: var(--text-dim);
+}
+
+.vacation-custom-go {
+  flex: 0 0 auto;
+  min-width: 52px;
+}
+
+.vacation-custom-go:disabled {
+  opacity: 0.4;
+}
+
+.vacation-picker-cancel {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.reset-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 8px;
+  background: rgba(255, 98, 64, 0.1);
+  color: var(--accent);
+}
+
+.analytics-icon {
+  font-size: 18px;
+  color: var(--text-dim);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}

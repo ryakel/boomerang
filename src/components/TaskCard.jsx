@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, memo } from 'react'
+import './TaskCard.css'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import EnergyIcon from './EnergyIcon'
 

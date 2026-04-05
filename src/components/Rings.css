@@ -1,0 +1,16 @@
+/* Rings — mini ring progress indicators */
+
+.mini-rings {
+  cursor: pointer;
+}
+
+.ring-track {
+  fill: none;
+  opacity: 0.15;
+}
+
+.ring-fill {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}

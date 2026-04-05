@@ -1,0 +1,33 @@
+/* ReframeModal — input and results */
+
+.reframe-input {
+  width: 100%;
+  min-height: 100px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 15px;
+  color: var(--text);
+  resize: none;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.reframe-input::placeholder {
+  color: var(--text-dim);
+}
+
+.reframe-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.reframe-task {
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 15px;
+  color: var(--text);
+}

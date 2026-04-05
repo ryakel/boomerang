@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import './KanbanBoard.css'
 import TaskCard from './TaskCard'
 
 function AddCardInput({ onAdd }) {

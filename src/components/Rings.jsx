@@ -1,3 +1,5 @@
+import './Rings.css'
+
 function Ring({ cx, cy, radius, strokeWidth, progress, color }) {
   const circumference = 2 * Math.PI * radius
   const clampedProgress = Math.min(Math.max(progress, 0), 1)

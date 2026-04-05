@@ -1,0 +1,130 @@
+/* WhatNow — capacity step, flow overlay, suggestion cards */
+
+/* What Now capacity step */
+.what-now-capacity {
+  flex-wrap: wrap;
+}
+
+.what-now-capacity-btn {
+  flex: 0 0 auto;
+}
+
+.what-now-skip {
+  display: block;
+  margin: 8px auto 0;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* What Now flow */
+.what-now-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  padding-top: max(40px, env(safe-area-inset-top));
+  animation: fadeIn 0.2s ease;
+}
+
+.what-now-question {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.what-now-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.what-now-option {
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--text);
+  transition: background 0.15s ease;
+}
+
+.what-now-option:active {
+  background: var(--surface-hover);
+}
+
+.what-now-dismiss {
+  margin-top: 24px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 12px 24px;
+}
+
+.what-now-loading {
+  font-size: 16px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.suggestion-card {
+  width: 100%;
+  max-width: 320px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.suggestion-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.suggestion-done {
+  flex: 0;
+  white-space: nowrap;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.suggestion-name {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.suggestion-reason {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.stretch-label {
+  margin-top: 16px;
+  font-size: 13px !important;
+  color: var(--text-dim) !important;
+  opacity: 0.85;
+}
+
+.stretch-card {
+  border: 1px dashed var(--text-dim);
+  background: transparent;
+}

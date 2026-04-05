@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import './Toast.css'
 import { computeTaskPoints } from '../store'
 
 const MESSAGES_QUICK = [

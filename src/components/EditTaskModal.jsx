@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import './EditTaskModal.css'
 import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists } from '../api'
 import { Sparkles, Search, ChevronRight, Trash2, Plus } from 'lucide-react'

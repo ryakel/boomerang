@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import './ReframeModal.css'
 import { reframeTask } from '../api'
 
 export default function ReframeModal({ task, onReframe, onClose }) {

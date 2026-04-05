@@ -1,0 +1,396 @@
+/* TaskCard — card layout, swipe, toolbar, checklist inline, energy badge, due date pill */
+
+.task-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  transition: background 0.15s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.task-card:active {
+  background: var(--surface-hover);
+}
+
+.task-card.stale {
+  border-left: 3px solid var(--accent);
+}
+
+.task-card.snoozed {
+  opacity: 0.5;
+}
+
+.task-card.overdue {
+  border-left: 3px solid #FF3B30;
+}
+
+.task-card.high-priority {
+  border-left: 3px solid #FF9500;
+  background: rgba(255, 149, 0, 0.04);
+}
+
+.task-card.high-priority.stale {
+  border-left: 3px solid var(--accent);
+}
+
+.task-card.high-priority.overdue {
+  border-left: 3px solid #FF3B30;
+  background: rgba(255, 59, 48, 0.04);
+}
+
+.priority-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #FF9500;
+  background: rgba(255, 149, 0, 0.15);
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.drain-priority-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.priority-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: auto;
+}
+
+.priority-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 800;
+  color: rgba(255, 220, 100, 0.3);
+  transition: all 0.15s ease;
+}
+
+.priority-active {
+  border-color: #FFD700;
+  background: rgba(255, 215, 0, 0.12);
+  color: #FFD700;
+}
+
+.task-meta-overdue {
+  color: #FF3B30 !important;
+  font-weight: 600;
+}
+
+.task-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.task-title {
+  font-size: 15px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-link-icons {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+.task-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--surface-hover);
+  color: var(--text-dim);
+  transition: background 0.15s, color 0.15s;
+}
+.task-link-icon:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.task-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.task-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.task-tag {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+  opacity: 0.85;
+}
+
+/* Energy badge on task cards — combined type icon + drain dots */
+.energy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.energy-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.energy-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+}
+
+.energy-dot.dot-1.active { background: #52C97F; }
+.energy-dot.dot-2.active { background: #FBBF24; }
+.energy-dot.dot-3.active { background: #FF6240; }
+
+.due-date-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(128, 128, 128, 0.12);
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.due-date-pill-overdue {
+  background: rgba(255, 59, 48, 0.12);
+  color: #FF3B30;
+  font-weight: 600;
+}
+
+.snooze-empty-msg {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* Expanded task actions */
+/* Icon toolbar (replaces old action buttons) */
+.task-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 0 4px;
+}
+
+.toolbar-pill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border-radius: 20px;
+  transition: opacity 0.15s;
+}
+
+.toolbar-pill svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+  stroke: currentColor;
+  fill: none;
+}
+
+.toolbar-pill:active { opacity: 0.7; }
+
+.toolbar-pill.done { background: rgba(82, 201, 127, 0.18); color: #52C97F; }
+.toolbar-pill.snooze { background: rgba(255, 98, 64, 0.18); color: #FF6240; }
+.toolbar-pill.edit { background: rgba(138, 138, 154, 0.15); color: var(--text-muted); }
+.toolbar-pill.extend { background: rgba(74, 158, 255, 0.18); color: #4A9EFF; }
+.toolbar-pill.status {
+  background: color-mix(in srgb, var(--status-color) 18%, transparent);
+  color: var(--status-color);
+}
+
+/* Task notes */
+.task-notes {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+}
+
+.task-card-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Checklist (inline in TaskCard) */
+.checklist-section {
+  margin-top: 10px;
+}
+
+.checklist-progress {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.checklist-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #52C97F;
+  flex-shrink: 0;
+}
+
+.checklist-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.checklist-text.completed {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+.checklist-card-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+/* Swipe container */
+.swipe-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+}
+
+.swipe-bg-delete {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+  justify-content: flex-start;
+  background: #FF3B30;
+}
+
+.swipe-delete-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.swipe-actions-left {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.swipe-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  border: none;
+  cursor: pointer;
+}
+
+.swipe-action-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.swipe-edit {
+  background: #8E8E93;
+}
+
+.swipe-complete {
+  background: #52C97F;
+}
+
+.swipe-delete {
+  background: #FF3B30;
+}
+
+.swipe-deleting {
+  animation: swipe-fade-out 0.25s ease forwards;
+}
+
+@keyframes swipe-fade-out {
+  to {
+    max-height: 0;
+    margin-bottom: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+}

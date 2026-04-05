@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react'
+import './AddTaskModal.css'
 import { loadLabels, getDefaultDueDate, ENERGY_TYPES } from '../store'
 import { useTaskForm } from '../hooks/useTaskForm'
 import { Sparkles } from 'lucide-react'

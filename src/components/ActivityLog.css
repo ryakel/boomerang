@@ -1,0 +1,30 @@
+/* ActivityLog — entry rows */
+
+.activity-entry {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-entry-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.activity-action {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.activity-time {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.activity-title {
+  font-size: 14px;
+  color: var(--text);
+}

@@ -22,6 +22,9 @@
   --font-display: 'Syne', sans-serif;
   --overlay-bg: rgba(0, 0, 0, 0.6);
   --shadow: rgba(0, 0, 0, 0.4);
+  --success: #52C97F;
+  --error: #FF3B30;
+  --warning: #FF9500;
 }
 
 [data-theme="light"] {
@@ -35,6 +38,9 @@
   --text-dim: #9A9AAA;
   --overlay-bg: rgba(0, 0, 0, 0.3);
   --shadow: rgba(0, 0, 0, 0.12);
+  --success: #52C97F;
+  --error: #FF3B30;
+  --warning: #FF9500;
 }
 
 html, body, #root {

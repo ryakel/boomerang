@@ -1,0 +1,43 @@
+/* DoneList — completed task cards */
+
+.done-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 6px;
+}
+
+.done-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: line-through;
+  text-decoration-color: var(--text-dim);
+}
+
+.done-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reopen-btn {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 98, 64, 0.1);
+  white-space: nowrap;
+  flex-shrink: 0;
+}

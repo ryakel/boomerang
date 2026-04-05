@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import './ActivityLog.css'
 import { loadActivityLog, saveActivityLog } from '../store'
 
 const ACTION_LABELS = {

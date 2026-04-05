@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import './DoneList.css'
 
 const PAGE_SIZE = 50
 

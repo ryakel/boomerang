@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import './WhatNow.css'
 import { getWhatNow } from '../api'
 import { ENERGY_TYPES } from '../store'
 import { Target } from 'lucide-react'

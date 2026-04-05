@@ -1,0 +1,62 @@
+/* AddTaskModal — input, tag selector, submit button */
+
+.add-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 16px;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.add-input::placeholder {
+  color: var(--text-dim);
+}
+
+.tag-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tag-toggle {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--text-dim);
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.tag-toggle:hover {
+  border-color: var(--tag-hover-color, var(--text-muted));
+  color: var(--tag-hover-color, var(--text));
+  background: color-mix(in srgb, var(--tag-hover-color, var(--text-dim)) 15%, transparent);
+}
+
+.tag-toggle.selected {
+  border-color: transparent;
+  color: #fff;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+
+.submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.submit-btn:active:not(:disabled) {
+  opacity: 0.8;
+}

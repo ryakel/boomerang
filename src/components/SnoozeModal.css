@@ -1,0 +1,23 @@
+/* SnoozeModal — snooze options list */
+
+.snooze-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.snooze-option {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--text);
+  transition: background 0.15s ease;
+}
+
+.snooze-option:active {
+  background: var(--surface-hover);
+}

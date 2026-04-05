@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import './Analytics.css'
 import { FullRings } from './Rings'
 import { loadSettings, saveSettings } from '../store'
 

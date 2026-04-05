@@ -1,0 +1,294 @@
+/* KanbanBoard — desktop kanban layout, columns, cards, drag-and-drop */
+
+@media (min-width: 768px) {
+  /* App container — full width on desktop */
+  .app.desktop {
+    max-width: 100%;
+  }
+
+  /* Header + tag bar adapt to full width */
+  .app.desktop .header {
+    max-width: 100%;
+    padding: 16px 32px 8px;
+  }
+
+  .app.desktop .tag-bar {
+    padding: 8px 32px 12px;
+  }
+
+  /* Kanban board */
+  .kanban-board {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    overflow-x: auto;
+    padding: 0 24px 100px;
+    min-height: 0;
+    align-items: flex-start;
+  }
+
+  .kanban-column {
+    width: 260px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    max-height: calc(100vh - 200px);
+  }
+
+  .kanban-column-header {
+    position: sticky;
+    top: 0;
+    padding: 12px 12px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    z-index: 1;
+  }
+
+  .kanban-column-count {
+    background: var(--surface-hover);
+    color: var(--text-muted);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .kanban-column-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px 8px;
+  }
+
+  .kanban-column-empty {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 24px 8px;
+    opacity: 0.5;
+  }
+
+  .kanban-add-card {
+    padding: 8px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .kanban-add-card-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px 4px;
+    border-radius: var(--radius-sm);
+  }
+
+  .kanban-add-card-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .kanban-add-card-input {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text-primary);
+    border: 1px solid rgba(164, 120, 255, 0.3);
+    border-radius: var(--radius-sm);
+    outline: none;
+  }
+
+  .kanban-add-card-input:focus {
+    border-color: rgba(164, 120, 255, 0.6);
+  }
+
+  /* Compact desktop task cards */
+  .task-card-desktop {
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    position: relative;
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+  }
+
+  .task-card-desktop .task-card-top {
+    flex-wrap: wrap;
+  }
+
+  .task-card-desktop .task-title {
+    font-size: 13px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    flex-basis: 100%;
+    margin-bottom: 4px;
+  }
+
+  .task-card-desktop .task-card-right {
+    margin-left: auto;
+  }
+
+  .task-card-desktop .task-tags {
+    margin-top: 4px;
+  }
+
+  .task-card-desktop .task-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .task-card-desktop.stale {
+    border-left: 3px solid var(--accent);
+  }
+
+  .task-card-desktop.snoozed {
+    opacity: 0.7;
+  }
+
+  /* Kanban drag-and-drop */
+  .kanban-card-wrapper {
+    touch-action: none;
+  }
+
+  .kanban-card-wrapper.dragging {
+    opacity: 0.4;
+  }
+
+  .kanban-column.drag-over {
+    background: rgba(164, 120, 255, 0.08);
+    outline: 2px dashed rgba(164, 120, 255, 0.4);
+    outline-offset: -2px;
+  }
+
+  .kanban-column.drag-over .kanban-column-empty {
+    color: var(--accent);
+  }
+
+  /* Desktop hover action bar on cards */
+  .desktop-hover-actions {
+    display: none;
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    gap: 2px;
+    z-index: 2;
+  }
+
+  .desktop-hover-actions button {
+    background: var(--surface-hover);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .desktop-hover-actions button:hover {
+    color: var(--text-primary);
+    background: var(--surface);
+  }
+
+  /* Bottom bar — hide on desktop, kanban columns have add-card */
+  .app.desktop .bottom-bar {
+    display: none;
+  }
+
+  /* Bottom sheets → centered dialogs on desktop */
+  .sheet-overlay {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sheet {
+    max-width: 640px;
+    max-height: 80vh;
+    border-radius: 20px;
+    margin: 20px;
+  }
+
+  .sheet-handle {
+    display: none;
+  }
+
+  /* settings-overlay not used on desktop — Settings/Routines use sheet-overlay/sheet */
+
+  .what-now-overlay {
+    padding: 60px 40px;
+    background: transparent;
+  }
+
+  .what-now-overlay::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+  }
+
+  .what-now-options {
+    max-width: 400px;
+  }
+
+  .what-now-btn-desktop {
+    padding: 6px 14px;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .what-now-btn-desktop:hover {
+    background: var(--accent-hover);
+  }
+
+  /* Scrollbars — show on desktop */
+  ::-webkit-scrollbar {
+    display: initial;
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--surface-hover);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-dim);
+  }
+
+  .kanban-column-body::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .settings-tabs::-webkit-scrollbar {
+    display: initial;
+    height: 4px;
+  }
+}

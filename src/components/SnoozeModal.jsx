@@ -1,3 +1,4 @@
+import './SnoozeModal.css'
 import { getSnoozeOptions, getSnoozeOptionsShort } from '../store'
 
 export default function SnoozeModal({ task, onSnooze, onClose }) {
