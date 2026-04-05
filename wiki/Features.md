@@ -53,6 +53,35 @@ All AI features use Claude (claude-sonnet-4-20250514) via a server-side proxy. T
 - **Smart nudges** — when browser notifications are enabled and custom instructions are set, notification nudge messages are AI-generated to match your communication style. Falls back to built-in messages when AI is unavailable.
 - **AI custom instructions** — a text field in Settings that shapes all AI output across every feature. Can be imported from or exported to a `.md` or `.txt` file.
 
+## Energy/Capacity Tagging
+
+AI-inferred energy tagging on every task — no manual fields to fill in.
+
+### Energy Types
+
+| Type | Icon | Meaning | Examples |
+|---|---|---|---|
+| `desk` | 💻 | Focused computer/paperwork | Update resume, pay bills, debug code |
+| `people` | 👥 | Social interaction | Lunch with coworker, team standup |
+| `errand` | 🏃 | Going somewhere physically | Pick up prescription, grocery run |
+| `confrontation` | ⚡ | Emotionally difficult interaction | Call insurance to dispute, give feedback |
+| `creative` | 🎨 | Open-ended thinking/making | Design logo, write blog post |
+| `physical` | 💪 | Bodily effort | Clean garage, mow lawn |
+
+### Energy Levels (1-3)
+
+| Level | Display | Meaning |
+|---|---|---|
+| 1 | ⚡ | Low drain — easy, routine |
+| 2 | ⚡⚡ | Medium drain — requires focus |
+| 3 | ⚡⚡⚡ | High drain — significant willpower |
+
+- **Auto-inferred** — `inferSize()` returns size, energy type, and energy level in a single API call
+- **Tap-to-cycle** — on task cards, tap the type emoji to cycle types, tap the bolts to cycle intensity
+- **Points multiplier** — `SIZE_POINTS[size] × ENERGY_MULTIPLIER[level] × speedMultiplier`. An XL⚡⚡⚡ task can earn up to 80 points
+- **Nagging boost** — confrontation/errand tasks get nagged ~30-56% more frequently via `applyAvoidanceBoost()`
+- **What Now filter** — capacity step asks "What can you do right now?" with energy type options
+
 ## Snooze System
 
 Four preset options: Tonight, Tomorrow, This Weekend, Next Week. Each snooze increments a counter. After hitting the reframe threshold (configurable, default: 3), snoozing triggers the Reframe flow instead.
@@ -71,10 +100,11 @@ Recurring tasks with configurable cadence:
 
 - **Search and link** — search existing Notion pages from the Add or Edit task modal and link them to tasks
 - **AI-suggested linking** — when searching, AI evaluates whether any found pages are a good match or if a new page should be created
-- **Create pages** — AI generates structured Notion page content from the task title and notes, then creates the page in Notion
+- **Create pages** — AI generates structured Notion page content with full metadata (due date, size, energy, priority, status), checklists as to_do blocks, and file attachment uploads via Notion's 3-step file upload API
 - **Parent page** — new pages are created under a configurable parent page ID, or under the first accessible page if none is set
 - **Connection indicators** — linked tasks show an "N" badge next to the title. Tap to open the Notion page directly.
-- **Open in Notion** — linked tasks show an "Open in Notion" link when expanded
+- **Ongoing sync** — linked tasks automatically sync changes (title, notes, checklists) to Notion with a 5-second debounce. Title updates go via Notion properties API; content sync deletes old blocks and appends new ones (full replacement). Failed syncs are queued for offline replay.
+- **Pull sync** — child pages of a configured parent page are discovered, analyzed by AI, and converted to tasks. Supports deduplication (exact title match + AI confidence scoring).
 - **Routine support** — routines can also be linked to Notion pages
 
 ## Connections (Edit Modal)
@@ -149,11 +179,13 @@ Once connected and a board/list is selected:
 
 ### Features
 
-- **Push to Trello** — from the Edit modal's Connections section, push any task to Trello. The AI selects the appropriate list based on the task's current status and the inferred list mapping.
+- **Push to Trello** — from the Edit modal's Connections section, push any task to Trello. Creates a card with native Trello checklists (not dumped in notes) and uploads file attachments.
+- **Ongoing sync** — linked tasks automatically sync changes to Trello with a 5-second per-task debounce. Syncs title, notes, due date, and checklists (creates new, updates modified items, deletes removed). Pre-existing linked tasks without Trello IDs get hydrated by matching checklist names on first sync.
 - **Linked cards** — once pushed, the Trello connection shows as a green badge with a direct link to open the card in Trello, and an unlink button.
 - **Pull from Trello** — the `useTrelloSync` hook pulls cards from all mapped lists, updates linked task statuses, and uses AI to deduplicate new cards against existing tasks.
 - **Status sync** — changing a task's status in Boomerang automatically moves the linked Trello card to the matching list.
 - **AI deduplication** — when new Trello cards are found, Claude compares them to existing tasks and auto-links matches above the confidence threshold. Only truly new cards create new tasks.
+- **Offline queue** — failed Trello/Notion syncs are queued in localStorage (200 cap) and replayed on reconnect.
 - **Board/list selection** — configure which board and default list to sync with in Settings. Change anytime.
 - **Sync Now button** — manual sync trigger in Settings with last-sync timestamp display.
 - **List mapping display** — view and re-infer the AI-generated list mapping in Settings.
@@ -180,6 +212,25 @@ Tasks can be sorted via a dropdown in the header. Available sort options:
 - **Size** — smallest effort first
 - **Name** — alphabetical by title
 
+## Offline Mutation Queue
+
+When the server is unreachable, mutations (task updates, creates, deletes) are queued in localStorage (`boom_mutation_queue`, 200 cap) and replayed sequentially on reconnect. The header shows a sync status indicator (Cloud/CloudOff icons) with pending queue count.
+
+## High Priority Tasks
+
+Tasks can be marked as high priority via a toggle in the Edit modal. High priority tasks get 3-stage notification escalation:
+- **Before due** — notified 24 hours before due date (configurable)
+- **On due date** — every hour (configurable)
+- **Overdue** — every 30 minutes (configurable)
+
+## Desktop UI
+
+On screens 768px+, the app switches to a desktop layout:
+- **Kanban board** — 5-column board (Stale, Up Next, Doing, Waiting, Snoozed) with drag-and-drop between columns
+- **Hover states** — task cards reveal action buttons on hover
+- **Sheet modals** — Settings, Routines, Analytics, and Edit Task use centered sheet-overlay modals with X close button (mobile keeps full-screen)
+- **Compact header** — "What now?" button in header instead of bottom bar
+
 ## Cross-Client Sync
 
 Multiple clients (e.g. PWA + browser tab on the same phone) stay in sync via Server-Sent Events (SSE):
@@ -195,9 +246,11 @@ On touch devices, pull down on the task list to refresh data from the server.
 
 ## Motivational Toasts
 
-- **Completion toasts** — context-aware messages when you complete a task. Quick messages for same-day tasks, normal messages for recent tasks, celebratory messages for long-standing tasks. Shows days on list, today's completion count, and points earned.
+- **AI-generated messages** — when a task is created or updated (title/energy change), Claude pre-generates 4 toast variants (quick completion, normal, long-overdue, reopen) with both headline and subtitle. Messages are stored on the task and served instantly — no async delay.
+- **Backfill on load** — pre-existing tasks without messages get them generated in the background on first load (staggered 1s apart).
+- **Static fallback** — if AI messages aren't available, funny static messages are used ("Archaeologists found this task", "The sequel nobody asked for", etc.)
 - **Undo button** — each completion toast includes an Undo button with a 4-second window to reverse the completion
-- **Reopen toasts** — encouraging messages when you reopen a task from the done list ("Back in the ring", "Round two — you got this", etc.)
+- **Points display** — shows days on list and points earned as a subtitle suffix
 
 ## Done List
 
@@ -259,6 +312,10 @@ When a routine spawns a new task instance, AI can suggest an appropriate due dat
 ## File Attachments
 
 Attach files to any task (5 MB limit per file). Attachments can be added in the Add Task modal or Edit Task modal, and are viewable in the expanded task card.
+
+- **Auto-research** — adding an attachment automatically triggers the Research feature, including the file as a Claude API content block (image or document type)
+- **Trello sync** — attachments are uploaded to Trello when pushing a task
+- **Notion sync** — attachments are uploaded to Notion via the 3-step file upload API when creating a page
 
 ## Version Display
 

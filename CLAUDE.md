@@ -169,6 +169,16 @@ Push tasks to Trello with native checklists and attachments, then keep them in s
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
 
+## Documentation Requirements
+**Every time new features are built, updated, or removed:**
+1. Update `CLAUDE.md` — add/modify the relevant section describing the feature, its implementation, and any known limitations
+2. Update `wiki/Features.md` — document user-facing behavior
+3. Update `wiki/Architecture.md` — document technical implementation, new routes, schema changes
+4. Update `wiki/Version-History.md` — add entry for the commit(s)
+5. Update other wiki pages as needed (Configuration.md, Getting-Started.md, etc.)
+
+Do NOT skip docs. They must be committed alongside or immediately after the feature code.
+
 ## Known Technical Debt & Future Plans
 
 ### ~~Database: From JSON Blobs to Proper Schema~~ — DONE

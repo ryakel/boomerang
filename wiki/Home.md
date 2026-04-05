@@ -29,3 +29,4 @@ Open `http://localhost:3001` and start adding tasks. API keys are optional — a
 - [Docker](Docker) — container setup, volumes, healthcheck, multi-arch
 - [Development](Development) — local dev setup, project structure
 - [Architecture](Architecture) — how it works under the hood
+- [Version History](Version-History) — commit-level changelog

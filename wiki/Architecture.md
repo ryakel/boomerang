@@ -53,18 +53,64 @@ Writes to `PUT /api/data` or `POST /api/data` that do not include a `_clientId` 
 
 ### SQLite Schema
 
+Tasks and routines have proper SQL tables with individual columns, indexes, and per-record CRUD. Settings and labels remain as JSON blobs in `app_data` (intentional — small, rarely updated).
+
 ```sql
-CREATE TABLE IF NOT EXISTS app_data (
+-- Tasks table (migration 002 + 004 + 005)
+CREATE TABLE tasks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'not_started',
+  notes TEXT DEFAULT '',
+  due_date TEXT, snoozed_until TEXT, snooze_count INTEGER DEFAULT 0,
+  staleness_days INTEGER DEFAULT 2,
+  last_touched TEXT NOT NULL, created_at TEXT NOT NULL, completed_at TEXT,
+  reframe_notes TEXT,
+  notion_page_id TEXT, notion_url TEXT,
+  trello_card_id TEXT, trello_card_url TEXT, trello_sync_enabled INTEGER,
+  routine_id TEXT, high_priority INTEGER DEFAULT 0,
+  size TEXT, energy TEXT, energy_level INTEGER,
+  tags_json TEXT, attachments_json TEXT,
+  checklist_json TEXT, checklists_json TEXT, comments_json TEXT,
+  toast_messages_json TEXT
+);
+
+-- Indexes on status, due_date, energy, created_at, routine_id, completed_at
+
+-- Key-value store for settings, labels, version
+CREATE TABLE app_data (
   collection TEXT PRIMARY KEY,
   data_json TEXT NOT NULL
-)
+);
 ```
 
-Collections stored: `tasks`, `routines`, `settings`, `labels`, `_version`.
+Migrations are in `migrations/001-005.sql` and run automatically on startup.
 
 ### Task Data Model — Attachments
 
-Each task object may include an `attachments` array. Each attachment entry contains a file name, MIME type, and base64-encoded file data. Attachments are stored inline in the task JSON and synced through the same localStorage/SQLite pipeline as all other task data. The maximum file size per attachment is 5 MB.
+Each task object may include an `attachments` array. Each attachment entry contains a file name, MIME type, and base64-encoded file data. Attachments are stored inline in the task JSON. The maximum file size per attachment is 5 MB. Attachments are included as content blocks in Research API calls and uploaded to Trello/Notion when syncing.
+
+### Toast Message Prefetch
+
+Pre-generated AI toast messages are stored on each task as `toast_messages`:
+```json
+{
+  "complete_quick":  { "message": "...", "subtitle": "..." },
+  "complete_normal": { "message": "...", "subtitle": "..." },
+  "complete_long":   { "message": "...", "subtitle": "..." },
+  "reopen":          { "message": "...", "subtitle": "..." }
+}
+```
+Generated on task create/update (title or energy change), backfilled on load for existing tasks. Toast component reads synchronously — no async, no swaps.
+
+### External Sync Architecture
+
+`useExternalSync` hook watches all tasks for changes to user-facing fields (title, notes, due_date, checklists). When a change is detected on a Trello- or Notion-linked task:
+1. 5-second per-task debounce prevents rapid-fire API calls
+2. Diff-based sync: only changed fields are sent
+3. Trello: field updates, checklist create/update/delete, ID hydration for pre-existing tasks
+4. Notion: title via properties API, content via block replacement (delete old, append new)
+5. Failed syncs queued in `boom_external_sync_queue` (200 cap), replayed on `online` event
 
 ### Smart Recurrence Flow
 
@@ -112,8 +158,14 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `POST` | `/api/notion/search` | Search Notion pages |
 | `GET` | `/api/notion/pages/:id` | Get a Notion page |
 | `POST` | `/api/notion/pages` | Create a Notion page |
-| `PATCH` | `/api/notion/pages/:id` | Append content to a Notion page |
+| `PATCH` | `/api/notion/pages/:id` | Update page title and/or replace content blocks |
 | `GET` | `/api/notion/status` | Check Notion connection status |
+| `GET` | `/api/notion/blocks/:id` | Read page content (paginated), returns blocks + plainText |
+| `GET` | `/api/notion/children/:id` | List child pages of a parent |
+| `POST` | `/api/notion/blocks/:id/children` | Append blocks to a page |
+| `POST` | `/api/notion/file-uploads` | Create a Notion file upload |
+| `POST` | `/api/notion/file-uploads/:id/send` | Send file data to Notion |
+| `POST` | `/api/notion/databases/:id/query` | Query a Notion database |
 | `GET` | `/api/trello/status` | Check Trello connection status |
 | `GET` | `/api/trello/boards` | List user's Trello boards |
 | `GET` | `/api/trello/boards/:id/lists` | Get lists in a Trello board |
@@ -121,8 +173,19 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `PATCH` | `/api/trello/cards/:id` | Update a Trello card |
 | `DELETE` | `/api/trello/cards/:id` | Archive a Trello card |
 | `GET` | `/api/trello/cards/:id` | Get a single Trello card |
+| `POST` | `/api/trello/cards/:id/checklists` | Create a checklist on a card |
+| `GET` | `/api/trello/cards/:id/checklists` | Fetch checklists for a card |
+| `POST` | `/api/trello/checklists/:id/checkItems` | Add item to a checklist |
+| `PUT` | `/api/trello/cards/:cardId/checkItem/:itemId` | Update a check item |
+| `DELETE` | `/api/trello/checklists/:id` | Delete a checklist |
+| `POST` | `/api/trello/cards/:id/attachments` | Upload attachment to card |
 | `POST` | `/api/trello/sync` | Pull cards from a Trello list |
 | `POST` | `/api/trello/sync-all-lists` | Pull cards from multiple Trello lists at once |
+| `GET` | `/api/tasks` | Get tasks (with optional filters) |
+| `POST` | `/api/tasks` | Create a task |
+| `PATCH` | `/api/tasks/:id` | Update a task |
+| `DELETE` | `/api/tasks/:id` | Delete a task |
+| `GET` | `/api/analytics` | Get analytics data |
 
 ## PWA
 
