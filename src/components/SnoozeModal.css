@@ -21,3 +21,37 @@
 .snooze-option:active {
   background: var(--surface-hover);
 }
+
+.snooze-custom-toggle {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.snooze-custom {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.snooze-custom-row {
+  display: flex;
+  gap: 8px;
+}
+
+.snooze-custom-row .settings-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.snooze-custom-confirm {
+  background: var(--accent);
+  color: #fff;
+  text-align: center;
+}
+
+.snooze-custom-confirm:disabled {
+  opacity: 0.4;
+}

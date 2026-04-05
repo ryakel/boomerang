@@ -84,7 +84,7 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 
 ## Snooze System
 
-Four preset options: Tonight, Tomorrow, This Weekend, Next Week. Each snooze increments a counter. After hitting the reframe threshold (configurable, default: 3), snoozing triggers the Reframe flow instead.
+Context-aware preset options that show the exact date and time (e.g., "Tomorrow · Mon Apr 6 9 AM"). Options adapt to the current day of week — "This Weekend" only appears Mon–Thu, "Tonight" disappears after 7 PM, and duplicate days are automatically removed. A "Pick a date..." button opens a custom date/time picker for full control. High-priority tasks get shorter intervals (2 Hours, Tonight, Tomorrow, Day After). Each snooze increments a counter. After hitting the reframe threshold (configurable, default: 3), snoozing triggers the Reframe flow instead.
 
 ## Routines (Recurring Tasks)
 

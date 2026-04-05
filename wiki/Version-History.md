@@ -6,8 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-05
 
+### Snooze
+- `pending` fix(ui): overhaul snooze options with context-aware labels and custom picker [M]
+
 ### Settings
-- `pending` fix(ui): show version number in desktop settings window [XS]
+- `e0c5897` fix(ui): show version number in desktop settings window [XS]
 
 ### Routines
 - `5268c16` feat(routines): add optional end date for routines and fix priority layout [M]

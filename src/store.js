@@ -276,37 +276,6 @@ export function formatDueDate(dateStr) {
   return `due ${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
 }
 
-export function getSnoozeOptions() {
-  const now = new Date()
-  const hour = now.getHours()
-
-  const tonight = new Date(now)
-  if (hour >= 19) { tonight.setTime(now.getTime() + 4 * 3600000) }
-  else { tonight.setHours(20, 0, 0, 0) }
-
-  const tomorrow = new Date(now)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  tomorrow.setHours(9, 0, 0, 0)
-
-  const saturday = new Date(now)
-  const dayOfWeek = now.getDay()
-  const daysUntilSat = dayOfWeek === 6 ? 7 : (6 - dayOfWeek)
-  saturday.setDate(saturday.getDate() + daysUntilSat)
-  saturday.setHours(10, 0, 0, 0)
-
-  const monday = new Date(now)
-  const daysUntilMon = dayOfWeek === 1 ? 7 : ((8 - dayOfWeek) % 7)
-  monday.setDate(monday.getDate() + daysUntilMon)
-  monday.setHours(9, 0, 0, 0)
-
-  return [
-    { label: 'Tonight', date: tonight },
-    { label: 'Tomorrow', date: tomorrow },
-    { label: 'This Weekend', date: saturday },
-    { label: 'Next Week', date: monday },
-  ]
-}
-
 export function formatSnoozeLabel(dateStr) {
   const date = new Date(dateStr)
   const now = new Date()
@@ -460,31 +429,103 @@ export function clearNotifLog() {
   localStorage.removeItem(NOTIF_LOG_KEY)
 }
 
+// Format a time for snooze display: "8 PM" or "9 AM"
+function fmtTime(d) {
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true })
+}
+
+// Format a day for snooze display: "Mon Apr 7"
+function fmtDay(d) {
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+// Deduplicate snooze options that land on the same calendar day
+function dedup(options) {
+  const seen = new Set()
+  return options.filter(opt => {
+    const key = opt.date.toDateString()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+export function getSnoozeOptions() {
+  const now = new Date()
+  const hour = now.getHours()
+  const day = now.getDay() // 0=Sun, 6=Sat
+
+  const options = []
+
+  // "Tonight" — only if before 7 PM (otherwise it's already tonight)
+  if (hour < 19) {
+    const tonight = new Date(now)
+    tonight.setHours(20, 0, 0, 0)
+    options.push({ label: `Tonight · ${fmtTime(tonight)}`, date: tonight })
+  }
+
+  // "Tomorrow morning"
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(9, 0, 0, 0)
+  options.push({ label: `Tomorrow · ${fmtDay(tomorrow)} ${fmtTime(tomorrow)}`, date: tomorrow })
+
+  // "This Weekend" — only Mon–Thu (Fri–Sun it's already the weekend or tomorrow is)
+  if (day >= 1 && day <= 4) {
+    const saturday = new Date(now)
+    saturday.setDate(saturday.getDate() + (6 - day))
+    saturday.setHours(10, 0, 0, 0)
+    options.push({ label: `This Weekend · ${fmtDay(saturday)} ${fmtTime(saturday)}`, date: saturday })
+  }
+
+  // "Next Week" — next Monday, but only if that's 2+ days away
+  const monday = new Date(now)
+  const daysUntilMon = day === 0 ? 1 : (8 - day)
+  monday.setDate(monday.getDate() + daysUntilMon)
+  monday.setHours(9, 0, 0, 0)
+  options.push({ label: `Next Week · ${fmtDay(monday)} ${fmtTime(monday)}`, date: monday })
+
+  // "In 3 Days" — filler if we ended up with few options
+  if (options.length < 4) {
+    const inThree = new Date(now)
+    inThree.setDate(inThree.getDate() + 3)
+    inThree.setHours(9, 0, 0, 0)
+    options.push({ label: `In 3 Days · ${fmtDay(inThree)} ${fmtTime(inThree)}`, date: inThree })
+  }
+
+  return dedup(options)
+}
+
 export function getSnoozeOptionsShort() {
   const now = new Date()
   const hour = now.getHours()
 
-  const later = new Date(now)
-  later.setTime(now.getTime() + 2 * 3600000) // 2 hours from now
+  const options = []
 
-  const tonight = new Date(now)
-  if (hour >= 19) { tonight.setTime(now.getTime() + 2 * 3600000) }
-  else { tonight.setHours(20, 0, 0, 0) }
+  // "2 Hours"
+  const later = new Date(now.getTime() + 2 * 3600000)
+  options.push({ label: `2 Hours · ${fmtTime(later)}`, date: later })
 
+  // "Tonight" — only if before 7 PM
+  if (hour < 19) {
+    const tonight = new Date(now)
+    tonight.setHours(20, 0, 0, 0)
+    options.push({ label: `Tonight · ${fmtTime(tonight)}`, date: tonight })
+  }
+
+  // "Tomorrow morning"
   const tomorrow = new Date(now)
   tomorrow.setDate(tomorrow.getDate() + 1)
   tomorrow.setHours(9, 0, 0, 0)
+  options.push({ label: `Tomorrow · ${fmtDay(tomorrow)} ${fmtTime(tomorrow)}`, date: tomorrow })
 
+  // "Day After Tomorrow"
   const dayAfter = new Date(now)
   dayAfter.setDate(dayAfter.getDate() + 2)
   dayAfter.setHours(9, 0, 0, 0)
+  options.push({ label: `${fmtDay(dayAfter)} · ${fmtTime(dayAfter)}`, date: dayAfter })
 
-  return [
-    { label: '2 Hours', date: later },
-    { label: 'Tonight', date: tonight },
-    { label: 'Tomorrow', date: tomorrow },
-    { label: 'Day After', date: dayAfter },
-  ]
+  return dedup(options)
 }
 
 // Re-export scoring functions so existing imports from store.js keep working

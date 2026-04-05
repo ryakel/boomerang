@@ -119,7 +119,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
       >
         <div className="desktop-hover-actions">
           <button title="Complete" onClick={e => { e.stopPropagation(); onComplete(task.id) }}>✓</button>
-          <button title="Snooze" onClick={e => { e.stopPropagation(); onSnooze(task.id) }}>💤</button>
+          <button title="Snooze" onClick={e => { e.stopPropagation(); onSnooze(task) }}>💤</button>
         </div>
         <div className="task-card-top">
           {task.status !== 'backlog' && (STATUS_META[task.status] || task.status === 'open') && (

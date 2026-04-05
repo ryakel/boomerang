@@ -1,7 +1,12 @@
+import { useState } from 'react'
 import './SnoozeModal.css'
 import { getSnoozeOptions, getSnoozeOptionsShort } from '../store'
 
 export default function SnoozeModal({ task, onSnooze, onClose }) {
+  const [showCustom, setShowCustom] = useState(false)
+  const [customDate, setCustomDate] = useState('')
+  const [customTime, setCustomTime] = useState('09:00')
+
   const options = task.high_priority ? getSnoozeOptionsShort() : getSnoozeOptions()
 
   let filteredOptions = options
@@ -18,11 +23,26 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
       const dueAt9 = new Date(y, m - 1, d, 9, 0, 0, 0)
       const alreadyHas = filteredOptions.some(o => o.date.toDateString() === dueAt9.toDateString())
       if (!alreadyHas) {
-        const label = `Due Date (${dueMidnight.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`
+        const label = `Due Date · ${dueMidnight.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} 9 AM`
         filteredOptions.push({ label, date: dueAt9 })
       }
     }
   }
+
+  const handleCustomSnooze = () => {
+    if (!customDate) return
+    const [y, m, d] = customDate.split('-').map(Number)
+    const [hh, mm] = customTime.split(':').map(Number)
+    const date = new Date(y, m - 1, d, hh, mm, 0, 0)
+    if (date <= new Date()) return
+    onSnooze(task.id, date)
+    onClose()
+  }
+
+  // Min date for custom picker = tomorrow
+  const minDate = new Date()
+  minDate.setDate(minDate.getDate() + 1)
+  const minDateStr = minDate.toISOString().split('T')[0]
 
   return (
     <div className="sheet-overlay" onClick={onClose}>
@@ -31,7 +51,7 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
         <div className="sheet-title">{task.title}</div>
         <div className="sheet-subtitle">When should this come back?</div>
 
-        {filteredOptions.length === 0 ? (
+        {filteredOptions.length === 0 && !showCustom ? (
           <p className="snooze-empty-msg">This task is due today or overdue — snoozing is not available.</p>
         ) : (
           <div className="snooze-options">
@@ -48,6 +68,42 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
               </button>
             ))}
           </div>
+        )}
+
+        {showCustom ? (
+          <div className="snooze-custom">
+            <div className="snooze-custom-row">
+              <input
+                className="settings-input"
+                type="date"
+                value={customDate}
+                min={minDateStr}
+                onChange={e => setCustomDate(e.target.value)}
+              />
+              <input
+                className="settings-input"
+                type="time"
+                value={customTime}
+                onChange={e => setCustomTime(e.target.value)}
+              />
+            </div>
+            <button
+              className="snooze-option snooze-custom-confirm"
+              disabled={!customDate}
+              onClick={handleCustomSnooze}
+            >
+              Snooze until {customDate
+                ? new Date(customDate + 'T' + customTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' ' + new Date('2000-01-01T' + customTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                : '...'}
+            </button>
+          </div>
+        ) : (
+          <button
+            className="snooze-option snooze-custom-toggle"
+            onClick={() => setShowCustom(true)}
+          >
+            Pick a date...
+          </button>
         )}
       </div>
     </div>
