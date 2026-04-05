@@ -286,6 +286,12 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
 
       setNotionResult(page)
       setNotionState(null)
+
+      // Persist Notion link immediately for ongoing sync
+      onSave(task.id, {
+        notion_page_id: page.id,
+        notion_url: page.url,
+      })
     } catch (err) {
       setNotionState({ action: 'error', reason: err.message })
     } finally {

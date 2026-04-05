@@ -404,20 +404,57 @@ app.post('/api/notion/pages', async (req, res) => {
 app.patch('/api/notion/pages/:id', async (req, res) => {
   const token = getNotionToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
+  const { title, content } = req.body
+  const headers = makeNotionHeaders(token)
+  console.log(`[NotionSync] PATCH page ${req.params.id}`, { hasTitle: !!title, hasContent: !!content })
   try {
-    const children = (req.body.content || '').split('\n').filter(Boolean).map(line => ({
-      object: 'block',
-      type: 'paragraph',
-      paragraph: { rich_text: [{ type: 'text', text: { content: line.replace(/^- /, '') } }] },
-    }))
-    const response = await fetch(`${NOTION_BASE}/blocks/${req.params.id}/children`, {
-      method: 'PATCH',
-      headers: makeNotionHeaders(token),
-      body: JSON.stringify({ children }),
-    })
-    const data = await response.json()
-    res.status(response.status).json(data)
+    // Update title if provided
+    if (title) {
+      const titleRes = await fetch(`${NOTION_BASE}/pages/${req.params.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ properties: { title: { title: [{ text: { content: title } }] } } }),
+      })
+      if (!titleRes.ok) {
+        const err = await titleRes.json()
+        console.log(`[NotionSync] title update FAILED:`, err)
+        return res.status(titleRes.status).json(err)
+      }
+      console.log(`[NotionSync] title updated OK`)
+    }
+
+    // Replace content if provided: delete existing blocks then append new ones
+    if (content) {
+      // Fetch existing blocks to delete
+      const blocksRes = await fetch(`${NOTION_BASE}/blocks/${req.params.id}/children?page_size=100`, { headers })
+      const blocksData = await blocksRes.json()
+      if (blocksRes.ok && blocksData.results) {
+        for (const block of blocksData.results) {
+          await fetch(`${NOTION_BASE}/blocks/${block.id}`, { method: 'DELETE', headers })
+        }
+        console.log(`[NotionSync] deleted ${blocksData.results.length} old blocks`)
+      }
+
+      // Append new blocks
+      const children = parseContentToBlocks(content)
+      if (children.length > 0) {
+        const appendRes = await fetch(`${NOTION_BASE}/blocks/${req.params.id}/children`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ children }),
+        })
+        const appendData = await appendRes.json()
+        if (!appendRes.ok) {
+          console.log(`[NotionSync] content append FAILED:`, appendData)
+          return res.status(appendRes.status).json(appendData)
+        }
+        console.log(`[NotionSync] appended ${children.length} new blocks`)
+      }
+    }
+
+    res.json({ ok: true })
   } catch (err) {
+    console.log(`[NotionSync] PATCH page ERROR:`, err.message)
     res.status(500).json({ error: err.message })
   }
 })

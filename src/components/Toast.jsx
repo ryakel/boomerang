@@ -1,46 +1,48 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import './Toast.css'
 import { computeTaskPoints } from '../store'
+import { generateToastMessage } from '../api'
 
 const MESSAGES_QUICK = [
-  'Speed run.',
-  'That was fast.',
-  'In and out.',
-  'Quick work.',
-  'Nailed it.',
+  'Speed run!',
+  'Blink and you missed it.',
+  'Any% completion.',
+  'Didn\'t even break a sweat.',
+  'That barely counts as procrastinating.',
 ]
 
 const MESSAGES_NORMAL = [
-  'Done and done.',
-  'One less thing.',
-  'Knocked it out.',
-  'Off the list.',
-  'Nice work.',
-  'Handled.',
+  'Another one bites the dust.',
+  'Look at you being functional.',
+  'Crushed it. Next.',
+  'That task never stood a chance.',
+  'One less thing haunting you.',
+  'Off the list, out of your brain.',
 ]
 
 const MESSAGES_LONG = [
-  'Finally! That one was hanging around.',
-  'Persistence wins.',
-  'Worth the wait.',
-  'That one fought back, but you got it.',
-  'Long time coming — nice.',
+  'The prodigal task returns... completed.',
+  'It only took you forever.',
+  'Archaeologists found this task.',
+  'That one aged like fine wine.',
+  'Better late than literally never.',
+  'The prophecy is fulfilled.',
 ]
 
 const MESSAGES_REOPEN = [
-  'Back in the ring.',
-  'Not done yet? No problem.',
-  'Round two — you got this.',
-  'Unfinished business.',
-  'Second wind incoming.',
-  'Still in the fight.',
+  'Surprise! It\'s back.',
+  'Plot twist.',
+  'The sequel nobody asked for.',
+  'Back from the dead.',
+  'You thought you were done? Cute.',
+  'Round two. Fight!',
 ]
 
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
-function getMotivation(daysOnList, todayCount) {
+function getStaticMotivation(daysOnList, todayCount) {
   let message
   if (daysOnList === 0) {
     message = pickRandom(MESSAGES_QUICK)
@@ -67,26 +69,47 @@ function getMotivation(daysOnList, todayCount) {
 }
 
 export default function Toast({ task, todayCount, variant = 'complete', onDone, onUndo }) {
-  let message, subtitle
+  const isReopen = variant === 'reopen'
+  const daysOnList = Math.floor(
+    (Date.now() - new Date(task.created_at).getTime()) / 86400000
+  )
 
-  if (variant === 'reopen') {
-    message = pickRandom(MESSAGES_REOPEN)
-    subtitle = `"${task.title}" is back on the list`
-  } else {
-    const daysOnList = Math.floor(
-      (Date.now() - new Date(task.created_at).getTime()) / 86400000
-    )
-    ;({ message, subtitle } = getMotivation(daysOnList, todayCount))
-    const pts = computeTaskPoints(task)
-    subtitle += ` · +${pts} pts`
-  }
+  // Start with static message, upgrade to AI if available
+  const [message, setMessage] = useState(() => {
+    if (isReopen) return pickRandom(MESSAGES_REOPEN)
+    return getStaticMotivation(daysOnList, todayCount).message
+  })
+
+  const subtitle = isReopen
+    ? `"${task.title}" is back on the list`
+    : (() => {
+        const { subtitle: s } = getStaticMotivation(daysOnList, todayCount)
+        const pts = computeTaskPoints(task)
+        return `${s} · +${pts} pts`
+      })()
+
+  // Try AI generation in background, replace static if it arrives fast enough
+  useEffect(() => {
+    let cancelled = false
+    const timeout = setTimeout(() => { cancelled = true }, 3000) // 3s max
+
+    generateToastMessage(task.title, variant, {
+      daysOnList,
+      todayCount,
+      energy: task.energy,
+      energyLevel: task.energyLevel,
+    }).then(aiMsg => {
+      clearTimeout(timeout)
+      if (!cancelled && aiMsg) setMessage(aiMsg)
+    }).catch(() => {}) // static fallback already showing
+
+    return () => { cancelled = true; clearTimeout(timeout) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const timer = setTimeout(onDone, 4000)
     return () => clearTimeout(timer)
   }, [onDone])
-
-  const isReopen = variant === 'reopen'
 
   return (
     <div className={`toast ${isReopen ? 'toast-reopen' : ''}`} onClick={onDone}>

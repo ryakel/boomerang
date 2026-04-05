@@ -233,6 +233,28 @@ export async function reframeTask(taskTitle, snoozeCount, blocker) {
   return JSON.parse(match[0])
 }
 
+// --- Toast messages ---
+export async function generateToastMessage(taskTitle, variant, context = {}) {
+  const { daysOnList, todayCount, energy, energyLevel } = context
+  const system = `You write very short, punchy one-liner reactions (under 8 words) for a task management app. Be funny, irreverent, slightly sarcastic but always encouraging. Match the vibe of the situation. No quotes, no emoji, no punctuation at the end unless it's a question mark or exclamation. Return JSON only: {"message":"your line"}`
+
+  let situation
+  if (variant === 'reopen') {
+    situation = `The user just reopened a completed task: "${taskTitle}". They thought they were done but they weren't. Tease them gently.`
+  } else if (daysOnList === 0) {
+    situation = `The user completed "${taskTitle}" same day they created it. That's fast! Be impressed.${todayCount > 3 ? ` They've done ${todayCount} tasks today — they're on fire.` : ''}`
+  } else if (daysOnList > 7) {
+    situation = `The user FINALLY completed "${taskTitle}" after ${daysOnList} days of procrastinating. Celebrate the victory over avoidance.${energy === 'confrontation' ? ' This was a dreaded confrontation task.' : ''}${energyLevel >= 3 ? ' This was a high-drain task.' : ''}`
+  } else {
+    situation = `The user completed "${taskTitle}" after ${daysOnList} day(s). Normal completion. Be casually encouraging.${todayCount > 2 ? ` ${todayCount} done today.` : ''}`
+  }
+
+  const text = await callClaude(system, situation)
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('Bad response')
+  return JSON.parse(match[0]).message
+}
+
 // --- Notion ---
 export async function notionSearch(query) {
   const res = await fetch('/api/notion/search', {
@@ -257,11 +279,11 @@ export async function notionCreatePage(title, content, parentPageId) {
   return res.json()
 }
 
-export async function notionUpdatePage(pageId, content) {
+export async function notionUpdatePage(pageId, { title, content } = {}) {
   const res = await fetch(`/api/notion/pages/${pageId}`, {
     method: 'PATCH',
     headers: getApiHeaders(),
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ title, content }),
   })
   if (!res.ok) throw new Error('Failed to update Notion page')
   return res.json()

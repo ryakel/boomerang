@@ -7,6 +7,7 @@ import {
   trelloUpdateCheckItem,
   trelloDeleteChecklist,
   trelloGetChecklists,
+  notionUpdatePage,
 } from '../api'
 
 const DEBOUNCE_MS = 5000
@@ -246,20 +247,67 @@ export function useExternalSync(tasks, onUpdateTask) {
     }
   }, [hydrateChecklistIds])
 
-  // Watch for task changes and sync to Trello
+  const syncTaskToNotion = useCallback(async (task, prevTask) => {
+    const pageId = task.notion_page_id
+    if (!pageId) return
+
+    const updates = {}
+
+    // Sync title
+    if (task.title !== prevTask.title) {
+      updates.title = task.title
+    }
+
+    // Sync notes + checklists as content
+    const notesChanged = task.notes !== prevTask.notes
+    const checklistsChanged = JSON.stringify((task.checklists || []).map(cl => ({
+      name: cl.name, items: (cl.items || []).map(i => ({ text: i.text, completed: i.completed })),
+    }))) !== JSON.stringify((prevTask.checklists || []).map(cl => ({
+      name: cl.name, items: (cl.items || []).map(i => ({ text: i.text, completed: i.completed })),
+    })))
+
+    if (notesChanged || checklistsChanged) {
+      let content = (task.notes || '').trim()
+      const cls = task.checklists || []
+      if (cls.length > 0) {
+        const clText = cls.map(cl => {
+          const header = `## ${cl.name || 'Checklist'}`
+          const items = (cl.items || []).map(i => `- [${i.completed ? 'x' : ' '}] ${i.text}`).join('\n')
+          return `${header}\n${items}`
+        }).join('\n\n')
+        content = content ? `${content}\n\n${clText}` : clText
+      }
+      updates.content = content
+    }
+
+    if (Object.keys(updates).length === 0) return
+
+    try {
+      await notionUpdatePage(pageId, updates)
+      log(`updated Notion page for "${task.title}":`, Object.keys(updates))
+    } catch (err) {
+      log(`ERROR updating Notion page:`, err.message)
+      enqueue([{ type: 'updateNotionPage', pageId, updates }])
+    }
+  }, [])
+
+  // Watch for task changes and sync to Trello/Notion
   useEffect(() => {
     if (!prevTasks.current || !Array.isArray(tasks)) return
 
     const settings = loadSettings()
-    // Need at least a board configured (keys can come from env vars)
-    if (!settings.trello_board_id) return
+    const hasTrello = !!settings.trello_board_id
+    const hasNotion = !!settings.notion_sync_parent_id
+
+    if (!hasTrello && !hasNotion) return
 
     const currMap = new Map(tasks.map(t => [t.id, t]))
 
     for (const [id, task] of currMap) {
-      // Only sync tasks linked to Trello with sync enabled
-      if (!task.trello_card_id) continue
-      if (task.trello_sync_enabled === false) continue
+      const hasTrelloLink = task.trello_card_id && task.trello_sync_enabled !== false
+      const hasNotionLink = !!task.notion_page_id
+
+      if (!hasTrelloLink && !hasNotionLink) continue
 
       const prev = prevTasks.current.get(id)
       if (!prev) continue // new task, skip (will be handled by create flow)
@@ -275,13 +323,14 @@ export function useExternalSync(tasks, onUpdateTask) {
       if (debounceTimers.current[id]) clearTimeout(debounceTimers.current[id])
       debounceTimers.current[id] = setTimeout(() => {
         delete debounceTimers.current[id]
-        syncTaskToTrello(task, prev)
+        if (hasTrello && hasTrelloLink) syncTaskToTrello(task, prev)
+        if (hasNotion && hasNotionLink) syncTaskToNotion(task, prev)
       }, DEBOUNCE_MS)
     }
 
     // Update prev snapshot
     prevTasks.current = currMap
-  }, [tasks, syncTaskToTrello])
+  }, [tasks, syncTaskToTrello, syncTaskToNotion])
 
   // Replay queue on online event
   const replayQueue = useCallback(async () => {
@@ -308,6 +357,9 @@ export function useExternalSync(tasks, onUpdateTask) {
             break
           case 'deleteChecklist':
             await trelloDeleteChecklist(op.checklistId)
+            break
+          case 'updateNotionPage':
+            await notionUpdatePage(op.pageId, op.updates)
             break
         }
       } catch (err) {
