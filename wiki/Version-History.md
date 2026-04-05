@@ -47,6 +47,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 - `fc90478` fix(ui): use 100dvh to eliminate PWA bottom dead space [S]
 
 ### Docs
+- `b410e29` chore: remove outdated design.md spec [XS]
+- `86e202a` docs: update README with current features and tech stack [S]
+- `1c22abe` docs(sync): update CLAUDE.md, wiki features/architecture/version-history [M]
 - `5f086d5` docs(sync): update CLAUDE.md with completed technical debt items [M]
 - `7bf3eae` docs(sync): mark offline mutation queue as done in CLAUDE.md [XS]
 
