@@ -270,6 +270,16 @@ Completed. `researchTask()` in `src/api.js` now accepts an optional `attachments
 
 Phases 1-2 done (kanban board, hover states, drag-and-drop between columns). Desktop modals done — Settings, Routines, Analytics, and Edit Task all use `sheet-overlay`/`sheet` container with X close button on desktop; mobile keeps full-screen `settings-overlay` with ← Back. "What Now" overlay uses CSS-only scrim on desktop. Bottom bar hidden on desktop; compact "What now?" button in header instead.
 
+### Routine Spawning Bug (Priority: High — FIXED ON DEV, NEEDS MERGE TO MAIN)
+
+**Bug:** `spawnDueTasks()` in `src/hooks/useRoutines.js` checks `t.status === 'open'` to detect existing tasks for a routine, but `createTask()` sets status to `'not_started'`. The dedup check never matches, so every hydration cycle spawns duplicate tasks. With multiple SSE clients connected, this creates an infinite feedback loop: Client A spawns → syncs → Client B hydrates → spawns more → syncs → Client A hydrates → repeat. Hundreds of tasks created per minute.
+
+**Fix (on `dev` branch, commit `7dc9e23`):** Changed the check from `t.status === 'open'` to `t.status !== 'done'` so any active task (not_started, doing, waiting) prevents re-spawning.
+
+**File:** `src/hooks/useRoutines.js` line 57
+
+**Why it wasn't caught in prod:** Single-client usage with routines that get completed before the next spawn check. Only surfaces with seed data (multiple routines due at once) and/or multiple connected clients.
+
 Remaining:
 - **Phase 3:** EditTaskModal as right-side drawer (480px) instead of centered modal on desktop
 - **Phase 4:** Keyboard shortcuts (n=add, /=search, j/k=navigate, Escape=close, e=edit)
