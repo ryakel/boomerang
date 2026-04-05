@@ -256,6 +256,8 @@ function taskToRow(task) {
     checklist_json: JSON.stringify(task.checklist || []),
     checklists_json: JSON.stringify(task.checklists || []),
     comments_json: JSON.stringify(task.comments || []),
+    toast_messages_json: task.toast_messages ? JSON.stringify(task.toast_messages) : null,
+    trello_sync_enabled: task.trello_sync_enabled == null ? null : task.trello_sync_enabled ? 1 : 0,
   }
 }
 
@@ -287,6 +289,8 @@ function rowToTask(row) {
     checklist: safeJsonParse(row.checklist_json, []),
     checklists: safeJsonParse(row.checklists_json, []),
     comments: safeJsonParse(row.comments_json, []),
+    toast_messages: safeJsonParse(row.toast_messages_json, null),
+    trello_sync_enabled: row.trello_sync_enabled == null ? undefined : !!row.trello_sync_enabled,
   }
 }
 
@@ -304,8 +308,8 @@ const UPSERT_TASK_SQL = `
     staleness_days, last_touched, created_at, completed_at, reframe_notes,
     notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
     high_priority, size, energy, energy_level, tags_json, attachments_json,
-    checklist_json, checklists_json, comments_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    checklist_json, checklists_json, comments_json, toast_messages_json, trello_sync_enabled)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -318,7 +322,8 @@ const UPSERT_TASK_SQL = `
     size=excluded.size, energy=excluded.energy, energy_level=excluded.energy_level,
     tags_json=excluded.tags_json, attachments_json=excluded.attachments_json,
     checklist_json=excluded.checklist_json, checklists_json=excluded.checklists_json,
-    comments_json=excluded.comments_json`
+    comments_json=excluded.comments_json, toast_messages_json=excluded.toast_messages_json,
+    trello_sync_enabled=excluded.trello_sync_enabled`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -327,7 +332,8 @@ function runUpsertTask(task) {
     r.staleness_days, r.last_touched, r.created_at, r.completed_at, r.reframe_notes,
     r.notion_page_id, r.notion_url, r.trello_card_id, r.trello_card_url, r.routine_id,
     r.high_priority, r.size, r.energy, r.energy_level, r.tags_json, r.attachments_json,
-    r.checklist_json, r.checklists_json, r.comments_json,
+    r.checklist_json, r.checklists_json, r.comments_json, r.toast_messages_json,
+    r.trello_sync_enabled,
   ])
 }
 

@@ -1,0 +1,2 @@
+ALTER TABLE tasks ADD COLUMN toast_messages_json TEXT DEFAULT NULL;
+ALTER TABLE tasks ADD COLUMN trello_sync_enabled INTEGER DEFAULT NULL;
