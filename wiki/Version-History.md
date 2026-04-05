@@ -14,6 +14,8 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - `scripts/generate-seed-data.js` for standalone regeneration with API key
   - New files: `seed.js`, `scripts/seed-data.json`, `scripts/generate-seed-data.js`
   - Modified: `server.js`, `docker-compose.dev.yml`, `Dockerfile`
+- feat(api): add POST /api/dev/seed endpoint for on-demand re-seeding [XS]
+  - Modified: `server.js`
 - chore(ci): publish :dev container and isolate dev environment [S]
   - Dev CI workflow now publishes `ghcr.io/ryakel/boomerang:dev` on push to `dev` branch
   - `docker-compose.dev.yml` uses port 3002, `boomerang-dev` container/volume names, pulls `:dev` image

@@ -1187,6 +1187,16 @@ app.get('/api/gcal/events', async (req, res) => {
   }
 })
 
+// --- Dev seed endpoint ---
+app.post('/api/dev/seed', async (req, res) => {
+  try {
+    await seedDatabase(envApiKey)
+    res.json({ ok: true, message: 'Database seeded' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // --- Static file serving (production) ---
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

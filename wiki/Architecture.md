@@ -197,6 +197,7 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `PATCH` | `/api/tasks/:id` | Update a task |
 | `DELETE` | `/api/tasks/:id` | Delete a task |
 | `GET` | `/api/analytics` | Get analytics data |
+| `POST` | `/api/dev/seed` | Wipe DB and reload seed data on demand |
 
 ## Dev Seed System
 
