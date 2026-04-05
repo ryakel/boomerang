@@ -13,6 +13,12 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
   const [endDate, setEndDate] = useState('')
   const labels = loadLabels()
 
+  const defaultEndDate = () => {
+    const d = new Date()
+    d.setDate(d.getDate() + 7)
+    return d.toISOString().split('T')[0]
+  }
+
   const resetForm = () => {
     setTitle('')
     setNotes('')
@@ -20,7 +26,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setCustomDays(14)
     setSelectedTags([])
     setHighPriority(false)
-    setEndDate('')
+    setEndDate(defaultEndDate())
     setShowAdd(false)
     setEditingRoutine(null)
   }
@@ -82,18 +88,15 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
             autoFocus
           />
           <div className="settings-label" style={{ marginBottom: 6 }}>Frequency</div>
-          <div className="tag-selector" style={{ marginBottom: 12 }}>
+          <select
+            className="routine-select"
+            value={cadence}
+            onChange={e => setCadence(e.target.value)}
+          >
             {RECURRENCE_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                className={`tag-toggle ${cadence === opt.value ? 'selected' : ''}`}
-                style={cadence === opt.value ? { background: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff' } : {}}
-                onClick={() => setCadence(opt.value)}
-              >
-                {opt.label}
-              </button>
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
-          </div>
+          </select>
           {cadence === 'custom' && (
             <div style={{ marginBottom: 12 }}>
               <div className="settings-label" style={{ marginBottom: 4 }}>Every how many days?</div>
@@ -115,7 +118,18 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
             style={{ minHeight: 50, marginBottom: 12 }}
           />
           <div className="settings-label" style={{ marginBottom: 6 }}>Labels</div>
-          <LabelMultiSelect labels={labels} selectedTags={selectedTags} toggleTag={toggleTag} />
+          <div className="tag-selector" style={{ flexWrap: 'wrap', marginBottom: 16 }}>
+            {labels.map(label => (
+              <button
+                key={label.id}
+                className={`tag-toggle ${selectedTags.includes(label.id) ? 'selected' : ''}`}
+                style={selectedTags.includes(label.id) ? { background: label.color, borderColor: label.color, color: '#fff' } : {}}
+                onClick={() => toggleTag(label.id)}
+              >
+                {label.name}
+              </button>
+            ))}
+          </div>
           <div className="priority-group" style={{ marginBottom: 16, alignItems: 'flex-start', flexDirection: 'row', gap: 8 }}>
             <span className="settings-label" style={{ marginBottom: 0 }}>Priority</span>
             <button
@@ -195,41 +209,6 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
         <button className="settings-back" onClick={() => { resetForm(); setShowAdd(true) }} style={{ color: 'var(--accent)' }}>+ New</button>
       </div>
       {content}
-    </div>
-  )
-}
-
-function LabelMultiSelect({ labels, selectedTags, toggleTag }) {
-  const [open, setOpen] = useState(false)
-  const selectedLabels = selectedTags.map(id => labels.find(l => l.id === id)).filter(Boolean)
-  const displayText = selectedLabels.length === 0 ? 'None' : selectedLabels.map(l => l.name).join(', ')
-
-  return (
-    <div className="label-multiselect" style={{ marginBottom: 16 }}>
-      <button
-        className="add-input"
-        type="button"
-        onClick={() => setOpen(!open)}
-        style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: selectedLabels.length ? 'var(--text)' : 'var(--text-dim)', marginBottom: 0 }}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayText}</span>
-        <span style={{ fontSize: 10, marginLeft: 8, flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
-      </button>
-      {open && (
-        <div className="label-multiselect-dropdown">
-          {labels.map(label => (
-            <button
-              key={label.id}
-              className="label-multiselect-item"
-              onClick={() => toggleTag(label.id)}
-            >
-              <span className="label-swatch" style={{ background: label.color }} />
-              <span style={{ flex: 1 }}>{label.name}</span>
-              {selectedTags.includes(label.id) && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

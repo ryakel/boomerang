@@ -663,3 +663,21 @@
   border-radius: var(--radius);
   margin-bottom: 16px;
 }
+
+.routine-select {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  border: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  margin-bottom: 12px;
+  cursor: pointer;
+}

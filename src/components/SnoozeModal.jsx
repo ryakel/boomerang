@@ -4,7 +4,8 @@ import { getSnoozeOptions, getSnoozeOptionsShort } from '../store'
 
 export default function SnoozeModal({ task, onSnooze, onClose }) {
   const [showCustom, setShowCustom] = useState(false)
-  const [customDate, setCustomDate] = useState('')
+  const defaultDate = () => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0] }
+  const [customDate, setCustomDate] = useState(defaultDate)
   const [customTime, setCustomTime] = useState('09:00')
 
   const options = task.high_priority ? getSnoozeOptionsShort() : getSnoozeOptions()
