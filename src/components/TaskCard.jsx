@@ -107,6 +107,8 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
     metaText = `${days}d`
   }
 
+  const showDuePill = snoozed && task.due_date
+
   // Desktop: compact card, click opens edit modal, hover actions
   if (isDesktop) {
     return (
@@ -145,7 +147,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
             )}
           </div>
         </div>
-        {(task.tags.length > 0 || task.energy) && (
+        {(task.tags.length > 0 || task.energy || showDuePill) && (
           <div className="task-tags">
             {task.tags.map(tagId => {
               const label = labelMap[tagId]
@@ -166,6 +168,11 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
                     {task.energyLevel >= 3 && <span className="energy-dot dot-3 active" />}
                   </span>
                 )}
+              </span>
+            )}
+            {showDuePill && (
+              <span className={`due-date-pill ${overdue ? 'due-date-pill-overdue' : ''}`}>
+                {formatDueDate(task.due_date)}
               </span>
             )}
           </div>
@@ -243,7 +250,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
           </div>
         </div>
 
-        {(task.tags.length > 0 || task.energy) && (
+        {(task.tags.length > 0 || task.energy || showDuePill) && (
           <div className="task-tags">
             {task.tags.map(tagId => {
               const label = labelMap[tagId]
@@ -268,6 +275,11 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
                     {task.energyLevel >= 3 && <span className="energy-dot dot-3 active" />}
                   </span>
                 )}
+              </span>
+            )}
+            {showDuePill && (
+              <span className={`due-date-pill ${overdue ? 'due-date-pill-overdue' : ''}`}>
+                {formatDueDate(task.due_date)}
               </span>
             )}
           </div>
