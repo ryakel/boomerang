@@ -6,8 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-05
 
+### UI Consistency
+- `pending` fix(ui): unify routine form pills, fix date pickers, add label multi-select [M]
+
 ### Labels & Filters
-- `pending` feat(ui): drag-to-reorder labels and mobile label dropdown [M]
+- `c093a69` feat(ui): drag-to-reorder labels and mobile label dropdown [M]
 
 ### Snooze
 - `fe40289` fix(ui): overhaul snooze options with context-aware labels and custom picker [M]

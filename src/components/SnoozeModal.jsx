@@ -74,14 +74,14 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
           <div className="snooze-custom">
             <div className="snooze-custom-row">
               <input
-                className="settings-input"
+                className="add-input date-input"
                 type="date"
                 value={customDate}
                 min={minDateStr}
                 onChange={e => setCustomDate(e.target.value)}
               />
               <input
-                className="settings-input"
+                className="add-input date-input"
                 type="time"
                 value={customTime}
                 onChange={e => setCustomTime(e.target.value)}

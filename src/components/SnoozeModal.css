@@ -41,9 +41,10 @@
   gap: 8px;
 }
 
-.snooze-custom-row .settings-input {
+.snooze-custom-row .add-input {
   flex: 1;
   min-width: 0;
+  margin-bottom: 0;
 }
 
 .snooze-custom-confirm {
