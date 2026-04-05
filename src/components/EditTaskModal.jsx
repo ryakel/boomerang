@@ -544,7 +544,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           <>
             <div className="settings-label" style={{ marginBottom: 6 }}>Due date</div>
             <input
-              className="add-input date-input"
+              className="routine-select"
               type="date"
               value={dueDate}
               min={today}

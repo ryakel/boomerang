@@ -52,7 +52,7 @@ export default function ExtendModal({ task, onExtend, onClose }) {
         <div className="settings-label" style={{ marginTop: 16, marginBottom: 6 }}>Or pick a date</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
-            className="add-input date-input"
+            className="routine-select"
             type="date"
             value={customDate}
             min={minDate}

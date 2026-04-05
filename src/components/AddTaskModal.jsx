@@ -57,7 +57,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
         <div className="settings-label" style={{ marginBottom: 6 }}>Due date</div>
         <input
-          className="add-input date-input"
+          className="routine-select"
           type="date"
           value={form.dueDate}
           min={today}
