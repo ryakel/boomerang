@@ -759,6 +759,57 @@ app.post('/api/trello/checklists/:id/checkItems', async (req, res) => {
   }
 })
 
+// Fetch checklists for a card
+app.get('/api/trello/cards/:id/checklists', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const response = await fetch(`${TRELLO_BASE}/cards/${req.params.id}/checklists?key=${key}&token=${token}`)
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Update a check item on a card
+app.put('/api/trello/cards/:cardId/checkItem/:itemId', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const { name, state } = req.body
+    const response = await fetch(`${TRELLO_BASE}/cards/${req.params.cardId}/checkItem/${req.params.itemId}?key=${key}&token=${token}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, state }),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Delete a checklist
+app.delete('/api/trello/checklists/:id', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const response = await fetch(`${TRELLO_BASE}/checklists/${req.params.id}?key=${key}&token=${token}`, {
+      method: 'DELETE',
+    })
+    if (!response.ok) {
+      const data = await response.json()
+      return res.status(response.status).json(data)
+    }
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // Upload an attachment to a card (base64)
 app.post('/api/trello/cards/:id/attachments', async (req, res) => {
   const { key, token } = getTrelloAuth(req)

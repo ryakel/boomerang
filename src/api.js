@@ -513,6 +513,31 @@ export async function trelloAddCheckItem(checklistId, name, checked) {
   return res.json()
 }
 
+export async function trelloGetChecklists(cardId) {
+  const res = await fetch(`/api/trello/cards/${cardId}/checklists`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to fetch checklists')
+  return res.json()
+}
+
+export async function trelloUpdateCheckItem(cardId, checkItemId, updates) {
+  const res = await fetch(`/api/trello/cards/${cardId}/checkItem/${checkItemId}`, {
+    method: 'PUT',
+    headers: getApiHeaders(),
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error('Failed to update check item')
+  return res.json()
+}
+
+export async function trelloDeleteChecklist(checklistId) {
+  const res = await fetch(`/api/trello/checklists/${checklistId}`, {
+    method: 'DELETE',
+    headers: getApiHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to delete checklist')
+  return res.json()
+}
+
 export async function trelloUploadAttachment(cardId, name, mimeType, data) {
   const res = await fetch(`/api/trello/cards/${cardId}/attachments`, {
     method: 'POST',

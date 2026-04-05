@@ -304,14 +304,20 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
       // Create card with notes only (checklists go as native Trello checklists)
       const card = await trelloCreateCard(title.trim(), notes.trim(), trelloPushListId)
 
-      // Create native Trello checklists
-      for (const cl of checklists) {
+      // Create native Trello checklists and store IDs for ongoing sync
+      const updatedChecklists = [...checklists]
+      for (let ci = 0; ci < updatedChecklists.length; ci++) {
+        const cl = updatedChecklists[ci]
         if (!cl.items.length) continue
         const trelloCl = await trelloCreateChecklist(card.id, cl.name || 'Checklist')
-        for (const item of cl.items) {
-          await trelloAddCheckItem(trelloCl.id, item.text, item.completed)
+        const updatedItems = [...cl.items]
+        for (let ii = 0; ii < updatedItems.length; ii++) {
+          const trelloItem = await trelloAddCheckItem(trelloCl.id, updatedItems[ii].text, updatedItems[ii].completed)
+          updatedItems[ii] = { ...updatedItems[ii], trello_check_item_id: trelloItem.id }
         }
+        updatedChecklists[ci] = { ...cl, trello_checklist_id: trelloCl.id, items: updatedItems }
       }
+      setChecklists(updatedChecklists)
 
       // Upload attachments
       for (const att of attachments) {
@@ -319,6 +325,9 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
       }
 
       setTrelloResult({ id: card.id, url: card.url })
+
+      // Enable ongoing sync for this task
+      onSave(task.id, { trello_sync_enabled: true, checklists: updatedChecklists })
     } catch { /* ignore */ }
     finally { setTrelloPushing(false) }
   }

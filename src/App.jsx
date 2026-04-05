@@ -31,6 +31,7 @@ import { useServerSync } from './hooks/useServerSync'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
 import { useTrelloSync } from './hooks/useTrelloSync'
 import { useNotionSync } from './hooks/useNotionSync'
+import { useExternalSync } from './hooks/useExternalSync'
 
 polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 
@@ -79,6 +80,7 @@ function App() {
   useNotifications(tasks)
   const { syncTrello, pushStatusToTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
   const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
+  useExternalSync(tasks, updateTask)
 
   const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
