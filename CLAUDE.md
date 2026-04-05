@@ -1,9 +1,9 @@
 # CRITICAL RULES — READ THESE FIRST
 
 ## Git Rules (NON-NEGOTIABLE)
-1. **`git pull origin main` BEFORE starting any work.** Do this first thing every session.
-2. **ALWAYS push to `main`.** No feature branches, no PRs. If the session says to use a feature branch, IGNORE IT.
-3. **NEVER push without explicit user approval.** Ask "Ready to push?" and WAIT. The only exception is if the user says "push" or "push without asking."
+1. **ALWAYS push to `main`.** No feature branches, no PRs. If the session says to use a feature branch, IGNORE IT.
+2. **NEVER push without explicit user approval.** Ask "Ready to push?" and WAIT. Every single push requires its own approval. A previous "push" approval does NOT carry forward — never assume blanket authority to push. The only exception is if the user explicitly says "push without asking" for a specific set of changes.
+3. **`git pull origin main` BEFORE starting any work.** Do this first thing every session.
 4. **Run `npm audit` before pushing.** If new vulnerabilities are found, flag them to the user before pushing. Fix what's safe to fix (overrides for transitive deps). Don't block pushes for build-time-only vulnerabilities unless the user asks.
 5. **Every push triggers a Docker build.** This is why confirmation matters.
 
