@@ -1190,9 +1190,8 @@ app.get('/api/gcal/events', async (req, res) => {
 // --- Dev seed endpoint ---
 app.post('/api/dev/seed', async (req, res) => {
   try {
-    const useApi = req.query.generate === '1'
-    await seedDatabase(envApiKey, useApi)
-    res.json({ ok: true, message: 'Database seeded' + (useApi ? ' (API-generated)' : ' (static)') })
+    await seedDatabase()
+    res.json({ ok: true, message: 'Database seeded' })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -1219,7 +1218,7 @@ initDb(dbPath).then(async () => {
 
   // Dev seed: SEED_DB=1 wipes the DB and loads test data (API-generated or static fallback)
   if (process.env.SEED_DB === '1') {
-    await seedDatabase(envApiKey)
+    await seedDatabase()
   }
 
   app.listen(PORT, () => {
