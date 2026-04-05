@@ -74,22 +74,31 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 - Energy level selector only appears in modals after energy type is set (or after Auto inference)
 - Existing tasks without energy data score normally (multiplier defaults to 1.0)
 
-### Notion Pull Sync
-Pulls actionable tasks from Notion pages into Boomerang. Pages under a parent page are discovered, analyzed by AI, and converted to tasks.
+### Notion Sync (Pull + Ongoing)
+Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks in sync.
 
 **Server Endpoints** (in `server.js`):
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/notion/blocks/:id` | Read page content (paginated), returns `{ blocks, plainText }` |
 | `GET /api/notion/children/:id` | List child pages of a parent |
+| `PATCH /api/notion/pages/:id` | Update page title and/or replace content blocks |
 | `POST /api/notion/databases/:id/query` | Query a Notion database (future-proofing) |
 
-**Sync Flow** (`src/hooks/useNotionSync.js`):
+**Pull Sync Flow** (`src/hooks/useNotionSync.js`):
 1. Fetch child pages of configured parent (`notion_sync_parent_id`)
 2. Match against existing tasks via `notion_page_id`
 3. For unlinked pages: exact title match → AI dedup (`aiDedupNotionPages`)
 4. For truly new pages: fetch content → `analyzeNotionPage()` → create task(s)
 5. One Notion page can produce multiple tasks (e.g., "furnace filter" → "buy filters" + "change filter")
+
+**Ongoing Sync** (`src/hooks/useExternalSync.js`):
+- Watches tasks with `notion_page_id` for changes to title, notes, or checklists
+- 5-second per-task debounce before syncing
+- Title updates via Notion properties API
+- Content sync: deletes old blocks, appends new ones (full replacement)
+- Checklists rendered as markdown to_do blocks
+- Failed syncs queued in `boom_external_sync_queue` for offline replay
 
 **Dedup Logic:**
 - Pass 1: exact title match (case-insensitive)
@@ -109,6 +118,31 @@ Pulls actionable tasks from Notion pages into Boomerang. Pages under a parent pa
 - Database sync is endpoint-ready but not yet wired into the UI
 - Routine auto-creation from recurring patterns is a future enhancement
 - Page content is truncated to 4000 chars for AI analysis
+- Ongoing sync is Boomerang → Notion only (Notion → Boomerang requires pull sync)
+
+### Trello Sync (Push + Ongoing)
+Push tasks to Trello with native checklists and attachments, then keep them in sync.
+
+**Ongoing Sync** (`src/hooks/useExternalSync.js`):
+- Watches tasks with `trello_card_id` and `trello_sync_enabled !== false`
+- 5-second per-task debounce, diff-based change detection (title, notes, due_date, checklists)
+- Field sync: `title` → `name`, `notes` → `desc`, `due_date` → `due` (ISO datetime)
+- Checklist sync: creates new, updates modified items (name/state), deletes removed checklists
+- Writes back `trello_checklist_id` / `trello_check_item_id` without triggering re-sync
+- Hydration: pre-existing linked tasks without Trello IDs get matched by name on first sync
+- Failed syncs queued in `boom_external_sync_queue` (200 cap), replayed on `online` event
+
+**Server Endpoints** (in `server.js`):
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/trello/cards` | Create a card |
+| `PATCH /api/trello/cards/:id` | Update card fields |
+| `POST /api/trello/cards/:id/checklists` | Create a checklist on a card |
+| `GET /api/trello/cards/:id/checklists` | Fetch checklists for a card |
+| `POST /api/trello/checklists/:id/checkItems` | Add item to a checklist |
+| `PUT /api/trello/cards/:cardId/checkItem/:itemId` | Update a check item |
+| `DELETE /api/trello/checklists/:id` | Delete a checklist |
+| `POST /api/trello/cards/:id/attachments` | Upload attachment to card |
 
 ### Notifications System
 - Configurable notification types: high priority (with 3-stage escalation), overdue, stale, nudges, size-based, pile-up warnings
@@ -119,6 +153,13 @@ Pulls actionable tasks from Notion pages into Boomerang. Pages under a parent pa
 - Throttle timestamps persist in localStorage across app reloads (prevents duplicate notifications)
 - Test notification button available in settings
 - **Avoidance boost**: confrontation/errand tasks get nagged ~30-56% more frequently
+
+### Toast Messages (Completion/Reopen Feedback)
+- AI-generated contextual one-liners via `generateToastMessage()` in `src/api.js`
+- Context-aware: considers task title, days on list, energy type/level, reopen vs complete
+- 3-second timeout — static fallback shows immediately, AI replaces if it arrives in time
+- Static messages organized by speed (same-day, normal, long-overdue, reopen)
+- Implementation: `src/components/Toast.jsx`
 
 ### Infrastructure
 - Version check on every view/modal navigation via `/api/health`
@@ -134,13 +175,14 @@ Pulls actionable tasks from Notion pages into Boomerang. Pages under a parent pa
 
 Completed. Tasks and routines now have proper SQL tables with individual columns, indexes (`status`, `due_date`, `energy`, `created_at`, `routine_id`, `completed_at`), per-record CRUD (POST/PATCH/DELETE), and batched disk writes every 3s. Migration system in place (`migrations/001-004`). Only settings and labels remain in `app_data` as JSON blobs (intentional — they're small and rarely updated).
 
-### Frontend: Prop Drilling & CSS Monolith (Priority: Medium)
+### Frontend: Prop Drilling (Priority: Medium)
 
 **Current state:** App.jsx passes 11-14 callbacks down to TaskCard via props. TaskCard is wrapped in `React.memo` (done), but no Context API is used.
 
+**~~CSS Monolith~~** — DONE. App.css split from ~3,100 lines to ~440 lines of global/shared styles. 14 per-component CSS files created (TaskCard, EditTaskModal, Settings, KanbanBoard, Analytics, WhatNow, Modal, AddTaskModal, SnoozeModal, ReframeModal, ActivityLog, DoneList, Toast, Rings). Each component imports its own CSS. Semantic color variables (`--success`, `--error`, `--warning`) added to index.css.
+
 **What to do when this becomes a problem:**
 - Add `TaskActionsContext` to eliminate prop drilling (biggest cognitive relief)
-- Split App.css (~3,000 lines) into per-component CSS files
 - Consider `useTransition` / `useOptimistic` from React 19 for perceived perf during sync
 
 **What triggers this work:** Adding 3+ more interactive features to TaskCard, or task list exceeding 100 items with noticeable scroll jank.
