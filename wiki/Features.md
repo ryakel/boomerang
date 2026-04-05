@@ -18,7 +18,7 @@ Every task always comes back. Dismissal is never free — every "not now" requir
 - **Due dates** — with overdue detection and visual indicators (days overdue, due today, due tomorrow, etc.)
 - **Default due dates** — configurable number of days from now (default: 7), applied automatically to new tasks. Set to 0 to disable.
 - **Extend due dates** — quick presets (+1 day, +1 week, +2 weeks) or pick a custom date via the extend modal
-- **Labels** — custom labels with a 10-color picker, used for filtering tasks in the tag bar
+- **Labels** — custom labels with a 10-color picker, drag-to-reorder in Settings. On mobile, labels appear as a compact dropdown selector; on desktop, they show as a horizontal pill bar.
 - **T-shirt sizing** — XS, S, M, L, XL effort estimates. Set manually or auto-inferred by AI during polish. Displayed as a pill on each task card.
 
 ## Task Sections

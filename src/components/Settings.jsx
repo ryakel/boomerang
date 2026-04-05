@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS } from '../store'
@@ -331,6 +331,73 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
     saveLabels(next)
   }
 
+  // Drag-to-reorder labels
+  const dragLabelIdx = useRef(null)
+  const dragOverIdx = useRef(null)
+
+  const handleLabelDragStart = useCallback((idx) => {
+    dragLabelIdx.current = idx
+  }, [])
+
+  const handleLabelDragOver = useCallback((e, idx) => {
+    e.preventDefault()
+    dragOverIdx.current = idx
+  }, [])
+
+  const handleLabelDrop = useCallback(() => {
+    const from = dragLabelIdx.current
+    const to = dragOverIdx.current
+    if (from == null || to == null || from === to) return
+    const next = [...labels]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    setLabels(next)
+    saveLabels(next)
+    dragLabelIdx.current = null
+    dragOverIdx.current = null
+  }, [labels])
+
+  // Touch drag for mobile label reorder
+  const touchDragRef = useRef(null)
+  const labelListRef = useRef(null)
+
+  const handleLabelTouchStart = useCallback((e, idx) => {
+    const touch = e.touches[0]
+    touchDragRef.current = { idx, startY: touch.clientY }
+  }, [])
+
+  const handleLabelTouchMove = useCallback((e) => {
+    if (!touchDragRef.current || !labelListRef.current) return
+    const touch = e.touches[0]
+    const rows = labelListRef.current.querySelectorAll('.label-row')
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect()
+      if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+        dragOverIdx.current = i
+        rows.forEach((r, j) => r.classList.toggle('label-drag-over', j === i && i !== touchDragRef.current.idx))
+        break
+      }
+    }
+  }, [])
+
+  const handleLabelTouchEnd = useCallback(() => {
+    if (!touchDragRef.current) return
+    const from = touchDragRef.current.idx
+    const to = dragOverIdx.current
+    if (labelListRef.current) {
+      labelListRef.current.querySelectorAll('.label-row').forEach(r => r.classList.remove('label-drag-over'))
+    }
+    if (from != null && to != null && from !== to) {
+      const next = [...labels]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      setLabels(next)
+      saveLabels(next)
+    }
+    touchDragRef.current = null
+    dragOverIdx.current = null
+  }, [labels])
+
   const savePill = (
     <span className={`autosave-pill ${syncStatus === 'saved' ? 'autosave-pill-saved' : ''}`}>
       {syncStatus === 'saving' ? 'Saving...' : syncStatus === 'saved' ? '✓ Saved' : 'Auto Save'}
@@ -467,9 +534,18 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       {/* Labels */}
       {activeTab === 'Labels' && (
         <div className="settings-group">
-          <div className="label-list">
-            {labels.map(label => (
-              <div key={label.id} className="label-row">
+          <div className="label-list" ref={labelListRef} onTouchMove={handleLabelTouchMove} onTouchEnd={handleLabelTouchEnd}>
+            {labels.map((label, idx) => (
+              <div
+                key={label.id}
+                className="label-row"
+                draggable
+                onDragStart={() => handleLabelDragStart(idx)}
+                onDragOver={e => handleLabelDragOver(e, idx)}
+                onDrop={handleLabelDrop}
+                onTouchStart={e => handleLabelTouchStart(e, idx)}
+              >
+                <span className="label-drag-handle">⠿</span>
                 <span className="label-swatch" style={{ background: label.color }} />
                 <span className="label-name">{label.name}</span>
                 <button className="label-remove" onClick={() => removeLabel(label.id)}>✕</button>

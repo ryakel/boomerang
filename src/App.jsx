@@ -406,31 +406,57 @@ function App() {
         </div>
       )}
 
-      {searchResults === null && <><div className="tag-bar">
-        <button
-          className={`tag-pill ${activeFilter === 'all' ? 'active' : ''}`}
-          onClick={() => setActiveFilter('all')}
-        >
-          All
-        </button>
-        {labels.map(label => (
+      {searchResults === null && <>{isDesktop ? (
+        <div className="tag-bar">
           <button
-            key={label.id}
-            className={`tag-pill ${activeFilter === label.id ? 'active' : ''}`}
-            onClick={() => setActiveFilter(label.id)}
-            style={activeFilter === label.id ? { background: label.color } : {}}
+            className={`tag-pill ${activeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('all')}
           >
-            {label.name.charAt(0).toUpperCase() + label.name.slice(1)}
+            All
           </button>
-        ))}
-        <button
-          className={`tag-pill ${activeFilter === 'routines' ? 'active' : ''}`}
-          onClick={() => setShowRoutines(true)}
-          style={{ borderLeft: '1px solid var(--surface-hover)', marginLeft: 4, paddingLeft: 14 }}
-        >
-          Routines{routines.length > 0 ? ` (${routines.length})` : ''}
-        </button>
-      </div>
+          {labels.map(label => (
+            <button
+              key={label.id}
+              className={`tag-pill ${activeFilter === label.id ? 'active' : ''}`}
+              onClick={() => setActiveFilter(label.id)}
+              style={activeFilter === label.id ? { background: label.color } : {}}
+            >
+              {label.name.charAt(0).toUpperCase() + label.name.slice(1)}
+            </button>
+          ))}
+          <button
+            className={`tag-pill ${activeFilter === 'routines' ? 'active' : ''}`}
+            onClick={() => setShowRoutines(true)}
+            style={{ borderLeft: '1px solid var(--surface-hover)', marginLeft: 4, paddingLeft: 14 }}
+          >
+            Routines{routines.length > 0 ? ` (${routines.length})` : ''}
+          </button>
+        </div>
+      ) : (
+        <div className="tag-bar">
+          <select
+            className="tag-select"
+            value={activeFilter}
+            onChange={e => setActiveFilter(e.target.value)}
+            style={activeFilter !== 'all' && activeFilter !== 'routines'
+              ? { borderColor: labels.find(l => l.id === activeFilter)?.color }
+              : {}}
+          >
+            <option value="all">All</option>
+            {labels.map(label => (
+              <option key={label.id} value={label.id}>
+                {label.name.charAt(0).toUpperCase() + label.name.slice(1)}
+              </option>
+            ))}
+          </select>
+          <button
+            className={`tag-pill ${activeFilter === 'routines' ? 'active' : ''}`}
+            onClick={() => setShowRoutines(true)}
+          >
+            Routines{routines.length > 0 ? ` (${routines.length})` : ''}
+          </button>
+        </div>
+      )}
 
       {isDesktop ? (
         <KanbanBoard

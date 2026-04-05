@@ -6,8 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-05
 
+### Labels & Filters
+- `pending` feat(ui): drag-to-reorder labels and mobile label dropdown [M]
+
 ### Snooze
-- `pending` fix(ui): overhaul snooze options with context-aware labels and custom picker [M]
+- `fe40289` fix(ui): overhaul snooze options with context-aware labels and custom picker [M]
 
 ### Settings
 - `e0c5897` fix(ui): show version number in desktop settings window [XS]
