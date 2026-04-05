@@ -10,17 +10,21 @@ on:
     paths-ignore:
       - "*.md"
       - "docs/**"
-      - ".github/workflows/**"
+      - "wiki/**"
+      - ".github/**"
       - "LICENSE*"
       - ".gitignore"
+      - "CLAUDE.md"
   pull_request:
     branches: [main]
     paths-ignore:
       - "*.md"
       - "docs/**"
-      - ".github/workflows/**"
+      - "wiki/**"
+      - ".github/**"
       - "LICENSE*"
       - ".gitignore"
+      - "CLAUDE.md"
 
 permissions:
   contents: write
