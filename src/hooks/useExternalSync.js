@@ -6,7 +6,6 @@ import {
   trelloAddCheckItem,
   trelloUpdateCheckItem,
   trelloDeleteChecklist,
-  trelloGetChecklists,
 } from '../api'
 
 const DEBOUNCE_MS = 5000
@@ -272,8 +271,9 @@ export function useExternalSync(tasks, onUpdateTask) {
 
   // Cleanup timers on unmount
   useEffect(() => {
+    const timers = debounceTimers.current
     return () => {
-      for (const timer of Object.values(debounceTimers.current)) {
+      for (const timer of Object.values(timers)) {
         clearTimeout(timer)
       }
     }
