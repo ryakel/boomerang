@@ -677,6 +677,7 @@ app.post('/api/trello/cards', async (req, res) => {
 app.patch('/api/trello/cards/:id', async (req, res) => {
   const { key, token } = getTrelloAuth(req)
   if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  console.log(`[TrelloSync] PATCH card ${req.params.id}`, Object.keys(req.body))
   try {
     const response = await fetch(`${TRELLO_BASE}/cards/${req.params.id}?key=${key}&token=${token}`, {
       method: 'PUT',
@@ -684,9 +685,14 @@ app.patch('/api/trello/cards/:id', async (req, res) => {
       body: JSON.stringify(req.body),
     })
     const data = await response.json()
-    if (!response.ok) return res.status(response.status).json(data)
+    if (!response.ok) {
+      console.log(`[TrelloSync] PATCH card FAILED ${response.status}:`, data)
+      return res.status(response.status).json(data)
+    }
+    console.log(`[TrelloSync] PATCH card OK`)
     res.json(data)
   } catch (err) {
+    console.log(`[TrelloSync] PATCH card ERROR:`, err.message)
     res.status(500).json({ error: err.message })
   }
 })
@@ -725,6 +731,7 @@ app.get('/api/trello/cards/:id', async (req, res) => {
 app.post('/api/trello/cards/:id/checklists', async (req, res) => {
   const { key, token } = getTrelloAuth(req)
   if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  console.log(`[TrelloSync] CREATE checklist on card ${req.params.id}:`, req.body.name)
   try {
     const { name } = req.body
     const response = await fetch(`${TRELLO_BASE}/cards/${req.params.id}/checklists?key=${key}&token=${token}`, {
@@ -733,9 +740,11 @@ app.post('/api/trello/cards/:id/checklists', async (req, res) => {
       body: JSON.stringify({ name }),
     })
     const data = await response.json()
-    if (!response.ok) return res.status(response.status).json(data)
+    if (!response.ok) { console.log(`[TrelloSync] CREATE checklist FAILED:`, data); return res.status(response.status).json(data) }
+    console.log(`[TrelloSync] CREATE checklist OK:`, data.id)
     res.json(data)
   } catch (err) {
+    console.log(`[TrelloSync] CREATE checklist ERROR:`, err.message)
     res.status(500).json({ error: err.message })
   }
 })
@@ -763,12 +772,15 @@ app.post('/api/trello/checklists/:id/checkItems', async (req, res) => {
 app.get('/api/trello/cards/:id/checklists', async (req, res) => {
   const { key, token } = getTrelloAuth(req)
   if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  console.log(`[TrelloSync] GET checklists for card ${req.params.id}`)
   try {
     const response = await fetch(`${TRELLO_BASE}/cards/${req.params.id}/checklists?key=${key}&token=${token}`)
     const data = await response.json()
-    if (!response.ok) return res.status(response.status).json(data)
+    if (!response.ok) { console.log(`[TrelloSync] GET checklists FAILED:`, data); return res.status(response.status).json(data) }
+    console.log(`[TrelloSync] GET checklists OK: ${data.length} found`)
     res.json(data)
   } catch (err) {
+    console.log(`[TrelloSync] GET checklists ERROR:`, err.message)
     res.status(500).json({ error: err.message })
   }
 })
