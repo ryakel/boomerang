@@ -314,21 +314,28 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     finally { setPolishing(false) }
   }
 
-  const handleResearch = async (e) => {
-    e.stopPropagation()
-    e.preventDefault()
-    if (!researchPrompt.trim()) return
+  const runResearch = async (prompt, fileAttachments) => {
     setResearching(true)
     try {
-      const result = await researchTask(title || 'Untitled task', notes, researchPrompt.trim(), attachments)
+      const result = await researchTask(title || 'Untitled task', notes, prompt, fileAttachments || attachments)
       if (result.notes) {
         const separator = notes.trim() ? '\n\n' : ''
         setNotes(prev => (prev.trim() ? prev.trim() + separator : '') + result.notes)
       }
+      return true
+    } catch { return false }
+    finally { setResearching(false) }
+  }
+
+  const handleResearch = async (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (!researchPrompt.trim()) return
+    const ok = await runResearch(researchPrompt.trim())
+    if (ok) {
       setResearchPrompt('')
       setShowResearch(false)
-    } catch { /* ignore */ }
-    finally { setResearching(false) }
+    }
   }
 
   const handleInferSize = async (e) => {
@@ -368,7 +375,11 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
       reader.readAsDataURL(file)
     }))
     Promise.all(readers).then(results => {
-      setAttachments(prev => [...prev, ...results])
+      const newAttachments = [...attachments, ...results]
+      setAttachments(newAttachments)
+      // Auto-research new attachments
+      const names = results.map(r => r.name).join(', ')
+      runResearch(`Analyze the attached file(s) (${names}) and provide relevant notes for this task.`, newAttachments)
     })
     e.target.value = ''
   }
