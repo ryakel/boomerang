@@ -154,5 +154,9 @@
 
 .confirm-dialog-ok {
   background: var(--accent);
-  color: white;
+  color: #fff;
+}
+
+[data-theme="light"] .confirm-dialog {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
