@@ -1166,11 +1166,11 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                       Connected{gcalEmail && <> as <strong>{gcalEmail}</strong></>}
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                      <button className="ci-clear-btn" onClick={handleGcalDisconnect}>
+                      <button className="gcal-action-btn" onClick={handleGcalDisconnect}>
                         Disconnect
                       </button>
                       <button
-                        className="ci-clear-btn"
+                        className="gcal-action-btn gcal-action-btn-danger"
                         disabled={gcalBulkDeleting}
                         onClick={handleGcalBulkDelete}
                       >

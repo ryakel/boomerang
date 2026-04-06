@@ -10,6 +10,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 - fix(server): add trust proxy for correct protocol behind nginx [XS]
   - `req.protocol` now returns `https` behind reverse proxy, fixing OAuth redirect_uri mismatch
   - Modified: `server.js`
+- style(ui): make GCal Disconnect and Remove All Events buttons more visible [XS]
+  - Outlined buttons with clear text instead of blending into background
+  - Remove All Events uses accent color to signal destructive action
+  - Modified: `src/components/Settings.jsx`, `src/components/Settings.css`
 - style(ui): replace native confirm() with in-app confirm dialog [S]
   - Custom styled dialog matching app design (dark theme, rounded corners)
   - Used for "Remove All Events" and "Clear all data" confirmations

@@ -265,6 +265,28 @@
   font-weight: 500;
 }
 
+/* GCal action buttons — visible, clear intent */
+.gcal-action-btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--text-dim);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gcal-action-btn-danger {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.gcal-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Label management */
 .label-list {
   display: flex;
