@@ -178,9 +178,12 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 - Completing/deleting a task removes the calendar event (configurable)
 - 5-second per-task debounce, same as Trello/Notion sync
 - Failed operations queued in `boom_external_sync_queue`
+- **Initial sync:** When push sync is first enabled, all existing tasks with due dates today or in the future are pushed to the calendar (1s stagger between creates). Tasks with past due dates are excluded to avoid clutter.
+- **New tasks:** Creating a task with a due date triggers a calendar event create after the 5s debounce — no manual sync needed.
+- **Bulk cleanup:** "Remove All Events" button in Settings deletes all Boomerang-managed events (identified by "Managed by Boomerang" in description) and clears `gcal_event_id` from all tasks.
 
 **Pull Sync** (`src/hooks/useGCalSync.js`):
-- Triggered by "Sync Now" or on app open (if `gcal_pull_enabled`)
+- Triggered by "Sync Now" button (only visible when pull sync is enabled) or on app open
 - Fetches events for next 30 days
 - Filters out already-linked events and events with "Managed by Boomerang" in description
 - Uses `deduplicateImports()` from `syncDedup.js` (exact title match + AI fuzzy)

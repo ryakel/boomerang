@@ -223,8 +223,9 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 
 ### Features
 
-- **Push sync** — tasks with due dates are automatically synced as Google Calendar events. AI infers the optimal time of day and duration based on task title, size, and energy type.
-- **Pull sync** — calendar events can be pulled as Boomerang tasks via "Sync Now" or automatically on app open (when enabled). Events already pushed by Boomerang are filtered out.
+- **Push sync** — tasks with due dates are automatically synced as Google Calendar events. AI infers the optimal time of day and duration based on task title, size, and energy type. When push sync is first enabled, all existing tasks with due dates today or in the future are pushed to the calendar automatically (past due dates are excluded). New tasks with due dates are synced after a 5-second debounce.
+- **Pull sync** — calendar events can be pulled as Boomerang tasks via "Sync Now" (only visible when pull sync is enabled) or automatically on app open. Events already pushed by Boomerang are filtered out.
+- **Bulk cleanup** — "Remove All Events" button in Settings deletes all Boomerang-managed events from the calendar and unlinks all tasks. Useful for testing or starting fresh.
 - **AI-timed events** — Claude suggests time slots (desk tasks → morning, errands → midday, people tasks → afternoon) and durations based on task size (XS=15min to XL=4h). Falls back to configurable defaults.
 - **Per-task duration override** — set a custom duration (in minutes) on any task via EditTaskModal. Overrides AI/size-based defaults. Shown when a due date is set.
 - **Event buffer** — optional 15-minute buffer on either side of calendar events, ensuring breathing room around meetings. Toggle in Settings → GCal.
