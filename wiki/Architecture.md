@@ -191,6 +191,7 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `POST` | `/api/gcal/events` | Create a Google Calendar event |
 | `PATCH` | `/api/gcal/events/:eventId` | Update a Google Calendar event |
 | `DELETE` | `/api/gcal/events/:eventId` | Delete a Google Calendar event |
+| `POST` | `/api/gcal/events/bulk-delete` | Delete all Boomerang-managed events from calendar |
 | `GET` | `/api/gcal/events` | List events in a time range (for pull sync) |
 | `GET` | `/api/tasks` | Get tasks (with optional filters) |
 | `POST` | `/api/tasks` | Create a task |

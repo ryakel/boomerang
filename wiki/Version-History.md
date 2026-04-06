@@ -4,6 +4,21 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-06
+
+### Google Calendar
+- fix(server): add trust proxy for correct protocol behind nginx [XS]
+  - `req.protocol` now returns `https` behind reverse proxy, fixing OAuth redirect_uri mismatch
+  - Modified: `server.js`
+- feat(gcal): add bulk delete for Boomerang-managed calendar events [M]
+  - New endpoint `POST /api/gcal/events/bulk-delete` — finds and deletes all events with "Managed by Boomerang" marker
+  - "Remove All Events" button in Settings → Google Calendar section
+  - Also clears `gcal_event_id` from all tasks to fully unlink
+  - Confirmation dialog before executing, shows result count
+  - Modified: `server.js`, `src/api.js`, `src/components/Settings.jsx`, `wiki/Architecture.md`
+
+---
+
 ## 2026-04-05
 
 ### Dev Tooling

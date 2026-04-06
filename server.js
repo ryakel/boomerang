@@ -1153,6 +1153,65 @@ app.delete('/api/gcal/events/:eventId', async (req, res) => {
   }
 })
 
+app.post('/api/gcal/events/bulk-delete', async (req, res) => {
+  try {
+    const accessToken = await getGCalAccessToken()
+    if (!accessToken) return res.status(401).json({ error: 'Not connected to Google Calendar' })
+
+    const calendarId = req.body.calendarId || 'primary'
+    const calId = encodeURIComponent(calendarId)
+
+    // Fetch events using q= search for "Managed by Boomerang"
+    let allEvents = []
+    let pageToken = null
+    do {
+      const params = new URLSearchParams({
+        q: 'Managed by Boomerang',
+        singleEvents: 'true',
+        maxResults: '250',
+      })
+      if (pageToken) params.set('pageToken', pageToken)
+      const listRes = await fetch(`${GCAL_BASE}/calendars/${calId}/events?${params}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      const listData = await listRes.json()
+      if (!listRes.ok) return res.status(listRes.status).json(listData)
+      const items = (listData.items || []).filter(e =>
+        e.description && e.description.includes('Managed by Boomerang')
+      )
+      allEvents.push(...items)
+      pageToken = listData.nextPageToken
+    } while (pageToken)
+
+    if (allEvents.length === 0) {
+      return res.json({ deleted: 0, failed: 0 })
+    }
+
+    // Delete each event with 100ms delay to avoid rate limits
+    let deleted = 0
+    let failed = 0
+    for (const event of allEvents) {
+      try {
+        const eid = encodeURIComponent(event.id)
+        const delRes = await fetch(`${GCAL_BASE}/calendars/${calId}/events/${eid}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (delRes.status === 204 || delRes.status === 200) deleted++
+        else failed++
+      } catch {
+        failed++
+      }
+      if (allEvents.length > 10) await new Promise(r => setTimeout(r, 100))
+    }
+
+    console.log(`[GCal] Bulk delete: ${deleted} deleted, ${failed} failed out of ${allEvents.length}`)
+    res.json({ deleted, failed, total: allEvents.length })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.get('/api/gcal/events', async (req, res) => {
   try {
     const accessToken = await getGCalAccessToken()

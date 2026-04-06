@@ -158,6 +158,7 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 | `POST /api/gcal/events` | Create a calendar event |
 | `PATCH /api/gcal/events/:eventId` | Update a calendar event |
 | `DELETE /api/gcal/events/:eventId` | Delete a calendar event |
+| `POST /api/gcal/events/bulk-delete` | Delete all Boomerang-managed events + unlink tasks |
 | `GET /api/gcal/events` | List events in a time range (for pull sync) |
 
 **OAuth Flow:**

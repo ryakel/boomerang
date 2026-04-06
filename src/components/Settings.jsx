@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents } from '../api'
 
 const NOTIF_TYPE_LABELS = {
   high_priority: 'High Priority',
@@ -242,6 +242,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
   const [gcalConnecting, setGcalConnecting] = useState(false)
   const [gcalError, setGcalError] = useState(null)
   const [gcalCalendars, setGcalCalendars] = useState([])
+  const [gcalBulkDeleting, setGcalBulkDeleting] = useState(false)
+  const [gcalBulkDeleteResult, setGcalBulkDeleteResult] = useState(null)
 
   const handleGcalConnect = async () => {
     setGcalConnecting(true)
@@ -294,6 +296,29 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       update('gcal_pull_enabled', false)
     } catch (err) {
       setGcalError(err.message)
+    }
+  }
+
+  const handleGcalBulkDelete = async () => {
+    if (!confirm('Delete ALL Boomerang-managed events from Google Calendar?\n\nThis will also unlink all tasks from their calendar events.')) return
+    setGcalBulkDeleting(true)
+    setGcalBulkDeleteResult(null)
+    try {
+      const calendarId = settings.gcal_calendar_id || 'primary'
+      const result = await gcalBulkDeleteEvents(calendarId)
+      // Clear gcal_event_id from all tasks
+      const tasks = loadTasks()
+      let cleared = 0
+      const updated = tasks.map(t => {
+        if (t.gcal_event_id) { cleared++; return { ...t, gcal_event_id: null } }
+        return t
+      })
+      if (cleared > 0) saveTasks(updated)
+      setGcalBulkDeleteResult(`Deleted ${result.deleted} event${result.deleted !== 1 ? 's' : ''} from calendar, unlinked ${cleared} task${cleared !== 1 ? 's' : ''}${result.failed ? `, ${result.failed} failed` : ''}`)
+    } catch (err) {
+      setGcalBulkDeleteResult(`Error: ${err.message}`)
+    } finally {
+      setGcalBulkDeleting(false)
     }
   }
 
@@ -1134,9 +1159,21 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                     <div className="integration-status connected" style={{ marginBottom: 8 }}>
                       Connected{gcalEmail && <> as <strong>{gcalEmail}</strong></>}
                     </div>
-                    <button className="ci-clear-btn" style={{ marginBottom: 12 }} onClick={handleGcalDisconnect}>
-                      Disconnect
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                      <button className="ci-clear-btn" onClick={handleGcalDisconnect}>
+                        Disconnect
+                      </button>
+                      <button
+                        className="ci-clear-btn"
+                        disabled={gcalBulkDeleting}
+                        onClick={handleGcalBulkDelete}
+                      >
+                        {gcalBulkDeleting ? 'Deleting...' : 'Remove All Events'}
+                      </button>
+                    </div>
+                    {gcalBulkDeleteResult && (
+                      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>{gcalBulkDeleteResult}</div>
+                    )}
 
                     {/* Calendar picker */}
                     <div className="settings-label" style={{ marginBottom: 6 }}>Calendar</div>

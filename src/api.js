@@ -684,6 +684,16 @@ export async function gcalDeleteEvent(eventId, calendarId) {
   return res.json()
 }
 
+export async function gcalBulkDeleteEvents(calendarId) {
+  const res = await fetch('/api/gcal/events/bulk-delete', {
+    method: 'POST',
+    headers: { ...getApiHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ calendarId }),
+  })
+  if (!res.ok) throw new Error('Failed to bulk delete events')
+  return res.json()
+}
+
 export async function gcalListEvents(timeMin, timeMax, calendarId) {
   const params = new URLSearchParams()
   if (timeMin) params.set('timeMin', timeMin)
