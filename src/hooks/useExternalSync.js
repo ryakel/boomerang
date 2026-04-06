@@ -464,7 +464,17 @@ export function useExternalSync(tasks, onUpdateTask) {
       if (!hasTrelloLink && !hasNotionLink && !gcalApplies) continue
 
       const prev = prevTasks.current.get(id)
-      if (!prev) continue // new task, skip (will be handled by create flow)
+      if (!prev) {
+        // New task — trigger GCal create if it has a due date
+        if (gcalApplies && !hasGCalLink && task.due_date) {
+          if (debounceTimers.current[id]) clearTimeout(debounceTimers.current[id])
+          debounceTimers.current[id] = setTimeout(() => {
+            delete debounceTimers.current[id]
+            syncTaskToGCal(task, { ...task, due_date: null })
+          }, DEBOUNCE_MS)
+        }
+        continue
+      }
 
       // Compare only user-facing fields
       const prevSnap = JSON.stringify(userFacingSnapshot(prev))
@@ -486,6 +496,34 @@ export function useExternalSync(tasks, onUpdateTask) {
     // Update prev snapshot
     prevTasks.current = currMap
   }, [tasks, syncTaskToTrello, syncTaskToNotion, syncTaskToGCal])
+
+  // Initial GCal push: sync existing tasks that have due_date but no gcal_event_id
+  const initialGCalDone = useRef(false)
+  useEffect(() => {
+    if (initialGCalDone.current || !Array.isArray(tasks)) return
+    const settings = loadSettings()
+    if (!settings.gcal_sync_enabled) return
+
+    const syncStatuses = settings.gcal_sync_statuses || ['not_started', 'doing', 'waiting', 'open']
+    const today = new Date().toISOString().split('T')[0]
+    const unsyncedTasks = tasks.filter(t =>
+      t.due_date && !t.gcal_event_id && syncStatuses.includes(t.status) && t.due_date >= today
+    )
+    if (unsyncedTasks.length === 0) {
+      initialGCalDone.current = true
+      return
+    }
+
+    initialGCalDone.current = true
+    log(`initial GCal push: ${unsyncedTasks.length} task(s) with due dates not yet synced`)
+
+    // Stagger creation to avoid rate limits
+    unsyncedTasks.forEach((task, i) => {
+      setTimeout(() => {
+        syncTaskToGCal(task, { ...task, due_date: null })
+      }, i * 1000)
+    })
+  }, [tasks, syncTaskToGCal])
 
   // Replay queue on online event
   const replayQueue = useCallback(async () => {

@@ -10,6 +10,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 - fix(server): add trust proxy for correct protocol behind nginx [XS]
   - `req.protocol` now returns `https` behind reverse proxy, fixing OAuth redirect_uri mismatch
   - Modified: `server.js`
+- fix(gcal): push existing tasks to calendar on sync enable + new task create [M]
+  - Initial sync picks up all tasks with due dates (today or future) when push sync is first enabled
+  - New tasks with due dates now create calendar events immediately (was silently skipped)
+  - 1-second stagger between initial sync events to avoid Google rate limits
+  - Past due dates excluded from initial sync to avoid calendar clutter
+  - Modified: `src/hooks/useExternalSync.js`
 - fix(ui): hide Sync Now button unless pull sync is enabled [XS]
   - Button was confusing when user only wanted push sync
   - Modified: `src/components/Settings.jsx`
