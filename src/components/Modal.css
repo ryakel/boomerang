@@ -105,3 +105,54 @@
   margin-bottom: 20px;
   line-height: 1.5;
 }
+
+/* Confirm dialog — in-app replacement for native confirm() */
+.confirm-dialog {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 320px;
+  margin: auto;
+  animation: fadeIn 0.15s ease;
+}
+
+.confirm-dialog-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.confirm-dialog-message {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.confirm-dialog-cancel,
+.confirm-dialog-ok {
+  padding: 8px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.confirm-dialog-cancel {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.confirm-dialog-ok {
+  background: var(--accent);
+  color: white;
+}

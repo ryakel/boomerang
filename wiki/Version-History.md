@@ -10,6 +10,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 - fix(server): add trust proxy for correct protocol behind nginx [XS]
   - `req.protocol` now returns `https` behind reverse proxy, fixing OAuth redirect_uri mismatch
   - Modified: `server.js`
+- style(ui): replace native confirm() with in-app confirm dialog [S]
+  - Custom styled dialog matching app design (dark theme, rounded corners)
+  - Used for "Remove All Events" and "Clear all data" confirmations
+  - Modified: `src/components/Settings.jsx`, `src/components/Modal.css`
 - chore(docs): move technical debt and future plans to GitHub Issues [S]
   - Created issues #2-#10 for bugs, enhancements, and docs work
   - CLAUDE.md now references issues instead of inline task tracking

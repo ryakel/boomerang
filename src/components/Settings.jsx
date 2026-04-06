@@ -58,6 +58,7 @@ const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data'
 
 export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing, onShowActivityLog, syncStatus, isDesktop }) {
   const [activeTab, setActiveTab] = useState('General')
+  const [confirmDialog, setConfirmDialog] = useState(null) // { title, message, onConfirm }
   const [settings, setSettings] = useState(loadSettings)
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
 
@@ -299,27 +300,32 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
     }
   }
 
-  const handleGcalBulkDelete = async () => {
-    if (!confirm('Delete ALL Boomerang-managed events from Google Calendar?\n\nThis will also unlink all tasks from their calendar events.')) return
-    setGcalBulkDeleting(true)
-    setGcalBulkDeleteResult(null)
-    try {
-      const calendarId = settings.gcal_calendar_id || 'primary'
-      const result = await gcalBulkDeleteEvents(calendarId)
-      // Clear gcal_event_id from all tasks
-      const tasks = loadTasks()
-      let cleared = 0
-      const updated = tasks.map(t => {
-        if (t.gcal_event_id) { cleared++; return { ...t, gcal_event_id: null } }
-        return t
-      })
-      if (cleared > 0) saveTasks(updated)
-      setGcalBulkDeleteResult(`Deleted ${result.deleted} event${result.deleted !== 1 ? 's' : ''} from calendar, unlinked ${cleared} task${cleared !== 1 ? 's' : ''}${result.failed ? `, ${result.failed} failed` : ''}`)
-    } catch (err) {
-      setGcalBulkDeleteResult(`Error: ${err.message}`)
-    } finally {
-      setGcalBulkDeleting(false)
-    }
+  const handleGcalBulkDelete = () => {
+    setConfirmDialog({
+      title: 'Remove All Events',
+      message: 'Delete all Boomerang-managed events from Google Calendar? This will also unlink all tasks from their calendar events.',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        setGcalBulkDeleting(true)
+        setGcalBulkDeleteResult(null)
+        try {
+          const calendarId = settings.gcal_calendar_id || 'primary'
+          const result = await gcalBulkDeleteEvents(calendarId)
+          const tasks = loadTasks()
+          let cleared = 0
+          const updated = tasks.map(t => {
+            if (t.gcal_event_id) { cleared++; return { ...t, gcal_event_id: null } }
+            return t
+          })
+          if (cleared > 0) saveTasks(updated)
+          setGcalBulkDeleteResult(`Deleted ${result.deleted} event${result.deleted !== 1 ? 's' : ''} from calendar, unlinked ${cleared} task${cleared !== 1 ? 's' : ''}${result.failed ? `, ${result.failed} failed` : ''}`)
+        } catch (err) {
+          setGcalBulkDeleteResult(`Error: ${err.message}`)
+        } finally {
+          setGcalBulkDeleting(false)
+        }
+      },
+    })
   }
 
   const [labels, setLabels] = useState(loadLabels)
@@ -1592,11 +1598,11 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               </button>
               <button
                 className="settings-danger settings-danger-full"
-                onClick={() => {
-                  if (window.confirm('This will delete all tasks, settings, and history. Are you sure?')) {
-                    onClearAll()
-                  }
-                }}
+                onClick={() => setConfirmDialog({
+                  title: 'Clear All Data',
+                  message: 'This will delete all tasks, settings, and history. Are you sure?',
+                  onConfirm: () => { setConfirmDialog(null); onClearAll() },
+                })}
               >
                 Clear all data
               </button>
@@ -1607,34 +1613,53 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
     </>
   )
 
-  if (isDesktop) {
-    return (
-      <div className="sheet-overlay" onClick={onClose}>
-        <div className="sheet" onClick={e => e.stopPropagation()}>
-          <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
-          <div className="edit-task-title-row">
-            <div className="sheet-title">Settings</div>
-            {savePill}
-            <span className="version-label">{__APP_VERSION__}</span>
-          </div>
-          {tabBar}
-          {settingsContent}
+  const confirmOverlay = confirmDialog && (
+    <div className="sheet-overlay" style={{ zIndex: 200 }} onClick={() => setConfirmDialog(null)}>
+      <div className="confirm-dialog" onClick={e => e.stopPropagation()}>
+        <div className="confirm-dialog-title">{confirmDialog.title}</div>
+        <div className="confirm-dialog-message">{confirmDialog.message}</div>
+        <div className="confirm-dialog-actions">
+          <button className="confirm-dialog-cancel" onClick={() => setConfirmDialog(null)}>Cancel</button>
+          <button className="confirm-dialog-ok" onClick={confirmDialog.onConfirm}>OK</button>
         </div>
       </div>
+    </div>
+  )
+
+  if (isDesktop) {
+    return (
+      <>
+        <div className="sheet-overlay" onClick={onClose}>
+          <div className="sheet" onClick={e => e.stopPropagation()}>
+            <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
+            <div className="edit-task-title-row">
+              <div className="sheet-title">Settings</div>
+              {savePill}
+              <span className="version-label">{__APP_VERSION__}</span>
+            </div>
+            {tabBar}
+            {settingsContent}
+          </div>
+        </div>
+        {confirmOverlay}
+      </>
     )
   }
 
   return (
-    <div className="settings-overlay">
-      <div className="settings-header">
-        <button className="settings-back" onClick={onClose}>← Back</button>
-        <div className="sheet-title" style={{ margin: 0 }}>Settings</div>
-        <span className="version-label">
-          {syncStatus === 'saving' ? 'Saving...' : syncStatus === 'saved' ? 'Saved' : __APP_VERSION__}
-        </span>
+    <>
+      <div className="settings-overlay">
+        <div className="settings-header">
+          <button className="settings-back" onClick={onClose}>← Back</button>
+          <div className="sheet-title" style={{ margin: 0 }}>Settings</div>
+          <span className="version-label">
+            {syncStatus === 'saving' ? 'Saving...' : syncStatus === 'saved' ? 'Saved' : __APP_VERSION__}
+          </span>
+        </div>
+        {tabBar}
+        {settingsContent}
       </div>
-      {tabBar}
-      {settingsContent}
-    </div>
+      {confirmOverlay}
+    </>
   )
 }
