@@ -244,47 +244,20 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 
 Do NOT push without updating docs. Bundle doc updates into the same commit when possible, or add a follow-up doc commit before pushing.
 
-## Known Technical Debt & Future Plans
+## Technical Debt & Future Plans
 
-### ~~Database: From JSON Blobs to Proper Schema~~ — DONE
+Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key items:
 
-Completed. Tasks and routines now have proper SQL tables with individual columns, indexes (`status`, `due_date`, `energy`, `created_at`, `routine_id`, `completed_at`), per-record CRUD (POST/PATCH/DELETE), and batched disk writes every 3s. Migration system in place (`migrations/001-004`). Only settings and labels remain in `app_data` as JSON blobs (intentional — they're small and rarely updated).
+- **#2** — Routine spawning infinite loop (fixed on dev, needs merge to main)
+- **#3** — Prop drilling: App.jsx passes 11-14 callbacks to TaskCard, needs TaskActionsContext
+- **#4-6** — Desktop UI Phases 3-5 (side drawer, keyboard shortcuts, richer cards)
+- **#7** — Wiki reorganization
+- **#8-10** — Notion database sync UI, Notion recurring patterns, GCal recurring events
 
-### Frontend: Prop Drilling (Priority: Medium)
+### Architecture Notes (completed work)
 
-**Current state:** App.jsx passes 11-14 callbacks down to TaskCard via props. TaskCard is wrapped in `React.memo` (done), but no Context API is used.
-
-**~~CSS Monolith~~** — DONE. App.css split from ~3,100 lines to ~440 lines of global/shared styles. 14 per-component CSS files created (TaskCard, EditTaskModal, Settings, KanbanBoard, Analytics, WhatNow, Modal, AddTaskModal, SnoozeModal, ReframeModal, ActivityLog, DoneList, Toast, Rings). Each component imports its own CSS. Semantic color variables (`--success`, `--error`, `--warning`) added to index.css.
-
-**What to do when this becomes a problem:**
-- Add `TaskActionsContext` to eliminate prop drilling (biggest cognitive relief)
-- Consider `useTransition` / `useOptimistic` from React 19 for perceived perf during sync
-
-**What triggers this work:** Adding 3+ more interactive features to TaskCard, or task list exceeding 100 items with noticeable scroll jank.
-
-### ~~Offline Mutation Queue~~ — DONE
-
-Completed. Failed mutations are queued in `boom_mutation_queue` localStorage (capped at 200 entries) and replayed sequentially on reconnect (`online` event, SSE reconnect, or visibility change). Sync status indicator (Cloud/CloudOff icons) in the header shows saving/saved/offline state with pending queue count. Implemented in `useServerSync.js`.
-
-### ~~Research + File Attachments~~ — DONE
-
-Completed. `researchTask()` in `src/api.js` now accepts an optional `attachments` array and converts image/PDF attachments to Claude API content blocks (image/document types). EditTaskModal passes `attachments` to `researchTask()` so attached files are included in Research queries.
-
-### Desktop UI Phases (Priority: Medium)
-
-Phases 1-2 done (kanban board, hover states, drag-and-drop between columns). Desktop modals done — Settings, Routines, Analytics, and Edit Task all use `sheet-overlay`/`sheet` container with X close button on desktop; mobile keeps full-screen `settings-overlay` with ← Back. "What Now" overlay uses CSS-only scrim on desktop. Bottom bar hidden on desktop; compact "What now?" button in header instead.
-
-### Routine Spawning Bug (Priority: High — FIXED ON DEV, NEEDS MERGE TO MAIN)
-
-**Bug:** `spawnDueTasks()` in `src/hooks/useRoutines.js` checks `t.status === 'open'` to detect existing tasks for a routine, but `createTask()` sets status to `'not_started'`. The dedup check never matches, so every hydration cycle spawns duplicate tasks. With multiple SSE clients connected, this creates an infinite feedback loop: Client A spawns → syncs → Client B hydrates → spawns more → syncs → Client A hydrates → repeat. Hundreds of tasks created per minute.
-
-**Fix (on `dev` branch, commit `7dc9e23`):** Changed the check from `t.status === 'open'` to `t.status !== 'done'` so any active task (not_started, doing, waiting) prevents re-spawning.
-
-**File:** `src/hooks/useRoutines.js` line 57
-
-**Why it wasn't caught in prod:** Single-client usage with routines that get completed before the next spawn check. Only surfaces with seed data (multiple routines due at once) and/or multiple connected clients.
-
-Remaining:
-- **Phase 3:** EditTaskModal as right-side drawer (480px) instead of centered modal on desktop
-- **Phase 4:** Keyboard shortcuts (n=add, /=search, j/k=navigate, Escape=close, e=edit)
-- **Phase 5:** Richer desktop cards (notes preview, checklist progress bar, always-show tags)
+- **Database schema:** Proper SQL tables with indexes, per-record CRUD, batched disk writes every 3s. Migration system in `migrations/`. Settings and labels remain in `app_data` as JSON blobs (intentional).
+- **CSS:** Split from monolith to 14 per-component CSS files. Global/shared styles in App.css (~440 lines). Semantic color variables in index.css.
+- **Offline queue:** Failed mutations queued in `boom_mutation_queue` localStorage (200 cap), replayed on reconnect. Sync status indicator in header.
+- **Research attachments:** `researchTask()` accepts attachments array, converts to Claude API content blocks.
+- **Desktop UI Phases 1-2:** Kanban board, hover states, drag-and-drop, desktop modal styling (`sheet-overlay`/`sheet`). Bottom bar hidden on desktop; compact "What now?" in header.

@@ -10,6 +10,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 - fix(server): add trust proxy for correct protocol behind nginx [XS]
   - `req.protocol` now returns `https` behind reverse proxy, fixing OAuth redirect_uri mismatch
   - Modified: `server.js`
+- chore(docs): move technical debt and future plans to GitHub Issues [S]
+  - Created issues #2-#10 for bugs, enhancements, and docs work
+  - CLAUDE.md now references issues instead of inline task tracking
+  - Modified: `CLAUDE.md`
 - fix(gcal): push existing tasks to calendar on sync enable + new task create [M]
   - Initial sync picks up all tasks with due dates (today or future) when push sync is first enabled
   - New tasks with due dates now create calendar events immediately (was silently skipped)
