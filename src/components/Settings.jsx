@@ -1288,21 +1288,22 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                       <span>Pull calendar events as tasks</span>
                     </label>
 
-                    {/* Sync controls */}
-                    <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <button
-                        className="ci-upload-btn"
-                        disabled={gcalSyncing}
-                        onClick={onGCalSync}
-                      >
-                        {gcalSyncing ? 'Syncing...' : 'Sync Now'}
-                      </button>
-                      {settings.gcal_last_sync && (
-                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                          Last: {new Date(settings.gcal_last_sync).toLocaleString()}
-                        </span>
-                      )}
-                    </div>
+                    {settings.gcal_pull_enabled && (
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <button
+                          className="ci-upload-btn"
+                          disabled={gcalSyncing}
+                          onClick={onGCalSync}
+                        >
+                          {gcalSyncing ? 'Syncing...' : 'Sync Now'}
+                        </button>
+                        {settings.gcal_last_sync && (
+                          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                            Last: {new Date(settings.gcal_last_sync).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <button

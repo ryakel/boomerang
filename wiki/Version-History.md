@@ -10,6 +10,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 - fix(server): add trust proxy for correct protocol behind nginx [XS]
   - `req.protocol` now returns `https` behind reverse proxy, fixing OAuth redirect_uri mismatch
   - Modified: `server.js`
+- fix(ui): hide Sync Now button unless pull sync is enabled [XS]
+  - Button was confusing when user only wanted push sync
+  - Modified: `src/components/Settings.jsx`
 - feat(gcal): add bulk delete for Boomerang-managed calendar events [M]
   - New endpoint `POST /api/gcal/events/bulk-delete` — finds and deletes all events with "Managed by Boomerang" marker
   - "Remove All Events" button in Settings → Google Calendar section
