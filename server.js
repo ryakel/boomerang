@@ -1391,13 +1391,40 @@ async function register17track(items, apiKey) {
     })
     const data = await res.json()
     console.log('[Packages] 17track register:', res.status, 'accepted:', data.data?.accepted?.length || 0, 'rejected:', data.data?.rejected?.length || 0)
+
+    // For already-registered packages, fix carrier via changecarrier if we have one
     if (data.data?.rejected?.length > 0) {
       for (const r of data.data.rejected) {
         console.log('[Packages] 17track register rejected:', r.number, 'error:', r.error?.code, r.error?.message)
+        // -18019901 = already registered — update carrier if we have one
+        if (r.error?.code === -18019901) {
+          const item = payload.find(p => p.number === r.number)
+          if (item?.carrier) {
+            await changeCarrier17track(r.number, item.carrier, apiKey)
+          }
+        }
       }
     }
   } catch (err) {
     console.error('[Packages] 17track register error:', err.message)
+  }
+}
+
+// Change carrier for an already-registered tracking number
+async function changeCarrier17track(trackingNumber, carrierCode, apiKey) {
+  try {
+    const res = await fetch('https://api.17track.net/track/v2.4/changecarrier', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        '17token': apiKey,
+      },
+      body: JSON.stringify([{ number: trackingNumber, carrier: carrierCode }]),
+    })
+    const data = await res.json()
+    console.log('[Packages] 17track changecarrier:', trackingNumber, '→', carrierCode, 'status:', res.status, 'accepted:', data.data?.accepted?.length || 0)
+  } catch (err) {
+    console.error('[Packages] 17track changecarrier error:', err.message)
   }
 }
 
