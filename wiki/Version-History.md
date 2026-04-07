@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): fix single-package refresh being blocked by downgrade guard [S]
+  - Downgrade guard was blocking ALL status updates on user-initiated refresh, not just downgrades
+  - Removed guard from single-package refresh (user explicitly wants fresh data)
+  - Guard remains on automated polling loop and refresh-all (background protection)
+  - Also: skip 5-min throttle for pending packages so user can retry immediately
+  - Modified: `server.js`
 - fix(packages): show refresh result feedback on individual package cards [S]
   - Card refresh button shows green checkmark when updated, "Up to date" when throttled
   - Detail modal refresh button shows same feedback

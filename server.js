@@ -1779,8 +1779,8 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
   const pkg = getPackage(req.params.id)
   if (!pkg) return res.status(404).json({ error: 'Package not found' })
 
-  // Throttle: 5 minutes per package
-  if (pkg.last_polled) {
+  // Throttle: 5 minutes per package (skip for pending packages — user is waiting for data)
+  if (pkg.last_polled && pkg.status !== 'pending') {
     const minsSince = (Date.now() - new Date(pkg.last_polled)) / 60000
     if (minsSince < 5) {
       return res.json({ ...pkg, cached: true, next_refresh_at: new Date(new Date(pkg.last_polled).getTime() + 5 * 60000).toISOString() })
@@ -1810,15 +1810,8 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
     const { status: newStatus, detail } = map17trackStatus(trackInfo)
     const now = new Date().toISOString()
 
-    // Never downgrade a package that already has real tracking data
-    const STATUS_RANK = { delivered: 5, out_for_delivery: 4, in_transit: 3, exception: 2, pending: 1, expired: 0 }
-    const oldRank = STATUS_RANK[pkg.status] ?? 1
-    const newRank = STATUS_RANK[newStatus] ?? 1
-    if (newRank < oldRank && oldRank >= 2) {
-      updatePackagePartial(pkg.id, { last_polled: now })
-      return res.json(getPackage(pkg.id))
-    }
-
+    // User-initiated refresh: always apply the latest data from 17track
+    // (downgrade guards only protect automated background polls)
     const updates = {
       status: newStatus,
       status_detail: detail,
