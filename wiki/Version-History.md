@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): add offline localStorage cache for packages [S]
+  - Packages now persist in `boom_packages_v1` localStorage key
+  - Instant render from cache on app open, then server fetch overwrites
+  - If server is down, cached packages still display instead of empty list
+  - Modified: `src/hooks/usePackages.js`
+- fix(notifications): add emailNotifications.js to Docker image [XS]
+  - Dockerfile stage 3 COPY line was missing the new file
+  - Modified: `Dockerfile`
 - feat(notifications): add email notification system [L]
   - Server-side notification engine mirrors client-side push logic (overdue, stale, nudge, high-priority, size, pileup)
   - Nodemailer transport with SMTP env var configuration (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)
