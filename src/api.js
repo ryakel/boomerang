@@ -864,6 +864,13 @@ export async function testTrackingConnection() {
   return res.json()
 }
 
+export async function refreshAllPackages() {
+  const headers = getApiHeaders()
+  const res = await fetch('/api/packages/refresh-all', { method: 'POST', headers })
+  if (!res.ok) throw new Error(`refresh all failed: ${res.status}`)
+  return res.json()
+}
+
 export async function getPackageApiStatus() {
   const headers = getApiHeaders()
   const res = await fetch('/api/packages/api-status', { headers })

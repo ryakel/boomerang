@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { fetchPackages, createPackage, updatePackage, deletePackageApi, refreshPackage } from '../api'
+import { fetchPackages, createPackage, updatePackage, deletePackageApi, refreshPackage, refreshAllPackages } from '../api'
 
 export function usePackages() {
   const [packages, setPackages] = useState([])
@@ -49,5 +49,11 @@ export function usePackages() {
     }
   }, [])
 
-  return { packages, loading, addPackage, editPackage, removePackage, refresh, loadPackages, hydratePackages }
+  const refreshAll = useCallback(async () => {
+    const result = await refreshAllPackages()
+    await loadPackages() // reload after batch refresh
+    return result
+  }, [loadPackages])
+
+  return { packages, loading, addPackage, editPackage, removePackage, refresh, refreshAll, loadPackages, hydratePackages }
 }

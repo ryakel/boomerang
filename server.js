@@ -1356,9 +1356,29 @@ function checkSignatureRequired(events) {
   return false
 }
 
+// 17track carrier codes (numeric IDs required for registration)
+const CARRIER_17TRACK = {
+  usps: 21051,
+  ups: 100002,
+  fedex: 100003,
+  dhl: 100001,
+  amazon: 100143,
+  ontrac: 100049,
+  lasership: 100042,
+}
+
 // Register tracking numbers with 17track (required before gettrackinfo)
-async function register17track(trackingNumbers, apiKey) {
-  if (!apiKey || trackingNumbers.length === 0) return
+// Accepts array of { number, carrier } objects or plain tracking number strings
+async function register17track(items, apiKey) {
+  if (!apiKey || items.length === 0) return
+
+  const payload = items.map(item => {
+    if (typeof item === 'string') return { number: item }
+    const entry = { number: item.number || item.tracking_number || item }
+    const carrierCode = CARRIER_17TRACK[item.carrier]
+    if (carrierCode) entry.carrier = carrierCode
+    return entry
+  })
 
   try {
     const res = await fetch('https://api.17track.net/track/v2.4/register', {
@@ -1367,9 +1387,7 @@ async function register17track(trackingNumbers, apiKey) {
         'Content-Type': 'application/json',
         '17token': apiKey,
       },
-      body: JSON.stringify(
-        trackingNumbers.map(tn => ({ number: tn }))
-      ),
+      body: JSON.stringify(payload),
     })
     const data = await res.json()
     console.log('[Packages] 17track register:', res.status, 'accepted:', data.data?.accepted?.length || 0, 'rejected:', data.data?.rejected?.length || 0)
@@ -1471,8 +1489,8 @@ async function pollActivePackages() {
     const batch = batches[bi]
     const trackingNumbers = batch.map(p => p.tracking_number)
 
-    // Register any never-polled packages first
-    const unpolled = batch.filter(p => !p.last_polled).map(p => p.tracking_number)
+    // Register any never-polled packages first (with carrier codes)
+    const unpolled = batch.filter(p => !p.last_polled)
     if (unpolled.length > 0) {
       await register17track(unpolled, apiKey)
       await new Promise(r => setTimeout(r, 1000)) // brief delay after register
@@ -1639,7 +1657,7 @@ app.post('/api/packages', (req, res) => {
   // Register with 17track so tracking data becomes available
   const apiKey = getTrackingApiKey(req)
   if (apiKey) {
-    register17track([pkg.tracking_number], apiKey).catch(() => {})
+    register17track([pkg], apiKey).catch(() => {})
   }
 
   const newVersion = bumpVersion()
@@ -1685,8 +1703,8 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
     return res.json({ ...pkg, error: 'API quota exhausted', reset_at: trackingQuota.reset_at })
   }
 
-  // Register first (idempotent — 17track ignores if already registered)
-  await register17track([pkg.tracking_number], apiKey)
+  // Register first with carrier (idempotent — 17track ignores if already registered)
+  await register17track([pkg], apiKey)
 
   const results = await poll17track([pkg.tracking_number], apiKey)
   if (results.length > 0) {
@@ -1724,6 +1742,89 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
 
   updatePackagePartial(pkg.id, { last_polled: new Date().toISOString() })
   res.json(getPackage(pkg.id))
+})
+
+app.post('/api/packages/refresh-all', async (req, res) => {
+  const apiKey = getTrackingApiKey(req)
+  if (!apiKey) return res.json({ error: 'No tracking API key configured', updated: 0 })
+  if (trackingQuota.exhausted) return res.json({ error: 'API quota exhausted', updated: 0 })
+
+  const packages = getAllPackages('active')
+  if (packages.length === 0) return res.json({ updated: 0 })
+
+  // Register any unregistered packages first (with carrier codes)
+  const unpolled = packages.filter(p => !p.last_polled)
+  if (unpolled.length > 0) await register17track(unpolled, apiKey)
+
+  // Batch all active tracking numbers (up to 40 per call)
+  const batches = []
+  for (let i = 0; i < packages.length; i += 40) {
+    batches.push(packages.slice(i, i + 40))
+  }
+
+  let totalUpdated = 0
+  const now = new Date().toISOString()
+  const settings = getData('settings') || {}
+
+  for (let bi = 0; bi < batches.length; bi++) {
+    if (bi > 0) await new Promise(r => setTimeout(r, 1000))
+    const batch = batches[bi]
+    const results = await poll17track(batch.map(p => p.tracking_number), apiKey)
+
+    for (const result of results) {
+      const pkg = batch.find(p => p.tracking_number === result.number)
+      if (!pkg) continue
+
+      const trackInfo = result.track_info || {}
+      const events = (trackInfo.tracking?.providers?.[0]?.events || []).map(e => ({
+        timestamp: e.time_iso || e.time_utc || '',
+        location: e.location || '',
+        description: e.description || '',
+        status: e.stage || '',
+      }))
+
+      const { status: newStatus, detail } = map17trackStatus(trackInfo)
+      const prevStatus = pkg.status
+
+      const updates = {
+        status: newStatus,
+        status_detail: detail,
+        events: events.length > 0 ? events : pkg.events,
+        last_polled: now,
+        updated_at: now,
+        poll_interval_minutes: calcPollInterval({ ...pkg, status: newStatus }),
+        last_location: events[0]?.location || pkg.last_location,
+        signature_required: checkSignatureRequired(events),
+      }
+
+      if (trackInfo.time_metrics?.estimated_delivery_date?.from) {
+        updates.eta = trackInfo.time_metrics.estimated_delivery_date.from
+      }
+
+      if (newStatus === 'delivered' && prevStatus !== 'delivered') {
+        updates.delivered_at = now
+        const retentionDays = settings.package_retention_days ?? 3
+        updates.auto_cleanup_at = new Date(Date.now() + retentionDays * 86400000).toISOString()
+      }
+
+      updatePackagePartial(pkg.id, updates)
+      totalUpdated++
+    }
+
+    // Mark packages not in results as polled
+    for (const pkg of batch) {
+      if (!results.find(r => r.number === pkg.tracking_number)) {
+        updatePackagePartial(pkg.id, { last_polled: now })
+      }
+    }
+  }
+
+  if (totalUpdated > 0) {
+    const newVersion = bumpVersion()
+    broadcast(newVersion, req.headers['x-client-id'])
+  }
+
+  res.json({ updated: totalUpdated, total: packages.length })
 })
 
 app.get('/api/packages/api-status', (req, res) => {

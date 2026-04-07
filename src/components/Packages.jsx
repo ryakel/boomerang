@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Plus, AlertTriangle, ArrowUpDown } from 'lucide-react'
+import { Plus, AlertTriangle, ArrowUpDown, RefreshCw } from 'lucide-react'
 import CarrierLogo from './CarrierLogo'
 import PackageCard from './PackageCard'
 import PackageDetailModal from './PackageDetailModal'
@@ -8,7 +8,7 @@ import { getPackageApiStatus } from '../api'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import './Packages.css'
 
-export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onClose, onReload }) {
+export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onRefreshAll, onClose, onReload }) {
   const [trackingInput, setTrackingInput] = useState('')
   const [labelInput, setLabelInput] = useState('')
   const [detectedCarrier, setDetectedCarrier] = useState(null)
@@ -18,11 +18,20 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
   const [showAddForm, setShowAddForm] = useState(false)
   const [sortBy, setSortBy] = useState('status') // status | eta | carrier
   const [showSortDropdown, setShowSortDropdown] = useState(false)
+  const [refreshingAll, setRefreshingAll] = useState(false)
   const sortRef = useRef(null)
 
-  const { onTouchStart, onTouchEnd } = usePullToRefresh(() => {
-    if (onReload) onReload()
-  })
+  const handleRefreshAll = async () => {
+    if (refreshingAll || !onRefreshAll) return
+    setRefreshingAll(true)
+    try {
+      await onRefreshAll()
+    } finally {
+      setTimeout(() => setRefreshingAll(false), 500)
+    }
+  }
+
+  const { onTouchStart, onTouchEnd } = usePullToRefresh(handleRefreshAll)
 
   // Close sort dropdown on outside click
   useEffect(() => {
@@ -144,6 +153,14 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
         <button className="settings-back" onClick={onClose}>← Back</button>
         <div className="sheet-title" style={{ margin: 0 }}>Packages</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button
+            className="package-sort-btn"
+            onClick={handleRefreshAll}
+            disabled={refreshingAll}
+            title="Refresh all packages"
+          >
+            <RefreshCw size={16} className={refreshingAll ? 'spinning' : ''} />
+          </button>
           <div className="package-sort-wrapper" ref={sortRef}>
             <button className="package-sort-btn" onClick={() => setShowSortDropdown(!showSortDropdown)}>
               <ArrowUpDown size={16} />
