@@ -168,7 +168,8 @@ export default function PackageDetailModal({ pkg, onClose, onRefresh, onDelete, 
           </button>
 
           {trackUrl && (
-            <a href={trackUrl} target="_blank" rel="noopener noreferrer" className="package-detail-action-btn">
+            <a href={trackUrl} target="_blank" rel="noopener noreferrer" className="package-detail-action-btn"
+              onClick={e => { e.preventDefault(); window.open(trackUrl, '_blank', 'noopener,noreferrer'); }}>
               <ExternalLink size={16} /> Track on {pkg.carrier_name || pkg.carrier}
             </a>
           )}

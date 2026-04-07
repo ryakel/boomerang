@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): open tracking links in browser instead of PWA [XS]
+  - PWAs intercept `target="_blank"` links within app scope
+  - Use explicit `window.open()` to force external browser tab
+  - Modified: `PackageCard.jsx`, `PackageDetailModal.jsx`
 - fix(packages): update ALL duplicate packages, not just first match [S]
   - `batch.find()` only matched the first package with a given tracking number — duplicates never got updated
   - Changed to `batch.filter()` in both polling loop and refresh-all endpoint

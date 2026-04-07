@@ -200,7 +200,7 @@ export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onS
             target="_blank"
             rel="noopener noreferrer"
             className="package-track-link"
-            onClick={e => e.stopPropagation()}
+            onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(trackUrl, '_blank', 'noopener,noreferrer'); }}
           >
             <ExternalLink size={12} /> Track on {pkg.carrier_name || pkg.carrier}
           </a>
