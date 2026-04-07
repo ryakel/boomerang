@@ -348,16 +348,14 @@ Do NOT push without updating docs. Bundle doc updates into the same commit when 
 
 Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key items:
 
-- **#2** — Routine spawning infinite loop (fixed on dev, needs merge to main)
-- **#3** — Prop drilling: App.jsx passes 11-14 callbacks to TaskCard, needs TaskActionsContext
+- **#3** — Prop drilling: App.jsx passes ~14 callbacks to TaskCard, needs TaskActionsContext
 - **#4-6** — Desktop UI Phases 3-5 (side drawer, keyboard shortcuts, richer cards)
-- **#7** — Wiki reorganization
 - **#8-10** — Notion database sync UI, Notion recurring patterns, GCal recurring events
 
 ### Architecture Notes (completed work)
 
-- **Database schema:** Proper SQL tables with indexes, per-record CRUD, batched disk writes every 3s. Migration system in `migrations/`. Settings and labels remain in `app_data` as JSON blobs (intentional).
+- **Database schema:** Proper SQL tables with indexes, per-record CRUD, batched disk writes every 1s. Migration system in `migrations/`. Settings and labels remain in `app_data` as JSON blobs (intentional).
 - **CSS:** Split from monolith to 14 per-component CSS files. Global/shared styles in App.css (~440 lines). Semantic color variables in index.css.
-- **Offline queue:** Failed mutations queued in `boom_mutation_queue` localStorage (200 cap), replayed on reconnect. Sync status indicator in header.
+- **Offline queue:** Failed mutations queued in `boom_mutation_queue` localStorage (200 cap), replayed on reconnect. Sync status indicator in header. Packages cached in `boom_packages_v1` localStorage for offline persistence.
 - **Research attachments:** `researchTask()` accepts attachments array, converts to Claude API content blocks.
 - **Desktop UI Phases 1-2:** Kanban board, hover states, drag-and-drop, desktop modal styling (`sheet-overlay`/`sheet`). Bottom bar hidden on desktop; compact "What now?" in header.

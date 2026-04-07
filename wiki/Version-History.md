@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): show cooldown timer on refresh button [S]
+  - 5-minute cooldown after refresh with visible `M:SS` countdown next to icon
+  - Cooldown persists in localStorage across page reloads
+  - Button disabled with tooltip showing remaining time
+  - Modified: `src/components/Packages.jsx`
+- chore: close GitHub issues #2 (routine infinite loop) and #7 (wiki reorg) — both resolved
+- docs(claude): update technical debt section, remove closed issues, fix DB write interval
 - fix(packages): add offline localStorage cache for packages [S]
   - Packages now persist in `boom_packages_v1` localStorage key
   - Instant render from cache on app open, then server fetch overwrites

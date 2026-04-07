@@ -19,15 +19,40 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
   const [sortBy, setSortBy] = useState('status') // status | eta | carrier
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [refreshingAll, setRefreshingAll] = useState(false)
+  const [cooldownSecs, setCooldownSecs] = useState(0)
+  const cooldownRef = useRef(null)
   const sortRef = useRef(null)
 
+  // Restore cooldown from localStorage on mount
+  useEffect(() => {
+    const until = parseInt(localStorage.getItem('boom_pkg_refresh_cooldown') || '0', 10)
+    const remaining = Math.ceil((until - Date.now()) / 1000)
+    if (remaining > 0) setCooldownSecs(remaining)
+  }, [])
+
+  // Tick down the cooldown every second
+  useEffect(() => {
+    if (cooldownSecs <= 0) return
+    cooldownRef.current = setInterval(() => {
+      setCooldownSecs(prev => {
+        if (prev <= 1) { clearInterval(cooldownRef.current); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(cooldownRef.current)
+  }, [cooldownSecs > 0]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleRefreshAll = async () => {
-    if (refreshingAll || !onRefreshAll) return
+    if (refreshingAll || cooldownSecs > 0 || !onRefreshAll) return
     setRefreshingAll(true)
     try {
       await onRefreshAll()
+      // Start 5-minute cooldown
+      const cooldownMs = 5 * 60 * 1000
+      localStorage.setItem('boom_pkg_refresh_cooldown', String(Date.now() + cooldownMs))
+      setCooldownSecs(300)
     } finally {
-      setTimeout(() => setRefreshingAll(false), 500)
+      setRefreshingAll(false)
     }
   }
 
@@ -166,10 +191,16 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
           <button
             className="package-sort-btn"
             onClick={handleRefreshAll}
-            disabled={refreshingAll}
-            title="Refresh all packages"
+            disabled={refreshingAll || cooldownSecs > 0}
+            title={cooldownSecs > 0 ? `Refresh available in ${Math.ceil(cooldownSecs / 60)}m ${cooldownSecs % 60}s` : 'Refresh all packages'}
+            style={cooldownSecs > 0 ? { position: 'relative', minWidth: 44 } : {}}
           >
             <RefreshCw size={16} className={refreshingAll ? 'spinning' : ''} />
+            {cooldownSecs > 0 && (
+              <span style={{ fontSize: 9, color: 'var(--text-dim)', marginLeft: 2 }}>
+                {Math.floor(cooldownSecs / 60)}:{String(cooldownSecs % 60).padStart(2, '0')}
+              </span>
+            )}
           </button>
           <div className="package-sort-wrapper" ref={sortRef}>
             <button className="package-sort-btn" onClick={() => setShowSortDropdown(!showSortDropdown)}>
