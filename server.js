@@ -1534,6 +1534,10 @@ app.post('/api/packages', (req, res) => {
   const { tracking_number, label, carrier } = req.body
   if (!tracking_number) return res.status(400).json({ error: 'tracking_number required' })
 
+  // Duplicate check
+  const existing = getAllPackages().find(p => p.tracking_number.toLowerCase() === tracking_number.trim().toLowerCase())
+  if (existing) return res.status(409).json({ error: 'Tracking number already exists', existing_id: existing.id, label: existing.label })
+
   const detected = carrier ? { code: carrier, name: carrier } : detectCarrierServer(tracking_number)
   const now = new Date().toISOString()
   const id = `pkg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`

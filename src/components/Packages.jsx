@@ -42,9 +42,15 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
     }
   }, [trackingInput])
 
+  const duplicateMatch = useMemo(() => {
+    const cleaned = trackingInput.trim().replace(/\s/g, '').toLowerCase()
+    if (cleaned.length < 8) return null
+    return packages.find(p => p.tracking_number.toLowerCase() === cleaned) || null
+  }, [trackingInput, packages])
+
   const handleAdd = async () => {
     const cleaned = trackingInput.trim()
-    if (!cleaned) return
+    if (!cleaned || duplicateMatch) return
     setAdding(true)
     try {
       await onAdd(cleaned, labelInput.trim(), detectedCarrier?.code)
@@ -192,19 +198,24 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
             onChange={e => setLabelInput(e.target.value)}
             onKeyDown={handleKeyDown}
           />
+          {duplicateMatch && (
+            <div className="package-duplicate-warning">
+              Already tracking this number{duplicateMatch.label ? ` ("${duplicateMatch.label}")` : ''}
+            </div>
+          )}
           <div className="package-add-row">
-            {detectedCarrier && (
+            {detectedCarrier && !duplicateMatch && (
               <span className="package-detected-carrier">
                 {detectedCarrier.icon} {detectedCarrier.name}
               </span>
             )}
-            {!detectedCarrier && trackingInput.trim().length >= 8 && (
+            {!detectedCarrier && !duplicateMatch && trackingInput.trim().length >= 8 && (
               <span className="package-detected-carrier unknown">Unknown carrier</span>
             )}
             <button
               className="package-add-btn"
               onClick={handleAdd}
-              disabled={!trackingInput.trim() || adding}
+              disabled={!trackingInput.trim() || adding || !!duplicateMatch}
             >
               {adding ? 'Adding...' : 'Add Package'}
             </button>

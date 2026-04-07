@@ -64,6 +64,12 @@
   opacity: 0.5;
 }
 
+.package-duplicate-warning {
+  font-size: 12px;
+  color: #f59e0b;
+  padding: 4px 0;
+}
+
 /* Sort dropdown */
 .package-sort-wrapper {
   position: relative;

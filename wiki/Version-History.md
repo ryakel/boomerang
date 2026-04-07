@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- feat(packages): add duplicate tracking number detection [XS]
+  - Client-side: live check as you type, shows warning with existing label, disables Add button
+  - Server-side: 409 response if tracking number already exists
+  - Case-insensitive comparison
+  - Modified: `src/components/Packages.jsx`, `src/components/Packages.css`, `server.js`
 - feat(packages): add sort options — by status, delivery date, or carrier [S]
   - Sort dropdown in header (same pattern as task sort)
   - Status (default): groups by Issues/Active/Delivered with ETA sub-sort
