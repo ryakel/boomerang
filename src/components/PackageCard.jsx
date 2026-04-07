@@ -26,7 +26,10 @@ function timeAgo(iso) {
 
 function formatEta(eta) {
   if (!eta) return null
-  const d = new Date(eta + 'T00:00:00')
+  // Handle both YYYY-MM-DD and full ISO datetime
+  const dateStr = eta.includes('T') ? eta.split('T')[0] : eta
+  const d = new Date(dateStr + 'T00:00:00')
+  if (isNaN(d.getTime())) return null
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const diff = Math.floor((d - today) / 86400000)

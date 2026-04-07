@@ -1380,6 +1380,14 @@ async function register17track(items, apiKey) {
     return entry
   })
 
+  // Deduplicate by tracking number
+  const seen = new Set()
+  const deduped = payload.filter(p => {
+    if (seen.has(p.number)) return false
+    seen.add(p.number)
+    return true
+  })
+
   try {
     const res = await fetch('https://api.17track.net/track/v2.4/register', {
       method: 'POST',
@@ -1387,7 +1395,7 @@ async function register17track(items, apiKey) {
         'Content-Type': 'application/json',
         '17token': apiKey,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(deduped),
     })
     const data = await res.json()
     console.log('[Packages] 17track register:', res.status, 'accepted:', data.data?.accepted?.length || 0, 'rejected:', data.data?.rejected?.length || 0)
@@ -1398,7 +1406,7 @@ async function register17track(items, apiKey) {
         console.log('[Packages] 17track register rejected:', r.number, 'error:', r.error?.code, r.error?.message)
         // -18019901 = already registered — update carrier if we have one
         if (r.error?.code === -18019901) {
-          const item = payload.find(p => p.number === r.number)
+          const item = deduped.find(p => p.number === r.number)
           if (item?.carrier) {
             await changeCarrier17track(r.number, item.carrier, apiKey)
           }
