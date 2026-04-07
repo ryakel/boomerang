@@ -1568,6 +1568,15 @@ async function pollActivePackages() {
       // Update ALL packages with this tracking number (handles duplicates)
       const matching = batch.filter(p => p.tracking_number === result.number)
       for (const pkg of matching) {
+        // Never downgrade a package that already has real tracking data
+        const STATUS_RANK = { delivered: 5, out_for_delivery: 4, in_transit: 3, exception: 2, pending: 1, expired: 0 }
+        const oldRank = STATUS_RANK[pkg.status] ?? 1
+        const newRank = STATUS_RANK[newStatus] ?? 1
+        if (newRank < oldRank && oldRank >= 2) {
+          updatePackagePartial(pkg.id, { last_polled: now.toISOString() })
+          continue
+        }
+
         const updates = {
           status: newStatus,
           status_detail: detail,
@@ -1801,6 +1810,15 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
     const { status: newStatus, detail } = map17trackStatus(trackInfo)
     const now = new Date().toISOString()
 
+    // Never downgrade a package that already has real tracking data
+    const STATUS_RANK = { delivered: 5, out_for_delivery: 4, in_transit: 3, exception: 2, pending: 1, expired: 0 }
+    const oldRank = STATUS_RANK[pkg.status] ?? 1
+    const newRank = STATUS_RANK[newStatus] ?? 1
+    if (newRank < oldRank && oldRank >= 2) {
+      updatePackagePartial(pkg.id, { last_polled: now })
+      return res.json(getPackage(pkg.id))
+    }
+
     const updates = {
       status: newStatus,
       status_detail: detail,
@@ -1881,6 +1899,17 @@ app.post('/api/packages/refresh-all', async (req, res) => {
       // Update ALL packages with this tracking number (handles duplicates)
       const matching = batch.filter(p => p.tracking_number === result.number)
       for (const pkg of matching) {
+        // Never downgrade a package that already has real tracking data
+        // 17track intermittently returns NotFound even for packages with valid data
+        const STATUS_RANK = { delivered: 5, out_for_delivery: 4, in_transit: 3, exception: 2, pending: 1, expired: 0 }
+        const oldRank = STATUS_RANK[pkg.status] ?? 1
+        const newRank = STATUS_RANK[newStatus] ?? 1
+        if (newRank < oldRank && oldRank >= 2) {
+          // Only update last_polled so we don't re-poll immediately
+          updatePackagePartial(pkg.id, { last_polled: now })
+          continue
+        }
+
         const pkgUpdates = { ...updates }
         if (!pkgUpdates.events) pkgUpdates.events = pkg.events
         if (!pkgUpdates.last_location) pkgUpdates.last_location = pkg.last_location

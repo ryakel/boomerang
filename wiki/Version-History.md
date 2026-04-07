@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): prevent status downgrade from stale 17track responses [M]
+  - 17track intermittently returns `NotFound` for packages that already have valid tracking data
+  - Added status rank guard in all three poll paths (polling loop, refresh-all, single refresh)
+  - Packages at `in_transit` or higher will never be reverted to `pending`/`Not found yet`
+  - Modified: `server.js`
 - fix(packages): aggressive polling for newly added packages with no data [XS]
   - Packages stuck at "Not found yet" (pending, no events) now poll every 5min instead of 30min
   - Once 17track returns real tracking data, normal intervals resume
