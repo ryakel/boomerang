@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Plus, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Plus, AlertTriangle, ArrowUpDown } from 'lucide-react'
 import PackageCard from './PackageCard'
 import PackageDetailModal from './PackageDetailModal'
 import { detectCarrier } from '../utils/carrierDetect'
@@ -14,6 +14,19 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
   const [adding, setAdding] = useState(false)
   const [apiStatus, setApiStatus] = useState({ available: true, configured: false })
   const [showAddForm, setShowAddForm] = useState(false)
+  const [sortBy, setSortBy] = useState('status') // status | eta | carrier
+  const [showSortDropdown, setShowSortDropdown] = useState(false)
+  const sortRef = useRef(null)
+
+  // Close sort dropdown on outside click
+  useEffect(() => {
+    if (!showSortDropdown) return
+    const handleClick = (e) => {
+      if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortDropdown(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showSortDropdown])
 
   useEffect(() => {
     getPackageApiStatus().then(setApiStatus).catch(() => {})
@@ -50,17 +63,51 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
     if (e.key === 'Enter' && trackingInput.trim()) handleAdd()
   }
 
-  // Group packages by status
-  const { active, delivered, issues } = useMemo(() => {
+  // Sort and group packages
+  const STATUS_ORDER = { exception: 0, out_for_delivery: 1, in_transit: 2, pending: 3, delivered: 4, expired: 5 }
+
+  const sortedGroups = useMemo(() => {
+    const all = [...packages]
+
+    if (sortBy === 'carrier') {
+      all.sort((a, b) => {
+        const ca = (a.carrier_name || a.carrier || 'zzz').toLowerCase()
+        const cb = (b.carrier_name || b.carrier || 'zzz').toLowerCase()
+        if (ca !== cb) return ca.localeCompare(cb)
+        return (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
+      })
+      const groups = []
+      let current = null
+      for (const pkg of all) {
+        const key = pkg.carrier_name || pkg.carrier || 'Unknown'
+        if (key !== current) {
+          current = key
+          groups.push({ title: key, packages: [] })
+        }
+        groups[groups.length - 1].packages.push(pkg)
+      }
+      return groups
+    }
+
+    if (sortBy === 'eta') {
+      all.sort((a, b) => {
+        if (a.eta && b.eta) return a.eta.localeCompare(b.eta)
+        if (a.eta) return -1
+        if (b.eta) return 1
+        return (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
+      })
+      return [{ title: null, packages: all }]
+    }
+
+    // Default: group by status
+    const issues = []
     const active = []
     const delivered = []
-    const issues = []
-    for (const pkg of packages) {
-      if (pkg.status === 'delivered') delivered.push(pkg)
-      else if (pkg.status === 'exception') issues.push(pkg)
+    for (const pkg of all) {
+      if (pkg.status === 'exception') issues.push(pkg)
+      else if (pkg.status === 'delivered') delivered.push(pkg)
       else active.push(pkg)
     }
-    // Sort active by ETA (soonest first), then by created_at
     active.sort((a, b) => {
       if (a.eta && b.eta) return a.eta.localeCompare(b.eta)
       if (a.eta) return -1
@@ -69,8 +116,12 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
     })
     delivered.sort((a, b) => new Date(b.delivered_at || b.updated_at) - new Date(a.delivered_at || a.updated_at))
     issues.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-    return { active, delivered, issues }
-  }, [packages])
+    const groups = []
+    if (issues.length > 0) groups.push({ title: '\u26A0\uFE0F Issues (' + issues.length + ')', packages: issues })
+    if (active.length > 0) groups.push({ title: '\u{1F69A} Active (' + active.length + ')', packages: active })
+    if (delivered.length > 0) groups.push({ title: '\u2705 Delivered (' + delivered.length + ')', packages: delivered })
+    return groups
+  }, [packages, sortBy])
 
   // Keep selected package in sync with latest data
   const selectedPkgData = selectedPkg ? packages.find(p => p.id === selectedPkg.id) || selectedPkg : null
@@ -80,9 +131,33 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
       <div className="settings-header">
         <button className="settings-back" onClick={onClose}>← Back</button>
         <div className="sheet-title" style={{ margin: 0 }}>Packages</div>
-        <button className="package-add-toggle" onClick={() => setShowAddForm(!showAddForm)}>
-          <Plus size={20} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div className="package-sort-wrapper" ref={sortRef}>
+            <button className="package-sort-btn" onClick={() => setShowSortDropdown(!showSortDropdown)}>
+              <ArrowUpDown size={16} />
+            </button>
+            {showSortDropdown && (
+              <div className="package-sort-dropdown">
+                {[
+                  { value: 'status', label: 'Status' },
+                  { value: 'eta', label: 'Delivery date' },
+                  { value: 'carrier', label: 'Carrier' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    className={`package-sort-option ${sortBy === opt.value ? 'active' : ''}`}
+                    onClick={() => { setSortBy(opt.value); setShowSortDropdown(false) }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button className="package-add-toggle" onClick={() => setShowAddForm(!showAddForm)}>
+            <Plus size={20} />
+          </button>
+        </div>
       </div>
 
       {/* API quota banner */}
@@ -146,10 +221,10 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
           </div>
         )}
 
-        {issues.length > 0 && (
-          <div className="package-section">
-            <h3 className="package-section-title">{'⚠️'} Issues ({issues.length})</h3>
-            {issues.map(pkg => (
+        {sortedGroups.map((group, i) => (
+          <div key={group.title || i} className="package-section">
+            {group.title && <h3 className="package-section-title">{group.title}</h3>}
+            {group.packages.map(pkg => (
               <PackageCard
                 key={pkg.id}
                 pkg={pkg}
@@ -160,39 +235,7 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
               />
             ))}
           </div>
-        )}
-
-        {active.length > 0 && (
-          <div className="package-section">
-            <h3 className="package-section-title">{'🚚'} Active ({active.length})</h3>
-            {active.map(pkg => (
-              <PackageCard
-                key={pkg.id}
-                pkg={pkg}
-                onRefresh={onRefresh}
-                onDelete={onDelete}
-                onSelect={setSelectedPkg}
-                apiAvailable={apiStatus.available}
-              />
-            ))}
-          </div>
-        )}
-
-        {delivered.length > 0 && (
-          <div className="package-section">
-            <h3 className="package-section-title">{'✅'} Delivered ({delivered.length})</h3>
-            {delivered.map(pkg => (
-              <PackageCard
-                key={pkg.id}
-                pkg={pkg}
-                onRefresh={onRefresh}
-                onDelete={onDelete}
-                onSelect={setSelectedPkg}
-                apiAvailable={apiStatus.available}
-              />
-            ))}
-          </div>
-        )}
+        ))}
       </div>
 
       {/* Detail modal */}

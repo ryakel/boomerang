@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- feat(packages): add sort options — by status, delivery date, or carrier [S]
+  - Sort dropdown in header (same pattern as task sort)
+  - Status (default): groups by Issues/Active/Delivered with ETA sub-sort
+  - Delivery date: flat list sorted by ETA, then status
+  - Carrier: grouped by carrier name, status sub-sort within each group
+  - Modified: `src/components/Packages.jsx`, `src/components/Packages.css`
+
 ### Notifications
 - fix(notifications): fix broken notification system — wrong status filter + stale settings closure [M]
   - All notification types except high-priority were filtering `status === 'open'` (a legacy status that no longer exists) instead of `not_started`/`doing`/`waiting` — making overdue, stale, nudge, size-based, and pile-up notifications completely dead
