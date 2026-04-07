@@ -356,12 +356,19 @@
 }
 
 .package-detail-sig-badge {
-  margin-left: auto;
   font-size: 12px;
   padding: 2px 8px;
   border-radius: 6px;
   background: #ef444422;
   color: #ef4444;
+}
+
+.package-detail-banner-eta {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .package-detail-header {

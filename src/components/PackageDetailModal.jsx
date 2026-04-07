@@ -19,6 +19,20 @@ function formatDateTime(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+function formatEtaShort(eta) {
+  if (!eta) return null
+  const etaDate = eta.includes('T') ? eta.split('T')[0] : eta
+  const d = new Date(etaDate + 'T00:00:00')
+  if (isNaN(d.getTime())) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = Math.floor((d - today) / 86400000)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Tomorrow'
+  if (diff < 0) return `${Math.abs(diff)}d overdue`
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 function formatEtaLong(eta) {
   if (!eta) return null
   const etaDate = eta.includes('T') ? eta.split('T')[0] : eta
@@ -72,6 +86,12 @@ export default function PackageDetailModal({ pkg, onClose, onRefresh, onDelete, 
           <span className="package-detail-banner-icon"><CarrierLogo carrier={pkg.carrier} size={28} /></span>
           <span className="package-detail-banner-status">{statusStyle.label}</span>
           {pkg.signature_required && <span className="package-detail-sig-badge">{'✍️'} Signature Required</span>}
+          {pkg.eta && pkg.status !== 'delivered' && (
+            <span className="package-detail-banner-eta">{formatEtaShort(pkg.eta)}</span>
+          )}
+          {pkg.status === 'delivered' && pkg.delivered_at && (
+            <span className="package-detail-banner-eta">{formatDateTime(pkg.delivered_at)}</span>
+          )}
         </div>
 
         {/* Header */}
