@@ -17,6 +17,7 @@
     "express": "^5.2.1",
     "lucide-react": "^1.7.0",
     "mobile-drag-drop": "^3.0.0-rc.0",
+    "nodemailer": "^8.0.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "sql.js": "^1.11.0",

@@ -9,6 +9,7 @@ import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bump
   getAnalytics, getData,
   upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial } from './db.js'
 import { seedDatabase } from './seed.js'
+import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
 
 // --- App version ---
 const appVersion = process.env.APP_VERSION || 'dev'
@@ -21,6 +22,7 @@ let envTrelloToken = process.env.TRELLO_SECRET
 let envGoogleClientId = process.env.GOOGLE_CLIENT_ID
 let envGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET
 let envTrackingApiKey = process.env.TRACKING_API_KEY
+const envSmtpHost = process.env.SMTP_HOST
 
 if (existsSync('.env')) {
   const envFile = readFileSync('.env', 'utf-8')
@@ -120,6 +122,7 @@ app.get('/api/keys/status', (req, res) => {
     trello: !!(envTrelloKey && envTrelloToken),
     gcal: !!(envGoogleClientId && envGoogleClientSecret),
     tracking: !!getTrackingApiKey(),
+    smtp: !!envSmtpHost,
   })
 })
 
@@ -181,6 +184,7 @@ app.put('/api/data', (req, res) => {
   delete body._clientId
   delete body._version
   const newVersion = setAllData(body)
+  if (body.settings) resetTransporter()
   broadcast(newVersion, clientId)
   res.json({ ok: true, version: newVersion })
 })
@@ -193,6 +197,7 @@ app.post('/api/data', (req, res) => {
   delete body._clientId
   delete body._version
   const newVersion = setAllData(body)
+  if (body.settings) resetTransporter()
   broadcast(newVersion, clientId)
   res.json({ ok: true, version: newVersion })
 })
@@ -1930,6 +1935,16 @@ app.post('/api/packages/detect-carrier', (req, res) => {
   res.json(result || { code: 'other', name: 'Unknown' })
 })
 
+// --- Email notification endpoints ---
+app.get('/api/email/status', (req, res) => {
+  res.json(getEmailStatus())
+})
+
+app.post('/api/email/test', async (req, res) => {
+  const result = await sendTestEmail()
+  res.json(result)
+})
+
 // --- Dev seed endpoint ---
 app.post('/api/dev/seed', async (req, res) => {
   try {
@@ -1971,6 +1986,10 @@ initDb(dbPath).then(async () => {
     console.log(`Trello: ${envTrelloKey && envTrelloToken ? 'from env' : 'user-provided via UI'}`)
     console.log(`Google Calendar: ${envGoogleClientId && envGoogleClientSecret ? 'from env' : 'user-provided via UI'}`)
     console.log(`17track: ${envTrackingApiKey ? 'from env' : 'user-provided via UI'}`)
+    console.log(`SMTP: ${envSmtpHost ? 'from env' : 'not configured'}`)
+
+    // Start email notification loop
+    startEmailNotifications()
 
     // Start package polling loop (every 5 minutes)
     setInterval(pollActivePackages, 5 * 60 * 1000)

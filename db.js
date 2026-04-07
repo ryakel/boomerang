@@ -8,7 +8,7 @@ let dbPath
 
 // --- Batched persistence ---
 let persistTimer = null
-const PERSIST_INTERVAL_MS = 3000
+const PERSIST_INTERVAL_MS = 1000
 
 function schedulePersist() {
   if (persistTimer) return
@@ -891,4 +891,39 @@ function syncPackagesFromArray(packagesArray) {
     db.run('ROLLBACK')
     throw err
   }
+}
+
+// ============================================================
+// Notification throttle & log (server-side email notifications)
+// ============================================================
+
+export function getNotifThrottle(key) {
+  const stmt = db.prepare('SELECT last_sent FROM notification_throttle WHERE key = ?')
+  stmt.bind([key])
+  if (stmt.step()) {
+    const row = stmt.getAsObject()
+    stmt.free()
+    return row.last_sent
+  }
+  stmt.free()
+  return null
+}
+
+export function setNotifThrottle(key, timestamp) {
+  db.run(
+    `INSERT INTO notification_throttle (key, last_sent) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET last_sent = excluded.last_sent`,
+    [key, timestamp]
+  )
+  schedulePersist()
+}
+
+export function logNotifEmail(id, type, taskId, title, body) {
+  db.run(
+    `INSERT INTO notification_log (id, type, task_id, title, body, channel, sent_at)
+     VALUES (?, ?, ?, ?, ?, 'email', ?)`,
+    [id, type, taskId, title, body, new Date().toISOString()]
+  )
+  db.run(`DELETE FROM notification_log WHERE id NOT IN (SELECT id FROM notification_log ORDER BY sent_at DESC LIMIT 500)`)
+  schedulePersist()
 }

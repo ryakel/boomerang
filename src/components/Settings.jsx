@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, emailStatus, testEmail } from '../api'
 
 const NOTIF_TYPE_LABELS = {
   high_priority: 'High Priority',
@@ -102,6 +102,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           .finally(() => setTrelloConnecting(false))
       }
     })
+    emailStatus().then(setEmailSmtpStatus)
   }, [])
 
   // Anthropic connection state
@@ -115,6 +116,11 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       setAnthropicStatus('error')
     }
   }
+
+  // Email notification state
+  const [emailSmtpStatus, setEmailSmtpStatus] = useState(null) // null | { configured, host, ... }
+  const [emailTestStatus, setEmailTestStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
+  const [emailTestError, setEmailTestError] = useState(null)
 
   // Tracking connection state
   const [trackingStatus, setTrackingStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
@@ -1693,6 +1699,139 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               <NotificationHistory />
             </div>
           )}
+
+          {/* Email Notifications */}
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <label className="notif-check">
+              <input
+                type="checkbox"
+                checked={!!settings.email_notifications_enabled}
+                onChange={e => update('email_notifications_enabled', e.target.checked)}
+              />
+              <span>Email notifications</span>
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, marginBottom: 8 }}>
+              Send notifications via email when the app isn't open. Requires SMTP configuration via environment variables.
+            </div>
+
+            {emailSmtpStatus && !emailSmtpStatus.configured && settings.email_notifications_enabled && (
+              <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 8 }}>
+                SMTP not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS environment variables.
+              </div>
+            )}
+
+            {settings.email_notifications_enabled && (
+              <div className="notif-options">
+                <div className="settings-label">Email address</div>
+                <input
+                  className="settings-input"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={settings.email_address || ''}
+                  onChange={e => update('email_address', e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
+                  Can also be set via NOTIFICATION_EMAIL env var.
+                </div>
+
+                {emailSmtpStatus?.configured && (
+                  <div style={{ fontSize: 12, color: '#52C97F', marginTop: 8 }}>
+                    SMTP connected ({emailSmtpStatus.host}:{emailSmtpStatus.port})
+                  </div>
+                )}
+
+                <div className="settings-label" style={{ marginTop: 16 }}>Email me about</div>
+
+                <div className="notif-type-row">
+                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                    <input type="checkbox" checked={settings.email_notif_highpri !== false} onChange={e => update('email_notif_highpri', e.target.checked)} />
+                    <span>High priority tasks</span>
+                  </label>
+                </div>
+
+                <div className="notif-type-row">
+                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                    <input type="checkbox" checked={settings.email_notif_overdue !== false} onChange={e => update('email_notif_overdue', e.target.checked)} />
+                    <span>Overdue tasks</span>
+                  </label>
+                </div>
+
+                <div className="notif-type-row">
+                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                    <input type="checkbox" checked={settings.email_notif_stale !== false} onChange={e => update('email_notif_stale', e.target.checked)} />
+                    <span>Stale tasks</span>
+                  </label>
+                </div>
+
+                <div className="notif-type-row">
+                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                    <input type="checkbox" checked={settings.email_notif_nudge !== false} onChange={e => update('email_notif_nudge', e.target.checked)} />
+                    <span>General nudges</span>
+                  </label>
+                </div>
+
+                <div className="notif-type-row">
+                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                    <input type="checkbox" checked={settings.email_notif_size !== false} onChange={e => update('email_notif_size', e.target.checked)} />
+                    <span>Size-based reminders</span>
+                  </label>
+                </div>
+
+                <div className="notif-type-row">
+                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                    <input type="checkbox" checked={settings.email_notif_pileup !== false} onChange={e => update('email_notif_pileup', e.target.checked)} />
+                    <span>Pile-up warnings</span>
+                  </label>
+                </div>
+
+                <div className="settings-label" style={{ marginTop: 16 }}>Package tracking</div>
+
+                <div className="notif-type-row">
+                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                    <input type="checkbox" checked={settings.email_notif_package_delivered !== false} onChange={e => update('email_notif_package_delivered', e.target.checked)} />
+                    <span>Delivered</span>
+                  </label>
+                </div>
+
+                <div className="notif-type-row">
+                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                    <input type="checkbox" checked={settings.email_notif_package_exception !== false} onChange={e => update('email_notif_package_exception', e.target.checked)} />
+                    <span>Exceptions</span>
+                  </label>
+                </div>
+
+                {/* Test email */}
+                <button
+                  className="ci-upload-btn"
+                  style={{ marginTop: 16 }}
+                  disabled={emailTestStatus === 'sending' || !emailSmtpStatus?.configured}
+                  onClick={async () => {
+                    setEmailTestStatus('sending')
+                    setEmailTestError(null)
+                    try {
+                      const result = await testEmail()
+                      if (result.success) {
+                        setEmailTestStatus('sent')
+                        setTimeout(() => setEmailTestStatus(null), 3000)
+                      } else {
+                        setEmailTestStatus('error')
+                        setEmailTestError(result.error || 'Send failed')
+                      }
+                    } catch {
+                      setEmailTestStatus('error')
+                      setEmailTestError('Send failed')
+                    }
+                  }}
+                >
+                  {emailTestStatus === 'sending' ? 'Sending...' : emailTestStatus === 'sent' ? 'Sent!' : 'Send test email'}
+                </button>
+                {emailTestStatus === 'error' && emailTestError && (
+                  <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{emailTestError}</div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -282,6 +282,40 @@ Track packages with auto carrier detection, adaptive server-side polling, and de
 - Test notification button available in settings
 - **Avoidance boost**: confrontation/errand tasks get nagged ~30-56% more frequently
 
+### Email Notifications
+Server-side email notification engine (`emailNotifications.js`) that mirrors client-side push notification logic.
+
+**Configuration (env vars only — credentials never in SQLite):**
+- `SMTP_HOST`, `SMTP_PORT` (default 587), `SMTP_USER`, `SMTP_PASS` — SMTP connection
+- `SMTP_FROM` — sender address (defaults to SMTP_USER)
+- `NOTIFICATION_EMAIL` — recipient (can also be set via UI `email_address` setting)
+
+**Graceful degradation:** If SMTP is not configured, the engine is a complete no-op. No errors, no broken UI, no log spam. The Settings UI shows a warning but doesn't prevent other features from working.
+
+**Server Endpoints:**
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/email/status` | SMTP configuration status |
+| `POST /api/email/test` | Send test email |
+
+**Architecture:**
+- 60-second `setInterval` loop in server process (same cadence as client-side)
+- Queries tasks from SQLite, reads settings from `app_data`
+- Throttle timestamps stored in `notification_throttle` table (server-side, not localStorage)
+- Notification log in `notification_log` table (500 entry cap)
+- Transporter auto-resets when settings change via API
+
+**Per-type toggles (settings):**
+- `email_notifications_enabled` — master toggle
+- `email_address` — recipient email
+- `email_notif_overdue`, `email_notif_stale`, `email_notif_nudge`, `email_notif_highpri`, `email_notif_size`, `email_notif_pileup`
+- `email_notif_package_delivered`, `email_notif_package_exception`
+
+**Known Limitations:**
+- No digest/batching mode yet (sends individual emails per notification type)
+- AI-generated nudge messages not yet wired for email (uses static messages)
+- No email notification history visible in UI (logged server-side only)
+
 ### Toast Messages (Completion/Reopen Feedback)
 - AI-generated contextual one-liners via `generateToastMessage()` in `src/api.js`
 - Context-aware: considers task title, days on list, energy type/level, reopen vs complete

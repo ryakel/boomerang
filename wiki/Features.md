@@ -261,6 +261,8 @@ Track packages from any carrier with automatic status updates, notifications, an
 
 ## Notifications
 
+### Browser Push Notifications
+
 Browser push notifications with configurable options:
 
 - **Frequency**: 15 minutes, 30 minutes, 1 hour, or 2 hours
@@ -271,6 +273,21 @@ Browser push notifications with configurable options:
   - Stale task percentage warning — notification when the percentage of stale tasks exceeds a configurable threshold
   - Size-based reminders — advance reminders based on task size: XL tasks 3 days before due, L tasks 2 days before, M tasks 1 day before
   - AI small-task nudge — suggests a specific XS or S task by name in the notification, encouraging you to knock out a quick win
+
+### Email Notifications
+
+Server-side email notifications that work even when the app isn't open. Requires SMTP configuration via environment variables.
+
+- **SMTP configuration** — `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` env vars
+- **Recipient** — set via Settings UI (`email_address`) or `NOTIFICATION_EMAIL` env var
+- **Gracefully tolerant** — if SMTP is not configured, the system is completely inert (no errors, no broken UI)
+- **Per-type toggles** — independently enable/disable email for each notification type:
+  - High priority tasks, overdue tasks, stale tasks, general nudges, size-based reminders, pile-up warnings
+  - Package tracking: delivered, exceptions
+- **Same notification logic** — uses identical frequencies, quiet hours, and avoidance boost as push notifications
+- **Dark-themed HTML emails** — styled to match the app aesthetic
+- **Test email** — send a test email from Settings to verify SMTP configuration
+- **Server-side throttling** — throttle timestamps stored in SQLite (not localStorage), persists across restarts
 
 ## Sorting
 

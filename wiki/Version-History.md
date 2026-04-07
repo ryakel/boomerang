@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- feat(notifications): add email notification system [L]
+  - Server-side notification engine mirrors client-side push logic (overdue, stale, nudge, high-priority, size, pileup)
+  - Nodemailer transport with SMTP env var configuration (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)
+  - Gracefully tolerant: no-op when SMTP not configured, no errors, no broken UI
+  - Per-type email toggles in Settings → Notifications (matches existing push notification UI pattern)
+  - Package tracking email notifications (delivered, exception)
+  - Dark-themed HTML email templates matching app aesthetic
+  - Database migration for server-side notification throttle and log tables
+  - Test email button and SMTP status indicator in settings
+  - Docker compose files updated with SMTP env vars
+  - DB persistence interval reduced from 3s to 1s for faster package tracking writes
+  - New files: `emailNotifications.js`, `migrations/010_create_email_notification_tables.sql`
+  - Modified: `server.js`, `db.js`, `src/store.js`, `src/api.js`, `Settings.jsx`, `docker-compose.yml`, `docker-compose.dev.yml`, `package.json`
 - fix(packages): open tracking links in browser instead of PWA [XS]
   - PWAs intercept `target="_blank"` links within app scope
   - Use explicit `window.open()` to force external browser tab

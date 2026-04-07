@@ -877,3 +877,20 @@ export async function getPackageApiStatus() {
   if (!res.ok) throw new Error(`package api status failed: ${res.status}`)
   return res.json()
 }
+
+// --- Email notifications ---
+
+export async function emailStatus() {
+  try {
+    const res = await fetch('/api/email/status')
+    return res.json()
+  } catch {
+    return { configured: false }
+  }
+}
+
+export async function testEmail() {
+  const res = await fetch('/api/email/test', { method: 'POST' })
+  if (!res.ok) throw new Error(`test email failed: ${res.status}`)
+  return res.json()
+}
