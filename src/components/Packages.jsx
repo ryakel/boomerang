@@ -148,7 +148,7 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
   const selectedPkgData = selectedPkg ? packages.find(p => p.id === selectedPkg.id) || selectedPkg : null
 
   return (
-    <div className="settings-overlay">
+    <div className="settings-overlay" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className="settings-header">
         <button className="settings-back" onClick={onClose}>← Back</button>
         <div className="sheet-title" style={{ margin: 0 }}>Packages</div>
@@ -247,7 +247,7 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
       )}
 
       {/* Package list */}
-      <div className="package-list" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div className="package-list">
         {packages.length === 0 && !showAddForm && (
           <div className="empty-state">
             No packages being tracked.<br />
