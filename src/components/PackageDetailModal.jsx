@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, RefreshCw, Copy, Trash2, ExternalLink, Check, Edit3 } from 'lucide-react'
 import { getTrackingUrl } from '../utils/carrierDetect'
+import CarrierLogo from './CarrierLogo'
 
 const STATUS_COLORS = {
   pending: { bg: 'var(--bg-secondary)', text: 'var(--text-dim)', label: 'Pending' },
@@ -9,11 +10,6 @@ const STATUS_COLORS = {
   delivered: { bg: '#16a34a33', text: '#22c55e', label: 'Delivered' },
   exception: { bg: '#dc262633', text: '#ef4444', label: 'Exception' },
   expired: { bg: 'var(--bg-secondary)', text: 'var(--text-dim)', label: 'Expired' },
-}
-
-const CARRIER_ICONS = {
-  usps: '\u{1F4EE}', ups: '\u{1F4E6}', fedex: '\u2708\uFE0F', amazon: '\u{1F4E6}',
-  dhl: '\u{1F7E1}', ontrac: '\u{1F69A}', lasership: '\u26A1', other: '\u{1F4E6}',
 }
 
 function formatDateTime(iso) {
@@ -43,7 +39,6 @@ export default function PackageDetailModal({ pkg, onClose, onRefresh, onDelete, 
   const [editLabel, setEditLabel] = useState(pkg.label || '')
 
   const statusStyle = STATUS_COLORS[pkg.status] || STATUS_COLORS.pending
-  const carrierIcon = CARRIER_ICONS[pkg.carrier] || CARRIER_ICONS.other
   const trackUrl = getTrackingUrl(pkg.carrier, pkg.tracking_number)
 
   const handleRefresh = async () => {
@@ -72,7 +67,7 @@ export default function PackageDetailModal({ pkg, onClose, onRefresh, onDelete, 
 
         {/* Status banner */}
         <div className="package-detail-banner" style={{ background: statusStyle.bg, color: statusStyle.text }}>
-          <span className="package-detail-banner-icon">{carrierIcon}</span>
+          <span className="package-detail-banner-icon"><CarrierLogo carrier={pkg.carrier} size={28} /></span>
           <span className="package-detail-banner-status">{statusStyle.label}</span>
           {pkg.signature_required && <span className="package-detail-sig-badge">{'✍️'} Signature Required</span>}
         </div>
@@ -103,7 +98,7 @@ export default function PackageDetailModal({ pkg, onClose, onRefresh, onDelete, 
           </div>
 
           <div className="package-detail-carrier">
-            {carrierIcon} {pkg.carrier_name || pkg.carrier || 'Unknown carrier'}
+            <CarrierLogo carrier={pkg.carrier} size={18} /> {pkg.carrier_name || pkg.carrier || 'Unknown carrier'}
           </div>
         </div>
 

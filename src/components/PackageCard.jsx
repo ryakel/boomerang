@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { RefreshCw, Trash2, ExternalLink } from 'lucide-react'
 import { getTrackingUrl } from '../utils/carrierDetect'
+import CarrierLogo from './CarrierLogo'
 
 const STATUS_COLORS = {
   pending: { bg: 'var(--bg-secondary)', text: 'var(--text-dim)', label: 'Pending' },
@@ -9,17 +10,6 @@ const STATUS_COLORS = {
   delivered: { bg: '#16a34a22', text: '#22c55e', label: 'Delivered' },
   exception: { bg: '#dc262622', text: '#ef4444', label: 'Exception' },
   expired: { bg: 'var(--bg-secondary)', text: 'var(--text-dim)', label: 'Expired' },
-}
-
-const CARRIER_ICONS = {
-  usps: '\u{1F4EE}',
-  ups: '\u{1F4E6}',
-  fedex: '\u2708\uFE0F',
-  amazon: '\u{1F4E6}',
-  dhl: '\u{1F7E1}',
-  ontrac: '\u{1F69A}',
-  lasership: '\u26A1',
-  other: '\u{1F4E6}',
 }
 
 function timeAgo(iso) {
@@ -59,7 +49,6 @@ export default function PackageCard({ pkg, onRefresh, onDelete, onSelect, apiAva
   const touchStart = useRef(null)
 
   const statusStyle = STATUS_COLORS[pkg.status] || STATUS_COLORS.pending
-  const carrierIcon = CARRIER_ICONS[pkg.carrier] || CARRIER_ICONS.other
   const trackUrl = getTrackingUrl(pkg.carrier, pkg.tracking_number)
 
   const handleRefresh = async (e) => {
@@ -99,7 +88,7 @@ export default function PackageCard({ pkg, onRefresh, onDelete, onSelect, apiAva
         onTouchEnd={onTouchEnd}
       >
         <div className="package-card-top">
-          <span className="package-carrier-icon">{carrierIcon}</span>
+          <span className="package-carrier-icon"><CarrierLogo carrier={pkg.carrier} size={24} /></span>
           <div className="package-card-info">
             <div className="package-card-label">{pkg.label || pkg.tracking_number}</div>
             {pkg.label && <div className="package-card-tracking">{pkg.tracking_number}</div>}

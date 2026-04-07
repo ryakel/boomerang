@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- style(packages): replace emoji icons with real carrier logo SVGs [S]
+  - New `CarrierLogo` component with recognizable SVG logos for UPS (brown shield), FedEx (purple/orange), USPS (blue eagle), DHL (yellow/red), Amazon (dark with smile arrow), OnTrac, LaserShip
+  - Used in PackageCard, PackageDetailModal, and add form carrier detection
+  - New file: `src/components/CarrierLogo.jsx`
+  - Modified: `src/components/PackageCard.jsx`, `src/components/PackageDetailModal.jsx`, `src/components/Packages.jsx`
+- style(packages): match Settings integration layout to other integrations [XS]
+  - Package Tracking now uses the same collapsible row pattern as Anthropic/Notion/Trello/GCal
+  - Expandable via `expandedIntegration` state, status dot, credential toggle, env var detection
+  - Modified: `src/components/Settings.jsx`
 - feat(packages): add duplicate tracking number detection [XS]
   - Client-side: live check as you type, shows warning with existing label, disables Add button
   - Server-side: 409 response if tracking number already exists

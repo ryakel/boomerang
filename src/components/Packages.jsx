@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Plus, AlertTriangle, ArrowUpDown } from 'lucide-react'
+import CarrierLogo from './CarrierLogo'
 import PackageCard from './PackageCard'
 import PackageDetailModal from './PackageDetailModal'
 import { detectCarrier } from '../utils/carrierDetect'
@@ -206,7 +207,7 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
           <div className="package-add-row">
             {detectedCarrier && !duplicateMatch && (
               <span className="package-detected-carrier">
-                {detectedCarrier.icon} {detectedCarrier.name}
+                <CarrierLogo carrier={detectedCarrier.code} size={18} /> {detectedCarrier.name}
               </span>
             )}
             {!detectedCarrier && !duplicateMatch && trackingInput.trim().length >= 8 && (
