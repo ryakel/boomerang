@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { fetchPackages, createPackage, updatePackage, deletePackageApi, refreshPackage, refreshAllPackages } from '../api'
 
 export function usePackages() {
   const [packages, setPackages] = useState([])
   const [loading, setLoading] = useState(true)
+  const refreshingRef = useRef(false)
 
   const loadPackages = useCallback(async () => {
     try {
@@ -16,8 +17,18 @@ export function usePackages() {
     }
   }, [])
 
+  // Load from DB immediately, then silently refresh from 17track in background
   useEffect(() => {
-    loadPackages()
+    loadPackages().then(() => {
+      // Background refresh — don't await, don't block UI
+      if (!refreshingRef.current) {
+        refreshingRef.current = true
+        refreshAllPackages()
+          .then(() => loadPackages())
+          .catch(() => {})
+          .finally(() => { refreshingRef.current = false })
+      }
+    })
   }, [loadPackages])
 
   const addPackage = useCallback(async (trackingNumber, label, carrier) => {
@@ -51,7 +62,7 @@ export function usePackages() {
 
   const refreshAll = useCallback(async () => {
     const result = await refreshAllPackages()
-    await loadPackages() // reload after batch refresh
+    await loadPackages()
     return result
   }, [loadPackages])
 
