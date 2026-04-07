@@ -1584,6 +1584,7 @@ async function pollActivePackages() {
           const cleanupDate = new Date(now.getTime() + retentionDays * 86400000)
           updates.auto_cleanup_at = cleanupDate.toISOString()
           console.log(`[Packages] ${pkg.label || pkg.tracking_number} delivered`)
+          sendPackageEmail(pkg, 'delivered')
 
           if (pkg.signature_task_id) {
             const task = getTask(pkg.signature_task_id)
@@ -1610,6 +1611,17 @@ async function pollActivePackages() {
             updates.signature_task_id = taskId
             console.log(`[Packages] Created signature task for ${pkg.label || pkg.tracking_number}`)
           }
+        }
+
+        // Email notifications for status changes
+        if (newStatus === 'exception' && pkg.status !== 'exception') {
+          sendPackageEmail(pkg, 'exception')
+        }
+        if (newStatus === 'out_for_delivery' && pkg.status !== 'out_for_delivery') {
+          sendPackageEmail(pkg, 'out_for_delivery')
+        }
+        if (sigRequired && !pkg.signature_required) {
+          sendPackageEmail(pkg, 'signature_required')
         }
 
         updatePackagePartial(pkg.id, updates)
