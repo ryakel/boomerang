@@ -311,7 +311,14 @@ function App() {
             <span className="wordmark">BOOMERANG</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button className="header-icon-btn analytics-color" onClick={() => setShowAnalytics(true)}><BarChart3 size={20} /></button>
+            <button className="header-icon-btn" onClick={() => setShowAnalytics(true)}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3v18h18" stroke="var(--text-dim)" />
+                <path d="M7 16v-3" stroke="#60A5FA" />
+                <path d="M12 16v-7" stroke="#F59E0B" />
+                <path d="M17 16v-11" stroke="#22C55E" />
+              </svg>
+            </button>
             <button className="header-icon-btn packages-color" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
             <button className="header-icon-btn settings-color" onClick={() => setShowSettings(true)}><SettingsIcon size={20} /></button>
           </div>
