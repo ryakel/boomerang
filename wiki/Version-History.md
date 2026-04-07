@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): aggressive polling for newly added packages with no data [XS]
+  - Packages stuck at "Not found yet" (pending, no events) now poll every 5min instead of 30min
+  - Once 17track returns real tracking data, normal intervals resume
+  - Modified: `server.js`
 - fix(packages): show cooldown timer on refresh button [S]
   - 5-minute cooldown after refresh with visible `M:SS` countdown next to icon
   - Cooldown persists in localStorage across page reloads

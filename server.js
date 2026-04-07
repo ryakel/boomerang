@@ -1296,6 +1296,10 @@ function calcPollInterval(pkg) {
   if (pkg.status === 'delivered' || pkg.status === 'expired') return null
   if (pkg.status === 'out_for_delivery') return 15
   if (pkg.status === 'exception') return 60
+
+  // Newly added packages with no real data yet — poll aggressively
+  if (pkg.status === 'pending' && (!pkg.events || pkg.events.length === 0 || (typeof pkg.events === 'string' && pkg.events === '[]'))) return 5
+
   if (pkg.status === 'pending') return 30
 
   // in_transit — check ETA proximity
