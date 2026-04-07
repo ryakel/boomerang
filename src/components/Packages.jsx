@@ -8,7 +8,7 @@ import { getPackageApiStatus } from '../api'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import './Packages.css'
 
-export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onRefreshAll, onClose, onReload }) {
+export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onRefreshAll, onClose }) {
   const [trackingInput, setTrackingInput] = useState('')
   const [labelInput, setLabelInput] = useState('')
   const [detectedCarrier, setDetectedCarrier] = useState(null)

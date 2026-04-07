@@ -645,7 +645,6 @@ function App() {
           onDelete={removePackage}
           onRefresh={refreshPackage}
           onRefreshAll={refreshAllPackages}
-          onReload={loadPackages}
           onClose={() => setShowPackages(false)}
         />
       )}
