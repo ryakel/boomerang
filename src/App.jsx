@@ -645,7 +645,6 @@ function App() {
           onDelete={removePackage}
           onRefresh={refreshPackage}
           onClose={() => setShowPackages(false)}
-          isDesktop={isDesktop}
         />
       )}
 

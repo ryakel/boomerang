@@ -6,7 +6,7 @@ import { detectCarrier } from '../utils/carrierDetect'
 import { getPackageApiStatus } from '../api'
 import './Packages.css'
 
-export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onClose, isDesktop }) {
+export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onClose }) {
   const [trackingInput, setTrackingInput] = useState('')
   const [labelInput, setLabelInput] = useState('')
   const [detectedCarrier, setDetectedCarrier] = useState(null)
