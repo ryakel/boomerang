@@ -21,8 +21,8 @@ function formatDateTime(iso) {
 
 function formatEtaLong(eta) {
   if (!eta) return null
-  const dateStr = eta.includes('T') ? eta.split('T')[0] : eta
-  const d = new Date(dateStr + 'T00:00:00')
+  const etaDate = eta.includes('T') ? eta.split('T')[0] : eta
+  const d = new Date(etaDate + 'T00:00:00')
   if (isNaN(d.getTime())) return null
   const today = new Date()
   today.setHours(0, 0, 0, 0)
