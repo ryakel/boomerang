@@ -1779,9 +1779,8 @@ app.post('/api/packages/refresh-all', async (req, res) => {
   const packages = getAllPackages('active')
   if (packages.length === 0) return res.json({ updated: 0 })
 
-  // Register any unregistered packages first (with carrier codes)
-  const unpolled = packages.filter(p => !p.last_polled)
-  if (unpolled.length > 0) await register17track(unpolled, apiKey)
+  // Register all packages (idempotent — also triggers changecarrier for mismatched carriers)
+  await register17track(packages, apiKey)
 
   // Batch all active tracking numbers (up to 40 per call)
   const batches = []
