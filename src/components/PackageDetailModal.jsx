@@ -57,9 +57,17 @@ export default function PackageDetailModal({ pkg, onClose, onRefresh, onDelete, 
   const statusStyle = STATUS_COLORS[pkg.status] || STATUS_COLORS.pending
   const trackUrl = getTrackingUrl(pkg.carrier, pkg.tracking_number)
 
+  const [refreshResult, setRefreshResult] = useState(null)
   const handleRefresh = async () => {
     setRefreshing(true)
-    try { await onRefresh(pkg.id) } finally { setRefreshing(false) }
+    setRefreshResult(null)
+    try {
+      const result = await onRefresh(pkg.id)
+      setRefreshResult(result?.cached ? 'cached' : 'done')
+      setTimeout(() => setRefreshResult(null), 2000)
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const handleCopy = () => {
@@ -161,10 +169,11 @@ export default function PackageDetailModal({ pkg, onClose, onRefresh, onDelete, 
           <button
             className="package-detail-action-btn"
             onClick={handleRefresh}
-            disabled={refreshing || !apiAvailable}
+            disabled={refreshing || refreshResult === 'cached' || !apiAvailable}
           >
-            <RefreshCw size={16} className={refreshing ? 'spinning' : ''} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            {refreshResult === 'done' ? <><Check size={16} style={{ color: '#52C97F' }} /> Updated</> :
+             refreshResult === 'cached' ? <><RefreshCw size={16} /> Up to date</> :
+             <><RefreshCw size={16} className={refreshing ? 'spinning' : ''} /> {refreshing ? 'Refreshing...' : 'Refresh'}</>}
           </button>
 
           {trackUrl && (

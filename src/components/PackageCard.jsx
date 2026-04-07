@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { RefreshCw, Trash2, ExternalLink } from 'lucide-react'
+import { RefreshCw, Trash2, ExternalLink, Check } from 'lucide-react'
 import { getTrackingUrl } from '../utils/carrierDetect'
 import CarrierLogo from './CarrierLogo'
 
@@ -77,11 +77,15 @@ export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onS
 
   const closeSwipe = () => { setSwipeOpen(false); setSwipeX(0) }
 
+  const [refreshResult, setRefreshResult] = useState(null) // null | 'done' | 'cached'
   const handleRefresh = async (e) => {
     e.stopPropagation()
     setRefreshing(true)
+    setRefreshResult(null)
     try {
-      await onRefresh(pkg.id)
+      const result = await onRefresh(pkg.id)
+      setRefreshResult(result?.cached ? 'cached' : 'done')
+      setTimeout(() => setRefreshResult(null), 2000)
     } finally {
       setRefreshing(false)
     }
@@ -212,10 +216,12 @@ export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onS
         <button
           className="package-action-btn refresh"
           onClick={handleRefresh}
-          disabled={refreshing || !apiAvailable}
-          title={!apiAvailable ? 'API limit reached' : 'Refresh'}
+          disabled={refreshing || refreshResult === 'cached' || !apiAvailable}
+          title={refreshResult === 'cached' ? 'Already up to date' : !apiAvailable ? 'API limit reached' : 'Refresh'}
         >
-          <RefreshCw size={18} className={refreshing ? 'spinning' : ''} />
+          {refreshResult === 'done' ? <Check size={18} style={{ color: '#52C97F' }} /> :
+           refreshResult === 'cached' ? <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Up to date</span> :
+           <RefreshCw size={18} className={refreshing ? 'spinning' : ''} />}
         </button>
         <button className="package-action-btn delete" onClick={handleDelete}>
           <Trash2 size={18} />

@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): show refresh result feedback on individual package cards [S]
+  - Card refresh button shows green checkmark when updated, "Up to date" when throttled
+  - Detail modal refresh button shows same feedback
+  - No more silent flash-and-grey with no visible change
+  - Modified: `PackageCard.jsx`, `PackageDetailModal.jsx`
 - fix(packages): prevent status downgrade from stale 17track responses [M]
   - 17track intermittently returns `NotFound` for packages that already have valid tracking data
   - Added status rank guard in all three poll paths (polling loop, refresh-all, single refresh)
