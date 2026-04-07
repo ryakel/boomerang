@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 80">
+  <rect width="180" height="80" rx="4" fill="#333366"/>
+  <path d="M10 40c10-20 35-30 65-30 20 0 38 5 55 15l-8 6c-14-8-28-12-45-12-25 0-48 10-57 25l-10-4z" fill="#fff"/>
+  <path d="M128 28l-6 5c-14-8-28-13-45-13-20 0-38 7-50 18l15 0c10-7 22-11 36-11 14 0 26 4 38 10l12-9z" fill="#fff" opacity="0.5"/>
+  <text x="90" y="68" text-anchor="middle" fill="#fff" font-size="20" font-weight="900" font-family="'Arial Black',Arial,sans-serif" letter-spacing="4">USPS</text>
+</svg>

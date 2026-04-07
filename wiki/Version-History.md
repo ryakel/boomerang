@@ -15,10 +15,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Settings integration section now has Test Connection button, status dot, retry on error
   - Auto-tests on mount when env var is configured
   - Modified: `src/api.js`, `server.js`, `src/components/Settings.jsx`
-- style(packages): replace emoji icons with real carrier logo SVGs [S]
-  - New `CarrierLogo` component with recognizable SVG logos for UPS (brown shield), FedEx (purple/orange), USPS (blue eagle), DHL (yellow/red), Amazon (dark with smile arrow), OnTrac, LaserShip
+- style(packages): official carrier logos served as static SVG files [S]
+  - Logo SVGs in `public/carriers/` for UPS, FedEx, USPS, DHL, Amazon, OnTrac, LaserShip
+  - `CarrierLogo` component loads via `<img>` tags (drop-in replaceable files)
   - Used in PackageCard, PackageDetailModal, and add form carrier detection
-  - New file: `src/components/CarrierLogo.jsx`
+  - New files: `src/components/CarrierLogo.jsx`, `public/carriers/*.svg`
   - Modified: `src/components/PackageCard.jsx`, `src/components/PackageDetailModal.jsx`, `src/components/Packages.jsx`
 - style(packages): match Settings integration layout to other integrations [XS]
   - Package Tracking now uses the same collapsible row pattern as Anthropic/Notion/Trello/GCal
