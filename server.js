@@ -1660,7 +1660,7 @@ app.get('/api/packages/:id', (req, res) => {
   res.json(pkg)
 })
 
-app.post('/api/packages', (req, res) => {
+app.post('/api/packages', async (req, res) => {
   const { tracking_number, label, carrier } = req.body
   if (!tracking_number) return res.status(400).json({ error: 'tracking_number required' })
 
@@ -1695,16 +1695,48 @@ app.post('/api/packages', (req, res) => {
 
   upsertPackage(pkg)
 
-  // Register with 17track so tracking data becomes available
+  // Register + immediate poll so the card shows real data right away
   const apiKey = getTrackingApiKey(req)
   if (apiKey) {
-    register17track([pkg], apiKey).catch(() => {})
+    try {
+      await register17track([pkg], apiKey)
+      // Brief delay for 17track to process registration
+      await new Promise(r => setTimeout(r, 1500))
+      const results = await poll17track([pkg.tracking_number], apiKey)
+      if (results.length > 0) {
+        const trackInfo = results[0].track_info || {}
+        const events = (trackInfo.tracking?.providers?.[0]?.events || []).map(e => ({
+          timestamp: e.time_iso || e.time_utc || '',
+          location: e.location || '',
+          description: e.description || '',
+          status: e.stage || '',
+        }))
+        const { status: newStatus, detail } = map17trackStatus(trackInfo)
+        const updates = {
+          status: newStatus,
+          status_detail: detail,
+          events: events.length > 0 ? events : [],
+          last_polled: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          poll_interval_minutes: calcPollInterval({ ...pkg, status: newStatus }),
+          last_location: events[0]?.location || '',
+          signature_required: checkSignatureRequired(events),
+        }
+        if (trackInfo.time_metrics) {
+          updates.eta = trackInfo.time_metrics.estimated_delivery_date?.from || trackInfo.time_metrics.estimated_delivery_date?.to || trackInfo.time_metrics.scheduled_delivery_date || null
+        }
+        updatePackagePartial(pkg.id, updates)
+        Object.assign(pkg, updates)
+      }
+    } catch (err) {
+      console.error('[Packages] Initial poll failed:', err.message)
+    }
   }
 
   const newVersion = bumpVersion()
   const clientId = req.body._clientId || req.headers['x-client-id']
   broadcast(newVersion, clientId)
-  res.json(pkg)
+  res.json(getPackage(pkg.id) || pkg)
 })
 
 app.patch('/api/packages/:id', (req, res) => {
