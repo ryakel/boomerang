@@ -18,14 +18,10 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
   const [showAddForm, setShowAddForm] = useState(false)
   const [sortBy, setSortBy] = useState('status') // status | eta | carrier
   const [showSortDropdown, setShowSortDropdown] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
   const sortRef = useRef(null)
 
-  const { onTouchStart, onTouchEnd } = usePullToRefresh(async () => {
-    if (onReload) {
-      setRefreshing(true)
-      try { await onReload() } finally { setTimeout(() => setRefreshing(false), 500) }
-    }
+  const { onTouchStart, onTouchEnd } = usePullToRefresh(() => {
+    if (onReload) onReload()
   })
 
   // Close sort dropdown on outside click

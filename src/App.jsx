@@ -85,7 +85,7 @@ function App() {
 
   const labels = loadLabels()
   useNotifications(tasks)
-  const { packages, addPackage, editPackage, removePackage, refresh: refreshPackage, hydratePackages } = usePackages()
+  const { packages, addPackage, editPackage, removePackage, refresh: refreshPackage, loadPackages, hydratePackages } = usePackages()
   usePackageNotifications(packages)
   const { syncTrello, pushStatusToTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
   const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
