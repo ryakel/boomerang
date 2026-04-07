@@ -1334,7 +1334,7 @@ function map17trackStatus(trackInfo) {
       return { status: 'pending', detail: eventDesc || 'Not found yet' }
     case 'Expired':
       return { status: 'expired', detail: eventDesc || 'Tracking expired' }
-    default:
+    default: {
       // Fallback: check description text
       const desc = (latestStatus + ' ' + eventDesc).toLowerCase()
       if (desc.includes('delivered')) return { status: 'delivered', detail: eventDesc }
@@ -1342,6 +1342,7 @@ function map17trackStatus(trackInfo) {
       if (desc.includes('exception') || desc.includes('undelivered')) return { status: 'exception', detail: eventDesc }
       if (desc.includes('transit') || desc.includes('accepted') || desc.includes('pickup')) return { status: 'in_transit', detail: eventDesc }
       return { status: 'pending', detail: eventDesc }
+    }
   }
 }
 
