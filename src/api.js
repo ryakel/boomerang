@@ -418,16 +418,17 @@ export async function notionStatus() {
 export async function getKeyStatus() {
   try {
     const res = await fetch('/api/keys/status')
-    if (!res.ok) return { anthropic: false, notion: false, trello: false }
+    if (!res.ok) return { anthropic: false, notion: false, trello: false, tracking: false }
     const data = await res.json()
     return {
       anthropic: !!data.anthropic,
       notion: !!data.notion,
       trello: !!data.trello,
       gcal: !!data.gcal,
+      tracking: !!data.tracking,
     }
   } catch {
-    return { anthropic: false, notion: false, trello: false }
+    return { anthropic: false, notion: false, trello: false, tracking: false }
   }
 }
 

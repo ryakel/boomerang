@@ -60,7 +60,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
   const [activeTab, setActiveTab] = useState('General')
   const [confirmDialog, setConfirmDialog] = useState(null) // { title, message, onConfirm }
   const [settings, setSettings] = useState(loadSettings)
-  const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false })
+  const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
 
   // Load env key status, then auto-test env-provided integrations
   useEffect(() => {
