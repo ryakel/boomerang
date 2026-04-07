@@ -22,6 +22,7 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - **Notion integration** — pull sync from parent page, ongoing bidirectional sync for linked tasks
 - **Trello integration** — push tasks with native checklists and attachments, ongoing bidirectional sync
 - **Google Calendar integration** — bidirectional sync with AI-inferred event times, OAuth 2.0
+- **Package tracking** — track packages with auto carrier detection, status-colored cards, delivery/exception notifications, signature-required auto-task creation
 - **Offline support** — mutation queue with auto-replay on reconnect, sync status indicator
 - **Real-time sync** — cross-client sync via Server-Sent Events (SSE)
 - **Desktop UI** — kanban board with drag-and-drop, responsive modals, hover states
@@ -54,6 +55,7 @@ docker run -d -p 3001:3001 \
   -e NOTION_INTEGRATION_TOKEN=ntn_... \
   -e TRELLO_API_KEY=your_api_key \
   -e TRELLO_SECRET=your_trello_token \
+  -e TRACKING_API_KEY=your_17track_key \
   ghcr.io/ryakel/boomerang:latest
 ```
 
@@ -62,7 +64,7 @@ docker run -d -p 3001:3001 \
 - **Frontend:** React 19, Vite, PWA (vite-plugin-pwa)
 - **Backend:** Express, SQLite (sql.js), SSE
 - **AI:** Anthropic Claude API
-- **Integrations:** Notion API, Trello API
+- **Integrations:** Notion API, Trello API, 17track API
 - **Deployment:** Docker (multi-arch: amd64/arm64), GitHub Actions CI/CD, GHCR
 
 See the [wiki](https://github.com/ryakel/boomerang/wiki) for full documentation.

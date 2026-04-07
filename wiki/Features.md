@@ -237,6 +237,22 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 - **Calendar picker** — choose which Google Calendar to sync with from your calendar list.
 - **OAuth 2.0** — secure server-side token management with automatic refresh. Tokens are stored in the database, never exposed to the browser.
 
+## Package Tracking (requires 17track API key)
+
+Track packages from any carrier with automatic status updates, notifications, and delivery detection. Accessed via the Package icon in the header bar.
+
+- **Add tracking** — enter a tracking number and optional label. Carrier is auto-detected from the number format (USPS, UPS, FedEx, DHL, Amazon, OnTrac, LaserShip).
+- **Status-colored cards** — pending (gray), in transit (blue), out for delivery (teal), delivered (green), exception (red), expired (dim gray).
+- **Carrier links** — every card has a "Track on [Carrier]" link that opens the carrier's website with the tracking number pre-filled. Works even without an API key.
+- **Detail modal** — tap a card to see the full tracking timeline with events, locations, and timestamps.
+- **Adaptive polling** — server-side polling adjusts frequency based on status: 15 min for out-for-delivery, 30 min for pending, 1-4 hours for in-transit, hourly for exceptions. Batched requests (up to 40 per API call) to stay within free tier limits.
+- **Manual refresh** — per-package refresh button with 5-minute throttle to prevent API waste.
+- **Signature required** — detected from tracking events. Shows a prominent badge on the card and auto-creates a high-priority errand task for full nagging escalation. Task auto-completes when the package is delivered.
+- **Notifications** — delivery, exception, out-for-delivery, and signature-required notifications. Respects quiet hours.
+- **Auto-cleanup** — delivered packages are automatically removed after a configurable retention period (default: 3 days).
+- **API quota handling** — when the daily API limit is reached, a yellow banner appears with the reset time. Carrier links remain functional as a manual fallback.
+- **Graceful degradation** — without an API key, the feature works as a manual tracking notebook with carrier detection and carrier website links.
+
 ## Notifications
 
 Browser push notifications with configurable options:

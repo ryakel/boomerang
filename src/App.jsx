@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { BarChart3, Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff } from 'lucide-react'
+import { BarChart3, Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package } from 'lucide-react'
 import { polyfill } from 'mobile-drag-drop'
 import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scroll-behaviour'
 import 'mobile-drag-drop/default.css'
@@ -35,6 +35,9 @@ import { useNotionSync } from './hooks/useNotionSync'
 import { useExternalSync } from './hooks/useExternalSync'
 import { useGCalSync } from './hooks/useGCalSync'
 import { useToastPrefetch } from './hooks/useToastPrefetch'
+import { usePackages } from './hooks/usePackages'
+import { usePackageNotifications } from './hooks/usePackageNotifications'
+import Packages from './components/Packages'
 
 polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 
@@ -70,6 +73,7 @@ function App() {
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
+  const [showPackages, setShowPackages] = useState(false)
   const [relatedTarget, setRelatedTarget] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -81,6 +85,8 @@ function App() {
 
   const labels = loadLabels()
   useNotifications(tasks)
+  const { packages, addPackage, editPackage, removePackage, refresh: refreshPackage, hydratePackages } = usePackages()
+  usePackageNotifications(packages)
   const { syncTrello, pushStatusToTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
   const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
   const { syncing: gcalSyncing, syncGCal } = useGCalSync(tasks, setTasks)
@@ -90,10 +96,11 @@ function App() {
   const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
     if (data.routines) hydrateRoutines(data.routines)
+    if (data.packages) hydratePackages(data.packages)
     // Also persist settings/labels so localStorage stays in sync with server
     if (data.settings) saveSettings(data.settings)
     if (data.labels) saveLabels(data.labels)
-  }, [hydrateTasks, hydrateRoutines])
+  }, [hydrateTasks, hydrateRoutines, hydratePackages])
 
   const [updateVersion, setUpdateVersion] = useState(null)
   const { flush: flushSync, checkVersion, syncStatus, queueLength } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
@@ -118,10 +125,10 @@ function App() {
 
   // Check app version on every view/modal navigation
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || editTarget || showAdd || showWhatNow) {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || editTarget || showAdd || showWhatNow) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, editTarget, showAdd, showWhatNow, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, editTarget, showAdd, showWhatNow, checkVersion])
 
   // Spawn routine tasks on load and every minute
   useEffect(() => {
@@ -305,6 +312,7 @@ function App() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button className="analytics-icon" onClick={() => setShowAnalytics(true)}><BarChart3 size={20} /></button>
+            <button className="analytics-icon" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
             <button className="settings-btn" onClick={() => setShowSettings(true)}><SettingsIcon size={20} /></button>
           </div>
         </div>
@@ -627,6 +635,18 @@ function App() {
 
       {showAnalytics && (
         <Analytics onClose={() => setShowAnalytics(false)} isDesktop={isDesktop} />
+      )}
+
+      {showPackages && (
+        <Packages
+          packages={packages}
+          onAdd={addPackage}
+          onEdit={editPackage}
+          onDelete={removePackage}
+          onRefresh={refreshPackage}
+          onClose={() => setShowPackages(false)}
+          isDesktop={isDesktop}
+        />
       )}
 
       {showDone && (

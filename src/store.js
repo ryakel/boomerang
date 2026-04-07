@@ -70,6 +70,12 @@ export const DEFAULT_SETTINGS = {
   gcal_pull_enabled: false,
   gcal_event_buffer: false,
   gcal_last_sync: null,
+  tracking_api_key: '',
+  package_retention_days: 3,
+  package_notify_delivered: true,
+  package_notify_exception: true,
+  package_notify_signature: true,
+  package_auto_task_signature: true,
   notion_page_template: `## Overview\n> Context and background for this task\n\n### Details\n- **Last Updated:** {last_updated}\n- **Frequency:** {frequency}\n- **Last Performed:** {last_performed}\n\n## Notes\n- Key details from task notes\n\n## Action Items\n- [ ] First step\n- [ ] Second step\n- [ ] Third step\n\n---\n\n## Reference\n- Related links or resources\n\n## Tags\n- {tags}`,
 }
 

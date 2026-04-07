@@ -168,9 +168,10 @@ export function getAllData() {
   }
   stmt.free()
 
-  // Read tasks and routines from proper SQL tables
+  // Read tasks, routines, and packages from proper SQL tables
   result.tasks = getAllTasks()
   result.routines = getAllRoutines()
+  result.packages = getAllPackages()
 
   return result
 }
@@ -206,6 +207,10 @@ export function setAllData(data) {
       syncRoutinesFromArray(value)
       continue
     }
+    if (collection === 'packages') {
+      syncPackagesFromArray(value)
+      continue
+    }
     db.run(
       `INSERT INTO app_data (collection, data_json) VALUES (?, ?)
        ON CONFLICT(collection) DO UPDATE SET data_json = excluded.data_json`,
@@ -221,6 +226,7 @@ export function clearAllData() {
   db.run('DELETE FROM app_data')
   db.run('DELETE FROM tasks')
   db.run('DELETE FROM routines')
+  db.run('DELETE FROM packages')
   schedulePersist()
 }
 
@@ -694,6 +700,135 @@ export function deleteRoutine(id) {
   schedulePersist()
 }
 
+// ============================================================
+// Package row <-> object mapping
+// ============================================================
+
+function packageToRow(pkg) {
+  return {
+    id: pkg.id,
+    tracking_number: pkg.tracking_number || pkg.trackingNumber || '',
+    carrier: pkg.carrier || null,
+    carrier_name: pkg.carrier_name || pkg.carrierName || '',
+    label: pkg.label || '',
+    status: pkg.status || 'pending',
+    status_detail: pkg.status_detail || pkg.statusDetail || '',
+    eta: pkg.eta || null,
+    delivered_at: pkg.delivered_at || pkg.deliveredAt || null,
+    signature_required: pkg.signature_required || pkg.signatureRequired ? 1 : 0,
+    signature_task_id: pkg.signature_task_id || pkg.signatureTaskId || null,
+    last_location: pkg.last_location || pkg.lastLocation || '',
+    events_json: JSON.stringify(pkg.events || []),
+    last_polled: pkg.last_polled || pkg.lastPolled || null,
+    poll_interval_minutes: pkg.poll_interval_minutes || pkg.pollIntervalMinutes || 120,
+    auto_cleanup_at: pkg.auto_cleanup_at || pkg.autoCleanupAt || null,
+    created_at: pkg.created_at || pkg.createdAt || new Date().toISOString(),
+    updated_at: pkg.updated_at || pkg.updatedAt || new Date().toISOString(),
+  }
+}
+
+function rowToPackage(row) {
+  return {
+    id: row.id,
+    tracking_number: row.tracking_number,
+    carrier: row.carrier || null,
+    carrier_name: row.carrier_name || '',
+    label: row.label || '',
+    status: row.status,
+    status_detail: row.status_detail || '',
+    eta: row.eta || null,
+    delivered_at: row.delivered_at || null,
+    signature_required: !!row.signature_required,
+    signature_task_id: row.signature_task_id || null,
+    last_location: row.last_location || '',
+    events: safeJsonParse(row.events_json, []),
+    last_polled: row.last_polled || null,
+    poll_interval_minutes: row.poll_interval_minutes || 120,
+    auto_cleanup_at: row.auto_cleanup_at || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+// ============================================================
+// Package CRUD operations
+// ============================================================
+
+const UPSERT_PACKAGE_SQL = `
+  INSERT INTO packages (id, tracking_number, carrier, carrier_name, label, status,
+    status_detail, eta, delivered_at, signature_required, signature_task_id,
+    last_location, events_json, last_polled, poll_interval_minutes,
+    auto_cleanup_at, created_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(id) DO UPDATE SET
+    tracking_number=excluded.tracking_number, carrier=excluded.carrier,
+    carrier_name=excluded.carrier_name, label=excluded.label, status=excluded.status,
+    status_detail=excluded.status_detail, eta=excluded.eta, delivered_at=excluded.delivered_at,
+    signature_required=excluded.signature_required, signature_task_id=excluded.signature_task_id,
+    last_location=excluded.last_location, events_json=excluded.events_json,
+    last_polled=excluded.last_polled, poll_interval_minutes=excluded.poll_interval_minutes,
+    auto_cleanup_at=excluded.auto_cleanup_at, updated_at=excluded.updated_at`
+
+function runUpsertPackage(pkg) {
+  const r = packageToRow(pkg)
+  db.run(UPSERT_PACKAGE_SQL, [
+    r.id, r.tracking_number, r.carrier, r.carrier_name, r.label, r.status,
+    r.status_detail, r.eta, r.delivered_at, r.signature_required, r.signature_task_id,
+    r.last_location, r.events_json, r.last_polled, r.poll_interval_minutes,
+    r.auto_cleanup_at, r.created_at, r.updated_at,
+  ])
+}
+
+export function upsertPackage(pkg) {
+  runUpsertPackage(pkg)
+  schedulePersist()
+}
+
+export function updatePackagePartial(id, updates) {
+  const existing = getPackage(id)
+  if (!existing) return null
+  const merged = { ...existing, ...updates, updated_at: new Date().toISOString() }
+  upsertPackage(merged)
+  return getPackage(id)
+}
+
+export function getPackage(id) {
+  const stmt = db.prepare('SELECT * FROM packages WHERE id = ?')
+  stmt.bind([id])
+  if (stmt.step()) {
+    const row = stmt.getAsObject()
+    stmt.free()
+    return rowToPackage(row)
+  }
+  stmt.free()
+  return null
+}
+
+export function getAllPackages(statusFilter) {
+  let sql = 'SELECT * FROM packages'
+  const params = []
+  if (statusFilter === 'active') {
+    sql += " WHERE status NOT IN ('delivered', 'expired')"
+  } else if (statusFilter) {
+    sql += ' WHERE status = ?'
+    params.push(statusFilter)
+  }
+  sql += ' ORDER BY created_at DESC'
+  const results = []
+  const stmt = db.prepare(sql)
+  if (params.length) stmt.bind(params)
+  while (stmt.step()) {
+    results.push(rowToPackage(stmt.getAsObject()))
+  }
+  stmt.free()
+  return results
+}
+
+export function deletePackage(id) {
+  db.run('DELETE FROM packages WHERE id = ?', [id])
+  schedulePersist()
+}
+
 // Sync the full routines array — used by setAllData (bulk sync from client)
 function syncRoutinesFromArray(routinesArray) {
   if (!Array.isArray(routinesArray)) return
@@ -717,6 +852,38 @@ function syncRoutinesFromArray(routinesArray) {
     for (const id of existingIds) {
       if (!incomingIds.has(id)) {
         db.run('DELETE FROM routines WHERE id = ?', [id])
+      }
+    }
+    db.run('COMMIT')
+  } catch (err) {
+    db.run('ROLLBACK')
+    throw err
+  }
+}
+
+// Sync the full packages array — used by setAllData (bulk sync from client)
+function syncPackagesFromArray(packagesArray) {
+  if (!Array.isArray(packagesArray)) return
+
+  db.run('BEGIN TRANSACTION')
+  try {
+    const existingIds = new Set()
+    const stmt = db.prepare('SELECT id FROM packages')
+    while (stmt.step()) {
+      existingIds.add(stmt.getAsObject().id)
+    }
+    stmt.free()
+
+    const incomingIds = new Set()
+    for (const pkg of packagesArray) {
+      if (!pkg.id) continue
+      incomingIds.add(pkg.id)
+      runUpsertPackage(pkg)
+    }
+
+    for (const id of existingIds) {
+      if (!incomingIds.has(id)) {
+        db.run('DELETE FROM packages WHERE id = ?', [id])
       }
     }
     db.run('COMMIT')

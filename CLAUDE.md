@@ -27,6 +27,7 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Persistent nagging with snooze escalation and AI-powered reframing
 - Recurring tasks (routines) with optional end date, custom labels, due dates
 - Notion and Trello integrations (bidirectional sync)
+- Package tracking with 17track API, carrier auto-detection, signature-required task creation
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
@@ -205,6 +206,47 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 - Pull sync only looks 30 days ahead
 - No recurring event support (each routine-spawned task creates a new event)
 - AI time inference requires Anthropic API key; falls back to defaults without it
+
+### Package Tracking (17track API)
+Track packages with auto carrier detection, adaptive server-side polling, and delivery notifications.
+
+**Server Endpoints** (in `server.js`):
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/packages` | List all packages (optional `?status=active`) |
+| `GET /api/packages/:id` | Single package with full events |
+| `POST /api/packages` | Add package (tracking_number, label, carrier) |
+| `PATCH /api/packages/:id` | Update label, carrier, notification prefs |
+| `DELETE /api/packages/:id` | Remove package |
+| `POST /api/packages/:id/refresh` | Force immediate poll (5-min throttle) |
+| `GET /api/packages/api-status` | API quota status |
+| `POST /api/packages/detect-carrier` | Carrier detection from tracking number |
+
+**Carrier Detection** (`src/utils/carrierDetect.js`):
+- Regex patterns for USPS, UPS, FedEx, DHL, Amazon, OnTrac, LaserShip
+- Each carrier has a tracking URL template for direct website links
+
+**Polling Strategy:**
+- Server-side polling loop every 5 minutes, batched API calls (up to 40 per request)
+- Adaptive intervals: 15min (out_for_delivery), 30min (pending), 1-4hr (in_transit), 1hr (exception)
+- API quota tracking with automatic pause/resume at midnight UTC
+
+**Signature Required → Task:**
+- Detected from tracking event keywords ("signature", "adult signature", etc.)
+- Auto-creates high-priority errand task (energy_level=2) with due_date=ETA
+- Task auto-completes when package is delivered
+
+**Settings:**
+- `tracking_api_key` — 17track API key
+- `package_retention_days` — days to keep delivered packages (default: 3)
+- `package_notify_delivered/exception/signature` — notification toggles
+- `package_auto_task_signature` — auto-create errand task for signature required
+
+**Known Limitations:**
+- 17track free tier: 100 queries/day (batched, so typically sufficient for 30+ packages)
+- No webhook support yet (polling only)
+- Carrier detection regex may not cover all carriers — falls back to "other"
+- Phase 2 (Gmail integration for auto-extraction) not yet implemented
 
 ### Notifications System
 - Configurable notification types: high priority (with 3-stage escalation), overdue, stale, nudges, size-based, pile-up warnings

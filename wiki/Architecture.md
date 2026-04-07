@@ -15,6 +15,7 @@ Browser (React PWA)
                           ├── /api/notion/*      → Notion API proxy (search, pages, status)
                           ├── /api/trello/*      → Trello API proxy (boards, lists, cards, sync)
                           ├── /api/gcal/*        → Google Calendar API proxy (OAuth, events, calendars)
+                          ├── /api/packages/*    → Package tracking (CRUD, polling, carrier detection)
                           └── /api/keys/status   → Reports which API keys are set via env vars
 ```
 
@@ -86,7 +87,26 @@ CREATE TABLE app_data (
 );
 ```
 
-Migrations are in `migrations/001-008.sql` and run automatically on startup.
+```sql
+-- Packages table (migration 009)
+CREATE TABLE packages (
+  id TEXT PRIMARY KEY,
+  tracking_number TEXT NOT NULL,
+  carrier TEXT, carrier_name TEXT DEFAULT '',
+  label TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',  -- pending|in_transit|out_for_delivery|delivered|exception|expired
+  status_detail TEXT DEFAULT '', eta TEXT, delivered_at TEXT,
+  signature_required INTEGER DEFAULT 0, signature_task_id TEXT,
+  last_location TEXT DEFAULT '',
+  events_json TEXT DEFAULT '[]',
+  last_polled TEXT, poll_interval_minutes INTEGER DEFAULT 120,
+  auto_cleanup_at TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+-- Indexes on status, tracking_number, auto_cleanup_at
+```
+
+Migrations are in `migrations/001-009.sql` and run automatically on startup.
 
 ### Task Data Model — Attachments
 

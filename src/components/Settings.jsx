@@ -1329,6 +1329,57 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
             )}
           </div>
 
+          {/* ── Package Tracking ── */}
+          <div className="integration-block" style={{ marginTop: 24 }}>
+            <div className="integration-row">
+              <span className="integration-row-name">Package Tracking (17track)</span>
+            </div>
+            <div className="integration-expand" style={{ paddingTop: 12 }}>
+              <div className="settings-label">17track API Key</div>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                Get a free API key at <a href="https://api.17track.net" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-link)' }}>api.17track.net</a>. Without a key, tracking works as a manual notebook with carrier links.
+              </div>
+              <input
+                type="password"
+                className="settings-input"
+                placeholder="17track API key"
+                value={settings.tracking_api_key || ''}
+                onChange={e => update('tracking_api_key', e.target.value)}
+                style={{ width: '100%', marginBottom: 12 }}
+              />
+              <div className="settings-label">Auto-cleanup delivered packages</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                <input
+                  type="number"
+                  className="settings-input"
+                  min="1"
+                  max="30"
+                  value={settings.package_retention_days ?? 3}
+                  onChange={e => update('package_retention_days', parseInt(e.target.value, 10) || 3)}
+                  style={{ width: 60 }}
+                />
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>days after delivery</span>
+              </div>
+              <div className="settings-label">Notifications</div>
+              <label className="notif-check">
+                <input type="checkbox" checked={settings.package_notify_delivered !== false} onChange={e => update('package_notify_delivered', e.target.checked)} />
+                <span>Notify on delivery</span>
+              </label>
+              <label className="notif-check">
+                <input type="checkbox" checked={settings.package_notify_exception !== false} onChange={e => update('package_notify_exception', e.target.checked)} />
+                <span>Notify on delays / exceptions</span>
+              </label>
+              <label className="notif-check">
+                <input type="checkbox" checked={settings.package_notify_signature !== false} onChange={e => update('package_notify_signature', e.target.checked)} />
+                <span>Notify when signature required</span>
+              </label>
+              <label className="notif-check">
+                <input type="checkbox" checked={settings.package_auto_task_signature !== false} onChange={e => update('package_auto_task_signature', e.target.checked)} />
+                <span>Auto-create errand task for signature required</span>
+              </label>
+            </div>
+          </div>
+
         </div>
       )}
 

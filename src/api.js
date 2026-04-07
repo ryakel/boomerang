@@ -802,3 +802,62 @@ export async function serverDeleteRoutine(id) {
   if (!res.ok) throw new Error(`delete routine failed: ${res.status}`)
   return res.json()
 }
+
+// --- Package Tracking ---
+
+export async function fetchPackages(status) {
+  const params = status ? `?status=${status}` : ''
+  const res = await fetch(`/api/packages${params}`)
+  if (!res.ok) throw new Error(`fetch packages failed: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchPackage(id) {
+  const res = await fetch(`/api/packages/${id}`)
+  if (!res.ok) throw new Error(`fetch package failed: ${res.status}`)
+  return res.json()
+}
+
+export async function createPackage(trackingNumber, label, carrier) {
+  const headers = getApiHeaders()
+  const res = await fetch('/api/packages', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ tracking_number: trackingNumber, label, carrier }),
+  })
+  if (!res.ok) throw new Error(`create package failed: ${res.status}`)
+  return res.json()
+}
+
+export async function updatePackage(id, updates) {
+  const res = await fetch(`/api/packages/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error(`update package failed: ${res.status}`)
+  return res.json()
+}
+
+export async function deletePackageApi(id) {
+  const res = await fetch(`/api/packages/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`delete package failed: ${res.status}`)
+  return res.json()
+}
+
+export async function refreshPackage(id) {
+  const headers = getApiHeaders()
+  const res = await fetch(`/api/packages/${id}/refresh`, {
+    method: 'POST',
+    headers,
+  })
+  if (!res.ok) throw new Error(`refresh package failed: ${res.status}`)
+  return res.json()
+}
+
+export async function getPackageApiStatus() {
+  const headers = getApiHeaders()
+  const res = await fetch('/api/packages/api-status', { headers })
+  if (!res.ok) throw new Error(`package api status failed: ${res.status}`)
+  return res.json()
+}

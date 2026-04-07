@@ -4,6 +4,29 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-07
+
+### Package Tracking
+- feat(packages): add package tracking with 17track API integration [XL]
+  - New `packages` table (migration 009) with full tracking lifecycle
+  - Server-side adaptive polling loop with batched 17track API queries (up to 40 per request)
+  - Carrier auto-detection via regex patterns (USPS, UPS, FedEx, DHL, Amazon, OnTrac, LaserShip)
+  - Carrier website fallback links on every card (works without API key)
+  - Status-colored cards: pending (gray), in_transit (blue), out_for_delivery (teal), delivered (green), exception (red)
+  - Full tracking timeline in detail modal with event history
+  - Signature-required detection with auto-creation of high-priority errand task (full nagging escalation)
+  - Delivery/exception/out-for-delivery/signature notifications (respects quiet hours)
+  - Configurable auto-cleanup of delivered packages (default: 3 days)
+  - API quota exhaustion handling with in-app banner and automatic recovery at midnight UTC
+  - Manual refresh with 5-minute per-package throttle
+  - Package Tracking settings in Integrations tab (API key, retention, notification toggles)
+  - Package icon in header bar between Analytics and Settings
+  - SSE broadcast on package updates for cross-client sync
+  - New files: `migrations/009_create_packages_table.sql`, `src/utils/carrierDetect.js`, `src/components/Packages.jsx`, `src/components/Packages.css`, `src/components/PackageCard.jsx`, `src/components/PackageDetailModal.jsx`, `src/hooks/usePackages.js`, `src/hooks/usePackageNotifications.js`
+  - Modified: `server.js`, `db.js`, `src/api.js`, `src/App.jsx`, `src/store.js`, `src/components/Settings.jsx`
+
+---
+
 ## 2026-04-06
 
 ### Google Calendar
