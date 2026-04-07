@@ -1310,7 +1310,7 @@ function calcPollInterval(pkg) {
 }
 
 // Map 17track status to our status
-// 17track v2.2 statuses: NotFound, InfoReceived, InTransit, Expired,
+// 17track v2.4 statuses: NotFound, InfoReceived, InTransit, Expired,
 // AvailableForPickup, OutForDelivery, Delivered, Undelivered, Exception
 function map17trackStatus(trackInfo) {
   if (!trackInfo) return { status: 'pending', detail: '' }
@@ -1361,7 +1361,7 @@ async function register17track(trackingNumbers, apiKey) {
   if (!apiKey || trackingNumbers.length === 0) return
 
   try {
-    const res = await fetch('https://api.17track.net/track/v2.2/register', {
+    const res = await fetch('https://api.17track.net/track/v2.4/register', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1388,7 +1388,7 @@ async function poll17track(trackingNumbers, apiKey) {
   if (!apiKey || trackingNumbers.length === 0) return []
 
   try {
-    const res = await fetch('https://api.17track.net/track/v2.2/gettrackinfo', {
+    const res = await fetch('https://api.17track.net/track/v2.4/gettrackinfo', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1416,7 +1416,7 @@ async function poll17track(trackingNumbers, apiKey) {
 
     trackingQuota.daily_used += trackingNumbers.length
 
-    // 17track v2.2 returns { data: { accepted: [...], rejected: [...] } }
+    // 17track v2.4 returns { data: { accepted: [...], rejected: [...] } }
     const accepted = data.data?.accepted || []
     const rejected = data.data?.rejected || []
     if (rejected.length > 0) {
@@ -1742,7 +1742,7 @@ app.post('/api/packages/test-connection', async (req, res) => {
 
   try {
     // Use the quota endpoint — free, doesn't consume a tracking query
-    const testRes = await fetch('https://api.17track.net/track/v2.2/getquota', {
+    const testRes = await fetch('https://api.17track.net/track/v2.4/getquota', {
       method: 'GET',
       headers: { '17token': apiKey },
     })
