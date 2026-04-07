@@ -226,18 +226,41 @@ Track packages with auto carrier detection, adaptive server-side polling, and de
 - Regex patterns for USPS, UPS, FedEx, DHL, Amazon, OnTrac, LaserShip
 - Each carrier has a tracking URL template for direct website links
 
+**17track API (v2.4):**
+- Registration required before tracking: `POST /track/v2.4/register` with carrier codes
+- Tracking data: `POST /track/v2.4/gettrackinfo` (bare JSON array, not wrapped in object)
+- Carrier codes: UPS=100002, FedEx=100003, USPS=21051, DHL=100001, Amazon=100143
+- Auto-fix carrier: `changecarrier` called when re-registering already-registered numbers
+- Test connection via `getquota` endpoint (free, no tracking query consumed)
+
 **Polling Strategy:**
 - Server-side polling loop every 5 minutes, batched API calls (up to 40 per request)
 - Adaptive intervals: 15min (out_for_delivery), 30min (pending), 1-4hr (in_transit), 1hr (exception)
 - API quota tracking with automatic pause/resume at midnight UTC
+- Batch refresh-all endpoint: `POST /api/packages/refresh-all` — registers + polls all active packages in one call
+- Auto-refresh on app open: client loads cached data first, then silently fires background refresh-all
+- Immediate poll on package create: register + 1.5s delay + poll before returning response
+
+**Carrier Detection** (`src/utils/carrierDetect.js`):
+- Regex patterns for USPS, UPS, FedEx, DHL, Amazon, OnTrac, LaserShip
+- Each carrier has a tracking URL template for direct website links
+- Carrier logos served from `public/carriers/*.svg` via `CarrierLogo` component
 
 **Signature Required → Task:**
 - Detected from tracking event keywords ("signature", "adult signature", etc.)
 - Auto-creates high-priority errand task (energy_level=2) with due_date=ETA
 - Task auto-completes when package is delivered
 
+**UI Features:**
+- Sort by status (default), delivery date, or carrier
+- Duplicate tracking number detection (client + server)
+- Animated swipe-to-reveal actions (matching TaskCard pattern)
+- Pull-to-refresh triggers batch refresh-all
+- Shortened status text on cards ("Label created, package pending" instead of verbose carrier text)
+- ETA shown in detail modal status banner
+
 **Settings:**
-- `tracking_api_key` — 17track API key
+- `tracking_api_key` — 17track API key (env var: `TRACKING_API_KEY`)
 - `package_retention_days` — days to keep delivered packages (default: 3)
 - `package_notify_delivered/exception/signature` — notification toggles
 - `package_auto_task_signature` — auto-create errand task for signature required
@@ -246,6 +269,7 @@ Track packages with auto carrier detection, adaptive server-side polling, and de
 - 17track free tier: 100 queries/day (batched, so typically sufficient for 30+ packages)
 - No webhook support yet (polling only)
 - Carrier detection regex may not cover all carriers — falls back to "other"
+- UPS sometimes lacks ETA data from 17track (InfoReceived status has no estimated_delivery_date)
 - Phase 2 (Gmail integration for auto-extraction) not yet implemented
 
 ### Notifications System

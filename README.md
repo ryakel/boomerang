@@ -64,7 +64,7 @@ docker run -d -p 3001:3001 \
 - **Frontend:** React 19, Vite, PWA (vite-plugin-pwa)
 - **Backend:** Express, SQLite (sql.js), SSE
 - **AI:** Anthropic Claude API
-- **Integrations:** Notion API, Trello API, 17track API
+- **Integrations:** Notion API, Trello API, Google Calendar API, 17track API
 - **Deployment:** Docker (multi-arch: amd64/arm64), GitHub Actions CI/CD, GHCR
 
 See the [wiki](https://github.com/ryakel/boomerang/wiki) for full documentation.

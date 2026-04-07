@@ -241,17 +241,23 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 
 Track packages from any carrier with automatic status updates, notifications, and delivery detection. Accessed via the Package icon in the header bar.
 
-- **Add tracking** — enter a tracking number and optional label. Carrier is auto-detected from the number format (USPS, UPS, FedEx, DHL, Amazon, OnTrac, LaserShip).
-- **Status-colored cards** — pending (gray), in transit (blue), out for delivery (teal), delivered (green), exception (red), expired (dim gray).
+- **Add tracking** — enter a tracking number and optional label. Carrier is auto-detected from the number format (USPS, UPS, FedEx, DHL, Amazon, OnTrac, LaserShip). Duplicate tracking numbers are rejected.
+- **Immediate tracking** — on add, the server registers with 17track and polls immediately so the card shows real status from the start.
+- **Status-colored cards** — pending (gray), in transit (blue), out for delivery (teal), delivered (green), exception (red), expired (dim gray). Carrier logos displayed on each card.
 - **Carrier links** — every card has a "Track on [Carrier]" link that opens the carrier's website with the tracking number pre-filled. Works even without an API key.
-- **Detail modal** — tap a card to see the full tracking timeline with events, locations, and timestamps.
+- **Detail modal** — tap a card to see the full tracking timeline with events, locations, and timestamps. ETA shown in the status banner.
+- **Sorting** — sort by status (default, grouped by Issues/Active/Delivered), delivery date (flat by ETA), or carrier (grouped by carrier name).
+- **Batch refresh** — refresh-all button in the header polls all active packages in one batched API call. Pull-to-refresh triggers the same batch refresh.
+- **Auto-refresh on open** — app loads cached data instantly, then silently refreshes all packages from 17track in the background. Cards update automatically via SSE.
 - **Adaptive polling** — server-side polling adjusts frequency based on status: 15 min for out-for-delivery, 30 min for pending, 1-4 hours for in-transit, hourly for exceptions. Batched requests (up to 40 per API call) to stay within free tier limits.
-- **Manual refresh** — per-package refresh button with 5-minute throttle to prevent API waste.
+- **Animated swipe actions** — swipe left on a card to reveal Refresh and Delete buttons (same smooth finger-tracking animation as task cards).
 - **Signature required** — detected from tracking events. Shows a prominent badge on the card and auto-creates a high-priority errand task for full nagging escalation. Task auto-completes when the package is delivered.
 - **Notifications** — delivery, exception, out-for-delivery, and signature-required notifications. Respects quiet hours.
 - **Auto-cleanup** — delivered packages are automatically removed after a configurable retention period (default: 3 days).
+- **Duplicate detection** — client-side live check while typing (shows warning with existing label), server-side 409 guard. Yellow "Duplicate" badge on existing duplicate cards.
 - **API quota handling** — when the daily API limit is reached, a yellow banner appears with the reset time. Carrier links remain functional as a manual fallback.
 - **Graceful degradation** — without an API key, the feature works as a manual tracking notebook with carrier detection and carrier website links.
+- **Shortened status** — verbose carrier messages shortened on cards ("Label created, package pending"). Full text shown in detail modal.
 
 ## Notifications
 

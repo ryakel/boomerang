@@ -12,6 +12,7 @@
 | `TRELLO_SECRET` | No | — | Trello API token for card sync — despite the name, this is the **token** from the authorize URL, NOT the "Secret" from the Trello admin page (users can override in UI) |
 | `GOOGLE_CLIENT_ID` | No | — | Google OAuth Client ID for Calendar sync (users can add in UI) |
 | `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth Client Secret for Calendar sync (users can add in UI) |
+| `TRACKING_API_KEY` | No | — | 17track API key for package tracking (users can add in UI). Free tier: 100 queries/day. Get key at [api.17track.net](https://api.17track.net) |
 | `APP_VERSION` | No | `dev` | Version string injected at build time (used if git tags are unavailable) |
 | `SEED_DB` | No | `0` | Set to `1` to wipe and seed the database on startup with realistic test data. Uses Claude API if `ANTHROPIC_API_KEY` is set, otherwise falls back to static `scripts/seed-data.json`. Only exposed in `docker-compose.dev.yml`. |
 

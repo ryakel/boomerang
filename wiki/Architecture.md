@@ -15,7 +15,7 @@ Browser (React PWA)
                           ├── /api/notion/*      → Notion API proxy (search, pages, status)
                           ├── /api/trello/*      → Trello API proxy (boards, lists, cards, sync)
                           ├── /api/gcal/*        → Google Calendar API proxy (OAuth, events, calendars)
-                          ├── /api/packages/*    → Package tracking (CRUD, polling, carrier detection)
+                          ├── /api/packages/*    → Package tracking (CRUD, polling, 17track v2.4 API)
                           └── /api/keys/status   → Reports which API keys are set via env vars
 ```
 

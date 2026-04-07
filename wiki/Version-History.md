@@ -6,6 +6,61 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): auto-refresh from 17track on app open [S]
+  - Load cached data from DB first (instant render), then silently fire background refresh-all
+  - SSE broadcast updates UI automatically when poll completes — no stale "Pending" cards
+  - Modified: `src/hooks/usePackages.js`
+- fix(packages): immediate poll on package create [S]
+  - Package create now registers, waits 1.5s, polls 17track before responding
+  - Card shows real status from the start instead of requiring manual refresh
+  - Modified: `server.js`
+- style(packages): shorten verbose carrier status on dashboard cards [XS]
+  - "Shipper created a label..." → "Label created, package pending", etc.
+  - Detail modal still shows full carrier text
+  - Modified: `src/components/PackageCard.jsx`
+- fix(packages): broaden ETA extraction for UPS [XS]
+  - Check `estimated_delivery_date.from`, `.to`, and `scheduled_delivery_date` as fallbacks
+  - Log `time_metrics` when no ETA found for diagnosis
+  - Modified: `server.js`
+- feat(packages): show ETA in detail status banner [XS]
+  - ETA displayed on right side of status banner (e.g. "In Transit ... Tue, Apr 8")
+  - Modified: `src/components/PackageDetailModal.jsx`, `src/components/Packages.css`
+- style(ui): multi-colored analytics bar chart icon [XS]
+  - Three colored bars: blue, amber, green
+  - Modified: `src/App.jsx`
+- fix(packages): animated swipe actions + colored header icons [S]
+  - Rewrote swipe to track finger position in real-time (matching TaskCard pattern)
+  - Header icons: analytics (multi-color), packages (amber), settings (muted)
+  - Modified: `src/components/PackageCard.jsx`, `src/components/Packages.css`, `src/App.jsx`, `src/App.css`
+- feat(packages): show duplicate badge on cards with same tracking number [XS]
+  - Yellow "Duplicate" badge helps identify entries to clean up
+  - Modified: `src/components/PackageCard.jsx`, `src/components/Packages.jsx`, `src/components/Packages.css`
+- fix(packages): invalid date display + deduplicate registration calls [S]
+  - ETA could be full ISO datetime — now strips time portion before parsing
+  - Deduplicates tracking numbers in register17track
+  - Modified: `src/components/PackageCard.jsx`, `src/components/PackageDetailModal.jsx`, `server.js`
+- fix(packages): refresh-all registers ALL packages, not just unpolled [XS]
+  - Modified: `server.js`
+- fix(packages): auto-fix carrier for already-registered 17track numbers [S]
+  - When register returns -18019901 (already registered), calls changecarrier to update
+  - Modified: `server.js`
+- fix(packages): pull-to-refresh on scroll container [XS]
+  - Moved touch handlers to `.settings-overlay` (actual scroll container)
+  - Modified: `src/components/Packages.jsx`
+- feat(packages): batch refresh-all + carrier codes in 17track registration [M]
+  - New `POST /api/packages/refresh-all` batches all active packages in one API call
+  - Refresh button in header and pull-to-refresh trigger batch refresh
+  - 17track numeric carrier IDs (UPS=100002, FedEx=100003, etc.) sent during registration
+  - Modified: `server.js`, `src/api.js`, `src/hooks/usePackages.js`, `src/App.jsx`, `src/components/Packages.jsx`
+- fix(packages): use 17track API v2.4 instead of v2.2 [XS]
+  - API key was bound to v2.4 — v2.2 endpoints were returning empty results
+  - Modified: `server.js`
+- fix(packages): wrong request body format + status mapping for 17track v2.4 [M]
+  - `gettrackinfo` was sending `{ number: [...] }` but v2.4 expects bare JSON array
+  - Fixed status mapping to use `latest_status.status` object (not plain string)
+  - Modified: `server.js`
+- chore(config): add TRACKING_API_KEY to docker-compose and .env.example [XS]
+  - Modified: `docker-compose.yml`, `docker-compose.dev.yml`, `.env.example`
 - fix(packages): add 17track registration step — tracking wasn't working [M]
   - 17track API requires numbers to be registered via `/register` before `gettrackinfo` returns data
   - New `register17track()` called on package create, manual refresh, and first poll cycle
