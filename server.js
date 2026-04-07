@@ -1563,8 +1563,14 @@ async function pollActivePackages() {
       }
 
       // Extract ETA if available
-      if (trackInfo.time_metrics?.estimated_delivery_date) {
-        updates.eta = trackInfo.time_metrics.estimated_delivery_date.from || updates.eta
+      if (trackInfo.time_metrics) {
+        const tm = trackInfo.time_metrics
+        const eta = tm.estimated_delivery_date?.from || tm.estimated_delivery_date?.to || tm.scheduled_delivery_date || null
+        if (eta) {
+          updates.eta = eta
+        } else {
+          console.log('[Packages] No ETA for', pkg.tracking_number, 'time_metrics:', JSON.stringify(tm).slice(0, 300))
+        }
       }
 
       // Handle delivery
@@ -1765,8 +1771,8 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
       signature_required: checkSignatureRequired(events),
     }
 
-    if (trackInfo.time_metrics?.estimated_delivery_date) {
-      updates.eta = trackInfo.time_metrics.estimated_delivery_date.from
+    if (trackInfo.time_metrics) {
+      updates.eta = trackInfo.time_metrics.estimated_delivery_date?.from || trackInfo.time_metrics.estimated_delivery_date?.to || trackInfo.time_metrics.scheduled_delivery_date || null
     }
 
     const updated = updatePackagePartial(pkg.id, updates)
@@ -1831,8 +1837,8 @@ app.post('/api/packages/refresh-all', async (req, res) => {
         signature_required: checkSignatureRequired(events),
       }
 
-      if (trackInfo.time_metrics?.estimated_delivery_date?.from) {
-        updates.eta = trackInfo.time_metrics.estimated_delivery_date.from
+      if (trackInfo.time_metrics) {
+        updates.eta = trackInfo.time_metrics.estimated_delivery_date?.from || trackInfo.time_metrics.estimated_delivery_date?.to || trackInfo.time_metrics.scheduled_delivery_date || null
       }
 
       if (newStatus === 'delivered' && prevStatus !== 'delivered') {
