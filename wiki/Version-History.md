@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+### Notifications
+- fix(notifications): fix broken notification system — wrong status filter + stale settings closure [M]
+  - All notification types except high-priority were filtering `status === 'open'` (a legacy status that no longer exists) instead of `not_started`/`doing`/`waiting` — making overdue, stale, nudge, size-based, and pile-up notifications completely dead
+  - Settings were captured once in the useEffect closure and never re-read — toggling notifications or changing frequencies required a task change (via SSE hydration) to take effect
+  - Rewrote to use a single always-running 1-minute interval that reads settings fresh each tick, uses a ref for current tasks, and filters by actual active statuses
+  - Modified: `src/hooks/useNotifications.js`
+
 ### Package Tracking
 - feat(packages): add package tracking with 17track API integration [XL]
   - New `packages` table (migration 009) with full tracking lifecycle

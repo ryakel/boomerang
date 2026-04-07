@@ -117,6 +117,7 @@ function isInHighPriNotifWindow(task) {
 
 const LAST_CHECKS_KEY = 'boom_notif_last_checks'
 const HP_LAST_CHECKS_KEY = 'boom_notif_hp_last_checks'
+const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
 
 function loadLastChecks() {
   try {
@@ -139,175 +140,185 @@ function saveHpLastChecks(checks) {
 }
 
 export function useNotifications(tasks) {
+  const tasksRef = useRef(tasks)
   const lastChecks = useRef(loadLastChecks())
   const highPriLastChecks = useRef(loadHpLastChecks())
   const running = useRef(false)
 
+  // Keep tasksRef in sync so the interval always sees current tasks
   useEffect(() => {
-    const settings = loadSettings()
-    if (!settings.notifications_enabled) return
-    if (!('Notification' in window) || Notification.permission !== 'granted') return
+    tasksRef.current = tasks
+  }, [tasks])
 
-    // Compute per-type frequencies (values are in hours)
-    const freqs = {
-      overdue: getFreqMs(settings, 'notif_freq_overdue', 0.5),
-      stale: getFreqMs(settings, 'notif_freq_stale', 0.5),
-      nudge: getFreqMs(settings, 'notif_freq_nudge', 1),
-      size: getFreqMs(settings, 'notif_freq_size', 1),
-      pileup: getFreqMs(settings, 'notif_freq_pileup', 2),
-    }
-
-    // Tick at the shortest frequency so we don't miss any (min 1 minute)
-    const tickMs = Math.max(Math.min(...Object.values(freqs), 60 * 1000), 60 * 1000)
-
-    const check = async () => {
+  // Single interval that always runs — reads settings fresh each tick
+  // so toggling notifications or changing frequencies takes effect within 1 minute
+  useEffect(() => {
+    const doCheck = async () => {
       if (running.current) return
       running.current = true
-      try { await doCheck() } finally { running.current = false }
-    }
+      try {
+        // Read settings FRESH each tick — no stale closure
+        const settings = loadSettings()
+        if (!settings.notifications_enabled) return
+        if (!('Notification' in window) || Notification.permission !== 'granted') return
+        if (isInQuietHours(settings)) return
 
-    const doCheck = async () => {
-      if (isInQuietHours(settings)) return
+        const tasks = tasksRef.current
+        if (!tasks || tasks.length === 0) return
 
-      const now = Date.now()
-      const lc = lastChecks.current
+        const now = Date.now()
+        const lc = lastChecks.current
 
-      // High-priority notifications — independent per-task timers
-      const activeTasks = tasks.filter(t => t.status !== 'done' && t.status !== 'backlog')
-      const highPriTasks = activeTasks.filter(t => t.high_priority && (!t.snoozed_until || new Date(t.snoozed_until) <= new Date()))
-      const hpLc = highPriLastChecks.current
-      let hpNotifCount = 0
+        // Compute per-type frequencies fresh from current settings
+        const freqs = {
+          overdue: getFreqMs(settings, 'notif_freq_overdue', 0.5),
+          stale: getFreqMs(settings, 'notif_freq_stale', 0.5),
+          nudge: getFreqMs(settings, 'notif_freq_nudge', 1),
+          size: getFreqMs(settings, 'notif_freq_size', 1),
+          pileup: getFreqMs(settings, 'notif_freq_pileup', 2),
+        }
 
-      for (const task of highPriTasks) {
-        if (hpNotifCount >= 3) break // cap per cycle
-        if (!isInHighPriNotifWindow(task)) continue
+        // High-priority notifications — independent per-task timers
+        const activeTasks = tasks.filter(t => ACTIVE_STATUSES.includes(t.status))
+        const highPriTasks = activeTasks.filter(t => t.high_priority && (!t.snoozed_until || new Date(t.snoozed_until) <= new Date()))
+        const hpLc = highPriLastChecks.current
+        let hpNotifCount = 0
 
-        const freq = applyAvoidanceBoost(getHighPriorityFreqMs(task, settings), task)
-        const lastCheck = hpLc[task.id] || 0
+        for (const task of highPriTasks) {
+          if (hpNotifCount >= 3) break // cap per cycle
+          if (!isInHighPriNotifWindow(task)) continue
 
-        if (now - lastCheck >= freq) {
-          hpLc[task.id] = now
-          const dueDate = task.due_date ? new Date(task.due_date + 'T00:00:00') : null
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
+          const freq = applyAvoidanceBoost(getHighPriorityFreqMs(task, settings), task)
+          const lastCheck = hpLc[task.id] || 0
 
-          let body
-          if (dueDate) {
-            const diffDays = Math.round((dueDate - today) / 86400000)
-            if (diffDays < 0) {
-              body = `"${task.title}" is ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} overdue`
-            } else if (diffDays === 0) {
-              body = `"${task.title}" is due today — don't miss it`
-            } else if (diffDays === 1) {
-              body = `"${task.title}" is due tomorrow`
+          if (now - lastCheck >= freq) {
+            hpLc[task.id] = now
+            const dueDate = task.due_date ? new Date(task.due_date + 'T00:00:00') : null
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+
+            let body
+            if (dueDate) {
+              const diffDays = Math.round((dueDate - today) / 86400000)
+              if (diffDays < 0) {
+                body = `"${task.title}" is ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} overdue`
+              } else if (diffDays === 0) {
+                body = `"${task.title}" is due today — don't miss it`
+              } else if (diffDays === 1) {
+                body = `"${task.title}" is due tomorrow`
+              } else {
+                body = `"${task.title}" is due in ${diffDays} days`
+              }
             } else {
-              body = `"${task.title}" is due in ${diffDays} days`
+              body = `"${task.title}" is marked high priority`
             }
-          } else {
-            body = `"${task.title}" is marked high priority`
+
+            sendNotification('high_priority', 'HIGH PRIORITY', body, `high-pri-${task.id.slice(0, 8)}`)
+            hpNotifCount++
+          }
+        }
+
+        // Clean up old entries for tasks that are no longer high priority
+        for (const id of Object.keys(hpLc)) {
+          if (!highPriTasks.some(t => t.id === id)) delete hpLc[id]
+        }
+
+        // Active tasks (not snoozed) for general notification types
+        const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
+
+        // Check for too many open tasks (pile-up)
+        if (now - lc.pileup >= freqs.pileup) {
+          lc.pileup = now
+
+          if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {
+            sendNotification('pileup', 'Too many open tasks', `You have ${nonSnoozed.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`, 'too-many')
           }
 
-          sendNotification('high_priority', 'HIGH PRIORITY', body, `high-pri-${task.id.slice(0, 8)}`)
-          hpNotifCount++
-        }
-      }
-
-      // Clean up old entries for tasks that are no longer high priority
-      for (const id of Object.keys(hpLc)) {
-        if (!highPriTasks.some(t => t.id === id)) delete hpLc[id]
-      }
-
-      const openTasks = tasks.filter(t => t.status === 'open')
-      const nonSnoozed = openTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
-
-      // Check for too many open tasks (pile-up)
-      if (now - lc.pileup >= freqs.pileup) {
-        lc.pileup = now
-
-        if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {
-          sendNotification('pileup', 'Too many open tasks', `You have ${nonSnoozed.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`, 'too-many')
+          // Check for high percentage of old tasks
+          if (settings.stale_warn_pct > 0) {
+            const oldTasks = activeTasks.filter(t => {
+              const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
+              return age > (settings.stale_warn_days || 7)
+            })
+            const pct = activeTasks.length > 0 ? Math.round(oldTasks.length / activeTasks.length * 100) : 0
+            if (pct >= settings.stale_warn_pct) {
+              sendNotification('pileup', 'Tasks piling up', `${pct}% of your tasks have been open for ${settings.stale_warn_days}+ days`, 'stale-warn')
+            }
+          }
         }
 
-        // Check for high percentage of old tasks
-        if (settings.stale_warn_pct > 0) {
-          const oldTasks = openTasks.filter(t => {
-            const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
-            return age > (settings.stale_warn_days || 7)
+        // Size-based upcoming reminders
+        if (now - lc.size >= freqs.size) {
+          lc.size = now
+
+          const sizeLeadDays = { XL: 3, L: 2, M: 1 }
+          const upcomingBySize = activeTasks.filter(t => {
+            if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
+            const dueDate = new Date(t.due_date)
+            const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
+            return daysUntilDue > 0 && daysUntilDue <= sizeLeadDays[t.size]
           })
-          const pct = openTasks.length > 0 ? Math.round(oldTasks.length / openTasks.length * 100) : 0
-          if (pct >= settings.stale_warn_pct) {
-            sendNotification('pileup', 'Tasks piling up', `${pct}% of your tasks have been open for ${settings.stale_warn_days}+ days`, 'stale-warn')
+
+          if (upcomingBySize.length > 0) {
+            const t = upcomingBySize[0]
+            const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
+            sendNotification('size', `${t.size} task due soon`, `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`, 'size-reminder')
           }
         }
-      }
 
-      // Size-based upcoming reminders
-      if (now - lc.size >= freqs.size) {
-        lc.size = now
+        // Check for overdue tasks
+        if (settings.notif_overdue !== false && now - lc.overdue >= freqs.overdue) {
+          lc.overdue = now
 
-        const sizeLeadDays = { XL: 3, L: 2, M: 1 }
-        const upcomingBySize = openTasks.filter(t => {
-          if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
-          const dueDate = new Date(t.due_date)
-          const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
-          return daysUntilDue > 0 && daysUntilDue <= sizeLeadDays[t.size]
-        })
-
-        if (upcomingBySize.length > 0) {
-          const t = upcomingBySize[0]
-          const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
-          sendNotification('size', `${t.size} task due soon`, `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`, 'size-reminder')
+          const overdueTasks = activeTasks.filter(isOverdue)
+          if (overdueTasks.length > 0) {
+            const names = overdueTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
+            const extra = overdueTasks.length > 2 ? ` and ${overdueTasks.length - 2} more` : ''
+            sendNotification('overdue', 'Overdue tasks', `${names}${extra} — past due date`, 'overdue')
+          }
         }
-      }
 
-      // Check for overdue tasks
-      if (settings.notif_overdue !== false && now - lc.overdue >= freqs.overdue) {
-        lc.overdue = now
+        // Check for stale tasks
+        if (settings.notif_stale !== false && now - lc.stale >= freqs.stale) {
+          lc.stale = now
 
-        const overdueTasks = openTasks.filter(isOverdue)
-        if (overdueTasks.length > 0) {
-          const names = overdueTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
-          const extra = overdueTasks.length > 2 ? ` and ${overdueTasks.length - 2} more` : ''
-          sendNotification('overdue', 'Overdue tasks', `${names}${extra} — past due date`, 'overdue')
+          const staleTasks = activeTasks.filter(isStale)
+          if (staleTasks.length > 0) {
+            const names = staleTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
+            const extra = staleTasks.length > 2 ? ` and ${staleTasks.length - 2} more` : ''
+            sendNotification('stale', 'Tasks going stale', `${names}${extra} — haven't been touched in a while`, 'stale')
+          }
         }
-      }
 
-      // Check for stale tasks
-      if (settings.notif_stale !== false && now - lc.stale >= freqs.stale) {
-        lc.stale = now
+        // General nudge
+        if (settings.notif_nudge !== false && now - lc.nudge >= freqs.nudge && activeTasks.length > 0) {
+          lc.nudge = now
 
-        const staleTasks = openTasks.filter(isStale)
-        if (staleTasks.length > 0) {
-          const names = staleTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
-          const extra = staleTasks.length > 2 ? ` and ${staleTasks.length - 2} more` : ''
-          sendNotification('stale', 'Tasks going stale', `${names}${extra} — haven't been touched in a while`, 'stale')
+          // Check for quick wins first
+          const smallTasks = activeTasks.filter(t => t.size === 'XS' || t.size === 'S')
+          if (smallTasks.length > 0) {
+            const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
+            sendNotification('nudge', 'Quick win available', `Got 5 min? Try: "${pick.title}" (${pick.size})`, 'nudge')
+          } else {
+            // Fall back to AI or generic nudge
+            const message = await getAINudge(activeTasks.length)
+            sendNotification('nudge', 'Boomerang', message, 'nudge')
+          }
         }
+
+        // Persist throttle timestamps so they survive app reloads
+        saveLastChecks(lc)
+        saveHpLastChecks(hpLc)
+      } finally {
+        running.current = false
       }
-
-      // General nudge
-      if (settings.notif_nudge !== false && now - lc.nudge >= freqs.nudge && openTasks.length > 0) {
-        lc.nudge = now
-
-        // Check for quick wins first
-        const smallTasks = openTasks.filter(t => t.size === 'XS' || t.size === 'S')
-        if (smallTasks.length > 0) {
-          const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
-          sendNotification('nudge', 'Quick win available', `Got 5 min? Try: "${pick.title}" (${pick.size})`, 'nudge')
-        } else {
-          // Fall back to AI or generic nudge
-          const message = await getAINudge(openTasks.length)
-          sendNotification('nudge', 'Boomerang', message, 'nudge')
-        }
-      }
-
-      // Persist throttle timestamps so they survive app reloads
-      saveLastChecks(lc)
-      saveHpLastChecks(hpLc)
     }
 
-    // Delay first check by 5s to debounce rapid tasks changes (hydration, SSE, edits)
-    const firstTick = setTimeout(check, 5000)
-    const interval = setInterval(check, tickMs)
+    // Always run the check loop — settings/permission checked inside each tick.
+    // 1-minute tick ensures toggling notifications or changing settings
+    // takes effect within 60 seconds without requiring a page reload.
+    const firstTick = setTimeout(doCheck, 5000)
+    const interval = setInterval(doCheck, 60 * 1000)
     return () => { clearTimeout(firstTick); clearInterval(interval) }
-  }, [tasks])
+  }, []) // no dependencies — interval always runs, reads fresh state each tick
 }
