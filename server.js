@@ -1536,92 +1536,80 @@ async function pollActivePackages() {
     if (trackingQuota.exhausted) break
 
     for (const result of results) {
-      const pkg = batch.find(p => p.tracking_number === result.number)
-      if (!pkg) continue
-
       const trackInfo = result.track_info || result.track || {}
-      const events = (trackInfo.tracking?.providers?.[0]?.events || trackInfo.tracking_detail || []).map(e => ({
-        timestamp: e.time_iso || e.Date || e.time || '',
-        location: e.location || e.Details?.split(',').pop()?.trim() || '',
-        description: e.description || e.Details || e.event || '',
-        status: e.status || '',
+      const events = (trackInfo.tracking?.providers?.[0]?.events || []).map(e => ({
+        timestamp: e.time_iso || e.time_utc || '',
+        location: e.location || '',
+        description: e.description || '',
+        status: e.stage || '',
       }))
 
       const { status: newStatus, detail } = map17trackStatus(trackInfo)
-      const prevStatus = pkg.status
       const sigRequired = checkSignatureRequired(events)
 
-      const updates = {
-        status: newStatus,
-        status_detail: detail,
-        events: events.length > 0 ? events : pkg.events,
-        last_polled: now.toISOString(),
-        updated_at: now.toISOString(),
-        poll_interval_minutes: calcPollInterval({ ...pkg, status: newStatus }),
-        last_location: events[0]?.location || pkg.last_location,
-        signature_required: sigRequired,
-      }
-
-      // Extract ETA if available
+      let eta = null
       if (trackInfo.time_metrics) {
         const tm = trackInfo.time_metrics
-        const eta = tm.estimated_delivery_date?.from || tm.estimated_delivery_date?.to || tm.scheduled_delivery_date || null
-        if (eta) {
-          updates.eta = eta
-        } else {
-          console.log('[Packages] No ETA for', pkg.tracking_number, 'time_metrics:', JSON.stringify(tm).slice(0, 300))
+        eta = tm.estimated_delivery_date?.from || tm.estimated_delivery_date?.to || tm.scheduled_delivery_date || null
+        if (!eta) {
+          console.log('[Packages] No ETA for', result.number, 'time_metrics:', JSON.stringify(tm).slice(0, 300))
         }
       }
 
-      // Handle delivery
-      if (newStatus === 'delivered' && prevStatus !== 'delivered') {
-        updates.delivered_at = now.toISOString()
-        const retentionDays = settings.package_retention_days ?? 3
-        const cleanupDate = new Date(now.getTime() + retentionDays * 86400000)
-        updates.auto_cleanup_at = cleanupDate.toISOString()
-        console.log(`[Packages] ${pkg.label || pkg.tracking_number} delivered`)
+      // Update ALL packages with this tracking number (handles duplicates)
+      const matching = batch.filter(p => p.tracking_number === result.number)
+      for (const pkg of matching) {
+        const updates = {
+          status: newStatus,
+          status_detail: detail,
+          events: events.length > 0 ? events : pkg.events,
+          last_polled: now.toISOString(),
+          updated_at: now.toISOString(),
+          poll_interval_minutes: calcPollInterval({ ...pkg, status: newStatus }),
+          last_location: events[0]?.location || pkg.last_location,
+          signature_required: sigRequired,
+        }
 
-        // Auto-complete signature task if exists
-        if (pkg.signature_task_id) {
-          const task = getTask(pkg.signature_task_id)
-          if (task && task.status !== 'done') {
-            updateTaskPartial(pkg.signature_task_id, {
-              status: 'done',
-              completed_at: now.toISOString(),
+        if (eta) updates.eta = eta
+
+        // Handle delivery
+        if (newStatus === 'delivered' && pkg.status !== 'delivered') {
+          updates.delivered_at = now.toISOString()
+          const retentionDays = settings.package_retention_days ?? 3
+          const cleanupDate = new Date(now.getTime() + retentionDays * 86400000)
+          updates.auto_cleanup_at = cleanupDate.toISOString()
+          console.log(`[Packages] ${pkg.label || pkg.tracking_number} delivered`)
+
+          if (pkg.signature_task_id) {
+            const task = getTask(pkg.signature_task_id)
+            if (task && task.status !== 'done') {
+              updateTaskPartial(pkg.signature_task_id, { status: 'done', completed_at: now.toISOString() })
+            }
+          }
+        }
+
+        // Handle signature required
+        if (sigRequired && !pkg.signature_required && !pkg.signature_task_id) {
+          if (settings.package_auto_task_signature !== false) {
+            const taskId = `pkg-sig-${pkg.id}-${Date.now()}`
+            upsertTask({
+              id: taskId,
+              title: `Be home to sign for: ${pkg.label || pkg.tracking_number}`,
+              status: 'not_started',
+              notes: `Package: ${pkg.tracking_number}\nCarrier: ${pkg.carrier_name || pkg.carrier || 'Unknown'}\nTracking requires signature.`,
+              high_priority: true, energy: 'errand', energy_level: 2,
+              due_date: pkg.eta || new Date().toISOString().split('T')[0],
+              created_at: now.toISOString(), last_touched: now.toISOString(),
+              tags: [], attachments: [], checklist: [], checklists: [], comments: [],
             })
+            updates.signature_task_id = taskId
+            console.log(`[Packages] Created signature task for ${pkg.label || pkg.tracking_number}`)
           }
         }
-      }
 
-      // Handle signature required — create task if not already created
-      if (sigRequired && !pkg.signature_required && !pkg.signature_task_id) {
-        if (settings.package_auto_task_signature !== false) {
-          const taskId = `pkg-sig-${pkg.id}-${Date.now()}`
-          const sigTask = {
-            id: taskId,
-            title: `Be home to sign for: ${pkg.label || pkg.tracking_number}`,
-            status: 'not_started',
-            notes: `Package: ${pkg.tracking_number}\nCarrier: ${pkg.carrier_name || pkg.carrier || 'Unknown'}\nTracking requires signature.`,
-            high_priority: true,
-            energy: 'errand',
-            energy_level: 2,
-            due_date: pkg.eta || new Date().toISOString().split('T')[0],
-            created_at: now.toISOString(),
-            last_touched: now.toISOString(),
-            tags: [],
-            attachments: [],
-            checklist: [],
-            checklists: [],
-            comments: [],
-          }
-          upsertTask(sigTask)
-          updates.signature_task_id = taskId
-          console.log(`[Packages] Created signature task for ${pkg.label || pkg.tracking_number}`)
-        }
+        updatePackagePartial(pkg.id, updates)
+        anyUpdated = true
       }
-
-      updatePackagePartial(pkg.id, updates)
-      anyUpdated = true
     }
 
     // Mark packages that weren't in results as polled too (to avoid re-polling immediately)
@@ -1844,9 +1832,6 @@ app.post('/api/packages/refresh-all', async (req, res) => {
     const results = await poll17track(batch.map(p => p.tracking_number), apiKey)
 
     for (const result of results) {
-      const pkg = batch.find(p => p.tracking_number === result.number)
-      if (!pkg) continue
-
       const trackInfo = result.track_info || {}
       const events = (trackInfo.tracking?.providers?.[0]?.events || []).map(e => ({
         timestamp: e.time_iso || e.time_utc || '',
@@ -1856,16 +1841,15 @@ app.post('/api/packages/refresh-all', async (req, res) => {
       }))
 
       const { status: newStatus, detail } = map17trackStatus(trackInfo)
-      const prevStatus = pkg.status
 
       const updates = {
         status: newStatus,
         status_detail: detail,
-        events: events.length > 0 ? events : pkg.events,
+        events: events.length > 0 ? events : undefined,
         last_polled: now,
         updated_at: now,
-        poll_interval_minutes: calcPollInterval({ ...pkg, status: newStatus }),
-        last_location: events[0]?.location || pkg.last_location,
+        poll_interval_minutes: calcPollInterval({ status: newStatus }),
+        last_location: events[0]?.location || undefined,
         signature_required: checkSignatureRequired(events),
       }
 
@@ -1873,14 +1857,22 @@ app.post('/api/packages/refresh-all', async (req, res) => {
         updates.eta = trackInfo.time_metrics.estimated_delivery_date?.from || trackInfo.time_metrics.estimated_delivery_date?.to || trackInfo.time_metrics.scheduled_delivery_date || null
       }
 
-      if (newStatus === 'delivered' && prevStatus !== 'delivered') {
-        updates.delivered_at = now
-        const retentionDays = settings.package_retention_days ?? 3
-        updates.auto_cleanup_at = new Date(Date.now() + retentionDays * 86400000).toISOString()
-      }
+      // Update ALL packages with this tracking number (handles duplicates)
+      const matching = batch.filter(p => p.tracking_number === result.number)
+      for (const pkg of matching) {
+        const pkgUpdates = { ...updates }
+        if (!pkgUpdates.events) pkgUpdates.events = pkg.events
+        if (!pkgUpdates.last_location) pkgUpdates.last_location = pkg.last_location
 
-      updatePackagePartial(pkg.id, updates)
-      totalUpdated++
+        if (newStatus === 'delivered' && pkg.status !== 'delivered') {
+          pkgUpdates.delivered_at = now
+          const retentionDays = settings.package_retention_days ?? 3
+          pkgUpdates.auto_cleanup_at = new Date(Date.now() + retentionDays * 86400000).toISOString()
+        }
+
+        updatePackagePartial(pkg.id, pkgUpdates)
+        totalUpdated++
+      }
     }
 
     // Mark packages not in results as polled
