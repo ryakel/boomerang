@@ -1310,17 +1310,39 @@ function calcPollInterval(pkg) {
 }
 
 // Map 17track status to our status
+// 17track v2.2 statuses: NotFound, InfoReceived, InTransit, Expired,
+// AvailableForPickup, OutForDelivery, Delivered, Undelivered, Exception
 function map17trackStatus(trackInfo) {
   if (!trackInfo) return { status: 'pending', detail: '' }
-  const st = trackInfo.latest_status?.toLowerCase() || ''
-  const sub = trackInfo.latest_event?.description?.toLowerCase() || ''
+  const latestStatus = trackInfo.latest_status?.status || ''
+  const eventDesc = trackInfo.latest_event?.description || ''
 
-  if (st.includes('delivered') || sub.includes('delivered')) return { status: 'delivered', detail: trackInfo.latest_event?.description || 'Delivered' }
-  if (st.includes('exception') || st.includes('alert') || sub.includes('exception')) return { status: 'exception', detail: trackInfo.latest_event?.description || 'Exception' }
-  if (st.includes('outfordelivery') || sub.includes('out for delivery')) return { status: 'out_for_delivery', detail: trackInfo.latest_event?.description || 'Out for delivery' }
-  if (st.includes('transit') || st.includes('pickup') || sub.includes('transit') || sub.includes('accepted')) return { status: 'in_transit', detail: trackInfo.latest_event?.description || 'In transit' }
-
-  return { status: 'in_transit', detail: trackInfo.latest_event?.description || '' }
+  switch (latestStatus) {
+    case 'Delivered':
+      return { status: 'delivered', detail: eventDesc || 'Delivered' }
+    case 'Exception':
+    case 'Undelivered':
+      return { status: 'exception', detail: eventDesc || 'Exception' }
+    case 'OutForDelivery':
+      return { status: 'out_for_delivery', detail: eventDesc || 'Out for delivery' }
+    case 'InTransit':
+    case 'AvailableForPickup':
+      return { status: 'in_transit', detail: eventDesc || 'In transit' }
+    case 'InfoReceived':
+      return { status: 'in_transit', detail: eventDesc || 'Shipment info received' }
+    case 'NotFound':
+      return { status: 'pending', detail: eventDesc || 'Not found yet' }
+    case 'Expired':
+      return { status: 'expired', detail: eventDesc || 'Tracking expired' }
+    default:
+      // Fallback: check description text
+      const desc = (latestStatus + ' ' + eventDesc).toLowerCase()
+      if (desc.includes('delivered')) return { status: 'delivered', detail: eventDesc }
+      if (desc.includes('out for delivery')) return { status: 'out_for_delivery', detail: eventDesc }
+      if (desc.includes('exception') || desc.includes('undelivered')) return { status: 'exception', detail: eventDesc }
+      if (desc.includes('transit') || desc.includes('accepted') || desc.includes('pickup')) return { status: 'in_transit', detail: eventDesc }
+      return { status: 'pending', detail: eventDesc }
+  }
 }
 
 // Check if signature is required from tracking events
@@ -1371,9 +1393,9 @@ async function poll17track(trackingNumbers, apiKey) {
         'Content-Type': 'application/json',
         '17token': apiKey,
       },
-      body: JSON.stringify({
-        number: trackingNumbers.map(tn => ({ number: tn })),
-      }),
+      body: JSON.stringify(
+        trackingNumbers.map(tn => ({ number: tn }))
+      ),
     })
 
     if (res.status === 429) {
