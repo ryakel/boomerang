@@ -5,9 +5,10 @@ import PackageCard from './PackageCard'
 import PackageDetailModal from './PackageDetailModal'
 import { detectCarrier } from '../utils/carrierDetect'
 import { getPackageApiStatus } from '../api'
+import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import './Packages.css'
 
-export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onClose }) {
+export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onClose, onReload }) {
   const [trackingInput, setTrackingInput] = useState('')
   const [labelInput, setLabelInput] = useState('')
   const [detectedCarrier, setDetectedCarrier] = useState(null)
@@ -17,7 +18,15 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
   const [showAddForm, setShowAddForm] = useState(false)
   const [sortBy, setSortBy] = useState('status') // status | eta | carrier
   const [showSortDropdown, setShowSortDropdown] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const sortRef = useRef(null)
+
+  const { onTouchStart, onTouchEnd } = usePullToRefresh(async () => {
+    if (onReload) {
+      setRefreshing(true)
+      try { await onReload() } finally { setTimeout(() => setRefreshing(false), 500) }
+    }
+  })
 
   // Close sort dropdown on outside click
   useEffect(() => {
@@ -225,7 +234,7 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
       )}
 
       {/* Package list */}
-      <div className="package-list">
+      <div className="package-list" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {packages.length === 0 && !showAddForm && (
           <div className="empty-state">
             No packages being tracked.<br />

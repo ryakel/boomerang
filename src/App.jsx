@@ -644,6 +644,7 @@ function App() {
           onEdit={editPackage}
           onDelete={removePackage}
           onRefresh={refreshPackage}
+          onReload={loadPackages}
           onClose={() => setShowPackages(false)}
         />
       )}

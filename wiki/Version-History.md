@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): add 17track registration step — tracking wasn't working [M]
+  - 17track API requires numbers to be registered via `/register` before `gettrackinfo` returns data
+  - New `register17track()` called on package create, manual refresh, and first poll cycle
+  - Added response logging to diagnose API parsing issues
+  - Modified: `server.js`
+- fix(packages): tracking env key not seen by frontend — missing from getKeyStatus [XS]
+  - `getKeyStatus()` was dropping the `tracking` field from the server response
+  - Modified: `src/api.js`, `src/components/Settings.jsx`
 - fix(packages): tracking API key not reaching server + add connect/test button [M]
   - `getApiHeaders()` was missing the `x-tracking-key` header — UI-provided key never sent to server
   - `getTrackingApiKey()` now falls back to DB-stored settings (not just env var + header)

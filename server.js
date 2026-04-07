@@ -1333,6 +1333,33 @@ function checkSignatureRequired(events) {
   return false
 }
 
+// Register tracking numbers with 17track (required before gettrackinfo)
+async function register17track(trackingNumbers, apiKey) {
+  if (!apiKey || trackingNumbers.length === 0) return
+
+  try {
+    const res = await fetch('https://api.17track.net/track/v2.2/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        '17token': apiKey,
+      },
+      body: JSON.stringify(
+        trackingNumbers.map(tn => ({ number: tn }))
+      ),
+    })
+    const data = await res.json()
+    console.log('[Packages] 17track register:', res.status, 'accepted:', data.data?.accepted?.length || 0, 'rejected:', data.data?.rejected?.length || 0)
+    if (data.data?.rejected?.length > 0) {
+      for (const r of data.data.rejected) {
+        console.log('[Packages] 17track register rejected:', r.number, 'error:', r.error?.code, r.error?.message)
+      }
+    }
+  } catch (err) {
+    console.error('[Packages] 17track register error:', err.message)
+  }
+}
+
 // Poll 17track API for a batch of tracking numbers
 async function poll17track(trackingNumbers, apiKey) {
   if (!apiKey || trackingNumbers.length === 0) return []
@@ -1358,13 +1385,26 @@ async function poll17track(trackingNumbers, apiKey) {
     }
 
     const data = await res.json()
+    console.log('[Packages] 17track response status:', res.status, 'code:', data.code, 'data keys:', Object.keys(data.data || {}))
     if (!res.ok) {
-      console.error('[Packages] 17track API error:', data)
+      console.error('[Packages] 17track API error:', JSON.stringify(data).slice(0, 500))
       return []
     }
 
     trackingQuota.daily_used += trackingNumbers.length
-    return data.data?.accepted || []
+
+    // 17track v2.2 returns { data: { accepted: [...], rejected: [...] } }
+    // Each accepted item has: { number, track_info: { ... } }
+    const accepted = data.data?.accepted || data.data || []
+    if (Array.isArray(accepted)) {
+      console.log('[Packages] 17track accepted:', accepted.length, 'items')
+      if (accepted.length > 0) {
+        console.log('[Packages] 17track first result keys:', JSON.stringify(Object.keys(accepted[0])).slice(0, 200))
+        const ti = accepted[0].track_info || accepted[0].track || accepted[0]
+        console.log('[Packages] 17track track_info keys:', JSON.stringify(Object.keys(ti)).slice(0, 200))
+      }
+    }
+    return Array.isArray(accepted) ? accepted : []
   } catch (err) {
     console.error('[Packages] 17track poll error:', err.message)
     return []
@@ -1411,6 +1451,14 @@ async function pollActivePackages() {
     if (bi > 0) await new Promise(r => setTimeout(r, 1000))
     const batch = batches[bi]
     const trackingNumbers = batch.map(p => p.tracking_number)
+
+    // Register any never-polled packages first
+    const unpolled = batch.filter(p => !p.last_polled).map(p => p.tracking_number)
+    if (unpolled.length > 0) {
+      await register17track(unpolled, apiKey)
+      await new Promise(r => setTimeout(r, 1000)) // brief delay after register
+    }
+
     const results = await poll17track(trackingNumbers, apiKey)
 
     if (trackingQuota.exhausted) break
@@ -1568,6 +1616,13 @@ app.post('/api/packages', (req, res) => {
   }
 
   upsertPackage(pkg)
+
+  // Register with 17track so tracking data becomes available
+  const apiKey = getTrackingApiKey(req)
+  if (apiKey) {
+    register17track([pkg.tracking_number], apiKey).catch(() => {})
+  }
+
   const newVersion = bumpVersion()
   const clientId = req.body._clientId || req.headers['x-client-id']
   broadcast(newVersion, clientId)
@@ -1610,6 +1665,9 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
   if (trackingQuota.exhausted) {
     return res.json({ ...pkg, error: 'API quota exhausted', reset_at: trackingQuota.reset_at })
   }
+
+  // Register first (idempotent — 17track ignores if already registered)
+  await register17track([pkg.tracking_number], apiKey)
 
   const results = await poll17track([pkg.tracking_number], apiKey)
   if (results.length > 0) {
