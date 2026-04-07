@@ -46,7 +46,7 @@ function daysUntilCleanup(autoCleanupAt) {
   return diff > 0 ? diff : 0
 }
 
-export default function PackageCard({ pkg, onRefresh, onDelete, onSelect, apiAvailable }) {
+export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onSelect, apiAvailable }) {
   const [refreshing, setRefreshing] = useState(false)
   const [swiped, setSwiped] = useState(false)
   const touchStart = useRef(null)
@@ -124,6 +124,10 @@ export default function PackageCard({ pkg, onRefresh, onDelete, onSelect, apiAva
             <span className="package-polled">Updated {timeAgo(pkg.last_polled)}</span>
           )}
         </div>
+
+        {isDuplicate && (
+          <div className="package-duplicate-badge">Duplicate</div>
+        )}
 
         {pkg.signature_required && (
           <div className="package-signature-badge">{'✍️'} Signature Required</div>

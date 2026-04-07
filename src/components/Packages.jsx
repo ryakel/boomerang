@@ -144,6 +144,16 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
     return groups
   }, [packages, sortBy])
 
+  // Detect duplicate tracking numbers
+  const duplicateNumbers = useMemo(() => {
+    const counts = {}
+    for (const pkg of packages) {
+      const num = pkg.tracking_number.toLowerCase()
+      counts[num] = (counts[num] || 0) + 1
+    }
+    return new Set(Object.keys(counts).filter(k => counts[k] > 1))
+  }, [packages])
+
   // Keep selected package in sync with latest data
   const selectedPkgData = selectedPkg ? packages.find(p => p.id === selectedPkg.id) || selectedPkg : null
 
@@ -262,6 +272,7 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
               <PackageCard
                 key={pkg.id}
                 pkg={pkg}
+                isDuplicate={duplicateNumbers.has(pkg.tracking_number.toLowerCase())}
                 onRefresh={onRefresh}
                 onDelete={onDelete}
                 onSelect={setSelectedPkg}
