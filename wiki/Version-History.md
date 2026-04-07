@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): update ALL duplicate packages, not just first match [S]
+  - `batch.find()` only matched the first package with a given tracking number — duplicates never got updated
+  - Changed to `batch.filter()` in both polling loop and refresh-all endpoint
+  - Modified: `server.js`
 - fix(packages): auto-refresh from 17track on app open [S]
   - Load cached data from DB first (instant render), then silently fire background refresh-all
   - SSE broadcast updates UI automatically when poll completes — no stale "Pending" cards
