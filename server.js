@@ -1408,7 +1408,7 @@ async function poll17track(trackingNumbers, apiKey) {
     }
 
     const data = await res.json()
-    console.log('[Packages] 17track response status:', res.status, 'code:', data.code, 'data keys:', Object.keys(data.data || {}))
+    console.log('[Packages] 17track gettrackinfo response:', JSON.stringify(data).slice(0, 1000))
     if (!res.ok) {
       console.error('[Packages] 17track API error:', JSON.stringify(data).slice(0, 500))
       return []
@@ -1417,17 +1417,13 @@ async function poll17track(trackingNumbers, apiKey) {
     trackingQuota.daily_used += trackingNumbers.length
 
     // 17track v2.2 returns { data: { accepted: [...], rejected: [...] } }
-    // Each accepted item has: { number, track_info: { ... } }
-    const accepted = data.data?.accepted || data.data || []
-    if (Array.isArray(accepted)) {
-      console.log('[Packages] 17track accepted:', accepted.length, 'items')
-      if (accepted.length > 0) {
-        console.log('[Packages] 17track first result keys:', JSON.stringify(Object.keys(accepted[0])).slice(0, 200))
-        const ti = accepted[0].track_info || accepted[0].track || accepted[0]
-        console.log('[Packages] 17track track_info keys:', JSON.stringify(Object.keys(ti)).slice(0, 200))
-      }
+    const accepted = data.data?.accepted || []
+    const rejected = data.data?.rejected || []
+    if (rejected.length > 0) {
+      console.log('[Packages] 17track rejected:', JSON.stringify(rejected).slice(0, 500))
     }
-    return Array.isArray(accepted) ? accepted : []
+    console.log('[Packages] 17track accepted:', accepted.length, 'rejected:', rejected.length)
+    return accepted
   } catch (err) {
     console.error('[Packages] 17track poll error:', err.message)
     return []
