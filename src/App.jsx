@@ -311,9 +311,9 @@ function App() {
             <span className="wordmark">BOOMERANG</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button className="analytics-icon" onClick={() => setShowAnalytics(true)}><BarChart3 size={20} /></button>
-            <button className="analytics-icon" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
-            <button className="settings-btn" onClick={() => setShowSettings(true)}><SettingsIcon size={20} /></button>
+            <button className="header-icon-btn analytics-color" onClick={() => setShowAnalytics(true)}><BarChart3 size={20} /></button>
+            <button className="header-icon-btn packages-color" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
+            <button className="header-icon-btn settings-color" onClick={() => setShowSettings(true)}><SettingsIcon size={20} /></button>
           </div>
         </div>
         <div className="header-stats">

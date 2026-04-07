@@ -164,16 +164,7 @@
   border-radius: var(--radius);
   padding: 12px 14px;
   cursor: pointer;
-  transition: transform 0.2s ease;
   z-index: 1;
-}
-
-.package-card.swiped {
-  transform: translateX(-120px);
-}
-
-.package-card:active {
-  background: var(--surface-hover);
 }
 
 .package-card-actions {

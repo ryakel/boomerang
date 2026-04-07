@@ -160,13 +160,18 @@
   border-radius: 12px;
 }
 
-.settings-btn {
-  font-size: 20px;
-  color: var(--text-muted);
+.header-icon-btn {
   padding: 4px;
   display: flex;
   align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
 }
+
+.analytics-color { color: #60A5FA; }
+.packages-color { color: #F59E0B; }
+.settings-color { color: var(--text-muted); }
 
 /* Tag filter bar */
 .tag-bar {

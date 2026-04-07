@@ -46,13 +46,20 @@ function daysUntilCleanup(autoCleanupAt) {
   return diff > 0 ? diff : 0
 }
 
+const SWIPE_THRESHOLD = 60
+const SWIPE_OPEN_OFFSET = -120
+
 export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onSelect, apiAvailable }) {
   const [refreshing, setRefreshing] = useState(false)
-  const [swiped, setSwiped] = useState(false)
-  const touchStart = useRef(null)
+  const [swipeX, setSwipeX] = useState(0)
+  const [swiping, setSwiping] = useState(false)
+  const [swipeOpen, setSwipeOpen] = useState(false)
+  const touchStartRef = useRef(null)
 
   const statusStyle = STATUS_COLORS[pkg.status] || STATUS_COLORS.pending
   const trackUrl = getTrackingUrl(pkg.carrier, pkg.tracking_number)
+
+  const closeSwipe = () => { setSwipeOpen(false); setSwipeX(0) }
 
   const handleRefresh = async (e) => {
     e.stopPropagation()
@@ -67,17 +74,50 @@ export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onS
   const handleDelete = (e) => {
     e.stopPropagation()
     onDelete(pkg.id)
-    setSwiped(false)
+    closeSwipe()
   }
 
-  // Simple swipe-to-reveal
-  const onTouchStart = (e) => { touchStart.current = e.touches[0].clientX }
-  const onTouchEnd = (e) => {
-    if (touchStart.current === null) return
-    const diff = touchStart.current - e.changedTouches[0].clientX
-    if (diff > 60) setSwiped(true)
-    else if (diff < -60) setSwiped(false)
-    touchStart.current = null
+  const onTouchStart = (e) => {
+    const touch = e.touches[0]
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, startSwipeX: swipeX }
+  }
+
+  const onTouchMove = (e) => {
+    if (!touchStartRef.current) return
+    const touch = e.touches[0]
+    const dx = touch.clientX - touchStartRef.current.x
+    const dy = touch.clientY - touchStartRef.current.y
+
+    if (!swiping && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+      touchStartRef.current = null
+      return
+    }
+
+    if (Math.abs(dx) > 10) {
+      setSwiping(true)
+      const base = touchStartRef.current.startSwipeX || 0
+      setSwipeX(Math.max(-160, Math.min(0, base + dx)))
+    }
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStartRef.current) { setSwiping(false); return }
+
+    if (swipeX < -SWIPE_THRESHOLD) {
+      setSwipeOpen(true)
+      setSwipeX(SWIPE_OPEN_OFFSET)
+    } else {
+      if (swipeOpen && swipeX > SWIPE_OPEN_OFFSET + 30) {
+        closeSwipe()
+      } else if (swipeOpen) {
+        setSwipeX(SWIPE_OPEN_OFFSET)
+      } else {
+        setSwipeX(0)
+      }
+    }
+
+    touchStartRef.current = null
+    setTimeout(() => setSwiping(false), 250)
   }
 
   const cleanupDays = daysUntilCleanup(pkg.auto_cleanup_at)
@@ -85,9 +125,14 @@ export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onS
   return (
     <div className="package-card-wrapper">
       <div
-        className={`package-card ${swiped ? 'swiped' : ''}`}
-        onClick={() => onSelect(pkg)}
+        className="package-card"
+        style={{
+          transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
+          transition: swiping ? 'none' : 'transform 0.25s ease',
+        }}
+        onClick={() => { if (!swiping && !swipeOpen) onSelect(pkg); else if (swipeOpen) closeSwipe() }}
         onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
         <div className="package-card-top">
