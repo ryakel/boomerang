@@ -78,6 +78,14 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           .then(s => setNotionConnected(s))
           .catch(() => setNotionConnected({ connected: false }))
       }
+      if (keys.tracking) {
+        import('../api').then(({ testTrackingConnection }) => {
+          setTrackingStatus('checking')
+          testTrackingConnection()
+            .then(r => setTrackingStatus(r.connected ? 'connected' : 'error'))
+            .catch(() => setTrackingStatus('error'))
+        })
+      }
       if (keys.trello) {
         setTrelloConnecting(true)
         trelloStatus()
@@ -105,6 +113,27 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       setAnthropicStatus('connected')
     } catch {
       setAnthropicStatus('error')
+    }
+  }
+
+  // Tracking connection state
+  const [trackingStatus, setTrackingStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
+  const [trackingError, setTrackingError] = useState(null)
+  const handleTrackingConnect = async () => {
+    setTrackingStatus('checking')
+    setTrackingError(null)
+    try {
+      const { testTrackingConnection } = await import('../api')
+      const result = await testTrackingConnection()
+      if (result.connected) {
+        setTrackingStatus('connected')
+      } else {
+        setTrackingStatus('error')
+        setTrackingError(result.error || 'Connection failed')
+      }
+    } catch {
+      setTrackingStatus('error')
+      setTrackingError('Connection failed')
     }
   }
 
@@ -1336,11 +1365,11 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               onClick={() => setExpandedIntegration(expandedIntegration === 'tracking' ? null : 'tracking')}
             >
               <span className={`backlog-arrow${expandedIntegration === 'tracking' ? ' open' : ''}`}><ChevronRight size={12} /></span>
-              <span className={`integration-dot ${envKeys.tracking ? 'connected' : settings.tracking_api_key ? 'connected' : 'unconfigured'}`} />
+              <span className={`integration-dot ${trackingStatus === 'connected' ? 'connected' : trackingStatus === 'error' ? 'error' : trackingStatus === 'checking' ? 'checking' : 'unconfigured'}`} />
               <span className="integration-row-name">Package Tracking (17track)</span>
               {expandedIntegration !== 'tracking' && (
                 <span className="integration-row-summary">
-                  {envKeys.tracking ? 'Environment variable' : settings.tracking_api_key ? 'Key saved' : 'Not configured'}
+                  {trackingStatus === 'checking' ? 'Checking...' : trackingStatus === 'connected' ? 'Connected' : trackingStatus === 'error' ? 'Error' : envKeys.tracking ? 'Environment variable' : settings.tracking_api_key ? 'Key saved' : 'Not configured'}
                 </span>
               )}
             </div>
@@ -1359,12 +1388,33 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                         type="password"
                         placeholder="17track API key"
                         value={settings.tracking_api_key || ''}
-                        onChange={e => update('tracking_api_key', e.target.value)}
+                        onChange={e => { update('tracking_api_key', e.target.value); setTrackingStatus(null) }}
                         style={{ marginBottom: 8, fontSize: 13 }}
                       />
                     )}
                   </>
                 )}
+
+                {trackingStatus === 'connected' ? (
+                  <div className="integration-status connected">Connected</div>
+                ) : trackingStatus === 'error' ? (
+                  <>
+                    <div className="integration-status error">Connection failed{trackingError ? `: ${trackingError}` : ''}</div>
+                    <button className="ci-upload-btn" onClick={handleTrackingConnect} style={{ marginBottom: 8 }}>
+                      Retry
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="ci-upload-btn"
+                    onClick={handleTrackingConnect}
+                    disabled={trackingStatus === 'checking'}
+                    style={{ marginBottom: 8 }}
+                  >
+                    {trackingStatus === 'checking' ? 'Testing...' : 'Test Connection'}
+                  </button>
+                )}
+
                 <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>
                   Get a free API key at <a href="https://api.17track.net" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-link)' }}>api.17track.net</a>. Without a key, tracking works as a manual notebook with carrier links.
                 </div>

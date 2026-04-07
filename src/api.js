@@ -11,6 +11,7 @@ function getApiHeaders() {
   if (settings.trello_secret) headers['x-trello-token'] = settings.trello_secret
   if (settings.gcal_client_id) headers['x-google-client-id'] = settings.gcal_client_id
   if (settings.gcal_client_secret) headers['x-google-client-secret'] = settings.gcal_client_secret
+  if (settings.tracking_api_key) headers['x-tracking-key'] = settings.tracking_api_key
   return headers
 }
 
@@ -852,6 +853,13 @@ export async function refreshPackage(id) {
     headers,
   })
   if (!res.ok) throw new Error(`refresh package failed: ${res.status}`)
+  return res.json()
+}
+
+export async function testTrackingConnection() {
+  const headers = getApiHeaders()
+  const res = await fetch('/api/packages/test-connection', { method: 'POST', headers })
+  if (!res.ok) throw new Error(`test connection failed: ${res.status}`)
   return res.json()
 }
 

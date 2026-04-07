@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(packages): tracking API key not reaching server + add connect/test button [M]
+  - `getApiHeaders()` was missing the `x-tracking-key` header — UI-provided key never sent to server
+  - `getTrackingApiKey()` now falls back to DB-stored settings (not just env var + header)
+  - Polling loop uses `getTrackingApiKey()` instead of only `envTrackingApiKey`
+  - `keys/status` endpoint now checks DB-stored key too
+  - New `POST /api/packages/test-connection` endpoint uses free quota check (no tracking query consumed)
+  - Settings integration section now has Test Connection button, status dot, retry on error
+  - Auto-tests on mount when env var is configured
+  - Modified: `src/api.js`, `server.js`, `src/components/Settings.jsx`
 - style(packages): replace emoji icons with real carrier logo SVGs [S]
   - New `CarrierLogo` component with recognizable SVG logos for UPS (brown shield), FedEx (purple/orange), USPS (blue eagle), DHL (yellow/red), Amazon (dark with smile arrow), OnTrac, LaserShip
   - Used in PackageCard, PackageDetailModal, and add form carrier detection

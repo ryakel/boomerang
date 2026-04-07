@@ -119,7 +119,7 @@ app.get('/api/keys/status', (req, res) => {
     notion: !!envNotionToken,
     trello: !!(envTrelloKey && envTrelloToken),
     gcal: !!(envGoogleClientId && envGoogleClientSecret),
-    tracking: !!envTrackingApiKey,
+    tracking: !!getTrackingApiKey(),
   })
 })
 
@@ -1254,7 +1254,11 @@ app.get('/api/gcal/events', async (req, res) => {
 // --- Package Tracking ---
 
 function getTrackingApiKey(req) {
-  return req?.headers['x-tracking-key'] || envTrackingApiKey || null
+  if (req?.headers['x-tracking-key']) return req.headers['x-tracking-key']
+  if (envTrackingApiKey) return envTrackingApiKey
+  // Fall back to UI-provided key stored in settings
+  const settings = getData('settings')
+  return settings?.tracking_api_key || null
 }
 
 // 17track API quota state (in-memory)
@@ -1379,7 +1383,7 @@ async function pollActivePackages() {
     }
   }
 
-  const apiKey = envTrackingApiKey
+  const apiKey = getTrackingApiKey()
   if (!apiKey) return
 
   const packages = getAllPackages('active')
@@ -1653,6 +1657,29 @@ app.get('/api/packages/api-status', (req, res) => {
     reset_at: trackingQuota.reset_at,
     daily_used: trackingQuota.daily_used,
   })
+})
+
+app.post('/api/packages/test-connection', async (req, res) => {
+  const apiKey = getTrackingApiKey(req)
+  if (!apiKey) return res.json({ connected: false, error: 'No API key configured' })
+
+  try {
+    // Use the quota endpoint — free, doesn't consume a tracking query
+    const testRes = await fetch('https://api.17track.net/track/v2.2/getquota', {
+      method: 'GET',
+      headers: { '17token': apiKey },
+    })
+    if (testRes.status === 401 || testRes.status === 403) {
+      return res.json({ connected: false, error: 'Invalid API key' })
+    }
+    const data = await testRes.json()
+    if (data.code === 0 || testRes.ok) {
+      return res.json({ connected: true, quota: data.data })
+    }
+    return res.json({ connected: false, error: data.message || 'Unknown error' })
+  } catch (err) {
+    return res.json({ connected: false, error: err.message })
+  }
 })
 
 app.post('/api/packages/detect-carrier', (req, res) => {
