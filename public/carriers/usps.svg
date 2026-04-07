@@ -1,6 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 80">
-  <rect width="180" height="80" rx="4" fill="#333366"/>
-  <path d="M10 40c10-20 35-30 65-30 20 0 38 5 55 15l-8 6c-14-8-28-12-45-12-25 0-48 10-57 25l-10-4z" fill="#fff"/>
-  <path d="M128 28l-6 5c-14-8-28-13-45-13-20 0-38 7-50 18l15 0c10-7 22-11 36-11 14 0 26 4 38 10l12-9z" fill="#fff" opacity="0.5"/>
-  <text x="90" y="68" text-anchor="middle" fill="#fff" font-size="20" font-weight="900" font-family="'Arial Black',Arial,sans-serif" letter-spacing="4">USPS</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 100">
+  <rect width="140" height="100" fill="#004B87"/>
+  <!-- Eagle head silhouette -->
+  <g fill="#FFFFFF">
+    <path d="M20 55 C20 35, 35 18, 55 15 C65 14, 80 16, 95 22 L120 10 L110 28 C100 22, 85 18, 70 20 C50 24, 35 38, 30 55 Z"/>
+    <!-- Beak -->
+    <path d="M20 55 L8 52 L22 48 Z" fill="#D00"/>
+  </g>
+  <!-- UNITED STATES text -->
+  <text x="70" y="72" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="700" font-family="Arial,sans-serif" letter-spacing="2.5">UNITED STATES</text>
+  <!-- POSTAL SERVICE text -->
+  <text x="70" y="86" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="700" font-family="Arial,sans-serif" letter-spacing="2.5">POSTAL SERVICE</text>
+  <!-- Registered mark -->
+  <text x="126" y="88" fill="#FFFFFF" font-size="6" font-family="Arial,sans-serif">\u00AE</text>
 </svg>

@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 50">
-  <text x="0" y="40" font-family="'Futura Bold','Arial Black',Arial,sans-serif" font-size="46" font-weight="900" letter-spacing="-2">
-    <tspan fill="#4D148C">Fed</tspan><tspan fill="#FF6600">Ex</tspan>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 60">
+  <rect width="140" height="60" rx="4" fill="#4D148C"/>
+  <text y="43" font-family="'Futura','Arial Black',Arial,sans-serif" font-size="40" font-weight="900" letter-spacing="-1">
+    <tspan x="8" fill="#FFFFFF">Fed</tspan><tspan fill="#FF6600">Ex</tspan>
   </text>
 </svg>
