@@ -49,6 +49,22 @@ function daysUntilCleanup(autoCleanupAt) {
 const SWIPE_THRESHOLD = 60
 const SWIPE_OPEN_OFFSET = -120
 
+function shortenStatus(detail) {
+  if (!detail) return ''
+  const d = detail.toLowerCase()
+  if (d.includes('created a label') || d.includes('not received the package') || d.includes('label created') || d.includes('shipment information sent')) return 'Label created, package pending'
+  if (d.includes('shipment arriving on-time')) return 'Arriving on time'
+  if (d.includes('departed fedex') || d.includes('departed ups') || d.includes('departed usps') || d.includes('left facility')) return 'Departed facility'
+  if (d.includes('arrived at facility') || d.includes('arrived at hub')) return 'Arrived at facility'
+  if (d.includes('in transit to next facility')) return 'In transit'
+  if (d.includes('out for delivery')) return 'Out for delivery'
+  if (d.includes('delivered')) return 'Delivered'
+  if (d.includes('picked up')) return 'Picked up'
+  if (d.includes('processing at ups') || d.includes('processing')) return 'Processing'
+  if (detail.length > 50) return detail.slice(0, 47) + '...'
+  return detail
+}
+
 export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onSelect, apiAvailable }) {
   const [refreshing, setRefreshing] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
@@ -151,7 +167,7 @@ export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onS
             <span className="package-location">{pkg.last_location}</span>
           )}
           {pkg.status_detail && (
-            <span className="package-status-detail">{pkg.status_detail}</span>
+            <span className="package-status-detail">{shortenStatus(pkg.status_detail)}</span>
           )}
         </div>
 
