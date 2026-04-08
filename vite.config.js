@@ -34,11 +34,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
-        navigateFallbackDenylist: [/^\/api/],
-        importScripts: ['/push-sw.js'],
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
       },
       manifest: {
         name: 'Boomerang',
