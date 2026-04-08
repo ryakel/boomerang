@@ -78,6 +78,22 @@ export function resetTransporter() {
   transporter = null
 }
 
+// --- SMS gateway detection ---
+
+const SMS_GATEWAY_DOMAINS = [
+  'tmomail.net', 'vtext.com', 'txt.att.net', 'messaging.sprintpcs.com',
+  'pm.sprint.com', 'vmobl.com', 'mmst5.tracfone.com', 'mymetropcs.com',
+  'sms.cricketwireless.net', 'msg.fi.google.com', 'message.ting.com',
+  'text.republicwireless.com', 'cingularme.com', 'mms.uscc.net',
+  'email.uscc.net', 'sms.myboostmobile.com', 'mailmymobile.net',
+]
+
+function isSmsGateway(email) {
+  if (!email) return false
+  const domain = email.split('@')[1]?.toLowerCase()
+  return domain ? SMS_GATEWAY_DOMAINS.includes(domain) : false
+}
+
 // --- Email sending ---
 
 async function sendEmail(subject, htmlBody, textBody) {
@@ -86,14 +102,14 @@ async function sendEmail(subject, htmlBody, textBody) {
   const { from, to } = getSmtpConfig()
   if (!to) return false
 
+  // SMS gateways: text-only, truncated, minimal headers
+  const sms = isSmsGateway(to)
+  const mailOpts = sms
+    ? { from, to, subject, text: textBody.slice(0, 140) }
+    : { from: `"Boomerang" <${from}>`, to, subject, text: textBody, html: htmlBody }
+
   try {
-    await transport.sendMail({
-      from: `"Boomerang" <${from}>`,
-      to,
-      subject,
-      text: textBody,
-      html: htmlBody,
-    })
+    await transport.sendMail(mailOpts)
     return true
   } catch (err) {
     console.error('[Email] Send failed:', err.message)
@@ -418,23 +434,22 @@ export async function sendPackageEmail(pkg, eventType) {
 
 export async function sendTestEmail() {
   if (!isConfigured()) return { success: false, error: 'SMTP not configured' }
-  const body = 'This is a test email from Boomerang. Email notifications are working!'
+  const textBody = 'Boomerang test - notifications working!'
   const transport = getTransporter()
   if (!transport) return { success: false, error: 'Could not create SMTP transport' }
   const { from, to } = getSmtpConfig()
   if (!to) return { success: false, error: 'No recipient email configured' }
 
+  const sms = isSmsGateway(to)
+  const mailOpts = sms
+    ? { from, to, subject: 'Boomerang Test', text: textBody }
+    : { from: `"Boomerang" <${from}>`, to, subject: 'Boomerang Test', text: textBody, html: simpleEmailHtml('Test Email', textBody) }
+
   try {
-    console.log(`[Email] Sending test to ${to} via ${getSmtpConfig().host}:${getSmtpConfig().port}`)
-    const info = await transport.sendMail({
-      from: `"Boomerang" <${from}>`,
-      to,
-      subject: 'Boomerang Test',
-      text: body,
-      html: simpleEmailHtml('Test Email', body),
-    })
+    console.log(`[Email] Sending test to ${to} via ${getSmtpConfig().host}:${getSmtpConfig().port}${sms ? ' (SMS mode)' : ''}`)
+    const info = await transport.sendMail(mailOpts)
     console.log(`[Email] Test sent OK — messageId: ${info.messageId}, response: ${info.response}`)
-    return { success: true, messageId: info.messageId }
+    return { success: true, messageId: info.messageId, sms_mode: sms }
   } catch (err) {
     console.error('[Email] Test send failed:', err.message)
     return { success: false, error: err.message }
@@ -455,6 +470,7 @@ export function getEmailStatus() {
     user: user ? '***' : null,
     recipient: to || null,
     recipient_source: notificationEmail ? 'env' : 'ui',
+    sms_mode: isSmsGateway(to),
   }
 }
 
