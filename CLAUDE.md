@@ -311,10 +311,51 @@ Server-side email notification engine (`emailNotifications.js`) that mirrors cli
 - `email_notif_overdue`, `email_notif_stale`, `email_notif_nudge`, `email_notif_highpri`, `email_notif_size`, `email_notif_pileup`
 - `email_notif_package_delivered`, `email_notif_package_exception`
 
+**SMS Gateway Detection:**
+- Auto-detects SMS gateway recipients (tmomail.net, vtext.com, txt.att.net, etc.)
+- Sends text-only, 140-char truncated emails with minimal headers
+- Note: T-Mobile's tmomail.net gateway is unreliable/deprecated — use Web Push instead
+
 **Known Limitations:**
 - No digest/batching mode yet (sends individual emails per notification type)
 - AI-generated nudge messages not yet wired for email (uses static messages)
 - No email notification history visible in UI (logged server-side only)
+
+### Web Push Notifications
+Server-side Web Push engine (`pushNotifications.js`) that sends background notifications via the Web Push API. Works even when the app is closed — on iOS 16.4+ (Home Screen PWA), Android, and desktop browsers.
+
+**Configuration (env vars):**
+- `VAPID_PUBLIC_KEY` — VAPID public key (generate with `npx web-push generate-vapid-keys`)
+- `VAPID_PRIVATE_KEY` — VAPID private key
+- `VAPID_EMAIL` — contact email for VAPID (optional, defaults to `push@boomerang.local`)
+
+**Server Endpoints:**
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/push/status` | Push configuration status + subscription count |
+| `GET /api/push/vapid-key` | Public VAPID key for client subscription |
+| `POST /api/push/subscribe` | Store browser push subscription |
+| `POST /api/push/unsubscribe` | Remove subscription |
+| `POST /api/push/test` | Send test push notification |
+
+**Architecture:**
+- 60-second `setInterval` loop (same as email)
+- Mirrors all notification types: high priority, overdue, stale, nudge, size-based, pile-up
+- Package status push notifications (delivered, exception, out for delivery, signature)
+- Throttle uses same `notification_throttle` table with `push_` prefix
+- Subscriptions stored in `push_subscriptions` table (endpoint + p256dh + auth keys)
+- Expired subscriptions (410/404 from push service) auto-removed
+- Custom service worker (`public/push-sw.js`) handles push events + notification clicks
+
+**Per-type toggles (settings):**
+- `push_notifications_enabled` — master toggle
+- `push_notif_highpri`, `push_notif_overdue`, `push_notif_stale`, `push_notif_nudge`, `push_notif_size`, `push_notif_pileup`
+- `push_notif_package_delivered`, `push_notif_package_exception`
+
+**Known Limitations:**
+- iOS requires PWA to be added to Home Screen before push works
+- Each device must subscribe independently (multi-device = multiple subscriptions)
+- No notification grouping/batching yet
 
 ### Toast Messages (Completion/Reopen Feedback)
 - AI-generated contextual one-liners via `generateToastMessage()` in `src/api.js`

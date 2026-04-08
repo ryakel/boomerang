@@ -894,3 +894,47 @@ export async function testEmail() {
   if (!res.ok) throw new Error(`test email failed: ${res.status}`)
   return res.json()
 }
+
+// --- Push notifications ---
+
+export async function pushStatus() {
+  try {
+    const res = await fetch('/api/push/status')
+    return res.json()
+  } catch {
+    return { configured: false }
+  }
+}
+
+export async function getVapidPublicKey() {
+  const res = await fetch('/api/push/vapid-key')
+  if (!res.ok) return null
+  const data = await res.json()
+  return data.publicKey
+}
+
+export async function subscribePush(subscription) {
+  const res = await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(subscription.toJSON()),
+  })
+  if (!res.ok) throw new Error(`subscribe failed: ${res.status}`)
+  return res.json()
+}
+
+export async function unsubscribePush(endpoint) {
+  const res = await fetch('/api/push/unsubscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint }),
+  })
+  if (!res.ok) throw new Error(`unsubscribe failed: ${res.status}`)
+  return res.json()
+}
+
+export async function testPush() {
+  const res = await fetch('/api/push/test', { method: 'POST' })
+  if (!res.ok) throw new Error(`test push failed: ${res.status}`)
+  return res.json()
+}

@@ -927,3 +927,38 @@ export function logNotifEmail(id, type, taskId, title, body) {
   db.run(`DELETE FROM notification_log WHERE id NOT IN (SELECT id FROM notification_log ORDER BY sent_at DESC LIMIT 500)`)
   schedulePersist()
 }
+
+// --- Push subscriptions ---
+
+export function getAllPushSubscriptions() {
+  const stmt = db.prepare('SELECT * FROM push_subscriptions')
+  const rows = []
+  while (stmt.step()) rows.push(stmt.getAsObject())
+  stmt.free()
+  return rows
+}
+
+export function upsertPushSubscription(id, endpoint, p256dh, auth) {
+  db.run(
+    `INSERT INTO push_subscriptions (id, endpoint, p256dh, auth, updated_at)
+     VALUES (?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, updated_at = datetime('now')`,
+    [id, endpoint, p256dh, auth]
+  )
+  schedulePersist()
+}
+
+export function deletePushSubscription(endpoint) {
+  db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint])
+  schedulePersist()
+}
+
+export function logNotifPush(id, type, taskId, title, body) {
+  db.run(
+    `INSERT INTO notification_log (id, type, task_id, title, body, channel, sent_at)
+     VALUES (?, ?, ?, ?, ?, 'push', ?)`,
+    [id, type, taskId, title, body, new Date().toISOString()]
+  )
+  db.run(`DELETE FROM notification_log WHERE id NOT IN (SELECT id FROM notification_log ORDER BY sent_at DESC LIMIT 500)`)
+  schedulePersist()
+}

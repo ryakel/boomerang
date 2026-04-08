@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, emailStatus, testEmail } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, emailStatus, testEmail, pushStatus, testPush } from '../api'
+import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
   high_priority: 'High Priority',
@@ -103,6 +104,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       }
     })
     emailStatus().then(setEmailSmtpStatus)
+    pushStatus().then(setPushServerStatus)
   }, [])
 
   // Anthropic connection state
@@ -121,6 +123,12 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
   const [emailSmtpStatus, setEmailSmtpStatus] = useState(null) // null | { configured, host, ... }
   const [emailTestStatus, setEmailTestStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
   const [emailTestError, setEmailTestError] = useState(null)
+
+  // Push notification state
+  const pushSub = usePushSubscription()
+  const [pushServerStatus, setPushServerStatus] = useState(null)
+  const [pushTestStatus, setPushTestStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
+  const [pushTestError, setPushTestError] = useState(null)
 
   // Tracking connection state
   const [trackingStatus, setTrackingStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
@@ -1697,6 +1705,145 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               {/* Notification History */}
               <div className="settings-label" style={{ marginTop: 20 }}>Notification history</div>
               <NotificationHistory />
+            </div>
+          )}
+
+          {/* Push Notifications */}
+          {pushSub.supported && pushServerStatus?.configured && (
+            <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <label className="notif-check">
+                <input
+                  type="checkbox"
+                  checked={!!settings.push_notifications_enabled}
+                  onChange={e => update('push_notifications_enabled', e.target.checked)}
+                />
+                <span>Push notifications (background)</span>
+              </label>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, marginBottom: 8 }}>
+                Receive notifications even when the app is closed.
+              </div>
+
+              {settings.push_notifications_enabled && (
+                <div className="notif-options">
+                  {!pushSub.subscribed ? (
+                    <button
+                      className="ci-upload-btn"
+                      disabled={pushSub.loading}
+                      onClick={async () => {
+                        const result = await pushSub.subscribe()
+                        if (!result.success) {
+                          setPushTestStatus('error')
+                          setPushTestError(result.error)
+                        }
+                      }}
+                    >
+                      {pushSub.loading ? 'Enabling...' : 'Enable push for this device'}
+                    </button>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 12, color: '#52C97F', marginBottom: 8 }}>
+                        Push enabled on this device
+                      </div>
+
+                      <div className="settings-label">Push me about</div>
+
+                      <div className="notif-type-row">
+                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                          <input type="checkbox" checked={settings.push_notif_highpri !== false} onChange={e => update('push_notif_highpri', e.target.checked)} />
+                          <span>High priority tasks</span>
+                        </label>
+                      </div>
+
+                      <div className="notif-type-row">
+                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                          <input type="checkbox" checked={settings.push_notif_overdue !== false} onChange={e => update('push_notif_overdue', e.target.checked)} />
+                          <span>Overdue tasks</span>
+                        </label>
+                      </div>
+
+                      <div className="notif-type-row">
+                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                          <input type="checkbox" checked={settings.push_notif_stale !== false} onChange={e => update('push_notif_stale', e.target.checked)} />
+                          <span>Stale tasks</span>
+                        </label>
+                      </div>
+
+                      <div className="notif-type-row">
+                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                          <input type="checkbox" checked={settings.push_notif_nudge !== false} onChange={e => update('push_notif_nudge', e.target.checked)} />
+                          <span>Nudges</span>
+                        </label>
+                      </div>
+
+                      <div className="notif-type-row">
+                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                          <input type="checkbox" checked={settings.push_notif_size !== false} onChange={e => update('push_notif_size', e.target.checked)} />
+                          <span>Size-based reminders</span>
+                        </label>
+                      </div>
+
+                      <div className="notif-type-row">
+                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                          <input type="checkbox" checked={settings.push_notif_pileup !== false} onChange={e => update('push_notif_pileup', e.target.checked)} />
+                          <span>Pile-up warnings</span>
+                        </label>
+                      </div>
+
+                      <div className="notif-type-row">
+                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                          <input type="checkbox" checked={settings.push_notif_package_delivered !== false} onChange={e => update('push_notif_package_delivered', e.target.checked)} />
+                          <span>Package delivered</span>
+                        </label>
+                      </div>
+
+                      <div className="notif-type-row">
+                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                          <input type="checkbox" checked={settings.push_notif_package_exception !== false} onChange={e => update('push_notif_package_exception', e.target.checked)} />
+                          <span>Package exceptions</span>
+                        </label>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <button
+                          className="ci-upload-btn"
+                          disabled={pushTestStatus === 'sending'}
+                          onClick={async () => {
+                            setPushTestStatus('sending')
+                            setPushTestError(null)
+                            try {
+                              const result = await testPush()
+                              if (result.success) {
+                                setPushTestStatus('sent')
+                                setTimeout(() => setPushTestStatus(null), 3000)
+                              } else {
+                                setPushTestStatus('error')
+                                setPushTestError(result.error || 'Send failed')
+                              }
+                            } catch {
+                              setPushTestStatus('error')
+                              setPushTestError('Send failed')
+                            }
+                          }}
+                        >
+                          {pushTestStatus === 'sending' ? 'Sending...' : pushTestStatus === 'sent' ? 'Sent!' : 'Test push'}
+                        </button>
+                        <button
+                          className="ci-upload-btn"
+                          style={{ color: '#ef4444' }}
+                          onClick={async () => {
+                            await pushSub.unsubscribe()
+                          }}
+                        >
+                          Disable push
+                        </button>
+                      </div>
+                      {pushTestStatus === 'error' && pushTestError && (
+                        <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{pushTestError}</div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

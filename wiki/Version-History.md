@@ -10,6 +10,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - `sendTestEmail()` ignored `sendEmail()` return value, always returned `{ success: true }`
   - Now performs SMTP send directly and propagates actual error messages to the UI
   - Modified: `emailNotifications.js`
+- feat(notifications): Web Push notifications — background alerts even when app is closed [L]
+  - Server-side push loop mirrors email notification logic (same types, frequencies, throttling, quiet hours)
+  - VAPID key-based authentication (env vars: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`)
+  - Custom service worker (`push-sw.js`) handles push events and notification clicks
+  - `push_subscriptions` DB table stores browser subscription endpoints
+  - Settings UI: per-device enable, per-type toggles, test push button, disable button
+  - Package status change push notifications (delivered, exception, out for delivery, signature)
+  - Works on iOS 16.4+ (Home Screen PWA), all Android browsers, all desktop browsers
+  - Server endpoints: `/api/push/status`, `/api/push/vapid-key`, `/api/push/subscribe`, `/api/push/unsubscribe`, `/api/push/test`
+  - Expired subscriptions (410/404) auto-cleaned from DB
+  - Modified: `pushNotifications.js` (new), `push-sw.js` (new), `usePushSubscription.js` (new), `server.js`, `db.js`, `Settings.jsx`, `api.js`, `migrations/011`
 - feat(notifications): SMS gateway detection for email notifications [S]
   - Detects SMS gateway recipients (tmomail.net, vtext.com, txt.att.net, etc.)
   - Sends text-only, 140-char truncated, minimal-header emails to phone numbers

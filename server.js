@@ -10,6 +10,9 @@ import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bump
   upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
+import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
+import { upsertPushSubscription, deletePushSubscription } from './db.js'
+import crypto from 'crypto'
 
 // --- App version ---
 const appVersion = process.env.APP_VERSION || 'dev'
@@ -1598,6 +1601,7 @@ async function pollActivePackages() {
           updates.auto_cleanup_at = cleanupDate.toISOString()
           console.log(`[Packages] ${pkg.label || pkg.tracking_number} delivered`)
           sendPackageEmail(pkg, 'delivered')
+          sendPackagePush(pkg, 'delivered')
 
           if (pkg.signature_task_id) {
             const task = getTask(pkg.signature_task_id)
@@ -1626,15 +1630,18 @@ async function pollActivePackages() {
           }
         }
 
-        // Email notifications for status changes
+        // Notifications for status changes
         if (newStatus === 'exception' && pkg.status !== 'exception') {
           sendPackageEmail(pkg, 'exception')
+          sendPackagePush(pkg, 'exception')
         }
         if (newStatus === 'out_for_delivery' && pkg.status !== 'out_for_delivery') {
           sendPackageEmail(pkg, 'out_for_delivery')
+          sendPackagePush(pkg, 'out_for_delivery')
         }
         if (sigRequired && !pkg.signature_required) {
           sendPackageEmail(pkg, 'signature_required')
+          sendPackagePush(pkg, 'signature_required')
         }
 
         updatePackagePartial(pkg.id, updates)
@@ -1983,6 +1990,41 @@ app.post('/api/email/test', async (req, res) => {
   res.json(result)
 })
 
+// --- Push notification endpoints ---
+app.get('/api/push/status', (req, res) => {
+  res.json(getPushStatus())
+})
+
+app.get('/api/push/vapid-key', (req, res) => {
+  const key = getVapidPublicKey()
+  if (!key) return res.status(404).json({ error: 'VAPID not configured' })
+  res.json({ publicKey: key })
+})
+
+app.post('/api/push/subscribe', (req, res) => {
+  const { endpoint, keys } = req.body || {}
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    return res.status(400).json({ error: 'Invalid subscription object' })
+  }
+  const id = crypto.randomUUID()
+  upsertPushSubscription(id, endpoint, keys.p256dh, keys.auth)
+  console.log(`[Push] New subscription registered: ...${endpoint.slice(-30)}`)
+  res.json({ ok: true })
+})
+
+app.post('/api/push/unsubscribe', (req, res) => {
+  const { endpoint } = req.body || {}
+  if (!endpoint) return res.status(400).json({ error: 'Missing endpoint' })
+  deletePushSubscription(endpoint)
+  console.log(`[Push] Subscription removed: ...${endpoint.slice(-30)}`)
+  res.json({ ok: true })
+})
+
+app.post('/api/push/test', async (req, res) => {
+  const result = await sendTestPush()
+  res.json(result)
+})
+
 // --- Dev seed endpoint ---
 app.post('/api/dev/seed', async (req, res) => {
   try {
@@ -2026,8 +2068,9 @@ initDb(dbPath).then(async () => {
     console.log(`17track: ${envTrackingApiKey ? 'from env' : 'user-provided via UI'}`)
     console.log(`SMTP: ${envSmtpHost ? 'from env' : 'not configured'}`)
 
-    // Start email notification loop
+    // Start notification loops
     startEmailNotifications()
+    startPushNotifications()
 
     // Start package polling loop (every 5 minutes)
     setInterval(pollActivePackages, 5 * 60 * 1000)
