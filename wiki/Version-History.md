@@ -4,6 +4,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-08
+
+- fix(notifications): test email always reported success even on failure [S]
+  - `sendTestEmail()` ignored `sendEmail()` return value, always returned `{ success: true }`
+  - Now performs SMTP send directly and propagates actual error messages to the UI
+  - Modified: `emailNotifications.js`
+- fix(ui): package tracking view uses desktop dialog on wide screens [M]
+  - Packages was the only overlay still using mobile-only `settings-overlay` on desktop
+  - Added `isDesktop` prop + `sheet-overlay/sheet` rendering pattern (matching Settings, Routines, Analytics)
+  - Added desktop CSS with wider sheet (720px), hover states on cards
+  - Modified: `Packages.jsx`, `Packages.css`, `App.jsx`
+
 ## 2026-04-07
 
 - fix(notifications): specific error messages for email config status [XS]

@@ -653,6 +653,7 @@ function App() {
           onRefresh={refreshPackage}
           onRefreshAll={refreshAllPackages}
           onClose={() => setShowPackages(false)}
+          isDesktop={isDesktop}
         />
       )}
 

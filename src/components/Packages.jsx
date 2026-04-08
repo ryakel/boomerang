@@ -8,7 +8,7 @@ import { getPackageApiStatus } from '../api'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import './Packages.css'
 
-export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onRefreshAll, onClose }) {
+export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh, onRefreshAll, onClose, isDesktop }) {
   const [trackingInput, setTrackingInput] = useState('')
   const [labelInput, setLabelInput] = useState('')
   const [detectedCarrier, setDetectedCarrier] = useState(null)
@@ -182,54 +182,52 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
   // Keep selected package in sync with latest data
   const selectedPkgData = selectedPkg ? packages.find(p => p.id === selectedPkg.id) || selectedPkg : null
 
-  return (
-    <div className="settings-overlay" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      <div className="settings-header">
-        <button className="settings-back" onClick={onClose}>← Back</button>
-        <div className="sheet-title" style={{ margin: 0 }}>Packages</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <button
-            className="package-sort-btn"
-            onClick={handleRefreshAll}
-            disabled={refreshingAll || cooldownSecs > 0}
-            title={cooldownSecs > 0 ? `Refresh available in ${Math.ceil(cooldownSecs / 60)}m ${cooldownSecs % 60}s` : 'Refresh all packages'}
-            style={cooldownSecs > 0 ? { position: 'relative', minWidth: 44 } : {}}
-          >
-            <RefreshCw size={16} className={refreshingAll ? 'spinning' : ''} />
-            {cooldownSecs > 0 && (
-              <span style={{ fontSize: 9, color: 'var(--text-dim)', marginLeft: 2 }}>
-                {Math.floor(cooldownSecs / 60)}:{String(cooldownSecs % 60).padStart(2, '0')}
-              </span>
-            )}
-          </button>
-          <div className="package-sort-wrapper" ref={sortRef}>
-            <button className="package-sort-btn" onClick={() => setShowSortDropdown(!showSortDropdown)}>
-              <ArrowUpDown size={16} />
-            </button>
-            {showSortDropdown && (
-              <div className="package-sort-dropdown">
-                {[
-                  { value: 'status', label: 'Status' },
-                  { value: 'eta', label: 'Delivery date' },
-                  { value: 'carrier', label: 'Carrier' },
-                ].map(opt => (
-                  <button
-                    key={opt.value}
-                    className={`package-sort-option ${sortBy === opt.value ? 'active' : ''}`}
-                    onClick={() => { setSortBy(opt.value); setShowSortDropdown(false) }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
+  const headerActions = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <button
+        className="package-sort-btn"
+        onClick={handleRefreshAll}
+        disabled={refreshingAll || cooldownSecs > 0}
+        title={cooldownSecs > 0 ? `Refresh available in ${Math.ceil(cooldownSecs / 60)}m ${cooldownSecs % 60}s` : 'Refresh all packages'}
+        style={cooldownSecs > 0 ? { position: 'relative', minWidth: 44 } : {}}
+      >
+        <RefreshCw size={16} className={refreshingAll ? 'spinning' : ''} />
+        {cooldownSecs > 0 && (
+          <span style={{ fontSize: 9, color: 'var(--text-dim)', marginLeft: 2 }}>
+            {Math.floor(cooldownSecs / 60)}:{String(cooldownSecs % 60).padStart(2, '0')}
+          </span>
+        )}
+      </button>
+      <div className="package-sort-wrapper" ref={sortRef}>
+        <button className="package-sort-btn" onClick={() => setShowSortDropdown(!showSortDropdown)}>
+          <ArrowUpDown size={16} />
+        </button>
+        {showSortDropdown && (
+          <div className="package-sort-dropdown">
+            {[
+              { value: 'status', label: 'Status' },
+              { value: 'eta', label: 'Delivery date' },
+              { value: 'carrier', label: 'Carrier' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                className={`package-sort-option ${sortBy === opt.value ? 'active' : ''}`}
+                onClick={() => { setSortBy(opt.value); setShowSortDropdown(false) }}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
-          <button className="package-add-toggle" onClick={() => setShowAddForm(!showAddForm)}>
-            <Plus size={20} />
-          </button>
-        </div>
+        )}
       </div>
+      <button className="package-add-toggle" onClick={() => setShowAddForm(!showAddForm)}>
+        <Plus size={20} />
+      </button>
+    </div>
+  )
 
+  const content = (
+    <>
       {/* API quota banner */}
       {apiStatus.exhausted && (
         <div className="package-api-banner">
@@ -313,18 +311,49 @@ export default function Packages({ packages, onAdd, onEdit, onDelete, onRefresh,
           </div>
         ))}
       </div>
+    </>
+  )
 
-      {/* Detail modal */}
-      {selectedPkgData && (
-        <PackageDetailModal
-          pkg={selectedPkgData}
-          onClose={() => setSelectedPkg(null)}
-          onRefresh={onRefresh}
-          onDelete={(id) => { onDelete(id); setSelectedPkg(null) }}
-          onUpdate={onEdit}
-          apiAvailable={apiStatus.available}
-        />
-      )}
-    </div>
+  const detailModal = selectedPkgData && (
+    <PackageDetailModal
+      pkg={selectedPkgData}
+      onClose={() => setSelectedPkg(null)}
+      onRefresh={onRefresh}
+      onDelete={(id) => { onDelete(id); setSelectedPkg(null) }}
+      onUpdate={onEdit}
+      apiAvailable={apiStatus.available}
+    />
+  )
+
+  if (isDesktop) {
+    return (
+      <>
+        <div className="sheet-overlay" onClick={onClose}>
+          <div className="sheet packages-sheet" onClick={e => e.stopPropagation()}>
+            <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
+            <div className="edit-task-title-row">
+              <div className="sheet-title">Packages</div>
+              {headerActions}
+            </div>
+            {content}
+          </div>
+        </div>
+        {detailModal}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="settings-overlay" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <div className="settings-header">
+          <button className="settings-back" onClick={onClose}>← Back</button>
+          <div className="sheet-title" style={{ margin: 0 }}>Packages</div>
+          {headerActions}
+        </div>
+        {content}
+      </div>
+      {detailModal}
+    </>
   )
 }

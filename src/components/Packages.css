@@ -567,3 +567,20 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Desktop: wider sheet for package list */
+@media (min-width: 768px) {
+  .packages-sheet {
+    max-width: 720px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .packages-sheet .package-list {
+    padding-bottom: 16px;
+  }
+
+  .packages-sheet .package-card:hover {
+    background: var(--surface-hover);
+  }
+}

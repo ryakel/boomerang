@@ -419,10 +419,22 @@ export async function sendPackageEmail(pkg, eventType) {
 export async function sendTestEmail() {
   if (!isConfigured()) return { success: false, error: 'SMTP not configured' }
   const body = 'This is a test email from Boomerang. Email notifications are working!'
+  const transport = getTransporter()
+  if (!transport) return { success: false, error: 'Could not create SMTP transport' }
+  const { from, to } = getSmtpConfig()
+  if (!to) return { success: false, error: 'No recipient email configured' }
+
   try {
-    await sendEmail('Boomerang Test', simpleEmailHtml('Test Email', body), body)
+    await transport.sendMail({
+      from: `"Boomerang" <${from}>`,
+      to,
+      subject: 'Boomerang Test',
+      text: body,
+      html: simpleEmailHtml('Test Email', body),
+    })
     return { success: true }
   } catch (err) {
+    console.error('[Email] Test send failed:', err.message)
     return { success: false, error: err.message }
   }
 }
