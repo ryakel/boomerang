@@ -40,14 +40,14 @@ let loopTimer = null
 // --- Transport setup ---
 
 function getSmtpConfig() {
-  // Settings can override env vars for email address
+  // Env var takes priority for recipient; UI setting is fallback
   const settings = getData('settings') || {}
   const host = smtpHost
   const port = parseInt(smtpPort || '587', 10)
   const user = smtpUser
   const pass = smtpPass
   const from = smtpFrom || user
-  const to = settings.email_address || notificationEmail
+  const to = notificationEmail || settings.email_address
   return { host, port, user, pass, from, to }
 }
 
@@ -454,6 +454,7 @@ export function getEmailStatus() {
     port: port || null,
     user: user ? '***' : null,
     recipient: to || null,
+    recipient_source: notificationEmail ? 'env' : 'ui',
   }
 }
 
