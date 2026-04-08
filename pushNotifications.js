@@ -60,7 +60,9 @@ export function getVapidPublicKey() {
 
 function setupVapid() {
   if (!isConfigured()) return
-  const email = vapidEmail || 'mailto:push@boomerang.local'
+  // Use configured email, or fall back to SMTP user / NOTIFICATION_EMAIL
+  const fallbackEmail = process.env.NOTIFICATION_EMAIL || process.env.SMTP_USER || process.env.VAPID_EMAIL
+  const email = vapidEmail || fallbackEmail || 'push@example.com'
   const mailto = email.startsWith('mailto:') ? email : `mailto:${email}`
   webpush.setVapidDetails(mailto, vapidPublicKey, vapidPrivateKey)
 }
@@ -83,12 +85,13 @@ async function sendPush(payload) {
       await webpush.sendNotification(pushSub, payloadStr)
       sent = true
     } catch (err) {
-      if (err.statusCode === 410 || err.statusCode === 404) {
-        // Subscription expired or invalid — clean up
-        console.log(`[Push] Removing expired subscription: ${sub.endpoint.slice(-20)}`)
+      if (err.statusCode === 410 || err.statusCode === 404 || err.statusCode === 403) {
+        // Subscription expired, invalid, or VAPID mismatch — clean up
+        console.log(`[Push] Removing invalid subscription (${err.statusCode}): ...${sub.endpoint.slice(-30)}`)
         deletePushSubscription(sub.endpoint)
       } else {
         console.error(`[Push] Send failed (${err.statusCode || 'unknown'}):`, err.message)
+        if (err.body) console.error(`[Push] Response body:`, err.body)
       }
     }
   }
