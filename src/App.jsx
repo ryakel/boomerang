@@ -690,7 +690,6 @@ function App() {
           onStatusChange={handleStatusChange}
           onUpdate={updateTask}
           onDelete={handleDelete}
-          onActivate={(id) => handleProject(id, false)}
           onClose={() => setShowProjects(false)}
           isDesktop={isDesktop}
         />

@@ -3,7 +3,7 @@ import TaskCard from './TaskCard'
 import { sortTasks } from '../store'
 import './ProjectsView.css'
 
-export default function ProjectsView({ tasks, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onActivate, onClose, isDesktop }) {
+export default function ProjectsView({ tasks, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onClose, isDesktop }) {
   const [sortBy] = useState('name')
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
