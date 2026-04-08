@@ -431,8 +431,11 @@ export async function sendTestEmail() {
 
 export function getEmailStatus() {
   const { host, port, user, to } = getSmtpConfig()
+  const smtpReady = !!(host && user && smtpPass)
   return {
     configured: isConfigured(),
+    smtp_configured: smtpReady,
+    has_recipient: !!to,
     host: host || null,
     port: port || null,
     user: user ? '***' : null,
@@ -448,7 +451,17 @@ export function startEmailNotifications() {
   loopTimer = setInterval(runNotificationCheck, 60 * 1000)
   // First check after 15 seconds (let DB settle)
   setTimeout(runNotificationCheck, 15000)
-  console.log(`Email notifications: ${isConfigured() ? 'configured' : 'not configured (SMTP missing)'}`)
+  const { host, user, to } = getSmtpConfig()
+  if (isConfigured()) {
+    console.log(`Email notifications: configured (${host}, recipient: ${to})`)
+  } else {
+    const missing = []
+    if (!host) missing.push('SMTP_HOST')
+    if (!user) missing.push('SMTP_USER')
+    if (!smtpPass) missing.push('SMTP_PASS')
+    if (!to) missing.push('NOTIFICATION_EMAIL or email_address setting')
+    console.log(`Email notifications: not configured (missing: ${missing.join(', ')})`)
+  }
 }
 
 export function stopEmailNotifications() {

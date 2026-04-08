@@ -1716,7 +1716,9 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
             {emailSmtpStatus && !emailSmtpStatus.configured && settings.email_notifications_enabled && (
               <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 8 }}>
-                SMTP not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS environment variables.
+                {!emailSmtpStatus.smtp_configured
+                  ? 'SMTP not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS environment variables.'
+                  : 'No recipient email. Set an email address below or NOTIFICATION_EMAIL env var.'}
               </div>
             )}
 

@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-07
 
+- fix(notifications): specific error messages for email config status [XS]
+  - Startup log now says exactly what's missing (e.g. "missing: NOTIFICATION_EMAIL")
+  - Settings UI distinguishes between "SMTP not configured" vs "No recipient email"
+  - Modified: `emailNotifications.js`, `Settings.jsx`
 - fix(packages): fix single-package refresh being blocked by downgrade guard [S]
   - Downgrade guard was blocking ALL status updates on user-initiated refresh, not just downgrades
   - Removed guard from single-package refresh (user explicitly wants fresh data)
