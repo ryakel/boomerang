@@ -97,6 +97,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       return
     }
     payload._clientId = clientId
+    payload._appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
     remoteLog('push: PUT /api/data — tasks=', taskSummary(payload.tasks))
     setSyncStatus('saving')
@@ -434,6 +435,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       const payload = buildPayload(latestState.current.tasks, latestState.current.routines)
       if (payload) {
         payload._clientId = clientId
+        payload._appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
         navigator.sendBeacon(
           '/api/data',
           new Blob([JSON.stringify(payload)], { type: 'application/json' })
