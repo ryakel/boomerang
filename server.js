@@ -177,6 +177,14 @@ function guardStaleClient(req, res) {
     res.json({ ok: true }) // 200 so old code doesn't retry
     return true
   }
+  // Reject pushes from clients that are behind the server version
+  const clientVersion = req.body._version
+  const serverVer = getVersion()
+  if (clientVersion != null && clientVersion < serverVer) {
+    console.log(`[SYNC] REJECTED stale push from client v${clientVersion} (server at v${serverVer})`)
+    res.json({ ok: true, version: serverVer })
+    return true
+  }
   return false
 }
 

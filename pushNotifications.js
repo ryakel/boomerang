@@ -377,11 +377,13 @@ export async function sendTestPush() {
   const subscriptions = getAllPushSubscriptions()
   if (subscriptions.length === 0) return { success: false, error: 'No push subscriptions registered. Enable push notifications in your browser first.' }
 
+  console.log(`[Push] Sending test to ${subscriptions.length} subscription(s)`)
   const sent = await sendPush({
     title: 'Boomerang Test',
     body: 'Push notifications are working!',
     tag: 'test',
   })
+  console.log(`[Push] Test result: ${sent ? 'delivered' : 'failed'}`)
 
   return sent ? { success: true } : { success: false, error: 'Failed to deliver push notification' }
 }
