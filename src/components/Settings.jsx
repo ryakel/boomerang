@@ -1725,17 +1725,30 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
             {settings.email_notifications_enabled && (
               <div className="notif-options">
                 <div className="settings-label">Email address</div>
-                <input
-                  className="settings-input"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={settings.email_address || ''}
-                  onChange={e => update('email_address', e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box' }}
-                />
-                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
-                  Can also be set via NOTIFICATION_EMAIL env var.
-                </div>
+                {emailSmtpStatus?.recipient_source === 'env' ? (
+                  <>
+                    <div className="settings-input" style={{ width: '100%', boxSizing: 'border-box', opacity: 0.7, cursor: 'not-allowed' }}>
+                      {emailSmtpStatus.recipient}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
+                      Set via NOTIFICATION_EMAIL env var. Remove the env var to use a custom address here.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      className="settings-input"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={settings.email_address || ''}
+                      onChange={e => update('email_address', e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
+                      Can also be set via NOTIFICATION_EMAIL env var.
+                    </div>
+                  </>
+                )}
 
                 {emailSmtpStatus?.configured && (
                   <div style={{ fontSize: 12, color: '#52C97F', marginTop: 8 }}>
