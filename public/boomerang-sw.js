@@ -9,6 +9,13 @@ self.addEventListener('push', function (event) {
     try { payload = { title: 'Boomerang', body: event.data.text() } } catch (e2) { /* default */ }
   }
 
+  // Log to server that push handler fired
+  fetch('/api/push/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event: 'push_received', title: payload.title })
+  }).catch(function () {})
+
   event.waitUntil(
     self.registration.showNotification(payload.title || 'Boomerang', {
       body: payload.body || '',
