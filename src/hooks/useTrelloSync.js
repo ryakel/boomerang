@@ -86,9 +86,9 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
 
         if (linkedCardIds.has(card.id)) {
           // Existing linked task — check if status needs updating
-          // Never revert 'done' or 'backlog' — these are terminal/local-only states
+          // Never revert 'done', 'backlog', or 'project' — these are terminal/local-only states
           const existingTask = currentTasks.find(t => t.trello_card_id === card.id)
-          if (existingTask && existingTask.status !== status && existingTask.status !== 'backlog' && existingTask.status !== 'done') {
+          if (existingTask && existingTask.status !== status && existingTask.status !== 'backlog' && existingTask.status !== 'project' && existingTask.status !== 'done') {
             statusUpdates.push({ taskId: existingTask.id, newStatus: status })
           }
         } else {
@@ -109,7 +109,7 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
     }
     const reconcilePromises = []
     for (const task of currentTasks) {
-      if (!task.trello_card_id || task.status === 'backlog') continue
+      if (!task.trello_card_id || task.status === 'backlog' || task.status === 'project') continue
       const currentListId = cardListLookup[task.trello_card_id]
       if (!currentListId) continue // card not found in any fetched list
       const expectedStatus = STATUS_FOR_LIST[currentListId]
@@ -223,7 +223,7 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
   // Push: move Trello card when Boomerang status changes
   const pushStatusToTrello = useCallback(async (task, newStatus) => {
     if (!task.trello_card_id) return
-    if (newStatus === 'backlog') return // backlog is Boomerang-only
+    if (newStatus === 'backlog' || newStatus === 'project') return // backlog/project are Boomerang-only
     const mapping = loadSettings().trello_list_mapping
     if (!mapping) {
       remoteLog(`[TrelloSync] no list mapping configured — skipping push for "${task.title}"`)

@@ -26,6 +26,7 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 ### Key Features
 - Persistent nagging with snooze escalation and AI-powered reframing
 - Recurring tasks (routines) with optional end date, custom labels, due dates
+- Projects space for longer-term tasks — no notifications, no nagging, separate view
 - Notion and Trello integrations (bidirectional sync)
 - Package tracking with 17track API, carrier auto-detection, signature-required task creation
 - Real-time cross-client sync via SSE
@@ -356,6 +357,29 @@ Server-side Web Push engine (`pushNotifications.js`) that sends background notif
 - iOS requires PWA to be added to Home Screen before push works
 - Each device must subscribe independently (multi-device = multiple subscriptions)
 - No notification grouping/batching yet
+
+### Projects (Long-term Safe Space)
+Dedicated space for longer-term tasks that should never trigger notifications or nagging.
+
+**Status:** Tasks with `status: 'project'` live in a separate Projects view, accessible via the folder icon in the header.
+
+**Behavior:**
+- Excluded from all notifications (client-side, email, push) — not in `ACTIVE_STATUSES`
+- Excluded from "What Now?" suggestions
+- Excluded from GCal sync (existing events are removed when moved to Projects)
+- Excluded from Trello status sync (Boomerang-local-only, like backlog)
+- No stale/overdue visual indicators in the Projects view
+- Separate from backlog — projects are intentional longer-term work, backlog is someday/maybe
+- "Move to Projects" button in EditTaskModal, "Activate" to move back to active
+- Projects column in desktop Kanban view
+
+**UI:**
+- Header icon (FolderKanban, purple `#A78BFA`) opens the Projects view
+- Mobile: full-screen overlay (same pattern as Settings/Packages)
+- Desktop: sheet modal (same pattern as Packages)
+- Calm empty state with instructions when no projects exist
+
+**Implementation:** `src/components/ProjectsView.jsx`, `src/components/ProjectsView.css`
 
 ### Toast Messages (Completion/Reopen Feedback)
 - AI-generated contextual one-liners via `generateToastMessage()` in `src/api.js`

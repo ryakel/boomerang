@@ -12,7 +12,7 @@ Every task always comes back. Dismissal is never free — every "not now" requir
 - **Swipe gestures** — iMessage-style swipe actions on task cards. Swipe right-to-left to reveal Edit and Done buttons. Swipe left-to-right to delete. Clean SVG icons (pencil, checkmark, trash) instead of text labels.
 - **Delete tasks** — delete any task via swipe gesture or from the expanded card actions
 - **Expanded actions** — tap a task to expand it and reveal Done, Snooze, Extend, Edit, Backlog, and Delete buttons
-- **Statuses** — not started, doing, waiting, done (plus backlog as a separate concept). Change status directly from the expanded task card.
+- **Statuses** — not started, doing, waiting, done (plus backlog and project as separate concepts). Change status directly from the expanded task card.
 - **Checklists** — add checklist items to any task. Toggle items directly from the expanded card without opening the edit modal. Progress shown as "2/5 items".
 - **Comments** — append timestamped notes/comments to tasks from the edit modal. Useful for tracking updates on longer-running tasks.
 - **Due dates** — with overdue detection and visual indicators (days overdue, due today, due tomorrow, etc.)
@@ -30,6 +30,7 @@ Tasks are organized into sections on the main screen:
 - **Waiting** — tasks marked as blocked/waiting on someone
 - **Snoozed** — tasks with a future snooze date, showing when they'll return
 - **Backlog** — someday/maybe tasks in a collapsible section at the bottom. Move tasks to backlog to keep them out of your active list without losing them.
+- **Projects** — dedicated space for longer-term tasks. Accessible via the folder icon in the header. No notifications, no nagging, no stale/overdue visual pressure. Use "Move to Projects" in any task's edit modal.
 
 ## Task Count Display
 
@@ -159,7 +160,7 @@ Trello lists map to Boomerang statuses:
 | On Hold | waiting |
 | Done | done |
 
-The mapping is **AI-inferred** — when you first connect a board, Claude analyzes your list names and automatically maps them to Boomerang statuses. You can re-infer the mapping at any time from Settings. Backlog is a Boomerang-only concept with no Trello equivalent.
+The mapping is **AI-inferred** — when you first connect a board, Claude analyzes your list names and automatically maps them to Boomerang statuses. You can re-infer the mapping at any time from Settings. Backlog and Projects are Boomerang-only concepts with no Trello equivalent.
 
 #### How sync works
 

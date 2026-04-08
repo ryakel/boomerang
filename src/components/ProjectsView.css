@@ -1,0 +1,73 @@
+/* ProjectsView — calm space for long-term projects */
+
+.projects-sheet {
+  max-width: 700px;
+}
+
+.projects-count {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.projects-content {
+  padding: 8px 0;
+}
+
+.projects-hint {
+  font-size: 13px;
+  color: var(--text-dim);
+  padding: 8px 16px 12px;
+  line-height: 1.4;
+}
+
+.projects-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.project-card-wrapper {
+  /* Suppress stale/overdue visual stress on project cards */
+}
+
+.project-card-wrapper .task-card.stale {
+  border-left-color: transparent;
+}
+
+.project-card-wrapper .task-card.overdue {
+  border-left-color: transparent;
+}
+
+.project-card-wrapper .task-meta-overdue {
+  color: var(--text-dim);
+}
+
+/* Empty state */
+.projects-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.projects-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.projects-empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.projects-empty-subtitle {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  max-width: 280px;
+}

@@ -355,6 +355,8 @@ export function useExternalSync(tasks, onUpdateTask) {
       // Task already linked to a calendar event
       const shouldRemove = (
         (task.status === 'done' && settings.gcal_remove_on_complete) ||
+        task.status === 'project' ||
+        task.status === 'backlog' ||
         !task.due_date
       )
 

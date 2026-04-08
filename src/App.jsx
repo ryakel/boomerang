@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { BarChart3, Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package } from 'lucide-react'
+import { BarChart3, Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package, FolderKanban } from 'lucide-react'
 import { polyfill } from 'mobile-drag-drop'
 import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scroll-behaviour'
 import 'mobile-drag-drop/default.css'
@@ -38,6 +38,7 @@ import { useToastPrefetch } from './hooks/useToastPrefetch'
 import { usePackages } from './hooks/usePackages'
 import { usePackageNotifications } from './hooks/usePackageNotifications'
 import Packages from './components/Packages'
+import ProjectsView from './components/ProjectsView'
 
 polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 
@@ -74,6 +75,7 @@ function App() {
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showPackages, setShowPackages] = useState(false)
+  const [showProjects, setShowProjects] = useState(false)
   const [relatedTarget, setRelatedTarget] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -125,10 +127,10 @@ function App() {
 
   // Check app version on every view/modal navigation
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || editTarget || showAdd || showWhatNow) {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || editTarget || showAdd || showWhatNow) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, editTarget, showAdd, showWhatNow, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, editTarget, showAdd, showWhatNow, checkVersion])
 
   // Handle notification click deep links (?task=id)
   useEffect(() => {
@@ -259,6 +261,10 @@ function App() {
     updateTask(id, { status: toBacklog ? 'backlog' : 'not_started', last_touched: new Date().toISOString() })
   }, [updateTask])
 
+  const handleProject = useCallback((id, toProject) => {
+    updateTask(id, { status: toProject ? 'project' : 'not_started', last_touched: new Date().toISOString() })
+  }, [updateTask])
+
   const handleStatusChange = useCallback((id, newStatus) => {
     if (newStatus === 'done') {
       // handleComplete already pushes to Trello
@@ -308,12 +314,14 @@ function App() {
   }).length
 
   const backlogTasks = tasks.filter(t => t.status === 'backlog')
+  const projectTasks = tasks.filter(t => t.status === 'project')
   const filteredStale = sortTasks(filterTasks(staleTasks), sortBy)
   const filteredDoing = sortTasks(filterTasks(doingTasks), sortBy)
   const filteredUpNext = sortTasks(filterTasks(upNextTasks), sortBy)
   const filteredWaiting = sortTasks(filterTasks(waitingTasks), sortBy)
   const filteredSnoozed = sortTasks(filterTasks(snoozedTasks), sortBy)
   const filteredBacklog = sortTasks(filterTasks(backlogTasks), sortBy)
+  const filteredProjects = sortTasks(filterTasks(projectTasks), sortBy)
 
   return (
     <div className={`app${isDesktop ? ' desktop' : ''}`}>
@@ -332,6 +340,7 @@ function App() {
                 <path d="M17 16v-11" stroke="#22C55E" />
               </svg>
             </button>
+            <button className="header-icon-btn projects-color" onClick={() => setShowProjects(true)} title="Projects"><FolderKanban size={20} /></button>
             <button className="header-icon-btn packages-color" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
             <button className="header-icon-btn settings-color" onClick={() => setShowSettings(true)}><SettingsIcon size={20} /></button>
           </div>
@@ -496,6 +505,7 @@ function App() {
           filteredWaiting={filteredWaiting}
           filteredSnoozed={filteredSnoozed}
           filteredBacklog={filteredBacklog}
+          filteredProjects={filteredProjects}
           onComplete={handleComplete}
           onSnooze={handleSnooze}
           onEdit={setEditTarget}
@@ -670,6 +680,22 @@ function App() {
         />
       )}
 
+      {showProjects && (
+        <ProjectsView
+          tasks={tasks}
+          onComplete={handleComplete}
+          onSnooze={handleSnooze}
+          onEdit={setEditTarget}
+          onExtend={setExtendTarget}
+          onStatusChange={handleStatusChange}
+          onUpdate={updateTask}
+          onDelete={handleDelete}
+          onActivate={(id) => handleProject(id, false)}
+          onClose={() => setShowProjects(false)}
+          isDesktop={isDesktop}
+        />
+      )}
+
       {showDone && (
         <DoneList onClose={() => setShowDone(false)} onUncomplete={handleUncomplete} />
       )}
@@ -709,6 +735,7 @@ function App() {
           onClose={() => setEditTarget(null)}
           onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
           onBacklog={(id, toBacklog) => { handleBacklog(id, toBacklog); setEditTarget(null) }}
+          onProject={(id, toProject) => { handleProject(id, toProject); setEditTarget(null) }}
           onStatusChange={handleStatusChange}
         />
       )}
