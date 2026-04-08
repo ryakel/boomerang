@@ -10,6 +10,22 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - `sendTestEmail()` ignored `sendEmail()` return value, always returned `{ success: true }`
   - Now performs SMTP send directly and propagates actual error messages to the UI
   - Modified: `emailNotifications.js`
+- feat(notifications): SMS gateway detection for email notifications [S]
+  - Detects SMS gateway recipients (tmomail.net, vtext.com, txt.att.net, etc.)
+  - Sends text-only, 140-char truncated, minimal-header emails to phone numbers
+  - Covers T-Mobile, Verizon, AT&T, Sprint, Metro, Cricket, Google Fi, Ting, Republic, US Cellular, Boost, TracFone
+  - Status endpoint includes `sms_mode` flag
+  - Modified: `emailNotifications.js`
+- fix(notifications): test email always reported success even on failure [S]
+  - `sendTestEmail()` ignored `sendEmail()` return value, always returned `{ success: true }`
+  - Now performs SMTP send directly and propagates actual error messages to the UI
+  - Modified: `emailNotifications.js`
+- fix(notifications): env var NOTIFICATION_EMAIL now takes priority over UI setting [XS]
+  - Previously UI-saved `email_address` overrode the env var
+  - Modified: `emailNotifications.js`
+- fix(ui): show effective email recipient when env var is set [XS]
+  - Email field shows read-only env value instead of stale database value
+  - Modified: `Settings.jsx`
 - fix(ui): package tracking view uses desktop dialog on wide screens [M]
   - Packages was the only overlay still using mobile-only `settings-overlay` on desktop
   - Added `isDesktop` prop + `sheet-overlay/sheet` rendering pattern (matching Settings, Routines, Analytics)
