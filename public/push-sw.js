@@ -2,16 +2,18 @@
 // This file lives in /public so it's served at the root scope
 
 self.addEventListener('push', (event) => {
-  if (!event.data) return
-
   let payload
   try {
-    payload = event.data.json()
+    payload = event.data?.json()
   } catch {
-    payload = { title: 'Boomerang', body: event.data.text() }
+    try {
+      payload = { title: 'Boomerang', body: event.data?.text() || '' }
+    } catch {
+      payload = { title: 'Boomerang', body: 'New notification' }
+    }
   }
 
-  const { title, body, tag, data } = payload
+  const { title, body, tag, data } = payload || {}
 
   event.waitUntil(
     self.registration.showNotification(title || 'Boomerang', {
@@ -27,8 +29,6 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-
-  // Focus existing window or open new one
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {

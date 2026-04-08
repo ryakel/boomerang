@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { execSync } from 'child_process'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
+import path from 'path'
 
 let appVersion
 try {
@@ -34,11 +36,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      strategies: 'injectManifest',
-      srcDir: 'src',
-      filename: 'sw.js',
-      injectManifest: {
-        globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallbackDenylist: [/^\/api/],
       },
       manifest: {
         name: 'Boomerang',
@@ -68,5 +69,20 @@ export default defineConfig({
         ],
       },
     }),
+    // Prepend push-sw.js to the Workbox-generated SW so push handler is top-level & synchronous
+    {
+      name: 'prepend-push-sw',
+      enforce: 'post',
+      closeBundle() {
+        const swPath = path.resolve('dist/sw.js')
+        const pushPath = path.resolve('public/push-sw.js')
+        if (existsSync(swPath) && existsSync(pushPath)) {
+          const pushCode = readFileSync(pushPath, 'utf-8')
+          const swCode = readFileSync(swPath, 'utf-8')
+          writeFileSync(swPath, pushCode + '\n// --- Workbox ---\n' + swCode)
+          console.log('[build] Prepended push-sw.js to sw.js')
+        }
+      },
+    },
   ],
 })
