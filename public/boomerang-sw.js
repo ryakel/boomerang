@@ -18,11 +18,19 @@ self.addEventListener('push', function (event) {
 
   event.waitUntil(
     self.registration.showNotification(payload.title || 'Boomerang', {
-      body: payload.body || '',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      tag: payload.tag || undefined,
-      data: payload.data || {}
+      body: payload.body || ''
+    }).then(function () {
+      fetch('/api/push/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'notification_shown' })
+      }).catch(function () {})
+    }).catch(function (err) {
+      fetch('/api/push/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'notification_error', error: err.message || String(err) })
+      }).catch(function () {})
     })
   )
 })
