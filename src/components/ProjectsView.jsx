@@ -65,8 +65,8 @@ export default function ProjectsView({ tasks, onComplete, onSnooze, onEdit, onEx
     <div className="settings-overlay">
       <div className="settings-header">
         <button className="settings-back" onClick={onClose}>← Back</button>
-        <div className="sheet-title" style={{ margin: 0 }}>Projects</div>
-        <div className="projects-count">{projectTasks.length} project{projectTasks.length !== 1 ? 's' : ''}</div>
+        <div className="sheet-title" style={{ margin: 0, flex: 1, textAlign: 'center' }}>Projects</div>
+        <div className="projects-count" style={{ minWidth: 50, textAlign: 'right' }}>{projectTasks.length} project{projectTasks.length !== 1 ? 's' : ''}</div>
       </div>
       {content}
     </div>

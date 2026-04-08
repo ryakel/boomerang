@@ -6,6 +6,8 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- fix(ui): center Projects view title in mobile header [XS]
+  - Modified: `ProjectsView.jsx`
 - fix(ui): remove redundant analytics button from header [XS]
   - Analytics is already accessible via the MiniRings in the header stats row
   - Modified: `App.jsx`
