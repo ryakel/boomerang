@@ -11,6 +11,14 @@ function urlBase64ToUint8Array(base64String) {
   return arr
 }
 
+// Wrap a promise with a timeout
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)),
+  ])
+}
+
 export function usePushSubscription() {
   const [subscription, setSubscription] = useState(null)
   const [supported, setSupported] = useState(false)
@@ -27,7 +35,7 @@ export function usePushSubscription() {
       setSupported(true)
 
       try {
-        const reg = await navigator.serviceWorker.ready
+        const reg = await withTimeout(navigator.serviceWorker.ready, 5000, 'SW ready')
         const existing = await reg.pushManager.getSubscription()
         setSubscription(existing)
       } catch (err) {
@@ -41,19 +49,32 @@ export function usePushSubscription() {
   const subscribe = useCallback(async () => {
     try {
       setLoading(true)
-      const vapidKey = await getVapidPublicKey()
+
+      // Step 1: Get VAPID key
+      const vapidKey = await withTimeout(getVapidPublicKey(), 5000, 'VAPID key fetch')
       if (!vapidKey) throw new Error('VAPID key not configured on server')
 
-      // Use the existing Workbox service worker (push-sw.js is imported via importScripts)
-      const reg = await navigator.serviceWorker.ready
+      // Step 2: Wait for service worker
+      const reg = await withTimeout(navigator.serviceWorker.ready, 5000, 'Service worker ready')
 
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey),
-      })
+      // Step 3: Request notification permission explicitly
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        throw new Error(`Notification permission ${permission}. Check Settings > Notifications > Boomerang.`)
+      }
 
-      // Send subscription to server
-      await subscribePush(sub)
+      // Step 4: Subscribe to push
+      const sub = await withTimeout(
+        reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        }),
+        10000,
+        'Push subscribe'
+      )
+
+      // Step 5: Send subscription to server
+      await withTimeout(subscribePush(sub), 5000, 'Server registration')
       setSubscription(sub)
       return { success: true }
     } catch (err) {
@@ -70,7 +91,7 @@ export function usePushSubscription() {
       if (subscription) {
         const endpoint = subscription.endpoint
         await subscription.unsubscribe()
-        await unsubscribePush(endpoint)
+        await unsubscribePush(endpoint).catch(() => {})
       }
       setSubscription(null)
       return { success: true }
