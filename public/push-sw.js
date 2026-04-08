@@ -1,46 +1,34 @@
-// Push notification service worker — loaded alongside Workbox SW
-// This file lives in /public so it's served at the root scope
+// Push notification handler — imported by Workbox SW via importScripts
 
-self.addEventListener('push', (event) => {
-  let payload
+self.addEventListener('push', function (event) {
+  var payload = { title: 'Boomerang', body: 'New notification' }
   try {
-    payload = event.data?.json()
-  } catch {
-    try {
-      payload = { title: 'Boomerang', body: event.data?.text() || '' }
-    } catch {
-      payload = { title: 'Boomerang', body: 'New notification' }
-    }
+    if (event.data) payload = event.data.json()
+  } catch (e) {
+    try { payload = { title: 'Boomerang', body: event.data.text() } } catch (e2) { /* use default */ }
   }
 
-  const { title, body, tag, data } = payload || {}
-
   event.waitUntil(
-    self.registration.showNotification(title || 'Boomerang', {
-      body: body || '',
+    self.registration.showNotification(payload.title || 'Boomerang', {
+      body: payload.body || '',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: tag || undefined,
-      renotify: !!tag,
-      data: data || {},
+      tag: payload.tag || undefined,
+      data: payload.data || {}
     })
   )
 })
 
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', function (event) {
   event.notification.close()
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          return client.focus()
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windowClients) {
+      for (var i = 0; i < windowClients.length; i++) {
+        if (windowClients[i].url.indexOf(self.location.origin) !== -1) {
+          return windowClients[i].focus()
         }
       }
-      return clients.openWindow('/')
+      return self.clients.openWindow('/')
     })
   )
 })
-
-// Force immediate activation (must be top-level, not inside Workbox async wrapper)
-self.addEventListener('install', () => self.skipWaiting())
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
