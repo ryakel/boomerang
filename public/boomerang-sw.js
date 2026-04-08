@@ -44,9 +44,7 @@ self.addEventListener('notificationclick', function (event) {
       for (var i = 0; i < windowClients.length; i++) {
         var client = windowClients[i]
         if (client.url.indexOf(self.location.origin) !== -1) {
-          // Tell the app to navigate home (or to a task)
-          client.postMessage({ type: 'notification-click', taskId: data.taskId || null })
-          return client.focus()
+          return client.navigate('/').then(function (c) { return c.focus() })
         }
       }
       return self.clients.openWindow('/')
