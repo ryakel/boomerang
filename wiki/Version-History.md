@@ -12,7 +12,7 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Modified: `emailNotifications.js`
 - feat(notifications): Web Push notifications — background alerts even when app is closed [L]
   - Server-side push loop mirrors email notification logic (same types, frequencies, throttling, quiet hours)
-  - VAPID key-based authentication (env vars: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`)
+  - VAPID keys auto-generated on first startup and persisted in database (no config needed)
   - Custom service worker (`push-sw.js`) handles push events and notification clicks
   - `push_subscriptions` DB table stores browser subscription endpoints
   - Settings UI: per-device enable, per-type toggles, test push button, disable button

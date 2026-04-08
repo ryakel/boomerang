@@ -324,10 +324,10 @@ Server-side email notification engine (`emailNotifications.js`) that mirrors cli
 ### Web Push Notifications
 Server-side Web Push engine (`pushNotifications.js`) that sends background notifications via the Web Push API. Works even when the app is closed — on iOS 16.4+ (Home Screen PWA), Android, and desktop browsers.
 
-**Configuration (env vars):**
-- `VAPID_PUBLIC_KEY` — VAPID public key (generate with `npx web-push generate-vapid-keys`)
-- `VAPID_PRIVATE_KEY` — VAPID private key
-- `VAPID_EMAIL` — contact email for VAPID (optional, defaults to `push@boomerang.local`)
+**Configuration (auto-managed):**
+- VAPID keys are auto-generated on first startup and stored in the database
+- No manual configuration required — push just works out of the box
+- Optional env var overrides: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_EMAIL`
 
 **Server Endpoints:**
 | Endpoint | Purpose |

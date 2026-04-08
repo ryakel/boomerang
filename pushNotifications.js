@@ -2,17 +2,16 @@
  * Server-side Web Push notification engine.
  *
  * Mirrors the email notification logic but sends via Web Push API.
- * Requires VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY env vars.
- *
- * Gracefully tolerant: if VAPID keys are not configured, the engine is a no-op.
+ * VAPID keys are auto-generated on first startup and stored in the database.
+ * Can be overridden with VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY env vars.
  */
 
 import webpush from 'web-push'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush } from './db.js'
+import { queryTasks, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush } from './db.js'
 
-// --- Environment ---
+// --- Environment (optional overrides) ---
 let vapidPublicKey = process.env.VAPID_PUBLIC_KEY
 let vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
 let vapidEmail = process.env.VAPID_EMAIL
@@ -22,6 +21,26 @@ if (existsSync('.env')) {
   vapidPublicKey = vapidPublicKey || envFile.match(/VAPID_PUBLIC_KEY="?([^"\n]+)"?/)?.[1]
   vapidPrivateKey = vapidPrivateKey || envFile.match(/VAPID_PRIVATE_KEY="?([^"\n]+)"?/)?.[1]
   vapidEmail = vapidEmail || envFile.match(/VAPID_EMAIL="?([^"\n]+)"?/)?.[1]
+}
+
+// Auto-generate and persist VAPID keys if not provided via env
+function ensureVapidKeys() {
+  if (vapidPublicKey && vapidPrivateKey) return
+
+  // Check database for previously generated keys
+  const stored = getData('vapid_keys')
+  if (stored?.publicKey && stored?.privateKey) {
+    vapidPublicKey = stored.publicKey
+    vapidPrivateKey = stored.privateKey
+    return
+  }
+
+  // Generate new keys and persist
+  const keys = webpush.generateVAPIDKeys()
+  vapidPublicKey = keys.publicKey
+  vapidPrivateKey = keys.privateKey
+  setData('vapid_keys', { publicKey: keys.publicKey, privateKey: keys.privateKey })
+  console.log('[Push] Auto-generated VAPID keys and stored in database')
 }
 
 const AVOIDANCE_ENERGY_TYPES = ['errand']
@@ -379,8 +398,9 @@ export function getPushStatus() {
 
 export function startPushNotifications() {
   if (loopTimer) return
+  ensureVapidKeys()
   if (!isConfigured()) {
-    console.log('Push notifications: not configured (missing VAPID_PUBLIC_KEY and/or VAPID_PRIVATE_KEY)')
+    console.log('Push notifications: not configured (VAPID key generation failed)')
     return
   }
   setupVapid()
