@@ -55,13 +55,27 @@ export function usePushSubscription() {
       const vapidKey = await withTimeout(getVapidPublicKey(), 5000, 'VAPID key fetch')
       if (!vapidKey) throw new Error('VAPID key not configured on server')
 
-      // Step 2: Ensure service worker is registered
+      // Step 2: Ensure service worker is registered and active
       let reg = await navigator.serviceWorker.getRegistration('/')
       if (!reg) {
         reg = await withTimeout(
           navigator.serviceWorker.register('/sw.js', { scope: '/' }),
           10000, 'SW register'
         )
+      }
+
+      // Wait for SW to become active (precache may take a while on slow connections)
+      if (!reg.active) {
+        await withTimeout(new Promise((resolve, reject) => {
+          const sw = reg.installing || reg.waiting
+          if (!sw) { reject(new Error('No service worker found')); return }
+          const check = () => {
+            if (sw.state === 'activated') resolve()
+            else if (sw.state === 'redundant') reject(new Error('Service worker install failed — try reloading the app'))
+          }
+          check()
+          sw.addEventListener('statechange', check)
+        }), 30000, 'SW activation (precache downloading)')
       }
 
       // Step 3: Request notification permission explicitly
