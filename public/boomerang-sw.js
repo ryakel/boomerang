@@ -44,10 +44,10 @@ self.addEventListener('notificationclick', function (event) {
       for (var i = 0; i < windowClients.length; i++) {
         var client = windowClients[i]
         if (client.url.indexOf(self.location.origin) !== -1) {
-          // Focus first (wakes suspended PWA), then send message
-          return client.focus().then(function (focused) {
-            focused.postMessage({ type: 'notification-click', taskId: data.taskId || null })
-          })
+          // Navigate to root to clear any overlay state, then focus
+          var rootUrl = self.location.origin + '/'
+          if (data.taskId) rootUrl += '?task=' + data.taskId
+          return client.navigate(rootUrl).then(function (c) { if (c) return c.focus() })
         }
       }
       return self.clients.openWindow('/')

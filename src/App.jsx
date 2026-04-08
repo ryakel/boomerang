@@ -130,26 +130,18 @@ function App() {
     }
   }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, editTarget, showAdd, showWhatNow, checkVersion])
 
-  // Handle notification clicks from service worker — navigate home
+  // Handle notification click deep links (?task=id)
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) return
-    const handler = (event) => {
-      if (event.data?.type === 'notification-click') {
-        setShowSettings(false)
-        setShowDone(false)
-        setShowAnalytics(false)
-        setShowRoutines(false)
-        setShowActivityLog(false)
-        setShowPackages(false)
-        setShowAdd(false)
-        setShowWhatNow(false)
-        setEditTarget(null)
-        setExtendTarget(null)
-      }
+    const params = new URLSearchParams(window.location.search)
+    const taskId = params.get('task')
+    if (taskId) {
+      // Clean URL without reload
+      window.history.replaceState({}, '', '/')
+      // Open the task if it exists
+      const task = tasks.find(t => t.id === taskId)
+      if (task) setEditTarget(task)
     }
-    navigator.serviceWorker.addEventListener('message', handler)
-    return () => navigator.serviceWorker.removeEventListener('message', handler)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Spawn routine tasks on load and every minute
   useEffect(() => {
