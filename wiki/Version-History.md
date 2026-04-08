@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- feat(sync): Gmail integration — AI-powered email scanning for tasks and packages [XL]
+  - OAuth flow using same Google credentials as GCal, separate token with gmail.readonly scope
+  - Server-side scanning engine (`gmailSync.js`) fetches inbox, sends to Claude for analysis
+  - AI extracts actionable tasks (title, due date, notes) and package tracking numbers (carrier auto-detect)
+  - Pending review flow: Gmail-imported items show yellow border + envelope badge, expand to Keep/Dismiss
+  - Pending items excluded from all notification engines (client, email, push)
+  - Settings UI: connect/disconnect, scan days config, manual "Scan Now", auto-scan toggle
+  - 5-minute server-side polling when auto-scan enabled
+  - `gmail_processed` table for deduplication, `gmail_message_id`/`gmail_pending` columns on tasks + packages
+  - New: `gmailSync.js`, `migrations/012_create_gmail_tables.sql`
+  - Modified: `server.js`, `db.js`, `api.js`, `store.js`, `Settings.jsx`, `TaskCard.jsx`, `TaskCard.css`, `App.jsx`, `useNotifications.js`, `emailNotifications.js`, `pushNotifications.js`
 - fix(ui): center Projects view title in mobile header [XS]
   - Modified: `ProjectsView.jsx`
 - fix(ui): remove redundant analytics button from header [XS]

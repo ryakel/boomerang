@@ -8,7 +8,7 @@ const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
-export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, expandedId, onToggleExpand, isDesktop }) {
+export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, expandedId, onToggleExpand, isDesktop, onGmailApprove, onGmailDismiss }) {
   const expanded = expandedId === task.id
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -114,7 +114,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
   if (isDesktop) {
     return (
       <div
-        className={`task-card task-card-desktop ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : ''}`}
+        className={`task-card task-card-desktop ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : ''}${task.gmail_pending ? ' gmail-pending' : ''}`}
         onClick={() => onEdit(task)}
       >
         <div className="desktop-hover-actions">
@@ -213,7 +213,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
 
       <div
         ref={cardRef}
-        className={`task-card ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : ''}`}
+        className={`task-card ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : ''}${task.gmail_pending ? ' gmail-pending' : ''}`}
         style={{
           transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
           transition: swiping ? 'none' : 'transform 0.25s ease',
@@ -224,7 +224,9 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
         onTouchEnd={handleTouchEnd}
       >
         <div className="task-card-top">
-          {task.status !== 'backlog' && task.status !== 'project' && (STATUS_META[task.status] || task.status === 'open') && (
+          {task.gmail_pending ? (
+            <span className="gmail-pending-badge" title="From Gmail — pending review">✉</span>
+          ) : task.status !== 'backlog' && task.status !== 'project' && (STATUS_META[task.status] || task.status === 'open') && (
             <span className="status-indicator" style={{ background: (STATUS_META[task.status] || STATUS_META.not_started).color }} title={(STATUS_META[task.status] || STATUS_META.not_started).label} />
           )}
           <span className="task-title">{task.title}</span>
@@ -363,6 +365,12 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
               <a href={task.notion_url} target="_blank" rel="noopener" className="notion-link" onClick={e => e.stopPropagation()}>
                 Open in Notion ↗
               </a>
+            )}
+            {task.gmail_pending && onGmailApprove && onGmailDismiss && (
+              <div className="gmail-review-bar" onClick={e => e.stopPropagation()}>
+                <button className="gmail-approve-btn" onClick={() => onGmailApprove(task.id)}>✓ Keep</button>
+                <button className="gmail-dismiss-btn" onClick={() => onGmailDismiss(task.id)}>✕ Dismiss</button>
+              </div>
             )}
             <div className="task-toolbar" onClick={e => e.stopPropagation()}>
               <button className="toolbar-pill done" onClick={() => onComplete(task.id)} title="Done">

@@ -238,6 +238,20 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 - **Calendar picker** — choose which Google Calendar to sync with from your calendar list.
 - **OAuth 2.0** — secure server-side token management with automatic refresh. Tokens are stored in the database, never exposed to the browser.
 
+## Gmail Integration (requires Google Cloud project with Gmail API)
+
+AI-powered email scanning that automatically finds tasks and package tracking numbers in your inbox.
+
+- **OAuth connection** — uses the same Google OAuth credentials as Google Calendar. Just enable the Gmail API in your Cloud project.
+- **AI email analysis** — Claude analyzes your inbox emails to find actionable tasks (appointments, deadlines, documents to submit) and package tracking numbers from shipping confirmations.
+- **Pending review** — imported items appear with a yellow border and envelope badge. Expand a card to "Keep" (approve) or "Dismiss" it. No items are auto-committed without your review.
+- **Configurable scan window** — defaults to 7 days back, adjustable in Settings.
+- **Auto-scan** — optional 5-minute polling for new emails when enabled.
+- **Manual scan** — "Scan Now" button in Settings for on-demand scanning.
+- **Smart filtering** — only scans primary inbox; skips promotions, social, updates, and forums.
+- **Deduplication** — tracks processed message IDs to avoid creating duplicates on re-scan.
+- **Package detection** — recognized carriers: USPS, UPS, FedEx, Amazon, DHL, OnTrac, LaserShip.
+
 ## Package Tracking (requires 17track API key)
 
 Track packages from any carrier with automatic status updates, notifications, and delivery detection. Accessed via the Package icon in the header bar.

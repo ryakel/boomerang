@@ -829,6 +829,35 @@ export function deletePackage(id) {
   schedulePersist()
 }
 
+// --- Gmail processed messages ---
+
+export function isGmailProcessed(messageId) {
+  const stmt = db.prepare('SELECT message_id FROM gmail_processed WHERE message_id = ?')
+  stmt.bind([messageId])
+  const found = stmt.step()
+  stmt.free()
+  return found
+}
+
+export function markGmailProcessed(messageId, threadId, subject, fromEmail, resultType, resultId) {
+  db.run(
+    `INSERT OR REPLACE INTO gmail_processed (message_id, thread_id, subject, from_email, result_type, result_id, processed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [messageId, threadId, subject, fromEmail, resultType, resultId, new Date().toISOString()]
+  )
+  schedulePersist()
+}
+
+export function getGmailProcessedCount() {
+  const result = db.exec('SELECT COUNT(*) FROM gmail_processed')
+  return result[0]?.values[0]?.[0] || 0
+}
+
+export function clearGmailProcessed() {
+  db.run('DELETE FROM gmail_processed')
+  schedulePersist()
+}
+
 // Sync the full routines array — used by setAllData (bulk sync from client)
 function syncRoutinesFromArray(routinesArray) {
   if (!Array.isArray(routinesArray)) return

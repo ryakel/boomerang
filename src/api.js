@@ -706,6 +706,51 @@ export async function gcalListEvents(timeMin, timeMax, calendarId) {
   return res.json()
 }
 
+// --- Gmail API ---
+
+export async function gmailGetAuthUrl() {
+  const res = await fetch('/api/gmail/auth-url', { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to get Gmail auth URL')
+  return res.json()
+}
+
+export async function gmailStatus() {
+  try {
+    const res = await fetch('/api/gmail/status', { headers: getApiHeaders() })
+    return res.json()
+  } catch {
+    return { connected: false }
+  }
+}
+
+export async function gmailDisconnect() {
+  const res = await fetch('/api/gmail/disconnect', { method: 'POST', headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to disconnect')
+  return res.json()
+}
+
+export async function gmailSync(daysBack = 7) {
+  const res = await fetch('/api/gmail/sync', {
+    method: 'POST',
+    headers: { ...getApiHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ daysBack }),
+  })
+  if (!res.ok) throw new Error('Gmail sync failed')
+  return res.json()
+}
+
+export async function gmailApprove(id) {
+  const res = await fetch(`/api/gmail/approve/${id}`, { method: 'POST', headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to approve')
+  return res.json()
+}
+
+export async function gmailDismiss(id) {
+  const res = await fetch(`/api/gmail/dismiss/${id}`, { method: 'POST', headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to dismiss')
+  return res.json()
+}
+
 const SIZE_TO_MINUTES = { XS: 15, S: 30, M: 60, L: 120, XL: 240 }
 
 export async function inferEventTime(title, notes, size, energy) {

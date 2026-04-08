@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, emailStatus, testEmail, pushStatus, testPush } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, emailStatus, testEmail, pushStatus, testPush } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
@@ -369,6 +369,87 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
         }
       },
     })
+  }
+
+  // Gmail connection state
+  const [gmailConnected, setGmailConnected] = useState(false)
+  const [gmailEmail, setGmailEmail] = useState(null)
+  const [gmailConnecting, setGmailConnecting] = useState(false)
+  const [gmailError, setGmailError] = useState(null)
+  const [gmailSyncing, setGmailSyncing] = useState(false)
+  const [gmailSyncResult, setGmailSyncResult] = useState(null)
+  const [gmailLastSync, setGmailLastSync] = useState(null)
+
+  const handleGmailConnect = async () => {
+    setGmailConnecting(true)
+    setGmailError(null)
+    try {
+      const { url } = await gmailGetAuthUrl()
+      window.open(url, '_blank', 'width=500,height=600')
+    } catch (err) {
+      setGmailError(err.message)
+    } finally {
+      setGmailConnecting(false)
+    }
+  }
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.data?.type === 'gmail-connected') {
+        gmailStatus().then(s => {
+          setGmailConnected(s.connected)
+          setGmailEmail(s.email)
+          setGmailLastSync(s.lastSync)
+        })
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
+  useEffect(() => {
+    gmailStatus().then(s => {
+      if (s.connected) {
+        setGmailConnected(true)
+        setGmailEmail(s.email)
+        setGmailLastSync(s.lastSync)
+      }
+    }).catch(() => {})
+  }, [])
+
+  const handleGmailDisconnect = async () => {
+    try {
+      await gmailDisconnect()
+      setGmailConnected(false)
+      setGmailEmail(null)
+      setGmailSyncResult(null)
+      setGmailLastSync(null)
+      update('gmail_sync_enabled', false)
+    } catch (err) {
+      setGmailError(err.message)
+    }
+  }
+
+  const handleGmailSync = async () => {
+    setGmailSyncing(true)
+    setGmailSyncResult(null)
+    try {
+      const result = await gmailSync(settings.gmail_scan_days || 7)
+      if (result.error) {
+        setGmailSyncResult(`Error: ${result.error}`)
+      } else {
+        const parts = []
+        if (result.tasks > 0) parts.push(`${result.tasks} task${result.tasks !== 1 ? 's' : ''}`)
+        if (result.packages > 0) parts.push(`${result.packages} package${result.packages !== 1 ? 's' : ''}`)
+        if (parts.length === 0) parts.push('no new items')
+        setGmailSyncResult(`Found ${parts.join(', ')} (${result.total} emails scanned)`)
+        setGmailLastSync(new Date().toISOString())
+      }
+    } catch (err) {
+      setGmailSyncResult(`Error: ${err.message}`)
+    } finally {
+      setGmailSyncing(false)
+    }
   }
 
   const [labels, setLabels] = useState(loadLabels)
@@ -1367,6 +1448,104 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
                 {gcalError && (
                   <div style={{ color: 'var(--accent)', fontSize: 12, marginTop: 8 }}>{gcalError}</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Gmail ── */}
+          <div>
+            <div
+              className={`integration-row${expandedIntegration === 'gmail' ? ' expanded' : ''}`}
+              onClick={() => setExpandedIntegration(expandedIntegration === 'gmail' ? null : 'gmail')}
+            >
+              <span className={`backlog-arrow${expandedIntegration === 'gmail' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${gmailConnected ? 'connected' : gmailConnecting ? 'checking' : gmailError ? 'error' : 'unconfigured'}`} />
+              <span className="integration-row-name">Gmail</span>
+              {expandedIntegration !== 'gmail' && (
+                <span className="integration-row-summary">
+                  {gmailConnecting ? 'Connecting...'
+                    : gmailConnected ? `Connected${gmailEmail ? ` as ${gmailEmail}` : ''}`
+                    : gmailError ? 'Error'
+                    : 'Not connected'}
+                </span>
+              )}
+            </div>
+            {expandedIntegration === 'gmail' && (
+              <div className="integration-body">
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8 }}>
+                  Uses the same Google OAuth credentials as Google Calendar. Enable the Gmail API in your Google Cloud project.
+                </div>
+
+                {gmailConnected ? (
+                  <div>
+                    <div className="integration-status connected" style={{ marginBottom: 8 }}>
+                      Connected{gmailEmail && <> as <strong>{gmailEmail}</strong></>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                      <button className="gcal-action-btn" onClick={handleGmailDisconnect}>
+                        Disconnect
+                      </button>
+                    </div>
+
+                    <label className="notif-check" style={{ marginBottom: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!settings.gmail_sync_enabled}
+                        onChange={e => update('gmail_sync_enabled', e.target.checked)}
+                      />
+                      <span>Auto-scan for tasks &amp; packages</span>
+                    </label>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Scan window (days back):</div>
+                      <input
+                        type="number"
+                        className="settings-input"
+                        style={{ width: 60 }}
+                        min={1}
+                        max={30}
+                        value={settings.gmail_scan_days || 7}
+                        onChange={e => update('gmail_scan_days', parseInt(e.target.value, 10) || 7)}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button
+                        className="ci-upload-btn"
+                        disabled={gmailSyncing}
+                        onClick={handleGmailSync}
+                      >
+                        {gmailSyncing ? 'Scanning...' : 'Scan Now'}
+                      </button>
+                      {gmailLastSync && (
+                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                          Last: {new Date(gmailLastSync).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+
+                    {gmailSyncResult && (
+                      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 8 }}>{gmailSyncResult}</div>
+                    )}
+
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 12, lineHeight: 1.4 }}>
+                      Items found in emails appear as pending cards with a yellow border. Tap to expand, then Keep or Dismiss.
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="ci-upload-btn"
+                    style={{ marginTop: 8 }}
+                    disabled={gmailConnecting || (!settings.gcal_client_id && !envKeys.gcal)}
+                    onClick={handleGmailConnect}
+                  >
+                    {gmailConnecting ? 'Connecting...' : 'Connect'}
+                  </button>
+                )}
+
+                {gmailError && (
+                  <div style={{ color: 'var(--accent)', fontSize: 12, marginTop: 8 }}>{gmailError}</div>
                 )}
               </div>
             )}

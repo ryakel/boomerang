@@ -381,6 +381,55 @@ Dedicated space for longer-term tasks that should never trigger notifications or
 
 **Implementation:** `src/components/ProjectsView.jsx`, `src/components/ProjectsView.css`
 
+### Gmail Integration (AI Email Scanner)
+Connects to Gmail via OAuth and uses AI to automatically extract tasks and package tracking numbers from emails.
+
+**OAuth:** Uses same Google Client ID/Secret as Google Calendar. Separate OAuth token with `gmail.readonly` scope stored as `gmail_tokens` in `app_data`.
+
+**Server Endpoints** (in `server.js`):
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/gmail/auth-url` | Generate Gmail OAuth consent URL |
+| `GET /api/gmail/callback` | OAuth callback — exchange code for tokens |
+| `GET /api/gmail/status` | Connection status, processed count, last sync |
+| `POST /api/gmail/disconnect` | Clear stored OAuth tokens |
+| `POST /api/gmail/sync` | Trigger email scan (accepts `daysBack` param) |
+| `POST /api/gmail/approve/:id` | Approve a pending Gmail-imported item |
+| `POST /api/gmail/dismiss/:id` | Dismiss (delete) a pending Gmail-imported item |
+
+**Scanning Logic** (`gmailSync.js`):
+1. Queries inbox (excluding promotions/social/updates/forums) for recent emails
+2. Filters out already-processed messages via `gmail_processed` table
+3. Fetches full message content, extracts plain text (HTML stripped)
+4. Batches emails (10 at a time) to Claude for analysis
+5. AI extracts: actionable tasks (title, due date, notes) and tracking numbers (number, carrier, label)
+6. Creates tasks/packages with `gmail_pending: 1` flag for user review
+7. Broadcasts SSE update so all clients see new items immediately
+
+**Pending Review Flow:**
+- Gmail-imported items have yellow left border + envelope badge on cards
+- Expand a pending card to see "Keep" (approve) and "Dismiss" buttons
+- Approved items become normal tasks/packages
+- Pending items excluded from all notifications (client, email, push)
+
+**Polling:** 5-minute server-side interval when `gmail_sync_enabled` is true (checks last 1 day of emails)
+
+**Settings:**
+- `gmail_sync_enabled` — auto-scan toggle
+- `gmail_scan_days` — how many days back to scan (default: 7, configurable)
+- `gmail_last_sync` — timestamp of last scan
+
+**Database:** `gmail_processed` table tracks processed message IDs, `gmail_message_id` + `gmail_pending` columns on tasks and packages tables (migration 012)
+
+**Implementation:** `gmailSync.js` (server), `src/api.js` (client API), Settings UI in `Settings.jsx`
+
+**Known Limitations:**
+- Requires Gmail API enabled in Google Cloud project (same project as GCal)
+- No webhook support (polling only)
+- AI analysis costs Anthropic API tokens (~10 emails per batch)
+- Email body truncated to 4000 chars for AI processing
+- Only scans primary inbox (excludes promotions, social, updates, forums)
+
 ### Toast Messages (Completion/Reopen Feedback)
 - AI-generated contextual one-liners via `generateToastMessage()` in `src/api.js`
 - Context-aware: considers task title, days on list, energy type/level, reopen vs complete

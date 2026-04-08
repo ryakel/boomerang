@@ -11,7 +11,8 @@ import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bump
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
-import { upsertPushSubscription, deletePushSubscription } from './db.js'
+import { upsertPushSubscription, deletePushSubscription, isGmailProcessed, markGmailProcessed, getGmailProcessedCount, clearGmailProcessed } from './db.js'
+import { initGmailSync, syncGmail, getGmailAccessToken, startGmailPolling } from './gmailSync.js'
 import crypto from 'crypto'
 
 // --- App version ---
@@ -1274,6 +1275,149 @@ app.get('/api/gcal/events', async (req, res) => {
   }
 })
 
+// --- Gmail Integration ---
+// ============================================================
+
+const GMAIL_TOKENS_KEY = 'gmail_tokens'
+const GMAIL_SCOPES = 'https://www.googleapis.com/auth/gmail.readonly'
+
+app.get('/api/gmail/auth-url', (req, res) => {
+  const clientId = getGoogleClientId(req)
+  if (!clientId) return res.status(400).json({ error: 'Google Client ID not configured' })
+
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/gmail/callback`
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: GMAIL_SCOPES,
+    access_type: 'offline',
+    prompt: 'consent',
+  })
+  res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` })
+})
+
+app.get('/api/gmail/callback', async (req, res) => {
+  const { code } = req.query
+  if (!code) return res.status(400).send('Missing authorization code')
+
+  const clientId = envGoogleClientId
+  const clientSecret = envGoogleClientSecret
+  if (!clientId || !clientSecret) return res.status(500).send('Google credentials not configured on server')
+
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/gmail/callback`
+
+  try {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    })
+    const tokenData = await tokenRes.json()
+    if (!tokenRes.ok) {
+      console.error('[Gmail] Token exchange failed:', tokenData)
+      return res.status(400).send(`OAuth error: ${tokenData.error_description || tokenData.error}`)
+    }
+
+    let email = null
+    try {
+      const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      })
+      if (profileRes.ok) {
+        const profile = await profileRes.json()
+        email = profile.email
+      }
+    } catch { /* non-critical */ }
+
+    setData(GMAIL_TOKENS_KEY, {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expiry_date: Date.now() + tokenData.expires_in * 1000,
+      email,
+    })
+
+    res.send(`<!DOCTYPE html><html><body><script>
+      window.opener?.postMessage({ type: 'gmail-connected' }, '*');
+      document.body.textContent = 'Connected to Gmail! You can close this window.';
+    </script></body></html>`)
+  } catch (err) {
+    console.error('[Gmail] Callback error:', err)
+    res.status(500).send('Failed to complete OAuth flow')
+  }
+})
+
+app.get('/api/gmail/status', (req, res) => {
+  const tokens = getData(GMAIL_TOKENS_KEY)
+  const processedCount = getGmailProcessedCount()
+  const lastSync = getData('gmail_last_sync')
+  if (tokens?.refresh_token) {
+    res.json({ connected: true, email: tokens.email || null, processedCount, lastSync })
+  } else {
+    res.json({ connected: false, processedCount: 0, lastSync: null })
+  }
+})
+
+app.post('/api/gmail/disconnect', (req, res) => {
+  setData(GMAIL_TOKENS_KEY, null)
+  clearGmailProcessed()
+  setData('gmail_last_sync', null)
+  res.json({ ok: true })
+})
+
+app.post('/api/gmail/sync', async (req, res) => {
+  const daysBack = req.body?.daysBack || 7
+  try {
+    const result = await syncGmail(daysBack)
+    res.json(result)
+  } catch (err) {
+    console.error('[Gmail] Sync error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/gmail/approve/:id', (req, res) => {
+  const task = getTask(req.params.id)
+  if (task) {
+    updateTaskPartial(req.params.id, { gmail_pending: 0 })
+    const newVersion = bumpVersion()
+    broadcast(newVersion, null)
+    return res.json({ ok: true, type: 'task', version: newVersion })
+  }
+  const pkg = getPackage(req.params.id)
+  if (pkg) {
+    updatePackagePartial(req.params.id, { gmail_pending: 0 })
+    const newVersion = bumpVersion()
+    broadcast(newVersion, null)
+    return res.json({ ok: true, type: 'package', version: newVersion })
+  }
+  res.status(404).json({ error: 'Item not found' })
+})
+
+app.post('/api/gmail/dismiss/:id', (req, res) => {
+  const task = getTask(req.params.id)
+  if (task) {
+    deleteTask(req.params.id)
+    const newVersion = bumpVersion()
+    broadcast(newVersion, null)
+    return res.json({ ok: true, type: 'task', version: newVersion })
+  }
+  const pkg = getPackage(req.params.id)
+  if (pkg) {
+    deletePackage(req.params.id)
+    const newVersion = bumpVersion()
+    broadcast(newVersion, null)
+    return res.json({ ok: true, type: 'package', version: newVersion })
+  }
+  res.status(404).json({ error: 'Item not found' })
+})
+
 // --- Package Tracking ---
 
 function getTrackingApiKey(req) {
@@ -2086,12 +2230,25 @@ initDb(dbPath).then(async () => {
     console.log(`Notion token: ${envNotionToken ? 'from env' : 'user-provided via UI'}`)
     console.log(`Trello: ${envTrelloKey && envTrelloToken ? 'from env' : 'user-provided via UI'}`)
     console.log(`Google Calendar: ${envGoogleClientId && envGoogleClientSecret ? 'from env' : 'user-provided via UI'}`)
+    console.log(`Gmail: ${getData(GMAIL_TOKENS_KEY)?.refresh_token ? 'connected' : 'not connected'}`)
     console.log(`17track: ${envTrackingApiKey ? 'from env' : 'user-provided via UI'}`)
     console.log(`SMTP: ${envSmtpHost ? 'from env' : 'not configured'}`)
 
     // Start notification loops
     startEmailNotifications()
     startPushNotifications()
+
+    // Initialize Gmail sync
+    initGmailSync({
+      clientId: envGoogleClientId,
+      clientSecret: envGoogleClientSecret,
+      anthropicKey: envApiKey,
+      broadcast,
+    })
+    const gmailTokens = getData(GMAIL_TOKENS_KEY)
+    if (gmailTokens?.refresh_token) {
+      startGmailPolling(5 * 60 * 1000)
+    }
 
     // Start package polling loop (every 5 minutes)
     setInterval(pollActivePackages, 5 * 60 * 1000)

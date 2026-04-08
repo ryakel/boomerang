@@ -181,7 +181,7 @@ export function useNotifications(tasks) {
         }
 
         // High-priority notifications — independent per-task timers
-        const activeTasks = tasks.filter(t => ACTIVE_STATUSES.includes(t.status))
+        const activeTasks = tasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
         const highPriTasks = activeTasks.filter(t => t.high_priority && (!t.snoozed_until || new Date(t.snoozed_until) <= new Date()))
         const hpLc = highPriLastChecks.current
         let hpNotifCount = 0

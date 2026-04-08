@@ -190,7 +190,7 @@ async function runPushCheck() {
     if (subscriptions.length === 0) return
 
     const allTasks = queryTasks({})
-    const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status))
+    const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
     if (activeTasks.length === 0) return
 
     const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
