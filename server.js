@@ -2033,6 +2033,12 @@ app.post('/api/push/test', async (req, res) => {
   res.json(result)
 })
 
+// Diagnostic: SW push handler fires this to confirm it ran
+app.post('/api/push/log', (req, res) => {
+  console.log(`[Push] SW handler fired:`, req.body)
+  res.json({ ok: true })
+})
+
 // --- Dev seed endpoint ---
 app.post('/api/dev/seed', async (req, res) => {
   try {
