@@ -1,7 +1,6 @@
-import { useState, useCallback } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { useState } from 'react'
 import TaskCard from './TaskCard'
-import { sortTasks, formatDueDate } from '../store'
+import { sortTasks } from '../store'
 import './ProjectsView.css'
 
 export default function ProjectsView({ tasks, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onActivate, onClose, isDesktop }) {
@@ -9,10 +8,6 @@ export default function ProjectsView({ tasks, onComplete, onSnooze, onEdit, onEx
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
   const projectTasks = sortTasks(tasks.filter(t => t.status === 'project'), sortBy)
-
-  const handleActivate = useCallback((id) => {
-    onActivate(id)
-  }, [onActivate])
 
   const content = (
     <div className="projects-content">
