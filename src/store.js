@@ -102,6 +102,7 @@ const STATUS_META = {
   doing: { label: 'Doing', color: '#4A9EFF' },
   waiting: { label: 'Waiting', color: '#FFB347' },
   done: { label: 'Done', color: '#52C97F' },
+  project: { label: 'Project', color: '#A78BFA' },
 }
 
 function isActiveTask(task) {

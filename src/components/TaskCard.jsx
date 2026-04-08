@@ -122,7 +122,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
           <button title="Snooze" onClick={e => { e.stopPropagation(); onSnooze(task) }}>💤</button>
         </div>
         <div className="task-card-top">
-          {task.status !== 'backlog' && (STATUS_META[task.status] || task.status === 'open') && (
+          {task.status !== 'backlog' && task.status !== 'project' && (STATUS_META[task.status] || task.status === 'open') && (
             <span className="status-indicator" style={{ background: (STATUS_META[task.status] || STATUS_META.not_started).color }} title={(STATUS_META[task.status] || STATUS_META.not_started).label} />
           )}
           <span className="task-title">{task.title}</span>
@@ -224,7 +224,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
         onTouchEnd={handleTouchEnd}
       >
         <div className="task-card-top">
-          {task.status !== 'backlog' && (STATUS_META[task.status] || task.status === 'open') && (
+          {task.status !== 'backlog' && task.status !== 'project' && (STATUS_META[task.status] || task.status === 'open') && (
             <span className="status-indicator" style={{ background: (STATUS_META[task.status] || STATUS_META.not_started).color }} title={(STATUS_META[task.status] || STATUS_META.not_started).label} />
           )}
           <span className="task-title">{task.title}</span>
@@ -381,7 +381,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
                   <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
                 )}
               </button>
-              {task.status !== 'backlog' && onStatusChange && (
+              {task.status !== 'backlog' && task.status !== 'project' && onStatusChange && (
                 <button
                   className="toolbar-pill status"
                   style={{ '--status-color': (STATUS_META[task.status] || STATUS_META.not_started).color }}

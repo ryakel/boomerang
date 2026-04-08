@@ -12,7 +12,7 @@ function formatFileSize(bytes) {
 
 const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
 
-export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onStatusChange }) {
+export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange }) {
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes || '')
   const [selectedTags, setSelectedTags] = useState(task.tags || [])
@@ -126,7 +126,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   })
   const [trelloPushListId, setTrelloPushListId] = useState(() => {
     const s = loadSettings()
-    const status = task.status === 'backlog' ? 'not_started' : (task.status || 'not_started')
+    const status = (task.status === 'backlog' || task.status === 'project') ? 'not_started' : (task.status || 'not_started')
     const mappedList = s.trello_list_mapping?.[status]
     return mappedList || s.trello_list_id || ''
   })
@@ -1011,9 +1011,20 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           </button>
         )}
 
-        {(onDelete || onBacklog) && (
+        {(onDelete || onBacklog || onProject) && (
           <div className="modal-danger-zone">
-            {onBacklog && (
+            {onProject && (
+              task.status !== 'project' ? (
+                <button className="danger-btn secondary" style={{ borderColor: '#A78BFA', color: '#A78BFA' }} onClick={() => { onProject(task.id, true); onClose() }}>
+                  Move to Projects
+                </button>
+              ) : (
+                <button className="danger-btn secondary" onClick={() => { onProject(task.id, false); onClose() }}>
+                  Activate
+                </button>
+              )
+            )}
+            {onBacklog && task.status !== 'project' && (
               task.status !== 'backlog' ? (
                 <button className="danger-btn secondary" onClick={() => { onBacklog(task.id, true); onClose() }}>
                   Move to Backlog

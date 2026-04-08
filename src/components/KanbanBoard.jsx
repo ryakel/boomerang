@@ -98,7 +98,7 @@ function KanbanColumn({ title, tasks, defaultStatus, onAddTask, onComplete, onSn
 
 export default function KanbanBoard({
   filteredDoing, filteredStale, filteredUpNext,
-  filteredWaiting, filteredSnoozed, filteredBacklog,
+  filteredWaiting, filteredSnoozed, filteredBacklog, filteredProjects,
   onComplete, onSnooze, onEdit, onExtend,
   onStatusChange, onUpdate, onDelete, onAddTask,
 }) {
@@ -140,7 +140,7 @@ export default function KanbanBoard({
   const callbacks = { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onAddTask }
   const dragCallbacks = { dragOverColumn, onDragOver: handleDragOver, onDrop: handleDrop, onDragStart: handleDragStart, draggingId }
   const isEmpty = doing.length === 0 && upNext.length === 0 && waiting.length === 0 &&
-    filteredSnoozed.length === 0 && filteredBacklog.length === 0
+    filteredSnoozed.length === 0 && filteredBacklog.length === 0 && filteredProjects.length === 0
 
   if (isEmpty) {
     return (
@@ -161,6 +161,7 @@ export default function KanbanBoard({
       <KanbanColumn title="Waiting" tasks={waiting} defaultStatus="waiting" {...callbacks} {...dragCallbacks} />
       <KanbanColumn title="Snoozed" tasks={filteredSnoozed} {...callbacks} {...dragCallbacks} />
       <KanbanColumn title="Backlog" tasks={filteredBacklog} defaultStatus="backlog" {...callbacks} {...dragCallbacks} />
+      <KanbanColumn title="Projects" tasks={filteredProjects} defaultStatus="project" {...callbacks} {...dragCallbacks} />
     </div>
   )
 }

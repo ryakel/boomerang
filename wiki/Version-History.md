@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- feat(tasks): add Projects space for longer-term tasks [M]
+  - New `project` status — tasks moved here are fully excluded from all notifications (client, email, push)
+  - Dedicated Projects view accessible via folder icon in header (purple, #A78BFA)
+  - Mobile: full-screen overlay; Desktop: sheet modal + Kanban column
+  - "Move to Projects" button in EditTaskModal, "Activate" to return to active
+  - Projects excluded from GCal sync (events removed when moved), Trello status sync, and What Now
+  - Stale/overdue visual indicators suppressed in Projects view
+  - Separate from backlog — projects are intentional long-term work, backlog is someday/maybe
+  - Modified: `store.js`, `App.jsx`, `App.css`, `EditTaskModal.jsx`, `TaskCard.jsx`, `KanbanBoard.jsx`, `useExternalSync.js`, `useTrelloSync.js`
+  - New: `ProjectsView.jsx`, `ProjectsView.css`
 - fix(notifications): test email always reported success even on failure [S]
   - `sendTestEmail()` ignored `sendEmail()` return value, always returned `{ success: true }`
   - Now performs SMTP send directly and propagates actual error messages to the UI
