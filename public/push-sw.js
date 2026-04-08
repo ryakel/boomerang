@@ -1,19 +1,13 @@
-// Push notification handler — imported by Workbox SW via importScripts
+// Push notification handler — prepended to Workbox SW at build time
+// Must be top-level (not inside importScripts/define) for push events to fire
 
 self.addEventListener('push', function (event) {
   var payload = { title: 'Boomerang', body: 'New notification' }
   try {
     if (event.data) payload = event.data.json()
   } catch (e) {
-    try { payload = { title: 'Boomerang', body: event.data.text() } } catch (e2) { /* use default */ }
+    try { payload = { title: 'Boomerang', body: event.data.text() } } catch (e2) { /* default */ }
   }
-
-  // Log to server that push handler fired (for debugging)
-  fetch('/api/push/log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ event: 'push_received', title: payload.title })
-  }).catch(function () {})
 
   event.waitUntil(
     self.registration.showNotification(payload.title || 'Boomerang', {
