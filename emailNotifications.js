@@ -425,14 +425,16 @@ export async function sendTestEmail() {
   if (!to) return { success: false, error: 'No recipient email configured' }
 
   try {
-    await transport.sendMail({
+    console.log(`[Email] Sending test to ${to} via ${getSmtpConfig().host}:${getSmtpConfig().port}`)
+    const info = await transport.sendMail({
       from: `"Boomerang" <${from}>`,
       to,
       subject: 'Boomerang Test',
       text: body,
       html: simpleEmailHtml('Test Email', body),
     })
-    return { success: true }
+    console.log(`[Email] Test sent OK — messageId: ${info.messageId}, response: ${info.response}`)
+    return { success: true, messageId: info.messageId }
   } catch (err) {
     console.error('[Email] Test send failed:', err.message)
     return { success: false, error: err.message }
