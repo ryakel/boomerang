@@ -1,6 +1,6 @@
-// Push notification handler — prepended to Workbox SW at build time
-// Must be top-level (not inside importScripts/define) for push events to fire
+// Boomerang service worker — push notifications + basic offline caching
 
+// --- Push handler (top-level, synchronous) ---
 self.addEventListener('push', function (event) {
   var payload = { title: 'Boomerang', body: 'New notification' }
   try {
@@ -30,6 +30,24 @@ self.addEventListener('notificationclick', function (event) {
         }
       }
       return self.clients.openWindow('/')
+    })
+  )
+})
+
+// --- Lifecycle ---
+self.addEventListener('install', function () { self.skipWaiting() })
+self.addEventListener('activate', function (event) {
+  event.waitUntil(self.clients.claim())
+})
+
+// --- Network-first caching for navigation ---
+self.addEventListener('fetch', function (event) {
+  if (event.request.url.indexOf('/api') !== -1) return
+  if (event.request.mode !== 'navigate') return
+
+  event.respondWith(
+    fetch(event.request).catch(function () {
+      return caches.match('/index.html')
     })
   )
 })
