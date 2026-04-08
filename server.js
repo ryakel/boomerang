@@ -11,8 +11,8 @@ import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bump
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
-import { upsertPushSubscription, deletePushSubscription, isGmailProcessed, markGmailProcessed, getGmailProcessedCount, clearGmailProcessed } from './db.js'
-import { initGmailSync, syncGmail, getGmailAccessToken, startGmailPolling } from './gmailSync.js'
+import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed } from './db.js'
+import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
 import crypto from 'crypto'
 
 // --- App version ---
