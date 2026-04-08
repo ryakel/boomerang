@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- fix(ui): remove redundant analytics button from header [XS]
+  - Analytics is already accessible via the MiniRings in the header stats row
+  - Modified: `App.jsx`
 - feat(tasks): add Projects space for longer-term tasks [M]
   - New `project` status — tasks moved here are fully excluded from all notifications (client, email, push)
   - Dedicated Projects view accessible via folder icon in header (purple, #A78BFA)
