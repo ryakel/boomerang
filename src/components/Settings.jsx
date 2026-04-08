@@ -1726,19 +1726,29 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               {settings.push_notifications_enabled && (
                 <div className="notif-options">
                   {!pushSub.subscribed ? (
-                    <button
-                      className="ci-upload-btn"
-                      disabled={pushSub.loading}
-                      onClick={async () => {
-                        const result = await pushSub.subscribe()
-                        if (!result.success) {
-                          setPushTestStatus('error')
-                          setPushTestError(result.error)
-                        }
-                      }}
-                    >
-                      {pushSub.loading ? 'Enabling...' : 'Enable push for this device'}
-                    </button>
+                    <>
+                      <button
+                        className="ci-upload-btn"
+                        disabled={pushSub.loading}
+                        onClick={async () => {
+                          setPushTestStatus(null)
+                          setPushTestError(null)
+                          const result = await pushSub.subscribe()
+                          if (!result.success) {
+                            setPushTestStatus('error')
+                            setPushTestError(result.error)
+                          }
+                        }}
+                      >
+                        {pushSub.loading ? 'Enabling...' : 'Enable push for this device'}
+                      </button>
+                      {pushTestStatus === 'error' && pushTestError && (
+                        <div style={{ fontSize: 12, color: '#FF6240', marginTop: 8 }}>{pushTestError}</div>
+                      )}
+                      {!pushSub.supported && (
+                        <div style={{ fontSize: 12, color: '#FF6240', marginTop: 8 }}>Push not supported on this browser/device.</div>
+                      )}
+                    </>
                   ) : (
                     <>
                       <div style={{ fontSize: 12, color: '#52C97F', marginBottom: 8 }}>
