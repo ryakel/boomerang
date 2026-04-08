@@ -160,6 +160,8 @@ export function useNotifications(tasks) {
         // Read settings FRESH each tick — no stale closure
         const settings = loadSettings()
         if (!settings.notifications_enabled) return
+        // Skip client-side notifications when server-side push is enabled (avoids duplicates)
+        if (settings.push_notifications_enabled) return
         if (!('Notification' in window) || Notification.permission !== 'granted') return
         if (isInQuietHours(settings)) return
 

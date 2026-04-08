@@ -39,20 +39,11 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function (event) {
   event.notification.close()
   var data = event.notification.data || {}
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windowClients) {
-      for (var i = 0; i < windowClients.length; i++) {
-        var client = windowClients[i]
-        if (client.url.indexOf(self.location.origin) !== -1) {
-          // Navigate to root to clear any overlay state, then focus
-          var rootUrl = self.location.origin + '/'
-          if (data.taskId) rootUrl += '?task=' + data.taskId
-          return client.navigate(rootUrl).then(function (c) { if (c) return c.focus() })
-        }
-      }
-      return self.clients.openWindow('/')
-    })
-  )
+  var url = '/'
+  if (data.taskId) url = '/?task=' + data.taskId
+
+  // Always open fresh — navigate/focus don't work reliably on iOS PWAs
+  event.waitUntil(self.clients.openWindow(url))
 })
 
 // --- Lifecycle ---
