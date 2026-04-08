@@ -44,8 +44,7 @@ export function usePushSubscription() {
       const vapidKey = await getVapidPublicKey()
       if (!vapidKey) throw new Error('VAPID key not configured on server')
 
-      // Register the push service worker
-      await navigator.serviceWorker.register('/push-sw.js', { scope: '/' })
+      // Use the existing Workbox service worker (push-sw.js is imported via importScripts)
       const reg = await navigator.serviceWorker.ready
 
       const sub = await reg.pushManager.subscribe({

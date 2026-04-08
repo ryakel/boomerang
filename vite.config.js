@@ -38,6 +38,7 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         navigateFallbackDenylist: [/^\/api/],
+        importScripts: ['/push-sw.js'],
       },
       manifest: {
         name: 'Boomerang',
