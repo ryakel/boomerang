@@ -130,6 +130,27 @@ function App() {
     }
   }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, editTarget, showAdd, showWhatNow, checkVersion])
 
+  // Handle notification clicks from service worker — navigate home
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const handler = (event) => {
+      if (event.data?.type === 'notification-click') {
+        setShowSettings(false)
+        setShowDone(false)
+        setShowAnalytics(false)
+        setShowRoutines(false)
+        setShowActivityLog(false)
+        setShowPackages(false)
+        setShowAdd(false)
+        setShowWhatNow(false)
+        setEditTarget(null)
+        setExtendTarget(null)
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', handler)
+    return () => navigator.serviceWorker.removeEventListener('message', handler)
+  }, [])
+
   // Spawn routine tasks on load and every minute
   useEffect(() => {
     const spawned = spawnDueTasks(tasks)

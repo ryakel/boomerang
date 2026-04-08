@@ -18,7 +18,8 @@ self.addEventListener('push', function (event) {
 
   event.waitUntil(
     self.registration.showNotification(payload.title || 'Boomerang', {
-      body: payload.body || ''
+      body: payload.body || '',
+      data: payload.data || {}
     }).then(function () {
       fetch('/api/push/log', {
         method: 'POST',
@@ -37,11 +38,15 @@ self.addEventListener('push', function (event) {
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close()
+  var data = event.notification.data || {}
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windowClients) {
       for (var i = 0; i < windowClients.length; i++) {
-        if (windowClients[i].url.indexOf(self.location.origin) !== -1) {
-          return windowClients[i].focus()
+        var client = windowClients[i]
+        if (client.url.indexOf(self.location.origin) !== -1) {
+          // Tell the app to navigate home (or to a task)
+          client.postMessage({ type: 'notification-click', taskId: data.taskId || null })
+          return client.focus()
         }
       }
       return self.clients.openWindow('/')

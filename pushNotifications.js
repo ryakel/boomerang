@@ -219,7 +219,7 @@ async function runPushCheck() {
           body = `"${task.title}" is marked high priority`
         }
 
-        const sent = await sendPush({ title: 'HIGH PRIORITY', body, tag: `hp:${task.id}` })
+        const sent = await sendPush({ title: 'HIGH PRIORITY', body, tag: `hp:${task.id}`, data: { taskId: task.id } })
         if (sent) {
           markThrottle(`push_hp:${task.id}`)
           logNotifPush(genId(), 'high_priority', task.id, 'HIGH PRIORITY', body)
@@ -298,7 +298,7 @@ async function runPushCheck() {
           const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
           const title = `${t.size} task due soon`
           const body = `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`
-          const sent = await sendPush({ title, body, tag: `size:${t.id}` })
+          const sent = await sendPush({ title, body, tag: `size:${t.id}`, data: { taskId: t.id } })
           if (sent) {
             markThrottle('push_size')
             logNotifPush(genId(), 'size', t.id, title, body)
