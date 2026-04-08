@@ -37,13 +37,23 @@ self.addEventListener('push', function (event) {
 })
 
 self.addEventListener('notificationclick', function (event) {
+  event.preventDefault()
   event.notification.close()
   var data = event.notification.data || {}
-  var url = '/'
-  if (data.taskId) url = '/?task=' + data.taskId
+  var path = data.taskId ? '/?task=' + data.taskId : '/'
+  var url = self.location.origin + path
 
-  // Always open fresh — navigate/focus don't work reliably on iOS PWAs
-  event.waitUntil(self.clients.openWindow(url))
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windowClients) {
+      if (windowClients.length > 0) {
+        // App is open/suspended — navigate then focus
+        windowClients[0].navigate(url)
+        return windowClients[0].focus()
+      }
+      // App was killed — open fresh
+      return self.clients.openWindow(url)
+    })
+  )
 })
 
 // --- Lifecycle ---
