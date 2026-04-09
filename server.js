@@ -28,7 +28,6 @@ let envGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET
 let envTrackingApiKey = process.env.TRACKING_API_KEY
 let envUspsClientId = process.env.USPS_CLIENT_ID
 let envUspsClientSecret = process.env.USPS_CLIENT_SECRET
-let envUspsMid = process.env.USPS_MID
 const envSmtpHost = process.env.SMTP_HOST
 
 if (existsSync('.env')) {
@@ -42,7 +41,6 @@ if (existsSync('.env')) {
   envTrackingApiKey = envTrackingApiKey || envFile.match(/TRACKING_API_KEY="?([^"\n]+)"?/)?.[1]
   envUspsClientId = envUspsClientId || envFile.match(/USPS_CLIENT_ID="?([^"\n]+)"?/)?.[1]
   envUspsClientSecret = envUspsClientSecret || envFile.match(/USPS_CLIENT_SECRET="?([^"\n]+)"?/)?.[1]
-  envUspsMid = envUspsMid || envFile.match(/USPS_MID="?([^"\n]+)"?/)?.[1]
 }
 
 // Helper: resolve API key from request header or env var
@@ -1463,155 +1461,6 @@ function getTrackingApiKey(req) {
   return settings?.tracking_api_key || null
 }
 
-// --- USPS Direct Tracking API ---
-
-function getUspsCredentials() {
-  const settings = getData('settings') || {}
-  const clientId = envUspsClientId || settings.usps_client_id || null
-  const clientSecret = envUspsClientSecret || settings.usps_client_secret || null
-  const mid = envUspsMid || settings.usps_mid || null
-  return (clientId && clientSecret) ? { clientId, clientSecret, mid } : null
-}
-
-let uspsTokenCache = { token: null, expiresAt: 0 }
-
-async function getUspsToken() {
-  const creds = getUspsCredentials()
-  if (!creds) return null
-
-  // Return cached token if still valid (5-min buffer)
-  if (uspsTokenCache.token && Date.now() < uspsTokenCache.expiresAt - 300000) {
-    return uspsTokenCache.token
-  }
-
-  try {
-    const res = await fetch('https://apis.usps.com/oauth2/v3/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'client_credentials',
-        client_id: creds.clientId,
-        client_secret: creds.clientSecret,
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      console.error('[USPS] Token error:', data.error_description || data.error || res.status)
-      return null
-    }
-    uspsTokenCache = {
-      token: data.access_token,
-      expiresAt: Date.now() + (data.expires_in || 28800) * 1000,
-    }
-    console.log('[USPS] Token acquired, expires in', Math.round((data.expires_in || 28800) / 3600), 'hours')
-    return data.access_token
-  } catch (err) {
-    console.error('[USPS] Token fetch failed:', err.message)
-    return null
-  }
-}
-
-function mapUspsStatus(statusCategory) {
-  if (!statusCategory) return 'pending'
-  const cat = statusCategory.toLowerCase()
-  if (cat.includes('delivered')) return 'delivered'
-  if (cat.includes('out for delivery')) return 'out_for_delivery'
-  if (cat.includes('in transit') || cat.includes('accepted') || cat.includes('processed') || cat.includes('departed') || cat.includes('arrived')) return 'in_transit'
-  if (cat.includes('alert') || cat.includes('exception') || cat.includes('undeliverable') || cat.includes('return')) return 'exception'
-  if (cat.includes('pre-shipment') || cat.includes('shipping label') || cat.includes('label created')) return 'pending'
-  return 'in_transit'
-}
-
-function getUspsHeaders(token) {
-  const creds = getUspsCredentials()
-  const headers = { 'Authorization': `Bearer ${token}` }
-  if (creds?.mid) headers['X-MID'] = creds.mid
-  return headers
-}
-
-async function pollUSPS(trackingNumber) {
-  const token = await getUspsToken()
-  if (!token) return null
-
-  try {
-    const res = await fetch(`https://apis.usps.com/tracking/v3/tracking/${encodeURIComponent(trackingNumber)}?expand=DETAIL`, {
-      headers: getUspsHeaders(token),
-    })
-
-    if (res.status === 401) {
-      // Token expired, clear cache and retry once
-      uspsTokenCache = { token: null, expiresAt: 0 }
-      const newToken = await getUspsToken()
-      if (!newToken) return null
-      const retry = await fetch(`https://apis.usps.com/tracking/v3/tracking/${encodeURIComponent(trackingNumber)}?expand=DETAIL`, {
-        headers: getUspsHeaders(newToken),
-      })
-      if (!retry.ok) {
-        console.error('[USPS] Retry failed:', retry.status)
-        return null
-      }
-      return parseUspsResponse(await retry.json(), trackingNumber)
-    }
-
-    if (!res.ok) {
-      const errText = await res.text()
-      console.error('[USPS] Track error:', res.status, errText)
-      return null
-    }
-
-    return parseUspsResponse(await res.json(), trackingNumber)
-  } catch (err) {
-    console.error('[USPS] Track failed:', err.message)
-    return null
-  }
-}
-
-function parseUspsResponse(data, trackingNumber) {
-  // USPS v3 response structure
-  const summary = data.trackingNumber ? data : data.tracking || data
-
-  const events = []
-  const details = summary.trackingEvents || summary.trackDetail || summary.events || []
-  for (const e of details) {
-    const location = [e.eventCity, e.eventState, e.eventCountry].filter(Boolean).join(', ')
-    events.push({
-      timestamp: e.eventTimestamp || e.eventDate || '',
-      location: location || e.location || '',
-      description: e.eventType || e.event || e.description || '',
-      status: '',
-    })
-  }
-
-  const statusCategory = summary.statusCategory || summary.currentStatus || ''
-  const statusDetail = summary.currentStatusText || summary.statusSummary || summary.status || events[0]?.description || ''
-  const status = mapUspsStatus(statusCategory)
-
-  // ETA
-  let eta = summary.expectedDeliveryDate || summary.estimatedDeliveryDate || null
-  if (eta && typeof eta === 'object') {
-    eta = eta.date || eta.from || eta.to || null
-  }
-
-  // Signature
-  const sigRequired = events.some(e =>
-    (e.description || '').toLowerCase().match(/signature|adult signature|id required/)
-  )
-
-  const lastLocation = events[0]?.location || summary.eventCity ? [summary.eventCity, summary.eventState].filter(Boolean).join(', ') : ''
-
-  console.log(`[USPS] Tracked ${trackingNumber}: ${status} — ${statusDetail} (${events.length} events)`)
-
-  return {
-    status,
-    status_detail: statusDetail,
-    events,
-    eta,
-    last_location: lastLocation,
-    signature_required: sigRequired,
-    delivered_at: status === 'delivered' ? (events[0]?.timestamp || new Date().toISOString()) : null,
-  }
-}
-
 // 17track API quota state (in-memory)
 let trackingQuota = { exhausted: false, reset_at: null, daily_used: 0 }
 
@@ -1718,9 +1567,8 @@ function normalize17trackNumber(trackingNumber) {
 }
 
 // 17track carrier codes (numeric IDs required for registration)
-// Note: USPS omitted intentionally — 17track auto-detects USPS better than explicit code 21051
-// which sometimes returns -18019911 "carrier temporarily does not support registration"
 const CARRIER_17TRACK = {
+  usps: 21051,
   ups: 100002,
   fedex: 100003,
   dhl: 100001,
@@ -1875,78 +1723,11 @@ async function pollActivePackages() {
 
   let anyUpdated = false
   const settings = getData('settings') || {}
-  const nowIso = now.toISOString()
 
-  // --- USPS packages: use direct USPS API ---
-  const uspsPackages = eligible.filter(p => p.carrier === 'usps')
-  const nonUspsPackages = eligible.filter(p => p.carrier !== 'usps')
-
-  if (uspsPackages.length > 0 && getUspsCredentials()) {
-    for (const pkg of uspsPackages) {
-      try {
-        const result = await pollUSPS(pkg.tracking_number)
-        if (result) {
-          const STATUS_RANK = { delivered: 5, out_for_delivery: 4, in_transit: 3, exception: 2, pending: 1, expired: 0 }
-          const oldRank = STATUS_RANK[pkg.status] ?? 1
-          const newRank = STATUS_RANK[result.status] ?? 1
-          if (newRank < oldRank && oldRank >= 2) {
-            updatePackagePartial(pkg.id, { last_polled: nowIso })
-            continue
-          }
-          const updates = {
-            status: result.status,
-            status_detail: result.status_detail,
-            events: result.events.length > 0 ? result.events : pkg.events,
-            last_polled: nowIso,
-            updated_at: nowIso,
-            poll_interval_minutes: calcPollInterval({ ...pkg, status: result.status }),
-            last_location: result.last_location || pkg.last_location,
-            signature_required: result.signature_required,
-          }
-          if (result.eta) updates.eta = result.eta
-          if (result.delivered_at) updates.delivered_at = result.delivered_at
-
-          // Notifications for status changes
-          if (result.status !== pkg.status) {
-            if (result.status === 'delivered') {
-              const retDays = settings.package_retention_days ?? 3
-              if (retDays > 0) updates.auto_cleanup_at = new Date(Date.now() + retDays * 86400000).toISOString()
-              if (settings.package_notify_delivered !== false) {
-                try { await sendPackageEmail('delivered', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
-                try { await sendPackagePush('delivered', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
-              }
-            } else if (result.status === 'exception' && settings.package_notify_exception !== false) {
-              try { await sendPackageEmail('exception', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
-              try { await sendPackagePush('exception', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
-            }
-          }
-          if (result.signature_required && !pkg.signature_required && settings.package_notify_signature !== false) {
-            try { await sendPackageEmail('signature', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
-            try { await sendPackagePush('signature', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
-          }
-
-          updatePackagePartial(pkg.id, updates)
-          anyUpdated = true
-        } else {
-          updatePackagePartial(pkg.id, { last_polled: nowIso })
-        }
-      } catch (err) {
-        console.error(`[USPS] Poll error for ${pkg.tracking_number}:`, err.message)
-        updatePackagePartial(pkg.id, { last_polled: nowIso })
-      }
-    }
-  } else if (uspsPackages.length > 0) {
-    // No USPS credentials — mark as polled so we don't retry constantly
-    for (const pkg of uspsPackages) {
-      if (!pkg.last_polled) updatePackagePartial(pkg.id, { last_polled: nowIso })
-    }
-  }
-
-  // --- Non-USPS packages: use 17track ---
   // Batch into groups of 40
   const batches = []
-  for (let i = 0; i < nonUspsPackages.length; i += 40) {
-    batches.push(nonUspsPackages.slice(i, i + 40))
+  for (let i = 0; i < eligible.length; i += 40) {
+    batches.push(eligible.slice(i, i + 40))
   }
 
   for (let bi = 0; bi < batches.length; bi++) {
@@ -2140,56 +1921,36 @@ app.post('/api/packages', async (req, res) => {
 
   upsertPackage(pkg)
 
-  // Immediate poll so the card shows real data right away
-  try {
-    if (pkg.carrier === 'usps' && getUspsCredentials()) {
-      // USPS: direct API
-      const result = await pollUSPS(pkg.tracking_number)
-      if (result) {
-        const now = new Date().toISOString()
+  // Register + immediate poll so the card shows real data right away
+  const apiKey = getTrackingApiKey(req)
+  if (apiKey) {
+    try {
+      await register17track([pkg], apiKey)
+      await new Promise(r => setTimeout(r, 1500))
+      const results = await poll17track([pkg.tracking_number], apiKey)
+      if (results.length > 0) {
+        const trackInfo = results[0].track_info || {}
+        const events = (trackInfo.tracking?.providers?.[0]?.events || []).map(e => ({
+          timestamp: e.time_iso || e.time_utc || '', location: e.location || '',
+          description: e.description || '', status: e.stage || '',
+        }))
+        const { status: newStatus, detail } = map17trackStatus(trackInfo)
         const updates = {
-          status: result.status, status_detail: result.status_detail,
-          events: result.events.length > 0 ? result.events : [],
-          last_polled: now, updated_at: now,
-          poll_interval_minutes: calcPollInterval({ ...pkg, status: result.status }),
-          last_location: result.last_location || '', signature_required: result.signature_required,
+          status: newStatus, status_detail: detail,
+          events: events.length > 0 ? events : [],
+          last_polled: new Date().toISOString(), updated_at: new Date().toISOString(),
+          poll_interval_minutes: calcPollInterval({ ...pkg, status: newStatus }),
+          last_location: events[0]?.location || '', signature_required: checkSignatureRequired(events),
         }
-        if (result.eta) updates.eta = result.eta
-        if (result.delivered_at) updates.delivered_at = result.delivered_at
+        if (trackInfo.time_metrics) {
+          updates.eta = trackInfo.time_metrics.estimated_delivery_date?.from || trackInfo.time_metrics.estimated_delivery_date?.to || trackInfo.time_metrics.scheduled_delivery_date || null
+        }
         updatePackagePartial(pkg.id, updates)
         Object.assign(pkg, updates)
       }
-    } else {
-      // Non-USPS: 17track
-      const apiKey = getTrackingApiKey(req)
-      if (apiKey) {
-        await register17track([pkg], apiKey)
-        await new Promise(r => setTimeout(r, 1500))
-        const results = await poll17track([pkg.tracking_number], apiKey)
-        if (results.length > 0) {
-          const trackInfo = results[0].track_info || {}
-          const events = (trackInfo.tracking?.providers?.[0]?.events || []).map(e => ({
-            timestamp: e.time_iso || e.time_utc || '', location: e.location || '',
-            description: e.description || '', status: e.stage || '',
-          }))
-          const { status: newStatus, detail } = map17trackStatus(trackInfo)
-          const updates = {
-            status: newStatus, status_detail: detail,
-            events: events.length > 0 ? events : [],
-            last_polled: new Date().toISOString(), updated_at: new Date().toISOString(),
-            poll_interval_minutes: calcPollInterval({ ...pkg, status: newStatus }),
-            last_location: events[0]?.location || '', signature_required: checkSignatureRequired(events),
-          }
-          if (trackInfo.time_metrics) {
-            updates.eta = trackInfo.time_metrics.estimated_delivery_date?.from || trackInfo.time_metrics.estimated_delivery_date?.to || trackInfo.time_metrics.scheduled_delivery_date || null
-          }
-          updatePackagePartial(pkg.id, updates)
-          Object.assign(pkg, updates)
-        }
-      }
+    } catch (err) {
+      console.error('[Packages] Initial poll failed:', err.message)
     }
-  } catch (err) {
-    console.error('[Packages] Initial poll failed:', err.message)
   }
 
   const newVersion = bumpVersion()
@@ -2228,33 +1989,6 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
     }
   }
 
-  // --- USPS: direct API ---
-  if (pkg.carrier === 'usps' && getUspsCredentials()) {
-    const result = await pollUSPS(pkg.tracking_number)
-    const now = new Date().toISOString()
-    if (result) {
-      const updates = {
-        status: result.status,
-        status_detail: result.status_detail,
-        events: result.events.length > 0 ? result.events : pkg.events,
-        last_polled: now,
-        updated_at: now,
-        poll_interval_minutes: calcPollInterval({ ...pkg, status: result.status }),
-        last_location: result.last_location || pkg.last_location,
-        signature_required: result.signature_required,
-      }
-      if (result.eta) updates.eta = result.eta
-      if (result.delivered_at) updates.delivered_at = result.delivered_at
-      const updated = updatePackagePartial(pkg.id, updates)
-      const newVersion = bumpVersion()
-      broadcast(newVersion, req.headers['x-client-id'])
-      return res.json(updated)
-    }
-    updatePackagePartial(pkg.id, { last_polled: now })
-    return res.json(getPackage(pkg.id))
-  }
-
-  // --- Non-USPS: 17track ---
   const apiKey = getTrackingApiKey(req)
   if (!apiKey) return res.json({ ...pkg, error: 'No tracking API key configured' })
 
@@ -2306,59 +2040,27 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
 
 app.post('/api/packages/refresh-all', async (req, res) => {
   const apiKey = getTrackingApiKey(req)
-  const allActive = getAllPackages('active')
-  if (allActive.length === 0) return res.json({ updated: 0 })
+  if (!apiKey) return res.json({ error: 'No tracking API key configured', updated: 0 })
+  if (trackingQuota.exhausted) return res.json({ error: 'API quota exhausted', updated: 0 })
+
+  const packages = getAllPackages('active')
+  if (packages.length === 0) return res.json({ updated: 0 })
+
+  await register17track(packages, apiKey)
+
+  const batches = []
+  for (let i = 0; i < packages.length; i += 40) {
+    batches.push(packages.slice(i, i + 40))
+  }
 
   let totalUpdated = 0
   const now = new Date().toISOString()
   const settings = getData('settings') || {}
 
-  // --- USPS packages: direct API ---
-  const uspsPackages = allActive.filter(p => p.carrier === 'usps')
-  const nonUspsPackages = allActive.filter(p => p.carrier !== 'usps')
-
-  if (uspsPackages.length > 0 && getUspsCredentials()) {
-    for (const pkg of uspsPackages) {
-      try {
-        const result = await pollUSPS(pkg.tracking_number)
-        if (result) {
-          updatePackagePartial(pkg.id, {
-            status: result.status, status_detail: result.status_detail,
-            events: result.events.length > 0 ? result.events : undefined,
-            last_polled: now, updated_at: now,
-            poll_interval_minutes: calcPollInterval({ ...pkg, status: result.status }),
-            last_location: result.last_location || undefined,
-            signature_required: result.signature_required,
-            ...(result.eta ? { eta: result.eta } : {}),
-            ...(result.delivered_at ? { delivered_at: result.delivered_at } : {}),
-          })
-          totalUpdated++
-        } else {
-          updatePackagePartial(pkg.id, { last_polled: now })
-        }
-      } catch (err) {
-        console.error(`[USPS] refresh-all error for ${pkg.tracking_number}:`, err.message)
-      }
-    }
-  }
-
-  // --- Non-USPS packages: 17track ---
-  if (nonUspsPackages.length > 0 && apiKey) {
-    if (trackingQuota.exhausted) {
-      return res.json({ error: 'API quota exhausted', updated: totalUpdated })
-    }
-
-    await register17track(nonUspsPackages, apiKey)
-
-    const batches = []
-    for (let i = 0; i < nonUspsPackages.length; i += 40) {
-      batches.push(nonUspsPackages.slice(i, i + 40))
-    }
-
-    for (let bi = 0; bi < batches.length; bi++) {
-      if (bi > 0) await new Promise(r => setTimeout(r, 1000))
-      const batch = batches[bi]
-      const results = await poll17track(batch.map(p => p.tracking_number), apiKey)
+  for (let bi = 0; bi < batches.length; bi++) {
+    if (bi > 0) await new Promise(r => setTimeout(r, 1000))
+    const batch = batches[bi]
+    const results = await poll17track(batch.map(p => p.tracking_number), apiKey)
 
     for (const result of results) {
       const trackInfo = result.track_info || {}
@@ -2421,7 +2123,6 @@ app.post('/api/packages/refresh-all', async (req, res) => {
         updatePackagePartial(pkg.id, { last_polled: now })
       }
     }
-    }
   }
 
   if (totalUpdated > 0) {
@@ -2429,7 +2130,7 @@ app.post('/api/packages/refresh-all', async (req, res) => {
     broadcast(newVersion, req.headers['x-client-id'])
   }
 
-  res.json({ updated: totalUpdated, total: allActive.length })
+  res.json({ updated: totalUpdated, total: packages.length })
 })
 
 app.get('/api/packages/api-status', (req, res) => {
@@ -2565,7 +2266,7 @@ initDb(dbPath).then(async () => {
     console.log(`Google Calendar: ${envGoogleClientId && envGoogleClientSecret ? 'from env' : 'user-provided via UI'}`)
     console.log(`Gmail: ${getData(GMAIL_TOKENS_KEY)?.refresh_token ? 'connected' : 'not connected'}`)
     console.log(`17track: ${envTrackingApiKey ? 'from env' : 'user-provided via UI'}`)
-    console.log(`USPS API: ${getUspsCredentials() ? 'configured' : 'not configured'}`)
+    console.log(`USPS API: ${envUspsClientId && envUspsClientSecret ? 'configured (unused — USPS requires IP agreement for third-party tracking)' : 'not configured'}`)
     console.log(`SMTP: ${envSmtpHost ? 'from env' : 'not configured'}`)
 
     // Start notification loops
