@@ -1545,7 +1545,7 @@ async function pollUSPS(trackingNumber) {
 
     if (!res.ok) {
       const errText = await res.text()
-      console.error('[USPS] Track error:', res.status, errText.slice(0, 300))
+      console.error('[USPS] Track error:', res.status, errText)
       return null
     }
 
