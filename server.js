@@ -1562,8 +1562,9 @@ function normalize17trackNumber(trackingNumber) {
 }
 
 // 17track carrier codes (numeric IDs required for registration)
+// Note: USPS omitted intentionally — 17track auto-detects USPS better than explicit code 21051
+// which sometimes returns -18019911 "carrier temporarily does not support registration"
 const CARRIER_17TRACK = {
-  usps: 21051,
   ups: 100002,
   fedex: 100003,
   dhl: 100001,
@@ -2292,17 +2293,23 @@ initDb(dbPath).then(async () => {
       startGmailPolling(5 * 60 * 1000)
     }
 
-    // Normalize any existing USPS 420-prefix tracking numbers in the database
+    // Normalize any existing USPS 420-prefix tracking numbers + reset stuck USPS packages
     const allPkgs = getAllPackages()
     let normalized = 0
+    let reset = 0
     for (const pkg of allPkgs) {
       const clean = normalize17trackNumber(pkg.tracking_number)
       if (clean !== pkg.tracking_number) {
         updatePackagePartial(pkg.id, { tracking_number: clean, last_polled: null })
         normalized++
+      } else if (pkg.carrier === 'usps' && pkg.status === 'pending' && pkg.last_polled) {
+        // Reset stuck USPS packages so they re-register without explicit carrier code
+        updatePackagePartial(pkg.id, { last_polled: null })
+        reset++
       }
     }
     if (normalized > 0) console.log(`[Packages] Normalized ${normalized} USPS tracking number(s)`)
+    if (reset > 0) console.log(`[Packages] Reset ${reset} stuck USPS package(s) for re-registration`)
 
     // Start package polling loop (every 5 minutes)
     setInterval(pollActivePackages, 5 * 60 * 1000)
