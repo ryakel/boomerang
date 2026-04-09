@@ -93,15 +93,14 @@ function extractEmailContent(message) {
 
   // Extract body text — try plain text first, fall back to HTML
   let body = ''
+  let rawHtml = ''
   const payload = message.payload
 
   function extractParts(part) {
     if (part.mimeType === 'text/plain' && part.body?.data) {
       body += decodeBase64Url(part.body.data)
-    } else if (part.mimeType === 'text/html' && part.body?.data && !body) {
-      // Strip HTML tags for AI processing
-      const html = decodeBase64Url(part.body.data)
-      body += html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+    } else if (part.mimeType === 'text/html' && part.body?.data) {
+      rawHtml += decodeBase64Url(part.body.data)
     }
     if (part.parts) {
       for (const sub of part.parts) extractParts(sub)
@@ -110,8 +109,38 @@ function extractEmailContent(message) {
 
   if (payload) extractParts(payload)
 
+  // If no plain text, convert HTML to readable text
+  if (!body && rawHtml) {
+    // Extract tracking-related URLs before stripping (carriers often embed tracking numbers in links)
+    const trackingUrls = []
+    const hrefRegex = /href="([^"]*(?:track|shipment|ups\.com|fedex\.com|usps\.com|tools\.usps|narvar|aftership|17track|packagetrackr)[^"]*)"/gi
+    let match
+    while ((match = hrefRegex.exec(rawHtml)) !== null) {
+      trackingUrls.push(match[1])
+    }
+
+    // Strip HTML but preserve structure with newlines
+    body = rawHtml
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(?:p|div|tr|li|h[1-6])>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#\d+;/g, ' ')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s*\n/g, '\n')
+      .trim()
+
+    // Append extracted tracking URLs as hints for the AI
+    if (trackingUrls.length > 0) {
+      body += '\n\n[Tracking URLs found in email: ' + trackingUrls.join(', ') + ']'
+    }
+  }
+
   // Truncate body to avoid excessive AI token usage
-  if (body.length > 4000) body = body.slice(0, 4000) + '...'
+  if (body.length > 6000) body = body.slice(0, 6000) + '...'
 
   return { subject, from, date, body, messageId: message.id, threadId: message.threadId }
 }
@@ -167,7 +196,7 @@ async function analyzeEmails(emails) {
 3. Neither (newsletters, marketing, social notifications, receipts with no action needed)
 
 For tracking numbers, look for patterns like:
-- USPS: starts with 92, 93, 94, 95 (20+ digits) or two letters + 9 digits + US
+- USPS: starts with 92, 93, 94, 95 (20+ digits), or prefixed with 420+ZIP (e.g., 420501499300...), or two letters + 9 digits + US
 - UPS: starts with 1Z (18 chars)
 - FedEx: 12, 15, 20, or 22 digits
 - Amazon: starts with TBA (15+ chars)

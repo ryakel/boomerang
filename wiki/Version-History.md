@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- fix(sync): improve Gmail email parsing for tracking number detection [S]
+  - Extract tracking URLs from HTML link hrefs before stripping tags
+  - Preserve HTML structure (br/p/div → newlines) instead of collapsing to whitespace
+  - Append extracted tracking URLs as hints for AI analysis
+  - Increase body truncation limit from 4000 to 6000 chars
+  - Add USPS 420+ZIP prefix format to AI prompt
+  - Modified: `gmailSync.js`
 - feat(sync): Gmail integration — AI-powered email scanning for tasks and packages [XL]
   - OAuth flow using same Google credentials as GCal, separate token with gmail.readonly scope
   - Server-side scanning engine (`gmailSync.js`) fetches inbox, sends to Claude for analysis
