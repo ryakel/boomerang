@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- feat(packages): USPS direct tracking API — bypasses 17track for USPS packages [L]
+  - OAuth 2.0 client credentials flow with 8-hour token caching
+  - `pollUSPS()` calls USPS v3 tracking API with full event parsing
+  - All USPS packages route to direct API: background poll, single refresh, initial create
+  - Non-USPS packages (UPS, FedEx, etc.) continue using 17track
+  - Status mapping, ETA extraction, signature detection, delivery notifications
+  - Settings UI: "USPS Direct Tracking" section in Integrations with client ID/secret fields
+  - Env vars: `USPS_CLIENT_ID`, `USPS_CLIENT_SECRET`
+  - Modified: `server.js`, `store.js`, `Settings.jsx`, `.env.example`
 - refactor(packages): normalize USPS 420+ZIP prefix at storage time [S]
   - Tracking numbers are now stripped of 420+ZIP routing prefix before saving to DB
   - Applies to manual add, Gmail import, and carrier detect endpoints

@@ -1739,6 +1739,58 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
             )}
           </div>
 
+          {/* ── USPS Direct Tracking ── */}
+          <div>
+            <div
+              className={`integration-row${expandedIntegration === 'usps' ? ' expanded' : ''}`}
+              onClick={() => setExpandedIntegration(expandedIntegration === 'usps' ? null : 'usps')}
+            >
+              <span className={`backlog-arrow${expandedIntegration === 'usps' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${(settings.usps_client_id && settings.usps_client_secret) || envKeys.usps ? 'connected' : 'unconfigured'}`} />
+              <span className="integration-row-name">USPS Direct Tracking</span>
+              {expandedIntegration !== 'usps' && (
+                <span className="integration-row-summary">
+                  {envKeys.usps ? 'Environment variable' : (settings.usps_client_id && settings.usps_client_secret) ? 'Configured' : 'Not configured'}
+                </span>
+              )}
+            </div>
+            {expandedIntegration === 'usps' && (
+              <div className="integration-body">
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8, lineHeight: 1.4 }}>
+                  USPS packages use the official USPS API instead of 17track. Register at{' '}
+                  <a href="https://developers.usps.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-link)' }}>developers.usps.com</a>{' '}
+                  and create an app to get credentials. Enable the Tracking API in your app permissions.
+                </div>
+                {!envKeys.usps && (
+                  <>
+                    <input
+                      className="add-input"
+                      type="password"
+                      placeholder="USPS Client ID (Consumer Key)"
+                      value={settings.usps_client_id || ''}
+                      onChange={e => update('usps_client_id', e.target.value)}
+                      style={{ marginBottom: 8, fontSize: 13 }}
+                    />
+                    <input
+                      className="add-input"
+                      type="password"
+                      placeholder="USPS Client Secret (Consumer Secret)"
+                      value={settings.usps_client_secret || ''}
+                      onChange={e => update('usps_client_secret', e.target.value)}
+                      style={{ marginBottom: 8, fontSize: 13 }}
+                    />
+                  </>
+                )}
+                {envKeys.usps && (
+                  <div className="integration-status connected" style={{ marginBottom: 8 }}>Configured via environment variables</div>
+                )}
+                {(settings.usps_client_id && settings.usps_client_secret) && !envKeys.usps && (
+                  <div className="integration-status connected" style={{ marginBottom: 8 }}>Credentials saved</div>
+                )}
+              </div>
+            )}
+          </div>
+
         </div>
       )}
 
