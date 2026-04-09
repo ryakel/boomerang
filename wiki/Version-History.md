@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- fix(sync): fix pending flag on packages created before SQL fix [S]
+  - Rescan now detects packages created with broken SQL (gmail_pending=0) and fixes their pending flag
+  - Modified: `gmailSync.js`
 - fix(sync): Gmail pending state not showing + duplicate packages [M]
   - `rowToTask`/`rowToPackage` and `taskToRow`/`packageToRow` in db.js were missing `gmail_message_id` and `gmail_pending` fields — pending state was never sent to client
   - Added yellow border + envelope badge to PackageCard for gmail_pending packages

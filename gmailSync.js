@@ -430,9 +430,16 @@ export async function syncGmail(daysBack = 7) {
         const label = guessPackageLabel(email.subject, email.from)
         let createdAny = false
         for (const tn of trackingNumbers) {
-          // Skip duplicates
+          // Skip duplicates — but fix pending flag on existing gmail-sourced packages
           if (existingTrackingNums.has(tn.tracking_number.toLowerCase())) {
-            console.log(`[Gmail] Regex: skipping duplicate tracking ${tn.tracking_number}`)
+            const existing = existingPackages.find(p => p.tracking_number.toLowerCase() === tn.tracking_number.toLowerCase())
+            if (existing && existing.gmail_message_id && !existing.gmail_pending) {
+              // Package was created by a broken earlier version — fix pending flag
+              upsertPackage({ ...existing, gmail_pending: 1 })
+              console.log(`[Gmail] Regex: fixed pending flag on existing package ${tn.tracking_number}`)
+            } else {
+              console.log(`[Gmail] Regex: skipping duplicate tracking ${tn.tracking_number}`)
+            }
             continue
           }
           const item = { package: { tracking_number: tn.tracking_number, carrier: tn.carrier, label } }
