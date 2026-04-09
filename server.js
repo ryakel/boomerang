@@ -1730,10 +1730,12 @@ async function pollActivePackages() {
     const batch = batches[bi]
     const trackingNumbers = batch.map(p => p.tracking_number)
 
-    // Register any never-polled packages first (with carrier codes)
-    const unpolled = batch.filter(p => !p.last_polled)
-    if (unpolled.length > 0) {
-      await register17track(unpolled, apiKey)
+    // Register any never-polled packages first, PLUS any with 420-prefix that need re-registration
+    const needsRegister = batch.filter(p =>
+      !p.last_polled || normalize17trackNumber(p.tracking_number) !== p.tracking_number
+    )
+    if (needsRegister.length > 0) {
+      await register17track(needsRegister, apiKey)
       await new Promise(r => setTimeout(r, 1000)) // brief delay after register
     }
 

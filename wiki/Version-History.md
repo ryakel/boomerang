@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- fix(packages): re-register USPS 420-prefix packages with normalized number [S]
+  - Background poll only registered never-polled packages, so USPS numbers registered under the old full 420+ZIP format were never re-registered with the normalized number
+  - Now re-registers any package where `normalize17trackNumber` produces a different value
+  - Modified: `server.js`
 - fix(sync): improve tracking number extraction from HTML emails [S]
   - Extract tracking numbers from ALL link URLs (not just known carrier domains)
   - Added Shopify to tracked URL domains
