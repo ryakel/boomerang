@@ -751,6 +751,12 @@ export async function gmailDismiss(id) {
   return res.json()
 }
 
+export async function gmailReset() {
+  const res = await fetch('/api/gmail/reset', { method: 'POST', headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to reset')
+  return res.json()
+}
+
 const SIZE_TO_MINUTES = { XS: 15, S: 30, M: 60, L: 120, XL: 240 }
 
 export async function inferEventTime(title, notes, size, energy) {

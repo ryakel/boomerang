@@ -1418,6 +1418,12 @@ app.post('/api/gmail/dismiss/:id', (req, res) => {
   res.status(404).json({ error: 'Item not found' })
 })
 
+app.post('/api/gmail/reset', (req, res) => {
+  clearGmailProcessed()
+  setData('gmail_last_sync', null)
+  res.json({ ok: true })
+})
+
 // --- Package Tracking ---
 
 function getTrackingApiKey(req) {

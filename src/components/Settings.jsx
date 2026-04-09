@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, emailStatus, testEmail, pushStatus, testPush } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
@@ -1518,12 +1518,24 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                       >
                         {gmailSyncing ? 'Scanning...' : 'Scan Now'}
                       </button>
-                      {gmailLastSync && (
-                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                          Last: {new Date(gmailLastSync).toLocaleString()}
-                        </span>
-                      )}
+                      <button
+                        className="ci-upload-btn"
+                        disabled={gmailSyncing}
+                        onClick={async () => {
+                          await gmailReset()
+                          setGmailSyncResult(null)
+                          setGmailLastSync(null)
+                          handleGmailSync()
+                        }}
+                      >
+                        {gmailSyncing ? 'Scanning...' : 'Reset & Rescan'}
+                      </button>
                     </div>
+                    {gmailLastSync && (
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                        Last: {new Date(gmailLastSync).toLocaleString()}
+                      </div>
+                    )}
 
                     {gmailSyncResult && (
                       <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 8 }}>{gmailSyncResult}</div>

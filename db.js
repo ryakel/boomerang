@@ -323,8 +323,8 @@ const UPSERT_TASK_SQL = `
     notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
     high_priority, size, energy, energy_level, tags_json, attachments_json,
     checklist_json, checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
-    gcal_event_id, gcal_duration)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    gcal_event_id, gcal_duration, gmail_message_id, gmail_pending)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -339,8 +339,8 @@ const UPSERT_TASK_SQL = `
     checklist_json=excluded.checklist_json, checklists_json=excluded.checklists_json,
     comments_json=excluded.comments_json, toast_messages_json=excluded.toast_messages_json,
     trello_sync_enabled=excluded.trello_sync_enabled,
-    gcal_event_id=excluded.gcal_event_id,
-    gcal_duration=excluded.gcal_duration`
+    gcal_event_id=excluded.gcal_event_id, gcal_duration=excluded.gcal_duration,
+    gmail_message_id=excluded.gmail_message_id, gmail_pending=excluded.gmail_pending`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -351,6 +351,7 @@ function runUpsertTask(task) {
     r.high_priority, r.size, r.energy, r.energy_level, r.tags_json, r.attachments_json,
     r.checklist_json, r.checklists_json, r.comments_json, r.toast_messages_json,
     r.trello_sync_enabled, r.gcal_event_id, r.gcal_duration,
+    r.gmail_message_id, r.gmail_pending,
   ])
 }
 
@@ -766,8 +767,8 @@ const UPSERT_PACKAGE_SQL = `
   INSERT INTO packages (id, tracking_number, carrier, carrier_name, label, status,
     status_detail, eta, delivered_at, signature_required, signature_task_id,
     last_location, events_json, last_polled, poll_interval_minutes,
-    auto_cleanup_at, created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    auto_cleanup_at, created_at, updated_at, gmail_message_id, gmail_pending)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     tracking_number=excluded.tracking_number, carrier=excluded.carrier,
     carrier_name=excluded.carrier_name, label=excluded.label, status=excluded.status,
@@ -775,7 +776,8 @@ const UPSERT_PACKAGE_SQL = `
     signature_required=excluded.signature_required, signature_task_id=excluded.signature_task_id,
     last_location=excluded.last_location, events_json=excluded.events_json,
     last_polled=excluded.last_polled, poll_interval_minutes=excluded.poll_interval_minutes,
-    auto_cleanup_at=excluded.auto_cleanup_at, updated_at=excluded.updated_at`
+    auto_cleanup_at=excluded.auto_cleanup_at, updated_at=excluded.updated_at,
+    gmail_message_id=excluded.gmail_message_id, gmail_pending=excluded.gmail_pending`
 
 function runUpsertPackage(pkg) {
   const r = packageToRow(pkg)
@@ -784,6 +786,7 @@ function runUpsertPackage(pkg) {
     r.status_detail, r.eta, r.delivered_at, r.signature_required, r.signature_task_id,
     r.last_location, r.events_json, r.last_polled, r.poll_interval_minutes,
     r.auto_cleanup_at, r.created_at, r.updated_at,
+    r.gmail_message_id, r.gmail_pending,
   ])
 }
 
