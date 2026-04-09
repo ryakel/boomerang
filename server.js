@@ -1730,12 +1730,10 @@ async function pollActivePackages() {
     const batch = batches[bi]
     const trackingNumbers = batch.map(p => p.tracking_number)
 
-    // Register any never-polled packages first, PLUS any with 420-prefix that need re-registration
-    const needsRegister = batch.filter(p =>
-      !p.last_polled || normalize17trackNumber(p.tracking_number) !== p.tracking_number
-    )
-    if (needsRegister.length > 0) {
-      await register17track(needsRegister, apiKey)
+    // Register any never-polled packages first (with carrier codes)
+    const unpolled = batch.filter(p => !p.last_polled)
+    if (unpolled.length > 0) {
+      await register17track(unpolled, apiKey)
       await new Promise(r => setTimeout(r, 1000)) // brief delay after register
     }
 
@@ -1885,17 +1883,19 @@ app.post('/api/packages', async (req, res) => {
   const { tracking_number, label, carrier } = req.body
   if (!tracking_number) return res.status(400).json({ error: 'tracking_number required' })
 
+  const normalizedNumber = normalize17trackNumber(tracking_number.trim())
+
   // Duplicate check
-  const existing = getAllPackages().find(p => p.tracking_number.toLowerCase() === tracking_number.trim().toLowerCase())
+  const existing = getAllPackages().find(p => p.tracking_number.toLowerCase() === normalizedNumber.toLowerCase())
   if (existing) return res.status(409).json({ error: 'Tracking number already exists', existing_id: existing.id, label: existing.label })
 
-  const detected = carrier ? { code: carrier, name: carrier } : detectCarrierServer(tracking_number)
+  const detected = carrier ? { code: carrier, name: carrier } : detectCarrierServer(normalizedNumber)
   const now = new Date().toISOString()
   const id = `pkg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
   const pkg = {
     id,
-    tracking_number: tracking_number.trim(),
+    tracking_number: normalizedNumber,
     carrier: detected?.code || 'other',
     carrier_name: detected?.name || 'Unknown',
     label: label || '',
@@ -2172,7 +2172,8 @@ app.post('/api/packages/test-connection', async (req, res) => {
 
 app.post('/api/packages/detect-carrier', (req, res) => {
   const { tracking_number } = req.body
-  const result = detectCarrierServer(tracking_number)
+  const normalized = normalize17trackNumber((tracking_number || '').trim())
+  const result = detectCarrierServer(normalized)
   res.json(result || { code: 'other', name: 'Unknown' })
 })
 
@@ -2286,6 +2287,18 @@ initDb(dbPath).then(async () => {
     if (gmailTokens?.refresh_token) {
       startGmailPolling(5 * 60 * 1000)
     }
+
+    // Normalize any existing USPS 420-prefix tracking numbers in the database
+    const allPkgs = getAllPackages()
+    let normalized = 0
+    for (const pkg of allPkgs) {
+      const clean = normalize17trackNumber(pkg.tracking_number)
+      if (clean !== pkg.tracking_number) {
+        updatePackagePartial(pkg.id, { tracking_number: clean, last_polled: null })
+        normalized++
+      }
+    }
+    if (normalized > 0) console.log(`[Packages] Normalized ${normalized} USPS tracking number(s)`)
 
     // Start package polling loop (every 5 minutes)
     setInterval(pollActivePackages, 5 * 60 * 1000)

@@ -1,6 +1,12 @@
 // Gmail Sync — fetches emails, uses AI to extract tasks and tracking numbers
 import { getData, setData, isGmailProcessed, markGmailProcessed, upsertTask, upsertPackage, getAllPackages, bumpVersion } from './db.js'
 
+// Strip USPS 420+ZIP routing prefix — store only the clean tracking number
+function normalizeTrackingNumber(num) {
+  const match = num.match(/^420\d{5,9}(9[2345]\d{20,26})$/)
+  return match ? match[1] : num
+}
+
 const GMAIL_TOKENS_KEY = 'gmail_tokens'
 const GMAIL_BASE = 'https://www.googleapis.com/gmail/v1/users/me'
 
@@ -288,7 +294,7 @@ function createPackageFromGmail(item, messageId) {
 
   const pkg = {
     id,
-    tracking_number: item.package.tracking_number,
+    tracking_number: normalizeTrackingNumber(item.package.tracking_number),
     carrier: item.package.carrier || null,
     carrier_name: '',
     label: item.package.label || '',
@@ -348,7 +354,7 @@ function extractTrackingNumbers(subject, body) {
     while ((match = re.exec(text)) !== null) {
       // Use the last captured group (the actual tracking number)
       const num = match[match.length - 1] || match[0]
-      const cleaned = num.trim()
+      const cleaned = normalizeTrackingNumber(num.trim())
       if (!seen.has(cleaned)) {
         seen.add(cleaned)
         found.push({ tracking_number: cleaned, carrier })

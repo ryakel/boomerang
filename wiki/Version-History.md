@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- refactor(packages): normalize USPS 420+ZIP prefix at storage time [S]
+  - Tracking numbers are now stripped of 420+ZIP routing prefix before saving to DB
+  - Applies to manual add, Gmail import, and carrier detect endpoints
+  - Startup fixup normalizes any existing packages in the database and clears `last_polled` to force re-registration
+  - Removed the re-registration workaround since numbers are now clean at source
+  - Modified: `server.js`, `gmailSync.js`
 - fix(packages): re-register USPS 420-prefix packages with normalized number [S]
   - Background poll only registered never-polled packages, so USPS numbers registered under the old full 420+ZIP format were never re-registered with the normalized number
   - Now re-registers any package where `normalize17trackNumber` produces a different value
