@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- feat(sync): regex-based tracking number extraction before AI analysis [M]
+  - Phase 1: scan email text for tracking number patterns (USPS, UPS, FedEx, Amazon, DHL)
+  - Shipping context keywords (shipped, tracking, on the way, etc.) gate ambiguous patterns to reduce false positives
+  - Packages found via regex skip AI entirely — instant, free, no API key needed
+  - Auto-generates label from email subject/sender
+  - Phase 2: remaining emails still go to AI for task extraction
+  - Gmail sync now works without Anthropic key (regex-only mode for packages)
+  - Modified: `gmailSync.js`
 - fix(sync): improve Gmail email parsing for tracking number detection [S]
   - Extract tracking URLs from HTML link hrefs before stripping tags
   - Preserve HTML structure (br/p/div → newlines) instead of collapsing to whitespace

@@ -303,16 +303,77 @@ function createPackageFromGmail(item, messageId) {
   return id
 }
 
+// --- Regex-based tracking number extraction (no AI needed) ---
+
+const TRACKING_PATTERNS = [
+  // USPS — with optional 420+ZIP prefix
+  { carrier: 'usps', regex: /\b(420\d{5,9})?(9[2345]\d{20,26})\b/g },
+  { carrier: 'usps', regex: /\b([A-Z]{2}\d{9}US)\b/g },
+  // UPS
+  { carrier: 'ups', regex: /\b(1Z[A-Z0-9]{16})\b/gi },
+  // FedEx — 12, 15, 20, or 22 digits (require shipping context to avoid false positives)
+  { carrier: 'fedex', regex: /\b(\d{12})\b/g, requiresContext: true },
+  { carrier: 'fedex', regex: /\b(\d{15})\b/g, requiresContext: true },
+  { carrier: 'fedex', regex: /\b(\d{20})\b/g },
+  { carrier: 'fedex', regex: /\b(\d{22})\b/g },
+  // Amazon
+  { carrier: 'amazon', regex: /\b(TBA\d{12,})\b/gi },
+  // DHL
+  { carrier: 'dhl', regex: /\b([A-Z]{3}\d{7,})\b/g, requiresContext: true },
+]
+
+const SHIPPING_KEYWORDS = /(?:shipped|tracking|shipment|on its way|on the way|out for delivery|in transit|carrier|delivered|track your|track package|order.*shipped)/i
+
+function extractTrackingNumbers(subject, body) {
+  const text = subject + ' ' + body
+  const hasShippingContext = SHIPPING_KEYWORDS.test(text)
+  const found = []
+  const seen = new Set()
+
+  for (const { carrier, regex, requiresContext } of TRACKING_PATTERNS) {
+    if (requiresContext && !hasShippingContext) continue
+    // Reset regex state
+    const re = new RegExp(regex.source, regex.flags)
+    let match
+    while ((match = re.exec(text)) !== null) {
+      // Use the last captured group (the actual tracking number)
+      const num = match[match.length - 1] || match[0]
+      const cleaned = num.trim()
+      if (!seen.has(cleaned)) {
+        seen.add(cleaned)
+        found.push({ tracking_number: cleaned, carrier })
+      }
+    }
+  }
+
+  return found
+}
+
+function guessPackageLabel(subject, from) {
+  // Try to extract a useful label from the subject/sender
+  const fromName = from.replace(/<[^>]+>/, '').replace(/"/g, '').trim()
+  // Remove common shipping prefixes from subject
+  const cleanSubject = subject
+    .replace(/^(re|fwd|fw):\s*/i, '')
+    .replace(/your (order|shipment|package)\s*(#?\w+\s*)?/i, '')
+    .replace(/has (shipped|been shipped)/i, '')
+    .replace(/is on (its|the) way/i, '')
+    .replace(/tracking (number|info|update)/i, '')
+    .replace(/shipment (from|notification|update|confirmation)/i, '')
+    .trim()
+
+  if (cleanSubject && cleanSubject.length > 3 && cleanSubject.length < 80) {
+    return cleanSubject
+  }
+  return fromName || 'Package'
+}
+
 // --- Main sync function ---
 
 export async function syncGmail(daysBack = 7) {
   const accessToken = await getGmailAccessToken()
   if (!accessToken) {
     return { error: 'Not connected to Gmail', tasks: 0, packages: 0, skipped: 0 }
-  }
-
-  if (!envAnthropicKey) {
-    return { error: 'No Anthropic API key configured', tasks: 0, packages: 0, skipped: 0 }
   }
 
   console.log(`[Gmail] Starting sync (last ${daysBack} days)...`)
@@ -355,13 +416,39 @@ export async function syncGmail(daysBack = 7) {
       return { tasks: 0, packages: 0, skipped: 0, total: 0 }
     }
 
-    // Analyze in batches of 10 to keep prompts manageable
     let tasksCreated = 0
     let packagesCreated = 0
     let skipped = 0
 
-    for (let i = 0; i < emails.length; i += 10) {
-      const batch = emails.slice(i, i + 10)
+    // --- Phase 1: Regex-based tracking number extraction (free, instant) ---
+    const emailsForAI = []
+    for (const email of emails) {
+      const trackingNumbers = extractTrackingNumbers(email.subject, email.body)
+      if (trackingNumbers.length > 0) {
+        const label = guessPackageLabel(email.subject, email.from)
+        for (const tn of trackingNumbers) {
+          const item = { package: { tracking_number: tn.tracking_number, carrier: tn.carrier, label } }
+          const pkgId = createPackageFromGmail(item, email.messageId)
+          markGmailProcessed(email.messageId, email.threadId, email.subject, email.from, 'package', pkgId)
+          packagesCreated++
+          console.log(`[Gmail] Regex: found tracking ${tn.tracking_number} (${tn.carrier}) in "${email.subject}"`)
+        }
+      } else {
+        emailsForAI.push(email)
+      }
+    }
+
+    // --- Phase 2: AI analysis for remaining emails (tasks + non-obvious packages) ---
+    if (!envAnthropicKey && emailsForAI.length > 0) {
+      // No AI key — mark remaining as skipped
+      for (const email of emailsForAI) {
+        markGmailProcessed(email.messageId, email.threadId, email.subject, email.from, 'skipped', null)
+        skipped++
+      }
+    }
+
+    for (let i = 0; i < emailsForAI.length && envAnthropicKey; i += 10) {
+      const batch = emailsForAI.slice(i, i + 10)
       let results
       try {
         results = await analyzeEmails(batch)
