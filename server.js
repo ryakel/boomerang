@@ -2296,29 +2296,59 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
 
 app.post('/api/packages/refresh-all', async (req, res) => {
   const apiKey = getTrackingApiKey(req)
-  if (!apiKey) return res.json({ error: 'No tracking API key configured', updated: 0 })
-  if (trackingQuota.exhausted) return res.json({ error: 'API quota exhausted', updated: 0 })
-
-  const packages = getAllPackages('active')
-  if (packages.length === 0) return res.json({ updated: 0 })
-
-  // Register all packages (idempotent — also triggers changecarrier for mismatched carriers)
-  await register17track(packages, apiKey)
-
-  // Batch all active tracking numbers (up to 40 per call)
-  const batches = []
-  for (let i = 0; i < packages.length; i += 40) {
-    batches.push(packages.slice(i, i + 40))
-  }
+  const allActive = getAllPackages('active')
+  if (allActive.length === 0) return res.json({ updated: 0 })
 
   let totalUpdated = 0
   const now = new Date().toISOString()
   const settings = getData('settings') || {}
 
-  for (let bi = 0; bi < batches.length; bi++) {
-    if (bi > 0) await new Promise(r => setTimeout(r, 1000))
-    const batch = batches[bi]
-    const results = await poll17track(batch.map(p => p.tracking_number), apiKey)
+  // --- USPS packages: direct API ---
+  const uspsPackages = allActive.filter(p => p.carrier === 'usps')
+  const nonUspsPackages = allActive.filter(p => p.carrier !== 'usps')
+
+  if (uspsPackages.length > 0 && getUspsCredentials()) {
+    for (const pkg of uspsPackages) {
+      try {
+        const result = await pollUSPS(pkg.tracking_number)
+        if (result) {
+          updatePackagePartial(pkg.id, {
+            status: result.status, status_detail: result.status_detail,
+            events: result.events.length > 0 ? result.events : undefined,
+            last_polled: now, updated_at: now,
+            poll_interval_minutes: calcPollInterval({ ...pkg, status: result.status }),
+            last_location: result.last_location || undefined,
+            signature_required: result.signature_required,
+            ...(result.eta ? { eta: result.eta } : {}),
+            ...(result.delivered_at ? { delivered_at: result.delivered_at } : {}),
+          })
+          totalUpdated++
+        } else {
+          updatePackagePartial(pkg.id, { last_polled: now })
+        }
+      } catch (err) {
+        console.error(`[USPS] refresh-all error for ${pkg.tracking_number}:`, err.message)
+      }
+    }
+  }
+
+  // --- Non-USPS packages: 17track ---
+  if (nonUspsPackages.length > 0 && apiKey) {
+    if (trackingQuota.exhausted) {
+      return res.json({ error: 'API quota exhausted', updated: totalUpdated })
+    }
+
+    await register17track(nonUspsPackages, apiKey)
+
+    const batches = []
+    for (let i = 0; i < nonUspsPackages.length; i += 40) {
+      batches.push(nonUspsPackages.slice(i, i + 40))
+    }
+
+    for (let bi = 0; bi < batches.length; bi++) {
+      if (bi > 0) await new Promise(r => setTimeout(r, 1000))
+      const batch = batches[bi]
+      const results = await poll17track(batch.map(p => p.tracking_number), apiKey)
 
     for (const result of results) {
       const trackInfo = result.track_info || {}
@@ -2381,6 +2411,7 @@ app.post('/api/packages/refresh-all', async (req, res) => {
         updatePackagePartial(pkg.id, { last_polled: now })
       }
     }
+    }
   }
 
   if (totalUpdated > 0) {
@@ -2388,7 +2419,7 @@ app.post('/api/packages/refresh-all', async (req, res) => {
     broadcast(newVersion, req.headers['x-client-id'])
   }
 
-  res.json({ updated: totalUpdated, total: packages.length })
+  res.json({ updated: totalUpdated, total: allActive.length })
 })
 
 app.get('/api/packages/api-status', (req, res) => {
