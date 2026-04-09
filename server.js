@@ -1902,17 +1902,17 @@ async function pollActivePackages() {
               const retDays = settings.package_retention_days ?? 3
               if (retDays > 0) updates.auto_cleanup_at = new Date(Date.now() + retDays * 86400000).toISOString()
               if (settings.package_notify_delivered !== false) {
-                try { await sendPackageEmail('delivered', { ...pkg, ...updates }) } catch {}
-                try { await sendPackagePush('delivered', { ...pkg, ...updates }) } catch {}
+                try { await sendPackageEmail('delivered', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
+                try { await sendPackagePush('delivered', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
               }
             } else if (result.status === 'exception' && settings.package_notify_exception !== false) {
-              try { await sendPackageEmail('exception', { ...pkg, ...updates }) } catch {}
-              try { await sendPackagePush('exception', { ...pkg, ...updates }) } catch {}
+              try { await sendPackageEmail('exception', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
+              try { await sendPackagePush('exception', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
             }
           }
           if (result.signature_required && !pkg.signature_required && settings.package_notify_signature !== false) {
-            try { await sendPackageEmail('signature', { ...pkg, ...updates }) } catch {}
-            try { await sendPackagePush('signature', { ...pkg, ...updates }) } catch {}
+            try { await sendPackageEmail('signature', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
+            try { await sendPackagePush('signature', { ...pkg, ...updates }) } catch { /* notification non-critical */ }
           }
 
           updatePackagePartial(pkg.id, updates)
