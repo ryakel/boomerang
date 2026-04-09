@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- feat(ui): server logs viewer in Settings with copy-all button [M]
+  - Intercepts console.log/error/warn into 500-entry circular buffer
+  - New `/api/logs` endpoint serves buffered logs
+  - New "Logs" tab in Settings with monospace log viewer
+  - Filter buttons: All, Gmail, GCal, Push, Email, DB, SSE, Errors
+  - "Copy All" button copies full log text to clipboard
+  - "Refresh" button to re-fetch latest logs
+  - Errors shown in red, warnings in yellow
+  - Modified: `server.js`, `Settings.jsx`, `Settings.css`
 - fix(sync): fix pending flag on packages created before SQL fix [S]
   - Rescan now detects packages created with broken SQL (gmail_pending=0) and fixes their pending flag
   - Modified: `gmailSync.js`

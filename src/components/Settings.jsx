@@ -55,7 +55,87 @@ function NotificationHistory() {
   )
 }
 
-const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data']
+function ServerLogs() {
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
+  const [copied, setCopied] = useState(false)
+
+  const fetchLogs = useCallback(() => {
+    setLoading(true)
+    fetch('/api/logs')
+      .then(r => r.json())
+      .then(data => setLogs(data.logs || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { fetchLogs() }, [fetchLogs])
+
+  const FILTERS = ['all', 'Gmail', 'GCal', 'Push', 'Email', 'DB', 'SSE', 'error']
+  const filtered = filter === 'all' ? logs
+    : filter === 'error' ? logs.filter(l => l.level === 'error' || l.level === 'warn')
+    : logs.filter(l => l.msg.includes(`[${filter}]`))
+
+  const handleCopy = () => {
+    const text = logs.map(l => `${l.ts} [${l.level}] ${l.msg}`).join('\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div className="settings-group">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="settings-label" style={{ margin: 0 }}>Server Logs</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="ci-upload-btn" onClick={fetchLogs} disabled={loading}>
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+          <button className="ci-upload-btn" onClick={handleCopy} disabled={logs.length === 0}>
+            {copied ? 'Copied!' : 'Copy All'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>
+        {FILTERS.map(f => (
+          <button
+            key={f}
+            className={`tag-pill${filter === f ? ' active' : ''}`}
+            style={{ fontSize: 11, padding: '3px 8px' }}
+            onClick={() => setFilter(f)}
+          >
+            {f === 'all' ? 'All' : f === 'error' ? 'Errors' : f}
+          </button>
+        ))}
+      </div>
+
+      <div className="server-logs-container">
+        {filtered.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 12 }}>
+            {loading ? 'Loading...' : 'No logs to display.'}
+          </div>
+        ) : (
+          filtered.slice().reverse().map((l, i) => (
+            <div key={i} className={`server-log-entry server-log-${l.level}`}>
+              <span className="server-log-time">
+                {new Date(l.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span className="server-log-msg">{l.msg}</span>
+            </div>
+          ))
+        )}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 8 }}>
+        Showing {filtered.length} of {logs.length} entries (last 500 kept in memory)
+      </div>
+    </div>
+  )
+}
+
+const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs']
 
 export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing, onShowActivityLog, syncStatus, isDesktop }) {
   const [activeTab, setActiveTab] = useState('General')
@@ -2236,6 +2316,10 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
             </div>
           </div>
         </>
+      )}
+
+      {activeTab === 'Logs' && (
+        <ServerLogs />
       )}
     </>
   )

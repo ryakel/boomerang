@@ -98,6 +98,23 @@ async function getGCalAccessToken() {
   return tokens.access_token
 }
 
+// --- Server log capture (circular buffer) ---
+const LOG_BUFFER_MAX = 500
+const serverLogs = []
+const originalConsoleLog = console.log.bind(console)
+const originalConsoleError = console.error.bind(console)
+const originalConsoleWarn = console.warn.bind(console)
+
+function captureLog(level, args) {
+  const line = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ')
+  serverLogs.push({ ts: new Date().toISOString(), level, msg: line })
+  if (serverLogs.length > LOG_BUFFER_MAX) serverLogs.shift()
+}
+
+console.log = (...args) => { captureLog('info', args); originalConsoleLog(...args) }
+console.error = (...args) => { captureLog('error', args); originalConsoleError(...args) }
+console.warn = (...args) => { captureLog('warn', args); originalConsoleWarn(...args) }
+
 // --- Express ---
 const app = express()
 app.set('trust proxy', 1)
@@ -107,6 +124,11 @@ app.use(express.json({ limit: '2mb' }))
 // --- Health check ---
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', appVersion })
+})
+
+// --- Server logs endpoint ---
+app.get('/api/logs', (req, res) => {
+  res.json({ logs: serverLogs, total: serverLogs.length })
 })
 
 // --- Client log relay ---
