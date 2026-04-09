@@ -1555,6 +1555,12 @@ function checkSignatureRequired(events) {
   return false
 }
 
+// Strip USPS 420+ZIP prefix — 17track can't handle it, but the 93xx number inside works fine
+function normalize17trackNumber(trackingNumber) {
+  const match = trackingNumber.match(/^420\d{5,9}(9[2345]\d{20,26})$/)
+  return match ? match[1] : trackingNumber
+}
+
 // 17track carrier codes (numeric IDs required for registration)
 const CARRIER_17TRACK = {
   usps: 21051,
@@ -1572,8 +1578,9 @@ async function register17track(items, apiKey) {
   if (!apiKey || items.length === 0) return
 
   const payload = items.map(item => {
-    if (typeof item === 'string') return { number: item }
-    const entry = { number: item.number || item.tracking_number || item }
+    if (typeof item === 'string') return { number: normalize17trackNumber(item) }
+    const rawNum = item.number || item.tracking_number || item
+    const entry = { number: normalize17trackNumber(String(rawNum)) }
     const carrierCode = CARRIER_17TRACK[item.carrier]
     if (carrierCode) entry.carrier = carrierCode
     return entry
@@ -1626,10 +1633,10 @@ async function changeCarrier17track(trackingNumber, carrierCode, apiKey) {
         'Content-Type': 'application/json',
         '17token': apiKey,
       },
-      body: JSON.stringify([{ number: trackingNumber, carrier: carrierCode }]),
+      body: JSON.stringify([{ number: normalize17trackNumber(trackingNumber), carrier: carrierCode }]),
     })
     const data = await res.json()
-    console.log('[Packages] 17track changecarrier:', trackingNumber, '→', carrierCode, 'status:', res.status, 'accepted:', data.data?.accepted?.length || 0)
+    console.log('[Packages] 17track changecarrier:', normalize17trackNumber(trackingNumber), '→', carrierCode, 'status:', res.status, 'accepted:', data.data?.accepted?.length || 0)
   } catch (err) {
     console.error('[Packages] 17track changecarrier error:', err.message)
   }
@@ -1647,7 +1654,7 @@ async function poll17track(trackingNumbers, apiKey) {
         '17token': apiKey,
       },
       body: JSON.stringify(
-        trackingNumbers.map(tn => ({ number: tn }))
+        trackingNumbers.map(tn => ({ number: normalize17trackNumber(tn) }))
       ),
     })
 
@@ -1755,8 +1762,8 @@ async function pollActivePackages() {
         }
       }
 
-      // Update ALL packages with this tracking number (handles duplicates)
-      const matching = batch.filter(p => p.tracking_number === result.number)
+      // Update ALL packages with this tracking number (handles duplicates + 420-prefix normalization)
+      const matching = batch.filter(p => p.tracking_number === result.number || normalize17trackNumber(p.tracking_number) === result.number)
       for (const pkg of matching) {
         // Never downgrade a package that already has real tracking data
         const STATUS_RANK = { delivered: 5, out_for_delivery: 4, in_transit: 3, exception: 2, pending: 1, expired: 0 }
@@ -2083,8 +2090,8 @@ app.post('/api/packages/refresh-all', async (req, res) => {
         updates.eta = trackInfo.time_metrics.estimated_delivery_date?.from || trackInfo.time_metrics.estimated_delivery_date?.to || trackInfo.time_metrics.scheduled_delivery_date || null
       }
 
-      // Update ALL packages with this tracking number (handles duplicates)
-      const matching = batch.filter(p => p.tracking_number === result.number)
+      // Update ALL packages with this tracking number (handles duplicates + 420-prefix normalization)
+      const matching = batch.filter(p => p.tracking_number === result.number || normalize17trackNumber(p.tracking_number) === result.number)
       for (const pkg of matching) {
         // Never downgrade a package that already has real tracking data
         // 17track intermittently returns NotFound even for packages with valid data

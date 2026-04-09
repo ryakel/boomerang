@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- fix(packages): strip USPS 420+ZIP prefix before sending to 17track [S]
+  - 17track API rejects USPS numbers with the 420+ZIP routing prefix
+  - New `normalize17trackNumber()` strips prefix for register, poll, and changecarrier calls
+  - Result matching updated to handle normalized vs stored number mismatch
+  - Modified: `server.js`
 - feat(ui): server logs viewer in Settings with copy-all button [M]
   - Intercepts console.log/error/warn into 500-entry circular buffer
   - New `/api/logs` endpoint serves buffered logs
