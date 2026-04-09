@@ -28,6 +28,7 @@ let envGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET
 let envTrackingApiKey = process.env.TRACKING_API_KEY
 let envUspsClientId = process.env.USPS_CLIENT_ID
 let envUspsClientSecret = process.env.USPS_CLIENT_SECRET
+let envUspsMid = process.env.USPS_MID
 const envSmtpHost = process.env.SMTP_HOST
 
 if (existsSync('.env')) {
@@ -41,6 +42,7 @@ if (existsSync('.env')) {
   envTrackingApiKey = envTrackingApiKey || envFile.match(/TRACKING_API_KEY="?([^"\n]+)"?/)?.[1]
   envUspsClientId = envUspsClientId || envFile.match(/USPS_CLIENT_ID="?([^"\n]+)"?/)?.[1]
   envUspsClientSecret = envUspsClientSecret || envFile.match(/USPS_CLIENT_SECRET="?([^"\n]+)"?/)?.[1]
+  envUspsMid = envUspsMid || envFile.match(/USPS_MID="?([^"\n]+)"?/)?.[1]
 }
 
 // Helper: resolve API key from request header or env var
@@ -1467,7 +1469,8 @@ function getUspsCredentials() {
   const settings = getData('settings') || {}
   const clientId = envUspsClientId || settings.usps_client_id || null
   const clientSecret = envUspsClientSecret || settings.usps_client_secret || null
-  return (clientId && clientSecret) ? { clientId, clientSecret } : null
+  const mid = envUspsMid || settings.usps_mid || null
+  return (clientId && clientSecret) ? { clientId, clientSecret, mid } : null
 }
 
 let uspsTokenCache = { token: null, expiresAt: 0 }
@@ -1519,13 +1522,20 @@ function mapUspsStatus(statusCategory) {
   return 'in_transit'
 }
 
+function getUspsHeaders(token) {
+  const creds = getUspsCredentials()
+  const headers = { 'Authorization': `Bearer ${token}` }
+  if (creds?.mid) headers['X-MID'] = creds.mid
+  return headers
+}
+
 async function pollUSPS(trackingNumber) {
   const token = await getUspsToken()
   if (!token) return null
 
   try {
     const res = await fetch(`https://apis.usps.com/tracking/v3/tracking/${encodeURIComponent(trackingNumber)}?expand=DETAIL`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: getUspsHeaders(token),
     })
 
     if (res.status === 401) {
@@ -1534,7 +1544,7 @@ async function pollUSPS(trackingNumber) {
       const newToken = await getUspsToken()
       if (!newToken) return null
       const retry = await fetch(`https://apis.usps.com/tracking/v3/tracking/${encodeURIComponent(trackingNumber)}?expand=DETAIL`, {
-        headers: { 'Authorization': `Bearer ${newToken}` },
+        headers: getUspsHeaders(newToken),
       })
       if (!retry.ok) {
         console.error('[USPS] Retry failed:', retry.status)

@@ -75,6 +75,7 @@ export const DEFAULT_SETTINGS = {
   gmail_last_sync: null,
   usps_client_id: '',
   usps_client_secret: '',
+  usps_mid: '',
   tracking_api_key: '',
   package_retention_days: 3,
   package_notify_delivered: true,
