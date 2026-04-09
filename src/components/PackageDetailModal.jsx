@@ -84,7 +84,7 @@ export default function PackageDetailModal({ pkg, onClose, onRefresh, onDelete, 
   const events = pkg.events || []
 
   return (
-    <div className="sheet-overlay" onClick={onClose}>
+    <div className="sheet-overlay" style={{ zIndex: 210 }} onClick={onClose}>
       <div className="sheet package-detail-sheet" onClick={e => e.stopPropagation()}>
         <div className="sheet-handle" />
         <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
