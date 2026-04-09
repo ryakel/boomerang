@@ -584,3 +584,9 @@
     background: var(--surface-hover);
   }
 }
+
+/* Gmail pending review state */
+.package-card.gmail-pending {
+  border-left: 3px solid #FBBF24;
+  background: color-mix(in srgb, var(--surface), #FBBF24 6%);
+}

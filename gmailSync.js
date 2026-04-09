@@ -1,5 +1,5 @@
 // Gmail Sync — fetches emails, uses AI to extract tasks and tracking numbers
-import { getData, setData, isGmailProcessed, markGmailProcessed, upsertTask, upsertPackage, bumpVersion } from './db.js'
+import { getData, setData, isGmailProcessed, markGmailProcessed, upsertTask, upsertPackage, getAllPackages, bumpVersion } from './db.js'
 
 const GMAIL_TOKENS_KEY = 'gmail_tokens'
 const GMAIL_BASE = 'https://www.googleapis.com/gmail/v1/users/me'
@@ -421,18 +421,28 @@ export async function syncGmail(daysBack = 7) {
     let skipped = 0
 
     // --- Phase 1: Regex-based tracking number extraction (free, instant) ---
+    const existingPackages = getAllPackages()
+    const existingTrackingNums = new Set(existingPackages.map(p => p.tracking_number.toLowerCase()))
     const emailsForAI = []
     for (const email of emails) {
       const trackingNumbers = extractTrackingNumbers(email.subject, email.body)
       if (trackingNumbers.length > 0) {
         const label = guessPackageLabel(email.subject, email.from)
+        let createdAny = false
         for (const tn of trackingNumbers) {
+          // Skip duplicates
+          if (existingTrackingNums.has(tn.tracking_number.toLowerCase())) {
+            console.log(`[Gmail] Regex: skipping duplicate tracking ${tn.tracking_number}`)
+            continue
+          }
           const item = { package: { tracking_number: tn.tracking_number, carrier: tn.carrier, label } }
           const pkgId = createPackageFromGmail(item, email.messageId)
-          markGmailProcessed(email.messageId, email.threadId, email.subject, email.from, 'package', pkgId)
+          existingTrackingNums.add(tn.tracking_number.toLowerCase())
           packagesCreated++
+          createdAny = true
           console.log(`[Gmail] Regex: found tracking ${tn.tracking_number} (${tn.carrier}) in "${email.subject}"`)
         }
+        markGmailProcessed(email.messageId, email.threadId, email.subject, email.from, createdAny ? 'package' : 'skipped', null)
       } else {
         emailsForAI.push(email)
       }
@@ -474,11 +484,16 @@ export async function syncGmail(daysBack = 7) {
           tasksCreated++
           console.log(`[Gmail] Created task: "${result.task.title}" from "${email.subject}"`)
         } else if (result.type === 'package' && result.package?.tracking_number) {
-          const pkgId = createPackageFromGmail(result, result.message_id)
-          markGmailProcessed(result.message_id, email.threadId, email.subject, email.from, 'package', pkgId)
+          if (existingTrackingNums.has(result.package.tracking_number.toLowerCase())) {
+            console.log(`[Gmail] AI: skipping duplicate tracking ${result.package.tracking_number}`)
+          } else {
+            const pkgId = createPackageFromGmail(result, result.message_id)
+            existingTrackingNums.add(result.package.tracking_number.toLowerCase())
+            packagesCreated++
+            console.log(`[Gmail] Created package: ${result.package.tracking_number} from "${email.subject}"`)
+          }
+          markGmailProcessed(result.message_id, email.threadId, email.subject, email.from, 'package', null)
           processedIds.add(result.message_id)
-          packagesCreated++
-          console.log(`[Gmail] Created package: ${result.package.tracking_number} from "${email.subject}"`)
         } else {
           if (!processedIds.has(result.message_id)) {
             markGmailProcessed(result.message_id, email.threadId, email.subject, email.from, 'skipped', null)

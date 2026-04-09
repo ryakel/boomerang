@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- fix(sync): Gmail pending state not showing + duplicate packages [M]
+  - `rowToTask`/`rowToPackage` and `taskToRow`/`packageToRow` in db.js were missing `gmail_message_id` and `gmail_pending` fields — pending state was never sent to client
+  - Added yellow border + envelope badge to PackageCard for gmail_pending packages
+  - Added tracking number dedup: checks existing packages before creating (both regex and AI phases)
+  - Modified: `db.js`, `gmailSync.js`, `PackageCard.jsx`, `Packages.css`
 - feat(sync): regex-based tracking number extraction before AI analysis [M]
   - Phase 1: scan email text for tracking number patterns (USPS, UPS, FedEx, Amazon, DHL)
   - Shipping context keywords (shipped, tracking, on the way, etc.) gate ambiguous patterns to reduce false positives

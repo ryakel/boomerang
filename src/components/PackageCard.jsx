@@ -145,7 +145,7 @@ export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onS
   return (
     <div className="package-card-wrapper">
       <div
-        className="package-card"
+        className={`package-card${pkg.gmail_pending ? ' gmail-pending' : ''}`}
         style={{
           transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
           transition: swiping ? 'none' : 'transform 0.25s ease',
@@ -158,7 +158,7 @@ export default function PackageCard({ pkg, isDuplicate, onRefresh, onDelete, onS
         <div className="package-card-top">
           <span className="package-carrier-icon"><CarrierLogo carrier={pkg.carrier} size={24} /></span>
           <div className="package-card-info">
-            <div className="package-card-label">{pkg.label || pkg.tracking_number}</div>
+            <div className="package-card-label">{pkg.gmail_pending && <span className="gmail-pending-badge">✉ </span>}{pkg.label || pkg.tracking_number}</div>
             {pkg.label && <div className="package-card-tracking">{pkg.tracking_number}</div>}
           </div>
           <div className="package-status-badge" style={{ background: statusStyle.bg, color: statusStyle.text }}>

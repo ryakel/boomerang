@@ -266,6 +266,8 @@ function taskToRow(task) {
     trello_sync_enabled: task.trello_sync_enabled == null ? null : task.trello_sync_enabled ? 1 : 0,
     gcal_event_id: task.gcal_event_id || null,
     gcal_duration: task.gcal_duration ?? null,
+    gmail_message_id: task.gmail_message_id || null,
+    gmail_pending: task.gmail_pending ? 1 : 0,
   }
 }
 
@@ -301,6 +303,8 @@ function rowToTask(row) {
     trello_sync_enabled: row.trello_sync_enabled == null ? undefined : !!row.trello_sync_enabled,
     gcal_event_id: row.gcal_event_id || null,
     gcal_duration: row.gcal_duration ?? null,
+    gmail_message_id: row.gmail_message_id || null,
+    gmail_pending: !!row.gmail_pending,
   }
 }
 
@@ -724,6 +728,8 @@ function packageToRow(pkg) {
     auto_cleanup_at: pkg.auto_cleanup_at || pkg.autoCleanupAt || null,
     created_at: pkg.created_at || pkg.createdAt || new Date().toISOString(),
     updated_at: pkg.updated_at || pkg.updatedAt || new Date().toISOString(),
+    gmail_message_id: pkg.gmail_message_id || null,
+    gmail_pending: pkg.gmail_pending ? 1 : 0,
   }
 }
 
@@ -747,6 +753,8 @@ function rowToPackage(row) {
     auto_cleanup_at: row.auto_cleanup_at || null,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    gmail_message_id: row.gmail_message_id || null,
+    gmail_pending: !!row.gmail_pending,
   }
 }
 
