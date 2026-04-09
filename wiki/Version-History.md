@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-08
 
+- fix(sync): improve tracking number extraction from HTML emails [S]
+  - Extract tracking numbers from ALL link URLs (not just known carrier domains)
+  - Added Shopify to tracked URL domains
+  - Added debug logging for regex scan phase to diagnose misses
+  - Modified: `gmailSync.js`
 - fix(packages): strip USPS 420+ZIP prefix before sending to 17track [S]
   - 17track API rejects USPS numbers with the 420+ZIP routing prefix
   - New `normalize17trackNumber()` strips prefix for register, poll, and changecarrier calls

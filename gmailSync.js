@@ -113,10 +113,20 @@ function extractEmailContent(message) {
   if (!body && rawHtml) {
     // Extract tracking-related URLs before stripping (carriers often embed tracking numbers in links)
     const trackingUrls = []
-    const hrefRegex = /href="([^"]*(?:track|shipment|ups\.com|fedex\.com|usps\.com|tools\.usps|narvar|aftership|17track|packagetrackr)[^"]*)"/gi
+    const hrefRegex = /href="([^"]*(?:track|shipment|ups\.com|fedex\.com|usps\.com|tools\.usps|narvar|aftership|17track|packagetrackr|shopify)[^"]*)"/gi
     let match
     while ((match = hrefRegex.exec(rawHtml)) !== null) {
       trackingUrls.push(match[1])
+    }
+
+    // Also extract any long numeric sequences from ALL links (tracking numbers are often URL params)
+    const allHrefs = rawHtml.match(/href="([^"]*)"/gi) || []
+    for (const href of allHrefs) {
+      const url = href.slice(6, -1) // strip href=" and "
+      const longNums = url.match(/\b((?:420\d{5,9})?9[2345]\d{20,26}|1Z[A-Z0-9]{16}|TBA\d{12,})\b/gi)
+      if (longNums) {
+        for (const n of longNums) trackingUrls.push(n)
+      }
     }
 
     // Strip HTML but preserve structure with newlines
@@ -426,6 +436,7 @@ export async function syncGmail(daysBack = 7) {
     const emailsForAI = []
     for (const email of emails) {
       const trackingNumbers = extractTrackingNumbers(email.subject, email.body)
+      console.log(`[Gmail] Regex scan "${email.subject}": ${trackingNumbers.length} tracking number(s) found${trackingNumbers.length > 0 ? ': ' + trackingNumbers.map(t => t.tracking_number).join(', ') : ''}`)
       if (trackingNumbers.length > 0) {
         const label = guessPackageLabel(email.subject, email.from)
         let createdAny = false
