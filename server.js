@@ -2000,7 +2000,11 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
   // Register first with carrier (idempotent — 17track ignores if already registered)
   await register17track([pkg], apiKey)
 
+  // Brief delay for registration to process
+  await new Promise(r => setTimeout(r, 1000))
+
   const results = await poll17track([pkg.tracking_number], apiKey)
+  console.log(`[Packages] refresh ${pkg.tracking_number}: ${results.length} result(s)`)
   if (results.length > 0) {
     const result = results[0]
     const trackInfo = result.track_info || result.track || {}
