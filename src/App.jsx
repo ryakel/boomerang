@@ -230,11 +230,13 @@ function App() {
   }, [tasks, deleteTask])
 
   const handleConvertToRoutine = useCallback((taskId, { title, cadence, customDays, tags, notes }) => {
-    addRoutine(title, cadence, customDays, tags, notes)
-    // Remove the original one-off task since it's now a routine
-    completeTask(taskId)
+    const routine = addRoutine(title, cadence, customDays, tags, notes)
+    // Link the original task to the new routine so it stays active as the first instance.
+    // When completed later, handleComplete will log it on the routine and future instances
+    // will be spawned by cadence (spawnDueTasks skips routines that already have an active task).
+    updateTask(taskId, { routine_id: routine.id, last_touched: new Date().toISOString() })
     setEditTarget(null)
-  }, [addRoutine, completeTask])
+  }, [addRoutine, updateTask])
 
   const handleSearch = useCallback((query) => {
     setSearchQuery(query)

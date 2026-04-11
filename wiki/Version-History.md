@@ -4,6 +4,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-11
+
+- fix(routines): don't auto-complete task when converting to routine [XS]
+  - `handleConvertToRoutine` was calling `completeTask(taskId)`, which closed the original task and fired completion side effects (toast, points, Trello sync)
+  - Now links the existing task to the newly-created routine via `routine_id` so it stays active as the first instance
+  - When the user later completes it, `handleComplete` logs the completion on the routine and `spawnDueTasks` takes over for future instances (it already skips routines that have an active task)
+  - Modified: `src/App.jsx`
+
 ## 2026-04-08
 
 - feat(packages): USPS direct tracking API — bypasses 17track for USPS packages [L]
