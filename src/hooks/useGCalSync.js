@@ -55,6 +55,28 @@ export function useGCalSync(tasks, setTasks) {
       return
     }
 
+    // When a title filter is active, skip dedup — user explicitly searched for these
+    if (titleFilter) {
+      remoteLog(`[GCalSync] title filter active, creating ${unlinkedEvents.length} tasks (no dedup)`)
+      const newTasks = []
+      for (const event of unlinkedEvents) {
+        const dueDate = event.start?.date || (event.start?.dateTime ? event.start.dateTime.split('T')[0] : null)
+        const task = createTask(
+          event.summary || 'Untitled event',
+          [],
+          dueDate,
+          event.description || ''
+        )
+        task.gcal_event_id = event.id
+        newTasks.push(task)
+      }
+      if (newTasks.length > 0) {
+        setTasks(prev => [...newTasks, ...prev])
+        remoteLog(`[GCalSync] created ${newTasks.length} new tasks from calendar events`)
+      }
+      return
+    }
+
     // Dedup: exact title match, then AI
     const unlinkedTasks = currentTasks.filter(t => !t.gcal_event_id && t.status !== 'done')
     const matchMap = await deduplicateImports({
