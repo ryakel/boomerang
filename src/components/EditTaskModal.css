@@ -756,16 +756,17 @@
   transform: rotate(90deg);
 }
 
-/* Compact priority toggle for routines */
+/* Compact priority toggle */
 .priority-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  min-width: 72px;
   padding: 8px 14px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
-  background: var(--surface);
+  background: var(--bg);
   color: var(--text-dim);
   cursor: pointer;
   border: 2px solid transparent;
@@ -821,7 +822,10 @@
 .duration-inline input {
   width: 56px;
   text-align: center;
-  padding: 8px 4px;
+  padding: 8px 6px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  font-size: 14px;
 }
 
 .duration-inline .duration-unit {

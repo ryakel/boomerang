@@ -13,6 +13,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Unlinking clears `notion_page_id` and `notion_url` on save
   - Wired `updateRoutineNotion` through App.jsx → Routines prop
   - Modified: `src/components/Routines.jsx`, `src/App.jsx`
+- fix(ui): pull-to-close isolation, duration styling, fixed-width priority toggle [S]
+  - Pull-to-close now calls `stopPropagation` + `preventDefault` on touch move to prevent background pull-to-refresh from triggering simultaneously
+  - Sheet CSS gets `overscroll-behavior: contain` to block scroll chaining
+  - Duration input gets matching background, border-radius, and font-size so it aligns visually with date input
+  - Priority toggle gets `min-width: 72px` and `justify-content: center` so the row doesn't resize when cycling between Normal/High/Low
+  - Modified: `src/components/EditTaskModal.jsx`, `src/components/AddTaskModal.jsx`, `src/components/EditTaskModal.css`, `src/components/Modal.css`
 - fix(ui): fluid pull-to-close, scheduling row card, routine link [M]
   - Pull-to-close on modals is now fluid with visual tracking (translateY + opacity fade during drag) instead of threshold-only detection
   - "Part of routine" at top of EditTaskModal is now a tappable link that opens the Routines view

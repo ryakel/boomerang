@@ -35,8 +35,11 @@ export default function AddTaskModal({ onAdd, onClose }) {
     if (!pullStartRef.current) return
     const dy = e.touches[0].clientY - pullStartRef.current.y
     if (dy > 0) {
+      e.stopPropagation()
+      e.preventDefault()
       setPullY(dy * 0.6)
-      if (dy > 20) e.preventDefault()
+    } else {
+      pullStartRef.current = null
     }
   }, [])
   const handlePullEnd = useCallback(() => {

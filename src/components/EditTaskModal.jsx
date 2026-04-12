@@ -489,15 +489,19 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const [pullY, setPullY] = useState(0)
   const handlePullStart = (e) => {
     const scrollTop = sheetRef.current?.scrollTop || 0
-    if (scrollTop > 0) return // only pull when scrolled to top
+    if (scrollTop > 0) return
     pullStartRef.current = { y: e.touches[0].clientY }
   }
   const handlePullMove = (e) => {
     if (!pullStartRef.current) return
     const dy = e.touches[0].clientY - pullStartRef.current.y
     if (dy > 0) {
-      setPullY(dy * 0.6) // damped drag
-      if (dy > 20) e.preventDefault()
+      e.stopPropagation()
+      e.preventDefault()
+      setPullY(dy * 0.6)
+    } else {
+      // scrolling up inside the sheet — cancel pull tracking
+      pullStartRef.current = null
     }
   }
   const handlePullEnd = () => {
