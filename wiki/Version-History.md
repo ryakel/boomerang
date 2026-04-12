@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-12
 
+- fix(sync): gcal pull filter diagnostic logging, larger filter input [XS]
+  - Added detailed logging showing how many events filtered by Boomerang-managed, title filter, and remaining to import
+  - Filter input changed from `settings-input` to `add-input` for a larger typing area
+  - Modified: `src/hooks/useGCalSync.js`, `src/components/Settings.jsx`
+- chore(settings): remove USPS Direct Tracking section from integrations [XS]
+  - USPS API requires IP agreement for third-party tracking and was never functional
+  - Removed the entire USPS settings UI (client ID/secret fields)
+  - Modified: `src/components/Settings.jsx`
 - feat(sync): title filter for Google Calendar pull sync [S]
   - New "Filter by title" text field in Settings → Google Calendar → Pull Sync
   - When set, only calendar events whose title contains the filter text (case-insensitive) are imported

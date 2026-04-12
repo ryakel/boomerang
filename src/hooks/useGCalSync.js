@@ -37,13 +37,15 @@ export function useGCalSync(tasks, setTasks) {
 
     // Filter out already-linked events and events pushed by Boomerang
     const titleFilter = (s.gcal_pull_filter || '').trim().toLowerCase()
+    remoteLog(`[GCalSync] title filter: "${titleFilter || '(none)'}"`)
+    let filteredByBoomerang = 0, filteredByTitle = 0
     const unlinkedEvents = events.filter(e => {
       if (linkedEventIds.has(e.id)) return false
-      if (e.description && e.description.includes('Managed by Boomerang')) return false
-      if (titleFilter && !(e.summary || '').toLowerCase().includes(titleFilter)) return false
+      if (e.description && e.description.includes('Managed by Boomerang')) { filteredByBoomerang++; return false }
+      if (titleFilter && !(e.summary || '').toLowerCase().includes(titleFilter)) { filteredByTitle++; return false }
       return true
     })
-    remoteLog(`[GCalSync] ${linkedEventIds.size} already linked, ${unlinkedEvents.length} unlinked`)
+    remoteLog(`[GCalSync] ${linkedEventIds.size} already linked, ${filteredByBoomerang} Boomerang-managed, ${filteredByTitle} filtered by title, ${unlinkedEvents.length} to import`)
 
     if (unlinkedEvents.length === 0) {
       remoteLog('[GCalSync] no new events to import')
