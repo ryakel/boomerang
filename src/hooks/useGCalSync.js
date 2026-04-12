@@ -36,15 +36,15 @@ export function useGCalSync(tasks, setTasks) {
     }
 
     const currentTasks = tasksRef.current
-    const linkedEventIds = new Set(currentTasks.filter(t => t.gcal_event_id).map(t => t.gcal_event_id))
+    // Only block reimport for events linked to ACTIVE tasks (done tasks don't block)
+    const linkedEventIds = new Set(currentTasks.filter(t => t.gcal_event_id && t.status !== 'done').map(t => t.gcal_event_id))
 
     // Filter events
     const titleFilter = (s.gcal_pull_filter || '').trim().toLowerCase()
     remoteLog(`[GCalSync] title filter: "${titleFilter || '(none)'}"`)
     let filteredByLinked = 0, filteredByBoomerang = 0, filteredByTitle = 0
     const candidateEvents = events.filter(e => {
-      // When title filter is active, skip the already-linked check (user wants to reimport)
-      if (!titleFilter && linkedEventIds.has(e.id)) { filteredByLinked++; return false }
+      if (linkedEventIds.has(e.id)) { filteredByLinked++; return false }
       if (e.description && e.description.includes('Managed by Boomerang')) { filteredByBoomerang++; return false }
       if (titleFilter && !(e.summary || '').toLowerCase().includes(titleFilter)) { filteredByTitle++; return false }
       return true
