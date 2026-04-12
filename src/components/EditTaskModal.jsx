@@ -567,48 +567,48 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           )}
         </div>
 
-        {/* Scheduling row: Due date, then Duration + Priority underneath */}
+        {/* Scheduling: Due date + Duration + Priority inline */}
         {!makeRecurring && (
-          <>
-            <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
-            <input
-              className="routine-select"
-              type="date"
-              value={dueDate}
-              min={today}
-              onChange={e => setDueDate(e.target.value)}
-              style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
-            />
-            <div className="form-inline-row" style={{ marginTop: 8 }}>
-              {dueDate && (
-                <div className="form-inline-field">
-                  <div className="settings-label" style={{ marginBottom: 4 }}>Duration</div>
-                  <div className="duration-inline">
-                    <input
-                      className="add-input"
-                      type="number"
-                      min="5"
-                      max="480"
-                      step="5"
-                      placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
-                      value={gcalDuration}
-                      onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
-                    />
-                    <span className="duration-unit">min</span>
-                  </div>
-                </div>
-              )}
-              <div className="form-inline-field" style={{ marginLeft: 'auto' }}>
-                <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
-                <button
-                  className={`priority-btn${highPriority ? ' priority-active' : ''}`}
-                  onClick={() => setHighPriority(!highPriority)}
-                >
-                  !
-                </button>
-              </div>
+          <div className="form-inline-row" style={{ gap: 16 }}>
+            <div className="form-inline-field" style={{ flex: 1 }}>
+              <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
+              <input
+                className="routine-select"
+                type="date"
+                value={dueDate}
+                min={today}
+                onChange={e => setDueDate(e.target.value)}
+                style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
+              />
             </div>
-          </>
+            {dueDate && (
+              <div className="form-inline-field">
+                <div className="settings-label" style={{ marginBottom: 4 }}>Duration</div>
+                <div className="duration-inline">
+                  <input
+                    className="add-input"
+                    type="number"
+                    min="5"
+                    max="480"
+                    step="5"
+                    placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
+                    value={gcalDuration}
+                    onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
+                  />
+                  <span className="duration-unit">min</span>
+                </div>
+              </div>
+            )}
+            <div className="form-inline-field">
+              <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
+              <button
+                className={`priority-btn${highPriority ? ' priority-active' : ''}`}
+                onClick={() => setHighPriority(!highPriority)}
+              >
+                !
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Labels */}
