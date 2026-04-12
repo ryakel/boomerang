@@ -83,10 +83,10 @@ export default function AddTaskModal({ onAdd, onClose }) {
           <div className="form-inline-field">
             <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
             <button
-              className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
+              className={`priority-toggle${form.highPriority ? ' active' : ''}`}
               onClick={() => form.setHighPriority(!form.highPriority)}
             >
-              !
+              {form.highPriority ? '! High' : 'Normal'}
             </button>
           </div>
         </div>

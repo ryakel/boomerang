@@ -602,10 +602,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             <div className="form-inline-field">
               <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
               <button
-                className={`priority-btn${highPriority ? ' priority-active' : ''}`}
+                className={`priority-toggle${highPriority ? ' active' : ''}`}
                 onClick={() => setHighPriority(!highPriority)}
               >
-                !
+                {highPriority ? '! High' : 'Normal'}
               </button>
             </div>
           </div>

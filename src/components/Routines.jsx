@@ -181,24 +181,24 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
           />
 
           {/* Priority + End Date inline */}
-          <div className="form-inline-row">
+          <div className="form-inline-row" style={{ gap: 16 }}>
             <div className="form-inline-field">
               <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
               <button
                 className={`priority-toggle${highPriority ? ' active' : ''}`}
                 onClick={() => setHighPriority(!highPriority)}
               >
-                ! {highPriority ? 'High' : 'Normal'}
+                {highPriority ? '! High' : 'Normal'}
               </button>
             </div>
-            <div className="form-inline-field" style={{ flex: 1 }}>
+            <div className="form-inline-field" style={{ flex: 1, overflow: 'hidden' }}>
               <div className="settings-label" style={{ marginBottom: 4 }}>End Date</div>
               <input
                 className="routine-select"
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                style={{ marginBottom: 0 }}
+                style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14, maxWidth: '100%' }}
               />
             </div>
           </div>
