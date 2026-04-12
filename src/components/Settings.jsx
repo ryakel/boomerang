@@ -1499,20 +1499,32 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                     </label>
 
                     {settings.gcal_pull_enabled && (
-                      <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button
-                          className="ci-upload-btn"
-                          disabled={gcalSyncing}
-                          onClick={onGCalSync}
-                        >
-                          {gcalSyncing ? 'Syncing...' : 'Sync Now'}
-                        </button>
-                        {settings.gcal_last_sync && (
-                          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                            Last: {new Date(settings.gcal_last_sync).toLocaleString()}
-                          </span>
-                        )}
-                      </div>
+                      <>
+                        <div style={{ marginTop: 8, marginBottom: 8 }}>
+                          <div className="settings-label" style={{ marginBottom: 4 }}>Filter by title (optional)</div>
+                          <input
+                            className="settings-input"
+                            placeholder="e.g. FAA, IFR Exam..."
+                            value={settings.gcal_pull_filter || ''}
+                            onChange={e => update('gcal_pull_filter', e.target.value)}
+                            style={{ fontSize: 13 }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <button
+                            className="ci-upload-btn"
+                            disabled={gcalSyncing}
+                            onClick={onGCalSync}
+                          >
+                            {gcalSyncing ? 'Syncing...' : 'Sync Now'}
+                          </button>
+                          {settings.gcal_last_sync && (
+                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                              Last: {new Date(settings.gcal_last_sync).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 ) : (

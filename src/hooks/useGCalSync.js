@@ -36,9 +36,11 @@ export function useGCalSync(tasks, setTasks) {
     const linkedEventIds = new Set(currentTasks.filter(t => t.gcal_event_id).map(t => t.gcal_event_id))
 
     // Filter out already-linked events and events pushed by Boomerang
+    const titleFilter = (s.gcal_pull_filter || '').trim().toLowerCase()
     const unlinkedEvents = events.filter(e => {
       if (linkedEventIds.has(e.id)) return false
       if (e.description && e.description.includes('Managed by Boomerang')) return false
+      if (titleFilter && !(e.summary || '').toLowerCase().includes(titleFilter)) return false
       return true
     })
     remoteLog(`[GCalSync] ${linkedEventIds.size} already linked, ${unlinkedEvents.length} unlinked`)

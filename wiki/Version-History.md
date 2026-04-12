@@ -4,6 +4,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-12
+
+- feat(sync): title filter for Google Calendar pull sync [S]
+  - New "Filter by title" text field in Settings → Google Calendar → Pull Sync
+  - When set, only calendar events whose title contains the filter text (case-insensitive) are imported
+  - Empty filter = import everything (existing behavior)
+  - Modified: `src/components/Settings.jsx`, `src/hooks/useGCalSync.js`
+
 ## 2026-04-11
 
 - feat(routines): Notion page search/create/link in routine add/edit form [M]
