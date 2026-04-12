@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import './AddTaskModal.css'
 import { loadLabels, getDefaultDueDate, ENERGY_TYPES } from '../store'
 import { useTaskForm } from '../hooks/useTaskForm'
@@ -22,10 +22,10 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
   const today = new Date().toISOString().split('T')[0]
 
-  // Pull-to-close: fluid swipe down
+  // Pull-to-close: fluid swipe down using refs for smooth DOM updates
   const sheetRef = useRef(null)
   const pullStartRef = useRef(null)
-  const [pullY, setPullY] = useState(0)
+  const pullYRef = useRef(0)
   const handlePullStart = useCallback((e) => {
     const scrollTop = sheetRef.current?.scrollTop || 0
     if (scrollTop > 0) return
@@ -37,17 +37,31 @@ export default function AddTaskModal({ onAdd, onClose }) {
     if (dy > 0) {
       e.stopPropagation()
       e.preventDefault()
-      setPullY(dy * 0.6)
+      pullYRef.current = dy * 0.6
+      const sheet = sheetRef.current
+      if (sheet) {
+        sheet.style.transform = `translateY(${pullYRef.current}px)`
+        sheet.style.transition = 'none'
+        sheet.style.opacity = Math.max(0.5, 1 - pullYRef.current / 300)
+      }
     } else {
       pullStartRef.current = null
     }
   }, [])
+  const dismissModal = useCallback(() => { if (form.title.trim()) handleSubmit(); else onClose() }, [form.title, handleSubmit, onClose])
   const handlePullEnd = useCallback(() => {
-    if (!pullStartRef.current) return
-    if (pullY > 100) { if (form.title.trim()) handleSubmit(); else onClose() }
-    else setPullY(0)
+    if (!pullStartRef.current) { pullYRef.current = 0; return }
+    const sheet = sheetRef.current
+    if (pullYRef.current > 100) {
+      dismissModal()
+    } else if (sheet) {
+      sheet.style.transition = 'transform 0.2s ease, opacity 0.2s ease'
+      sheet.style.transform = ''
+      sheet.style.opacity = ''
+    }
+    pullYRef.current = 0
     pullStartRef.current = null
-  }, [pullY, form.title, handleSubmit, onClose])
+  }, [dismissModal])
 
   return (
     <div className="sheet-overlay" onClick={onClose}>
@@ -58,7 +72,6 @@ export default function AddTaskModal({ onAdd, onClose }) {
         onTouchStart={handlePullStart}
         onTouchMove={handlePullMove}
         onTouchEnd={handlePullEnd}
-        style={pullY > 0 ? { transform: `translateY(${pullY}px)`, transition: 'none', opacity: Math.max(0.5, 1 - pullY / 300) } : undefined}
       >
         <button className="sheet-handle" onClick={() => { if (form.title.trim()) handleSubmit(); else onClose(); }} />
         <div className="sheet-title">Add Task</div>

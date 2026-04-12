@@ -483,10 +483,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     }
   }
 
-  // Pull-to-close: fluid swipe down with visual tracking
+  // Pull-to-close: fluid swipe down using refs for smooth DOM updates
   const sheetRef = useRef(null)
   const pullStartRef = useRef(null)
-  const [pullY, setPullY] = useState(0)
+  const pullYRef = useRef(0)
   const handlePullStart = (e) => {
     const scrollTop = sheetRef.current?.scrollTop || 0
     if (scrollTop > 0) return
@@ -498,16 +498,28 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     if (dy > 0) {
       e.stopPropagation()
       e.preventDefault()
-      setPullY(dy * 0.6)
+      pullYRef.current = dy * 0.6
+      const sheet = sheetRef.current
+      if (sheet) {
+        sheet.style.transform = `translateY(${pullYRef.current}px)`
+        sheet.style.transition = 'none'
+        sheet.style.opacity = Math.max(0.5, 1 - pullYRef.current / 300)
+      }
     } else {
-      // scrolling up inside the sheet — cancel pull tracking
       pullStartRef.current = null
     }
   }
   const handlePullEnd = () => {
-    if (!pullStartRef.current) return
-    if (pullY > 100) handleClose()
-    else setPullY(0)
+    if (!pullStartRef.current) { pullYRef.current = 0; return }
+    const sheet = sheetRef.current
+    if (pullYRef.current > 100) {
+      handleClose()
+    } else if (sheet) {
+      sheet.style.transition = 'transform 0.2s ease, opacity 0.2s ease'
+      sheet.style.transform = ''
+      sheet.style.opacity = ''
+    }
+    pullYRef.current = 0
     pullStartRef.current = null
   }
 
@@ -520,7 +532,6 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         onTouchStart={handlePullStart}
         onTouchMove={handlePullMove}
         onTouchEnd={handlePullEnd}
-        style={pullY > 0 ? { transform: `translateY(${pullY}px)`, transition: 'none', opacity: Math.max(0.5, 1 - pullY / 300) } : undefined}
       >
         <button className="sheet-handle" onClick={handleClose} />
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>

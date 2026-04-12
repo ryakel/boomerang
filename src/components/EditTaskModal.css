@@ -761,8 +761,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 72px;
-  padding: 8px 14px;
+  width: 76px;
+  padding: 8px 0;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
@@ -789,7 +789,7 @@
 /* Scheduling row: date + duration + priority evenly spaced */
 .scheduling-row {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
   justify-content: space-between;
   gap: 16px;
   background: var(--surface);
@@ -801,7 +801,21 @@
 .scheduling-field {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   min-width: 0;
+}
+
+.scheduling-field .settings-label {
+  margin-bottom: 4px;
+}
+
+/* Ensure all scheduling controls are the same height */
+.scheduling-field input[type="date"],
+.scheduling-field .duration-inline,
+.scheduling-field .priority-toggle {
+  height: 36px;
+  display: flex;
+  align-items: center;
 }
 
 /* Compact date in inline rows */

@@ -13,6 +13,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Unlinking clears `notion_page_id` and `notion_url` on save
   - Wired `updateRoutineNotion` through App.jsx → Routines prop
   - Modified: `src/components/Routines.jsx`, `src/App.jsx`
+- fix(ui): smooth ref-based pull-to-close, duration/priority alignment [S]
+  - Pull-to-close rewritten to use refs + direct DOM manipulation instead of React state, eliminating re-render jank during drag
+  - Scheduling row uses `align-items: stretch` with explicit `height: 36px` on all three controls (date, duration, priority) so labels and inputs align perfectly
+  - Priority toggle uses fixed `width: 76px` instead of `min-width` — no more row resizing when cycling states
+  - Duration input background matches date input styling
+  - Modified: `src/components/EditTaskModal.jsx`, `src/components/AddTaskModal.jsx`, `src/components/EditTaskModal.css`
 - fix(ui): pull-to-close isolation, duration styling, fixed-width priority toggle [S]
   - Pull-to-close now calls `stopPropagation` + `preventDefault` on touch move to prevent background pull-to-refresh from triggering simultaneously
   - Sheet CSS gets `overscroll-behavior: contain` to block scroll chaining
