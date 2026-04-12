@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from 'react'
-import { loadLabels, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../store'
+import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../store'
+import { suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
-export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onClose, isDesktop }) {
+export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onUpdateNotion, onClose, isDesktop }) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingRoutine, setEditingRoutine] = useState(null)
   const [title, setTitle] = useState('')
@@ -11,6 +12,9 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
   const [notes, setNotes] = useState('')
   const [highPriority, setHighPriority] = useState(false)
   const [endDate, setEndDate] = useState('')
+  const [notionState, setNotionState] = useState(null)
+  const [notionCreating, setNotionCreating] = useState(false)
+  const [notionResult, setNotionResult] = useState(null)
   const labels = loadLabels()
 
   const defaultEndDate = () => {
@@ -27,13 +31,19 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setSelectedTags([])
     setHighPriority(false)
     setEndDate(defaultEndDate())
+    setNotionState(null)
+    setNotionCreating(false)
+    setNotionResult(null)
     setShowAdd(false)
     setEditingRoutine(null)
   }
 
   const handleAdd = () => {
     if (!title.trim()) return
-    onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim(), highPriority, endDate || null)
+    const routine = onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim(), highPriority, endDate || null)
+    if (notionResult && routine) {
+      onUpdateNotion(routine.id, notionResult.id, notionResult.url)
+    }
     resetForm()
   }
 
@@ -46,6 +56,8 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setNotes(routine.notes || '')
     setHighPriority(routine.high_priority || false)
     setEndDate(routine.end_date || '')
+    setNotionResult(routine.notion_page_id ? { id: routine.notion_page_id, url: routine.notion_url } : null)
+    setNotionState(null)
     setShowAdd(true)
   }
 
@@ -60,7 +72,45 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
       high_priority: highPriority,
       end_date: endDate || null,
     })
+    if (notionResult) {
+      onUpdateNotion(editingRoutine.id, notionResult.id, notionResult.url)
+    } else if (editingRoutine.notion_page_id) {
+      onUpdateNotion(editingRoutine.id, null, null)
+    }
     resetForm()
+  }
+
+  const handleNotionSearch = async () => {
+    if (!title.trim()) return
+    setNotionState('searching')
+    try {
+      const result = await suggestNotionLink(title, notes)
+      setNotionState(result)
+    } catch (err) {
+      setNotionState({ action: 'error', reason: err.message })
+    }
+  }
+
+  const handleNotionCreate = async () => {
+    setNotionCreating(true)
+    try {
+      const settings = loadSettings()
+      const tagNames = selectedTags.map(id => labels.find(l => l.id === id)?.name || id)
+      const metadata = { tags: tagNames, lastUpdated: new Date().toLocaleDateString(), frequency: cadence }
+      const content = await generateNotionContent(title, notes, true, metadata)
+      const page = await notionCreatePage(title, content, settings.notion_parent_page_id || null)
+      setNotionResult(page)
+      setNotionState(null)
+    } catch (err) {
+      setNotionState({ action: 'error', reason: err.message })
+    } finally {
+      setNotionCreating(false)
+    }
+  }
+
+  const handleNotionLink = (page) => {
+    setNotionResult({ id: page.id, url: page.url })
+    setNotionState(null)
   }
 
   const toggleTag = (id) => {
@@ -175,6 +225,47 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
               </button>
             )}
           </div>
+          <div className="settings-label" style={{ marginBottom: 6 }}>Notion</div>
+          {notionResult ? (
+            <div className="notion-linked">
+              <span>Linked to Notion</span>
+              <a href={notionResult.url} target="_blank" rel="noopener" className="notion-link">Open ↗</a>
+              <button className="ci-clear-btn" onClick={() => setNotionResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
+            </div>
+          ) : notionState === 'searching' ? (
+            <div className="notion-searching"><span className="spinner" /> Searching Notion...</div>
+          ) : notionState?.action === 'error' ? (
+            <div>
+              <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{notionState.reason}</div>
+              <button className="ci-upload-btn" onClick={handleNotionSearch}>Retry</button>
+            </div>
+          ) : notionState ? (
+            <div className="notion-suggestions">
+              {notionState.pages?.length > 0 && (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>{notionState.reason}</div>
+                  {notionState.pages.map(page => (
+                    <button key={page.id} className="notion-page-btn" onClick={() => handleNotionLink(page)}>
+                      {page.title}
+                    </button>
+                  ))}
+                </>
+              )}
+              <button
+                className="ci-upload-btn"
+                onClick={handleNotionCreate}
+                disabled={notionCreating}
+                style={{ marginTop: 8 }}
+              >
+                {notionCreating ? <><span className="spinner" /> Creating...</> : '+ Create new Notion page'}
+              </button>
+            </div>
+          ) : (
+            <button className="ci-upload-btn" onClick={handleNotionSearch} disabled={!title.trim()} style={{ marginBottom: 12 }}>
+              Find or create Notion page
+            </button>
+          )}
+
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="submit-btn" disabled={!title.trim()} onClick={editingRoutine ? handleSaveEdit : handleAdd}>
               {editingRoutine ? 'Save Changes' : 'Add Routine'}

@@ -51,7 +51,7 @@ function App() {
 
   const {
     routines, addRoutine, deleteRoutine, togglePause,
-    completeRoutine, updateRoutine, spawnDueTasks, hydrateRoutines,
+    completeRoutine, updateRoutine, updateRoutineNotion, spawnDueTasks, hydrateRoutines,
   } = useRoutines()
 
   const isDesktop = useIsDesktop()
@@ -752,6 +752,7 @@ function App() {
           onDelete={deleteRoutine}
           onTogglePause={togglePause}
           onUpdate={updateRoutine}
+          onUpdateNotion={updateRoutineNotion}
           onClose={() => setShowRoutines(false)}
           isDesktop={isDesktop}
         />

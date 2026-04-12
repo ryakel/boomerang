@@ -97,6 +97,7 @@ Recurring tasks with configurable cadence:
 - **Auto-spawning**: when a routine is due, a task instance is automatically created in the main task list. Completing the instance logs the completion on the routine and schedules the next occurrence.
 - **Pause/resume**: routines can be paused without deleting them
 - **Convert from task**: any one-off task can be converted to a routine via the Edit modal. The original task stays active and is linked to the new routine as its first instance — completing it later logs the completion on the routine, and future instances are spawned by cadence.
+- **Notion integration**: find or create a Notion page from the routine add/edit form. Linked pages appear on routine cards and are inherited by spawned task instances.
 
 ## Notion Integration (requires Notion token)
 

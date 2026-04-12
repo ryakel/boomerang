@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-11
 
+- feat(routines): Notion page search/create/link in routine add/edit form [M]
+  - Routines can now find or create a Notion page directly from the add/edit form
+  - Search existing pages, link to a match, or create a new page with `isRecurring` metadata (frequency included)
+  - Linked Notion pages are shown on routine cards ("Open in Notion") and inherited by spawned tasks
+  - Unlinking clears `notion_page_id` and `notion_url` on save
+  - Wired `updateRoutineNotion` through App.jsx → Routines prop
+  - Modified: `src/components/Routines.jsx`, `src/App.jsx`
+- fix(ui): remove dropdown chevron from date/time inputs on mobile [XS]
+  - Date and time inputs shared `.routine-select` CSS which added a SVG dropdown arrow, conflicting with native mobile picker UI
+  - Added `background-image: none` for `input[type="date"]` and `input[type="time"]` with `.routine-select` class
+  - Modified: `src/components/Settings.css`
 - fix(routines): don't auto-complete task when converting to routine [XS]
   - `handleConvertToRoutine` was calling `completeTask(taskId)`, which closed the original task and fired completion side effects (toast, points, Trello sync)
   - Now links the existing task to the newly-created routine via `routine_id` so it stays active as the first instance

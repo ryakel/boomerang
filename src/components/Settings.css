@@ -704,9 +704,11 @@
   cursor: pointer;
 }
 
-input[type="date"].routine-select {
+input[type="date"].routine-select,
+input[type="time"].routine-select {
   text-align: left;
   color-scheme: light dark;
+  background-image: none;
 }
 
 .routine-label-pill {
