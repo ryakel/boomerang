@@ -13,9 +13,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Unlinking clears `notion_page_id` and `notion_url` on save
   - Wired `updateRoutineNotion` through App.jsx → Routines prop
   - Modified: `src/components/Routines.jsx`, `src/App.jsx`
-- fix(ui): remove dropdown chevron from date/time inputs on mobile [XS]
-  - Date and time inputs shared `.routine-select` CSS which added a SVG dropdown arrow, conflicting with native mobile picker UI
-  - Added `background-image: none` for `input[type="date"]` and `input[type="time"]` with `.routine-select` class
+- fix(ui): restore native date/time picker appearance on mobile [S]
+  - Date and time inputs shared `.routine-select` CSS which set `appearance: none` and added a SVG dropdown chevron — stripping native picker styling on iOS and making inputs look like blank select boxes
+  - Overrode with `appearance: auto`, `-webkit-appearance: auto`, and `background-image: none` for `input[type="date"]` and `input[type="time"]` so native mobile date/time pickers render properly
+  - Affects all 5 date inputs across the app: AddTaskModal, EditTaskModal, SnoozeModal, ExtendModal, Routines
   - Modified: `src/components/Settings.css`
 - fix(routines): don't auto-complete task when converting to routine [XS]
   - `handleConvertToRoutine` was calling `completeTask(taskId)`, which closed the original task and fired completion side effects (toast, points, Trello sync)

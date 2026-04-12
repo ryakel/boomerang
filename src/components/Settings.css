@@ -709,6 +709,8 @@ input[type="time"].routine-select {
   text-align: left;
   color-scheme: light dark;
   background-image: none;
+  appearance: auto;
+  -webkit-appearance: auto;
 }
 
 .routine-label-pill {
