@@ -779,6 +779,12 @@
   color: #FFD700;
 }
 
+.priority-toggle.low {
+  border-color: #4A9EFF;
+  background: rgba(74, 158, 255, 0.12);
+  color: #4A9EFF;
+}
+
 /* Compact date in inline rows */
 .form-inline-row input[type="date"].routine-select,
 .form-inline-row input[type="time"].routine-select {

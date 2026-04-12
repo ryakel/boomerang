@@ -22,6 +22,7 @@ export function useTaskForm(initial = {}) {
   const [energy, setEnergy] = useState(initial.energy || null)
   const [energyLevel, setEnergyLevel] = useState(initial.energyLevel || null)
   const [highPriority, setHighPriority] = useState(initial.highPriority || false)
+  const [lowPriority, setLowPriority] = useState(initial.lowPriority || false)
 
   // Polish state
   const [polishing, setPolishing] = useState(false)
@@ -167,6 +168,7 @@ export function useTaskForm(initial = {}) {
     energy: energy || null,
     energyLevel: energyLevel || null,
     highPriority,
+    lowPriority,
     notion: notionResult,
     attachments,
   })
@@ -181,6 +183,7 @@ export function useTaskForm(initial = {}) {
     energy, setEnergy,
     energyLevel, setEnergyLevel,
     highPriority, setHighPriority,
+    lowPriority, setLowPriority,
 
     // Polish
     polishing, polishError, handlePolish,

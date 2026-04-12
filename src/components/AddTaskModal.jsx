@@ -69,7 +69,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
         )}
 
         <div className="form-inline-row" style={{ gap: 16 }}>
-          <div className="form-inline-field" style={{ flex: 1 }}>
+          <div className="form-inline-field">
             <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
             <input
               className="routine-select"
@@ -77,16 +77,20 @@ export default function AddTaskModal({ onAdd, onClose }) {
               value={form.dueDate}
               min={today}
               onChange={e => form.setDueDate(e.target.value)}
-              style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
+              style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14, width: 'auto' }}
             />
           </div>
           <div className="form-inline-field">
             <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
             <button
-              className={`priority-toggle${form.highPriority ? ' active' : ''}`}
-              onClick={() => form.setHighPriority(!form.highPriority)}
+              className={`priority-toggle${form.highPriority ? ' active' : form.lowPriority ? ' low' : ''}`}
+              onClick={() => {
+                if (!form.highPriority && !form.lowPriority) { form.setHighPriority(true); form.setLowPriority(false) }
+                else if (form.highPriority) { form.setHighPriority(false); form.setLowPriority(true) }
+                else { form.setHighPriority(false); form.setLowPriority(false) }
+              }}
             >
-              {form.highPriority ? '! High' : 'Normal'}
+              {form.highPriority ? '! High' : form.lowPriority ? '↓ Low' : 'Normal'}
             </button>
           </div>
         </div>

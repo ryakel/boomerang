@@ -129,7 +129,15 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     task.trello_card_id ? { id: task.trello_card_id, url: task.trello_card_url } : null
   )
   const [highPriority, setHighPriority] = useState(task.high_priority || false)
+  const [lowPriority, setLowPriority] = useState(task.low_priority || false)
   const [gcalDuration, setGcalDuration] = useState(task.gcal_duration || '')
+  const cyclePriority = () => {
+    if (!highPriority && !lowPriority) { setHighPriority(true); setLowPriority(false) }
+    else if (highPriority) { setHighPriority(false); setLowPriority(true) }
+    else { setHighPriority(false); setLowPriority(false) }
+  }
+  const priorityLabel = highPriority ? '! High' : lowPriority ? '↓ Low' : 'Normal'
+  const priorityClass = highPriority ? ' active' : lowPriority ? ' low' : ''
   const [currentStatus, setCurrentStatus] = useState(task.status === 'open' ? 'not_started' : task.status)
   const [trelloPushing, setTrelloPushing] = useState(false)
   const [trelloLists, setTrelloLists] = useState([])
@@ -177,6 +185,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         energy: energy || null,
         energyLevel: energyLevel || null,
         high_priority: highPriority,
+        low_priority: lowPriority,
         notion_page_id: notionResult?.id || null,
         notion_url: notionResult?.url || null,
         trello_card_id: trelloResult?.id || null,
@@ -191,7 +200,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     }, 1000)
 
     return () => clearTimeout(autoSaveTimer.current)
-  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, notionResult, trelloResult, attachments, checklists, comments, gcalDuration]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, lowPriority, notionResult, trelloResult, attachments, checklists, comments, gcalDuration]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -231,6 +240,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         energy: energy || null,
         energyLevel: energyLevel || null,
         high_priority: highPriority,
+        low_priority: lowPriority,
         notion_page_id: notionResult?.id || null,
         notion_url: notionResult?.url || null,
         trello_card_id: trelloResult?.id || null,
@@ -460,6 +470,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
 
   const today = new Date().toISOString().split('T')[0]
   const isAlreadyRoutine = !!task.routine_id
+  const parentRoutine = isAlreadyRoutine ? loadRoutines().find(r => r.id === task.routine_id) : null
 
   const handleClose = () => {
     clearTimeout(autoSaveTimer.current)
@@ -494,6 +505,11 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           {justSaved ? '✓ Saved' : 'Auto Save'}
         </span>
         <div className="sheet-title">Edit Task</div>
+        {isAlreadyRoutine && (
+          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-dim)', marginBottom: 8, marginTop: -8 }}>
+            Part of routine: <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{parentRoutine?.title || 'Unknown'}</span>
+          </div>
+        )}
 
         <input
           ref={inputRef}
@@ -570,7 +586,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         {/* Scheduling: Due date + Duration + Priority inline */}
         {!makeRecurring && (
           <div className="form-inline-row" style={{ gap: 16 }}>
-            <div className="form-inline-field" style={{ flex: 1 }}>
+            <div className="form-inline-field">
               <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
               <input
                 className="routine-select"
@@ -578,7 +594,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
                 value={dueDate}
                 min={today}
                 onChange={e => setDueDate(e.target.value)}
-                style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
+                style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14, width: 'auto' }}
               />
             </div>
             {dueDate && (
@@ -602,10 +618,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             <div className="form-inline-field">
               <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
               <button
-                className={`priority-toggle${highPriority ? ' active' : ''}`}
-                onClick={() => setHighPriority(!highPriority)}
+                className={`priority-toggle${priorityClass}`}
+                onClick={cyclePriority}
               >
-                {highPriority ? '! High' : 'Normal'}
+                {priorityLabel}
               </button>
             </div>
           </div>
@@ -988,12 +1004,6 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
                 )}
               </div>
             )}
-          </div>
-        )}
-
-        {isAlreadyRoutine && (
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 8 }}>
-            This task is part of a routine.
           </div>
         )}
 

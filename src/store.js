@@ -223,6 +223,7 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     gcal_duration: null,   // per-task duration override in minutes (null = use AI/size default)
     routine_id: null,
     high_priority: false,
+    low_priority: false,
     size: null,
     energy: null,        // energy type: desk|people|errand|confrontation|creative|physical
     energyLevel: null,   // drain intensity: 1 (low), 2 (medium), 3 (high)

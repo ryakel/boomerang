@@ -254,6 +254,7 @@ function taskToRow(task) {
     trello_card_url: task.trello_card_url || null,
     routine_id: task.routine_id || null,
     high_priority: task.high_priority ? 1 : 0,
+    low_priority: task.low_priority ? 1 : 0,
     size: task.size || null,
     energy: task.energy || null,
     energy_level: task.energyLevel ?? task.energy_level ?? null,
@@ -291,6 +292,7 @@ function rowToTask(row) {
     trello_card_url: row.trello_card_url || null,
     routine_id: row.routine_id || null,
     high_priority: !!row.high_priority,
+    low_priority: !!row.low_priority,
     size: row.size || null,
     energy: row.energy || null,
     energyLevel: row.energy_level ?? null,
@@ -321,10 +323,10 @@ const UPSERT_TASK_SQL = `
   INSERT INTO tasks (id, title, status, notes, due_date, snoozed_until, snooze_count,
     staleness_days, last_touched, created_at, completed_at, reframe_notes,
     notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
-    high_priority, size, energy, energy_level, tags_json, attachments_json,
+    high_priority, low_priority, size, energy, energy_level, tags_json, attachments_json,
     checklist_json, checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
     gcal_event_id, gcal_duration, gmail_message_id, gmail_pending)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -334,6 +336,7 @@ const UPSERT_TASK_SQL = `
     notion_page_id=excluded.notion_page_id, notion_url=excluded.notion_url,
     trello_card_id=excluded.trello_card_id, trello_card_url=excluded.trello_card_url,
     routine_id=excluded.routine_id, high_priority=excluded.high_priority,
+    low_priority=excluded.low_priority,
     size=excluded.size, energy=excluded.energy, energy_level=excluded.energy_level,
     tags_json=excluded.tags_json, attachments_json=excluded.attachments_json,
     checklist_json=excluded.checklist_json, checklists_json=excluded.checklists_json,
@@ -348,7 +351,7 @@ function runUpsertTask(task) {
     r.id, r.title, r.status, r.notes, r.due_date, r.snoozed_until, r.snooze_count,
     r.staleness_days, r.last_touched, r.created_at, r.completed_at, r.reframe_notes,
     r.notion_page_id, r.notion_url, r.trello_card_id, r.trello_card_url, r.routine_id,
-    r.high_priority, r.size, r.energy, r.energy_level, r.tags_json, r.attachments_json,
+    r.high_priority, r.low_priority, r.size, r.energy, r.energy_level, r.tags_json, r.attachments_json,
     r.checklist_json, r.checklists_json, r.comments_json, r.toast_messages_json,
     r.trello_sync_enabled, r.gcal_event_id, r.gcal_duration,
     r.gmail_message_id, r.gmail_pending,

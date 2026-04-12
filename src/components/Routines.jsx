@@ -11,6 +11,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
   const [selectedTags, setSelectedTags] = useState([])
   const [notes, setNotes] = useState('')
   const [highPriority, setHighPriority] = useState(false)
+  const [lowPriority, setLowPriority] = useState(false)
   const [endDate, setEndDate] = useState('')
   const [notionState, setNotionState] = useState(null)
   const [notionCreating, setNotionCreating] = useState(false)
@@ -30,6 +31,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setCustomDays(14)
     setSelectedTags([])
     setHighPriority(false)
+    setLowPriority(false)
     setEndDate(defaultEndDate())
     setNotionState(null)
     setNotionCreating(false)
@@ -55,6 +57,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setSelectedTags(routine.tags || [])
     setNotes(routine.notes || '')
     setHighPriority(routine.high_priority || false)
+    setLowPriority(routine.low_priority || false)
     setEndDate(routine.end_date || '')
     setNotionResult(routine.notion_page_id ? { id: routine.notion_page_id, url: routine.notion_url } : null)
     setNotionState(null)
@@ -185,10 +188,14 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
             <div className="form-inline-field">
               <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
               <button
-                className={`priority-toggle${highPriority ? ' active' : ''}`}
-                onClick={() => setHighPriority(!highPriority)}
+                className={`priority-toggle${highPriority ? ' active' : lowPriority ? ' low' : ''}`}
+                onClick={() => {
+                  if (!highPriority && !lowPriority) { setHighPriority(true); setLowPriority(false) }
+                  else if (highPriority) { setHighPriority(false); setLowPriority(true) }
+                  else { setHighPriority(false); setLowPriority(false) }
+                }}
               >
-                {highPriority ? '! High' : 'Normal'}
+                {highPriority ? '! High' : lowPriority ? '↓ Low' : 'Normal'}
               </button>
             </div>
             <div className="form-inline-field" style={{ flex: 1, overflow: 'hidden' }}>
@@ -434,7 +441,7 @@ function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
       )}
 
       <div
-        className={`task-card ${routine.paused ? 'snoozed' : ''} ${routine.high_priority ? 'high-priority' : ''}`}
+        className={`task-card ${routine.paused ? 'snoozed' : ''} ${routine.high_priority ? 'high-priority' : routine.low_priority ? 'low-priority' : ''}`}
         style={{
           transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
           transition: swiping ? 'none' : 'transform 0.25s ease',
@@ -447,6 +454,7 @@ function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
         <div className="task-card-top">
           <span className="task-title">{routine.title}</span>
           {routine.high_priority && <span className="priority-pill">!</span>}
+          {routine.low_priority && <span className="priority-pill low-pill">↓</span>}
           <span className="task-meta">{formatCadence(routine)}</span>
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
@@ -467,27 +475,26 @@ function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
           </a>
         )}
         {expanded && (
-          <div className="task-actions">
-            <button
-              className="action-btn edit"
-              onClick={e => { e.stopPropagation(); setExpanded(false); onEdit(routine) }}
-            >
-              Edit
+          <div className="task-toolbar" onClick={e => e.stopPropagation()}>
+            <button className="toolbar-pill edit" onClick={() => { setExpanded(false); onEdit(routine) }} title="Edit">
+              <svg viewBox="0 0 24 24"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+            </button>
+            <button className="toolbar-pill snooze" onClick={() => onTogglePause(routine.id)} title={routine.paused ? 'Resume' : 'Pause'}>
+              <svg viewBox="0 0 24 24">
+                {routine.paused
+                  ? <polygon points="5 3 19 12 5 21 5 3" />
+                  : <><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></>
+                }
+              </svg>
             </button>
             <button
-              className="action-btn snooze"
-              onClick={e => { e.stopPropagation(); onTogglePause(routine.id) }}
-            >
-              {routine.paused ? 'Resume' : 'Pause'}
-            </button>
-            <button
-              className="action-btn delete"
-              onClick={e => {
-                e.stopPropagation()
+              className="toolbar-pill delete"
+              onClick={() => {
                 if (window.confirm(`Delete routine "${routine.title}"?`)) onDelete(routine.id)
               }}
+              title="Delete"
             >
-              Delete
+              <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
             </button>
           </div>
         )}

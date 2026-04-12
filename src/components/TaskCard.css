@@ -39,6 +39,11 @@
   background: rgba(255, 59, 48, 0.04);
 }
 
+.task-card.low-priority {
+  border-left: 3px solid #4A9EFF;
+  background: rgba(74, 158, 255, 0.04);
+}
+
 .priority-pill {
   display: inline-flex;
   align-items: center;
@@ -51,6 +56,11 @@
   height: 18px;
   border-radius: 4px;
   flex-shrink: 0;
+}
+
+.priority-pill.low-pill {
+  color: #4A9EFF;
+  background: rgba(74, 158, 255, 0.15);
 }
 
 .drain-priority-row {

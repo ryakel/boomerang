@@ -114,7 +114,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
   if (isDesktop) {
     return (
       <div
-        className={`task-card task-card-desktop ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : ''}${task.gmail_pending ? ' gmail-pending' : ''}`}
+        className={`task-card task-card-desktop ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : task.low_priority ? 'low-priority' : ''}${task.gmail_pending ? ' gmail-pending' : ''}`}
         onClick={() => onEdit(task)}
       >
         <div className="desktop-hover-actions">
@@ -138,6 +138,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
           )}
           <div className="task-card-right">
             {task.high_priority && <span className="priority-pill">!</span>}
+            {task.low_priority && <span className="priority-pill low-pill">↓</span>}
             {task.size && (
               <span className={`size-pill size-${task.size.toLowerCase()}`}>{task.size}</span>
             )}
@@ -213,7 +214,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
 
       <div
         ref={cardRef}
-        className={`task-card ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : ''}${task.gmail_pending ? ' gmail-pending' : ''}`}
+        className={`task-card ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : task.low_priority ? 'low-priority' : ''}${task.gmail_pending ? ' gmail-pending' : ''}`}
         style={{
           transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
           transition: swiping ? 'none' : 'transform 0.25s ease',
@@ -242,6 +243,7 @@ export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onEx
           )}
           <div className="task-card-right">
             {task.high_priority && <span className="priority-pill">!</span>}
+            {task.low_priority && <span className="priority-pill low-pill">↓</span>}
             {task.size && (
               <span className={`size-pill size-${task.size.toLowerCase()}`}>{task.size}</span>
             )}
