@@ -13,6 +13,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Unlinking clears `notion_page_id` and `notion_url` on save
   - Wired `updateRoutineNotion` through App.jsx → Routines prop
   - Modified: `src/components/Routines.jsx`, `src/App.jsx`
+- fix(ui): polish form layout — priority/date/duration row, pull-to-close, autosave position [M]
+  - Priority moved to the Due Date + Duration row in EditTaskModal and AddTaskModal (out of the form-group)
+  - Due date input made smaller (compact padding/font)
+  - Autosave pill repositioned to float next to close button (informational, not in title row)
+  - Attachments section uses "+" icon instead of chevron
+  - Pull-to-close: swipe down on sheet to dismiss (EditTaskModal + AddTaskModal)
+  - Energy Drain no longer wrapped in drain-priority-row since priority moved out
+  - Modified: `src/components/EditTaskModal.jsx`, `src/components/AddTaskModal.jsx`, `src/components/Modal.css`
 - refactor(ui): redesign mobile form layouts for consistency and compactness [L]
   - **Routines form**: Priority + End Date on one inline row; priority as visible labeled toggle ("! High"/"Normal"); frequency + custom days inline; Notion as compact connection button instead of full section
   - **EditTaskModal**: Due Date + Duration on one inline row; Size/Energy Type/Drain/Priority grouped in a `.form-group` card; Checklists, Comments, and Attachments are collapsible sections (auto-expand if content exists, collapsed when empty); section headers show count badges

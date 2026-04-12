@@ -472,17 +472,28 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     }
   }
 
+  // Pull-to-close: swipe down on sheet handle area
+  const sheetRef = useRef(null)
+  const pullStartRef = useRef(null)
+  const handlePullStart = (e) => {
+    pullStartRef.current = { y: e.touches[0].clientY, scrollTop: sheetRef.current?.scrollTop || 0 }
+  }
+  const handlePullEnd = (e) => {
+    if (!pullStartRef.current) return
+    const dy = e.changedTouches[0].clientY - pullStartRef.current.y
+    if (dy > 80 && pullStartRef.current.scrollTop <= 0) handleClose()
+    pullStartRef.current = null
+  }
+
   return (
     <div className="sheet-overlay" onClick={handleClose}>
-      <div className="sheet" onClick={e => e.stopPropagation()}>
+      <div className="sheet" ref={sheetRef} onClick={e => e.stopPropagation()} onTouchStart={handlePullStart} onTouchEnd={handlePullEnd}>
         <button className="sheet-handle" onClick={handleClose} />
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
-        <div className="edit-task-title-row">
-          <div className="sheet-title">Edit Task</div>
-          <span className={`autosave-pill ${justSaved ? 'autosave-pill-saved' : ''}`}>
-            {justSaved ? '✓ Saved' : 'Auto Save'}
-          </span>
-        </div>
+        <span className={`autosave-pill autosave-pill-floating ${justSaved ? 'autosave-pill-saved' : ''}`}>
+          {justSaved ? '✓ Saved' : 'Auto Save'}
+        </span>
+        <div className="sheet-title">Edit Task</div>
 
         <input
           ref={inputRef}
@@ -556,7 +567,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           )}
         </div>
 
-        {/* Scheduling: Due date + Duration inline */}
+        {/* Scheduling: Due date + Duration + Priority inline */}
         {!makeRecurring && (
           <div className="form-inline-row">
             <div className="form-inline-field" style={{ flex: 1 }}>
@@ -567,11 +578,11 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
                 value={dueDate}
                 min={today}
                 onChange={e => setDueDate(e.target.value)}
-                style={{ marginBottom: 0 }}
+                style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
               />
             </div>
             {dueDate && (
-              <div className="form-inline-field" style={{ width: 90 }}>
+              <div className="form-inline-field" style={{ width: 80 }}>
                 <div className="settings-label" style={{ marginBottom: 4 }}>Duration</div>
                 <div className="duration-inline">
                   <input
@@ -588,6 +599,15 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
                 </div>
               </div>
             )}
+            <div className="form-inline-field">
+              <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
+              <button
+                className={`priority-btn${highPriority ? ' priority-active' : ''}`}
+                onClick={() => setHighPriority(!highPriority)}
+              >
+                !
+              </button>
+            </div>
           </div>
         )}
 
@@ -651,37 +671,26 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             ))}
           </div>
 
-          <div className="drain-priority-row">
-            <div>
+          {energy && (
+            <>
               <div className="settings-label" style={{ marginBottom: 4 }}>Energy Drain</div>
-              {energy && (
-                <div className="energy-selector" style={{ marginBottom: 0 }}>
-                  {[
-                    { lvl: 1, label: 'Low', dotClass: 'dot-1' },
-                    { lvl: 2, label: 'Med', dotClass: 'dot-2' },
-                    { lvl: 3, label: 'High', dotClass: 'dot-3' },
-                  ].map(({ lvl, label, dotClass }) => (
-                    <button
-                      key={lvl}
-                      className={`energy-select-btn energy-level-btn${energyLevel === lvl ? ' selected' : ''}`}
-                      onClick={() => setEnergyLevel(energyLevel === lvl ? null : lvl)}
-                    >
-                      <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="priority-group">
-              <span className="settings-label" style={{ marginBottom: 4 }}>Priority</span>
-              <button
-                className={`priority-btn${highPriority ? ' priority-active' : ''}`}
-                onClick={() => setHighPriority(!highPriority)}
-              >
-                !
-              </button>
-            </div>
-          </div>
+              <div className="energy-selector" style={{ marginBottom: 0 }}>
+                {[
+                  { lvl: 1, label: 'Low', dotClass: 'dot-1' },
+                  { lvl: 2, label: 'Med', dotClass: 'dot-2' },
+                  { lvl: 3, label: 'High', dotClass: 'dot-3' },
+                ].map(({ lvl, label, dotClass }) => (
+                  <button
+                    key={lvl}
+                    className={`energy-select-btn energy-level-btn${energyLevel === lvl ? ' selected' : ''}`}
+                    onClick={() => setEnergyLevel(energyLevel === lvl ? null : lvl)}
+                  >
+                    <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Attachments — collapsible */}
@@ -696,7 +705,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           <span className="settings-label">Attachments</span>
           <div className="section-header-right">
             {attachments.length > 0 && <span className="section-badge">{attachments.length}</span>}
-            <ChevronRight size={14} className={`section-chevron${expandedSections.has('attachments') ? ' expanded' : ''}`} />
+            <Plus size={14} style={{ color: 'var(--text-dim)' }} />
           </div>
         </div>
         {expandedSections.has('attachments') && (

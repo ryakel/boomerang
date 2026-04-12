@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import './AddTaskModal.css'
 import { loadLabels, getDefaultDueDate, ENERGY_TYPES } from '../store'
 import { useTaskForm } from '../hooks/useTaskForm'
@@ -22,9 +22,22 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
   const today = new Date().toISOString().split('T')[0]
 
+  // Pull-to-close
+  const sheetRef = useRef(null)
+  const pullStartRef = useRef(null)
+  const handlePullStart = useCallback((e) => {
+    pullStartRef.current = { y: e.touches[0].clientY, scrollTop: sheetRef.current?.scrollTop || 0 }
+  }, [])
+  const handlePullEnd = useCallback((e) => {
+    if (!pullStartRef.current) return
+    const dy = e.changedTouches[0].clientY - pullStartRef.current.y
+    if (dy > 80 && pullStartRef.current.scrollTop <= 0) { if (form.title.trim()) handleSubmit(); else onClose() }
+    pullStartRef.current = null
+  }, [form.title, handleSubmit, onClose])
+
   return (
     <div className="sheet-overlay" onClick={onClose}>
-      <div className="sheet" onClick={e => e.stopPropagation()}>
+      <div className="sheet" ref={sheetRef} onClick={e => e.stopPropagation()} onTouchStart={handlePullStart} onTouchEnd={handlePullEnd}>
         <button className="sheet-handle" onClick={() => { if (form.title.trim()) handleSubmit(); else onClose(); }} />
         <div className="sheet-title">Add Task</div>
 
@@ -55,14 +68,28 @@ export default function AddTaskModal({ onAdd, onClose }) {
           <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{form.polishError}</div>
         )}
 
-        <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
-        <input
-          className="routine-select"
-          type="date"
-          value={form.dueDate}
-          min={today}
-          onChange={e => form.setDueDate(e.target.value)}
-        />
+        <div className="form-inline-row">
+          <div className="form-inline-field" style={{ flex: 1 }}>
+            <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
+            <input
+              className="routine-select"
+              type="date"
+              value={form.dueDate}
+              min={today}
+              onChange={e => form.setDueDate(e.target.value)}
+              style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
+            />
+          </div>
+          <div className="form-inline-field">
+            <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
+            <button
+              className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
+              onClick={() => form.setHighPriority(!form.highPriority)}
+            >
+              !
+            </button>
+          </div>
+        </div>
 
         <div className="settings-label" style={{ marginBottom: 4 }}>Labels</div>
         <select
@@ -125,35 +152,24 @@ export default function AddTaskModal({ onAdd, onClose }) {
                 ))}
               </div>
               {form.energy && (
-                <div className="drain-priority-row">
-                  <div>
-                    <div className="settings-label" style={{ marginBottom: 4 }}>Energy Drain</div>
-                    <div className="energy-selector" style={{ marginBottom: 0 }}>
-                      {[
-                        { lvl: 1, label: 'Low', dotClass: 'dot-1' },
-                        { lvl: 2, label: 'Med', dotClass: 'dot-2' },
-                        { lvl: 3, label: 'High', dotClass: 'dot-3' },
-                      ].map(({ lvl, label, dotClass }) => (
-                        <button
-                          key={lvl}
-                          className={`energy-select-btn energy-level-btn${form.energyLevel === lvl ? ' selected' : ''}`}
-                          onClick={() => form.setEnergyLevel(form.energyLevel === lvl ? null : lvl)}
-                        >
-                          <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
-                        </button>
-                      ))}
-                    </div>
+                <>
+                  <div className="settings-label" style={{ marginBottom: 4 }}>Energy Drain</div>
+                  <div className="energy-selector" style={{ marginBottom: 0 }}>
+                    {[
+                      { lvl: 1, label: 'Low', dotClass: 'dot-1' },
+                      { lvl: 2, label: 'Med', dotClass: 'dot-2' },
+                      { lvl: 3, label: 'High', dotClass: 'dot-3' },
+                    ].map(({ lvl, label, dotClass }) => (
+                      <button
+                        key={lvl}
+                        className={`energy-select-btn energy-level-btn${form.energyLevel === lvl ? ' selected' : ''}`}
+                        onClick={() => form.setEnergyLevel(form.energyLevel === lvl ? null : lvl)}
+                      >
+                        <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
+                      </button>
+                    ))}
                   </div>
-                  <div className="priority-group">
-                    <span className="settings-label" style={{ marginBottom: 4 }}>Priority</span>
-                    <button
-                      className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
-                      onClick={() => form.setHighPriority(!form.highPriority)}
-                    >
-                      !
-                    </button>
-                  </div>
-                </div>
+                </>
               )}
             </>
           )}

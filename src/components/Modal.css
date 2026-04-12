@@ -94,6 +94,13 @@
   transition: background 0.3s, color 0.3s;
 }
 
+.autosave-pill-floating {
+  position: absolute;
+  top: 18px;
+  right: 56px;
+  z-index: 10;
+}
+
 .autosave-pill-saved {
   background: rgba(82, 201, 127, 0.15);
   color: #52C97F;
