@@ -826,7 +826,7 @@
 .duration-inline input {
   width: 56px;
   text-align: center;
-  padding: 8px 6px;
+  padding: 10px 6px;
   background: var(--bg);
   border-radius: var(--radius);
   font-size: 14px;

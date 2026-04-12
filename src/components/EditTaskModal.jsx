@@ -483,52 +483,46 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     }
   }
 
-  // Pull-to-close: only on the handle area, using refs for smooth DOM updates
+  // Pull-to-close on the handle bar
   const sheetRef = useRef(null)
-  const pullStartRef = useRef(null)
-  const pullYRef = useRef(0)
-  const handleHandleTouchStart = (e) => {
-    pullStartRef.current = { y: e.touches[0].clientY }
-  }
-  const handleHandleTouchMove = (e) => {
-    if (!pullStartRef.current) return
-    const dy = e.touches[0].clientY - pullStartRef.current.y
-    if (dy > 0) {
-      e.stopPropagation()
-      e.preventDefault()
-      pullYRef.current = dy * 0.6
-      const sheet = sheetRef.current
-      if (sheet) {
-        sheet.style.transform = `translateY(${pullYRef.current}px)`
+  const handleRef = useRef(null)
+  const pullRef = useRef({ startY: 0, active: false })
+  useEffect(() => {
+    const handle = handleRef.current
+    const sheet = sheetRef.current
+    if (!handle || !sheet) return
+    const onStart = (e) => { pullRef.current = { startY: e.touches[0].clientY, active: true } }
+    const onMove = (e) => {
+      if (!pullRef.current.active) return
+      const dy = (e.touches[0].clientY - pullRef.current.startY) * 0.6
+      if (dy > 0) {
+        e.preventDefault()
+        sheet.style.transform = `translateY(${dy}px)`
         sheet.style.transition = 'none'
-        sheet.style.opacity = Math.max(0.5, 1 - pullYRef.current / 300)
+        sheet.style.opacity = String(Math.max(0.5, 1 - dy / 300))
       }
     }
-  }
-  const handleHandleTouchEnd = () => {
-    if (!pullStartRef.current) return
-    const sheet = sheetRef.current
-    if (pullYRef.current > 100) {
-      handleClose()
-    } else if (sheet) {
-      sheet.style.transition = 'transform 0.2s ease, opacity 0.2s ease'
-      sheet.style.transform = ''
-      sheet.style.opacity = ''
+    const onEnd = () => {
+      if (!pullRef.current.active) return
+      const dy = parseFloat(sheet.style.transform?.replace(/[^0-9.]/g, '')) || 0
+      if (dy > 60) { handleClose() }
+      else { sheet.style.transition = 'transform 0.2s, opacity 0.2s'; sheet.style.transform = ''; sheet.style.opacity = '' }
+      pullRef.current.active = false
     }
-    pullYRef.current = 0
-    pullStartRef.current = null
-  }
+    handle.addEventListener('touchstart', onStart, { passive: true })
+    handle.addEventListener('touchmove', onMove, { passive: false })
+    handle.addEventListener('touchend', onEnd, { passive: true })
+    return () => {
+      handle.removeEventListener('touchstart', onStart)
+      handle.removeEventListener('touchmove', onMove)
+      handle.removeEventListener('touchend', onEnd)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="sheet-overlay" onClick={handleClose}>
       <div className="sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
-        <button
-          className="sheet-handle"
-          onClick={handleClose}
-          onTouchStart={handleHandleTouchStart}
-          onTouchMove={handleHandleTouchMove}
-          onTouchEnd={handleHandleTouchEnd}
-        />
+        <button ref={handleRef} className="sheet-handle" onClick={handleClose} />
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
         <span className={`autosave-pill autosave-pill-floating ${justSaved ? 'autosave-pill-saved' : ''}`}>
           {justSaved ? '✓ Saved' : 'Auto Save'}
