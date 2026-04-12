@@ -16,6 +16,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
   const [notionState, setNotionState] = useState(null)
   const [notionCreating, setNotionCreating] = useState(false)
   const [notionResult, setNotionResult] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null) // routine to confirm delete
   const labels = loadLabels()
 
   const defaultEndDate = () => {
@@ -293,7 +294,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
         <>
           <div className="section-label">Active</div>
           {active.map(r => (
-            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onTogglePause={onTogglePause} onEdit={handleEdit} />
+            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} />
           ))}
         </>
       )}
@@ -302,9 +303,21 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
         <>
           <div className="section-label">Paused</div>
           {paused.map(r => (
-            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onTogglePause={onTogglePause} onEdit={handleEdit} />
+            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} />
           ))}
         </>
+      )}
+      {confirmDelete && (
+        <div className="sheet-overlay" style={{ zIndex: 200 }} onClick={() => setConfirmDelete(null)}>
+          <div className="confirm-dialog" onClick={e => e.stopPropagation()}>
+            <div className="confirm-dialog-title">Delete Routine</div>
+            <div className="confirm-dialog-message">Delete "{confirmDelete.title}"? This can't be undone.</div>
+            <div className="confirm-dialog-actions">
+              <button className="confirm-dialog-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="confirm-dialog-ok" onClick={() => { onDelete(confirmDelete.id); setConfirmDelete(null) }}>Delete</button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
@@ -339,7 +352,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140
 
-function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
+function RoutineCard({ routine, onDelete, onConfirmDelete, onTogglePause, onEdit }) {
   const [expanded, setExpanded] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -386,8 +399,9 @@ function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
       setSwipeTriggered('right')
       setSwipeX(400)
       setTimeout(() => {
-        if (window.confirm(`Delete routine "${routine.title}"?`)) onDelete(routine.id)
-        else { setSwipeTriggered(null); setSwipeX(0) }
+        onConfirmDelete(routine)
+        setSwipeTriggered(null)
+        setSwipeX(0)
       }, 250)
     } else if (swipeX < -SWIPE_THRESHOLD) {
       setSwipeOpen(true)
@@ -498,9 +512,7 @@ function RoutineCard({ routine, onDelete, onTogglePause, onEdit }) {
             </button>
             <button
               className="toolbar-pill delete"
-              onClick={() => {
-                if (window.confirm(`Delete routine "${routine.title}"?`)) onDelete(routine.id)
-              }}
+              onClick={() => onConfirmDelete(routine)}
               title="Delete"
             >
               <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>

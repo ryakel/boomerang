@@ -58,9 +58,8 @@ export function useGCalSync(tasks, setTasks) {
 
     // When a title filter is active, skip dedup — create a task for each match
     if (titleFilter) {
-      // Don't create duplicates for events already linked to a task
-      const newEvents = candidateEvents.filter(e => !linkedEventIds.has(e.id))
-      remoteLog(`[GCalSync] title filter active: ${candidateEvents.length} matched, ${candidateEvents.length - newEvents.length} already linked, ${newEvents.length} to create`)
+      const newEvents = candidateEvents
+      remoteLog(`[GCalSync] title filter active: ${newEvents.length} events to create`)
       const newTasks = []
       for (const event of newEvents) {
         const dueDate = event.start?.date || (event.start?.dateTime ? event.start.dateTime.split('T')[0] : null)
