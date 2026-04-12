@@ -56,34 +56,12 @@ export function useGCalSync(tasks, setTasks) {
       return
     }
 
-    // When a title filter is active, skip dedup — create a task for each match
-    if (titleFilter) {
-      const newEvents = candidateEvents
-      remoteLog(`[GCalSync] title filter active: ${newEvents.length} events to create`)
-      const newTasks = []
-      for (const event of newEvents) {
-        const dueDate = event.start?.date || (event.start?.dateTime ? event.start.dateTime.split('T')[0] : null)
-        const task = createTask(
-          event.summary || 'Untitled event',
-          [],
-          dueDate,
-          event.description || ''
-        )
-        task.gcal_event_id = event.id
-        newTasks.push(task)
-      }
-      if (newTasks.length > 0) {
-        setTasks(prev => [...newTasks, ...prev])
-        remoteLog(`[GCalSync] created ${newTasks.length} new tasks from calendar events`)
-      }
-      return
-    }
-
-    // Dedup: exact title match, then AI
-    const unlinkedTasks = currentTasks.filter(t => !t.gcal_event_id && t.status !== 'done')
+    // Dedup: exact title match, then AI (checks ALL active tasks, not just gcal-linked)
+    const activeTasks = currentTasks.filter(t => t.status !== 'done')
+    remoteLog(`[GCalSync] DEDUP: checking ${candidateEvents.length} events against ${activeTasks.length} active tasks`)
     const matchMap = await deduplicateImports({
       items: candidateEvents,
-      localTasks: unlinkedTasks,
+      localTasks: activeTasks,
       getTitle: e => e.summary,
       getId: e => e.id,
       aiDedupFn: aiDedupGCalEvents,
@@ -94,6 +72,9 @@ export function useGCalSync(tasks, setTasks) {
     // Link matched events to existing tasks
     const linkUpdates = []
     for (const [eventId, taskId] of matchMap) {
+      const event = candidateEvents.find(e => e.id === eventId)
+      const task = activeTasks.find(t => t.id === taskId)
+      remoteLog(`[GCalSync] ⚠️ DEDUP MATCH: "${event?.summary}" → existing task "${task?.title}" (${taskId.slice(0, 8)})`)
       linkUpdates.push({ taskId, eventId })
     }
 
@@ -103,12 +84,12 @@ export function useGCalSync(tasks, setTasks) {
         if (!link) return t
         return { ...t, gcal_event_id: link.eventId }
       }))
-      remoteLog(`[GCalSync] linked ${linkUpdates.length} existing tasks to GCal events`)
+      remoteLog(`[GCalSync] ⚠️ LINKED ${linkUpdates.length} events to existing tasks (not creating duplicates)`)
     }
 
     // Create new tasks for unmatched events
     const newEvents = candidateEvents.filter(e => !matchMap.has(e.id))
-    remoteLog(`[GCalSync] ${newEvents.length} new events to import`)
+    remoteLog(`[GCalSync] ${newEvents.length} new events to create as tasks`)
 
     const newTasks = []
     for (const event of newEvents) {
