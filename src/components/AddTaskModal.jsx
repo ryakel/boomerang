@@ -55,7 +55,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
           <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{form.polishError}</div>
         )}
 
-        <div className="settings-label" style={{ marginBottom: 6 }}>Due date</div>
+        <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
         <input
           className="routine-select"
           type="date"
@@ -64,11 +64,12 @@ export default function AddTaskModal({ onAdd, onClose }) {
           onChange={e => form.setDueDate(e.target.value)}
         />
 
-        <div className="settings-label" style={{ marginBottom: 6 }}>Labels</div>
+        <div className="settings-label" style={{ marginBottom: 4 }}>Labels</div>
         <select
           className="routine-select"
           value=""
           onChange={e => { if (e.target.value) form.toggleTag(e.target.value) }}
+          style={{ marginBottom: form.selectedTags.length > 0 ? 6 : 12 }}
         >
           <option value="">Add label...</option>
           {labels.filter(l => !form.selectedTags.includes(l.id)).map(label => (
@@ -89,73 +90,76 @@ export default function AddTaskModal({ onAdd, onClose }) {
           </div>
         )}
 
-        <div className="settings-label" style={{ marginBottom: 6 }}>Size</div>
-        <div className="size-selector">
-          {['XS', 'S', 'M', 'L', 'XL'].map(s => (
-            <button
-              key={s}
-              className={`size-select-btn size-${s.toLowerCase()}${form.size === s ? ' selected' : ''}`}
-              onClick={() => form.setSize(form.size === s ? null : s)}
-            >
-              {s}
+        {/* Categorization group */}
+        <div className="form-group">
+          <div className="settings-label" style={{ marginBottom: 4 }}>Size</div>
+          <div className="size-selector">
+            {['XS', 'S', 'M', 'L', 'XL'].map(s => (
+              <button
+                key={s}
+                className={`size-select-btn size-${s.toLowerCase()}${form.size === s ? ' selected' : ''}`}
+                onClick={() => form.setSize(form.size === s ? null : s)}
+              >
+                {s}
+              </button>
+            ))}
+            <button className="polish-btn" onClick={form.handleInferSize} disabled={form.sizing || !form.title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
+              {form.sizing ? <span className="spinner" /> : <Sparkles size={14} />} {form.sizing ? 'Sizing...' : 'Auto'}
             </button>
-          ))}
-          <button className="polish-btn" onClick={form.handleInferSize} disabled={form.sizing || !form.title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
-            {form.sizing ? <span className="spinner" /> : <Sparkles size={14} />} {form.sizing ? 'Sizing...' : 'Auto'}
-          </button>
-        </div>
+          </div>
 
-        {(form.energy || form.size) && (
-          <>
-            <div className="settings-label" style={{ marginBottom: 6 }}>Energy Type</div>
-            <div className="energy-selector">
-              {ENERGY_TYPES.map(et => (
-                <button
-                  key={et.id}
-                  className={`energy-select-btn energy-type-btn${form.energy === et.id ? ' selected' : ''}`}
-                  onClick={() => form.setEnergy(form.energy === et.id ? null : et.id)}
-                  title={et.label}
-                >
-                  <EnergyIcon icon={et.icon} color={et.color} size={18} />
-                  <span className="energy-type-label">{et.label}</span>
-                </button>
-              ))}
-            </div>
-            {form.energy && (
-              <div className="drain-priority-row">
-                <div>
-                  <div className="settings-label" style={{ marginBottom: 6 }}>Energy Drain</div>
-                  <div className="energy-selector" style={{ marginBottom: 0 }}>
-                    {[
-                      { lvl: 1, label: 'Low', dotClass: 'dot-1' },
-                      { lvl: 2, label: 'Med', dotClass: 'dot-2' },
-                      { lvl: 3, label: 'High', dotClass: 'dot-3' },
-                    ].map(({ lvl, label, dotClass }) => (
-                      <button
-                        key={lvl}
-                        className={`energy-select-btn energy-level-btn${form.energyLevel === lvl ? ' selected' : ''}`}
-                        onClick={() => form.setEnergyLevel(form.energyLevel === lvl ? null : lvl)}
-                      >
-                        <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
-                      </button>
-                    ))}
+          {(form.energy || form.size) && (
+            <>
+              <div className="settings-label" style={{ marginBottom: 4 }}>Energy Type</div>
+              <div className="energy-selector">
+                {ENERGY_TYPES.map(et => (
+                  <button
+                    key={et.id}
+                    className={`energy-select-btn energy-type-btn${form.energy === et.id ? ' selected' : ''}`}
+                    onClick={() => form.setEnergy(form.energy === et.id ? null : et.id)}
+                    title={et.label}
+                  >
+                    <EnergyIcon icon={et.icon} color={et.color} size={18} />
+                    <span className="energy-type-label">{et.label}</span>
+                  </button>
+                ))}
+              </div>
+              {form.energy && (
+                <div className="drain-priority-row">
+                  <div>
+                    <div className="settings-label" style={{ marginBottom: 4 }}>Energy Drain</div>
+                    <div className="energy-selector" style={{ marginBottom: 0 }}>
+                      {[
+                        { lvl: 1, label: 'Low', dotClass: 'dot-1' },
+                        { lvl: 2, label: 'Med', dotClass: 'dot-2' },
+                        { lvl: 3, label: 'High', dotClass: 'dot-3' },
+                      ].map(({ lvl, label, dotClass }) => (
+                        <button
+                          key={lvl}
+                          className={`energy-select-btn energy-level-btn${form.energyLevel === lvl ? ' selected' : ''}`}
+                          onClick={() => form.setEnergyLevel(form.energyLevel === lvl ? null : lvl)}
+                        >
+                          <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="priority-group">
+                    <span className="settings-label" style={{ marginBottom: 4 }}>Priority</span>
+                    <button
+                      className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
+                      onClick={() => form.setHighPriority(!form.highPriority)}
+                    >
+                      !
+                    </button>
                   </div>
                 </div>
-                <div className="priority-group">
-                  <span className="settings-label" style={{ marginBottom: 6 }}>Priority</span>
-                  <button
-                    className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
-                    onClick={() => form.setHighPriority(!form.highPriority)}
-                  >
-                    !
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </div>
 
-        {/* Attachments */}
+        {/* Connections: Attachments + Notion inline */}
         <input
           ref={form.fileInputRef}
           type="file"
@@ -163,9 +167,41 @@ export default function AddTaskModal({ onAdd, onClose }) {
           style={{ display: 'none' }}
           onChange={form.handleFileSelect}
         />
-        <button className="attach-btn" onClick={() => form.fileInputRef.current?.click()}>
-          + Attach files
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button className="ci-upload-btn" onClick={() => form.fileInputRef.current?.click()}>
+            + Attach{form.attachments.length > 0 ? ` (${form.attachments.length})` : ''}
+          </button>
+          {form.notionResult ? (
+            <div className="connection-linked-btn">
+              <a href={form.notionResult.url} target="_blank" rel="noopener" className="connection-link">Notion ↗</a>
+              <button className="connection-unlink" onClick={() => form.setNotionResult(null)} title="Unlink">✕</button>
+            </div>
+          ) : form.notionState === 'searching' ? (
+            <span style={{ fontSize: 12, color: 'var(--text-dim)', padding: '8px 0' }}><span className="spinner" /> Searching...</span>
+          ) : form.notionState?.action === 'error' ? (
+            <button className="ci-upload-btn" onClick={form.handleNotionSearch}>Retry Notion</button>
+          ) : form.notionState ? (
+            <div className="notion-suggestions">
+              {form.notionState.pages?.length > 0 && (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>{form.notionState.reason}</div>
+                  {form.notionState.pages.map(page => (
+                    <button key={page.id} className="notion-page-btn" onClick={() => form.handleNotionLink(page)}>
+                      {page.title}
+                    </button>
+                  ))}
+                </>
+              )}
+              <button className="ci-upload-btn" onClick={form.handleNotionCreate} disabled={form.notionCreating} style={{ marginTop: 8 }}>
+                {form.notionCreating ? <><span className="spinner" /> Creating...</> : '+ Create new Notion page'}
+              </button>
+            </div>
+          ) : (
+            <button className="ci-upload-btn" onClick={form.handleNotionSearch} disabled={!form.title.trim()}>
+              Notion
+            </button>
+          )}
+        </div>
         {form.attachError && (
           <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{form.attachError}</div>
         )}
@@ -181,49 +217,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
           </div>
         )}
 
-        {/* Notion integration */}
-        <div className="settings-label" style={{ marginBottom: 6 }}>Notion</div>
-        {form.notionResult ? (
-          <div className="notion-linked">
-            <span>Linked to Notion</span>
-            <a href={form.notionResult.url} target="_blank" rel="noopener" className="notion-link">Open ↗</a>
-            <button className="ci-clear-btn" onClick={() => form.setNotionResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
-          </div>
-        ) : form.notionState === 'searching' ? (
-          <div className="notion-searching"><span className="spinner" /> Searching Notion...</div>
-        ) : form.notionState?.action === 'error' ? (
-          <div>
-            <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{form.notionState.reason}</div>
-            <button className="ci-upload-btn" onClick={form.handleNotionSearch}>Retry</button>
-          </div>
-        ) : form.notionState ? (
-          <div className="notion-suggestions">
-            {form.notionState.pages?.length > 0 && (
-              <>
-                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>{form.notionState.reason}</div>
-                {form.notionState.pages.map(page => (
-                  <button key={page.id} className="notion-page-btn" onClick={() => form.handleNotionLink(page)}>
-                    {page.title}
-                  </button>
-                ))}
-              </>
-            )}
-            <button
-              className="ci-upload-btn"
-              onClick={form.handleNotionCreate}
-              disabled={form.notionCreating}
-              style={{ marginTop: 8 }}
-            >
-              {form.notionCreating ? <><span className="spinner" /> Creating...</> : '+ Create new Notion page'}
-            </button>
-          </div>
-        ) : (
-          <button className="ci-upload-btn" onClick={form.handleNotionSearch} disabled={!form.title.trim()}>
-            Find or create Notion page
-          </button>
-        )}
-
-        <button className="submit-btn" disabled={!form.title.trim()} onClick={handleSubmit} style={{ marginTop: 12 }}>
+        <button className="submit-btn" disabled={!form.title.trim()} onClick={handleSubmit} style={{ marginTop: 4 }}>
           Add Task
         </button>
       </div>

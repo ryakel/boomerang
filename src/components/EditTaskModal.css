@@ -671,3 +671,136 @@
   cursor: pointer;
   width: 100%;
 }
+
+/* --- Compact form layout patterns --- */
+
+/* Inline row: two fields side by side */
+.form-inline-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.form-inline-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.form-inline-field .routine-select {
+  margin-bottom: 0;
+}
+
+/* Grouped section with reduced internal spacing */
+.form-group {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.form-group .settings-label {
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.form-group .size-selector,
+.form-group .energy-selector {
+  margin-bottom: 8px;
+}
+
+.form-group .size-selector:last-child,
+.form-group .energy-selector:last-child,
+.form-group .drain-priority-row {
+  margin-bottom: 0;
+}
+
+/* Collapsible section header */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.section-header .settings-label {
+  margin: 0;
+  pointer-events: none;
+}
+
+.section-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface);
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.section-chevron {
+  font-size: 12px;
+  color: var(--text-dim);
+  transition: transform 0.2s;
+}
+
+.section-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+/* Compact priority toggle for routines */
+.priority-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.priority-toggle.active {
+  border-color: #FFD700;
+  background: rgba(255, 215, 0, 0.12);
+  color: #FFD700;
+}
+
+/* Compact date in inline rows */
+.form-inline-row input[type="date"].routine-select,
+.form-inline-row input[type="time"].routine-select {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+/* Duration row inline with date */
+.duration-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.duration-inline input {
+  width: 56px;
+  text-align: center;
+  padding: 8px 4px;
+}
+
+.duration-inline .duration-unit {
+  font-size: 11px;
+  color: var(--text-dim);
+}

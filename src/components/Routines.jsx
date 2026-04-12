@@ -137,29 +137,41 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
             onChange={e => setTitle(e.target.value)}
             autoFocus
           />
-          <div className="settings-label" style={{ marginBottom: 6 }}>Frequency</div>
-          <select
-            className="routine-select"
-            value={cadence}
-            onChange={e => setCadence(e.target.value)}
-          >
-            {RECURRENCE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          {cadence === 'custom' && (
-            <div style={{ marginBottom: 12 }}>
-              <div className="settings-label" style={{ marginBottom: 4 }}>Every how many days?</div>
-              <input
-                className="settings-input"
-                type="number"
-                min="1"
-                max="365"
-                value={customDays}
-                onChange={e => setCustomDays(parseInt(e.target.value) || 1)}
-              />
+
+          {/* Frequency + Custom days inline */}
+          <div className="form-inline-row">
+            <div className="form-inline-field" style={{ flex: 1 }}>
+              <div className="settings-label" style={{ marginBottom: 4 }}>Frequency</div>
+              <select
+                className="routine-select"
+                value={cadence}
+                onChange={e => setCadence(e.target.value)}
+                style={{ marginBottom: 0 }}
+              >
+                {RECURRENCE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
-          )}
+            {cadence === 'custom' && (
+              <div className="form-inline-field" style={{ width: 90 }}>
+                <div className="settings-label" style={{ marginBottom: 4 }}>Every</div>
+                <div className="duration-inline">
+                  <input
+                    className="add-input"
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={customDays}
+                    onChange={e => setCustomDays(parseInt(e.target.value) || 1)}
+                    style={{ width: 56, textAlign: 'center', padding: '8px 4px' }}
+                  />
+                  <span className="duration-unit">days</span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <textarea
             className="notes-input"
             placeholder="Notes (optional)..."
@@ -167,11 +179,37 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
             onChange={e => setNotes(e.target.value)}
             style={{ minHeight: 50, marginBottom: 12 }}
           />
-          <div className="settings-label" style={{ marginBottom: 6 }}>Labels</div>
+
+          {/* Priority + End Date inline */}
+          <div className="form-inline-row">
+            <div className="form-inline-field">
+              <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
+              <button
+                className={`priority-toggle${highPriority ? ' active' : ''}`}
+                onClick={() => setHighPriority(!highPriority)}
+              >
+                ! {highPriority ? 'High' : 'Normal'}
+              </button>
+            </div>
+            <div className="form-inline-field" style={{ flex: 1 }}>
+              <div className="settings-label" style={{ marginBottom: 4 }}>End Date</div>
+              <input
+                className="routine-select"
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                style={{ marginBottom: 0 }}
+              />
+            </div>
+          </div>
+
+          {/* Labels */}
+          <div className="settings-label" style={{ marginBottom: 4 }}>Labels</div>
           <select
             className="routine-select"
             value=""
             onChange={e => { if (e.target.value) toggleTag(e.target.value) }}
+            style={{ marginBottom: selectedTags.length > 0 ? 6 : 12 }}
           >
             <option value="">Add label...</option>
             {labels.filter(l => !selectedTags.includes(l.id)).map(label => (
@@ -179,92 +217,52 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
             ))}
           </select>
           {selectedTags.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
               {selectedTags.map(id => {
                 const label = labels.find(l => l.id === id)
                 if (!label) return null
                 return (
-                  <button
-                    key={id}
-                    className="routine-label-pill"
-                    style={{ background: label.color }}
-                    onClick={() => toggleTag(id)}
-                  >
+                  <button key={id} className="routine-label-pill" style={{ background: label.color }} onClick={() => toggleTag(id)}>
                     {label.name} <span style={{ marginLeft: 4, opacity: 0.7 }}>✕</span>
                   </button>
                 )
               })}
             </div>
           )}
-          {selectedTags.length === 0 && <div style={{ marginBottom: 4 }} />}
-          <div className="priority-group" style={{ marginBottom: 16, alignItems: 'flex-start', flexDirection: 'row', gap: 8 }}>
-            <span className="settings-label" style={{ marginBottom: 0 }}>Priority</span>
-            <button
-              className={`priority-btn${highPriority ? ' priority-active' : ''}`}
-              onClick={() => setHighPriority(!highPriority)}
-            >
-              !
-            </button>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <div className="settings-label" style={{ marginBottom: 6 }}>End Date</div>
-            <input
-              className="routine-select"
-              type="date"
-              value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              style={{ marginBottom: 0 }}
-            />
-            {endDate && (
-              <button
-                className="what-now-dismiss"
-                onClick={() => setEndDate('')}
-                style={{ marginTop: 0, padding: '4px 8px', fontSize: 12 }}
-              >
-                Clear end date
+
+          {/* Connections */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {notionResult ? (
+              <div className="connection-linked-btn">
+                <a href={notionResult.url} target="_blank" rel="noopener" className="connection-link">Notion ↗</a>
+                <button className="connection-unlink" onClick={() => setNotionResult(null)} title="Unlink">✕</button>
+              </div>
+            ) : notionState === 'searching' ? (
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}><span className="spinner" /> Searching...</span>
+            ) : notionState?.action === 'error' ? (
+              <button className="ci-upload-btn" onClick={handleNotionSearch}>Retry Notion</button>
+            ) : notionState ? (
+              <div className="notion-suggestions">
+                {notionState.pages?.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>{notionState.reason}</div>
+                    {notionState.pages.map(page => (
+                      <button key={page.id} className="notion-page-btn" onClick={() => handleNotionLink(page)}>
+                        {page.title}
+                      </button>
+                    ))}
+                  </>
+                )}
+                <button className="ci-upload-btn" onClick={handleNotionCreate} disabled={notionCreating} style={{ marginTop: 8 }}>
+                  {notionCreating ? <><span className="spinner" /> Creating...</> : '+ Create new Notion page'}
+                </button>
+              </div>
+            ) : (
+              <button className="ci-upload-btn" onClick={handleNotionSearch} disabled={!title.trim()}>
+                Notion
               </button>
             )}
           </div>
-          <div className="settings-label" style={{ marginBottom: 6 }}>Notion</div>
-          {notionResult ? (
-            <div className="notion-linked">
-              <span>Linked to Notion</span>
-              <a href={notionResult.url} target="_blank" rel="noopener" className="notion-link">Open ↗</a>
-              <button className="ci-clear-btn" onClick={() => setNotionResult(null)} style={{ marginLeft: 'auto' }}>Unlink</button>
-            </div>
-          ) : notionState === 'searching' ? (
-            <div className="notion-searching"><span className="spinner" /> Searching Notion...</div>
-          ) : notionState?.action === 'error' ? (
-            <div>
-              <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{notionState.reason}</div>
-              <button className="ci-upload-btn" onClick={handleNotionSearch}>Retry</button>
-            </div>
-          ) : notionState ? (
-            <div className="notion-suggestions">
-              {notionState.pages?.length > 0 && (
-                <>
-                  <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>{notionState.reason}</div>
-                  {notionState.pages.map(page => (
-                    <button key={page.id} className="notion-page-btn" onClick={() => handleNotionLink(page)}>
-                      {page.title}
-                    </button>
-                  ))}
-                </>
-              )}
-              <button
-                className="ci-upload-btn"
-                onClick={handleNotionCreate}
-                disabled={notionCreating}
-                style={{ marginTop: 8 }}
-              >
-                {notionCreating ? <><span className="spinner" /> Creating...</> : '+ Create new Notion page'}
-              </button>
-            </div>
-          ) : (
-            <button className="ci-upload-btn" onClick={handleNotionSearch} disabled={!title.trim()} style={{ marginBottom: 12 }}>
-              Find or create Notion page
-            </button>
-          )}
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="submit-btn" disabled={!title.trim()} onClick={editingRoutine ? handleSaveEdit : handleAdd}>

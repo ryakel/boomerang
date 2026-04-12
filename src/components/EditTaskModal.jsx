@@ -43,6 +43,19 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   })
   const [newCheckItems, setNewCheckItems] = useState({}) // { checklistId: string }
   const [confirmDeleteChecklist, setConfirmDeleteChecklist] = useState(null)
+  // Collapsible sections — expand if content exists
+  const [expandedSections, setExpandedSections] = useState(() => {
+    const s = new Set()
+    if (task.checklists?.length || task.checklist?.length) s.add('checklists')
+    if (task.comments?.length) s.add('comments')
+    if (task.attachments?.length) s.add('attachments')
+    return s
+  })
+  const toggleSection = (key) => setExpandedSections(prev => {
+    const next = new Set(prev)
+    next.has(key) ? next.delete(key) : next.add(key)
+    return next
+  })
   const dragRef = useRef(null) // { checklistId, itemId }
   const [dragOver, setDragOver] = useState(null) // { checklistId, itemId }
 
@@ -543,41 +556,48 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           )}
         </div>
 
+        {/* Scheduling: Due date + Duration inline */}
         {!makeRecurring && (
-          <>
-            <div className="settings-label" style={{ marginBottom: 6 }}>Due date</div>
-            <input
-              className="routine-select"
-              type="date"
-              value={dueDate}
-              min={today}
-              onChange={e => setDueDate(e.target.value)}
-            />
+          <div className="form-inline-row">
+            <div className="form-inline-field" style={{ flex: 1 }}>
+              <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
+              <input
+                className="routine-select"
+                type="date"
+                value={dueDate}
+                min={today}
+                onChange={e => setDueDate(e.target.value)}
+                style={{ marginBottom: 0 }}
+              />
+            </div>
             {dueDate && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Duration</span>
-                <input
-                  className="add-input"
-                  type="number"
-                  min="5"
-                  max="480"
-                  step="5"
-                  placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
-                  value={gcalDuration}
-                  onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
-                  style={{ width: 72, textAlign: 'center' }}
-                />
-                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>min</span>
+              <div className="form-inline-field" style={{ width: 90 }}>
+                <div className="settings-label" style={{ marginBottom: 4 }}>Duration</div>
+                <div className="duration-inline">
+                  <input
+                    className="add-input"
+                    type="number"
+                    min="5"
+                    max="480"
+                    step="5"
+                    placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
+                    value={gcalDuration}
+                    onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
+                  />
+                  <span className="duration-unit">min</span>
+                </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
-        <div className="settings-label" style={{ marginBottom: 6 }}>Labels</div>
+        {/* Labels */}
+        <div className="settings-label" style={{ marginBottom: 4 }}>Labels</div>
         <select
           className="routine-select"
           value=""
           onChange={e => { if (e.target.value) toggleTag(e.target.value) }}
+          style={{ marginBottom: selectedTags.length > 0 ? 6 : 12 }}
         >
           <option value="">Add label...</option>
           {labels.filter(l => !selectedTags.includes(l.id)).map(label => (
@@ -598,69 +618,73 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           </div>
         )}
 
-        <div className="settings-label" style={{ marginBottom: 6 }}>Size</div>
-        <div className="size-selector">
-          {['XS', 'S', 'M', 'L', 'XL'].map(s => (
-            <button
-              key={s}
-              className={`size-select-btn size-${s.toLowerCase()}${size === s ? ' selected' : ''}`}
-              onClick={() => setSize(size === s ? null : s)}
-            >
-              {s}
-            </button>
-          ))}
-          <button className="polish-btn" onClick={handleInferSize} disabled={sizing || !title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
-            {sizing ? <span className="spinner" /> : <Sparkles size={14} />} {sizing ? 'Sizing...' : 'Auto'}
-          </button>
-        </div>
-
-        <div className="settings-label" style={{ marginBottom: 6 }}>Energy Type</div>
-        <div className="energy-selector">
-          {ENERGY_TYPES.map(et => (
-            <button
-              key={et.id}
-              className={`energy-select-btn energy-type-btn${energy === et.id ? ' selected' : ''}`}
-              onClick={() => setEnergy(energy === et.id ? null : et.id)}
-              title={et.label}
-            >
-              <EnergyIcon icon={et.icon} color={et.color} size={18} />
-              <span className="energy-type-label">{et.label}</span>
-            </button>
-          ))}
-        </div>
-        <div className="drain-priority-row">
-          <div>
-            <div className="settings-label" style={{ marginBottom: 6 }}>Energy Drain</div>
-            {energy && (
-              <div className="energy-selector" style={{ marginBottom: 0 }}>
-                {[
-                  { lvl: 1, label: 'Low', dotClass: 'dot-1' },
-                  { lvl: 2, label: 'Med', dotClass: 'dot-2' },
-                  { lvl: 3, label: 'High', dotClass: 'dot-3' },
-                ].map(({ lvl, label, dotClass }) => (
-                  <button
-                    key={lvl}
-                    className={`energy-select-btn energy-level-btn${energyLevel === lvl ? ' selected' : ''}`}
-                    onClick={() => setEnergyLevel(energyLevel === lvl ? null : lvl)}
-                  >
-                    <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="priority-group">
-            <span className="settings-label" style={{ marginBottom: 6 }}>Priority</span>
-            <button
-              className={`priority-btn${highPriority ? ' priority-active' : ''}`}
-              onClick={() => setHighPriority(!highPriority)}
-            >
-              !
+        {/* Categorization group */}
+        <div className="form-group">
+          <div className="settings-label" style={{ marginBottom: 4 }}>Size</div>
+          <div className="size-selector">
+            {['XS', 'S', 'M', 'L', 'XL'].map(s => (
+              <button
+                key={s}
+                className={`size-select-btn size-${s.toLowerCase()}${size === s ? ' selected' : ''}`}
+                onClick={() => setSize(size === s ? null : s)}
+              >
+                {s}
+              </button>
+            ))}
+            <button className="polish-btn" onClick={handleInferSize} disabled={sizing || !title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
+              {sizing ? <span className="spinner" /> : <Sparkles size={14} />} {sizing ? 'Sizing...' : 'Auto'}
             </button>
           </div>
+
+          <div className="settings-label" style={{ marginBottom: 4 }}>Energy Type</div>
+          <div className="energy-selector">
+            {ENERGY_TYPES.map(et => (
+              <button
+                key={et.id}
+                className={`energy-select-btn energy-type-btn${energy === et.id ? ' selected' : ''}`}
+                onClick={() => setEnergy(energy === et.id ? null : et.id)}
+                title={et.label}
+              >
+                <EnergyIcon icon={et.icon} color={et.color} size={18} />
+                <span className="energy-type-label">{et.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="drain-priority-row">
+            <div>
+              <div className="settings-label" style={{ marginBottom: 4 }}>Energy Drain</div>
+              {energy && (
+                <div className="energy-selector" style={{ marginBottom: 0 }}>
+                  {[
+                    { lvl: 1, label: 'Low', dotClass: 'dot-1' },
+                    { lvl: 2, label: 'Med', dotClass: 'dot-2' },
+                    { lvl: 3, label: 'High', dotClass: 'dot-3' },
+                  ].map(({ lvl, label, dotClass }) => (
+                    <button
+                      key={lvl}
+                      className={`energy-select-btn energy-level-btn${energyLevel === lvl ? ' selected' : ''}`}
+                      onClick={() => setEnergyLevel(energyLevel === lvl ? null : lvl)}
+                    >
+                      <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="priority-group">
+              <span className="settings-label" style={{ marginBottom: 4 }}>Priority</span>
+              <button
+                className={`priority-btn${highPriority ? ' priority-active' : ''}`}
+                onClick={() => setHighPriority(!highPriority)}
+              >
+                !
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Attachments */}
+        {/* Attachments — collapsible */}
         <input
           ref={fileInputRef}
           type="file"
@@ -668,43 +692,59 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           style={{ display: 'none' }}
           onChange={handleFileSelect}
         />
-        <button className="attach-btn" onClick={() => fileInputRef.current?.click()}>
-          + Attach files
-        </button>
-        {attachError && (
-          <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{attachError}</div>
-        )}
-        {attachments.length > 0 && (
-          <div className="attachment-list">
-            {attachments.map(a => (
-              <div key={a.id} className="attachment-item">
-                <span className="attachment-name">{a.name}</span>
-                <span className="attachment-size">{formatFileSize(a.size)}</span>
-                <button className="attachment-remove" onClick={() => removeAttachment(a.id)}>x</button>
-              </div>
-            ))}
+        <div className="section-header" onClick={() => { if (attachments.length > 0 || expandedSections.has('attachments')) toggleSection('attachments'); else { fileInputRef.current?.click(); } }}>
+          <span className="settings-label">Attachments</span>
+          <div className="section-header-right">
+            {attachments.length > 0 && <span className="section-badge">{attachments.length}</span>}
+            <ChevronRight size={14} className={`section-chevron${expandedSections.has('attachments') ? ' expanded' : ''}`} />
           </div>
+        </div>
+        {expandedSections.has('attachments') && (
+          <>
+            <button className="attach-btn" onClick={() => fileInputRef.current?.click()}>
+              + Attach files
+            </button>
+            {attachError && (
+              <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{attachError}</div>
+            )}
+            {attachments.length > 0 && (
+              <div className="attachment-list">
+                {attachments.map(a => (
+                  <div key={a.id} className="attachment-item">
+                    <span className="attachment-name">{a.name}</span>
+                    <span className="attachment-size">{formatFileSize(a.size)}</span>
+                    <button className="attachment-remove" onClick={() => removeAttachment(a.id)}>x</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
-        {/* Checklists */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 6 }}>
-          <div className="settings-label" style={{ margin: 0 }}>Checklists</div>
-          <button
-            className="checklist-add-list-btn"
-            onClick={() => {
-              setChecklists(prev => [...prev, {
-                id: uuid(),
-                name: 'Checklist',
-                items: [],
-                hideCompleted: false,
-              }])
-            }}
-          >
-            <Plus size={12} /> Add checklist
-          </button>
+        {/* Checklists — collapsible */}
+        <div className="section-header" onClick={() => toggleSection('checklists')}>
+          <span className="settings-label">Checklists</span>
+          <div className="section-header-right">
+            {checklists.reduce((sum, cl) => sum + cl.items.length, 0) > 0 && (
+              <span className="section-badge">
+                {checklists.reduce((sum, cl) => sum + cl.items.filter(i => i.completed).length, 0)}/{checklists.reduce((sum, cl) => sum + cl.items.length, 0)}
+              </span>
+            )}
+            <button
+              className="checklist-add-list-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                setChecklists(prev => [...prev, { id: uuid(), name: 'Checklist', items: [], hideCompleted: false }])
+                setExpandedSections(prev => new Set(prev).add('checklists'))
+              }}
+            >
+              <Plus size={12} /> Add
+            </button>
+            <ChevronRight size={14} className={`section-chevron${expandedSections.has('checklists') ? ' expanded' : ''}`} />
+          </div>
         </div>
 
-        {checklists.map((cl) => {
+        {expandedSections.has('checklists') && checklists.map((cl) => {
           const completed = cl.items.filter(i => i.completed).length
           const total = cl.items.length
           const pct = total ? Math.round((completed / total) * 100) : 0
@@ -842,40 +882,48 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           )
         })}
 
-        {/* Comments */}
-        <div className="settings-label" style={{ marginBottom: 6, marginTop: 4 }}>Comments</div>
-        <div className="comments-section">
-          {comments.length > 0 && comments.map(c => (
-            <div key={c.id} className="comment-item">
-              <div className="comment-text">{c.text}</div>
-              <div className="comment-time">{new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
-            </div>
-          ))}
-          <div className="comment-input-row">
-            <input
-              className="comment-input"
-              placeholder="Add a comment..."
-              value={newComment}
-              onChange={e => setNewComment(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && newComment.trim()) {
-                  setComments(prev => [...prev, { id: uuid(), text: newComment.trim(), created_at: new Date().toISOString() }])
-                  setNewComment('')
-                }
-              }}
-            />
-            <button
-              className="comment-add-btn"
-              disabled={!newComment.trim()}
-              onClick={() => {
-                if (newComment.trim()) {
-                  setComments(prev => [...prev, { id: uuid(), text: newComment.trim(), created_at: new Date().toISOString() }])
-                  setNewComment('')
-                }
-              }}
-            >Add</button>
+        {/* Comments — collapsible */}
+        <div className="section-header" onClick={() => toggleSection('comments')}>
+          <span className="settings-label">Comments</span>
+          <div className="section-header-right">
+            {comments.length > 0 && <span className="section-badge">{comments.length}</span>}
+            <ChevronRight size={14} className={`section-chevron${expandedSections.has('comments') ? ' expanded' : ''}`} />
           </div>
         </div>
+        {expandedSections.has('comments') && (
+          <div className="comments-section">
+            {comments.length > 0 && comments.map(c => (
+              <div key={c.id} className="comment-item">
+                <div className="comment-text">{c.text}</div>
+                <div className="comment-time">{new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+              </div>
+            ))}
+            <div className="comment-input-row">
+              <input
+                className="comment-input"
+                placeholder="Add a comment..."
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newComment.trim()) {
+                    setComments(prev => [...prev, { id: uuid(), text: newComment.trim(), created_at: new Date().toISOString() }])
+                    setNewComment('')
+                  }
+                }}
+              />
+              <button
+                className="comment-add-btn"
+                disabled={!newComment.trim()}
+                onClick={() => {
+                  if (newComment.trim()) {
+                    setComments(prev => [...prev, { id: uuid(), text: newComment.trim(), created_at: new Date().toISOString() }])
+                    setNewComment('')
+                  }
+                }}
+              >Add</button>
+            </div>
+          </div>
+        )}
 
         {/* Recurring toggle */}
         {!isAlreadyRoutine && (
