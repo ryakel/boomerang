@@ -68,19 +68,17 @@ export default function AddTaskModal({ onAdd, onClose }) {
           <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{form.polishError}</div>
         )}
 
-        <div className="form-inline-row">
-          <div className="form-inline-field" style={{ flex: 1 }}>
-            <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
-            <input
-              className="routine-select"
-              type="date"
-              value={form.dueDate}
-              min={today}
-              onChange={e => form.setDueDate(e.target.value)}
-              style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
-            />
-          </div>
-          <div className="form-inline-field">
+        <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
+        <input
+          className="routine-select"
+          type="date"
+          value={form.dueDate}
+          min={today}
+          onChange={e => form.setDueDate(e.target.value)}
+          style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
+        />
+        <div className="form-inline-row" style={{ marginTop: 8 }}>
+          <div className="form-inline-field" style={{ marginLeft: 'auto' }}>
             <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
             <button
               className={`priority-btn${form.highPriority ? ' priority-active' : ''}`}
@@ -104,7 +102,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
           ))}
         </select>
         {form.selectedTags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
             {form.selectedTags.map(id => {
               const label = labels.find(l => l.id === id)
               if (!label) return null

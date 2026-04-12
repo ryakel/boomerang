@@ -567,48 +567,48 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           )}
         </div>
 
-        {/* Scheduling: Due date + Duration + Priority inline */}
+        {/* Scheduling row: Due date, then Duration + Priority underneath */}
         {!makeRecurring && (
-          <div className="form-inline-row">
-            <div className="form-inline-field" style={{ flex: 1 }}>
-              <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
-              <input
-                className="routine-select"
-                type="date"
-                value={dueDate}
-                min={today}
-                onChange={e => setDueDate(e.target.value)}
-                style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
-              />
-            </div>
-            {dueDate && (
-              <div className="form-inline-field" style={{ width: 80 }}>
-                <div className="settings-label" style={{ marginBottom: 4 }}>Duration</div>
-                <div className="duration-inline">
-                  <input
-                    className="add-input"
-                    type="number"
-                    min="5"
-                    max="480"
-                    step="5"
-                    placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
-                    value={gcalDuration}
-                    onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
-                  />
-                  <span className="duration-unit">min</span>
+          <>
+            <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
+            <input
+              className="routine-select"
+              type="date"
+              value={dueDate}
+              min={today}
+              onChange={e => setDueDate(e.target.value)}
+              style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14 }}
+            />
+            <div className="form-inline-row" style={{ marginTop: 8 }}>
+              {dueDate && (
+                <div className="form-inline-field">
+                  <div className="settings-label" style={{ marginBottom: 4 }}>Duration</div>
+                  <div className="duration-inline">
+                    <input
+                      className="add-input"
+                      type="number"
+                      min="5"
+                      max="480"
+                      step="5"
+                      placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
+                      value={gcalDuration}
+                      onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
+                    />
+                    <span className="duration-unit">min</span>
+                  </div>
                 </div>
+              )}
+              <div className="form-inline-field" style={{ marginLeft: 'auto' }}>
+                <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
+                <button
+                  className={`priority-btn${highPriority ? ' priority-active' : ''}`}
+                  onClick={() => setHighPriority(!highPriority)}
+                >
+                  !
+                </button>
               </div>
-            )}
-            <div className="form-inline-field">
-              <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
-              <button
-                className={`priority-btn${highPriority ? ' priority-active' : ''}`}
-                onClick={() => setHighPriority(!highPriority)}
-              >
-                !
-              </button>
             </div>
-          </div>
+          </>
         )}
 
         {/* Labels */}
@@ -625,7 +625,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           ))}
         </select>
         {selectedTags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
             {selectedTags.map(id => {
               const label = labels.find(l => l.id === id)
               if (!label) return null
@@ -705,7 +705,13 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           <span className="settings-label">Attachments</span>
           <div className="section-header-right">
             {attachments.length > 0 && <span className="section-badge">{attachments.length}</span>}
-            <Plus size={14} style={{ color: 'var(--text-dim)' }} />
+            {attachments.length > 0 ? (
+              <ChevronRight size={14} className={`section-chevron${expandedSections.has('attachments') ? ' expanded' : ''}`} />
+            ) : (
+              <button className="checklist-add-list-btn" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}>
+                <Plus size={12} /> Add
+              </button>
+            )}
           </div>
         </div>
         {expandedSections.has('attachments') && (
@@ -731,7 +737,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         )}
 
         {/* Checklists — collapsible */}
-        <div className="section-header" onClick={() => toggleSection('checklists')}>
+        <div className="section-header" onClick={() => { if (checklists.length > 0) toggleSection('checklists') }}>
           <span className="settings-label">Checklists</span>
           <div className="section-header-right">
             {checklists.reduce((sum, cl) => sum + cl.items.length, 0) > 0 && (
@@ -749,7 +755,9 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             >
               <Plus size={12} /> Add
             </button>
-            <ChevronRight size={14} className={`section-chevron${expandedSections.has('checklists') ? ' expanded' : ''}`} />
+            {checklists.length > 0 && (
+              <ChevronRight size={14} className={`section-chevron${expandedSections.has('checklists') ? ' expanded' : ''}`} />
+            )}
           </div>
         </div>
 
@@ -892,11 +900,17 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         })}
 
         {/* Comments — collapsible */}
-        <div className="section-header" onClick={() => toggleSection('comments')}>
+        <div className="section-header" onClick={() => { if (comments.length > 0) toggleSection('comments'); else setExpandedSections(prev => new Set(prev).add('comments')) }}>
           <span className="settings-label">Comments</span>
           <div className="section-header-right">
             {comments.length > 0 && <span className="section-badge">{comments.length}</span>}
-            <ChevronRight size={14} className={`section-chevron${expandedSections.has('comments') ? ' expanded' : ''}`} />
+            {comments.length > 0 ? (
+              <ChevronRight size={14} className={`section-chevron${expandedSections.has('comments') ? ' expanded' : ''}`} />
+            ) : (
+              <button className="checklist-add-list-btn" onClick={(e) => { e.stopPropagation(); setExpandedSections(prev => new Set(prev).add('comments')) }}>
+                <Plus size={12} /> Add
+              </button>
+            )}
           </div>
         </div>
         {expandedSections.has('comments') && (
@@ -1021,17 +1035,20 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
 
         {/* Trello list picker (when not yet linked) */}
         {!trelloResult && trelloLists.length > 0 && (
-          <select
-            className="add-input"
-            style={{ fontSize: 13, marginBottom: 8 }}
-            value={trelloPushListId}
-            onChange={e => setTrelloPushListId(e.target.value)}
-          >
-            <option value="" disabled>Trello list...</option>
-            {trelloLists.map(l => (
-              <option key={l.id} value={l.id}>{l.name}</option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Trello list</span>
+            <select
+              className="add-input"
+              style={{ fontSize: 13, flex: 1 }}
+              value={trelloPushListId}
+              onChange={e => setTrelloPushListId(e.target.value)}
+            >
+              <option value="" disabled>Select list...</option>
+              {trelloLists.map(l => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         {/* Connection buttons — linked items become open links */}

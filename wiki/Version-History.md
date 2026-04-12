@@ -13,6 +13,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Unlinking clears `notion_page_id` and `notion_url` on save
   - Wired `updateRoutineNotion` through App.jsx → Routines prop
   - Modified: `src/components/Routines.jsx`, `src/App.jsx`
+- fix(ui): second pass form polish — spacing, button consistency, Trello clarity [M]
+  - Due date on its own line; Duration + Priority on a second row with breathing room (no longer smashed together)
+  - Labels section gets 16px bottom margin to visually separate from the categorization form-group
+  - Normalized collapsible section buttons: empty sections show "+ Add" button, sections with content show chevron + count badge — applies to Attachments, Checklists, and Comments
+  - Trello list picker now prefixed with "Trello list" label so it's clear what the dropdown is for
+  - Modified: `src/components/EditTaskModal.jsx`, `src/components/AddTaskModal.jsx`
 - fix(ui): polish form layout — priority/date/duration row, pull-to-close, autosave position [M]
   - Priority moved to the Due Date + Duration row in EditTaskModal and AddTaskModal (out of the form-group)
   - Due date input made smaller (compact padding/font)
