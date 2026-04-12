@@ -13,6 +13,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Unlinking clears `notion_page_id` and `notion_url` on save
   - Wired `updateRoutineNotion` through App.jsx → Routines prop
   - Modified: `src/components/Routines.jsx`, `src/App.jsx`
+- fix(ui): pull-to-close on handle only, routine deep link, scheduling alignment [S]
+  - Pull-to-close touch handlers moved from entire sheet body to just the handle element — fixes choppy scrolling caused by touch interception
+  - Removed `overscroll-behavior: contain` from sheet CSS
+  - Routine link in EditTaskModal now passes routine ID → Routines view auto-opens the edit form for that specific routine
+  - Scheduling row uses `align-items: flex-end` with natural heights instead of forced `height: 36px` — fixes priority being too low
+  - Modified: `src/components/EditTaskModal.jsx`, `src/components/AddTaskModal.jsx`, `src/components/Routines.jsx`, `src/App.jsx`, `src/components/EditTaskModal.css`, `src/components/Modal.css`
 - fix(ui): smooth ref-based pull-to-close, duration/priority alignment [S]
   - Pull-to-close rewritten to use refs + direct DOM manipulation instead of React state, eliminating re-render jank during drag
   - Scheduling row uses `align-items: stretch` with explicit `height: 36px` on all three controls (date, duration, priority) so labels and inputs align perfectly

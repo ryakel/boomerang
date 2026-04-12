@@ -64,6 +64,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showDone, setShowDone] = useState(false)
   const [showRoutines, setShowRoutines] = useState(false)
+  const [editRoutineId, setEditRoutineId] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [extendTarget, setExtendTarget] = useState(null)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
@@ -742,7 +743,7 @@ function App() {
           onBacklog={(id, toBacklog) => { handleBacklog(id, toBacklog); setEditTarget(null) }}
           onProject={(id, toProject) => { handleProject(id, toProject); setEditTarget(null) }}
           onStatusChange={handleStatusChange}
-          onOpenRoutines={() => { setEditTarget(null); setShowRoutines(true) }}
+          onOpenRoutine={(routineId) => { setEditTarget(null); setShowRoutines(true); setEditRoutineId(routineId) }}
         />
       )}
 
@@ -754,7 +755,9 @@ function App() {
           onTogglePause={togglePause}
           onUpdate={updateRoutine}
           onUpdateNotion={updateRoutineNotion}
-          onClose={() => setShowRoutines(false)}
+          onClose={() => { setShowRoutines(false); setEditRoutineId(null) }}
+          editRoutineId={editRoutineId}
+          onClearEditRoutineId={() => setEditRoutineId(null)}
           isDesktop={isDesktop}
         />
       )}

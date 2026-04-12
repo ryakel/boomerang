@@ -12,7 +12,7 @@ function formatFileSize(bytes) {
 
 const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
 
-export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange, onOpenRoutines }) {
+export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange, onOpenRoutine }) {
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes || '')
   const [selectedTags, setSelectedTags] = useState(task.tags || [])
@@ -483,16 +483,14 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     }
   }
 
-  // Pull-to-close: fluid swipe down using refs for smooth DOM updates
+  // Pull-to-close: only on the handle area, using refs for smooth DOM updates
   const sheetRef = useRef(null)
   const pullStartRef = useRef(null)
   const pullYRef = useRef(0)
-  const handlePullStart = (e) => {
-    const scrollTop = sheetRef.current?.scrollTop || 0
-    if (scrollTop > 0) return
+  const handleHandleTouchStart = (e) => {
     pullStartRef.current = { y: e.touches[0].clientY }
   }
-  const handlePullMove = (e) => {
+  const handleHandleTouchMove = (e) => {
     if (!pullStartRef.current) return
     const dy = e.touches[0].clientY - pullStartRef.current.y
     if (dy > 0) {
@@ -505,12 +503,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         sheet.style.transition = 'none'
         sheet.style.opacity = Math.max(0.5, 1 - pullYRef.current / 300)
       }
-    } else {
-      pullStartRef.current = null
     }
   }
-  const handlePullEnd = () => {
-    if (!pullStartRef.current) { pullYRef.current = 0; return }
+  const handleHandleTouchEnd = () => {
+    if (!pullStartRef.current) return
     const sheet = sheetRef.current
     if (pullYRef.current > 100) {
       handleClose()
@@ -525,15 +521,14 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
 
   return (
     <div className="sheet-overlay" onClick={handleClose}>
-      <div
-        className="sheet"
-        ref={sheetRef}
-        onClick={e => e.stopPropagation()}
-        onTouchStart={handlePullStart}
-        onTouchMove={handlePullMove}
-        onTouchEnd={handlePullEnd}
-      >
-        <button className="sheet-handle" onClick={handleClose} />
+      <div className="sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
+        <button
+          className="sheet-handle"
+          onClick={handleClose}
+          onTouchStart={handleHandleTouchStart}
+          onTouchMove={handleHandleTouchMove}
+          onTouchEnd={handleHandleTouchEnd}
+        />
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
         <span className={`autosave-pill autosave-pill-floating ${justSaved ? 'autosave-pill-saved' : ''}`}>
           {justSaved ? '✓ Saved' : 'Auto Save'}
@@ -541,8 +536,8 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         <div className="sheet-title">Edit Task</div>
         {isAlreadyRoutine && (
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-dim)', marginBottom: 8, marginTop: -8 }}>
-            Part of routine: {onOpenRoutines ? (
-              <button onClick={onOpenRoutines} style={{ color: '#A78BFA', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0 }}>
+            Part of routine: {onOpenRoutine ? (
+              <button onClick={() => onOpenRoutine(task.routine_id)} style={{ color: '#A78BFA', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0 }}>
                 {parentRoutine?.title || 'Unknown'} →
               </button>
             ) : (

@@ -22,16 +22,15 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
   const today = new Date().toISOString().split('T')[0]
 
-  // Pull-to-close: fluid swipe down using refs for smooth DOM updates
+  // Pull-to-close: only on the handle area
   const sheetRef = useRef(null)
   const pullStartRef = useRef(null)
   const pullYRef = useRef(0)
-  const handlePullStart = useCallback((e) => {
-    const scrollTop = sheetRef.current?.scrollTop || 0
-    if (scrollTop > 0) return
+  const dismissModal = useCallback(() => { if (form.title.trim()) handleSubmit(); else onClose() }, [form.title, handleSubmit, onClose])
+  const handleHandleTouchStart = useCallback((e) => {
     pullStartRef.current = { y: e.touches[0].clientY }
   }, [])
-  const handlePullMove = useCallback((e) => {
+  const handleHandleTouchMove = useCallback((e) => {
     if (!pullStartRef.current) return
     const dy = e.touches[0].clientY - pullStartRef.current.y
     if (dy > 0) {
@@ -44,13 +43,10 @@ export default function AddTaskModal({ onAdd, onClose }) {
         sheet.style.transition = 'none'
         sheet.style.opacity = Math.max(0.5, 1 - pullYRef.current / 300)
       }
-    } else {
-      pullStartRef.current = null
     }
   }, [])
-  const dismissModal = useCallback(() => { if (form.title.trim()) handleSubmit(); else onClose() }, [form.title, handleSubmit, onClose])
-  const handlePullEnd = useCallback(() => {
-    if (!pullStartRef.current) { pullYRef.current = 0; return }
+  const handleHandleTouchEnd = useCallback(() => {
+    if (!pullStartRef.current) return
     const sheet = sheetRef.current
     if (pullYRef.current > 100) {
       dismissModal()
@@ -65,15 +61,14 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
   return (
     <div className="sheet-overlay" onClick={onClose}>
-      <div
-        className="sheet"
-        ref={sheetRef}
-        onClick={e => e.stopPropagation()}
-        onTouchStart={handlePullStart}
-        onTouchMove={handlePullMove}
-        onTouchEnd={handlePullEnd}
-      >
-        <button className="sheet-handle" onClick={() => { if (form.title.trim()) handleSubmit(); else onClose(); }} />
+      <div className="sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
+        <button
+          className="sheet-handle"
+          onClick={() => { if (form.title.trim()) handleSubmit(); else onClose(); }}
+          onTouchStart={handleHandleTouchStart}
+          onTouchMove={handleHandleTouchMove}
+          onTouchEnd={handleHandleTouchEnd}
+        />
         <div className="sheet-title">Add Task</div>
 
         <input

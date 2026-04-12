@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../store'
 import { suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
-export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onUpdateNotion, onClose, isDesktop }) {
+export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onUpdateNotion, onClose, editRoutineId, onClearEditRoutineId, isDesktop }) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingRoutine, setEditingRoutine] = useState(null)
   const [title, setTitle] = useState('')
@@ -63,6 +63,15 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setNotionState(null)
     setShowAdd(true)
   }
+
+  // Auto-open edit form when navigating from a task's routine link
+  useEffect(() => {
+    if (editRoutineId) {
+      const routine = routines.find(r => r.id === editRoutineId)
+      if (routine) handleEdit(routine)
+      if (onClearEditRoutineId) onClearEditRoutineId()
+    }
+  }, [editRoutineId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSaveEdit = () => {
     if (!title.trim() || !editingRoutine) return

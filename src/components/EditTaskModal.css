@@ -789,7 +789,7 @@
 /* Scheduling row: date + duration + priority evenly spaced */
 .scheduling-row {
   display: flex;
-  align-items: stretch;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
   background: var(--surface);
@@ -801,21 +801,11 @@
 .scheduling-field {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   min-width: 0;
 }
 
 .scheduling-field .settings-label {
   margin-bottom: 4px;
-}
-
-/* Ensure all scheduling controls are the same height */
-.scheduling-field input[type="date"],
-.scheduling-field .duration-inline,
-.scheduling-field .priority-toggle {
-  height: 36px;
-  display: flex;
-  align-items: center;
 }
 
 /* Compact date in inline rows */
