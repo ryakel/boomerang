@@ -38,28 +38,31 @@ export function useGCalSync(tasks, setTasks) {
     const currentTasks = tasksRef.current
     const linkedEventIds = new Set(currentTasks.filter(t => t.gcal_event_id).map(t => t.gcal_event_id))
 
-    // Filter out already-linked events and events pushed by Boomerang
+    // Filter events
     const titleFilter = (s.gcal_pull_filter || '').trim().toLowerCase()
     remoteLog(`[GCalSync] title filter: "${titleFilter || '(none)'}"`)
-    let filteredByBoomerang = 0, filteredByTitle = 0
-    const unlinkedEvents = events.filter(e => {
-      if (linkedEventIds.has(e.id)) return false
+    let filteredByLinked = 0, filteredByBoomerang = 0, filteredByTitle = 0
+    const candidateEvents = events.filter(e => {
+      // When title filter is active, skip the already-linked check (user wants to reimport)
+      if (!titleFilter && linkedEventIds.has(e.id)) { filteredByLinked++; return false }
       if (e.description && e.description.includes('Managed by Boomerang')) { filteredByBoomerang++; return false }
       if (titleFilter && !(e.summary || '').toLowerCase().includes(titleFilter)) { filteredByTitle++; return false }
       return true
     })
-    remoteLog(`[GCalSync] ${linkedEventIds.size} already linked, ${filteredByBoomerang} Boomerang-managed, ${filteredByTitle} filtered by title, ${unlinkedEvents.length} to import`)
+    remoteLog(`[GCalSync] ${filteredByLinked} already linked, ${filteredByBoomerang} Boomerang-managed, ${filteredByTitle} filtered by title, ${candidateEvents.length} candidates`)
 
-    if (unlinkedEvents.length === 0) {
+    if (candidateEvents.length === 0) {
       remoteLog('[GCalSync] no new events to import')
       return
     }
 
-    // When a title filter is active, skip dedup — user explicitly searched for these
+    // When a title filter is active, skip dedup — create a task for each match
     if (titleFilter) {
-      remoteLog(`[GCalSync] title filter active, creating ${unlinkedEvents.length} tasks (no dedup)`)
+      // Don't create duplicates for events already linked to a task
+      const newEvents = candidateEvents.filter(e => !linkedEventIds.has(e.id))
+      remoteLog(`[GCalSync] title filter active: ${candidateEvents.length} matched, ${candidateEvents.length - newEvents.length} already linked, ${newEvents.length} to create`)
       const newTasks = []
-      for (const event of unlinkedEvents) {
+      for (const event of newEvents) {
         const dueDate = event.start?.date || (event.start?.dateTime ? event.start.dateTime.split('T')[0] : null)
         const task = createTask(
           event.summary || 'Untitled event',
@@ -80,7 +83,7 @@ export function useGCalSync(tasks, setTasks) {
     // Dedup: exact title match, then AI
     const unlinkedTasks = currentTasks.filter(t => !t.gcal_event_id && t.status !== 'done')
     const matchMap = await deduplicateImports({
-      items: unlinkedEvents,
+      items: candidateEvents,
       localTasks: unlinkedTasks,
       getTitle: e => e.summary,
       getId: e => e.id,
@@ -105,7 +108,7 @@ export function useGCalSync(tasks, setTasks) {
     }
 
     // Create new tasks for unmatched events
-    const newEvents = unlinkedEvents.filter(e => !matchMap.has(e.id))
+    const newEvents = candidateEvents.filter(e => !matchMap.has(e.id))
     remoteLog(`[GCalSync] ${newEvents.length} new events to import`)
 
     const newTasks = []
