@@ -95,18 +95,18 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
         <div className="scheduling-row">
           <div className="scheduling-field">
-            <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
+            <div className="settings-label">Due</div>
             <input
               className="routine-select"
               type="date"
               value={form.dueDate}
               min={today}
               onChange={e => form.setDueDate(e.target.value)}
-              style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14, width: 'auto' }}
+              style={{ marginBottom: 0, padding: '6px 8px', fontSize: 13, width: 'auto' }}
             />
           </div>
           <div className="scheduling-field">
-            <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
+            <div className="settings-label">Pri</div>
             <button
               className={`priority-toggle${form.highPriority ? ' active' : form.lowPriority ? ' low' : ''}`}
               onClick={() => {

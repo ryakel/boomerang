@@ -616,19 +616,19 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         {!makeRecurring && (
           <div className="scheduling-row">
             <div className="scheduling-field">
-              <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
+              <div className="settings-label">Due</div>
               <input
                 className="routine-select"
                 type="date"
                 value={dueDate}
                 min={today}
                 onChange={e => setDueDate(e.target.value)}
-                style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14, width: 'auto' }}
+                style={{ marginBottom: 0, padding: '6px 8px', fontSize: 13, width: 'auto' }}
               />
             </div>
             {dueDate && (
               <div className="scheduling-field">
-                <div className="settings-label" style={{ marginBottom: 4 }}>Duration</div>
+                <div className="settings-label">Dur</div>
                 <div className="duration-inline">
                   <input
                     className="add-input"
@@ -645,7 +645,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               </div>
             )}
             <div className="scheduling-field">
-              <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
+              <div className="settings-label">Pri</div>
               <button
                 className={`priority-toggle${priorityClass}`}
                 onClick={cyclePriority}
