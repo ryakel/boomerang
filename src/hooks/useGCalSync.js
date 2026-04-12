@@ -31,6 +31,9 @@ export function useGCalSync(tasks, setTasks) {
 
     const events = await gcalListEvents(timeMin, timeMax, calendarId)
     remoteLog(`[GCalSync] found ${events.length} events`)
+    if (events.length > 0) {
+      remoteLog(`[GCalSync] event titles: ${events.map(e => e.summary || '(untitled)').join(', ')}`)
+    }
 
     const currentTasks = tasksRef.current
     const linkedEventIds = new Set(currentTasks.filter(t => t.gcal_event_id).map(t => t.gcal_event_id))
