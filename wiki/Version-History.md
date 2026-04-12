@@ -13,6 +13,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Unlinking clears `notion_page_id` and `notion_url` on save
   - Wired `updateRoutineNotion` through App.jsx → Routines prop
   - Modified: `src/components/Routines.jsx`, `src/App.jsx`
+- fix(ui): fluid pull-to-close, scheduling row card, routine link [M]
+  - Pull-to-close on modals is now fluid with visual tracking (translateY + opacity fade during drag) instead of threshold-only detection
+  - "Part of routine" at top of EditTaskModal is now a tappable link that opens the Routines view
+  - Scheduling row (due date + duration + priority) wrapped in a subtle card (`.scheduling-row`) with `justify-content: space-between` so fields spread evenly with breathing room
+  - Date input uses `width: auto` so it sizes to content instead of expanding to fill
+  - Modified: `src/components/EditTaskModal.jsx`, `src/components/EditTaskModal.css`, `src/components/AddTaskModal.jsx`, `src/App.jsx`
 - fix(ui): second pass form polish — spacing, button consistency, Trello clarity [M]
   - Due date on its own line; Duration + Priority on a second row with breathing room (no longer smashed together)
   - Labels section gets 16px bottom margin to visually separate from the categorization form-group

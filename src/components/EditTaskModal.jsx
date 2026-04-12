@@ -12,7 +12,7 @@ function formatFileSize(bytes) {
 
 const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
 
-export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange }) {
+export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange, onOpenRoutines }) {
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes || '')
   const [selectedTags, setSelectedTags] = useState(task.tags || [])
@@ -483,22 +483,41 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     }
   }
 
-  // Pull-to-close: swipe down on sheet handle area
+  // Pull-to-close: fluid swipe down with visual tracking
   const sheetRef = useRef(null)
   const pullStartRef = useRef(null)
+  const [pullY, setPullY] = useState(0)
   const handlePullStart = (e) => {
-    pullStartRef.current = { y: e.touches[0].clientY, scrollTop: sheetRef.current?.scrollTop || 0 }
+    const scrollTop = sheetRef.current?.scrollTop || 0
+    if (scrollTop > 0) return // only pull when scrolled to top
+    pullStartRef.current = { y: e.touches[0].clientY }
   }
-  const handlePullEnd = (e) => {
+  const handlePullMove = (e) => {
     if (!pullStartRef.current) return
-    const dy = e.changedTouches[0].clientY - pullStartRef.current.y
-    if (dy > 80 && pullStartRef.current.scrollTop <= 0) handleClose()
+    const dy = e.touches[0].clientY - pullStartRef.current.y
+    if (dy > 0) {
+      setPullY(dy * 0.6) // damped drag
+      if (dy > 20) e.preventDefault()
+    }
+  }
+  const handlePullEnd = () => {
+    if (!pullStartRef.current) return
+    if (pullY > 100) handleClose()
+    else setPullY(0)
     pullStartRef.current = null
   }
 
   return (
     <div className="sheet-overlay" onClick={handleClose}>
-      <div className="sheet" ref={sheetRef} onClick={e => e.stopPropagation()} onTouchStart={handlePullStart} onTouchEnd={handlePullEnd}>
+      <div
+        className="sheet"
+        ref={sheetRef}
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handlePullStart}
+        onTouchMove={handlePullMove}
+        onTouchEnd={handlePullEnd}
+        style={pullY > 0 ? { transform: `translateY(${pullY}px)`, transition: 'none', opacity: Math.max(0.5, 1 - pullY / 300) } : undefined}
+      >
         <button className="sheet-handle" onClick={handleClose} />
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
         <span className={`autosave-pill autosave-pill-floating ${justSaved ? 'autosave-pill-saved' : ''}`}>
@@ -507,7 +526,13 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         <div className="sheet-title">Edit Task</div>
         {isAlreadyRoutine && (
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-dim)', marginBottom: 8, marginTop: -8 }}>
-            Part of routine: <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{parentRoutine?.title || 'Unknown'}</span>
+            Part of routine: {onOpenRoutines ? (
+              <button onClick={onOpenRoutines} style={{ color: '#A78BFA', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0 }}>
+                {parentRoutine?.title || 'Unknown'} →
+              </button>
+            ) : (
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{parentRoutine?.title || 'Unknown'}</span>
+            )}
           </div>
         )}
 
@@ -583,10 +608,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           )}
         </div>
 
-        {/* Scheduling: Due date + Duration + Priority inline */}
+        {/* Scheduling: Due date + Duration + Priority */}
         {!makeRecurring && (
-          <div className="form-inline-row" style={{ gap: 16 }}>
-            <div className="form-inline-field">
+          <div className="scheduling-row">
+            <div className="scheduling-field">
               <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
               <input
                 className="routine-select"
@@ -598,7 +623,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               />
             </div>
             {dueDate && (
-              <div className="form-inline-field">
+              <div className="scheduling-field">
                 <div className="settings-label" style={{ marginBottom: 4 }}>Duration</div>
                 <div className="duration-inline">
                   <input
@@ -615,7 +640,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
                 </div>
               </div>
             )}
-            <div className="form-inline-field">
+            <div className="scheduling-field">
               <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
               <button
                 className={`priority-toggle${priorityClass}`}

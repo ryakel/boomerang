@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import './AddTaskModal.css'
 import { loadLabels, getDefaultDueDate, ENERGY_TYPES } from '../store'
 import { useTaskForm } from '../hooks/useTaskForm'
@@ -22,22 +22,41 @@ export default function AddTaskModal({ onAdd, onClose }) {
 
   const today = new Date().toISOString().split('T')[0]
 
-  // Pull-to-close
+  // Pull-to-close: fluid swipe down
   const sheetRef = useRef(null)
   const pullStartRef = useRef(null)
+  const [pullY, setPullY] = useState(0)
   const handlePullStart = useCallback((e) => {
-    pullStartRef.current = { y: e.touches[0].clientY, scrollTop: sheetRef.current?.scrollTop || 0 }
+    const scrollTop = sheetRef.current?.scrollTop || 0
+    if (scrollTop > 0) return
+    pullStartRef.current = { y: e.touches[0].clientY }
   }, [])
-  const handlePullEnd = useCallback((e) => {
+  const handlePullMove = useCallback((e) => {
     if (!pullStartRef.current) return
-    const dy = e.changedTouches[0].clientY - pullStartRef.current.y
-    if (dy > 80 && pullStartRef.current.scrollTop <= 0) { if (form.title.trim()) handleSubmit(); else onClose() }
+    const dy = e.touches[0].clientY - pullStartRef.current.y
+    if (dy > 0) {
+      setPullY(dy * 0.6)
+      if (dy > 20) e.preventDefault()
+    }
+  }, [])
+  const handlePullEnd = useCallback(() => {
+    if (!pullStartRef.current) return
+    if (pullY > 100) { if (form.title.trim()) handleSubmit(); else onClose() }
+    else setPullY(0)
     pullStartRef.current = null
-  }, [form.title, handleSubmit, onClose])
+  }, [pullY, form.title, handleSubmit, onClose])
 
   return (
     <div className="sheet-overlay" onClick={onClose}>
-      <div className="sheet" ref={sheetRef} onClick={e => e.stopPropagation()} onTouchStart={handlePullStart} onTouchEnd={handlePullEnd}>
+      <div
+        className="sheet"
+        ref={sheetRef}
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handlePullStart}
+        onTouchMove={handlePullMove}
+        onTouchEnd={handlePullEnd}
+        style={pullY > 0 ? { transform: `translateY(${pullY}px)`, transition: 'none', opacity: Math.max(0.5, 1 - pullY / 300) } : undefined}
+      >
         <button className="sheet-handle" onClick={() => { if (form.title.trim()) handleSubmit(); else onClose(); }} />
         <div className="sheet-title">Add Task</div>
 
@@ -68,8 +87,8 @@ export default function AddTaskModal({ onAdd, onClose }) {
           <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{form.polishError}</div>
         )}
 
-        <div className="form-inline-row" style={{ gap: 16 }}>
-          <div className="form-inline-field">
+        <div className="scheduling-row">
+          <div className="scheduling-field">
             <div className="settings-label" style={{ marginBottom: 4 }}>Due date</div>
             <input
               className="routine-select"
@@ -80,7 +99,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
               style={{ marginBottom: 0, padding: '8px 10px', fontSize: 14, width: 'auto' }}
             />
           </div>
-          <div className="form-inline-field">
+          <div className="scheduling-field">
             <div className="settings-label" style={{ marginBottom: 4 }}>Priority</div>
             <button
               className={`priority-toggle${form.highPriority ? ' active' : form.lowPriority ? ' low' : ''}`}

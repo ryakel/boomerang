@@ -742,6 +742,7 @@ function App() {
           onBacklog={(id, toBacklog) => { handleBacklog(id, toBacklog); setEditTarget(null) }}
           onProject={(id, toProject) => { handleProject(id, toProject); setEditTarget(null) }}
           onStatusChange={handleStatusChange}
+          onOpenRoutines={() => { setEditTarget(null); setShowRoutines(true) }}
         />
       )}
 

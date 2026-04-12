@@ -785,6 +785,24 @@
   color: #4A9EFF;
 }
 
+/* Scheduling row: date + duration + priority evenly spaced */
+.scheduling-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.scheduling-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 /* Compact date in inline rows */
 .form-inline-row input[type="date"].routine-select,
 .form-inline-row input[type="time"].routine-select {
