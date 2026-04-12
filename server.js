@@ -2266,7 +2266,6 @@ initDb(dbPath).then(async () => {
     console.log(`Google Calendar: ${envGoogleClientId && envGoogleClientSecret ? 'from env' : 'user-provided via UI'}`)
     console.log(`Gmail: ${getData(GMAIL_TOKENS_KEY)?.refresh_token ? 'connected' : 'not connected'}`)
     console.log(`17track: ${envTrackingApiKey ? 'from env' : 'user-provided via UI'}`)
-    console.log(`USPS API: ${envUspsClientId && envUspsClientSecret ? 'configured (unused — USPS requires IP agreement for third-party tracking)' : 'not configured'}`)
     console.log(`SMTP: ${envSmtpHost ? 'from env' : 'not configured'}`)
 
     // Start notification loops

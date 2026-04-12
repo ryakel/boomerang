@@ -73,9 +73,17 @@ function ServerLogs() {
   useEffect(() => { fetchLogs() }, [fetchLogs])
 
   const FILTERS = ['all', 'Gmail', 'GCal', 'Push', 'Email', 'DB', 'SSE', 'error']
+  const FILTER_PATTERNS = {
+    Gmail: ['[Gmail]'],
+    GCal: ['[GCal]', '[GCalSync]'],
+    Push: ['[Push]'],
+    Email: ['[Email]'],
+    DB: ['[DB]'],
+    SSE: ['[SSE]', '[SYNC]'],
+  }
   const filtered = filter === 'all' ? logs
     : filter === 'error' ? logs.filter(l => l.level === 'error' || l.level === 'warn')
-    : logs.filter(l => l.msg.includes(`[${filter}]`))
+    : logs.filter(l => (FILTER_PATTERNS[filter] || [`[${filter}]`]).some(p => l.msg.includes(p)))
 
   const handleCopy = () => {
     const text = logs.map(l => `${l.ts} [${l.level}] ${l.msg}`).join('\n')
