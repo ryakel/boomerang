@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-13
+
+- docs(cleanup): fix stale entries and create tracking issues for untracked work [S]
+  - CLAUDE.md: removed stale "Phase 2 Gmail not yet implemented" from Package Tracking (Gmail scanning already exists)
+  - CLAUDE.md: added issue cross-references to Notion, email, and push known limitations
+  - CLAUDE.md: corrected prop count for #3 (13 callbacks, 2 unused) and added #14-18 to tech debt list
+  - UPCOMING_FEATURES.md: removed GCal sync (already shipped), added AI email nudges, notification batching, per-type frequencies
+  - Created issues: #15 (morning digest), #16 (AI email nudges), #17 (notification batching), #18 (Trello multi-list UI)
+  - Modified: `CLAUDE.md`, `UPCOMING_FEATURES.md`, `wiki/Version-History.md`
+
 ## 2026-04-12
 
 - fix(sync): gcal pull filter diagnostic logging, larger filter input [XS]

@@ -117,8 +117,8 @@ Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks 
 
 **Known Limitations:**
 - Deeply nested sub-pages (children of children) are not followed — only direct children
-- Database sync is endpoint-ready but not yet wired into the UI
-- Routine auto-creation from recurring patterns is a future enhancement
+- Database sync is endpoint-ready but not yet wired into the UI (tracked: #8)
+- Routine auto-creation from recurring patterns is a future enhancement (tracked: #9)
 - Page content is truncated to 4000 chars for AI analysis
 - Ongoing sync is Boomerang → Notion only (Notion → Boomerang requires pull sync)
 
@@ -271,7 +271,7 @@ Track packages with auto carrier detection, adaptive server-side polling, and de
 - No webhook support yet (polling only)
 - Carrier detection regex may not cover all carriers — falls back to "other"
 - UPS sometimes lacks ETA data from 17track (InfoReceived status has no estimated_delivery_date)
-- Phase 2 (Gmail integration for auto-extraction) not yet implemented
+- Gmail auto-extraction is implemented (see Gmail Integration section) but not webhook-based
 
 ### Notifications System
 - Configurable notification types: high priority (with 3-stage escalation), overdue, stale, nudges, size-based, pile-up warnings
@@ -318,8 +318,8 @@ Server-side email notification engine (`emailNotifications.js`) that mirrors cli
 - Note: T-Mobile's tmomail.net gateway is unreliable/deprecated — use Web Push instead
 
 **Known Limitations:**
-- No digest/batching mode yet (sends individual emails per notification type)
-- AI-generated nudge messages not yet wired for email (uses static messages)
+- No digest/batching mode yet (sends individual emails per notification type) (tracked: #17)
+- AI-generated nudge messages not yet wired for email (uses static messages) (tracked: #16)
 - No email notification history visible in UI (logged server-side only)
 
 ### Web Push Notifications
@@ -356,7 +356,7 @@ Server-side Web Push engine (`pushNotifications.js`) that sends background notif
 **Known Limitations:**
 - iOS requires PWA to be added to Home Screen before push works
 - Each device must subscribe independently (multi-device = multiple subscriptions)
-- No notification grouping/batching yet
+- No notification grouping/batching yet (tracked: #17)
 
 ### Projects (Long-term Safe Space)
 Dedicated space for longer-term tasks that should never trigger notifications or nagging.
@@ -462,9 +462,14 @@ Do NOT push without updating docs. Bundle doc updates into the same commit when 
 
 Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key items:
 
-- **#3** — Prop drilling: App.jsx passes ~14 callbacks to TaskCard, needs TaskActionsContext
+- **#3** — Prop drilling: App.jsx passes 13 callbacks to TaskCard (2 unused), needs TaskActionsContext
 - **#4-6** — Desktop UI Phases 3-5 (side drawer, keyboard shortcuts, richer cards)
 - **#8-10** — Notion database sync UI, Notion recurring patterns, GCal recurring events
+- **#14** — Markdown import for bulk task creation
+- **#15** — Morning digest notification (setting exists, trigger not wired)
+- **#16** — AI-generated nudge messages for email (push has it, email doesn't)
+- **#17** — Notification grouping/batching for email and push
+- **#18** — Trello multi-list sync UI (endpoint exists, UI not wired)
 
 ### Architecture Notes (completed work)
 
