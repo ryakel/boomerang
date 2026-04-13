@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask } from '../store'
-import { notionGetChildPages, notionGetBlocks, analyzeNotionPage, aiDedupNotionPages } from '../api'
+import { notionGetChildPages, notionQueryDatabase, notionGetBlocks, analyzeNotionPage, aiDedupNotionPages } from '../api'
 import { deduplicateImports, remoteLog } from '../syncDedup'
 
 // Track last_edited_time per page to avoid re-analyzing unchanged pages
@@ -25,10 +25,89 @@ export function useNotionSync(tasks, setTasks) {
 
   const isNotionSyncConfigured = useCallback(() => {
     const s = loadSettings()
-    return !!s.notion_sync_parent_id
+    return !!(s.notion_sync_parent_id || s.notion_db_id)
   }, [])
 
-  // Pull: Notion → Boomerang
+  // Pull from Notion Database → Boomerang
+  // Database rows are pages — we create tasks from their titles directly
+  const pullFromDatabase = useCallback(async () => {
+    const s = loadSettings()
+    if (!s.notion_db_id) return
+
+    remoteLog('[NotionSync] starting database pull from:', s.notion_db_id)
+
+    // Query all pages from the database (paginated)
+    let allPages = []
+    let cursor = null
+    do {
+      const result = await notionQueryDatabase(s.notion_db_id, cursor)
+      allPages = allPages.concat(result.pages || [])
+      cursor = result.has_more ? result.next_cursor : null
+      if (cursor) await new Promise(r => setTimeout(r, 400)) // rate limit
+    } while (cursor)
+
+    remoteLog(`[NotionSync] found ${allPages.length} database rows`)
+
+    const currentTasks = tasksRef.current
+    const linkedPageIds = new Set(currentTasks.filter(t => t.notion_page_id).map(t => t.notion_page_id))
+
+    // Filter to unlinked rows
+    const unlinkedPages = allPages.filter(p => !linkedPageIds.has(p.id))
+    remoteLog(`[NotionSync] ${linkedPageIds.size} already linked, ${unlinkedPages.length} unlinked`)
+
+    if (unlinkedPages.length === 0) {
+      remoteLog('[NotionSync] no new database rows to import')
+      return
+    }
+
+    // Dedup: exact title match, then AI
+    const unlinkedTasks = currentTasks.filter(t => !t.notion_page_id && t.status !== 'done')
+    const matchMap = await deduplicateImports({
+      items: unlinkedPages,
+      localTasks: unlinkedTasks,
+      getTitle: p => p.title,
+      getId: p => p.id,
+      aiDedupFn: aiDedupNotionPages,
+      itemIdField: 'page_id',
+      logPrefix: '[NotionDbSync]',
+    })
+
+    // Link matched rows to existing tasks
+    const linkUpdates = []
+    for (const [pageId, taskId] of matchMap) {
+      const page = allPages.find(p => p.id === pageId)
+      linkUpdates.push({ taskId, pageId, url: page?.url })
+    }
+
+    if (linkUpdates.length > 0) {
+      setTasks(prev => prev.map(t => {
+        const link = linkUpdates.find(l => l.taskId === t.id)
+        if (!link) return t
+        return { ...t, notion_page_id: link.pageId, notion_url: link.url }
+      }))
+      remoteLog(`[NotionDbSync] linked ${linkUpdates.length} existing tasks`)
+    }
+
+    // Create tasks for truly new rows (using title directly, no AI analysis needed)
+    const newPages = unlinkedPages.filter(p => !matchMap.has(p.id))
+    remoteLog(`[NotionDbSync] ${newPages.length} new rows to import`)
+
+    const newTasks = []
+    for (const page of newPages) {
+      if (!page.title || !page.title.trim()) continue
+      const task = createTask(page.title, [], null, '')
+      task.notion_page_id = page.id
+      task.notion_url = page.url
+      newTasks.push(task)
+    }
+
+    if (newTasks.length > 0) {
+      setTasks(prev => [...newTasks, ...prev])
+      remoteLog(`[NotionDbSync] created ${newTasks.length} new tasks from database rows`)
+    }
+  }, [setTasks])
+
+  // Pull: Notion → Boomerang (page-based)
   // Flow: get child pages → match to existing tasks → analyze new/changed pages → create tasks
   const pullFromNotion = useCallback(async () => {
     const s = loadSettings()
@@ -147,10 +226,11 @@ export function useNotionSync(tasks, setTasks) {
     setSyncError(null)
 
     try {
-      await pullFromNotion()
+      const s = loadSettings()
+      if (s.notion_sync_parent_id) await pullFromNotion()
+      if (s.notion_db_id) await pullFromDatabase()
       const now = new Date().toISOString()
       setLastSync(now)
-      const s = loadSettings()
       saveSettings({ ...s, notion_last_sync: now })
       remoteLog('[NotionSync] sync complete')
     } catch (err) {
@@ -160,7 +240,7 @@ export function useNotionSync(tasks, setTasks) {
       syncingRef.current = false
       setSyncing(false)
     }
-  }, [isNotionSyncConfigured, pullFromNotion])
+  }, [isNotionSyncConfigured, pullFromNotion, pullFromDatabase])
 
   // Sync on mount and when returning to the app (visibility change)
   useEffect(() => {

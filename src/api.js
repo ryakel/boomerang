@@ -358,6 +358,17 @@ export async function notionGetChildPages(parentId) {
   return res.json() // { pages: [{ id, title, url, last_edited }] }
 }
 
+export async function notionQueryDatabase(dbId, cursor) {
+  const body = cursor ? { start_cursor: cursor } : {}
+  const res = await fetch(`/api/notion/databases/${dbId}/query`, {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error('Failed to query database')
+  return res.json() // { pages: [{ id, title, url, last_edited }], has_more, next_cursor }
+}
+
 // AI analysis: read a Notion page's content and extract actionable tasks
 // One page can produce multiple tasks (e.g., "furnace filter" → "buy filters" + "change filter")
 export async function analyzeNotionPage(title, plainTextContent) {

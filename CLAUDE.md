@@ -117,7 +117,7 @@ Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks 
 
 **Known Limitations:**
 - Deeply nested sub-pages (children of children) are not followed — only direct children
-- Database sync is endpoint-ready but not yet wired into the UI (tracked: #8)
+- Database sync is wired into Settings UI with database ID/URL input (#8 — DONE)
 - Routine auto-creation from recurring patterns is a future enhancement (tracked: #9)
 - Page content is truncated to 4000 chars for AI analysis
 - Ongoing sync is Boomerang → Notion only (Notion → Boomerang requires pull sync)
@@ -466,7 +466,8 @@ Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key item
 - **#4** — ~~Desktop UI Phase 3 — side drawer~~ **DONE**
 - **#5** — ~~Desktop UI Phase 4 — keyboard shortcuts~~ **DONE**
 - **#6** — ~~Desktop UI Phase 5 — richer cards~~ **DONE**
-- **#8-10** — Notion database sync UI, Notion recurring patterns, GCal recurring events
+- **#8** — ~~Notion database sync UI~~ **DONE**
+- **#9-10** — Notion recurring patterns, GCal recurring events
 - **#14** — ~~Markdown import~~ **DONE**
 - **#15** — Morning digest notification (setting exists, trigger not wired)
 - **#16** — AI-generated nudge messages for email (push has it, email doesn't)

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
@@ -248,6 +248,9 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
   const [notionSyncResults, setNotionSyncResults] = useState(null)
   const [notionSyncSearching, setNotionSyncSearching] = useState(false)
   const [notionSyncChildCount, setNotionSyncChildCount] = useState(null)
+  const [notionDbInput, setNotionDbInput] = useState('')
+  const [notionDbVerifying, setNotionDbVerifying] = useState(false)
+  const [notionDbError, setNotionDbError] = useState(null)
 
   const handleNotionSyncSearch = async () => {
     if (!notionSyncSearch.trim()) return
@@ -284,6 +287,33 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
         .catch(() => setNotionSyncChildCount(null))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleConnectDatabase = async () => {
+    const input = notionDbInput.trim()
+    if (!input) return
+    setNotionDbVerifying(true)
+    setNotionDbError(null)
+    try {
+      // Parse database ID from URL or raw ID
+      let dbId = input
+      const urlMatch = input.match(/([a-f0-9]{32})/)
+      if (urlMatch) dbId = urlMatch[1]
+      // Format with dashes if needed (Notion IDs are UUIDs)
+      if (dbId.length === 32 && !dbId.includes('-')) {
+        dbId = `${dbId.slice(0,8)}-${dbId.slice(8,12)}-${dbId.slice(12,16)}-${dbId.slice(16,20)}-${dbId.slice(20)}`
+      }
+      // Test the connection by querying with no results
+      const result = await notionQueryDatabase(dbId)
+      const title = result.pages?.[0]?.title ? `Database (${result.pages.length} rows)` : 'Connected database'
+      update('notion_db_id', dbId)
+      update('notion_db_title', title)
+      setNotionDbInput('')
+    } catch (err) {
+      setNotionDbError(err.message || 'Could not connect to database. Check the ID and permissions.')
+    } finally {
+      setNotionDbVerifying(false)
+    }
+  }
 
   const handleNotionConnect = async () => {
     setNotionConnected('checking')
@@ -1114,6 +1144,64 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                         )}
                         {notionSyncResults && notionSyncResults.length === 0 && (
                           <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No pages found</div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Notion Database Sync — only show when connected */}
+                {notionConnected && notionConnected.connected && (
+                  <div style={{ marginTop: 12, padding: '12px', background: 'rgba(164, 120, 255, 0.04)', borderRadius: 'var(--radius-sm)' }}>
+                    <div className="settings-label" style={{ marginBottom: 8 }}>Database Sync</div>
+                    {settings.notion_db_id ? (
+                      <div style={{ fontSize: 13 }}>
+                        <div style={{ marginBottom: 6 }}>
+                          Database: <strong>{settings.notion_db_title || 'Connected'}</strong>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            className="ci-upload-btn"
+                            disabled={notionSyncing}
+                            onClick={onNotionSync}
+                          >
+                            {notionSyncing ? 'Syncing...' : 'Sync Now'}
+                          </button>
+                          <button
+                            className="ci-upload-btn"
+                            onClick={() => {
+                              update('notion_db_id', '')
+                              update('notion_db_title', '')
+                            }}
+                          >
+                            Disconnect
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                          Paste a Notion database ID or URL to sync its rows as tasks
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                          <input
+                            className="add-input"
+                            placeholder="Database ID or URL..."
+                            value={notionDbInput}
+                            onChange={e => { setNotionDbInput(e.target.value); setNotionDbError(null) }}
+                            onKeyDown={e => e.key === 'Enter' && handleConnectDatabase()}
+                            style={{ flex: 1, fontSize: 13 }}
+                          />
+                          <button
+                            className="ci-upload-btn"
+                            disabled={notionDbVerifying || !notionDbInput.trim()}
+                            onClick={handleConnectDatabase}
+                          >
+                            {notionDbVerifying ? 'Verifying...' : 'Connect'}
+                          </button>
+                        </div>
+                        {notionDbError && (
+                          <div style={{ fontSize: 12, color: '#FF3B30', marginTop: 4 }}>{notionDbError}</div>
                         )}
                       </>
                     )}

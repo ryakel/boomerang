@@ -17,6 +17,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(notion): wire database sync into UI [M]
+  - New "Database Sync" section in Settings → Notion (when connected)
+  - Paste database ID or URL → verifies connection → syncs rows as tasks
+  - Extended useNotionSync hook with `pullFromDatabase()` — queries all database rows with pagination
+  - Deduplication uses same two-pass system (exact title + AI fuzzy match)
+  - Database rows are Notion pages — reuses existing `notion_page_id` field
+  - New `notionQueryDatabase()` API function in api.js
+  - Settings: `notion_db_id`, `notion_db_title`
+  - Modified: `src/api.js`, `src/hooks/useNotionSync.js`, `src/components/Settings.jsx`
 - feat(ui): markdown import for bulk task creation [M]
   - New import button (FileDown icon) in header opens markdown import modal
   - Paste markdown or upload .md/.txt files
