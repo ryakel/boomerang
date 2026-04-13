@@ -17,6 +17,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- refactor(ui): consolidate header icons into dropdown menu [S]
+  - Replaced 4 individual icon buttons (Import, Projects, Packages, Settings) with a single "..." menu button
+  - Menu also includes Analytics and Activity Log (previously only accessible from other views)
+  - Click-outside to dismiss, Escape key closes menu
+  - Cleaner header: just logo + menu trigger
+  - Modified: `src/App.jsx`, `src/App.css`
 - feat(notifications): morning digest, AI nudges, batch mode, Trello multi-list [L]
   - Morning digest (#15): scheduled daily summary via email and/or push at configurable time
   - AI email nudges (#16): nudge messages now use Claude AI when API key available, static fallback

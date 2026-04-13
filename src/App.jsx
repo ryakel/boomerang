@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect, } from 'react'
-import { Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package, FolderKanban, FileDown } from 'lucide-react'
+import { Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package, FolderKanban, FileDown, MoreVertical, BarChart3, History } from 'lucide-react'
 import { polyfill } from 'mobile-drag-drop'
 import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scroll-behaviour'
 import 'mobile-drag-drop/default.css'
@@ -86,8 +86,10 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
   const searchTimer = useRef(null)
   const sortRef = useRef(null)
+  const menuRef = useRef(null)
   const quickRef = useRef(null)
 
   const labels = loadLabels()
@@ -175,6 +177,18 @@ function App() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [showSortDropdown])
+
+  // Close header menu on outside click
+  useEffect(() => {
+    if (!headerMenuOpen) return
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setHeaderMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [headerMenuOpen])
 
   const handleSortChange = (value) => {
     setSortBy(value)
@@ -372,6 +386,7 @@ function App() {
 
   const closeTopModal = useCallback(() => {
     // Close the most recently opened modal
+    if (headerMenuOpen) { setHeaderMenuOpen(false); return }
     if (showImport) { setShowImport(false); return }
     if (relatedTarget) { setRelatedTarget(null); return }
     if (showActivityLog) { setShowActivityLog(false); return }
@@ -424,11 +439,39 @@ function App() {
             <Logo size={24} />
             <span className="wordmark">BOOMERANG</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button className="header-icon-btn" onClick={() => setShowImport(true)} title="Import Markdown" style={{ color: 'var(--text-dim)' }}><FileDown size={20} /></button>
-            <button className="header-icon-btn projects-color" onClick={() => setShowProjects(true)} title="Projects"><FolderKanban size={20} /></button>
-            <button className="header-icon-btn packages-color" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
-            <button className="header-icon-btn settings-color" onClick={() => setShowSettings(true)}><SettingsIcon size={20} /></button>
+          <div className="header-menu-wrapper" ref={menuRef}>
+            <button className="header-icon-btn settings-color" onClick={() => setHeaderMenuOpen(!headerMenuOpen)} aria-label="Menu">
+              <MoreVertical size={20} />
+            </button>
+            {headerMenuOpen && (
+              <div className="header-menu">
+                <button className="header-menu-item" onClick={() => { setShowProjects(true); setHeaderMenuOpen(false) }}>
+                  <FolderKanban size={16} className="projects-color" />
+                  <span>Projects</span>
+                </button>
+                <button className="header-menu-item" onClick={() => { setShowPackages(true); setHeaderMenuOpen(false) }}>
+                  <Package size={16} className="packages-color" />
+                  <span>Packages</span>
+                </button>
+                <button className="header-menu-item" onClick={() => { setShowImport(true); setHeaderMenuOpen(false) }}>
+                  <FileDown size={16} />
+                  <span>Import Markdown</span>
+                </button>
+                <button className="header-menu-item" onClick={() => { setShowAnalytics(true); setHeaderMenuOpen(false) }}>
+                  <BarChart3 size={16} className="analytics-color" />
+                  <span>Analytics</span>
+                </button>
+                <button className="header-menu-item" onClick={() => { setShowActivityLog(true); setHeaderMenuOpen(false) }}>
+                  <History size={16} />
+                  <span>Activity Log</span>
+                </button>
+                <div className="header-menu-divider" />
+                <button className="header-menu-item" onClick={() => { setShowSettings(true); setHeaderMenuOpen(false) }}>
+                  <SettingsIcon size={16} />
+                  <span>Settings</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <div className="header-stats">

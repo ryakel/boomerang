@@ -174,6 +174,55 @@
 .packages-color { color: #F59E0B; }
 .settings-color { color: var(--text-muted); }
 
+/* Header dropdown menu */
+.header-menu-wrapper {
+  position: relative;
+}
+
+.header-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 0;
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 200;
+  animation: fadeIn 0.1s ease;
+}
+
+.header-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.header-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.header-menu-item svg {
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.header-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
 /* Tag filter bar */
 .tag-bar {
   display: flex;
