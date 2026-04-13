@@ -458,3 +458,39 @@
     display: flex;
   }
 }
+
+/* Keyboard shortcut help overlay */
+.keyboard-help {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 360px;
+  margin: auto;
+  position: relative;
+}
+
+.keyboard-help-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  align-items: center;
+}
+
+.keyboard-help-grid kbd {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  color: var(--text-primary);
+  min-width: 24px;
+  text-align: center;
+}
+
+.keyboard-help-grid span {
+  font-size: 14px;
+  color: var(--text-muted);
+}

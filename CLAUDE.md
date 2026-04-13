@@ -464,7 +464,8 @@ Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key item
 
 - **#3** — ~~Prop drilling~~ **DONE** — TaskActionsContext eliminates callback prop drilling on TaskCard
 - **#4** — ~~Desktop UI Phase 3 — side drawer~~ **DONE**
-- **#5-6** — Desktop UI Phases 4-5 (keyboard shortcuts, richer cards)
+- **#5** — ~~Desktop UI Phase 4 — keyboard shortcuts~~ **DONE**
+- **#6** — Desktop UI Phase 5 — richer cards
 - **#8-10** — Notion database sync UI, Notion recurring patterns, GCal recurring events
 - **#14** — Markdown import for bulk task creation
 - **#15** — Morning digest notification (setting exists, trigger not wired)

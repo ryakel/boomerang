@@ -10,7 +10,8 @@ const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
 export default memo(function TaskCard({ task, expanded = false, onToggleExpand }) {
-  const { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onGmailApprove, onGmailDismiss, isDesktop } = useTaskActions()
+  const { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onGmailApprove, onGmailDismiss, isDesktop, selectedTaskId } = useTaskActions()
+  const keyboardSelected = selectedTaskId === task.id
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const [swipeOpen, setSwipeOpen] = useState(false) // true when action buttons are revealed
@@ -115,7 +116,8 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
   if (isDesktop) {
     return (
       <div
-        className={`task-card task-card-desktop ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : task.low_priority ? 'low-priority' : ''}${task.gmail_pending ? ' gmail-pending' : ''}`}
+        className={`task-card task-card-desktop ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : task.low_priority ? 'low-priority' : ''}${task.gmail_pending ? ' gmail-pending' : ''}${keyboardSelected ? ' keyboard-selected' : ''}`}
+        data-task-id={task.id}
         onClick={() => onEdit(task)}
       >
         <div className="desktop-hover-actions">
@@ -215,6 +217,7 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
 
       <div
         ref={cardRef}
+        data-task-id={task.id}
         className={`task-card ${stale ? 'stale' : ''} ${snoozed ? 'snoozed' : ''} ${overdue ? 'overdue' : ''} ${task.high_priority ? 'high-priority' : task.low_priority ? 'low-priority' : ''}${task.gmail_pending ? ' gmail-pending' : ''}`}
         style={{
           transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,

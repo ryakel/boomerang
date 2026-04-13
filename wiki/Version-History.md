@@ -17,6 +17,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(ui): desktop keyboard shortcuts for task navigation and actions [M]
+  - New `src/hooks/useKeyboardShortcuts.js` — centralized keyboard handler
+  - Shortcuts: `n` (new task), `/` (search), `j`/`k`/arrows (navigate), `Enter`/`e` (edit), `x` (complete), `s` (snooze), `Escape` (close/deselect), `?` (help)
+  - Visual highlight on keyboard-selected card via `keyboard-selected` CSS class
+  - Auto-scroll selected task into view
+  - Escape key closes topmost modal/overlay with stack-aware ordering
+  - Shortcuts disabled when typing in inputs/textareas
+  - Help overlay accessible via `?` key
+  - Modified: `src/App.jsx`, `src/App.css`, `src/components/TaskCard.jsx`, `src/components/TaskCard.css`
+  - New: `src/hooks/useKeyboardShortcuts.js`
 - feat(ui): EditTaskModal renders as right-side drawer on desktop [M]
   - On desktop (≥768px), EditTaskModal slides in from the right as a 480px side drawer instead of bottom sheet
   - Overlay covers the left side (click to dismiss), no drag handle on desktop

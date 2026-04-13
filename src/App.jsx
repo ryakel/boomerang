@@ -40,6 +40,7 @@ import { usePackageNotifications } from './hooks/usePackageNotifications'
 import Packages from './components/Packages'
 import ProjectsView from './components/ProjectsView'
 import { TaskActionsProvider } from './contexts/TaskActionsContext'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 
@@ -339,6 +340,63 @@ function App() {
   const filteredBacklog = sortTasks(filterTasks(backlogTasks), sortBy)
   const filteredProjects = sortTasks(filterTasks(projectTasks), sortBy)
 
+  // Flat list of visible tasks for keyboard navigation (desktop only)
+  const visibleTasks = useMemo(() => [
+    ...filteredDoing, ...filteredStale, ...filteredUpNext,
+    ...filteredWaiting, ...filteredSnoozed,
+    ...(backlogOpen ? filteredBacklog : []),
+  ], [filteredDoing, filteredStale, filteredUpNext, filteredWaiting, filteredSnoozed, filteredBacklog, backlogOpen])
+
+  // Modal stack for Escape key handling
+  const activeModals = useMemo(() => {
+    const modals = []
+    if (editTarget) modals.push('edit')
+    if (showAdd) modals.push('add')
+    if (snoozeTarget) modals.push('snooze')
+    if (reframeTarget) modals.push('reframe')
+    if (extendTarget) modals.push('extend')
+    if (showWhatNow) modals.push('whatnow')
+    if (showSettings) modals.push('settings')
+    if (showDone) modals.push('done')
+    if (showRoutines) modals.push('routines')
+    if (showAnalytics) modals.push('analytics')
+    if (showActivityLog) modals.push('activitylog')
+    if (showPackages) modals.push('packages')
+    if (showProjects) modals.push('projects')
+    if (relatedTarget) modals.push('related')
+    return modals
+  }, [editTarget, showAdd, snoozeTarget, reframeTarget, extendTarget, showWhatNow, showSettings, showDone, showRoutines, showAnalytics, showActivityLog, showPackages, showProjects, relatedTarget])
+
+  const closeTopModal = useCallback(() => {
+    // Close the most recently opened modal
+    if (relatedTarget) { setRelatedTarget(null); return }
+    if (showActivityLog) { setShowActivityLog(false); return }
+    if (showAnalytics) { setShowAnalytics(false); return }
+    if (extendTarget) { setExtendTarget(null); return }
+    if (reframeTarget) { setReframeTarget(null); return }
+    if (snoozeTarget) { setSnoozeTarget(null); return }
+    if (showWhatNow) { setShowWhatNow(false); return }
+    if (editTarget) { setEditTarget(null); return }
+    if (showAdd) { setShowAdd(false); return }
+    if (showRoutines) { setShowRoutines(false); return }
+    if (showDone) { setShowDone(false); return }
+    if (showPackages) { setShowPackages(false); return }
+    if (showProjects) { setShowProjects(false); return }
+    if (showSettings) { setShowSettings(false); return }
+  }, [relatedTarget, showActivityLog, showAnalytics, extendTarget, reframeTarget, snoozeTarget, showWhatNow, editTarget, showAdd, showRoutines, showDone, showPackages, showProjects, showSettings])
+
+  const { selectedTaskId, showHelp, setShowHelp } = useKeyboardShortcuts({
+    isDesktop,
+    visibleTasks,
+    onEdit: setEditTarget,
+    onComplete: handleComplete,
+    onSnooze: handleSnooze,
+    openAddModal: useCallback(() => setShowAdd(true), []),
+    focusSearch: useCallback(() => { setSearchOpen(true); setTimeout(() => document.querySelector('.quick-input')?.focus(), 50) }, []),
+    activeModals,
+    closeTopModal,
+  })
+
   const taskActions = useMemo(() => ({
     onComplete: handleComplete,
     onSnooze: handleSnooze,
@@ -350,7 +408,8 @@ function App() {
     onGmailApprove: handleGmailApprove,
     onGmailDismiss: handleGmailDismiss,
     isDesktop,
-  }), [handleComplete, handleSnooze, handleStatusChange, updateTask, handleDelete, handleGmailApprove, handleGmailDismiss, isDesktop])
+    selectedTaskId,
+  }), [handleComplete, handleSnooze, handleStatusChange, updateTask, handleDelete, handleGmailApprove, handleGmailDismiss, isDesktop, selectedTaskId])
 
   return (
     <TaskActionsProvider value={taskActions}>
@@ -787,6 +846,26 @@ function App() {
             }}>
               Reload now
             </button>
+          </div>
+        </div>
+      )}
+
+      {showHelp && (
+        <div className="sheet-overlay" onClick={() => setShowHelp(false)}>
+          <div className="keyboard-help" onClick={e => e.stopPropagation()}>
+            <button className="modal-close-btn" onClick={() => setShowHelp(false)} aria-label="Close">✕</button>
+            <h3 style={{ margin: '0 0 16px', fontFamily: 'var(--font-display)' }}>Keyboard Shortcuts</h3>
+            <div className="keyboard-help-grid">
+              <kbd>n</kbd><span>New task</span>
+              <kbd>/</kbd><span>Search</span>
+              <kbd>j</kbd> <kbd>↓</kbd><span>Next task</span>
+              <kbd>k</kbd> <kbd>↑</kbd><span>Previous task</span>
+              <kbd>Enter</kbd> <kbd>e</kbd><span>Edit selected</span>
+              <kbd>x</kbd><span>Complete selected</span>
+              <kbd>s</kbd><span>Snooze selected</span>
+              <kbd>Esc</kbd><span>Close / deselect</span>
+              <kbd>?</kbd><span>This help</span>
+            </div>
           </div>
         </div>
       )}
