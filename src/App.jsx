@@ -439,39 +439,34 @@ function App() {
             <Logo size={24} />
             <span className="wordmark">BOOMERANG</span>
           </div>
-          <div className="header-menu-wrapper" ref={menuRef}>
-            <button className="header-icon-btn settings-color" onClick={() => setHeaderMenuOpen(!headerMenuOpen)} aria-label="Menu">
-              <MoreVertical size={20} />
-            </button>
-            {headerMenuOpen && (
-              <div className="header-menu">
-                <button className="header-menu-item" onClick={() => { setShowProjects(true); setHeaderMenuOpen(false) }}>
-                  <FolderKanban size={16} className="projects-color" />
-                  <span>Projects</span>
-                </button>
-                <button className="header-menu-item" onClick={() => { setShowPackages(true); setHeaderMenuOpen(false) }}>
-                  <Package size={16} className="packages-color" />
-                  <span>Packages</span>
-                </button>
-                <button className="header-menu-item" onClick={() => { setShowImport(true); setHeaderMenuOpen(false) }}>
-                  <FileDown size={16} />
-                  <span>Import Markdown</span>
-                </button>
-                <button className="header-menu-item" onClick={() => { setShowAnalytics(true); setHeaderMenuOpen(false) }}>
-                  <BarChart3 size={16} className="analytics-color" />
-                  <span>Analytics</span>
-                </button>
-                <button className="header-menu-item" onClick={() => { setShowActivityLog(true); setHeaderMenuOpen(false) }}>
-                  <History size={16} />
-                  <span>Activity Log</span>
-                </button>
-                <div className="header-menu-divider" />
-                <button className="header-menu-item" onClick={() => { setShowSettings(true); setHeaderMenuOpen(false) }}>
-                  <SettingsIcon size={16} />
-                  <span>Settings</span>
-                </button>
-              </div>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button className="header-icon-btn packages-color" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
+            <button className="header-icon-btn settings-color" onClick={() => setShowSettings(true)} title="Settings"><SettingsIcon size={20} /></button>
+            <div className="header-menu-wrapper" ref={menuRef}>
+              <button className="header-icon-btn" style={{ color: 'var(--text-dim)' }} onClick={() => setHeaderMenuOpen(!headerMenuOpen)} aria-label="More">
+                <MoreVertical size={20} />
+              </button>
+              {headerMenuOpen && (
+                <div className="header-menu">
+                  <button className="header-menu-item" onClick={() => { setShowProjects(true); setHeaderMenuOpen(false) }}>
+                    <FolderKanban size={16} className="projects-color" />
+                    <span>Projects</span>
+                  </button>
+                  <button className="header-menu-item" onClick={() => { setShowImport(true); setHeaderMenuOpen(false) }}>
+                    <FileDown size={16} />
+                    <span>Import Markdown</span>
+                  </button>
+                  <button className="header-menu-item" onClick={() => { setShowAnalytics(true); setHeaderMenuOpen(false) }}>
+                    <BarChart3 size={16} className="analytics-color" />
+                    <span>Analytics</span>
+                  </button>
+                  <button className="header-menu-item" onClick={() => { setShowActivityLog(true); setHeaderMenuOpen(false) }}>
+                    <History size={16} />
+                    <span>Activity Log</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="header-stats">

@@ -17,6 +17,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- style(ui): keep Packages and Settings visible, overflow the rest into menu [XS]
+  - Header now shows: Packages icon + Settings gear + "..." overflow menu
+  - Overflow menu contains: Projects, Import Markdown, Analytics, Activity Log
+  - Modified: `src/App.jsx`
 - refactor(ui): consolidate header icons into dropdown menu [S]
   - Replaced 4 individual icon buttons (Import, Projects, Packages, Settings) with a single "..." menu button
   - Menu also includes Analytics and Activity Log (previously only accessible from other views)
