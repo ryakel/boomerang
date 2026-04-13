@@ -18,6 +18,45 @@
   outline-offset: -2px;
 }
 
+/* Desktop richer cards — notes preview and checklist progress */
+.desktop-notes-preview {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin-top: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-checklist-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.desktop-checklist-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-hover);
+  overflow: hidden;
+}
+
+.desktop-checklist-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #52C97F;
+  transition: width 0.2s ease;
+}
+
+.desktop-checklist-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 .task-card.stale {
   border-left: 3px solid var(--accent);
 }

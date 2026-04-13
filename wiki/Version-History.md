@@ -17,6 +17,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(ui): richer desktop task cards with notes preview and checklist progress [S]
+  - Desktop cards now show truncated notes preview (first 120 chars, muted text)
+  - Checklist progress bar with done/total count on cards with checklists
+  - Tags were already always visible on desktop (no change needed)
+  - Modified: `src/components/TaskCard.jsx`, `src/components/TaskCard.css`
 - feat(ui): desktop keyboard shortcuts for task navigation and actions [M]
   - New `src/hooks/useKeyboardShortcuts.js` — centralized keyboard handler
   - Shortcuts: `n` (new task), `/` (search), `j`/`k`/arrows (navigate), `Enter`/`e` (edit), `x` (complete), `s` (snooze), `Escape` (close/deselect), `?` (help)

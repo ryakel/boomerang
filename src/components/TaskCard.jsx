@@ -182,6 +182,23 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
             )}
           </div>
         )}
+        {task.notes && (
+          <div className="desktop-notes-preview">{task.notes.length > 120 ? task.notes.slice(0, 120) + '...' : task.notes}</div>
+        )}
+        {(() => {
+          const lists = task.checklists?.length ? task.checklists : task.checklist?.length ? [{ items: task.checklist }] : []
+          const total = lists.reduce((s, c) => s + c.items.length, 0)
+          const done = lists.reduce((s, c) => s + c.items.filter(i => i.completed).length, 0)
+          if (total === 0) return null
+          return (
+            <div className="desktop-checklist-progress">
+              <div className="desktop-checklist-bar">
+                <div className="desktop-checklist-fill" style={{ width: `${Math.round((done / total) * 100)}%` }} />
+              </div>
+              <span className="desktop-checklist-count">{done}/{total}</span>
+            </div>
+          )
+        })()}
       </div>
     )
   }
