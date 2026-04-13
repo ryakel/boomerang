@@ -625,25 +625,22 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
                 value={dueDate}
                 min={today}
                 onChange={e => setDueDate(e.target.value)}
-                style={{ marginBottom: 0, padding: '6px 6px', fontSize: 13, width: 'auto', maxWidth: 150 }}
+                style={{ marginBottom: 0, fontSize: 13 }}
               />
             </div>
             {dueDate && (
               <div className="scheduling-field">
                 <div className="settings-label">Dur (min)</div>
-                <div className="duration-inline">
-                  <input
-                    className="add-input"
-                    type="number"
-                    min="5"
-                    max="480"
-                    step="5"
-                    placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
-                    value={gcalDuration}
-                    onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
-                    style={{ width: 60 }}
-                  />
-                </div>
+                <input
+                  className="dur-input"
+                  type="number"
+                  min="5"
+                  max="480"
+                  step="5"
+                  placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
+                  value={gcalDuration}
+                  onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
+                />
               </div>
             )}
             <div className="scheduling-field">

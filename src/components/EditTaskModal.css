@@ -762,7 +762,7 @@
   align-items: center;
   justify-content: center;
   width: 76px;
-  padding: 6px 0;
+  padding: 0;
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
@@ -772,7 +772,6 @@
   border: 2px solid transparent;
   transition: all 0.15s;
   white-space: nowrap;
-  box-sizing: content-box;
 }
 
 .priority-toggle.active {
@@ -790,8 +789,8 @@
 /* Scheduling row: date + duration + priority evenly spaced */
 .scheduling-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-end;
+  gap: 10px;
   background: var(--surface);
   border-radius: var(--radius);
   padding: 10px 12px;
@@ -800,7 +799,7 @@
 
 .scheduling-row .settings-label {
   font-size: 9px;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .scheduling-field {
@@ -811,6 +810,22 @@
 
 .scheduling-field:first-child {
   flex: 1;
+}
+
+.scheduling-field input,
+.scheduling-field .priority-toggle {
+  height: 36px;
+  box-sizing: border-box;
+}
+
+.scheduling-field .dur-input {
+  width: 64px;
+  padding: 6px 8px;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-sm);
 }
 
 /* Compact date in inline rows */

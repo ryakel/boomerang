@@ -17,6 +17,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- fix(ui): scheduling row alignment — due, duration, priority fields properly aligned [XS]
+  - All three fields now use `align-items: flex-end` so labels sit above and inputs line up at bottom
+  - Consistent 36px input height across date, duration, and priority toggle
+  - Duration input uses dedicated `dur-input` class (was using `add-input` with wrong sizing)
+  - Removed inline style overrides that caused misalignment
+  - Modified: `src/components/EditTaskModal.jsx`, `src/components/EditTaskModal.css`
 - feat(analytics): GitHub-style activity heat map and collapsible completed section [M]
   - 52-week heat map showing daily task or point density with color intensity scaling
   - Metric toggle (Tasks/Points) changes heat map coloring (green/orange)
