@@ -4,11 +4,64 @@ import { FullRings } from './Rings'
 import { loadSettings, saveSettings, loadLabels, ENERGY_TYPES } from '../store'
 import { SIZE_POINTS } from '../scoring'
 import EnergyIcon from './EnergyIcon'
-import { Search } from 'lucide-react'
+import { Search, ChevronRight } from 'lucide-react'
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL']
 const SIZE_COLORS = { XS: '#60A5FA', S: '#52C97F', M: '#FFB347', L: '#F97316', XL: '#EF4444' }
+
+// Build heat map grid (52 weeks x 7 days, most recent week on the right)
+function buildHeatMapGrid(dailyData, metric) {
+  const dataMap = {}
+  for (const d of dailyData) {
+    dataMap[d.day] = d
+  }
+
+  const today = new Date()
+  const cells = []
+  // Go back 364 days (52 weeks)
+  const start = new Date(today)
+  start.setDate(start.getDate() - 363)
+  // Align to Sunday
+  start.setDate(start.getDate() - start.getDay())
+
+  const end = new Date(today)
+  end.setDate(end.getDate() + (6 - end.getDay())) // extend to Saturday
+
+  const d = new Date(start)
+  while (d <= end) {
+    const key = d.toISOString().split('T')[0]
+    const data = dataMap[key]
+    const value = data ? (metric === 'points' ? data.points : data.tasks) : 0
+    const isFuture = d > today
+    cells.push({ key, value, dow: d.getDay(), isFuture })
+    d.setDate(d.getDate() + 1)
+  }
+
+  // Group into weeks (columns)
+  const weeks = []
+  for (let i = 0; i < cells.length; i += 7) {
+    weeks.push(cells.slice(i, i + 7))
+  }
+
+  // Month labels
+  const months = []
+  let lastMonth = -1
+  weeks.forEach((week, wi) => {
+    const firstDay = week.find(c => !c.isFuture) || week[0]
+    const m = new Date(firstDay.key).getMonth()
+    if (m !== lastMonth) {
+      months.push({ index: wi, label: MONTH_LABELS[m] })
+      lastMonth = m
+    }
+  })
+
+  // Max value for color scaling
+  const maxVal = Math.max(1, ...cells.map(c => c.value))
+
+  return { weeks, months, maxVal }
+}
 
 export default function Analytics({ onClose, isDesktop }) {
   const settings = loadSettings()
@@ -18,15 +71,26 @@ export default function Analytics({ onClose, isDesktop }) {
   const [range, setRange] = useState(30)
   const [history, setHistory] = useState(null)
   const [chartMode, setChartMode] = useState('tasks')
+  const [heatMapData, setHeatMapData] = useState(null)
+  const [heatMapMetric, setHeatMapMetric] = useState('tasks')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState(null)
   const [searchFilters, setSearchFilters] = useState({})
+  const [completedOpen, setCompletedOpen] = useState(false)
   const searchTimer = useRef(null)
 
   useEffect(() => {
     fetch('/api/analytics')
       .then(res => res.ok ? res.json() : null)
       .then(data => { if (data) setStats(data) })
+      .catch(() => {})
+  }, [])
+
+  // Heat map: always fetch 365 days of daily data
+  useEffect(() => {
+    fetch('/api/analytics/history?days=365')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data) setHeatMapData(data.daily) })
       .catch(() => {})
   }, [])
 
@@ -52,10 +116,11 @@ export default function Analytics({ onClose, isDesktop }) {
   }, [searchQuery, searchFilters])
 
   useEffect(() => {
+    if (!completedOpen) return
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(doSearch, 400)
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
-  }, [doSearch])
+  }, [doSearch, completedOpen])
 
   const tasksToday = stats?.tasksToday || 0
   const pointsToday = stats?.pointsToday || 0
@@ -118,6 +183,12 @@ export default function Analytics({ onClose, isDesktop }) {
       saveSettings({ ...current, streak_current: 0 })
     }
   }
+
+  // Heat map grid
+  const heatMap = useMemo(() => {
+    if (!heatMapData) return null
+    return buildHeatMapGrid(heatMapData, heatMapMetric)
+  }, [heatMapData, heatMapMetric])
 
   // Chart helpers
   const dailyMax = useMemo(() => {
@@ -337,59 +408,133 @@ export default function Analytics({ onClose, isDesktop }) {
         </>
       )}
 
-      {/* ── Completion Search ── */}
-      <div className="analytics-divider" />
-      <div className="analytics-section">
-        <div className="analytics-section-title">Completed Tasks</div>
-        <div className="analytics-search">
-          <Search size={16} style={{ color: 'var(--text-dim)', flexShrink: 0 }} />
-          <input
-            className="analytics-search-input"
-            placeholder="Search completed tasks..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="analytics-filters">
-          <select className="analytics-filter-select" value={searchFilters.energy || ''} onChange={e => setSearchFilters(p => ({ ...p, energy: e.target.value || undefined }))}>
-            <option value="">All energy</option>
-            {ENERGY_TYPES.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
-          </select>
-          <select className="analytics-filter-select" value={searchFilters.size || ''} onChange={e => setSearchFilters(p => ({ ...p, size: e.target.value || undefined }))}>
-            <option value="">All sizes</option>
-            {SIZE_ORDER.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          {labels.length > 0 && (
-            <select className="analytics-filter-select" value={searchFilters.tag || ''} onChange={e => setSearchFilters(p => ({ ...p, tag: e.target.value || undefined }))}>
-              <option value="">All tags</option>
-              {labels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          )}
-        </div>
-        {searchResults && searchResults.length === 0 && (
-          <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: 16, fontSize: 13 }}>No completed tasks found</div>
-        )}
-        {searchResults && searchResults.map(t => (
-          <div key={t.id} className="completed-card">
-            <div className="completed-card-top">
-              <span className="completed-card-title">{t.title}</span>
-              {t.size && <span className={`size-pill size-${t.size.toLowerCase()}`} style={{ fontSize: 10, padding: '1px 6px' }}>{t.size}</span>}
+      {/* ── Heat Map ── */}
+      {heatMap && (
+        <>
+          <div className="analytics-divider" />
+          <div className="analytics-section">
+            <div className="analytics-range-row">
+              <div className="analytics-section-title" style={{ marginBottom: 0 }}>Activity</div>
+              <div className="analytics-range-picker">
+                <button className={`range-pill ${heatMapMetric === 'tasks' ? 'active' : ''}`} onClick={() => setHeatMapMetric('tasks')}>Tasks</button>
+                <button className={`range-pill ${heatMapMetric === 'points' ? 'active' : ''}`} onClick={() => setHeatMapMetric('points')}>Points</button>
+              </div>
             </div>
-            <div className="completed-card-meta">
-              {t.completed_at && <span>{new Date(t.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
-              {t.energy && (
-                <span className="completed-card-energy">
-                  <EnergyIcon icon={ENERGY_TYPES.find(e => e.id === t.energy)?.icon} color={ENERGY_TYPES.find(e => e.id === t.energy)?.color} size={12} />
-                </span>
-              )}
-              {t.tags?.map(tagId => {
-                const label = labelMap[tagId]
-                return label ? <span key={tagId} className="task-tag" style={{ background: `${label.color}22`, color: label.color, fontSize: 10, padding: '1px 6px' }}>{label.name}</span> : null
-              })}
+            <div className="heatmap-scroll">
+              <div className="heatmap">
+                <div className="heatmap-dow-labels">
+                  {['', 'Mon', '', 'Wed', '', 'Fri', ''].map((l, i) => (
+                    <div key={i} className="heatmap-dow-label">{l}</div>
+                  ))}
+                </div>
+                <div className="heatmap-grid">
+                  <div className="heatmap-month-labels">
+                    {heatMap.months.map((m, i) => (
+                      <div key={i} className="heatmap-month-label" style={{ gridColumn: m.index + 1 }}>{m.label}</div>
+                    ))}
+                  </div>
+                  <div className="heatmap-weeks">
+                    {heatMap.weeks.map((week, wi) => (
+                      <div key={wi} className="heatmap-week">
+                        {week.map(cell => (
+                          <div
+                            key={cell.key}
+                            className={`heatmap-cell${cell.isFuture ? ' future' : ''}`}
+                            style={{
+                              background: cell.isFuture ? 'transparent' : cell.value === 0
+                                ? 'var(--surface)'
+                                : heatMapMetric === 'tasks'
+                                  ? `rgba(82, 201, 127, ${Math.max(0.15, Math.min(1, cell.value / heatMap.maxVal))})`
+                                  : `rgba(255, 179, 71, ${Math.max(0.15, Math.min(1, cell.value / heatMap.maxVal))})`
+                            }}
+                            title={cell.isFuture ? '' : `${cell.key}: ${cell.value} ${heatMapMetric}`}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="heatmap-legend">
+              <span>Less</span>
+              {[0, 0.25, 0.5, 0.75, 1].map(level => (
+                <div
+                  key={level}
+                  className="heatmap-legend-cell"
+                  style={{
+                    background: level === 0 ? 'var(--surface)' :
+                      heatMapMetric === 'tasks'
+                        ? `rgba(82, 201, 127, ${Math.max(0.15, level)})`
+                        : `rgba(255, 179, 71, ${Math.max(0.15, level)})`
+                  }}
+                />
+              ))}
+              <span>More</span>
             </div>
           </div>
-        ))}
-      </div>
+        </>
+      )}
+
+      {/* ── Completion Search (collapsible) ── */}
+      <div className="analytics-divider" />
+      <button className="analytics-collapse-toggle" onClick={() => setCompletedOpen(!completedOpen)}>
+        <span className={`backlog-arrow ${completedOpen ? 'open' : ''}`}><ChevronRight size={12} /></span>
+        Completed Tasks
+      </button>
+      {completedOpen && (
+        <div className="analytics-section" style={{ marginTop: 8 }}>
+          <div className="analytics-search">
+            <Search size={16} style={{ color: 'var(--text-dim)', flexShrink: 0 }} />
+            <input
+              className="analytics-search-input"
+              placeholder="Search completed tasks..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="analytics-filters">
+            <select className="analytics-filter-select" value={searchFilters.energy || ''} onChange={e => setSearchFilters(p => ({ ...p, energy: e.target.value || undefined }))}>
+              <option value="">All energy</option>
+              {ENERGY_TYPES.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
+            </select>
+            <select className="analytics-filter-select" value={searchFilters.size || ''} onChange={e => setSearchFilters(p => ({ ...p, size: e.target.value || undefined }))}>
+              <option value="">All sizes</option>
+              {SIZE_ORDER.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {labels.length > 0 && (
+              <select className="analytics-filter-select" value={searchFilters.tag || ''} onChange={e => setSearchFilters(p => ({ ...p, tag: e.target.value || undefined }))}>
+                <option value="">All tags</option>
+                {labels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            )}
+          </div>
+          {searchResults && searchResults.length === 0 && (
+            <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: 16, fontSize: 13 }}>No completed tasks found</div>
+          )}
+          {searchResults && searchResults.map(t => (
+            <div key={t.id} className="completed-card">
+              <div className="completed-card-top">
+                <span className="completed-card-title">{t.title}</span>
+                {t.size && <span className={`size-pill size-${t.size.toLowerCase()}`} style={{ fontSize: 10, padding: '1px 6px' }}>{t.size}</span>}
+              </div>
+              <div className="completed-card-meta">
+                {t.completed_at && <span>{new Date(t.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                {t.energy && (
+                  <span className="completed-card-energy">
+                    <EnergyIcon icon={ENERGY_TYPES.find(e => e.id === t.energy)?.icon} color={ENERGY_TYPES.find(e => e.id === t.energy)?.color} size={12} />
+                  </span>
+                )}
+                {t.tags?.map(tagId => {
+                  const label = labelMap[tagId]
+                  return label ? <span key={tagId} className="task-tag" style={{ background: `${label.color}22`, color: label.color, fontSize: 10, padding: '1px 6px' }}>{label.name}</span> : null
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 

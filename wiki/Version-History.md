@@ -17,6 +17,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(analytics): GitHub-style activity heat map and collapsible completed section [M]
+  - 52-week heat map showing daily task or point density with color intensity scaling
+  - Metric toggle (Tasks/Points) changes heat map coloring (green/orange)
+  - Horizontal scroll on mobile for full year view
+  - Month labels along top, DOW labels on left
+  - Less/More legend for color scale
+  - Completed tasks section now collapsible — click to expand, data fetched on demand
+  - Modified: `src/components/Analytics.jsx`, `src/components/Analytics.css`
 - feat(analytics): comprehensive analytics page with charts, breakdowns, search [L]
   - New `GET /api/analytics/history?days=30` endpoint — single SQL query aggregates all data server-side
   - Daily completion bar chart with tasks/points toggle and time range picker (7d/30d/90d/All)
