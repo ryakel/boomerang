@@ -127,6 +127,25 @@
   line-height: 1.5;
 }
 
+/* Desktop side drawer — right-side panel for EditTaskModal */
+.sheet-overlay-drawer {
+  align-items: stretch;
+  justify-content: flex-end;
+}
+
+.sheet-drawer {
+  border-radius: 0;
+  max-width: 480px;
+  max-height: 100vh;
+  height: 100vh;
+  animation: slideInRight 0.25s ease;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
 /* Confirm dialog — in-app replacement for native confirm() */
 .confirm-dialog {
   background: var(--surface);

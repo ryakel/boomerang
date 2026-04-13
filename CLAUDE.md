@@ -463,7 +463,8 @@ Do NOT push without updating docs. Bundle doc updates into the same commit when 
 Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key items:
 
 - **#3** — ~~Prop drilling~~ **DONE** — TaskActionsContext eliminates callback prop drilling on TaskCard
-- **#4-6** — Desktop UI Phases 3-5 (side drawer, keyboard shortcuts, richer cards)
+- **#4** — ~~Desktop UI Phase 3 — side drawer~~ **DONE**
+- **#5-6** — Desktop UI Phases 4-5 (keyboard shortcuts, richer cards)
 - **#8-10** — Notion database sync UI, Notion recurring patterns, GCal recurring events
 - **#14** — Markdown import for bulk task creation
 - **#15** — Morning digest notification (setting exists, trigger not wired)
@@ -477,5 +478,5 @@ Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key item
 - **CSS:** Split from monolith to 14 per-component CSS files. Global/shared styles in App.css (~440 lines). Semantic color variables in index.css.
 - **Offline queue:** Failed mutations queued in `boom_mutation_queue` localStorage (200 cap), replayed on reconnect. Sync status indicator in header. Packages cached in `boom_packages_v1` localStorage for offline persistence.
 - **Research attachments:** `researchTask()` accepts attachments array, converts to Claude API content blocks.
-- **Desktop UI Phases 1-2:** Kanban board, hover states, drag-and-drop, desktop modal styling (`sheet-overlay`/`sheet`). Bottom bar hidden on desktop; compact "What now?" in header.
+- **Desktop UI Phases 1-3:** Kanban board, hover states, drag-and-drop, desktop modal styling (`sheet-overlay`/`sheet`). EditTaskModal renders as a right-side drawer (480px) on desktop via `sheet-drawer` class. Bottom bar hidden on desktop; compact "What now?" in header.
 - **TaskActionsContext:** All task callbacks (`onComplete`, `onSnooze`, `onEdit`, `onExtend`, `onStatusChange`, `onUpdate`, `onDelete`, `onGmailApprove`, `onGmailDismiss`) plus `isDesktop` live in `src/contexts/TaskActionsContext.jsx`. TaskCard receives only `task`, `expanded`, and `onToggleExpand` as props. KanbanBoard and ProjectsView consume actions from context.

@@ -4,6 +4,7 @@ import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIO
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists } from '../api'
 import { Sparkles, Search, ChevronRight, Trash2, Plus } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -13,6 +14,7 @@ function formatFileSize(bytes) {
 const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
 
 export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange, onOpenRoutine }) {
+  const isDesktop = useIsDesktop()
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes || '')
   const [selectedTags, setSelectedTags] = useState(task.tags || [])
@@ -520,9 +522,9 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="sheet-overlay" onClick={handleClose}>
-      <div className="sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
-        <button ref={handleRef} className="sheet-handle" onClick={handleClose} />
+    <div className={`sheet-overlay${isDesktop ? ' sheet-overlay-drawer' : ''}`} onClick={handleClose}>
+      <div className={`sheet${isDesktop ? ' sheet-drawer' : ''}`} ref={sheetRef} onClick={e => e.stopPropagation()}>
+        {!isDesktop && <button ref={handleRef} className="sheet-handle" onClick={handleClose} />}
         <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
         <span className={`autosave-pill autosave-pill-floating ${justSaved ? 'autosave-pill-saved' : ''}`}>
           {justSaved ? '✓ Saved' : 'Auto Save'}

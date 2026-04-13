@@ -17,6 +17,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(ui): EditTaskModal renders as right-side drawer on desktop [M]
+  - On desktop (≥768px), EditTaskModal slides in from the right as a 480px side drawer instead of bottom sheet
+  - Overlay covers the left side (click to dismiss), no drag handle on desktop
+  - New CSS classes: `sheet-overlay-drawer`, `sheet-drawer` with `slideInRight` animation
+  - Mobile behavior unchanged (bottom sheet with pull-to-close handle)
+  - Modified: `src/components/EditTaskModal.jsx`, `src/components/Modal.css`
 - docs(cleanup): fix stale entries and create tracking issues for untracked work [S]
   - CLAUDE.md: removed stale "Phase 2 Gmail not yet implemented" from Package Tracking
   - CLAUDE.md: added issue cross-references to known limitations, added #14-18 to tech debt list
