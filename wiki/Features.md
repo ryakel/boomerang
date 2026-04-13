@@ -351,6 +351,12 @@ Tasks can be marked as high priority via a toggle in the Edit modal. High priori
 - **On due date** — every hour (configurable)
 - **Overdue** — every 30 minutes (configurable)
 
+## Header Layout
+
+- **Always visible:** Packages icon (box), Settings gear icon
+- **Overflow menu ("..."):** Projects, Import Markdown, Analytics, Activity Log
+- **Click outside** or **Escape** to dismiss the menu
+
 ## Desktop UI
 
 On screens 768px+, the app switches to a desktop layout:

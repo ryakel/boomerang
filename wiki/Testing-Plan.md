@@ -1,6 +1,6 @@
 # Testing Plan
 
-Comprehensive testing plan for all features implemented in the April 2026 sprint (issues #3–#18 plus header menu refactor). Work through each section, checking off items as you go.
+Testing checklist for all features from the April 2026 sprint. Covers issues #3–#18, analytics overhaul, header menu refactor, and scheduling row fix.
 
 ---
 
@@ -9,348 +9,325 @@ Comprehensive testing plan for all features implemented in the April 2026 sprint
 - [ ] `git pull origin main`
 - [ ] `npm install`
 - [ ] `SEED_DB=1 node server.js` — seed with test data
-- [ ] Open app in browser at both viewports:
-  - Mobile: Chrome DevTools → responsive mode, 375px wide
-  - Desktop: full browser window (≥ 768px)
+- [ ] Open in both viewports:
+  - **Mobile:** Chrome DevTools responsive mode, 375px
+  - **Desktop:** full window ≥ 768px
 
 ---
 
-## 1. TaskActionsContext (#3)
+## 1. Header Layout
 
-Context replaces 13 callback props on TaskCard with 3 (`task`, `expanded`, `onToggleExpand`).
+### Icons
+- [ ] Header shows: Packages (box icon) + Settings (gear) + overflow ("...")
+- [ ] Packages icon → Packages view opens
+- [ ] Settings gear → Settings opens
+
+### Overflow Menu
+- [ ] Click "..." → dropdown appears below with: Projects, Import Markdown, Analytics, Activity Log
+- [ ] Click any item → view opens, menu closes
+- [ ] Click outside menu → menu closes
+- [ ] Press Escape → menu closes
+- [ ] Menu doesn't overflow off screen on mobile
+
+---
+
+## 2. TaskActionsContext (#3)
 
 ### Mobile Task List
 - [ ] Tap task → expands (notes, checklists, toolbar visible)
 - [ ] Tap expanded task → collapses
-- [ ] Toolbar: Done button → task completes, toast shows
-- [ ] Toolbar: Snooze button → snooze modal opens
-- [ ] Toolbar: Edit button → EditTaskModal opens
-- [ ] Toolbar: Extend button → extend modal opens
-- [ ] Toolbar: Status cycle button → cycles not_started → doing → waiting
-- [ ] Swipe left → Edit + Complete buttons appear
-- [ ] Swipe right → delete animation, task removed
+- [ ] Done button → task completes, toast shows
+- [ ] Snooze button → snooze modal opens
+- [ ] Edit button → EditTaskModal opens
+- [ ] Extend button → extend modal opens
+- [ ] Status cycle → not_started → doing → waiting
+- [ ] Swipe left → Edit + Complete buttons
+- [ ] Swipe right → delete
 - [ ] Checklist toggle from expanded card → saves immediately
 
 ### Search Results
-- [ ] Search for a task → results appear
-- [ ] Tap result to expand → all toolbar actions work
-- [ ] Complete from search results → toast shows, Trello sync fires (if linked)
+- [ ] Search a task → expand result → all actions work
+- [ ] Complete from search → toast shows, Trello sync fires (if linked)
 
 ### Projects View
-- [ ] Open Projects (menu → Projects)
-- [ ] Tasks render, can expand, all actions work
-- [ ] ProjectsView has its own expand state (expanding here doesn't affect main list)
+- [ ] Menu → Projects → tasks render, expand works, all actions work
+- [ ] ProjectsView has its own expand state (independent of main list)
 
 ### Desktop Kanban
-- [ ] Click any card → EditTaskModal opens as drawer
-- [ ] Hover card → Complete (✓) and Snooze (💤) buttons appear
-- [ ] Hover actions work correctly
+- [ ] Click card → EditTaskModal opens as drawer
+- [ ] Hover card → Complete + Snooze buttons appear and work
 - [ ] Drag task between columns → status changes
-
-### Gmail Pending (if available)
-- [ ] Gmail-imported tasks show yellow border + envelope badge
-- [ ] Expand → "Keep" and "Dismiss" buttons visible and functional
 
 ---
 
-## 2. EditTaskModal Side Drawer (#4)
+## 3. EditTaskModal Side Drawer (#4)
 
-### Desktop (≥ 768px)
-- [ ] Click any task → drawer slides in from the right
-- [ ] Drawer is 480px wide, full viewport height
-- [ ] Overlay covers left side (semi-transparent)
+### Desktop
+- [ ] Click any task → drawer slides in from right (480px wide)
+- [ ] Overlay covers left side
 - [ ] Click overlay → drawer closes
-- [ ] No drag handle visible
+- [ ] No drag handle visible on desktop
 - [ ] Close button (✕) works
-- [ ] All sections render correctly in 480px width:
-  - [ ] Title editing
-  - [ ] Notes textarea
-  - [ ] Tags selector
-  - [ ] Due date picker
-  - [ ] Size/energy selectors
+- [ ] All sections render in 480px width:
+  - [ ] Title, notes, tags, due date, size/energy
   - [ ] Checklists (add, toggle, reorder)
-  - [ ] Comments
-  - [ ] Attachments
-  - [ ] Research
+  - [ ] Comments, attachments, research
   - [ ] Notion/Trello connections
 - [ ] Auto-save pill visible and functional
 
-### Mobile (< 768px)
-- [ ] Task edit → bottom sheet slides up
-- [ ] Drag handle visible at top
-- [ ] Pull handle down → sheet dismisses
-- [ ] All sections functional
+### Mobile
+- [ ] Edit → bottom sheet slides up
+- [ ] Drag handle visible, pull-to-close works
+
+### Scheduling Row (the fix)
+- [ ] Due date, Duration, Priority all on one row
+- [ ] All three inputs are the same height (36px)
+- [ ] Labels (DUE, DUR, PRI) align above their inputs
+- [ ] Inputs align at bottom edge — no floating/misalignment
+- [ ] Duration only appears when a due date is set
+- [ ] Nothing overflows or overlaps
 
 ---
 
-## 3. Keyboard Shortcuts (#5)
+## 4. Keyboard Shortcuts (#5)
 
-All tests on desktop only.
+Desktop only.
 
 ### Navigation
-- [ ] Press `j` → first task highlights with blue outline
-- [ ] Press `j` again → next task selected
-- [ ] Press `k` → previous task selected
-- [ ] `↓` / `↑` arrows → same as j/k
+- [ ] `j` → first task highlights with blue outline
+- [ ] `j` again → next task
+- [ ] `k` → previous task
+- [ ] `↓`/`↑` arrows → same as j/k
 - [ ] Selection auto-scrolls into view
-- [ ] Selection resets when view changes
 
-### Actions on Selected Task
-- [ ] `Enter` → EditTaskModal opens for selected task
-- [ ] `e` → same as Enter
-- [ ] `x` → selected task completes (toast shows)
-- [ ] `s` → snooze modal opens for selected task
+### Actions
+- [ ] `Enter` or `e` → EditTaskModal opens for selected task
+- [ ] `x` → selected task completes
+- [ ] `s` → snooze modal opens
 
 ### Global
 - [ ] `n` → AddTaskModal opens
 - [ ] `/` → search input focuses
-- [ ] `?` → shortcut help overlay appears
-- [ ] `?` again → help overlay closes
-- [ ] `Escape` with modal open → closes topmost modal
-- [ ] `Escape` with selection, no modal → clears selection
-- [ ] `Escape` with header menu open → closes menu
+- [ ] `?` → help overlay toggles
+- [ ] `Escape` with modal open → closes topmost
+- [ ] `Escape` with selection → clears selection
 
 ### Guards
-- [ ] Click into search input, type `n` → types "n", doesn't open AddTaskModal
-- [ ] Click into quick-add input, type `j` → types "j", doesn't navigate
-- [ ] Press `Escape` in input → blurs input
-- [ ] Cmd+K, Ctrl+T, etc. → browser shortcuts still work (not hijacked)
-
-### Mobile
-- [ ] None of the shortcuts fire on mobile viewport
+- [ ] Typing in search input → shortcuts don't fire (except Escape)
+- [ ] Typing in quick-add → shortcuts don't fire
+- [ ] Cmd/Ctrl+key → browser shortcuts not hijacked
+- [ ] None of the shortcuts fire on mobile
 
 ---
 
-## 4. Richer Desktop Cards (#6)
+## 5. Richer Desktop Cards (#6)
 
 ### Desktop
-- [ ] Task with notes → muted text preview below title (max 120 chars + "...")
+- [ ] Task with notes → muted preview below title (max 120 chars + "...")
 - [ ] Task without notes → no preview row
 - [ ] Task with checklists → thin green progress bar + "3/7" count
-- [ ] Task with all items complete → bar is 100% green
 - [ ] Task without checklists → no progress bar
-- [ ] Tags always visible on card (no expand needed)
+- [ ] Tags always visible on card face
 
 ### Mobile
-- [ ] Notes only show when card is expanded
-- [ ] No progress bar on collapsed cards
-- [ ] Tags show in expanded view only
+- [ ] No notes preview or progress bar on collapsed cards
 
 ---
 
-## 5. Markdown Import (#14)
+## 6. Markdown Import (#14)
 
 ### Paste Flow
 - [ ] Menu → Import Markdown → modal opens
-- [ ] Paste `- [ ] Task one\n- [ ] Task two` → click "Preview Tasks" → 2 tasks shown
-- [ ] Paste `- Bullet item` → parsed as task
-- [ ] Paste `1. Numbered item` → parsed as task
-- [ ] Paste `- [x] Done item` → skipped
-- [ ] Paste plain paragraph → skipped
-- [ ] Paste with `## Section` → section shows as group label in preview
+- [ ] Paste `- [ ] Task one` → Preview → shows parsed task
+- [ ] `- Bullet item` → parsed
+- [ ] `1. Numbered item` → parsed
+- [ ] `- [x] Done item` → skipped
+- [ ] Plain paragraph → skipped
+- [ ] `## Section` → shows as group label
 - [ ] All tasks selected by default
-- [ ] Uncheck one → "Import N Tasks" count updates
-- [ ] "All" / "None" links toggle selection
+- [ ] Uncheck tasks → count updates
 - [ ] "Import" → tasks created, modal closes
-- [ ] Verify tasks appear in task list
 
 ### File Upload
-- [ ] Click "Upload .md" → file picker opens
-- [ ] Select .md file → content loaded, auto-parsed, preview shows
-- [ ] Select .txt file → same behavior
-- [ ] "Back" button → returns to paste view
+- [ ] "Upload .md" → file picker → content loaded + auto-parsed
+- [ ] "Back" button returns to paste view
 
 ### Edge Cases
-- [ ] Empty paste → "Preview Tasks" button disabled
-- [ ] Paste with no parseable content → "No tasks found" message
-- [ ] 0 tasks selected → "Import" button disabled
+- [ ] Empty paste → "Preview" disabled
+- [ ] No parseable content → "No tasks found"
+- [ ] 0 selected → "Import" disabled
 
 ---
 
-## 6. Notion Database Sync (#8)
+## 7. Notion Database Sync (#8)
 
-*Requires Notion integration token.*
+*Requires Notion token.*
 
 ### Settings UI
-- [ ] Settings → Integrations → Notion → connect
-- [ ] "Database Sync" section visible below Notion Sync
-- [ ] Paste raw 32-char database ID → click "Connect" → verifies
+- [ ] Settings → Notion → connect → "Database Sync" section visible
+- [ ] Paste 32-char database ID → Connect → verifies
 - [ ] Paste Notion database URL → extracts ID, connects
-- [ ] Invalid ID → error message shown
-- [ ] Connected state shows database name + "Sync Now" + "Disconnect"
-- [ ] "Disconnect" → clears `notion_db_id` and `notion_db_title`
+- [ ] Invalid ID → error shown
+- [ ] Connected → shows name + Sync Now + Disconnect
+- [ ] Disconnect → clears settings
 
 ### Sync
-- [ ] "Sync Now" → fetches rows, creates tasks
-- [ ] Tasks have `notion_page_id` and `notion_url` set
+- [ ] Sync Now → creates tasks from database rows
+- [ ] Tasks have `notion_page_id` and `notion_url`
 - [ ] Second sync → no duplicates
-- [ ] Page sync and database sync can run simultaneously
+- [ ] Page sync + database sync can coexist
 
 ---
 
-## 7. Notion Routine Suggestions (#9)
+## 8. Notion Routine Suggestions (#9)
 
-*Requires Notion integration + Anthropic API key.*
+*Requires Notion token + Anthropic API key.*
 
-### Suggestion Flow
-- [ ] Notion page with recurring content (e.g., "Change furnace filter every 3 months")
-- [ ] Sync Notion → AI detects `is_recurring` pattern
-- [ ] Purple suggestion banner appears below header
+- [ ] Notion page with recurring pattern → sync → purple suggestion banner
 - [ ] Banner shows title + cadence
-- [ ] Click "Create" → routine created, banner disappears
-- [ ] Verify routine appears in Routines view with correct cadence
-- [ ] Click "✕" → banner disappears
-- [ ] Refresh page → dismissed suggestion doesn't reappear
-
-### Without AI
-- [ ] No API key → pages create regular tasks, no suggestion banners
+- [ ] "Create" → routine created, banner gone
+- [ ] "✕" → dismissed permanently (survives refresh)
+- [ ] Without API key → no suggestions, pages become regular tasks
 
 ---
 
-## 8. GCal Recurring Events (#10)
+## 9. GCal Recurring Events (#10)
 
 *Requires Google Calendar integration.*
 
-### Push Sync (Routines → GCal)
-- [ ] Create a weekly routine
-- [ ] Wait for task to spawn (or manually trigger)
-- [ ] Task syncs to GCal → verify event is recurring (check in Google Calendar)
-- [ ] Next routine spawn → task links to existing recurring event (no new event created)
-- [ ] Routine with end date → recurring event has UNTIL in RRULE
+### Push
+- [ ] Weekly routine → spawned task pushes to GCal → event is recurring
+- [ ] Next spawn → links to existing recurring event (no duplicate)
+- [ ] Routine with end date → RRULE has UNTIL
 
-### Pull Sync (GCal → Boomerang)
-- [ ] Create a recurring event in Google Calendar directly
-- [ ] Sync Now → only one task created (not one per instance)
-- [ ] Task has `gcal_event_id` set
-
-### Cadence Verification
-- [ ] Daily routine → FREQ=DAILY
-- [ ] Weekly → FREQ=WEEKLY
-- [ ] Biweekly → FREQ=WEEKLY;INTERVAL=2
-- [ ] Monthly → FREQ=MONTHLY
+### Pull
+- [ ] Recurring GCal event → Sync Now → one task per series (not per instance)
 
 ---
 
-## 9. Morning Digest (#15)
+## 10. Morning Digest (#15)
 
 ### Settings
 - [ ] Settings → Notifications → "Morning Digest" section visible
-- [ ] Email digest toggle works
-- [ ] Push digest toggle works
-- [ ] Time picker updates `digest_time`
+- [ ] Email/push toggles work independently
+- [ ] Time picker updates setting
 
 ### Functionality
-- [ ] Set digest time to current minute → within 60s, digest fires
-- [ ] Email: subject "Morning Digest: X open tasks", body has counts
-- [ ] Push: title "Morning Digest", body has open/overdue/stale/due-today
-- [ ] Doesn't re-fire on next check (23-hour throttle)
-- [ ] No open tasks → no digest fires
+- [ ] Set time to current minute → digest fires within 60s
+- [ ] Doesn't re-fire next check (23h throttle)
+- [ ] No tasks → no digest
 
 ---
 
-## 10. AI Email Nudges (#16)
+## 11. AI Email Nudges (#16)
 
-### With API Key
-- [ ] Wait for nudge email → message is contextual/AI-generated (not generic)
-- [ ] References a specific task
-
-### Without API Key
-- [ ] Nudge email → static message ("Got 5 min? Try: ...")
-- [ ] No errors in server logs
+- [ ] With API key → nudge email is AI-generated (contextual)
+- [ ] Without API key → static fallback, no errors
 
 ---
 
-## 11. Notification Batching (#17)
+## 12. Notification Batching (#17)
 
-### Email Batch Mode
-- [ ] Settings → Email Notifications → enable "Batch mode"
-- [ ] Multiple notification types trigger → one combined email sent
-- [ ] Email has sections with dividers
-- [ ] Disable batch mode → individual emails resume
+- [ ] Settings → Email → enable "Batch mode"
+- [ ] Multiple notifications trigger → one combined email
+- [ ] Disable → individual emails again
 
 ---
 
-## 12. Trello Multi-List Sync (#18)
+## 13. Trello Multi-List (#18)
 
 *Requires Trello integration.*
 
-### Settings UI
-- [ ] Settings → Trello → connect board
-- [ ] "Sync from lists" section appears with checkboxes
-- [ ] All board lists shown
+- [ ] Settings → Trello → connect board → "Sync from lists" checkboxes visible
 - [ ] Default list pre-checked
-- [ ] Check additional lists → `trello_sync_list_ids` updates
-- [ ] Uncheck a list → setting updates
-
-### Sync
-- [ ] Check multiple lists → Sync Now → tasks from all checked lists imported
-- [ ] Deselect a list → subsequent sync skips it
-- [ ] Status mapping still works
+- [ ] Check additional lists → setting updates
+- [ ] Sync Now → tasks from all checked lists imported
 
 ---
 
-## 13. Header Menu Refactor
+## 14. Analytics Dashboard
 
-### Layout
-- [ ] Header shows: logo + Packages icon + Settings gear + "..." menu trigger
-- [ ] Only 3 icons visible (not 4+)
+### Rings + Stats
+- [ ] Activity rings show tasks/points/streak progress
+- [ ] 4 stat cards: current streak, longest streak, best points, best tasks
+- [ ] Vacation mode and free day buttons work
+- [ ] Reset streaks (double confirmation) works
 
-### Menu
-- [ ] Click "..." → dropdown opens below
-- [ ] Menu contains: Projects, Import Markdown, Analytics, Activity Log
-- [ ] Click any item → view opens, menu closes
-- [ ] Click outside menu → menu closes
-- [ ] Escape key → menu closes
+### Time Range + Daily Chart
+- [ ] Range picker: 7d, 30d, 90d, All
+- [ ] Default: 30d
+- [ ] Bar chart shows daily completions
+- [ ] Toggle Tasks (green) / Points (orange)
+- [ ] Summary line shows total tasks + points for period
+- [ ] "All" groups by week (not individual days)
+- [ ] Empty period → "No completions" message
 
-### Icon Actions
-- [ ] Packages icon → Packages view opens
-- [ ] Settings gear → Settings opens
+### Day of Week
+- [ ] 7-bar chart, one per day
+- [ ] Current day highlighted (outline)
+- [ ] "Best day: [name]" insight shown
+
+### Breakdowns
+- [ ] **By Tag** — bars with label colors, sorted by count
+- [ ] **By Energy** — bars with energy icons
+- [ ] **By Size** — XS through XL with point totals
+- [ ] All breakdowns respect the Tasks/Points toggle
+- [ ] Empty breakdowns don't render
+
+### Heat Map
+- [ ] 52-week grid displays (GitHub contribution style)
+- [ ] Tasks toggle → green cells
+- [ ] Points toggle → orange cells
+- [ ] Color intensity scales with daily volume
+- [ ] Month labels along top
+- [ ] DOW labels on left (Mon, Wed, Fri)
+- [ ] Less/More legend at bottom right
+- [ ] Future dates are transparent (not colored)
+- [ ] Hover/tap a cell → tooltip with date + count
+- [ ] Mobile: horizontal scroll shows full year
+
+### Completed Tasks
+- [ ] Section is collapsed by default
+- [ ] Click to expand → search + filters appear
+- [ ] Search by title → filters in real time
+- [ ] Energy filter works
+- [ ] Size filter works
+- [ ] Tag filter works
+- [ ] Each result card shows: title, date, size pill, energy icon, tags
+- [ ] Empty results → "No completed tasks found"
 
 ---
 
-## 14. Cross-Cutting Regression Tests
+## 15. Cross-Cutting Regression Tests
 
 ### Core Flows
-- [ ] Add task via quick-add → appears in list immediately
-- [ ] Add task via full modal → all fields save correctly
-- [ ] Complete task → toast shows with undo button
-- [ ] Undo within 4 seconds → task reopened
-- [ ] Snooze → task moves to Snoozed section
-- [ ] Extend due date → date updates
-- [ ] Delete task → removed from list
-- [ ] Status change → task moves between sections
+- [ ] Add task (quick-add + full modal) → appears
+- [ ] Complete → toast + undo
+- [ ] Snooze → moves to Snoozed
+- [ ] Delete → removed
+- [ ] Status change → moves between sections
 
 ### Dark Mode
-- [ ] Toggle dark mode in Settings
-- [ ] All new UI elements styled correctly:
-  - [ ] Keyboard shortcut help overlay
+- [ ] Toggle dark mode → verify all new UI elements:
+  - [ ] Heat map cells
+  - [ ] Bar charts
+  - [ ] Breakdown bars
+  - [ ] Header menu dropdown
+  - [ ] Keyboard help overlay
   - [ ] Markdown import modal
-  - [ ] Header dropdown menu
-  - [ ] Desktop notes preview
-  - [ ] Checklist progress bar
-  - [ ] Keyboard selection outline
+  - [ ] Scheduling row inputs
   - [ ] Routine suggestion banners
+  - [ ] Analytics search/filters
   - [ ] Notion database sync UI
   - [ ] Morning digest settings
-  - [ ] Batch mode toggle
-  - [ ] Trello multi-list checkboxes
-
-### Performance
-- [ ] 50+ tasks → scrolling smooth on both mobile and desktop
-- [ ] Desktop kanban with many cards → drag-and-drop responsive
-- [ ] Expanding one task → other cards don't visibly re-render
 
 ### Data Integrity
-- [ ] Refresh page → all data persists
-- [ ] Open second tab → SSE sync works (edit in one, appears in other)
-- [ ] Kill server, make changes, restart → offline queue replays
-
-### Migration
-- [ ] Fresh database → migration 014 runs (check server logs for `gcal_recurring_event_id`)
-- [ ] Existing database → migration 014 applies cleanly
+- [ ] Refresh → all data persists
+- [ ] Two tabs → SSE sync works
+- [ ] Migration 014 runs cleanly on fresh DB (check server logs)
 
 ---
 
 ## Done?
 
-When all items are checked, the sprint is fully tested. File issues for any failures found.
+When all items are checked, the sprint is fully tested. File issues for any failures.

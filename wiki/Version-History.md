@@ -17,6 +17,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- docs: full documentation audit and testing plan rebuild [S]
+  - UPCOMING_FEATURES.md: removed 4 completed items (morning digest, AI nudges, batching, Trello multi-list)
+  - Architecture.md: added GET /api/analytics/history route to route table
+  - CLAUDE.md: added keyboard shortcuts and analytics dashboard to architecture notes
+  - Features.md: added Header Layout section describing Packages + Settings + overflow menu
+  - Testing-Plan.md: rebuilt from scratch — 15 sections, added full analytics coverage (charts, heat map, breakdowns, search), scheduling row fix, header menu tests
 - fix(ui): scheduling row alignment — due, duration, priority fields properly aligned [XS]
   - All three fields now use `align-items: flex-end` so labels sit above and inputs line up at bottom
   - Consistent 36px input height across date, duration, and priority toggle

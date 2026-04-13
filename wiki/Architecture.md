@@ -223,7 +223,8 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `POST` | `/api/tasks` | Create a task |
 | `PATCH` | `/api/tasks/:id` | Update a task |
 | `DELETE` | `/api/tasks/:id` | Delete a task |
-| `GET` | `/api/analytics` | Get analytics data |
+| `GET` | `/api/analytics` | Get today's stats, streaks, all-time records |
+| `GET` | `/api/analytics/history` | Aggregated completion history (daily, by-tag, by-energy, by-size, by-DOW). Accepts `?days=N` param. |
 | `POST` | `/api/dev/seed` | Wipe DB and reload seed data on demand |
 
 ## Dev Seed System
