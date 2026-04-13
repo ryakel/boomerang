@@ -620,12 +620,10 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             <div className="scheduling-field">
               <div className="settings-label">Due</div>
               <input
-                className="routine-select"
                 type="date"
                 value={dueDate}
                 min={today}
                 onChange={e => setDueDate(e.target.value)}
-                style={{ marginBottom: 0, fontSize: 13 }}
               />
             </div>
             {dueDate && (

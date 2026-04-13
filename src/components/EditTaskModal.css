@@ -812,20 +812,26 @@
   flex: 1;
 }
 
-.scheduling-field input,
-.scheduling-field .priority-toggle {
+/* Force all scheduling inputs to same height */
+.scheduling-row input,
+.scheduling-row .priority-toggle {
   height: 36px;
-  box-sizing: border-box;
-}
-
-.scheduling-field .dur-input {
-  width: 64px;
-  padding: 6px 8px;
+  padding: 0 8px;
   font-size: 13px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
   border: none;
-  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  margin: 0;
+}
+
+.scheduling-row input[type="date"] {
+  width: 100%;
+}
+
+.scheduling-row .dur-input {
+  width: 64px;
 }
 
 /* Compact date in inline rows */
