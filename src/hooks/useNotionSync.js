@@ -15,6 +15,22 @@ function savePageCache(cache) {
   localStorage.setItem(NOTION_PAGE_CACHE_KEY, JSON.stringify(cache))
 }
 
+// Track dismissed routine suggestions to avoid re-suggesting
+const DISMISSED_PATTERNS_KEY = 'boom_notion_dismissed_patterns'
+
+function loadDismissedPatterns() {
+  try { return JSON.parse(localStorage.getItem(DISMISSED_PATTERNS_KEY) || '[]') }
+  catch { return [] }
+}
+
+function saveDismissedPattern(patternKey) {
+  const dismissed = loadDismissedPatterns()
+  if (!dismissed.includes(patternKey)) {
+    dismissed.push(patternKey)
+    localStorage.setItem(DISMISSED_PATTERNS_KEY, JSON.stringify(dismissed))
+  }
+}
+
 export function useNotionSync(tasks, setTasks) {
   const syncingRef = useRef(false)
   const tasksRef = useRef(tasks)
@@ -22,6 +38,7 @@ export function useNotionSync(tasks, setTasks) {
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState(() => loadSettings().notion_last_sync || null)
   const [syncError, setSyncError] = useState(null)
+  const [routineSuggestions, setRoutineSuggestions] = useState([])
 
   const isNotionSyncConfigured = useCallback(() => {
     const s = loadSettings()
@@ -165,6 +182,7 @@ export function useNotionSync(tasks, setTasks) {
     remoteLog(`[NotionSync] ${newPages.length} new pages to analyze`)
 
     const newTasks = []
+    const newRoutineSuggestions = []
     for (const page of newPages) {
       // Skip if page hasn't changed since last analysis
       if (pageCache[page.id] && pageCache[page.id] === page.last_edited) {
@@ -187,6 +205,24 @@ export function useNotionSync(tasks, setTasks) {
         remoteLog(`[NotionSync] analyzed "${page.title}": ${analysis.tasks.length} tasks found`)
 
         for (const taskData of analysis.tasks) {
+          // If AI detected a recurring pattern, suggest a routine instead
+          if (taskData.is_recurring && taskData.recurrence) {
+            const dismissed = loadDismissedPatterns()
+            const patternKey = `${taskData.title}:${taskData.recurrence}`
+            if (!dismissed.includes(patternKey)) {
+              newRoutineSuggestions.push({
+                title: taskData.title,
+                cadence: taskData.recurrence,
+                notes: taskData.notes || '',
+                notionPageId: page.id,
+                notionUrl: page.url,
+                patternKey,
+              })
+              remoteLog(`[NotionSync] routine suggestion: "${taskData.title}" (${taskData.recurrence})`)
+            }
+            continue
+          }
+
           const task = createTask(
             taskData.title,
             [],
@@ -206,6 +242,10 @@ export function useNotionSync(tasks, setTasks) {
       } catch (err) {
         remoteLog(`[NotionSync] failed to analyze "${page.title}":`, err.message)
       }
+    }
+
+    if (newRoutineSuggestions.length > 0) {
+      setRoutineSuggestions(prev => [...prev, ...newRoutineSuggestions])
     }
 
     savePageCache(pageCache)
@@ -257,5 +297,14 @@ export function useNotionSync(tasks, setTasks) {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [isNotionSyncConfigured, syncNotion])
 
-  return { syncing, lastSync, syncError, syncNotion, isNotionSyncConfigured }
+  const dismissSuggestion = useCallback((patternKey) => {
+    saveDismissedPattern(patternKey)
+    setRoutineSuggestions(prev => prev.filter(s => s.patternKey !== patternKey))
+  }, [])
+
+  const acceptSuggestion = useCallback((patternKey) => {
+    setRoutineSuggestions(prev => prev.filter(s => s.patternKey !== patternKey))
+  }, [])
+
+  return { syncing, lastSync, syncError, syncNotion, isNotionSyncConfigured, routineSuggestions, dismissSuggestion, acceptSuggestion }
 }

@@ -95,7 +95,7 @@ function App() {
   const { packages, addPackage, editPackage, removePackage, refresh: refreshPackage, refreshAll: refreshAllPackages, hydratePackages } = usePackages()
   usePackageNotifications(packages)
   const { syncTrello, pushStatusToTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
-  const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
+  const { syncing: notionSyncing, syncNotion, routineSuggestions, dismissSuggestion, acceptSuggestion } = useNotionSync(tasks, setTasks)
   const { syncing: gcalSyncing, syncGCal } = useGCalSync(tasks, setTasks)
   useExternalSync(tasks, updateTask)
   const prefetchToast = useToastPrefetch(tasks, updateTask)
@@ -518,6 +518,33 @@ function App() {
           {searchResults.length === 0 && (
             <div className="empty-state">No tasks match your search.</div>
           )}
+        </div>
+      )}
+
+      {routineSuggestions.length > 0 && (
+        <div style={{ padding: '8px 16px' }}>
+          {routineSuggestions.map(s => (
+            <div key={s.patternKey} style={{
+              background: 'rgba(164, 120, 255, 0.08)', borderRadius: 'var(--radius)',
+              padding: '10px 14px', marginBottom: 6, fontSize: 13,
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ flex: 1 }}>
+                Create routine: <strong>{s.title}</strong> ({s.cadence})
+              </span>
+              <button onClick={() => {
+                addRoutine(s.title, s.cadence, undefined, [], s.notes)
+                acceptSuggestion(s.patternKey)
+              }} style={{
+                background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6,
+                padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              }}>Create</button>
+              <button onClick={() => dismissSuggestion(s.patternKey)} style={{
+                background: 'none', border: 'none', color: 'var(--text-dim)',
+                cursor: 'pointer', fontSize: 16, padding: '0 4px',
+              }}>✕</button>
+            </div>
+          ))}
         </div>
       )}
 

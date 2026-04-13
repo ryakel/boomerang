@@ -17,6 +17,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(notion): auto-suggest routines from recurring patterns in Notion pages [M]
+  - During page-based Notion sync, AI analysis already returns `is_recurring` and `recurrence` fields
+  - Recurring tasks now appear as purple suggestion banners instead of regular tasks
+  - "Create" button creates a routine with the inferred cadence; "✕" dismisses permanently
+  - Dismissed patterns stored in localStorage (`boom_notion_dismissed_patterns`)
+  - Modified: `src/hooks/useNotionSync.js`, `src/App.jsx`
 - feat(notion): wire database sync into UI [M]
   - New "Database Sync" section in Settings → Notion (when connected)
   - Paste database ID or URL → verifies connection → syncs rows as tasks
