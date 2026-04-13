@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect, } from 'react'
-import { Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package, FolderKanban } from 'lucide-react'
+import { Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package, FolderKanban, FileDown } from 'lucide-react'
 import { polyfill } from 'mobile-drag-drop'
 import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scroll-behaviour'
 import 'mobile-drag-drop/default.css'
@@ -39,6 +39,7 @@ import { usePackages } from './hooks/usePackages'
 import { usePackageNotifications } from './hooks/usePackageNotifications'
 import Packages from './components/Packages'
 import ProjectsView from './components/ProjectsView'
+import MarkdownImportModal from './components/MarkdownImportModal'
 import { TaskActionsProvider } from './contexts/TaskActionsContext'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
@@ -80,6 +81,7 @@ function App() {
   const [showPackages, setShowPackages] = useState(false)
   const [showProjects, setShowProjects] = useState(false)
   const [relatedTarget, setRelatedTarget] = useState(null)
+  const [showImport, setShowImport] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState(null)
@@ -364,11 +366,13 @@ function App() {
     if (showPackages) modals.push('packages')
     if (showProjects) modals.push('projects')
     if (relatedTarget) modals.push('related')
+    if (showImport) modals.push('import')
     return modals
-  }, [editTarget, showAdd, snoozeTarget, reframeTarget, extendTarget, showWhatNow, showSettings, showDone, showRoutines, showAnalytics, showActivityLog, showPackages, showProjects, relatedTarget])
+  }, [editTarget, showAdd, snoozeTarget, reframeTarget, extendTarget, showWhatNow, showSettings, showDone, showRoutines, showAnalytics, showActivityLog, showPackages, showProjects, relatedTarget, showImport])
 
   const closeTopModal = useCallback(() => {
     // Close the most recently opened modal
+    if (showImport) { setShowImport(false); return }
     if (relatedTarget) { setRelatedTarget(null); return }
     if (showActivityLog) { setShowActivityLog(false); return }
     if (showAnalytics) { setShowAnalytics(false); return }
@@ -421,6 +425,7 @@ function App() {
             <span className="wordmark">BOOMERANG</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button className="header-icon-btn" onClick={() => setShowImport(true)} title="Import Markdown" style={{ color: 'var(--text-dim)' }}><FileDown size={20} /></button>
             <button className="header-icon-btn projects-color" onClick={() => setShowProjects(true)} title="Projects"><FolderKanban size={20} /></button>
             <button className="header-icon-btn packages-color" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
             <button className="header-icon-btn settings-color" onClick={() => setShowSettings(true)}><SettingsIcon size={20} /></button>
@@ -818,6 +823,17 @@ function App() {
             setShowActivityLog(false)
           }}
           onClose={() => setShowActivityLog(false)}
+        />
+      )}
+
+      {showImport && (
+        <MarkdownImportModal
+          onImport={(tasks) => {
+            for (const t of tasks) {
+              addTask({ title: t.title })
+            }
+          }}
+          onClose={() => setShowImport(false)}
         />
       )}
 

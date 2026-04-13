@@ -17,6 +17,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(ui): markdown import for bulk task creation [M]
+  - New import button (FileDown icon) in header opens markdown import modal
+  - Paste markdown or upload .md/.txt files
+  - Parses: checkboxes (`- [ ] task`), bullets (`- task`), numbered lists (`1. task`)
+  - Sections (`## Header`) become group labels in preview
+  - Two-step flow: paste/upload → preview with select/deselect → import
+  - Skips completed checkboxes (`- [x]`) and plain text paragraphs
+  - New: `src/utils/markdownImport.js`, `src/components/MarkdownImportModal.jsx`
+  - Modified: `src/App.jsx`
 - feat(ui): richer desktop task cards with notes preview and checklist progress [S]
   - Desktop cards now show truncated notes preview (first 120 chars, muted text)
   - Checklist progress bar with done/total count on cards with checklists

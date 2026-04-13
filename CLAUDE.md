@@ -467,7 +467,7 @@ Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key item
 - **#5** — ~~Desktop UI Phase 4 — keyboard shortcuts~~ **DONE**
 - **#6** — ~~Desktop UI Phase 5 — richer cards~~ **DONE**
 - **#8-10** — Notion database sync UI, Notion recurring patterns, GCal recurring events
-- **#14** — Markdown import for bulk task creation
+- **#14** — ~~Markdown import~~ **DONE**
 - **#15** — Morning digest notification (setting exists, trigger not wired)
 - **#16** — AI-generated nudge messages for email (push has it, email doesn't)
 - **#17** — Notification grouping/batching for email and push
