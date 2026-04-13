@@ -31,6 +31,7 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Package tracking with 17track API, carrier auto-detection, signature-required task creation
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
+- Header menu: Packages + Settings icons always visible, overflow "..." menu for Projects, Import, Analytics, Activity Log
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
 
 ### Energy/Capacity Tagging System

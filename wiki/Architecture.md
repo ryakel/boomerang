@@ -137,7 +137,8 @@ Generated on task create/update (title or energy change), backfilled on load for
 2. Diff-based sync: only changed fields are sent
 3. Trello: field updates, checklist create/update/delete, ID hydration for pre-existing tasks
 4. Notion: title via properties API, content via block replacement (delete old, append new)
-5. Failed syncs queued in `boom_external_sync_queue` (200 cap), replayed on `online` event
+5. GCal: creates/updates events with AI-inferred timing. Routine-spawned tasks create recurring events with RRULE based on routine cadence (`cadenceToRRule()`). Recurring event ID stored on routine (`gcal_recurring_event_id`) — subsequent spawns link to it.
+6. Failed syncs queued in `boom_external_sync_queue` (200 cap), replayed on `online` event
 
 ### Smart Recurrence Flow
 

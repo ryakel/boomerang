@@ -30,7 +30,7 @@ Tasks are organized into sections on the main screen:
 - **Waiting** — tasks marked as blocked/waiting on someone
 - **Snoozed** — tasks with a future snooze date, showing when they'll return
 - **Backlog** — someday/maybe tasks in a collapsible section at the bottom. Move tasks to backlog to keep them out of your active list without losing them.
-- **Projects** — dedicated space for longer-term tasks. Accessible via the folder icon in the header. No notifications, no nagging, no stale/overdue visual pressure. Use "Move to Projects" in any task's edit modal.
+- **Projects** — dedicated space for longer-term tasks. Accessible via the overflow menu ("...") in the header. No notifications, no nagging, no stale/overdue visual pressure. Use "Move to Projects" in any task's edit modal.
 
 ## Task Count Display
 
@@ -108,6 +108,8 @@ Recurring tasks with configurable cadence:
 - **Connection indicators** — linked tasks show an "N" badge next to the title. Tap to open the Notion page directly.
 - **Ongoing sync** — linked tasks automatically sync changes (title, notes, checklists) to Notion with a 5-second debounce. Title updates go via Notion properties API; content sync deletes old blocks and appends new ones (full replacement). Failed syncs are queued for offline replay.
 - **Pull sync** — child pages of a configured parent page are discovered, analyzed by AI, and converted to tasks. Supports deduplication (exact title match + AI confidence scoring).
+- **Database sync** — paste a Notion database ID or URL in Settings to sync database rows as tasks. Rows are Notion pages, so dedup and linking work the same as page sync.
+- **Routine auto-detection** — when AI analyzes a Notion page and detects recurring patterns (e.g., "change filter every 3 months"), a suggestion banner appears offering to create a routine with the inferred cadence. Dismiss permanently with "x".
 - **Routine support** — routines can also be linked to Notion pages
 
 ## Connections (Edit Modal)
@@ -190,6 +192,7 @@ Once connected and a board/list is selected:
 - **AI deduplication** — when new Trello cards are found, Claude compares them to existing tasks and auto-links matches above the confidence threshold. Only truly new cards create new tasks.
 - **Offline queue** — failed Trello/Notion syncs are queued in localStorage (200 cap) and replayed on reconnect.
 - **Board/list selection** — configure which board and default list to sync with in Settings. Change anytime.
+- **Multi-list sync** — select multiple Trello lists to pull from via checkboxes in Settings. All checked lists are synced in parallel.
 - **Sync Now button** — manual sync trigger in Settings with last-sync timestamp display.
 - **List mapping display** — view and re-infer the AI-generated list mapping in Settings.
 
@@ -226,7 +229,8 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 ### Features
 
 - **Push sync** — tasks with due dates are automatically synced as Google Calendar events. AI infers the optimal time of day and duration based on task title, size, and energy type. When push sync is first enabled, all existing tasks with due dates today or in the future are pushed to the calendar automatically (past due dates are excluded). New tasks with due dates are synced after a 5-second debounce.
-- **Pull sync** — calendar events can be pulled as Boomerang tasks via "Sync Now" (only visible when pull sync is enabled) or automatically on app open. Events already pushed by Boomerang are filtered out.
+- **Recurring events** — routine-spawned tasks create recurring Google Calendar events with RRULE matching the routine's cadence (daily, weekly, biweekly, monthly, etc.). Subsequent routine spawns link to the existing recurring event. Pull sync collapses recurring instances into a single task per series.
+- **Pull sync** — calendar events can be pulled as Boomerang tasks via "Sync Now" (only visible when pull sync is enabled) or automatically on app open. Events already pushed by Boomerang are filtered out. Recurring event instances are collapsed (one task per series).
 - **Bulk cleanup** — "Remove All Events" button in Settings deletes all Boomerang-managed events from the calendar and unlinks all tasks. Useful for testing or starting fresh.
 - **AI-timed events** — Claude suggests time slots (desk tasks → morning, errands → midday, people tasks → afternoon) and durations based on task size (XS=15min to XL=4h). Falls back to configurable defaults.
 - **Per-task duration override** — set a custom duration (in minutes) on any task via EditTaskModal. Overrides AI/size-based defaults. Shown when a due date is set.
@@ -300,10 +304,32 @@ Server-side email notifications that work even when the app isn't open. Requires
 - **Per-type toggles** — independently enable/disable email for each notification type:
   - High priority tasks, overdue tasks, stale tasks, general nudges, size-based reminders, pile-up warnings
   - Package tracking: delivered, exceptions
+- **AI nudge messages** — email nudges use Claude AI to generate contextual, motivating one-liners specific to the task being nudged. Falls back to static messages when no API key is configured.
+- **Batch mode** — when enabled, all triggered notifications are combined into a single email with sections instead of sending individual emails. Toggle in Settings → Email Notifications.
 - **Same notification logic** — uses identical frequencies, quiet hours, and avoidance boost as push notifications
 - **Dark-themed HTML emails** — styled to match the app aesthetic
 - **Test email** — send a test email from Settings to verify SMTP configuration
 - **Server-side throttling** — throttle timestamps stored in SQLite (not localStorage), persists across restarts
+
+## Morning Digest
+
+Scheduled daily summary notification via email and/or push at a configurable time (default 7:00 AM).
+
+- **Content** — open task count, overdue count, stale count, due-today count
+- **Channels** — email and push toggles independent of each other
+- **Time picker** — set your preferred digest time in Settings → Notifications
+- **Throttled** — fires once per 23 hours (won't re-fire the next minute)
+- **Conditional** — only fires if there are open tasks
+
+## Markdown Import
+
+Bulk import tasks from markdown text or files. Accessible from the overflow menu ("...") in the header.
+
+- **Supported formats** — checkboxes (`- [ ] task`), bullet lists (`- task`, `* task`), numbered lists (`1. task`)
+- **Sections** — `## Headings` become group labels in the preview
+- **Smart filtering** — completed checkboxes (`- [x]`) and plain paragraphs are skipped
+- **Preview flow** — paste or upload → preview parsed tasks → select/deselect → import
+- **File upload** — accepts `.md`, `.txt`, `.markdown` files
 
 ## Sorting
 
@@ -328,8 +354,11 @@ Tasks can be marked as high priority via a toggle in the Edit modal. High priori
 ## Desktop UI
 
 On screens 768px+, the app switches to a desktop layout:
-- **Kanban board** — 5-column board (Stale, Up Next, Doing, Waiting, Snoozed) with drag-and-drop between columns
+- **Kanban board** — 6-column board (Doing, Up Next, Waiting, Snoozed, Backlog, Projects) with drag-and-drop between columns
 - **Hover states** — task cards reveal action buttons on hover
+- **Side drawer** — EditTaskModal renders as a 480px right-side drawer instead of bottom sheet, with slide-in animation
+- **Richer cards** — desktop cards show notes preview (first 120 chars), checklist progress bar with done/total count, and always-visible tags
+- **Keyboard shortcuts** — `n` (new task), `/` (search), `j`/`k` (navigate), `Enter`/`e` (edit), `x` (complete), `s` (snooze), `Escape` (close/deselect), `?` (help). Disabled when typing in inputs.
 - **Sheet modals** — Settings, Routines, Analytics, and Edit Task use centered sheet-overlay modals with X close button (mobile keeps full-screen)
 - **Compact header** — "What now?" button in header instead of bottom bar
 

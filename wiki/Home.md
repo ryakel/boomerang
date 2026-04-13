@@ -30,3 +30,4 @@ Open `http://localhost:3001` and start adding tasks. API keys are optional — a
 - [Development](Development) — local dev setup, project structure
 - [Architecture](Architecture) — how it works under the hood
 - [Version History](Version-History) — commit-level changelog
+- [Testing Plan](Testing-Plan) — manual test checklist for all features

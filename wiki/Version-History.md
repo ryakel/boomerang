@@ -17,6 +17,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- docs: add comprehensive Testing Plan to wiki [XS]
+  - New `wiki/Testing-Plan.md` — checklist for all features from the April 2026 sprint
+  - Updated `wiki/Features.md` — added markdown import, morning digest, desktop keyboard shortcuts, side drawer, richer cards, database sync, routine detection, recurring events, multi-list Trello, AI email nudges, batch mode
+  - Updated `wiki/Architecture.md` — recurring event RRULE in external sync docs
+  - Updated `CLAUDE.md` — header menu change noted
 - style(ui): keep Packages and Settings visible, overflow the rest into menu [XS]
   - Header now shows: Packages icon + Settings gear + "..." overflow menu
   - Overflow menu contains: Projects, Import Markdown, Analytics, Activity Log
