@@ -176,9 +176,53 @@ function genId() {
   return crypto.randomUUID()
 }
 
+// --- Morning digest check ---
+
+async function checkPushDigest() {
+  if (!isConfigured()) return
+  const settings = getData('settings') || {}
+  if (!settings.push_notifications_enabled) return
+  if (!settings.push_digest_enabled) return
+
+  const digestTime = settings.digest_time || '07:00'
+  const now = new Date()
+  const [hh, mm] = digestTime.split(':').map(Number)
+  if (now.getHours() !== hh || now.getMinutes() !== mm) return
+
+  if (!checkThrottle('push_digest', 23 * 60 * 60 * 1000)) return
+
+  const subscriptions = getAllPushSubscriptions()
+  if (subscriptions.length === 0) return
+
+  const allTasks = queryTasks({})
+  const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
+  if (activeTasks.length === 0) return
+
+  const overdueTasks = activeTasks.filter(isOverdue)
+  const staleDays = settings.staleness_days || 2
+  const staleTasks = activeTasks.filter(t => isStale(t, staleDays))
+  const todayStr = now.toISOString().split('T')[0]
+  const dueTodayTasks = activeTasks.filter(t => t.due_date === todayStr)
+
+  const parts = [`${activeTasks.length} open`]
+  if (dueTodayTasks.length > 0) parts.push(`${dueTodayTasks.length} due today`)
+  if (overdueTasks.length > 0) parts.push(`${overdueTasks.length} overdue`)
+  if (staleTasks.length > 0) parts.push(`${staleTasks.length} stale`)
+
+  await sendPush({
+    title: 'Morning Digest',
+    body: parts.join(' · '),
+    tag: 'digest',
+  })
+  markThrottle('push_digest')
+}
+
 // --- Main notification check loop ---
 
 async function runPushCheck() {
+  // Check digest before main notification loop
+  try { await checkPushDigest() } catch (err) { console.error('[Push] Digest check failed:', err.message) }
+
   try {
     if (!isConfigured()) return
 

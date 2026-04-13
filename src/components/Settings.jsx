@@ -1348,6 +1348,34 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                       </>
                     )}
 
+                    {/* Multi-list sync selection */}
+                    {settings.trello_board_id && trelloListsList.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <div className="settings-label" style={{ marginBottom: 6 }}>Sync from lists</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>Select which lists to pull tasks from during sync.</div>
+                        {trelloListsList.map(l => {
+                          const syncListIds = settings.trello_sync_list_ids || [settings.trello_list_id].filter(Boolean)
+                          const checked = syncListIds.includes(l.id)
+                          return (
+                            <label key={l.id} className="notif-check" style={{ marginBottom: 4 }}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={e => {
+                                  const current = settings.trello_sync_list_ids || [settings.trello_list_id].filter(Boolean)
+                                  const next = e.target.checked
+                                    ? [...current, l.id]
+                                    : current.filter(id => id !== l.id)
+                                  update('trello_sync_list_ids', next)
+                                }}
+                              />
+                              <span style={{ fontSize: 13 }}>{l.name}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+
                     {/* Sync controls */}
                     <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
                       <button
@@ -2087,6 +2115,40 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
             </div>
           )}
 
+          {/* Morning Digest */}
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <div className="settings-label" style={{ marginBottom: 8 }}>Morning Digest</div>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+              Daily summary of open, overdue, stale, and due-today tasks.
+            </div>
+            <label className="notif-check" style={{ marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={!!settings.email_digest_enabled}
+                onChange={e => update('email_digest_enabled', e.target.checked)}
+              />
+              <span>Email digest</span>
+            </label>
+            <label className="notif-check" style={{ marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={!!settings.push_digest_enabled}
+                onChange={e => update('push_digest_enabled', e.target.checked)}
+              />
+              <span>Push digest</span>
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Time:</span>
+              <input
+                type="time"
+                className="settings-input"
+                value={settings.digest_time || '07:00'}
+                onChange={e => update('digest_time', e.target.value)}
+                style={{ width: 120, fontSize: 13 }}
+              />
+            </div>
+          </div>
+
           {/* Push Notifications */}
           {pushSub.supported && pushServerStatus?.configured && (
             <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
@@ -2293,6 +2355,13 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                 )}
 
                 <div className="settings-label" style={{ marginTop: 16 }}>Email me about</div>
+
+                <div className="notif-type-row">
+                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
+                    <input type="checkbox" checked={!!settings.email_batch_mode} onChange={e => update('email_batch_mode', e.target.checked)} />
+                    <span>Batch mode (combine into one email)</span>
+                  </label>
+                </div>
 
                 <div className="notif-type-row">
                   <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>

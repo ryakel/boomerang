@@ -30,6 +30,32 @@ if (existsSync('.env')) {
   notificationEmail = notificationEmail || envFile.match(/NOTIFICATION_EMAIL="?([^"\n]+)"?/)?.[1]
 }
 
+// AI nudge generation (server-side)
+let anthropicKey = process.env.ANTHROPIC_API_KEY
+if (!anthropicKey && existsSync('.env')) {
+  const envFile = readFileSync('.env', 'utf-8')
+  anthropicKey = anthropicKey || envFile.match(/(?:VITE_)?ANTHROPIC_API_KEY="?([^"\n]+)"?/)?.[1]
+}
+
+async function generateAINudge(task) {
+  const key = anthropicKey || getData('settings')?.anthropic_api_key
+  if (!key) return null
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514', max_tokens: 100,
+        system: 'Generate a short, encouraging one-liner nudge (under 80 chars) for someone with ADHD about this task. Be warm, specific, and motivating. No quotes.',
+        messages: [{ role: 'user', content: `Task: "${task.title}"${task.energy ? ` (${task.energy})` : ''}` }],
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.content?.[0]?.text?.trim() || null
+  } catch { return null }
+}
+
 // Avoidance-prone energy types (same as client)
 const AVOIDANCE_ENERGY_TYPES = ['errand']
 const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
@@ -235,15 +261,64 @@ function genId() {
   return crypto.randomUUID()
 }
 
+// --- Morning digest check ---
+
+async function checkDigest() {
+  if (!isConfigured()) return
+  const settings = getData('settings') || {}
+  if (!settings.email_notifications_enabled) return
+  if (!settings.email_digest_enabled) return
+
+  const digestTime = settings.digest_time || '07:00'
+  const now = new Date()
+  const [hh, mm] = digestTime.split(':').map(Number)
+  // Only fire within the digest minute window
+  if (now.getHours() !== hh || now.getMinutes() !== mm) return
+
+  // Throttle: once per day
+  if (!checkThrottle('email_digest', 23 * 60 * 60 * 1000)) return
+
+  const allTasks = queryTasks({})
+  const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
+  if (activeTasks.length === 0) return
+
+  const overdueTasks = activeTasks.filter(isOverdue)
+  const staleDays = settings.staleness_days || 2
+  const staleTasks = activeTasks.filter(t => isStale(t, staleDays))
+  const todayStr = now.toISOString().split('T')[0]
+  const dueTodayTasks = activeTasks.filter(t => t.due_date === todayStr)
+
+  const subject = `Morning Digest: ${activeTasks.length} open tasks`
+  const lines = [
+    `You have <strong>${activeTasks.length}</strong> open tasks.`,
+  ]
+  if (dueTodayTasks.length > 0) lines.push(`<strong>${dueTodayTasks.length}</strong> due today`)
+  if (overdueTasks.length > 0) lines.push(`<strong>${overdueTasks.length}</strong> overdue`)
+  if (staleTasks.length > 0) lines.push(`<strong>${staleTasks.length}</strong> stale`)
+
+  const body = lines.join(' · ')
+  const sent = await sendEmail(subject, simpleEmailHtml('Morning Digest', body), body.replace(/<[^>]+>/g, ''))
+  if (sent) {
+    markThrottle('email_digest')
+    logNotifEmail(genId(), 'digest', null, subject, body)
+  }
+}
+
 // --- Main notification check loop ---
 
 async function runNotificationCheck() {
+  // Check digest before main notification loop
+  try { await checkDigest() } catch (err) { console.error('[Email] Digest check failed:', err.message) }
+
   try {
     if (!isConfigured()) return
 
     const settings = getData('settings') || {}
     if (!settings.email_notifications_enabled) return
     if (isInQuietHours(settings)) return
+
+    const batchMode = !!settings.email_batch_mode
+    const batchItems = [] // collect items when batching
 
     const allTasks = queryTasks({})
     const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
@@ -318,14 +393,22 @@ async function runNotificationCheck() {
       }
     }
 
-    // General nudge
+    // General nudge (with AI when available)
     if (settings.email_notif_nudge !== false) {
       const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
       if (checkThrottle('email_nudge', freq) && activeTasks.length > 0) {
         const smallTasks = activeTasks.filter(t => t.size === 'XS' || t.size === 'S')
+        const pick = smallTasks.length > 0
+          ? smallTasks[Math.floor(Math.random() * smallTasks.length)]
+          : activeTasks[Math.floor(Math.random() * activeTasks.length)]
+
         let subject, body
-        if (smallTasks.length > 0) {
-          const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
+        // Try AI nudge first
+        const aiNudge = await generateAINudge(pick)
+        if (aiNudge) {
+          subject = 'Boomerang'
+          body = aiNudge
+        } else if (smallTasks.length > 0) {
           subject = 'Quick win available'
           body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
         } else {
@@ -390,6 +473,20 @@ async function runNotificationCheck() {
           }
         }
         if (sent) markThrottle('email_pileup')
+      }
+    }
+    // Batch mode: send all collected items as one email
+    if (batchMode && batchItems.length > 0) {
+      const subject = `Boomerang: ${batchItems.length} notification${batchItems.length > 1 ? 's' : ''}`
+      const htmlParts = batchItems.map(item => `<div style="margin-bottom:12px"><strong>${item.subject}</strong><br>${item.body}</div>`)
+      const htmlBody = simpleEmailHtml(subject, htmlParts.join('<hr style="border:none;border-top:1px solid #333;margin:12px 0">'))
+      const textBody = batchItems.map(item => `${item.subject}: ${item.body}`).join('\n\n')
+      const sent = await sendEmail(subject, htmlBody, textBody)
+      if (sent) {
+        for (const item of batchItems) {
+          markThrottle(item.throttleKey)
+          logNotifEmail(genId(), item.type, item.taskId || null, item.subject, item.body)
+        }
       }
     }
   } catch (err) {

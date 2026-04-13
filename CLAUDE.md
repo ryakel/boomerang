@@ -318,8 +318,8 @@ Server-side email notification engine (`emailNotifications.js`) that mirrors cli
 - Note: T-Mobile's tmomail.net gateway is unreliable/deprecated — use Web Push instead
 
 **Known Limitations:**
-- No digest/batching mode yet (sends individual emails per notification type) (tracked: #17)
-- AI-generated nudge messages not yet wired for email (uses static messages) (tracked: #16)
+- Batch mode available via `email_batch_mode` setting (#17 — DONE)
+- AI-generated nudge messages wired for email when API key available (#16 — DONE)
 - No email notification history visible in UI (logged server-side only)
 
 ### Web Push Notifications
@@ -356,7 +356,7 @@ Server-side Web Push engine (`pushNotifications.js`) that sends background notif
 **Known Limitations:**
 - iOS requires PWA to be added to Home Screen before push works
 - Each device must subscribe independently (multi-device = multiple subscriptions)
-- No notification grouping/batching yet (tracked: #17)
+- Push notification batching not yet implemented (email has batch mode via #17)
 
 ### Projects (Long-term Safe Space)
 Dedicated space for longer-term tasks that should never trigger notifications or nagging.
@@ -470,10 +470,10 @@ Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key item
 - **#9** — ~~Notion recurring patterns~~ **DONE**
 - **#10** — ~~GCal recurring events~~ **DONE**
 - **#14** — ~~Markdown import~~ **DONE**
-- **#15** — Morning digest notification (setting exists, trigger not wired)
-- **#16** — AI-generated nudge messages for email (push has it, email doesn't)
-- **#17** — Notification grouping/batching for email and push
-- **#18** — Trello multi-list sync UI (endpoint exists, UI not wired)
+- **#15** — ~~Morning digest notification~~ **DONE**
+- **#16** — ~~AI-generated nudge messages for email~~ **DONE**
+- **#17** — ~~Notification grouping/batching~~ **DONE** (email batch mode)
+- **#18** — ~~Trello multi-list sync UI~~ **DONE**
 
 ### Architecture Notes (completed work)
 

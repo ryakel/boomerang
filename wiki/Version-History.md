@@ -17,6 +17,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(notifications): morning digest, AI nudges, batch mode, Trello multi-list [L]
+  - Morning digest (#15): scheduled daily summary via email and/or push at configurable time
+  - AI email nudges (#16): nudge messages now use Claude AI when API key available, static fallback
+  - Batch mode (#17): new `email_batch_mode` setting combines all notifications into one email
+  - Trello multi-list sync (#18): checkbox list selector in Settings for syncing from multiple Trello lists
+  - Settings UI: new Morning Digest section with email/push toggles and time picker, batch mode toggle, Trello multi-list checkboxes
+  - Modified: `emailNotifications.js`, `pushNotifications.js`, `src/components/Settings.jsx`
 - feat(sync): Google Calendar recurring event support [L]
   - Push sync: routine-spawned tasks now create recurring events with RRULE
   - Cadence mapping: daily, weekly, biweekly, monthly, quarterly, annually, custom → RRULE
