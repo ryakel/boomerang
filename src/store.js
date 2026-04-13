@@ -251,6 +251,7 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
     completed_history: [], // array of ISO date strings
     paused: false,
     end_date: null,      // optional YYYY-MM-DD — routine auto-pauses after this date
+    gcal_recurring_event_id: null, // Google Calendar recurring event ID
   }
 }
 

@@ -89,10 +89,25 @@ export function useGCalSync(tasks, setTasks) {
 
     // Create new tasks for unmatched events
     const newEvents = candidateEvents.filter(e => !matchMap.has(e.id))
-    remoteLog(`[GCalSync] ${newEvents.length} new events to create as tasks`)
+
+    // Group recurring event instances — only import the first instance per series
+    const seenRecurring = new Set()
+    const eventsToImport = []
+    for (const event of newEvents) {
+      if (event.recurringEventId) {
+        if (seenRecurring.has(event.recurringEventId)) {
+          continue // Skip duplicate instances of the same recurring event
+        }
+        seenRecurring.add(event.recurringEventId)
+        remoteLog(`[GCalSync] recurring event instance: "${event.summary}" (series: ${event.recurringEventId})`)
+      }
+      eventsToImport.push(event)
+    }
+
+    remoteLog(`[GCalSync] ${eventsToImport.length} new events to create as tasks (${seenRecurring.size} recurring series collapsed)`)
 
     const newTasks = []
-    for (const event of newEvents) {
+    for (const event of eventsToImport) {
       // Extract date from event start
       const dueDate = event.start?.date || (event.start?.dateTime ? event.start.dateTime.split('T')[0] : null)
 
@@ -102,7 +117,7 @@ export function useGCalSync(tasks, setTasks) {
         dueDate,
         event.description || ''
       )
-      task.gcal_event_id = event.id
+      task.gcal_event_id = event.recurringEventId || event.id
       newTasks.push(task)
     }
 

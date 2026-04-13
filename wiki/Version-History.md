@@ -17,6 +17,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(sync): Google Calendar recurring event support [L]
+  - Push sync: routine-spawned tasks now create recurring events with RRULE
+  - Cadence mapping: daily, weekly, biweekly, monthly, quarterly, annually, custom → RRULE
+  - Recurring event ID stored on routine (`gcal_recurring_event_id`) — subsequent spawned tasks link to it
+  - Pull sync: recurring event instances collapsed by `recurringEventId` — only one task per series
+  - Server returns `recurringEventId` on fetched events for recurring detection
+  - Migration 014: `gcal_recurring_event_id` column on routines table
+  - Modified: `src/hooks/useExternalSync.js`, `src/hooks/useGCalSync.js`, `src/store.js`, `server.js`
+  - New: `migrations/014_add_gcal_recurring_id.sql`
 - feat(notion): auto-suggest routines from recurring patterns in Notion pages [M]
   - During page-based Notion sync, AI analysis already returns `is_recurring` and `recurrence` fields
   - Recurring tasks now appear as purple suggestion banners instead of regular tasks

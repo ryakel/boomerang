@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { loadSettings } from '../store'
+import { loadSettings, loadRoutines } from '../store'
 import {
   trelloUpdateCard,
   trelloCreateChecklist,
@@ -35,6 +35,28 @@ function enqueue(ops) {
 
 function log(...args) {
   console.log('[ExternalSync]', ...args)
+}
+
+// Map Boomerang routine cadence to Google Calendar RRULE
+function cadenceToRRule(cadence, customDays, endDate) {
+  let rule
+  switch (cadence) {
+    case 'daily': rule = 'RRULE:FREQ=DAILY'; break
+    case 'weekly': rule = 'RRULE:FREQ=WEEKLY'; break
+    case 'biweekly': rule = 'RRULE:FREQ=WEEKLY;INTERVAL=2'; break
+    case 'monthly': rule = 'RRULE:FREQ=MONTHLY'; break
+    case 'quarterly': rule = 'RRULE:FREQ=MONTHLY;INTERVAL=3'; break
+    case 'annually': rule = 'RRULE:FREQ=YEARLY'; break
+    case 'custom':
+      rule = `RRULE:FREQ=DAILY;INTERVAL=${customDays || 14}`
+      break
+    default: return null
+  }
+  if (endDate) {
+    const until = endDate.replace(/-/g, '') + 'T235959Z'
+    rule += `;UNTIL=${until}`
+  }
+  return rule
 }
 
 function buildEventDescription(task) {
@@ -432,10 +454,38 @@ export function useExternalSync(tasks, onUpdateTask) {
         }
       }
 
+      // For routine-spawned tasks with sync_routines_recurring, create recurring event
+      if (task.routine_id && settings.gcal_sync_routines_recurring !== false) {
+        const routines = loadRoutines()
+        const routine = routines.find(r => r.id === task.routine_id)
+        if (routine && !routine.gcal_recurring_event_id) {
+          const rrule = cadenceToRRule(routine.cadence, routine.custom_days, routine.end_date)
+          if (rrule) {
+            event.recurrence = [rrule]
+            log(`adding recurrence to event for routine "${routine.title}": ${rrule}`)
+          }
+        } else if (routine?.gcal_recurring_event_id) {
+          // Routine already has a recurring event — link task to it, skip creating
+          onUpdateTaskRef.current(task.id, { gcal_event_id: routine.gcal_recurring_event_id })
+          log(`linked task to existing recurring event for routine "${routine.title}"`)
+          return
+        }
+      }
+
       try {
         const result = await gcalCreateEvent(calendarId, event)
         onUpdateTaskRef.current(task.id, { gcal_event_id: result.eventId })
         log(`created GCal event for "${task.title}"`)
+
+        // Store recurring event ID on the routine for future spawned tasks
+        if (event.recurrence && task.routine_id) {
+          const routines = loadRoutines()
+          const idx = routines.findIndex(r => r.id === task.routine_id)
+          if (idx >= 0) {
+            routines[idx].gcal_recurring_event_id = result.eventId
+            localStorage.setItem('boom_routines', JSON.stringify(routines))
+          }
+        }
       } catch (err) {
         log(`ERROR creating GCal event:`, err.message)
         enqueue([{ type: 'gcalCreate', calendarId, event, taskId: task.id }])

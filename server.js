@@ -1295,6 +1295,7 @@ app.get('/api/gcal/events', async (req, res) => {
       start: e.start,
       end: e.end,
       htmlLink: e.htmlLink,
+      recurringEventId: e.recurringEventId || null,
     }))
     res.json(events)
   } catch (err) {

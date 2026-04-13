@@ -205,7 +205,7 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 - OAuth requires user to create a Google Cloud project (no centralized consent screen)
 - Redirect URI must match exactly (localhost:3001 prod, localhost:3002 dev)
 - Pull sync only looks 30 days ahead
-- No recurring event support (each routine-spawned task creates a new event)
+- Recurring event support: routine-spawned tasks create recurring events with RRULE (#10 — DONE)
 - AI time inference requires Anthropic API key; falls back to defaults without it
 
 ### Package Tracking (17track API)
@@ -468,7 +468,7 @@ Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key item
 - **#6** — ~~Desktop UI Phase 5 — richer cards~~ **DONE**
 - **#8** — ~~Notion database sync UI~~ **DONE**
 - **#9** — ~~Notion recurring patterns~~ **DONE**
-- **#10** — GCal recurring events
+- **#10** — ~~GCal recurring events~~ **DONE**
 - **#14** — ~~Markdown import~~ **DONE**
 - **#15** — Morning digest notification (setting exists, trigger not wired)
 - **#16** — AI-generated nudge messages for email (push has it, email doesn't)
