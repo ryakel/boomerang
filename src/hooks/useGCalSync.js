@@ -36,8 +36,8 @@ export function useGCalSync(tasks, setTasks) {
     }
 
     const currentTasks = tasksRef.current
-    // Only block reimport for events linked to ACTIVE tasks (done tasks don't block)
-    const linkedEventIds = new Set(currentTasks.filter(t => t.gcal_event_id && t.status !== 'done').map(t => t.gcal_event_id))
+    // Block reimport for events linked to ANY task (including done)
+    const linkedEventIds = new Set(currentTasks.filter(t => t.gcal_event_id).map(t => t.gcal_event_id))
 
     // Filter events
     const titleFilter = (s.gcal_pull_filter || '').trim().toLowerCase()
