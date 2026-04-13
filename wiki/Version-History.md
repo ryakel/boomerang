@@ -17,6 +17,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
   - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
   - New: `src/contexts/TaskActionsContext.jsx`
+- feat(analytics): comprehensive analytics page with charts, breakdowns, search [L]
+  - New `GET /api/analytics/history?days=30` endpoint — single SQL query aggregates all data server-side
+  - Daily completion bar chart with tasks/points toggle and time range picker (7d/30d/90d/All)
+  - Day-of-week productivity patterns chart with "best day" insight
+  - Breakdowns by tag (with label colors), energy type (with icons), and size (with colored bars)
+  - Completed tasks search with filters (energy type, size, tag)
+  - All-time view groups by week to avoid hundreds of bars
+  - Pure CSS bar charts — no charting libraries
+  - Added `size` filter to `queryTasks` in db.js
+  - Modified: `db.js`, `server.js`, `src/components/Analytics.jsx`, `src/components/Analytics.css`
 - docs: add comprehensive Testing Plan to wiki [XS]
   - New `wiki/Testing-Plan.md` — checklist for all features from the April 2026 sprint
   - Updated `wiki/Features.md` — added markdown import, morning digest, desktop keyboard shortcuts, side drawer, richer cards, database sync, routine detection, recurring events, multi-list Trello, AI email nudges, batch mode

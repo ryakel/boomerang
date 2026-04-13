@@ -6,7 +6,7 @@ import path from 'path'
 import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bumpVersion, flushNow,
   upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
-  getAnalytics, getData,
+  getAnalytics, getAnalyticsHistory, getData,
   upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
@@ -267,6 +267,11 @@ app.get('/api/analytics', (req, res) => {
   // Read settings from app_data for streak/vacation logic
   const settings = getData('settings') || {}
   res.json(getAnalytics(settings))
+})
+
+app.get('/api/analytics/history', (req, res) => {
+  const days = req.query.days ? parseInt(req.query.days, 10) : null
+  res.json(getAnalyticsHistory(days))
 })
 
 // --- Per-record Task API ---

@@ -421,13 +421,16 @@ Speed bonuses reward fast turnaround:
 
 ## Analytics
 
-Accessible via the chart icon in the header, the Analytics screen shows:
+Accessible from the overflow menu ("...") in the header, the Analytics screen shows:
 
-- **Activity rings** — full-size daily progress rings
-- **Current streak** — consecutive days meeting your daily goals
-- **Longest streak** — your all-time best streak
-- **Best daily points** — highest points scored in a single day
-- **Best daily tasks** — most tasks completed in a single day
+- **Activity rings** — full-size daily progress rings (tasks, points, streak)
+- **Stat cards** — current streak, longest streak, best daily points, best daily tasks
+- **Daily completion chart** — bar chart showing tasks or points per day, with time range picker (7d, 30d, 90d, all time). Toggle between tasks and points view. All-time groups by week.
+- **Day-of-week patterns** — 7-bar chart showing which days you're most productive, with "best day" insight. Current day highlighted.
+- **Tag breakdown** — horizontal bars showing completions per label, using label colors
+- **Energy type breakdown** — completions by energy type (desk, errand, people, etc.) with energy icons
+- **Size breakdown** — completions by T-shirt size (XS through XL) with point totals
+- **Completed task search** — search completed tasks with filters for energy type, size, and tag
 - **Vacation mode** — freezes your streak so time away doesn't reset it. Choose a duration (3 days, 5 days, 7 days, or custom) and it auto-expires when the end date passes. End early if you're back sooner.
 - **Free day** — one-tap button to pause your streak for a single day without entering vacation mode. Togglable on/off for today.
 - **Reset streaks** — clears all streak data, with double confirmation to prevent accidents

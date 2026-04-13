@@ -427,6 +427,10 @@ export function queryTasks(filters = {}) {
     clauses.push(`tags_json LIKE ?`)
     params.push(`%"${filters.tag}"%`)
   }
+  if (filters.size) {
+    clauses.push('size = ?')
+    params.push(filters.size)
+  }
   if (filters.q) {
     clauses.push(`(title LIKE ? OR notes LIKE ?)`)
     const term = `%${filters.q}%`
@@ -563,6 +567,77 @@ export function getAnalytics(settings = {}) {
   }
 
   return { tasksToday, pointsToday, bestTasks, bestPoints, longestStreak, streak }
+}
+
+export function getAnalyticsHistory(days) {
+  const sinceDate = days
+    ? new Date(Date.now() - days * 86400000).toISOString()
+    : '1970-01-01T00:00:00.000Z'
+
+  const stmt = db.prepare('SELECT * FROM tasks WHERE status = ? AND completed_at IS NOT NULL AND completed_at >= ?')
+  stmt.bind(['done', sinceDate])
+
+  const daily = {}
+  const byTag = {}
+  const byEnergy = {}
+  const bySize = {}
+  const byDayOfWeek = Array.from({ length: 7 }, () => ({ tasks: 0, points: 0 }))
+  let totalTasks = 0, totalPoints = 0
+
+  while (stmt.step()) {
+    const row = stmt.getAsObject()
+    const points = calcPoints(row)
+    totalTasks++
+    totalPoints += points
+
+    // Daily (group by week for all-time to avoid hundreds of bars)
+    const dayKey = days
+      ? row.completed_at.split('T')[0]
+      : (() => {
+          const d = new Date(row.completed_at)
+          const weekStart = new Date(d)
+          weekStart.setDate(d.getDate() - d.getDay())
+          return weekStart.toISOString().split('T')[0]
+        })()
+    if (!daily[dayKey]) daily[dayKey] = { day: dayKey, tasks: 0, points: 0 }
+    daily[dayKey].tasks++
+    daily[dayKey].points += points
+
+    // Tags
+    try {
+      const tags = JSON.parse(row.tags_json || '[]')
+      for (const tagId of tags) {
+        if (!byTag[tagId]) byTag[tagId] = { tasks: 0, points: 0 }
+        byTag[tagId].tasks++
+        byTag[tagId].points += points
+      }
+    } catch { /* malformed tags_json */ }
+
+    // Energy
+    if (row.energy) {
+      if (!byEnergy[row.energy]) byEnergy[row.energy] = { tasks: 0, points: 0 }
+      byEnergy[row.energy].tasks++
+      byEnergy[row.energy].points += points
+    }
+
+    // Size
+    if (row.size) {
+      if (!bySize[row.size]) bySize[row.size] = { tasks: 0, points: 0 }
+      bySize[row.size].tasks++
+      bySize[row.size].points += points
+    }
+
+    // Day of week
+    const dow = new Date(row.completed_at).getDay()
+    byDayOfWeek[dow].tasks++
+    byDayOfWeek[dow].points += points
+  }
+  stmt.free()
+
+  // Sort daily entries chronologically
+  const dailyArr = Object.values(daily).sort((a, b) => a.day.localeCompare(b.day))
+
+  return { daily: dailyArr, byTag, byEnergy, bySize, byDayOfWeek, totalTasks, totalPoints }
 }
 
 // Sync the full tasks array — used by setAllData (bulk sync from client)
