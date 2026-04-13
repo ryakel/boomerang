@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect, } from 'react'
 import { Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package, FolderKanban } from 'lucide-react'
 import { polyfill } from 'mobile-drag-drop'
 import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scroll-behaviour'
@@ -39,6 +39,7 @@ import { usePackages } from './hooks/usePackages'
 import { usePackageNotifications } from './hooks/usePackageNotifications'
 import Packages from './components/Packages'
 import ProjectsView from './components/ProjectsView'
+import { TaskActionsProvider } from './contexts/TaskActionsContext'
 
 polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 
@@ -294,14 +295,14 @@ function App() {
     }
   }, [changeStatus, handleComplete, tasks, pushStatusToTrello])
 
-  const handleSnooze = (task) => {
+  const handleSnooze = useCallback((task) => {
     const settings = loadSettings()
     if (task.snooze_count >= settings.reframe_threshold) {
       setReframeTarget(task)
     } else {
       setSnoozeTarget(task)
     }
-  }
+  }, [])
 
   const handleQuickAdd = () => {
     const text = quickText.trim()
@@ -338,7 +339,21 @@ function App() {
   const filteredBacklog = sortTasks(filterTasks(backlogTasks), sortBy)
   const filteredProjects = sortTasks(filterTasks(projectTasks), sortBy)
 
+  const taskActions = useMemo(() => ({
+    onComplete: handleComplete,
+    onSnooze: handleSnooze,
+    onEdit: setEditTarget,
+    onExtend: setExtendTarget,
+    onStatusChange: handleStatusChange,
+    onUpdate: updateTask,
+    onDelete: handleDelete,
+    onGmailApprove: handleGmailApprove,
+    onGmailDismiss: handleGmailDismiss,
+    isDesktop,
+  }), [handleComplete, handleSnooze, handleStatusChange, updateTask, handleDelete, handleGmailApprove, handleGmailDismiss, isDesktop])
+
   return (
+    <TaskActionsProvider value={taskActions}>
     <div className={`app${isDesktop ? ' desktop' : ''}`}>
       <header className="header">
         <div className="header-top">
@@ -434,17 +449,7 @@ function App() {
             {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
           </div>
           {searchResults.map(task => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onComplete={completeTask}
-              onSnooze={setSnoozeTarget}
-              onExpand={id => setExpandedTaskId(expandedTaskId === id ? null : id)}
-              expanded={expandedTaskId === task.id}
-              onEdit={setEditTarget}
-              onStatusChange={changeStatus}
-              onUpdate={updateTask}
-            />
+            <TaskCard key={task.id} task={task} expanded={expandedTaskId === task.id} onToggleExpand={setExpandedTaskId} />
           ))}
           {searchResults.length === 0 && (
             <div className="empty-state">No tasks match your search.</div>
@@ -513,13 +518,6 @@ function App() {
           filteredSnoozed={filteredSnoozed}
           filteredBacklog={filteredBacklog}
           filteredProjects={filteredProjects}
-          onComplete={handleComplete}
-          onSnooze={handleSnooze}
-          onEdit={setEditTarget}
-          onExtend={setExtendTarget}
-          onStatusChange={handleStatusChange}
-          onUpdate={updateTask}
-          onDelete={handleDelete}
           onAddTask={(title, status) => {
             const taskId = addTask({ title })
             if (status !== 'not_started') changeStatus(taskId, status)
@@ -538,7 +536,7 @@ function App() {
           <>
             <div className="section-label">Doing</div>
             {filteredDoing.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} onGmailApprove={handleGmailApprove} onGmailDismiss={handleGmailDismiss} />
+              <TaskCard key={t.id} task={t} expanded={expandedTaskId === t.id} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -547,7 +545,7 @@ function App() {
           <>
             <div className="section-label">Stale</div>
             {filteredStale.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} onGmailApprove={handleGmailApprove} onGmailDismiss={handleGmailDismiss} />
+              <TaskCard key={t.id} task={t} expanded={expandedTaskId === t.id} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -556,7 +554,7 @@ function App() {
           <>
             <div className="section-label">Up Next</div>
             {filteredUpNext.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} onGmailApprove={handleGmailApprove} onGmailDismiss={handleGmailDismiss} />
+              <TaskCard key={t.id} task={t} expanded={expandedTaskId === t.id} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -565,7 +563,7 @@ function App() {
           <>
             <div className="section-label">Waiting</div>
             {filteredWaiting.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} onGmailApprove={handleGmailApprove} onGmailDismiss={handleGmailDismiss} />
+              <TaskCard key={t.id} task={t} expanded={expandedTaskId === t.id} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -574,7 +572,7 @@ function App() {
           <>
             <div className="section-label">Snoozed</div>
             {filteredSnoozed.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} onGmailApprove={handleGmailApprove} onGmailDismiss={handleGmailDismiss} />
+              <TaskCard key={t.id} task={t} expanded={expandedTaskId === t.id} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -586,7 +584,7 @@ function App() {
               Backlog ({filteredBacklog.length})
             </button>
             {backlogOpen && filteredBacklog.map(t => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onSnooze={handleSnooze} onEdit={setEditTarget} onExtend={setExtendTarget} onBacklog={handleBacklog} onFindRelated={setRelatedTarget} onStatusChange={handleStatusChange} onUpdate={updateTask} onDelete={handleDelete} expandedId={expandedTaskId} onToggleExpand={setExpandedTaskId} onGmailApprove={handleGmailApprove} onGmailDismiss={handleGmailDismiss} />
+              <TaskCard key={t.id} task={t} expanded={expandedTaskId === t.id} onToggleExpand={setExpandedTaskId} />
             ))}
           </>
         )}
@@ -690,15 +688,7 @@ function App() {
       {showProjects && (
         <ProjectsView
           tasks={tasks}
-          onComplete={handleComplete}
-          onSnooze={handleSnooze}
-          onEdit={setEditTarget}
-          onExtend={setExtendTarget}
-          onStatusChange={handleStatusChange}
-          onUpdate={updateTask}
-          onDelete={handleDelete}
           onClose={() => setShowProjects(false)}
-          isDesktop={isDesktop}
         />
       )}
 
@@ -801,6 +791,7 @@ function App() {
         </div>
       )}
     </div>
+    </TaskActionsProvider>
   )
 }
 

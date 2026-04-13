@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import TaskCard from './TaskCard'
 import { sortTasks } from '../store'
+import { useTaskActions } from '../contexts/TaskActionsContext'
 import './ProjectsView.css'
 
-export default function ProjectsView({ tasks, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onClose, isDesktop }) {
+export default function ProjectsView({ tasks, onClose }) {
+  const { isDesktop } = useTaskActions()
   const [sortBy] = useState('name')
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
@@ -27,18 +29,7 @@ export default function ProjectsView({ tasks, onComplete, onSnooze, onEdit, onEx
           </div>
           {projectTasks.map(t => (
             <div key={t.id} className="project-card-wrapper">
-              <TaskCard
-                task={t}
-                onComplete={onComplete}
-                onSnooze={onSnooze}
-                onEdit={onEdit}
-                onExtend={onExtend}
-                onStatusChange={onStatusChange}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                expandedId={expandedTaskId}
-                onToggleExpand={setExpandedTaskId}
-              />
+              <TaskCard task={t} expanded={expandedTaskId === t.id} onToggleExpand={setExpandedTaskId} />
             </div>
           ))}
         </div>

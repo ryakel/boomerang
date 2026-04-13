@@ -9,12 +9,20 @@
 - AI-generated summary when custom instructions are set
 - Only fires if there are open tasks
 
-### Customizable Notifications
+### Per-type Notification Frequencies
 - Per-type frequency settings (e.g. overdue checks every 15m, nudges every 2h)
-- Quiet hours (no notifications between e.g. 10pm-7am)
 - Notification sound/vibration toggle
-- Notification preview in Settings (test button)
 - Per-type enable/disable already exists; needs per-type frequency
+
+### AI Nudge Messages for Email
+- Email notifications currently use static nudge messages
+- Push notifications already use AI-generated contextual nudges
+- Wire `generateToastMessage()`-style AI nudges into `emailNotifications.js`
+
+### Notification Grouping/Batching
+- Both email and push currently send individual notifications per type
+- Digest mode: batch multiple notifications into a single message
+- Configurable batching window (e.g. every 15 minutes)
 
 ## Medium-term
 
@@ -30,14 +38,12 @@
 - Webhook-based real-time sync (currently polling)
 - Conflict resolution improvements
 - Trello label ↔ Boomerang label mapping
-- Checklist sync between Trello and Boomerang
 - Comment sync between Trello and Boomerang
-- Multiple board support (currently single board)
+- Multiple board/list support (currently single list; `sync-all-lists` endpoint exists but UI not wired)
 
 ## Long-term
 
 ### Additional Integrations
-- Google Calendar sync (due dates ↔ calendar events)
 - Slack notifications (in addition to browser push)
 - Email digest (alternative to browser notification)
 

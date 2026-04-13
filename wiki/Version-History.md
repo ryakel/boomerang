@@ -4,6 +4,26 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-13
+
+- refactor(ui): add TaskActionsContext to eliminate prop drilling [M]
+  - New `src/contexts/TaskActionsContext.jsx` provides all task callbacks via React Context
+  - TaskCard signature reduced from 13 props to 3: `task`, `expanded`, `onToggleExpand`
+  - KanbanBoard simplified — no longer passes 7 callback props through KanbanColumn
+  - ProjectsView simplified — only receives `tasks` and `onClose` props
+  - Fixed broken search results TaskCard: was using wrong handlers (`completeTask` instead of `handleComplete`) and non-existent props (`onExpand`, `expanded`)
+  - Removed unused `onBacklog` and `onFindRelated` props from mobile TaskCard calls
+  - Wrapped `handleSnooze` in `useCallback` for context value stability
+  - Bonus: `expanded` prop is now a boolean (was `expandedId` string comparison), so React.memo can skip re-rendering unaffected cards
+  - Modified: `src/App.jsx`, `src/components/TaskCard.jsx`, `src/components/KanbanBoard.jsx`, `src/components/ProjectsView.jsx`
+  - New: `src/contexts/TaskActionsContext.jsx`
+- docs(cleanup): fix stale entries and create tracking issues for untracked work [S]
+  - CLAUDE.md: removed stale "Phase 2 Gmail not yet implemented" from Package Tracking
+  - CLAUDE.md: added issue cross-references to known limitations, added #14-18 to tech debt list
+  - CLAUDE.md: added TaskActionsContext to architecture notes
+  - UPCOMING_FEATURES.md: removed GCal sync (already shipped), added AI email nudges, notification batching
+  - Created issues: #15 (morning digest), #16 (AI email nudges), #17 (notification batching), #18 (Trello multi-list UI)
+
 ## 2026-04-12
 
 - fix(sync): gcal pull filter diagnostic logging, larger filter input [XS]

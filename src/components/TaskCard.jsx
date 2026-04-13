@@ -2,14 +2,15 @@ import { useState, useRef, useCallback, memo } from 'react'
 import './TaskCard.css'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import EnergyIcon from './EnergyIcon'
+import { useTaskActions } from '../contexts/TaskActionsContext'
 
 const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
-export default memo(function TaskCard({ task, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, expandedId, onToggleExpand, isDesktop, onGmailApprove, onGmailDismiss }) {
-  const expanded = expandedId === task.id
+export default memo(function TaskCard({ task, expanded = false, onToggleExpand }) {
+  const { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onGmailApprove, onGmailDismiss, isDesktop } = useTaskActions()
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const [swipeOpen, setSwipeOpen] = useState(false) // true when action buttons are revealed

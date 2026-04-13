@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import './KanbanBoard.css'
 import TaskCard from './TaskCard'
+import { useTaskActions } from '../contexts/TaskActionsContext'
 
 function AddCardInput({ onAdd }) {
   const [open, setOpen] = useState(false)
@@ -47,7 +48,7 @@ function AddCardInput({ onAdd }) {
   )
 }
 
-function KanbanColumn({ title, tasks, defaultStatus, onAddTask, onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, dragOverColumn, onDragOver, onDrop, onDragStart, draggingId }) {
+function KanbanColumn({ title, tasks, defaultStatus, onAddTask, dragOverColumn, onDragOver, onDrop, onDragStart, draggingId }) {
   const acceptsDrop = !!defaultStatus
   return (
     <div
@@ -75,17 +76,7 @@ function KanbanColumn({ title, tasks, defaultStatus, onAddTask, onComplete, onSn
             }}
             onDragEnd={() => onDragStart(null)}
           >
-            <TaskCard
-              task={t}
-              isDesktop
-              onComplete={onComplete}
-              onSnooze={onSnooze}
-              onEdit={onEdit}
-              onExtend={onExtend}
-              onStatusChange={onStatusChange}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
+            <TaskCard task={t} />
           </div>
         ))}
       </div>
@@ -99,9 +90,9 @@ function KanbanColumn({ title, tasks, defaultStatus, onAddTask, onComplete, onSn
 export default function KanbanBoard({
   filteredDoing, filteredStale, filteredUpNext,
   filteredWaiting, filteredSnoozed, filteredBacklog, filteredProjects,
-  onComplete, onSnooze, onEdit, onExtend,
-  onStatusChange, onUpdate, onDelete, onAddTask,
+  onAddTask,
 }) {
+  const { onStatusChange } = useTaskActions()
   const dragRef = useRef(null)
   const [dragOverColumn, setDragOverColumn] = useState(null)
   const [draggingId, setDraggingId] = useState(null)
@@ -137,7 +128,7 @@ export default function KanbanBoard({
     }
   }, [filteredStale, filteredDoing, filteredUpNext, filteredWaiting])
 
-  const callbacks = { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onAddTask }
+  const columnProps = { onAddTask }
   const dragCallbacks = { dragOverColumn, onDragOver: handleDragOver, onDrop: handleDrop, onDragStart: handleDragStart, draggingId }
   const isEmpty = doing.length === 0 && upNext.length === 0 && waiting.length === 0 &&
     filteredSnoozed.length === 0 && filteredBacklog.length === 0 && filteredProjects.length === 0
@@ -156,12 +147,12 @@ export default function KanbanBoard({
 
   return (
     <div className="kanban-board">
-      <KanbanColumn title="Doing" tasks={doing} defaultStatus="doing" {...callbacks} {...dragCallbacks} />
-      <KanbanColumn title="Up Next" tasks={upNext} defaultStatus="not_started" {...callbacks} {...dragCallbacks} />
-      <KanbanColumn title="Waiting" tasks={waiting} defaultStatus="waiting" {...callbacks} {...dragCallbacks} />
-      <KanbanColumn title="Snoozed" tasks={filteredSnoozed} {...callbacks} {...dragCallbacks} />
-      <KanbanColumn title="Backlog" tasks={filteredBacklog} defaultStatus="backlog" {...callbacks} {...dragCallbacks} />
-      <KanbanColumn title="Projects" tasks={filteredProjects} defaultStatus="project" {...callbacks} {...dragCallbacks} />
+      <KanbanColumn title="Doing" tasks={doing} defaultStatus="doing" {...columnProps} {...dragCallbacks} />
+      <KanbanColumn title="Up Next" tasks={upNext} defaultStatus="not_started" {...columnProps} {...dragCallbacks} />
+      <KanbanColumn title="Waiting" tasks={waiting} defaultStatus="waiting" {...columnProps} {...dragCallbacks} />
+      <KanbanColumn title="Snoozed" tasks={filteredSnoozed} {...columnProps} {...dragCallbacks} />
+      <KanbanColumn title="Backlog" tasks={filteredBacklog} defaultStatus="backlog" {...columnProps} {...dragCallbacks} />
+      <KanbanColumn title="Projects" tasks={filteredProjects} defaultStatus="project" {...columnProps} {...dragCallbacks} />
     </div>
   )
 }

@@ -20,6 +20,10 @@ Browser (React PWA)
                           └── /api/keys/status   → Reports which API keys are set via env vars
 ```
 
+## Component Architecture
+
+**TaskActionsContext** (`src/contexts/TaskActionsContext.jsx`): All task action callbacks (`onComplete`, `onSnooze`, `onEdit`, `onExtend`, `onStatusChange`, `onUpdate`, `onDelete`, `onGmailApprove`, `onGmailDismiss`) plus `isDesktop` are provided via React Context. TaskCard only receives `task`, `expanded`, and `onToggleExpand` as props. KanbanBoard and ProjectsView consume actions from context rather than prop drilling.
+
 ## Data Flow
 
 1. **On app load**: React renders immediately from localStorage (fast first paint). An SSE connection opens to `/api/events`, which returns the current server version. The client then fetches `GET /api/data` and hydrates React state and localStorage from SQLite. If the server is empty, the client pushes its localStorage state up.
