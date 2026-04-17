@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- refactor(weather): card forecast widget reshaped, best-days moved to edit modal [S]
+  - Forecast section is now always visible on outdoor task cards (not gated on expand) so the layout is glanceable from the list
+  - Reshaped layout: centered row of 3 days (larger) + centered row of 4 days (smaller) below — less visual weight per card
+  - Best-days line removed from the card and now lives in the EditTaskModal, just above the Notes field, with a sun icon to make the recommendation feel like a tip
+  - Best-days computation in the modal reacts to live edits to title + energy (e.g. retag "mow" with people energy and the line disappears)
+  - Modified: `src/components/WeatherSection.jsx`, `src/components/TaskCard.jsx`, `src/components/TaskCard.css`, `src/components/EditTaskModal.jsx`
 - feat(weather): 7-day forecast section + best-days recommendation on outdoor task cards [M]
   - New `WeatherSection` component renders a 7-day forecast grid in the mobile expanded view: condition icon, high/low, wind speed per day, with the task's due date highlighted
   - New best-days recommendation line shown just above the notes: picks up to 3 days within the forecast window scored for outdoor suitability (clear/partly cloudy, low precip, moderate wind, comfortable temp). Rendered alongside notes, not written into the `notes` field — always fresh as the forecast changes

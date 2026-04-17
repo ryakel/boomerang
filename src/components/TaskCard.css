@@ -220,44 +220,48 @@
 }
 
 .weather-section {
-  margin-top: 10px;
-  padding: 8px 10px;
+  margin-top: 8px;
+  padding: 8px 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
-}
-
-.weather-section-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-dim);
-  margin-bottom: 6px;
-  font-weight: 600;
-}
-
-.weather-section-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 4px;
 }
 
-@media (max-width: 420px) {
-  .weather-section-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
+.weather-section-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.weather-section-row-top {
+  gap: 8px;
 }
 
 .weather-day {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 2px;
+  gap: 1px;
+  padding: 5px 6px;
   border-radius: 6px;
-  font-size: 11px;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+  min-width: 56px;
+}
+
+.weather-day-lg {
+  min-width: 64px;
+  padding: 6px 8px;
+}
+
+.weather-day-sm {
+  min-width: 50px;
+  padding: 4px 5px;
+  font-size: 10px;
 }
 
 .weather-day-due {
@@ -273,9 +277,17 @@
   opacity: 0.75;
 }
 
+.weather-day-sm .weather-day-name {
+  font-size: 9px;
+}
+
 .weather-day-icon {
   font-size: 16px;
   line-height: 1;
+}
+
+.weather-day-sm .weather-day-icon {
+  font-size: 13px;
 }
 
 .weather-day-temp {
@@ -283,19 +295,37 @@
   color: var(--text);
 }
 
+.weather-day-sm .weather-day-temp {
+  font-size: 10px;
+}
+
 .weather-day-wind {
   font-size: 10px;
   opacity: 0.6;
 }
 
+.weather-day-sm .weather-day-wind {
+  font-size: 9px;
+}
+
 .weather-best-days {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 8px;
   padding: 6px 10px;
   font-size: 12px;
   color: var(--text);
-  background: rgba(138, 180, 248, 0.10);
-  border-left: 3px solid rgba(138, 180, 248, 0.6);
+  background: rgba(255, 200, 100, 0.10);
+  border-left: 3px solid rgba(255, 200, 100, 0.65);
   border-radius: 4px;
+}
+
+.weather-best-days-icon {
+  flex-shrink: 0;
+  color: rgba(255, 200, 100, 0.95);
+  display: flex;
+  align-items: center;
 }
 
 .task-tags {

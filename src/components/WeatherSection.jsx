@@ -104,29 +104,42 @@ export default memo(function WeatherSection({ forecast, dueDate }) {
   if (!forecast?.days?.length) return null
   const todayDateStr = forecast.days[0].date
   const dueDateObj = dueDate || null
+  const days = forecast.days.slice(0, 7)
+  const topRow = days.slice(0, 3)
+  const bottomRow = days.slice(3, 7)
+
+  const renderDay = (d, sizeClass) => {
+    const icon = WMO_ICON[d.weather_code] || '•'
+    const label = WMO_LABEL[d.weather_code] || 'unknown'
+    const hi = d.temp_max != null ? `${Math.round(d.temp_max)}°` : '—'
+    const lo = d.temp_min != null ? `${Math.round(d.temp_min)}°` : '—'
+    const wind = d.wind_max != null ? `${Math.round(d.wind_max)}mph` : ''
+    const precip = d.precipitation_prob_max != null ? `${d.precipitation_prob_max}%` : ''
+    const isDue = dueDateObj && d.date === dueDateObj
+    return (
+      <div
+        key={d.date}
+        className={`weather-day weather-day-${sizeClass}${isDue ? ' weather-day-due' : ''}`}
+        title={`${label}${wind ? ` · ${wind} wind` : ''}${precip ? ` · ${precip} precip` : ''}`}
+      >
+        <span className="weather-day-name">{dayLabel(d.date, todayDateStr)}</span>
+        <span className="weather-day-icon">{icon}</span>
+        <span className="weather-day-temp">{hi}/{lo}</span>
+        {wind && <span className="weather-day-wind">{wind}</span>}
+      </div>
+    )
+  }
 
   return (
     <div className="weather-section" onClick={e => e.stopPropagation()}>
-      <div className="weather-section-title">7-day outlook</div>
-      <div className="weather-section-grid">
-        {forecast.days.map(d => {
-          const icon = WMO_ICON[d.weather_code] || '•'
-          const label = WMO_LABEL[d.weather_code] || 'unknown'
-          const hi = d.temp_max != null ? `${Math.round(d.temp_max)}°` : '—'
-          const lo = d.temp_min != null ? `${Math.round(d.temp_min)}°` : '—'
-          const wind = d.wind_max != null ? `${Math.round(d.wind_max)}mph` : ''
-          const precip = d.precipitation_prob_max != null ? `${d.precipitation_prob_max}%` : ''
-          const isDue = dueDateObj && d.date === dueDateObj
-          return (
-            <div key={d.date} className={`weather-day${isDue ? ' weather-day-due' : ''}`} title={`${label}${wind ? ` · ${wind} wind` : ''}${precip ? ` · ${precip} precip` : ''}`}>
-              <span className="weather-day-name">{dayLabel(d.date, todayDateStr)}</span>
-              <span className="weather-day-icon">{icon}</span>
-              <span className="weather-day-temp">{hi}/{lo}</span>
-              {wind && <span className="weather-day-wind">{wind}</span>}
-            </div>
-          )
-        })}
+      <div className="weather-section-row weather-section-row-top">
+        {topRow.map(d => renderDay(d, 'lg'))}
       </div>
+      {bottomRow.length > 0 && (
+        <div className="weather-section-row weather-section-row-bottom">
+          {bottomRow.map(d => renderDay(d, 'sm'))}
+        </div>
+      )}
     </div>
   )
 })

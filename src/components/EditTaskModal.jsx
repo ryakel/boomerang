@@ -2,9 +2,19 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import './EditTaskModal.css'
 import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES, uuid } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists } from '../api'
-import { Sparkles, Search, ChevronRight, Trash2, Plus } from 'lucide-react'
+import { Sparkles, Search, ChevronRight, Trash2, Plus, Sun } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
 import { useIsDesktop } from '../hooks/useIsDesktop'
+import { useTaskActions } from '../contexts/TaskActionsContext'
+import { pickBestDays, formatBestDaysLine } from './WeatherSection'
+
+const OUTDOOR_KEYWORDS_RE = /\b(mow|yard|garden|weed|plant|trim|prune|rake|shovel|snow|leaves|gutter|deck|patio|driveway|paint(?:ing)? (?:the )?(?:deck|fence|house|siding)?|wash car|car wash|detail(?:ing)? car|grill|bbq|hike|walk|run|bike|swim|pool|outside|outdoor|fence|sidewalk|sprinkler|hose|firewood|chainsaw|compost|mulch)\b/i
+
+function isOutdoorTaskShape({ title, energy }) {
+  if (energy === 'physical' || energy === 'errand') return true
+  if (title && OUTDOOR_KEYWORDS_RE.test(title)) return true
+  return false
+}
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -15,6 +25,7 @@ const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
 
 export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange, onOpenRoutine }) {
   const isDesktop = useIsDesktop()
+  const { weather } = useTaskActions() || {}
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes || '')
   const [selectedTags, setSelectedTags] = useState(task.tags || [])
@@ -570,6 +581,21 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             </div>
           </>
         )}
+
+        {(() => {
+          const days = weather?.status?.cache?.forecast?.days
+          if (!weather?.enabled || !days?.length) return null
+          if (!isOutdoorTaskShape({ title, energy })) return null
+          const best = pickBestDays(days)
+          if (!best.length) return null
+          const line = formatBestDaysLine(best, days[0].date)
+          return (
+            <div className="weather-best-days" style={{ marginBottom: 12 }}>
+              <span className="weather-best-days-icon"><Sun size={14} /></span>
+              <span>{line}</span>
+            </div>
+          )
+        })()}
 
         <div className="settings-label" style={{ marginBottom: 6 }}>Notes</div>
         <div className="notes-wrapper">
