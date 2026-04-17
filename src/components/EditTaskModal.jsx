@@ -5,6 +5,16 @@ import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, gen
 import { Sparkles, Search, ChevronRight, Trash2, Plus } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
 import { useIsDesktop } from '../hooks/useIsDesktop'
+import { useTaskActions } from '../contexts/TaskActionsContext'
+import WeatherSection from './WeatherSection'
+
+const OUTDOOR_KEYWORDS_RE = /\b(mow|yard|garden|weed|plant|trim|prune|rake|shovel|snow|leaves|gutter|deck|patio|driveway|paint(?:ing)? (?:the )?(?:deck|fence|house|siding)?|wash car|car wash|detail(?:ing)? car|grill|bbq|hike|walk|run|bike|swim|pool|outside|outdoor|fence|sidewalk|sprinkler|hose|firewood|chainsaw|compost|mulch)\b/i
+
+function isOutdoorTaskShape({ title, energy }) {
+  if (energy === 'physical' || energy === 'errand') return true
+  if (title && OUTDOOR_KEYWORDS_RE.test(title)) return true
+  return false
+}
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -15,6 +25,7 @@ const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
 
 export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange, onOpenRoutine }) {
   const isDesktop = useIsDesktop()
+  const { weather } = useTaskActions() || {}
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes || '')
   const [selectedTags, setSelectedTags] = useState(task.tags || [])
@@ -571,6 +582,18 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           </>
         )}
 
+        {(() => {
+          const forecast = weather?.status?.cache?.forecast
+          if (!weather?.enabled || !forecast?.days?.length) return null
+          if (!isOutdoorTaskShape({ title, energy })) return null
+          return (
+            <div style={{ marginBottom: 12 }}>
+              <div className="settings-label" style={{ marginBottom: 6 }}>7-day forecast</div>
+              <WeatherSection forecast={forecast} dueDate={dueDate || null} />
+            </div>
+          )
+        })()}
+
         <div className="settings-label" style={{ marginBottom: 6 }}>Notes</div>
         <div className="notes-wrapper">
           <textarea
@@ -617,7 +640,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         {/* Scheduling: Due date + Duration + Priority */}
         {!makeRecurring && (
           <div className="scheduling-row">
-            <div className="scheduling-field">
+            <div className="scheduling-field scheduling-due">
               <div className="settings-label">Due</div>
               <input
                 type="date"
@@ -627,7 +650,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               />
             </div>
             {dueDate && (
-              <div className="scheduling-field">
+              <div className="scheduling-field scheduling-dur">
                 <div className="settings-label">Dur (min)</div>
                 <input
                   className="dur-input"
@@ -641,7 +664,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
                 />
               </div>
             )}
-            <div className="scheduling-field">
+            <div className="scheduling-field scheduling-pri">
               <div className="settings-label">Pri</div>
               <button
                 className={`priority-toggle${priorityClass}`}

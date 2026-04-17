@@ -808,8 +808,19 @@
   min-width: 0;
 }
 
+/* Due field flexes, duration and priority hold fixed widths so their labels
+   (e.g. "DUR (MIN)") don't bleed into the adjacent column on narrow screens. */
 .scheduling-field:first-child {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.scheduling-field.scheduling-dur {
+  flex: 0 0 76px;
+}
+
+.scheduling-field.scheduling-pri {
+  flex: 0 0 88px;
 }
 
 /* Force all scheduling inputs to same height */
@@ -824,6 +835,7 @@
   border: none;
   box-sizing: border-box;
   margin: 0;
+  min-width: 0;
 }
 
 .scheduling-row input[type="date"] {
@@ -831,7 +843,11 @@
 }
 
 .scheduling-row .dur-input {
-  width: 64px;
+  width: 100%;
+}
+
+.scheduling-row .priority-toggle {
+  width: 100%;
 }
 
 /* Compact date in inline rows */

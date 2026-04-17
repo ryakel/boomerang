@@ -3,7 +3,7 @@ import './TaskCard.css'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import EnergyIcon from './EnergyIcon'
 import WeatherBadge from './WeatherBadge'
-import WeatherSection, { pickBestDays, formatBestDaysLine } from './WeatherSection'
+import { pickBestDays, formatBestDaysLine } from './WeatherSection'
 import { Sun } from 'lucide-react'
 import { useTaskActions } from '../contexts/TaskActionsContext'
 
@@ -36,14 +36,13 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
   const { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onGmailApprove, onGmailDismiss, isDesktop, selectedTaskId, weather } = useTaskActions()
   const forecastDay = dueDateForecastDay(task, weather)
 
-  // Weather section: always visible on the card (not gated on expand) for
-  // outdoor tasks when a forecast is available. Best-days line renders inside
-  // the expanded inline view (quick-edit from the main list), not the full
-  // edit modal.
-  const showWeatherSection = weather?.enabled && weather?.status?.cache?.forecast?.days?.length > 0 && isOutdoorTask(task)
-  const forecast = showWeatherSection ? weather.status.cache.forecast : null
-  const bestDays = expanded && showWeatherSection ? pickBestDays(forecast.days) : null
-  const bestDaysLine = bestDays?.length ? formatBestDaysLine(bestDays, forecast.days[0].date) : null
+  // Best-days line for outdoor tasks — shown inside the expanded inline view
+  // (tap-to-expand on the main list). 7-day forecast widget lives in the
+  // EditTaskModal.
+  const hasWeather = weather?.enabled && weather?.status?.cache?.forecast?.days?.length > 0 && isOutdoorTask(task)
+  const forecastDays = hasWeather ? weather.status.cache.forecast.days : null
+  const bestDays = expanded && hasWeather ? pickBestDays(forecastDays) : null
+  const bestDaysLine = bestDays?.length ? formatBestDaysLine(bestDays, forecastDays[0].date) : null
   const keyboardSelected = selectedTaskId === task.id
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -344,10 +343,6 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
               </span>
             )}
           </div>
-        )}
-
-        {showWeatherSection && (
-          <WeatherSection forecast={forecast} dueDate={task.due_date} />
         )}
 
         {expanded && (
