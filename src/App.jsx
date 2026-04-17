@@ -27,6 +27,7 @@ import ActivityLog from './components/ActivityLog'
 import { MiniRings } from './components/Rings'
 import KanbanBoard from './components/KanbanBoard'
 import { useIsDesktop } from './hooks/useIsDesktop'
+import { useWeather } from './hooks/useWeather'
 import { useNotifications } from './hooks/useNotifications'
 import { useServerSync } from './hooks/useServerSync'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
@@ -58,6 +59,7 @@ function App() {
   } = useRoutines()
 
   const isDesktop = useIsDesktop()
+  const weather = useWeather()
 
   const [activeFilter, setActiveFilter] = useState('all')
   const [showAdd, setShowAdd] = useState(false)
@@ -428,7 +430,8 @@ function App() {
     onGmailDismiss: handleGmailDismiss,
     isDesktop,
     selectedTaskId,
-  }), [handleComplete, handleSnooze, handleStatusChange, updateTask, handleDelete, handleGmailApprove, handleGmailDismiss, isDesktop, selectedTaskId])
+    weather,
+  }), [handleComplete, handleSnooze, handleStatusChange, updateTask, handleDelete, handleGmailApprove, handleGmailDismiss, isDesktop, selectedTaskId, weather])
 
   return (
     <TaskActionsProvider value={taskActions}>

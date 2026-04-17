@@ -10,6 +10,7 @@ import webpush from 'web-push'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
 import { queryTasks, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush } from './db.js'
+import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 
 // --- Environment (optional overrides) ---
 let vapidPublicKey = process.env.VAPID_PUBLIC_KEY
@@ -209,9 +210,13 @@ async function checkPushDigest() {
   if (overdueTasks.length > 0) parts.push(`${overdueTasks.length} overdue`)
   if (staleTasks.length > 0) parts.push(`${staleTasks.length} stale`)
 
+  let body = parts.join(' · ')
+  const weatherSummary = buildWeatherSummary(getWeatherCache())
+  if (weatherSummary) body += `\n${weatherSummary}`
+
   await sendPush({
     title: 'Morning Digest',
-    body: parts.join(' · '),
+    body,
     tag: 'digest',
   })
   markThrottle('push_digest')

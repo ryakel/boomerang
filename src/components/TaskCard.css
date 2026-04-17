@@ -197,6 +197,28 @@
   flex-shrink: 0;
 }
 
+.weather-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.weather-badge-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.weather-badge-temp {
+  font-variant-numeric: tabular-nums;
+}
+
 .task-tags {
   display: flex;
   gap: 6px;

@@ -17,6 +17,7 @@ Browser (React PWA)
                           ├── /api/gcal/*        → Google Calendar API proxy (OAuth, events, calendars)
                           ��── /api/packages/*    → Package tracking (CRUD, polling, 17track v2.4 API)
                           ├── /api/email/*       → Email notification status and test
+                          ├── /api/weather/*     → Weather forecast cache, refresh, geocode (Open-Meteo)
                           └── /api/keys/status   → Reports which API keys are set via env vars
 ```
 
@@ -226,6 +227,16 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `GET` | `/api/analytics` | Get today's stats, streaks, all-time records |
 | `GET` | `/api/analytics/history` | Aggregated completion history (daily, by-tag, by-energy, by-size, by-DOW). Accepts `?days=N` param. |
 | `POST` | `/api/dev/seed` | Wipe DB and reload seed data on demand |
+| `GET` | `/api/weather` | Get cached forecast + status |
+| `POST` | `/api/weather/refresh` | Force-refresh forecast (respects 30-min freshness unless `{ force: true }`) |
+| `POST` | `/api/weather/geocode` | Geocode a location query via Open-Meteo |
+| `POST` | `/api/weather/clear-cache` | Clear the cached forecast |
+
+## Weather Sync
+
+`weatherSync.js` runs a 30-minute `setInterval` that fetches a 7-day forecast from Open-Meteo (no API key) and caches it in `app_data.weather_cache`. After every successful fetch it evaluates three notification events — `nice_day`, `bad_weekend`, `nice_window` — and sends push/email alerts for any that aren't already throttled. Each event carries a stable id (e.g. `weather:bad_weekend:2026-04-19:rain`) with an 18-hour dedup TTL via the `notification_throttle` table, so the same weekend-rain warning never repeats. There is no daily cap — multiple distinct weather events in a day can all fire. Changing the configured location in Settings invalidates the cache and triggers an immediate refresh on the next PUT `/api/data`.
+
+The `getWhatNow()` prompt is enriched with a weather summary string when available, and the morning digest (push + email) appends the same summary. Task cards render a small forecast badge for tasks whose `due_date` falls inside the 7-day forecast window; the badge is driven by the `useWeather` hook which polls `GET /api/weather` every 30 min (plus on tab visibility change).
 
 ## Dev Seed System
 

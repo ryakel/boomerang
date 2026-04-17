@@ -11,6 +11,7 @@ import nodemailer from 'nodemailer'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
 import { queryTasks, getData, getNotifThrottle, setNotifThrottle, logNotifEmail } from './db.js'
+import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 
 // --- Environment ---
 let smtpHost = process.env.SMTP_HOST
@@ -296,7 +297,13 @@ async function checkDigest() {
   if (overdueTasks.length > 0) lines.push(`<strong>${overdueTasks.length}</strong> overdue`)
   if (staleTasks.length > 0) lines.push(`<strong>${staleTasks.length}</strong> stale`)
 
-  const body = lines.join(' · ')
+  // Weather line (if configured)
+  let body = lines.join(' · ')
+  const weatherCache = getWeatherCache()
+  const weatherSummary = buildWeatherSummary(weatherCache)
+  if (weatherSummary) {
+    body += `<br><br><strong>Weather:</strong> ${weatherSummary}`
+  }
   const sent = await sendEmail(subject, simpleEmailHtml('Morning Digest', body), body.replace(/<[^>]+>/g, ''))
   if (sent) {
     markThrottle('email_digest')

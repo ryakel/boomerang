@@ -13,6 +13,7 @@ import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporte
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
 import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
+import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
 import crypto from 'crypto'
 
 // --- App version ---
@@ -223,14 +224,35 @@ function guardStaleClient(req, res) {
   return false
 }
 
+function handleWeatherSettingsChange(prevSettings, nextSettings) {
+  if (!nextSettings) return
+  const prevLat = prevSettings?.weather_latitude
+  const prevLon = prevSettings?.weather_longitude
+  const locationChanged = prevLat !== nextSettings.weather_latitude || prevLon !== nextSettings.weather_longitude
+  const enabledNow = nextSettings.weather_enabled && typeof nextSettings.weather_latitude === 'number'
+  if (locationChanged) {
+    clearWeatherCache()
+    if (enabledNow) {
+      // Fire-and-forget refresh so new location shows up quickly
+      refreshWeather({ force: true }).catch(err => console.error('[Weather] Post-save refresh failed:', err.message))
+    }
+  } else if (enabledNow && !prevSettings?.weather_enabled) {
+    refreshWeather({ force: true }).catch(err => console.error('[Weather] Post-enable refresh failed:', err.message))
+  }
+}
+
 app.put('/api/data', (req, res) => {
   if (guardStaleClient(req, res)) return
   const clientId = req.body._clientId
   const body = { ...req.body }
   delete body._clientId
   delete body._version
+  const prevSettings = getData('settings')
   const newVersion = setAllData(body)
-  if (body.settings) resetTransporter()
+  if (body.settings) {
+    resetTransporter()
+    handleWeatherSettingsChange(prevSettings, body.settings)
+  }
   broadcast(newVersion, clientId)
   res.json({ ok: true, version: newVersion })
 })
@@ -242,8 +264,12 @@ app.post('/api/data', (req, res) => {
   const body = { ...req.body }
   delete body._clientId
   delete body._version
+  const prevSettings = getData('settings')
   const newVersion = setAllData(body)
-  if (body.settings) resetTransporter()
+  if (body.settings) {
+    resetTransporter()
+    handleWeatherSettingsChange(prevSettings, body.settings)
+  }
   broadcast(newVersion, clientId)
   res.json({ ok: true, version: newVersion })
 })
@@ -2189,6 +2215,35 @@ app.post('/api/email/test', async (req, res) => {
   res.json(result)
 })
 
+// --- Weather endpoints ---
+app.get('/api/weather', (req, res) => {
+  const cache = getWeatherCache()
+  const status = getWeatherStatus()
+  res.json({ ...status, cache })
+})
+
+app.post('/api/weather/refresh', async (req, res) => {
+  const force = req.body?.force === true
+  const result = await refreshWeather({ force })
+  res.json(result)
+})
+
+app.post('/api/weather/geocode', async (req, res) => {
+  const query = (req.body?.query || '').trim()
+  if (!query) return res.status(400).json({ error: 'Missing query' })
+  try {
+    const results = await geocodeLocation(query)
+    res.json({ results })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/weather/clear-cache', (req, res) => {
+  clearWeatherCache()
+  res.json({ ok: true })
+})
+
 // --- Push notification endpoints ---
 app.get('/api/push/status', (req, res) => {
   res.json(getPushStatus())
@@ -2277,6 +2332,7 @@ initDb(dbPath).then(async () => {
     // Start notification loops
     startEmailNotifications()
     startPushNotifications()
+    startWeatherSync()
 
     // Initialize Gmail sync
     initGmailSync({

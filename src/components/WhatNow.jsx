@@ -1,9 +1,40 @@
 import { useState } from 'react'
 import './WhatNow.css'
-import { getWhatNow } from '../api'
+import { getWhatNow, getWeather } from '../api'
 import { ENERGY_TYPES } from '../store'
 import { Target } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
+
+function buildWeatherSummaryFromCache(cache) {
+  const days = cache?.cache?.forecast?.days
+  if (!days?.length) return null
+  const WMO = {
+    0: 'clear', 1: 'mostly clear', 2: 'partly cloudy', 3: 'overcast',
+    45: 'fog', 48: 'icy fog', 51: 'drizzle', 53: 'drizzle', 55: 'drizzle',
+    61: 'light rain', 63: 'rain', 65: 'heavy rain',
+    71: 'light snow', 73: 'snow', 75: 'heavy snow',
+    80: 'rain showers', 81: 'rain showers', 82: 'heavy showers',
+    85: 'snow showers', 86: 'snow showers',
+    95: 'thunderstorm', 96: 'thunderstorm', 99: 'thunderstorm',
+  }
+  const describe = (d) => `${WMO[d.weather_code] || 'unknown'}, ${Math.round(d.temp_max)}°/${Math.round(d.temp_min)}°`
+  const today = days[0]
+  const tomorrow = days[1]
+  const weekend = days.find(d => {
+    if (d.date === today.date) return false
+    const [y, m, day] = d.date.split('-').map(Number)
+    const dow = new Date(y, m - 1, day).getDay()
+    return dow === 0 || dow === 6
+  })
+  const parts = [`Today: ${describe(today)}`]
+  if (tomorrow) parts.push(`Tomorrow: ${describe(tomorrow)}`)
+  if (weekend) {
+    const [y, m, day] = weekend.date.split('-').map(Number)
+    const name = new Date(y, m - 1, day).toLocaleDateString('en-US', { weekday: 'short' })
+    parts.push(`${name}: ${describe(weekend)}`)
+  }
+  return parts.join(' · ')
+}
 
 const TIME_OPTIONS = ['5–10 minutes', '30 minutes', 'A couple hours']
 const ENERGY_OPTIONS = ['Running on fumes', 'Moderate', "I've got it"]
@@ -21,7 +52,14 @@ export default function WhatNow({ tasks, onClose, onComplete }) {
     setLoading(true)
     setError(null)
     try {
-      const results = await getWhatNow(tasks, time, energy, capacity)
+      let weatherSummary = null
+      try {
+        const weatherData = await getWeather()
+        if (weatherData?.enabled) weatherSummary = buildWeatherSummaryFromCache(weatherData)
+      } catch {
+        // weather is best-effort — proceed without it
+      }
+      const results = await getWhatNow(tasks, time, energy, capacity, weatherSummary)
       setSuggestions(results)
     } catch (err) {
       setError(err.message)

@@ -279,6 +279,22 @@ Track packages from any carrier with automatic status updates, notifications, an
 - **Graceful degradation** — without an API key, the feature works as a manual tracking notebook with carrier detection and carrier website links.
 - **Shortened status** — verbose carrier messages shortened on cards ("Label created, package pending"). Full text shown in detail modal.
 
+## Weather Awareness (free, no API key)
+
+Uses [Open-Meteo](https://open-meteo.com) to suggest the right tasks for the weather and nag about rough conditions coming up. Configured in Settings → Integrations → Weather.
+
+- **Manual location** — search by city, zip, or address; the geocoder returns candidates and you pick one. No browser geolocation prompt.
+- **30-minute refresh** — server pulls a 7-day forecast every 30 min and caches it so clients read instantly.
+- **Weather-aware "What Now?"** — when suggesting tasks, the AI is told today's conditions + tomorrow + weekend outlook, and is instructed to prefer outdoor tasks on nice days before bad weather, and indoor tasks during rough stretches.
+- **Forecast badges on cards** — tasks with a due date inside the 7-day window show a small weather icon + high temp next to the due-date meta. Tooltip shows condition label + precipitation probability.
+- **Weather alerts** (push + email) — three event types, de-duped per event so the same weekend-rain warning never fires twice:
+  - Rare nice day — today's clear and bad weather is coming within 3 days ("Sunshine today, rain Sat–Sun — good day to mow")
+  - Rough weekend — any upcoming weekend day is rainy/snowy ("Miserable weekend — lean into indoor tasks")
+  - Nice stretch — 2+ clear days coming after bad weather ("Thu–Sat looking clear, plan outdoor errands")
+- **No daily cap** — multiple distinct weather events in a day can all notify.
+- **Morning digest** — push and email digests include a weather summary line when configured.
+- **Respects quiet hours** — weather alerts are silenced during your DND window like other notifications.
+
 ## Notifications
 
 ### Browser Push Notifications

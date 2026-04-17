@@ -2,7 +2,18 @@ import { useState, useRef, useCallback, memo } from 'react'
 import './TaskCard.css'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import EnergyIcon from './EnergyIcon'
+import WeatherBadge from './WeatherBadge'
 import { useTaskActions } from '../contexts/TaskActionsContext'
+
+// Only show forecast badges for due dates within 7 days forward
+function dueDateForecastDay(task, weather) {
+  if (!weather?.enabled) return null
+  if (!task.due_date) return null
+  const day = weather.byDate[task.due_date]
+  if (!day) return null
+  // Must be within the forecast window (Open-Meteo gives us 7 days incl. today)
+  return day
+}
 
 const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 
@@ -10,7 +21,8 @@ const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action buttons
 
 export default memo(function TaskCard({ task, expanded = false, onToggleExpand }) {
-  const { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onGmailApprove, onGmailDismiss, isDesktop, selectedTaskId } = useTaskActions()
+  const { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onGmailApprove, onGmailDismiss, isDesktop, selectedTaskId, weather } = useTaskActions()
+  const forecastDay = dueDateForecastDay(task, weather)
   const keyboardSelected = selectedTaskId === task.id
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -150,6 +162,7 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
                 {metaText}
               </span>
             )}
+            {forecastDay && <WeatherBadge day={forecastDay} />}
           </div>
         </div>
         {(task.tags.length > 0 || task.energy || showDuePill) && (
@@ -273,6 +286,7 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
                 {metaText}
               </span>
             )}
+            {forecastDay && <WeatherBadge day={forecastDay} />}
           </div>
         </div>
 

@@ -4,6 +4,24 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-17
+
+- feat(weather): weather-aware suggestions, notifications, and card badges [L]
+  - New `weatherSync.js` server module — fetches a 7-day forecast from Open-Meteo (free, no API key) every 30 min, caches in `app_data.weather_cache`
+  - Manual location: user searches by city/zip in Settings → Integrations → Weather; geocoding via Open-Meteo's free search endpoint
+  - Weather-aware "What Now?" — the AI prompt is enriched with today/tomorrow/weekend outlook so outdoor tasks get suggested on nice days before bad weather and indoor tasks get prioritized on rough days
+  - Forecast badges on task cards — tasks with a `due_date` inside the 7-day forecast window render a small weather icon + high temperature next to the due-date meta
+  - Weather notifications — detects three event types (rare-nice-day, rough-weekend, nice-stretch-incoming), de-duped per event via `notification_throttle`, delivered via push and/or email. No daily cap — multiple weather events in a day will all notify; the same event won't re-fire for ~18h
+  - Morning digest (push + email) now includes a weather summary line when configured
+  - New server endpoints: `GET /api/weather`, `POST /api/weather/refresh`, `POST /api/weather/geocode`, `POST /api/weather/clear-cache`
+  - New settings: `weather_enabled`, `weather_latitude`, `weather_longitude`, `weather_location_name`, `weather_timezone`, `weather_notifications_enabled`, `weather_notif_push`, `weather_notif_email`
+  - Graceful degradation — module is a complete no-op when disabled or no location set
+  - Changing the location invalidates the cache and triggers an immediate refresh
+  - New: `weatherSync.js`, `src/hooks/useWeather.js`, `src/components/WeatherBadge.jsx`
+  - Modified: `server.js`, `emailNotifications.js`, `pushNotifications.js`, `src/api.js`, `src/App.jsx`, `src/contexts/TaskActionsContext.jsx` (via taskActions value), `src/components/TaskCard.jsx`, `src/components/TaskCard.css`, `src/components/Settings.jsx`, `src/components/WhatNow.jsx`
+
+---
+
 ## 2026-04-13
 
 - refactor(ui): add TaskActionsContext to eliminate prop drilling [M]

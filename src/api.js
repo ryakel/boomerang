@@ -123,7 +123,8 @@ When should this be due? JSON only.`
 
 // --- What Now ---
 // capacity = optional energy type filter (desk|people|errand|creative|physical|null)
-export async function getWhatNow(tasks, time, energy, capacity = null) {
+// weather = optional summary string like "Today: sunny, 72° · Tomorrow: rain, 55° · Sat: snow"
+export async function getWhatNow(tasks, time, energy, capacity = null, weather = null) {
   const ACTIVE = ['not_started', 'doing', 'waiting', 'open']
   const ENERGY_LABELS = { desk: 'Desk', people: 'People', errand: 'Errand', creative: 'Creative', physical: 'Physical' }
   const openTasks = tasks
@@ -139,17 +140,21 @@ export async function getWhatNow(tasks, time, energy, capacity = null) {
     ? `\nCAPACITY FILTER: The user says they have "${capacity}" energy right now. STRONGLY prefer tasks matching this capacity type. Avoid suggesting tasks with a different energy type unless there are no matching tasks or the match is clearly the best option.`
     : ''
 
+  const weatherRule = weather
+    ? `\nWEATHER CONTEXT: ${weather}. If outdoor-leaning tasks (errand, physical, or tasks whose titles suggest being outside — mowing, yardwork, grocery, etc.) would benefit from today's weather (nice day, worse weather coming), prefer them. If today is bad weather and later looks better, prefer indoor tasks (desk, creative) and mention that a better day is coming. Only mention weather in the reason when it genuinely affects the pick.`
+    : ''
+
   const system = `You are a helpful assistant for someone with ADHD. You help them pick the right task to work on right now. Be warm, direct, and practical. No fluff. Never be preachy or condescending.
 
 Tasks have t-shirt sizes: XS (~5 min), S (~15 min), M (~30-60 min), L (~half day), XL (~full day+).
 Tasks also have energy types (desk, people, errand, creative, physical) and drain levels (low, med, high).
-HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}
+HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}${weatherRule}
 
 Respond with JSON only — an object with two fields:
 - "picks": array of 1-3 objects with "task" (exact task title from the list) and "reason" (one sentence why this is a good pick right now).
 - "stretch": if there are fewer than 3 picks, include ONE optional stretch suggestion — a task one size up from what the time/energy normally allows. Same shape: { "task", "reason" }. Omit this field if you already have 3 picks or there's nothing reasonable to stretch to.`
 
-  const user = `Here are my open tasks:\n${openTasks}\n\nI have ${time} and my energy is "${energy}".${capacity ? ` I can do "${capacity}" type work right now.` : ''}\n\nWhat should I work on? Return JSON object only.`
+  const user = `Here are my open tasks:\n${openTasks}\n\nI have ${time} and my energy is "${energy}".${capacity ? ` I can do "${capacity}" type work right now.` : ''}${weather ? `\n\nWeather outlook: ${weather}` : ''}\n\nWhat should I work on? Return JSON object only.`
 
   const text = await callClaude(system, user)
   const objMatch = text.match(/\{[\s\S]*\}/)
@@ -999,4 +1004,37 @@ export async function testPush() {
   const res = await fetch('/api/push/test', { method: 'POST' })
   if (!res.ok) throw new Error(`test push failed: ${res.status}`)
   return res.json()
+}
+
+// --- Weather ---
+
+export async function getWeather() {
+  try {
+    const res = await fetch('/api/weather')
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
+}
+
+export async function refreshWeather({ force = false } = {}) {
+  const res = await fetch('/api/weather/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ force }),
+  })
+  if (!res.ok) throw new Error(`weather refresh failed: ${res.status}`)
+  return res.json()
+}
+
+export async function geocodeWeather(query) {
+  const res = await fetch('/api/weather/geocode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  })
+  if (!res.ok) throw new Error(`geocode failed: ${res.status}`)
+  const data = await res.json()
+  return data.results || []
 }

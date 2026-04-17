@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush } from '../api'
+import { getKeyStatus, callClaude, notionStatus, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, getWeather, refreshWeather, geocodeWeather } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
@@ -567,6 +567,64 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
       setGmailSyncResult(`Error: ${err.message}`)
     } finally {
       setGmailSyncing(false)
+    }
+  }
+
+  // Weather state
+  const [weatherStatus, setWeatherStatus] = useState(null)
+  const [weatherSearchQuery, setWeatherSearchQuery] = useState('')
+  const [weatherSearchResults, setWeatherSearchResults] = useState([])
+  const [weatherSearching, setWeatherSearching] = useState(false)
+  const [weatherSearchError, setWeatherSearchError] = useState(null)
+  const [weatherRefreshing, setWeatherRefreshing] = useState(false)
+
+  useEffect(() => {
+    getWeather().then(s => setWeatherStatus(s)).catch(() => {})
+  }, [])
+
+  const handleWeatherSearch = async () => {
+    const q = weatherSearchQuery.trim()
+    if (!q) return
+    setWeatherSearching(true)
+    setWeatherSearchError(null)
+    setWeatherSearchResults([])
+    try {
+      const results = await geocodeWeather(q)
+      if (results.length === 0) setWeatherSearchError('No matches found')
+      else setWeatherSearchResults(results)
+    } catch (err) {
+      setWeatherSearchError(err.message)
+    } finally {
+      setWeatherSearching(false)
+    }
+  }
+
+  const handleWeatherPickLocation = async (result) => {
+    update('weather_latitude', result.latitude)
+    update('weather_longitude', result.longitude)
+    update('weather_location_name', result.label)
+    if (result.timezone) update('weather_timezone', result.timezone)
+    if (!settings.weather_enabled) update('weather_enabled', true)
+    setWeatherSearchResults([])
+    setWeatherSearchQuery('')
+    // Trigger server refresh so the cache updates before the user navigates away
+    setTimeout(() => {
+      refreshWeather({ force: true })
+        .then(() => getWeather().then(s => setWeatherStatus(s)))
+        .catch(() => {})
+    }, 500)
+  }
+
+  const handleWeatherRefresh = async () => {
+    setWeatherRefreshing(true)
+    try {
+      await refreshWeather({ force: true })
+      const s = await getWeather()
+      setWeatherStatus(s)
+    } catch {
+      // swallow — status UI will just show stale
+    } finally {
+      setWeatherRefreshing(false)
     }
   }
 
@@ -1871,6 +1929,160 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   <input type="checkbox" checked={settings.package_auto_task_signature !== false} onChange={e => update('package_auto_task_signature', e.target.checked)} />
                   <span>Auto-create errand task for signature required</span>
                 </label>
+              </div>
+            )}
+          </div>
+
+          {/* ── Weather ── */}
+          <div>
+            <div
+              className={`integration-row${expandedIntegration === 'weather' ? ' expanded' : ''}`}
+              onClick={() => setExpandedIntegration(expandedIntegration === 'weather' ? null : 'weather')}
+            >
+              <span className={`backlog-arrow${expandedIntegration === 'weather' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${settings.weather_enabled && settings.weather_latitude != null ? 'connected' : 'unconfigured'}`} />
+              <span className="integration-row-name">Weather</span>
+              {expandedIntegration !== 'weather' && (
+                <span className="integration-row-summary">
+                  {settings.weather_enabled && settings.weather_location_name
+                    ? settings.weather_location_name
+                    : settings.weather_enabled
+                      ? 'Enabled (no location)'
+                      : 'Not configured'}
+                </span>
+              )}
+            </div>
+            {expandedIntegration === 'weather' && (
+              <div className="integration-body">
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
+                  Uses <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-link)' }}>Open-Meteo</a> (free, no API key). Updates every 30 min when enabled.
+                </div>
+
+                <label className="notif-check" style={{ marginBottom: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!settings.weather_enabled}
+                    onChange={e => update('weather_enabled', e.target.checked)}
+                  />
+                  <span>Enable weather features</span>
+                </label>
+
+                {settings.weather_enabled && (
+                  <>
+                    <div className="settings-label" style={{ marginTop: 4, marginBottom: 4 }}>Location</div>
+                    {settings.weather_location_name ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, color: 'var(--text)' }}>{settings.weather_location_name}</span>
+                        <button
+                          className="ci-clear-btn"
+                          onClick={() => {
+                            update('weather_latitude', null)
+                            update('weather_longitude', null)
+                            update('weather_location_name', null)
+                          }}
+                        >
+                          Change
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                          <input
+                            className="add-input"
+                            type="text"
+                            placeholder="City, zip, or address"
+                            value={weatherSearchQuery}
+                            onChange={e => setWeatherSearchQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleWeatherSearch() } }}
+                            style={{ fontSize: 13, flex: 1 }}
+                          />
+                          <button
+                            className="ci-upload-btn"
+                            onClick={handleWeatherSearch}
+                            disabled={weatherSearching || !weatherSearchQuery.trim()}
+                          >
+                            {weatherSearching ? 'Searching...' : 'Search'}
+                          </button>
+                        </div>
+                        {weatherSearchError && (
+                          <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 6 }}>{weatherSearchError}</div>
+                        )}
+                        {weatherSearchResults.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {weatherSearchResults.map(r => (
+                              <button
+                                key={`${r.latitude},${r.longitude}`}
+                                className="ci-upload-btn"
+                                style={{ textAlign: 'left', fontSize: 13, padding: '6px 10px' }}
+                                onClick={() => handleWeatherPickLocation(r)}
+                              >
+                                {r.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {weatherStatus?.cache?.forecast?.days?.length > 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
+                        {weatherStatus.cache.forecast.days.slice(0, 3).map((d, i) => {
+                          const [y, m, day] = d.date.split('-').map(Number)
+                          const dt = new Date(y, m - 1, day)
+                          const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : dt.toLocaleDateString('en-US', { weekday: 'short' })
+                          return (
+                            <div key={d.date}>
+                              <strong>{label}:</strong> {Math.round(d.temp_max)}°/{Math.round(d.temp_min)}°, {d.precipitation_prob_max ?? 0}% precip
+                            </div>
+                          )
+                        })}
+                        {weatherStatus.cache.fetched_at && (
+                          <div style={{ marginTop: 4, opacity: 0.7 }}>
+                            Updated {new Date(weatherStatus.cache.fetched_at).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                      <button
+                        className="ci-upload-btn"
+                        onClick={handleWeatherRefresh}
+                        disabled={weatherRefreshing || settings.weather_latitude == null}
+                      >
+                        {weatherRefreshing ? 'Refreshing...' : 'Refresh now'}
+                      </button>
+                    </div>
+
+                    <div className="settings-label">Notifications</div>
+                    <label className="notif-check">
+                      <input
+                        type="checkbox"
+                        checked={settings.weather_notifications_enabled !== false}
+                        onChange={e => update('weather_notifications_enabled', e.target.checked)}
+                      />
+                      <span>Send weather alerts (rough weekend, rare nice day, etc.)</span>
+                    </label>
+                    <label className="notif-check">
+                      <input
+                        type="checkbox"
+                        checked={settings.weather_notif_push !== false}
+                        onChange={e => update('weather_notif_push', e.target.checked)}
+                        disabled={settings.weather_notifications_enabled === false}
+                      />
+                      <span>Deliver via push</span>
+                    </label>
+                    <label className="notif-check">
+                      <input
+                        type="checkbox"
+                        checked={settings.weather_notif_email !== false}
+                        onChange={e => update('weather_notif_email', e.target.checked)}
+                        disabled={settings.weather_notifications_enabled === false}
+                      />
+                      <span>Deliver via email</span>
+                    </label>
+                  </>
+                )}
               </div>
             )}
           </div>

@@ -274,6 +274,49 @@ Track packages with auto carrier detection, adaptive server-side polling, and de
 - UPS sometimes lacks ETA data from 17track (InfoReceived status has no estimated_delivery_date)
 - Gmail auto-extraction is implemented (see Gmail Integration section) but not webhook-based
 
+### Weather Awareness (Open-Meteo)
+Free forecast integration that nudges the right tasks for the weather.
+
+**Data source:** [Open-Meteo](https://open-meteo.com) — free, no API key, no auth. Geocoding via the separate free endpoint.
+
+**Fetch cadence:** Every 30 minutes on the server (`setInterval` in `weatherSync.js`). 7-day forecast in Fahrenheit / inches. Cached in `app_data.weather_cache`. Clients read from cache via `GET /api/weather`.
+
+**Server endpoints:**
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/weather` | Cached forecast + status |
+| `POST /api/weather/refresh` | Force refresh (respects 30-min freshness unless `{ force: true }`) |
+| `POST /api/weather/geocode` | Geocode lookup (city/zip → lat/lon list) |
+| `POST /api/weather/clear-cache` | Wipe cached forecast |
+
+**Location:** Manual only. Settings → Integrations → Weather → search city/zip → pick result. Geolocation browser prompt is intentionally avoided.
+
+**Weather-aware "What Now?":** `getWhatNow()` now accepts an optional weather summary string and injects it into the AI system prompt. Rule: outdoor-leaning tasks (errand, physical, or keyword-matched titles like "mow") preferred on nice days before bad weather; indoor tasks preferred during rough weather with a better day coming up. Weather only mentioned in the reason when it genuinely affects the pick.
+
+**Forecast badges on task cards:** Tasks with `due_date` inside the 7-day forecast window show a small weather emoji + high temp next to the due-date meta. Tooltip includes condition label + precipitation probability. Uses `src/components/WeatherBadge.jsx`; forecast data provided via `useWeather` hook → `TaskActionsContext`.
+
+**Weather notifications:** Three event types, de-duped per event via `notification_throttle` (same table as other notifications):
+- `nice_day` — today is clear AND at least 2 of next 3 days are bad
+- `bad_weekend` — any upcoming weekend day within 7 days is rainy/snowy/stormy
+- `nice_window` — 2+ consecutive nice days coming after a bad day
+
+Each event id (e.g. `weather:bad_weekend:2026-04-19:rain`) gets an 18-hour dedup TTL. No daily cap — multiple events in a day all notify. Delivered via push and/or email when `weather_notifications_enabled` is true. Respects quiet hours.
+
+**Morning digest (push + email):** Now includes a weather summary line ("Today: ☀️ clear, 72°/48° · Tomorrow: 🌧️ rain, 55° · Sat: ⛈️ thunderstorm, 60°") when weather is configured.
+
+**Settings:**
+- `weather_enabled` — master toggle
+- `weather_latitude`, `weather_longitude`, `weather_location_name`, `weather_timezone`
+- `weather_notifications_enabled` — weather alerts master toggle
+- `weather_notif_push`, `weather_notif_email` — per-channel toggles
+
+**Graceful degradation:** If disabled or no location set, the server module is a complete no-op. Badge + What Now enrichment + digest line all skip silently.
+
+**Known Limitations:**
+- 7-day forecast window only (Open-Meteo supports longer but notifications focus on "this week")
+- Forecast badges only render for `due_date` within the 7-day window
+- AI-based "outdoor" detection relies on energy type + keyword hints — a task titled "paint the deck" gets the nice-day boost only if the AI marked it `physical` or `errand`, or if the prompt notices the word
+
 ### Notifications System
 - Configurable notification types: high priority (with 3-stage escalation), overdue, stale, nudges, size-based, pile-up warnings
 - All frequencies set in hours (supports fractional values, e.g. 0.25 = 15 min)
