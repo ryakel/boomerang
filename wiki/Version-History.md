@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- fix(weather): best-days belongs in the expanded card view, not the full edit modal [XS]
+  - Previous commit put the best-days line in EditTaskModal; intent was the expanded inline card view (the "quick-edit" you get by tapping a card on the main list)
+  - Forecast widget stays on the card as a section, best-days line (with sun icon) now renders in the expanded section above the notes
+  - Modified: `src/components/TaskCard.jsx`, `src/components/EditTaskModal.jsx`
 - refactor(weather): card forecast widget reshaped, best-days moved to edit modal [S]
   - Forecast section is now always visible on outdoor task cards (not gated on expand) so the layout is glanceable from the list
   - Reshaped layout: centered row of 3 days (larger) + centered row of 4 days (smaller) below — less visual weight per card
