@@ -101,7 +101,7 @@ async function fetchForecast(latitude, longitude) {
     latitude: String(latitude),
     longitude: String(longitude),
     current: 'temperature_2m,precipitation,weather_code',
-    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset',
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,sunrise,sunset',
     hourly: 'temperature_2m,precipitation_probability,weather_code',
     timezone: 'auto',
     forecast_days: '7',
@@ -127,6 +127,8 @@ function normalizeForecast(raw) {
     temp_min: daily.temperature_2m_min?.[i] ?? null,
     precipitation_sum: daily.precipitation_sum?.[i] ?? 0,
     precipitation_prob_max: daily.precipitation_probability_max?.[i] ?? null,
+    wind_max: daily.wind_speed_10m_max?.[i] ?? null,
+    wind_gust_max: daily.wind_gusts_10m_max?.[i] ?? null,
     sunrise: daily.sunrise?.[i] ?? null,
     sunset: daily.sunset?.[i] ?? null,
   }))
@@ -142,6 +144,7 @@ function normalizeForecast(raw) {
     units: {
       temperature: raw.current_units?.temperature_2m || '°F',
       precipitation: raw.daily_units?.precipitation_sum || 'inch',
+      wind: raw.daily_units?.wind_speed_10m_max || 'mph',
     },
   }
 }

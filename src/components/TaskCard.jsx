@@ -3,6 +3,7 @@ import './TaskCard.css'
 import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import EnergyIcon from './EnergyIcon'
 import WeatherBadge from './WeatherBadge'
+import WeatherSection, { pickBestDays, formatBestDaysLine } from './WeatherSection'
 import { useTaskActions } from '../contexts/TaskActionsContext'
 
 // Only show forecast badges for due dates within 7 days forward
@@ -15,6 +16,16 @@ function dueDateForecastDay(task, weather) {
   return day
 }
 
+// Title-based keyword detection for tasks that are clearly outdoor but not
+// tagged with physical/errand energy.
+const OUTDOOR_KEYWORDS = /\b(mow|yard|garden|weed|plant|trim|prune|rake|shovel|snow|leaves|gutter|deck|patio|driveway|paint(?:ing)? (?:the )?(?:deck|fence|house|siding)?|wash car|car wash|detail(?:ing)? car|grill|bbq|hike|walk|run|bike|swim|pool|outside|outdoor|fence|sidewalk|sprinkler|hose|firewood|chainsaw|compost|mulch)\b/i
+
+function isOutdoorTask(task) {
+  if (task.energy === 'physical' || task.energy === 'errand') return true
+  if (task.title && OUTDOOR_KEYWORDS.test(task.title)) return true
+  return false
+}
+
 const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 
 const SWIPE_THRESHOLD = 70
@@ -23,6 +34,13 @@ const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action but
 export default memo(function TaskCard({ task, expanded = false, onToggleExpand }) {
   const { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onGmailApprove, onGmailDismiss, isDesktop, selectedTaskId, weather } = useTaskActions()
   const forecastDay = dueDateForecastDay(task, weather)
+
+  // Weather section + best-days line (shown in expanded view for outdoor tasks).
+  // Computed lazily only when the card is expanded and weather is available.
+  const showWeatherSection = expanded && weather?.enabled && weather?.status?.cache?.forecast?.days?.length > 0 && isOutdoorTask(task)
+  const forecast = showWeatherSection ? weather.status.cache.forecast : null
+  const bestDays = showWeatherSection ? pickBestDays(forecast.days) : null
+  const bestDaysLine = bestDays?.length ? formatBestDaysLine(bestDays, forecast.days[0].date) : null
   const keyboardSelected = selectedTaskId === task.id
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -327,6 +345,16 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
 
         {expanded && (
           <>
+            {showWeatherSection && (
+              <>
+                <WeatherSection forecast={forecast} dueDate={task.due_date} />
+                {bestDaysLine && (
+                  <div className="weather-best-days" onClick={e => e.stopPropagation()}>
+                    {bestDaysLine}
+                  </div>
+                )}
+              </>
+            )}
             {task.notes && (
               <div className="task-notes">{task.notes}</div>
             )}

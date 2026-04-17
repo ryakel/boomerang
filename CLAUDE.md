@@ -295,6 +295,8 @@ Free forecast integration that nudges the right tasks for the weather.
 
 **Forecast badges on task cards:** Tasks with `due_date` inside the 7-day forecast window show a small weather emoji + high temp next to the due-date meta. Tooltip includes condition label + precipitation probability. Uses `src/components/WeatherBadge.jsx`; forecast data provided via `useWeather` hook → `TaskActionsContext`.
 
+**7-day forecast section on outdoor tasks:** When an outdoor-leaning task is expanded (energy=physical/errand, or title matches outdoor keywords like "mow"/"paint the deck"/"wash car"), the expanded mobile view renders a 7-day forecast grid (`src/components/WeatherSection.jsx`) with condition icon, high/low, and wind speed per day. The task's due date is visually highlighted. Above the notes, a "Best days: …" recommendation line appears with up to 3 days scored by `pickBestDays()` for outdoor suitability (penalizes precip, storms, high wind, temperature extremes). The recommendation is rendered from the live forecast — not written into the `notes` field — so it auto-refreshes as the forecast updates.
+
 **Weather notifications:** Three event types, de-duped per event via `notification_throttle` (same table as other notifications):
 - `nice_day` — today is clear AND at least 2 of next 3 days are bad
 - `bad_weekend` — any upcoming weekend day within 7 days is rainy/snowy/stormy

@@ -219,6 +219,85 @@
   font-variant-numeric: tabular-nums;
 }
 
+.weather-section {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.weather-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.weather-section-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+@media (max-width: 420px) {
+  .weather-section-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.weather-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-day-due {
+  background: rgba(255, 179, 71, 0.12);
+  color: var(--text);
+  outline: 1px solid rgba(255, 179, 71, 0.35);
+}
+
+.weather-day-name {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.weather-day-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.weather-day-temp {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.weather-day-wind {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.weather-best-days {
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(138, 180, 248, 0.10);
+  border-left: 3px solid rgba(138, 180, 248, 0.6);
+  border-radius: 4px;
+}
+
 .task-tags {
   display: flex;
   gap: 6px;

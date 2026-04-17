@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- feat(weather): 7-day forecast section + best-days recommendation on outdoor task cards [M]
+  - New `WeatherSection` component renders a 7-day forecast grid in the mobile expanded view: condition icon, high/low, wind speed per day, with the task's due date highlighted
+  - New best-days recommendation line shown just above the notes: picks up to 3 days within the forecast window scored for outdoor suitability (clear/partly cloudy, low precip, moderate wind, comfortable temp). Rendered alongside notes, not written into the `notes` field — always fresh as the forecast changes
+  - Only shown for outdoor-leaning tasks: `energy === 'physical' || energy === 'errand'` OR title matches outdoor keywords (mow, yard, garden, paint deck, wash car, shovel snow, hike, etc.)
+  - Added `wind_speed_10m_max` + `wind_gusts_10m_max` to the Open-Meteo fetch so daily wind is available
+  - New: `src/components/WeatherSection.jsx`
+  - Modified: `weatherSync.js`, `src/components/TaskCard.jsx`, `src/components/TaskCard.css`
 - fix(docker): include weatherSync.js in production image [XS]
   - The Dockerfile's explicit server-file COPY list was missing `weatherSync.js`, causing the container to crash on startup with `ERR_MODULE_NOT_FOUND`
   - Added `weatherSync.js` to the production stage COPY line

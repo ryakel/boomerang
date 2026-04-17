@@ -287,6 +287,8 @@ Uses [Open-Meteo](https://open-meteo.com) to suggest the right tasks for the wea
 - **30-minute refresh** — server pulls a 7-day forecast every 30 min and caches it so clients read instantly.
 - **Weather-aware "What Now?"** — when suggesting tasks, the AI is told today's conditions + tomorrow + weekend outlook, and is instructed to prefer outdoor tasks on nice days before bad weather, and indoor tasks during rough stretches.
 - **Forecast badges on cards** — tasks with a due date inside the 7-day window show a small weather icon + high temp next to the due-date meta. Tooltip shows condition label + precipitation probability.
+- **7-day forecast section on outdoor tasks** — expanding an outdoor-leaning task (physical or errand energy, or title keywords like "mow", "paint the deck", "wash car") shows a 7-day forecast grid with condition, high/low, and wind per day. The task's due date is highlighted.
+- **"Best days" recommendation** — for those same outdoor tasks, a single-line recommendation appears above the notes listing up to 3 days within the forecast that are best for outdoor work, scored on condition, precip, wind, and temperature comfort. Rendered live from the cached forecast, not written into the notes field, so it always reflects the current outlook.
 - **Weather alerts** (push + email) — three event types, de-duped per event so the same weekend-rain warning never fires twice:
   - Rare nice day — today's clear and bad weather is coming within 3 days ("Sunshine today, rain Sat–Sun — good day to mow")
   - Rough weekend — any upcoming weekend day is rainy/snowy ("Miserable weekend — lean into indoor tasks")
