@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- fix(docker): include weatherSync.js in production image [XS]
+  - The Dockerfile's explicit server-file COPY list was missing `weatherSync.js`, causing the container to crash on startup with `ERR_MODULE_NOT_FOUND`
+  - Added `weatherSync.js` to the production stage COPY line
+  - Modified: `Dockerfile`
 - feat(weather): weather-aware suggestions, notifications, and card badges [L]
   - New `weatherSync.js` server module — fetches a 7-day forecast from Open-Meteo (free, no API key) every 30 min, caches in `app_data.weather_cache`
   - Manual location: user searches by city/zip in Settings → Integrations → Weather; geocoding via Open-Meteo's free search endpoint
