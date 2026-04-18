@@ -137,6 +137,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const [highPriority, setHighPriority] = useState(task.high_priority || false)
   const [lowPriority, setLowPriority] = useState(task.low_priority || false)
   const [gcalDuration, setGcalDuration] = useState(task.gcal_duration || '')
+  const [weatherHidden, setWeatherHidden] = useState(!!task.weather_hidden)
   const cyclePriority = () => {
     if (!highPriority && !lowPriority) { setHighPriority(true); setLowPriority(false) }
     else if (highPriority) { setHighPriority(false); setLowPriority(true) }
@@ -201,12 +202,13 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         checklist: [], // clear old field after migration
         comments,
         gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
+        weather_hidden: weatherHidden,
       })
       flashSaved()
     }, 1000)
 
     return () => clearTimeout(autoSaveTimer.current)
-  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, lowPriority, notionResult, trelloResult, attachments, checklists, comments, gcalDuration]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, lowPriority, notionResult, trelloResult, attachments, checklists, comments, gcalDuration, weatherHidden]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -577,18 +579,31 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
 
         {(() => {
           const forecast = weather?.status?.cache?.forecast
-          const liveTask = { ...task, title, energy, tags: selectedTags }
+          const weatherReady = !!(weather?.enabled && forecast?.days?.length)
+          if (!weatherReady) return null
+          const liveTask = { ...task, title, energy, tags: selectedTags, weather_hidden: weatherHidden }
           const visibility = resolveWeatherVisibility({
             task: liveTask,
             labels,
-            weatherEnabled: !!(weather?.enabled && forecast?.days?.length),
+            weatherEnabled: true,
           })
           if (visibility === 'hidden') return null
+          const hideCheckbox = (
+            <label className="notif-check" style={{ marginTop: 6 }}>
+              <input
+                type="checkbox"
+                checked={weatherHidden}
+                onChange={e => setWeatherHidden(e.target.checked)}
+              />
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Hide weather on this card</span>
+            </label>
+          )
           if (visibility === 'visible') {
             return (
               <div style={{ marginTop: 16, marginBottom: 12 }}>
                 <div className="settings-label" style={{ marginBottom: 6 }}>7-day forecast</div>
                 <WeatherSection forecast={forecast} dueDate={dueDate || null} />
+                {hideCheckbox}
               </div>
             )
           }
@@ -608,6 +623,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               {forecastDrawerOpen && (
                 <div style={{ marginTop: 6 }}>
                   <WeatherSection forecast={forecast} dueDate={dueDate || null} />
+                  {hideCheckbox}
                 </div>
               )}
             </div>

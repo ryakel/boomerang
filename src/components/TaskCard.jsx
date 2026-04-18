@@ -4,7 +4,7 @@ import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDue
 import EnergyIcon from './EnergyIcon'
 import WeatherBadge from './WeatherBadge'
 import { pickBestDays, formatBestDaysLine, resolveWeatherVisibility } from './WeatherSection'
-import { Sun, ChevronDown, ChevronRight } from 'lucide-react'
+import { Sun, ChevronDown, ChevronRight, X } from 'lucide-react'
 import { useTaskActions } from '../contexts/TaskActionsContext'
 
 // Only show forecast badges for due dates within 7 days forward
@@ -351,7 +351,14 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
             {weatherVisibility === 'visible' && bestDaysLine && (
               <div className="weather-best-days" onClick={e => e.stopPropagation()}>
                 <span className="weather-best-days-icon"><Sun size={14} /></span>
-                <span>{bestDaysLine}</span>
+                <span className="weather-best-days-text">{bestDaysLine}</span>
+                <button
+                  className="weather-hide-btn"
+                  title="Hide weather on this card"
+                  onClick={e => { e.stopPropagation(); onUpdate(task.id, { weather_hidden: true }) }}
+                >
+                  <X size={14} />
+                </button>
               </div>
             )}
             {weatherVisibility === 'drawer' && (
@@ -368,11 +375,19 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
                 {drawerOpen && bestDaysLine && (
                   <div className="weather-best-days weather-best-days-in-drawer">
                     <span className="weather-best-days-icon"><Sun size={14} /></span>
-                    <span>{bestDaysLine}</span>
+                    <span className="weather-best-days-text">{bestDaysLine}</span>
                   </div>
                 )}
                 {drawerOpen && !bestDaysLine && (
                   <div className="weather-drawer-empty">No standout days in the forecast right now.</div>
+                )}
+                {drawerOpen && task.weather_hidden && (
+                  <button
+                    className="weather-unhide-btn"
+                    onClick={() => onUpdate(task.id, { weather_hidden: false })}
+                  >
+                    Show weather on this card
+                  </button>
                 )}
               </div>
             )}

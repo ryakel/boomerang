@@ -269,6 +269,7 @@ function taskToRow(task) {
     gcal_duration: task.gcal_duration ?? null,
     gmail_message_id: task.gmail_message_id || null,
     gmail_pending: task.gmail_pending ? 1 : 0,
+    weather_hidden: task.weather_hidden ? 1 : 0,
   }
 }
 
@@ -307,6 +308,7 @@ function rowToTask(row) {
     gcal_duration: row.gcal_duration ?? null,
     gmail_message_id: row.gmail_message_id || null,
     gmail_pending: !!row.gmail_pending,
+    weather_hidden: !!row.weather_hidden,
   }
 }
 
@@ -325,8 +327,8 @@ const UPSERT_TASK_SQL = `
     notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
     high_priority, low_priority, size, energy, energy_level, tags_json, attachments_json,
     checklist_json, checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
-    gcal_event_id, gcal_duration, gmail_message_id, gmail_pending)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    gcal_event_id, gcal_duration, gmail_message_id, gmail_pending, weather_hidden)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -343,7 +345,8 @@ const UPSERT_TASK_SQL = `
     comments_json=excluded.comments_json, toast_messages_json=excluded.toast_messages_json,
     trello_sync_enabled=excluded.trello_sync_enabled,
     gcal_event_id=excluded.gcal_event_id, gcal_duration=excluded.gcal_duration,
-    gmail_message_id=excluded.gmail_message_id, gmail_pending=excluded.gmail_pending`
+    gmail_message_id=excluded.gmail_message_id, gmail_pending=excluded.gmail_pending,
+    weather_hidden=excluded.weather_hidden`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -354,7 +357,7 @@ function runUpsertTask(task) {
     r.high_priority, r.low_priority, r.size, r.energy, r.energy_level, r.tags_json, r.attachments_json,
     r.checklist_json, r.checklists_json, r.comments_json, r.toast_messages_json,
     r.trello_sync_enabled, r.gcal_event_id, r.gcal_duration,
-    r.gmail_message_id, r.gmail_pending,
+    r.gmail_message_id, r.gmail_pending, r.weather_hidden,
   ])
 }
 

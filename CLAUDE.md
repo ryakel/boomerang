@@ -300,12 +300,19 @@ Free forecast integration that nudges the right tasks for the weather.
 **7-day forecast in EditTaskModal:** Opening an outdoor task in the full edit modal shows the 7-day forecast widget (compact 3+4 centered layout with condition icon, high/low, and wind per day; due date highlighted) above the Notes field. Reacts to live edits of title + energy — change the task's energy from `physical` to `desk` and the forecast disappears.
 
 **Visibility control (cards + modal):** `resolveWeatherVisibility()` in `src/components/WeatherSection.jsx` returns `'visible'` | `'drawer'` | `'hidden'` and is used by both TaskCard (best-days line) and EditTaskModal (forecast widget). Rules in priority order:
-1. Task tagged `outside`/`outdoor` → `'visible'`
-2. Task tagged `inside`/`indoor` → `'drawer'`
-3. Auto-detected outdoor (energy or title keyword) → `'visible'`
-4. Otherwise → `'hidden'`
+1. `task.weather_hidden === true` → `'drawer'` (per-card hide wins over tags)
+2. Task tagged `outside`/`outdoor` → `'visible'`
+3. Task tagged `inside`/`indoor` → `'drawer'`
+4. Auto-detected outdoor (energy or title keyword) → `'visible'`
+5. Otherwise → `'hidden'`
 
-A drawer renders a small "🌤 Weather" disclosure button — collapsed by default — that expands inline to reveal the same content as `'visible'` would have shown. There is no global toggle — visibility is per-task only, via the `inside`/`outside` tag overrides described in Settings → Weather.
+A drawer renders a small "🌤 Weather" disclosure button — collapsed by default — that expands inline to reveal the same content as `'visible'` would have shown. There is no global toggle — visibility is per-task only.
+
+**Per-card hide:**
+- Every visible weather line on a card has a small **X** button → click to set `weather_hidden = true` on that task, collapsing the weather into the drawer for just that card.
+- The EditTaskModal has a matching **"Hide weather on this card"** checkbox next to the forecast widget that sets the same flag.
+- When `weather_hidden` is true, opening the drawer reveals a **"Show weather on this card"** button to clear the flag.
+- The flag is stored in a `weather_hidden INTEGER` column on the tasks table (migration 015), syncing across devices.
 
 **Weather notifications:** Three event types, de-duped per event via `notification_throttle` (same table as other notifications):
 - `nice_day` — today is clear AND at least 2 of next 3 days are bad

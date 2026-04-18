@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- feat(weather): per-card hide control with persistence [M]
+  - New `weather_hidden` boolean on tasks (migration 015) — persists per task and syncs across devices
+  - Per-card X button on the weather line on each card → click to collapse weather into the drawer for that specific task
+  - "Hide weather on this card" checkbox in the EditTaskModal mirrors the same flag
+  - Inside the drawer, when the hide was explicit (weather_hidden), a "Show weather on this card" button appears to flip it back
+  - Clicking the "Weather" text in the drawer header toggles the drawer open/closed (the whole button is the click target)
+  - Visibility rule priority reordered so per-card hide wins over the `outside` tag (per-card is more explicit)
+  - New: `migrations/015_add_weather_hidden.sql`
+  - Modified: `db.js`, `src/components/WeatherSection.jsx`, `src/components/TaskCard.jsx`, `src/components/TaskCard.css`, `src/components/EditTaskModal.jsx`
 - refactor(weather): drop global hide-on-cards toggle — per-task tag control only [XS]
   - Previous commit added a system-wide `weather_cards_drawer` setting, but the intent was per-card control only
   - Removed the Settings toggle and the `defaultHidden` param from `resolveWeatherVisibility`
