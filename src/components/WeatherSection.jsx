@@ -119,18 +119,16 @@ function hasNamedTag(taskTagIds, labels, names) {
  * Rules (highest priority first):
  * 1. Tag named "outside"/"outdoor"  → visible (explicit user override)
  * 2. Tag named "inside"/"indoor"    → drawer (explicit user override)
- * 3. defaultHidden setting on       → drawer (global "hide on cards" toggle)
- * 4. Auto-detected outdoor task     → visible
- * 5. Otherwise                      → hidden
+ * 3. Auto-detected outdoor task     → visible
+ * 4. Otherwise                      → hidden
  *
  * `weatherEnabled` short-circuits everything to 'hidden' when weather isn't
  * configured, so callers don't have to gate twice.
  */
-export function resolveWeatherVisibility({ task, labels, weatherEnabled, defaultHidden = false }) {
+export function resolveWeatherVisibility({ task, labels, weatherEnabled }) {
   if (!weatherEnabled) return 'hidden'
   if (hasNamedTag(task.tags, labels, ['outside', 'outdoor'])) return 'visible'
   if (hasNamedTag(task.tags, labels, ['inside', 'indoor'])) return 'drawer'
-  if (defaultHidden) return 'drawer'
   if (isOutdoorTaskShape({ title: task.title, energy: task.energy })) return 'visible'
   return 'hidden'
 }

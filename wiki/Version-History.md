@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- refactor(weather): drop global hide-on-cards toggle — per-task tag control only [XS]
+  - Previous commit added a system-wide `weather_cards_drawer` setting, but the intent was per-card control only
+  - Removed the Settings toggle and the `defaultHidden` param from `resolveWeatherVisibility`
+  - Per-task override via `inside` / `outside` tags remains the only way to adjust weather visibility beyond auto-detect
+  - Modified: `src/components/WeatherSection.jsx`, `src/components/Settings.jsx`, `src/components/TaskCard.jsx`
 - feat(weather): tag-based + global visibility control with drawer fallback [M]
   - The auto-detect heuristic was over-eager — tasks like "Gardyn Tank Refresh" (energy=physical, indoor garden) were getting weather UI they didn't need. New `resolveWeatherVisibility()` in `WeatherSection.jsx` consolidates the rules:
     1. Task tagged `outside`/`outdoor` → always shown

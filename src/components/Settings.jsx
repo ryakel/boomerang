@@ -2054,17 +2054,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                       </button>
                     </div>
 
-                    <div className="settings-label" style={{ marginTop: 8 }}>Card display</div>
-                    <label className="notif-check">
-                      <input
-                        type="checkbox"
-                        checked={!!settings.weather_cards_drawer}
-                        onChange={e => update('weather_cards_drawer', e.target.checked)}
-                      />
-                      <span>Hide weather on cards (collapse into a drawer)</span>
-                    </label>
-                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2, marginBottom: 8, marginLeft: 24 }}>
-                      Tag any task with <code>outside</code> to force-show, or <code>inside</code> to force-hide. Otherwise auto-detected from energy + title.
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 8, marginBottom: 12 }}>
+                      Per-task control: tag a task with <code>outside</code> to force-show the weather widget, or <code>inside</code> to collapse it into a drawer. Otherwise auto-detected from energy + title.
                     </div>
 
                     <div className="settings-label">Notifications</div>

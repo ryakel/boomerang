@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, memo } from 'react'
 import './TaskCard.css'
-import { loadLabels, loadSettings, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
+import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import EnergyIcon from './EnergyIcon'
 import WeatherBadge from './WeatherBadge'
 import { pickBestDays, formatBestDaysLine, resolveWeatherVisibility } from './WeatherSection'
@@ -29,17 +29,14 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
 
   // Best-days line for outdoor tasks — shown inside the expanded inline view
   // (tap-to-expand on the main list). 7-day forecast widget lives in the
-  // EditTaskModal.
-  // Visibility is driven by tags ("inside"/"outside"), an auto heuristic, and
-  // the "weather_cards_drawer" global setting (defaults to false).
+  // EditTaskModal. Visibility is per-task: tag with "inside" to force drawer,
+  // "outside" to force visible; otherwise auto-detected from energy + title.
   const labelsForVisibility = loadLabels()
-  const settingsForVisibility = loadSettings()
   const weatherEnabled = !!(weather?.enabled && weather?.status?.cache?.forecast?.days?.length)
   const weatherVisibility = resolveWeatherVisibility({
     task,
     labels: labelsForVisibility,
     weatherEnabled,
-    defaultHidden: !!settingsForVisibility.weather_cards_drawer,
   })
   const forecastDays = weatherEnabled ? weather.status.cache.forecast.days : null
   // Compute best-days only when expanded AND we'll actually render something
