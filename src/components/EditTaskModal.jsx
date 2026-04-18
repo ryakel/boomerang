@@ -2,19 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import './EditTaskModal.css'
 import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES, uuid } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists } from '../api'
-import { Sparkles, Search, ChevronRight, Trash2, Plus } from 'lucide-react'
+import { Sparkles, Search, ChevronRight, ChevronDown, Trash2, Plus, Sun } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useTaskActions } from '../contexts/TaskActionsContext'
-import WeatherSection from './WeatherSection'
-
-const OUTDOOR_KEYWORDS_RE = /\b(mow|yard|garden|weed|plant|trim|prune|rake|shovel|snow|leaves|gutter|deck|patio|driveway|paint(?:ing)? (?:the )?(?:deck|fence|house|siding)?|wash car|car wash|detail(?:ing)? car|grill|bbq|hike|walk|run|bike|swim|pool|outside|outdoor|fence|sidewalk|sprinkler|hose|firewood|chainsaw|compost|mulch)\b/i
-
-function isOutdoorTaskShape({ title, energy }) {
-  if (energy === 'physical' || energy === 'errand') return true
-  if (title && OUTDOOR_KEYWORDS_RE.test(title)) return true
-  return false
-}
+import WeatherSection, { resolveWeatherVisibility } from './WeatherSection'
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -26,6 +18,7 @@ const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
 export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange, onOpenRoutine }) {
   const isDesktop = useIsDesktop()
   const { weather } = useTaskActions() || {}
+  const [forecastDrawerOpen, setForecastDrawerOpen] = useState(false)
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes || '')
   const [selectedTags, setSelectedTags] = useState(task.tags || [])
@@ -584,12 +577,39 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
 
         {(() => {
           const forecast = weather?.status?.cache?.forecast
-          if (!weather?.enabled || !forecast?.days?.length) return null
-          if (!isOutdoorTaskShape({ title, energy })) return null
+          const liveTask = { ...task, title, energy, tags: selectedTags }
+          const visibility = resolveWeatherVisibility({
+            task: liveTask,
+            labels,
+            weatherEnabled: !!(weather?.enabled && forecast?.days?.length),
+          })
+          if (visibility === 'hidden') return null
+          if (visibility === 'visible') {
+            return (
+              <div style={{ marginTop: 16, marginBottom: 12 }}>
+                <div className="settings-label" style={{ marginBottom: 6 }}>7-day forecast</div>
+                <WeatherSection forecast={forecast} dueDate={dueDate || null} />
+              </div>
+            )
+          }
+          // Drawer: collapsed by default, click to reveal
           return (
-            <div style={{ marginBottom: 12 }}>
-              <div className="settings-label" style={{ marginBottom: 6 }}>7-day forecast</div>
-              <WeatherSection forecast={forecast} dueDate={dueDate || null} />
+            <div style={{ marginTop: 16, marginBottom: 12 }}>
+              <button
+                className="weather-drawer-toggle"
+                type="button"
+                onClick={() => setForecastDrawerOpen(o => !o)}
+                aria-expanded={forecastDrawerOpen}
+              >
+                {forecastDrawerOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <Sun size={14} />
+                <span>7-day forecast</span>
+              </button>
+              {forecastDrawerOpen && (
+                <div style={{ marginTop: 6 }}>
+                  <WeatherSection forecast={forecast} dueDate={dueDate || null} />
+                </div>
+              )}
             </div>
           )
         })()}

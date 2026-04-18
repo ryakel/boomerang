@@ -6,6 +6,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- feat(weather): tag-based + global visibility control with drawer fallback [M]
+  - The auto-detect heuristic was over-eager — tasks like "Gardyn Tank Refresh" (energy=physical, indoor garden) were getting weather UI they didn't need. New `resolveWeatherVisibility()` in `WeatherSection.jsx` consolidates the rules:
+    1. Task tagged `outside`/`outdoor` → always shown
+    2. Task tagged `inside`/`indoor` → in a collapsible drawer
+    3. Global setting `weather_cards_drawer` true → drawer for everything (except `outside` tag)
+    4. Auto-detected outdoor → shown
+    5. Otherwise → hidden
+  - Drawer is a small "🌤 Weather" disclosure button — collapsed by default, click to open. Applies to both the card best-days line and the modal 7-day forecast.
+  - New Settings → Weather → "Hide weather on cards" toggle (`weather_cards_drawer`) with hint about the `inside`/`outside` tag overrides.
+  - Fixed: 7-DAY FORECAST label in the edit modal was scrunched against the Status pills above it. Added 16px top margin.
+  - Removed duplicate outdoor-detection code from TaskCard + EditTaskModal — both now share `resolveWeatherVisibility` and `isOutdoorTaskShape` from `WeatherSection.jsx`
+  - Modified: `src/components/WeatherSection.jsx`, `src/components/TaskCard.jsx`, `src/components/TaskCard.css`, `src/components/EditTaskModal.jsx`, `src/components/Settings.jsx`
 - refactor(weather): swap card and modal — best days on card, 7-day forecast in edit modal [S]
   - Previous placement had the full 7-day forecast taking too much room on outdoor cards
   - Cards (quick-expand on the main list) now show only the compact "Best days: …" line with a sun icon. No forecast widget.

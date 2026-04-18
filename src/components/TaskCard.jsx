@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback, memo } from 'react'
 import './TaskCard.css'
-import { loadLabels, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
+import { loadLabels, loadSettings, isStale, isSnoozed, isOverdue, formatSnoozeLabel, formatDueDate, daysOld, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES } from '../store'
 import EnergyIcon from './EnergyIcon'
 import WeatherBadge from './WeatherBadge'
-import { pickBestDays, formatBestDaysLine } from './WeatherSection'
-import { Sun } from 'lucide-react'
+import { pickBestDays, formatBestDaysLine, resolveWeatherVisibility } from './WeatherSection'
+import { Sun, ChevronDown, ChevronRight } from 'lucide-react'
 import { useTaskActions } from '../contexts/TaskActionsContext'
 
 // Only show forecast badges for due dates within 7 days forward
@@ -17,16 +17,6 @@ function dueDateForecastDay(task, weather) {
   return day
 }
 
-// Title-based keyword detection for tasks that are clearly outdoor but not
-// tagged with physical/errand energy.
-const OUTDOOR_KEYWORDS = /\b(mow|yard|garden|weed|plant|trim|prune|rake|shovel|snow|leaves|gutter|deck|patio|driveway|paint(?:ing)? (?:the )?(?:deck|fence|house|siding)?|wash car|car wash|detail(?:ing)? car|grill|bbq|hike|walk|run|bike|swim|pool|outside|outdoor|fence|sidewalk|sprinkler|hose|firewood|chainsaw|compost|mulch)\b/i
-
-function isOutdoorTask(task) {
-  if (task.energy === 'physical' || task.energy === 'errand') return true
-  if (task.title && OUTDOOR_KEYWORDS.test(task.title)) return true
-  return false
-}
-
 const STATUS_CYCLE = ['not_started', 'doing', 'waiting']
 
 const SWIPE_THRESHOLD = 70
@@ -35,13 +25,27 @@ const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action but
 export default memo(function TaskCard({ task, expanded = false, onToggleExpand }) {
   const { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onGmailApprove, onGmailDismiss, isDesktop, selectedTaskId, weather } = useTaskActions()
   const forecastDay = dueDateForecastDay(task, weather)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   // Best-days line for outdoor tasks — shown inside the expanded inline view
   // (tap-to-expand on the main list). 7-day forecast widget lives in the
   // EditTaskModal.
-  const hasWeather = weather?.enabled && weather?.status?.cache?.forecast?.days?.length > 0 && isOutdoorTask(task)
-  const forecastDays = hasWeather ? weather.status.cache.forecast.days : null
-  const bestDays = expanded && hasWeather ? pickBestDays(forecastDays) : null
+  // Visibility is driven by tags ("inside"/"outside"), an auto heuristic, and
+  // the "weather_cards_drawer" global setting (defaults to false).
+  const labelsForVisibility = loadLabels()
+  const settingsForVisibility = loadSettings()
+  const weatherEnabled = !!(weather?.enabled && weather?.status?.cache?.forecast?.days?.length)
+  const weatherVisibility = resolveWeatherVisibility({
+    task,
+    labels: labelsForVisibility,
+    weatherEnabled,
+    defaultHidden: !!settingsForVisibility.weather_cards_drawer,
+  })
+  const forecastDays = weatherEnabled ? weather.status.cache.forecast.days : null
+  // Compute best-days only when expanded AND we'll actually render something
+  // (visible inline OR drawer that the user opened).
+  const willRenderBestDays = expanded && weatherVisibility !== 'hidden' && (weatherVisibility === 'visible' || drawerOpen)
+  const bestDays = willRenderBestDays ? pickBestDays(forecastDays) : null
   const bestDaysLine = bestDays?.length ? formatBestDaysLine(bestDays, forecastDays[0].date) : null
   const keyboardSelected = selectedTaskId === task.id
   const [swipeX, setSwipeX] = useState(0)
@@ -347,10 +351,32 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
 
         {expanded && (
           <>
-            {bestDaysLine && (
+            {weatherVisibility === 'visible' && bestDaysLine && (
               <div className="weather-best-days" onClick={e => e.stopPropagation()}>
                 <span className="weather-best-days-icon"><Sun size={14} /></span>
                 <span>{bestDaysLine}</span>
+              </div>
+            )}
+            {weatherVisibility === 'drawer' && (
+              <div className="weather-drawer" onClick={e => e.stopPropagation()}>
+                <button
+                  className="weather-drawer-toggle"
+                  onClick={() => setDrawerOpen(o => !o)}
+                  aria-expanded={drawerOpen}
+                >
+                  {drawerOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <Sun size={14} />
+                  <span>Weather</span>
+                </button>
+                {drawerOpen && bestDaysLine && (
+                  <div className="weather-best-days weather-best-days-in-drawer">
+                    <span className="weather-best-days-icon"><Sun size={14} /></span>
+                    <span>{bestDaysLine}</span>
+                  </div>
+                )}
+                {drawerOpen && !bestDaysLine && (
+                  <div className="weather-drawer-empty">No standout days in the forecast right now.</div>
+                )}
               </div>
             )}
             {task.notes && (

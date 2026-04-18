@@ -299,6 +299,15 @@ Free forecast integration that nudges the right tasks for the weather.
 
 **7-day forecast in EditTaskModal:** Opening an outdoor task in the full edit modal shows the 7-day forecast widget (compact 3+4 centered layout with condition icon, high/low, and wind per day; due date highlighted) above the Notes field. Reacts to live edits of title + energy — change the task's energy from `physical` to `desk` and the forecast disappears.
 
+**Visibility control (cards + modal):** `resolveWeatherVisibility()` in `src/components/WeatherSection.jsx` returns `'visible'` | `'drawer'` | `'hidden'` and is used by both TaskCard (best-days line) and EditTaskModal (forecast widget). Rules in priority order:
+1. Task tagged `outside`/`outdoor` → `'visible'`
+2. Task tagged `inside`/`indoor` → `'drawer'`
+3. Global setting `weather_cards_drawer` truthy → `'drawer'` (overrides auto-detect)
+4. Auto-detected outdoor (energy or title keyword) → `'visible'`
+5. Otherwise → `'hidden'`
+
+A drawer renders a small "🌤 Weather" disclosure button — collapsed by default — that expands inline to reveal the same content as `'visible'` would have shown. The Settings → Weather section exposes the `weather_cards_drawer` toggle ("Hide weather on cards") with a hint about the `outside`/`inside` tag overrides.
+
 **Weather notifications:** Three event types, de-duped per event via `notification_throttle` (same table as other notifications):
 - `nice_day` — today is clear AND at least 2 of next 3 days are bad
 - `bad_weekend` — any upcoming weekend day within 7 days is rainy/snowy/stormy

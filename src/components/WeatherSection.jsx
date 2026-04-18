@@ -89,6 +89,52 @@ export function pickBestDays(days, { limit = 3, minScore = 55 } = {}) {
   return picked
 }
 
+// --- Outdoor / visibility detection ---
+// Shared between TaskCard and EditTaskModal so card and modal agree on
+// when weather is shown vs hidden vs offered behind a drawer.
+
+const OUTDOOR_KEYWORDS_RE = /\b(mow|yard|garden|weed|plant|trim|prune|rake|shovel|snow|leaves|gutter|deck|patio|driveway|paint(?:ing)? (?:the )?(?:deck|fence|house|siding)?|wash car|car wash|detail(?:ing)? car|grill|bbq|hike|walk|run|bike|swim|pool|outside|outdoor|fence|sidewalk|sprinkler|hose|firewood|chainsaw|compost|mulch)\b/i
+
+export function isOutdoorTaskShape({ title, energy }) {
+  if (energy === 'physical' || energy === 'errand') return true
+  if (title && OUTDOOR_KEYWORDS_RE.test(title)) return true
+  return false
+}
+
+function hasNamedTag(taskTagIds, labels, names) {
+  if (!taskTagIds?.length || !labels?.length) return false
+  const lowerNames = names.map(n => n.toLowerCase())
+  return taskTagIds.some(id => {
+    const label = labels.find(l => l.id === id)
+    return label?.name && lowerNames.includes(label.name.toLowerCase())
+  })
+}
+
+/**
+ * Returns one of:
+ *   'visible' — render weather inline, expanded
+ *   'drawer'  — render a collapsible disclosure that the user can open
+ *   'hidden'  — don't render anything
+ *
+ * Rules (highest priority first):
+ * 1. Tag named "outside"/"outdoor"  → visible (explicit user override)
+ * 2. Tag named "inside"/"indoor"    → drawer (explicit user override)
+ * 3. defaultHidden setting on       → drawer (global "hide on cards" toggle)
+ * 4. Auto-detected outdoor task     → visible
+ * 5. Otherwise                      → hidden
+ *
+ * `weatherEnabled` short-circuits everything to 'hidden' when weather isn't
+ * configured, so callers don't have to gate twice.
+ */
+export function resolveWeatherVisibility({ task, labels, weatherEnabled, defaultHidden = false }) {
+  if (!weatherEnabled) return 'hidden'
+  if (hasNamedTag(task.tags, labels, ['outside', 'outdoor'])) return 'visible'
+  if (hasNamedTag(task.tags, labels, ['inside', 'indoor'])) return 'drawer'
+  if (defaultHidden) return 'drawer'
+  if (isOutdoorTaskShape({ title: task.title, energy: task.energy })) return 'visible'
+  return 'hidden'
+}
+
 function formatBestDayShort(d, todayDateStr) {
   const label = dayLabel(d.date, todayDateStr)
   const hi = d.temp_max != null ? `${Math.round(d.temp_max)}°` : ''

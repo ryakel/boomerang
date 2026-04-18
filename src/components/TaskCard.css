@@ -328,6 +328,41 @@
   align-items: center;
 }
 
+.weather-drawer {
+  margin-top: 8px;
+}
+
+.weather-drawer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.weather-drawer-toggle:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.weather-best-days-in-drawer {
+  margin-top: 6px;
+}
+
+.weather-drawer-empty {
+  margin-top: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 .task-tags {
   display: flex;
   gap: 6px;
