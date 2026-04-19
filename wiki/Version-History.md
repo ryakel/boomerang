@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- fix(weather): due-date badge in card top row also respects visibility [XS]
+  - The little weather badge next to "due in 6d" was rendering for inside-tagged tasks because it was on a separate render path that didn't consult `resolveWeatherVisibility`
+  - Gated the badge so it only renders when visibility is `'visible'` — `inside` tag, `weather_hidden`, or auto-detected indoor now hide the badge in addition to the expanded weather UI
+  - Modified: `src/components/TaskCard.jsx`
 - feat(weather): per-card hide control with persistence [M]
   - New `weather_hidden` boolean on tasks (migration 015) — persists per task and syncs across devices
   - Per-card X button on the weather line on each card → click to collapse weather into the drawer for that specific task

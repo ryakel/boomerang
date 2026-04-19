@@ -24,13 +24,13 @@ const SWIPE_OPEN_OFFSET = -140 // how far card stays offset to reveal action but
 
 export default memo(function TaskCard({ task, expanded = false, onToggleExpand }) {
   const { onComplete, onSnooze, onEdit, onExtend, onStatusChange, onUpdate, onDelete, onGmailApprove, onGmailDismiss, isDesktop, selectedTaskId, weather } = useTaskActions()
-  const forecastDay = dueDateForecastDay(task, weather)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   // Best-days line for outdoor tasks — shown inside the expanded inline view
   // (tap-to-expand on the main list). 7-day forecast widget lives in the
   // EditTaskModal. Visibility is per-task: tag with "inside" to force drawer,
   // "outside" to force visible; otherwise auto-detected from energy + title.
+  // The per-card weather_hidden flag wins over everything.
   const labelsForVisibility = loadLabels()
   const weatherEnabled = !!(weather?.enabled && weather?.status?.cache?.forecast?.days?.length)
   const weatherVisibility = resolveWeatherVisibility({
@@ -38,6 +38,9 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
     labels: labelsForVisibility,
     weatherEnabled,
   })
+  // Due-date badge in the top row also respects visibility — only shows when
+  // weather is in the 'visible' state for this task.
+  const forecastDay = weatherVisibility === 'visible' ? dueDateForecastDay(task, weather) : null
   const forecastDays = weatherEnabled ? weather.status.cache.forecast.days : null
   // Compute best-days only when expanded AND we'll actually render something
   // (visible inline OR drawer that the user opened).
