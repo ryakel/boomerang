@@ -224,7 +224,8 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     routine_id: null,
     high_priority: false,
     low_priority: false,
-    size: null,
+    size: 'M',           // default to M so points always compute; background auto-sizer will refine
+    size_inferred: false, // set true after successful inferSize or manual user pick
     energy: null,        // energy type: desk|people|errand|confrontation|creative|physical
     energyLevel: null,   // drain intensity: 1 (low), 2 (medium), 3 (high)
     attachments: [],

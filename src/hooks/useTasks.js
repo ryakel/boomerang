@@ -24,14 +24,21 @@ export function useTasks() {
     return () => clearInterval(interval)
   }, [])
 
-  const addTask = useCallback(({ title, tags = [], dueDate = null, notes = '', notion = null, size = null, attachments = [], highPriority = false, lowPriority = false, energy = null, energyLevel = null } = {}) => {
+  const addTask = useCallback(({ title, tags = [], dueDate = null, notes = '', notion = null, size = null, size_inferred = false, attachments = [], highPriority = false, lowPriority = false, energy = null, energyLevel = null } = {}) => {
     remoteLog('addTask:', title)
     const task = createTask(title, tags, dueDate, notes)
     if (notion) {
       task.notion_page_id = notion.id
       task.notion_url = notion.url
     }
-    if (size) task.size = size
+    if (size) {
+      task.size = size
+      // Any explicitly-provided size means the caller settled it (user picked
+      // or AI inferred). Mark as inferred so the background auto-sizer hook
+      // won't override. Callers that want re-inference should omit size.
+      task.size_inferred = true
+    }
+    if (size_inferred) task.size_inferred = true
     if (energy) task.energy = energy
     if (energyLevel) task.energyLevel = energyLevel
     if (attachments.length > 0) task.attachments = attachments

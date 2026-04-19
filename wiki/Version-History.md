@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- feat(tasks): background auto-sizer — every task gets sized regardless of create path [M]
+  - Auto-sizing was only firing on the quick-add + add modal + Gmail-approve paths, plus the manual "Auto" button. Tasks from routines, Notion sync, Trello sync, GCal pull, markdown import were silently staying null-sized — breaking the points formula (`SIZE_POINTS[null] || 1` = 1 point instead of the intended 5 for a default M).
+  - New column `size_inferred` on tasks (migration 016). Existing tasks with a non-null size are marked as already-inferred so they won't be re-processed.
+  - `createTask` now defaults size to `'M'` instead of `null`, so points always compute correctly immediately. The background hook refines it later.
+  - New hook `useSizeAutoInfer(tasks, updateTask)` in `src/hooks/useSizeAutoInfer.js` — on every render, picks the first active task with `size_inferred = false` that hasn't been attempted this session, waits 500ms, calls `inferSize`, then updates `{ size, energy, energyLevel, size_inferred: true }`. On API failure, leaves the flag false so the next page load retries. Throttled per render, so a just-migrated DB with dozens of un-inferred tasks doesn't hammer Anthropic.
+  - Manual user size pick in EditTaskModal / AddTaskModal now marks `size_inferred = true` so the background hook doesn't override. Deselecting falls back to `'M'` + `size_inferred = false` to re-trigger auto-infer.
+  - `addTask` marks `size_inferred = true` whenever the caller provides an explicit size (e.g. quick-add's inline inferSize call that updates the task).
+  - New: `migrations/016_add_size_inferred.sql`, `src/hooks/useSizeAutoInfer.js`
+  - Modified: `db.js`, `src/store.js`, `src/App.jsx`, `src/hooks/useTasks.js`, `src/hooks/useTaskForm.js`, `src/components/EditTaskModal.jsx`
 - fix(weather): due-date badge in card top row also respects visibility [XS]
   - The little weather badge next to "due in 6d" was rendering for inside-tagged tasks because it was on a separate render path that didn't consult `resolveWeatherVisibility`
   - Gated the badge so it only renders when visibility is `'visible'` — `inside` tag, `weather_hidden`, or auto-detected indoor now hide the badge in addition to the expanded weather UI

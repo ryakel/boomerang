@@ -28,6 +28,7 @@ import { MiniRings } from './components/Rings'
 import KanbanBoard from './components/KanbanBoard'
 import { useIsDesktop } from './hooks/useIsDesktop'
 import { useWeather } from './hooks/useWeather'
+import { useSizeAutoInfer } from './hooks/useSizeAutoInfer'
 import { useNotifications } from './hooks/useNotifications'
 import { useServerSync } from './hooks/useServerSync'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
@@ -60,6 +61,7 @@ function App() {
 
   const isDesktop = useIsDesktop()
   const weather = useWeather()
+  useSizeAutoInfer(tasks, updateTask)
 
   const [activeFilter, setActiveFilter] = useState('all')
   const [showAdd, setShowAdd] = useState(false)
@@ -329,13 +331,17 @@ function App() {
       const taskId = addTask({ title: text })
       setQuickText('')
       quickRef.current?.blur()
-      // Auto-infer size + energy from title alone
+      // Auto-infer size + energy from title alone. Mark size_inferred so
+      // the background auto-sizer hook doesn't double-work.
       inferSize(text).then(inferred => {
         const updates = {}
         if (inferred.size) updates.size = inferred.size
         if (inferred.energy) updates.energy = inferred.energy
         if (inferred.energyLevel) updates.energyLevel = inferred.energyLevel
-        if (Object.keys(updates).length > 0) updateTask(taskId, updates)
+        if (Object.keys(updates).length > 0) {
+          updates.size_inferred = true
+          updateTask(taskId, updates)
+        }
         prefetchToast(taskId, text, inferred.energy, inferred.energyLevel)
       }).catch(() => {})
     } else {
@@ -747,14 +753,18 @@ function App() {
       {showAdd && (
         <AddTaskModal onAdd={(taskData) => {
           const taskId = addTask(taskData)
-          // Auto-infer size + energy if not manually set
+          // Auto-infer size + energy if not manually set. Mark size_inferred
+          // so the background auto-sizer hook doesn't double-work.
           if (!taskData.size && taskData.title) {
             inferSize(taskData.title, taskData.notes).then(inferred => {
               const updates = {}
               if (inferred.size) updates.size = inferred.size
               if (inferred.energy) updates.energy = inferred.energy
               if (inferred.energyLevel) updates.energyLevel = inferred.energyLevel
-              if (Object.keys(updates).length > 0) updateTask(taskId, updates)
+              if (Object.keys(updates).length > 0) {
+                updates.size_inferred = true
+                updateTask(taskId, updates)
+              }
               prefetchToast(taskId, taskData.title, inferred.energy, inferred.energyLevel)
             }).catch(() => {})
           } else {

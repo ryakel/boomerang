@@ -19,6 +19,20 @@ export function useTaskForm(initial = {}) {
   const [selectedTags, setSelectedTags] = useState(initial.tags || [])
   const [dueDate, setDueDate] = useState(initial.dueDate || '')
   const [size, setSize] = useState(initial.size || null)
+  // Tracks whether size is "settled" — true after user pick or AI inference.
+  // Autosave includes this so the background auto-sizer hook won't override.
+  const [sizeInferred, setSizeInferred] = useState(!!initial.sizeInferred || !!initial.size_inferred)
+  // Special case: deselect (null) falls back to 'M' and unsets the flag so
+  // the background auto-sizer can retry.
+  const markSizeSet = (newSize) => {
+    if (newSize == null) {
+      setSize('M')
+      setSizeInferred(false)
+    } else {
+      setSize(newSize)
+      setSizeInferred(true)
+    }
+  }
   const [energy, setEnergy] = useState(initial.energy || null)
   const [energyLevel, setEnergyLevel] = useState(initial.energyLevel || null)
   const [highPriority, setHighPriority] = useState(initial.highPriority || false)
@@ -67,7 +81,7 @@ export function useTaskForm(initial = {}) {
         !size ? inferSize(newTitle, newNotes) : Promise.resolve({ size: null, energy: null, energyLevel: null }),
       ])
       if (inferredDate) setDueDate(inferredDate)
-      if (inferred.size) setSize(inferred.size)
+      if (inferred.size) markSizeSet(inferred.size)
       if (inferred.energy) setEnergy(inferred.energy)
       if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
     } catch (err) {
@@ -84,7 +98,7 @@ export function useTaskForm(initial = {}) {
     setSizing(true)
     try {
       const inferred = await inferSize(title, notes)
-      if (inferred.size) setSize(inferred.size)
+      if (inferred.size) markSizeSet(inferred.size)
       if (inferred.energy) setEnergy(inferred.energy)
       if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
     } catch { /* ignore */ }
@@ -165,6 +179,7 @@ export function useTaskForm(initial = {}) {
     tags: selectedTags,
     dueDate: dueDate || null,
     size: size || null,
+    size_inferred: sizeInferred,
     energy: energy || null,
     energyLevel: energyLevel || null,
     highPriority,
@@ -179,7 +194,8 @@ export function useTaskForm(initial = {}) {
     notes, setNotes,
     selectedTags, setSelectedTags, toggleTag,
     dueDate, setDueDate,
-    size, setSize,
+    size, setSize: markSizeSet,
+    sizeInferred, setSizeInferred,
     energy, setEnergy,
     energyLevel, setEnergyLevel,
     highPriority, setHighPriority,

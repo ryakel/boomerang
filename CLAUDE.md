@@ -56,6 +56,8 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 
 **AI Inference:** `inferSize()` in `src/api.js` returns `{ size, energy, energyLevel }` in a single API call. Custom instructions influence inference (e.g., "phone calls are confrontation-level for me").
 
+**Background auto-sizer:** `useSizeAutoInfer` hook (wired in App.jsx) watches the task list and runs `inferSize` for any active task where `size_inferred = false`, throttled 500ms between calls and one task per render cycle. This covers every create path (quick-add, add modal, routines, Gmail, Notion, Trello, GCal pull, markdown import) with zero per-path plumbing — as long as a task lands with `size_inferred = false`, it gets picked up automatically. `createTask` defaults `size` to `'M'` so points compute immediately; inference refines it. Manual size picks set the flag to `true` so the hook backs off. Migration 016 backfills the flag: existing tasks with a non-null size are treated as already-inferred; any null-sized historical tasks get queued for inference on next load.
+
 **Tap-to-Cycle Override:** On task cards, tap the type emoji to cycle types, tap the bolts to cycle intensity. Zero-friction correction, saves immediately via `onUpdate`.
 
 **Points Formula:** `SIZE_POINTS[size] × ENERGY_MULTIPLIER[level] × speedMultiplier`

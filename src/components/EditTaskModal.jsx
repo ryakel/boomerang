@@ -33,6 +33,25 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     task.notion_page_id ? { id: task.notion_page_id, url: task.notion_url } : null
   )
   const [size, setSize] = useState(task.size || null)
+  // Track whether size has been settled (auto-inferred or user-picked). Once
+  // true, the background useSizeAutoInfer hook won't override. We init from
+  // the task's flag so tasks that were already inferred stay that way.
+  const [sizeInferred, setSizeInferred] = useState(!!task.size_inferred)
+  // Any setSize call originating from the user or from AI inference marks
+  // the size as settled. We wrap setSize in this helper so every site that
+  // changes size also marks the flag.
+  // Special case: if the user deselects a size (click selected pill to clear),
+  // we fall back to 'M' and unset the inferred flag so the background
+  // auto-sizer hook can try again.
+  const markSizeSet = (newSize) => {
+    if (newSize == null) {
+      setSize('M')
+      setSizeInferred(false)
+    } else {
+      setSize(newSize)
+      setSizeInferred(true)
+    }
+  }
   const [energy, setEnergy] = useState(task.energy || null)
   const [energyLevel, setEnergyLevel] = useState(task.energyLevel || null)
   const [sizing, setSizing] = useState(false)
@@ -203,12 +222,13 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         comments,
         gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
         weather_hidden: weatherHidden,
+        size_inferred: sizeInferred,
       })
       flashSaved()
     }, 1000)
 
     return () => clearTimeout(autoSaveTimer.current)
-  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, lowPriority, notionResult, trelloResult, attachments, checklists, comments, gcalDuration, weatherHidden]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, lowPriority, notionResult, trelloResult, attachments, checklists, comments, gcalDuration, weatherHidden, sizeInferred]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -394,7 +414,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         !size ? inferSize(newTitle, newNotes) : Promise.resolve({ size: null, energy: null, energyLevel: null }),
       ])
       if (inferredDate) setDueDate(inferredDate)
-      if (inferred.size) setSize(inferred.size)
+      if (inferred.size) markSizeSet(inferred.size)
       if (inferred.energy) setEnergy(inferred.energy)
       if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
     } catch { /* ignore */ }
@@ -432,7 +452,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     setSizing(true)
     try {
       const inferred = await inferSize(title, notes)
-      if (inferred.size) setSize(inferred.size)
+      if (inferred.size) markSizeSet(inferred.size)
       if (inferred.energy) setEnergy(inferred.energy)
       if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
     } catch { /* ignore */ }
@@ -747,7 +767,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
               <button
                 key={s}
                 className={`size-select-btn size-${s.toLowerCase()}${size === s ? ' selected' : ''}`}
-                onClick={() => setSize(size === s ? null : s)}
+                onClick={() => markSizeSet(size === s ? null : s)}
               >
                 {s}
               </button>
