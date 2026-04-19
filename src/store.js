@@ -241,6 +241,8 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
     title,
     cadence, // daily, weekly, monthly, quarterly, annually, custom
     custom_days: customDays, // for 'custom': number of days between
+    schedule_day_of_week: null, // optional weekday anchor (0=Sun … 6=Sat). When
+                                // set, next-due snaps forward to this weekday.
     tags,
     notes,
     high_priority: false,
@@ -256,6 +258,17 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
   }
 }
 
+// Snap `date` forward to the first occurrence of `weekday` (0=Sun … 6=Sat) on
+// or after itself. If already on that weekday, returns `date` unchanged.
+function snapToWeekday(date, weekday) {
+  const current = date.getDay()
+  const delta = (weekday - current + 7) % 7
+  if (delta === 0) return date
+  const next = new Date(date)
+  next.setDate(next.getDate() + delta)
+  return next
+}
+
 export function getNextDueDate(routine) {
   const lastDone = routine.completed_history.length > 0
     ? new Date(routine.completed_history[routine.completed_history.length - 1])
@@ -269,6 +282,14 @@ export function getNextDueDate(routine) {
     case 'quarterly': next.setMonth(next.getMonth() + 3); break
     case 'annually': next.setFullYear(next.getFullYear() + 1); break
     case 'custom': next.setDate(next.getDate() + (routine.custom_days || 7)); break
+  }
+
+  // If a weekday anchor is set, snap forward to the next matching weekday
+  // (may drift up to 6 days from the cadence interval for non-weekly). 'daily'
+  // is ignored since it fires every day anyway.
+  const dow = routine.schedule_day_of_week
+  if (dow != null && routine.cadence !== 'daily') {
+    return snapToWeekday(next, dow)
   }
   return next
 }

@@ -9,10 +9,11 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes)
     if (highPriority) routine.high_priority = true
     if (endDate) routine.end_date = endDate
+    if (scheduleDayOfWeek != null) routine.schedule_day_of_week = scheduleDayOfWeek
     setRoutines(prev => [routine, ...prev])
     return routine
   }, [])
@@ -47,6 +48,25 @@ export function useRoutines() {
       r.id === id ? { ...r, notion_page_id: notionPageId, notion_url: notionUrl } : r
     ))
   }, [])
+
+  // Spawn a one-off task from a routine right now, bypassing the schedule.
+  // Useful when the user wants to do the routine ad-hoc outside of its
+  // scheduled cadence. Due date is today. Does NOT update completed_history
+  // until the task is completed (same as normal scheduled spawn), so the
+  // routine's cadence clock is unaffected unless the spawned task is done.
+  const spawnNow = useCallback((routineId) => {
+    const routine = routines.find(r => r.id === routineId)
+    if (!routine) return null
+    const today = new Date().toISOString().split('T')[0]
+    const task = createTask(routine.title, routine.tags, today, routine.notes)
+    task.routine_id = routine.id
+    task.notion_page_id = routine.notion_page_id
+    task.notion_url = routine.notion_url
+    if (routine.high_priority) task.high_priority = true
+    if (routine.energy) task.energy = routine.energy
+    if (routine.energyLevel) task.energyLevel = routine.energyLevel
+    return task
+  }, [routines])
 
   // Spawn tasks for due routines — returns IDs of spawned tasks
   const spawnDueTasks = useCallback((existingTasks) => {
@@ -83,6 +103,7 @@ export function useRoutines() {
     updateRoutine,
     updateRoutineNotion,
     spawnDueTasks,
+    spawnNow,
     hydrateRoutines,
   }
 }

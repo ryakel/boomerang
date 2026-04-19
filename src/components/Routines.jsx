@@ -2,12 +2,26 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../store'
 import { suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
-export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onUpdateNotion, onClose, editRoutineId, onClearEditRoutineId, isDesktop }) {
+const DAY_OF_WEEK_OPTIONS = [
+  { value: '', label: 'Any day' },
+  { value: '0', label: 'Sunday' },
+  { value: '1', label: 'Monday' },
+  { value: '2', label: 'Tuesday' },
+  { value: '3', label: 'Wednesday' },
+  { value: '4', label: 'Thursday' },
+  { value: '5', label: 'Friday' },
+  { value: '6', label: 'Saturday' },
+]
+
+const DAY_OF_WEEK_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onUpdateNotion, onSpawnNow, onClose, editRoutineId, onClearEditRoutineId, isDesktop }) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingRoutine, setEditingRoutine] = useState(null)
   const [title, setTitle] = useState('')
   const [cadence, setCadence] = useState('weekly')
   const [customDays, setCustomDays] = useState(14)
+  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState('')
   const [selectedTags, setSelectedTags] = useState([])
   const [notes, setNotes] = useState('')
   const [highPriority, setHighPriority] = useState(false)
@@ -30,6 +44,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setNotes('')
     setCadence('weekly')
     setCustomDays(14)
+    setScheduleDayOfWeek('')
     setSelectedTags([])
     setHighPriority(false)
     setLowPriority(false)
@@ -41,9 +56,11 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setEditingRoutine(null)
   }
 
+  const parsedDayOfWeek = scheduleDayOfWeek === '' ? null : parseInt(scheduleDayOfWeek, 10)
+
   const handleAdd = () => {
     if (!title.trim()) return
-    const routine = onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim(), highPriority, endDate || null)
+    const routine = onAdd(title.trim(), cadence, cadence === 'custom' ? customDays : null, selectedTags, notes.trim(), highPriority, endDate || null, parsedDayOfWeek)
     if (notionResult && routine) {
       onUpdateNotion(routine.id, notionResult.id, notionResult.url)
     }
@@ -55,6 +72,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
     setTitle(routine.title)
     setCadence(routine.cadence)
     setCustomDays(routine.custom_days || 14)
+    setScheduleDayOfWeek(routine.schedule_day_of_week == null ? '' : String(routine.schedule_day_of_week))
     setSelectedTags(routine.tags || [])
     setNotes(routine.notes || '')
     setHighPriority(routine.high_priority || false)
@@ -80,6 +98,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
       title: title.trim(),
       cadence,
       custom_days: cadence === 'custom' ? customDays : null,
+      schedule_day_of_week: parsedDayOfWeek,
       tags: selectedTags,
       notes: notes.trim(),
       high_priority: highPriority,
@@ -181,6 +200,21 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
                   />
                   <span className="duration-unit">days</span>
                 </div>
+              </div>
+            )}
+            {cadence !== 'daily' && (
+              <div className="form-inline-field" style={{ flex: 1 }}>
+                <div className="settings-label" style={{ marginBottom: 4 }}>On</div>
+                <select
+                  className="routine-select"
+                  value={scheduleDayOfWeek}
+                  onChange={e => setScheduleDayOfWeek(e.target.value)}
+                  style={{ marginBottom: 0 }}
+                >
+                  {DAY_OF_WEEK_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
             )}
           </div>
@@ -294,7 +328,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
         <>
           <div className="section-label">Active</div>
           {active.map(r => (
-            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} />
+            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} onSpawnNow={onSpawnNow} />
           ))}
         </>
       )}
@@ -303,7 +337,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
         <>
           <div className="section-label">Paused</div>
           {paused.map(r => (
-            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} />
+            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} onSpawnNow={onSpawnNow} />
           ))}
         </>
       )}
@@ -352,7 +386,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140
 
-function RoutineCard({ routine, onDelete, onConfirmDelete, onTogglePause, onEdit }) {
+function RoutineCard({ routine, onDelete, onConfirmDelete, onTogglePause, onEdit, onSpawnNow }) {
   const [expanded, setExpanded] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -478,7 +512,10 @@ function RoutineCard({ routine, onDelete, onConfirmDelete, onTogglePause, onEdit
           <span className="task-title">{routine.title}</span>
           {routine.high_priority && <span className="priority-pill">!</span>}
           {routine.low_priority && <span className="priority-pill low-pill">↓</span>}
-          <span className="task-meta">{formatCadence(routine)}</span>
+          <span className="task-meta">
+            {formatCadence(routine)}
+            {routine.schedule_day_of_week != null && routine.cadence !== 'daily' && ` · ${DAY_OF_WEEK_SHORT[routine.schedule_day_of_week]}`}
+          </span>
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
           {nextLabel}
@@ -499,6 +536,15 @@ function RoutineCard({ routine, onDelete, onConfirmDelete, onTogglePause, onEdit
         )}
         {expanded && (
           <div className="task-toolbar" onClick={e => e.stopPropagation()}>
+            {onSpawnNow && (
+              <button
+                className="toolbar-pill done"
+                onClick={() => { setExpanded(false); onSpawnNow(routine.id) }}
+                title="Create task now (bypass schedule)"
+              >
+                <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              </button>
+            )}
             <button className="toolbar-pill edit" onClick={() => { setExpanded(false); onEdit(routine) }} title="Edit">
               <svg viewBox="0 0 24 24"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
             </button>

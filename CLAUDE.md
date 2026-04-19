@@ -79,6 +79,20 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 - Energy level selector only appears in modals after energy type is set (or after Auto inference)
 - Existing tasks without energy data score normally (multiplier defaults to 1.0)
 
+### Routine Scheduling
+Recurring tasks (routines) support per-routine day-of-week anchoring and on-demand one-off spawns.
+
+**Cadence types:** `daily`, `weekly`, `monthly`, `quarterly`, `annually`, `custom` (every N days).
+
+**Weekday anchor (`schedule_day_of_week`, 0=Sun … 6=Sat):** optional column added in migration 017. When set, `getNextDueDate()` advances by the cadence interval, then snaps forward to the first occurrence of that weekday. Examples:
+- Weekly + Fri → every Friday (after completion, next-due is the following Friday)
+- Quarterly + Sat → first Saturday on/after the 3-month anchor (may drift up to 6 days — intentional, "air filter on a weekend" is the use case)
+- `daily` cadence ignores the anchor (daily fires every day anyway)
+
+UI lives in `src/components/Routines.jsx` — new "On" dropdown next to Frequency in the add/edit form. "Any day" (default) preserves original behavior. The scheduled weekday appears on routine cards next to the cadence (e.g. "weekly · Fri").
+
+**Manual "Create Now" trigger:** new `spawnNow(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card shows a "+" button that bypasses the schedule and immediately spawns a one-off task with due date = today. Importantly, it does NOT append to `completed_history` — the cadence clock is unaffected until the task is actually completed. So manually creating a task doesn't shift the normal schedule.
+
 ### Notion Sync (Pull + Ongoing)
 Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks in sync.
 
@@ -539,6 +553,8 @@ Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key item
 - **#16** — ~~AI-generated nudge messages for email~~ **DONE**
 - **#17** — ~~Notification grouping/batching~~ **DONE** (email batch mode)
 - **#18** — ~~Trello multi-list sync UI~~ **DONE**
+- **Routine weekday scheduling** — **DONE** (`schedule_day_of_week` on routines, 2026-04-17)
+- **Routine manual spawn** — **DONE** (`spawnNow` bypasses schedule, 2026-04-17)
 
 ### Architecture Notes (completed work)
 

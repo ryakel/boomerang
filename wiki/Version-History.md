@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-17
 
+- feat(routines): day-of-week scheduling + manual "Create Now" button [M]
+  - New optional `schedule_day_of_week` column on routines (migration 017). When set (0=Sun … 6=Sat), `getNextDueDate()` computes the cadence interval end, then snaps forward to the first occurrence of that weekday. Example: weekly + Fri → spawn every Friday; quarterly + Sat → spawn on the first Saturday after the 3-month mark (may drift up to 6 days from the exact quarter, which is fine for "air filter on a weekend" style routines).
+  - "Daily" cadence ignores the weekday anchor (daily fires every day anyway, so a weekday filter makes no sense).
+  - New "On" dropdown in the routine add/edit form next to Frequency. Default "Any day" preserves current behavior.
+  - Scheduled weekday is surfaced on the routine card's cadence meta (e.g. "weekly · Fri").
+  - New "Create now" button in the expanded routine toolbar — bypasses the schedule and immediately spawns a one-off task with due date today. Does NOT add to `completed_history`, so the cadence clock is untouched until the task is completed. Useful for "I want to mow today even though it's not Friday."
+  - New: `migrations/017_add_routine_schedule_day.sql`
+  - Modified: `db.js`, `src/store.js`, `src/App.jsx`, `src/hooks/useRoutines.js`, `src/components/Routines.jsx`
 - feat(tasks): background auto-sizer — every task gets sized regardless of create path [M]
   - Auto-sizing was only firing on the quick-add + add modal + Gmail-approve paths, plus the manual "Auto" button. Tasks from routines, Notion sync, Trello sync, GCal pull, markdown import were silently staying null-sized — breaking the points formula (`SIZE_POINTS[null] || 1` = 1 point instead of the intended 5 for a default M).
   - New column `size_inferred` on tasks (migration 016). Existing tasks with a non-null size are marked as already-inferred so they won't be re-processed.
