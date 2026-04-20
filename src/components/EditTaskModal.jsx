@@ -7,6 +7,7 @@ import EnergyIcon from './EnergyIcon'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useTaskActions } from '../contexts/TaskActionsContext'
 import WeatherSection, { resolveWeatherVisibility } from './WeatherSection'
+import { processAttachment } from '../utils/imageCompress'
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -459,36 +460,27 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     finally { setSizing(false) }
   }
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files)
+    e.target.value = ''
     if (!files.length) return
     setAttachError(null)
-    const currentTotal = attachments.reduce((sum, a) => sum + a.size, 0)
-    const newTotal = currentTotal + files.reduce((sum, f) => sum + f.size, 0)
-    if (newTotal > MAX_TOTAL_SIZE) {
-      setAttachError(`Total attachments exceed 5 MB limit (${formatFileSize(newTotal)})`)
-      e.target.value = ''
-      return
-    }
-    const readers = files.map(file => new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve({
-        id: uuid(),
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        data: reader.result.split(',')[1],
-      })
-      reader.readAsDataURL(file)
-    }))
-    Promise.all(readers).then(results => {
+    try {
+      const processed = await Promise.all(files.map(processAttachment))
+      const results = processed.map(p => ({ id: uuid(), ...p }))
+      const currentTotal = attachments.reduce((sum, a) => sum + a.size, 0)
+      const newTotal = currentTotal + results.reduce((sum, r) => sum + r.size, 0)
+      if (newTotal > MAX_TOTAL_SIZE) {
+        setAttachError(`Total attachments exceed 5 MB limit (${formatFileSize(newTotal)})`)
+        return
+      }
       const newAttachments = [...attachments, ...results]
       setAttachments(newAttachments)
-      // Auto-research new attachments
       const names = results.map(r => r.name).join(', ')
       runResearch(`Analyze the attached file(s) (${names}) and provide relevant notes for this task.`, newAttachments)
-    })
-    e.target.value = ''
+    } catch (err) {
+      setAttachError(err.message || 'Failed to attach file')
+    }
   }
 
   const removeAttachment = (id) => {

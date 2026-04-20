@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-20
+
+- fix(tasks): photo attachments no longer crash the app [S]
+  - Attaching a photo (especially from an iPhone) could crash Boomerang to a blank screen. Typical iPhone photos are 2-5 MB raw, which inflates to ~2.7-6.7 MB as base64. That blew past the server's 2 MB `express.json()` body limit on sync, past iOS Safari's ~5 MB `localStorage` quota when `saveTasks` ran, and could OOM the tab during `JSON.stringify`. Since there's no React ErrorBoundary, any of those threw a white screen.
+  - New util `src/utils/imageCompress.js` — `processAttachment(file)` downscales image attachments through a canvas (max 1600px on the long edge, JPEG quality 0.82). Typical phone photos drop to 200-400 KB, fitting comfortably in all three limits. Non-image files go through a hardened FileReader wrapper that actually handles `onerror` and null `result`.
+  - Both attachment entry points (quick-add via `useTaskForm`, edit modal's inline upload) now run through the util. HEIC or other undecodable images fall back to the raw base64 path so the attachment still works even if the browser can't re-encode it.
+  - Modified: `src/hooks/useTaskForm.js`, `src/components/EditTaskModal.jsx`
+  - New: `src/utils/imageCompress.js`
+
+---
+
 ## 2026-04-17
 
 - feat(routines): day-of-week scheduling + manual "Create Now" button [M]

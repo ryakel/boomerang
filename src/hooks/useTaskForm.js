@@ -5,6 +5,7 @@
 import { useState, useRef } from 'react'
 import { loadSettings, loadLabels, uuid } from '../store'
 import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
+import { processAttachment } from '../utils/imageCompress'
 
 function formatFileSize(bytes) {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -139,32 +140,24 @@ export function useTaskForm(initial = {}) {
     setNotionState(null)
   }
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files)
+    e.target.value = ''
     if (!files.length) return
     setAttachError(null)
-    const currentTotal = attachments.reduce((sum, a) => sum + a.size, 0)
-    const newTotal = currentTotal + files.reduce((sum, f) => sum + f.size, 0)
-    if (newTotal > MAX_TOTAL_SIZE) {
-      setAttachError(`Total attachments exceed 5 MB limit (${formatFileSize(newTotal)})`)
-      e.target.value = ''
-      return
-    }
-    const readers = files.map(file => new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve({
-        id: uuid(),
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        data: reader.result.split(',')[1],
-      })
-      reader.readAsDataURL(file)
-    }))
-    Promise.all(readers).then(results => {
+    try {
+      const processed = await Promise.all(files.map(processAttachment))
+      const results = processed.map(p => ({ id: uuid(), ...p }))
+      const currentTotal = attachments.reduce((sum, a) => sum + a.size, 0)
+      const newTotal = currentTotal + results.reduce((sum, r) => sum + r.size, 0)
+      if (newTotal > MAX_TOTAL_SIZE) {
+        setAttachError(`Total attachments exceed 5 MB limit (${formatFileSize(newTotal)})`)
+        return
+      }
       setAttachments(prev => [...prev, ...results])
-    })
-    e.target.value = ''
+    } catch (err) {
+      setAttachError(err.message || 'Failed to attach file')
+    }
   }
 
   const removeAttachment = (id) => {
