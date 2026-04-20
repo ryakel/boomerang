@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-20
 
+- feat(tasks): extract text from attachments via Claude vision/documents [S]
+  - New `extractAttachmentText(attachments)` in `src/api.js` — sends images through Claude vision and PDFs through the documents API to pull verbatim text. Plain-text files (`text/*`) are decoded directly without a round-trip. Multi-file results get a `--- filename ---` separator.
+  - "Extract text" button appears next to "+ Attach" in AddTaskModal and in the EditTaskModal attachments section once an attachment exists. Output is appended to the task's notes — useful for screenshots of receipts, photos of handwritten lists, or PDF instructions.
+  - Modified: `src/api.js`, `src/hooks/useTaskForm.js`, `src/components/AddTaskModal.jsx`, `src/components/EditTaskModal.jsx`
 - fix(tasks): photo attachments no longer crash the app [S]
   - Attaching a photo (especially from an iPhone) could crash Boomerang to a blank screen. Typical iPhone photos are 2-5 MB raw, which inflates to ~2.7-6.7 MB as base64. That blew past the server's 2 MB `express.json()` body limit on sync, past iOS Safari's ~5 MB `localStorage` quota when `saveTasks` ran, and could OOM the tab during `JSON.stringify`. Since there's no React ErrorBoundary, any of those threw a white screen.
   - New util `src/utils/imageCompress.js` — `processAttachment(file)` downscales image attachments through a canvas (max 1600px on the long edge, JPEG quality 0.82). Typical phone photos drop to 200-400 KB, fitting comfortably in all three limits. Non-image files go through a hardened FileReader wrapper that actually handles `onerror` and null `result`.

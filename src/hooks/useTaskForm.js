@@ -4,7 +4,7 @@
 
 import { useState, useRef } from 'react'
 import { loadSettings, loadLabels, uuid } from '../store'
-import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
+import { polishNotes, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, extractAttachmentText } from '../api'
 import { processAttachment } from '../utils/imageCompress'
 
 function formatFileSize(bytes) {
@@ -54,6 +54,7 @@ export function useTaskForm(initial = {}) {
   // Attachments state
   const [attachments, setAttachments] = useState(initial.attachments || [])
   const [attachError, setAttachError] = useState(null)
+  const [extracting, setExtracting] = useState(false)
 
   const fileInputRef = useRef(null)
 
@@ -165,6 +166,22 @@ export function useTaskForm(initial = {}) {
     setAttachError(null)
   }
 
+  const handleExtractText = async () => {
+    if (!attachments.length || extracting) return
+    setAttachError(null)
+    setExtracting(true)
+    try {
+      const text = await extractAttachmentText(attachments)
+      if (text) {
+        setNotes(prev => prev.trim() ? `${prev.trim()}\n\n${text}` : text)
+      }
+    } catch (err) {
+      setAttachError(err.message || 'Failed to extract text')
+    } finally {
+      setExtracting(false)
+    }
+  }
+
   // Collect all form values into an object (for onAdd/onSave)
   const getFormData = () => ({
     title: title.trim(),
@@ -207,6 +224,7 @@ export function useTaskForm(initial = {}) {
     // Attachments
     attachments, setAttachments, attachError, fileInputRef,
     handleFileSelect, removeAttachment,
+    extracting, handleExtractText,
 
     // Utility
     getFormData,

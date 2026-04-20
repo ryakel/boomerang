@@ -229,6 +229,72 @@ export async function researchTask(title, existingNotes, prompt, attachments = [
   return JSON.parse(match[0])
 }
 
+// --- Attachment text extraction (OCR / verbatim transcript) ---
+// Supports: image/* (Claude vision), application/pdf (Claude documents),
+// text/* (decoded directly, no API call). Other types are skipped.
+export async function extractAttachmentText(attachments = []) {
+  if (!attachments.length) return ''
+
+  const textParts = []
+  const aiAttachments = []
+  for (const att of attachments) {
+    const type = att.type || ''
+    if (type.startsWith('text/')) {
+      try {
+        const decoded = decodeURIComponent(escape(atob(att.data)))
+        textParts.push(`--- ${att.name} ---\n${decoded.trim()}`)
+      } catch { /* skip undecodable */ }
+    } else if (type.startsWith('image/') || type === 'application/pdf') {
+      aiAttachments.push(att)
+    }
+  }
+
+  if (aiAttachments.length === 0) {
+    if (textParts.length === 0) throw new Error('No text-extractable attachments')
+    return textParts.join('\n\n')
+  }
+
+  const system = `You extract text verbatim from images and PDFs. Preserve structure (line breaks, list markers, headings) where reasonable. If multiple files are attached, separate each with a "--- <filename> ---" header on its own line. If an image has no readable text, write a one-line description of what it shows instead. Return JSON only: {"text": "the extracted text"}`
+
+  const content = []
+  for (const att of aiAttachments) {
+    if (att.type.startsWith('image/')) {
+      content.push({
+        type: 'image',
+        source: { type: 'base64', media_type: att.type, data: att.data },
+      })
+    } else {
+      content.push({
+        type: 'document',
+        source: { type: 'base64', media_type: att.type, data: att.data },
+      })
+    }
+    content.push({ type: 'text', text: `Filename: ${att.name}` })
+  }
+  content.push({ type: 'text', text: 'Extract all text from the attached file(s). JSON only.' })
+
+  const res = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      system,
+      messages: [{ role: 'user', content }],
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Claude API error: ${res.status} ${err}`)
+  }
+  const data = await res.json()
+  const raw = data.content[0].text
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('Could not parse extraction')
+  const aiText = (JSON.parse(match[0]).text || '').trim()
+  return [...textParts, aiText].filter(Boolean).join('\n\n')
+}
+
 // --- Reframe ---
 export async function reframeTask(taskTitle, snoozeCount, blocker) {
   const system = `You are a task coach for someone with ADHD. When a task keeps getting snoozed, help break it down or reframe it into actionable steps. Be practical and specific. Respond with JSON only — an array of 1-3 strings, each a new task title that replaces the original stuck task.`

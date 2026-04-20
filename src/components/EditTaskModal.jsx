@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import './EditTaskModal.css'
 import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES, uuid } from '../store'
-import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists } from '../api'
+import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists, extractAttachmentText } from '../api'
 import { Sparkles, Search, ChevronRight, ChevronDown, Trash2, Plus, Sun } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
 import { useIsDesktop } from '../hooks/useIsDesktop'
@@ -61,6 +61,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const [customDays, setCustomDays] = useState(14)
   const [attachments, setAttachments] = useState(task.attachments || [])
   const [attachError, setAttachError] = useState(null)
+  const [extracting, setExtracting] = useState(false)
   // Migrate old flat checklist → named checklists
   const [checklists, setChecklists] = useState(() => {
     if (task.checklists?.length) return task.checklists
@@ -488,6 +489,22 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     setAttachError(null)
   }
 
+  const handleExtractText = async () => {
+    if (!attachments.length || extracting) return
+    setAttachError(null)
+    setExtracting(true)
+    try {
+      const text = await extractAttachmentText(attachments)
+      if (text) {
+        setNotes(prev => prev.trim() ? `${prev.trim()}\n\n${text}` : text)
+      }
+    } catch (err) {
+      setAttachError(err.message || 'Failed to extract text')
+    } finally {
+      setExtracting(false)
+    }
+  }
+
   const today = new Date().toISOString().split('T')[0]
   const isAlreadyRoutine = !!task.routine_id
   const parentRoutine = isAlreadyRoutine ? loadRoutines().find(r => r.id === task.routine_id) : null
@@ -829,9 +846,16 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         </div>
         {expandedSections.has('attachments') && (
           <>
-            <button className="attach-btn" onClick={() => fileInputRef.current?.click()}>
-              + Attach files
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              <button className="attach-btn" onClick={() => fileInputRef.current?.click()}>
+                + Attach files
+              </button>
+              {attachments.length > 0 && (
+                <button className="attach-btn" onClick={handleExtractText} disabled={extracting}>
+                  {extracting ? <><span className="spinner" /> Extracting...</> : <><Sparkles size={12} /> Extract text</>}
+                </button>
+              )}
+            </div>
             {attachError && (
               <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{attachError}</div>
             )}

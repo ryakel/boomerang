@@ -216,6 +216,11 @@ export default function AddTaskModal({ onAdd, onClose }) {
           <button className="ci-upload-btn" onClick={() => form.fileInputRef.current?.click()}>
             + Attach{form.attachments.length > 0 ? ` (${form.attachments.length})` : ''}
           </button>
+          {form.attachments.length > 0 && (
+            <button className="ci-upload-btn" onClick={form.handleExtractText} disabled={form.extracting}>
+              {form.extracting ? <><span className="spinner" /> Extracting...</> : <><Sparkles size={12} /> Extract text</>}
+            </button>
+          )}
           {form.notionResult ? (
             <div className="connection-linked-btn">
               <a href={form.notionResult.url} target="_blank" rel="noopener" className="connection-link">Notion ↗</a>
