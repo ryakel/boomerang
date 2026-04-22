@@ -4,6 +4,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-22
+
+- feat(adviser): tool registry + staged-execution engine (Part 1a of AI Adviser) [M]
+  - New `adviserTools.js` — in-memory tool registry with session/plan storage, `registerTool()`, `handleToolCall()`, and `commitPlan()`.
+  - Read-only tools (marked `readOnly: true`) execute immediately during the Claude tool-use loop and return data. Mutation tools are STAGED: the model sees a human-readable preview string but nothing actually runs until the user confirms via `/api/adviser/commit`.
+  - `commitPlan()` runs all staged steps in order. Each tool's `execute()` can return a `compensation` callback; on any step's failure, prior compensations fire in LIFO order to roll back local DB writes and best-effort external API calls.
+  - Sessions are in-memory only (10-minute TTL, 1-minute sweep). No schema changes.
+  - No tools registered yet — that's Part 1b onward. This is the foundation.
+  - New: `adviserTools.js`
+
+---
+
 ## 2026-04-20
 
 - feat(tasks): extract text from attachments via Claude vision/documents [S]
