@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
+- chore(deps): pin `serialize-javascript` >= 7.0.5 to close 4 high-sev advisories [XS]
+  - Transitive dep of `vite-plugin-pwa` → `workbox-build` → `@rollup/plugin-terser`. Versions <= 7.0.4 are vulnerable to RCE via RegExp.flags / Date.prototype.toISOString and to CPU-exhaustion DoS via crafted array-likes. Build-time only (never shipped to browsers), but GitHub Dependabot was flagging it on `main`.
+  - Fix: added `"serialize-javascript": "^7.0.5"` to the existing `overrides` block in `package.json` (same pattern used for `lodash`). Preferred over `npm audit fix --force` because the latter would downgrade `vite-plugin-pwa` from 1.2.0 → 0.19.8 (breaking). `npm audit` now reports 0 vulnerabilities.
+  - Modified: `package.json`, `package-lock.json`
 - feat(adviser): AI Adviser — free-form natural-language control surface across every app capability [XL]
   - **Server-side engine (`adviserTools.js`)** — in-memory tool registry + session-scoped plan storage (10-min TTL, 1-min sweep). `registerTool()`, `handleToolCall()`, `commitPlan()`. Read-only tools run live during the tool-use loop; mutation tools return a preview string + stage a step. Plans commit atomically with LIFO compensation rollback on any step failure.
   - **49 tool definitions** across four modules:
