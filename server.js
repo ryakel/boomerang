@@ -14,7 +14,21 @@ import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey,
 import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
+import {
+  listToolSchemas, newSession, getSession, abortSession, clearSession,
+  handleToolCall, commitPlan,
+} from './adviserTools.js'
+import { registerTaskTools } from './adviserToolsTasks.js'
+import { registerGCalTools, registerNotionTools, registerTrelloTools } from './adviserToolsIntegrations.js'
+import { registerMiscTools } from './adviserToolsMisc.js'
 import crypto from 'crypto'
+
+// Register adviser tools once at module load
+registerTaskTools()
+registerGCalTools()
+registerNotionTools()
+registerTrelloTools()
+registerMiscTools()
 
 // --- App version ---
 const appVersion = process.env.APP_VERSION || 'dev'
@@ -2283,6 +2297,245 @@ app.post('/api/push/test', async (req, res) => {
 app.post('/api/push/log', (req, res) => {
   console.log(`[Push] SW handler fired:`, req.body)
   res.json({ ok: true })
+})
+
+// ============================================================
+// AI Adviser
+// ============================================================
+
+const ADVISER_MODEL = 'claude-sonnet-4-20250514'
+const ADVISER_MAX_TURNS = 15
+const adviserAbortMap = new Map() // sessionId -> AbortController
+
+function adviserDeps(req) {
+  return {
+    notionToken: getNotionToken(req),
+    trello: getTrelloAuth(req),
+    gcalToken: null, // filled in async before tools that need it
+    syncGmail,
+    getWeatherCache,
+    getWeatherStatus,
+    refreshWeatherFn: refreshWeather,
+    geocodeLocationFn: geocodeLocation,
+    createPackageFn: async ({ tracking_number, label, carrier }) => {
+      // Synthetic request matching /api/packages POST shape
+      const apiKey = getTrackingApiKey(req)
+      const normalizedNumber = normalize17trackNumber(tracking_number.trim())
+      const existing = getAllPackages().find(p => p.tracking_number.toLowerCase() === normalizedNumber.toLowerCase())
+      if (existing) throw new Error(`Tracking number already exists: ${existing.label || existing.tracking_number}`)
+      const detected = carrier ? { code: carrier, name: carrier } : detectCarrierServer(normalizedNumber)
+      const now = new Date().toISOString()
+      const id = `pkg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const pkg = {
+        id, tracking_number: normalizedNumber,
+        carrier: detected?.code || 'other', carrier_name: detected?.name || 'Unknown',
+        label: label || '', status: 'pending', status_detail: '',
+        eta: null, delivered_at: null, signature_required: false, signature_task_id: null,
+        last_location: '', events: [], last_polled: null, poll_interval_minutes: 30,
+        auto_cleanup_at: null, created_at: now, updated_at: now,
+      }
+      upsertPackage(pkg)
+      if (apiKey) {
+        try {
+          await register17track([pkg], apiKey)
+          await new Promise(r => setTimeout(r, 1500))
+        } catch { /* non-fatal */ }
+      }
+      return getPackage(id) || pkg
+    },
+    refreshAllPackagesFn: async () => {
+      const apiKey = getTrackingApiKey(req)
+      if (!apiKey) return { updated: 0, error: 'No tracking API key' }
+      if (trackingQuota.exhausted) return { updated: 0, error: 'API quota exhausted' }
+      // Just schedule a poll cycle; pollActivePackages is defined below.
+      await pollActivePackages()
+      return { scheduled: true }
+    },
+  }
+}
+
+function adviserSystemPrompt() {
+  const today = new Date().toISOString().split('T')[0]
+  const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+  const gcalConnected = !!getData(GCAL_TOKENS_KEY)?.refresh_token
+  const gmailConnected = !!getData(GMAIL_TOKENS_KEY)?.refresh_token
+  const notionConnected = !!envNotionToken
+  const trelloConnected = !!(envTrelloKey && envTrelloToken)
+  const trackingConnected = !!getTrackingApiKey()
+  return `You are the AI Adviser for Boomerang, an ADHD task manager PWA. Today is ${today} (${dayOfWeek}).
+
+The user will describe something they want done ("I've rescheduled my FAA exam to May 12 — adjust everything", "move all my lawn-care tasks to next weekend since it'll rain", etc.). You have tools that mirror every capability of the app: tasks, routines, Google Calendar, Notion, Trello, Gmail, packages, weather, settings.
+
+Behavior rules:
+1. ALWAYS use search/list tools first to find the right records before acting. Never guess IDs.
+2. For multi-step work, stage ALL the changes in one plan, then explain what you'll do in a single final message. Do NOT execute — mutations are automatically staged for user confirmation.
+3. Prefer batch tools (search_tasks with filters) over many individual get_task calls.
+4. If an integration is not connected, note that in your final message and skip its tools rather than failing.
+5. Be concise. Your final message should read like a brief handoff note: "Found 3 tasks tied to your FAA exam. I'll push them to May 12, update the study routine anchor, and move the GCal event."
+
+Integration status:
+- Google Calendar: ${gcalConnected ? 'connected' : 'NOT connected'}
+- Gmail: ${gmailConnected ? 'connected' : 'NOT connected'}
+- Notion: ${notionConnected ? 'connected' : 'NOT connected'}
+- Trello: ${trelloConnected ? 'connected' : 'NOT connected'}
+- Package tracking: ${trackingConnected ? 'connected' : 'NOT connected'}
+
+Important: ALL mutation tools are STAGED, not executed. Tell the user what you've queued in your final message. They will review and approve the plan separately. Do not ask them to confirm inside your message — the UI handles that.`
+}
+
+function sseWrite(res, event, data) {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+}
+
+async function callAdviserModel(apiKey, body, signal) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(body),
+    signal,
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.error?.message || data.error || `Claude ${response.status}`)
+  return data
+}
+
+app.post('/api/adviser/chat', async (req, res) => {
+  const apiKey = getAnthropicKey(req)
+  if (!apiKey) return res.status(400).json({ error: 'No Anthropic API key configured' })
+
+  const { message, history, sessionId: clientSessionId } = req.body || {}
+  if (!message || typeof message !== 'string') return res.status(400).json({ error: 'message is required' })
+
+  const sessionId = clientSessionId && getSession(clientSessionId) ? clientSessionId : newSession()
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  })
+  sseWrite(res, 'session', { sessionId })
+
+  // Build conversation: prior history (user+assistant turns) + new user message.
+  const messages = Array.isArray(history) ? history.slice(-20) : []
+  messages.push({ role: 'user', content: message })
+
+  const tools = listToolSchemas()
+  const deps = adviserDeps(req)
+  try {
+    deps.gcalToken = await getGCalAccessToken()
+  } catch { /* non-fatal */ }
+
+  const abortController = new AbortController()
+  adviserAbortMap.set(sessionId, abortController)
+
+  try {
+    for (let turn = 0; turn < ADVISER_MAX_TURNS; turn++) {
+      const session = getSession(sessionId)
+      if (!session || session.aborted) {
+        sseWrite(res, 'error', { message: 'Session aborted' })
+        break
+      }
+      sseWrite(res, 'turn', { n: turn + 1 })
+
+      const response = await callAdviserModel(apiKey, {
+        model: ADVISER_MODEL,
+        max_tokens: 2048,
+        system: adviserSystemPrompt(),
+        tools,
+        messages,
+      }, abortController.signal)
+
+      // Emit any text blocks
+      for (const block of response.content || []) {
+        if (block.type === 'text' && block.text?.trim()) {
+          sseWrite(res, 'message', { text: block.text })
+        }
+      }
+
+      // Collect tool_use blocks
+      const toolUses = (response.content || []).filter(b => b.type === 'tool_use')
+      if (toolUses.length === 0) break
+
+      // Add assistant's turn to messages
+      messages.push({ role: 'assistant', content: response.content })
+
+      // Execute each tool, collect results
+      const toolResults = []
+      for (const tu of toolUses) {
+        sseWrite(res, 'tool_call', { id: tu.id, name: tu.name, input: tu.input })
+        const result = await handleToolCall(sessionId, tu.name, tu.input, deps)
+        sseWrite(res, 'tool_result', { id: tu.id, name: tu.name, result })
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: tu.id,
+          content: JSON.stringify(result).slice(0, 4000),
+          is_error: !!result.error,
+        })
+      }
+
+      // Add tool results as next user message
+      messages.push({ role: 'user', content: toolResults })
+
+      if (response.stop_reason === 'end_turn') break
+      if (response.stop_reason !== 'tool_use') break
+    }
+
+    const session = getSession(sessionId)
+    const plan = session ? session.plan : []
+    sseWrite(res, 'plan', {
+      sessionId,
+      steps: plan.map(p => ({ stepId: p.stepId, toolName: p.toolName, preview: p.preview })),
+    })
+    sseWrite(res, 'done', { sessionId })
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      sseWrite(res, 'error', { message: 'Aborted by user' })
+    } else {
+      console.error('[Adviser] chat error:', err.message)
+      sseWrite(res, 'error', { message: err.message })
+    }
+  } finally {
+    adviserAbortMap.delete(sessionId)
+    res.end()
+  }
+})
+
+app.post('/api/adviser/commit', async (req, res) => {
+  const { sessionId } = req.body || {}
+  if (!sessionId) return res.status(400).json({ error: 'sessionId required' })
+  const session = getSession(sessionId)
+  if (!session) return res.status(404).json({ error: 'Session expired or already committed' })
+
+  const deps = adviserDeps(req)
+  try { deps.gcalToken = await getGCalAccessToken() } catch { /* non-fatal */ }
+
+  const outcome = await commitPlan(sessionId, deps)
+  if (outcome.broadcastNeeded) {
+    const newVersion = bumpVersion()
+    broadcast(newVersion, 'adviser')
+    outcome.version = newVersion
+  }
+  res.json(outcome)
+})
+
+app.post('/api/adviser/abort', (req, res) => {
+  const { sessionId } = req.body || {}
+  if (!sessionId) return res.status(400).json({ error: 'sessionId required' })
+  abortSession(sessionId)
+  const ctrl = adviserAbortMap.get(sessionId)
+  if (ctrl) ctrl.abort()
+  clearSession(sessionId)
+  res.json({ ok: true })
+})
+
+app.get('/api/adviser/tools', (_req, res) => {
+  // Diagnostic: list registered tool names
+  res.json({ tools: listToolSchemas().map(t => ({ name: t.name, description: t.description })) })
 })
 
 // --- Dev seed endpoint ---
