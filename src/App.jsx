@@ -45,6 +45,7 @@ import MarkdownImportModal from './components/MarkdownImportModal'
 import Adviser from './components/Adviser'
 import { TaskActionsProvider } from './contexts/TaskActionsContext'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useAdviser } from './hooks/useAdviser'
 
 polyfill({ dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
 
@@ -86,6 +87,10 @@ function App() {
   const [showPackages, setShowPackages] = useState(false)
   const [showProjects, setShowProjects] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
+  // Adviser conversation state lives at the App level so it survives the
+  // modal closing — user can pop out, check something, and come back to the
+  // same thread. Server session TTL (10 min) still governs the plan's life.
+  const adviserState = useAdviser()
   const [relatedTarget, setRelatedTarget] = useState(null)
   const [showImport, setShowImport] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -454,7 +459,7 @@ function App() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button className="header-icon-btn packages-color" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
-            <button className="header-icon-btn adviser-color" onClick={() => setShowAdviser(true)} title="AI Adviser"><Sparkles size={20} /></button>
+            <button className="header-icon-btn adviser-color" onClick={() => setShowAdviser(true)} title="Quokka (AI Adviser)"><Sparkles size={20} /></button>
             <div className="header-menu-wrapper" ref={menuRef}>
               <button className="header-icon-btn" style={{ color: 'var(--text-dim)' }} onClick={() => setHeaderMenuOpen(!headerMenuOpen)} aria-label="More">
                 <MoreVertical size={20} />
@@ -844,6 +849,7 @@ function App() {
 
       {showAdviser && (
         <Adviser
+          adviser={adviserState}
           onClose={() => setShowAdviser(false)}
           isDesktop={isDesktop}
           onAfterCommit={() => { /* SSE broadcast from /commit already triggers a refresh */ }}

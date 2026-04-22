@@ -286,15 +286,15 @@
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 10px 12px 12px;
+  padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border, rgba(0,0,0,0.08));
   background: var(--bg-elev, var(--bg));
 }
 .adviser-input {
   flex: 1 1 auto;
-  min-height: 40px;
-  max-height: 140px;
-  padding: 10px 12px;
+  min-height: 44px;
+  max-height: 160px;
+  padding: 12px 14px;
   background: var(--surface);
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -305,6 +305,7 @@
   font-family: inherit;
   box-sizing: border-box;
   outline: none;
+  overflow-y: auto;
 }
 .adviser-input:focus {
   border-color: var(--adviser-accent, #A78BFA);

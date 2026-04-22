@@ -2362,7 +2362,7 @@ function adviserSystemPrompt() {
   const notionConnected = !!envNotionToken
   const trelloConnected = !!(envTrelloKey && envTrelloToken)
   const trackingConnected = !!getTrackingApiKey()
-  return `You are the AI Adviser for Boomerang, an ADHD task manager PWA. Today is ${today} (${dayOfWeek}).
+  return `You are Quokka, the cheerful AI adviser for Boomerang — an ADHD task manager PWA. Today is ${today} (${dayOfWeek}). You are named after the quokka (a small, smiley Australian marsupial that looks like it's always having a good day); lean into a warm, upbeat, down-to-earth tone without being cloying. The very occasional Aussie flavor ("no worries", "on ya") is fine but don't overdo it.
 
 The user will describe something they want done ("I've rescheduled my FAA exam to May 12 — adjust everything", "move all my lawn-care tasks to next weekend since it'll rain", etc.). You have tools that mirror every capability of the app: tasks, routines, Google Calendar, Notion, Trello, Gmail, packages, weather, settings.
 
@@ -2385,22 +2385,46 @@ Important: ALL mutation tools are STAGED, not executed. Tell the user what you'v
 
 function sseWrite(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  // Force Node to flush the chunk instead of waiting for a bigger buffer —
+  // matters on slow connections and with some proxy setups where SSE events
+  // would otherwise batch up and the client looks hung.
+  if (typeof res.flush === 'function') res.flush()
 }
 
-async function callAdviserModel(apiKey, body, signal) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(body),
-    signal,
-  })
-  const data = await response.json()
-  if (!response.ok) throw new Error(data.error?.message || data.error || `Claude ${response.status}`)
-  return data
+const ADVISER_TURN_TIMEOUT_MS = 90000
+
+async function callAdviserModel(apiKey, body, outerSignal) {
+  // Wrap the outer abort signal with a per-turn timeout so a hung upstream
+  // never leaves the user staring at a "thinking…" dot forever.
+  const timeoutCtl = new AbortController()
+  const timer = setTimeout(() => timeoutCtl.abort(new Error('turn timeout')), ADVISER_TURN_TIMEOUT_MS)
+  const onOuter = () => timeoutCtl.abort(outerSignal.reason)
+  if (outerSignal.aborted) timeoutCtl.abort(outerSignal.reason)
+  else outerSignal.addEventListener('abort', onOuter, { once: true })
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+      signal: timeoutCtl.signal,
+    })
+    const text = await response.text()
+    let data
+    try { data = text ? JSON.parse(text) : {} } catch { data = { raw: text } }
+    if (!response.ok) {
+      const msg = data.error?.message || data.error || data.raw || `Claude ${response.status}`
+      throw new Error(msg)
+    }
+    return data
+  } finally {
+    clearTimeout(timer)
+    outerSignal.removeEventListener?.('abort', onOuter)
+  }
 }
 
 app.post('/api/adviser/chat', async (req, res) => {
@@ -2411,6 +2435,8 @@ app.post('/api/adviser/chat', async (req, res) => {
   if (!message || typeof message !== 'string') return res.status(400).json({ error: 'message is required' })
 
   const sessionId = clientSessionId && getSession(clientSessionId) ? clientSessionId : newSession()
+  const logTag = `[Adviser ${sessionId.slice(0, 8)}]`
+  console.log(`${logTag} chat start — message="${message.slice(0, 80).replace(/\n/g, ' ')}${message.length > 80 ? '…' : ''}" historyLen=${Array.isArray(history) ? history.length : 0}`)
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -2418,7 +2444,26 @@ app.post('/api/adviser/chat', async (req, res) => {
     'Connection': 'keep-alive',
     'X-Accel-Buffering': 'no',
   })
+  // Prime the connection so any intermediate proxy/buffer commits the chunked
+  // response immediately instead of waiting for ~1 KB of body. Matters on iOS
+  // Safari behind some CDNs where the client would otherwise block on the
+  // initial event.
+  res.write(': connected\n\n')
+  if (typeof res.flush === 'function') res.flush()
   sseWrite(res, 'session', { sessionId })
+
+  // Heartbeat so the browser doesn't silently drop the long-lived connection
+  // while we're waiting on a slow Claude turn.
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': heartbeat\n\n')
+      if (typeof res.flush === 'function') res.flush()
+    } catch { /* client gone */ }
+  }, 15000)
+  req.on('close', () => {
+    clearInterval(heartbeat)
+    console.log(`${logTag} client closed connection`)
+  })
 
   // Build conversation: prior history (user+assistant turns) + new user message.
   const messages = Array.isArray(history) ? history.slice(-20) : []
@@ -2437,18 +2482,28 @@ app.post('/api/adviser/chat', async (req, res) => {
     for (let turn = 0; turn < ADVISER_MAX_TURNS; turn++) {
       const session = getSession(sessionId)
       if (!session || session.aborted) {
+        console.log(`${logTag} aborted before turn ${turn + 1}`)
         sseWrite(res, 'error', { message: 'Session aborted' })
         break
       }
+      console.log(`${logTag} turn ${turn + 1}/${ADVISER_MAX_TURNS} — calling model, messages=${messages.length}`)
       sseWrite(res, 'turn', { n: turn + 1 })
 
-      const response = await callAdviserModel(apiKey, {
-        model: ADVISER_MODEL,
-        max_tokens: 2048,
-        system: adviserSystemPrompt(),
-        tools,
-        messages,
-      }, abortController.signal)
+      const t0 = Date.now()
+      let response
+      try {
+        response = await callAdviserModel(apiKey, {
+          model: ADVISER_MODEL,
+          max_tokens: 2048,
+          system: adviserSystemPrompt(),
+          tools,
+          messages,
+        }, abortController.signal)
+      } catch (err) {
+        console.error(`${logTag} model call failed after ${Date.now() - t0}ms:`, err.message)
+        throw err
+      }
+      console.log(`${logTag} turn ${turn + 1} response — stop_reason=${response.stop_reason} content_blocks=${response.content?.length || 0} (${Date.now() - t0}ms)`)
 
       // Emit any text blocks
       for (const block of response.content || []) {
@@ -2459,7 +2514,10 @@ app.post('/api/adviser/chat', async (req, res) => {
 
       // Collect tool_use blocks
       const toolUses = (response.content || []).filter(b => b.type === 'tool_use')
-      if (toolUses.length === 0) break
+      if (toolUses.length === 0) {
+        console.log(`${logTag} turn ${turn + 1} ended — no tool_use blocks`)
+        break
+      }
 
       // Add assistant's turn to messages
       messages.push({ role: 'assistant', content: response.content })
@@ -2467,8 +2525,11 @@ app.post('/api/adviser/chat', async (req, res) => {
       // Execute each tool, collect results
       const toolResults = []
       for (const tu of toolUses) {
+        console.log(`${logTag} tool_call: ${tu.name}(${JSON.stringify(tu.input).slice(0, 120)})`)
         sseWrite(res, 'tool_call', { id: tu.id, name: tu.name, input: tu.input })
+        const tt0 = Date.now()
         const result = await handleToolCall(sessionId, tu.name, tu.input, deps)
+        console.log(`${logTag} tool_result: ${tu.name} ${result.error ? 'ERROR: ' + result.error : (result.staged ? 'staged' : 'ok')} (${Date.now() - tt0}ms)`)
         sseWrite(res, 'tool_result', { id: tu.id, name: tu.name, result })
         toolResults.push({
           type: 'tool_result',
@@ -2481,12 +2542,13 @@ app.post('/api/adviser/chat', async (req, res) => {
       // Add tool results as next user message
       messages.push({ role: 'user', content: toolResults })
 
-      if (response.stop_reason === 'end_turn') break
-      if (response.stop_reason !== 'tool_use') break
+      if (response.stop_reason === 'end_turn') { console.log(`${logTag} stop_reason end_turn, breaking`); break }
+      if (response.stop_reason !== 'tool_use') { console.log(`${logTag} unexpected stop_reason ${response.stop_reason}, breaking`); break }
     }
 
     const session = getSession(sessionId)
     const plan = session ? session.plan : []
+    console.log(`${logTag} chat done — staged ${plan.length} step(s)`)
     sseWrite(res, 'plan', {
       sessionId,
       steps: plan.map(p => ({ stepId: p.stepId, toolName: p.toolName, preview: p.preview })),
@@ -2494,12 +2556,14 @@ app.post('/api/adviser/chat', async (req, res) => {
     sseWrite(res, 'done', { sessionId })
   } catch (err) {
     if (err.name === 'AbortError') {
-      sseWrite(res, 'error', { message: 'Aborted by user' })
+      console.log(`${logTag} aborted: ${err.message || ''}`)
+      sseWrite(res, 'error', { message: err.message || 'Aborted' })
     } else {
-      console.error('[Adviser] chat error:', err.message)
+      console.error(`${logTag} chat error:`, err.message)
       sseWrite(res, 'error', { message: err.message })
     }
   } finally {
+    clearInterval(heartbeat)
     adviserAbortMap.delete(sessionId)
     res.end()
   }

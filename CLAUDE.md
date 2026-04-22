@@ -31,8 +31,8 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Package tracking with 17track API, carrier auto-detection, signature-required task creation
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
-- Header icons: Packages + AI Adviser always visible in the top-right; overflow "..." menu contains Settings, Projects, Import, Analytics, Activity Log
-- AI Adviser — free-form natural-language control surface over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics). 49 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure.
+- Header icons: Packages + Quokka (AI adviser) always visible in the top-right; overflow "..." menu contains Settings, Projects, Import, Analytics, Activity Log
+- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics). 49 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial.
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
 
 ### Energy/Capacity Tagging System
@@ -510,8 +510,8 @@ Connects to Gmail via OAuth and uses AI to automatically extract tasks and packa
 - Email body truncated to 4000 chars for AI processing
 - Only scans primary inbox (excludes promotions, social, updates, forums)
 
-### AI Adviser
-Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and the adviser finds related tasks/GCal events/routines and queues the fix.
+### Quokka (AI Adviser)
+Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and Quokka finds related tasks/GCal events/routines and queues the fix. Named after the quokka (a small, perpetually-smiling Australian marsupial). User-facing branding uses "Quokka"; internal code (module names, CSS classes, endpoints under `/api/adviser/`, state vars like `showAdviser`) stays as `adviser`/`Adviser` — renaming plumbing provides no value.
 
 **Entry point:** `✨` sparkle icon in the header (took the slot where the gear used to be). Settings moved into the overflow `⋯` menu.
 

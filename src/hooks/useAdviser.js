@@ -23,11 +23,15 @@ export function useAdviser() {
   const streamRef = useRef(null)
   const pendingAssistantRef = useRef(null)
 
-  // Abort any in-flight stream when the component unmounts
+  // Clean up ONLY when the owning component (App) unmounts — which in practice
+  // means the page is closing. The adviser modal opening/closing does NOT tear
+  // down this hook, so a user can close the modal, come back, and find the same
+  // thread. Server session TTL (10 min) cleans up truly abandoned sessions.
   useEffect(() => () => {
     if (streamRef.current) streamRef.current.abort()
+    // Fire-and-forget abort to free the server session on real unmount
     if (sessionId) adviserAbort(sessionId)
-  }, [sessionId])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildHistory = useCallback(() => {
     // Convert messages → Anthropic-style [{role, content}]. Only text content

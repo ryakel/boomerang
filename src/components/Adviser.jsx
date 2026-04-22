@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Send, StopCircle, RotateCcw, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
-import { useAdviser } from '../hooks/useAdviser'
 import './Adviser.css'
 
 const PROMPT_SUGGESTIONS = [
@@ -10,8 +9,9 @@ const PROMPT_SUGGESTIONS = [
   'Clean up tasks that have been sitting over 30 days',
 ]
 
-export default function Adviser({ onClose, isDesktop, onAfterCommit }) {
-  const { messages, status, lastError, send, commit, abort, reset } = useAdviser()
+export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) {
+  // Adviser state is owned by App so the thread survives modal close/reopen.
+  const { messages, status, lastError, send, commit, abort, reset } = adviser
   const [input, setInput] = useState('')
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
@@ -27,6 +27,14 @@ export default function Adviser({ onClose, isDesktop, onAfterCommit }) {
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  // Auto-grow the textarea with its content, capped at max-height via CSS
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [input])
 
   // After a successful commit, give the app a tick then call onAfterCommit
   useEffect(() => {
@@ -60,9 +68,9 @@ export default function Adviser({ onClose, isDesktop, onAfterCommit }) {
         {messages.length === 0 && (
           <div className="adviser-empty">
             <Sparkles size={32} className="adviser-empty-icon" />
-            <div className="adviser-empty-title">AI Adviser</div>
+            <div className="adviser-empty-title">Quokka</div>
             <div className="adviser-empty-sub">
-              Ask me to make changes across your tasks, routines, calendar, Notion, Trello, Gmail, or settings. Every action is previewed and requires your confirmation before running.
+              G'day! I can make changes across your tasks, routines, calendar, Notion, Trello, Gmail, or settings. Every action is previewed — nothing runs until you confirm.
             </div>
             <div className="adviser-suggestions">
               {PROMPT_SUGGESTIONS.map((s, i) => (
@@ -139,7 +147,7 @@ export default function Adviser({ onClose, isDesktop, onAfterCommit }) {
           <div className="edit-task-title-row">
             <div className="sheet-title">
               <Sparkles size={18} className="adviser-title-icon" />
-              <span>AI Adviser</span>
+              <span>Quokka</span>
             </div>
             <button className="adviser-reset-btn" onClick={reset} title="Start over" aria-label="Start over">
               <RotateCcw size={16} />
@@ -157,7 +165,7 @@ export default function Adviser({ onClose, isDesktop, onAfterCommit }) {
         <button className="settings-back" onClick={onClose}>← Back</button>
         <div className="sheet-title adviser-mobile-title" style={{ margin: 0 }}>
           <Sparkles size={16} className="adviser-title-icon" />
-          <span>AI Adviser</span>
+          <span>Quokka</span>
         </div>
         <button className="adviser-reset-btn" onClick={reset} title="Start over" aria-label="Start over">
           <RotateCcw size={16} />
