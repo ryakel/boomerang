@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
+- feat(adviser): task + routine tools (Part 1b of AI Adviser) [M]
+  - New `adviserToolsTasks.js` registers 17 tools against the engine: `search_tasks`, `get_task`, `create_task`, `update_task`, `delete_task`, `complete_task`, `reopen_task`, `move_to_projects`, `move_to_backlog`, `activate_task`, `snooze_task`, `list_routines`, `get_routine`, `create_routine`, `update_routine`, `delete_routine`, `spawn_routine_now`.
+  - Each mutation tool captures the pre-mutation record and returns a compensation that restores it on rollback — covers create (delete compensation), update (upsert-original compensation), delete (re-insert compensation).
+  - Read-only tools (`search_tasks`, `get_task`, `list_routines`, `get_routine`) execute immediately during the model's tool-use loop so it can explore before staging actions.
+  - Not wired into any endpoint yet — Part 1e wires the registry into `/api/adviser/chat`.
+  - New: `adviserToolsTasks.js`
 - feat(adviser): tool registry + staged-execution engine (Part 1a of AI Adviser) [M]
   - New `adviserTools.js` — in-memory tool registry with session/plan storage, `registerTool()`, `handleToolCall()`, and `commitPlan()`.
   - Read-only tools (marked `readOnly: true`) execute immediately during the Claude tool-use loop and return data. Mutation tools are STAGED: the model sees a human-readable preview string but nothing actually runs until the user confirms via `/api/adviser/commit`.
