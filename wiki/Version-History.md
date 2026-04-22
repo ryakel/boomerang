@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
+- docs(adviser): fill architecture gaps — thread/archive endpoints + SSE resilience [XS]
+  - `wiki/Architecture.md` routes table was missing the 7 thread/archive endpoints added across recent commits. Added them.
+  - Added an "SSE resilience" paragraph to the AI Adviser architecture section covering the priming comment + `res.flush()`, 15s heartbeat, 90s per-turn timeout, and verbose logging — all introduced while debugging the iOS "Load failed" issue but never documented.
+  - Added a "Thread persistence + archive" paragraph explaining the `app_data.adviser_thread` + `app_data.adviser_archive` storage model, 24h TTL auto-archive, 30-entry cap, 60-char title generation, and the rehydrate flow.
+  - Modified: `wiki/Architecture.md`
 - fix(adviser): tasks moved back to active via Quokka don't show up stale [XS]
   - `isStale()` in `src/store.js` computes staleness from `last_touched`. The manual UI flow (App.jsx:293) already sets `last_touched` on every status transition, so moving a task Backlog → Active via the UI resets the staleness timer correctly. Quokka's tools (`update_task`, `complete_task`, `reopen_task`, `move_to_projects`, `move_to_backlog`, `activate_task`, `snooze_task`, `create_task`, `spawn_routine_now`) were only writing `updated_at` — so a task pulled out of backlog after a week would land on the active list already flagged stale.
   - Fix: every adviser task mutation now writes `last_touched = now` alongside `updated_at`, matching what the manual UI does. Backlog → Active via Quokka now resets the stale timer the same way it would if you'd clicked Activate in the app.

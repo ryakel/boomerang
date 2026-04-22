@@ -188,6 +188,13 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `POST` | `/api/adviser/commit` | Execute the staged plan atomically with LIFO rollback on failure |
 | `POST` | `/api/adviser/abort` | Abort in-flight adviser stream + clear session |
 | `GET` | `/api/adviser/tools` | Diagnostic — lists all 49 registered adviser tool names |
+| `GET` | `/api/adviser/thread` | Current Quokka conversation (messages + sessionId) |
+| `POST` | `/api/adviser/thread` | Persist current thread (client saves debounced on every change) |
+| `DELETE` | `/api/adviser/thread` | Archive-then-clear the current thread ("Start over") |
+| `GET` | `/api/adviser/archive` | List archived thread summaries (id, title, archivedAt, messageCount) |
+| `GET` | `/api/adviser/archive/:id` | Full archived thread by id |
+| `DELETE` | `/api/adviser/archive/:id` | Remove an archived thread |
+| `POST` | `/api/adviser/archive/:id/rehydrate` | Archive current thread, restore the archived one as current |
 | `POST` | `/api/notion/search` | Search Notion pages |
 | `GET` | `/api/notion/pages/:id` | Get a Notion page |
 | `POST` | `/api/notion/pages` | Create a Notion page |
@@ -251,6 +258,10 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 **Max-turn guard.** The tool-use loop inside `/api/adviser/chat` caps at 15 iterations. Each iteration is one round-trip to Claude (with all 49 tool schemas in the request). If the model hits the cap without `stop_reason === 'end_turn'`, whatever plan is staged so far is returned to the client.
 
 **Security.** Secret keys (`anthropic_api_key`, `notion_token`, `trello_api_key`, `trello_secret`, `gcal_client_secret`, `tracking_api_key`) are redacted in `get_settings` output and blocked from `update_settings` writes. Auth tokens flow through a per-request `deps` object constructed by `adviserDeps(req)` — Claude never sees them; tool handlers receive them as closure values.
+
+**SSE resilience.** `/api/adviser/chat` primes the stream with a `: connected\n\n` comment + explicit `res.flush()` so iOS Safari / CDN proxies commit the chunked response immediately instead of buffering the first KB. A 15-second heartbeat comment keeps long-lived connections alive through idle-connection killers. Each Claude API call inside the tool-use loop is wrapped in a nested `AbortController` with a 90-second timeout — if the upstream hangs, the loop surfaces a clean `error` event rather than leaving the client on an infinite spinner. Verbose per-turn logging (`[Adviser <8char>] turn N/15 — calling model…`, tool calls + timing, `chat done — staged N step(s)`) is written to the container log for post-hoc diagnosis.
+
+**Thread persistence + archive.** Current conversation stored in `app_data.adviser_thread` (JSON blob). Client hydrates on mount, persists on every `messages`/`sessionId` change with a 400ms debounce. 24-hour idle TTL triggers auto-archive on the next GET. "Start over" (`DELETE /api/adviser/thread`) archives the current thread into `app_data.adviser_archive` — a rolling list, newest first, capped at 30 entries. `POST /api/adviser/archive/:id/rehydrate` archives whatever is currently active, restores the selected archived thread as current (dropping it from archive so there are no duplicates), and clears the sessionId so the next `/chat` call mints a fresh server session. Thread titles are auto-generated from the first user message, 60-char truncation.
 
 ## Weather Sync
 
