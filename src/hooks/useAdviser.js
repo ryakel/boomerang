@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { adviserChat, adviserCommit, adviserAbort, adviserGetThread, adviserSaveThread, adviserClearThread } from '../api'
+import {
+  adviserChat, adviserCommit, adviserAbort,
+  adviserGetThread, adviserSaveThread, adviserClearThread,
+  adviserListArchive, adviserGetArchivedThread, adviserDeleteArchivedThread, adviserRehydrateThread,
+} from '../api'
 
 // Conversation shape:
 //   messages: [
@@ -142,6 +146,10 @@ export function useAdviser() {
         }
       },
       onError: (err) => {
+        // Log full details so Safari remote debugging can see what actually
+        // died — the user-facing banner only shows err.message (usually just
+        // "Load failed" on iOS).
+        console.error('[Quokka] stream error', err)
         setLastError(err.message || String(err))
         setStatus('error')
       },
@@ -204,9 +212,38 @@ export function useAdviser() {
     setLastError(null)
     setSessionId(null)
     pendingAssistantRef.current = null
-    // Also flush the persisted thread so a fresh chat really starts fresh
+    // Archive-then-clear: the server DELETE moves the current thread into the
+    // archive list so it's still accessible via the history UI.
     await adviserClearThread()
   }, [sessionId])
 
-  return { messages, status, lastError, send, commit, abort, reset }
+  // --- History / archive ---
+
+  const listArchive = useCallback(() => adviserListArchive(), [])
+  const deleteArchived = useCallback((id) => adviserDeleteArchivedThread(id), [])
+
+  const rehydrate = useCallback(async (id) => {
+    if (streamRef.current) { streamRef.current.abort(); streamRef.current = null }
+    if (sessionId) { await adviserAbort(sessionId) }
+    try {
+      const restored = await adviserRehydrateThread(id)
+      setMessages(restored.messages || [])
+      setSessionId(null) // fresh session on next /chat call
+      setStatus('idle')
+      setLastError(null)
+      pendingAssistantRef.current = null
+      return true
+    } catch (err) {
+      setLastError(err.message || String(err))
+      return false
+    }
+  }, [sessionId])
+
+  const previewArchived = useCallback((id) => adviserGetArchivedThread(id), [])
+
+  return {
+    messages, status, lastError,
+    send, commit, abort, reset,
+    listArchive, rehydrate, deleteArchived, previewArchived,
+  }
 }

@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
+- feat(adviser): archive past Quokka chats + rehydrate from history [M]
+  - Previously: hitting "Start over" deleted the thread. Any prior conversation was gone.
+  - Now: "Start over" (and the 24-hour idle TTL expiry) archive-then-clear. Past chats land in `app_data.adviser_archive`, a rolling list capped at 30 entries, newest first. Auto-generated title from the first user message (60-char truncation).
+  - New endpoints: `GET /api/adviser/archive` (summaries), `GET /api/adviser/archive/:id` (full thread), `DELETE /api/adviser/archive/:id`, `POST /api/adviser/archive/:id/rehydrate` (archives the current thread, restores the selected one, removes it from the archive list so there are no duplicates). Rehydrate drops `sessionId` — a new server-side adviser session is minted on the next `/chat` call.
+  - History UI: a small History icon next to "Start over" in the Adviser header (desktop + mobile). Opens an in-modal panel listing past chats with title, timestamp, message count, and a per-row trash button. Tapping a chat rehydrates it. Intentionally tucked away behind an icon — matches "doesn't need to be easy to get to but it should be possible."
+  - Related fixes: added `console.error('[Quokka] stream error', err)` in the SSE onError handler so the next Load failed leaves a trace visible in Safari remote debugging (user-facing banner still shows the short message). Added a system-prompt rule (#7) telling Quokka to BATCH tool calls in a single assistant turn for bulk operations — serial tool-use loops over 15+ turns are the most likely cause of mobile Load failed.
+  - Modified: `server.js`, `src/api.js`, `src/hooks/useAdviser.js`, `src/components/Adviser.jsx`, `src/components/Adviser.css`, `CLAUDE.md`
 - feat(adviser): render markdown in Quokka messages [S]
   - Quokka's replies contain markdown (`**bold**`, bullet lists, headings) but we were rendering them as plain text, so the UI showed literal `**Apr 23**` stars and raw `- ` bullets. Hideous.
   - Added a tiny dependency-free markdown renderer at `src/utils/renderMarkdown.js` that handles the subset Claude actually emits: `**bold**`, `*italic*`, `` `code` ``, `[text](url)`, `#`-headings, `-`/`*` bullet lists, numbered lists, and paragraph breaks. Returns React nodes (no `dangerouslySetInnerHTML`).

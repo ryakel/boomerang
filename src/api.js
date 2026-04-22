@@ -1209,3 +1209,29 @@ export async function adviserClearThread() {
     await fetch('/api/adviser/thread', { method: 'DELETE' })
   } catch { /* best-effort */ }
 }
+
+// Thread archive / history
+
+export async function adviserListArchive() {
+  try {
+    const res = await fetch('/api/adviser/archive')
+    if (!res.ok) return []
+    return res.json()
+  } catch { return [] }
+}
+
+export async function adviserGetArchivedThread(id) {
+  const res = await fetch(`/api/adviser/archive/${encodeURIComponent(id)}`)
+  if (!res.ok) throw new Error(`Archive fetch failed: ${res.status}`)
+  return res.json()
+}
+
+export async function adviserDeleteArchivedThread(id) {
+  await fetch(`/api/adviser/archive/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {})
+}
+
+export async function adviserRehydrateThread(id) {
+  const res = await fetch(`/api/adviser/archive/${encodeURIComponent(id)}/rehydrate`, { method: 'POST' })
+  if (!res.ok) throw new Error(`Rehydrate failed: ${res.status}`)
+  return res.json()
+}

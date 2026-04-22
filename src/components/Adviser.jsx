@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Send, StopCircle, RotateCcw, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Sparkles, Send, StopCircle, RotateCcw, CheckCircle2, XCircle, Loader2, History, Trash2 } from 'lucide-react'
 import { renderMarkdown } from '../utils/renderMarkdown'
 import './Adviser.css'
 
@@ -12,10 +12,38 @@ const PROMPT_SUGGESTIONS = [
 
 export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) {
   // Adviser state is owned by App so the thread survives modal close/reopen.
-  const { messages, status, lastError, send, commit, abort, reset } = adviser
+  const {
+    messages, status, lastError,
+    send, commit, abort, reset,
+    listArchive, rehydrate, deleteArchived,
+  } = adviser
   const [input, setInput] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
+  const [archive, setArchive] = useState(null) // null = not loaded
+  const [archiveLoading, setArchiveLoading] = useState(false)
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
+
+  const openHistory = async () => {
+    setShowHistory(true)
+    setArchiveLoading(true)
+    try {
+      const list = await listArchive()
+      setArchive(list)
+    } finally {
+      setArchiveLoading(false)
+    }
+  }
+
+  const handleRehydrate = async (id) => {
+    const ok = await rehydrate(id)
+    if (ok) setShowHistory(false)
+  }
+
+  const handleDeleteArchived = async (id) => {
+    await deleteArchived(id)
+    setArchive(prev => (prev || []).filter(t => t.id !== id))
+  }
 
   // Auto-scroll to bottom on new content
   useEffect(() => {
@@ -62,6 +90,27 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
       handleSubmit(e)
     }
   }
+
+  const historyPanel = showHistory ? (
+    <HistoryPanel
+      archive={archive}
+      loading={archiveLoading}
+      onRehydrate={handleRehydrate}
+      onDelete={handleDeleteArchived}
+      onClose={() => setShowHistory(false)}
+    />
+  ) : null
+
+  const headerActions = (
+    <div className="adviser-header-actions">
+      <button className="adviser-reset-btn" onClick={openHistory} title="Past chats" aria-label="Past chats">
+        <History size={16} />
+      </button>
+      <button className="adviser-reset-btn" onClick={reset} title="Start over" aria-label="Start over">
+        <RotateCcw size={16} />
+      </button>
+    </div>
+  )
 
   const body = (
     <>
@@ -150,11 +199,9 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
               <Sparkles size={18} className="adviser-title-icon" />
               <span>Quokka</span>
             </div>
-            <button className="adviser-reset-btn" onClick={reset} title="Start over" aria-label="Start over">
-              <RotateCcw size={16} />
-            </button>
+            {headerActions}
           </div>
-          {body}
+          {showHistory ? historyPanel : body}
         </div>
       </div>
     )
@@ -168,11 +215,46 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
           <Sparkles size={16} className="adviser-title-icon" />
           <span>Quokka</span>
         </div>
-        <button className="adviser-reset-btn" onClick={reset} title="Start over" aria-label="Start over">
-          <RotateCcw size={16} />
-        </button>
+        {headerActions}
       </div>
-      {body}
+      {showHistory ? historyPanel : body}
+    </div>
+  )
+}
+
+function HistoryPanel({ archive, loading, onRehydrate, onDelete, onClose }) {
+  return (
+    <div className="adviser-history">
+      <div className="adviser-history-header">
+        <div className="adviser-history-title">Past chats</div>
+        <button className="adviser-inline-btn" onClick={onClose}>← back to chat</button>
+      </div>
+      <div className="adviser-history-list">
+        {loading && (
+          <div className="adviser-status">
+            <Loader2 size={14} className="adviser-spinner" />
+            <span>loading…</span>
+          </div>
+        )}
+        {!loading && archive && archive.length === 0 && (
+          <div className="adviser-history-empty">
+            No past chats yet. They appear here automatically when you hit "Start over" or when a chat has been idle for 24 hours.
+          </div>
+        )}
+        {!loading && archive && archive.map(t => (
+          <div key={t.id} className="adviser-history-item">
+            <button className="adviser-history-row" onClick={() => onRehydrate(t.id)}>
+              <div className="adviser-history-row-title">{t.title}</div>
+              <div className="adviser-history-row-meta">
+                {new Date(t.archivedAt).toLocaleString()} · {t.messageCount} message{t.messageCount !== 1 ? 's' : ''}
+              </div>
+            </button>
+            <button className="adviser-history-delete" onClick={() => onDelete(t.id)} aria-label="Delete" title="Delete">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

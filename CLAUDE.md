@@ -568,11 +568,14 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Mobile: entered via header sparkle icon next to Packages
 - Desktop: same icon + click-to-open
 
-**Thread persistence:**
-- Conversation is stored server-side in `app_data.adviser_thread` (not localStorage — iOS evicts PWA localStorage aggressively when the app is inactive >7 days, and even fresh Mobile Safari freezes and drops memory on app-switch). Client hydrates on mount, persists on every change (400ms debounce), clears on "Start over."
-- 24-hour idle TTL — threads inactive longer are dropped on next GET.
-- Endpoints: `GET /api/adviser/thread`, `POST /api/adviser/thread`, `DELETE /api/adviser/thread`.
-- Single-user self-hosted app = one current thread. No per-user/device keying needed.
+**Thread persistence + archive:**
+- Current conversation stored server-side in `app_data.adviser_thread` (not localStorage — iOS evicts PWA localStorage aggressively when the app is inactive >7 days, and even fresh Mobile Safari freezes and drops memory on app-switch). Client hydrates on mount, persists on every change (400ms debounce).
+- "Start over" and 24-hour idle TTL expiry both archive-then-clear instead of hard-deleting, so past chats are recoverable.
+- Archive stored in `app_data.adviser_archive` — rolling list, newest first, capped at 30 entries. Auto-generated title from the first user message (60-char truncation).
+- Archive endpoints: `GET /api/adviser/archive` (summaries), `GET /api/adviser/archive/:id` (full), `DELETE /api/adviser/archive/:id`, `POST /api/adviser/archive/:id/rehydrate` (archives current → restores selected to current → drops it from archive).
+- History UI: `History` icon next to "Start over" in the Adviser header (both desktop + mobile). Opens an in-modal panel listing past chats with title, timestamp, message count, and a trash button. Tapping a chat rehydrates it. Intentionally tucked away — not a top-level feature.
+- Current-thread endpoints: `GET /api/adviser/thread`, `POST /api/adviser/thread`, `DELETE /api/adviser/thread` (archives then clears).
+- Single-user self-hosted app = one current thread + shared archive. No per-user/device keying needed.
 
 **Known Limitations:**
 - External delete rollback can't restore the resource (GCal events, Notion blocks)

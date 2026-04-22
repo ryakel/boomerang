@@ -2373,6 +2373,7 @@ Behavior rules:
 4. If an integration is not connected, note that in your final message and skip its tools rather than failing.
 5. Be concise. Your final message should read like a brief handoff note: "Found 3 tasks tied to your FAA exam. I'll push them to May 12, update the study routine anchor, and move the GCal event."
 6. When calling update/delete/archive tools for EXTERNAL resources (gcal_update_event, gcal_delete_event, notion_update_page, trello_update_card, trello_archive_card, trello_add_checklist), ALWAYS populate the \`*_hint\` field (summary_hint / title_hint / name_hint / card_name_hint) with the human-readable title you saw in the corresponding list/search tool. The hint only appears in the plan preview the user reads; it is never sent to the external API. Without it, the preview shows a raw ID and the user can't tell what you're about to change. For local tasks/routines this is handled automatically.
+7. BATCH tool calls in parallel whenever possible. You can emit multiple \`tool_use\` blocks in a SINGLE assistant turn and they will all be executed before the next turn. For large bulk operations (e.g. "move 20 tasks to backlog", "update due_date on 12 tasks"), emit all 20 \`update_task\`/\`move_to_backlog\` calls in ONE turn — do NOT serialize them across 20 separate turns. Serial tool-use loops can take minutes and the user's mobile connection may drop before you finish.
 
 Integration status:
 - Google Calendar: ${gcalConnected ? 'connected' : 'NOT connected'}
@@ -2605,14 +2606,43 @@ app.get('/api/adviser/tools', (_req, res) => {
 
 // Thread persistence — iOS evicts PWA localStorage aggressively, so the adviser
 // conversation is stored server-side in app_data so it survives tab freezes,
-// app switches, and device restarts. Single-user self-hosted app = one thread.
+// app switches, and device restarts. Single-user self-hosted app = one CURRENT
+// thread plus a rolling archive of past threads accessible via the history UI.
 const ADVISER_THREAD_KEY = 'adviser_thread'
-const ADVISER_THREAD_TTL_MS = 24 * 60 * 60 * 1000 // drop threads idle >24h
+const ADVISER_ARCHIVE_KEY = 'adviser_archive'
+const ADVISER_THREAD_TTL_MS = 24 * 60 * 60 * 1000 // auto-archive threads idle >24h
+const ADVISER_ARCHIVE_MAX = 30
+
+function titleForThread(messages) {
+  const firstUser = (messages || []).find(m => m.role === 'user' && typeof m.content === 'string')
+  if (!firstUser) return 'Untitled chat'
+  const t = firstUser.content.trim().replace(/\s+/g, ' ')
+  return t.length > 60 ? t.slice(0, 57) + '…' : t
+}
+
+function archiveCurrentThread(reason) {
+  const stored = getData(ADVISER_THREAD_KEY)
+  if (!stored || !Array.isArray(stored.messages) || stored.messages.length === 0) return null
+  const archive = getData(ADVISER_ARCHIVE_KEY) || []
+  const entry = {
+    id: `thr-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+    title: titleForThread(stored.messages),
+    messages: stored.messages,
+    createdAt: stored.createdAt || stored.updatedAt || Date.now(),
+    archivedAt: Date.now(),
+    reason: reason || 'manual',
+  }
+  const next = [entry, ...archive].slice(0, ADVISER_ARCHIVE_MAX)
+  setData(ADVISER_ARCHIVE_KEY, next)
+  return entry
+}
 
 app.get('/api/adviser/thread', (_req, res) => {
   const stored = getData(ADVISER_THREAD_KEY)
   if (!stored) return res.json({ messages: [], sessionId: null })
   if (stored.updatedAt && Date.now() - stored.updatedAt > ADVISER_THREAD_TTL_MS) {
+    // Auto-archive instead of silently wiping so the user can still go fetch it.
+    archiveCurrentThread('ttl')
     setData(ADVISER_THREAD_KEY, null)
     return res.json({ messages: [], sessionId: null })
   }
@@ -2622,15 +2652,71 @@ app.get('/api/adviser/thread', (_req, res) => {
 app.post('/api/adviser/thread', (req, res) => {
   const { messages, sessionId } = req.body || {}
   if (!Array.isArray(messages)) return res.status(400).json({ error: 'messages array required' })
-  // Cap thread size so it doesn't balloon (keeps last 40 bubbles ~= 20 turns)
   const trimmed = messages.slice(-40)
-  setData(ADVISER_THREAD_KEY, { messages: trimmed, sessionId: sessionId || null, updatedAt: Date.now() })
+  const existing = getData(ADVISER_THREAD_KEY)
+  setData(ADVISER_THREAD_KEY, {
+    messages: trimmed,
+    sessionId: sessionId || null,
+    createdAt: existing?.createdAt || Date.now(),
+    updatedAt: Date.now(),
+  })
   res.json({ ok: true })
 })
 
 app.delete('/api/adviser/thread', (_req, res) => {
+  // Archive-then-clear so "Start over" preserves history instead of destroying it.
+  archiveCurrentThread('start_over')
   setData(ADVISER_THREAD_KEY, null)
   res.json({ ok: true })
+})
+
+// --- Archive endpoints ---
+
+app.get('/api/adviser/archive', (_req, res) => {
+  const archive = getData(ADVISER_ARCHIVE_KEY) || []
+  // Return summaries only — full message bodies fetched by id.
+  res.json(archive.map(t => ({
+    id: t.id,
+    title: t.title,
+    archivedAt: t.archivedAt,
+    createdAt: t.createdAt,
+    messageCount: Array.isArray(t.messages) ? t.messages.length : 0,
+    reason: t.reason || null,
+  })))
+})
+
+app.get('/api/adviser/archive/:id', (req, res) => {
+  const archive = getData(ADVISER_ARCHIVE_KEY) || []
+  const entry = archive.find(t => t.id === req.params.id)
+  if (!entry) return res.status(404).json({ error: 'Archived thread not found' })
+  res.json(entry)
+})
+
+app.delete('/api/adviser/archive/:id', (req, res) => {
+  const archive = getData(ADVISER_ARCHIVE_KEY) || []
+  const next = archive.filter(t => t.id !== req.params.id)
+  setData(ADVISER_ARCHIVE_KEY, next)
+  res.json({ ok: true })
+})
+
+app.post('/api/adviser/archive/:id/rehydrate', (req, res) => {
+  const archive = getData(ADVISER_ARCHIVE_KEY) || []
+  const entry = archive.find(t => t.id === req.params.id)
+  if (!entry) return res.status(404).json({ error: 'Archived thread not found' })
+  // Archive whatever is currently active so the user doesn't lose it.
+  archiveCurrentThread('rehydrate')
+  // Remove the rehydrated entry from the archive list to avoid duplicates.
+  const nextArchive = archive.filter(t => t.id !== req.params.id)
+  setData(ADVISER_ARCHIVE_KEY, nextArchive)
+  // Restore messages as the current thread. Drop sessionId — the old server
+  // session is long gone, a new one will be minted on the next /chat call.
+  setData(ADVISER_THREAD_KEY, {
+    messages: entry.messages,
+    sessionId: null,
+    createdAt: entry.createdAt,
+    updatedAt: Date.now(),
+  })
+  res.json({ ok: true, messages: entry.messages, sessionId: null })
 })
 
 // --- Dev seed endpoint ---
