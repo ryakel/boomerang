@@ -124,8 +124,43 @@
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
-  white-space: pre-wrap;
   word-break: break-word;
+}
+/* Rendered markdown inside an assistant bubble. Tight vertical rhythm so the
+   whole message still reads as one block, not a document. */
+.adviser-msg-markdown .md-p { margin: 0 0 8px 0; white-space: pre-wrap; }
+.adviser-msg-markdown .md-p:last-child { margin-bottom: 0; }
+.adviser-msg-markdown .md-h {
+  margin: 8px 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.adviser-msg-markdown .md-h:first-child { margin-top: 0; }
+.adviser-msg-markdown .md-ul,
+.adviser-msg-markdown .md-ol {
+  margin: 0 0 8px 0;
+  padding-left: 20px;
+}
+.adviser-msg-markdown .md-ul:last-child,
+.adviser-msg-markdown .md-ol:last-child { margin-bottom: 0; }
+.adviser-msg-markdown .md-ul li,
+.adviser-msg-markdown .md-ol li {
+  margin: 2px 0;
+}
+.adviser-msg-markdown strong { font-weight: 700; color: var(--text); }
+.adviser-msg-markdown em { font-style: italic; }
+.adviser-msg-markdown .md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--surface);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.adviser-msg-markdown a {
+  color: var(--adviser-accent, #A78BFA);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* --- Tool event log --- */

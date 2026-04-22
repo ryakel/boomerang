@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Send, StopCircle, RotateCcw, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { renderMarkdown } from '../utils/renderMarkdown'
 import './Adviser.css'
 
 const PROMPT_SUGGESTIONS = [
@@ -202,7 +203,7 @@ function MessageBubble({ message }) {
         </div>
       )}
       {message.content && (
-        <div className="adviser-msg-content">{message.content}</div>
+        <div className="adviser-msg-content adviser-msg-markdown">{renderMarkdown(message.content)}</div>
       )}
       {plan.length > 0 && !message.committed && (
         <div className="adviser-plan-preview">

@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
+- feat(adviser): render markdown in Quokka messages [S]
+  - Quokka's replies contain markdown (`**bold**`, bullet lists, headings) but we were rendering them as plain text, so the UI showed literal `**Apr 23**` stars and raw `- ` bullets. Hideous.
+  - Added a tiny dependency-free markdown renderer at `src/utils/renderMarkdown.js` that handles the subset Claude actually emits: `**bold**`, `*italic*`, `` `code` ``, `[text](url)`, `#`-headings, `-`/`*` bullet lists, numbered lists, and paragraph breaks. Returns React nodes (no `dangerouslySetInnerHTML`).
+  - Added matching styles in `Adviser.css` with tight vertical rhythm so a whole message still reads as one block, not a document.
+  - User bubbles stay plain text (no processing) — user input isn't markdown.
+  - New: `src/utils/renderMarkdown.js`
+  - Modified: `src/components/Adviser.jsx`, `src/components/Adviser.css`
 - feat(adviser): thread persistence lives server-side, not localStorage [M]
   - Previously: Quokka's conversation lived in React state in App.jsx, which iOS Safari aggressively evicts when the PWA is backgrounded, switched away from, or inactive. User switches to Gmail to check something, comes back, thread is gone. Unusable.
   - Now: thread stored in `app_data.adviser_thread` inside the container. Three new endpoints: `GET /api/adviser/thread`, `POST /api/adviser/thread` (writes `{messages, sessionId, updatedAt}`), `DELETE /api/adviser/thread`. 24-hour idle TTL drops abandoned threads on next GET.
