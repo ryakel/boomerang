@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
+- feat(adviser): multi-part tasks + research tool + web search + checklist cruft cleanup [L]
+  - **Multi-part tasks.** `create_task` now accepts `checklist_items` (array of `{text, checked?}`) and optional `checklist_name`. Staged one umbrella task with a populated sub-list instead of 8 bouncing independent tasks. System prompt rule #9 tells Quokka to prefer this shape when the user says "break this down" or "plan for X."
+  - **Research tool.** New `research_task` (50 tools now). Takes a `task_id` + optional `focus`, makes its own Claude call with Anthropic's server-side web_search enabled, appends the result to the task's notes under a dated `--- Research (YYYY-MM-DD) ---` divider. Existing notes preserved. Compensation restores the pre-research notes on plan rollback.
+  - **Web search in the main chat loop.** Added `{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }` to Quokka's tools array. Anthropic runs the search server-side during the API call and returns results inline — we surface the activity via SSE `tool_call` / `tool_result` events so the user sees "web_search: <query>" in the tool log. System prompt rule #8 tells Quokka when to use it.
+  - **Checklist format cleanup.** The app had two coexisting checklist formats: a legacy flat `task.checklist` and a newer named `task.checklists` (multi-list). EditTaskModal migrated flat → named on read, but TaskCard + store.js + EditTaskModal's save path still wrote to the old field, and every DB row carried both columns. Cruft.
+    - New migration `018_migrate_legacy_checklist.sql` converts any task with legacy items + no new-format data into a single named "Checklist" entry; leaves tasks that already have named checklists alone.
+    - `src/components/TaskCard.jsx` now only reads `task.checklists` (the fallback wrapper around `task.checklist` is dead code post-migration) and the checkbox handler only writes to `checklists`.
+    - `src/components/EditTaskModal.jsx` no longer writes `checklist: []` on save — the field stays `[]` naturally now that nothing populates it.
+    - `adviserToolsTasks.js` `create_task` writes to `checklists` directly, not the legacy field.
+    - `checklist_json` column stays in the DB (SQLite column drops are painful, will be inert going forward).
+  - **Parked: attachment uploads.** No way to hand Quokka a PDF/image and say "make tasks from this" yet. Noted in CLAUDE.md under "Parked (future)."
+  - Modified: `server.js`, `adviserToolsTasks.js`, `src/components/TaskCard.jsx`, `src/components/EditTaskModal.jsx`, `CLAUDE.md`
+  - New: `migrations/018_migrate_legacy_checklist.sql`
 - docs(adviser): fill architecture gaps — thread/archive endpoints + SSE resilience [XS]
   - `wiki/Architecture.md` routes table was missing the 7 thread/archive endpoints added across recent commits. Added them.
   - Added an "SSE resilience" paragraph to the AI Adviser architecture section covering the priming comment + `res.flush()`, 15s heartbeat, 90s per-turn timeout, and verbose logging — all introduced while debugging the iOS "Load failed" issue but never documented.

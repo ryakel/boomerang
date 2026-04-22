@@ -2309,6 +2309,7 @@ const adviserAbortMap = new Map() // sessionId -> AbortController
 
 function adviserDeps(req) {
   return {
+    anthropicKey: getAnthropicKey(req),
     notionToken: getNotionToken(req),
     trello: getTrelloAuth(req),
     gcalToken: null, // filled in async before tools that need it
@@ -2374,6 +2375,8 @@ Behavior rules:
 5. Be concise. Your final message should read like a brief handoff note: "Found 3 tasks tied to your FAA exam. I'll push them to May 12, update the study routine anchor, and move the GCal event."
 6. When calling update/delete/archive tools for EXTERNAL resources (gcal_update_event, gcal_delete_event, notion_update_page, trello_update_card, trello_archive_card, trello_add_checklist), ALWAYS populate the \`*_hint\` field (summary_hint / title_hint / name_hint / card_name_hint) with the human-readable title you saw in the corresponding list/search tool. The hint only appears in the plan preview the user reads; it is never sent to the external API. Without it, the preview shows a raw ID and the user can't tell what you're about to change. For local tasks/routines this is handled automatically.
 7. BATCH tool calls in parallel whenever possible. You can emit multiple \`tool_use\` blocks in a SINGLE assistant turn and they will all be executed before the next turn. For large bulk operations (e.g. "move 20 tasks to backlog", "update due_date on 12 tasks"), emit all 20 \`update_task\`/\`move_to_backlog\` calls in ONE turn — do NOT serialize them across 20 separate turns. Serial tool-use loops can take minutes and the user's mobile connection may drop before you finish.
+8. Web search is available. Use the \`web_search\` tool (Anthropic server-side) when the user asks for current information (prices, news, reviews, current best-practices, etc.) or when your training data would be stale. After searching, you can stage \`create_task\` / \`update_task\` calls with the researched info in the notes. For task-specific research — e.g. "research my FAA exam prep" where the goal is to enrich an existing task's notes with current sources — prefer the \`research_task\` tool; it stages a previewable, revertable note-append that the user explicitly approves.
+9. Multi-part tasks: when the user wants "a plan for X" or "break this down," prefer ONE task with a populated \`checklist_items\` array over many separate tasks. The UI renders a single card with a progress bar — that's a better ADHD-friendly surface than 8 bouncing independent tasks. Only create multiple top-level tasks when they have genuinely independent due dates, energies, or tags.
 
 Integration status:
 - Google Calendar: ${gcalConnected ? 'connected' : 'NOT connected'}
@@ -2471,7 +2474,13 @@ app.post('/api/adviser/chat', async (req, res) => {
   const messages = Array.isArray(history) ? history.slice(-20) : []
   messages.push({ role: 'user', content: message })
 
-  const tools = listToolSchemas()
+  // Client tools (executed by us) + Anthropic's server-side web_search (executed
+  // by Anthropic during the same API call; results come back inline in the
+  // response content — we don't handle them, just surface them to the UI).
+  const tools = [
+    ...listToolSchemas(),
+    { type: 'web_search_20250305', name: 'web_search', max_uses: 5 },
+  ]
   const deps = adviserDeps(req)
   try {
     deps.gcalToken = await getGCalAccessToken()
@@ -2507,14 +2516,27 @@ app.post('/api/adviser/chat', async (req, res) => {
       }
       console.log(`${logTag} turn ${turn + 1} response — stop_reason=${response.stop_reason} content_blocks=${response.content?.length || 0} (${Date.now() - t0}ms)`)
 
-      // Emit any text blocks
+      // Emit any text blocks + surface server-side tool activity (web_search)
+      // so the user sees what Quokka is doing instead of a silent pause.
       for (const block of response.content || []) {
         if (block.type === 'text' && block.text?.trim()) {
           sseWrite(res, 'message', { text: block.text })
+        } else if (block.type === 'server_tool_use' && block.name === 'web_search') {
+          sseWrite(res, 'tool_call', {
+            id: block.id, name: 'web_search', input: block.input,
+          })
+        } else if (block.type === 'web_search_tool_result') {
+          const r = block.content
+          const count = Array.isArray(r) ? r.length : 0
+          sseWrite(res, 'tool_result', {
+            id: block.tool_use_id, name: 'web_search',
+            result: { ok: true, data: { results: count } },
+          })
         }
       }
 
-      // Collect tool_use blocks
+      // Collect client-executed tool_use blocks (server_tool_use is handled by
+      // Anthropic and doesn't come through our handleToolCall path).
       const toolUses = (response.content || []).filter(b => b.type === 'tool_use')
       if (toolUses.length === 0) {
         console.log(`${logTag} turn ${turn + 1} ended — no tool_use blocks`)

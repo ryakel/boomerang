@@ -537,8 +537,9 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 | `GET /api/adviser/tools` | Returns the full tool inventory (name + description) for debugging. |
 
 **Tool categories & counts:**
-- Tasks (11): search, get, create, update, delete, complete, reopen, snooze, move_to_projects, move_to_backlog, activate
+- Tasks (12): search, get, create (with optional `checklist_items` for multi-part tasks), update, delete, complete, reopen, snooze, move_to_projects, move_to_backlog, activate, research_task (append AI-researched notes with web search)
 - Routines (6): list, get, create, update, delete, spawn_now
+- Anthropic server-side `web_search` available in the main chat loop — Quokka can look up current info (prices, news, current best-practices) live during a reply, not just from training data
 - Google Calendar (5): list calendars, list events, create/update/delete events
 - Notion (4): search, get page, create page, update page
 - Trello (7): list boards, list lists, create/update/archive card, add checklist
@@ -576,6 +577,9 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - History UI: `History` icon next to "Start over" in the Adviser header (both desktop + mobile). Opens an in-modal panel listing past chats with title, timestamp, message count, and a trash button. Tapping a chat rehydrates it. Intentionally tucked away — not a top-level feature.
 - Current-thread endpoints: `GET /api/adviser/thread`, `POST /api/adviser/thread`, `DELETE /api/adviser/thread` (archives then clears).
 - Single-user self-hosted app = one current thread + shared archive. No per-user/device keying needed.
+
+**Parked (future):**
+- Attachment upload: no way to give Quokka a PDF/image and ask it to generate tasks from it. The existing `extractAttachmentText()` in src/api.js handles task-attachment text extraction; wiring a Quokka-facing "analyze this upload and stage tasks" tool is left as a future enhancement.
 
 **Known Limitations:**
 - External delete rollback can't restore the resource (GCal events, Notion blocks)

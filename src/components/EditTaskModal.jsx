@@ -220,7 +220,6 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         trello_card_url: trelloResult?.url || null,
         attachments,
         checklists,
-        checklist: [], // clear old field after migration
         comments,
         gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
         weather_hidden: weatherHidden,
@@ -277,7 +276,6 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
         trello_card_url: trelloResult?.url || null,
         attachments,
         checklists,
-        checklist: [],
         comments,
         gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
       })

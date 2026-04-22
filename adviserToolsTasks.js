@@ -118,7 +118,7 @@ export function registerTaskTools() {
   // --- CREATE ---
   registerTool({
     name: 'create_task',
-    description: 'Create a new task. Defaults: size M, status not_started. Size/energy will be auto-refined by the background AI sizer.',
+    description: 'Create a new task. Defaults: size M, status not_started. Size/energy will be auto-refined by the background AI sizer. For multi-part tasks, populate `checklist` with sub-items so the user gets one umbrella task with a checklist rather than 8 separate tasks.',
     schema: {
       type: 'object',
       properties: {
@@ -132,13 +132,45 @@ export function registerTaskTools() {
         size: { type: 'string', enum: ['XS', 'S', 'M', 'L', 'XL'] },
         energy: { type: 'string', enum: ['desk', 'people', 'errand', 'confrontation', 'creative', 'physical'] },
         energy_level: { type: 'integer', enum: [1, 2, 3] },
+        checklist_items: {
+          type: 'array',
+          description: 'Pre-populated sub-items for a multi-part task. Each item: {text, checked?}. Rendered as a single "Checklist" section on the task card.',
+          items: {
+            type: 'object',
+            properties: {
+              text: { type: 'string' },
+              checked: { type: 'boolean' },
+            },
+            required: ['text'],
+          },
+        },
+        checklist_name: {
+          type: 'string',
+          description: 'Optional name for the checklist (default: "Checklist").',
+        },
       },
       required: ['title'],
     },
-    preview: (args) => `Create task: "${args.title}"${args.due_date ? ` · due ${args.due_date}` : ''}`,
+    preview: (args) => {
+      const parts = [`Create task: "${args.title}"`]
+      if (args.due_date) parts.push(`due ${args.due_date}`)
+      if (args.checklist_items?.length) parts.push(`${args.checklist_items.length} checklist item${args.checklist_items.length !== 1 ? 's' : ''}`)
+      return parts.join(' · ')
+    },
     execute: async (args) => {
       const id = `task-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
       const now = new Date().toISOString()
+      const items = Array.isArray(args.checklist_items) ? args.checklist_items.map((item, i) => ({
+        id: `ci-${Date.now()}-${i}-${crypto.randomBytes(2).toString('hex')}`,
+        text: String(item.text || '').trim(),
+        completed: !!item.checked,
+      })).filter(item => item.text) : []
+      const checklists = items.length > 0 ? [{
+        id: `cl-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
+        name: args.checklist_name?.trim() || 'Checklist',
+        items,
+        hideCompleted: false,
+      }] : []
       const task = {
         id,
         title: args.title,
@@ -152,6 +184,8 @@ export function registerTaskTools() {
         energy: args.energy || null,
         energy_level: args.energy_level || null,
         size_inferred: args.size ? true : false,
+        checklist: [],
+        checklists,
         created_at: now,
         updated_at: now,
         last_touched: now,
@@ -412,6 +446,81 @@ export function registerTaskTools() {
       return {
         result: { id, deleted: true },
         compensation: async () => { upsertRoutine(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'research_task',
+    description: 'Enrich an existing task with AI-researched notes. Use when the user asks to research something about a task (e.g. "look into the best approach for <task>", "what do I need to know about <X>"). The researched notes are APPENDED to the task\'s existing notes under a dated "--- Research (YYYY-MM-DD) ---" divider; existing notes are preserved. The research call runs its own Claude session with web search enabled, so it can cite current sources.',
+    schema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string' },
+        focus: { type: 'string', description: 'Optional: what specifically to research. Example: "current FAA written-exam study plan recommendations". If omitted, researches the task generally based on title + existing notes.' },
+      },
+      required: ['task_id'],
+    },
+    preview: (args) => {
+      const t = taskLabel(args.task_id)
+      return args.focus ? `Research "${t}": ${args.focus}` : `Research "${t}"`
+    },
+    execute: async (args, deps) => {
+      if (!deps.anthropicKey) throw new Error('No Anthropic API key configured — research unavailable')
+      const before = getTask(args.task_id)
+      if (!before) throw new Error(`Task not found: ${args.task_id}`)
+
+      const prompt = `Research this task and write concise, actionable notes for someone with ADHD.
+
+Task: ${before.title}
+${before.notes ? `Existing notes:\n${before.notes}\n` : ''}${args.focus ? `Research focus: ${args.focus}\n` : ''}
+Produce:
+- Key facts or concrete next-steps
+- 2-4 links to authoritative sources if you search the web
+- Options or trade-offs worth knowing, if applicable
+
+Keep it under 400 words. Plain prose + short bulleted lists are fine. No preamble, no "I researched X" — just the notes.`
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': deps.anthropicKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2048,
+          messages: [{ role: 'user', content: prompt }],
+          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error?.message || `Research call ${response.status}`)
+
+      const researchText = (data.content || [])
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('\n\n')
+        .trim()
+      if (!researchText) throw new Error('Research returned no content')
+
+      const today = new Date().toISOString().split('T')[0]
+      const divider = `\n\n--- Research (${today}) ---\n`
+      const newNotes = (before.notes || '').trim()
+        ? `${before.notes}${divider}${researchText}`
+        : researchText
+
+      const now = new Date().toISOString()
+      updateTaskPartial(args.task_id, { notes: newNotes, updated_at: now, last_touched: now })
+
+      return {
+        result: { task_id: args.task_id, added_chars: researchText.length },
+        compensation: async () => {
+          updateTaskPartial(args.task_id, {
+            notes: before.notes, updated_at: before.updated_at, last_touched: before.last_touched,
+          })
+        },
       }
     },
   })
