@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { adviserChat, adviserCommit, adviserAbort } from '../api'
+import { adviserChat, adviserCommit, adviserAbort, adviserGetThread, adviserSaveThread, adviserClearThread } from '../api'
 
 // Conversation shape:
 //   messages: [
@@ -20,16 +20,43 @@ export function useAdviser() {
   const [status, setStatus] = useState('idle')
   const [lastError, setLastError] = useState(null)
   const [sessionId, setSessionId] = useState(null)
+  const [hydrated, setHydrated] = useState(false)
   const streamRef = useRef(null)
   const pendingAssistantRef = useRef(null)
+  const saveTimerRef = useRef(null)
 
-  // Clean up ONLY when the owning component (App) unmounts — which in practice
-  // means the page is closing. The adviser modal opening/closing does NOT tear
-  // down this hook, so a user can close the modal, come back, and find the same
-  // thread. Server session TTL (10 min) cleans up truly abandoned sessions.
+  // Hydrate thread from server on mount — iOS aggressively evicts PWA memory,
+  // so we can't rely on React state surviving an app-switch. Thread lives in
+  // app_data server-side and is fetched on every fresh load.
+  useEffect(() => {
+    let cancelled = false
+    adviserGetThread().then(data => {
+      if (cancelled) return
+      if (Array.isArray(data.messages) && data.messages.length > 0) {
+        setMessages(data.messages)
+      }
+      if (data.sessionId) setSessionId(data.sessionId)
+      setHydrated(true)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  // Persist thread changes to server, debounced so we don't hammer during a
+  // streaming response. Only saves after initial hydration to avoid clobbering
+  // a restored thread with the empty default state.
+  useEffect(() => {
+    if (!hydrated) return
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      adviserSaveThread({ messages, sessionId })
+    }, 400)
+    return () => clearTimeout(saveTimerRef.current)
+  }, [messages, sessionId, hydrated])
+
+  // Abort the in-flight stream only when the App itself unmounts (i.e. the
+  // page is closing). The modal opening/closing does NOT tear down this hook.
   useEffect(() => () => {
     if (streamRef.current) streamRef.current.abort()
-    // Fire-and-forget abort to free the server session on real unmount
     if (sessionId) adviserAbort(sessionId)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -177,6 +204,8 @@ export function useAdviser() {
     setLastError(null)
     setSessionId(null)
     pendingAssistantRef.current = null
+    // Also flush the persisted thread so a fresh chat really starts fresh
+    await adviserClearThread()
   }, [sessionId])
 
   return { messages, status, lastError, send, commit, abort, reset }

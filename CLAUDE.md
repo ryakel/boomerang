@@ -568,8 +568,13 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Mobile: entered via header sparkle icon next to Packages
 - Desktop: same icon + click-to-open
 
+**Thread persistence:**
+- Conversation is stored server-side in `app_data.adviser_thread` (not localStorage — iOS evicts PWA localStorage aggressively when the app is inactive >7 days, and even fresh Mobile Safari freezes and drops memory on app-switch). Client hydrates on mount, persists on every change (400ms debounce), clears on "Start over."
+- 24-hour idle TTL — threads inactive longer are dropped on next GET.
+- Endpoints: `GET /api/adviser/thread`, `POST /api/adviser/thread`, `DELETE /api/adviser/thread`.
+- Single-user self-hosted app = one current thread. No per-user/device keying needed.
+
 **Known Limitations:**
-- Conversation history is ephemeral — closing the modal clears it (no persistence, privacy-friendly)
 - External delete rollback can't restore the resource (GCal events, Notion blocks)
 - The model needs an Anthropic API key configured; if missing, the endpoint 400s with a clear error
 - Tool-use loops can rack up tokens (5K system prompt × 15 turns × multi-tool calls per turn), noticeable in API costs for heavy use

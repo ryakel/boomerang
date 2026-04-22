@@ -2603,6 +2603,36 @@ app.get('/api/adviser/tools', (_req, res) => {
   res.json({ tools: listToolSchemas().map(t => ({ name: t.name, description: t.description })) })
 })
 
+// Thread persistence — iOS evicts PWA localStorage aggressively, so the adviser
+// conversation is stored server-side in app_data so it survives tab freezes,
+// app switches, and device restarts. Single-user self-hosted app = one thread.
+const ADVISER_THREAD_KEY = 'adviser_thread'
+const ADVISER_THREAD_TTL_MS = 24 * 60 * 60 * 1000 // drop threads idle >24h
+
+app.get('/api/adviser/thread', (_req, res) => {
+  const stored = getData(ADVISER_THREAD_KEY)
+  if (!stored) return res.json({ messages: [], sessionId: null })
+  if (stored.updatedAt && Date.now() - stored.updatedAt > ADVISER_THREAD_TTL_MS) {
+    setData(ADVISER_THREAD_KEY, null)
+    return res.json({ messages: [], sessionId: null })
+  }
+  res.json({ messages: stored.messages || [], sessionId: stored.sessionId || null })
+})
+
+app.post('/api/adviser/thread', (req, res) => {
+  const { messages, sessionId } = req.body || {}
+  if (!Array.isArray(messages)) return res.status(400).json({ error: 'messages array required' })
+  // Cap thread size so it doesn't balloon (keeps last 40 bubbles ~= 20 turns)
+  const trimmed = messages.slice(-40)
+  setData(ADVISER_THREAD_KEY, { messages: trimmed, sessionId: sessionId || null, updatedAt: Date.now() })
+  res.json({ ok: true })
+})
+
+app.delete('/api/adviser/thread', (_req, res) => {
+  setData(ADVISER_THREAD_KEY, null)
+  res.json({ ok: true })
+})
+
 // --- Dev seed endpoint ---
 app.post('/api/dev/seed', async (req, res) => {
   try {

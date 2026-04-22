@@ -1180,3 +1180,32 @@ export async function adviserAbort(sessionId) {
     body: JSON.stringify({ sessionId }),
   }).catch(() => {})
 }
+
+// Thread persistence (server-side storage, NOT localStorage — iOS evicts that
+// too aggressively on inactive PWAs).
+
+export async function adviserGetThread() {
+  try {
+    const res = await fetch('/api/adviser/thread')
+    if (!res.ok) return { messages: [], sessionId: null }
+    return res.json()
+  } catch {
+    return { messages: [], sessionId: null }
+  }
+}
+
+export async function adviserSaveThread({ messages, sessionId }) {
+  try {
+    await fetch('/api/adviser/thread', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, sessionId }),
+    })
+  } catch { /* best-effort */ }
+}
+
+export async function adviserClearThread() {
+  try {
+    await fetch('/api/adviser/thread', { method: 'DELETE' })
+  } catch { /* best-effort */ }
+}

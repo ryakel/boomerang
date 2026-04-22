@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
+- feat(adviser): thread persistence lives server-side, not localStorage [M]
+  - Previously: Quokka's conversation lived in React state in App.jsx, which iOS Safari aggressively evicts when the PWA is backgrounded, switched away from, or inactive. User switches to Gmail to check something, comes back, thread is gone. Unusable.
+  - Now: thread stored in `app_data.adviser_thread` inside the container. Three new endpoints: `GET /api/adviser/thread`, `POST /api/adviser/thread` (writes `{messages, sessionId, updatedAt}`), `DELETE /api/adviser/thread`. 24-hour idle TTL drops abandoned threads on next GET.
+  - Client (`useAdviser`): hydrates from server on mount; persists on every `messages`/`sessionId` change with a 400ms debounce so a streaming response doesn't hammer the save endpoint; clears server thread on "Start over."
+  - Messages capped to last 40 bubbles server-side to prevent the blob from ballooning.
+  - Modified: `server.js`, `src/api.js`, `src/hooks/useAdviser.js`, `CLAUDE.md`
 - fix(adviser): plan previews show names instead of raw IDs [S]
   - Before: "Update task 15c85061-8088-4829-b9f4-8fb1670df39e: due_date" — unreadable, you have no idea which task Quokka is about to touch.
   - After: "Update \"Buy furnace filters\": due_date" — the preview reads like English.
