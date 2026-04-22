@@ -2372,6 +2372,7 @@ Behavior rules:
 3. Prefer batch tools (search_tasks with filters) over many individual get_task calls.
 4. If an integration is not connected, note that in your final message and skip its tools rather than failing.
 5. Be concise. Your final message should read like a brief handoff note: "Found 3 tasks tied to your FAA exam. I'll push them to May 12, update the study routine anchor, and move the GCal event."
+6. When calling update/delete/archive tools for EXTERNAL resources (gcal_update_event, gcal_delete_event, notion_update_page, trello_update_card, trello_archive_card, trello_add_checklist), ALWAYS populate the \`*_hint\` field (summary_hint / title_hint / name_hint / card_name_hint) with the human-readable title you saw in the corresponding list/search tool. The hint only appears in the plan preview the user reads; it is never sent to the external API. Without it, the preview shows a raw ID and the user can't tell what you're about to change. For local tasks/routines this is handled automatically.
 
 Integration status:
 - Google Calendar: ${gcalConnected ? 'connected' : 'NOT connected'}

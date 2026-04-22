@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
+- fix(adviser): plan previews show names instead of raw IDs [S]
+  - Before: "Update task 15c85061-8088-4829-b9f4-8fb1670df39e: due_date" — unreadable, you have no idea which task Quokka is about to touch.
+  - After: "Update \"Buy furnace filters\": due_date" — the preview reads like English.
+  - For local tasks/routines: added `taskLabel(id)` / `routineLabel(id)` helpers in `adviserToolsTasks.js` that do a sync DB lookup and return the title (truncated to 60 chars). All 13 task/routine preview strings now use them.
+  - For external resources (GCal events, Notion pages, Trello cards) there's no local title to look up, so added optional `summary_hint` / `title_hint` / `name_hint` / `card_name_hint` fields to the respective tool schemas. Marked the fields explicitly as "not sent to the external API" — they only feed the preview string. Updated the Quokka system prompt to require hints on every external update/delete/archive call so the user never sees an opaque ID again.
+  - Modified: `adviserToolsTasks.js`, `adviserToolsIntegrations.js`, `server.js`, `wiki/Version-History.md`
 - feat(adviser): Quokka naming + thread persistence + debug logging + composer fix [M]
   - **Renamed to Quokka.** User-facing strings ("AI Adviser" → "Quokka") in the modal title, empty-state heading/subtitle, and header icon tooltip. System prompt now gives Claude the persona: a cheerful quokka-mascot vibe named after the perpetually-smiling Australian marsupial, with light Aussie warmth ("g'day", "no worries") kept deliberately restrained. Internal code (module filenames, `/api/adviser/*` endpoints, `.adviser-*` CSS classes, `showAdviser` state) stays as `adviser` — renaming plumbing adds churn without value.
   - **Thread now persists across modal close/reopen.** `useAdviser()` moved up to `App.jsx` so conversation state survives the user closing the modal. They can step away, check something, and come back to the same thread. The server session's 10-minute TTL still reclaims truly abandoned sessions; `adviserAbort()` only fires when the page actually unmounts.

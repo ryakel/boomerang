@@ -119,7 +119,7 @@ export function registerGCalTools() {
 
   registerTool({
     name: 'gcal_update_event',
-    description: 'Patch an existing calendar event. Only provided fields change. Captures the event body first so rollback can restore it.',
+    description: 'Patch an existing calendar event. Only provided fields change. Captures the event body first so rollback can restore it. Always include summary_hint (the event title you saw in gcal_list_events) so the plan preview reads as a human name, not an opaque ID.',
     schema: {
       type: 'object',
       properties: {
@@ -129,10 +129,11 @@ export function registerGCalTools() {
         description: { type: 'string' },
         start: { type: 'object' },
         end: { type: 'object' },
+        summary_hint: { type: 'string', description: 'Human-readable event title for the plan preview (not sent to Google). Pass the summary you saw in gcal_list_events.' },
       },
       required: ['event_id'],
     },
-    preview: (a) => `Update GCal event ${a.event_id}`,
+    preview: (a) => `Update GCal event "${a.summary_hint || a.summary || a.event_id.slice(0, 8)}"`,
     execute: async (args, deps) => {
       ensure(deps.gcalToken, 'Google Calendar not connected')
       const calId = encodeURIComponent(args.calendar_id || 'primary')
@@ -166,16 +167,17 @@ export function registerGCalTools() {
 
   registerTool({
     name: 'gcal_delete_event',
-    description: 'Delete a calendar event. External deletes are final — rollback logs a warning but cannot restore the event.',
+    description: 'Delete a calendar event. External deletes are final — rollback logs a warning but cannot restore the event. Always include summary_hint so the preview shows the event name.',
     schema: {
       type: 'object',
       properties: {
         calendar_id: { type: 'string', default: 'primary' },
         event_id: { type: 'string' },
+        summary_hint: { type: 'string', description: 'Human-readable event title for the plan preview (not sent to Google).' },
       },
       required: ['event_id'],
     },
-    preview: (a) => `Delete GCal event ${a.event_id}`,
+    preview: (a) => `Delete GCal event "${a.summary_hint || a.event_id.slice(0, 8)}"`,
     execute: async (args, deps) => {
       ensure(deps.gcalToken, 'Google Calendar not connected')
       const calId = encodeURIComponent(args.calendar_id || 'primary')
@@ -322,10 +324,11 @@ export function registerNotionTools() {
         page_id: { type: 'string' },
         title: { type: 'string' },
         content: { type: 'string', description: 'If set, REPLACES all existing content blocks.' },
+        title_hint: { type: 'string', description: 'Human-readable page title for the plan preview (not sent to Notion).' },
       },
       required: ['page_id'],
     },
-    preview: (a) => `Update Notion page ${a.page_id}`,
+    preview: (a) => `Update Notion page "${a.title_hint || a.title || a.page_id.slice(0, 8)}"`,
     execute: async (args, deps) => {
       ensure(deps.notionToken, 'Notion not connected')
       const beforePage = await httpJson(`${NOTION_BASE}/pages/${args.page_id}`, {
@@ -453,10 +456,11 @@ export function registerTrelloTools() {
         due: { type: ['string', 'null'] },
         idList: { type: 'string' },
         closed: { type: 'boolean' },
+        name_hint: { type: 'string', description: 'Human-readable card name for the plan preview (not sent to Trello).' },
       },
       required: ['card_id'],
     },
-    preview: (a) => `Update Trello card ${a.card_id}`,
+    preview: (a) => `Update Trello card "${a.name_hint || a.name || a.card_id.slice(0, 8)}"`,
     execute: async (args, deps) => {
       ensure(deps.trello?.key && deps.trello?.token, 'Trello not connected')
       const before = await httpJson(`${TRELLO_BASE}/cards/${args.card_id}?${trelloQs(deps.trello)}`, {}, 'Trello fetch')
@@ -484,13 +488,16 @@ export function registerTrelloTools() {
 
   registerTool({
     name: 'trello_archive_card',
-    description: 'Archive (soft-delete) a Trello card. Rollback un-archives.',
+    description: 'Archive (soft-delete) a Trello card. Rollback un-archives. Always include name_hint so the preview shows the card name.',
     schema: {
       type: 'object',
-      properties: { card_id: { type: 'string' } },
+      properties: {
+        card_id: { type: 'string' },
+        name_hint: { type: 'string', description: 'Human-readable card name for the plan preview (not sent to Trello).' },
+      },
       required: ['card_id'],
     },
-    preview: (a) => `Archive Trello card ${a.card_id}`,
+    preview: (a) => `Archive Trello card "${a.name_hint || a.card_id.slice(0, 8)}"`,
     execute: async ({ card_id }, deps) => {
       ensure(deps.trello?.key && deps.trello?.token, 'Trello not connected')
       await httpJson(`${TRELLO_BASE}/cards/${card_id}?${trelloQs(deps.trello)}`, {
@@ -518,10 +525,11 @@ export function registerTrelloTools() {
         card_id: { type: 'string' },
         name: { type: 'string' },
         items: { type: 'array', items: { type: 'string' } },
+        card_name_hint: { type: 'string', description: 'Human-readable card name for the plan preview (not sent to Trello).' },
       },
       required: ['card_id', 'name'],
     },
-    preview: (a) => `Add checklist "${a.name}" to card ${a.card_id}`,
+    preview: (a) => `Add checklist "${a.name}" to Trello card "${a.card_name_hint || a.card_id.slice(0, 8)}"`,
     execute: async (args, deps) => {
       ensure(deps.trello?.key && deps.trello?.token, 'Trello not connected')
       const cl = await httpJson(`${TRELLO_BASE}/cards/${args.card_id}/checklists?${trelloQs(deps.trello)}`, {

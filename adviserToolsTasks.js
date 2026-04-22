@@ -51,6 +51,20 @@ function summarizeRoutine(r) {
   }
 }
 
+function taskLabel(id) {
+  const t = getTask(id)
+  if (!t) return `(missing task ${id.slice(0, 8)})`
+  const title = t.title?.trim() || '(untitled)'
+  return title.length > 60 ? `${title.slice(0, 57)}…` : title
+}
+
+function routineLabel(id) {
+  const r = getRoutine(id)
+  if (!r) return `(missing routine ${id.slice(0, 8)})`
+  const title = r.title?.trim() || '(untitled)'
+  return title.length > 60 ? `${title.slice(0, 57)}…` : title
+}
+
 function pickTaskUpdates(input) {
   const out = {}
   for (const k of TASK_FIELDS) {
@@ -176,7 +190,7 @@ export function registerTaskTools() {
     },
     preview: (args) => {
       const changes = Object.keys(args).filter(k => k !== 'id')
-      return `Update task ${args.id}: ${changes.join(', ') || '(no changes)'}`
+      return `Update "${taskLabel(args.id)}": ${changes.join(', ') || '(no changes)'}`
     },
     execute: async (args) => {
       const before = getTask(args.id)
@@ -200,7 +214,7 @@ export function registerTaskTools() {
       properties: { id: { type: 'string' } },
       required: ['id'],
     },
-    preview: (args) => `Delete task ${args.id}`,
+    preview: (args) => `Delete task "${taskLabel(args.id)}"`,
     execute: async ({ id }) => {
       const before = getTask(id)
       if (!before) throw new Error(`Task not found: ${id}`)
@@ -222,7 +236,7 @@ export function registerTaskTools() {
         properties: { id: { type: 'string' } },
         required: ['id'],
       },
-      preview: (args) => `${description.split('.')[0]}: ${args.id}`,
+      preview: (args) => `${description.split('.')[0]}: "${taskLabel(args.id)}"`,
       execute: async ({ id }) => {
         const before = getTask(id)
         if (!before) throw new Error(`Task not found: ${id}`)
@@ -255,7 +269,7 @@ export function registerTaskTools() {
       },
       required: ['id', 'until'],
     },
-    preview: (args) => `Snooze ${args.id} until ${args.until}`,
+    preview: (args) => `Snooze "${taskLabel(args.id)}" until ${args.until}`,
     execute: async ({ id, until }) => {
       const before = getTask(id)
       if (!before) throw new Error(`Task not found: ${id}`)
@@ -362,7 +376,7 @@ export function registerTaskTools() {
       },
       required: ['id'],
     },
-    preview: (args) => `Update routine ${args.id}`,
+    preview: (args) => `Update routine "${routineLabel(args.id)}"`,
     execute: async (args) => {
       const before = getRoutine(args.id)
       if (!before) throw new Error(`Routine not found: ${args.id}`)
@@ -384,7 +398,7 @@ export function registerTaskTools() {
       properties: { id: { type: 'string' } },
       required: ['id'],
     },
-    preview: (args) => `Delete routine ${args.id}`,
+    preview: (args) => `Delete routine "${routineLabel(args.id)}"`,
     execute: async ({ id }) => {
       const before = getRoutine(id)
       if (!before) throw new Error(`Routine not found: ${id}`)
@@ -404,7 +418,7 @@ export function registerTaskTools() {
       properties: { routine_id: { type: 'string' } },
       required: ['routine_id'],
     },
-    preview: (args) => `Spawn task from routine ${args.routine_id}`,
+    preview: (args) => `Spawn task from routine "${routineLabel(args.routine_id)}"`,
     execute: async ({ routine_id }) => {
       const routine = getRoutine(routine_id)
       if (!routine) throw new Error(`Routine not found: ${routine_id}`)
