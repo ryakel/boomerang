@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
+- fix(adviser): tasks moved back to active via Quokka don't show up stale [XS]
+  - `isStale()` in `src/store.js` computes staleness from `last_touched`. The manual UI flow (App.jsx:293) already sets `last_touched` on every status transition, so moving a task Backlog → Active via the UI resets the staleness timer correctly. Quokka's tools (`update_task`, `complete_task`, `reopen_task`, `move_to_projects`, `move_to_backlog`, `activate_task`, `snooze_task`, `create_task`, `spawn_routine_now`) were only writing `updated_at` — so a task pulled out of backlog after a week would land on the active list already flagged stale.
+  - Fix: every adviser task mutation now writes `last_touched = now` alongside `updated_at`, matching what the manual UI does. Backlog → Active via Quokka now resets the stale timer the same way it would if you'd clicked Activate in the app.
+  - Modified: `adviserToolsTasks.js`
 - feat(adviser): archive past Quokka chats + rehydrate from history [M]
   - Previously: hitting "Start over" deleted the thread. Any prior conversation was gone.
   - Now: "Start over" (and the 24-hour idle TTL expiry) archive-then-clear. Past chats land in `app_data.adviser_archive`, a rolling list capped at 30 entries, newest first. Auto-generated title from the first user message (60-char truncation).

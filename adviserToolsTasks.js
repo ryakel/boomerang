@@ -154,6 +154,7 @@ export function registerTaskTools() {
         size_inferred: args.size ? true : false,
         created_at: now,
         updated_at: now,
+        last_touched: now,
       }
       upsertTask(task)
       return {
@@ -196,7 +197,9 @@ export function registerTaskTools() {
       const before = getTask(args.id)
       if (!before) throw new Error(`Task not found: ${args.id}`)
       const updates = pickTaskUpdates(args)
-      updates.updated_at = new Date().toISOString()
+      const now = new Date().toISOString()
+      updates.updated_at = now
+      updates.last_touched = now
       updateTaskPartial(args.id, updates)
       return {
         result: { id: args.id, task: summarizeTask(getTask(args.id)) },
@@ -240,7 +243,8 @@ export function registerTaskTools() {
       execute: async ({ id }) => {
         const before = getTask(id)
         if (!before) throw new Error(`Task not found: ${id}`)
-        const updates = { status, updated_at: new Date().toISOString(), ...extra(before) }
+        const now = new Date().toISOString()
+        const updates = { status, updated_at: now, last_touched: now, ...extra(before) }
         updateTaskPartial(id, updates)
         return {
           result: { id, task: summarizeTask(getTask(id)) },
@@ -273,10 +277,12 @@ export function registerTaskTools() {
     execute: async ({ id, until }) => {
       const before = getTask(id)
       if (!before) throw new Error(`Task not found: ${id}`)
+      const now = new Date().toISOString()
       updateTaskPartial(id, {
         snoozed_until: until,
         snooze_count: (before.snooze_count || 0) + 1,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
+        last_touched: now,
       })
       return {
         result: { id, snoozed_until: until },
@@ -438,6 +444,7 @@ export function registerTaskTools() {
         routine_id,
         created_at: now,
         updated_at: now,
+        last_touched: now,
       }
       upsertTask(task)
       return {
