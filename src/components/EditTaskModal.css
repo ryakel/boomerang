@@ -762,7 +762,8 @@
   align-items: center;
   justify-content: center;
   width: 76px;
-  padding: 0;
+  min-height: 40px;
+  padding: 0 10px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
@@ -772,6 +773,7 @@
   border: 2px solid transparent;
   transition: all 0.15s;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .priority-toggle.active {
@@ -826,7 +828,8 @@
 /* Force all scheduling inputs to same height */
 .scheduling-row input,
 .scheduling-row .priority-toggle {
-  height: 36px;
+  height: 40px;
+  min-height: 40px;
   padding: 0 8px;
   font-size: 13px;
   border-radius: var(--radius-sm);
@@ -838,8 +841,17 @@
   min-width: 0;
 }
 
+/* iOS renders type="date" with extra internal chrome. Normalize it so the
+   three scheduling fields (DUE / DUR / PRI) share identical exterior size. */
 .scheduling-row input[type="date"] {
   width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: 40px;
+}
+.scheduling-row input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  line-height: 40px;
 }
 
 .scheduling-row .dur-input {

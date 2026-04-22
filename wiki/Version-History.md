@@ -6,19 +6,29 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-22
 
-- feat(adviser): task + routine tools (Part 1b of AI Adviser) [M]
-  - New `adviserToolsTasks.js` registers 17 tools against the engine: `search_tasks`, `get_task`, `create_task`, `update_task`, `delete_task`, `complete_task`, `reopen_task`, `move_to_projects`, `move_to_backlog`, `activate_task`, `snooze_task`, `list_routines`, `get_routine`, `create_routine`, `update_routine`, `delete_routine`, `spawn_routine_now`.
-  - Each mutation tool captures the pre-mutation record and returns a compensation that restores it on rollback — covers create (delete compensation), update (upsert-original compensation), delete (re-insert compensation).
-  - Read-only tools (`search_tasks`, `get_task`, `list_routines`, `get_routine`) execute immediately during the model's tool-use loop so it can explore before staging actions.
-  - Not wired into any endpoint yet — Part 1e wires the registry into `/api/adviser/chat`.
-  - New: `adviserToolsTasks.js`
-- feat(adviser): tool registry + staged-execution engine (Part 1a of AI Adviser) [M]
-  - New `adviserTools.js` — in-memory tool registry with session/plan storage, `registerTool()`, `handleToolCall()`, and `commitPlan()`.
-  - Read-only tools (marked `readOnly: true`) execute immediately during the Claude tool-use loop and return data. Mutation tools are STAGED: the model sees a human-readable preview string but nothing actually runs until the user confirms via `/api/adviser/commit`.
-  - `commitPlan()` runs all staged steps in order. Each tool's `execute()` can return a `compensation` callback; on any step's failure, prior compensations fire in LIFO order to roll back local DB writes and best-effort external API calls.
-  - Sessions are in-memory only (10-minute TTL, 1-minute sweep). No schema changes.
-  - No tools registered yet — that's Part 1b onward. This is the foundation.
-  - New: `adviserTools.js`
+- feat(adviser): AI Adviser — free-form natural-language control surface across every app capability [XL]
+  - **Server-side engine (`adviserTools.js`)** — in-memory tool registry + session-scoped plan storage (10-min TTL, 1-min sweep). `registerTool()`, `handleToolCall()`, `commitPlan()`. Read-only tools run live during the tool-use loop; mutation tools return a preview string + stage a step. Plans commit atomically with LIFO compensation rollback on any step failure.
+  - **49 tool definitions** across four modules:
+    - `adviserToolsTasks.js` — 17 task + routine tools (search, CRUD, complete/reopen, snooze, move between statuses, routine CRUD + spawn-now)
+    - `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools (list/get/create/update/delete events, search pages, create/update pages, card + checklist operations)
+    - `adviserToolsMisc.js` — 20 Gmail + packages + weather + settings + analytics tools
+  - **Endpoints:**
+    - `POST /api/adviser/chat` — SSE streaming. Runs the Claude tool-use loop (max 15 turns), emits `session`, `turn`, `message`, `tool_call`, `tool_result`, `plan`, `done`, `error` events live.
+    - `POST /api/adviser/commit` — executes the staged plan. Coalesces SSE broadcast into a single version bump after success.
+    - `POST /api/adviser/abort` — cancels the in-flight Claude request + clears the session.
+    - `GET /api/adviser/tools` — diagnostic tool list.
+  - **Rollback compensation:** local DB creates delete, updates restore captured pre-state, deletes re-insert. External API creates delete/archive the resource; updates capture pre-state via GET then PATCH back; external deletes log a warning (can't be restored).
+  - **Search-first context:** no task dump in the system prompt. Model explores via `search_tasks`/`list_routines`/`gcal_list_events`/`notion_search` — same prompt size at 10 tasks or 1000.
+  - **Security:** secret keys (API tokens) redacted in `get_settings` output, blocked from `update_settings` writes. Auth tokens pass through a per-request `deps` closure — Claude never sees them.
+  - **Client (`src/components/Adviser.jsx` + `Adviser.css` + `src/hooks/useAdviser.js` + additions to `src/api.js`)** — chat modal (sheet on desktop, full-screen on mobile), live tool-call progress log, plan preview with Apply/Cancel bar, streaming SSE reader, abort button, prompt suggestions on empty state.
+  - **Header reshuffle:** the ✨ sparkle AI Adviser icon takes the slot where the Settings gear used to be. Settings moves into the overflow `⋯` menu alongside Projects / Import / Analytics / Activity Log.
+  - **Dockerfile:** `COPY` line updated to include all four adviser server modules.
+  - New: `adviserTools.js`, `adviserToolsTasks.js`, `adviserToolsIntegrations.js`, `adviserToolsMisc.js`, `src/components/Adviser.jsx`, `src/components/Adviser.css`, `src/hooks/useAdviser.js`
+  - Modified: `server.js`, `Dockerfile`, `src/App.jsx`, `src/api.js`
+- fix(ui): priority toggle height mismatches on Routines + EditTaskModal [S]
+  - `.priority-toggle` had no explicit height so it rendered ~28px tall next to ~36-40px date inputs — visible mismatch on the Priority / End Date row in the routine add/edit form. Added `min-height: 40px` + explicit horizontal padding so it matches siblings everywhere it's used.
+  - In the EditTaskModal's three-column DUE / DUR (MIN) / PRI row, iOS renders `type="date"` a couple pixels taller than neighboring inputs due to its native picker chrome. Forced the row's inputs to `height: 40px` (was 36) and added `-webkit-appearance: none` + normalized `line-height` on the date input so all three fields share exactly the same exterior size.
+  - Modified: `src/components/EditTaskModal.css`
 
 ---
 

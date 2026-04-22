@@ -53,6 +53,7 @@ All AI features use Claude (claude-sonnet-4-20250514) via a server-side proxy. T
 - **Reframe** — when a task has been snoozed past the reframe threshold (default: 3 times), the next snooze attempt opens a reframe modal instead. You describe what's blocking you, and the AI breaks the stuck task into 1-3 actionable replacement tasks.
 - **Smart nudges** — when browser notifications are enabled and custom instructions are set, notification nudge messages are AI-generated to match your communication style. Falls back to built-in messages when AI is unavailable.
 - **AI custom instructions** — a text field in Settings that shapes all AI output across every feature. Can be imported from or exported to a `.md` or `.txt` file.
+- **AI Adviser** — free-form natural-language control over the entire app. Tap the sparkle ✨ icon in the header and say what you want: *"I've rescheduled my FAA exam to May 12, adjust my study tasks and calendar"*, *"move my lawn-care tasks to next weekend, bad weather coming"*, *"clean up anything that's been sitting over 30 days"*. The adviser has 49 tools covering every capability (tasks, routines, Google Calendar, Notion, Trello, Gmail, packages, weather, settings). It previews every change as a plan and nothing runs until you click Apply. Failed plans roll back automatically so you never end up in a half-applied state.
 
 ## Energy/Capacity Tagging
 

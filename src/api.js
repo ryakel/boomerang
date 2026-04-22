@@ -1104,3 +1104,79 @@ export async function geocodeWeather(query) {
   const data = await res.json()
   return data.results || []
 }
+
+// --- AI Adviser ---
+
+// Opens a streaming SSE connection to the adviser. Calls `onEvent(event, data)` for each
+// server-sent event. Returns { abort } — call abort() to cut the stream client-side.
+export function adviserChat({ message, history, sessionId, onEvent, onError, onDone }) {
+  const controller = new AbortController()
+  ;(async () => {
+    try {
+      const res = await fetch('/api/adviser/chat', {
+        method: 'POST',
+        headers: getApiHeaders(),
+        body: JSON.stringify({ message, history, sessionId }),
+        signal: controller.signal,
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        onError?.(new Error(`Adviser ${res.status}: ${text.slice(0, 200)}`))
+        return
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        // Split on double-newline (SSE event boundary)
+        let idx
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const raw = buffer.slice(0, idx)
+          buffer = buffer.slice(idx + 2)
+          const lines = raw.split('\n')
+          let event = 'message'
+          let data = ''
+          for (const line of lines) {
+            if (line.startsWith('event: ')) event = line.slice(7).trim()
+            else if (line.startsWith('data: ')) data += line.slice(6)
+          }
+          if (!data) continue
+          let parsed
+          try { parsed = JSON.parse(data) } catch { parsed = { raw: data } }
+          onEvent?.(event, parsed)
+        }
+      }
+      onDone?.()
+    } catch (err) {
+      if (err.name !== 'AbortError') onError?.(err)
+    }
+  })()
+  return {
+    abort: () => controller.abort(),
+  }
+}
+
+export async function adviserCommit(sessionId) {
+  const res = await fetch('/api/adviser/commit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`commit failed: ${res.status} ${text.slice(0, 200)}`)
+  }
+  return res.json()
+}
+
+export async function adviserAbort(sessionId) {
+  if (!sessionId) return
+  await fetch('/api/adviser/abort', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  }).catch(() => {})
+}

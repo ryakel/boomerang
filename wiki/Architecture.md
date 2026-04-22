@@ -184,6 +184,10 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `DELETE` | `/api/data` | Clear all data |
 | `POST` | `/api/log` | Client log relay (diagnostics to server terminal) |
 | `POST` | `/api/messages` | Proxy to Anthropic Claude API |
+| `POST` | `/api/adviser/chat` | SSE stream — runs the Claude tool-use loop for the AI Adviser |
+| `POST` | `/api/adviser/commit` | Execute the staged plan atomically with LIFO rollback on failure |
+| `POST` | `/api/adviser/abort` | Abort in-flight adviser stream + clear session |
+| `GET` | `/api/adviser/tools` | Diagnostic — lists all 49 registered adviser tool names |
 | `POST` | `/api/notion/search` | Search Notion pages |
 | `GET` | `/api/notion/pages/:id` | Get a Notion page |
 | `POST` | `/api/notion/pages` | Create a Notion page |
@@ -231,6 +235,22 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `POST` | `/api/weather/refresh` | Force-refresh forecast (respects 30-min freshness unless `{ force: true }`) |
 | `POST` | `/api/weather/geocode` | Geocode a location query via Open-Meteo |
 | `POST` | `/api/weather/clear-cache` | Clear the cached forecast |
+
+## AI Adviser
+
+`adviserTools.js` is the engine. `adviserToolsTasks.js`, `adviserToolsIntegrations.js`, and `adviserToolsMisc.js` register 49 tools via `registerTool({ name, description, schema, readOnly, preview, execute })`.
+
+**Staged execution.** During `/api/adviser/chat`, read-only tools run immediately and return data; mutation tools do nothing except return a `preview` string and push a staged step into the session's plan. When the user confirms, `/api/adviser/commit` runs every staged step in order via `commitPlan()`.
+
+**Rollback compensation.** Each `execute()` returns `{ result, compensation }`. Compensations are collected LIFO during the commit. If step N fails, compensations 1..N-1 are invoked in reverse. Local DB mutations capture the pre-state (full record) so the compensation can upsert it back verbatim. External API mutations (GCal, Notion, Trello) capture the pre-state via GET, then call the inverse operation (delete created resources, PATCH back updated ones). External deletes cannot be rolled back and the compensation just logs a warning.
+
+**Coalesced SSE broadcast.** Individual mutation handlers normally call `bumpVersion() + broadcast(version, clientId)` on every write. During `commitPlan()`, `deps.suppressBroadcast = true` is passed through to the handlers (which currently operate through the db layer directly, sidestepping the per-route broadcast). A single `bumpVersion() + broadcast(newVersion, 'adviser')` fires at the end of a successful commit.
+
+**Session lifecycle.** Sessions are in-memory only (`sessions` Map in `adviserTools.js`). Keyed by `crypto.randomUUID()`, 10-minute TTL, 1-minute sweep. Abort via `POST /api/adviser/abort` with sessionId — the `AbortController` for the in-flight Claude stream is aborted, the `aborted` flag is set, and the session is cleared. Successful commit also clears the session.
+
+**Max-turn guard.** The tool-use loop inside `/api/adviser/chat` caps at 15 iterations. Each iteration is one round-trip to Claude (with all 49 tool schemas in the request). If the model hits the cap without `stop_reason === 'end_turn'`, whatever plan is staged so far is returned to the client.
+
+**Security.** Secret keys (`anthropic_api_key`, `notion_token`, `trello_api_key`, `trello_secret`, `gcal_client_secret`, `tracking_api_key`) are redacted in `get_settings` output and blocked from `update_settings` writes. Auth tokens flow through a per-request `deps` object constructed by `adviserDeps(req)` — Claude never sees them; tool handlers receive them as closure values.
 
 ## Weather Sync
 

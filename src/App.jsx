@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect, } from 'react'
-import { Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package, FolderKanban, FileDown, MoreVertical, BarChart3, History } from 'lucide-react'
+import { Settings as SettingsIcon, Search, ArrowUpDown, ChevronRight, X, Cloud, CloudOff, Package, FolderKanban, FileDown, MoreVertical, BarChart3, History, Sparkles } from 'lucide-react'
 import { polyfill } from 'mobile-drag-drop'
 import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scroll-behaviour'
 import 'mobile-drag-drop/default.css'
@@ -42,6 +42,7 @@ import { usePackageNotifications } from './hooks/usePackageNotifications'
 import Packages from './components/Packages'
 import ProjectsView from './components/ProjectsView'
 import MarkdownImportModal from './components/MarkdownImportModal'
+import Adviser from './components/Adviser'
 import { TaskActionsProvider } from './contexts/TaskActionsContext'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
@@ -84,6 +85,7 @@ function App() {
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showPackages, setShowPackages] = useState(false)
   const [showProjects, setShowProjects] = useState(false)
+  const [showAdviser, setShowAdviser] = useState(false)
   const [relatedTarget, setRelatedTarget] = useState(null)
   const [showImport, setShowImport] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -138,10 +140,10 @@ function App() {
 
   // Check app version on every view/modal navigation
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || editTarget || showAdd || showWhatNow) {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || editTarget || showAdd || showWhatNow) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, editTarget, showAdd, showWhatNow, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, editTarget, showAdd, showWhatNow, checkVersion])
 
   // Handle notification click deep links (?task=id)
   useEffect(() => {
@@ -387,10 +389,11 @@ function App() {
     if (showActivityLog) modals.push('activitylog')
     if (showPackages) modals.push('packages')
     if (showProjects) modals.push('projects')
+    if (showAdviser) modals.push('adviser')
     if (relatedTarget) modals.push('related')
     if (showImport) modals.push('import')
     return modals
-  }, [editTarget, showAdd, snoozeTarget, reframeTarget, extendTarget, showWhatNow, showSettings, showDone, showRoutines, showAnalytics, showActivityLog, showPackages, showProjects, relatedTarget, showImport])
+  }, [editTarget, showAdd, snoozeTarget, reframeTarget, extendTarget, showWhatNow, showSettings, showDone, showRoutines, showAnalytics, showActivityLog, showPackages, showProjects, showAdviser, relatedTarget, showImport])
 
   const closeTopModal = useCallback(() => {
     // Close the most recently opened modal
@@ -407,10 +410,11 @@ function App() {
     if (showAdd) { setShowAdd(false); return }
     if (showRoutines) { setShowRoutines(false); return }
     if (showDone) { setShowDone(false); return }
+    if (showAdviser) { setShowAdviser(false); return }
     if (showPackages) { setShowPackages(false); return }
     if (showProjects) { setShowProjects(false); return }
     if (showSettings) { setShowSettings(false); return }
-  }, [relatedTarget, showActivityLog, showAnalytics, extendTarget, reframeTarget, snoozeTarget, showWhatNow, editTarget, showAdd, showRoutines, showDone, showPackages, showProjects, showSettings])
+  }, [relatedTarget, showActivityLog, showAnalytics, extendTarget, reframeTarget, snoozeTarget, showWhatNow, editTarget, showAdd, showRoutines, showDone, showPackages, showProjects, showAdviser, showSettings, showImport, headerMenuOpen])
 
   const { selectedTaskId, showHelp, setShowHelp } = useKeyboardShortcuts({
     isDesktop,
@@ -450,13 +454,17 @@ function App() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button className="header-icon-btn packages-color" onClick={() => setShowPackages(true)} title="Packages"><Package size={20} /></button>
-            <button className="header-icon-btn settings-color" onClick={() => setShowSettings(true)} title="Settings"><SettingsIcon size={20} /></button>
+            <button className="header-icon-btn adviser-color" onClick={() => setShowAdviser(true)} title="AI Adviser"><Sparkles size={20} /></button>
             <div className="header-menu-wrapper" ref={menuRef}>
               <button className="header-icon-btn" style={{ color: 'var(--text-dim)' }} onClick={() => setHeaderMenuOpen(!headerMenuOpen)} aria-label="More">
                 <MoreVertical size={20} />
               </button>
               {headerMenuOpen && (
                 <div className="header-menu">
+                  <button className="header-menu-item" onClick={() => { setShowSettings(true); setHeaderMenuOpen(false) }}>
+                    <SettingsIcon size={16} className="settings-color" />
+                    <span>Settings</span>
+                  </button>
                   <button className="header-menu-item" onClick={() => { setShowProjects(true); setHeaderMenuOpen(false) }}>
                     <FolderKanban size={16} className="projects-color" />
                     <span>Projects</span>
@@ -831,6 +839,14 @@ function App() {
         <ProjectsView
           tasks={tasks}
           onClose={() => setShowProjects(false)}
+        />
+      )}
+
+      {showAdviser && (
+        <Adviser
+          onClose={() => setShowAdviser(false)}
+          isDesktop={isDesktop}
+          onAfterCommit={() => { /* SSE broadcast from /commit already triggers a refresh */ }}
         />
       )}
 

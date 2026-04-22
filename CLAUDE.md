@@ -31,7 +31,8 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Package tracking with 17track API, carrier auto-detection, signature-required task creation
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
-- Header menu: Packages + Settings icons always visible, overflow "..." menu for Projects, Import, Analytics, Activity Log
+- Header icons: Packages + AI Adviser always visible in the top-right; overflow "..." menu contains Settings, Projects, Import, Analytics, Activity Log
+- AI Adviser — free-form natural-language control surface over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics). 49 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure.
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
 
 ### Energy/Capacity Tagging System
@@ -508,6 +509,71 @@ Connects to Gmail via OAuth and uses AI to automatically extract tasks and packa
 - AI analysis costs Anthropic API tokens (~10 emails per batch)
 - Email body truncated to 4000 chars for AI processing
 - Only scans primary inbox (excludes promotions, social, updates, forums)
+
+### AI Adviser
+Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and the adviser finds related tasks/GCal events/routines and queues the fix.
+
+**Entry point:** `✨` sparkle icon in the header (took the slot where the gear used to be). Settings moved into the overflow `⋯` menu.
+
+**Architecture (3 non-negotiables baked into V1):**
+1. **Atomic execute-on-confirm.** Nothing mutates during the chat turn. Mutations are staged in a server-side session plan; user reviews the plan, clicks Apply, and the plan runs in order with LIFO rollback compensation on any failure.
+2. **Search-first context.** No task dumps in the prompt. The model uses `search_tasks`, `list_routines`, `gcal_list_events`, `notion_search`, etc. to explore before acting. Works the same at 10 tasks or 1000.
+3. **Streaming progress.** SSE events (`turn`, `tool_call`, `tool_result`, `message`, `plan`, `done`) fire live during the tool-use loop so the user sees what the model is doing. Includes an abort button.
+4. **Coalesced broadcast.** During `commitPlan()` execution, individual record mutations suppress their usual SSE broadcast. A single `bumpVersion() + broadcast('adviser')` fires at the end so connected clients refetch once, not 15 times.
+
+**Server modules:**
+- `adviserTools.js` — registry, session/plan storage (10-min TTL, 1-min sweep), `handleToolCall()`, `commitPlan()` with rollback
+- `adviserToolsTasks.js` — 17 task + routine tools
+- `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools
+- `adviserToolsMisc.js` — 20 Gmail + packages + weather + settings + analytics tools
+- **Total:** 49 tools; diagnostic list at `GET /api/adviser/tools`
+
+**Server endpoints:**
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/adviser/chat` | SSE streaming — runs the Claude tool-use loop. Body: `{ message, history, sessionId? }`. Emits `session`, `turn`, `message`, `tool_call`, `tool_result`, `plan`, `done`, `error` events. |
+| `POST /api/adviser/commit` | Executes the staged plan atomically. Body: `{ sessionId }`. Single SSE broadcast after commit if any mutations ran. |
+| `POST /api/adviser/abort` | Cancels in-flight stream + clears session. |
+| `GET /api/adviser/tools` | Returns the full tool inventory (name + description) for debugging. |
+
+**Tool categories & counts:**
+- Tasks (11): search, get, create, update, delete, complete, reopen, snooze, move_to_projects, move_to_backlog, activate
+- Routines (6): list, get, create, update, delete, spawn_now
+- Google Calendar (5): list calendars, list events, create/update/delete events
+- Notion (4): search, get page, create page, update page
+- Trello (7): list boards, list lists, create/update/archive card, add checklist
+- Gmail (4): status, sync, approve pending, dismiss pending
+- Packages (6): list, get, create, update, delete, refresh-all
+- Weather (3): get, refresh, geocode
+- Settings + analytics (4): get/update settings (secrets blocked), get analytics, get analytics history
+
+**Rollback compensation:**
+- Local DB creates → delete on rollback
+- Local DB updates → upsert the captured pre-state
+- Local DB deletes → re-insert the captured record
+- External API creates (GCal/Notion/Trello) → delete or archive the created resource
+- External API updates → capture pre-state via GET, PATCH back on rollback
+- External API deletes → warn; external deletes are final (rollback can't restore)
+
+**Safety:**
+- Secret keys (`anthropic_api_key`, `notion_token`, `trello_api_key`/`trello_secret`, `gcal_client_secret`, `tracking_api_key`) are blocked from `update_settings`. The adviser cannot read or change them.
+- Max 15 tool-use turns per user message to prevent runaway loops.
+- Destructive tools (`delete_*`, `archive_*`) always require the confirm step; never auto-executed.
+- Session abort (user clicks Stop) propagates through `AbortController` + clears the session.
+
+**Client:**
+- `src/components/Adviser.jsx` + `.css` — chat modal (sheet on desktop, full-screen on mobile)
+- `src/hooks/useAdviser.js` — conversation state, SSE reader, plan-commit flow
+- `src/api.js` — `adviserChat()`, `adviserCommit()`, `adviserAbort()`
+- Mobile: entered via header sparkle icon next to Packages
+- Desktop: same icon + click-to-open
+
+**Known Limitations:**
+- Conversation history is ephemeral — closing the modal clears it (no persistence, privacy-friendly)
+- External delete rollback can't restore the resource (GCal events, Notion blocks)
+- The model needs an Anthropic API key configured; if missing, the endpoint 400s with a clear error
+- Tool-use loops can rack up tokens (5K system prompt × 15 turns × multi-tool calls per turn), noticeable in API costs for heavy use
+- No audit log yet — mutations go through the normal DB path and show up in sync history but aren't separately annotated as adviser-initiated
 
 ### Toast Messages (Completion/Reopen Feedback)
 - AI-generated contextual one-liners via `generateToastMessage()` in `src/api.js`
