@@ -102,8 +102,9 @@ Recurring tasks with configurable cadence:
 
 ## Notion Integration
 
-- **OAuth connection (preferred)** — one-click connect from Settings. User-scoped access means Quokka and the sync engine see every page/database you have access to — no per-page Connection sharing required. Unlocks database queries (e.g., "how much black PLA do I have left?"). Requires `NOTION_OAUTH_CLIENT_ID` + `NOTION_OAUTH_CLIENT_SECRET` env vars.
-- **Legacy integration token (fallback)** — the older `NOTION_INTEGRATION_TOKEN` / per-page Connection model is still supported for users who haven't migrated. Connected users see an "Upgrade to OAuth" nudge with an explanation of the page-sharing friction.
+- **MCP connection (recommended)** — one-click connect to Notion's hosted MCP server. No Notion integration app to register, no per-page sharing, full user-scoped workspace access. On connect, every read-only Notion MCP tool is auto-registered into Quokka so it can use the native Notion tool surface directly.
+- **Stage 1 public-integration OAuth (fallback)** — one-click connect if you've set `NOTION_OAUTH_CLIENT_ID` + `NOTION_OAUTH_CLIENT_SECRET` env vars and registered a Notion Public integration yourself. Heavier setup; use MCP unless you specifically need this path.
+- **Legacy integration token (fallback)** — the older `NOTION_INTEGRATION_TOKEN` / per-page Connection model is still supported. Used by the background sync code until Stage 3 of the MCP migration lands.
 - **Database queries from Quokka** — `notion_query_database` tool returns rows with flattened properties (title, number, select, multi_select, status, date, checkbox, url, etc.), so you can ask Quokka things like "find unfinished filament in the inventory where color is black".
 - **Search and link** — search existing Notion pages from the Add or Edit task modal and link them to tasks
 - **AI-suggested linking** — when searching, AI evaluates whether any found pages are a good match or if a new page should be created

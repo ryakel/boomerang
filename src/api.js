@@ -509,6 +509,27 @@ export async function notionOAuthDisconnect() {
   return res.json()
 }
 
+export async function notionMCPConnect() {
+  const res = await fetch('/api/notion/mcp/connect', { method: 'POST', headers: getApiHeaders() })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to start MCP auth')
+  return res.json()
+}
+
+export async function notionMCPStatus() {
+  try {
+    const res = await fetch('/api/notion/mcp/status', { headers: getApiHeaders() })
+    return res.json()
+  } catch {
+    return { connected: false, toolCount: 0 }
+  }
+}
+
+export async function notionMCPDisconnect() {
+  const res = await fetch('/api/notion/mcp/disconnect', { method: 'POST', headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to disconnect')
+  return res.json()
+}
+
 export async function getKeyStatus() {
   try {
     const res = await fetch('/api/keys/status')

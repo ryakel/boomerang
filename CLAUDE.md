@@ -97,7 +97,11 @@ UI lives in `src/components/Routines.jsx` — new "On" dropdown next to Frequenc
 ### Notion Sync (Pull + Ongoing)
 Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks in sync.
 
-**Auth model (2026-04-23):** OAuth connection is the preferred path — user-scoped access means no per-page integration sharing is required, and Notion databases can be queried directly from Quokka. Legacy `NOTION_INTEGRATION_TOKEN` / `x-notion-token` header is still honored as a fallback (required per-page Connection). `getNotionAccessToken(req)` in `server.js` handles precedence (OAuth first, refreshed with 5-min buffer; falls back to legacy token). Settings UI leads with OAuth when `NOTION_OAUTH_CLIENT_ID` + `NOTION_OAUTH_CLIENT_SECRET` env vars are set; legacy token path is collapsed under a disclosure. OAuth-connected legacy users see an "Upgrade to OAuth" nudge. This is Stage 1 of a planned three-stage MCP migration: Stage 2 will migrate Quokka's 4 Notion tools to call the hosted Notion MCP server via an MCP client; Stage 3 will migrate `useNotionSync`/`useExternalSync`/the server REST proxy to MCP and delete the legacy REST Notion code.
+**Auth model (2026-04-23):** **MCP is the recommended path.** Boomerang connects to Notion's hosted MCP server (`https://mcp.notion.com/mcp`) via OAuth 2.0 + PKCE + Dynamic Client Registration — no pre-registered Notion integration required, full user-scoped workspace access. Implementation lives in `notionMCP.js` using `@modelcontextprotocol/sdk`. On successful connect, every read-only MCP tool is dynamically bridged into Quokka's registry with a `notion_mcp_` prefix, so Quokka gets the full native Notion tool surface without hardcoded wrappers.
+
+Fallback auth paths kept for sync code (Stage 3 will retire them): (1) Stage 1's public-integration OAuth (`notion_oauth_tokens` in `app_data`, requires `NOTION_OAUTH_CLIENT_ID` + `NOTION_OAUTH_CLIENT_SECRET` env vars — registering a Notion "Public" integration is required, which is heavy for self-hosted setups); (2) legacy internal integration token (`NOTION_INTEGRATION_TOKEN` env / `x-notion-token` header, per-page Connection sharing required). `getNotionAccessToken(req)` in `server.js` resolves in that precedence.
+
+Migration stages: **Stage 1 (DONE)** — OAuth auth + `notion_query_database` tool on REST. **Stage 2 (DONE)** — MCP client + dynamic read-only tool bridge. **Stage 3 (pending)** — migrate `useNotionSync` + `useExternalSync` + the server REST proxy to MCP, delete REST Notion code, and migrate Quokka write tools (create/update page) to MCP with proper compensation.
 
 **Server Endpoints** (in `server.js`):
 | Endpoint | Purpose |
@@ -106,10 +110,15 @@ Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks 
 | `GET /api/notion/children/:id` | List child pages of a parent |
 | `PATCH /api/notion/pages/:id` | Update page title and/or replace content blocks |
 | `POST /api/notion/databases/:id/query` | Query a Notion database. Rows include flattened `properties` (title/rich_text → string, number → number, select/multi_select/status → name(s), date → {start,end}, checkbox → bool, etc.) |
-| `GET /api/notion/oauth/auth-url` | Generate Notion OAuth consent URL |
-| `GET /api/notion/oauth/callback` | OAuth callback — exchange code for tokens, store server-side |
-| `GET /api/notion/oauth/status` | OAuth connection status (`{connected, workspace_name, workspace_icon}`) |
-| `POST /api/notion/oauth/disconnect` | Clear stored OAuth tokens |
+| `GET /api/notion/oauth/auth-url` | Stage 1 OAuth — generate consent URL (public-integration OAuth, deprecated in favor of MCP) |
+| `GET /api/notion/oauth/callback` | Stage 1 OAuth callback |
+| `GET /api/notion/oauth/status` | Stage 1 OAuth status |
+| `POST /api/notion/oauth/disconnect` | Clear Stage 1 OAuth tokens |
+| `POST /api/notion/mcp/connect` | Stage 2 — start MCP OAuth + DCR flow. Returns `{authUrl}` or `{alreadyAuthorized}` |
+| `GET /api/notion/mcp/callback` | MCP callback — completes the DCR/OAuth handshake via `transport.finishAuth(code)` |
+| `GET /api/notion/mcp/status` | `{connected, hasTokens, toolCount}` |
+| `GET /api/notion/mcp/tools` | Lists MCP tools the server exposes to this client |
+| `POST /api/notion/mcp/disconnect` | Clear MCP tokens + DCR client info |
 
 **Pull Sync Flow** (`src/hooks/useNotionSync.js`):
 1. Fetch child pages of configured parent (`notion_sync_parent_id`)

@@ -21,6 +21,7 @@ import {
 import { registerTaskTools } from './adviserToolsTasks.js'
 import { registerGCalTools, registerNotionTools, registerTrelloTools } from './adviserToolsIntegrations.js'
 import { registerMiscTools } from './adviserToolsMisc.js'
+import * as notionMCP from './notionMCP.js'
 import crypto from 'crypto'
 
 // Register adviser tools once at module load
@@ -1382,6 +1383,61 @@ app.get('/api/notion/oauth/status', (req, res) => {
 app.post('/api/notion/oauth/disconnect', (req, res) => {
   setData(NOTION_OAUTH_TOKENS_KEY, null)
   res.json({ ok: true })
+})
+
+// --- Notion MCP endpoints ---
+// Connect to Notion's hosted MCP server via OAuth 2.0 + PKCE + Dynamic Client Registration.
+// No pre-registered Notion integration needed; user-scoped access.
+app.post('/api/notion/mcp/connect', async (req, res) => {
+  try {
+    const redirectBase = `${req.protocol}://${req.get('host')}`
+    const out = await notionMCP.startAuth(redirectBase)
+    if (out.alreadyAuthorized) {
+      return res.json({ alreadyAuthorized: true, status: notionMCP.getStatus() })
+    }
+    res.json({ authUrl: out.authUrl })
+  } catch (err) {
+    console.error('[NotionMCP] connect failed:', err)
+    res.status(500).json({ error: err?.message || 'Failed to start MCP auth' })
+  }
+})
+
+app.get('/api/notion/mcp/callback', async (req, res) => {
+  const { code, error } = req.query
+  if (error) return res.status(400).send(`OAuth error: ${error}`)
+  if (!code) return res.status(400).send('Missing authorization code')
+  try {
+    await notionMCP.finishAuth(code)
+    res.send(`<!DOCTYPE html><html><body><script>
+      window.opener?.postMessage({ type: 'notion-mcp-connected' }, '*');
+      document.body.textContent = 'Connected to Notion via MCP! You can close this window.';
+    </script></body></html>`)
+  } catch (err) {
+    console.error('[NotionMCP] callback failed:', err)
+    res.status(500).send(`Failed to complete MCP auth: ${err?.message || err}`)
+  }
+})
+
+app.get('/api/notion/mcp/status', (req, res) => {
+  res.json(notionMCP.getStatus())
+})
+
+app.post('/api/notion/mcp/disconnect', async (req, res) => {
+  try {
+    await notionMCP.disconnect()
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err?.message || 'Failed to disconnect' })
+  }
+})
+
+app.get('/api/notion/mcp/tools', async (req, res) => {
+  try {
+    const tools = await notionMCP.listTools()
+    res.json({ tools: tools.map(t => ({ name: t.name, description: t.description })) })
+  } catch (err) {
+    res.status(500).json({ error: err?.message || 'Failed to list tools' })
+  }
 })
 
 app.get('/api/gcal/calendars', async (req, res) => {
@@ -3014,6 +3070,12 @@ initDb(dbPath).then(async () => {
     console.log(`Gmail: ${getData(GMAIL_TOKENS_KEY)?.refresh_token ? 'connected' : 'not connected'}`)
     console.log(`17track: ${envTrackingApiKey ? 'from env' : 'user-provided via UI'}`)
     console.log(`SMTP: ${envSmtpHost ? 'from env' : 'not configured'}`)
+
+    // Initialize Notion MCP client (auto-reconnects if tokens exist from a previous session)
+    notionMCP.initNotionMCP({ getData, setData })
+    notionMCP.autoReconnect().then(ok => {
+      console.log(`Notion MCP: ${ok ? 'connected' : 'not connected'}`)
+    })
 
     // Start notification loops
     startEmailNotifications()

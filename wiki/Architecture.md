@@ -162,16 +162,19 @@ Request arrives at /api/messages or /api/notion/*
 
 Keys set in the UI are stored in localStorage settings and sent as custom request headers (`x-anthropic-key`, `x-notion-token`, `x-trello-key`, `x-trello-token`). They never touch the server's filesystem or database — the server only forwards them to the external API in the appropriate format (Anthropic uses `x-api-key` header, Notion uses `Authorization: Bearer` header).
 
-### Notion Auth (OAuth + legacy fallback)
+### Notion Auth (MCP + legacy fallbacks)
 
-`getNotionAccessToken(req)` is the preferred async resolver for all Notion API requests. Precedence:
+Primary path is **Notion MCP** — the hosted MCP server at `https://mcp.notion.com/mcp` supports OAuth 2.0 + PKCE + Dynamic Client Registration, so there's no Notion integration app to register. Implementation in `notionMCP.js` uses `@modelcontextprotocol/sdk`'s `Client` + `StreamableHTTPClientTransport` with a custom `OAuthClientProvider` that persists state in `app_data` (`notion_mcp_client`, `notion_mcp_tokens`, `notion_mcp_pkce`).
 
-1. OAuth access token from `app_data.notion_oauth_tokens` (refreshed with 5-min buffer if `expiry_date` is near). Refresh uses HTTP Basic auth (`client_id:client_secret` base64-encoded) against `https://api.notion.com/v1/oauth/token`.
-2. Legacy integration token — `x-notion-token` header or `NOTION_INTEGRATION_TOKEN` env.
+Connection flow: `POST /api/notion/mcp/connect` kicks off a fresh auth attempt. The provider's `redirectToAuthorization(url)` hook captures the URL during the aborted `client.connect()` and the endpoint returns it for the browser popup. `GET /api/notion/mcp/callback` receives `code`, calls `transport.finishAuth(code)`, reconnects the client, and enumerates tools. Connected clients get every read-only MCP tool registered into Quokka's registry dynamically, prefixed `notion_mcp_`, results normalized (text JSON → parsed, multi-text → joined, errors thrown).
 
-OAuth-connected users get **user-scoped workspace access** (no per-page Connection sharing required). Legacy integration-token users are still supported but limited to pages explicitly shared with the integration. All 13 `/api/notion/*` endpoints call the async resolver, so no endpoint-specific code changes are needed when a user switches auth modes.
+Stage-1 and legacy auth paths remain for REST sync:
 
-OAuth endpoints: `/api/notion/oauth/auth-url`, `/api/notion/oauth/callback`, `/api/notion/oauth/status`, `/api/notion/oauth/disconnect`. Callback page emits `postMessage({ type: 'notion-connected' })` to the opener window. Server env vars: `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`.
+`getNotionAccessToken(req)` is the async resolver used by all 13 legacy `/api/notion/*` endpoints. Precedence:
+1. OAuth access token from `app_data.notion_oauth_tokens` (Stage 1's public-integration OAuth — requires `NOTION_OAUTH_CLIENT_ID` + `NOTION_OAUTH_CLIENT_SECRET`, user registers a Notion Public integration). Refreshed with 5-min buffer via HTTP Basic auth against `https://api.notion.com/v1/oauth/token`.
+2. Legacy integration token — `x-notion-token` header or `NOTION_INTEGRATION_TOKEN` env. Limited to pages shared with the integration via Connections.
+
+Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP and remove both fallback paths.
 
 ### Key Status Endpoint
 
@@ -217,10 +220,15 @@ OAuth endpoints: `/api/notion/oauth/auth-url`, `/api/notion/oauth/callback`, `/a
 | `POST` | `/api/notion/file-uploads` | Create a Notion file upload |
 | `POST` | `/api/notion/file-uploads/:id/send` | Send file data to Notion |
 | `POST` | `/api/notion/databases/:id/query` | Query a Notion database (returns flattened `properties` map on each row) |
-| `GET` | `/api/notion/oauth/auth-url` | Generate Notion OAuth consent URL |
-| `GET` | `/api/notion/oauth/callback` | OAuth callback — exchange code for tokens, store server-side |
-| `GET` | `/api/notion/oauth/status` | OAuth-only status (connected + workspace_name) |
-| `POST` | `/api/notion/oauth/disconnect` | Clear stored OAuth tokens |
+| `GET` | `/api/notion/oauth/auth-url` | Stage 1 OAuth — generate consent URL (deprecated in favor of MCP) |
+| `GET` | `/api/notion/oauth/callback` | Stage 1 OAuth callback |
+| `GET` | `/api/notion/oauth/status` | Stage 1 OAuth status |
+| `POST` | `/api/notion/oauth/disconnect` | Clear Stage 1 OAuth tokens |
+| `POST` | `/api/notion/mcp/connect` | Start MCP OAuth + DCR flow; returns auth URL or `alreadyAuthorized` |
+| `GET` | `/api/notion/mcp/callback` | MCP callback — finishes DCR/OAuth handshake |
+| `GET` | `/api/notion/mcp/status` | `{connected, hasTokens, toolCount}` |
+| `GET` | `/api/notion/mcp/tools` | Enumerate tools the MCP server exposes |
+| `POST` | `/api/notion/mcp/disconnect` | Clear MCP tokens + DCR client info |
 | `GET` | `/api/trello/status` | Check Trello connection status |
 | `GET` | `/api/trello/boards` | List user's Trello boards |
 | `GET` | `/api/trello/boards/:id/lists` | Get lists in a Trello board |

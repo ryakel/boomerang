@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, notionOAuthAuthUrl, notionOAuthDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, getWeather, refreshWeather, geocodeWeather } from '../api'
+import { getKeyStatus, callClaude, notionStatus, notionOAuthAuthUrl, notionOAuthDisconnect, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, getWeather, refreshWeather, geocodeWeather } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
@@ -327,6 +327,58 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
   const [notionOAuthConnecting, setNotionOAuthConnecting] = useState(false)
   const [notionOAuthError, setNotionOAuthError] = useState(null)
+
+  const [notionMCP, setNotionMCP] = useState(null) // null | { connected, toolCount }
+  const [notionMCPConnecting, setNotionMCPConnecting] = useState(false)
+  const [notionMCPError, setNotionMCPError] = useState(null)
+
+  const refreshNotionMCP = async () => {
+    try {
+      const s = await notionMCPStatus()
+      setNotionMCP(s)
+    } catch {
+      setNotionMCP({ connected: false, toolCount: 0 })
+    }
+  }
+
+  useEffect(() => { refreshNotionMCP() }, [])
+
+  const handleNotionMCPConnect = async () => {
+    setNotionMCPConnecting(true)
+    setNotionMCPError(null)
+    try {
+      const out = await notionMCPConnect()
+      if (out.alreadyAuthorized) {
+        await refreshNotionMCP()
+        return
+      }
+      window.open(out.authUrl, '_blank', 'width=600,height=700')
+    } catch (err) {
+      setNotionMCPError(err.message || 'Failed to start MCP auth')
+    } finally {
+      setNotionMCPConnecting(false)
+    }
+  }
+
+  const handleNotionMCPDisconnect = async () => {
+    try {
+      await notionMCPDisconnect()
+      await refreshNotionMCP()
+    } catch (err) {
+      setNotionMCPError(err.message || 'Failed to disconnect')
+    }
+  }
+
+  // Listen for Notion MCP callback message
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.data?.type === 'notion-mcp-connected') {
+        refreshNotionMCP()
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
 
   const handleNotionOAuthConnect = async () => {
     setNotionOAuthConnecting(true)
@@ -1118,6 +1170,29 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
             </div>
             {expandedIntegration === 'notion' && (
               <div className="integration-body">
+                {/* MCP connection — preferred path (no app registration needed) */}
+                <div style={{ marginBottom: 12, padding: 12, background: 'rgba(164, 120, 255, 0.04)', borderRadius: 'var(--radius-sm)' }}>
+                  <div className="settings-label" style={{ marginBottom: 6 }}>Notion MCP (recommended)</div>
+                  {notionMCP?.connected ? (
+                    <>
+                      <div className="integration-status connected" style={{ marginBottom: 6 }}>
+                        Connected — {notionMCP.toolCount} tools discovered
+                      </div>
+                      <button className="ci-clear-btn" onClick={handleNotionMCPDisconnect}>Disconnect MCP</button>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                        One-click OAuth into your Notion workspace. No per-page sharing and no integration app to register.
+                      </div>
+                      <button className="ci-upload-btn" disabled={notionMCPConnecting} onClick={handleNotionMCPConnect}>
+                        {notionMCPConnecting ? 'Opening...' : 'Connect via MCP'}
+                      </button>
+                      {notionMCPError && <div className="integration-status error" style={{ marginTop: 8 }}>{notionMCPError}</div>}
+                    </>
+                  )}
+                </div>
+
                 {notionConnected && notionConnected !== 'checking' && notionConnected.connected && notionConnected.auth === 'oauth' ? (
                   <>
                     <div className="integration-status connected">
