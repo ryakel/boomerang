@@ -162,9 +162,20 @@ Request arrives at /api/messages or /api/notion/*
 
 Keys set in the UI are stored in localStorage settings and sent as custom request headers (`x-anthropic-key`, `x-notion-token`, `x-trello-key`, `x-trello-token`). They never touch the server's filesystem or database — the server only forwards them to the external API in the appropriate format (Anthropic uses `x-api-key` header, Notion uses `Authorization: Bearer` header).
 
+### Notion Auth (OAuth + legacy fallback)
+
+`getNotionAccessToken(req)` is the preferred async resolver for all Notion API requests. Precedence:
+
+1. OAuth access token from `app_data.notion_oauth_tokens` (refreshed with 5-min buffer if `expiry_date` is near). Refresh uses HTTP Basic auth (`client_id:client_secret` base64-encoded) against `https://api.notion.com/v1/oauth/token`.
+2. Legacy integration token — `x-notion-token` header or `NOTION_INTEGRATION_TOKEN` env.
+
+OAuth-connected users get **user-scoped workspace access** (no per-page Connection sharing required). Legacy integration-token users are still supported but limited to pages explicitly shared with the integration. All 13 `/api/notion/*` endpoints call the async resolver, so no endpoint-specific code changes are needed when a user switches auth modes.
+
+OAuth endpoints: `/api/notion/oauth/auth-url`, `/api/notion/oauth/callback`, `/api/notion/oauth/status`, `/api/notion/oauth/disconnect`. Callback page emits `postMessage({ type: 'notion-connected' })` to the opener window. Server env vars: `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`.
+
 ### Key Status Endpoint
 
-`GET /api/keys/status` returns `{ anthropic: boolean, notion: boolean, trello: boolean }` indicating whether each key is configured via environment variable. The frontend uses this to decide whether to show the API key input fields or a "set by environment variable" notice in Settings.
+`GET /api/keys/status` returns `{ anthropic, notion, notion_oauth, trello, gcal, tracking, usps, smtp }` booleans indicating whether each credential is configured via environment variable. The frontend uses this to decide whether to show the API key input fields, the OAuth Connect button (when `notion_oauth` is true), or a "set by environment variable" notice in Settings.
 
 ## Health Endpoint
 
@@ -187,7 +198,7 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `POST` | `/api/adviser/chat` | SSE stream — runs the Claude tool-use loop for the AI Adviser |
 | `POST` | `/api/adviser/commit` | Execute the staged plan atomically with LIFO rollback on failure |
 | `POST` | `/api/adviser/abort` | Abort in-flight adviser stream + clear session |
-| `GET` | `/api/adviser/tools` | Diagnostic — lists all 49 registered adviser tool names |
+| `GET` | `/api/adviser/tools` | Diagnostic — lists all 50 registered adviser tool names |
 | `GET` | `/api/adviser/thread` | Current Quokka conversation (messages + sessionId) |
 | `POST` | `/api/adviser/thread` | Persist current thread (client saves debounced on every change) |
 | `DELETE` | `/api/adviser/thread` | Archive-then-clear the current thread ("Start over") |
@@ -199,13 +210,17 @@ Keys set in the UI are stored in localStorage settings and sent as custom reques
 | `GET` | `/api/notion/pages/:id` | Get a Notion page |
 | `POST` | `/api/notion/pages` | Create a Notion page |
 | `PATCH` | `/api/notion/pages/:id` | Update page title and/or replace content blocks |
-| `GET` | `/api/notion/status` | Check Notion connection status |
+| `GET` | `/api/notion/status` | Check Notion connection status (reports `{connected, auth: 'oauth'\|'legacy', workspace_name}`) |
 | `GET` | `/api/notion/blocks/:id` | Read page content (paginated), returns blocks + plainText |
 | `GET` | `/api/notion/children/:id` | List child pages of a parent |
 | `POST` | `/api/notion/blocks/:id/children` | Append blocks to a page |
 | `POST` | `/api/notion/file-uploads` | Create a Notion file upload |
 | `POST` | `/api/notion/file-uploads/:id/send` | Send file data to Notion |
-| `POST` | `/api/notion/databases/:id/query` | Query a Notion database |
+| `POST` | `/api/notion/databases/:id/query` | Query a Notion database (returns flattened `properties` map on each row) |
+| `GET` | `/api/notion/oauth/auth-url` | Generate Notion OAuth consent URL |
+| `GET` | `/api/notion/oauth/callback` | OAuth callback — exchange code for tokens, store server-side |
+| `GET` | `/api/notion/oauth/status` | OAuth-only status (connected + workspace_name) |
+| `POST` | `/api/notion/oauth/disconnect` | Clear stored OAuth tokens |
 | `GET` | `/api/trello/status` | Check Trello connection status |
 | `GET` | `/api/trello/boards` | List user's Trello boards |
 | `GET` | `/api/trello/boards/:id/lists` | Get lists in a Trello board |

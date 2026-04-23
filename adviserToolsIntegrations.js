@@ -219,6 +219,34 @@ function extractNotionTitle(page) {
   return 'Untitled'
 }
 
+// Flatten Notion property objects to plain values so the model can filter/compare without
+// knowing Notion's schema. Unsupported types resolve to null.
+function flattenNotionProperties(props) {
+  const out = {}
+  for (const [name, val] of Object.entries(props || {})) {
+    switch (val.type) {
+      case 'title':
+      case 'rich_text':
+        out[name] = (val[val.type] || []).map(t => t.plain_text).join(''); break
+      case 'number': out[name] = val.number; break
+      case 'select': out[name] = val.select?.name ?? null; break
+      case 'multi_select': out[name] = (val.multi_select || []).map(s => s.name); break
+      case 'status': out[name] = val.status?.name ?? null; break
+      case 'date': out[name] = val.date ? { start: val.date.start, end: val.date.end || null } : null; break
+      case 'checkbox': out[name] = !!val.checkbox; break
+      case 'url': case 'email': case 'phone_number': out[name] = val[val.type] ?? null; break
+      case 'people': out[name] = (val.people || []).map(p => p.name || p.id); break
+      case 'files': out[name] = (val.files || []).map(f => f.name); break
+      case 'relation': out[name] = (val.relation || []).map(r => r.id); break
+      case 'formula': out[name] = val.formula?.[val.formula?.type] ?? null; break
+      case 'rollup': out[name] = val.rollup?.[val.rollup?.type] ?? null; break
+      case 'created_time': case 'last_edited_time': out[name] = val[val.type] ?? null; break
+      default: out[name] = null
+    }
+  }
+  return out
+}
+
 function parseContentToBlocks(content) {
   return content.split('\n').filter(Boolean).map(line => {
     if (line.startsWith('# ')) return { object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: line.slice(2) } }] } }
@@ -277,6 +305,42 @@ export function registerNotionTools() {
         return text
       }).filter(Boolean).join('\n')
       return { result: { page_id, plainText } }
+    },
+  })
+
+  registerTool({
+    name: 'notion_query_database',
+    description: 'Query a Notion database. Returns rows with flattened properties (title, text, number, select, multi_select, status, date, checkbox, url, etc.). Use for inventories, trackers, or any property-based list. Accepts optional Notion filter/sort objects per Notion API spec.',
+    readOnly: true,
+    schema: {
+      type: 'object',
+      properties: {
+        database_id: { type: 'string' },
+        filter: { type: 'object', description: 'Notion filter object (optional). See https://developers.notion.com/reference/post-database-query-filter' },
+        sorts: { type: 'array', description: 'Notion sorts array (optional).' },
+        page_size: { type: 'integer', default: 50 },
+        start_cursor: { type: 'string' },
+      },
+      required: ['database_id'],
+    },
+    execute: async (args, deps) => {
+      ensure(deps.notionToken, 'Notion not connected')
+      const body = {}
+      if (args.filter) body.filter = args.filter
+      if (args.sorts) body.sorts = args.sorts
+      body.page_size = args.page_size || 50
+      if (args.start_cursor) body.start_cursor = args.start_cursor
+      const data = await httpJson(`${NOTION_BASE}/databases/${args.database_id}/query`, {
+        method: 'POST', headers: notionHeaders(deps.notionToken), body: JSON.stringify(body),
+      }, 'Notion database query')
+      const rows = (data.results || []).map(page => ({
+        id: page.id,
+        title: extractNotionTitle(page),
+        url: page.url,
+        last_edited: page.last_edited_time,
+        properties: flattenNotionProperties(page.properties || {}),
+      }))
+      return { result: { count: rows.length, rows, has_more: !!data.has_more, next_cursor: data.next_cursor || null } }
     },
   })
 

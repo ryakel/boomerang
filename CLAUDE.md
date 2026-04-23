@@ -32,7 +32,7 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
 - Header icons: Packages + Quokka (AI adviser) always visible in the top-right; overflow "..." menu contains Settings, Projects, Import, Analytics, Activity Log
-- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics). 49 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial.
+- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics). 50 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial.
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
 
 ### Energy/Capacity Tagging System
@@ -97,13 +97,19 @@ UI lives in `src/components/Routines.jsx` — new "On" dropdown next to Frequenc
 ### Notion Sync (Pull + Ongoing)
 Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks in sync.
 
+**Auth model (2026-04-23):** OAuth connection is the preferred path — user-scoped access means no per-page integration sharing is required, and Notion databases can be queried directly from Quokka. Legacy `NOTION_INTEGRATION_TOKEN` / `x-notion-token` header is still honored as a fallback (required per-page Connection). `getNotionAccessToken(req)` in `server.js` handles precedence (OAuth first, refreshed with 5-min buffer; falls back to legacy token). Settings UI leads with OAuth when `NOTION_OAUTH_CLIENT_ID` + `NOTION_OAUTH_CLIENT_SECRET` env vars are set; legacy token path is collapsed under a disclosure. OAuth-connected legacy users see an "Upgrade to OAuth" nudge. This is Stage 1 of a planned three-stage MCP migration: Stage 2 will migrate Quokka's 4 Notion tools to call the hosted Notion MCP server via an MCP client; Stage 3 will migrate `useNotionSync`/`useExternalSync`/the server REST proxy to MCP and delete the legacy REST Notion code.
+
 **Server Endpoints** (in `server.js`):
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/notion/blocks/:id` | Read page content (paginated), returns `{ blocks, plainText }` |
 | `GET /api/notion/children/:id` | List child pages of a parent |
 | `PATCH /api/notion/pages/:id` | Update page title and/or replace content blocks |
-| `POST /api/notion/databases/:id/query` | Query a Notion database (future-proofing) |
+| `POST /api/notion/databases/:id/query` | Query a Notion database. Rows include flattened `properties` (title/rich_text → string, number → number, select/multi_select/status → name(s), date → {start,end}, checkbox → bool, etc.) |
+| `GET /api/notion/oauth/auth-url` | Generate Notion OAuth consent URL |
+| `GET /api/notion/oauth/callback` | OAuth callback — exchange code for tokens, store server-side |
+| `GET /api/notion/oauth/status` | OAuth connection status (`{connected, workspace_name, workspace_icon}`) |
+| `POST /api/notion/oauth/disconnect` | Clear stored OAuth tokens |
 
 **Pull Sync Flow** (`src/hooks/useNotionSync.js`):
 1. Fetch child pages of configured parent (`notion_sync_parent_id`)
@@ -526,7 +532,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - `adviserToolsTasks.js` — 17 task + routine tools
 - `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools
 - `adviserToolsMisc.js` — 20 Gmail + packages + weather + settings + analytics tools
-- **Total:** 49 tools; diagnostic list at `GET /api/adviser/tools`
+- **Total:** 50 tools; diagnostic list at `GET /api/adviser/tools`
 
 **Server endpoints:**
 | Endpoint | Purpose |
@@ -541,7 +547,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Routines (6): list, get, create, update, delete, spawn_now
 - Anthropic server-side `web_search` available in the main chat loop — Quokka can look up current info (prices, news, current best-practices) live during a reply, not just from training data
 - Google Calendar (5): list calendars, list events, create/update/delete events
-- Notion (4): search, get page, create page, update page
+- Notion (5): search, get page, query database, create page, update page
 - Trello (7): list boards, list lists, create/update/archive card, add checklist
 - Gmail (4): status, sync, approve pending, dismiss pending
 - Packages (6): list, get, create, update, delete, refresh-all

@@ -53,7 +53,7 @@ All AI features use Claude (claude-sonnet-4-20250514) via a server-side proxy. T
 - **Reframe** — when a task has been snoozed past the reframe threshold (default: 3 times), the next snooze attempt opens a reframe modal instead. You describe what's blocking you, and the AI breaks the stuck task into 1-3 actionable replacement tasks.
 - **Smart nudges** — when browser notifications are enabled and custom instructions are set, notification nudge messages are AI-generated to match your communication style. Falls back to built-in messages when AI is unavailable.
 - **AI custom instructions** — a text field in Settings that shapes all AI output across every feature. Can be imported from or exported to a `.md` or `.txt` file.
-- **Quokka (AI Adviser)** — free-form natural-language control over the entire app. Tap the sparkle ✨ icon in the header and say what you want: *"I've rescheduled my FAA exam to May 12, adjust my study tasks and calendar"*, *"move my lawn-care tasks to next weekend, bad weather coming"*, *"clean up anything that's been sitting over 30 days"*. Quokka has 49 tools covering every capability (tasks, routines, Google Calendar, Notion, Trello, Gmail, packages, weather, settings). Every change is previewed as a plan — nothing runs until you click Apply. Failed plans roll back automatically so you never end up in a half-applied state. Named after the perpetually-smiling Australian marsupial.
+- **Quokka (AI Adviser)** — free-form natural-language control over the entire app. Tap the sparkle ✨ icon in the header and say what you want: *"I've rescheduled my FAA exam to May 12, adjust my study tasks and calendar"*, *"move my lawn-care tasks to next weekend, bad weather coming"*, *"clean up anything that's been sitting over 30 days"*. Quokka has 50 tools covering every capability (tasks, routines, Google Calendar, Notion, Trello, Gmail, packages, weather, settings). Every change is previewed as a plan — nothing runs until you click Apply. Failed plans roll back automatically so you never end up in a half-applied state. Named after the perpetually-smiling Australian marsupial.
 
 ## Energy/Capacity Tagging
 
@@ -100,8 +100,11 @@ Recurring tasks with configurable cadence:
 - **Convert from task**: any one-off task can be converted to a routine via the Edit modal. The original task stays active and is linked to the new routine as its first instance — completing it later logs the completion on the routine, and future instances are spawned by cadence.
 - **Notion integration**: find or create a Notion page from the routine add/edit form. Linked pages appear on routine cards and are inherited by spawned task instances.
 
-## Notion Integration (requires Notion token)
+## Notion Integration
 
+- **OAuth connection (preferred)** — one-click connect from Settings. User-scoped access means Quokka and the sync engine see every page/database you have access to — no per-page Connection sharing required. Unlocks database queries (e.g., "how much black PLA do I have left?"). Requires `NOTION_OAUTH_CLIENT_ID` + `NOTION_OAUTH_CLIENT_SECRET` env vars.
+- **Legacy integration token (fallback)** — the older `NOTION_INTEGRATION_TOKEN` / per-page Connection model is still supported for users who haven't migrated. Connected users see an "Upgrade to OAuth" nudge with an explanation of the page-sharing friction.
+- **Database queries from Quokka** — `notion_query_database` tool returns rows with flattened properties (title, number, select, multi_select, status, date, checkbox, url, etc.), so you can ask Quokka things like "find unfinished filament in the inventory where color is black".
 - **Search and link** — search existing Notion pages from the Add or Edit task modal and link them to tasks
 - **AI-suggested linking** — when searching, AI evaluates whether any found pages are a good match or if a new page should be created
 - **Create pages** — AI generates structured Notion page content with full metadata (due date, size, energy, priority, status), checklists as to_do blocks, and file attachment uploads via Notion's 3-step file upload API

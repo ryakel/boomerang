@@ -36,6 +36,8 @@ const appVersion = process.env.APP_VERSION || 'dev'
 // --- Environment (fallback keys — user can override via UI) ---
 let envApiKey = process.env.ANTHROPIC_API_KEY
 let envNotionToken = process.env.NOTION_INTEGRATION_TOKEN
+let envNotionOAuthClientId = process.env.NOTION_OAUTH_CLIENT_ID
+let envNotionOAuthClientSecret = process.env.NOTION_OAUTH_CLIENT_SECRET
 let envTrelloKey = process.env.TRELLO_API_KEY
 let envTrelloToken = process.env.TRELLO_SECRET
 let envGoogleClientId = process.env.GOOGLE_CLIENT_ID
@@ -49,6 +51,8 @@ if (existsSync('.env')) {
   const envFile = readFileSync('.env', 'utf-8')
   envApiKey = envApiKey || envFile.match(/(?:VITE_)?ANTHROPIC_API_KEY="?([^"\n]+)"?/)?.[1]
   envNotionToken = envNotionToken || envFile.match(/NOTION_INTEGRATION_TOKEN="?([^"\n]+)"?/)?.[1]
+  envNotionOAuthClientId = envNotionOAuthClientId || envFile.match(/NOTION_OAUTH_CLIENT_ID="?([^"\n]+)"?/)?.[1]
+  envNotionOAuthClientSecret = envNotionOAuthClientSecret || envFile.match(/NOTION_OAUTH_CLIENT_SECRET="?([^"\n]+)"?/)?.[1]
   envTrelloKey = envTrelloKey || envFile.match(/TRELLO_API_KEY="?([^"\n]+)"?/)?.[1]
   envTrelloToken = envTrelloToken || envFile.match(/TRELLO_SECRET="?([^"\n]+)"?/)?.[1]
   envGoogleClientId = envGoogleClientId || envFile.match(/GOOGLE_CLIENT_ID="?([^"\n]+)"?/)?.[1]
@@ -63,8 +67,33 @@ function getAnthropicKey(req) {
   return req.headers['x-anthropic-key'] || envApiKey || null
 }
 
-function getNotionToken(req) {
-  return req.headers['x-notion-token'] || envNotionToken || null
+// Legacy integration token (pre-OAuth). Prefer getNotionAccessToken() for new code.
+function getLegacyNotionToken(req) {
+  return req?.headers?.['x-notion-token'] || envNotionToken || null
+}
+
+// Preferred: returns OAuth access token (refreshed if expired), else falls back to legacy integration token.
+// Async because OAuth refresh may require a token exchange round-trip.
+async function getNotionAccessToken(req) {
+  const tokens = getData(NOTION_OAUTH_TOKENS_KEY)
+  if (tokens?.access_token) {
+    // If no expiry (Notion legacy long-lived tokens) or still valid with 5-min buffer, reuse.
+    if (!tokens.expiry_date || Date.now() < tokens.expiry_date - 300000) {
+      return tokens.access_token
+    }
+    // Need to refresh
+    if (tokens.refresh_token) {
+      const refreshed = await refreshNotionToken(tokens.refresh_token)
+      if (refreshed) return refreshed
+    }
+    // Refresh failed; if token is still technically unexpired (some tokens stay valid past expiry_date), try it
+    if (tokens.access_token) return tokens.access_token
+  }
+  return getLegacyNotionToken(req)
+}
+
+function getNotionOAuthClientId(req) {
+  return req?.headers?.['x-notion-oauth-client-id'] || envNotionOAuthClientId || null
 }
 
 function getTrelloAuth(req) {
@@ -117,6 +146,37 @@ async function getGCalAccessToken() {
   return tokens.access_token
 }
 
+// Notion OAuth token management — user-scoped OAuth replaces the legacy internal-integration token.
+// Unlocks full workspace access (no per-page integration connections required) and database queries.
+const NOTION_OAUTH_TOKENS_KEY = 'notion_oauth_tokens'
+
+async function refreshNotionToken(refreshToken) {
+  const clientId = envNotionOAuthClientId
+  const clientSecret = envNotionOAuthClientSecret
+  if (!clientId || !clientSecret) return null
+
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+  const res = await fetch('https://api.notion.com/v1/oauth/token', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${basicAuth}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: refreshToken }),
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    console.error('[Notion] Token refresh failed:', data.error_description || data.error || data.message)
+    return null
+  }
+  const tokens = getData(NOTION_OAUTH_TOKENS_KEY) || {}
+  tokens.access_token = data.access_token
+  if (data.refresh_token) tokens.refresh_token = data.refresh_token
+  if (data.expires_in) tokens.expiry_date = Date.now() + data.expires_in * 1000
+  setData(NOTION_OAUTH_TOKENS_KEY, tokens)
+  return tokens.access_token
+}
+
 // --- Server log capture (circular buffer) ---
 const LOG_BUFFER_MAX = 500
 const serverLogs = []
@@ -164,6 +224,7 @@ app.get('/api/keys/status', (req, res) => {
   res.json({
     anthropic: !!envApiKey,
     notion: !!envNotionToken,
+    notion_oauth: !!(envNotionOAuthClientId && envNotionOAuthClientSecret),
     trello: !!(envTrelloKey && envTrelloToken),
     gcal: !!(envGoogleClientId && envGoogleClientSecret),
     tracking: !!getTrackingApiKey(),
@@ -473,7 +534,7 @@ function parseContentToBlocks(content) {
 }
 
 app.post('/api/notion/search', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'No Notion token configured. Add one in Settings or set NOTION_INTEGRATION_TOKEN env var.' })
   try {
     const response = await fetch(`${NOTION_BASE}/search`, {
@@ -499,7 +560,7 @@ app.post('/api/notion/search', async (req, res) => {
 })
 
 app.get('/api/notion/pages/:id', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
     const response = await fetch(`${NOTION_BASE}/pages/${req.params.id}`, { headers: makeNotionHeaders(token) })
@@ -511,7 +572,7 @@ app.get('/api/notion/pages/:id', async (req, res) => {
 })
 
 app.post('/api/notion/pages', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
     const { title, content, parentPageId } = req.body
@@ -553,7 +614,7 @@ app.post('/api/notion/pages', async (req, res) => {
 })
 
 app.patch('/api/notion/pages/:id', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   const { title, content } = req.body
   const headers = makeNotionHeaders(token)
@@ -611,20 +672,30 @@ app.patch('/api/notion/pages/:id', async (req, res) => {
 })
 
 app.get('/api/notion/status', async (req, res) => {
-  const token = getNotionToken(req)
-  if (!token) return res.json({ connected: false })
+  const oauthTokens = getData(NOTION_OAUTH_TOKENS_KEY)
+  const oauthActive = !!oauthTokens?.access_token
+  const legacyActive = !!getLegacyNotionToken(req)
+  const token = await getNotionAccessToken(req)
+  if (!token) return res.json({ connected: false, auth: null, oauth: false, legacy: false })
   try {
     const response = await fetch(`${NOTION_BASE}/users/me`, { headers: makeNotionHeaders(token) })
     const data = await response.json()
-    res.json({ connected: response.ok, bot: data.name || data.bot?.owner?.user?.name })
+    res.json({
+      connected: response.ok,
+      auth: oauthActive ? 'oauth' : 'legacy',
+      oauth: oauthActive,
+      legacy: legacyActive,
+      workspace_name: oauthTokens?.workspace_name || null,
+      bot: data.name || data.bot?.owner?.user?.name,
+    })
   } catch {
-    res.json({ connected: false })
+    res.json({ connected: false, auth: null, oauth: oauthActive, legacy: legacyActive })
   }
 })
 
 // Get all blocks (content) from a Notion page — paginated, returns structured + plaintext
 app.get('/api/notion/blocks/:id', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
     let allBlocks = []
@@ -666,7 +737,7 @@ app.get('/api/notion/blocks/:id', async (req, res) => {
 
 // Get child pages of a parent page (for sync: discover pages under a parent)
 app.get('/api/notion/children/:id', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
     let allChildren = []
@@ -703,9 +774,10 @@ app.get('/api/notion/children/:id', async (req, res) => {
   }
 })
 
-// Query a Notion database (future-proofing for database-based sync)
+// Query a Notion database. Returns pages with flattened properties so callers (Quokka,
+// sync hooks) can filter/display rows without re-interpreting Notion's property schema.
 app.post('/api/notion/databases/:id/query', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
     const response = await fetch(`${NOTION_BASE}/databases/${req.params.id}/query`, {
@@ -720,6 +792,7 @@ app.post('/api/notion/databases/:id/query', async (req, res) => {
       title: extractTitle(page),
       url: page.url,
       last_edited: page.last_edited_time,
+      properties: flattenNotionProperties(page.properties || {}),
     }))
     res.json({ pages, has_more: data.has_more, next_cursor: data.next_cursor })
   } catch (err) {
@@ -737,9 +810,72 @@ function extractTitle(page) {
   return 'Untitled'
 }
 
+// Flatten Notion property objects to plain values for callers (AI tools, UI) to use directly.
+// Unsupported/complex types fall through as null.
+function flattenNotionProperties(props) {
+  const out = {}
+  for (const [name, val] of Object.entries(props || {})) {
+    switch (val.type) {
+      case 'title':
+      case 'rich_text':
+        out[name] = (val[val.type] || []).map(t => t.plain_text).join('')
+        break
+      case 'number':
+        out[name] = val.number
+        break
+      case 'select':
+        out[name] = val.select?.name ?? null
+        break
+      case 'multi_select':
+        out[name] = (val.multi_select || []).map(s => s.name)
+        break
+      case 'status':
+        out[name] = val.status?.name ?? null
+        break
+      case 'date':
+        out[name] = val.date ? { start: val.date.start, end: val.date.end || null } : null
+        break
+      case 'checkbox':
+        out[name] = !!val.checkbox
+        break
+      case 'url':
+      case 'email':
+      case 'phone_number':
+        out[name] = val[val.type] ?? null
+        break
+      case 'people':
+        out[name] = (val.people || []).map(p => p.name || p.id)
+        break
+      case 'files':
+        out[name] = (val.files || []).map(f => f.name)
+        break
+      case 'relation':
+        out[name] = (val.relation || []).map(r => r.id)
+        break
+      case 'formula':
+        out[name] = val.formula?.[val.formula?.type] ?? null
+        break
+      case 'rollup':
+        out[name] = val.rollup?.[val.rollup?.type] ?? null
+        break
+      case 'created_time':
+      case 'last_edited_time':
+        out[name] = val[val.type] ?? null
+        break
+      case 'created_by':
+      case 'last_edited_by':
+        out[name] = val[val.type]?.name || val[val.type]?.id || null
+        break
+      default:
+        out[name] = null
+    }
+  }
+  return out
+}
+
 // Notion file upload (requires newer API version)
 app.post('/api/notion/file-uploads', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
     const { filename, content_type } = req.body
@@ -762,7 +898,7 @@ app.post('/api/notion/file-uploads', async (req, res) => {
 
 // Send file to a Notion file upload
 app.post('/api/notion/file-uploads/:id/send', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
     const { data, filename, content_type } = req.body
@@ -787,7 +923,7 @@ app.post('/api/notion/file-uploads/:id/send', async (req, res) => {
 
 // Append blocks to a Notion page (used for attaching uploaded files)
 app.post('/api/notion/blocks/:id/children', async (req, res) => {
-  const token = getNotionToken(req)
+  const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
     const response = await fetch(`${NOTION_BASE}/blocks/${req.params.id}/children`, {
@@ -1159,6 +1295,92 @@ app.get('/api/gcal/status', (req, res) => {
 
 app.post('/api/gcal/disconnect', (req, res) => {
   setData(GCAL_TOKENS_KEY, null)
+  res.json({ ok: true })
+})
+
+// --- Notion OAuth endpoints ---
+// User-scoped OAuth replaces the legacy internal-integration token model. Unlocks full workspace
+// access (no per-page integration connections required) and enables database queries.
+app.get('/api/notion/oauth/auth-url', (req, res) => {
+  const clientId = getNotionOAuthClientId(req)
+  if (!clientId) return res.status(400).json({ error: 'Notion OAuth Client ID not configured' })
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/notion/oauth/callback`
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    owner: 'user',
+  })
+  res.json({ url: `https://api.notion.com/v1/oauth/authorize?${params}` })
+})
+
+app.get('/api/notion/oauth/callback', async (req, res) => {
+  const { code, error } = req.query
+  if (error) return res.status(400).send(`OAuth error: ${error}`)
+  if (!code) return res.status(400).send('Missing authorization code')
+
+  const clientId = envNotionOAuthClientId
+  const clientSecret = envNotionOAuthClientSecret
+  if (!clientId || !clientSecret) return res.status(500).send('Notion OAuth credentials not configured on server')
+
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/notion/oauth/callback`
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+
+  try {
+    const tokenRes = await fetch('https://api.notion.com/v1/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${basicAuth}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+      }),
+    })
+    const tokenData = await tokenRes.json()
+    if (!tokenRes.ok) {
+      console.error('[Notion] Token exchange failed:', tokenData)
+      return res.status(400).send(`OAuth error: ${tokenData.error_description || tokenData.error || tokenData.message}`)
+    }
+
+    setData(NOTION_OAUTH_TOKENS_KEY, {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token || null,
+      expiry_date: tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : null,
+      workspace_id: tokenData.workspace_id,
+      workspace_name: tokenData.workspace_name,
+      workspace_icon: tokenData.workspace_icon,
+      bot_id: tokenData.bot_id,
+      owner: tokenData.owner,
+    })
+
+    res.send(`<!DOCTYPE html><html><body><script>
+      window.opener?.postMessage({ type: 'notion-connected' }, '*');
+      document.body.textContent = 'Connected to Notion! You can close this window.';
+    </script></body></html>`)
+  } catch (err) {
+    console.error('[Notion] Callback error:', err)
+    res.status(500).send('Failed to complete OAuth flow')
+  }
+})
+
+app.get('/api/notion/oauth/status', (req, res) => {
+  const tokens = getData(NOTION_OAUTH_TOKENS_KEY)
+  if (tokens?.access_token) {
+    res.json({
+      connected: true,
+      workspace_name: tokens.workspace_name || null,
+      workspace_icon: tokens.workspace_icon || null,
+    })
+  } else {
+    res.json({ connected: false })
+  }
+})
+
+app.post('/api/notion/oauth/disconnect', (req, res) => {
+  setData(NOTION_OAUTH_TOKENS_KEY, null)
   res.json({ ok: true })
 })
 
@@ -2310,7 +2532,7 @@ const adviserAbortMap = new Map() // sessionId -> AbortController
 function adviserDeps(req) {
   return {
     anthropicKey: getAnthropicKey(req),
-    notionToken: getNotionToken(req),
+    notionToken: getLegacyNotionToken(req), // sync fallback; OAuth token populated after via getNotionAccessToken
     trello: getTrelloAuth(req),
     gcalToken: null, // filled in async before tools that need it
     syncGmail,
@@ -2360,7 +2582,7 @@ function adviserSystemPrompt() {
   const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' })
   const gcalConnected = !!getData(GCAL_TOKENS_KEY)?.refresh_token
   const gmailConnected = !!getData(GMAIL_TOKENS_KEY)?.refresh_token
-  const notionConnected = !!envNotionToken
+  const notionConnected = !!(getData(NOTION_OAUTH_TOKENS_KEY)?.access_token || envNotionToken)
   const trelloConnected = !!(envTrelloKey && envTrelloToken)
   const trackingConnected = !!getTrackingApiKey()
   return `You are Quokka, the cheerful AI adviser for Boomerang — an ADHD task manager PWA. Today is ${today} (${dayOfWeek}). You are named after the quokka (a small, smiley Australian marsupial that looks like it's always having a good day); lean into a warm, upbeat, down-to-earth tone without being cloying. The very occasional Aussie flavor ("no worries", "on ya") is fine but don't overdo it.
@@ -2485,6 +2707,10 @@ app.post('/api/adviser/chat', async (req, res) => {
   try {
     deps.gcalToken = await getGCalAccessToken()
   } catch { /* non-fatal */ }
+  try {
+    const oauth = await getNotionAccessToken(req)
+    if (oauth) deps.notionToken = oauth
+  } catch { /* non-fatal */ }
 
   const abortController = new AbortController()
   adviserAbortMap.set(sessionId, abortController)
@@ -2601,6 +2827,10 @@ app.post('/api/adviser/commit', async (req, res) => {
 
   const deps = adviserDeps(req)
   try { deps.gcalToken = await getGCalAccessToken() } catch { /* non-fatal */ }
+  try {
+    const oauth = await getNotionAccessToken(req)
+    if (oauth) deps.notionToken = oauth
+  } catch { /* non-fatal */ }
 
   const outcome = await commitPlan(sessionId, deps)
   if (outcome.broadcastNeeded) {

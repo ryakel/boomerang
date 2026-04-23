@@ -4,6 +4,21 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-04-23
+
+- feat(notion): OAuth auth + database-query tool — Stage 1 of MCP migration [M]
+  - **Why.** The legacy internal-integration token model requires every page/database to be explicitly shared with the integration via Connections, and doesn't expose database-row querying through Quokka. Blocks both the unified-workspace-access goal and concrete use cases like surfacing filament-inventory rows inside the app.
+  - **OAuth connection.** New `/api/notion/oauth/auth-url`, `/api/notion/oauth/callback`, `/api/notion/oauth/status`, `/api/notion/oauth/disconnect`. Server-side token storage at `app_data.notion_oauth_tokens` mirrors the GCal pattern (access + refresh + expiry). Client-side popup flow in Settings listens for `notion-connected` postMessage and refreshes status.
+  - **Token resolution precedence.** `getNotionAccessToken(req)` prefers the OAuth access token (refreshing with 5-min buffer via HTTP Basic auth against `https://api.notion.com/v1/oauth/token`), falling back to the legacy integration token (`x-notion-token` header / `NOTION_INTEGRATION_TOKEN` env). All 13 existing `/api/notion/*` endpoints now use the async resolver, so switching to OAuth requires zero changes to existing sync code paths.
+  - **Database queries, flattened.** `/api/notion/databases/:id/query` now returns `properties` as a plain flat map (title/rich_text → string, number → number, select/multi_select/status → name(s), date → {start, end}, checkbox → bool, etc.) via a new `flattenNotionProperties()` helper, so callers don't have to re-interpret Notion's property schema.
+  - **Quokka tool.** New `notion_query_database` tool in `adviserToolsIntegrations.js` with the same flattened-property shape. Accepts `database_id`, optional Notion `filter` / `sorts` / `page_size` / `start_cursor`. 50 tools now (was 49).
+  - **Settings UI.** The Notion block leads with an OAuth "Connect with Notion" button (when `NOTION_OAUTH_CLIENT_ID` + `NOTION_OAUTH_CLIENT_SECRET` are configured via env). Legacy integration-token path is collapsed under a "Use a legacy integration token instead" disclosure. Users with a legacy token connected see an "Upgrade to OAuth" nudge with an explanation of the per-page-sharing limitation.
+  - **Sequencing.** This is Stage 1 of three. Stage 2 will migrate Quokka's 4 Notion tools (`notion_search`, `notion_get_page`, `notion_create_page`, `notion_update_page`) to call the hosted Notion MCP server via an MCP client, building reusable MCP-client infrastructure. Stage 3 will migrate `useNotionSync` + `useExternalSync` + the server REST proxy to MCP, deleting the legacy Notion REST code. After Stage 1 alone, both goals (no per-page-sharing friction, database queries) are already met for OAuth-connected users; stages 2-3 are architectural purity rather than user-visible capability.
+  - Env vars: `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET` (new). Legacy `NOTION_INTEGRATION_TOKEN` still honored.
+  - Modified: `server.js`, `adviserToolsIntegrations.js`, `src/api.js`, `src/components/Settings.jsx`, `CLAUDE.md`, `wiki/Architecture.md`, `wiki/Features.md`
+
+---
+
 ## 2026-04-22
 
 - feat(adviser): multi-part tasks + research tool + web search + checklist cruft cleanup [L]

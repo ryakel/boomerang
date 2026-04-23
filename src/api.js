@@ -497,6 +497,18 @@ export async function notionStatus() {
   }
 }
 
+export async function notionOAuthAuthUrl() {
+  const res = await fetch('/api/notion/oauth/auth-url', { headers: getApiHeaders() })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to get auth URL')
+  return res.json()
+}
+
+export async function notionOAuthDisconnect() {
+  const res = await fetch('/api/notion/oauth/disconnect', { method: 'POST', headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to disconnect')
+  return res.json()
+}
+
 export async function getKeyStatus() {
   try {
     const res = await fetch('/api/keys/status')
@@ -505,6 +517,7 @@ export async function getKeyStatus() {
     return {
       anthropic: !!data.anthropic,
       notion: !!data.notion,
+      notion_oauth: !!data.notion_oauth,
       trello: !!data.trello,
       gcal: !!data.gcal,
       tracking: !!data.tracking,
