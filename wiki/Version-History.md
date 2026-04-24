@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-23
 
+- fix(docker): include notionMCP.js in production image [XS]
+  - Stage 2's `notionMCP.js` was missing from the Dockerfile's explicit `COPY` list, so the production container crashed on startup with `ERR_MODULE_NOT_FOUND: Cannot find module '/app/notionMCP.js'`. Pre-push smoke test didn't catch it because it runs `node server.js` from the full repo checkout (where the file exists), not against a built Docker image. Added `notionMCP.js` to line 24.
+  - Modified: `Dockerfile`, `wiki/Version-History.md`
+
 - feat(notion): MCP client — Stage 2 of MCP migration [L]
   - **Why.** Stage 1's public-integration OAuth required the user to register a Notion "Public" integration (privacy policy, TOS, support email, etc.) — absurd friction for a personal self-hosted app. Notion's hosted MCP server sidesteps this entirely: it uses OAuth 2.0 + PKCE + Dynamic Client Registration (RFC 7591), so the client registers itself programmatically at the first auth attempt. No app pre-registration, no public-integration red tape.
   - **New module `notionMCP.js`.** Wraps `@modelcontextprotocol/sdk` v1.29. Implements `OAuthClientProvider` backed by `app_data` (three keys: `notion_mcp_client` for DCR result, `notion_mcp_tokens` for access/refresh, `notion_mcp_pkce` for transient PKCE state). Singleton `Client` + `StreamableHTTPClientTransport` against `https://mcp.notion.com/mcp`. Lazy reconnect, `autoReconnect()` on server startup if tokens exist.
