@@ -76,6 +76,20 @@ function getLegacyNotionToken(req) {
 // Preferred: returns OAuth access token (refreshed if expired), else falls back to legacy integration token.
 // Async because OAuth refresh may require a token exchange round-trip.
 async function getNotionAccessToken(req) {
+  // 1. MCP-issued token (Stage 2 OAuth via Notion's hosted MCP). Notion issues a standard
+  //    OAuth access token through the MCP DCR flow, which is also valid for direct REST API
+  //    calls. Using it here gives every REST endpoint user-scoped access automatically,
+  //    eliminating the "database not shared with integration" errors for MCP-connected users.
+  const mcpTokens = getData('notion_mcp_tokens')
+  if (mcpTokens?.access_token) {
+    if (!mcpTokens.expires_in || !mcpTokens.saved_at || (Date.now() < (mcpTokens.saved_at + mcpTokens.expires_in * 1000 - 300000))) {
+      return mcpTokens.access_token
+    }
+    // Token may be stale; the MCP SDK refreshes on its own cadence. Fall through to other paths
+    // rather than trying to refresh it ourselves (the MCP client handles refresh via its provider).
+  }
+
+  // 2. Stage 1 public-integration OAuth token
   const tokens = getData(NOTION_OAUTH_TOKENS_KEY)
   if (tokens?.access_token) {
     // If no expiry (Notion legacy long-lived tokens) or still valid with 5-min buffer, reuse.

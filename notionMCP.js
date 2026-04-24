@@ -63,7 +63,8 @@ class NotionMCPProvider {
   }
 
   async saveTokens(t) {
-    deps.setData(TOKENS_KEY, t)
+    // Stamp saved_at so the resolver in server.js can compute staleness.
+    deps.setData(TOKENS_KEY, { ...t, saved_at: Date.now() })
   }
 
   async redirectToAuthorization(url) {

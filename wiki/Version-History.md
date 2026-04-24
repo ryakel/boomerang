@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-23
 
+- fix(notion): let MCP OAuth token back all REST endpoints [XS]
+  - Symptom: after connecting via MCP, Quokka would find the filament database via `notion_mcp_notion_search` (user-scoped access works) but then fall through to the REST `notion_query_database` tool, which was hitting the legacy integration token and returning "database not shared with integration" errors. MCP and REST were authing separately.
+  - Fix: `getNotionAccessToken(req)` in `server.js` now checks `notion_mcp_tokens.access_token` first. Notion's MCP flow issues a standard OAuth access token (via Dynamic Client Registration), which is also valid as a bearer token against Notion's REST API — so every REST endpoint + Quokka's REST-backed tools now inherit MCP's user-scoped access automatically.
+  - `notionMCP.js` now stamps `saved_at: Date.now()` on every token save so the server-side resolver can decide freshness without duplicating the MCP SDK's refresh logic. The SDK still owns refresh; the resolver just avoids using obviously-stale tokens.
+  - Modified: `server.js`, `notionMCP.js`
+
 - fix(docker): include notionMCP.js in production image [XS]
   - Stage 2's `notionMCP.js` was missing from the Dockerfile's explicit `COPY` list, so the production container crashed on startup with `ERR_MODULE_NOT_FOUND: Cannot find module '/app/notionMCP.js'`. Pre-push smoke test didn't catch it because it runs `node server.js` from the full repo checkout (where the file exists), not against a built Docker image. Added `notionMCP.js` to line 24.
   - Modified: `Dockerfile`, `wiki/Version-History.md`
