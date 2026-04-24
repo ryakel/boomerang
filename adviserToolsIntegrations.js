@@ -261,52 +261,10 @@ function parseContentToBlocks(content) {
 }
 
 export function registerNotionTools() {
-  registerTool({
-    name: 'notion_search',
-    description: 'Search Notion pages accessible to the integration. Returns id, title, url, last_edited.',
-    readOnly: true,
-    schema: {
-      type: 'object',
-      properties: { query: { type: 'string' }, limit: { type: 'integer', default: 10 } },
-    },
-    execute: async (args, deps) => {
-      ensure(deps.notionToken, 'Notion not connected')
-      const data = await httpJson(`${NOTION_BASE}/search`, {
-        method: 'POST', headers: notionHeaders(deps.notionToken),
-        body: JSON.stringify({ query: args.query || '', filter: { property: 'object', value: 'page' }, page_size: args.limit || 10 }),
-      }, 'Notion search')
-      const pages = (data.results || []).map(p => ({ id: p.id, title: extractNotionTitle(p), url: p.url, last_edited: p.last_edited_time }))
-      return { result: { count: pages.length, pages } }
-    },
-  })
-
-  registerTool({
-    name: 'notion_get_page',
-    description: 'Fetch a Notion page\'s content as plain text (headings, lists, checkboxes normalized to markdown).',
-    readOnly: true,
-    schema: {
-      type: 'object',
-      properties: { page_id: { type: 'string' } },
-      required: ['page_id'],
-    },
-    execute: async ({ page_id }, deps) => {
-      ensure(deps.notionToken, 'Notion not connected')
-      const data = await httpJson(`${NOTION_BASE}/blocks/${page_id}/children?page_size=100`, {
-        headers: notionHeaders(deps.notionToken),
-      }, 'Notion blocks')
-      const plainText = (data.results || []).map(b => {
-        const c = b[b.type]
-        if (!c?.rich_text) return ''
-        const text = c.rich_text.map(r => r.plain_text).join('')
-        if (b.type === 'heading_1') return `# ${text}`
-        if (b.type === 'heading_2') return `## ${text}`
-        if (b.type === 'bulleted_list_item') return `- ${text}`
-        if (b.type === 'to_do') return `- [${c.checked ? 'x' : ' '}] ${text}`
-        return text
-      }).filter(Boolean).join('\n')
-      return { result: { page_id, plainText } }
-    },
-  })
+  // notion_search + notion_get_page used to live here but are now covered by the Notion MCP
+  // tools bridged into the registry (notion_mcp_search / notion_mcp_fetch). Keeping both led
+  // to the model picking the REST tool unpredictably; MCP's native tools do the same job with
+  // user-scoped workspace access, so the REST duplicates are gone.
 
   registerTool({
     name: 'notion_query_database',

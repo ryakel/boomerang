@@ -497,18 +497,6 @@ export async function notionStatus() {
   }
 }
 
-export async function notionOAuthAuthUrl() {
-  const res = await fetch('/api/notion/oauth/auth-url', { headers: getApiHeaders() })
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to get auth URL')
-  return res.json()
-}
-
-export async function notionOAuthDisconnect() {
-  const res = await fetch('/api/notion/oauth/disconnect', { method: 'POST', headers: getApiHeaders() })
-  if (!res.ok) throw new Error('Failed to disconnect')
-  return res.json()
-}
-
 export async function notionMCPConnect() {
   const res = await fetch('/api/notion/mcp/connect', { method: 'POST', headers: getApiHeaders() })
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to start MCP auth')
@@ -538,7 +526,6 @@ export async function getKeyStatus() {
     return {
       anthropic: !!data.anthropic,
       notion: !!data.notion,
-      notion_oauth: !!data.notion_oauth,
       trello: !!data.trello,
       gcal: !!data.gcal,
       tracking: !!data.tracking,
@@ -1215,57 +1202,65 @@ export async function adviserAbort(sessionId) {
   }).catch(() => {})
 }
 
-// Thread persistence (server-side storage, NOT localStorage — iOS evicts that
-// too aggressively on inactive PWAs).
+// Chats: multi-thread Quokka conversations with 30-day rolling TTL + star-to-keep.
+// Storage is server-side (app_data) — iOS evicts PWA localStorage too aggressively.
 
-export async function adviserGetThread() {
+export async function adviserListChats() {
   try {
-    const res = await fetch('/api/adviser/thread')
-    if (!res.ok) return { messages: [], sessionId: null }
+    const res = await fetch('/api/adviser/chats')
+    if (!res.ok) return { chats: [], activeId: null }
     return res.json()
-  } catch {
-    return { messages: [], sessionId: null }
-  }
+  } catch { return { chats: [], activeId: null } }
 }
 
-export async function adviserSaveThread({ messages, sessionId }) {
+export async function adviserGetActiveChat() {
   try {
-    await fetch('/api/adviser/thread', {
-      method: 'POST',
+    const res = await fetch('/api/adviser/chats/active')
+    if (!res.ok) return { chat: null }
+    return res.json()
+  } catch { return { chat: null } }
+}
+
+export async function adviserGetChat(id) {
+  const res = await fetch(`/api/adviser/chats/${encodeURIComponent(id)}`)
+  if (!res.ok) throw new Error(`Chat fetch failed: ${res.status}`)
+  return res.json()
+}
+
+export async function adviserCreateChat() {
+  const res = await fetch('/api/adviser/chats', { method: 'POST' })
+  if (!res.ok) throw new Error(`Chat create failed: ${res.status}`)
+  return res.json()
+}
+
+export async function adviserUpdateChat(id, { messages, sessionId, title } = {}) {
+  try {
+    await fetch(`/api/adviser/chats/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, sessionId }),
+      body: JSON.stringify({ messages, sessionId, title }),
     })
   } catch { /* best-effort */ }
 }
 
-export async function adviserClearThread() {
-  try {
-    await fetch('/api/adviser/thread', { method: 'DELETE' })
-  } catch { /* best-effort */ }
+export async function adviserDeleteChat(id) {
+  await fetch(`/api/adviser/chats/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {})
 }
 
-// Thread archive / history
-
-export async function adviserListArchive() {
-  try {
-    const res = await fetch('/api/adviser/archive')
-    if (!res.ok) return []
-    return res.json()
-  } catch { return [] }
-}
-
-export async function adviserGetArchivedThread(id) {
-  const res = await fetch(`/api/adviser/archive/${encodeURIComponent(id)}`)
-  if (!res.ok) throw new Error(`Archive fetch failed: ${res.status}`)
+export async function adviserActivateChat(id) {
+  const res = await fetch(`/api/adviser/chats/${encodeURIComponent(id)}/activate`, { method: 'POST' })
+  if (!res.ok) throw new Error(`Activate failed: ${res.status}`)
   return res.json()
 }
 
-export async function adviserDeleteArchivedThread(id) {
-  await fetch(`/api/adviser/archive/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {})
+export async function adviserStarChat(id) {
+  const res = await fetch(`/api/adviser/chats/${encodeURIComponent(id)}/star`, { method: 'POST' })
+  if (!res.ok) throw new Error(`Star failed: ${res.status}`)
+  return res.json()
 }
 
-export async function adviserRehydrateThread(id) {
-  const res = await fetch(`/api/adviser/archive/${encodeURIComponent(id)}/rehydrate`, { method: 'POST' })
-  if (!res.ok) throw new Error(`Rehydrate failed: ${res.status}`)
+export async function adviserUnstarChat(id) {
+  const res = await fetch(`/api/adviser/chats/${encodeURIComponent(id)}/unstar`, { method: 'POST' })
+  if (!res.ok) throw new Error(`Unstar failed: ${res.status}`)
   return res.json()
 }

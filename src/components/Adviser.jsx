@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Send, StopCircle, RotateCcw, CheckCircle2, XCircle, Loader2, History, Trash2 } from 'lucide-react'
+import { Sparkles, Send, StopCircle, CheckCircle2, XCircle, Loader2, History, Trash2, Plus, Star, AlertCircle } from 'lucide-react'
 import { renderMarkdown } from '../utils/renderMarkdown'
 import './Adviser.css'
 
@@ -10,54 +10,26 @@ const PROMPT_SUGGESTIONS = [
   'Clean up tasks that have been sitting over 30 days',
 ]
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
 export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) {
-  // Adviser state is owned by App so the thread survives modal close/reopen.
   const {
     messages, status, lastError,
-    send, commit, abort, reset,
-    listArchive, rehydrate, deleteArchived,
+    send, commit, abort,
+    chats, activeId, activeChat,
+    newChat, switchChat, deleteChat, starChat, unstarChat,
   } = adviser
   const [input, setInput] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  const [archive, setArchive] = useState(null) // null = not loaded
-  const [archiveLoading, setArchiveLoading] = useState(false)
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
 
-  const openHistory = async () => {
-    setShowHistory(true)
-    setArchiveLoading(true)
-    try {
-      const list = await listArchive()
-      setArchive(list)
-    } finally {
-      setArchiveLoading(false)
-    }
-  }
-
-  const handleRehydrate = async (id) => {
-    const ok = await rehydrate(id)
-    if (ok) setShowHistory(false)
-  }
-
-  const handleDeleteArchived = async (id) => {
-    await deleteArchived(id)
-    setArchive(prev => (prev || []).filter(t => t.id !== id))
-  }
-
-  // Auto-scroll to bottom on new content
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, status])
 
-  // Focus input on mount
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+  useEffect(() => { inputRef.current?.focus() }, [activeId])
 
-  // Auto-grow the textarea with its content, capped at max-height via CSS
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
@@ -65,11 +37,8 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
     el.style.height = `${el.scrollHeight}px`
   }, [input])
 
-  // After a successful commit, give the app a tick then call onAfterCommit
   useEffect(() => {
-    if (status === 'committed' && onAfterCommit) {
-      onAfterCommit()
-    }
+    if (status === 'committed' && onAfterCommit) onAfterCommit()
   }, [status, onAfterCommit])
 
   const streaming = status === 'streaming'
@@ -91,29 +60,31 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
     }
   }
 
-  const historyPanel = showHistory ? (
-    <HistoryPanel
-      archive={archive}
-      loading={archiveLoading}
-      onRehydrate={handleRehydrate}
-      onDelete={handleDeleteArchived}
-      onClose={() => setShowHistory(false)}
-    />
-  ) : null
+  const handleNewChat = async () => {
+    await newChat()
+    setShowHistory(false)
+  }
+
+  const handleSwitch = async (id) => {
+    await switchChat(id)
+    setShowHistory(false)
+  }
 
   const headerActions = (
     <div className="adviser-header-actions">
-      <button className="adviser-reset-btn" onClick={openHistory} title="Past chats" aria-label="Past chats">
+      <button className="adviser-reset-btn" onClick={() => setShowHistory(v => !v)} title="Chats" aria-label="Chats">
         <History size={16} />
       </button>
-      <button className="adviser-reset-btn" onClick={reset} title="Start over" aria-label="Start over">
-        <RotateCcw size={16} />
+      <button className="adviser-reset-btn" onClick={handleNewChat} title="New chat" aria-label="New chat">
+        <Plus size={16} />
       </button>
     </div>
   )
 
   const body = (
     <>
+      {activeChat && <ExpiryBanner chat={activeChat} onStar={() => starChat(activeChat.id)} />}
+
       <div className="adviser-messages" ref={scrollRef}>
         {messages.length === 0 && (
           <div className="adviser-empty">
@@ -131,9 +102,7 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
             </div>
           </div>
         )}
-        {messages.map((m, i) => (
-          <MessageBubble key={i} message={m} />
-        ))}
+        {messages.map((m, i) => <MessageBubble key={i} message={m} />)}
         {streaming && (
           <div className="adviser-status">
             <Loader2 size={14} className="adviser-spinner" />
@@ -166,8 +135,8 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
       {status === 'committed' && (
         <div className="adviser-committed-bar">
           <CheckCircle2 size={16} />
-          <span>Changes applied. You can ask for more or start over.</span>
-          <button className="adviser-inline-btn" onClick={reset}>new chat</button>
+          <span>Changes applied. You can ask for more or start a fresh chat.</span>
+          <button className="adviser-inline-btn" onClick={handleNewChat}>new chat</button>
         </div>
       )}
 
@@ -189,6 +158,19 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
     </>
   )
 
+  const panel = showHistory ? (
+    <ChatListPanel
+      chats={chats}
+      activeId={activeId}
+      onSwitch={handleSwitch}
+      onDelete={deleteChat}
+      onStar={starChat}
+      onUnstar={unstarChat}
+      onNew={handleNewChat}
+      onClose={() => setShowHistory(false)}
+    />
+  ) : null
+
   if (isDesktop) {
     return (
       <div className="sheet-overlay" onClick={onClose}>
@@ -201,7 +183,7 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
             </div>
             {headerActions}
           </div>
-          {showHistory ? historyPanel : body}
+          {showHistory ? panel : body}
         </div>
       </div>
     )
@@ -217,43 +199,84 @@ export default function Adviser({ adviser, onClose, isDesktop, onAfterCommit }) 
         </div>
         {headerActions}
       </div>
-      {showHistory ? historyPanel : body}
+      {showHistory ? panel : body}
     </div>
   )
 }
 
-function HistoryPanel({ archive, loading, onRehydrate, onDelete, onClose }) {
+function daysUntil(ts) {
+  if (ts == null) return null
+  return Math.ceil((ts - Date.now()) / DAY_MS)
+}
+
+// Banner shown above the messages area when the active chat is approaching expiry and
+// isn't starred. Threshold at 7 days covers both the normal 30d TTL winding down AND the
+// explicit 7-day grace period after unstarring.
+function ExpiryBanner({ chat, onStar }) {
+  if (chat.starred || chat.expiresAt == null) return null
+  const days = daysUntil(chat.expiresAt)
+  if (days == null || days > 7) return null
+  return (
+    <div className="adviser-expiry-banner">
+      <AlertCircle size={14} />
+      <span>
+        This chat will be deleted in {days <= 0 ? 'less than a day' : `${days} day${days !== 1 ? 's' : ''}`}.
+      </span>
+      <button className="adviser-inline-btn" onClick={onStar}>star to keep</button>
+    </div>
+  )
+}
+
+function ChatListPanel({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew, onClose }) {
   return (
     <div className="adviser-history">
       <div className="adviser-history-header">
-        <div className="adviser-history-title">Past chats</div>
-        <button className="adviser-inline-btn" onClick={onClose}>← back to chat</button>
+        <div className="adviser-history-title">Chats</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="adviser-inline-btn" onClick={onNew}>+ new</button>
+          <button className="adviser-inline-btn" onClick={onClose}>← back</button>
+        </div>
       </div>
       <div className="adviser-history-list">
-        {loading && (
-          <div className="adviser-status">
-            <Loader2 size={14} className="adviser-spinner" />
-            <span>loading…</span>
-          </div>
-        )}
-        {!loading && archive && archive.length === 0 && (
+        {chats.length === 0 && (
           <div className="adviser-history-empty">
-            No past chats yet. They appear here automatically when you hit "Start over" or when a chat has been idle for 24 hours.
+            No chats yet. Start a conversation and it'll appear here.
           </div>
         )}
-        {!loading && archive && archive.map(t => (
-          <div key={t.id} className="adviser-history-item">
-            <button className="adviser-history-row" onClick={() => onRehydrate(t.id)}>
-              <div className="adviser-history-row-title">{t.title}</div>
-              <div className="adviser-history-row-meta">
-                {new Date(t.archivedAt).toLocaleString()} · {t.messageCount} message{t.messageCount !== 1 ? 's' : ''}
-              </div>
-            </button>
-            <button className="adviser-history-delete" onClick={() => onDelete(t.id)} aria-label="Delete" title="Delete">
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
+        {chats.map(c => {
+          const days = daysUntil(c.expiresAt)
+          const expiring = !c.starred && days != null && days <= 7
+          return (
+            <div key={c.id} className={`adviser-history-item${c.id === activeId ? ' is-active' : ''}`}>
+              <button className="adviser-history-row" onClick={() => onSwitch(c.id)}>
+                <div className="adviser-history-row-title">
+                  {c.id === activeId && <span className="adviser-history-active-dot">●</span>}
+                  {c.title}
+                </div>
+                <div className="adviser-history-row-meta">
+                  {new Date(c.updatedAt).toLocaleString()} · {c.messageCount} msg{c.messageCount !== 1 ? 's' : ''}
+                  {c.starred && <span className="adviser-history-starred"> · ⭐ starred</span>}
+                  {expiring && (
+                    <span className="adviser-history-expiring">
+                      {' · '}expires in {days <= 0 ? '<1' : days}d
+                    </span>
+                  )}
+                </div>
+              </button>
+              <button
+                className="adviser-history-delete"
+                onClick={() => c.starred ? onUnstar(c.id) : onStar(c.id)}
+                aria-label={c.starred ? 'Unstar' : 'Star'}
+                title={c.starred ? 'Unstar (7-day grace)' : 'Star to keep'}
+              >
+                <Star size={14} fill={c.starred ? 'currentColor' : 'none'} />
+              </button>
+              <button className="adviser-history-delete" onClick={() => onDelete(c.id)} aria-label="Delete" title="Delete">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

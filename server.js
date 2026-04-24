@@ -37,8 +37,6 @@ const appVersion = process.env.APP_VERSION || 'dev'
 // --- Environment (fallback keys — user can override via UI) ---
 let envApiKey = process.env.ANTHROPIC_API_KEY
 let envNotionToken = process.env.NOTION_INTEGRATION_TOKEN
-let envNotionOAuthClientId = process.env.NOTION_OAUTH_CLIENT_ID
-let envNotionOAuthClientSecret = process.env.NOTION_OAUTH_CLIENT_SECRET
 let envTrelloKey = process.env.TRELLO_API_KEY
 let envTrelloToken = process.env.TRELLO_SECRET
 let envGoogleClientId = process.env.GOOGLE_CLIENT_ID
@@ -52,8 +50,6 @@ if (existsSync('.env')) {
   const envFile = readFileSync('.env', 'utf-8')
   envApiKey = envApiKey || envFile.match(/(?:VITE_)?ANTHROPIC_API_KEY="?([^"\n]+)"?/)?.[1]
   envNotionToken = envNotionToken || envFile.match(/NOTION_INTEGRATION_TOKEN="?([^"\n]+)"?/)?.[1]
-  envNotionOAuthClientId = envNotionOAuthClientId || envFile.match(/NOTION_OAUTH_CLIENT_ID="?([^"\n]+)"?/)?.[1]
-  envNotionOAuthClientSecret = envNotionOAuthClientSecret || envFile.match(/NOTION_OAUTH_CLIENT_SECRET="?([^"\n]+)"?/)?.[1]
   envTrelloKey = envTrelloKey || envFile.match(/TRELLO_API_KEY="?([^"\n]+)"?/)?.[1]
   envTrelloToken = envTrelloToken || envFile.match(/TRELLO_SECRET="?([^"\n]+)"?/)?.[1]
   envGoogleClientId = envGoogleClientId || envFile.match(/GOOGLE_CLIENT_ID="?([^"\n]+)"?/)?.[1]
@@ -68,47 +64,26 @@ function getAnthropicKey(req) {
   return req.headers['x-anthropic-key'] || envApiKey || null
 }
 
-// Legacy integration token (pre-OAuth). Prefer getNotionAccessToken() for new code.
+// Legacy integration token (pre-MCP). Prefer getNotionAccessToken() for new code.
 function getLegacyNotionToken(req) {
   return req?.headers?.['x-notion-token'] || envNotionToken || null
 }
 
-// Preferred: returns OAuth access token (refreshed if expired), else falls back to legacy integration token.
-// Async because OAuth refresh may require a token exchange round-trip.
+// Preferred: returns the Notion OAuth access token (via MCP) when connected, else falls back to
+// the legacy integration token. Async because token refresh may require a round-trip.
 async function getNotionAccessToken(req) {
-  // 1. MCP-issued token (Stage 2 OAuth via Notion's hosted MCP). Notion issues a standard
-  //    OAuth access token through the MCP DCR flow, which is also valid for direct REST API
-  //    calls. Using it here gives every REST endpoint user-scoped access automatically,
-  //    eliminating the "database not shared with integration" errors for MCP-connected users.
+  // MCP-issued token (Stage 2 OAuth via Notion's hosted MCP). Notion issues a standard OAuth
+  // access token through the MCP DCR flow, which is also valid for direct REST API calls —
+  // so every REST endpoint inherits MCP's user-scoped workspace access automatically.
   const mcpTokens = getData('notion_mcp_tokens')
   if (mcpTokens?.access_token) {
     if (!mcpTokens.expires_in || !mcpTokens.saved_at || (Date.now() < (mcpTokens.saved_at + mcpTokens.expires_in * 1000 - 300000))) {
       return mcpTokens.access_token
     }
-    // Token may be stale; the MCP SDK refreshes on its own cadence. Fall through to other paths
-    // rather than trying to refresh it ourselves (the MCP client handles refresh via its provider).
-  }
-
-  // 2. Stage 1 public-integration OAuth token
-  const tokens = getData(NOTION_OAUTH_TOKENS_KEY)
-  if (tokens?.access_token) {
-    // If no expiry (Notion legacy long-lived tokens) or still valid with 5-min buffer, reuse.
-    if (!tokens.expiry_date || Date.now() < tokens.expiry_date - 300000) {
-      return tokens.access_token
-    }
-    // Need to refresh
-    if (tokens.refresh_token) {
-      const refreshed = await refreshNotionToken(tokens.refresh_token)
-      if (refreshed) return refreshed
-    }
-    // Refresh failed; if token is still technically unexpired (some tokens stay valid past expiry_date), try it
-    if (tokens.access_token) return tokens.access_token
+    // Token may be stale; the MCP SDK refreshes on its own cadence via the provider.
+    // Fall through rather than duplicating refresh logic here.
   }
   return getLegacyNotionToken(req)
-}
-
-function getNotionOAuthClientId(req) {
-  return req?.headers?.['x-notion-oauth-client-id'] || envNotionOAuthClientId || null
 }
 
 function getTrelloAuth(req) {
@@ -161,37 +136,6 @@ async function getGCalAccessToken() {
   return tokens.access_token
 }
 
-// Notion OAuth token management — user-scoped OAuth replaces the legacy internal-integration token.
-// Unlocks full workspace access (no per-page integration connections required) and database queries.
-const NOTION_OAUTH_TOKENS_KEY = 'notion_oauth_tokens'
-
-async function refreshNotionToken(refreshToken) {
-  const clientId = envNotionOAuthClientId
-  const clientSecret = envNotionOAuthClientSecret
-  if (!clientId || !clientSecret) return null
-
-  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-  const res = await fetch('https://api.notion.com/v1/oauth/token', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${basicAuth}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: refreshToken }),
-  })
-  const data = await res.json()
-  if (!res.ok) {
-    console.error('[Notion] Token refresh failed:', data.error_description || data.error || data.message)
-    return null
-  }
-  const tokens = getData(NOTION_OAUTH_TOKENS_KEY) || {}
-  tokens.access_token = data.access_token
-  if (data.refresh_token) tokens.refresh_token = data.refresh_token
-  if (data.expires_in) tokens.expiry_date = Date.now() + data.expires_in * 1000
-  setData(NOTION_OAUTH_TOKENS_KEY, tokens)
-  return tokens.access_token
-}
-
 // --- Server log capture (circular buffer) ---
 const LOG_BUFFER_MAX = 500
 const serverLogs = []
@@ -239,7 +183,6 @@ app.get('/api/keys/status', (req, res) => {
   res.json({
     anthropic: !!envApiKey,
     notion: !!envNotionToken,
-    notion_oauth: !!(envNotionOAuthClientId && envNotionOAuthClientSecret),
     trello: !!(envTrelloKey && envTrelloToken),
     gcal: !!(envGoogleClientId && envGoogleClientSecret),
     tracking: !!getTrackingApiKey(),
@@ -687,24 +630,25 @@ app.patch('/api/notion/pages/:id', async (req, res) => {
 })
 
 app.get('/api/notion/status', async (req, res) => {
-  const oauthTokens = getData(NOTION_OAUTH_TOKENS_KEY)
-  const oauthActive = !!oauthTokens?.access_token
+  // Reports whether *any* Notion auth path resolves to a working token — used by Settings UI
+  // as a quick "is there anything working at all" indicator. MCP connection status has its
+  // own dedicated endpoint at /api/notion/mcp/status.
+  const mcpActive = !!getData('notion_mcp_tokens')?.access_token
   const legacyActive = !!getLegacyNotionToken(req)
   const token = await getNotionAccessToken(req)
-  if (!token) return res.json({ connected: false, auth: null, oauth: false, legacy: false })
+  if (!token) return res.json({ connected: false, auth: null, mcp: false, legacy: false })
   try {
     const response = await fetch(`${NOTION_BASE}/users/me`, { headers: makeNotionHeaders(token) })
     const data = await response.json()
     res.json({
       connected: response.ok,
-      auth: oauthActive ? 'oauth' : 'legacy',
-      oauth: oauthActive,
+      auth: mcpActive ? 'mcp' : 'legacy',
+      mcp: mcpActive,
       legacy: legacyActive,
-      workspace_name: oauthTokens?.workspace_name || null,
       bot: data.name || data.bot?.owner?.user?.name,
     })
   } catch {
-    res.json({ connected: false, auth: null, oauth: oauthActive, legacy: legacyActive })
+    res.json({ connected: false, auth: null, mcp: mcpActive, legacy: legacyActive })
   }
 })
 
@@ -1310,92 +1254,6 @@ app.get('/api/gcal/status', (req, res) => {
 
 app.post('/api/gcal/disconnect', (req, res) => {
   setData(GCAL_TOKENS_KEY, null)
-  res.json({ ok: true })
-})
-
-// --- Notion OAuth endpoints ---
-// User-scoped OAuth replaces the legacy internal-integration token model. Unlocks full workspace
-// access (no per-page integration connections required) and enables database queries.
-app.get('/api/notion/oauth/auth-url', (req, res) => {
-  const clientId = getNotionOAuthClientId(req)
-  if (!clientId) return res.status(400).json({ error: 'Notion OAuth Client ID not configured' })
-  const redirectUri = `${req.protocol}://${req.get('host')}/api/notion/oauth/callback`
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    owner: 'user',
-  })
-  res.json({ url: `https://api.notion.com/v1/oauth/authorize?${params}` })
-})
-
-app.get('/api/notion/oauth/callback', async (req, res) => {
-  const { code, error } = req.query
-  if (error) return res.status(400).send(`OAuth error: ${error}`)
-  if (!code) return res.status(400).send('Missing authorization code')
-
-  const clientId = envNotionOAuthClientId
-  const clientSecret = envNotionOAuthClientSecret
-  if (!clientId || !clientSecret) return res.status(500).send('Notion OAuth credentials not configured on server')
-
-  const redirectUri = `${req.protocol}://${req.get('host')}/api/notion/oauth/callback`
-  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-
-  try {
-    const tokenRes = await fetch('https://api.notion.com/v1/oauth/token', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${basicAuth}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: redirectUri,
-      }),
-    })
-    const tokenData = await tokenRes.json()
-    if (!tokenRes.ok) {
-      console.error('[Notion] Token exchange failed:', tokenData)
-      return res.status(400).send(`OAuth error: ${tokenData.error_description || tokenData.error || tokenData.message}`)
-    }
-
-    setData(NOTION_OAUTH_TOKENS_KEY, {
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token || null,
-      expiry_date: tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : null,
-      workspace_id: tokenData.workspace_id,
-      workspace_name: tokenData.workspace_name,
-      workspace_icon: tokenData.workspace_icon,
-      bot_id: tokenData.bot_id,
-      owner: tokenData.owner,
-    })
-
-    res.send(`<!DOCTYPE html><html><body><script>
-      window.opener?.postMessage({ type: 'notion-connected' }, '*');
-      document.body.textContent = 'Connected to Notion! You can close this window.';
-    </script></body></html>`)
-  } catch (err) {
-    console.error('[Notion] Callback error:', err)
-    res.status(500).send('Failed to complete OAuth flow')
-  }
-})
-
-app.get('/api/notion/oauth/status', (req, res) => {
-  const tokens = getData(NOTION_OAUTH_TOKENS_KEY)
-  if (tokens?.access_token) {
-    res.json({
-      connected: true,
-      workspace_name: tokens.workspace_name || null,
-      workspace_icon: tokens.workspace_icon || null,
-    })
-  } else {
-    res.json({ connected: false })
-  }
-})
-
-app.post('/api/notion/oauth/disconnect', (req, res) => {
-  setData(NOTION_OAUTH_TOKENS_KEY, null)
   res.json({ ok: true })
 })
 
@@ -2652,7 +2510,7 @@ function adviserSystemPrompt() {
   const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' })
   const gcalConnected = !!getData(GCAL_TOKENS_KEY)?.refresh_token
   const gmailConnected = !!getData(GMAIL_TOKENS_KEY)?.refresh_token
-  const notionConnected = !!(getData(NOTION_OAUTH_TOKENS_KEY)?.access_token || envNotionToken)
+  const notionConnected = !!(getData('notion_mcp_tokens')?.access_token || envNotionToken)
   const trelloConnected = !!(envTrelloKey && envTrelloToken)
   const trackingConnected = !!getTrackingApiKey()
   return `You are Quokka, the cheerful AI adviser for Boomerang — an ADHD task manager PWA. Today is ${today} (${dayOfWeek}). You are named after the quokka (a small, smiley Australian marsupial that looks like it's always having a good day); lean into a warm, upbeat, down-to-earth tone without being cloying. The very occasional Aussie flavor ("no worries", "on ya") is fine but don't overdo it.
@@ -2930,115 +2788,212 @@ app.get('/api/adviser/tools', (_req, res) => {
 // conversation is stored server-side in app_data so it survives tab freezes,
 // app switches, and device restarts. Single-user self-hosted app = one CURRENT
 // thread plus a rolling archive of past threads accessible via the history UI.
-const ADVISER_THREAD_KEY = 'adviser_thread'
-const ADVISER_ARCHIVE_KEY = 'adviser_archive'
-const ADVISER_THREAD_TTL_MS = 24 * 60 * 60 * 1000 // auto-archive threads idle >24h
-const ADVISER_ARCHIVE_MAX = 30
+// --- Quokka chats: multi-thread storage with 30-day rolling TTL + star-to-keep ---
+//
+// Each chat is an independent, switchable conversation. Non-starred chats expire 30 days
+// after last activity; starring clears the expiry; unstarring starts a 7-day grace period
+// so the user sees a warning banner and can re-star before deletion. A sweep runs on every
+// list request.
+//
+// Replaces the older single-thread + rolling-archive model (`adviser_thread`/`adviser_archive`).
+// Legacy data is migrated in-place on first access.
 
-function titleForThread(messages) {
+const CHATS_KEY = 'adviser_chats'
+const ACTIVE_CHAT_KEY = 'adviser_active_chat_id'
+const CHAT_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days rolling from last activity
+const UNSTAR_GRACE_MS = 7 * 24 * 60 * 60 * 1000 // 7-day grace after unstar
+const MAX_MESSAGES_PER_CHAT = 40 // same as old single-thread cap
+
+function titleForChat(messages) {
   const firstUser = (messages || []).find(m => m.role === 'user' && typeof m.content === 'string')
-  if (!firstUser) return 'Untitled chat'
+  if (!firstUser) return 'New chat'
   const t = firstUser.content.trim().replace(/\s+/g, ' ')
   return t.length > 60 ? t.slice(0, 57) + '…' : t
 }
 
-function archiveCurrentThread(reason) {
-  const stored = getData(ADVISER_THREAD_KEY)
-  if (!stored || !Array.isArray(stored.messages) || stored.messages.length === 0) return null
-  const archive = getData(ADVISER_ARCHIVE_KEY) || []
-  const entry = {
-    id: `thr-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
-    title: titleForThread(stored.messages),
-    messages: stored.messages,
-    createdAt: stored.createdAt || stored.updatedAt || Date.now(),
-    archivedAt: Date.now(),
-    reason: reason || 'manual',
-  }
-  const next = [entry, ...archive].slice(0, ADVISER_ARCHIVE_MAX)
-  setData(ADVISER_ARCHIVE_KEY, next)
-  return entry
+function newChatId() {
+  return `chat-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
 }
 
-app.get('/api/adviser/thread', (_req, res) => {
-  const stored = getData(ADVISER_THREAD_KEY)
-  if (!stored) return res.json({ messages: [], sessionId: null })
-  if (stored.updatedAt && Date.now() - stored.updatedAt > ADVISER_THREAD_TTL_MS) {
-    // Auto-archive instead of silently wiping so the user can still go fetch it.
-    archiveCurrentThread('ttl')
-    setData(ADVISER_THREAD_KEY, null)
-    return res.json({ messages: [], sessionId: null })
+// One-shot migration from the old single-thread + archive model. Runs lazily the first
+// time we access chats after an upgrade.
+function migrateLegacyChatsIfNeeded() {
+  if (getData(CHATS_KEY) !== null && getData(CHATS_KEY) !== undefined) return
+  const chats = []
+  const legacyThread = getData('adviser_thread')
+  const legacyArchive = getData('adviser_archive') || []
+  const now = Date.now()
+  if (legacyThread?.messages?.length) {
+    chats.push({
+      id: newChatId(),
+      title: titleForChat(legacyThread.messages),
+      messages: legacyThread.messages,
+      sessionId: null, // server-side session long gone by now
+      starred: true, // star the pre-upgrade thread so the user can't lose it to TTL
+      createdAt: legacyThread.createdAt || legacyThread.updatedAt || now,
+      updatedAt: legacyThread.updatedAt || now,
+      expiresAt: null,
+    })
   }
-  res.json({ messages: stored.messages || [], sessionId: stored.sessionId || null })
-})
+  for (const entry of legacyArchive) {
+    if (!entry?.messages?.length) continue
+    chats.push({
+      id: entry.id || newChatId(),
+      title: entry.title || titleForChat(entry.messages),
+      messages: entry.messages,
+      sessionId: null,
+      starred: false,
+      createdAt: entry.createdAt || entry.archivedAt || now,
+      updatedAt: entry.archivedAt || entry.createdAt || now,
+      expiresAt: now + CHAT_TTL_MS, // fresh 30d clock on migrated archives
+    })
+  }
+  setData(CHATS_KEY, chats)
+  // Active chat = the first one (the migrated current thread, if any)
+  if (chats.length > 0) setData(ACTIVE_CHAT_KEY, chats[0].id)
+  // Clear legacy keys so this migration only runs once.
+  setData('adviser_thread', null)
+  setData('adviser_archive', null)
+}
 
-app.post('/api/adviser/thread', (req, res) => {
-  const { messages, sessionId } = req.body || {}
-  if (!Array.isArray(messages)) return res.status(400).json({ error: 'messages array required' })
-  const trimmed = messages.slice(-40)
-  const existing = getData(ADVISER_THREAD_KEY)
-  setData(ADVISER_THREAD_KEY, {
-    messages: trimmed,
-    sessionId: sessionId || null,
-    createdAt: existing?.createdAt || Date.now(),
-    updatedAt: Date.now(),
+function sweepExpiredChats() {
+  const chats = getData(CHATS_KEY) || []
+  const now = Date.now()
+  const alive = chats.filter(c => c.starred || c.expiresAt == null || now < c.expiresAt)
+  if (alive.length !== chats.length) {
+    setData(CHATS_KEY, alive)
+    const activeId = getData(ACTIVE_CHAT_KEY)
+    if (activeId && !alive.find(c => c.id === activeId)) {
+      setData(ACTIVE_CHAT_KEY, null)
+    }
+  }
+  return alive
+}
+
+function loadChats() {
+  migrateLegacyChatsIfNeeded()
+  return sweepExpiredChats()
+}
+
+function chatSummary(c, activeId) {
+  return {
+    id: c.id,
+    title: c.title,
+    starred: !!c.starred,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    expiresAt: c.expiresAt ?? null,
+    messageCount: Array.isArray(c.messages) ? c.messages.length : 0,
+    isActive: c.id === activeId,
+  }
+}
+
+// Touch a chat: bump updatedAt and roll the 30-day TTL forward (unless starred).
+function touchChat(chat) {
+  chat.updatedAt = Date.now()
+  if (!chat.starred) chat.expiresAt = Date.now() + CHAT_TTL_MS
+}
+
+app.get('/api/adviser/chats', (_req, res) => {
+  const chats = loadChats()
+  const activeId = getData(ACTIVE_CHAT_KEY)
+  // Newest activity first.
+  const sorted = [...chats].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+  res.json({
+    chats: sorted.map(c => chatSummary(c, activeId)),
+    activeId: activeId || null,
   })
-  res.json({ ok: true })
 })
 
-app.delete('/api/adviser/thread', (_req, res) => {
-  // Archive-then-clear so "Start over" preserves history instead of destroying it.
-  archiveCurrentThread('start_over')
-  setData(ADVISER_THREAD_KEY, null)
-  res.json({ ok: true })
+app.get('/api/adviser/chats/active', (_req, res) => {
+  const chats = loadChats()
+  const activeId = getData(ACTIVE_CHAT_KEY)
+  if (!activeId) return res.json({ chat: null })
+  const chat = chats.find(c => c.id === activeId)
+  if (!chat) return res.json({ chat: null })
+  res.json({ chat })
 })
 
-// --- Archive endpoints ---
-
-app.get('/api/adviser/archive', (_req, res) => {
-  const archive = getData(ADVISER_ARCHIVE_KEY) || []
-  // Return summaries only — full message bodies fetched by id.
-  res.json(archive.map(t => ({
-    id: t.id,
-    title: t.title,
-    archivedAt: t.archivedAt,
-    createdAt: t.createdAt,
-    messageCount: Array.isArray(t.messages) ? t.messages.length : 0,
-    reason: t.reason || null,
-  })))
+app.get('/api/adviser/chats/:id', (req, res) => {
+  const chats = loadChats()
+  const chat = chats.find(c => c.id === req.params.id)
+  if (!chat) return res.status(404).json({ error: 'Chat not found' })
+  res.json({ chat })
 })
 
-app.get('/api/adviser/archive/:id', (req, res) => {
-  const archive = getData(ADVISER_ARCHIVE_KEY) || []
-  const entry = archive.find(t => t.id === req.params.id)
-  if (!entry) return res.status(404).json({ error: 'Archived thread not found' })
-  res.json(entry)
-})
-
-app.delete('/api/adviser/archive/:id', (req, res) => {
-  const archive = getData(ADVISER_ARCHIVE_KEY) || []
-  const next = archive.filter(t => t.id !== req.params.id)
-  setData(ADVISER_ARCHIVE_KEY, next)
-  res.json({ ok: true })
-})
-
-app.post('/api/adviser/archive/:id/rehydrate', (req, res) => {
-  const archive = getData(ADVISER_ARCHIVE_KEY) || []
-  const entry = archive.find(t => t.id === req.params.id)
-  if (!entry) return res.status(404).json({ error: 'Archived thread not found' })
-  // Archive whatever is currently active so the user doesn't lose it.
-  archiveCurrentThread('rehydrate')
-  // Remove the rehydrated entry from the archive list to avoid duplicates.
-  const nextArchive = archive.filter(t => t.id !== req.params.id)
-  setData(ADVISER_ARCHIVE_KEY, nextArchive)
-  // Restore messages as the current thread. Drop sessionId — the old server
-  // session is long gone, a new one will be minted on the next /chat call.
-  setData(ADVISER_THREAD_KEY, {
-    messages: entry.messages,
+app.post('/api/adviser/chats', (_req, res) => {
+  const chats = loadChats()
+  const now = Date.now()
+  const chat = {
+    id: newChatId(),
+    title: 'New chat',
+    messages: [],
     sessionId: null,
-    createdAt: entry.createdAt,
-    updatedAt: Date.now(),
-  })
-  res.json({ ok: true, messages: entry.messages, sessionId: null })
+    starred: false,
+    createdAt: now,
+    updatedAt: now,
+    expiresAt: now + CHAT_TTL_MS,
+  }
+  chats.unshift(chat)
+  setData(CHATS_KEY, chats)
+  setData(ACTIVE_CHAT_KEY, chat.id)
+  res.json({ chat })
+})
+
+app.patch('/api/adviser/chats/:id', (req, res) => {
+  const chats = loadChats()
+  const idx = chats.findIndex(c => c.id === req.params.id)
+  if (idx === -1) return res.status(404).json({ error: 'Chat not found' })
+  const chat = chats[idx]
+  const { messages, sessionId, title } = req.body || {}
+  if (Array.isArray(messages)) chat.messages = messages.slice(-MAX_MESSAGES_PER_CHAT)
+  if (sessionId !== undefined) chat.sessionId = sessionId || null
+  if (typeof title === 'string' && title.trim()) {
+    chat.title = title.trim().slice(0, 80)
+  } else if (Array.isArray(messages) && (chat.title === 'New chat' || !chat.title)) {
+    // Auto-title from first user message once we have one
+    chat.title = titleForChat(messages)
+  }
+  touchChat(chat)
+  chats[idx] = chat
+  setData(CHATS_KEY, chats)
+  res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
+})
+
+app.delete('/api/adviser/chats/:id', (req, res) => {
+  const chats = loadChats()
+  const next = chats.filter(c => c.id !== req.params.id)
+  setData(CHATS_KEY, next)
+  if (getData(ACTIVE_CHAT_KEY) === req.params.id) setData(ACTIVE_CHAT_KEY, null)
+  res.json({ ok: true })
+})
+
+app.post('/api/adviser/chats/:id/activate', (req, res) => {
+  const chats = loadChats()
+  const chat = chats.find(c => c.id === req.params.id)
+  if (!chat) return res.status(404).json({ error: 'Chat not found' })
+  setData(ACTIVE_CHAT_KEY, chat.id)
+  res.json({ ok: true, activeId: chat.id })
+})
+
+app.post('/api/adviser/chats/:id/star', (req, res) => {
+  const chats = loadChats()
+  const chat = chats.find(c => c.id === req.params.id)
+  if (!chat) return res.status(404).json({ error: 'Chat not found' })
+  chat.starred = true
+  chat.expiresAt = null
+  setData(CHATS_KEY, chats)
+  res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
+})
+
+app.post('/api/adviser/chats/:id/unstar', (req, res) => {
+  const chats = loadChats()
+  const chat = chats.find(c => c.id === req.params.id)
+  if (!chat) return res.status(404).json({ error: 'Chat not found' })
+  chat.starred = false
+  chat.expiresAt = Date.now() + UNSTAR_GRACE_MS
+  setData(CHATS_KEY, chats)
+  res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
 })
 
 // --- Dev seed endpoint ---

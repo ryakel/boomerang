@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, notionOAuthAuthUrl, notionOAuthDisconnect, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, getWeather, refreshWeather, geocodeWeather } from '../api'
+import { getKeyStatus, callClaude, notionStatus, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, getWeather, refreshWeather, geocodeWeather } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
@@ -149,7 +149,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
   const [activeTab, setActiveTab] = useState('General')
   const [confirmDialog, setConfirmDialog] = useState(null) // { title, message, onConfirm }
   const [settings, setSettings] = useState(loadSettings)
-  const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, notion_oauth: false, trello: false, tracking: false })
+  const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
 
   // Load env key status, then auto-test env-provided integrations
   useEffect(() => {
@@ -161,7 +161,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           .then(() => setAnthropicStatus('connected'))
           .catch(() => setAnthropicStatus('error'))
       }
-      if (keys.notion || keys.notion_oauth) {
+      if (keys.notion) {
         setNotionConnected('checking')
         notionStatus()
           .then(s => setNotionConnected(s))
@@ -315,19 +315,6 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
     }
   }
 
-  const handleNotionConnect = async () => {
-    setNotionConnected('checking')
-    try {
-      const status = await notionStatus()
-      setNotionConnected(status)
-    } catch {
-      setNotionConnected({ connected: false })
-    }
-  }
-
-  const [notionOAuthConnecting, setNotionOAuthConnecting] = useState(false)
-  const [notionOAuthError, setNotionOAuthError] = useState(null)
-
   const [notionMCP, setNotionMCP] = useState(null) // null | { connected, toolCount }
   const [notionMCPConnecting, setNotionMCPConnecting] = useState(false)
   const [notionMCPError, setNotionMCPError] = useState(null)
@@ -374,42 +361,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
     const handler = (event) => {
       if (event.data?.type === 'notion-mcp-connected') {
         refreshNotionMCP()
-      }
-    }
-    window.addEventListener('message', handler)
-    return () => window.removeEventListener('message', handler)
-  }, [])
-
-  const handleNotionOAuthConnect = async () => {
-    setNotionOAuthConnecting(true)
-    setNotionOAuthError(null)
-    try {
-      const { url } = await notionOAuthAuthUrl()
-      window.open(url, '_blank', 'width=600,height=700')
-    } catch (err) {
-      setNotionOAuthError(err.message || 'Failed to start OAuth flow')
-    } finally {
-      setNotionOAuthConnecting(false)
-    }
-  }
-
-  const handleNotionOAuthDisconnect = async () => {
-    try {
-      await notionOAuthDisconnect()
-      setNotionConnected(null)
-      // Re-check status (may still have a legacy token to fall back on)
-      const status = await notionStatus()
-      setNotionConnected(status)
-    } catch (err) {
-      setNotionOAuthError(err.message || 'Failed to disconnect')
-    }
-  }
-
-  // Listen for Notion OAuth callback message
-  useEffect(() => {
-    const handler = (event) => {
-      if (event.data?.type === 'notion-connected') {
-        notionStatus().then(s => setNotionConnected(s)).catch(() => setNotionConnected({ connected: false }))
+        // MCP connection also flips the /api/notion/status response, so refresh that too.
+        notionStatus().then(s => setNotionConnected(s)).catch(() => {})
       }
     }
     window.addEventListener('message', handler)
@@ -1158,129 +1111,38 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
               <span className="integration-row-name">Notion</span>
               {expandedIntegration !== 'notion' && (
                 <span className="integration-row-summary">
-                  {notionConnected === 'checking' ? 'Checking...'
-                    : notionConnected && notionConnected !== 'checking' && notionConnected.connected && notionConnected.auth === 'oauth'
-                    ? `Connected${notionConnected.workspace_name ? ` — ${notionConnected.workspace_name}` : ''}`
+                  {notionMCP?.connected
+                    ? `Connected via MCP — ${notionMCP.toolCount} tools`
                     : notionConnected && notionConnected !== 'checking' && notionConnected.connected
-                    ? `Connected${notionConnected.bot ? ` as ${notionConnected.bot}` : ''} (legacy)`
-                    : notionConnected && !notionConnected.connected ? 'Error'
-                    : envKeys.notion_oauth ? 'OAuth ready' : envKeys.notion ? 'Environment variable' : settings.notion_token ? 'Token saved' : 'Not configured'}
+                    ? `Connected${notionConnected.bot ? ` as ${notionConnected.bot}` : ''} (legacy env)`
+                    : envKeys.notion ? 'Environment variable' : 'Not connected'}
                 </span>
               )}
             </div>
             {expandedIntegration === 'notion' && (
               <div className="integration-body">
-                {/* MCP connection — preferred path (no app registration needed) */}
-                <div style={{ marginBottom: 12, padding: 12, background: 'rgba(164, 120, 255, 0.04)', borderRadius: 'var(--radius-sm)' }}>
-                  <div className="settings-label" style={{ marginBottom: 6 }}>Notion MCP (recommended)</div>
-                  {notionMCP?.connected ? (
-                    <>
-                      <div className="integration-status connected" style={{ marginBottom: 6 }}>
-                        Connected — {notionMCP.toolCount} tools discovered
-                      </div>
-                      <button className="ci-clear-btn" onClick={handleNotionMCPDisconnect}>Disconnect MCP</button>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                        One-click OAuth into your Notion workspace. No per-page sharing and no integration app to register.
-                      </div>
-                      <button className="ci-upload-btn" disabled={notionMCPConnecting} onClick={handleNotionMCPConnect}>
-                        {notionMCPConnecting ? 'Opening...' : 'Connect via MCP'}
-                      </button>
-                      {notionMCPError && <div className="integration-status error" style={{ marginTop: 8 }}>{notionMCPError}</div>}
-                    </>
-                  )}
-                </div>
-
-                {notionConnected && notionConnected !== 'checking' && notionConnected.connected && notionConnected.auth === 'oauth' ? (
+                {/* MCP connection — the only supported interactive path */}
+                {notionMCP?.connected ? (
                   <>
-                    <div className="integration-status connected">
-                      Connected via OAuth{notionConnected.workspace_name ? ` — ${notionConnected.workspace_name}` : ''}
+                    <div className="integration-status connected" style={{ marginBottom: 6 }}>
+                      Connected via MCP — {notionMCP.toolCount} tools discovered
                     </div>
-                    <button className="ci-clear-btn" onClick={handleNotionOAuthDisconnect}>Disconnect</button>
-                  </>
-                ) : notionConnected && notionConnected !== 'checking' && notionConnected.connected && notionConnected.auth === 'legacy' ? (
-                  <>
-                    <div className="integration-status connected">
-                      Connected via integration token{notionConnected.bot ? ` as ${notionConnected.bot}` : ''}
-                    </div>
-                    {envKeys.notion_oauth && (
-                      <div style={{ fontSize: 12, color: 'var(--text-dim)', margin: '8px 0' }}>
-                        The integration token works but is deprecated — it only sees pages explicitly shared with it.
-                        Connect via OAuth below for full workspace access and database queries.
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {envKeys.notion_oauth && (
-                        <button className="ci-upload-btn" disabled={notionOAuthConnecting} onClick={handleNotionOAuthConnect}>
-                          {notionOAuthConnecting ? 'Opening...' : 'Upgrade to OAuth'}
-                        </button>
-                      )}
-                      {envKeys.notion ? (
-                        <button className="ci-upload-btn" onClick={handleNotionConnect}>Test</button>
-                      ) : (
-                        <button className="ci-clear-btn" onClick={() => { update('notion_token', ''); setNotionConnected(null) }}>
-                          Remove token
-                        </button>
-                      )}
-                    </div>
+                    <button className="ci-clear-btn" onClick={handleNotionMCPDisconnect}>Disconnect</button>
                   </>
                 ) : (
                   <>
-                    {envKeys.notion_oauth ? (
-                      <>
-                        <div style={{ fontSize: 13, marginBottom: 8 }}>
-                          Connect Notion with OAuth for full workspace access — no per-page sharing required.
-                        </div>
-                        <button className="ci-upload-btn" disabled={notionOAuthConnecting} onClick={handleNotionOAuthConnect}>
-                          {notionOAuthConnecting ? 'Opening...' : 'Connect with Notion'}
-                        </button>
-                        {notionOAuthError && <div className="integration-status error" style={{ marginTop: 8 }}>{notionOAuthError}</div>}
-                      </>
-                    ) : (
-                      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                        OAuth not configured — set <code>NOTION_OAUTH_CLIENT_ID</code> and <code>NOTION_OAUTH_CLIENT_SECRET</code> env vars
-                        to enable one-click Notion connect with full workspace access.
+                    <div style={{ fontSize: 13, marginBottom: 8 }}>
+                      One-click OAuth into your Notion workspace. User-scoped access — no per-page sharing, no integration app to register.
+                    </div>
+                    <button className="ci-upload-btn" disabled={notionMCPConnecting} onClick={handleNotionMCPConnect}>
+                      {notionMCPConnecting ? 'Opening...' : 'Connect via MCP'}
+                    </button>
+                    {notionMCPError && <div className="integration-status error" style={{ marginTop: 8 }}>{notionMCPError}</div>}
+                    {envKeys.notion && (
+                      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 10 }}>
+                        A legacy <code>NOTION_INTEGRATION_TOKEN</code> is set via env var and will be used as a fallback. Connecting via MCP is still recommended — it removes the per-page sharing requirement.
                       </div>
                     )}
-
-                    <details style={{ marginTop: 12 }}>
-                      <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-dim)' }}>
-                        Use a legacy integration token instead
-                      </summary>
-                      <div style={{ marginTop: 8 }}>
-                        {envKeys.notion ? (
-                          <div className="env-key-status">Set by environment variable</div>
-                        ) : (
-                          <>
-                            <button className="credentials-toggle" onClick={() => setShowCredentials(s => ({ ...s, notion: !s.notion }))}>
-                              {showCredentials.notion ? 'Hide' : 'Show'} token
-                            </button>
-                            {showCredentials.notion && (
-                              <input
-                                className="add-input"
-                                type="password"
-                                placeholder="Integration token (ntn_...)"
-                                value={settings.notion_token || ''}
-                                onChange={e => { update('notion_token', e.target.value); setNotionConnected(null) }}
-                                style={{ marginBottom: 8, fontSize: 13 }}
-                              />
-                            )}
-                          </>
-                        )}
-                        {notionConnected && notionConnected !== 'checking' && !notionConnected.connected && (
-                          <div className="integration-status error">Connection failed — check your token</div>
-                        )}
-                        <button
-                          className="ci-upload-btn"
-                          disabled={notionConnected === 'checking' || (!settings.notion_token && !envKeys.notion)}
-                          onClick={handleNotionConnect}
-                        >
-                          {notionConnected === 'checking' ? 'Checking...' : envKeys.notion ? 'Test' : 'Connect with token'}
-                        </button>
-                      </div>
-                    </details>
                   </>
                 )}
 

@@ -1,73 +1,76 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   adviserChat, adviserCommit, adviserAbort,
-  adviserGetThread, adviserSaveThread, adviserClearThread,
-  adviserListArchive, adviserGetArchivedThread, adviserDeleteArchivedThread, adviserRehydrateThread,
+  adviserListChats, adviserGetActiveChat, adviserGetChat,
+  adviserCreateChat, adviserUpdateChat, adviserDeleteChat,
+  adviserActivateChat, adviserStarChat, adviserUnstarChat,
 } from '../api'
 
-// Conversation shape:
-//   messages: [
-//     { role: 'user', content: string },
-//     { role: 'assistant', content: string, toolEvents: [{name, input, result}], plan: [{stepId, toolName, preview}] },
-//   ]
+// Quokka now runs as multiple independent chats (replaces the old single-thread model).
+// Each chat has its own messages, sessionId, starred state, createdAt, updatedAt, and an
+// expiresAt timestamp (null when starred). Non-starred chats expire 30 days after last
+// activity; unstarring a chat starts a 7-day grace period.
 //
-// Status:
-//   'idle'                — no stream active
-//   'streaming'           — model is generating / tool-use loop running
-//   'awaiting_confirm'    — stream done, staged plan awaiting user confirm/abort
-//   'committing'          — plan being executed atomically
-//   'committed'           — last commit succeeded
-//   'error'               — last stream or commit errored (see lastError)
+// Status semantics are unchanged from the single-thread era:
+//   'idle' | 'streaming' | 'awaiting_confirm' | 'committing' | 'committed' | 'error'
 
 export function useAdviser() {
+  const [chats, setChats] = useState([]) // summaries only: {id,title,starred,createdAt,updatedAt,expiresAt,messageCount,isActive}
+  const [activeId, setActiveId] = useState(null)
   const [messages, setMessages] = useState([])
+  const [sessionId, setSessionId] = useState(null)
   const [status, setStatus] = useState('idle')
   const [lastError, setLastError] = useState(null)
-  const [sessionId, setSessionId] = useState(null)
   const [hydrated, setHydrated] = useState(false)
   const streamRef = useRef(null)
   const pendingAssistantRef = useRef(null)
   const saveTimerRef = useRef(null)
 
-  // Hydrate thread from server on mount — iOS aggressively evicts PWA memory,
-  // so we can't rely on React state surviving an app-switch. Thread lives in
-  // app_data server-side and is fetched on every fresh load.
-  useEffect(() => {
-    let cancelled = false
-    adviserGetThread().then(data => {
-      if (cancelled) return
-      if (Array.isArray(data.messages) && data.messages.length > 0) {
-        setMessages(data.messages)
-      }
-      if (data.sessionId) setSessionId(data.sessionId)
-      setHydrated(true)
-    })
-    return () => { cancelled = true }
+  const refreshChatList = useCallback(async () => {
+    const { chats, activeId } = await adviserListChats()
+    setChats(chats)
+    setActiveId(activeId)
+    return { chats, activeId }
   }, [])
 
-  // Persist thread changes to server, debounced so we don't hammer during a
-  // streaming response. Only saves after initial hydration to avoid clobbering
-  // a restored thread with the empty default state.
+  // Hydrate: fetch list + active chat's full contents.
   useEffect(() => {
-    if (!hydrated) return
+    let cancelled = false
+    ;(async () => {
+      const { activeId } = await refreshChatList()
+      if (cancelled) return
+      if (activeId) {
+        const { chat } = await adviserGetActiveChat()
+        if (cancelled) return
+        if (chat) {
+          setMessages(chat.messages || [])
+          setSessionId(chat.sessionId || null)
+        }
+      }
+      setHydrated(true)
+    })()
+    return () => { cancelled = true }
+  }, [refreshChatList])
+
+  // Persist active chat's messages + sessionId, debounced. Never clobbers a chat with
+  // the empty default state — so a brand-new (unsent) chat doesn't overwrite itself.
+  useEffect(() => {
+    if (!hydrated || !activeId) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      adviserSaveThread({ messages, sessionId })
+      adviserUpdateChat(activeId, { messages, sessionId })
     }, 400)
     return () => clearTimeout(saveTimerRef.current)
-  }, [messages, sessionId, hydrated])
+  }, [messages, sessionId, hydrated, activeId])
 
-  // Abort the in-flight stream only when the App itself unmounts (i.e. the
-  // page is closing). The modal opening/closing does NOT tear down this hook.
+  // Abort in-flight stream only when the app is tearing down. Modal open/close does not
+  // unmount this hook.
   useEffect(() => () => {
     if (streamRef.current) streamRef.current.abort()
     if (sessionId) adviserAbort(sessionId)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildHistory = useCallback(() => {
-    // Convert messages → Anthropic-style [{role, content}]. Only text content
-    // survives across turns; staged-plan + tool events do not because the server's
-    // next turn recreates them fresh.
     const history = []
     for (const m of messages) {
       if (m.role === 'user') history.push({ role: 'user', content: m.content })
@@ -76,10 +79,21 @@ export function useAdviser() {
     return history
   }, [messages])
 
-  const send = useCallback((text) => {
-    if (!text?.trim()) return
-    if (streamRef.current) return // already streaming
+  // Ensures we have an active chat to write into. If none, create one on demand so the
+  // first user message has somewhere to land.
+  const ensureActiveChat = useCallback(async () => {
+    if (activeId) return activeId
+    const { chat } = await adviserCreateChat()
+    setActiveId(chat.id)
+    await refreshChatList()
+    return chat.id
+  }, [activeId, refreshChatList])
 
+  const send = useCallback(async (text) => {
+    if (!text?.trim()) return
+    if (streamRef.current) return
+
+    await ensureActiveChat()
     setLastError(null)
     setStatus('streaming')
 
@@ -100,12 +114,11 @@ export function useAdviser() {
             setSessionId(data.sessionId)
             break
           case 'turn':
-            // Could surface turn count, not needed for V1
             break
           case 'message': {
-            const text = data.text || ''
+            const t = data.text || ''
             pendingAssistantRef.current.content =
-              (pendingAssistantRef.current.content || '') + (pendingAssistantRef.current.content ? '\n\n' : '') + text
+              (pendingAssistantRef.current.content || '') + (pendingAssistantRef.current.content ? '\n\n' : '') + t
             setMessages(prev => [...prev.slice(0, -1), { ...pendingAssistantRef.current }])
             break
           }
@@ -134,21 +147,20 @@ export function useAdviser() {
             setStatus('error')
             break
           case 'done':
-            // Move into awaiting_confirm if we have staged steps, else idle.
             setStatus(prev => {
               if (prev === 'error') return 'error'
               const hasPlan = pendingAssistantRef.current?.plan?.length > 0
               return hasPlan ? 'awaiting_confirm' : 'idle'
             })
+            // Refresh chat list so the title/expiresAt update from this turn is visible
+            // in the chat list UI without a manual refresh.
+            refreshChatList()
             break
           default:
             break
         }
       },
       onError: (err) => {
-        // Log full details so Safari remote debugging can see what actually
-        // died — the user-facing banner only shows err.message (usually just
-        // "Load failed" on iOS).
         console.error('[Quokka] stream error', err)
         setLastError(err.message || String(err))
         setStatus('error')
@@ -157,7 +169,7 @@ export function useAdviser() {
         streamRef.current = null
       },
     })
-  }, [buildHistory, sessionId])
+  }, [buildHistory, sessionId, ensureActiveChat, refreshChatList])
 
   const commit = useCallback(async () => {
     if (!sessionId) return
@@ -166,18 +178,16 @@ export function useAdviser() {
     try {
       const outcome = await adviserCommit(sessionId)
       if (outcome.ok) {
-        // Mark the last assistant plan as committed
         setMessages(prev => {
           const last = prev[prev.length - 1]
           if (!last || last.role !== 'assistant') return prev
           return [...prev.slice(0, -1), { ...last, committed: true, commitResults: outcome.results }]
         })
         setStatus('committed')
-        setSessionId(null) // server cleared the session on success
+        setSessionId(null)
       } else {
         setLastError(outcome.error || 'Commit failed')
         setStatus('error')
-        // Still keep the plan visible; user can abort + retry.
         if (outcome.results) {
           setMessages(prev => {
             const last = prev[prev.length - 1]
@@ -204,46 +214,68 @@ export function useAdviser() {
     setStatus('idle')
   }, [sessionId])
 
-  const reset = useCallback(async () => {
+  // "New chat" — create a fresh chat and switch to it. The current chat stays put in the
+  // list (it'll naturally expire in 30 days unless the user starred it).
+  const newChat = useCallback(async () => {
     if (streamRef.current) { streamRef.current.abort(); streamRef.current = null }
     if (sessionId) { await adviserAbort(sessionId) }
+    const { chat } = await adviserCreateChat()
+    setActiveId(chat.id)
     setMessages([])
+    setSessionId(null)
     setStatus('idle')
     setLastError(null)
-    setSessionId(null)
     pendingAssistantRef.current = null
-    // Archive-then-clear: the server DELETE moves the current thread into the
-    // archive list so it's still accessible via the history UI.
-    await adviserClearThread()
-  }, [sessionId])
+    await refreshChatList()
+  }, [sessionId, refreshChatList])
 
-  // --- History / archive ---
-
-  const listArchive = useCallback(() => adviserListArchive(), [])
-  const deleteArchived = useCallback((id) => adviserDeleteArchivedThread(id), [])
-
-  const rehydrate = useCallback(async (id) => {
+  const switchChat = useCallback(async (id) => {
+    if (id === activeId) return
     if (streamRef.current) { streamRef.current.abort(); streamRef.current = null }
     if (sessionId) { await adviserAbort(sessionId) }
-    try {
-      const restored = await adviserRehydrateThread(id)
-      setMessages(restored.messages || [])
-      setSessionId(null) // fresh session on next /chat call
-      setStatus('idle')
-      setLastError(null)
-      pendingAssistantRef.current = null
-      return true
-    } catch (err) {
-      setLastError(err.message || String(err))
-      return false
-    }
-  }, [sessionId])
+    await adviserActivateChat(id)
+    const { chat } = await adviserGetChat(id)
+    setActiveId(id)
+    setMessages(chat.messages || [])
+    setSessionId(chat.sessionId || null)
+    setStatus('idle')
+    setLastError(null)
+    pendingAssistantRef.current = null
+    await refreshChatList()
+  }, [activeId, sessionId, refreshChatList])
 
-  const previewArchived = useCallback((id) => adviserGetArchivedThread(id), [])
+  const deleteChat = useCallback(async (id) => {
+    await adviserDeleteChat(id)
+    if (id === activeId) {
+      setActiveId(null)
+      setMessages([])
+      setSessionId(null)
+      setStatus('idle')
+      pendingAssistantRef.current = null
+    }
+    await refreshChatList()
+  }, [activeId, refreshChatList])
+
+  const starChat = useCallback(async (id) => {
+    await adviserStarChat(id)
+    await refreshChatList()
+  }, [refreshChatList])
+
+  const unstarChat = useCallback(async (id) => {
+    await adviserUnstarChat(id)
+    await refreshChatList()
+  }, [refreshChatList])
+
+  // Convenience: the active chat summary (for UI banners)
+  const activeChat = chats.find(c => c.id === activeId) || null
 
   return {
+    // Active-chat surface (unchanged API for the old UI)
     messages, status, lastError,
-    send, commit, abort, reset,
-    listArchive, rehydrate, deleteArchived, previewArchived,
+    send, commit, abort,
+    // Multi-chat surface
+    chats, activeId, activeChat,
+    newChat, switchChat, deleteChat, starChat, unstarChat,
+    refreshChatList,
   }
 }

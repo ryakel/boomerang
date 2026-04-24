@@ -6,6 +6,13 @@
 3. **`git pull origin main` BEFORE starting any work.** Do this first thing every session.
 4. **Run `npm audit` before pushing.** If new vulnerabilities are found, flag them to the user before pushing. Fix what's safe to fix (overrides for transitive deps). Don't block pushes for build-time-only vulnerabilities unless the user asks.
 5. **Every push triggers a Docker build.** This is why confirmation matters.
+6. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
+   - **Root-level `.js` file imported at runtime** (e.g. `notionMCP.js`, anything imported by `server.js` or another runtime file): must appear in a Dockerfile `COPY … ./` line in Stage 3. If missing, add it and re-stage. The pre-push smoke test runs `node server.js` against the full repo checkout, so it will NOT catch a missing-from-Dockerfile bug — the container will crash with `ERR_MODULE_NOT_FOUND` only after deploy.
+   - **New top-level directory** that must ship to prod: add a `COPY <dir> ./<dir>` line.
+   - **New migration** under `migrations/`: already covered by the existing `COPY migrations ./migrations` line — no Dockerfile change needed.
+   - **New script** under `scripts/`: already covered by `COPY scripts ./scripts` — no Dockerfile change needed.
+   - **New `src/*` file**: ships via the Vite bundle into `dist/` — no Dockerfile change needed.
+   - **Dev-only files** (`eslint.config.js`, `vite.config.js`, tests, docs): do NOT add to the runtime Dockerfile.
 
 ## Commit Convention
 - Format: `<type>(<scope>): <subject> [<size>]`
@@ -99,9 +106,9 @@ Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks 
 
 **Auth model (2026-04-23):** **MCP is the recommended path.** Boomerang connects to Notion's hosted MCP server (`https://mcp.notion.com/mcp`) via OAuth 2.0 + PKCE + Dynamic Client Registration — no pre-registered Notion integration required, full user-scoped workspace access. Implementation lives in `notionMCP.js` using `@modelcontextprotocol/sdk`. On successful connect, every read-only MCP tool is dynamically bridged into Quokka's registry with a `notion_mcp_` prefix, so Quokka gets the full native Notion tool surface without hardcoded wrappers.
 
-Fallback auth paths kept for sync code (Stage 3 will retire them): (1) Stage 1's public-integration OAuth (`notion_oauth_tokens` in `app_data`, requires `NOTION_OAUTH_CLIENT_ID` + `NOTION_OAUTH_CLIENT_SECRET` env vars — registering a Notion "Public" integration is required, which is heavy for self-hosted setups); (2) legacy internal integration token (`NOTION_INTEGRATION_TOKEN` env / `x-notion-token` header, per-page Connection sharing required). `getNotionAccessToken(req)` in `server.js` resolves in that precedence.
+`getNotionAccessToken(req)` in `server.js` resolves a token in this order: (1) MCP-issued OAuth token from `notion_mcp_tokens` — valid as both an MCP credential AND a REST `Authorization: Bearer` token, so every existing `/api/notion/*` REST endpoint inherits user-scoped access automatically; (2) legacy integration token from `NOTION_INTEGRATION_TOKEN` env / `x-notion-token` header (kept for users with that env var set, but no UI path to configure it anymore — per-page Connection sharing still required for it).
 
-Migration stages: **Stage 1 (DONE)** — OAuth auth + `notion_query_database` tool on REST. **Stage 2 (DONE)** — MCP client + dynamic read-only tool bridge. **Stage 3 (pending)** — migrate `useNotionSync` + `useExternalSync` + the server REST proxy to MCP, delete REST Notion code, and migrate Quokka write tools (create/update page) to MCP with proper compensation.
+Migration stages: **Stage 1 (superseded)** — public-integration OAuth endpoints were shipped then ripped out on 2026-04-23 because the Notion Public-integration registration overhead (privacy policy, TOS, support email) is absurd for self-hosted use. MCP with DCR sidesteps the whole thing. **Stage 2 (DONE)** — MCP client + dynamic read-only tool bridge + MCP token shared with REST endpoints via `getNotionAccessToken()`. **Stage 3 (pending)** — migrate `useNotionSync` + `useExternalSync` + the server REST proxy to MCP, delete REST Notion code, and migrate Quokka write tools (create/update page) to MCP with proper compensation.
 
 **Server Endpoints** (in `server.js`):
 | Endpoint | Purpose |
@@ -584,14 +591,28 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Mobile: entered via header sparkle icon next to Packages
 - Desktop: same icon + click-to-open
 
-**Thread persistence + archive:**
-- Current conversation stored server-side in `app_data.adviser_thread` (not localStorage — iOS evicts PWA localStorage aggressively when the app is inactive >7 days, and even fresh Mobile Safari freezes and drops memory on app-switch). Client hydrates on mount, persists on every change (400ms debounce).
-- "Start over" and 24-hour idle TTL expiry both archive-then-clear instead of hard-deleting, so past chats are recoverable.
-- Archive stored in `app_data.adviser_archive` — rolling list, newest first, capped at 30 entries. Auto-generated title from the first user message (60-char truncation).
-- Archive endpoints: `GET /api/adviser/archive` (summaries), `GET /api/adviser/archive/:id` (full), `DELETE /api/adviser/archive/:id`, `POST /api/adviser/archive/:id/rehydrate` (archives current → restores selected to current → drops it from archive).
-- History UI: `History` icon next to "Start over" in the Adviser header (both desktop + mobile). Opens an in-modal panel listing past chats with title, timestamp, message count, and a trash button. Tapping a chat rehydrates it. Intentionally tucked away — not a top-level feature.
-- Current-thread endpoints: `GET /api/adviser/thread`, `POST /api/adviser/thread`, `DELETE /api/adviser/thread` (archives then clears).
-- Single-user self-hosted app = one current thread + shared archive. No per-user/device keying needed.
+**Multi-chat model (2026-04-23):** Every topic is its own chat. Storage lives server-side in `app_data.adviser_chats` (an array of `{id, title, messages, sessionId, starred, createdAt, updatedAt, expiresAt}`) + `app_data.adviser_active_chat_id` (which chat Quokka is currently reading/writing). iOS aggressively evicts PWA localStorage, so nothing sits there.
+
+**Lifetimes:**
+- On create or message activity, non-starred chats get `expiresAt = now + 30 days` (rolling from last activity).
+- Star → `expiresAt = null` (permanent).
+- Unstar → `expiresAt = now + 7 days` and an orange banner appears in the chat: "This chat will be deleted in N days. Star to keep."
+- Sweep runs on every `GET /api/adviser/chats` — deletes anything past its `expiresAt`. If the active chat got swept, `adviser_active_chat_id` is cleared.
+
+**Migration from the old single-thread model:** one-shot on first access. Old `adviser_thread` → active chat, pre-starred (can't silently lose your in-flight conversation across the upgrade). Old `adviser_archive` entries → peer chats with fresh 30d TTL clocks. Legacy keys are zeroed out so it only runs once.
+
+**Endpoints:**
+- `GET /api/adviser/chats` — list summaries + active id; runs the expiry sweep
+- `GET /api/adviser/chats/active` — full content of the active chat
+- `GET /api/adviser/chats/:id` — full content by id
+- `POST /api/adviser/chats` — create empty chat, auto-activate
+- `PATCH /api/adviser/chats/:id` — update messages / title / sessionId; bumps `updatedAt` + rolls the 30d TTL (unless starred)
+- `DELETE /api/adviser/chats/:id` — delete; clears active id if removed
+- `POST /api/adviser/chats/:id/activate` — switch active
+- `POST /api/adviser/chats/:id/star` — permanent
+- `POST /api/adviser/chats/:id/unstar` — 7d grace period
+
+**Client:** `useAdviser` hydrates on mount by fetching list + active chat body, persists on every change (400ms debounce) to the active chat, exposes `newChat` / `switchChat` / `deleteChat` / `starChat` / `unstarChat`. `Adviser.jsx` header has `+` (new chat) and History icons. The History panel shows all chats with star + delete controls, active indicator, and "expires in Nd" meta for chats within the 7-day window.
 
 **Parked (future):**
 - Attachment upload: no way to give Quokka a PDF/image and ask it to generate tasks from it. The existing `extractAttachmentText()` in src/api.js handles task-attachment text extraction; wiring a Quokka-facing "analyze this upload and stage tasks" tool is left as a future enhancement.

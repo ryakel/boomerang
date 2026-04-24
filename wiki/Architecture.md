@@ -202,13 +202,15 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 | `POST` | `/api/adviser/commit` | Execute the staged plan atomically with LIFO rollback on failure |
 | `POST` | `/api/adviser/abort` | Abort in-flight adviser stream + clear session |
 | `GET` | `/api/adviser/tools` | Diagnostic — lists all 50 registered adviser tool names |
-| `GET` | `/api/adviser/thread` | Current Quokka conversation (messages + sessionId) |
-| `POST` | `/api/adviser/thread` | Persist current thread (client saves debounced on every change) |
-| `DELETE` | `/api/adviser/thread` | Archive-then-clear the current thread ("Start over") |
-| `GET` | `/api/adviser/archive` | List archived thread summaries (id, title, archivedAt, messageCount) |
-| `GET` | `/api/adviser/archive/:id` | Full archived thread by id |
-| `DELETE` | `/api/adviser/archive/:id` | Remove an archived thread |
-| `POST` | `/api/adviser/archive/:id/rehydrate` | Archive current thread, restore the archived one as current |
+| `GET` | `/api/adviser/chats` | List all chat summaries + activeId. Runs expiry sweep. |
+| `GET` | `/api/adviser/chats/active` | Full content of the active chat |
+| `GET` | `/api/adviser/chats/:id` | Full chat by id |
+| `POST` | `/api/adviser/chats` | Create new empty chat, auto-activate |
+| `PATCH` | `/api/adviser/chats/:id` | Update messages/title/sessionId; rolls 30d TTL |
+| `DELETE` | `/api/adviser/chats/:id` | Delete chat; clears active if removed |
+| `POST` | `/api/adviser/chats/:id/activate` | Switch which chat is active |
+| `POST` | `/api/adviser/chats/:id/star` | Star (permanent — expiresAt nulled) |
+| `POST` | `/api/adviser/chats/:id/unstar` | Unstar (expiresAt = now + 7 days) |
 | `POST` | `/api/notion/search` | Search Notion pages |
 | `GET` | `/api/notion/pages/:id` | Get a Notion page |
 | `POST` | `/api/notion/pages` | Create a Notion page |
@@ -284,7 +286,7 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 
 **SSE resilience.** `/api/adviser/chat` primes the stream with a `: connected\n\n` comment + explicit `res.flush()` so iOS Safari / CDN proxies commit the chunked response immediately instead of buffering the first KB. A 15-second heartbeat comment keeps long-lived connections alive through idle-connection killers. Each Claude API call inside the tool-use loop is wrapped in a nested `AbortController` with a 90-second timeout — if the upstream hangs, the loop surfaces a clean `error` event rather than leaving the client on an infinite spinner. Verbose per-turn logging (`[Adviser <8char>] turn N/15 — calling model…`, tool calls + timing, `chat done — staged N step(s)`) is written to the container log for post-hoc diagnosis.
 
-**Thread persistence + archive.** Current conversation stored in `app_data.adviser_thread` (JSON blob). Client hydrates on mount, persists on every `messages`/`sessionId` change with a 400ms debounce. 24-hour idle TTL triggers auto-archive on the next GET. "Start over" (`DELETE /api/adviser/thread`) archives the current thread into `app_data.adviser_archive` — a rolling list, newest first, capped at 30 entries. `POST /api/adviser/archive/:id/rehydrate` archives whatever is currently active, restores the selected archived thread as current (dropping it from archive so there are no duplicates), and clears the sessionId so the next `/chat` call mints a fresh server session. Thread titles are auto-generated from the first user message, 60-char truncation.
+**Multi-chat storage.** Chats live as an array in `app_data.adviser_chats`; the currently-focused one is named by `app_data.adviser_active_chat_id`. Each chat: `{id, title, messages, sessionId, starred, createdAt, updatedAt, expiresAt}`. Client hydrates on mount by fetching the list and the active chat's body. Non-starred chats roll a 30-day TTL on every activity; star clears it; unstar sets a 7-day grace. A sweep runs on every `GET /api/adviser/chats` — deletes anything past `expiresAt` and clears the active pointer if it got swept. Legacy `adviser_thread`/`adviser_archive` data is migrated to the new model on first access (thread becomes active + starred, archive entries become peer chats with fresh 30d clocks). Titles auto-generated from the first user message, 60-char truncation.
 
 ## Weather Sync
 

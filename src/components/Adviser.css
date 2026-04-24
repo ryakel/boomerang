@@ -457,3 +457,21 @@
   cursor: pointer;
 }
 .adviser-history-delete:hover { background: rgba(239, 68, 68, 0.12); color: #EF4444; }
+.adviser-history-item.is-active { outline: 1px solid rgba(167, 139, 250, 0.4); }
+.adviser-history-active-dot { color: #A78BFA; margin-right: 6px; font-size: 10px; vertical-align: middle; }
+.adviser-history-starred { color: #F59E0B; }
+.adviser-history-expiring { color: #F59E0B; }
+
+.adviser-expiry-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin: 8px 12px 0;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-sm);
+  color: #B45309;
+  font-size: 12.5px;
+}
+.adviser-expiry-banner .adviser-inline-btn { margin-left: auto; color: #B45309; }

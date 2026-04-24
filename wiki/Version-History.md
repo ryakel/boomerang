@@ -6,6 +6,35 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-04-23
 
+- feat(quokka): multi-chat with 30d TTL + star-to-keep + 7d unstar grace [L]
+  - **Problem.** Quokka had a single "current thread" — every topic piled into the same conversation with no separation. History was a rolling 30-entry archive only populated when you hit "Start over" or left idle for 24h, and you could only rehydrate one at a time (losing the current on switch).
+  - **New model.** `app_data.adviser_chats` holds an array of independent chats; `app_data.adviser_active_chat_id` tracks which one Quokka is currently reading/writing. Each chat: `{id, title, messages, sessionId, starred, createdAt, updatedAt, expiresAt}`. Switching between chats preserves state across the board.
+  - **Lifetime rules.** On create or message activity, non-starred chats get `expiresAt = now + 30d` (rolling). Starring clears `expiresAt`; unstarring sets it to `now + 7d` and surfaces an orange banner in the chat: "This chat will be deleted in N days. Star to keep." A sweep runs on every list call, deleting anything past `expiresAt`.
+  - **Migration.** One-shot on first access after upgrade: the old `adviser_thread` becomes the active chat *pre-starred* (so the upgrade can't silently lose your in-flight conversation), and every `adviser_archive` entry becomes a peer chat with a fresh 30d TTL clock. Legacy keys are zeroed out so migration only runs once.
+  - **Server endpoints (replace old thread/archive routes):**
+    - `GET /api/adviser/chats` — list summaries + activeId (sweep runs here)
+    - `GET /api/adviser/chats/active` — active chat full content
+    - `GET /api/adviser/chats/:id` — single chat full content
+    - `POST /api/adviser/chats` — create new empty chat, auto-activate
+    - `PATCH /api/adviser/chats/:id` — update messages/title/sessionId; bumps `updatedAt` + rolls 30d TTL
+    - `DELETE /api/adviser/chats/:id` — delete; clears active if it was the active chat
+    - `POST /api/adviser/chats/:id/activate` — switch active
+    - `POST /api/adviser/chats/:id/star` — `expiresAt = null`
+    - `POST /api/adviser/chats/:id/unstar` — `expiresAt = now + 7d`
+  - **Client.** `useAdviser.js` rewritten: hydrates on mount by fetching chat list + active chat body, persists active chat's messages/sessionId debounced at 400ms (same as before), exposes `newChat`, `switchChat`, `deleteChat`, `starChat`, `unstarChat`. `Adviser.jsx` replaces the History panel with a full chat-list panel — star icon per row (filled = starred), delete icon, active indicator, "expires in Nd" meta when within 7 days of expiry. A `+` icon in the header creates a new chat.
+  - **Expiry banner** in the active chat when `expiresAt - now < 7d && !starred`: one tap "star to keep" button makes it infinite. Covers both the normal 30d winding down and the unstar 7d grace.
+  - Removed helpers: `adviserGetThread`, `adviserSaveThread`, `adviserClearThread`, `adviserListArchive`, `adviserGetArchivedThread`, `adviserDeleteArchivedThread`, `adviserRehydrateThread`. Replaced by the `adviser*Chat*` family in `src/api.js`.
+  - Modified: `server.js`, `src/api.js`, `src/hooks/useAdviser.js`, `src/components/Adviser.jsx`, `src/components/Adviser.css`, `CLAUDE.md`, `wiki/Architecture.md`, `wiki/Features.md`
+
+- refactor(notion): rip dead Stage 1 OAuth + duplicate quokka tools + legacy UI [M]
+  - Stage 1's public-integration OAuth was never used — the flow required users to register a Notion "Public" integration with privacy policy / TOS / support email, which was absurd for a personal self-hosted app. Stage 2 (MCP with DCR) sidesteps that entirely, so Stage 1 was dead code.
+  - Removed server-side: `NOTION_OAUTH_TOKENS_KEY`, `refreshNotionToken()`, `getNotionOAuthClientId()`, `envNotionOAuthClientId`, `envNotionOAuthClientSecret`, `/api/notion/oauth/auth-url`, `/api/notion/oauth/callback`, `/api/notion/oauth/status`, `/api/notion/oauth/disconnect`, plus `notion_oauth` field from `GET /api/keys/status`. `getNotionAccessToken(req)` simplified to MCP-first with legacy-token fallback (the Stage 1 OAuth check is gone).
+  - Removed client-side: `notionOAuthAuthUrl`, `notionOAuthDisconnect` from `src/api.js`; Stage 1 OAuth state / handlers / postMessage listener / Settings UI section.
+  - Removed duplicate Quokka Notion REST tools: `notion_search` and `notion_get_page` were registered on boot alongside the MCP-bridged `notion_mcp_*` tools — the model would pick REST unpredictably, causing the filament-inventory confusion (REST used the legacy integration token while MCP had user-scoped access). MCP's native `search` and `fetch` tools do the same job, so the duplicates are gone. `notion_query_database` stays — no MCP equivalent.
+  - Simplified Settings UI: Notion section now shows only the MCP panel (primary path). Legacy integration-token input field + "Connect with token" button are gone; the server-side `NOTION_INTEGRATION_TOKEN` env var still works as a fallback and surfaces as a small inline note when MCP isn't connected.
+  - `/api/notion/status` response cleaned up: was `{connected, auth: 'oauth'|'legacy', oauth, legacy, workspace_name, bot}`, now `{connected, auth: 'mcp'|'legacy', mcp, legacy, bot}`.
+  - Modified: `server.js`, `src/api.js`, `src/components/Settings.jsx`, `adviserToolsIntegrations.js`
+
 - fix(notion): let MCP OAuth token back all REST endpoints [XS]
   - Symptom: after connecting via MCP, Quokka would find the filament database via `notion_mcp_notion_search` (user-scoped access works) but then fall through to the REST `notion_query_database` tool, which was hitting the legacy integration token and returning "database not shared with integration" errors. MCP and REST were authing separately.
   - Fix: `getNotionAccessToken(req)` in `server.js` now checks `notion_mcp_tokens.access_token` first. Notion's MCP flow issues a standard OAuth access token (via Dynamic Client Registration), which is also valid as a bearer token against Notion's REST API — so every REST endpoint + Quokka's REST-backed tools now inherit MCP's user-scoped access automatically.
