@@ -5,7 +5,7 @@ import { loadSettings, saveSettings, loadLabels, ENERGY_TYPES } from '../store'
 import { SIZE_POINTS } from '../scoring'
 import EnergyIcon from './EnergyIcon'
 import { Search, ChevronRight } from 'lucide-react'
-import { getNotificationAnalytics } from '../api'
+import { getNotificationAnalytics, getThrottleDecisions, markThrottleFeedback } from '../api'
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -80,7 +80,12 @@ export default function Analytics({ onClose, isDesktop }) {
   const [completedOpen, setCompletedOpen] = useState(false)
   const [notifEngagement, setNotifEngagement] = useState(null)
   const [engagementOpen, setEngagementOpen] = useState(false)
+  const [throttleDecisions, setThrottleDecisions] = useState([])
   const searchTimer = useRef(null)
+
+  const refreshThrottleDecisions = useCallback(() => {
+    getThrottleDecisions(range || 30).then(d => setThrottleDecisions(d?.decisions || [])).catch(() => {})
+  }, [range])
 
   useEffect(() => {
     fetch('/api/analytics')
@@ -93,7 +98,8 @@ export default function Analytics({ onClose, isDesktop }) {
     getNotificationAnalytics(range || 30)
       .then(data => setNotifEngagement(data))
       .catch(() => setNotifEngagement(null))
-  }, [range])
+    refreshThrottleDecisions()
+  }, [range, refreshThrottleDecisions])
 
   // Heat map: always fetch 365 days of daily data
   useEffect(() => {
@@ -530,6 +536,38 @@ export default function Analytics({ onClose, isDesktop }) {
                   </div>
                 ))}
               </div>
+
+              {throttleDecisions.filter(d => !d.feedback).length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <div className="settings-label" style={{ fontSize: 12, marginBottom: 6 }}>Adaptive throttle decisions</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8 }}>
+                    Boomerang auto-tuned these notification frequencies because the recent ones weren't being tapped. Was that right?
+                  </div>
+                  {throttleDecisions.filter(d => !d.feedback).slice(0, 10).map(d => {
+                    const date = new Date(d.decided_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    return (
+                      <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'var(--surface-elevated, rgba(0,0,0,0.04))', borderRadius: 6, marginBottom: 6, fontSize: 12 }}>
+                        <span style={{ flex: 1 }}>
+                          <strong style={{ textTransform: 'capitalize' }}>{d.channel}</strong> {d.type.replace(/_/g, ' ')} backed off {d.multiplier_old.toFixed(1)}× → {d.multiplier_new.toFixed(1)}×
+                          <span style={{ color: 'var(--text-dim)', marginLeft: 6 }}>({date})</span>
+                        </span>
+                        <button
+                          className="ci-upload-btn"
+                          style={{ padding: '4px 10px', fontSize: 12 }}
+                          onClick={async () => { await markThrottleFeedback(d.id, 'up'); refreshThrottleDecisions() }}
+                          title="Yes, that was right"
+                        >👍</button>
+                        <button
+                          className="ci-upload-btn"
+                          style={{ padding: '4px 10px', fontSize: 12, background: '#FF6240' }}
+                          onClick={async () => { await markThrottleFeedback(d.id, 'down'); refreshThrottleDecisions() }}
+                          title="No, undo this back-off and don't auto-tune for 7 days"
+                        >👎</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>

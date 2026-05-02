@@ -18,6 +18,7 @@ import crypto from 'crypto'
 import {
   queryTasks, getData, getNotifThrottle, setNotifThrottle,
   logNotifPush, getTask, updateTaskPartial,
+  getEffectiveThrottleMultiplier,
 } from './db.js'
 
 const PUSHOVER_API = 'https://api.pushover.net/1/messages.json'
@@ -285,6 +286,14 @@ function checkThrottle(key, freqMs) {
   return Date.now() - new Date(last).getTime() >= freqMs
 }
 
+// Apply the adaptive-throttle multiplier (consults notification_log).
+// A (channel, type) that's been ignored 10 times in a row backs off
+// progressively, capped at 8x. Tap or complete resets to 1x.
+function adaptiveFreq(type, baseFreqMs) {
+  const multiplier = getEffectiveThrottleMultiplier('pushover', type)
+  return Math.round(baseFreqMs * multiplier)
+}
+
 function markThrottle(key) {
   setNotifThrottle(key, new Date().toISOString())
 }
@@ -352,7 +361,7 @@ async function runPushoverCheck() {
           if (!taskHasBypassLabel(task, settings)) continue
         }
 
-        const freq = applyAvoidanceBoost(getHighPriorityFreqMs(task, settings), task)
+        const freq = adaptiveFreq('high_priority', applyAvoidanceBoost(getHighPriorityFreqMs(task, settings), task))
         const throttleKey = `pushover_hp:${task.id}`
         if (!checkThrottle(throttleKey, freq)) continue
 
@@ -385,7 +394,7 @@ async function runPushoverCheck() {
       // check the bypass label on. During quiet hours, suppress entirely;
       // per-task wake-me opt-in is honored via the high-pri loop above.
       if (!inQuiet) {
-        const freq = getFreqMs(settings, 'notif_freq_overdue', 0.5)
+        const freq = adaptiveFreq('overdue', getFreqMs(settings, 'notif_freq_overdue', 0.5))
         if (checkThrottle('pushover_overdue', freq)) {
           const overdueTasks = activeTasks.filter(isOverdue)
           if (overdueTasks.length > 0) {
@@ -415,7 +424,7 @@ async function runPushoverCheck() {
 
     // Stale
     if (settings.pushover_notif_stale !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_stale', 0.5)
+      const freq = adaptiveFreq('stale', getFreqMs(settings, 'notif_freq_stale', 0.5))
       if (checkThrottle('pushover_stale', freq)) {
         const staleTasks = activeTasks.filter(t => isStale(t, settings.staleness_days))
         if (staleTasks.length > 0) {
@@ -436,7 +445,7 @@ async function runPushoverCheck() {
 
     // Nudge
     if (settings.pushover_notif_nudge !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
+      const freq = adaptiveFreq('nudge', getFreqMs(settings, 'notif_freq_nudge', 1))
       if (checkThrottle('pushover_nudge', freq) && activeTasks.length > 0) {
         const smallTasks = activeTasks.filter(t => t.size === 'XS' || t.size === 'S')
         let title, body
@@ -458,7 +467,7 @@ async function runPushoverCheck() {
 
     // Size-based
     if (settings.pushover_notif_size !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_size', 1)
+      const freq = adaptiveFreq('size', getFreqMs(settings, 'notif_freq_size', 1))
       if (checkThrottle('pushover_size', freq)) {
         const sizeLeadDays = { XL: 3, L: 2, M: 1 }
         const upcoming = activeTasks.filter(t => {
@@ -487,7 +496,7 @@ async function runPushoverCheck() {
 
     // Pile-up
     if (settings.pushover_notif_pileup !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_pileup', 2)
+      const freq = adaptiveFreq('pileup', getFreqMs(settings, 'notif_freq_pileup', 2))
       if (checkThrottle('pushover_pileup', freq)) {
         let sent = false
         if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {

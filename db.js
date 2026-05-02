@@ -2,6 +2,7 @@ import initSqlJs from 'sql.js'
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import crypto from 'crypto'
 
 let db
 let dbPath
@@ -1181,6 +1182,111 @@ export function stampCompletionForRecentNotifs(taskId) {
     [new Date().toISOString(), taskId, cutoff]
   )
   schedulePersist()
+}
+
+// --- Adaptive throttling ---
+//
+// For each (channel, type) we look at the last N notifications. If none were
+// tapped or led to completion within 24h, we back off — multiply the throttle
+// interval to reduce volume. As soon as one converts, we reset to 1x. This
+// protects channel credibility: the system stops shouting into a void.
+//
+// A user thumbs-down on a back-off decision sets user_overridden_until so the
+// system stops auto-tuning that (channel, type) for a 7-day grace period.
+
+const ADAPTIVE_LOOKBACK = 10
+const ADAPTIVE_BACKOFF_STEP = 1.5
+const ADAPTIVE_MAX = 8.0
+
+export function getEffectiveThrottleMultiplier(channel, type) {
+  // Honor user override window
+  const override = db.prepare(
+    `SELECT user_overridden_until FROM throttle_decisions
+     WHERE channel = ? AND type = ? AND user_overridden_until IS NOT NULL
+     ORDER BY decided_at DESC LIMIT 1`
+  )
+  override.bind([channel, type])
+  let overrideUntil = null
+  if (override.step()) overrideUntil = override.getAsObject().user_overridden_until
+  override.free()
+  if (overrideUntil && new Date(overrideUntil) > new Date()) return 1.0
+
+  const stmt = db.prepare(
+    `SELECT tapped_at, completed_after FROM notification_log
+     WHERE channel = ? AND type = ?
+     ORDER BY sent_at DESC LIMIT ?`
+  )
+  stmt.bind([channel, type, ADAPTIVE_LOOKBACK])
+  const rows = []
+  while (stmt.step()) rows.push(stmt.getAsObject())
+  stmt.free()
+
+  if (rows.length < ADAPTIVE_LOOKBACK) return 1.0
+  const anyConverted = rows.some(r => r.tapped_at || r.completed_after)
+  if (anyConverted) return 1.0
+
+  // All ignored — count how many consecutive ignored windows we've already
+  // backed off, multiply by step each time, capped at MAX.
+  const recentDecisions = db.prepare(
+    `SELECT multiplier_new FROM throttle_decisions
+     WHERE channel = ? AND type = ? AND feedback != 'down' OR feedback IS NULL
+     ORDER BY decided_at DESC LIMIT 1`
+  )
+  recentDecisions.bind([channel, type])
+  let last = 1.0
+  if (recentDecisions.step()) last = recentDecisions.getAsObject().multiplier_new
+  recentDecisions.free()
+
+  const next = Math.min(ADAPTIVE_MAX, Math.max(1.0, last * ADAPTIVE_BACKOFF_STEP))
+  if (next !== last) {
+    db.run(
+      `INSERT INTO throttle_decisions (id, channel, type, multiplier_old, multiplier_new, decided_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), channel, type, last, next, new Date().toISOString()]
+    )
+    schedulePersist()
+  }
+  return next
+}
+
+export function listThrottleDecisions(days = 30) {
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+  const stmt = db.prepare(
+    `SELECT * FROM throttle_decisions WHERE decided_at >= ? ORDER BY decided_at DESC`
+  )
+  stmt.bind([cutoff])
+  const out = []
+  while (stmt.step()) out.push(stmt.getAsObject())
+  stmt.free()
+  return out
+}
+
+export function markThrottleDecisionFeedback(id, feedback) {
+  if (!['up', 'down'].includes(feedback)) return false
+  const stmt = db.prepare('SELECT * FROM throttle_decisions WHERE id = ?')
+  stmt.bind([id])
+  if (!stmt.step()) { stmt.free(); return false }
+  const row = stmt.getAsObject()
+  stmt.free()
+  const now = new Date().toISOString()
+  if (feedback === 'down') {
+    // Revert: insert a synthetic decision back to multiplier_old, and set the
+    // 7-day override on this (channel, type) so the auto-tuning stops.
+    const overrideUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    db.run(
+      `UPDATE throttle_decisions SET feedback = ?, feedback_at = ?, user_overridden_until = ? WHERE id = ?`,
+      [feedback, now, overrideUntil, id]
+    )
+    db.run(
+      `INSERT INTO throttle_decisions (id, channel, type, multiplier_old, multiplier_new, decided_at, feedback, feedback_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'down', ?)`,
+      [crypto.randomUUID(), row.channel, row.type, row.multiplier_new, row.multiplier_old, now, now]
+    )
+  } else {
+    db.run(`UPDATE throttle_decisions SET feedback = ?, feedback_at = ? WHERE id = ?`, [feedback, now, id])
+  }
+  schedulePersist()
+  return true
 }
 
 // Aggregated engagement summary for the analytics endpoint.

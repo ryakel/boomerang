@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- feat(notifications): adaptive throttling + per-back-off feedback validation [M]
+  - **Why.** Analytics detects signal degradation (tap-rate dropping); without a closing loop, the dispatcher keeps firing into a void anyway. Adaptive throttling closes that loop: a (channel, type) that's been ignored 10 times in a row backs off progressively (1.5×, 2.25×, … capped at 8×) until something taps, then resets to 1×.
+  - **Migration 021** — `throttle_decisions` table records each back-off event (channel, type, old multiplier, new multiplier, decided_at, optional feedback + override-until).
+  - **`getEffectiveThrottleMultiplier(channel, type)`** in `db.js` — looks at last 10 notifications for that combination. Any conversion → 1.0×. All ignored → step up by 1.5× from the most recent decision, capped at 8×. Inserts a new `throttle_decisions` row when the multiplier changes.
+  - **`adaptiveFreq()`** wrapper in `pushoverNotifications.js` multiplies the configured base frequency by the effective multiplier. Wired into all five throttled categories (high-priority, overdue, stale, nudge, size, pile-up).
+  - **Per-back-off feedback validation.** Behavioral inference (tap = useful, no tap = useless) is coarse — a user might silently read and act in the app without tapping. The Analytics panel now shows recent unreviewed back-off decisions as chips with 👍 / 👎 buttons:
+    - 👍 marks the decision reviewed (no-op).
+    - 👎 reverts the back-off (synthetic decision row putting multiplier back) and sets `user_overridden_until = now + 7d` on that combination — adaptive throttling backs off itself for that combination for 7 days.
+  - **New endpoints:** `GET /api/analytics/throttle-decisions?days=N` lists the rolling history; `POST /api/analytics/throttle-decisions/:id/feedback` posts thumbs feedback.
+  - **UI** — chips appear inside the existing Notification Engagement panel only when there are unreviewed decisions (silent when nothing to review).
+  - Modified: `db.js`, `server.js`, `pushoverNotifications.js`, `src/api.js`, `src/components/Analytics.jsx`
+  - New: `migrations/021_adaptive_throttle.sql`
+
 - feat(notifications): tag-based quiet-hours bypass via "wake-me" label [S]
   - **Why.** The original Pushover plan had priority 1+2 always bypass quiet hours. User correctly pushed back: "very few things need to wake me at 2am — let me opt in per-task." Default is now silence; only labeled tasks override.
   - **Default `wake-me` label** added to `DEFAULT_LABELS` in `src/store.js` with red `#FF6240` color. Existing installs see it on first label load.

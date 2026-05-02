@@ -8,7 +8,8 @@ import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bump
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
   getAnalytics, getAnalyticsHistory, getData,
   upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial,
-  markNotificationTapped, getNotificationAnalytics } from './db.js'
+  markNotificationTapped, getNotificationAnalytics,
+  listThrottleDecisions, markThrottleDecisionFeedback } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
@@ -2503,6 +2504,18 @@ app.post('/api/notifications/tap', (req, res) => {
     cancelPushoverEmergencyForTask(taskId).catch(() => {})
   }
   res.json({ ok: true, channel: stamped })
+})
+
+app.get('/api/analytics/throttle-decisions', (req, res) => {
+  const days = Math.min(90, Math.max(1, parseInt(req.query.days || '30', 10)))
+  res.json({ decisions: listThrottleDecisions(days) })
+})
+
+app.post('/api/analytics/throttle-decisions/:id/feedback', (req, res) => {
+  const { feedback } = req.body || {}
+  if (!['up', 'down'].includes(feedback)) return res.status(400).json({ error: 'feedback must be up|down' })
+  const ok = markThrottleDecisionFeedback(req.params.id, feedback)
+  res.json({ ok })
 })
 
 app.get('/api/analytics/notifications', (req, res) => {
