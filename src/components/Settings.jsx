@@ -2157,23 +2157,38 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                 <span>Enable quiet hours</span>
               </label>
               {settings.quiet_hours_enabled && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
-                  <input
-                    type="time"
-                    className="settings-input"
-                    value={settings.quiet_hours_start || '22:00'}
-                    onChange={e => update('quiet_hours_start', e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>to</span>
-                  <input
-                    type="time"
-                    className="settings-input"
-                    value={settings.quiet_hours_end || '08:00'}
-                    onChange={e => update('quiet_hours_end', e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                </div>
+                <>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                    <input
+                      type="time"
+                      className="settings-input"
+                      value={settings.quiet_hours_start || '22:00'}
+                      onChange={e => update('quiet_hours_start', e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>to</span>
+                    <input
+                      type="time"
+                      className="settings-input"
+                      value={settings.quiet_hours_end || '08:00'}
+                      onChange={e => update('quiet_hours_end', e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <div className="settings-label" style={{ marginBottom: 4 }}>Bypass label</div>
+                    <input
+                      className="add-input"
+                      type="text"
+                      value={settings.quiet_hours_bypass_label || 'wake-me'}
+                      onChange={e => update('quiet_hours_bypass_label', e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                      Tasks tagged with this label can wake you during quiet hours (Pushover priority 1+2 only). Default: <code>wake-me</code>. Use the "Wake me up for this" checkbox in EditTask to opt a task in.
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="settings-label" style={{ marginTop: 16 }}>High priority</div>

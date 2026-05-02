@@ -229,6 +229,22 @@ function isAvoidance(task) {
   return !!(task.energy && AVOIDANCE_ENERGY_TYPES.includes(task.energy))
 }
 
+// Tasks tagged with the configured bypass label (default 'wake-me') are
+// allowed to fire during quiet hours when at priority 1 or 2. Every other
+// task is silent during quiet hours regardless of priority.
+// Matches against tag ID (strings stored in task.tags) — the default label
+// has id='wake-me' so the default setting value matches. Users can change
+// the setting to any label id.
+function taskHasBypassLabel(task, settings) {
+  const target = (settings.quiet_hours_bypass_label || 'wake-me').toLowerCase()
+  if (!target) return false
+  if (!Array.isArray(task.tags)) return false
+  return task.tags.some(t => {
+    const v = typeof t === 'string' ? t : (t?.id || t?.name || '')
+    return String(v).toLowerCase() === target
+  })
+}
+
 function applyAvoidanceBoost(freqMs, task) {
   if (!isAvoidance(task)) return freqMs
   let boost = 1.3
@@ -329,8 +345,12 @@ async function runPushoverCheck() {
         let priority = stage === 1 ? 0 : stage === 2 ? 1 : 2
         if (stage === 3 && isAvoidance(task)) priority = 2
 
-        // Quiet hours: only priority 0 honors quiet hours
-        if (inQuiet && priority === 0) continue
+        // Quiet hours: priority 0 always silent; priority 1+2 only fire if
+        // the task is opted in via the bypass label.
+        if (inQuiet) {
+          if (priority === 0) continue
+          if (!taskHasBypassLabel(task, settings)) continue
+        }
 
         const freq = applyAvoidanceBoost(getHighPriorityFreqMs(task, settings), task)
         const throttleKey = `pushover_hp:${task.id}`
@@ -361,7 +381,10 @@ async function runPushoverCheck() {
     // Generic overdue notification — priority 1
     if (settings.pushover_notif_overdue !== false) {
       const priority = 1
-      if (!(inQuiet && priority === 0)) {
+      // Generic overdue (multi-task summary) doesn't have a single task to
+      // check the bypass label on. During quiet hours, suppress entirely;
+      // per-task wake-me opt-in is honored via the high-pri loop above.
+      if (!inQuiet) {
         const freq = getFreqMs(settings, 'notif_freq_overdue', 0.5)
         if (checkThrottle('pushover_overdue', freq)) {
           const overdueTasks = activeTasks.filter(isOverdue)

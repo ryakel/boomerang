@@ -99,6 +99,10 @@ export const DEFAULT_SETTINGS = {
   // 'counts' (legacy plain count summary)
   digest_style: 'curated',
   pushover_digest_enabled: false,
+  // Name of the label that grants quiet-hours bypass for Pushover priority 1+2.
+  // Default: 'wake-me'. Tasks tagged with this label can wake the user up;
+  // every other task is silent during quiet hours regardless of priority.
+  quiet_hours_bypass_label: 'wake-me',
   // Pushover (gated by credentials being entered in Settings)
   pushover_notifications_enabled: false,
   pushover_user_key: '',
@@ -118,6 +122,9 @@ const DEFAULT_LABELS = [
   { id: 'inside', name: 'inside', color: '#4A9EFF' },
   { id: 'outside', name: 'outside', color: '#52C97F' },
   { id: 'follow-up', name: 'follow-up', color: '#FFB347' },
+  // Quiet-hours bypass label — tasks with this label can fire priority-1 / priority-2
+  // notifications during quiet hours. Default to red as visual flag.
+  { id: 'wake-me', name: 'wake-me', color: '#FF6240' },
 ]
 
 const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']

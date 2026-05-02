@@ -753,7 +753,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
           ))}
         </select>
         {selectedTags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
             {selectedTags.map(id => {
               const label = labels.find(l => l.id === id)
               if (!label) return null
@@ -765,6 +765,30 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
             })}
           </div>
         )}
+
+        {/* Wake-me-up-for-this — quiet-hours bypass via the configured label */}
+        {(() => {
+          const bypassLabelId = (loadSettings().quiet_hours_bypass_label || 'wake-me').toLowerCase()
+          const isWakeMe = selectedTags.some(id => String(id).toLowerCase() === bypassLabelId)
+          return (
+            <label className="notif-check" style={{ marginBottom: 16 }}>
+              <input
+                type="checkbox"
+                checked={isWakeMe}
+                onChange={e => {
+                  if (e.target.checked && !isWakeMe) toggleTag(bypassLabelId)
+                  else if (!e.target.checked && isWakeMe) toggleTag(bypassLabelId)
+                }}
+              />
+              <span style={{ fontSize: 13 }}>
+                Wake me up for this
+                <span style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                  Allow this task's high-priority notifications to fire during quiet hours.
+                </span>
+              </span>
+            </label>
+          )
+        })()}
 
         {/* Categorization group */}
         <div className="form-group">

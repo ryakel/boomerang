@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- feat(notifications): tag-based quiet-hours bypass via "wake-me" label [S]
+  - **Why.** The original Pushover plan had priority 1+2 always bypass quiet hours. User correctly pushed back: "very few things need to wake me at 2am — let me opt in per-task." Default is now silence; only labeled tasks override.
+  - **Default `wake-me` label** added to `DEFAULT_LABELS` in `src/store.js` with red `#FF6240` color. Existing installs see it on first label load.
+  - **`quiet_hours_bypass_label` setting** (default `wake-me`). Free-text in Settings → Quiet hours so users can rename.
+  - **Bypass logic** in `pushoverNotifications.js` `taskHasBypassLabel()`. During quiet hours: priority 0 always silent, priority 1+2 silent **unless** the task carries the bypass label. Generic multi-task overdue summaries are silent during quiet hours regardless (no per-task to check).
+  - **EditTaskModal "Wake me up for this" checkbox** below the Labels section — toggles the bypass label cleanly without making users hunt the label dropdown.
+  - **Settings UI** — bypass-label name field appears under quiet-hours time pickers when quiet hours is enabled.
+  - Modified: `pushoverNotifications.js`, `src/store.js`, `src/components/EditTaskModal.jsx`, `src/components/Settings.jsx`
+
 - feat(analytics): notification engagement panel [S]
   - **Why.** Phase 2a wired up tap and completion stamping; this surfaces the data in the existing Analytics dashboard so it's actually visible. North-Star alignment: the post-2-week review can now see "Pushover tap-rate is X%, completion-rate is Y%" instead of guessing.
   - **New collapsible "Notification engagement" section** in `Analytics.jsx`, between the heat map and the Completed Tasks search.
