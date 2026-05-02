@@ -1131,6 +1131,12 @@ export async function testPushoverEmergency() {
   return res.json()
 }
 
+export async function testDigest() {
+  const res = await fetch('/api/digest/test', { method: 'POST' })
+  if (!res.ok) throw new Error(`test digest failed: ${res.status}`)
+  return res.json()
+}
+
 // --- Weather ---
 
 export async function getWeather() {

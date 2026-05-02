@@ -535,12 +535,119 @@ export async function sendPackagePushover(pkg, eventType) {
   }
 }
 
+// --- Daily digest ---
+
+async function checkPushoverDigest() {
+  const settings = getData('settings') || {}
+  if (!settings.pushover_notifications_enabled) return
+  if (!settings.pushover_digest_enabled) return
+  const { userKey, appToken } = getCredentials(settings)
+  if (!userKey || !appToken) return
+
+  const digestTime = settings.digest_time || '07:00'
+  const now = new Date()
+  const [hh, mm] = digestTime.split(':').map(Number)
+  if (now.getHours() !== hh || now.getMinutes() !== mm) return
+
+  if (!checkThrottle('pushover_digest', 23 * 60 * 60 * 1000)) return
+
+  const { buildDigest } = await import('./digestBuilder.js')
+  const digest = buildDigest(settings)
+  if (!digest.hasContent) return
+
+  const url = buildDeepLink(settings, null)
+  const result = await sendPushover({
+    userKey, appToken,
+    title: `[BOOMERANG] ${digest.subject}`,
+    message: digest.textBody.slice(0, 1024),
+    priority: 0,
+    url,
+    urlTitle: url ? 'Open in Boomerang' : undefined,
+  })
+  if (result.ok) {
+    markThrottle('pushover_digest')
+    logNotifPush(genId(), 'digest', null, digest.subject, digest.textBody.slice(0, 500), 'pushover')
+  }
+}
+
+// Manual digest test — bypasses time-of-day and throttle checks. Dispatches
+// via every enabled channel. Used by Settings UI's "Test daily digest" button.
+export async function sendDigestNow() {
+  const settings = getData('settings') || {}
+  const { buildDigest } = await import('./digestBuilder.js')
+  const digest = buildDigest(settings)
+  if (!digest.hasContent) {
+    return { success: false, error: 'Nothing to surface — no overdue/today/carrying/quick-wins tasks and no recent completions.' }
+  }
+
+  const fired = []
+  const skipped = []
+
+  // Pushover
+  if (settings.pushover_digest_enabled) {
+    const { userKey, appToken } = getCredentials(settings)
+    if (userKey && appToken) {
+      const url = buildDeepLink(settings, null)
+      const result = await sendPushover({
+        userKey, appToken,
+        title: `[BOOMERANG] ${digest.subject}`,
+        message: digest.textBody.slice(0, 1024),
+        priority: 0,
+        url, urlTitle: url ? 'Open in Boomerang' : undefined,
+      })
+      if (result.ok) {
+        fired.push('pushover')
+        logNotifPush(genId(), 'digest', null, digest.subject, digest.textBody.slice(0, 500), 'pushover')
+      } else {
+        skipped.push({ channel: 'pushover', reason: result.errors?.[0] || result.error || 'send failed' })
+      }
+    } else {
+      skipped.push({ channel: 'pushover', reason: 'credentials missing' })
+    }
+  } else {
+    skipped.push({ channel: 'pushover', reason: 'disabled' })
+  }
+
+  // Email + Web Push delegated to their modules so they reuse the same
+  // transporter / VAPID setup. Lazy-imported to avoid circular deps.
+  if (settings.email_digest_enabled) {
+    try {
+      const { sendDigestEmail } = await import('./emailNotifications.js')
+      const ok = await sendDigestEmail(digest)
+      if (ok) fired.push('email')
+      else skipped.push({ channel: 'email', reason: 'send failed' })
+    } catch (err) {
+      skipped.push({ channel: 'email', reason: err.message })
+    }
+  } else {
+    skipped.push({ channel: 'email', reason: 'disabled' })
+  }
+
+  if (settings.push_digest_enabled) {
+    try {
+      const { sendDigestPush } = await import('./pushNotifications.js')
+      const ok = await sendDigestPush(digest)
+      if (ok) fired.push('push')
+      else skipped.push({ channel: 'push', reason: 'send failed' })
+    } catch (err) {
+      skipped.push({ channel: 'push', reason: err.message })
+    }
+  } else {
+    skipped.push({ channel: 'push', reason: 'disabled' })
+  }
+
+  return { success: fired.length > 0, fired, skipped, subject: digest.subject }
+}
+
 // --- Lifecycle ---
 
 export function startPushoverNotifications() {
   if (loopTimer) return
-  loopTimer = setInterval(runPushoverCheck, 60 * 1000)
-  setTimeout(runPushoverCheck, 25000) // First check after 25s
+  loopTimer = setInterval(async () => {
+    try { await checkPushoverDigest() } catch (err) { console.error('[Pushover] Digest check failed:', err.message) }
+    runPushoverCheck()
+  }, 60 * 1000)
+  setTimeout(runPushoverCheck, 25000)
   console.log('Pushover notifications: lifecycle started (waiting for credentials)')
 }
 

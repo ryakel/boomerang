@@ -195,31 +195,19 @@ async function checkPushDigest() {
   const subscriptions = getAllPushSubscriptions()
   if (subscriptions.length === 0) return
 
-  const allTasks = queryTasks({})
-  const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
-  if (activeTasks.length === 0) return
+  const { buildDigest } = await import('./digestBuilder.js')
+  const digest = buildDigest(settings)
+  if (!digest.hasContent) return
 
-  const overdueTasks = activeTasks.filter(isOverdue)
-  const staleDays = settings.staleness_days || 2
-  const staleTasks = activeTasks.filter(t => isStale(t, staleDays))
-  const todayStr = now.toISOString().split('T')[0]
-  const dueTodayTasks = activeTasks.filter(t => t.due_date === todayStr)
-
-  const parts = [`${activeTasks.length} open`]
-  if (dueTodayTasks.length > 0) parts.push(`${dueTodayTasks.length} due today`)
-  if (overdueTasks.length > 0) parts.push(`${overdueTasks.length} overdue`)
-  if (staleTasks.length > 0) parts.push(`${staleTasks.length} stale`)
-
-  let body = parts.join(' · ')
-  const weatherSummary = buildWeatherSummary(getWeatherCache())
-  if (weatherSummary) body += `\n${weatherSummary}`
-
-  await sendPush({
-    title: 'Morning Digest',
-    body,
+  const sent = await sendPush({
+    title: digest.subject,
+    body: digest.textBody.slice(0, 500),
     tag: 'digest',
   })
-  markThrottle('push_digest')
+  if (sent) {
+    markThrottle('push_digest')
+    logNotifPush(genId(), 'digest', null, digest.subject, digest.textBody.slice(0, 500))
+  }
 }
 
 // --- Main notification check loop ---
@@ -420,6 +408,20 @@ export async function sendPackagePush(pkg, eventType) {
 }
 
 // --- Test push ---
+
+// Send a pre-built digest via web push (used by manual test endpoint).
+export async function sendDigestPush(digest) {
+  if (!isConfigured() || !digest?.hasContent) return false
+  const sent = await sendPush({
+    title: digest.subject,
+    body: digest.textBody.slice(0, 500),
+    tag: 'digest',
+  })
+  if (sent) {
+    logNotifPush(genId(), 'digest', null, digest.subject, digest.textBody.slice(0, 500))
+  }
+  return sent
+}
 
 export async function sendTestPush() {
   if (!isConfigured()) return { success: false, error: 'VAPID keys not configured' }

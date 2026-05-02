@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, pushoverStatus, testPushover, testPushoverEmergency, getWeather, refreshWeather, geocodeWeather } from '../api'
+import { getKeyStatus, callClaude, notionStatus, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, pushoverStatus, testPushover, testPushoverEmergency, testDigest, getWeather, refreshWeather, geocodeWeather } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
@@ -225,6 +225,10 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
   const [pushoverTestError, setPushoverTestError] = useState(null)
   const [pushoverEmergencyStatus, setPushoverEmergencyStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
   const [pushoverEmergencyError, setPushoverEmergencyError] = useState(null)
+
+  // Digest test state
+  const [digestTestStatus, setDigestTestStatus] = useState(null)
+  const [digestTestError, setDigestTestError] = useState(null)
 
   // Tracking connection state
   const [trackingStatus, setTrackingStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
@@ -2362,8 +2366,21 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
             <div className="settings-label" style={{ marginBottom: 8 }}>Morning Digest</div>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-              Daily summary of open, overdue, stale, and due-today tasks.
+              Curated daily summary — yesterday recap + streak, today's focus, coming up, what you're carrying, and quick wins. Tasks are tappable links into the app.
             </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Style:</span>
+              <select
+                value={settings.digest_style || 'curated'}
+                onChange={e => update('digest_style', e.target.value)}
+                style={{ fontSize: 13, padding: '4px 8px' }}
+              >
+                <option value="curated">Curated (recommended)</option>
+                <option value="counts">Counts only (legacy)</option>
+              </select>
+            </div>
+
             <label className="notif-check" style={{ marginBottom: 8 }}>
               <input
                 type="checkbox"
@@ -2378,7 +2395,15 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                 checked={!!settings.push_digest_enabled}
                 onChange={e => update('push_digest_enabled', e.target.checked)}
               />
-              <span>Push digest</span>
+              <span>Web push digest</span>
+            </label>
+            <label className="notif-check" style={{ marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={!!settings.pushover_digest_enabled}
+                onChange={e => update('pushover_digest_enabled', e.target.checked)}
+              />
+              <span>Pushover digest</span>
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
               <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Time:</span>
@@ -2389,6 +2414,38 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                 onChange={e => update('digest_time', e.target.value)}
                 style={{ width: 120, fontSize: 13 }}
               />
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <button
+                className="ci-upload-btn"
+                disabled={digestTestStatus === 'sending'}
+                onClick={async () => {
+                  setDigestTestStatus('sending')
+                  setDigestTestError(null)
+                  try {
+                    const result = await testDigest()
+                    if (result.success) {
+                      setDigestTestStatus('sent')
+                      setDigestTestError(`Sent via ${result.fired.join(', ')}`)
+                      setTimeout(() => setDigestTestStatus(null), 4000)
+                    } else {
+                      setDigestTestStatus('error')
+                      setDigestTestError(result.error || 'No channels enabled or all failed')
+                    }
+                  } catch (e) {
+                    setDigestTestStatus('error')
+                    setDigestTestError(e.message || 'Send failed')
+                  }
+                }}
+              >
+                {digestTestStatus === 'sending' ? 'Sending...' : digestTestStatus === 'sent' ? 'Sent!' : 'Test daily digest'}
+              </button>
+              {digestTestError && (
+                <div style={{ fontSize: 12, color: digestTestStatus === 'error' ? '#FF6240' : '#52C97F', marginTop: 4 }}>
+                  {digestTestError}
+                </div>
+              )}
             </div>
           </div>
 

@@ -16,6 +16,7 @@ import {
   startPushoverNotifications, sendTestNotification as sendTestPushover,
   sendTestEmergency as sendTestPushoverEmergency, getPushoverStatus,
   sendPackagePushover, cancelEmergencyForTask as cancelPushoverEmergencyForTask,
+  sendDigestNow,
 } from './pushoverNotifications.js'
 import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
@@ -2466,6 +2467,17 @@ app.post('/api/pushover/test', async (req, res) => {
 app.post('/api/pushover/test-emergency', async (req, res) => {
   const result = await sendTestPushoverEmergency()
   res.json(result)
+})
+
+// --- Daily digest test (sends via every enabled channel right now) ---
+app.post('/api/digest/test', async (req, res) => {
+  try {
+    const result = await sendDigestNow()
+    res.json(result)
+  } catch (err) {
+    console.error('[Digest] Test failed:', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
 })
 
 // --- Notification engagement tracking ---

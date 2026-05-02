@@ -95,6 +95,10 @@ export const DEFAULT_SETTINGS = {
   // Public app URL (for deep links in notifications). Empty = relative links;
   // Pushover sends only get clickable URLs when this is set.
   public_app_url: '',
+  // Digest content style: 'curated' (positive recap + sectioned tasks) or
+  // 'counts' (legacy plain count summary)
+  digest_style: 'curated',
+  pushover_digest_enabled: false,
   // Pushover (gated by credentials being entered in Settings)
   pushover_notifications_enabled: false,
   pushover_user_key: '',

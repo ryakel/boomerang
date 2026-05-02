@@ -273,41 +273,19 @@ async function checkDigest() {
   const digestTime = settings.digest_time || '07:00'
   const now = new Date()
   const [hh, mm] = digestTime.split(':').map(Number)
-  // Only fire within the digest minute window
   if (now.getHours() !== hh || now.getMinutes() !== mm) return
 
-  // Throttle: once per day
   if (!checkThrottle('email_digest', 23 * 60 * 60 * 1000)) return
 
-  const allTasks = queryTasks({})
-  const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
-  if (activeTasks.length === 0) return
+  const { buildDigest } = await import('./digestBuilder.js')
+  const digest = buildDigest(settings)
+  if (!digest.hasContent) return
 
-  const overdueTasks = activeTasks.filter(isOverdue)
-  const staleDays = settings.staleness_days || 2
-  const staleTasks = activeTasks.filter(t => isStale(t, staleDays))
-  const todayStr = now.toISOString().split('T')[0]
-  const dueTodayTasks = activeTasks.filter(t => t.due_date === todayStr)
-
-  const subject = `Morning Digest: ${activeTasks.length} open tasks`
-  const lines = [
-    `You have <strong>${activeTasks.length}</strong> open tasks.`,
-  ]
-  if (dueTodayTasks.length > 0) lines.push(`<strong>${dueTodayTasks.length}</strong> due today`)
-  if (overdueTasks.length > 0) lines.push(`<strong>${overdueTasks.length}</strong> overdue`)
-  if (staleTasks.length > 0) lines.push(`<strong>${staleTasks.length}</strong> stale`)
-
-  // Weather line (if configured)
-  let body = lines.join(' · ')
-  const weatherCache = getWeatherCache()
-  const weatherSummary = buildWeatherSummary(weatherCache)
-  if (weatherSummary) {
-    body += `<br><br><strong>Weather:</strong> ${weatherSummary}`
-  }
-  const sent = await sendEmail(subject, simpleEmailHtml('Morning Digest', body), body.replace(/<[^>]+>/g, ''))
+  const html = simpleEmailHtml('Morning Digest', digest.htmlBody)
+  const sent = await sendEmail(digest.subject, html, digest.textBody)
   if (sent) {
     markThrottle('email_digest')
-    logNotifEmail(genId(), 'digest', null, subject, body)
+    logNotifEmail(genId(), 'digest', null, digest.subject, digest.textBody)
   }
 }
 
@@ -535,6 +513,18 @@ export async function sendPackageEmail(pkg, eventType) {
 }
 
 // --- Test email ---
+
+// Send a pre-built digest payload (used by manual test endpoint).
+// Reuses existing transporter and recipient config.
+export async function sendDigestEmail(digest) {
+  if (!isConfigured() || !digest?.hasContent) return false
+  const html = simpleEmailHtml('Morning Digest', digest.htmlBody)
+  const sent = await sendEmail(digest.subject, html, digest.textBody)
+  if (sent) {
+    logNotifEmail(genId(), 'digest', null, digest.subject, digest.textBody)
+  }
+  return sent
+}
 
 export async function sendTestEmail() {
   if (!isConfigured()) return { success: false, error: 'SMTP not configured' }

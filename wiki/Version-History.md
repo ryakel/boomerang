@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- feat(notifications): curated daily digest with positive reinforcement [M]
+  - **Why.** A counts-only digest ("5 open · 2 due today · 3 overdue") informs but doesn't pull — it's debt, not invitation. The North Star is "pull me back into the app to act." A digest that opens with yesterday's wins and surfaces tappable tasks is the soft re-engagement primitive.
+  - **`digestBuilder.js`** — shared module used by all three transports. Exports `buildDigest(settings)` returning `{ hasContent, subject, textBody, htmlBody }`. Sections: friendly lead-in → yesterday recap + streak → Today (overdue rolled in, gentle phrasing like "due 2 days ago") → Coming up → Carrying ("carrying for 5 days", not "stale") → Quick wins → Weather. Skips the send if no section has content.
+  - **Tappable HTML** — every task in the digest is wrapped in `<a href="{publicAppUrl}/?task=…">`. Powers the deep-link tap tracking added in 2a.
+  - **`digest_style: 'curated'`** is the new default. Setting it to `'counts'` preserves the legacy counts-only output for users who preferred it.
+  - **Pushover digest** — new `pushover_digest_enabled` setting (off by default), priority-0, includes `url` field for tap-through.
+  - **Test endpoint** — `POST /api/digest/test` (via `sendDigestNow()` in `pushoverNotifications.js`) builds the digest once, dispatches via every enabled channel (email + web push + Pushover), bypasses time-of-day and 23h throttle. Returns `{ fired: [...], skipped: [...] }`. Settings UI gets a "Test daily digest" button.
+  - **Refactor.** `pushNotifications.js` `checkPushDigest()` and `emailNotifications.js` `checkDigest()` are now thin wrappers around the shared builder. ~80 lines of duplicated build logic deleted.
+  - **New helper exports:** `sendDigestEmail(digest)` and `sendDigestPush(digest)` for the manual test path to reuse the existing transporter / VAPID setup.
+  - **Settings UI.** Style dropdown (curated / counts), three channel toggles (Email, Web Push, Pushover), time picker (existing), Test button with "Sent via X, Y" feedback.
+  - Modified: `pushNotifications.js`, `emailNotifications.js`, `pushoverNotifications.js`, `server.js`, `Dockerfile`, `src/api.js`, `src/store.js`, `src/components/Settings.jsx`
+  - New: `digestBuilder.js`
+
 - feat(notifications): deep links + tap tracking + engagement analytics endpoint [M]
   - **North Star — pull me back into the app to act.** Notifications without an action path are dead-ends. Every notification now deep-links into the relevant task; the system tracks which notifications convert to in-app engagement so we can tune by data, not vibes.
   - **Migration 020** adds `tapped_at` and `completed_after` columns to `notification_log`. Index on `task_id` for the new lookups.
