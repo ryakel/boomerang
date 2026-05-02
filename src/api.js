@@ -1101,6 +1101,24 @@ export async function pushoverStatus() {
   return res.json()
 }
 
+// --- Notification engagement tracking ---
+
+export async function markNotificationTap(taskId, channel) {
+  const res = await fetch('/api/notifications/tap', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ taskId, channel }),
+  })
+  if (!res.ok) throw new Error(`tap mark failed: ${res.status}`)
+  return res.json()
+}
+
+export async function getNotificationAnalytics(days = 30) {
+  const res = await fetch(`/api/analytics/notifications?days=${days}`)
+  if (!res.ok) throw new Error(`analytics failed: ${res.status}`)
+  return res.json()
+}
+
 export async function testPushover() {
   const res = await fetch('/api/pushover/test', { method: 'POST' })
   if (!res.ok) throw new Error(`test pushover failed: ${res.status}`)

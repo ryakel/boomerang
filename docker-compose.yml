@@ -24,6 +24,7 @@ services:
       - SMTP_FROM=${SMTP_FROM:-}
       - NOTIFICATION_EMAIL=${NOTIFICATION_EMAIL:-}
       - PUSHOVER_DEFAULT_APP_TOKEN=${PUSHOVER_DEFAULT_APP_TOKEN:-}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-}
       - DB_PATH=/data/boomerang.db
     volumes:
       - boomerang-data:/data

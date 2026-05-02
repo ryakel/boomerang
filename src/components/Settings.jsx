@@ -2557,6 +2557,19 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
 
             {settings.pushover_notifications_enabled && (
               <div className="notif-options">
+                <div className="settings-label">Public app URL (for deep links)</div>
+                <input
+                  className="add-input"
+                  type="text"
+                  placeholder="https://boomerang.example.com"
+                  value={settings.public_app_url || ''}
+                  onChange={e => update('public_app_url', e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', marginBottom: 4, fontSize: 13 }}
+                />
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8 }}>
+                  When set, notifications include a "Open in Boomerang" link that opens the relevant task. Required for tappable Pushover messages.
+                </div>
+
                 <div className="settings-label">Credentials</div>
                 <input
                   className="add-input"

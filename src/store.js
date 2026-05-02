@@ -92,6 +92,9 @@ export const DEFAULT_SETTINGS = {
   email_notif_pileup: true,
   email_notif_package_delivered: true,
   email_notif_package_exception: true,
+  // Public app URL (for deep links in notifications). Empty = relative links;
+  // Pushover sends only get clickable URLs when this is set.
+  public_app_url: '',
   // Pushover (gated by credentials being entered in Settings)
   pushover_notifications_enabled: false,
   pushover_user_key: '',

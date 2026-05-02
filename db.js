@@ -383,9 +383,19 @@ export function updateTaskPartial(id, updates) {
   // the task. Skip when the update is *setting* the receipt itself (dispatcher
   // write) or already explicitly clearing it.
   const isReceiptWrite = Object.prototype.hasOwnProperty.call(updates, 'pushover_receipt')
-  if (existing.pushover_receipt && !isReceiptWrite && isResolutionUpdate(existing, updates)) {
+  const isResolution = isResolutionUpdate(existing, updates)
+  if (existing.pushover_receipt && !isReceiptWrite && isResolution) {
     triggerEmergencyCancel(id, existing.pushover_receipt)
     merged.pushover_receipt = null
+  }
+
+  // Stamp recent notifications as converted when the task transitions to
+  // done/completed — drives the engagement analytics conversion-rate metric.
+  if (
+    updates.status && updates.status !== existing.status &&
+    ['done', 'completed'].includes(updates.status)
+  ) {
+    stampCompletionForRecentNotifs(id)
   }
 
   upsertTask(merged)
@@ -1127,12 +1137,68 @@ export function deletePushSubscription(endpoint) {
   schedulePersist()
 }
 
-export function logNotifPush(id, type, taskId, title, body) {
+export function logNotifPush(id, type, taskId, title, body, channel = 'push') {
   db.run(
     `INSERT INTO notification_log (id, type, task_id, title, body, channel, sent_at)
-     VALUES (?, ?, ?, ?, ?, 'push', ?)`,
-    [id, type, taskId, title, body, new Date().toISOString()]
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id, type, taskId, title, body, channel, new Date().toISOString()]
   )
   db.run(`DELETE FROM notification_log WHERE id NOT IN (SELECT id FROM notification_log ORDER BY sent_at DESC LIMIT 500)`)
   schedulePersist()
+}
+
+// --- Engagement tracking (tap-through and completion-after-notification) ---
+
+// Mark the most recent notification for (taskId, channel) within the last 10
+// minutes as tapped. Idempotent — returns true if a row was updated.
+export function markNotificationTapped(taskId, channel) {
+  if (!taskId) return false
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  const stmt = db.prepare(
+    `SELECT id FROM notification_log
+     WHERE task_id = ? AND channel = ? AND sent_at >= ? AND tapped_at IS NULL
+     ORDER BY sent_at DESC LIMIT 1`
+  )
+  stmt.bind([taskId, channel, cutoff])
+  let id = null
+  if (stmt.step()) id = stmt.getAsObject().id
+  stmt.free()
+  if (!id) return false
+  db.run('UPDATE notification_log SET tapped_at = ? WHERE id = ?', [new Date().toISOString(), id])
+  schedulePersist()
+  return true
+}
+
+// When a task is completed, mark any recent (last 24h) notifications for it
+// across all channels as "converted" — completed_after stamped with the
+// completion time. Used by analytics to measure conversion rate.
+export function stampCompletionForRecentNotifs(taskId) {
+  if (!taskId) return
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  db.run(
+    `UPDATE notification_log SET completed_after = ?
+     WHERE task_id = ? AND sent_at >= ? AND completed_after IS NULL`,
+    [new Date().toISOString(), taskId, cutoff]
+  )
+  schedulePersist()
+}
+
+// Aggregated engagement summary for the analytics endpoint.
+// Returns rows of { channel, type, sent, tapped, completed } over `days` days.
+export function getNotificationAnalytics(days = 30) {
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+  const stmt = db.prepare(
+    `SELECT channel, type,
+            COUNT(*) as sent,
+            SUM(CASE WHEN tapped_at IS NOT NULL THEN 1 ELSE 0 END) as tapped,
+            SUM(CASE WHEN completed_after IS NOT NULL THEN 1 ELSE 0 END) as completed
+     FROM notification_log
+     WHERE sent_at >= ? AND task_id IS NOT NULL
+     GROUP BY channel, type`
+  )
+  stmt.bind([cutoff])
+  const results = []
+  while (stmt.step()) results.push(stmt.getAsObject())
+  stmt.free()
+  return results
 }

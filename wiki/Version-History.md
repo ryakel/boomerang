@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- feat(notifications): deep links + tap tracking + engagement analytics endpoint [M]
+  - **North Star — pull me back into the app to act.** Notifications without an action path are dead-ends. Every notification now deep-links into the relevant task; the system tracks which notifications convert to in-app engagement so we can tune by data, not vibes.
+  - **Migration 020** adds `tapped_at` and `completed_after` columns to `notification_log`. Index on `task_id` for the new lookups.
+  - **`PUBLIC_APP_URL`** env var + `public_app_url` setting field (Settings → Pushover section). Pushover sends include `url` and `url_title: "Open in Boomerang"` whenever it's set.
+  - **Deep link handler.** `App.jsx` already had a `?task=` handler — extended to also fire `markNotificationTap()` so analytics knows the user converted from a notification to an in-app open.
+  - **Side-effect: tap cancels Pushover Emergency.** When a user taps the deep link of a task that has an outstanding priority-2 alarm, the receipt is cancelled server-side. The user has engaged; the alarm has done its job.
+  - **`POST /api/notifications/tap`** stamps the most recent matching `notification_log` row within 10 minutes. Idempotent.
+  - **Completion stamping.** `db.js` `updateTaskPartial` now stamps `completed_after` on recent (last 24 h) notifications when a task transitions to `done`/`completed`. Powers the conversion-rate metric.
+  - **`GET /api/analytics/notifications?days=N`** returns aggregated `byChannel` and `byType` engagement data with `sent`, `tapped`, `completed`, `tap_rate`, `completion_rate`. Foundation for the dashboard panel landing in 2c.
+  - **`logNotifPush` now takes a channel arg.** Lets `pushoverNotifications.js` log with `channel='pushover'` so analytics can distinguish channels. Default 'push' preserves existing call sites.
+  - Modified: `db.js`, `server.js`, `pushoverNotifications.js`, `src/App.jsx`, `src/api.js`, `src/store.js`, `src/components/Settings.jsx`, `.env.example`, `docker-compose.yml`, `docker-compose.dev.yml`
+  - New: `migrations/020_notification_engagement.sql`
+
 - feat(notifications): pushover transport with emergency priority [M]
   - **Problem.** iOS Safari throttles web push aggressively — notifications get buried, sometimes only deliver when the app is foregrounded, and sometimes drop entirely. The escalation alarms that matter most are unreliable on the device that matters most. Pushover has a dedicated iOS app with full APNs entitlements and supports priority-2 (Emergency) which repeats every 30s for up to 1h and bypasses Do Not Disturb / silent mode.
   - **New module `pushoverNotifications.js`.** Mirrors `pushNotifications.js` shape — 60s `setInterval` loop, same throttling/quiet-hours/active-task helpers, dispatches to all six notification types (high-pri, overdue, stale, nudge, size, pile-up) plus package events. Native `fetch` only — no new npm deps.

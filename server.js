@@ -7,14 +7,15 @@ import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bump
   upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
   getAnalytics, getAnalyticsHistory, getData,
-  upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial } from './db.js'
+  upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial,
+  markNotificationTapped, getNotificationAnalytics } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
 import {
   startPushoverNotifications, sendTestNotification as sendTestPushover,
   sendTestEmergency as sendTestPushoverEmergency, getPushoverStatus,
-  sendPackagePushover,
+  sendPackagePushover, cancelEmergencyForTask as cancelPushoverEmergencyForTask,
 } from './pushoverNotifications.js'
 import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
@@ -2465,6 +2466,60 @@ app.post('/api/pushover/test', async (req, res) => {
 app.post('/api/pushover/test-emergency', async (req, res) => {
   const result = await sendTestPushoverEmergency()
   res.json(result)
+})
+
+// --- Notification engagement tracking ---
+
+app.post('/api/notifications/tap', (req, res) => {
+  const { taskId, channel } = req.body || {}
+  if (!taskId) return res.status(400).json({ error: 'Missing taskId' })
+  // Try to mark as tapped on each channel — the tap happened, but we don't
+  // know which channel the user came from unless the client passed it. Default
+  // is to try all three and return whichever stamped.
+  const channels = channel ? [channel] : ['pushover', 'push', 'email']
+  let stamped = null
+  for (const c of channels) {
+    if (markNotificationTapped(taskId, c)) {
+      stamped = c
+      break
+    }
+  }
+  // Side-effect: cancel any outstanding Pushover Emergency receipt for this
+  // task. The user has engaged; the alarm has done its job.
+  const task = getTask(taskId)
+  if (task && task.pushover_receipt) {
+    cancelPushoverEmergencyForTask(taskId).catch(() => {})
+  }
+  res.json({ ok: true, channel: stamped })
+})
+
+app.get('/api/analytics/notifications', (req, res) => {
+  const days = Math.min(90, Math.max(1, parseInt(req.query.days || '30', 10)))
+  const rows = getNotificationAnalytics(days)
+  // Aggregate into the shape the dashboard needs.
+  const byChannel = {}
+  const byType = {}
+  for (const r of rows) {
+    byChannel[r.channel] = byChannel[r.channel] || { sent: 0, tapped: 0, completed: 0 }
+    byChannel[r.channel].sent += r.sent
+    byChannel[r.channel].tapped += r.tapped
+    byChannel[r.channel].completed += r.completed
+    byType[r.type] = byType[r.type] || { sent: 0, tapped: 0, completed: 0 }
+    byType[r.type].sent += r.sent
+    byType[r.type].tapped += r.tapped
+    byType[r.type].completed += r.completed
+  }
+  // Add rate fields
+  const addRates = obj => {
+    for (const k of Object.keys(obj)) {
+      const o = obj[k]
+      o.tap_rate = o.sent > 0 ? Math.round((o.tapped / o.sent) * 1000) / 10 : 0
+      o.completion_rate = o.sent > 0 ? Math.round((o.completed / o.sent) * 1000) / 10 : 0
+    }
+  }
+  addRates(byChannel)
+  addRates(byType)
+  res.json({ days, byChannel, byType, raw: rows })
 })
 
 // Diagnostic: SW push handler fires this to confirm it ran

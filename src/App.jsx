@@ -150,16 +150,20 @@ function App() {
     }
   }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, editTarget, showAdd, showWhatNow, checkVersion])
 
-  // Handle notification click deep links (?task=id)
+  // Handle notification click deep links (?task=id) and stamp tap-through.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const taskId = params.get('task')
     if (taskId) {
       // Clean URL without reload
       window.history.replaceState({}, '', '/')
-      // Open the task if it exists
+      // Open the task if it exists; fire tap-tracking so analytics knows the
+      // user converted from a notification to an in-app open.
       const task = tasks.find(t => t.id === taskId)
       if (task) setEditTarget(task)
+      import('./api').then(({ markNotificationTap }) => {
+        markNotificationTap(taskId).catch(() => {})
+      })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

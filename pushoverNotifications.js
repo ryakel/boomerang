@@ -36,6 +36,15 @@ function getCredentials(settings) {
   return { userKey: userKey || null, appToken: appToken || null }
 }
 
+// Build a deep link URL for a notification. Used to make every Pushover
+// message tappable — opens the task in the app. Returns null if the public
+// URL isn't configured (notification still sends, just without a URL field).
+function buildDeepLink(settings, taskId) {
+  const base = (settings.public_app_url || process.env.PUBLIC_APP_URL || '').replace(/\/$/, '')
+  if (!base) return null
+  return taskId ? `${base}/?task=${encodeURIComponent(taskId)}` : base
+}
+
 function isConfigured(settings) {
   const { userKey, appToken } = getCredentials(settings || getData('settings') || {})
   return !!(userKey && appToken)
@@ -328,16 +337,19 @@ async function runPushoverCheck() {
         if (!checkThrottle(throttleKey, freq)) continue
 
         const body = buildHighPriBody(task)
+        const url = buildDeepLink(settings, task.id)
         const result = await sendPushover({
           userKey, appToken,
           title: truncatedTitle('[BOOMERANG] ', task.title),
           message: body,
           priority,
           sound: priorityToSound(priority),
+          url,
+          urlTitle: url ? 'Open in Boomerang' : undefined,
         })
         if (result.ok) {
           markThrottle(throttleKey)
-          logNotifPush(genId(), 'high_priority', task.id, '[BOOMERANG] ' + task.title, body)
+          logNotifPush(genId(), 'high_priority', task.id, '[BOOMERANG] ' + task.title, body, 'pushover')
           if (priority === 2 && result.receipt) {
             updateTaskPartial(task.id, { pushover_receipt: result.receipt })
           }
@@ -355,16 +367,20 @@ async function runPushoverCheck() {
           const overdueTasks = activeTasks.filter(isOverdue)
           if (overdueTasks.length > 0) {
             const body = `${overdueTasks.length} overdue: ${overdueTasks.slice(0, 3).map(t => t.title).join(', ')}`
+            // For multi-task overdue, deep link to the most overdue task.
+            const top = overdueTasks[0]
+            const url = buildDeepLink(settings, top?.id)
             const result = await sendPushover({
               userKey, appToken,
               title: '[BOOMERANG] Overdue tasks',
               message: body,
               priority,
               sound: priorityToSound(priority),
+              url, urlTitle: url ? 'Open in Boomerang' : undefined,
             })
             if (result.ok) {
               markThrottle('pushover_overdue')
-              logNotifPush(genId(), 'overdue', null, '[BOOMERANG] Overdue tasks', body)
+              logNotifPush(genId(), 'overdue', top?.id || null, '[BOOMERANG] Overdue tasks', body, 'pushover')
             }
           }
         }
@@ -389,7 +405,7 @@ async function runPushoverCheck() {
           })
           if (result.ok) {
             markThrottle('pushover_stale')
-            logNotifPush(genId(), 'stale', null, '[BOOMERANG] Stale tasks', body)
+            logNotifPush(genId(), 'stale', null, '[BOOMERANG] Stale tasks', body, 'pushover')
           }
         }
       }
@@ -412,7 +428,7 @@ async function runPushoverCheck() {
         const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
         if (result.ok) {
           markThrottle('pushover_nudge')
-          logNotifPush(genId(), 'nudge', null, title, body)
+          logNotifPush(genId(), 'nudge', null, title, body, 'pushover')
         }
       }
     }
@@ -433,10 +449,14 @@ async function runPushoverCheck() {
           const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
           const title = truncatedTitle('[BOOMERANG] ', `${t.size} task due soon`)
           const body = `"${t.title}" due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's ${t.size}, start planning`
-          const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
+          const url = buildDeepLink(settings, t.id)
+          const result = await sendPushover({
+            userKey, appToken, title, message: body, priority: 0,
+            url, urlTitle: url ? 'Open in Boomerang' : undefined,
+          })
           if (result.ok) {
             markThrottle('pushover_size')
-            logNotifPush(genId(), 'size', t.id, title, body)
+            logNotifPush(genId(), 'size', t.id, title, body, 'pushover')
           }
         }
       }
@@ -453,7 +473,7 @@ async function runPushoverCheck() {
           const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
           if (result.ok) {
             sent = true
-            logNotifPush(genId(), 'pileup', null, title, body)
+            logNotifPush(genId(), 'pileup', null, title, body, 'pushover')
           }
         }
         if (!sent && settings.stale_warn_pct > 0) {
@@ -468,7 +488,7 @@ async function runPushoverCheck() {
             const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
             if (result.ok) {
               sent = true
-              logNotifPush(genId(), 'pileup', null, title, body)
+              logNotifPush(genId(), 'pileup', null, title, body, 'pushover')
             }
           }
         }
@@ -511,7 +531,7 @@ export async function sendPackagePushover(pkg, eventType) {
   })
   if (result.ok) {
     markThrottle(key)
-    logNotifPush(genId(), `package_${eventType}`, null, title, body)
+    logNotifPush(genId(), `package_${eventType}`, null, title, body, 'pushover')
   }
 }
 
