@@ -12,6 +12,7 @@ import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
 import { queryTasks, getData, getNotifThrottle, setNotifThrottle, logNotifEmail } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
+import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 
 // --- Environment ---
 let smtpHost = process.env.SMTP_HOST
@@ -337,6 +338,11 @@ async function runNotificationCheck() {
           else body = `"${task.title}" is due in ${diffDays} days`
         } else {
           body = `"${task.title}" is marked high priority`
+        }
+
+        // Tone-aware rewrite — at most one per tick
+        if (canRewriteThisTick('email')) {
+          body = await rewriteNotifBody(task, body)
         }
 
         const sent = await sendEmail('HIGH PRIORITY', simpleEmailHtml('HIGH PRIORITY', body), body)

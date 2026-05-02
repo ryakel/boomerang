@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- feat(notifications): tone-aware AI rewrites + Quokka weekly pattern review + test docs [M]
+  - **Tone-aware AI notification rewrites.** New `notifAi.js` module exports `rewriteNotifBody(task, body)` that calls Claude Haiku 4.5 with the user's `ai_custom_instructions`. The model rewrites the static notification body in the user's preferred tone — e.g. a user who said "phone calls are confrontation-level for me" gets call-related overdue notifications framed more gently.
+  - **Cost-bounded.** `canRewriteThisTick(channel)` allows at most one rewrite per dispatcher tick (60s) per channel. ~$0.001/day at typical volume.
+  - **Always falls back gracefully** to the static body: no Anthropic key, no custom instructions, 2.5s timeout, malformed response, or any error all return the original body. Never throws.
+  - **Skipped for Pushover Emergency** (priority 2) — `shouldRewrite({priority})` returns false for those. Urgency matters more than tone there.
+  - Wired into all three transports' high-priority body construction (Pushover, web push, email).
+  - **Quokka weekly cross-task pattern review.** New `runWeeklyPatternReview()` job in `server.js` runs hourly, fires only between 10am–11am on Sundays (gated by throttle key `weekly_pattern_review` with 6.5-day TTL). Queries active tasks with `snooze_count >= 3` and `last_touched` within 14 days. If 2+ qualifying, creates a new Quokka chat titled "Weekly pattern review" with a seeded user message listing the avoidance patterns and asking whether they're worth keeping / reframing / removing.
+  - **Pushover ping** for the new chat — priority 0, deep-links to `PUBLIC_APP_URL`, body: "N tasks you've been pushing past — let's talk about them in Quokka when you have a minute."
+  - **Skipped silently** if 0 or 1 qualifying tasks (no spam).
+  - **Test sequence documented** at `wiki/Testing-Notification-Stack.md` — 17 end-to-end test cases covering every notification feature shipped in this batch (Pushover, Emergency, deep links, tap tracking, digest, analytics, adaptive throttling, wake-me, inline web-push actions, post-completion next-up, AI rewrites, weekly review, dedup, From overrides, failure isolation, graceful no-op) plus a 5-step health check for post-deploy validation.
+  - Modified: `pushoverNotifications.js`, `pushNotifications.js`, `emailNotifications.js`, `server.js`, `Dockerfile`
+  - New: `notifAi.js`, `wiki/Testing-Notification-Stack.md`
+
 - feat(notifications): web-push subscription dedup + email From overrides [S]
   - **Why dedup.** User reported duplicate web push notifications. Server-side throttling is per-(channel, type), so the dispatcher itself isn't double-firing. Cause: stale `push_subscriptions` rows from PWA reinstalls / iOS subscription evictions / re-granted permissions. Each ghost row got every notification.
   - **`upsertPushSubscription`** now deletes any prior rows with matching `(p256dh, auth)` keys before inserting. The keypair uniquely identifies a device-browser-permission combo, so collisions on those keys mean it's the same client re-subscribing.

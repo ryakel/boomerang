@@ -19,7 +19,7 @@ import {
   sendPackagePushover, cancelEmergencyForTask as cancelPushoverEmergencyForTask,
   sendDigestNow,
 } from './pushoverNotifications.js'
-import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed } from './db.js'
+import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
 import {
@@ -3014,6 +3014,110 @@ function loadChats() {
   return sweepExpiredChats()
 }
 
+// --- Weekly cross-task pattern review ---
+//
+// Once a week (Sunday morning), look at tasks the user has been silently
+// pushing past — snoozed/dismissed 3+ times in the last 14 days without
+// resolving them. These are signals of avoidance, not laziness. Adaptive
+// throttling reduces frequency on those notifications, but that's still
+// "lower-frequency spam." A meaningful conversation is the right move.
+//
+// Creates a Quokka chat with a seeded prompt asking the user whether the
+// tasks are worth keeping, reframing, or removing. Pushes a single ping
+// (priority 0) saying "Weekly pattern review ready in Quokka." Skipped
+// silently if no qualifying tasks.
+async function runWeeklyPatternReview() {
+  try {
+    const now = new Date()
+    // Sunday only, between 10:00 and 11:00 local time
+    if (now.getDay() !== 0) return
+    if (now.getHours() !== 10) return
+    // Throttle: 6.5-day TTL ensures it only fires once per week
+    const THROTTLE_KEY = 'weekly_pattern_review'
+    const last = getNotifThrottle(THROTTLE_KEY)
+    if (last && Date.now() - new Date(last).getTime() < 6.5 * 24 * 60 * 60 * 1000) return
+
+    const settings = getData('settings') || {}
+    const allTasks = queryTasks({})
+    const ACTIVE = ['not_started', 'doing', 'waiting']
+    const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000
+
+    // Qualifying: active task, snooze_count >= 3, last_touched within 14d
+    const qualifying = allTasks.filter(t =>
+      ACTIVE.includes(t.status) &&
+      !t.gmail_pending &&
+      (t.snooze_count || 0) >= 3 &&
+      new Date(t.last_touched).getTime() >= fourteenDaysAgo
+    )
+
+    if (qualifying.length < 2) return // need at least 2 patterns to be worth a chat
+
+    // Top 5 by snooze_count, ties broken by oldest last_touched
+    const top = [...qualifying]
+      .sort((a, b) => (b.snooze_count - a.snooze_count) || (new Date(a.last_touched) - new Date(b.last_touched)))
+      .slice(0, 5)
+
+    const taskList = top.map(t => `- "${t.title}" (snoozed ${t.snooze_count}× in last 14 days)`).join('\n')
+    const seededMessage = {
+      role: 'user',
+      content: `Quokka, I've been pushing these past me — snoozed 3+ times in the last 14 days without resolving:\n\n${taskList}\n\nCan we look at each one and figure out: are they worth keeping on my list, do they need reframing, or should they go?`,
+    }
+
+    const chats = loadChats()
+    const newId = newChatId()
+    const newChat = {
+      id: newId,
+      title: 'Weekly pattern review',
+      messages: [seededMessage],
+      sessionId: null,
+      starred: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      expiresAt: Date.now() + CHAT_TTL_MS,
+    }
+    setData(CHATS_KEY, [newChat, ...chats])
+    bumpVersion()
+    setNotifThrottle(THROTTLE_KEY, new Date().toISOString())
+    console.log(`[WeeklyPatternReview] Created chat ${newId} with ${top.length} avoidance pattern(s)`)
+
+    // Surface the chat via Pushover priority 0 if configured
+    try {
+      const { userKey, appToken } = (() => {
+        const uk = settings.pushover_user_key
+        const at = settings.pushover_app_token || process.env.PUSHOVER_DEFAULT_APP_TOKEN
+        return { userKey: uk || null, appToken: at || null }
+      })()
+      if (settings.pushover_notifications_enabled && userKey && appToken) {
+        const { sendPushover } = await import('./pushoverNotifications.js')
+        const base = (settings.public_app_url || process.env.PUBLIC_APP_URL || '').replace(/\/$/, '')
+        await sendPushover({
+          userKey, appToken,
+          title: '[BOOMERANG] Weekly pattern review',
+          message: `${top.length} task${top.length > 1 ? 's' : ''} you've been pushing past — let's talk about them in Quokka when you have a minute.`,
+          priority: 0,
+          url: base || undefined,
+          urlTitle: base ? 'Open Quokka' : undefined,
+        })
+      }
+    } catch (err) {
+      console.error('[WeeklyPatternReview] ping failed:', err.message)
+    }
+  } catch (err) {
+    console.error('[WeeklyPatternReview] failed:', err.message)
+  }
+}
+
+let weeklyPatternTimer = null
+function startWeeklyPatternReview() {
+  if (weeklyPatternTimer) return
+  // Check every hour — the date+hour gate inside runWeeklyPatternReview
+  // ensures it only actually fires once per week.
+  weeklyPatternTimer = setInterval(runWeeklyPatternReview, 60 * 60 * 1000)
+  // First check after 30s so a Sunday-morning restart still catches the window.
+  setTimeout(runWeeklyPatternReview, 30 * 1000)
+  console.log('Weekly pattern review: lifecycle started (Sunday 10am window)')
+}
+
 function chatSummary(c, activeId) {
   return {
     id: c.id,
@@ -3190,6 +3294,7 @@ initDb(dbPath).then(async () => {
     startPushNotifications()
     startPushoverNotifications()
     startWeatherSync()
+    startWeeklyPatternReview()
 
     // Initialize Gmail sync
     initGmailSync({

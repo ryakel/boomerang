@@ -11,6 +11,7 @@ import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
 import { queryTasks, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
+import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 
 // --- Environment (optional overrides) ---
 let vapidPublicKey = process.env.VAPID_PUBLIC_KEY
@@ -254,6 +255,11 @@ async function runPushCheck() {
           else body = `"${task.title}" is due in ${diffDays} days`
         } else {
           body = `"${task.title}" is marked high priority`
+        }
+
+        // Tone-aware rewrite — at most one per tick
+        if (canRewriteThisTick('push')) {
+          body = await rewriteNotifBody(task, body)
         }
 
         const sent = await sendPush({ title: 'HIGH PRIORITY', body, tag: `hp:${task.id}`, data: { taskId: task.id } })

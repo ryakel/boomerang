@@ -20,6 +20,7 @@ import {
   logNotifPush, getTask, updateTaskPartial,
   getEffectiveThrottleMultiplier,
 } from './db.js'
+import { rewriteNotifBody, canRewriteThisTick, shouldRewrite } from './notifAi.js'
 
 const PUSHOVER_API = 'https://api.pushover.net/1/messages.json'
 const PUSHOVER_RECEIPT_API = 'https://api.pushover.net/1/receipts'
@@ -367,10 +368,15 @@ async function runPushoverCheck() {
 
         const body = buildHighPriBody(task)
         const url = buildDeepLink(settings, task.id)
+        // Tone-aware rewrite — at most one per tick, never on priority 2.
+        let finalBody = body
+        if (shouldRewrite({ priority }) && canRewriteThisTick('pushover')) {
+          finalBody = await rewriteNotifBody(task, body)
+        }
         const result = await sendPushover({
           userKey, appToken,
           title: truncatedTitle('[BOOMERANG] ', task.title),
-          message: body,
+          message: finalBody,
           priority,
           sound: priorityToSound(priority),
           url,
