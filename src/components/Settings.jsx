@@ -197,6 +197,16 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
     pushoverStatus().then(setPushoverServerStatus).catch(() => {})
   }, [])
 
+  // Re-fetch Pushover server status when credentials change so the Integrations tab display stays fresh.
+  // Uses a delay because the server only receives new credentials after flushSync (on close), but the
+  // app_token_from_env flag is stable — the main value here is keeping the two fields in sync.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      pushoverStatus().then(setPushoverServerStatus).catch(() => {})
+    }, 500)
+    return () => clearTimeout(t)
+  }, [settings.pushover_user_key, settings.pushover_app_token])
+
   // Anthropic connection state
   const [anthropicStatus, setAnthropicStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
   const handleAnthropicConnect = async () => {
@@ -2735,7 +2745,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           {/* Pushover — per-type toggles only. Credentials + test buttons live in the Integrations tab. */}
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
             <div className="settings-label" style={{ marginBottom: 4 }}>Pushover</div>
-            {!settings.pushover_notifications_enabled || !pushoverServerStatus?.configured ? (
+            {!settings.pushover_notifications_enabled || !(settings.pushover_user_key && (settings.pushover_app_token || pushoverServerStatus?.app_token_from_env)) ? (
               <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 8, background: 'var(--surface-elevated, rgba(0,0,0,0.04))', borderRadius: 6 }}>
                 Pushover isn't connected yet. Set it up in <strong>Settings → Integrations → Pushover</strong>, then come back here to choose which notifications fire over the channel.
               </div>
