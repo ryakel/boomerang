@@ -5,6 +5,7 @@ import { loadSettings, saveSettings, loadLabels, ENERGY_TYPES } from '../store'
 import { SIZE_POINTS } from '../scoring'
 import EnergyIcon from './EnergyIcon'
 import { Search, ChevronRight } from 'lucide-react'
+import { getNotificationAnalytics } from '../api'
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -77,6 +78,8 @@ export default function Analytics({ onClose, isDesktop }) {
   const [searchResults, setSearchResults] = useState(null)
   const [searchFilters, setSearchFilters] = useState({})
   const [completedOpen, setCompletedOpen] = useState(false)
+  const [notifEngagement, setNotifEngagement] = useState(null)
+  const [engagementOpen, setEngagementOpen] = useState(false)
   const searchTimer = useRef(null)
 
   useEffect(() => {
@@ -85,6 +88,12 @@ export default function Analytics({ onClose, isDesktop }) {
       .then(data => { if (data) setStats(data) })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    getNotificationAnalytics(range || 30)
+      .then(data => setNotifEngagement(data))
+      .catch(() => setNotifEngagement(null))
+  }, [range])
 
   // Heat map: always fetch 365 days of daily data
   useEffect(() => {
@@ -474,6 +483,56 @@ export default function Analytics({ onClose, isDesktop }) {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Notification Engagement (collapsible) ── */}
+      <div className="analytics-divider" />
+      <button className="analytics-collapse-toggle" onClick={() => setEngagementOpen(!engagementOpen)}>
+        <span className={`backlog-arrow ${engagementOpen ? 'open' : ''}`}><ChevronRight size={12} /></span>
+        Notification engagement
+      </button>
+      {engagementOpen && (
+        <div className="analytics-section" style={{ marginTop: 8 }}>
+          {!notifEngagement || (Object.keys(notifEngagement.byChannel || {}).length === 0) ? (
+            <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: 12 }}>
+              No notification activity in the last {range || 30} days yet. Once notifications start firing, you'll see tap-rate and completion-rate per channel and type here — the numbers that show whether the system is actually pulling you back to act.
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>
+                Tap-rate = % of notifications you opened. Completion-rate = % whose task was completed within 24 hours after the notification fired.
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div className="settings-label" style={{ fontSize: 12, marginBottom: 6 }}>By channel</div>
+                {Object.entries(notifEngagement.byChannel).map(([channel, data]) => (
+                  <div key={channel} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                    <span style={{ width: 80, fontWeight: 600, textTransform: 'capitalize' }}>{channel}</span>
+                    <span style={{ width: 80, color: 'var(--text-dim)' }}>{data.sent} sent</span>
+                    <div style={{ flex: 1, display: 'flex', gap: 12 }}>
+                      <span style={{ color: '#4A9EFF' }}>{data.tap_rate}% tap</span>
+                      <span style={{ color: '#52C97F' }}>{data.completion_rate}% complete</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <div className="settings-label" style={{ fontSize: 12, marginBottom: 6 }}>By notification type</div>
+                {Object.entries(notifEngagement.byType).map(([type, data]) => (
+                  <div key={type} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                    <span style={{ width: 110, fontWeight: 600 }}>{type.replace(/_/g, ' ')}</span>
+                    <span style={{ width: 80, color: 'var(--text-dim)' }}>{data.sent} sent</span>
+                    <div style={{ flex: 1, display: 'flex', gap: 12 }}>
+                      <span style={{ color: '#4A9EFF' }}>{data.tap_rate}% tap</span>
+                      <span style={{ color: '#52C97F' }}>{data.completion_rate}% complete</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {/* ── Completion Search (collapsible) ── */}

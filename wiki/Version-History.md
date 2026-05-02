@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- feat(analytics): notification engagement panel [S]
+  - **Why.** Phase 2a wired up tap and completion stamping; this surfaces the data in the existing Analytics dashboard so it's actually visible. North-Star alignment: the post-2-week review can now see "Pushover tap-rate is X%, completion-rate is Y%" instead of guessing.
+  - **New collapsible "Notification engagement" section** in `Analytics.jsx`, between the heat map and the Completed Tasks search.
+  - **By channel** breakdown — for each of email, push, pushover: sent count, tap-rate %, completion-rate % (where completion = task done within 24h of notification).
+  - **By notification type** breakdown — same fields per notification kind (high_priority, overdue, stale, nudge, digest, size, pileup, package_*).
+  - **Empty state** — friendly message explaining what'll appear once notifications start firing, instead of an empty grid.
+  - Range follows the same `range` selector as the rest of the Analytics page (default 30 days).
+  - Modified: `src/components/Analytics.jsx`
+
 - feat(notifications): curated daily digest with positive reinforcement [M]
   - **Why.** A counts-only digest ("5 open · 2 due today · 3 overdue") informs but doesn't pull — it's debt, not invitation. The North Star is "pull me back into the app to act." A digest that opens with yesterday's wins and surfaces tappable tasks is the soft re-engagement primitive.
   - **`digestBuilder.js`** — shared module used by all three transports. Exports `buildDigest(settings)` returning `{ hasContent, subject, textBody, htmlBody }`. Sections: friendly lead-in → yesterday recap + streak → Today (overdue rolled in, gentle phrasing like "due 2 days ago") → Coming up → Carrying ("carrying for 5 days", not "stale") → Quick wins → Weather. Skips the send if no section has content.
