@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- refactor(settings): split Pushover across Integrations + Notifications tabs [S]
+  - **Why.** Pushover settings were originally lumped into one block in the Notifications tab — credentials, public app URL, helper text, per-type toggles, and test buttons all together. That mixed two distinct concerns: *configuring the integration* (a one-time setup) and *choosing which notifications fire over it* (an ongoing preference). User correctly flagged this — Trello, Notion, GCal, Gmail all have their integration settings in the Integrations tab; Pushover should match that pattern.
+  - **Integrations tab → Pushover** now hosts: master toggle, Public app URL field, User Key + App Token credentials, priority-level helper text, Test Pushover and Test Emergency buttons. Includes a hint pointing to the Notifications tab for per-type toggles.
+  - **Notifications tab → Pushover** is reduced to just the eight per-type toggles (high priority, overdue, stale, nudges, size, pile-up, package delivered, package exception). When Pushover isn't yet enabled or credentials aren't configured, shows a hint pointing back to the Integrations tab instead of dead toggles.
+  - No behavioral changes — same settings keys, same dispatcher logic, same defaults. Pure UX cleanup.
+  - Modified: `src/components/Settings.jsx`
+
 - docs(security): credential storage notes + Quokka blocklist patch [S]
   - **Patch.** Added `pushover_user_key` and `pushover_app_token` to the Quokka adviser's secret blocklist in `adviserToolsMisc.js`. Both `get_settings` (now redacts them) and `update_settings` (now refuses to write them) match the same handling as Anthropic / Notion / Trello / GCal / 17track keys. Closes a gap from the Pushover transport commit — those settings were stored in the same plaintext blob as other secrets but weren't protected from adviser exfiltration.
   - **Documentation.** New `wiki/Security-Notes.md` — honest accounting of where every secret lives (plaintext SQLite, browser localStorage, env vars), what's protective (OAuth tokens server-only, SMTP env-only, Quokka blocklist, HTTPS in transit), what isn't (no encryption at rest, no master-key separation, localStorage XSS-readable), and when the threat model breaks down (multi-tenant, untrusted hosting, sensitive backups). Documents practical hygiene and lists future-hardening options that aren't on the roadmap.
