@@ -145,7 +145,7 @@ function ServerLogs() {
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs']
 
-export default function Settings({ onClose, onClearCompleted, onClearAll, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing, onShowActivityLog, syncStatus, isDesktop }) {
+export default function Settings({ onClose, onClearCompleted, onClearAll, onFlush, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing, onShowActivityLog, syncStatus, isDesktop }) {
   const [activeTab, setActiveTab] = useState('General')
   const [confirmDialog, setConfirmDialog] = useState(null) // { title, message, onConfirm }
   const [settings, setSettings] = useState(loadSettings)
@@ -764,12 +764,20 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
     e.target.value = ''
   }
 
+  const flushDebounceRef = useRef(null)
   const update = (key, value) => {
     setSettings(prev => {
       const next = { ...prev, [key]: value }
       saveSettings(next)
       return next
     })
+    // Debounce-flush to server so settings persist if the PWA backgrounds before close.
+    // Without this, an SSE reconnect can refetch /api/data and overwrite the typed values
+    // with the server's stale settings.
+    if (onFlush) {
+      if (flushDebounceRef.current) clearTimeout(flushDebounceRef.current)
+      flushDebounceRef.current = setTimeout(() => { onFlush() }, 800)
+    }
   }
 
   const addLabel = () => {

@@ -837,6 +837,7 @@ function App() {
           onClose={() => { setShowSettings(false); flushSync() }}
           onClearCompleted={() => { clearCompleted(); setShowSettings(false); flushSync() }}
           onClearAll={() => { clearAll(); saveSettings({}); setShowSettings(false); flushSync() }}
+          onFlush={flushSync}
           onTrelloSync={syncTrello}
           trelloSyncing={trelloSyncing}
           onNotionSync={syncNotion}
