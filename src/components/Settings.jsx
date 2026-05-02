@@ -2133,121 +2133,141 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
             )}
           </div>
 
-          {/* Pushover Integration */}
-          <div className="settings-group" style={{ marginTop: 24 }}>
-            <div className="settings-label">Pushover</div>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-              Reliable iOS notifications via the Pushover app's APNs entitlements. Bypasses Safari web-push throttling. Supports Emergency priority (repeats every 30s, bypasses Do Not Disturb). Requires the Pushover iOS app ($5 one-time) and an account at <a href="https://pushover.net" target="_blank" rel="noopener" style={{ color: 'var(--accent)' }}>pushover.net</a>.
+          {/* ── Pushover ── */}
+          <div>
+            <div
+              className={`integration-row${expandedIntegration === 'pushover' ? ' expanded' : ''}`}
+              onClick={() => setExpandedIntegration(expandedIntegration === 'pushover' ? null : 'pushover')}
+            >
+              <span className={`backlog-arrow${expandedIntegration === 'pushover' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${settings.pushover_notifications_enabled && settings.pushover_user_key && (settings.pushover_app_token || pushoverServerStatus?.app_token_from_env) ? 'connected' : 'unconfigured'}`} />
+              <span className="integration-row-name">Pushover</span>
+              {expandedIntegration !== 'pushover' && (
+                <span className="integration-row-summary">
+                  {settings.pushover_notifications_enabled && settings.pushover_user_key && (settings.pushover_app_token || pushoverServerStatus?.app_token_from_env)
+                    ? 'Connected'
+                    : settings.pushover_notifications_enabled
+                      ? 'Enabled (missing credentials)'
+                      : 'Not configured'}
+                </span>
+              )}
             </div>
-
-            <label className="notif-check" style={{ marginBottom: 12 }}>
-              <input
-                type="checkbox"
-                checked={!!settings.pushover_notifications_enabled}
-                onChange={e => update('pushover_notifications_enabled', e.target.checked)}
-              />
-              <span>Enable Pushover</span>
-            </label>
-
-            {settings.pushover_notifications_enabled && (
-              <>
-                <div className="settings-label" style={{ marginTop: 8 }}>Public app URL (for deep links)</div>
-                <input
-                  className="add-input"
-                  type="text"
-                  placeholder="https://boomerang.example.com"
-                  value={settings.public_app_url || ''}
-                  onChange={e => update('public_app_url', e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box', marginBottom: 4, fontSize: 13 }}
-                />
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 12 }}>
-                  When set, notifications include an "Open in Boomerang" link that opens the relevant task. Required for tappable Pushover messages.
+            {expandedIntegration === 'pushover' && (
+              <div className="integration-body">
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
+                  Reliable iOS notifications via the Pushover app's APNs entitlements. Bypasses Safari web-push throttling. Supports Emergency priority (repeats every 30s, bypasses Do Not Disturb). Requires the Pushover iOS app ($5 one-time) and an account at <a href="https://pushover.net" target="_blank" rel="noopener" style={{ color: 'var(--text-link)' }}>pushover.net</a>.
                 </div>
 
-                <div className="settings-label">Credentials</div>
-                <input
-                  className="add-input"
-                  type="password"
-                  placeholder="User Key (from pushover.net dashboard)"
-                  value={settings.pushover_user_key || ''}
-                  onChange={e => update('pushover_user_key', e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box', marginBottom: 8, fontSize: 13 }}
-                />
-                <input
-                  className="add-input"
-                  type="password"
-                  placeholder={pushoverServerStatus?.app_token_from_env ? 'App Token (set by env var)' : 'App Token (create app named "Boomerang" in dashboard)'}
-                  value={settings.pushover_app_token || ''}
-                  onChange={e => update('pushover_app_token', e.target.value)}
-                  disabled={pushoverServerStatus?.app_token_from_env && !settings.pushover_app_token}
-                  style={{ width: '100%', boxSizing: 'border-box', marginBottom: 8, fontSize: 13 }}
-                />
+                <label className="notif-check" style={{ marginBottom: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!settings.pushover_notifications_enabled}
+                    onChange={e => update('pushover_notifications_enabled', e.target.checked)}
+                  />
+                  <span>Enable Pushover</span>
+                </label>
 
-                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 8, marginBottom: 12, padding: 8, background: 'var(--surface-elevated, rgba(0,0,0,0.04))', borderRadius: 6 }}>
-                  <strong>Priority levels:</strong> nudges and stage-1 reminders use normal priority. Overdue and stage-2 high-priority use high priority (alert sound, bypasses quiet hours). Stage-3 high-priority and avoidance-flagged overdue use Emergency priority (repeats every 30s for up to 1 hour, bypasses Do Not Disturb). Per-task opt-in via the <code>wake-me</code> label keeps you covered during quiet hours only for tasks you've explicitly flagged.
-                </div>
+                {settings.pushover_notifications_enabled && (
+                  <>
+                    <div className="settings-label" style={{ marginTop: 8 }}>Public app URL (for deep links)</div>
+                    <input
+                      className="add-input"
+                      type="text"
+                      placeholder="https://boomerang.example.com"
+                      value={settings.public_app_url || ''}
+                      onChange={e => update('public_app_url', e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box', marginBottom: 4, fontSize: 13 }}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 12 }}>
+                      When set, notifications include an "Open in Boomerang" link that opens the relevant task. Required for tappable Pushover messages.
+                    </div>
 
-                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                  Configure which notification types fire over Pushover in the <strong>Notifications</strong> tab.
-                </div>
+                    <div className="settings-label">Credentials</div>
+                    <input
+                      className="add-input"
+                      type="password"
+                      placeholder="User Key (from pushover.net dashboard)"
+                      value={settings.pushover_user_key || ''}
+                      onChange={e => update('pushover_user_key', e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box', marginBottom: 8, fontSize: 13 }}
+                    />
+                    <input
+                      className="add-input"
+                      type="password"
+                      placeholder={pushoverServerStatus?.app_token_from_env ? 'App Token (set by env var)' : 'App Token (create app named "Boomerang" in dashboard)'}
+                      value={settings.pushover_app_token || ''}
+                      onChange={e => update('pushover_app_token', e.target.value)}
+                      disabled={pushoverServerStatus?.app_token_from_env && !settings.pushover_app_token}
+                      style={{ width: '100%', boxSizing: 'border-box', marginBottom: 8, fontSize: 13 }}
+                    />
 
-                <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                  <button
-                    className="ci-upload-btn"
-                    disabled={pushoverTestStatus === 'sending'}
-                    onClick={async () => {
-                      setPushoverTestStatus('sending')
-                      setPushoverTestError(null)
-                      try {
-                        const result = await testPushover()
-                        if (result.success) {
-                          setPushoverTestStatus('sent')
-                          setTimeout(() => setPushoverTestStatus(null), 3000)
-                        } else {
-                          setPushoverTestStatus('error')
-                          setPushoverTestError(result.error || 'Send failed')
-                        }
-                      } catch {
-                        setPushoverTestStatus('error')
-                        setPushoverTestError('Send failed')
-                      }
-                    }}
-                  >
-                    {pushoverTestStatus === 'sending' ? 'Sending...' : pushoverTestStatus === 'sent' ? 'Sent!' : 'Test Pushover'}
-                  </button>
-                  <button
-                    className="ci-upload-btn"
-                    style={{ background: '#FF6240' }}
-                    disabled={pushoverEmergencyStatus === 'sending'}
-                    onClick={async () => {
-                      if (!confirm('This will trigger a priority-2 Emergency alarm on your iOS device that repeats every 30 seconds. It will auto-cancel after 90 seconds. Continue?')) return
-                      setPushoverEmergencyStatus('sending')
-                      setPushoverEmergencyError(null)
-                      try {
-                        const result = await testPushoverEmergency()
-                        if (result.success) {
-                          setPushoverEmergencyStatus('sent')
-                          setTimeout(() => setPushoverEmergencyStatus(null), 5000)
-                        } else {
-                          setPushoverEmergencyStatus('error')
-                          setPushoverEmergencyError(result.error || 'Send failed')
-                        }
-                      } catch {
-                        setPushoverEmergencyStatus('error')
-                        setPushoverEmergencyError('Send failed')
-                      }
-                    }}
-                  >
-                    {pushoverEmergencyStatus === 'sending' ? 'Triggering...' : pushoverEmergencyStatus === 'sent' ? 'Alarm sent!' : 'Test Emergency'}
-                  </button>
-                </div>
-                {pushoverTestStatus === 'error' && pushoverTestError && (
-                  <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{pushoverTestError}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 8, marginBottom: 12, padding: 8, background: 'var(--surface-elevated, rgba(0,0,0,0.04))', borderRadius: 6 }}>
+                      <strong>Priority levels:</strong> nudges and stage-1 reminders use normal priority. Overdue and stage-2 high-priority use high priority (alert sound, bypasses quiet hours). Stage-3 high-priority and avoidance-flagged overdue use Emergency priority (repeats every 30s for up to 1 hour, bypasses Do Not Disturb). Per-task opt-in via the <code>wake-me</code> label keeps you covered during quiet hours only for tasks you've explicitly flagged.
+                    </div>
+
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+                      Configure which notification types fire over Pushover in the <strong>Notifications</strong> tab.
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                      <button
+                        className="ci-upload-btn"
+                        disabled={pushoverTestStatus === 'sending'}
+                        onClick={async () => {
+                          setPushoverTestStatus('sending')
+                          setPushoverTestError(null)
+                          try {
+                            const result = await testPushover()
+                            if (result.success) {
+                              setPushoverTestStatus('sent')
+                              setTimeout(() => setPushoverTestStatus(null), 3000)
+                            } else {
+                              setPushoverTestStatus('error')
+                              setPushoverTestError(result.error || 'Send failed')
+                            }
+                          } catch {
+                            setPushoverTestStatus('error')
+                            setPushoverTestError('Send failed')
+                          }
+                        }}
+                      >
+                        {pushoverTestStatus === 'sending' ? 'Sending...' : pushoverTestStatus === 'sent' ? 'Sent!' : 'Test Pushover'}
+                      </button>
+                      <button
+                        className="ci-upload-btn"
+                        style={{ background: '#FF6240' }}
+                        disabled={pushoverEmergencyStatus === 'sending'}
+                        onClick={async () => {
+                          if (!confirm('This will trigger a priority-2 Emergency alarm on your iOS device that repeats every 30 seconds. It will auto-cancel after 90 seconds. Continue?')) return
+                          setPushoverEmergencyStatus('sending')
+                          setPushoverEmergencyError(null)
+                          try {
+                            const result = await testPushoverEmergency()
+                            if (result.success) {
+                              setPushoverEmergencyStatus('sent')
+                              setTimeout(() => setPushoverEmergencyStatus(null), 5000)
+                            } else {
+                              setPushoverEmergencyStatus('error')
+                              setPushoverEmergencyError(result.error || 'Send failed')
+                            }
+                          } catch {
+                            setPushoverEmergencyStatus('error')
+                            setPushoverEmergencyError('Send failed')
+                          }
+                        }}
+                      >
+                        {pushoverEmergencyStatus === 'sending' ? 'Triggering...' : pushoverEmergencyStatus === 'sent' ? 'Alarm sent!' : 'Test Emergency'}
+                      </button>
+                    </div>
+                    {pushoverTestStatus === 'error' && pushoverTestError && (
+                      <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{pushoverTestError}</div>
+                    )}
+                    {pushoverEmergencyStatus === 'error' && pushoverEmergencyError && (
+                      <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{pushoverEmergencyError}</div>
+                    )}
+                  </>
                 )}
-                {pushoverEmergencyStatus === 'error' && pushoverEmergencyError && (
-                  <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{pushoverEmergencyError}</div>
-                )}
-              </>
+              </div>
             )}
           </div>
 
