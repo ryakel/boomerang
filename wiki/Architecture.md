@@ -17,6 +17,8 @@ Browser (React PWA)
                           ├── /api/gcal/*        → Google Calendar API proxy (OAuth, events, calendars)
                           ��── /api/packages/*    → Package tracking (CRUD, polling, 17track v2.4 API)
                           ├── /api/email/*       → Email notification status and test
+                          ├── /api/push/*        → Web push notification status, subscribe, test
+                          ├── /api/pushover/*    → Pushover notification status, test, test-emergency
                           ├── /api/weather/*     → Weather forecast cache, refresh, geocode (Open-Meteo)
                           └── /api/keys/status   → Reports which API keys are set via env vars
 ```
@@ -332,3 +334,23 @@ The app version is determined at build time:
 3. `"dev"` (final fallback)
 
 The version is injected as `__APP_VERSION__` via Vite's `define` config and displayed in the Settings header.
+
+## Notification Transports
+
+Three independent notification transports run alongside each other in `server.js`:
+
+- **Email** (`emailNotifications.js`) — SMTP-based, configured via env vars (`SMTP_HOST`, `SMTP_USER`, etc.)
+- **Web Push** (`pushNotifications.js`) — VAPID keys auto-generated, browser push subscriptions in `push_subscriptions` table
+- **Pushover** (`pushoverNotifications.js`) — HTTP API at `api.pushover.net`, native iOS/Android app delivery, supports priority-2 (Emergency) for bypass-DND alarms
+
+Each transport is its own module with its own 60-second `setInterval` loop. They share helpers (frequency math, quiet hours check, avoidance boost, throttling via the `notification_throttle` table) by duplication — one copy per module — for simplicity. A 4th transport landing later (Twilio, ntfy, etc.) is the right time to refactor these into a shared dispatcher; today's three-copy structure is intentional tech debt.
+
+**Failure isolation.** A failure in any one transport (network timeout, API outage) is caught and logged at the transport boundary; the other two continue working for the same notification event. Test endpoints exist for all three: `/api/email/test`, `/api/push/test`, `/api/pushover/test` (plus `/api/pushover/test-emergency` for the priority-2 alarm).
+
+**Pushover-specific:**
+- Credentials stored as JSON-blob settings keys (`pushover_user_key`, `pushover_app_token`) in `app_data` like all other settings — not in dedicated columns
+- Optional `PUSHOVER_DEFAULT_APP_TOKEN` env var provides an app-token fallback (user key is always per-user)
+- Priority-2 (Emergency) sends store the receipt id in `tasks.pushover_receipt`. When `db.js` `updateTaskPartial` or `deleteTask` detects a user-driven resolution event, it cancels the receipt via Pushover's `/receipts/{id}/cancel.json` endpoint. Single insertion in those two helpers catches both HTTP routes and Quokka adviser tools.
+- Quiet hours behavior differs from email/push: priority-0 honors quiet hours, priority 1+2 bypass them. The bypass is per-priority within the dispatcher loop rather than a global early-exit.
+
+**Considered but not yet built:** centralized dispatcher refactor (pay down when 4th transport lands), tag-based per-task quiet-hours bypass, curated daily digest with positive reinforcement, deep-link landing pad for tap-tracking, engagement analytics, adaptive throttling, inline web-push actions.

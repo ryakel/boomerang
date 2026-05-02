@@ -7,7 +7,7 @@
 4. **Run `npm audit` before pushing.** If new vulnerabilities are found, flag them to the user before pushing. Fix what's safe to fix (overrides for transitive deps). Don't block pushes for build-time-only vulnerabilities unless the user asks.
 5. **Every push triggers a Docker build.** This is why confirmation matters.
 6. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
-   - **Root-level `.js` file imported at runtime** (e.g. `notionMCP.js`, anything imported by `server.js` or another runtime file): must appear in a Dockerfile `COPY … ./` line in Stage 3. If missing, add it and re-stage. The pre-push smoke test runs `node server.js` against the full repo checkout, so it will NOT catch a missing-from-Dockerfile bug — the container will crash with `ERR_MODULE_NOT_FOUND` only after deploy.
+   - **Root-level `.js` file imported at runtime** (e.g. `notionMCP.js`, `pushoverNotifications.js`, anything imported by `server.js` or another runtime file): must appear in a Dockerfile `COPY … ./` line in Stage 3. If missing, add it and re-stage. The pre-push smoke test runs `node server.js` against the full repo checkout, so it will NOT catch a missing-from-Dockerfile bug — the container will crash with `ERR_MODULE_NOT_FOUND` only after deploy.
    - **New top-level directory** that must ship to prod: add a `COPY <dir> ./<dir>` line.
    - **New migration** under `migrations/`: already covered by the existing `COPY migrations ./migrations` line — no Dockerfile change needed.
    - **New script** under `scripts/`: already covered by `COPY scripts ./scripts` — no Dockerfile change needed.
@@ -457,8 +457,56 @@ Server-side Web Push engine (`pushNotifications.js`) that sends background notif
 
 **Known Limitations:**
 - iOS requires PWA to be added to Home Screen before push works
+- iOS Safari throttles web push aggressively — for reliable iOS delivery use Pushover (see below)
 - Each device must subscribe independently (multi-device = multiple subscriptions)
 - Push notification batching not yet implemented (email has batch mode via #17)
+
+### Pushover Notifications
+Server-side Pushover engine (`pushoverNotifications.js`) that bypasses iOS Safari web-push throttling by delivering through the dedicated Pushover iOS app's APNs entitlements. Supports priority-2 (Emergency) which repeats every 30 seconds for up to one hour and bypasses Do Not Disturb / silent mode.
+
+**Setup (manual prerequisite):**
+1. Account at [pushover.net](https://pushover.net)
+2. Buy the Pushover iOS app (one-time $5 per platform)
+3. Copy User Key from dashboard
+4. Create an Application named "Boomerang", optionally upload `public/icon-192.png` as the icon, copy the API Token
+5. Paste both into Settings → Pushover, save, click Test
+
+**Configuration:**
+- Credentials stored as settings keys (`pushover_user_key`, `pushover_app_token`) — JSON blob in `app_data` like other settings
+- Optional env fallback: `PUSHOVER_DEFAULT_APP_TOKEN` (user key always per-user, never from env)
+
+**Server Endpoints:**
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/pushover/status` | Configuration status (`{ configured, has_user_key, has_app_token, app_token_from_env }`) |
+| `POST /api/pushover/test` | Send a priority-0 test notification |
+| `POST /api/pushover/test-emergency` | Send a real priority-2 Emergency test that auto-cancels after 90 seconds |
+
+**Priority mapping:**
+| Notification | Priority | Sound | Notes |
+|---|---|---|---|
+| nudge / stale / size / pile-up / high-pri stage 1 (before due) | 0 | default | Honors quiet hours |
+| generic overdue / high-pri stage 2 (on due day) | 1 | `pushover` | Bypasses quiet hours |
+| high-pri stage 3 (overdue) / Stage 3 + avoidance (errand energy) | 2 | `persistent` | Emergency: 30s retry / 1h expire / bypasses DND |
+
+**Receipt cancellation.** Priority-2 sends save the receipt id to `tasks.pushover_receipt`. When the user resolves the task (status change to done/cancelled/projects/backlog, future-snooze, due-date moved forward, reframe note added) or deletes it, `db.js` `updateTaskPartial` / `deleteTask` fire `cancelEmergencyReceipt` so the alarm stops as soon as the user acts. One insertion catches both HTTP routes and Quokka adviser tools.
+
+**Quiet hours behavior.** Priority 0 honors quiet hours; priority 1 and 2 bypass them. Reasoning: an overdue Stage-3 task at 2am is exactly what the alarm is for. The Settings UI helper text says so.
+
+**Per-type toggles (settings):**
+- `pushover_notifications_enabled` — master toggle (gated by credentials being entered)
+- `pushover_notif_highpri`, `pushover_notif_overdue`, `pushover_notif_pileup`, `pushover_notif_package_delivered`, `pushover_notif_package_exception` — default ON
+- `pushover_notif_stale`, `pushover_notif_nudge`, `pushover_notif_size` — default OFF (keep first-day noise low)
+
+**Branding caveat (iOS).** Notifications appear under the Pushover app on iOS, not as native Boomerang notifications. The title is prefixed with `[BOOMERANG]` for clarity, and you can upload Boomerang's icon as the application icon in the Pushover dashboard so each message shows the Boomerang icon.
+
+**Classification: enhancement, not blocking.** Web push + email continue to work unchanged. Users without Pushover credentials see zero behavior change; the dispatcher is its own loop and Pushover failures don't affect the other transports for the same notification event.
+
+**Known Limitations:**
+- Notifications group under Pushover (not Boomerang) on iOS — branding mitigation via custom application icon
+- Per-task quiet-hours opt-in via tags / "wake me" label is planned (Phase 4)
+- Curated daily digest with positive reinforcement is planned (Phase 2)
+- Engagement analytics (tap-rate / completion-after-notification) are planned (Phase 2)
 
 ### Projects (Long-term Safe Space)
 Dedicated space for longer-term tasks that should never trigger notifications or nagging.

@@ -320,6 +320,25 @@ Browser push notifications with configurable options:
   - Size-based reminders — advance reminders based on task size: XL tasks 3 days before due, L tasks 2 days before, M tasks 1 day before
   - AI small-task nudge — suggests a specific XS or S task by name in the notification, encouraging you to knock out a quick win
 
+### Pushover Notifications
+
+Reliable iOS notifications for the cases where Safari web push isn't enough. Pushover has a dedicated iOS app with full APNs entitlements, so messages are delivered immediately even when iOS would throttle web push, and priority-2 (Emergency) messages bypass Do Not Disturb / silent mode and repeat every 30 seconds for up to one hour.
+
+- **Setup** — create account at [pushover.net](https://pushover.net), buy the iOS Pushover app ($5 one-time), copy User Key, create an Application named "Boomerang" and copy the API Token, paste both in Settings → Pushover. No DNS or webhook setup required.
+- **Priority levels** map to Boomerang's existing escalation tiers:
+  - **0 (normal)** — nudges, stale, size-based, pile-up, high-priority Stage 1 (before due). Honors quiet hours.
+  - **1 (high)** — generic overdue, high-priority Stage 2 (on due day). Bypasses quiet hours, plays an alert sound (`pushover` ringtone).
+  - **2 (Emergency)** — high-priority Stage 3 (overdue), avoidance + Stage 3. Bypasses Do Not Disturb / silent mode, repeats every 30 seconds for up to 1 hour, uses the `persistent` ringtone.
+- **Receipt cancellation** — when an Emergency alarm is ringing, resolving the task in any way (complete, snooze forward, due-date forward, delete, reframe) cancels the retry loop server-side so the alarm stops as soon as you act.
+- **Per-type toggles** — high priority, overdue, stale, nudges, size-based, pile-up, package delivered, package exceptions
+- **Test buttons** in Settings:
+  - **Test Pushover** — sends a priority-0 hello message to validate credentials
+  - **Test Emergency** — sends a real priority-2 alarm with 90-second auto-cancel, so you can validate the alarm rings on iOS without waiting an hour for it to expire on its own
+- **iOS branding caveat** — notifications appear under the Pushover app on iOS, not as native Boomerang notifications. The title is prefixed with `[BOOMERANG]`. You can upload Boomerang's icon as the application icon in the Pushover dashboard so each message shows the Boomerang icon next to the body.
+- **Optional env fallback** — `PUSHOVER_DEFAULT_APP_TOKEN` lets you skip the App Token field for self-hosted instances; User Key is always per-user
+- **Graceful no-op** — if either credential is missing, Pushover is silently inert. Web push and email continue working unchanged.
+- **Failure isolation** — Pushover failures (network errors, API outages) do not break web push or email delivery for the same notification event
+
 ### Email Notifications
 
 Server-side email notifications that work even when the app isn't open. Requires SMTP configuration via environment variables.

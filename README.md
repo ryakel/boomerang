@@ -23,6 +23,7 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - **Trello integration** — push tasks with native checklists and attachments, ongoing bidirectional sync
 - **Google Calendar integration** — bidirectional sync with AI-inferred event times, OAuth 2.0
 - **Package tracking** — track packages with auto carrier detection, status-colored cards, delivery/exception notifications, signature-required auto-task creation
+- **Pushover integration** — reliable iOS notifications via the Pushover app's APNs entitlements, with priority-2 (Emergency) for the highest-stakes alarms (bypasses Do Not Disturb, repeats every 30s)
 - **Offline support** — mutation queue with auto-replay on reconnect, sync status indicator
 - **Real-time sync** — cross-client sync via Server-Sent Events (SSE)
 - **Desktop UI** — kanban board with drag-and-drop, responsive modals, hover states
@@ -44,6 +45,8 @@ Configurable notification types with ADHD-friendly defaults:
 
 All frequencies are set in hours (supports fractional values, e.g. `0.25` = 15 minutes). Quiet hours, notification history, and avoidance boost (confrontation/errand tasks get nagged more frequently) included.
 
+Three transports run independently: web push (browser/PWA), email (SMTP), and Pushover (iOS APNs via the Pushover app). Pushover adds priority-2 (Emergency) for stage-3 high-priority overdue and avoidance-flagged overdue tasks — repeats every 30 seconds for up to 1 hour and bypasses Do Not Disturb / silent mode. Setup: create a Pushover account, buy the iOS app ($5 one-time), paste User Key + App Token in Settings → Pushover.
+
 ## Configuration
 
 API keys can be set via environment variables or in the UI Settings:
@@ -56,8 +59,11 @@ docker run -d -p 3001:3001 \
   -e TRELLO_API_KEY=your_api_key \
   -e TRELLO_SECRET=your_trello_token \
   -e TRACKING_API_KEY=your_17track_key \
+  -e PUSHOVER_DEFAULT_APP_TOKEN=your_pushover_app_token \
   ghcr.io/ryakel/boomerang:latest
 ```
+
+`PUSHOVER_DEFAULT_APP_TOKEN` is optional — it provides a default app token so you don't have to paste it in the UI for every install. Per-user keys are always entered in the Settings UI.
 
 ## Tech Stack
 

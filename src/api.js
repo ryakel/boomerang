@@ -1093,6 +1093,26 @@ export async function testPush() {
   return res.json()
 }
 
+// --- Pushover ---
+
+export async function pushoverStatus() {
+  const res = await fetch('/api/pushover/status')
+  if (!res.ok) return { configured: false }
+  return res.json()
+}
+
+export async function testPushover() {
+  const res = await fetch('/api/pushover/test', { method: 'POST' })
+  if (!res.ok) throw new Error(`test pushover failed: ${res.status}`)
+  return res.json()
+}
+
+export async function testPushoverEmergency() {
+  const res = await fetch('/api/pushover/test-emergency', { method: 'POST' })
+  if (!res.ok) throw new Error(`test pushover emergency failed: ${res.status}`)
+  return res.json()
+}
+
 // --- Weather ---
 
 export async function getWeather() {

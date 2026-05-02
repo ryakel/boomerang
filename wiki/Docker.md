@@ -38,6 +38,7 @@ services:
       - NOTION_INTEGRATION_TOKEN=${NOTION_INTEGRATION_TOKEN:-}
       - TRELLO_API_KEY=${TRELLO_API_KEY:-}
       - TRELLO_SECRET=${TRELLO_SECRET:-}
+      - PUSHOVER_DEFAULT_APP_TOKEN=${PUSHOVER_DEFAULT_APP_TOKEN:-}
       - DB_PATH=/data/boomerang.db
     volumes:
       - boomerang-data:/data

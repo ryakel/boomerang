@@ -11,6 +11,11 @@ import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bump
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
+import {
+  startPushoverNotifications, sendTestNotification as sendTestPushover,
+  sendTestEmergency as sendTestPushoverEmergency, getPushoverStatus,
+  sendPackagePushover,
+} from './pushoverNotifications.js'
 import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
@@ -1997,6 +2002,7 @@ async function pollActivePackages() {
           console.log(`[Packages] ${pkg.label || pkg.tracking_number} delivered`)
           sendPackageEmail(pkg, 'delivered')
           sendPackagePush(pkg, 'delivered')
+          sendPackagePushover(pkg, 'delivered')
 
           if (pkg.signature_task_id) {
             const task = getTask(pkg.signature_task_id)
@@ -2029,14 +2035,17 @@ async function pollActivePackages() {
         if (newStatus === 'exception' && pkg.status !== 'exception') {
           sendPackageEmail(pkg, 'exception')
           sendPackagePush(pkg, 'exception')
+          sendPackagePushover(pkg, 'exception')
         }
         if (newStatus === 'out_for_delivery' && pkg.status !== 'out_for_delivery') {
           sendPackageEmail(pkg, 'out_for_delivery')
           sendPackagePush(pkg, 'out_for_delivery')
+          sendPackagePushover(pkg, 'out_for_delivery')
         }
         if (sigRequired && !pkg.signature_required) {
           sendPackageEmail(pkg, 'signature_required')
           sendPackagePush(pkg, 'signature_required')
+          sendPackagePushover(pkg, 'signature_required')
         }
 
         updatePackagePartial(pkg.id, updates)
@@ -2440,6 +2449,21 @@ app.post('/api/push/unsubscribe', (req, res) => {
 
 app.post('/api/push/test', async (req, res) => {
   const result = await sendTestPush()
+  res.json(result)
+})
+
+// --- Pushover notification endpoints ---
+app.get('/api/pushover/status', (req, res) => {
+  res.json(getPushoverStatus())
+})
+
+app.post('/api/pushover/test', async (req, res) => {
+  const result = await sendTestPushover()
+  res.json(result)
+})
+
+app.post('/api/pushover/test-emergency', async (req, res) => {
+  const result = await sendTestPushoverEmergency()
   res.json(result)
 })
 
@@ -3049,6 +3073,7 @@ initDb(dbPath).then(async () => {
     // Start notification loops
     startEmailNotifications()
     startPushNotifications()
+    startPushoverNotifications()
     startWeatherSync()
 
     // Initialize Gmail sync

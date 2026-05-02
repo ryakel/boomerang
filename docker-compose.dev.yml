@@ -24,6 +24,7 @@ services:
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
       - NOTIFICATION_EMAIL=${NOTIFICATION_EMAIL:-}
+      - PUSHOVER_DEFAULT_APP_TOKEN=${PUSHOVER_DEFAULT_APP_TOKEN:-}
       - DB_PATH=/data/boomerang.db
       - SEED_DB=${SEED_DB:-0}
     volumes:

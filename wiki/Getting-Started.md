@@ -33,6 +33,19 @@ Both the Anthropic API key and the Notion integration token are **optional**. Th
 
 **Without Trello credentials**, Trello board sync, card pushing, and bidirectional status sync are disabled.
 
+### Optional: Set up Pushover for reliable iOS notifications
+
+iOS Safari throttles web push aggressively, so the in-built browser push notifications can be unreliable on iPhone. If that matters to you (and it should if you rely on the app's nag/escalation features), set up Pushover:
+
+1. Create a free account at [pushover.net](https://pushover.net)
+2. Buy the Pushover iOS app from the App Store ($5 one-time per platform)
+3. Open the app, sign in — this auto-registers the device with your account
+4. Copy your **User Key** from the dashboard
+5. On the dashboard, click **Create an Application/API Token** → name it "Boomerang" → optionally upload `public/icon-192.png` as the application icon → copy the **API Token**
+6. In Boomerang: Settings → Notifications → Pushover → paste both, save, click **Test Pushover** to confirm delivery
+
+Stage-3 high-priority overdue tasks and avoidance-flagged overdue tasks will now fire as priority-2 Emergency alarms — repeats every 30 seconds for up to one hour, bypasses Do Not Disturb / silent mode. The alarm cancels automatically the moment you resolve the task.
+
 ### Option 1: Environment Variables (server-wide default)
 
 ```bash

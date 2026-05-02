@@ -4,6 +4,24 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-02
+
+- feat(notifications): pushover transport with emergency priority [M]
+  - **Problem.** iOS Safari throttles web push aggressively — notifications get buried, sometimes only deliver when the app is foregrounded, and sometimes drop entirely. The escalation alarms that matter most are unreliable on the device that matters most. Pushover has a dedicated iOS app with full APNs entitlements and supports priority-2 (Emergency) which repeats every 30s for up to 1h and bypasses Do Not Disturb / silent mode.
+  - **New module `pushoverNotifications.js`.** Mirrors `pushNotifications.js` shape — 60s `setInterval` loop, same throttling/quiet-hours/active-task helpers, dispatches to all six notification types (high-pri, overdue, stale, nudge, size, pile-up) plus package events. Native `fetch` only — no new npm deps.
+  - **Priority mapping:** stage 1 high-pri / nudge / stale / size / pile-up → 0 (normal). Stage 2 high-pri / generic overdue → 1 (`pushover` sound, bypasses quiet hours). Stage 3 high-pri / avoidance + Stage 3 → 2 (`persistent` Emergency, bypasses quiet hours and DND).
+  - **Receipt cancellation.** Priority-2 sends save the receipt id to a new `tasks.pushover_receipt` column. When the user resolves the task (status change to done/cancelled/projects/backlog, future-snooze, due-date-forward, reframe added) or deletes it, `db.js` `updateTaskPartial`/`deleteTask` fires `cancelEmergencyReceipt` — alarm stops as soon as the user acts. Single insertion catches both HTTP routes and Quokka adviser tools.
+  - **Test endpoints.** `POST /api/pushover/test` (priority-0 hello), `POST /api/pushover/test-emergency` (real priority-2 alarm with 90s auto-cancel so it doesn't ring for an hour), `GET /api/pushover/status`. Settings UI exposes both test buttons with a confirm dialog on the Emergency one.
+  - **Migration 019.** `ALTER TABLE tasks ADD COLUMN pushover_receipt TEXT` plus `db.js` schema constants/UPSERT/row mapping updated.
+  - **Settings UI.** New Pushover section with masked User Key + App Token inputs, helper text explaining the priority levels and quiet-hours bypass, eight per-type toggles (high-pri, overdue, stale, nudge, size, pile-up, package delivered, package exception), Test Pushover and Test Emergency buttons. Defaults: enabled toggles for high-pri, overdue, pile-up, package delivered, package exception (the avoidance-prone tiers); off by default for stale/nudge/size to keep noise down on day one.
+  - **Env fallback.** Optional `PUSHOVER_DEFAULT_APP_TOKEN` for self-hosted installs that want a single shared app token; per-user keys still required. `Settings.jsx` indicates when the App Token is coming from env.
+  - **Package events.** `sendPackagePushover` invoked alongside email + web push on delivered/exception/out-for-delivery/signature events. Exception and signature events go priority 1; delivered/out-for-delivery go priority 0.
+  - **Classification: enhancement, not blocking.** Web push and email continue to work as-is. Users without Pushover credentials experience zero behavior change; the dispatcher is its own loop and failures are isolated.
+  - New: `pushoverNotifications.js`, `migrations/019_add_pushover_receipt.sql`
+  - Modified: `server.js`, `db.js`, `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml`, `.env.example`, `src/api.js`, `src/store.js`, `src/components/Settings.jsx`, `CLAUDE.md`, `README.md`, `wiki/Configuration.md`, `wiki/Docker.md`, `wiki/Architecture.md`, `wiki/Features.md`, `wiki/Getting-Started.md`
+
+---
+
 ## 2026-04-23
 
 - feat(quokka): multi-chat with 30d TTL + star-to-keep + 7d unstar grace [L]

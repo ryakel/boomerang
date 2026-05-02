@@ -92,6 +92,18 @@ export const DEFAULT_SETTINGS = {
   email_notif_pileup: true,
   email_notif_package_delivered: true,
   email_notif_package_exception: true,
+  // Pushover (gated by credentials being entered in Settings)
+  pushover_notifications_enabled: false,
+  pushover_user_key: '',
+  pushover_app_token: '',
+  pushover_notif_highpri: true,
+  pushover_notif_overdue: true,
+  pushover_notif_stale: false,
+  pushover_notif_nudge: false,
+  pushover_notif_size: false,
+  pushover_notif_pileup: true,
+  pushover_notif_package_delivered: true,
+  pushover_notif_package_exception: true,
   notion_page_template: `## Overview\n> Context and background for this task\n\n### Details\n- **Last Updated:** {last_updated}\n- **Frequency:** {frequency}\n- **Last Performed:** {last_performed}\n\n## Notes\n- Key details from task notes\n\n## Action Items\n- [ ] First step\n- [ ] Second step\n- [ ] Third step\n\n---\n\n## Reference\n- Related links or resources\n\n## Tags\n- {tags}`,
 }
 

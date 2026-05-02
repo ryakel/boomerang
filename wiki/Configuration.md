@@ -69,6 +69,18 @@ All settings are accessible via the gear icon in the header:
 - Toggles for: overdue tasks, stale tasks, general nudges
 - Stale task percentage threshold — configurable percentage at which a warning notification fires
 
+### Pushover (reliable iOS notifications)
+- Solves the iOS Safari web-push throttling problem — Pushover has a dedicated iOS app with full APNs entitlements
+- **Setup:** create account at [pushover.net](https://pushover.net), buy the iOS app ($5 one-time), copy the User Key, create an Application named "Boomerang" and copy the API Token, paste both in Settings → Pushover
+- **Priority levels:**
+  - 0 (normal) — nudges, stale, size, pile-up, high-priority Stage 1 (before due) — honors quiet hours
+  - 1 (high) — generic overdue, high-priority Stage 2 (on due day) — bypasses quiet hours, plays an alert sound
+  - 2 (Emergency) — high-priority Stage 3 (overdue), avoidance + Stage 3 — repeats every 30 seconds for up to 1 hour, bypasses Do Not Disturb
+- **Receipt cancellation:** Emergency alarms automatically stop when you resolve the task (complete, snooze forward, move due date forward, delete, reframe). Pushover stops retrying at the 1-hour mark even without explicit cancel.
+- **Per-type toggles:** high priority, overdue, stale, nudges, size, pile-up, package delivered, package exception
+- **Test buttons:** "Test Pushover" (priority 0) and "Test Emergency" (priority 2 with 90-second auto-cancel) — to validate the channel without waiting for a real trigger
+- **Optional env fallback:** `PUSHOVER_DEFAULT_APP_TOKEN` lets you skip the App Token field for everyone using this self-hosted instance; User Key is still per-user
+
 ### Data
 - **Export** — download JSON backup of all tasks, routines, settings, and labels
 - **Import** — upload a JSON backup to restore data

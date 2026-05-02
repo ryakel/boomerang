@@ -271,6 +271,7 @@ function taskToRow(task) {
     gmail_pending: task.gmail_pending ? 1 : 0,
     weather_hidden: task.weather_hidden ? 1 : 0,
     size_inferred: task.size_inferred ? 1 : 0,
+    pushover_receipt: task.pushover_receipt || null,
   }
 }
 
@@ -311,6 +312,7 @@ function rowToTask(row) {
     gmail_pending: !!row.gmail_pending,
     weather_hidden: !!row.weather_hidden,
     size_inferred: !!row.size_inferred,
+    pushover_receipt: row.pushover_receipt || null,
   }
 }
 
@@ -329,8 +331,9 @@ const UPSERT_TASK_SQL = `
     notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
     high_priority, low_priority, size, energy, energy_level, tags_json, attachments_json,
     checklist_json, checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
-    gcal_event_id, gcal_duration, gmail_message_id, gmail_pending, weather_hidden, size_inferred)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    gcal_event_id, gcal_duration, gmail_message_id, gmail_pending, weather_hidden, size_inferred,
+    pushover_receipt)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -348,7 +351,8 @@ const UPSERT_TASK_SQL = `
     trello_sync_enabled=excluded.trello_sync_enabled,
     gcal_event_id=excluded.gcal_event_id, gcal_duration=excluded.gcal_duration,
     gmail_message_id=excluded.gmail_message_id, gmail_pending=excluded.gmail_pending,
-    weather_hidden=excluded.weather_hidden, size_inferred=excluded.size_inferred`
+    weather_hidden=excluded.weather_hidden, size_inferred=excluded.size_inferred,
+    pushover_receipt=excluded.pushover_receipt`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -360,6 +364,7 @@ function runUpsertTask(task) {
     r.checklist_json, r.checklists_json, r.comments_json, r.toast_messages_json,
     r.trello_sync_enabled, r.gcal_event_id, r.gcal_duration,
     r.gmail_message_id, r.gmail_pending, r.weather_hidden, r.size_inferred,
+    r.pushover_receipt,
   ])
 }
 
@@ -373,8 +378,47 @@ export function updateTaskPartial(id, updates) {
   const existing = getTask(id)
   if (!existing) return null
   const merged = { ...existing, ...updates }
+
+  // Cancel any outstanding Pushover Emergency receipt when the user resolves
+  // the task. Skip when the update is *setting* the receipt itself (dispatcher
+  // write) or already explicitly clearing it.
+  const isReceiptWrite = Object.prototype.hasOwnProperty.call(updates, 'pushover_receipt')
+  if (existing.pushover_receipt && !isReceiptWrite && isResolutionUpdate(existing, updates)) {
+    triggerEmergencyCancel(id, existing.pushover_receipt)
+    merged.pushover_receipt = null
+  }
+
   upsertTask(merged)
   return getTask(id)
+}
+
+// True when `updates` represents a user-driven resolution of the task.
+function isResolutionUpdate(existing, updates) {
+  if (updates.status && updates.status !== existing.status) {
+    if (['done', 'completed', 'cancelled', 'project', 'backlog'].includes(updates.status)) return true
+  }
+  if (updates.completed_at && !existing.completed_at) return true
+  if (updates.snoozed_until) {
+    const newSnooze = new Date(updates.snoozed_until).getTime()
+    if (newSnooze > Date.now()) return true
+  }
+  if (updates.due_date && updates.due_date !== existing.due_date) {
+    // Moved due date forward beyond today
+    const newDue = new Date(updates.due_date + 'T00:00:00').getTime()
+    if (newDue > Date.now()) return true
+  }
+  if (updates.reframe_notes && !existing.reframe_notes) return true
+  return false
+}
+
+function triggerEmergencyCancel(taskId, receipt) {
+  // Fire-and-forget. Lazy-import to avoid circular dep at module load.
+  import('./pushoverNotifications.js').then(mod => {
+    const settings = getData('settings') || {}
+    const appToken = settings.pushover_app_token || process.env.PUSHOVER_DEFAULT_APP_TOKEN
+    if (!appToken) return
+    mod.cancelEmergencyReceipt(appToken, receipt).catch(() => {})
+  }).catch(() => {})
 }
 
 export function getTask(id) {
@@ -400,6 +444,11 @@ export function getAllTasks() {
 }
 
 export function deleteTask(id) {
+  // Cancel any outstanding Pushover Emergency receipt before removing the task.
+  const existing = getTask(id)
+  if (existing && existing.pushover_receipt) {
+    triggerEmergencyCancel(id, existing.pushover_receipt)
+  }
   db.run('DELETE FROM tasks WHERE id = ?', [id])
   schedulePersist()
 }
