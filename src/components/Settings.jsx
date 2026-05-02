@@ -161,12 +161,13 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
           .then(() => setAnthropicStatus('connected'))
           .catch(() => setAnthropicStatus('error'))
       }
-      if (keys.notion) {
-        setNotionConnected('checking')
-        notionStatus()
-          .then(s => setNotionConnected(s))
-          .catch(() => setNotionConnected({ connected: false }))
-      }
+      // Always check Notion status, not just when the legacy env var is set —
+      // the user may have connected via MCP, in which case keys.notion is false
+      // but the server still reports connected: true via getNotionAccessToken().
+      setNotionConnected('checking')
+      notionStatus()
+        .then(s => setNotionConnected(s))
+        .catch(() => setNotionConnected({ connected: false }))
       if (keys.tracking) {
         import('../api').then(({ testTrackingConnection }) => {
           setTrackingStatus('checking')

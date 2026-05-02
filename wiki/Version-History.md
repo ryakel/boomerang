@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- fix(settings): notion shows as disconnected when only MCP is connected [XS]
+  - **Bug.** `Settings.jsx` mount-time fetch gated `notionStatus()` behind `keys.notion`, which is only true when the legacy `NOTION_INTEGRATION_TOKEN` env var is set. Users who connected via MCP (the recommended path) and don't have the env var configured saw `notionConnected = null` → "unconfigured" gray dot, even though the server correctly reports `connected: true` via the MCP token. The Notion Sync settings section (gated on `notionConnected.connected`) also failed to render in this state.
+  - **Fix.** Removed the `if (keys.notion)` gate. Always call `notionStatus()` on mount — the server's status endpoint resolves whichever auth path is live (MCP or legacy) and returns `{connected: false}` cleanly when nothing is configured, so the gate added no value and broke the MCP-only case.
+  - Modified: `src/components/Settings.jsx`
+
 - refactor(settings): split Pushover across Integrations + Notifications tabs [S]
   - **Why.** Pushover settings were originally lumped into one block in the Notifications tab — credentials, public app URL, helper text, per-type toggles, and test buttons all together. That mixed two distinct concerns: *configuring the integration* (a one-time setup) and *choosing which notifications fire over it* (an ongoing preference). User correctly flagged this — Trello, Notion, GCal, Gmail all have their integration settings in the Integrations tab; Pushover should match that pattern.
   - **Integrations tab → Pushover** now hosts: master toggle, Public app URL field, User Key + App Token credentials, priority-level helper text, Test Pushover and Test Emergency buttons. Includes a hint pointing to the Notifications tab for per-type toggles.
