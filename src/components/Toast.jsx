@@ -64,7 +64,7 @@ function getStaticSubtitle(daysOnList, todayCount, isReopen, taskTitle) {
   return s
 }
 
-export default function Toast({ task, todayCount, variant = 'complete', onDone, onUndo }) {
+export default function Toast({ task, todayCount, variant = 'complete', onDone, onUndo, nextTask, onNextTaskClick }) {
   const isReopen = variant === 'reopen'
   const daysOnList = Math.floor(
     (Date.now() - new Date(task.created_at).getTime()) / 86400000
@@ -91,9 +91,12 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
   onDoneRef.current = onDone
 
   useEffect(() => {
-    const timer = setTimeout(() => onDoneRef.current(), 4000)
+    // Stay on screen longer when a next-task suggestion is offered so the
+    // user has time to consider it without feeling rushed.
+    const timeout = nextTask ? 8000 : 4000
+    const timer = setTimeout(() => onDoneRef.current(), timeout)
     return () => clearTimeout(timer)
-  }, [])
+  }, [nextTask])
 
   const { message, subtitle } = frozen.current
 
@@ -104,6 +107,17 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
           {message}
         </div>
         <div className="toast-subtitle">{subtitle}</div>
+        {nextTask && (
+          <div
+            className="toast-next-task"
+            style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.15)', fontSize: 12 }}
+            onClick={(e) => { e.stopPropagation(); onNextTaskClick?.(nextTask) }}
+          >
+            <span style={{ opacity: 0.75 }}>Next up: </span>
+            <strong style={{ textDecoration: 'underline' }}>{nextTask.title}</strong>
+            {nextTask.size && <span style={{ marginLeft: 6, opacity: 0.6 }}>({nextTask.size})</span>}
+          </div>
+        )}
       </div>
       {onUndo && variant === 'complete' && (
         <button

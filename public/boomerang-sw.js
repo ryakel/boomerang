@@ -16,10 +16,22 @@ self.addEventListener('push', function (event) {
     body: JSON.stringify({ event: 'push_received', title: payload.title })
   }).catch(function () {})
 
+  // Inline actions for low-stakes pings — let the user resolve without
+  // opening the app. NOT enabled for Stage 3 high-priority alarms (those
+  // should require the user to actually engage with the task in the app).
+  var actions = []
+  if (payload.data && payload.data.taskId && !payload.data.no_actions) {
+    actions = [
+      { action: 'snooze1h', title: 'Snooze 1h' },
+      { action: 'done', title: 'Done' }
+    ]
+  }
+
   event.waitUntil(
     self.registration.showNotification(payload.title || 'Boomerang', {
       body: payload.body || '',
-      data: payload.data || {}
+      data: payload.data || {},
+      actions: actions
     }).then(function () {
       fetch('/api/push/log', {
         method: 'POST',
@@ -40,7 +52,35 @@ self.addEventListener('notificationclick', function (event) {
   event.preventDefault()
   event.notification.close()
   var data = event.notification.data || {}
-  var path = data.taskId ? '/?task=' + data.taskId : '/'
+  var taskId = data.taskId
+
+  // Inline action handler — Snooze 1h and Done resolve without opening
+  // the app. Re-engagement is "act on tasks I care about"; closing the
+  // loop on a low-stakes ping doesn't need a full app round-trip.
+  if (event.action === 'snooze1h' && taskId) {
+    event.waitUntil(
+      fetch('/api/notifications/action/snooze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: taskId, hours: 1 })
+      }).catch(function () {})
+    )
+    return
+  }
+  if (event.action === 'done' && taskId) {
+    event.waitUntil(
+      fetch('/api/notifications/action/done', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: taskId })
+      }).catch(function () {})
+    )
+    return
+  }
+
+  // Bare tap (no action) — open the app on the relevant task. This is the
+  // North-Star path: user wants to engage, give them context.
+  var path = taskId ? '/?task=' + taskId : '/'
   var url = self.location.origin + path
 
   event.waitUntil(

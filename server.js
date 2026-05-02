@@ -2483,6 +2483,41 @@ app.post('/api/digest/test', async (req, res) => {
 
 // --- Notification engagement tracking ---
 
+// Inline web-push action handlers — Snooze 1h / Done. The push notification's
+// action buttons hit these, letting the user resolve without opening the app
+// for low-stakes pings. Stamps tap + completion on the underlying notification
+// log so engagement analytics still credit the channel.
+app.post('/api/notifications/action/snooze', (req, res) => {
+  const { taskId, hours = 1 } = req.body || {}
+  if (!taskId) return res.status(400).json({ error: 'Missing taskId' })
+  const task = getTask(taskId)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const until = new Date(Date.now() + Math.max(1, hours) * 3600 * 1000).toISOString()
+  updateTaskPartial(taskId, {
+    snoozed_until: until,
+    snooze_count: (task.snooze_count || 0) + 1,
+    last_touched: new Date().toISOString(),
+  })
+  markNotificationTapped(taskId, 'push')
+  bumpVersion()
+  res.json({ ok: true })
+})
+
+app.post('/api/notifications/action/done', (req, res) => {
+  const { taskId } = req.body || {}
+  if (!taskId) return res.status(400).json({ error: 'Missing taskId' })
+  const task = getTask(taskId)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  updateTaskPartial(taskId, {
+    status: 'done',
+    completed_at: new Date().toISOString(),
+    last_touched: new Date().toISOString(),
+  })
+  markNotificationTapped(taskId, 'push')
+  bumpVersion()
+  res.json({ ok: true })
+})
+
 app.post('/api/notifications/tap', (req, res) => {
   const { taskId, channel } = req.body || {}
   if (!taskId) return res.status(400).json({ error: 'Missing taskId' })

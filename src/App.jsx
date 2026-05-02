@@ -241,7 +241,29 @@ function App() {
       pushStatusToTrello(task, 'done')
     }
     if (task) {
-      setToast({ ...task, completed_at: new Date().toISOString() })
+      // Surface a "next up" suggestion in the toast — North-Star aligned:
+      // when the user just completed something, they're in flow; offering
+      // a quick next pick compounds engagement.
+      const ACTIVE = ['not_started', 'doing', 'waiting']
+      const candidates = tasks.filter(t =>
+        t.id !== id &&
+        ACTIVE.includes(t.status) &&
+        !t.gmail_pending &&
+        !t.notifications_muted &&
+        (!t.snoozed_until || new Date(t.snoozed_until) <= new Date())
+      )
+      // Score: high_priority +100, due today/overdue +50, XS/S +20, otherwise 0
+      const todayStr = new Date().toISOString().split('T')[0]
+      const score = t => {
+        let s = 0
+        if (t.high_priority) s += 100
+        if (t.due_date && t.due_date <= todayStr) s += 50
+        if (t.size === 'XS' || t.size === 'S') s += 20
+        return s
+      }
+      candidates.sort((a, b) => score(b) - score(a))
+      const nextTask = candidates[0] || null
+      setToast({ ...task, completed_at: new Date().toISOString(), nextTask })
     }
   }, [tasks, completeTask, completeRoutine, pushStatusToTrello])
 
@@ -950,6 +972,8 @@ function App() {
           task={toast.variant ? toast.task : toast}
           todayCount={todayCount}
           variant={toast.variant || 'complete'}
+          nextTask={toast.nextTask}
+          onNextTaskClick={(t) => { setEditTarget(t); setToast(null) }}
           onDone={() => setToast(null)}
           onUndo={() => {
             const taskToUndo = toast.variant ? toast.task : toast

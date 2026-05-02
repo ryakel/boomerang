@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- feat(notifications): inline web-push actions + post-completion next-up suggestion [M]
+  - **Inline web-push actions.** Web push notifications for tasks now render Snooze 1h and Done buttons directly on the notification. Tapping Snooze postpones the task for an hour without opening the app; Done marks it complete. Both also stamp the underlying notification log as tapped so engagement analytics credit the channel.
+  - **Why these aren't anti-North-Star.** The North Star is "pull me back to ACT on tasks I have to act on." Snooze and Done are closing-the-loop on a decision the user has *already made* — forcing a full app round-trip just to dismiss a low-stakes ping breeds avoidance. The bare tap (notification body) still opens the app on the relevant task for the cases where context matters.
+  - **Service worker** (`public/boomerang-sw.js`) — adds `actions: [{action:'snooze1h'}, {action:'done'}]` to the `showNotification` call when the payload has a `taskId` and isn't flagged `no_actions`. New `notificationclick` branches handle each action by POSTing to the new endpoints.
+  - **Server endpoints:** `POST /api/notifications/action/snooze` (sets `snoozed_until = now + N hours`, increments `snooze_count`) and `POST /api/notifications/action/done` (sets `status = done`, `completed_at = now`). Both stamp the notification log and `bumpVersion()` so other clients see the change.
+  - **Post-completion "Next up" toast.** When the user completes a task, the completion toast now includes a tappable "Next up: <title>" suggestion. Selection heuristic: high-priority +100, due today/overdue +50, XS/S size +20, sorted descending. Tapping opens the suggested task. Toast stays on screen 8 seconds (vs the usual 4) when a suggestion is offered.
+  - Modified: `public/boomerang-sw.js`, `server.js`, `src/App.jsx`, `src/components/Toast.jsx`
+
 - feat(notifications): adaptive throttling + per-back-off feedback validation [M]
   - **Why.** Analytics detects signal degradation (tap-rate dropping); without a closing loop, the dispatcher keeps firing into a void anyway. Adaptive throttling closes that loop: a (channel, type) that's been ignored 10 times in a row backs off progressively (1.5×, 2.25×, … capped at 8×) until something taps, then resets to 1×.
   - **Migration 021** — `throttle_decisions` table records each back-off event (channel, type, old multiplier, new multiplier, decided_at, optional feedback + override-until).
