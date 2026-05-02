@@ -2217,7 +2217,10 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                           setPushoverTestStatus('sending')
                           setPushoverTestError(null)
                           try {
-                            const result = await testPushover()
+                            const result = await testPushover({
+                              userKey: settings.pushover_user_key,
+                              appToken: settings.pushover_app_token,
+                            })
                             if (result.success) {
                               setPushoverTestStatus('sent')
                               setTimeout(() => setPushoverTestStatus(null), 3000)
@@ -2242,7 +2245,10 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                           setPushoverEmergencyStatus('sending')
                           setPushoverEmergencyError(null)
                           try {
-                            const result = await testPushoverEmergency()
+                            const result = await testPushoverEmergency({
+                              userKey: settings.pushover_user_key,
+                              appToken: settings.pushover_app_token,
+                            })
                             if (result.success) {
                               setPushoverEmergencyStatus('sent')
                               setTimeout(() => setPushoverEmergencyStatus(null), 5000)

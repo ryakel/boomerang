@@ -1135,14 +1135,22 @@ export async function markThrottleFeedback(id, feedback) {
   return res.json()
 }
 
-export async function testPushover() {
-  const res = await fetch('/api/pushover/test', { method: 'POST' })
+export async function testPushover({ userKey, appToken } = {}) {
+  const res = await fetch('/api/pushover/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userKey, appToken }),
+  })
   if (!res.ok) throw new Error(`test pushover failed: ${res.status}`)
   return res.json()
 }
 
-export async function testPushoverEmergency() {
-  const res = await fetch('/api/pushover/test-emergency', { method: 'POST' })
+export async function testPushoverEmergency({ userKey, appToken } = {}) {
+  const res = await fetch('/api/pushover/test-emergency', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userKey, appToken }),
+  })
   if (!res.ok) throw new Error(`test pushover emergency failed: ${res.status}`)
   return res.json()
 }

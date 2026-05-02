@@ -2461,12 +2461,14 @@ app.get('/api/pushover/status', (req, res) => {
 })
 
 app.post('/api/pushover/test', async (req, res) => {
-  const result = await sendTestPushover()
+  const { userKey, appToken } = req.body || {}
+  const result = await sendTestPushover({ userKey, appToken })
   res.json(result)
 })
 
 app.post('/api/pushover/test-emergency', async (req, res) => {
-  const result = await sendTestPushoverEmergency()
+  const { userKey, appToken } = req.body || {}
+  const result = await sendTestPushoverEmergency({ userKey, appToken })
   res.json(result)
 })
 

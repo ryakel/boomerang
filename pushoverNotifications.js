@@ -145,9 +145,11 @@ export async function cancelEmergencyForTask(taskId) {
 
 // --- Test sends ---
 
-export async function sendTestNotification() {
+export async function sendTestNotification(overrides = {}) {
   const settings = getData('settings') || {}
-  const { userKey, appToken } = getCredentials(settings)
+  const fromSettings = getCredentials(settings)
+  const userKey = overrides.userKey || fromSettings.userKey
+  const appToken = overrides.appToken || fromSettings.appToken
   if (!userKey) return { success: false, error: 'Pushover User Key not configured' }
   if (!appToken) return { success: false, error: 'Pushover App Token not configured' }
   const result = await sendPushover({
@@ -160,9 +162,11 @@ export async function sendTestNotification() {
   return { success: true, request: result.request }
 }
 
-export async function sendTestEmergency() {
+export async function sendTestEmergency(overrides = {}) {
   const settings = getData('settings') || {}
-  const { userKey, appToken } = getCredentials(settings)
+  const fromSettings = getCredentials(settings)
+  const userKey = overrides.userKey || fromSettings.userKey
+  const appToken = overrides.appToken || fromSettings.appToken
   if (!userKey) return { success: false, error: 'Pushover User Key not configured' }
   if (!appToken) return { success: false, error: 'Pushover App Token not configured' }
   const result = await sendPushover({
