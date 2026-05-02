@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- docs(security): credential storage notes + Quokka blocklist patch [S]
+  - **Patch.** Added `pushover_user_key` and `pushover_app_token` to the Quokka adviser's secret blocklist in `adviserToolsMisc.js`. Both `get_settings` (now redacts them) and `update_settings` (now refuses to write them) match the same handling as Anthropic / Notion / Trello / GCal / 17track keys. Closes a gap from the Pushover transport commit — those settings were stored in the same plaintext blob as other secrets but weren't protected from adviser exfiltration.
+  - **Documentation.** New `wiki/Security-Notes.md` — honest accounting of where every secret lives (plaintext SQLite, browser localStorage, env vars), what's protective (OAuth tokens server-only, SMTP env-only, Quokka blocklist, HTTPS in transit), what isn't (no encryption at rest, no master-key separation, localStorage XSS-readable), and when the threat model breaks down (multi-tenant, untrusted hosting, sensitive backups). Documents practical hygiene and lists future-hardening options that aren't on the roadmap.
+  - **README.md** — short "Security note" paragraph linking to the new doc so prospective users know what they're getting before they decide whether to deploy.
+  - **CLAUDE.md** — new "Security Posture" section documenting the secret storage layout and the blocklist invariant ("keep this list in sync when adding new secret-shaped settings"). Future contributors won't need to re-derive this.
+  - **wiki/Home.md** — links to both new docs (Security Notes, Testing Notification Stack).
+  - Modified: `adviserToolsMisc.js`, `README.md`, `CLAUDE.md`, `wiki/Home.md`, `wiki/Version-History.md`
+  - New: `wiki/Security-Notes.md`
+
 - feat(notifications): tone-aware AI rewrites + Quokka weekly pattern review + test docs [M]
   - **Tone-aware AI notification rewrites.** New `notifAi.js` module exports `rewriteNotifBody(task, body)` that calls Claude Haiku 4.5 with the user's `ai_custom_instructions`. The model rewrites the static notification body in the user's preferred tone — e.g. a user who said "phone calls are confrontation-level for me" gets call-related overdue notifications framed more gently.
   - **Cost-bounded.** `canRewriteThisTick(channel)` allows at most one rewrite per dispatcher tick (60s) per channel. ~$0.001/day at typical volume.

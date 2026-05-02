@@ -717,6 +717,20 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
 
+## Security Posture (2026-05-02)
+**Threat model:** single-user self-hosted, user controls the machine. See `wiki/Security-Notes.md` for the full breakdown.
+
+**Secret storage layout:**
+- User-provided keys (Anthropic, Notion, Trello, GCal Client Secret, 17track, Pushover User Key + App Token) live plaintext in `app_data.settings` (server) AND `localStorage` (client).
+- OAuth refresh tokens (GCal / Gmail / Notion MCP) live plaintext in `app_data` server-side only — never round-tripped to the browser.
+- VAPID private key lives in `app_data.vapid_keys` server-side only.
+- SMTP credentials are env-only by design — never written to DB.
+- Web push subscription keys live in `push_subscriptions` table.
+
+**Quokka secret blocklist** (`adviserToolsMisc.js`): the adviser's `update_settings` tool refuses to write, and `get_settings` redacts: `anthropic_api_key`, `notion_token`, `trello_api_key`, `trello_secret`, `gcal_client_secret`, `tracking_api_key`, `pushover_user_key`, `pushover_app_token`. Keep this list in sync when adding new secret-shaped settings.
+
+**No encryption at rest.** SQLite plaintext. Anyone who can read `/data/boomerang.db` reads everything. Acceptable for self-hosted single-user; *not* acceptable for multi-tenant.
+
 ## Documentation Requirements (NON-NEGOTIABLE)
 **Every commit must be reflected in docs before pushing.** This applies to ALL changes — features, fixes, refactors, cleanup, doc-only changes, everything.
 

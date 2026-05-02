@@ -333,7 +333,7 @@ export function registerSettingsTools() {
     execute: async () => {
       const s = getData('settings') || {}
       const redacted = { ...s }
-      for (const k of ['anthropic_api_key', 'notion_token', 'trello_api_key', 'trello_secret', 'gcal_client_secret', 'tracking_api_key']) {
+      for (const k of ['anthropic_api_key', 'notion_token', 'trello_api_key', 'trello_secret', 'gcal_client_secret', 'tracking_api_key', 'pushover_user_key', 'pushover_app_token']) {
         if (redacted[k]) redacted[k] = '***redacted***'
       }
       return { result: redacted }
@@ -350,7 +350,7 @@ export function registerSettingsTools() {
     },
     preview: (args) => `Update settings: ${Object.keys(args).join(', ')}`,
     execute: async (args) => {
-      const BLOCKED = new Set(['anthropic_api_key', 'notion_token', 'trello_api_key', 'trello_secret', 'gcal_client_secret', 'tracking_api_key'])
+      const BLOCKED = new Set(['anthropic_api_key', 'notion_token', 'trello_api_key', 'trello_secret', 'gcal_client_secret', 'tracking_api_key', 'pushover_user_key', 'pushover_app_token'])
       const safe = {}
       for (const [k, v] of Object.entries(args)) {
         if (BLOCKED.has(k)) continue

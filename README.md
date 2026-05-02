@@ -75,6 +75,8 @@ docker run -d -p 3001:3001 \
 
 See the [wiki](https://github.com/ryakel/boomerang/wiki) for full documentation.
 
+**Security note:** Boomerang is built for single-user self-hosted deployment. API keys and integration tokens are stored in plaintext in the SQLite database and (for some) in browser `localStorage`. This is acceptable for "your own machine, your own data" but **not** for multi-tenant or untrusted hosting. See [Security Notes](./wiki/Security-Notes.md) for the full picture before deciding whether the app fits your situation.
+
 ## Development
 
 ```bash

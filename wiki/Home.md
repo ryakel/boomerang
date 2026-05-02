@@ -31,3 +31,5 @@ Open `http://localhost:3001` and start adding tasks. API keys are optional — a
 - [Architecture](Architecture) — how it works under the hood
 - [Version History](Version-History) — commit-level changelog
 - [Testing Plan](Testing-Plan) — manual test checklist for all features
+- [Testing Notification Stack](Testing-Notification-Stack) — end-to-end test sequence for the notification stack
+- [Security Notes](Security-Notes) — credential storage, threat model, what's protective and what isn't
