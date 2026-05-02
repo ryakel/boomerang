@@ -67,15 +67,19 @@ let loopTimer = null
 // --- Transport setup ---
 
 function getSmtpConfig() {
-  // Env var takes priority for recipient; UI setting is fallback
   const settings = getData('settings') || {}
   const host = smtpHost
   const port = parseInt(smtpPort || '587', 10)
   const user = smtpUser
   const pass = smtpPass
-  const from = smtpFrom || user
+  // From-address resolution priority: UI setting > env var > SMTP user.
+  // Setting it to a domain-controlled address (with SPF/DKIM/DMARC) is the
+  // single biggest deliverability lever — generic-relay defaults hit spam.
+  const fromAddr = settings.email_from_address || smtpFrom || user
+  const fromName = settings.email_from_name || 'Boomerang Digest'
+  const from = fromAddr ? `"${fromName}" <${fromAddr}>` : null
   const to = notificationEmail || settings.email_address
-  return { host, port, user, pass, from, to }
+  return { host, port, user, pass, from, fromAddr, fromName, to }
 }
 
 function isConfigured() {
@@ -126,14 +130,14 @@ function isSmsGateway(email) {
 async function sendEmail(subject, htmlBody, textBody) {
   const transport = getTransporter()
   if (!transport) return false
-  const { from, to } = getSmtpConfig()
+  const { from, fromAddr, to } = getSmtpConfig()
   if (!to) return false
 
-  // SMS gateways: text-only, truncated, minimal headers
+  // SMS gateways: text-only, truncated, minimal headers (no display name).
   const sms = isSmsGateway(to)
   const mailOpts = sms
-    ? { from, to, subject, text: textBody.slice(0, 140) }
-    : { from: `"Boomerang" <${from}>`, to, subject, text: textBody, html: htmlBody }
+    ? { from: fromAddr, to, subject, text: textBody.slice(0, 140) }
+    : { from, to, subject, text: textBody, html: htmlBody }
 
   try {
     await transport.sendMail(mailOpts)
@@ -531,13 +535,13 @@ export async function sendTestEmail() {
   const textBody = 'Boomerang test - notifications working!'
   const transport = getTransporter()
   if (!transport) return { success: false, error: 'Could not create SMTP transport' }
-  const { from, to } = getSmtpConfig()
+  const { from, fromAddr, to } = getSmtpConfig()
   if (!to) return { success: false, error: 'No recipient email configured' }
 
   const sms = isSmsGateway(to)
   const mailOpts = sms
-    ? { from, to, subject: 'Boomerang Test', text: textBody }
-    : { from: `"Boomerang" <${from}>`, to, subject: 'Boomerang Test', text: textBody, html: simpleEmailHtml('Test Email', textBody) }
+    ? { from: fromAddr, to, subject: 'Boomerang Test', text: textBody }
+    : { from, to, subject: 'Boomerang Test', text: textBody, html: simpleEmailHtml('Test Email', textBody) }
 
   try {
     console.log(`[Email] Sending test to ${to} via ${getSmtpConfig().host}:${getSmtpConfig().port}${sms ? ' (SMS mode)' : ''}`)

@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-02
 
+- feat(notifications): web-push subscription dedup + email From overrides [S]
+  - **Why dedup.** User reported duplicate web push notifications. Server-side throttling is per-(channel, type), so the dispatcher itself isn't double-firing. Cause: stale `push_subscriptions` rows from PWA reinstalls / iOS subscription evictions / re-granted permissions. Each ghost row got every notification.
+  - **`upsertPushSubscription`** now deletes any prior rows with matching `(p256dh, auth)` keys before inserting. The keypair uniquely identifies a device-browser-permission combo, so collisions on those keys mean it's the same client re-subscribing.
+  - **One-time cleanup script** at `scripts/dedupe-push-subscriptions.js` for installs that already accumulated dupes. Run with `DB_PATH=/data/boomerang.db node scripts/dedupe-push-subscriptions.js`. Reports duplicate-group count and rows removed; safe to run multiple times.
+  - **Why email From overrides.** Default From falls back to SMTP_USER which often hits spam. Two new settings: `email_from_address` (override the literal address — should be on a domain you control with SPF/DKIM/DMARC) and `email_from_name` (display name, default "Boomerang Digest"). Resolution priority: settings → env (`SMTP_FROM`) → SMTP user.
+  - **Settings UI** — From-name + From-address fields under Email notifications with inline helper text linking to deliverability practices.
+  - **Configuration.md and CLAUDE.md** — new "Email deliverability" sections covering SPF/DKIM/DMARC, recommended providers (Postmark / Resend / Mailgun / SES), `mail-tester.com` validation. CLAUDE.md picks up the full notification feature surface from this batch (engagement analytics, adaptive throttling, inline actions, post-completion suggestion, curated digest, tag-based wake-me bypass, dedup, deliverability).
+  - **Deferred to a future commit:** tone-aware AI rewrites (one notification body per dispatcher tick, ~$0.001/day), Quokka weekly pattern review (cross-task avoidance detection via the existing chat surface), centralized notification dispatcher refactor.
+  - Modified: `db.js`, `emailNotifications.js`, `src/store.js`, `src/components/Settings.jsx`, `wiki/Configuration.md`, `CLAUDE.md`
+  - New: `scripts/dedupe-push-subscriptions.js`
+
 - feat(notifications): inline web-push actions + post-completion next-up suggestion [M]
   - **Inline web-push actions.** Web push notifications for tasks now render Snooze 1h and Done buttons directly on the notification. Tapping Snooze postpones the task for an hour without opening the app; Done marks it complete. Both also stamp the underlying notification log as tapped so engagement analytics credit the channel.
   - **Why these aren't anti-North-Star.** The North Star is "pull me back to ACT on tasks I have to act on." Snooze and Done are closing-the-loop on a decision the user has *already made* — forcing a full app round-trip just to dismiss a low-stakes ping breeds avoidance. The bare tap (notification body) still opens the app on the relevant task for the cases where context matters.

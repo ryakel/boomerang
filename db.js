@@ -1124,6 +1124,15 @@ export function getAllPushSubscriptions() {
 }
 
 export function upsertPushSubscription(id, endpoint, p256dh, auth) {
+  // Dedup: a re-subscription on the same device produces the same (p256dh, auth)
+  // keypair but a different endpoint. Without this, we accumulate stale rows
+  // each time iOS evicts the subscription or the user reinstalls the PWA, and
+  // every notification ends up firing N times. Delete prior rows with matching
+  // keys before the upsert.
+  db.run(
+    'DELETE FROM push_subscriptions WHERE p256dh = ? AND auth = ? AND endpoint != ?',
+    [p256dh, auth, endpoint]
+  )
   db.run(
     `INSERT INTO push_subscriptions (id, endpoint, p256dh, auth, updated_at)
      VALUES (?, ?, ?, ?, datetime('now'))
@@ -1136,6 +1145,37 @@ export function upsertPushSubscription(id, endpoint, p256dh, auth) {
 export function deletePushSubscription(endpoint) {
   db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint])
   schedulePersist()
+}
+
+// One-time cleanup utility: remove duplicate subscriptions, keeping the most
+// recently updated row for each (p256dh, auth) keypair. Exposed as a script.
+export function dedupePushSubscriptions() {
+  const stmt = db.prepare(
+    `SELECT p256dh, auth, COUNT(*) as cnt FROM push_subscriptions
+     GROUP BY p256dh, auth HAVING cnt > 1`
+  )
+  const dupes = []
+  while (stmt.step()) dupes.push(stmt.getAsObject())
+  stmt.free()
+
+  let removed = 0
+  for (const d of dupes) {
+    // Keep the most recently updated row, delete the rest
+    const all = db.prepare(
+      `SELECT id, updated_at FROM push_subscriptions
+       WHERE p256dh = ? AND auth = ? ORDER BY updated_at DESC`
+    )
+    all.bind([d.p256dh, d.auth])
+    const rows = []
+    while (all.step()) rows.push(all.getAsObject())
+    all.free()
+    for (let i = 1; i < rows.length; i++) {
+      db.run('DELETE FROM push_subscriptions WHERE id = ?', [rows[i].id])
+      removed++
+    }
+  }
+  if (removed > 0) schedulePersist()
+  return { duplicateGroups: dupes.length, removed }
 }
 
 export function logNotifPush(id, type, taskId, title, body, channel = 'push') {

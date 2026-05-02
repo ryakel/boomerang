@@ -504,9 +504,39 @@ Server-side Pushover engine (`pushoverNotifications.js`) that bypasses iOS Safar
 
 **Known Limitations:**
 - Notifications group under Pushover (not Boomerang) on iOS — branding mitigation via custom application icon
-- Per-task quiet-hours opt-in via tags / "wake me" label is planned (Phase 4)
-- Curated daily digest with positive reinforcement is planned (Phase 2)
-- Engagement analytics (tap-rate / completion-after-notification) are planned (Phase 2)
+
+### Engagement Analytics (2026-05-02)
+
+Every notification deep-links to its task via `?task={id}`. The deep-link handler stamps `notification_log.tapped_at` so we can measure conversion. Task completion within 24h of a notification stamps `completed_after`. Both feed `GET /api/analytics/notifications` which the Analytics dashboard renders as a "Notification engagement" panel showing tap-rate and completion-rate per channel and per type.
+
+**Adaptive throttling.** `getEffectiveThrottleMultiplier(channel, type)` in `db.js` looks at the last 10 notifications for a `(channel, type)` combination. All ignored → step the throttle multiplier up by 1.5× (capped at 8×); any tap or completion → reset to 1×. Each change is logged in the `throttle_decisions` table. The Analytics panel surfaces unreviewed back-off decisions as 👍/👎 chips — 👎 reverts the back-off and sets a 7-day override that stops auto-tuning that combination. Migration 020 adds `tapped_at`/`completed_after`; migration 021 adds the `throttle_decisions` table.
+
+**Inline web-push actions.** Web push notifications render Snooze 1h and Done buttons directly on the notification (via service worker `actions:` array). The user can resolve a low-stakes ping without opening the app. Routes: `POST /api/notifications/action/snooze` and `/done`. North-Star aligned: closing the loop on a decision the user has already made — forcing app entry just to dismiss breeds avoidance.
+
+**Post-completion "Next up" toast.** The completion toast surfaces a tappable next-best-task suggestion when the user is in flow. Heuristic: high_priority +100, due-today/overdue +50, XS/S +20.
+
+### Curated Daily Digest
+
+`digestBuilder.js` is the shared digest builder used by all three transports. Sections in order: lead-in → yesterday recap + streak → Today (overdue rolled in here, gentle phrasing) → Coming up → Carrying ("carrying for N days", not "stale") → Quick wins → Weather. Tasks in the HTML version are tappable links via `public_app_url`. `digest_style: 'curated'` (default) vs `'counts'` (legacy plain summary). `pushover_digest_enabled` (default off) adds Pushover priority-0 delivery. `POST /api/digest/test` fires the digest immediately via every enabled channel for validation.
+
+### Tag-based Quiet Hours Opt-in
+
+Default behavior in quiet hours is silence — even priority-1/priority-2 Pushover messages don't fire. Tasks tagged with the configured bypass label (default `wake-me`) are the exception and can wake the user. `quiet_hours_bypass_label` setting controls which label name. EditTaskModal has a "Wake me up for this" checkbox that toggles the label cleanly.
+
+### Web-push Subscription Dedup
+
+Repeat subscribes from the same device (PWA reinstall, iOS evicts subscription, etc.) used to accumulate stale rows in `push_subscriptions`, causing duplicate notifications. `upsertPushSubscription()` now deletes prior rows with matching `(p256dh, auth)` keys before inserting. One-time cleanup script: `node scripts/dedupe-push-subscriptions.js`.
+
+### Email Deliverability Overrides
+
+`email_from_address` and `email_from_name` settings let users override the From header for deliverability without changing env vars or restarting. Using a domain you control with SPF/DKIM/DMARC is the single biggest factor in keeping digests out of spam.
+
+### Considered But Not Yet Built
+
+- **Tone-aware AI rewrites** — one notification per dispatcher tick rewritten by Claude based on user's `ai_custom_instructions`. Cost-bounded (~$0.001/day). Skipped for Pushover Emergency where urgency matters more than tone.
+- **Quokka-initiated weekly pattern review** — once a week, query tasks snoozed/dismissed 3+ times in 14 days, create a seeded Quokka chat asking the user if they're worth keeping.
+- **Centralized notification dispatcher** — refactor three independent transport loops into one shared dispatcher when the 4th transport lands.
+- **Default-off web push if Pushover dominates analytics** — 2-week decision criterion. Not a code change; a config flip if data warrants.
 
 ### Projects (Long-term Safe Space)
 Dedicated space for longer-term tasks that should never trigger notifications or nagging.

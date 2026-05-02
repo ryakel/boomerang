@@ -13,6 +13,8 @@
 | `GOOGLE_CLIENT_ID` | No | — | Google OAuth Client ID for Calendar sync (users can add in UI) |
 | `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth Client Secret for Calendar sync (users can add in UI) |
 | `TRACKING_API_KEY` | No | — | 17track API key for package tracking (users can add in UI). Free tier: 100 queries/day. Get key at [api.17track.net](https://api.17track.net) |
+| `PUSHOVER_DEFAULT_APP_TOKEN` | No | — | Pushover application token used as fallback if not set in Settings UI. Per-user keys are still required. Get a token at [pushover.net](https://pushover.net). |
+| `PUBLIC_APP_URL` | No | — | Public URL where Boomerang is reachable (e.g. `https://boomerang.example.com`). Used to build deep-link URLs in notifications so tapping opens the relevant task. Without this, notifications still send but aren't tappable. |
 | `APP_VERSION` | No | `dev` | Version string injected at build time (used if git tags are unavailable) |
 | `SEED_DB` | No | `0` | Set to `1` to wipe and seed the database on startup with realistic test data. Uses Claude API if `ANTHROPIC_API_KEY` is set, otherwise falls back to static `scripts/seed-data.json`. Only exposed in `docker-compose.dev.yml`. |
 
@@ -80,6 +82,20 @@ All settings are accessible via the gear icon in the header:
 - **Per-type toggles:** high priority, overdue, stale, nudges, size, pile-up, package delivered, package exception
 - **Test buttons:** "Test Pushover" (priority 0) and "Test Emergency" (priority 2 with 90-second auto-cancel) — to validate the channel without waiting for a real trigger
 - **Optional env fallback:** `PUSHOVER_DEFAULT_APP_TOKEN` lets you skip the App Token field for everyone using this self-hosted instance; User Key is still per-user
+
+## Email Deliverability
+
+Digest emails to your inbox (not spam) require sender authentication. The default From address falls back to your SMTP_USER which often gets flagged.
+
+**Best practice:**
+1. **Use a domain you control.** Generic relay defaults (`@sendgrid.net`, personal `@gmail.com`, etc.) frequently hit spam.
+2. **Configure SPF, DKIM, and DMARC** for the sending domain on your SMTP relay.
+3. **Set the From name and address** in Settings → Email Notifications → From address. Settings UI override beats env var beats SMTP user.
+4. **Test with [mail-tester.com](https://mail-tester.com)** — score 9+/10 if SPF/DKIM/DMARC are correctly set up.
+5. **Avoid `noreply@` addresses** — providers increasingly downrank these.
+
+**Recommended providers** that make custom-domain auth easy:
+- [Postmark](https://postmarkapp.com), [Resend](https://resend.com), [Mailgun](https://www.mailgun.com), [AWS SES](https://aws.amazon.com/ses/)
 
 ### Data
 - **Export** — download JSON backup of all tasks, routines, settings, and labels

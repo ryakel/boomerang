@@ -2832,6 +2832,29 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onTrel
                   </div>
                 )}
 
+                <div className="settings-label" style={{ marginTop: 16 }}>From address (deliverability)</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    className="add-input"
+                    type="text"
+                    placeholder="From name"
+                    value={settings.email_from_name || ''}
+                    onChange={e => update('email_from_name', e.target.value)}
+                    style={{ flex: 1, fontSize: 13 }}
+                  />
+                  <input
+                    className="add-input"
+                    type="email"
+                    placeholder="digest@yourdomain.com"
+                    value={settings.email_from_address || ''}
+                    onChange={e => update('email_from_address', e.target.value)}
+                    style={{ flex: 2, fontSize: 13 }}
+                  />
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                  For digests to land in your inbox (not spam), use an address from a domain you control with SPF, DKIM, and DMARC records configured on your SMTP relay (Postmark, Resend, Mailgun, SES). Defaults to the SMTP user.
+                </div>
+
                 <div className="settings-label" style={{ marginTop: 16 }}>Email me about</div>
 
                 <div className="notif-type-row">

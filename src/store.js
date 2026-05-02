@@ -84,6 +84,10 @@ export const DEFAULT_SETTINGS = {
   package_auto_task_signature: true,
   email_notifications_enabled: false,
   email_address: '',
+  // From-address overrides (for deliverability — use a domain you control with
+  // SPF/DKIM/DMARC configured on your SMTP relay).
+  email_from_address: '',
+  email_from_name: 'Boomerang Digest',
   email_notif_overdue: true,
   email_notif_stale: true,
   email_notif_nudge: true,
