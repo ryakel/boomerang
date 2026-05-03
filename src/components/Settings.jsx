@@ -282,6 +282,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
     }
   }
 
+  const [historyExpanded, setHistoryExpanded] = useState(false)
+
   // Email notification state
   const [emailSmtpStatus, setEmailSmtpStatus] = useState(null) // null | { configured, host, ... }
   const [emailTestStatus, setEmailTestStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
@@ -2596,10 +2598,6 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
               >
                 Send test notification
               </button>
-
-              {/* Notification History */}
-              <div className="settings-label" style={{ marginTop: 20 }}>Notification history</div>
-              <NotificationHistory />
             </div>
           )}
 
@@ -3078,6 +3076,25 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                 {emailTestStatus === 'error' && emailTestError && (
                   <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{emailTestError}</div>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Notification history ── */}
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <div
+              className={`integration-row${historyExpanded ? ' expanded' : ''}`}
+              onClick={() => setHistoryExpanded(v => !v)}
+            >
+              <span className={`backlog-arrow${historyExpanded ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className="integration-row-name">Notification history</span>
+              {!historyExpanded && (
+                <span className="integration-row-summary">Last 200 across all channels</span>
+              )}
+            </div>
+            {historyExpanded && (
+              <div className="integration-body">
+                <NotificationHistory />
               </div>
             )}
           </div>
