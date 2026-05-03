@@ -93,6 +93,21 @@
   flex: 0 0 auto;
 }
 
+/* Tinted destination icons — same brand colors v1 uses on header-menu items
+ * so users can recognize destinations at a glance. */
+.v2-more-row-icon-settings  { color: var(--v2-text-meta); }
+.v2-more-row-icon-projects  { color: #A78BFA; }
+.v2-more-row-icon-routines  { color: #5DBC9B; }
+.v2-more-row-icon-done      { color: #5DBC9B; }
+.v2-more-row-icon-analytics { color: #60A5FA; }
+.v2-more-row-icon-activity  { color: var(--v2-text-meta); }
+
+.v2-more-row .v2-more-row-icon { color: inherit; }
+.v2-more-row svg.v2-more-row-icon-projects  { color: #A78BFA; }
+.v2-more-row svg.v2-more-row-icon-routines  { color: #5DBC9B; }
+.v2-more-row svg.v2-more-row-icon-done      { color: #5DBC9B; }
+.v2-more-row svg.v2-more-row-icon-analytics { color: #60A5FA; }
+
 .v2-more-row-label {
   flex: 1;
   font: 500 15px/1 var(--v2-font-body);

@@ -51,6 +51,25 @@
   transform: scale(0.96);
 }
 
+/* Tinted variants — same brand colors v1 uses, ported into v2. Keeps
+ * Quokka and Packages identifiable at a glance instead of merging into
+ * the grey-icon row. The accent + button stays the loudest affordance. */
+.v2-header-icon-quokka {
+  color: #A78BFA;
+}
+.v2-header-icon-quokka:hover {
+  background: rgba(167, 139, 250, 0.10);
+  color: #A78BFA;
+}
+
+.v2-header-icon-packages {
+  color: #F59E0B;
+}
+.v2-header-icon-packages:hover {
+  background: rgba(245, 158, 11, 0.10);
+  color: #F59E0B;
+}
+
 .v2-header-icon-primary {
   background: var(--v2-accent);
   color: #fff;
@@ -62,11 +81,15 @@
   filter: brightness(1.08);
 }
 
+/* What now? — primary-accent action.
+ * Default: pill shape (icon + label).
+ * Narrow screens: collapses to a perfect 38×38 circle so the orange "+"
+ * and the orange target read as the same visual weight. */
 .v2-header-whatnow {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
+  height: 38px;
   padding: 0 14px;
   margin-right: 4px;
   border-radius: var(--v2-radius-pill);
@@ -82,10 +105,13 @@
 .v2-header-whatnow:hover { filter: brightness(1.08); }
 .v2-header-whatnow:active { transform: scale(0.97); }
 
-/* Hide the label on narrow screens — icon alone still reads. */
 @media (max-width: 480px) {
   .v2-header-whatnow {
-    padding: 0 10px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
   }
   .v2-header-whatnow-label {
     display: none;

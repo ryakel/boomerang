@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- fix(ui): v2 header — equal-size action circles + colored destination icons [XS]
+  - **Bug 1.** "What now?" target circle was 36px tall while the "+" circle was 38×38, and on narrow screens (≤480px) the target collapsed to icon-only with horizontal padding instead of becoming a perfect circle. Result: two adjacent orange circles that visibly didn't match. Fixed: bumped What-now? to 38px height across all viewports; on narrow screens it now switches to `width: 38px; padding: 0` so the orange "+" and orange target read as identical visual weight.
+  - **Bug 2.** v1 header has tinted icons (`packages-color: #F59E0B`, `adviser-color: #A78BFA`) so Quokka/Packages stay recognizable at a glance. v2 had stripped them to plain `--v2-text-meta` grey, merging them into the icon row. Fixed: ported the same color values as `.v2-header-icon-quokka` (purple) + `.v2-header-icon-packages` (amber). Hover state shifts to a soft tinted background of the same hue.
+  - **Bonus.** Same color hint pattern brought into the More-menu rows: Projects purple, Routines green, Done green, Analytics blue. Settings + Activity log stay neutral grey since they're meta-actions.
+  - **Verification.** `npm run build` clean, `npm run lint` clean, `npm test` smoke test passes. Manual: header circles match in size on phone + desktop; Quokka + Packages icons are tinted; ⋯ menu rows show the brand color cues.
+  - Modified: `src/v2/components/Header.jsx`, `src/v2/components/Header.css`, `src/v2/AppV2.jsx`, `src/v2/AppV2.css`
+
 - feat(ui): v2 Integrations status panel (PR8e of 8) [M]
   - **Why.** Last placeholder Settings tab. Full OAuth flows for Notion / Trello / GCal / Gmail / Pushover each have 4–8 UI states (consent prompt, callback, picker, scope error, env-var override, disconnect confirm) — duplicating that for v2 isn't worth the maintenance burden when the resulting tokens are already shared between v1 and v2 anyway. PR8e ships a status-summary panel that covers the 80%: see what's connected, set simple key-only integrations inline, click through to v1 for OAuth-heavy flows.
   - **`IntegrationsPanel`** in SettingsModal. Status row per integration: green-glow dot (connected) or muted dot (unconfigured) + name + email/account sub-line where applicable + brief capability hint + Manage/Connect-in-v1 button. Seven entries: Anthropic, Notion, Trello, Google Calendar, Gmail, 17track, Pushover.

@@ -21,10 +21,10 @@ export default function Header({ onOpenAdviser, onOpenPackages, onOpenMenu, onOp
             <Plus size={20} strokeWidth={2} />
           </button>
         )}
-        <button className="v2-header-icon" onClick={onOpenAdviser} aria-label="Quokka">
+        <button className="v2-header-icon v2-header-icon-quokka" onClick={onOpenAdviser} aria-label="Quokka">
           <Sparkles size={20} strokeWidth={1.75} />
         </button>
-        <button className="v2-header-icon" onClick={onOpenPackages} aria-label="Packages">
+        <button className="v2-header-icon v2-header-icon-packages" onClick={onOpenPackages} aria-label="Packages">
           <Package size={20} strokeWidth={1.75} />
         </button>
         <button className="v2-header-icon" onClick={onOpenMenu} aria-label="More">

@@ -358,48 +358,48 @@ export default function AppV2() {
         onComplete={handleComplete}
       />
 
-      {/* More-menu sheet. Functional rows show a chevron; rows pointing at
-          v2 surfaces that haven't ported yet show a "soon" tag. */}
+      {/* More-menu sheet. Each row's icon is tinted to match v1's color hint
+          system so users can recognize destinations at a glance. */}
       <ModalShell open={showMenu} onClose={() => setShowMenu(false)} title="More" width="narrow">
         <ul className="v2-more-menu">
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowSettings(true) }}>
-              <SettingsIcon size={18} strokeWidth={1.75} />
+              <SettingsIcon size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-settings" />
               <span className="v2-more-row-label">Settings</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowProjects(true) }}>
-              <FolderKanban size={18} strokeWidth={1.75} />
+              <FolderKanban size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-projects" />
               <span className="v2-more-row-label">Projects</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowRoutines(true) }}>
-              <RotateCw size={18} strokeWidth={1.75} />
+              <RotateCw size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-routines" />
               <span className="v2-more-row-label">Routines</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowDone(true) }}>
-              <CheckCircle2 size={18} strokeWidth={1.75} />
+              <CheckCircle2 size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-done" />
               <span className="v2-more-row-label">Done</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowAnalytics(true) }}>
-              <BarChart3 size={18} strokeWidth={1.75} />
+              <BarChart3 size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-analytics" />
               <span className="v2-more-row-label">Analytics</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowActivityLog(true) }}>
-              <History size={18} strokeWidth={1.75} />
+              <History size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-activity" />
               <span className="v2-more-row-label">Activity log</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
