@@ -6,6 +6,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- fix(sw): handle offline/redeploy without returning null Response [S]
+  - **Bug.** `public/boomerang-sw.js` fetch handler did `fetch(req).catch(() => caches.match('/index.html'))`. The cache was never populated by the install step, so `caches.match` returned `undefined`, which made `respondWith()` reject with `FetchEvent.respondWith received an error: Returned response is null.` Safari surfaced this as "Safari can't open the page" until site data was cleared.
+  - **Trigger.** Every push to dev triggers Portainer to redeploy, which briefly disconnects the device. Any navigation request during that window fell through to the broken catch branch. The bug is latent — it pre-dates the v2 work — but the v2 PR cadence is tripping it because deploys are frequent.
+  - **Fix.** Three coordinated changes in the SW:
+    1. **Install step** now opens `boomerang-shell-v2` cache and adds `/index.html` so the offline fallback actually has something to serve on first run + best-effort.
+    2. **Activate step** cleans up old `boomerang-shell-*` caches via prefix match so the SW can be versioned by bumping `SHELL_CACHE`.
+    3. **Fetch handler** now opportunistically refreshes the cached shell on every successful navigation (so the cache stays fresh), and on network failure falls back to cached `/index.html` OR a synthetic 503 offline page that styles itself to match the app's dark theme and offers a Retry button. **Critically: never resolves with null.**
+  - **User unblock for stuck devices.** Users who already hit the broken state need to clear site data once (iOS Safari → Settings → Safari → Advanced → Website Data → Remove) or reinstall the home-screen PWA. After that, the new SW installs cleanly and the bug is gone going forward.
+  - **Why on dev only for now.** This is technically a v1+v2 infrastructure fix (the SW serves both UIs) and ought to land on main. Pushed to dev first per the in-flight v2 workflow; cherry-picking to main is the user's call.
+  - **Verification.** `npm run build` clean, `npm test` smoke test passes. Manual: clear site data → reload → SW installs → kill the container → reload → see styled 503 offline page with Retry → bring container back → Retry → app loads. Repeated dev redeploys no longer trigger the null-response error.
+  - Modified: `public/boomerang-sw.js`
+
 - feat(ui): v2 RoutinesModal + EditTaskModal bug fixes (PR5c of 8) [M]
   - **Why.** Routines was the next-most-important v2 surface to port (recurring tasks are core to the app), and shipping it lets the v2 plan explicitly showcase the **hairline-list aesthetic** the design tokens were built for. Bundled two reported EditTaskModal bugs into the same commit so the dev image picks both up at once.
   - **`src/v2/components/RoutinesModal.jsx` + `.css`.** Wide ModalShell with a list view + form view (toggled via local `view` state). **List view:** active routines as hairline rows (title left, cadence + day-of-week right, e.g. "weekly · Fri"); paused routines collapsed under a SectionLabel'd PAUSED section. Tap a row to expand inline — shows last done ("done 12d ago"), next due ("next May 8"), complete count, plus action buttons: Spawn now (primary accent, mirrors v1's manual one-off), Edit, Pause/Resume, Delete (with inline confirm). Bottom of the list has a dashed "+ New routine" button. **Form view:** title, frequency dropdown, on-day dropdown (any day / Sun-Sat snap), custom-N-days input (only shown for `custom` cadence), end date (optional), priority toggle, notes, labels. Reuses the shared `.v2-form-*` classes from AddTaskModal for visual consistency. Back button at the top to return to the list.
