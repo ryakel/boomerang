@@ -1161,6 +1161,18 @@ export async function testDigest() {
   return res.json()
 }
 
+export async function getNotifLog(limit = 200) {
+  const res = await fetch(`/api/notifications/log?limit=${limit}`)
+  if (!res.ok) throw new Error(`notif log failed: ${res.status}`)
+  return res.json()
+}
+
+export async function clearServerNotifLog() {
+  const res = await fetch('/api/notifications/log', { method: 'DELETE' })
+  if (!res.ok) throw new Error(`clear notif log failed: ${res.status}`)
+  return res.json()
+}
+
 // --- Weather ---
 
 export async function getWeather() {

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, pushoverStatus, testPushover, testPushoverEmergency, testDigest, getWeather, refreshWeather, geocodeWeather } from '../api'
+import { getKeyStatus, callClaude, notionStatus, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, pushoverStatus, testPushover, testPushoverEmergency, testDigest, getNotifLog, clearServerNotifLog, getWeather, refreshWeather, geocodeWeather } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
@@ -15,22 +15,78 @@ const NOTIF_TYPE_LABELS = {
   test: 'Test',
 }
 
-function NotificationHistory() {
-  const [log, setLog] = useState(() => loadNotifLog())
-  const [expanded, setExpanded] = useState(false)
+const CHANNEL_LABELS = {
+  push: 'Web Push',
+  email: 'Email',
+  pushover: 'Pushover',
+  browser: 'In-app',
+}
 
-  if (log.length === 0) {
+const CHANNEL_COLORS = {
+  push: '#2563EB',
+  email: '#A78BFA',
+  pushover: '#10B981',
+  browser: '#94A3B8',
+}
+
+function NotificationHistory() {
+  const [serverLog, setServerLog] = useState([])
+  const [clientLog, setClientLog] = useState(() => loadNotifLog())
+  const [expanded, setExpanded] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getNotifLog(200)
+      .then(r => setServerLog(r.entries || []))
+      .catch(() => setServerLog([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Normalize to a common shape and merge by sent_at desc
+  const merged = [
+    ...serverLog.map(e => ({
+      id: e.id,
+      type: e.type,
+      title: e.title,
+      body: e.body,
+      channel: e.channel || 'push',
+      timestamp: e.sent_at,
+    })),
+    ...clientLog.map(e => ({
+      ...e,
+      channel: e.channel || 'browser',
+    })),
+  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+
+  if (loading && merged.length === 0) {
+    return <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading…</div>
+  }
+  if (merged.length === 0) {
     return <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No notifications yet.</div>
   }
 
-  const shown = expanded ? log : log.slice(0, 5)
+  const shown = expanded ? merged : merged.slice(0, 5)
 
   return (
     <div className="notif-history">
       {shown.map(entry => (
         <div key={entry.id} className="notif-history-item">
           <div className="notif-history-header">
-            <span className="notif-history-type">{NOTIF_TYPE_LABELS[entry.type] || entry.type}</span>
+            <span className="notif-history-type">
+              {NOTIF_TYPE_LABELS[entry.type] || entry.type}
+              <span style={{
+                display: 'inline-block',
+                marginLeft: 6,
+                padding: '1px 6px',
+                fontSize: 10,
+                fontWeight: 600,
+                borderRadius: 3,
+                background: (CHANNEL_COLORS[entry.channel] || '#94A3B8') + '22',
+                color: CHANNEL_COLORS[entry.channel] || '#94A3B8',
+              }}>
+                {CHANNEL_LABELS[entry.channel] || entry.channel}
+              </span>
+            </span>
             <span className="notif-history-time">
               {new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               {' '}
@@ -42,12 +98,19 @@ function NotificationHistory() {
         </div>
       ))}
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        {log.length > 5 && (
+        {merged.length > 5 && (
           <button className="ci-upload-btn" onClick={() => setExpanded(!expanded)}>
-            {expanded ? 'Show less' : `Show all (${log.length})`}
+            {expanded ? 'Show less' : `Show all (${merged.length})`}
           </button>
         )}
-        <button className="ci-clear-btn" onClick={() => { clearNotifLog(); setLog([]) }}>
+        <button className="ci-clear-btn" onClick={async () => {
+          clearNotifLog()
+          setClientLog([])
+          try {
+            await clearServerNotifLog()
+            setServerLog([])
+          } catch { /* */ }
+        }}>
           Clear history
         </button>
       </div>

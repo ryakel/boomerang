@@ -9,7 +9,8 @@ import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bump
   getAnalytics, getAnalyticsHistory, getData,
   upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial,
   markNotificationTapped, getNotificationAnalytics,
-  listThrottleDecisions, markThrottleDecisionFeedback } from './db.js'
+  listThrottleDecisions, markThrottleDecisionFeedback,
+  listNotifLog, clearNotifLog as clearServerNotifLog } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
@@ -2541,6 +2542,16 @@ app.post('/api/notifications/tap', (req, res) => {
     cancelPushoverEmergencyForTask(taskId).catch(() => {})
   }
   res.json({ ok: true, channel: stamped })
+})
+
+app.get('/api/notifications/log', (req, res) => {
+  const limit = Math.min(500, Math.max(1, parseInt(req.query.limit || '200', 10)))
+  res.json({ entries: listNotifLog(limit) })
+})
+
+app.delete('/api/notifications/log', (req, res) => {
+  clearServerNotifLog()
+  res.json({ ok: true })
 })
 
 app.get('/api/analytics/throttle-decisions', (req, res) => {

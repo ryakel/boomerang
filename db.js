@@ -1188,6 +1188,23 @@ export function logNotifPush(id, type, taskId, title, body, channel = 'push') {
   schedulePersist()
 }
 
+export function listNotifLog(limit = 200) {
+  const stmt = db.prepare(
+    `SELECT id, type, task_id, title, body, channel, sent_at, tapped_at, completed_after
+     FROM notification_log ORDER BY sent_at DESC LIMIT ?`
+  )
+  stmt.bind([limit])
+  const rows = []
+  while (stmt.step()) rows.push(stmt.getAsObject())
+  stmt.free()
+  return rows
+}
+
+export function clearNotifLog() {
+  db.run('DELETE FROM notification_log')
+  schedulePersist()
+}
+
 // --- Engagement tracking (tap-through and completion-after-notification) ---
 
 // Mark the most recent notification for (taskId, channel) within the last 10
