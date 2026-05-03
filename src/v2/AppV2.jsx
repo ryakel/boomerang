@@ -7,6 +7,7 @@ import SectionLabel from './components/SectionLabel'
 import TaskCard from './components/TaskCard'
 import SnoozeModal from './components/SnoozeModal'
 import AddTaskModal from './components/AddTaskModal'
+import EditTaskModal from './components/EditTaskModal'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -36,15 +37,12 @@ const PLACEHOLDER_COPY = {
     title: 'More',
     body: 'Settings, Projects, Analytics, and Activity Log will land here as v2 surfaces ship. The Beta toggle lives in v1 → Settings → Beta for now.',
   },
-  edit: {
-    title: 'Edit task',
-    body: 'The v2 EditTaskModal lands in the next release. Use v1 to edit details for now.',
-  },
 }
 
 export default function AppV2() {
   const [openModal, setOpenModal] = useState(null)
   const [snoozeTarget, setSnoozeTarget] = useState(null)
+  const [editTarget, setEditTarget] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
@@ -57,10 +55,11 @@ export default function AppV2() {
   // Shared task + routine state — same hooks v1 uses, no fork.
   const {
     tasks, addTask, addSpawnedTasks, completeTask, snoozeTask, updateTask,
+    changeStatus, deleteTask,
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
   } = useTasks()
   const {
-    routines, spawnDueTasks, hydrateRoutines,
+    routines, addRoutine, spawnDueTasks, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -122,8 +121,27 @@ export default function AppV2() {
     // does the full chain when used.
   }, [completeTask])
 
-  const handleEdit = useCallback(() => setOpenModal('edit'), [])
+  const handleEdit = useCallback((task) => setEditTarget(task), [])
   const handleSnooze = useCallback((task) => setSnoozeTarget(task), [])
+
+  const handleStatusChange = useCallback((id, newStatus) => {
+    if (newStatus === 'done') { handleComplete(id); return }
+    changeStatus(id, newStatus)
+  }, [handleComplete, changeStatus])
+
+  const handleBacklog = useCallback((id, toBacklog) => {
+    updateTask(id, { status: toBacklog ? 'backlog' : 'not_started', last_touched: new Date().toISOString() })
+  }, [updateTask])
+
+  const handleProject = useCallback((id, toProject) => {
+    updateTask(id, { status: toProject ? 'project' : 'not_started', last_touched: new Date().toISOString() })
+  }, [updateTask])
+
+  const handleConvertToRoutine = useCallback((taskId, { title, cadence, customDays, tags, notes }) => {
+    const routine = addRoutine(title, cadence, customDays, tags, notes)
+    updateTask(taskId, { routine_id: routine.id, last_touched: new Date().toISOString() })
+    setEditTarget(null)
+  }, [addRoutine, updateTask])
 
   // Mirrors v1's add path: create task, kick off AI inference for size/energy
   // when not manually set, and prefetch the completion toast copy.
@@ -220,6 +238,19 @@ export default function AppV2() {
         onAdd={handleAddTask}
         onClose={() => setShowAdd(false)}
       />
+
+      {editTarget && (
+        <EditTaskModal
+          task={editTarget}
+          onSave={updateTask}
+          onClose={() => setEditTarget(null)}
+          onDelete={(id) => { deleteTask(id); setEditTarget(null) }}
+          onBacklog={handleBacklog}
+          onProject={handleProject}
+          onStatusChange={handleStatusChange}
+          onConvertToRoutine={handleConvertToRoutine}
+        />
+      )}
     </div>
   )
 }

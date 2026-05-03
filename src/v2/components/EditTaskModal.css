@@ -1,0 +1,133 @@
+/* v2 EditTaskModal — extends shared form styles in AddTaskModal.css */
+
+.v2-edit-status-row .v2-form-seg {
+  flex: 1 1 auto;
+}
+
+.v2-edit-status-done {
+  color: var(--v2-accent);
+  border-color: var(--v2-accent);
+}
+
+.v2-edit-status-done:hover {
+  background: var(--v2-accent);
+  color: #fff;
+}
+
+.v2-edit-routine-toggle {
+  width: 100%;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  border: 1px dashed var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-routine-toggle:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  border-color: var(--v2-text-meta);
+}
+
+.v2-edit-routine-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.v2-edit-routine-select {
+  flex: 1 1 120px;
+  text-transform: capitalize;
+}
+
+.v2-edit-routine-days {
+  flex: 0 0 80px;
+}
+
+.v2-edit-routine-confirm {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-accent);
+  color: #fff;
+  border: none;
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+
+.v2-edit-routine-cancel {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+
+.v2-edit-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--v2-hairline);
+}
+
+.v2-edit-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-action:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-edit-action-danger {
+  color: var(--v2-alert-overdue);
+}
+
+.v2-edit-action-danger:hover {
+  background: rgba(232, 68, 58, 0.08);
+  color: var(--v2-alert-overdue);
+}
+
+.v2-edit-action-confirm-yes {
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  border-color: var(--v2-alert-overdue);
+}
+
+.v2-edit-action-confirm-yes:hover {
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.v2-edit-confirm-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.v2-edit-confirm-label {
+  font: 500 13px/1 var(--v2-font-body);
+  color: var(--v2-alert-overdue);
+}
