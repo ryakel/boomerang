@@ -2382,37 +2382,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
       {activeTab === 'Notifications' && (
         <div className="settings-group">
 
-          {/* === Quiet hours === */}
-          <label className="notif-check" style={{ marginBottom: 4 }}>
-            <input type="checkbox" checked={!!settings.quiet_hours_enabled} onChange={e => update('quiet_hours_enabled', e.target.checked)} />
-            <span>Quiet hours</span>
-          </label>
-          {!settings.quiet_hours_enabled && (
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-              Silence all notifications during a window. Tag-bypass via "wake-me" still works.
-            </div>
-          )}
-          {settings.quiet_hours_enabled && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-              <input type="time" className="settings-input" value={settings.quiet_hours_start || '22:00'} onChange={e => update('quiet_hours_start', e.target.value)} style={{ width: 110 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>to</span>
-              <input type="time" className="settings-input" value={settings.quiet_hours_end || '08:00'} onChange={e => update('quiet_hours_end', e.target.value)} style={{ width: 110 }} />
-              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                ({settings.user_timezone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'server')})
-              </span>
-              <input
-                className="add-input"
-                type="text"
-                value={settings.quiet_hours_bypass_label || 'wake-me'}
-                onChange={e => update('quiet_hours_bypass_label', e.target.value)}
-                placeholder="bypass label"
-                style={{ flex: '1 1 120px', minWidth: 0, fontSize: 12, padding: '4px 8px' }}
-              />
-            </div>
-          )}
-
           {/* === Notify me about (collapsible) — wraps the matrix + escalation + pile-up === */}
-          <div style={{ marginTop: 24 }}>
+          <div>
             <div
               className={`integration-row${notifyExpanded ? ' expanded' : ''}`}
               onClick={() => setNotifyExpanded(v => !v)}
@@ -2729,6 +2700,39 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
               </div>
             )}
           </div>
+
+          {/* === Quiet hours (when to shut up) === */}
+          <div className="settings-label" style={{ marginTop: 16, marginBottom: 8 }}>Quiet hours</div>
+          <label className="notif-check" style={{ marginBottom: 4 }}>
+            <input type="checkbox" checked={!!settings.quiet_hours_enabled} onChange={e => update('quiet_hours_enabled', e.target.checked)} />
+            <span>Silence notifications during a window</span>
+          </label>
+          {settings.quiet_hours_enabled && (
+            <>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+                <input type="time" className="settings-input" value={settings.quiet_hours_start || '22:00'} onChange={e => update('quiet_hours_start', e.target.value)} style={{ width: 110 }} />
+                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>to</span>
+                <input type="time" className="settings-input" value={settings.quiet_hours_end || '08:00'} onChange={e => update('quiet_hours_end', e.target.value)} style={{ width: 110 }} />
+                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  ({settings.user_timezone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'server')})
+                </span>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Bypass label</div>
+                <input
+                  className="add-input"
+                  type="text"
+                  value={settings.quiet_hours_bypass_label || 'wake-me'}
+                  onChange={e => update('quiet_hours_bypass_label', e.target.value)}
+                  placeholder="wake-me"
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+                />
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                  Tasks tagged with this label can wake you anyway. Use the "Wake me up for this" checkbox in EditTask.
+                </div>
+              </div>
+            </>
+          )}
 
           {/* === Morning Digest (collapsible) === */}
           <div>
