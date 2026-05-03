@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useCallback, useRef, useState } from 'react'
 import { Check, Pencil, Moon, Monitor, Users, MapPin, Palette, Dumbbell, Zap } from 'lucide-react'
 import {
   isStale, isSnoozed, isOverdue,
@@ -8,6 +8,13 @@ import WeatherBadge from './WeatherBadge'
 import './TaskCard.css'
 
 const ENERGY_ICONS = { Monitor, Users, MapPin, Palette, Dumbbell }
+
+// Swipe tuning. v2 only supports swipe-left for action reveal — destructive
+// actions stay in EditTaskModal with explicit confirm so the calm aesthetic
+// holds. Swipe-right-to-delete from v1 isn't ported.
+const SWIPE_THRESHOLD = 60       // px before we commit to revealing actions
+const SWIPE_OPEN_OFFSET = -120   // resting position when actions are revealed
+const SWIPE_VERT_CANCEL = 12     // px of vertical movement that cancels the swipe
 
 function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, weatherByDate }) {
   const overdue = isOverdue(task)
@@ -34,13 +41,84 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
   const checklist = Array.isArray(task.checklist_items) ? task.checklist_items : []
   const checkedCount = checklist.filter(c => c.checked).length
 
-  const onMainClick = (e) => {
-    // Avoid expanding when clicking actions inside the card
-    if (e.target.closest('.v2-card-actions, .v2-card-action')) return
+  // Swipe state — kept local to TaskCard so each card swipes independently.
+  const [swipeX, setSwipeX] = useState(0)
+  const [swiping, setSwiping] = useState(false)
+  const [swipeOpen, setSwipeOpen] = useState(false)
+  const touchStart = useRef(null)
+
+  const closeSwipe = useCallback(() => {
+    setSwipeOpen(false)
+    setSwipeX(0)
+  }, [])
+
+  const handleTouchStart = useCallback((e) => {
+    const t = e.touches[0]
+    touchStart.current = { x: t.clientX, y: t.clientY, startX: swipeX }
+  }, [swipeX])
+
+  const handleTouchMove = useCallback((e) => {
+    if (!touchStart.current) return
+    const t = e.touches[0]
+    const dx = t.clientX - touchStart.current.x
+    const dy = t.clientY - touchStart.current.y
+    // Vertical scroll wins — bail out of swipe.
+    if (!swiping && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_VERT_CANCEL) {
+      touchStart.current = null
+      return
+    }
+    if (Math.abs(dx) > 8) {
+      setSwiping(true)
+      const next = touchStart.current.startX + dx
+      // Clamp: only swipe-left (negative) opens the panel; rightward drags
+      // close it but never go past 0.
+      setSwipeX(Math.max(-160, Math.min(0, next)))
+    }
+  }, [swiping])
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStart.current) { setSwiping(false); return }
+    if (swipeX < -SWIPE_THRESHOLD) {
+      setSwipeOpen(true)
+      setSwipeX(SWIPE_OPEN_OFFSET)
+    } else {
+      closeSwipe()
+    }
+    touchStart.current = null
+    setTimeout(() => setSwiping(false), 200)
+  }, [swipeX, closeSwipe])
+
+  const onMainClick = useCallback((e) => {
+    if (swiping) return
+    if (swipeOpen) { closeSwipe(); return }
+    // Don't toggle when clicking inside the toolbar actions or the
+    // swipe-revealed action panel.
+    if (e.target.closest('.v2-card-actions, .v2-card-action, .v2-card-swipe-action')) return
     onToggleExpand(expanded ? null : task.id)
-  }
+  }, [swiping, swipeOpen, closeSwipe, expanded, task.id, onToggleExpand])
 
   return (
+    <div className="v2-card-swipe-wrap">
+      {(swipeX < 0 || swipeOpen) && (
+        <div className="v2-card-swipe-actions">
+          <button
+            className="v2-card-swipe-action v2-card-swipe-edit"
+            onClick={(e) => { e.stopPropagation(); closeSwipe(); onEdit(task) }}
+            aria-label="Edit"
+          >
+            <Pencil size={16} strokeWidth={1.75} />
+            <span>Edit</span>
+          </button>
+          <button
+            className="v2-card-swipe-action v2-card-swipe-done"
+            onClick={(e) => { e.stopPropagation(); closeSwipe(); onComplete(task.id) }}
+            aria-label="Done"
+          >
+            <Check size={16} strokeWidth={2} />
+            <span>Done</span>
+          </button>
+        </div>
+      )}
     <div
       className={[
         'v2-card',
@@ -48,6 +126,13 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
         task.low_priority ? 'v2-card-faded' : '',
         expanded ? 'v2-card-expanded-state' : '',
       ].filter(Boolean).join(' ')}
+      style={{
+        transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
+        transition: swiping ? 'none' : `transform var(--v2-dur-standard) var(--v2-ease-standard)`,
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       <button type="button" className="v2-card-main" onClick={onMainClick}>
         <div className="v2-card-content">
@@ -117,6 +202,7 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
           </div>
         </div>
       )}
+    </div>
     </div>
   )
 }

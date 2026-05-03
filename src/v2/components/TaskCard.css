@@ -1,3 +1,50 @@
+/* Swipe wrap — clips the card so the revealed action panel isn't visible
+ * until the card translates. The card itself stays positioned relative for
+ * the status border + content; the action panel is absolutely positioned
+ * behind it on the right. */
+.v2-card-swipe-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--v2-radius-card);
+  margin-bottom: 10px;
+}
+
+.v2-card-swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 160px;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+}
+
+.v2-card-swipe-action {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  cursor: pointer;
+  font: 600 11px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+}
+
+.v2-card-swipe-edit {
+  background: rgba(var(--v2-text-rgb), 0.10);
+  color: var(--v2-text);
+}
+
+.v2-card-swipe-done {
+  background: var(--v2-accent);
+  color: #fff;
+}
+
+.v2-card-swipe-wrap > .v2-card {
+  margin-bottom: 0;
+}
+
 .v2-card {
   position: relative;
   background: var(--v2-surface);

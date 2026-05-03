@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 swipe-to-reveal task actions on mobile (PR8b of 8) [S]
+  - **Why.** v2 TaskCard required tap-to-expand → tap action button to do anything other than read. Mobile one-handed use suffered. v1 has full swipe gestures (left → reveal Edit + Complete, right → delete). v2 ports a leaner version: swipe-left only.
+  - **Approach.** Each TaskCard owns its own swipe state. `touchstart` records origin + base swipeX; `touchmove` translates the card horizontally if horizontal motion dominates (vertical scroll wins after >12px); `touchend` snaps to either the open position (-120px revealing the action panel) if past the 60px threshold, or back to 0. Action panel sits absolutely-positioned behind the card on the right, clipped by the swipe wrap's `overflow: hidden`. Tap the card while swipe is open → close swipe; tap a revealed button → execute action + close.
+  - **Two actions only: Edit + Done.** v1 has a swipe-right-to-delete; v2 keeps destructive actions explicit (Delete lives in EditTaskModal with an inline confirm). Edit button is a soft-grey panel; Done is the primary accent fill. Both 80px wide, full-card-height, with a label + icon stacked vertically.
+  - **Animation.** While dragging, the card has `transition: none` so it tracks the finger 1:1. On release, the v2 standard easing kicks back in for the snap. Same pattern v1 uses but with the v2 motion tokens.
+  - **Verification.** `npm run build` clean, `npm run lint` clean, `npm test` smoke test passes. Manual: on mobile, swipe a card left → Edit + Done panel reveals → tap Done → task completes + toast shows. Swipe back right or tap card → closes. Vertical scroll past the card does not start a horizontal swipe.
+  - Modified: `src/v2/components/TaskCard.jsx`, `src/v2/components/TaskCard.css`
+
 - feat(ui): v2 Trello status push + weather badges on TaskCard (PR8a of 8) [S]
   - **Why.** Two finishing touches deferred from earlier PRs. Trello-linked tasks weren't pushing status changes from v2 (cards stayed put on the Trello board even after the task moved here). Weather badges were absent from v2 cards even though the data is already cached server-side.
   - **`src/v2/components/WeatherBadge.jsx`.** Direct port of v1's WeatherBadge — same WMO-code → emoji + label table. Renders a small `🌧️ 65°` chip in the meta line for tasks with `due_date` in the cached forecast window. Hover/aria title carries condition + precipitation %.
