@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight } from 'lucide-react'
+import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2 } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import EmptyState from './components/EmptyState'
@@ -11,6 +11,9 @@ import EditTaskModal from './components/EditTaskModal'
 import ReframeModal from './components/ReframeModal'
 import WhatNowModal from './components/WhatNowModal'
 import SettingsModal from './components/SettingsModal'
+import ProjectsView from './components/ProjectsView'
+import DoneList from './components/DoneList'
+import ActivityLog from './components/ActivityLog'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -35,17 +38,9 @@ const PLACEHOLDER_COPY = {
     title: 'Packages',
     body: 'Package tracking ports to v2 in a later release. v1 still works — flip back to use it.',
   },
-  projects: {
-    title: 'Projects',
-    body: 'Long-term-task workspace ports to v2 in a later release. Use v1 for now.',
-  },
   analytics: {
     title: 'Analytics',
-    body: 'Charts, heatmap, and the Balance radar all port together in PR5e. Use v1 for now.',
-  },
-  activityLog: {
-    title: 'Activity log',
-    body: 'Sync history + restore-snapshot UI ports to v2 in a later release. Use v1 for now.',
+    body: 'Charts, heatmap, and the Balance radar all port together in PR5f. Use v1 for now.',
   },
 }
 
@@ -58,6 +53,9 @@ export default function AppV2() {
   const [showWhatNow, setShowWhatNow] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showProjects, setShowProjects] = useState(false)
+  const [showDone, setShowDone] = useState(false)
+  const [showActivityLog, setShowActivityLog] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
   // Mark the document so v2-namespaced tokens activate.
@@ -68,8 +66,8 @@ export default function AppV2() {
 
   // Shared task + routine state — same hooks v1 uses, no fork.
   const {
-    tasks, addTask, addSpawnedTasks, completeTask, snoozeTask, replaceTask, updateTask,
-    changeStatus, deleteTask,
+    tasks, setTasks, addTask, addSpawnedTasks, completeTask, snoozeTask, replaceTask, updateTask,
+    uncompleteTask, changeStatus, deleteTask,
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
   } = useTasks()
   const {
@@ -167,6 +165,17 @@ export default function AppV2() {
     updateTask(taskId, { routine_id: routine.id, last_touched: new Date().toISOString() })
     setEditTarget(null)
   }, [addRoutine, updateTask])
+
+  const handleUncomplete = useCallback((task) => {
+    uncompleteTask(task.id)
+    // PR5+: route Trello status push back through the chain when Trello sync
+    // ports to v2. v1's handleUncomplete still does this when used.
+  }, [uncompleteTask])
+
+  const handleRestore = useCallback((snapshot) => {
+    setTasks(prev => [snapshot, ...prev])
+    setShowActivityLog(false)
+  }, [setTasks])
 
   // Mirrors v1's add path: create task, kick off AI inference for size/energy
   // when not manually set, and prefetch the completion toast copy.
@@ -293,8 +302,8 @@ export default function AppV2() {
         onComplete={handleComplete}
       />
 
-      {/* More-menu sheet — Settings is functional; the rest open placeholder
-          modals until they port in PR5c–PR5f. */}
+      {/* More-menu sheet. Functional rows show a chevron; rows pointing at
+          v2 surfaces that haven't ported yet show a "soon" tag. */}
       <ModalShell open={showMenu} onClose={() => setShowMenu(false)} title="More" width="narrow">
         <ul className="v2-more-menu">
           <li>
@@ -305,10 +314,17 @@ export default function AppV2() {
             </button>
           </li>
           <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setOpenModal('projects') }}>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowProjects(true) }}>
               <FolderKanban size={18} strokeWidth={1.75} />
               <span className="v2-more-row-label">Projects</span>
-              <span className="v2-more-row-tag">soon</span>
+              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
+            </button>
+          </li>
+          <li>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowDone(true) }}>
+              <CheckCircle2 size={18} strokeWidth={1.75} />
+              <span className="v2-more-row-label">Done</span>
+              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
@@ -319,16 +335,34 @@ export default function AppV2() {
             </button>
           </li>
           <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setOpenModal('activityLog') }}>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowActivityLog(true) }}>
               <History size={18} strokeWidth={1.75} />
               <span className="v2-more-row-label">Activity log</span>
-              <span className="v2-more-row-tag">soon</span>
+              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
         </ul>
       </ModalShell>
 
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <ProjectsView
+        open={showProjects}
+        tasks={tasks}
+        onClose={() => setShowProjects(false)}
+        onComplete={handleComplete}
+        onEdit={handleEdit}
+        onSnooze={handleSnooze}
+      />
+      <DoneList
+        open={showDone}
+        onClose={() => setShowDone(false)}
+        onUncomplete={handleUncomplete}
+      />
+      <ActivityLog
+        open={showActivityLog}
+        onClose={() => setShowActivityLog(false)}
+        onRestore={handleRestore}
+      />
     </div>
   )
 }

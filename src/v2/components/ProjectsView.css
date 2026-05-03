@@ -1,0 +1,4 @@
+.v2-projects-list {
+  display: flex;
+  flex-direction: column;
+}
