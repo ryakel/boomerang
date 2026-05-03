@@ -31,7 +31,9 @@ import { usePackages } from '../hooks/usePackages'
 import { usePackageNotifications } from '../hooks/usePackageNotifications'
 import { useAdviser } from '../hooks/useAdviser'
 import { useIsDesktop } from '../hooks/useIsDesktop'
-import { inferSize } from '../api'
+import { useWeather } from '../hooks/useWeather'
+import { useTrelloSync } from '../hooks/useTrelloSync'
+import { inferSize, trelloUpdateCard } from '../api'
 import { loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
 import './AppV2.css'
 
@@ -58,6 +60,7 @@ export default function AppV2() {
   // same thread. Server session TTL still governs the staged-plan life.
   const adviserState = useAdviser()
   const isDesktop = useIsDesktop()
+  const weather = useWeather()
 
   // Mark the document so v2-namespaced tokens activate.
   useEffect(() => {
@@ -85,6 +88,9 @@ export default function AppV2() {
   const prefetchToast = useToastPrefetch(tasks, updateTask)
   const { packages, addPackage, removePackage, refresh: refreshPackage, refreshAll: refreshAllPackages } = usePackages()
   usePackageNotifications(packages)
+  // Trello status push lives at this level so handleComplete / status-change
+  // / handleUncomplete can fire it for any task with a linked Trello card.
+  const { pushStatusToTrello } = useTrelloSync(tasks, setTasks, changeStatus)
 
   // Server hydration + cross-client sync. Mirror v1's hydrateFromServer so
   // settings + labels stay in localStorage when other clients update them.
@@ -136,6 +142,8 @@ export default function AppV2() {
     setShowWhatNow(false)
     // Log completion on the parent routine so the cadence clock advances.
     if (task?.routine_id) completeRoutine(task.routine_id)
+    // Push completion to Trello so the linked card moves to the done list.
+    if (task?.trello_card_id) pushStatusToTrello(task, 'done')
     // Score the next-best candidate for the toast's "Next up" hint —
     // high_priority +100, due-today/overdue +50, XS/S +20. Same logic v1
     // uses. Trello status push deferred to PR8 (needs useTrelloSync).
@@ -160,7 +168,7 @@ export default function AppV2() {
       const nextTask = candidates[0] || null
       setToast({ ...task, completed_at: new Date().toISOString(), nextTask })
     }
-  }, [tasks, completeTask, completeRoutine])
+  }, [tasks, completeTask, completeRoutine, pushStatusToTrello])
 
   const handleEdit = useCallback((task) => setEditTarget(task), [])
 
@@ -179,7 +187,10 @@ export default function AppV2() {
   const handleStatusChange = useCallback((id, newStatus) => {
     if (newStatus === 'done') { handleComplete(id); return }
     changeStatus(id, newStatus)
-  }, [handleComplete, changeStatus])
+    // Push the new status to Trello if the task has a linked card.
+    const task = tasks.find(t => t.id === id)
+    if (task?.trello_card_id) pushStatusToTrello(task, newStatus)
+  }, [handleComplete, changeStatus, tasks, pushStatusToTrello])
 
   const handleBacklog = useCallback((id, toBacklog) => {
     updateTask(id, { status: toBacklog ? 'backlog' : 'not_started', last_touched: new Date().toISOString() })
@@ -198,8 +209,18 @@ export default function AppV2() {
   const handleUncomplete = useCallback((task) => {
     uncompleteTask(task.id)
     setToast({ task, variant: 'reopen' })
-    // Trello status push back to active deferred to PR8.
-  }, [uncompleteTask])
+    if (task?.trello_card_id) pushStatusToTrello(task, 'not_started')
+  }, [uncompleteTask, pushStatusToTrello])
+
+  // Archive the Trello card on delete so the next inbound sync doesn't
+  // re-import the task. Mirrors v1 handleDelete.
+  const handleDelete = useCallback((id) => {
+    const task = tasks.find(t => t.id === id)
+    if (task?.trello_card_id) {
+      trelloUpdateCard(task.trello_card_id, { closed: true }).catch(() => {})
+    }
+    deleteTask(id)
+  }, [tasks, deleteTask])
 
   const handleRestore = useCallback((snapshot) => {
     setTasks(prev => [snapshot, ...prev])
@@ -239,6 +260,7 @@ export default function AppV2() {
           onComplete={handleComplete}
           onEdit={handleEdit}
           onSnooze={handleSnooze}
+          weatherByDate={weather.enabled ? weather.byDate : null}
         />
       ))}
     </>
@@ -281,6 +303,7 @@ export default function AppV2() {
             onComplete={handleComplete}
             onEdit={handleEdit}
             onSnooze={handleSnooze}
+            weatherByDate={weather.enabled ? weather.byDate : null}
           />
         ) : (
           <div className="v2-list">
@@ -312,7 +335,7 @@ export default function AppV2() {
           task={editTarget}
           onSave={updateTask}
           onClose={() => setEditTarget(null)}
-          onDelete={(id) => { deleteTask(id); setEditTarget(null) }}
+          onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
           onBacklog={handleBacklog}
           onProject={handleProject}
           onStatusChange={handleStatusChange}
@@ -399,6 +422,7 @@ export default function AppV2() {
         onComplete={handleComplete}
         onEdit={handleEdit}
         onSnooze={handleSnooze}
+        weatherByDate={weather.enabled ? weather.byDate : null}
       />
       <DoneList
         open={showDone}

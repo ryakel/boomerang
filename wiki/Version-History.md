@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 Trello status push + weather badges on TaskCard (PR8a of 8) [S]
+  - **Why.** Two finishing touches deferred from earlier PRs. Trello-linked tasks weren't pushing status changes from v2 (cards stayed put on the Trello board even after the task moved here). Weather badges were absent from v2 cards even though the data is already cached server-side.
+  - **`src/v2/components/WeatherBadge.jsx`.** Direct port of v1's WeatherBadge — same WMO-code → emoji + label table. Renders a small `🌧️ 65°` chip in the meta line for tasks with `due_date` in the cached forecast window. Hover/aria title carries condition + precipitation %.
+  - **TaskCard wiring.** New `weatherByDate` prop (the same `byDate` shape v1 uses). Renders the badge in the meta row with a bullet separator. Plumbed through KanbanBoard and ProjectsView so it shows everywhere v2 renders cards.
+  - **AppV2 — `useWeather` + `useTrelloSync`.** Hook calls added at the App level (matching v1 placement). Weather data flows down to all card-rendering surfaces. Trello sync exposes `pushStatusToTrello` for the action handlers.
+  - **`handleComplete` / `handleStatusChange` / `handleUncomplete` / `handleDelete`.** Each now mirrors v1's full Trello chain: `done` on complete, the new status on status-change, `not_started` on uncomplete, and `closed: true` (archive) on delete via `trelloUpdateCard`. All gated on `task.trello_card_id` so non-linked tasks are unaffected. EditTaskModal's onDelete now routes through the new `handleDelete` so delete-from-edit also archives Trello.
+  - **What's NOT in PR8a.** GCal status push on complete (`useExternalSync` already handles GCal event removal via `gcal_remove_on_complete` setting — works automatically; no extra wiring needed). Notion status push (Notion DBs don't have a universal status column; v1 doesn't push either).
+  - **Verification.** `npm run build` clean (818KB precache), `npm run lint` clean, `npm test` smoke test passes. Manual: complete a Trello-linked task in v2 → card moves to the done list on the Trello board. Tasks with due_date in the next 7 days show a weather badge in the meta line. Drag-status-change on Kanban also pushes to Trello.
+  - New: `src/v2/components/WeatherBadge.jsx`
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/{TaskCard.jsx,TaskCard.css,KanbanBoard.jsx,ProjectsView.jsx}`
+
 - feat(ui): v2 Toast + routine completion logging (PR7 of 8) [M]
   - **Why.** v2 was completing tasks silently — no feedback toast, no Undo, no "next up" suggestion. Routine cadence wasn't advancing on complete because v2's handleComplete didn't call `completeRoutine` (deferred from PR3 with a TODO). PR7 closes both gaps + adds the v2 Toast component.
   - **`src/v2/components/Toast.jsx` + `.css`.** Direct port of v1's Toast logic with v2 styling. Same static-message tiers (quick / normal / long / reopen) + AI-rewrite override via `task.toast_messages`. Same `computeTaskPoints` integration so the subtitle reads "Same-day finish · +12 pts". Same auto-dismiss timing (4s, 8s with next-task suggestion). Same Undo affordance for completes. Visual: pill-shaped, fixed bottom-center, dark-text-on-bg surface (or accent on reopen variant), slides up via `--v2-ease-emphasis`/`--v2-dur-emphasis`.

@@ -6,7 +6,7 @@ import EmptyState from './EmptyState'
 import TaskCard from './TaskCard'
 import './ProjectsView.css'
 
-export default function ProjectsView({ open, tasks, onClose, onComplete, onEdit, onSnooze }) {
+export default function ProjectsView({ open, tasks, onClose, onComplete, onEdit, onSnooze, weatherByDate }) {
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const projectTasks = sortTasks(tasks.filter(t => t.status === 'project'), 'name')
 
@@ -37,6 +37,7 @@ export default function ProjectsView({ open, tasks, onClose, onComplete, onEdit,
               onComplete={onComplete}
               onEdit={onEdit}
               onSnooze={onSnooze}
+              weatherByDate={weatherByDate}
             />
           ))}
         </div>

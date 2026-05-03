@@ -44,7 +44,7 @@ function AddCardInline({ onAdd, status }) {
 function KanbanColumn({
   title, tasks, defaultStatus, onAddTask,
   dragOverColumn, onDragOver, onDrop, onDragStart, draggingId,
-  expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze,
+  expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze, weatherByDate,
 }) {
   const acceptsDrop = !!defaultStatus
   const isDropTarget = dragOverColumn === defaultStatus && acceptsDrop
@@ -84,6 +84,7 @@ function KanbanColumn({
               onComplete={onComplete}
               onEdit={onEdit}
               onSnooze={onSnooze}
+              weatherByDate={weatherByDate}
             />
           </div>
         ))}
@@ -98,7 +99,7 @@ function KanbanColumn({
 export default function KanbanBoard({
   doingTasks, staleTasks, upNextTasks, waitingTasks, snoozedTasks, backlogTasks, projectTasks,
   onAddTask, onStatusChange,
-  expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze,
+  expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze, weatherByDate,
 }) {
   const dragRef = useRef(null)
   const [dragOverColumn, setDragOverColumn] = useState(null)
@@ -135,7 +136,7 @@ export default function KanbanBoard({
   }, [staleTasks, doingTasks, upNextTasks, waitingTasks])
 
   const dragCallbacks = { dragOverColumn, onDragOver: handleDragOver, onDrop: handleDrop, onDragStart: handleDragStart, draggingId }
-  const cardCallbacks = { expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze }
+  const cardCallbacks = { expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze, weatherByDate }
 
   return (
     <div className="v2-kanban">

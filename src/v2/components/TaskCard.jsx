@@ -4,11 +4,12 @@ import {
   isStale, isSnoozed, isOverdue,
   formatSnoozeLabel, formatDueDate, daysOld, ENERGY_TYPES,
 } from '../../store'
+import WeatherBadge from './WeatherBadge'
 import './TaskCard.css'
 
 const ENERGY_ICONS = { Monitor, Users, MapPin, Palette, Dumbbell }
 
-function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze }) {
+function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, weatherByDate }) {
   const overdue = isOverdue(task)
   const stale = isStale(task)
   const snoozed = isSnoozed(task)
@@ -24,6 +25,11 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
   if (task.due_date) meta.push(formatDueDate(task.due_date))
   if (snoozed) meta.push(formatSnoozeLabel(task.snoozed_until))
   if (stale && !snoozed) meta.push(`${daysOld(task)}d on list`)
+
+  // Weather badge: only render if the task has a due_date that falls within
+  // the cached forecast window (Open-Meteo gives 7 days). v1 lookup pattern
+  // — same byDate map shape from useWeather().
+  const weatherDay = task.due_date && weatherByDate ? weatherByDate[task.due_date] : null
 
   const checklist = Array.isArray(task.checklist_items) ? task.checklist_items : []
   const checkedCount = checklist.filter(c => c.checked).length
@@ -46,7 +52,7 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
       <button type="button" className="v2-card-main" onClick={onMainClick}>
         <div className="v2-card-content">
           <div className="v2-card-title">{task.title}</div>
-          {meta.length > 0 && (
+          {(meta.length > 0 || weatherDay) && (
             <div className="v2-card-meta">
               {meta.map((m, i) => (
                 <span key={i}>
@@ -54,6 +60,12 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
                   {m}
                 </span>
               ))}
+              {weatherDay && (
+                <>
+                  {meta.length > 0 && <span className="v2-card-meta-sep">·</span>}
+                  <WeatherBadge day={weatherDay} />
+                </>
+              )}
             </div>
           )}
         </div>

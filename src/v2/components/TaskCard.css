@@ -84,6 +84,23 @@
   margin-left: -3px;
 }
 
+.v2-weather-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font: 400 12px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-weather-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.v2-weather-temp {
+  font-variant-numeric: tabular-nums;
+}
+
 .v2-card-expanded {
   padding: 0 16px 14px;
   border-top: 1px solid var(--v2-hairline);
