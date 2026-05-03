@@ -2731,7 +2731,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
           </div>
 
           {/* === Morning Digest (collapsible) === */}
-          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+          <div>
             <div
               className={`integration-row${digestExpanded ? ' expanded' : ''}`}
               onClick={() => setDigestExpanded(v => !v)}
@@ -2790,7 +2790,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
           </div>
 
           {/* === Notification history (collapsible) === */}
-          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+          <div>
             <div
               className={`integration-row${historyExpanded ? ' expanded' : ''}`}
               onClick={() => setHistoryExpanded(v => !v)}
