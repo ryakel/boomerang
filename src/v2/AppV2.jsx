@@ -16,6 +16,7 @@ import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
 import PackagesModal from './components/PackagesModal'
+import AdviserModal from './components/AdviserModal'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -25,6 +26,7 @@ import { useSizeAutoInfer } from '../hooks/useSizeAutoInfer'
 import { useToastPrefetch } from '../hooks/useToastPrefetch'
 import { usePackages } from '../hooks/usePackages'
 import { usePackageNotifications } from '../hooks/usePackageNotifications'
+import { useAdviser } from '../hooks/useAdviser'
 import { inferSize } from '../api'
 import { loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
 import './AppV2.css'
@@ -34,10 +36,6 @@ const STORAGE_KEY = 'ui_version'
 // Header-icon placeholder copy for v2 surfaces that haven't shipped yet.
 // Tapping the icon opens a ModalShell EmptyState pointing back to v1.
 const PLACEHOLDER_COPY = {
-  adviser: {
-    title: 'Quokka',
-    body: 'The v2 Quokka adviser lands in a later release. Pop back to v1 to chat with Quokka in the meantime.',
-  },
   analytics: {
     title: 'Analytics',
     body: 'Charts, heatmap, and the Balance radar all port together in PR5f. Use v1 for now.',
@@ -59,7 +57,12 @@ export default function AppV2() {
   const [showRoutines, setShowRoutines] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
+  const [showAdviser, setShowAdviser] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
+  // Adviser conversation state lives at the App level so it survives modal
+  // open/close — user can pop in, ask something, close, come back to the
+  // same thread. Server session TTL still governs the staged-plan life.
+  const adviserState = useAdviser()
 
   // Mark the document so v2-namespaced tokens activate.
   useEffect(() => {
@@ -229,7 +232,7 @@ export default function AppV2() {
       <Header
         onOpenWhatNow={() => setShowWhatNow(true)}
         onOpenAdd={() => setShowAdd(true)}
-        onOpenAdviser={() => setOpenModal('adviser')}
+        onOpenAdviser={() => setShowAdviser(true)}
         onOpenPackages={() => setShowPackages(true)}
         onOpenMenu={() => setShowMenu(true)}
       />
@@ -401,6 +404,12 @@ export default function AppV2() {
         onRefresh={refreshPackage}
         onRefreshAll={refreshAllPackages}
         onClose={() => setShowPackages(false)}
+      />
+
+      <AdviserModal
+        open={showAdviser}
+        adviser={adviserState}
+        onClose={() => setShowAdviser(false)}
       />
     </div>
   )

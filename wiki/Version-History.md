@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 AdviserModal — Quokka (PR5e of 8) [M]
+  - **Why.** Quokka was the lone header icon (✨) still pointing at a placeholder. It's the most-used surface for users running heavy automation, so it deserves a real port.
+  - **`src/v2/components/AdviserModal.jsx` + `.css`.** Wide ModalShell. Reuses the shared `useAdviser` hook and the `renderMarkdown` utility — no fork. State for chat history + active chat + streaming + plan + commit comes from the hook unchanged. Composer auto-grows up to 200px max.
+  - **Layout.** Top toolbar: chat-count chip + primary "+ New chat" button. Below: either the chat list view OR the conversation view (toggled by tapping the chat-count chip). Conversation view shows: optional expiry banner (chat will be deleted in N days unless starred), scrollable messages, status indicators (thinking / applying changes), confirm-bar when a plan is staged (full-width accent, white buttons), composer at the bottom.
+  - **Message bubbles.** User messages right-aligned in accent fill. Assistant messages left-aligned in muted bg. Tool-call log renders as a compact stacked list with status icons (running spinner / done check / error X / staged dot), step name in capitalized human form. Plan preview is a dashed-accent card with `›` bullets; once committed it transitions to a green-bordered "Applied N changes" card.
+  - **Confirm-bar.** Full-width accent (#FF6240) at the bottom of the messages area when a plan is awaiting confirmation. Carries the change count + Cancel / Apply N changes buttons. Cancel is ghost (transparent w/ white border on accent), Apply is white-fill accent-text — strongest possible visual hierarchy for "this is the action you want to take."
+  - **Empty state.** "G'day from Quokka" with the sparkle icon in an accent-tinted circle, body explaining the scope, and four prompt suggestions (rescheduling, weather-aware moves, what-now, cleanup) as ghost cards. Tapping a suggestion populates the input.
+  - **Chat history view.** Hairline rows: title + last-update + msg count + star/expiring meta. Star toggle on the right (filled when starred), Delete on the far right. Empty state when no chats yet.
+  - **`src/v2/AppV2.jsx`.** Imports `useAdviser` (state lives at the App level so the conversation survives modal close — same pattern v1 uses) + `AdviserModal`. Header ✨ icon now opens it. Removed the `adviser` PLACEHOLDER_COPY entry — it was the last placeholder for a header icon; PLACEHOLDER_COPY now only contains `analytics`.
+  - **Verification.** `npm run build` clean, `npm test` smoke test passes. Manual: tap ✨ → modal opens → empty state shows suggestions → tap a suggestion → text appears in composer → send → see streaming "thinking" + tool-call log + plan preview → tap Apply → "Changes applied" bar. Chat history toggle works; star/unstar/delete work.
+  - New: `src/v2/components/{AdviserModal}.{jsx,css}`
+  - Modified: `src/v2/AppV2.jsx`
+
 - feat(ui): v2 PackagesModal (PR5d of 8) [M]
   - **Why.** v2 had a 📦 icon in the header that opened a placeholder. Packages is a primary surface — daily check for ADHD users tracking deliveries — so it earns a real port.
   - **`src/v2/components/PackagesModal.jsx` + `.css`.** Wide ModalShell. Top toolbar: "Refresh all" + "Track new" (primary accent toggles the add form). Inline add form: tracking number input + label input + live carrier auto-detect chip (uses shared `detectCarrier` from `utils/carrierDetect`) + "Track package" submit. List below: each package as a hairline row with carrier logo + label + monospace tracking number underneath + status pill on the right. Status pill colors mirror v1 (pending/in-transit/out-for-delivery/delivered/exception) but use the v2 muted alert palette so the colors don't shout.
