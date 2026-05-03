@@ -137,3 +137,265 @@
 .v2-settings-roadmap li {
   margin-bottom: 4px;
 }
+
+/* === PR5g additions: General / AI / Data / Logs tab styles === */
+
+.v2-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.v2-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+
+.v2-settings-row:last-child {
+  border-bottom: none;
+}
+
+.v2-settings-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.v2-settings-row-label {
+  font: 500 14px/1.3 var(--v2-font-body);
+  color: var(--v2-text);
+  margin-bottom: 4px;
+}
+
+.v2-settings-row-hint {
+  font: 400 12px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+/* Toggle inline variant — when paired with a label-on-the-right (Beta tab) */
+.v2-settings-toggle-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.v2-settings-narrow-input {
+  max-width: 140px;
+  margin-top: 8px;
+}
+
+.v2-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+}
+
+.v2-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-settings-btn:hover:not(:disabled) {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-settings-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.v2-settings-btn-danger {
+  color: var(--v2-alert-overdue);
+  border-color: var(--v2-hairline);
+}
+
+.v2-settings-btn-danger:hover:not(:disabled) {
+  background: rgba(232, 68, 58, 0.08);
+  color: var(--v2-alert-overdue);
+}
+
+.v2-settings-btn-danger-strong {
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  border-color: var(--v2-alert-overdue);
+}
+
+.v2-settings-btn-danger-strong:hover:not(:disabled) {
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.v2-settings-ci-textarea {
+  min-height: 140px;
+}
+
+.v2-settings-danger {
+  margin-top: 24px;
+  padding: 18px;
+  border-radius: 12px;
+  background: rgba(232, 68, 58, 0.04);
+  border: 1px solid rgba(232, 68, 58, 0.18);
+}
+
+.v2-settings-danger .v2-form-label {
+  color: var(--v2-alert-overdue);
+}
+
+/* Logs panel */
+.v2-settings-logs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.v2-settings-logs-toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+.v2-settings-logs-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+
+.v2-settings-filter {
+  padding: 5px 10px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 11px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-settings-filter:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-settings-filter-active {
+  background: var(--v2-text);
+  color: var(--v2-bg);
+  border-color: var(--v2-text);
+}
+
+.v2-settings-logs-stream {
+  max-height: 480px;
+  overflow-y: auto;
+  background: rgba(var(--v2-text-rgb), 0.02);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 10px;
+  padding: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.v2-settings-logs-empty {
+  padding: 16px;
+  color: var(--v2-text-meta);
+  font: 400 12px/1 var(--v2-font-body);
+  text-align: center;
+}
+
+.v2-settings-log-row {
+  display: flex;
+  gap: 10px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  word-break: break-word;
+}
+
+.v2-settings-log-row + .v2-settings-log-row {
+  margin-top: 1px;
+}
+
+.v2-settings-log-time {
+  flex: 0 0 auto;
+  color: var(--v2-text-faint);
+  font-size: 10px;
+}
+
+.v2-settings-log-msg {
+  flex: 1;
+  min-width: 0;
+  color: var(--v2-text);
+}
+
+.v2-settings-log-error,
+.v2-settings-log-warn { background: rgba(232, 68, 58, 0.06); }
+.v2-settings-log-error .v2-settings-log-msg { color: var(--v2-alert-overdue); }
+.v2-settings-log-warn .v2-settings-log-msg { color: var(--v2-alert-high-pri); }
+
+.v2-settings-logs-meta {
+  font: 400 11px/1.4 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  text-align: right;
+}
+
+/* Confirm dialog (rendered above ModalShell content) */
+.v2-settings-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.v2-settings-confirm {
+  background: var(--v2-surface);
+  color: var(--v2-text);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.v2-settings-confirm-title {
+  font: 700 18px/1.2 var(--v2-font-display);
+  margin: 0 0 8px;
+}
+
+.v2-settings-confirm-message {
+  font: 400 13px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin: 0 0 18px;
+}
+
+.v2-settings-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.v2-spinner {
+  animation: v2-spin 0.8s linear infinite;
+}

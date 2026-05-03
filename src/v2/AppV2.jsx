@@ -63,7 +63,7 @@ export default function AppV2() {
   // Shared task + routine state — same hooks v1 uses, no fork.
   const {
     tasks, setTasks, addTask, addSpawnedTasks, completeTask, snoozeTask, replaceTask, updateTask,
-    uncompleteTask, changeStatus, deleteTask,
+    uncompleteTask, changeStatus, deleteTask, clearCompleted, clearAll,
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
   } = useTasks()
   const {
@@ -90,7 +90,7 @@ export default function AppV2() {
     if (data.labels) saveLabels(data.labels)
   }, [hydrateTasks, hydrateRoutines])
 
-  useServerSync(tasks, routines, hydrateFromServer, () => {
+  const { flush: flushSync } = useServerSync(tasks, routines, hydrateFromServer, () => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
         for (const r of regs) r.unregister()
@@ -330,7 +330,14 @@ export default function AppV2() {
         </ul>
       </ModalShell>
 
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <SettingsModal
+        open={showSettings}
+        onClose={() => { setShowSettings(false); flushSync() }}
+        onFlush={flushSync}
+        onClearCompleted={() => { clearCompleted(); setShowSettings(false); flushSync() }}
+        onClearAll={() => { clearAll(); setShowSettings(false); flushSync() }}
+        onShowActivityLog={() => setShowActivityLog(true)}
+      />
       <ProjectsView
         open={showProjects}
         tasks={tasks}

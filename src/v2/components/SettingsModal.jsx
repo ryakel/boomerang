@@ -1,4 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Trash2, Download, Upload, RefreshCw, Copy, FileText } from 'lucide-react'
+import {
+  loadSettings, saveSettings, loadTasks, saveTasks,
+  loadRoutines, saveRoutines, loadLabels, saveLabels,
+} from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import './SettingsModal.css'
@@ -7,23 +12,198 @@ const STORAGE_KEY = 'ui_version'
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs', 'Beta']
 
-// Tabs whose v2 port hasn't shipped yet — they fall through to a placeholder
-// EmptyState that points users to the v1 Settings. As tabs port in PR5b/f,
-// remove them from this set.
-const PLACEHOLDER_TABS = new Set(['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs'])
+// Tabs whose v2 port is heavier than what fits in PR5g — they fall through
+// to a placeholder that points users at the v1 Settings for now. Keep this
+// set in sync as more tabs port (PR5h+).
+const PLACEHOLDER_TABS = new Set(['Labels', 'Integrations', 'Notifications'])
 
 const PLACEHOLDER_BODY = {
-  General: 'Theme + defaults. Ports in a later release.',
-  AI: 'Anthropic API key, model picker, custom instructions. Ports in a later release.',
-  Labels: 'Create + manage tag colors. Ports in a later release.',
-  Integrations: 'Trello, Notion, Google Calendar, Gmail, 17track, Pushover. Many fields — ports last.',
+  Labels: 'Tag CRUD with drag-drop reordering. Ports in a later release.',
+  Integrations: 'Trello, Notion, Google Calendar, Gmail, 17track, Pushover. Many OAuth flows — ports in a later release.',
   Notifications: 'Per-channel × per-type matrix. Ports in a later release.',
-  Data: 'Export, clear completed, clear all. Ports in a later release.',
-  Logs: 'Server-side log tail. Ports in a later release.',
 }
 
-export default function SettingsModal({ open, onClose }) {
+// v2 server-logs panel — same data as v1, redrawn with v2 tokens.
+function ServerLogsPanel() {
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
+  const [copied, setCopied] = useState(false)
+
+  const fetchLogs = useCallback(() => {
+    setLoading(true)
+    fetch('/api/logs')
+      .then(r => r.json())
+      .then(data => setLogs(data.logs || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { fetchLogs() }, [fetchLogs])
+
+  const FILTERS = ['all', 'Gmail', 'GCal', 'Push', 'Email', 'DB', 'SSE', 'error']
+  const FILTER_PATTERNS = {
+    Gmail: ['[Gmail]'],
+    GCal: ['[GCal]', '[GCalSync]'],
+    Push: ['[Push]'],
+    Email: ['[Email]'],
+    DB: ['[DB]'],
+    SSE: ['[SSE]', '[SYNC]'],
+  }
+  const filtered = filter === 'all' ? logs
+    : filter === 'error' ? logs.filter(l => l.level === 'error' || l.level === 'warn')
+    : logs.filter(l => (FILTER_PATTERNS[filter] || [`[${filter}]`]).some(p => l.msg.includes(p)))
+
+  const handleCopy = () => {
+    const text = logs.map(l => `${l.ts} [${l.level}] ${l.msg}`).join('\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div className="v2-settings-logs">
+      <div className="v2-settings-logs-toolbar">
+        <button className="v2-settings-btn" onClick={fetchLogs} disabled={loading}>
+          <RefreshCw size={13} strokeWidth={1.75} className={loading ? 'v2-spinner' : ''} />
+          {loading ? 'Loading…' : 'Refresh'}
+        </button>
+        <button className="v2-settings-btn" onClick={handleCopy} disabled={logs.length === 0}>
+          <Copy size={13} strokeWidth={1.75} />
+          {copied ? 'Copied' : 'Copy all'}
+        </button>
+      </div>
+      <div className="v2-settings-logs-filters">
+        {FILTERS.map(f => (
+          <button
+            key={f}
+            className={`v2-settings-filter${filter === f ? ' v2-settings-filter-active' : ''}`}
+            onClick={() => setFilter(f)}
+          >
+            {f === 'all' ? 'All' : f === 'error' ? 'Errors' : f}
+          </button>
+        ))}
+      </div>
+      <div className="v2-settings-logs-stream">
+        {filtered.length === 0 ? (
+          <div className="v2-settings-logs-empty">
+            {loading ? 'Loading…' : 'No logs to display.'}
+          </div>
+        ) : (
+          filtered.slice().reverse().map((l, i) => (
+            <div key={i} className={`v2-settings-log-row v2-settings-log-${l.level}`}>
+              <span className="v2-settings-log-time">
+                {new Date(l.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span className="v2-settings-log-msg">{l.msg}</span>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="v2-settings-logs-meta">
+        Showing {filtered.length} of {logs.length} entries (last 500 in memory)
+      </div>
+    </div>
+  )
+}
+
+export default function SettingsModal({
+  open, onClose, onFlush, onClearCompleted, onClearAll, onShowActivityLog,
+}) {
   const [activeTab, setActiveTab] = useState('Beta')
+  const [settings, setSettings] = useState(() => loadSettings())
+  const [confirmDialog, setConfirmDialog] = useState(null)
+  const flushDebounceRef = useRef(null)
+  const dataImportRef = useRef(null)
+  const ciFileRef = useRef(null)
+
+  // Reload settings whenever the modal reopens — server may have updated them.
+  useEffect(() => {
+    if (open) setSettings(loadSettings())
+  }, [open])
+
+  const update = useCallback((key, value) => {
+    setSettings(prev => {
+      const next = { ...prev, [key]: value }
+      saveSettings(next)
+      return next
+    })
+    if (onFlush) {
+      if (flushDebounceRef.current) clearTimeout(flushDebounceRef.current)
+      flushDebounceRef.current = setTimeout(() => { onFlush() }, 300)
+    }
+  }, [onFlush])
+
+  const handleExportData = () => {
+    const data = {
+      tasks: loadTasks(),
+      routines: loadRoutines(),
+      settings: loadSettings(),
+      labels: loadLabels(),
+      exported_at: new Date().toISOString(),
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `boomerang-backup-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportData = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        if (data.tasks) saveTasks(data.tasks)
+        if (data.routines) saveRoutines(data.routines)
+        if (data.settings) saveSettings(data.settings)
+        if (data.labels) saveLabels(data.labels)
+        if (data.settings) setSettings({ ...loadSettings(), ...data.settings })
+        // Push imported data to server before reloading so the next SSE
+        // hydration doesn't overwrite it with stale server state. Same
+        // pattern v1 uses.
+        const payload = {}
+        if (data.tasks) payload.tasks = data.tasks
+        if (data.routines) payload.routines = data.routines
+        if (data.settings) payload.settings = data.settings
+        if (data.labels) payload.labels = data.labels
+        fetch('/api/data', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).finally(() => window.location.reload())
+      } catch {
+        alert('Invalid backup file')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  const handleCIUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => update('custom_instructions', ev.target.result)
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  const handleCIExport = () => {
+    const text = settings.custom_instructions || ''
+    const blob = new Blob([text], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'boomerang-instructions.md'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const switchToV1 = () => {
     localStorage.setItem(STORAGE_KEY, 'v1')
@@ -48,11 +228,197 @@ export default function SettingsModal({ open, onClose }) {
         {PLACEHOLDER_TABS.has(activeTab) && (
           <EmptyState
             title={`${activeTab} settings`}
-            body={`${PLACEHOLDER_BODY[activeTab]} Use v1 → Settings to configure for now.`}
+            body={`${PLACEHOLDER_BODY[activeTab]} Use v1 → Settings → ${activeTab} to configure for now.`}
             cta="Open v1"
             ctaOnClick={switchToV1}
           />
         )}
+
+        {activeTab === 'General' && (
+          <div className="v2-settings-form">
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <div className="v2-settings-row-label">Dark mode</div>
+                <div className="v2-settings-row-hint">Light mode flips the off-white background to soft grey and inverts the text palette.</div>
+              </div>
+              <label className="v2-settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={(settings.theme || 'dark') === 'dark'}
+                  onChange={e => {
+                    const theme = e.target.checked ? 'dark' : 'light'
+                    update('theme', theme)
+                    document.documentElement.setAttribute('data-theme', theme)
+                    const meta = document.querySelector('meta[name="theme-color"]')
+                    if (meta) meta.content = theme === 'dark' ? '#0B0B0F' : '#F5F5F7'
+                  }}
+                />
+                <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+              </label>
+            </div>
+
+            <div className="v2-settings-block">
+              <label className="v2-form-label" htmlFor="v2-default-due-days">Default due date (days from now)</label>
+              <div className="v2-settings-row-hint">0 means no default — tasks ship without a due date unless you pick one.</div>
+              <input
+                id="v2-default-due-days"
+                className="v2-form-input v2-settings-narrow-input"
+                type="number"
+                min="0"
+                max="90"
+                value={settings.default_due_days ?? 7}
+                onChange={e => update('default_due_days', parseInt(e.target.value) || 0)}
+              />
+            </div>
+
+            <div className="v2-settings-block">
+              <label className="v2-form-label" htmlFor="v2-staleness-days">Staleness threshold (days)</label>
+              <div className="v2-settings-row-hint">A task with no activity for this long shows up in the Stale section.</div>
+              <input
+                id="v2-staleness-days"
+                className="v2-form-input v2-settings-narrow-input"
+                type="number"
+                min="1"
+                max="30"
+                value={settings.staleness_days ?? 7}
+                onChange={e => update('staleness_days', parseInt(e.target.value) || 1)}
+              />
+            </div>
+
+            <div className="v2-settings-block">
+              <label className="v2-form-label" htmlFor="v2-reframe-threshold">Reframe trigger (snooze count)</label>
+              <div className="v2-settings-row-hint">After this many snoozes, tapping snooze opens the Reframe modal instead.</div>
+              <input
+                id="v2-reframe-threshold"
+                className="v2-form-input v2-settings-narrow-input"
+                type="number"
+                min="1"
+                max="20"
+                value={settings.reframe_threshold ?? 3}
+                onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
+              />
+            </div>
+
+            <div className="v2-settings-block">
+              <label className="v2-form-label" htmlFor="v2-max-open">Max open tasks</label>
+              <div className="v2-settings-row-hint">Warns when you exceed this. 0 = no limit.</div>
+              <input
+                id="v2-max-open"
+                className="v2-form-input v2-settings-narrow-input"
+                type="number"
+                min="0"
+                max="100"
+                value={settings.max_open_tasks ?? 10}
+                onChange={e => update('max_open_tasks', parseInt(e.target.value) || 0)}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'AI' && (
+          <div className="v2-settings-form">
+            <div className="v2-settings-block">
+              <label className="v2-form-label" htmlFor="v2-ci">Custom instructions</label>
+              <div className="v2-settings-row-hint">
+                How should the AI talk to you? Shapes every AI feature — task reframes, polish, "what now?" suggestions, Quokka tone, notification rewrites.
+              </div>
+              <textarea
+                id="v2-ci"
+                className="v2-form-textarea v2-settings-ci-textarea"
+                placeholder="e.g. Keep it casual and short. Don't sugarcoat. Phone calls are confrontation-level for me."
+                value={settings.custom_instructions || ''}
+                onChange={e => update('custom_instructions', e.target.value)}
+              />
+              <div className="v2-settings-actions">
+                <input ref={ciFileRef} type="file" accept=".md,.txt,.markdown" onChange={handleCIUpload} hidden />
+                <button className="v2-settings-btn" onClick={() => ciFileRef.current?.click()}>
+                  <Upload size={13} strokeWidth={1.75} /> Import
+                </button>
+                <button
+                  className="v2-settings-btn"
+                  onClick={handleCIExport}
+                  disabled={!settings.custom_instructions?.trim()}
+                >
+                  <Download size={13} strokeWidth={1.75} /> Export
+                </button>
+                {settings.custom_instructions?.trim() && (
+                  <button
+                    className="v2-settings-btn v2-settings-btn-danger"
+                    onClick={() => update('custom_instructions', '')}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="v2-settings-block">
+              <div className="v2-form-label">API key</div>
+              <div className="v2-settings-row-hint">
+                Anthropic API key entry + provider testing lives in v1 → Settings → AI for now.
+                It's a multi-state form (env-set vs user-provided, status check, model picker)
+                that ports in PR5h.
+              </div>
+              <button className="v2-settings-btn" onClick={switchToV1}>
+                Open v1 → AI
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'Data' && (
+          <div className="v2-settings-form">
+            <div className="v2-settings-block">
+              <div className="v2-form-label">Backup</div>
+              <div className="v2-settings-row-hint">Export tasks, routines, settings, and labels as a single JSON file. Importing replaces the current state and reloads.</div>
+              <div className="v2-settings-actions">
+                <button className="v2-settings-btn" onClick={handleExportData}>
+                  <Download size={13} strokeWidth={1.75} /> Export
+                </button>
+                <input ref={dataImportRef} type="file" accept=".json" onChange={handleImportData} hidden />
+                <button className="v2-settings-btn" onClick={() => dataImportRef.current?.click()}>
+                  <Upload size={13} strokeWidth={1.75} /> Import
+                </button>
+              </div>
+            </div>
+
+            <div className="v2-settings-block">
+              <div className="v2-form-label">Activity</div>
+              <div className="v2-settings-row-hint">Audit trail of edits, completions, and deletes. Deleted tasks can be restored from snapshots.</div>
+              <button
+                className="v2-settings-btn"
+                onClick={() => { onClose?.(); onShowActivityLog?.() }}
+                disabled={!onShowActivityLog}
+              >
+                <FileText size={13} strokeWidth={1.75} /> Open activity log
+              </button>
+            </div>
+
+            <div className="v2-settings-danger">
+              <div className="v2-form-label">Danger zone</div>
+              <div className="v2-settings-row-hint">These wipe data. No undo other than restoring from a backup.</div>
+              <div className="v2-settings-actions">
+                <button
+                  className="v2-settings-btn v2-settings-btn-danger"
+                  onClick={onClearCompleted}
+                >
+                  <Trash2 size={13} strokeWidth={1.75} /> Clear completed tasks
+                </button>
+                <button
+                  className="v2-settings-btn v2-settings-btn-danger v2-settings-btn-danger-strong"
+                  onClick={() => setConfirmDialog({
+                    title: 'Clear all data',
+                    message: 'This will delete all tasks, settings, and history. Are you sure?',
+                    onConfirm: () => { setConfirmDialog(null); onClearAll?.() },
+                  })}
+                >
+                  <Trash2 size={13} strokeWidth={1.75} /> Clear all data
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'Logs' && <ServerLogsPanel />}
 
         {activeTab === 'Beta' && (
           <div className="v2-settings-beta">
@@ -62,7 +428,7 @@ export default function SettingsModal({ open, onClose }) {
                 You're using <strong>v2</strong>. Toggle off to flip back to v1 instantly. Your
                 data stays put — only the interface changes.
               </p>
-              <label className="v2-settings-toggle">
+              <label className="v2-settings-toggle v2-settings-toggle-inline">
                 <input
                   type="checkbox"
                   checked
@@ -92,15 +458,32 @@ export default function SettingsModal({ open, onClose }) {
             <div className="v2-settings-block">
               <h3 className="v2-settings-heading">What's coming</h3>
               <ul className="v2-settings-roadmap">
-                <li>Settings tabs (General, AI, Labels, Integrations, Notifications, Data, Logs)</li>
-                <li>Routines, Projects, Packages, Quokka, Analytics, Activity Log</li>
-                <li>KanbanBoard for desktop</li>
-                <li>Toast + motion polish + dark mode parity sweep</li>
+                <li>Remaining Settings tabs (Labels, Integrations, Notifications)</li>
+                <li>Desktop KanbanBoard</li>
+                <li>Toast + motion polish + dark-mode parity sweep</li>
               </ul>
             </div>
           </div>
         )}
       </div>
+
+      {confirmDialog && (
+        <div className="v2-settings-confirm-overlay" onClick={() => setConfirmDialog(null)}>
+          <div className="v2-settings-confirm" onClick={e => e.stopPropagation()}>
+            <h3 className="v2-settings-confirm-title">{confirmDialog.title}</h3>
+            <p className="v2-settings-confirm-message">{confirmDialog.message}</p>
+            <div className="v2-settings-confirm-actions">
+              <button className="v2-settings-btn" onClick={() => setConfirmDialog(null)}>Cancel</button>
+              <button
+                className="v2-settings-btn v2-settings-btn-danger v2-settings-btn-danger-strong"
+                onClick={confirmDialog.onConfirm}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ModalShell>
   )
 }
