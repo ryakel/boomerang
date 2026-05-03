@@ -158,38 +158,45 @@ export function buildDigest(settings) {
   const textBody = textParts.join('\n\n')
 
   // --- Build HTML version (for email) ---
+  // High-contrast, self-contained card. Email clients sometimes invert colors
+  // or apply pale backgrounds (Gmail dark mode, iOS Mail), so use dark text
+  // with bold weights and avoid light grays — works on white, pale, or dark.
   const htmlSection = (heading, items) => {
     if (items.length === 0) return ''
-    return `<div style="margin-top:16px">
-      <div style="font-weight:600;font-size:14px;color:#666;text-transform:uppercase;letter-spacing:0.5px">${heading}</div>
-      <ul style="margin:6px 0 0 0;padding-left:18px;line-height:1.6">${items.join('')}</ul>
+    return `<div style="margin-top:18px">
+      <div style="font-weight:700;font-size:13px;color:#111;text-transform:uppercase;letter-spacing:0.6px">${heading}</div>
+      <ul style="margin:8px 0 0 0;padding-left:20px;line-height:1.7">${items.join('')}</ul>
     </div>`
   }
   const taskItem = (task, suffix) => {
     const url = deepLink(base, task.id)
-    const text = `${escapeHtml(task.title)}${suffix ? ` <span style="color:#666;font-size:12px">— ${escapeHtml(suffix)}</span>` : ''}`
-    return `<li>${url ? `<a href="${url}" style="color:#4A9EFF;text-decoration:none">${text}</a>` : text}</li>`
+    const titleHtml = url
+      ? `<a href="${url}" style="color:#0F4FB3;text-decoration:none;font-weight:500">${escapeHtml(task.title)}</a>`
+      : `<span style="color:#111;font-weight:500">${escapeHtml(task.title)}</span>`
+    const suffixHtml = suffix ? ` <span style="color:#444;font-size:13px">— ${escapeHtml(suffix)}</span>` : ''
+    return `<li style="color:#111">${titleHtml}${suffixHtml}</li>`
   }
 
   const htmlParts = []
-  htmlParts.push(`<p style="font-size:15px;color:#333">${escapeHtml(pickLeadIn())}</p>`)
+  htmlParts.push(`<p style="font-size:15px;color:#111;margin:0 0 8px 0">${escapeHtml(pickLeadIn())}</p>`)
   if (yesterday.length > 0 || streak > 0) {
     const bits = []
     if (yesterday.length > 0) bits.push(`<strong>${yesterday.length}</strong> completed yesterday`)
     if (streak > 0) bits.push(`day <strong>${streak}</strong> of your streak`)
-    htmlParts.push(`<div style="margin-top:8px;color:#52C97F;font-size:14px">${bits.join(' · ')}</div>`)
+    htmlParts.push(`<div style="margin-top:4px;color:#0E6B36;font-size:14px;font-weight:500">${bits.join(' · ')}</div>`)
   }
   htmlParts.push(htmlSection('Today', today.map(t => taskItem(t, relDueLine(t) || 'no date'))))
   htmlParts.push(htmlSection('Coming up', comingUp.map(t => taskItem(t, relDueLine(t)))))
   htmlParts.push(htmlSection('Carrying', carrying.map(t => taskItem(t, `${carryingDays(t)} days`))))
   htmlParts.push(htmlSection('Quick wins', quickWins.map(t => taskItem(t, t.size))))
   if (weatherSummary) {
-    htmlParts.push(`<div style="margin-top:16px;font-size:13px;color:#666"><strong>Weather:</strong> ${escapeHtml(weatherSummary)}</div>`)
+    htmlParts.push(`<div style="margin-top:18px;font-size:13px;color:#111"><strong style="color:#111">Weather:</strong> ${escapeHtml(weatherSummary)}</div>`)
   }
   if (base) {
-    htmlParts.push(`<div style="margin-top:24px"><a href="${base}" style="color:#4A9EFF">Open Boomerang</a></div>`)
+    htmlParts.push(`<div style="margin-top:24px"><a href="${base}" style="color:#0F4FB3;font-weight:600;text-decoration:none">Open Boomerang &rarr;</a></div>`)
   }
-  const htmlBody = htmlParts.join('\n')
+  // Wrap in self-contained light card so the email client wrapper doesn't bleed through
+  const htmlBody = `<div style="background:#ffffff;color:#111;padding:8px 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">${htmlParts.join('\n')}</div>`
 
   // Subject line — summarize without alarmism
   const subjectBits = []

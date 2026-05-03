@@ -187,6 +187,26 @@ function simpleEmailHtml(title, message) {
   return emailWrapper(title, `<div style="font-size:14px;color:#ccc;line-height:1.5">${message}</div>`)
 }
 
+// Light-theme wrapper for the morning digest. Avoids the dark card so Gmail /
+// iOS Mail's auto color shifting doesn't wash out the body text.
+function digestEmailHtml(title, bodyHtml) {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<div style="max-width:560px;margin:0 auto;padding:24px">
+  <div style="background:#ffffff;border-radius:12px;padding:24px;color:#111;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
+    <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:12px">${title}</div>
+    ${bodyHtml}
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e5ea;font-size:12px;color:#555">
+      Boomerang Task Manager
+    </div>
+  </div>
+</div>
+</body>
+</html>`
+}
+
 // --- Notification logic (mirrors useNotifications.js) ---
 
 function getFreqMs(settings, key, fallbackHours) {
@@ -286,7 +306,7 @@ async function checkDigest() {
   const digest = buildDigest(settings)
   if (!digest.hasContent) return
 
-  const html = simpleEmailHtml('Morning Digest', digest.htmlBody)
+  const html = digestEmailHtml('Morning Digest', digest.htmlBody)
   const sent = await sendEmail(digest.subject, html, digest.textBody)
   if (sent) {
     markThrottle('email_digest')
@@ -528,7 +548,7 @@ export async function sendPackageEmail(pkg, eventType) {
 // Reuses existing transporter and recipient config.
 export async function sendDigestEmail(digest) {
   if (!isConfigured() || !digest?.hasContent) return false
-  const html = simpleEmailHtml('Morning Digest', digest.htmlBody)
+  const html = digestEmailHtml('Morning Digest', digest.htmlBody)
   const sent = await sendEmail(digest.subject, html, digest.textBody)
   if (sent) {
     logNotifEmail(genId(), 'digest', null, digest.subject, digest.textBody)
