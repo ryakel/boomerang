@@ -17,6 +17,7 @@ import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
+import AnalyticsModal from './components/AnalyticsModal'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -31,19 +32,7 @@ import { inferSize } from '../api'
 import { loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
 import './AppV2.css'
 
-const STORAGE_KEY = 'ui_version'
-
-// Header-icon placeholder copy for v2 surfaces that haven't shipped yet.
-// Tapping the icon opens a ModalShell EmptyState pointing back to v1.
-const PLACEHOLDER_COPY = {
-  analytics: {
-    title: 'Analytics',
-    body: 'Charts, heatmap, and the Balance radar all port together in PR5f. Use v1 for now.',
-  },
-}
-
 export default function AppV2() {
-  const [openModal, setOpenModal] = useState(null)
   const [snoozeTarget, setSnoozeTarget] = useState(null)
   const [reframeTarget, setReframeTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
@@ -58,6 +47,7 @@ export default function AppV2() {
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
+  const [showAnalytics, setShowAnalytics] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   // Adviser conversation state lives at the App level so it survives modal
   // open/close — user can pop in, ask something, close, come back to the
@@ -122,11 +112,6 @@ export default function AppV2() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routines])
-
-  const switchToV1 = () => {
-    localStorage.setItem(STORAGE_KEY, 'v1')
-    window.location.reload()
-  }
 
   // Sorted views — v2 currently uses a fixed 'age' sort. Sort UI ports later.
   const sortedDoing = sortTasks(doingTasks, 'age')
@@ -208,8 +193,6 @@ export default function AppV2() {
     }
   }, [addTask, updateTask, prefetchToast])
 
-  const placeholderMeta = openModal ? PLACEHOLDER_COPY[openModal] : null
-
   const renderSection = (label, list) => list.length > 0 && (
     <>
       <SectionLabel count={list.length}>{label}</SectionLabel>
@@ -255,20 +238,6 @@ export default function AppV2() {
           </div>
         )}
       </main>
-
-      <ModalShell
-        open={!!openModal}
-        onClose={() => setOpenModal(null)}
-        title={placeholderMeta?.title || ''}
-        subtitle="Coming soon in v2"
-      >
-        <EmptyState
-          title="Not yet ported"
-          body={placeholderMeta?.body || ''}
-          cta="Use v1 for this"
-          ctaOnClick={switchToV1}
-        />
-      </ModalShell>
 
       {snoozeTarget && (
         <SnoozeModal
@@ -345,10 +314,10 @@ export default function AppV2() {
             </button>
           </li>
           <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setOpenModal('analytics') }}>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowAnalytics(true) }}>
               <BarChart3 size={18} strokeWidth={1.75} />
               <span className="v2-more-row-label">Analytics</span>
-              <span className="v2-more-row-tag">soon</span>
+              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
@@ -410,6 +379,11 @@ export default function AppV2() {
         open={showAdviser}
         adviser={adviserState}
         onClose={() => setShowAdviser(false)}
+      />
+
+      <AnalyticsModal
+        open={showAnalytics}
+        onClose={() => setShowAnalytics(false)}
       />
     </div>
   )

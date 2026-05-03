@@ -728,7 +728,7 @@ Boomerang ships with two UIs that share the same underlying app (server, hooks, 
 2. ✅ Shell + Header + ModalShell + EmptyState (PR2)
 3. ✅ TaskCard + section labels (PR3)
 4. ✅ Modals batch 1: SnoozeModal (PR4a) + AddTaskModal (PR4b) + EditTaskModal (PR4c) + ReframeModal/WhatNowModal (PR4d)
-5. Modals batch 2 — **Settings first** (Beta tab so users can flip back from inside v2), then Routines, Projects, Packages, Adviser, Analytics (with Balance radar), ActivityLog, DoneList
+5. ✅ Modals batch 2: SettingsModal+Beta tab (PR5a) + Projects/DoneList/ActivityLog (PR5b) + RoutinesModal (PR5c) + PackagesModal (PR5d) + AdviserModal (PR5e) + AnalyticsModal+Balance radar (PR5f). Remaining Settings tabs (General/AI/Labels/Integrations/Notifications/Data/Logs) port in PR5g.
 6. KanbanBoard (desktop)
 7. Toast + motion sweep
 8. Polish + dark mode parity
