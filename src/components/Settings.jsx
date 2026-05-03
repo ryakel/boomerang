@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
-import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, logNotification, DEFAULT_SETTINGS, uuid } from '../store'
+import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, DEFAULT_SETTINGS, uuid } from '../store'
 import { getKeyStatus, callClaude, notionStatus, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, pushoverStatus, testPushover, testPushoverEmergency, testDigest, getNotifLog, clearServerNotifLog, getWeather, refreshWeather, geocodeWeather } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
@@ -28,6 +28,21 @@ const CHANNEL_COLORS = {
   pushover: '#10B981',
   browser: '#94A3B8',
 }
+
+// Per-type configuration for the "Notify me about" matrix.
+// `key` is the suffix used in settings: push_notif_<key>, pushover_notif_<key>,
+// email_notif_<key>. `freqKey` and `freqDefault` drive the global frequency input
+// (shared across channels). `freqMin/Max` are bounds on the frequency input.
+const NOTIF_TYPES = [
+  { key: 'highpri',           label: 'High priority',    freqKey: null,                   note: 'Always firing — see escalation below' },
+  { key: 'overdue',           label: 'Overdue',          freqKey: 'notif_freq_overdue', freqDefault: 0.5, freqMin: 0.25, freqMax: 168 },
+  { key: 'stale',             label: 'Stale',            freqKey: 'notif_freq_stale',   freqDefault: 0.5, freqMin: 0.25, freqMax: 168 },
+  { key: 'nudge',             label: 'Nudges',           freqKey: 'notif_freq_nudge',   freqDefault: 1,   freqMin: 0.25, freqMax: 168 },
+  { key: 'size',              label: 'Size-based',       freqKey: 'notif_freq_size',    freqDefault: 1,   freqMin: 0.25, freqMax: 168 },
+  { key: 'pileup',            label: 'Pile-up',          freqKey: 'notif_freq_pileup',  freqDefault: 2,   freqMin: 0.25, freqMax: 168 },
+  { key: 'package_delivered', label: 'Pkg delivered',    freqKey: null },
+  { key: 'package_exception', label: 'Pkg exceptions',   freqKey: null },
+]
 
 function NotificationHistory() {
   const [serverLog, setServerLog] = useState([])
@@ -283,6 +298,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
   }
 
   const [historyExpanded, setHistoryExpanded] = useState(false)
+  const [channelExpanded, setChannelExpanded] = useState(null) // 'webpush' | 'pushover' | 'email' | null
+  const [digestExpanded, setDigestExpanded] = useState(false)
 
   // Email notification state
   const [emailSmtpStatus, setEmailSmtpStatus] = useState(null) // null | { configured, host, ... }
@@ -2363,755 +2380,371 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
       {/* Notifications */}
       {activeTab === 'Notifications' && (
         <div className="settings-group">
+
+          {/* === Quiet hours === */}
+          <div className="settings-label" style={{ marginBottom: 4 }}>Quiet hours</div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+            Silence all notifications during these hours. Tasks tagged with the bypass label can still wake you (Pushover priority 1+ only).
+          </div>
           <label className="notif-check">
-            <input
-              type="checkbox"
-              checked={!!settings.notifications_enabled}
-              onChange={async (e) => {
-                if (e.target.checked) {
-                  const perm = await Notification.requestPermission()
-                  if (perm === 'granted') update('notifications_enabled', true)
-                  else e.target.checked = false
-                } else {
-                  update('notifications_enabled', false)
-                }
-              }}
-            />
-            <span>Notifications</span>
+            <input type="checkbox" checked={!!settings.quiet_hours_enabled} onChange={e => update('quiet_hours_enabled', e.target.checked)} />
+            <span>Enable quiet hours</span>
           </label>
-
-          {settings.notifications_enabled && (
-            <div className="notif-options">
-              {/* Quiet Hours */}
-              <div className="settings-label" style={{ marginTop: 16 }}>Quiet hours</div>
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                Silence all notifications during these hours.
+          {settings.quiet_hours_enabled && (
+            <>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 8, marginBottom: 4 }}>
+                Times in <strong>{settings.user_timezone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'server local')}</strong>
               </div>
-              <label className="notif-check">
-                <input type="checkbox" checked={!!settings.quiet_hours_enabled} onChange={e => update('quiet_hours_enabled', e.target.checked)} />
-                <span>Enable quiet hours</span>
-              </label>
-              {settings.quiet_hours_enabled && (
-                <>
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 8, marginBottom: 4 }}>
-                    Times in <strong>{settings.user_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'server local'}</strong>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
-                    <input
-                      type="time"
-                      className="settings-input"
-                      value={settings.quiet_hours_start || '22:00'}
-                      onChange={e => update('quiet_hours_start', e.target.value)}
-                      style={{ flex: 1 }}
-                    />
-                    <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>to</span>
-                    <input
-                      type="time"
-                      className="settings-input"
-                      value={settings.quiet_hours_end || '08:00'}
-                      onChange={e => update('quiet_hours_end', e.target.value)}
-                      style={{ flex: 1 }}
-                    />
-                  </div>
-                  <div style={{ marginTop: 12 }}>
-                    <div className="settings-label" style={{ marginBottom: 4 }}>Bypass label</div>
-                    <input
-                      className="add-input"
-                      type="text"
-                      value={settings.quiet_hours_bypass_label || 'wake-me'}
-                      onChange={e => update('quiet_hours_bypass_label', e.target.value)}
-                      style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
-                    />
-                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                      Tasks tagged with this label can wake you during quiet hours (Pushover priority 1+2 only). Default: <code>wake-me</code>. Use the "Wake me up for this" checkbox in EditTask to opt a task in.
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="settings-label" style={{ marginTop: 16 }}>High priority</div>
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                Always on. Frequency escalates as due date approaches.
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+                <input type="time" className="settings-input" value={settings.quiet_hours_start || '22:00'} onChange={e => update('quiet_hours_start', e.target.value)} style={{ flex: 1 }} />
+                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>to</span>
+                <input type="time" className="settings-input" value={settings.quiet_hours_end || '08:00'} onChange={e => update('quiet_hours_end', e.target.value)} style={{ flex: 1 }} />
               </div>
-              <label className="notif-check">
-                <input type="checkbox" checked={settings.notif_highpri_escalate !== false} onChange={e => update('notif_highpri_escalate', e.target.checked)} />
-                <span>Repeat until addressed</span>
-              </label>
-              {settings.notif_highpri_escalate !== false && (<>
-              <div className="notif-type-row">
-                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>Before due</span>
-                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
-                  <input
-                    className="settings-input"
-                    type="number" min="0.25" max="168" step="0.25"
-                    value={settings.notif_freq_highpri_before ?? 24}
-                    onChange={e => update('notif_freq_highpri_before', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-                    style={{ width: 56, textAlign: 'center' }}
-                  />
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
+              <div style={{ marginTop: 12 }}>
+                <div className="settings-label" style={{ marginBottom: 4 }}>Bypass label</div>
+                <input className="add-input" type="text" value={settings.quiet_hours_bypass_label || 'wake-me'} onChange={e => update('quiet_hours_bypass_label', e.target.value)} style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }} />
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                  Tasks tagged with this label can wake you during quiet hours. Default <code>wake-me</code>. Use the "Wake me up for this" checkbox in EditTask.
                 </div>
               </div>
-              <div className="notif-type-row">
-                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>On due date</span>
-                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
-                  <input
-                    className="settings-input"
-                    type="number" min="0.25" max="24" step="0.25"
-                    value={settings.notif_freq_highpri_due ?? 1}
-                    onChange={e => update('notif_freq_highpri_due', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-                    style={{ width: 56, textAlign: 'center' }}
-                  />
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
-                </div>
-              </div>
-              <div className="notif-type-row">
-                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>When overdue</span>
-                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
-                  <input
-                    className="settings-input"
-                    type="number" min="0.25" max="24" step="0.25"
-                    value={settings.notif_freq_highpri_overdue ?? 0.5}
-                    onChange={e => update('notif_freq_highpri_overdue', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-                    style={{ width: 56, textAlign: 'center' }}
-                  />
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
-                </div>
-              </div>
-              </>)}
-
-              <div className="settings-label" style={{ marginTop: 16 }}>Notify me about</div>
-
-              <div className="notif-type-row">
-                <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                  <input type="checkbox" checked={settings.notif_overdue !== false} onChange={e => update('notif_overdue', e.target.checked)} />
-                  <span>Overdue tasks</span>
-                </label>
-                {settings.notif_overdue !== false && (
-                  <div className="notif-freq-input" style={{ marginLeft: 8 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
-                    <input
-                      className="settings-input"
-                      type="number" min="0.25" max="168" step="0.25"
-                      value={settings.notif_freq_overdue ?? 0.5}
-                      onChange={e => update('notif_freq_overdue', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-                      style={{ width: 56, textAlign: 'center' }}
-                    />
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="notif-type-row">
-                <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                  <input type="checkbox" checked={settings.notif_stale !== false} onChange={e => update('notif_stale', e.target.checked)} />
-                  <span>Stale tasks</span>
-                </label>
-                {settings.notif_stale !== false && (
-                  <div className="notif-freq-input" style={{ marginLeft: 8 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
-                    <input
-                      className="settings-input"
-                      type="number" min="0.25" max="168" step="0.25"
-                      value={settings.notif_freq_stale ?? 0.5}
-                      onChange={e => update('notif_freq_stale', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-                      style={{ width: 56, textAlign: 'center' }}
-                    />
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="notif-type-row">
-                <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                  <input type="checkbox" checked={settings.notif_nudge !== false} onChange={e => update('notif_nudge', e.target.checked)} />
-                  <span>General nudges</span>
-                </label>
-                {settings.notif_nudge !== false && (
-                  <div className="notif-freq-input" style={{ marginLeft: 8 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
-                    <input
-                      className="settings-input"
-                      type="number" min="0.25" max="168" step="0.25"
-                      value={settings.notif_freq_nudge ?? 1}
-                      onChange={e => update('notif_freq_nudge', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-                      style={{ width: 56, textAlign: 'center' }}
-                    />
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="notif-type-row">
-                <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                  <input type="checkbox" checked disabled style={{ opacity: 0.5 }} />
-                  <span>Size-based reminders</span>
-                </label>
-                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
-                  <input
-                    className="settings-input"
-                    type="number" min="0.25" max="168" step="0.25"
-                    value={settings.notif_freq_size ?? 1}
-                    onChange={e => update('notif_freq_size', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-                    style={{ width: 56, textAlign: 'center' }}
-                  />
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
-                </div>
-              </div>
-
-              <div className="settings-label" style={{ marginTop: 16 }}>Warn when tasks pile up</div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  className="settings-input"
-                  type="number" min="0" max="100"
-                  value={settings.stale_warn_pct ?? 50}
-                  onChange={e => update('stale_warn_pct', parseInt(e.target.value) || 0)}
-                />
-                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>% older than</span>
-                <input
-                  className="settings-input"
-                  type="number" min="1" max="90"
-                  value={settings.stale_warn_days ?? 7}
-                  onChange={e => update('stale_warn_days', parseInt(e.target.value) || 7)}
-                />
-                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>days</span>
-              </div>
-              <div className="notif-type-row" style={{ marginTop: 8 }}>
-                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>Pile-up check</span>
-                <div className="notif-freq-input" style={{ marginLeft: 8 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
-                  <input
-                    className="settings-input"
-                    type="number" min="0.25" max="168" step="0.25"
-                    value={settings.notif_freq_pileup ?? 2}
-                    onChange={e => update('notif_freq_pileup', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-                    style={{ width: 56, textAlign: 'center' }}
-                  />
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
-                </div>
-              </div>
-
-              {/* Test notification */}
-              <button
-                className="ci-upload-btn"
-                style={{ marginTop: 16 }}
-                onClick={() => {
-                  if ('Notification' in window && Notification.permission === 'granted') {
-                    const body = 'This is a test notification from Boomerang.'
-                    new Notification('Test Notification', { body, icon: '/icon-192.png', tag: 'test' })
-                    logNotification('test', 'Test Notification', body)
-                  }
-                }}
-              >
-                Send test notification
-              </button>
-            </div>
+            </>
           )}
 
-          {/* Morning Digest */}
-          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-            <div className="settings-label" style={{ marginBottom: 8 }}>Morning Digest</div>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-              Curated daily summary — yesterday recap + streak, today's focus, coming up, what you're carrying, and quick wins. Tasks are tappable links into the app.
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Style:</span>
-              <select
-                value={settings.digest_style || 'curated'}
-                onChange={e => update('digest_style', e.target.value)}
-                style={{ fontSize: 13, padding: '4px 8px' }}
-              >
-                <option value="curated">Curated (recommended)</option>
-                <option value="counts">Counts only (legacy)</option>
-              </select>
-            </div>
-
-            <label className="notif-check" style={{ marginBottom: 8 }}>
-              <input
-                type="checkbox"
-                checked={!!settings.email_digest_enabled}
-                onChange={e => update('email_digest_enabled', e.target.checked)}
-              />
-              <span>Email digest</span>
-            </label>
-            <label className="notif-check" style={{ marginBottom: 8 }}>
-              <input
-                type="checkbox"
-                checked={!!settings.push_digest_enabled}
-                onChange={e => update('push_digest_enabled', e.target.checked)}
-              />
-              <span>Web push digest</span>
-            </label>
-            <label className="notif-check" style={{ marginBottom: 8 }}>
-              <input
-                type="checkbox"
-                checked={!!settings.pushover_digest_enabled}
-                onChange={e => update('pushover_digest_enabled', e.target.checked)}
-              />
-              <span>Pushover digest</span>
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Time:</span>
-              <input
-                type="time"
-                className="settings-input"
-                value={settings.digest_time || '07:00'}
-                onChange={e => update('digest_time', e.target.value)}
-                style={{ width: 120, fontSize: 13 }}
-              />
-              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                {settings.user_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'server local'}
-              </span>
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              <button
-                className="ci-upload-btn"
-                disabled={digestTestStatus === 'sending'}
-                onClick={async () => {
-                  setDigestTestStatus('sending')
-                  setDigestTestError(null)
-                  try {
-                    const result = await testDigest()
-                    if (result.success) {
-                      setDigestTestStatus('sent')
-                      setDigestTestError(`Sent via ${result.fired.join(', ')}`)
-                      setTimeout(() => setDigestTestStatus(null), 4000)
-                    } else {
-                      setDigestTestStatus('error')
-                      setDigestTestError(result.error || 'No channels enabled or all failed')
-                    }
-                  } catch (e) {
-                    setDigestTestStatus('error')
-                    setDigestTestError(e.message || 'Send failed')
-                  }
-                }}
-              >
-                {digestTestStatus === 'sending' ? 'Sending...' : digestTestStatus === 'sent' ? 'Sent!' : 'Test daily digest'}
-              </button>
-              {digestTestError && (
-                <div style={{ fontSize: 12, color: digestTestStatus === 'error' ? '#FF6240' : '#52C97F', marginTop: 4 }}>
-                  {digestTestError}
-                </div>
-              )}
-            </div>
+          {/* === Notify me about (matrix) === */}
+          <div className="settings-label" style={{ marginTop: 24, marginBottom: 4 }}>Notify me about</div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>
+            Pick which channels deliver each notification type. Frequency is shared across channels.
           </div>
 
-          {/* Push Notifications */}
-          {pushSub.supported && pushServerStatus?.configured && (
-            <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <label className="notif-check">
-                <input
-                  type="checkbox"
-                  checked={!!settings.push_notifications_enabled}
-                  onChange={e => update('push_notifications_enabled', e.target.checked)}
-                />
-                <span>Web Push (browser / PWA native)</span>
-              </label>
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, marginBottom: 8 }}>
-                Native notifications via the browser's push service (APNs on iOS, FCM on Android, native on desktop). Works when the app is closed.
-              </div>
-              {settings.push_notifications_enabled && settings.pushover_notifications_enabled && settings.pushover_user_key && (
-                <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 8 }}>
-                  <strong>Heads up — you also have Pushover enabled. Running both delivers each alert twice.</strong>
-                </div>
-              )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 32px 32px 32px 80px', alignItems: 'center', gap: '8px 6px', fontSize: 13 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: CHANNEL_COLORS.push, textAlign: 'center' }} title="Web Push">Web</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: CHANNEL_COLORS.pushover, textAlign: 'center' }} title="Pushover">Pvr</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: CHANNEL_COLORS.email, textAlign: 'center' }} title="Email">Mail</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Every</span>
 
-              {settings.push_notifications_enabled && (
-                <div className="notif-options">
-                  {!pushSub.subscribed ? (
-                    <>
-                      <button
-                        className="ci-upload-btn"
-                        disabled={pushSub.loading}
-                        onClick={async () => {
-                          setPushTestStatus(null)
-                          setPushTestError(null)
-                          const result = await pushSub.subscribe()
-                          if (!result.success) {
-                            setPushTestStatus('error')
-                            setPushTestError(result.error)
-                          }
-                        }}
-                      >
-                        {pushSub.loading ? 'Enabling...' : 'Enable push for this device'}
-                      </button>
-                      {pushTestStatus === 'error' && pushTestError && (
-                        <div style={{ fontSize: 12, color: '#FF6240', marginTop: 8 }}>{pushTestError}</div>
-                      )}
-                      {!pushSub.supported && (
-                        <div style={{ fontSize: 12, color: '#FF6240', marginTop: 8 }}>Push not supported on this browser/device.</div>
-                      )}
-                    </>
+            {NOTIF_TYPES.map(t => {
+              const pushKey = `push_notif_${t.key}`
+              const pushoverKey = `pushover_notif_${t.key}`
+              const emailKey = `email_notif_${t.key}`
+              return (
+                <React.Fragment key={t.key}>
+                  <span>{t.label}</span>
+                  <input type="checkbox" checked={settings[pushKey] !== false} onChange={e => update(pushKey, e.target.checked)} style={{ justifySelf: 'center' }} />
+                  <input type="checkbox" checked={!!settings[pushoverKey]} onChange={e => update(pushoverKey, e.target.checked)} style={{ justifySelf: 'center' }} />
+                  <input type="checkbox" checked={settings[emailKey] !== false} onChange={e => update(emailKey, e.target.checked)} style={{ justifySelf: 'center' }} />
+                  {t.freqKey ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 2, justifySelf: 'end' }}>
+                      <input
+                        className="settings-input"
+                        type="number"
+                        min={t.freqMin}
+                        max={t.freqMax}
+                        step="0.25"
+                        value={settings[t.freqKey] ?? t.freqDefault}
+                        onChange={e => update(t.freqKey, Math.max(t.freqMin, parseFloat(e.target.value) || t.freqMin))}
+                        style={{ width: 50, textAlign: 'center', fontSize: 12 }}
+                      />
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>h</span>
+                    </div>
                   ) : (
-                    <>
-                      <div style={{ fontSize: 12, color: '#52C97F', marginBottom: 8 }}>
-                        Push enabled on this device
-                      </div>
-
-                      <div className="settings-label">Push me about</div>
-
-                      <div className="notif-type-row">
-                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                          <input type="checkbox" checked={settings.push_notif_highpri !== false} onChange={e => update('push_notif_highpri', e.target.checked)} />
-                          <span>High priority tasks</span>
-                        </label>
-                      </div>
-
-                      <div className="notif-type-row">
-                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                          <input type="checkbox" checked={settings.push_notif_overdue !== false} onChange={e => update('push_notif_overdue', e.target.checked)} />
-                          <span>Overdue tasks</span>
-                        </label>
-                      </div>
-
-                      <div className="notif-type-row">
-                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                          <input type="checkbox" checked={settings.push_notif_stale !== false} onChange={e => update('push_notif_stale', e.target.checked)} />
-                          <span>Stale tasks</span>
-                        </label>
-                      </div>
-
-                      <div className="notif-type-row">
-                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                          <input type="checkbox" checked={settings.push_notif_nudge !== false} onChange={e => update('push_notif_nudge', e.target.checked)} />
-                          <span>Nudges</span>
-                        </label>
-                      </div>
-
-                      <div className="notif-type-row">
-                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                          <input type="checkbox" checked={settings.push_notif_size !== false} onChange={e => update('push_notif_size', e.target.checked)} />
-                          <span>Size-based reminders</span>
-                        </label>
-                      </div>
-
-                      <div className="notif-type-row">
-                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                          <input type="checkbox" checked={settings.push_notif_pileup !== false} onChange={e => update('push_notif_pileup', e.target.checked)} />
-                          <span>Pile-up warnings</span>
-                        </label>
-                      </div>
-
-                      <div className="notif-type-row">
-                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                          <input type="checkbox" checked={settings.push_notif_package_delivered !== false} onChange={e => update('push_notif_package_delivered', e.target.checked)} />
-                          <span>Package delivered</span>
-                        </label>
-                      </div>
-
-                      <div className="notif-type-row">
-                        <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                          <input type="checkbox" checked={settings.push_notif_package_exception !== false} onChange={e => update('push_notif_package_exception', e.target.checked)} />
-                          <span>Package exceptions</span>
-                        </label>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                        <button
-                          className="ci-upload-btn"
-                          disabled={pushTestStatus === 'sending'}
-                          onClick={async () => {
-                            setPushTestStatus('sending')
-                            setPushTestError(null)
-                            try {
-                              const result = await testPush()
-                              if (result.success) {
-                                setPushTestStatus('sent')
-                                setTimeout(() => setPushTestStatus(null), 3000)
-                              } else {
-                                setPushTestStatus('error')
-                                setPushTestError(result.error || 'Send failed')
-                              }
-                            } catch {
-                              setPushTestStatus('error')
-                              setPushTestError('Send failed')
-                            }
-                          }}
-                        >
-                          {pushTestStatus === 'sending' ? 'Sending...' : pushTestStatus === 'sent' ? 'Sent!' : 'Test push'}
-                        </button>
-                        <button
-                          className="ci-upload-btn"
-                          style={{ color: '#ef4444' }}
-                          onClick={async () => {
-                            await pushSub.unsubscribe()
-                          }}
-                        >
-                          Disable push
-                        </button>
-                      </div>
-                      {pushTestStatus === 'error' && pushTestError && (
-                        <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{pushTestError}</div>
-                      )}
-                    </>
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>—</span>
                   )}
-                </div>
-              )}
-            </div>
-          )}
+                </React.Fragment>
+              )
+            })}
+          </div>
 
-          {/* Pushover — master toggle + per-type toggles. Credentials + test buttons live in the Integrations tab. */}
-          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-            <label className="notif-check">
-              <input
-                type="checkbox"
-                checked={!!settings.pushover_notifications_enabled}
-                onChange={e => update('pushover_notifications_enabled', e.target.checked)}
-              />
-              <span>Pushover</span>
+          {/* === High priority escalation detail === */}
+          <div style={{ marginTop: 20, padding: 12, background: 'var(--surface-elevated, rgba(0,0,0,0.03))', borderRadius: 6 }}>
+            <div className="settings-label" style={{ marginBottom: 4 }}>High priority escalation</div>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+              Frequency increases as the due date approaches.
+            </div>
+            <label className="notif-check" style={{ marginBottom: 8 }}>
+              <input type="checkbox" checked={settings.notif_highpri_escalate !== false} onChange={e => update('notif_highpri_escalate', e.target.checked)} />
+              <span>Repeat until addressed</span>
             </label>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, marginBottom: 8 }}>
-              iOS-reliable notifications via the Pushover app. Connection settings live in the Integrations tab.
-            </div>
-
-            {settings.pushover_notifications_enabled && settings.push_notifications_enabled && pushSub.supported && pushServerStatus?.configured && (
-              <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 8 }}>
-                <strong>Heads up — Web Push is also enabled above. Running both delivers each alert twice.</strong>
-              </div>
-            )}
-
-            {settings.pushover_notifications_enabled && !(settings.pushover_user_key && (settings.pushover_app_token || pushoverServerStatus?.app_token_from_env)) ? (
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 8, background: 'var(--surface-elevated, rgba(0,0,0,0.04))', borderRadius: 6 }}>
-                Credentials missing. Set them up in <strong>Settings → Integrations → Pushover</strong>, then come back here.
-              </div>
-            ) : settings.pushover_notifications_enabled ? (
+            {settings.notif_highpri_escalate !== false && (
               <>
                 <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.pushover_notif_highpri !== false} onChange={e => update('pushover_notif_highpri', e.target.checked)} />
-                    <span>High priority tasks</span>
-                  </label>
+                  <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>Before due</span>
+                  <div className="notif-freq-input"><span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                    <input className="settings-input" type="number" min="0.25" max="168" step="0.25" value={settings.notif_freq_highpri_before ?? 24} onChange={e => update('notif_freq_highpri_before', Math.max(0.25, parseFloat(e.target.value) || 0.25))} style={{ width: 56, textAlign: 'center' }} />
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
+                  </div>
                 </div>
                 <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.pushover_notif_overdue !== false} onChange={e => update('pushover_notif_overdue', e.target.checked)} />
-                    <span>Overdue tasks</span>
-                  </label>
+                  <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>On due date</span>
+                  <div className="notif-freq-input"><span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                    <input className="settings-input" type="number" min="0.25" max="24" step="0.25" value={settings.notif_freq_highpri_due ?? 1} onChange={e => update('notif_freq_highpri_due', Math.max(0.25, parseFloat(e.target.value) || 0.25))} style={{ width: 56, textAlign: 'center' }} />
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
+                  </div>
                 </div>
                 <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.pushover_notif_stale === true} onChange={e => update('pushover_notif_stale', e.target.checked)} />
-                    <span>Stale tasks</span>
-                  </label>
-                </div>
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.pushover_notif_nudge === true} onChange={e => update('pushover_notif_nudge', e.target.checked)} />
-                    <span>Nudges</span>
-                  </label>
-                </div>
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.pushover_notif_size === true} onChange={e => update('pushover_notif_size', e.target.checked)} />
-                    <span>Size-based reminders</span>
-                  </label>
-                </div>
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.pushover_notif_pileup !== false} onChange={e => update('pushover_notif_pileup', e.target.checked)} />
-                    <span>Pile-up warnings</span>
-                  </label>
-                </div>
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.pushover_notif_package_delivered !== false} onChange={e => update('pushover_notif_package_delivered', e.target.checked)} />
-                    <span>Package delivered</span>
-                  </label>
-                </div>
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.pushover_notif_package_exception !== false} onChange={e => update('pushover_notif_package_exception', e.target.checked)} />
-                    <span>Package exceptions</span>
-                  </label>
+                  <span style={{ flex: 1, fontSize: 13, color: 'var(--text-dim)' }}>When overdue</span>
+                  <div className="notif-freq-input"><span style={{ fontSize: 11, color: 'var(--text-dim)' }}>every</span>
+                    <input className="settings-input" type="number" min="0.25" max="24" step="0.25" value={settings.notif_freq_highpri_overdue ?? 0.5} onChange={e => update('notif_freq_highpri_overdue', Math.max(0.25, parseFloat(e.target.value) || 0.25))} style={{ width: 56, textAlign: 'center' }} />
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>hrs</span>
+                  </div>
                 </div>
               </>
-            ) : null}
+            )}
           </div>
 
-          {/* Email Notifications */}
-          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-            <label className="notif-check">
-              <input
-                type="checkbox"
-                checked={!!settings.email_notifications_enabled}
-                onChange={e => update('email_notifications_enabled', e.target.checked)}
-              />
-              <span>Email notifications</span>
-            </label>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, marginBottom: 8 }}>
-              Send notifications via email when the app isn't open. Requires SMTP configuration via environment variables.
+          {/* === Pile-up thresholds === */}
+          <div style={{ marginTop: 20, padding: 12, background: 'var(--surface-elevated, rgba(0,0,0,0.03))', borderRadius: 6 }}>
+            <div className="settings-label" style={{ marginBottom: 4 }}>Pile-up thresholds</div>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+              When the percentage of old tasks crosses this threshold, fire a pile-up warning.
             </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input className="settings-input" type="number" min="0" max="100" value={settings.stale_warn_pct ?? 50} onChange={e => update('stale_warn_pct', parseInt(e.target.value) || 0)} />
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>% older than</span>
+              <input className="settings-input" type="number" min="1" max="90" value={settings.stale_warn_days ?? 7} onChange={e => update('stale_warn_days', parseInt(e.target.value) || 7)} />
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>days</span>
+            </div>
+          </div>
 
-            {emailSmtpStatus && !emailSmtpStatus.configured && settings.email_notifications_enabled && (
-              <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 8 }}>
-                {!emailSmtpStatus.smtp_configured
-                  ? 'SMTP not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS environment variables.'
-                  : 'No recipient email. Set an email address below or NOTIFICATION_EMAIL env var.'}
-              </div>
-            )}
+          {/* === Test buttons row === */}
+          <div className="settings-label" style={{ marginTop: 24, marginBottom: 8 }}>Send test</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button className="ci-upload-btn" disabled={pushTestStatus === 'sending' || !pushSub.subscribed}
+              onClick={async () => {
+                setPushTestStatus('sending'); setPushTestError(null)
+                try { const result = await testPush(); if (result.success) { setPushTestStatus('sent'); setTimeout(() => setPushTestStatus(null), 3000) } else { setPushTestStatus('error'); setPushTestError(result.error || 'Send failed') } } catch { setPushTestStatus('error'); setPushTestError('Send failed') }
+              }}>{pushTestStatus === 'sending' ? 'Sending...' : pushTestStatus === 'sent' ? 'Sent!' : 'Web Push'}</button>
+            <button className="ci-upload-btn" disabled={pushoverTestStatus === 'sending' || !settings.pushover_user_key}
+              onClick={async () => {
+                setPushoverTestStatus('sending'); setPushoverTestError(null)
+                try { const result = await testPushover({ userKey: settings.pushover_user_key, appToken: settings.pushover_app_token }); if (result.success) { setPushoverTestStatus('sent'); setTimeout(() => setPushoverTestStatus(null), 3000) } else { setPushoverTestStatus('error'); setPushoverTestError(result.error || 'Send failed') } } catch { setPushoverTestStatus('error'); setPushoverTestError('Send failed') }
+              }}>{pushoverTestStatus === 'sending' ? 'Sending...' : pushoverTestStatus === 'sent' ? 'Sent!' : 'Pushover'}</button>
+            <button className="ci-upload-btn" style={{ background: '#FF6240' }} disabled={pushoverEmergencyStatus === 'sending' || !settings.pushover_user_key}
+              onClick={async () => {
+                if (!confirm('Trigger a priority-2 Emergency alarm? It auto-cancels after 90 seconds.')) return
+                setPushoverEmergencyStatus('sending'); setPushoverEmergencyError(null)
+                try { const result = await testPushoverEmergency({ userKey: settings.pushover_user_key, appToken: settings.pushover_app_token }); if (result.success) { setPushoverEmergencyStatus('sent'); setTimeout(() => setPushoverEmergencyStatus(null), 5000) } else { setPushoverEmergencyStatus('error'); setPushoverEmergencyError(result.error || 'Send failed') } } catch { setPushoverEmergencyStatus('error'); setPushoverEmergencyError('Send failed') }
+              }}>{pushoverEmergencyStatus === 'sending' ? '...' : pushoverEmergencyStatus === 'sent' ? '!' : 'Pushover Emergency'}</button>
+            <button className="ci-upload-btn" disabled={emailTestStatus === 'sending' || !emailSmtpStatus?.configured}
+              onClick={async () => {
+                setEmailTestStatus('sending'); setEmailTestError(null)
+                try { const result = await testEmail(); if (result.success) { setEmailTestStatus('sent'); setTimeout(() => setEmailTestStatus(null), 3000) } else { setEmailTestStatus('error'); setEmailTestError(result.error || 'Send failed') } } catch { setEmailTestStatus('error'); setEmailTestError('Send failed') }
+              }}>{emailTestStatus === 'sending' ? 'Sending...' : emailTestStatus === 'sent' ? 'Sent!' : 'Email'}</button>
+            <button className="ci-upload-btn" disabled={digestTestStatus === 'sending'}
+              onClick={async () => {
+                setDigestTestStatus('sending'); setDigestTestError(null)
+                try { const result = await testDigest(); if (result.success) { setDigestTestStatus('sent'); setDigestTestError(`Sent via ${result.fired.join(', ')}`); setTimeout(() => setDigestTestStatus(null), 4000) } else { setDigestTestStatus('error'); setDigestTestError(result.error || 'No channels enabled') } } catch (e) { setDigestTestStatus('error'); setDigestTestError(e.message || 'Send failed') }
+              }}>{digestTestStatus === 'sending' ? 'Sending...' : digestTestStatus === 'sent' ? 'Sent!' : 'Daily Digest'}</button>
+          </div>
+          {(pushTestError || pushoverTestError || pushoverEmergencyError || emailTestError) && (
+            <div style={{ fontSize: 12, color: '#FF6240', marginTop: 6 }}>
+              {pushTestError || pushoverTestError || pushoverEmergencyError || emailTestError}
+            </div>
+          )}
+          {digestTestError && (
+            <div style={{ fontSize: 12, color: digestTestStatus === 'error' ? '#FF6240' : '#52C97F', marginTop: 6 }}>{digestTestError}</div>
+          )}
 
-            {settings.email_notifications_enabled && (
-              <div className="notif-options">
-                <div className="settings-label">Email address</div>
-                {emailSmtpStatus?.recipient_source === 'env' ? (
-                  <>
-                    <div className="settings-input" style={{ width: '100%', boxSizing: 'border-box', opacity: 0.7, cursor: 'not-allowed' }}>
-                      {emailSmtpStatus.recipient}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
-                      Set via NOTIFICATION_EMAIL env var. Remove the env var to use a custom address here.
-                    </div>
-                  </>
+          {/* === Channels (collapsible) === */}
+          <div className="settings-label" style={{ marginTop: 24, marginBottom: 8 }}>Channels</div>
+
+          {/* Web Push */}
+          <div>
+            <div
+              className={`integration-row${channelExpanded === 'webpush' ? ' expanded' : ''}`}
+              onClick={() => setChannelExpanded(channelExpanded === 'webpush' ? null : 'webpush')}
+            >
+              <span className={`backlog-arrow${channelExpanded === 'webpush' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${pushSub.subscribed && settings.push_notifications_enabled ? 'connected' : 'unconfigured'}`} />
+              <span className="integration-row-name">Web Push</span>
+              {channelExpanded !== 'webpush' && (
+                <span className="integration-row-summary">
+                  {!pushSub.supported ? 'Not supported here' : !pushServerStatus?.configured ? 'Server not configured' : !pushSub.subscribed ? 'Not subscribed on this device' : !settings.push_notifications_enabled ? 'Disabled' : 'Subscribed'}
+                </span>
+              )}
+            </div>
+            {channelExpanded === 'webpush' && (
+              <div className="integration-body">
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
+                  Native notifications via the browser's push service (APNs on iOS, FCM on Android, native on desktop). Works when the app is closed.
+                </div>
+                {!pushSub.supported ? (
+                  <div style={{ fontSize: 12, color: '#FF6240' }}>Push not supported on this browser/device.</div>
+                ) : !pushServerStatus?.configured ? (
+                  <div style={{ fontSize: 12, color: '#FF6240' }}>Server VAPID keys not generated. Restart server to auto-generate.</div>
                 ) : (
                   <>
-                    <input
-                      className="settings-input"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={settings.email_address || ''}
-                      onChange={e => update('email_address', e.target.value)}
-                      style={{ width: '100%', boxSizing: 'border-box' }}
-                    />
-                    <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
-                      Can also be set via NOTIFICATION_EMAIL env var.
-                    </div>
+                    <label className="notif-check" style={{ marginBottom: 8 }}>
+                      <input type="checkbox" checked={!!settings.push_notifications_enabled} onChange={e => update('push_notifications_enabled', e.target.checked)} />
+                      <span>Enable Web Push</span>
+                    </label>
+                    {settings.push_notifications_enabled && settings.pushover_notifications_enabled && settings.pushover_user_key && (
+                      <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 8 }}>
+                        <strong>Heads up — Pushover is also enabled. Running both delivers each alert twice.</strong>
+                      </div>
+                    )}
+                    {settings.push_notifications_enabled && !pushSub.subscribed && (
+                      <button className="ci-upload-btn" disabled={pushSub.loading}
+                        onClick={async () => { const result = await pushSub.subscribe(); if (!result.success) { setPushTestError(result.error) } }}>
+                        {pushSub.loading ? 'Enabling...' : 'Enable on this device'}
+                      </button>
+                    )}
+                    {settings.push_notifications_enabled && pushSub.subscribed && (
+                      <>
+                        <div style={{ fontSize: 12, color: '#52C97F', marginBottom: 8 }}>Subscribed on this device</div>
+                        <button className="ci-upload-btn" style={{ color: '#ef4444' }} onClick={async () => { await pushSub.unsubscribe() }}>Disable on this device</button>
+                      </>
+                    )}
                   </>
-                )}
-
-                {emailSmtpStatus?.configured && (
-                  <div style={{ fontSize: 12, color: '#52C97F', marginTop: 8 }}>
-                    SMTP connected ({emailSmtpStatus.host}:{emailSmtpStatus.port})
-                  </div>
-                )}
-
-                <div className="settings-label" style={{ marginTop: 16 }}>From address (deliverability)</div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input
-                    className="add-input"
-                    type="text"
-                    placeholder="From name"
-                    value={settings.email_from_name || ''}
-                    onChange={e => update('email_from_name', e.target.value)}
-                    style={{ flex: 1, fontSize: 13 }}
-                  />
-                  <input
-                    className="add-input"
-                    type="email"
-                    placeholder="digest@yourdomain.com"
-                    value={settings.email_from_address || ''}
-                    onChange={e => update('email_from_address', e.target.value)}
-                    style={{ flex: 2, fontSize: 13 }}
-                  />
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                  For digests to land in your inbox (not spam), use an address from a domain you control with SPF, DKIM, and DMARC records configured on your SMTP relay (Postmark, Resend, Mailgun, SES). Defaults to the SMTP user.
-                </div>
-
-                <div className="settings-label" style={{ marginTop: 16 }}>Email me about</div>
-
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={!!settings.email_batch_mode} onChange={e => update('email_batch_mode', e.target.checked)} />
-                    <span>Batch mode (combine into one email)</span>
-                  </label>
-                </div>
-
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.email_notif_highpri !== false} onChange={e => update('email_notif_highpri', e.target.checked)} />
-                    <span>High priority tasks</span>
-                  </label>
-                </div>
-
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.email_notif_overdue !== false} onChange={e => update('email_notif_overdue', e.target.checked)} />
-                    <span>Overdue tasks</span>
-                  </label>
-                </div>
-
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.email_notif_stale !== false} onChange={e => update('email_notif_stale', e.target.checked)} />
-                    <span>Stale tasks</span>
-                  </label>
-                </div>
-
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.email_notif_nudge !== false} onChange={e => update('email_notif_nudge', e.target.checked)} />
-                    <span>General nudges</span>
-                  </label>
-                </div>
-
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.email_notif_size !== false} onChange={e => update('email_notif_size', e.target.checked)} />
-                    <span>Size-based reminders</span>
-                  </label>
-                </div>
-
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.email_notif_pileup !== false} onChange={e => update('email_notif_pileup', e.target.checked)} />
-                    <span>Pile-up warnings</span>
-                  </label>
-                </div>
-
-                <div className="settings-label" style={{ marginTop: 16 }}>Package tracking</div>
-
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.email_notif_package_delivered !== false} onChange={e => update('email_notif_package_delivered', e.target.checked)} />
-                    <span>Delivered</span>
-                  </label>
-                </div>
-
-                <div className="notif-type-row">
-                  <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
-                    <input type="checkbox" checked={settings.email_notif_package_exception !== false} onChange={e => update('email_notif_package_exception', e.target.checked)} />
-                    <span>Exceptions</span>
-                  </label>
-                </div>
-
-                {/* Test email */}
-                <button
-                  className="ci-upload-btn"
-                  style={{ marginTop: 16 }}
-                  disabled={emailTestStatus === 'sending' || !emailSmtpStatus?.configured}
-                  onClick={async () => {
-                    setEmailTestStatus('sending')
-                    setEmailTestError(null)
-                    try {
-                      const result = await testEmail()
-                      if (result.success) {
-                        setEmailTestStatus('sent')
-                        setTimeout(() => setEmailTestStatus(null), 3000)
-                      } else {
-                        setEmailTestStatus('error')
-                        setEmailTestError(result.error || 'Send failed')
-                      }
-                    } catch {
-                      setEmailTestStatus('error')
-                      setEmailTestError('Send failed')
-                    }
-                  }}
-                >
-                  {emailTestStatus === 'sending' ? 'Sending...' : emailTestStatus === 'sent' ? 'Sent!' : 'Send test email'}
-                </button>
-                {emailTestStatus === 'error' && emailTestError && (
-                  <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{emailTestError}</div>
                 )}
               </div>
             )}
           </div>
 
-          {/* ── Notification history ── */}
+          {/* Pushover */}
+          <div>
+            <div
+              className={`integration-row${channelExpanded === 'pushover' ? ' expanded' : ''}`}
+              onClick={() => setChannelExpanded(channelExpanded === 'pushover' ? null : 'pushover')}
+            >
+              <span className={`backlog-arrow${channelExpanded === 'pushover' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${settings.pushover_notifications_enabled && settings.pushover_user_key && (settings.pushover_app_token || pushoverServerStatus?.app_token_from_env) ? 'connected' : 'unconfigured'}`} />
+              <span className="integration-row-name">Pushover</span>
+              {channelExpanded !== 'pushover' && (
+                <span className="integration-row-summary">
+                  {!(settings.pushover_user_key && (settings.pushover_app_token || pushoverServerStatus?.app_token_from_env)) ? 'Credentials missing' : !settings.pushover_notifications_enabled ? 'Disabled' : 'Connected'}
+                </span>
+              )}
+            </div>
+            {channelExpanded === 'pushover' && (
+              <div className="integration-body">
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
+                  iOS-reliable notifications via the Pushover app's APNs entitlements. Connection settings live in <strong>Integrations → Pushover</strong>.
+                </div>
+                <label className="notif-check" style={{ marginBottom: 8 }}>
+                  <input type="checkbox" checked={!!settings.pushover_notifications_enabled} onChange={e => update('pushover_notifications_enabled', e.target.checked)} />
+                  <span>Enable Pushover</span>
+                </label>
+                {settings.pushover_notifications_enabled && !(settings.pushover_user_key && (settings.pushover_app_token || pushoverServerStatus?.app_token_from_env)) && (
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 8, background: 'var(--surface-elevated, rgba(0,0,0,0.04))', borderRadius: 6 }}>
+                    Credentials missing. Set them up in <strong>Settings → Integrations → Pushover</strong>.
+                  </div>
+                )}
+                {settings.pushover_notifications_enabled && settings.push_notifications_enabled && pushSub.subscribed && (
+                  <div style={{ fontSize: 12, color: '#FF6240', marginTop: 8 }}>
+                    <strong>Heads up — Web Push is also enabled. Running both delivers each alert twice.</strong>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Email */}
+          <div>
+            <div
+              className={`integration-row${channelExpanded === 'email' ? ' expanded' : ''}`}
+              onClick={() => setChannelExpanded(channelExpanded === 'email' ? null : 'email')}
+            >
+              <span className={`backlog-arrow${channelExpanded === 'email' ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className={`integration-dot ${settings.email_notifications_enabled && emailSmtpStatus?.configured ? 'connected' : 'unconfigured'}`} />
+              <span className="integration-row-name">Email</span>
+              {channelExpanded !== 'email' && (
+                <span className="integration-row-summary">
+                  {!emailSmtpStatus?.smtp_configured ? 'SMTP not configured' : !emailSmtpStatus?.recipient ? 'No recipient set' : !settings.email_notifications_enabled ? 'Disabled' : 'Configured'}
+                </span>
+              )}
+            </div>
+            {channelExpanded === 'email' && (
+              <div className="integration-body">
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
+                  Send notifications via email when the app isn't open. Requires SMTP configuration via environment variables.
+                </div>
+                <label className="notif-check" style={{ marginBottom: 8 }}>
+                  <input type="checkbox" checked={!!settings.email_notifications_enabled} onChange={e => update('email_notifications_enabled', e.target.checked)} />
+                  <span>Enable Email</span>
+                </label>
+                {settings.email_notifications_enabled && (
+                  <>
+                    {emailSmtpStatus && !emailSmtpStatus.smtp_configured && (
+                      <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 8 }}>
+                        SMTP not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS env vars.
+                      </div>
+                    )}
+                    <div className="settings-label" style={{ marginTop: 8 }}>Recipient address</div>
+                    {emailSmtpStatus?.recipient_source === 'env' ? (
+                      <>
+                        <div className="settings-input" style={{ width: '100%', boxSizing: 'border-box', opacity: 0.7, cursor: 'not-allowed' }}>{emailSmtpStatus.recipient}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>Set via NOTIFICATION_EMAIL env var.</div>
+                      </>
+                    ) : (
+                      <input className="add-input" type="email" placeholder="you@example.com" value={settings.email_address || ''} onChange={e => update('email_address', e.target.value)} style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }} />
+                    )}
+                    <div className="settings-label" style={{ marginTop: 12 }}>Sender (optional override)</div>
+                    <input className="add-input" type="text" placeholder="Boomerang Digest" value={settings.email_from_name || ''} onChange={e => update('email_from_name', e.target.value)} style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, marginBottom: 6 }} />
+                    <input className="add-input" type="email" placeholder="digest@yourdomain.com" value={settings.email_from_address || ''} onChange={e => update('email_from_address', e.target.value)} style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }} />
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                      For digest emails to land in your inbox (not spam), use an address from a domain you control with SPF and DKIM configured.
+                    </div>
+                    <label className="notif-check" style={{ marginTop: 12 }}>
+                      <input type="checkbox" checked={!!settings.email_batch_mode} onChange={e => update('email_batch_mode', e.target.checked)} />
+                      <span>Batch mode (single hourly digest instead of per-event)</span>
+                    </label>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* === Morning Digest (collapsible) === */}
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <div
+              className={`integration-row${digestExpanded ? ' expanded' : ''}`}
+              onClick={() => setDigestExpanded(v => !v)}
+            >
+              <span className={`backlog-arrow${digestExpanded ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className="integration-row-name">Morning Digest</span>
+              {!digestExpanded && (
+                <span className="integration-row-summary">
+                  {settings.email_digest_enabled || settings.push_digest_enabled || settings.pushover_digest_enabled ? `Daily at ${settings.digest_time || '07:00'}` : 'Off'}
+                </span>
+              )}
+            </div>
+            {digestExpanded && (
+              <div className="integration-body">
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
+                  Curated daily summary — yesterday recap + streak, today's focus, coming up, what you're carrying, quick wins. Tappable links into the app.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Style:</span>
+                  <select value={settings.digest_style || 'curated'} onChange={e => update('digest_style', e.target.value)} style={{ fontSize: 13, padding: '4px 8px' }}>
+                    <option value="curated">Curated (recommended)</option>
+                    <option value="counts">Counts only (legacy)</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Time:</span>
+                  <input type="time" className="settings-input" value={settings.digest_time || '07:00'} onChange={e => update('digest_time', e.target.value)} style={{ width: 120, fontSize: 13 }} />
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                    {settings.user_timezone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'server local')}
+                  </span>
+                </div>
+                <label className="notif-check" style={{ marginBottom: 4 }}>
+                  <input type="checkbox" checked={!!settings.email_digest_enabled} onChange={e => update('email_digest_enabled', e.target.checked)} />
+                  <span>Send via Email</span>
+                </label>
+                <label className="notif-check" style={{ marginBottom: 4 }}>
+                  <input type="checkbox" checked={!!settings.push_digest_enabled} onChange={e => update('push_digest_enabled', e.target.checked)} />
+                  <span>Send via Web Push</span>
+                </label>
+                <label className="notif-check" style={{ marginBottom: 4 }}>
+                  <input type="checkbox" checked={!!settings.pushover_digest_enabled} onChange={e => update('pushover_digest_enabled', e.target.checked)} />
+                  <span>Send via Pushover</span>
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* === Notification history (collapsible) === */}
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
             <div
               className={`integration-row${historyExpanded ? ' expanded' : ''}`}
