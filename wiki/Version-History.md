@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 Integrations status panel (PR8e of 8) [M]
+  - **Why.** Last placeholder Settings tab. Full OAuth flows for Notion / Trello / GCal / Gmail / Pushover each have 4–8 UI states (consent prompt, callback, picker, scope error, env-var override, disconnect confirm) — duplicating that for v2 isn't worth the maintenance burden when the resulting tokens are already shared between v1 and v2 anyway. PR8e ships a status-summary panel that covers the 80%: see what's connected, set simple key-only integrations inline, click through to v1 for OAuth-heavy flows.
+  - **`IntegrationsPanel`** in SettingsModal. Status row per integration: green-glow dot (connected) or muted dot (unconfigured) + name + email/account sub-line where applicable + brief capability hint + Manage/Connect-in-v1 button. Seven entries: Anthropic, Notion, Trello, Google Calendar, Gmail, 17track, Pushover.
+  - **Inline credential entry for key-only integrations.** Anthropic + 17track expose a password input field directly. Both check `getKeyStatus()` for env-var override; when the env var is present, the field is replaced with a "Provided via env var, configure server-side" notice (read-only).
+  - **Connection-status fetch.** Mounts hit `getKeyStatus()` + `notionStatus()` + `trelloStatus()` + `gcalStatus()` + `gmailStatus()` + `pushoverStatus()` in parallel via dynamic imports (matches v1 lazy pattern; failures silent so dots fall back to grey). Pushover uses `configured` flag; others use `connected`.
+  - **OAuth deferral copy.** Bottom of the tab explains why OAuth flows live in v1 + reassures users that tokens are shared so connecting once benefits both interfaces.
+  - **PLACEHOLDER_TABS now empty.** All 8 Settings tabs have v2 implementations as of this commit. Beta tab still shows the v1↔v2 toggle.
+  - **Verification.** `npm run build` clean (840KB precache), `npm run lint` clean, `npm test` smoke test passes. Manual: Settings → Integrations → see all seven rows with status dots. Connected ones glow green; unconfigured ones are grey. Anthropic + 17track accept inline keys (with env-var override note when relevant). Connect/Manage buttons flip back to v1 for the OAuth cases.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `CLAUDE.md`
+
 - feat(ui): v2 Notifications tab (PR8d of 8) [M]
   - **Why.** Second-to-last placeholder Settings tab. The full v1 Notifications tab is 600+ lines (test buttons, digest config, adaptive throttling, Pushover priority routing, weather notifications, deliverability overrides). v2 ports the most-touched controls and points at v1 for everything else.
   - **`NotificationsPanel`** in SettingsModal. Three sections: **Channels** (master toggles for web push / email / Pushover with hint copy), **Notification types** (compact per-type × per-channel matrix table with freq input — Overdue / Stale / Nudges / Size-based / Pile-up + Package delivered / Package exception across Push / Email / Pushover, individual toggles disabled when their channel master is off), **High-priority escalation** (master toggle + 3-stage frequency inputs), **Quiet hours** (master toggle + start/end time inputs + bypass-label override).

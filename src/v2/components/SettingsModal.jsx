@@ -171,13 +171,11 @@ const STORAGE_KEY = 'ui_version'
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs', 'Beta']
 
-// Tabs whose v2 port is heavier than what fits in this batch — they fall
-// through to a placeholder pointing at v1 Settings.
-const PLACEHOLDER_TABS = new Set(['Integrations'])
-
-const PLACEHOLDER_BODY = {
-  Integrations: 'Trello, Notion, Google Calendar, Gmail, 17track, Pushover. Many OAuth flows — ports in a later release.',
-}
+// All Settings tabs now have v2 implementations. Integrations is a
+// status-summary panel — full OAuth flows still live in v1 because each
+// flow has 6+ states and isn't worth duplicating.
+const PLACEHOLDER_TABS = new Set()
+const PLACEHOLDER_BODY = {}
 
 // Notification types (excluding high priority which has its own escalation
 // section) + their channel-specific setting key suffixes. Same scheme v1
@@ -194,6 +192,153 @@ const NOTIF_PACKAGE_TYPES = [
   { key: 'package_delivered', label: 'Package delivered' },
   { key: 'package_exception', label: 'Package exception' },
 ]
+
+// Integrations panel — status summary + "Configure in v1" CTAs for the
+// OAuth-heavy ones. Inline credential entry for simple key-only integrations
+// (Anthropic, 17track) since those are one-field forms.
+function IntegrationsPanel({ settings, update, switchToV1 }) {
+  const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
+  const [statuses, setStatuses] = useState({})
+
+  // Load env-key flags + each integration's connection status on mount.
+  // Failures are silent — a missing status just leaves the dot grey.
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      import('../../api').then(m => m.getKeyStatus()).catch(() => ({})),
+      import('../../api').then(m => m.notionStatus()).catch(() => null),
+      import('../../api').then(m => m.trelloStatus()).catch(() => null),
+      import('../../api').then(m => m.gcalStatus()).catch(() => null),
+      import('../../api').then(m => m.gmailStatus()).catch(() => null),
+      import('../../api').then(m => m.pushoverStatus()).catch(() => null),
+    ]).then(([keys, notion, trello, gcal, gmail, pushover]) => {
+      if (cancelled) return
+      setEnvKeys(keys || {})
+      setStatuses({ notion, trello, gcal, gmail, pushover })
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const integrations = [
+    {
+      key: 'anthropic',
+      label: 'Anthropic (Claude)',
+      hint: 'Powers AI inference, Quokka, polish, what-now suggestions, notification rewrites.',
+      connected: envKeys.anthropic || !!settings.anthropic_api_key,
+      v1Section: 'Integrations → Anthropic',
+      inline: 'api-key',
+      keyName: 'anthropic_api_key',
+      envFlag: envKeys.anthropic,
+    },
+    {
+      key: 'notion',
+      label: 'Notion',
+      hint: 'Pull pages as tasks, sync edits both ways. MCP-based connection (recommended).',
+      connected: !!statuses.notion?.connected,
+      v1Section: 'Integrations → Notion',
+    },
+    {
+      key: 'trello',
+      label: 'Trello',
+      hint: 'Push tasks to Trello with checklists + attachments. Bidirectional status sync.',
+      connected: !!statuses.trello?.connected,
+      v1Section: 'Integrations → Trello',
+    },
+    {
+      key: 'gcal',
+      label: 'Google Calendar',
+      hint: 'Schedule tasks as events, AI-inferred times, optional pull-from-calendar.',
+      connected: !!statuses.gcal?.connected,
+      sub: statuses.gcal?.email,
+      v1Section: 'Integrations → Google Calendar',
+    },
+    {
+      key: 'gmail',
+      label: 'Gmail',
+      hint: 'AI-extracted tasks + tracking numbers from your inbox. Manual approval per item.',
+      connected: !!statuses.gmail?.connected,
+      sub: statuses.gmail?.email,
+      v1Section: 'Integrations → Gmail',
+    },
+    {
+      key: 'tracking',
+      label: '17track (packages)',
+      hint: 'Server-side polling for delivery status across most major carriers.',
+      connected: envKeys.tracking || !!settings.tracking_api_key,
+      v1Section: 'Integrations → Package Tracking',
+      inline: 'api-key',
+      keyName: 'tracking_api_key',
+      envFlag: envKeys.tracking,
+    },
+    {
+      key: 'pushover',
+      label: 'Pushover',
+      hint: 'iOS-friendly transport that bypasses Safari throttling. One-time $5 app required.',
+      connected: !!statuses.pushover?.configured,
+      v1Section: 'Integrations → Pushover',
+    },
+  ]
+
+  return (
+    <div className="v2-settings-form">
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Status</div>
+        <div className="v2-settings-row-hint">
+          OAuth-heavy integrations (Notion, Trello, GCal, Gmail, Pushover) are configured in v1
+          to avoid duplicating multi-step consent flows. Simple key-only integrations
+          (Anthropic, 17track) can be set inline below.
+        </div>
+        <ul className="v2-integrations-list">
+          {integrations.map(int => (
+            <li key={int.key} className="v2-integrations-row">
+              <span className={`v2-integrations-dot v2-integrations-dot-${int.connected ? 'connected' : 'unconfigured'}`} />
+              <div className="v2-integrations-meta">
+                <div className="v2-integrations-name">{int.label}</div>
+                {int.sub && <div className="v2-integrations-sub">{int.sub}</div>}
+                <div className="v2-integrations-hint">{int.hint}</div>
+                {int.inline === 'api-key' && (
+                  <div className="v2-integrations-inline">
+                    {int.envFlag ? (
+                      <div className="v2-integrations-env">
+                        Provided via env var. Configure server-side; this field is read-only.
+                      </div>
+                    ) : (
+                      <input
+                        type="password"
+                        className="v2-form-input"
+                        placeholder="API key…"
+                        value={settings[int.keyName] || ''}
+                        onChange={e => update(int.keyName, e.target.value)}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                className="v2-settings-btn"
+                onClick={switchToV1}
+                title={`Open ${int.v1Section} in v1`}
+              >
+                {int.connected ? 'Manage in v1' : 'Connect in v1'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Why v1 for OAuth?</div>
+        <div className="v2-settings-row-hint">
+          OAuth flows for Notion / Trello / Google Calendar / Gmail / Pushover each have 4–8 UI
+          states (consent prompt, callback handling, calendar picker, scope error, env-var
+          override, disconnect with confirmation). v2 will absorb them in a future release;
+          for now, v1 → Settings → Integrations does the work, and the resulting tokens are
+          shared between v1 and v2 — connect once, both interfaces benefit.
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function NotificationsPanel({ settings, update }) {
   // Channel master toggles. Pushover gates additionally on credentials being
@@ -822,6 +967,10 @@ export default function SettingsModal({
 
         {activeTab === 'Notifications' && (
           <NotificationsPanel settings={settings} update={update} />
+        )}
+
+        {activeTab === 'Integrations' && (
+          <IntegrationsPanel settings={settings} update={update} switchToV1={switchToV1} />
         )}
 
         {activeTab === 'Logs' && <ServerLogsPanel />}
