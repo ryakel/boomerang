@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 SettingsModal + More menu (PR5a of 8) [M]
+  - **Why.** User-prioritized: without v2 Settings, the only way to flip back to v1 from inside v2 was the URL hatch (`?ui=v1`). PR5a ships the Settings shell + a fully functional Beta tab so the v2/v1 toggle lives where it belongs. Other Settings tabs port progressively (PR5b/f).
+  - **`src/v2/components/SettingsModal.jsx` + `.css`.** v2 Settings on `ModalShell` (wide variant). Pill-style tab bar with the same tab list as v1: General, AI, Labels, Integrations, Notifications, Data, Logs, Beta. Active tab gets the inverted (text-on-bg) treatment so it's unmistakable. **Beta tab is fully functional**: large heading + body explaining the v2 state, an iOS-style toggle that flips back to v1 on uncheck and reloads, the static `__APP_VERSION__` build identifier in monospace, and a "What's coming" roadmap list. **Other tabs render an EmptyState** with the tab name, a one-liner description of what'll port there, and a "Open v1" CTA that flips back so the user can configure those for now.
+  - **`src/v2/AppV2.jsx`.** Imports `SettingsModal` + lucide icons for the More menu items. New state: `showMenu`, `showSettings`. The Header `⋯` button now opens a real **More menu sheet** (using `ModalShell`) listing four items in hairline-list style: Settings (functional, opens SettingsModal), Projects (placeholder), Analytics (placeholder), Activity log (placeholder). Each non-functional row carries a small "soon" tag pill; Settings has a chevron indicating it actually goes somewhere. Removed the old `menu` placeholder copy.
+  - **PLACEHOLDER_COPY refresh.** `menu` removed (it's now a real menu). New entries for `projects`, `analytics`, `activityLog` so each placeholder modal can call out which PR will deliver it.
+  - **CSS.** New `.v2-more-menu` / `.v2-more-row` / `.v2-more-row-tag` rules in `AppV2.css` for the hairline-list menu rows. Tab styling, beta-tab block layout, and an iOS-style toggle live in `SettingsModal.css`.
+  - **Verification.** `npm run build` clean, `npm test` smoke test passes. Manual: tap `⋯` → More menu sheet → tap Settings → SettingsModal opens on the Beta tab → toggle flips to v1 cleanly. Other tabs show their EmptyState with v1 fallback CTA.
+  - New: `src/v2/components/SettingsModal.{jsx,css}`
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/AppV2.css`
+
 - feat(ui): v2 ReframeModal + WhatNowModal + Header What now? button (PR4d of 8) [M]
   - **Why.** Final PR in modals batch 1. ReframeModal closes the loop on the snooze→reframe escalation pattern (without it, v2 just kept piling up snooze counts forever). WhatNowModal brings Boomerang's signature "what should I do right now?" feature to v2.
   - **`src/v2/components/ReframeModal.jsx` + `.css`.** Built on `ModalShell`. Subtitle calls out the snooze count + task title. Single textarea for "what's blocking you?" → calls shared `reframeTask()` API → renders the AI-suggested replacement tasks as a clean hairline list with `→` accent bullets. "Looks good" button calls `replaceTask` to swap the original out for the reframed set.

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ListChecks } from 'lucide-react'
+import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import EmptyState from './components/EmptyState'
@@ -10,6 +10,7 @@ import AddTaskModal from './components/AddTaskModal'
 import EditTaskModal from './components/EditTaskModal'
 import ReframeModal from './components/ReframeModal'
 import WhatNowModal from './components/WhatNowModal'
+import SettingsModal from './components/SettingsModal'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -23,9 +24,8 @@ import './AppV2.css'
 
 const STORAGE_KEY = 'ui_version'
 
-// Header-icon and unported-modal placeholder copy. Each entry is a v2
-// surface that hasn't shipped yet; tapping the icon opens a ModalShell
-// that explains what's coming and lets the user flip back to v1.
+// Header-icon placeholder copy for v2 surfaces that haven't shipped yet.
+// Tapping the icon opens a ModalShell EmptyState pointing back to v1.
 const PLACEHOLDER_COPY = {
   adviser: {
     title: 'Quokka',
@@ -35,9 +35,17 @@ const PLACEHOLDER_COPY = {
     title: 'Packages',
     body: 'Package tracking ports to v2 in a later release. v1 still works — flip back to use it.',
   },
-  menu: {
-    title: 'More',
-    body: 'Settings, Projects, Analytics, and Activity Log will land here as v2 surfaces ship. The Beta toggle lives in v1 → Settings → Beta for now.',
+  projects: {
+    title: 'Projects',
+    body: 'Long-term-task workspace ports to v2 in a later release. Use v1 for now.',
+  },
+  analytics: {
+    title: 'Analytics',
+    body: 'Charts, heatmap, and the Balance radar all port together in PR5e. Use v1 for now.',
+  },
+  activityLog: {
+    title: 'Activity log',
+    body: 'Sync history + restore-snapshot UI ports to v2 in a later release. Use v1 for now.',
   },
 }
 
@@ -48,6 +56,8 @@ export default function AppV2() {
   const [editTarget, setEditTarget] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [showWhatNow, setShowWhatNow] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
   // Mark the document so v2-namespaced tokens activate.
@@ -205,7 +215,7 @@ export default function AppV2() {
         onOpenAdd={() => setShowAdd(true)}
         onOpenAdviser={() => setOpenModal('adviser')}
         onOpenPackages={() => setOpenModal('packages')}
-        onOpenMenu={() => setOpenModal('menu')}
+        onOpenMenu={() => setShowMenu(true)}
       />
       <main className="v2-main">
         {totalActive === 0 && sortedSnoozed.length === 0 ? (
@@ -282,6 +292,43 @@ export default function AppV2() {
         onClose={() => setShowWhatNow(false)}
         onComplete={handleComplete}
       />
+
+      {/* More-menu sheet — Settings is functional; the rest open placeholder
+          modals until they port in PR5c–PR5f. */}
+      <ModalShell open={showMenu} onClose={() => setShowMenu(false)} title="More" width="narrow">
+        <ul className="v2-more-menu">
+          <li>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowSettings(true) }}>
+              <SettingsIcon size={18} strokeWidth={1.75} />
+              <span className="v2-more-row-label">Settings</span>
+              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
+            </button>
+          </li>
+          <li>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setOpenModal('projects') }}>
+              <FolderKanban size={18} strokeWidth={1.75} />
+              <span className="v2-more-row-label">Projects</span>
+              <span className="v2-more-row-tag">soon</span>
+            </button>
+          </li>
+          <li>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setOpenModal('analytics') }}>
+              <BarChart3 size={18} strokeWidth={1.75} />
+              <span className="v2-more-row-label">Analytics</span>
+              <span className="v2-more-row-tag">soon</span>
+            </button>
+          </li>
+          <li>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setOpenModal('activityLog') }}>
+              <History size={18} strokeWidth={1.75} />
+              <span className="v2-more-row-label">Activity log</span>
+              <span className="v2-more-row-tag">soon</span>
+            </button>
+          </li>
+        </ul>
+      </ModalShell>
+
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   )
 }
