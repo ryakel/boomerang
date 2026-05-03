@@ -726,21 +726,23 @@ Boomerang ships with two UIs that share the same underlying app (server, hooks, 
 **Build order** (per the plan in `/root/.claude/plans/ui-redesign-ideas-i-iridescent-wren.md`):
 1. ✅ Tokens + opt-in plumbing (PR1)
 2. ✅ Shell + Header + ModalShell + EmptyState (PR2)
-3. TaskCard + section labels
+3. ✅ TaskCard + section labels (PR3)
 4. Modals batch 1: AddTaskModal, EditTaskModal, SnoozeModal, ReframeModal, WhatNowModal
 5. Modals batch 2: Settings, Routines, Projects, Packages, Adviser, Analytics, ActivityLog, DoneList. Analytics gets the Balance radar (tag/energy spokes) here.
 6. KanbanBoard (desktop)
 7. Toast + motion sweep
 8. Polish + dark mode parity
 
-Each PR is independently mergeable. v2 currently renders the calm header + welcome empty state; tapping any header icon (Quokka / Packages / ⋯) opens a placeholder ModalShell with EmptyState that points users back to v1 for that surface. The actual surfaces port in subsequent PRs.
+Each PR is independently mergeable. v2 currently renders the calm header + a real task list (Doing / Stale / Up next / Waiting / Snoozed) wired to the shared `useTasks` / `useRoutines` / `useNotifications` / `useServerSync` / `useExternalSync` / `useSizeAutoInfer` hooks. Tap-to-expand works; Done completes (via shared `completeTask`); Snooze + Edit + every header icon open ModalShell placeholders that point users back to v1 for that surface. Routine-completion logging, Trello status push, search, sort, tag filters, backlog, projects, swipe gestures, weather badges, packages, drag-and-drop, and the inbound syncs port in PRs 4–8.
 
 **Reusable v2 primitives** (in `src/v2/components/`):
 - `ModalShell` — sheet/panel wrapper. Props: `open`, `onClose`, `title`, `subtitle?`, `width: 'narrow' | 'wide'`, `children`. Circular-pill X top-right, hairline below title, body padding 24px.
 - `EmptyState` — calm empty/placeholder. Props: `icon` (lucide component), `title`, `body?`, `cta?`, `ctaOnClick?`. Soft circular icon backdrop, ghost CTA.
 - `Header` — calm 4-affordance header. Props: `onOpenAdviser`, `onOpenPackages`, `onOpenMenu`. Logo + wordmark left, three icon buttons right.
+- `SectionLabel` — `--type-section` ALL-CAPS label with sparkle bullet + optional count chip.
+- `TaskCard` — v2 list card. Status economy: only overdue + high-pri get a colored left border; stale → inline meta; low-pri → opacity 0.78. Energy as a single chip (lucide icon + N small Zap glyphs in the type color).
 
-These three primitives are the v2 modal language. Every subsequent v2 surface uses them — never reach for a one-off chrome.
+These five primitives are the v2 task-surface language. Every subsequent v2 surface uses them — never reach for a one-off chrome.
 
 **Branch model.** v2 work lands on the `dev` branch (auto-builds `:dev` Docker image via `.github/workflows/build-and-publish-dev.yml`, deploys to `boomerang-dev` container on port 3002 via `docker-compose.dev.yml`). Once v2 stabilizes, dev gets merged into main.
 
