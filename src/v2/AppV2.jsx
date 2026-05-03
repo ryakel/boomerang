@@ -8,6 +8,8 @@ import TaskCard from './components/TaskCard'
 import SnoozeModal from './components/SnoozeModal'
 import AddTaskModal from './components/AddTaskModal'
 import EditTaskModal from './components/EditTaskModal'
+import ReframeModal from './components/ReframeModal'
+import WhatNowModal from './components/WhatNowModal'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -16,7 +18,7 @@ import { useExternalSync } from '../hooks/useExternalSync'
 import { useSizeAutoInfer } from '../hooks/useSizeAutoInfer'
 import { useToastPrefetch } from '../hooks/useToastPrefetch'
 import { inferSize } from '../api'
-import { saveSettings, saveLabels, sortTasks } from '../store'
+import { loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
 import './AppV2.css'
 
 const STORAGE_KEY = 'ui_version'
@@ -42,8 +44,10 @@ const PLACEHOLDER_COPY = {
 export default function AppV2() {
   const [openModal, setOpenModal] = useState(null)
   const [snoozeTarget, setSnoozeTarget] = useState(null)
+  const [reframeTarget, setReframeTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [showWhatNow, setShowWhatNow] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
   // Mark the document so v2-namespaced tokens activate.
@@ -54,7 +58,7 @@ export default function AppV2() {
 
   // Shared task + routine state — same hooks v1 uses, no fork.
   const {
-    tasks, addTask, addSpawnedTasks, completeTask, snoozeTask, updateTask,
+    tasks, addTask, addSpawnedTasks, completeTask, snoozeTask, replaceTask, updateTask,
     changeStatus, deleteTask,
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
   } = useTasks()
@@ -122,7 +126,18 @@ export default function AppV2() {
   }, [completeTask])
 
   const handleEdit = useCallback((task) => setEditTarget(task), [])
-  const handleSnooze = useCallback((task) => setSnoozeTarget(task), [])
+
+  // Snooze with reframe-threshold check: if a task's been snoozed enough
+  // times (configurable via reframe_threshold), open the Reframe modal
+  // instead of Snooze. Mirrors v1 App.jsx logic.
+  const handleSnooze = useCallback((task) => {
+    const settings = loadSettings()
+    if (task.snooze_count >= settings.reframe_threshold) {
+      setReframeTarget(task)
+    } else {
+      setSnoozeTarget(task)
+    }
+  }, [])
 
   const handleStatusChange = useCallback((id, newStatus) => {
     if (newStatus === 'done') { handleComplete(id); return }
@@ -186,6 +201,7 @@ export default function AppV2() {
   return (
     <div className="v2-app">
       <Header
+        onOpenWhatNow={() => setShowWhatNow(true)}
         onOpenAdd={() => setShowAdd(true)}
         onOpenAdviser={() => setOpenModal('adviser')}
         onOpenPackages={() => setOpenModal('packages')}
@@ -251,6 +267,21 @@ export default function AppV2() {
           onConvertToRoutine={handleConvertToRoutine}
         />
       )}
+
+      {reframeTarget && (
+        <ReframeModal
+          task={reframeTarget}
+          onReframe={replaceTask}
+          onClose={() => setReframeTarget(null)}
+        />
+      )}
+
+      <WhatNowModal
+        open={showWhatNow}
+        tasks={tasks}
+        onClose={() => setShowWhatNow(false)}
+        onComplete={handleComplete}
+      />
     </div>
   )
 }

@@ -62,6 +62,36 @@
   filter: brightness(1.08);
 }
 
+.v2-header-whatnow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  margin-right: 4px;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-accent);
+  color: #fff;
+  border: none;
+  font: 600 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: filter var(--v2-dur-quick) var(--v2-ease-standard),
+              transform var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-header-whatnow:hover { filter: brightness(1.08); }
+.v2-header-whatnow:active { transform: scale(0.97); }
+
+/* Hide the label on narrow screens — icon alone still reads. */
+@media (max-width: 480px) {
+  .v2-header-whatnow {
+    padding: 0 10px;
+  }
+  .v2-header-whatnow-label {
+    display: none;
+  }
+}
+
 @media (min-width: 601px) {
   .v2-header {
     padding: 16px 24px;
