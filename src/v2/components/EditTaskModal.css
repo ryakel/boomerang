@@ -4,14 +4,18 @@
   flex: 1 1 auto;
 }
 
+/* Done is a one-shot action button (transition the task to done), NOT a
+ * status the task can currently be in. Keep it visually neutral at rest so
+ * it doesn't compete with the inverted-active "selected" status — the leading
+ * ✓ glyph already reads as an action. Accent only on hover. */
 .v2-edit-status-done {
-  color: var(--v2-accent);
-  border-color: var(--v2-accent);
+  color: var(--v2-text-meta);
 }
 
 .v2-edit-status-done:hover {
   background: var(--v2-accent);
   color: #fff;
+  border-color: var(--v2-accent);
 }
 
 .v2-edit-routine-toggle {

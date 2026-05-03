@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import EmptyState from './components/EmptyState'
@@ -14,6 +14,7 @@ import SettingsModal from './components/SettingsModal'
 import ProjectsView from './components/ProjectsView'
 import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
+import RoutinesModal from './components/RoutinesModal'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -56,6 +57,8 @@ export default function AppV2() {
   const [showProjects, setShowProjects] = useState(false)
   const [showDone, setShowDone] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
+  const [showRoutines, setShowRoutines] = useState(false)
+  const [editRoutineId, setEditRoutineId] = useState(null)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
   // Mark the document so v2-namespaced tokens activate.
@@ -71,7 +74,8 @@ export default function AppV2() {
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
   } = useTasks()
   const {
-    routines, addRoutine, spawnDueTasks, hydrateRoutines,
+    routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
+    spawnDueTasks, spawnNow, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -321,6 +325,13 @@ export default function AppV2() {
             </button>
           </li>
           <li>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowRoutines(true) }}>
+              <RotateCw size={18} strokeWidth={1.75} />
+              <span className="v2-more-row-label">Routines</span>
+              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
+            </button>
+          </li>
+          <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowDone(true) }}>
               <CheckCircle2 size={18} strokeWidth={1.75} />
               <span className="v2-more-row-label">Done</span>
@@ -362,6 +373,21 @@ export default function AppV2() {
         open={showActivityLog}
         onClose={() => setShowActivityLog(false)}
         onRestore={handleRestore}
+      />
+      <RoutinesModal
+        open={showRoutines}
+        routines={routines}
+        onAdd={addRoutine}
+        onDelete={deleteRoutine}
+        onTogglePause={togglePause}
+        onUpdate={updateRoutine}
+        onSpawnNow={(routineId) => {
+          const task = spawnNow(routineId)
+          if (task) addSpawnedTasks([task])
+        }}
+        onClose={() => { setShowRoutines(false); setEditRoutineId(null) }}
+        editRoutineId={editRoutineId}
+        onClearEditRoutineId={() => setEditRoutineId(null)}
       />
     </div>
   )

@@ -122,6 +122,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           <button
             className="v2-form-seg v2-edit-status-done"
             onClick={() => handleStatusChange('done')}
+            title="Mark complete"
           >
             ✓ Done
           </button>

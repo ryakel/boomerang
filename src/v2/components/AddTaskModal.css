@@ -35,14 +35,18 @@
   margin-top: 18px;
 }
 
+/* Two-column row used for date+priority etc. CSS Grid (over flex) so each
+ * column gets exactly half the available width regardless of intrinsic
+ * content widths — Safari/iOS renders empty <input type="date"> at a
+ * collapsed intrinsic width which broke the flex layout. */
 .v2-form-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 18px;
 }
 
 .v2-form-field {
-  flex: 1;
   min-width: 0;
 }
 
@@ -101,7 +105,8 @@
 
 .v2-form-pri-toggle {
   width: 100%;
-  height: 42px;
+  /* Match the natural height of v2-form-input so the date+priority row aligns. */
+  height: 44px;
   border-radius: 10px;
   background: var(--v2-bg);
   color: var(--v2-text);
