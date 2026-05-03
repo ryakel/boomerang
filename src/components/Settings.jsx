@@ -2884,6 +2884,13 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
           <div className="settings-hint" style={{ marginTop: 12 }}>
             URL escape hatch: <code>?ui=v2</code> or <code>?ui=v1</code> sets the flag and reloads.
           </div>
+          {/* Static build identifier — the header version label flickers to */}
+          {/* "Saving..." / "Saved" during autosave, so it's unreliable for */}
+          {/* confirming which dev build is running. This one stays put. */}
+          <div className="settings-label" style={{ marginTop: 24, marginBottom: 4 }}>Build</div>
+          <div className="settings-hint" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, color: 'var(--text)' }}>
+            {__APP_VERSION__}
+          </div>
         </div>
       )}
     </>

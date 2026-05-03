@@ -5,6 +5,7 @@ import ModalShell from './components/ModalShell'
 import EmptyState from './components/EmptyState'
 import SectionLabel from './components/SectionLabel'
 import TaskCard from './components/TaskCard'
+import SnoozeModal from './components/SnoozeModal'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -36,14 +37,11 @@ const PLACEHOLDER_COPY = {
     title: 'Edit task',
     body: 'The v2 EditTaskModal lands in the next release. Use v1 to edit details for now.',
   },
-  snooze: {
-    title: 'Snooze',
-    body: 'The v2 SnoozeModal lands in the next release. Use v1 to snooze for now.',
-  },
 }
 
 export default function AppV2() {
   const [openModal, setOpenModal] = useState(null)
+  const [snoozeTarget, setSnoozeTarget] = useState(null)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
   // Mark the document so v2-namespaced tokens activate.
@@ -54,7 +52,7 @@ export default function AppV2() {
 
   // Shared task + routine state — same hooks v1 uses, no fork.
   const {
-    tasks, addSpawnedTasks, completeTask, updateTask,
+    tasks, addSpawnedTasks, completeTask, snoozeTask, updateTask,
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
   } = useTasks()
   const {
@@ -120,7 +118,7 @@ export default function AppV2() {
   }, [completeTask])
 
   const handleEdit = useCallback(() => setOpenModal('edit'), [])
-  const handleSnooze = useCallback(() => setOpenModal('snooze'), [])
+  const handleSnooze = useCallback((task) => setSnoozeTarget(task), [])
 
   const placeholderMeta = openModal ? PLACEHOLDER_COPY[openModal] : null
 
@@ -181,6 +179,14 @@ export default function AppV2() {
           ctaOnClick={switchToV1}
         />
       </ModalShell>
+
+      {snoozeTarget && (
+        <SnoozeModal
+          task={snoozeTarget}
+          onSnooze={snoozeTask}
+          onClose={() => setSnoozeTarget(null)}
+        />
+      )}
     </div>
   )
 }

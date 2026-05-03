@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 SnoozeModal + Beta-tab build number (PR4a of 8) [S]
+  - **Why.** First of four mini-PRs that port v1's task-flow modals to v2 (PR4 in the build plan). Snooze is the smallest and was already broken in v2 (the TaskCard Snooze button opened a placeholder pointing back to v1). Bundling a small DX fix while we're touching Settings.
+  - **`src/v2/components/SnoozeModal.jsx` + `.css`.** v2 SnoozeModal built on `ModalShell` + the hairline-list aesthetic. Reuses the shared `getSnoozeOptions()` / `getSnoozeOptionsShort()` from `store.js` and the same due-date filtering logic v1 has. Each option is a hairline-divided row with a left-aligned primary label + right-aligned meta (e.g. "Tomorrow · Tue, Apr 16 9 AM"). "Pick a date…" toggles to a custom date+time picker with an accent-pill confirm button. Mobile bottom-sheet, desktop centered panel — both inherit the ModalShell circular-pill close.
+  - **AppV2 wiring.** New `snoozeTarget` state holds the task being snoozed. `TaskCard.onSnooze` now passes the full task; AppV2 routes it to the real `SnoozeModal` instead of the "coming soon" placeholder. Uses the shared `useTasks().snoozeTask` so v1 and v2 see the same result via SSE.
+  - **Beta tab: static build identifier.** User flagged that the autosave indicator at the top of Settings keeps replacing the version label, making it hard to confirm which dev build is running. Added a "Build" line to the Beta tab — monospace, text-color, never overwritten by autosave state. Reads `__APP_VERSION__` (Vite-defined; on dev builds it's `dev-<sha>` from `build-and-publish-dev.yml`).
+  - **What still uses placeholders in v2.** Edit, header icons (Quokka / Packages / More) — they still open ModalShell + EmptyState pointing back to v1.
+  - **Verification.** `npm run build` clean, `npm test` smoke test passes. Manual: tap Snooze on a v2 card → real modal opens with options + custom picker → choose option → task moves to Snoozed section. Open Settings → Beta in either v1 or v2 (when Settings ports) → "Build" line shows the running build.
+  - New: `src/v2/components/SnoozeModal.{jsx,css}`
+  - Modified: `src/v2/AppV2.jsx`, `src/components/Settings.jsx` (Beta tab)
+
 - feat(ui): v2 task list — TaskCard + section labels (PR3 of 8) [M]
   - **Why.** Third piece of the v2 maturity refresh. Brings the calm typography + status-color economy to the most-seen surface (the task list) and wires v2 against the real data hooks so it's no longer a placeholder shell.
   - **`src/v2/components/SectionLabel.jsx` + `.css`.** Tiny presentational component for "Doing / Stale / Up next / Waiting / Snoozed" headers. `--type-section` style: 11px DM Sans 600 ALL-CAPS with 0.08em letter-spacing, accent-colored sparkle bullet, optional right-aligned count. Wheneri's HOME / HOME MAINTENANCE pattern, applied to status sections.
