@@ -2239,6 +2239,11 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                   />
                   <span>Enable Pushover</span>
                 </label>
+                {settings.pushover_notifications_enabled && settings.push_notifications_enabled && (
+                  <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 10 }}>
+                    <strong>Heads up — Web Push is also enabled in the Notifications tab.</strong> Running both delivers each alert twice. Disable one to avoid duplicates.
+                  </div>
+                )}
 
                 {settings.pushover_notifications_enabled && (
                   <>
@@ -2699,10 +2704,10 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                   checked={!!settings.push_notifications_enabled}
                   onChange={e => update('push_notifications_enabled', e.target.checked)}
                 />
-                <span>Push notifications (background)</span>
+                <span>Web Push (browser / PWA native)</span>
               </label>
               <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, marginBottom: 8 }}>
-                Receive notifications even when the app is closed.
+                Native notifications via the browser's push service (APNs on iOS, FCM on Android, native on desktop). Works when the app is closed. {settings.pushover_notifications_enabled && settings.pushover_user_key ? <strong style={{ color: '#FF6240' }}>Heads up — you also have Pushover enabled. Running both delivers each alert twice.</strong> : null}
               </div>
 
               {settings.push_notifications_enabled && (
