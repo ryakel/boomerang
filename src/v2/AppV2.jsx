@@ -15,6 +15,7 @@ import ProjectsView from './components/ProjectsView'
 import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
+import PackagesModal from './components/PackagesModal'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -22,6 +23,8 @@ import { useServerSync } from '../hooks/useServerSync'
 import { useExternalSync } from '../hooks/useExternalSync'
 import { useSizeAutoInfer } from '../hooks/useSizeAutoInfer'
 import { useToastPrefetch } from '../hooks/useToastPrefetch'
+import { usePackages } from '../hooks/usePackages'
+import { usePackageNotifications } from '../hooks/usePackageNotifications'
 import { inferSize } from '../api'
 import { loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
 import './AppV2.css'
@@ -34,10 +37,6 @@ const PLACEHOLDER_COPY = {
   adviser: {
     title: 'Quokka',
     body: 'The v2 Quokka adviser lands in a later release. Pop back to v1 to chat with Quokka in the meantime.',
-  },
-  packages: {
-    title: 'Packages',
-    body: 'Package tracking ports to v2 in a later release. v1 still works — flip back to use it.',
   },
   analytics: {
     title: 'Analytics',
@@ -59,6 +58,7 @@ export default function AppV2() {
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showRoutines, setShowRoutines] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
+  const [showPackages, setShowPackages] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
   // Mark the document so v2-namespaced tokens activate.
@@ -79,11 +79,14 @@ export default function AppV2() {
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
-  // notifications, AI inference, external (Trello/Notion) outbound sync.
+  // notifications, AI inference, external (Trello/Notion) outbound sync,
+  // package polling + delivery notifications.
   useNotifications(tasks)
   useExternalSync(tasks, updateTask)
   useSizeAutoInfer(tasks, updateTask)
   const prefetchToast = useToastPrefetch(tasks, updateTask)
+  const { packages, addPackage, removePackage, refresh: refreshPackage, refreshAll: refreshAllPackages } = usePackages()
+  usePackageNotifications(packages)
 
   // Server hydration + cross-client sync. Mirror v1's hydrateFromServer so
   // settings + labels stay in localStorage when other clients update them.
@@ -227,7 +230,7 @@ export default function AppV2() {
         onOpenWhatNow={() => setShowWhatNow(true)}
         onOpenAdd={() => setShowAdd(true)}
         onOpenAdviser={() => setOpenModal('adviser')}
-        onOpenPackages={() => setOpenModal('packages')}
+        onOpenPackages={() => setShowPackages(true)}
         onOpenMenu={() => setShowMenu(true)}
       />
       <main className="v2-main">
@@ -388,6 +391,16 @@ export default function AppV2() {
         onClose={() => { setShowRoutines(false); setEditRoutineId(null) }}
         editRoutineId={editRoutineId}
         onClearEditRoutineId={() => setEditRoutineId(null)}
+      />
+
+      <PackagesModal
+        open={showPackages}
+        packages={packages}
+        onAdd={addPackage}
+        onDelete={removePackage}
+        onRefresh={refreshPackage}
+        onRefreshAll={refreshAllPackages}
+        onClose={() => setShowPackages(false)}
       />
     </div>
   )

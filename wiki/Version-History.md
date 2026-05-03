@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 PackagesModal (PR5d of 8) [M]
+  - **Why.** v2 had a 📦 icon in the header that opened a placeholder. Packages is a primary surface — daily check for ADHD users tracking deliveries — so it earns a real port.
+  - **`src/v2/components/PackagesModal.jsx` + `.css`.** Wide ModalShell. Top toolbar: "Refresh all" + "Track new" (primary accent toggles the add form). Inline add form: tracking number input + label input + live carrier auto-detect chip (uses shared `detectCarrier` from `utils/carrierDetect`) + "Track package" submit. List below: each package as a hairline row with carrier logo + label + monospace tracking number underneath + status pill on the right. Status pill colors mirror v1 (pending/in-transit/out-for-delivery/delivered/exception) but use the v2 muted alert palette so the colors don't shout.
+  - **Inline expand instead of separate detail modal.** v1 has a separate `PackageDetailModal`; v2 collapses it into the row's expand state — tap a row, see ETA / delivered-at / last location, then a vertical timeline of the latest 8 events with accent-glow on the most recent dot, then Refresh + Delete actions (Delete has inline confirm). Skips the separate modal layer entirely.
+  - **Sort.** Out-for-delivery → in transit → exception → pending → delivered, then ETA ascending, then label alphabetical. Same ordering rationale as v1: surface what needs attention first.
+  - **`src/v2/AppV2.jsx`.** Imports `usePackages` + `usePackageNotifications` so background polling and delivery notifications run while v2 is mounted (v1 had this; v2 was previously missing it). Header 📦 icon now opens the real modal (was a placeholder); removed the `packages` PLACEHOLDER_COPY entry.
+  - **What's NOT in v2 PackagesModal yet (port later if needed):** swipe-to-reveal actions on rows, API quota status banner, refresh cooldown timer, sort dropdown, gmail-pending visual treatment. Most of these are PR8 polish — the lean version is fully functional.
+  - **Verification.** `npm run build` clean, `npm test` smoke test passes. Manual: tap 📦 → modal opens → "Track new" → enter tracking number → carrier auto-detected → Track package → row appears with status pill → tap row → events timeline expands → Refresh/Delete work.
+  - New: `src/v2/components/{PackagesModal}.{jsx,css}`
+  - Modified: `src/v2/AppV2.jsx`
+
 - fix(sw): handle offline/redeploy without returning null Response [S]
   - **Bug.** `public/boomerang-sw.js` fetch handler did `fetch(req).catch(() => caches.match('/index.html'))`. The cache was never populated by the install step, so `caches.match` returned `undefined`, which made `respondWith()` reject with `FetchEvent.respondWith received an error: Returned response is null.` Safari surfaced this as "Safari can't open the page" until site data was cleared.
   - **Trigger.** Every push to dev triggers Portainer to redeploy, which briefly disconnects the device. Any navigation request during that window fell through to the broken catch branch. The bug is latent — it pre-dates the v2 work — but the v2 PR cadence is tripping it because deploys are frequent.
