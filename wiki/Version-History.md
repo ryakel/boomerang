@@ -6,6 +6,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 shell — Header + ModalShell + EmptyState (PR2 of 8) [S]
+  - **Why.** Second piece of the v2 maturity refresh (see PR1 commit for context). Establishes the modal language and the calm-at-rest header so users opting into v2 see the design rhythm immediately.
+  - **`src/v2/components/ModalShell.jsx` + `.css`.** Reusable modal wrapper with the Wheneri close affordance: a 36×36 circular pill X in the top-right of every modal (no handle bar — X is sufficient). Mobile: bottom-sheet with rounded top corners. Desktop: centered panel (480px narrow / 720px wide via `width` prop). Title in `--type-h1` (Syne 700 32px) with 40px top padding for breathing room. Hairline below the title, body padding 24px. Escape closes; clicking the overlay closes; body overflow locks while open and restores on close.
+  - **`src/v2/components/EmptyState.jsx` + `.css`.** Reusable empty-state matching the calm tone of v1's ProjectsView. Soft circular icon backdrop (lucide stroke 1.5), `--type-h2` title (Syne 700 22px), muted meta body, optional ghost CTA. Single component used for both the v2 main empty state and the placeholder modal contents.
+  - **`src/v2/components/Header.jsx` + `.css`.** The calm 4-affordance header: logo + wordmark on the left; Quokka ✨, Packages 📦, More ⋯ on the right. No stats bar, no sort/search/sync chrome at rest — that staging lands in a later PR. Sticky to the top of the v2 viewport with a hairline divider.
+  - **`src/v2/AppV2.jsx`.** Replaced the welcome placeholder with the real shell. Header at top, EmptyState body ("Welcome to v2"), ModalShell wired to all three header icons rendering "Coming soon in v2 / Use v1 for this" placeholder content. Pressing any v2 icon now demonstrates the modal close affordance and typography rhythm — the actual surface (Quokka, Packages, etc.) ports in later PRs.
+  - **Reuse.** v2 imports `src/components/Logo.jsx` (just an SVG, no v1-specific styling) and `lucide-react` icons. No other v1 component code is pulled in.
+  - **What does NOT change in this PR.** v1 untouched. The v2 task list, real Quokka, Packages, Settings, Analytics, Routines, Projects, ActivityLog, EditTaskModal/AddTaskModal/SnoozeModal/ReframeModal/WhatNowModal, KanbanBoard, and Toast all remain placeholder/v1-only.
+  - **Verification.** `npm run build` clean, `npm test` smoke test passes, manual smoke: flip Beta toggle → v2 shell renders; tap any header icon → ModalShell opens with EmptyState; X / overlay click / Escape all close; flip back to v1 → unchanged.
+  - New: `src/v2/components/{Header,ModalShell,EmptyState}.{jsx,css}`
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/AppV2.css`
+
 - feat(ui): v2 opt-in shell — design tokens, router, Beta tab toggle [M]
   - **Why.** UI/UX maturity refresh inspired by Wheneri and a green-themed coaching app. The four maturity dimensions in scope: typography + color discipline, card breathing + status economy, modal/affordance consistency, header staging + empty-state tone + motion. Delivered as a v2 shell behind an opt-in toggle so v1 stays exactly as-is and users can flip back any time.
   - **Architecture.** `src/App.jsx` becomes a thin router that reads a `ui_version` flag from localStorage (default `v1`) and renders either `AppV1` (the existing 1042-line component, renamed) or `AppV2` (new placeholder shell). URL escape hatch: `?ui=v2` and `?ui=v1` set the flag and strip themselves from the URL so deep-link params (`?task=X`) don't keep flipping it. `data-ui-version` is mirrored on the documentElement for analytics/debugging. `data-ui="v2"` is set when v2 mounts so namespaced tokens key off it.

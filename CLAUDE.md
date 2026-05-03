@@ -724,8 +724,8 @@ Boomerang ships with two UIs that share the same underlying app (server, hooks, 
 **Visual north stars** (from Wheneri): heavy display titles + generous whitespace, hairline-list aesthetic over stacked-card chrome, single circular-pill X close in the same top-right slot on every modal. v1 stays exactly as-is.
 
 **Build order** (per the plan in `/root/.claude/plans/ui-redesign-ideas-i-iridescent-wren.md`):
-1. ✅ Tokens + opt-in plumbing (this commit)
-2. Shell + Header + EmptyState + ModalShell
+1. ✅ Tokens + opt-in plumbing (PR1)
+2. ✅ Shell + Header + ModalShell + EmptyState (PR2)
 3. TaskCard + section labels
 4. Modals batch 1: AddTaskModal, EditTaskModal, SnoozeModal, ReframeModal, WhatNowModal
 5. Modals batch 2: Settings, Routines, Projects, Packages, Adviser, Analytics, ActivityLog, DoneList. Analytics gets the Balance radar (tag/energy spokes) here.
@@ -733,7 +733,16 @@ Boomerang ships with two UIs that share the same underlying app (server, hooks, 
 7. Toast + motion sweep
 8. Polish + dark mode parity
 
-Each PR is independently mergeable. Surfaces not yet ported in v2 fall through (v2 currently shows only a placeholder welcome page with a Back to v1 button).
+Each PR is independently mergeable. v2 currently renders the calm header + welcome empty state; tapping any header icon (Quokka / Packages / ⋯) opens a placeholder ModalShell with EmptyState that points users back to v1 for that surface. The actual surfaces port in subsequent PRs.
+
+**Reusable v2 primitives** (in `src/v2/components/`):
+- `ModalShell` — sheet/panel wrapper. Props: `open`, `onClose`, `title`, `subtitle?`, `width: 'narrow' | 'wide'`, `children`. Circular-pill X top-right, hairline below title, body padding 24px.
+- `EmptyState` — calm empty/placeholder. Props: `icon` (lucide component), `title`, `body?`, `cta?`, `ctaOnClick?`. Soft circular icon backdrop, ghost CTA.
+- `Header` — calm 4-affordance header. Props: `onOpenAdviser`, `onOpenPackages`, `onOpenMenu`. Logo + wordmark left, three icon buttons right.
+
+These three primitives are the v2 modal language. Every subsequent v2 surface uses them — never reach for a one-off chrome.
+
+**Branch model.** v2 work lands on the `dev` branch (auto-builds `:dev` Docker image via `.github/workflows/build-and-publish-dev.yml`, deploys to `boomerang-dev` container on port 3002 via `docker-compose.dev.yml`). Once v2 stabilizes, dev gets merged into main.
 
 **User opt-in.** Settings → Beta tab → "Use v2 interface" toggle. The Beta tab is reserved for future opt-in experiments too.
 

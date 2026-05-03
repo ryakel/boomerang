@@ -1,0 +1,58 @@
+.v2-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.v2-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.v2-header-wordmark {
+  font: 700 14px/1 var(--v2-font-display);
+  letter-spacing: 0.08em;
+  color: var(--v2-text);
+}
+
+.v2-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.v2-header-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-header-icon:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-header-icon:active {
+  transform: scale(0.96);
+}
+
+@media (min-width: 601px) {
+  .v2-header {
+    padding: 16px 24px;
+  }
+}

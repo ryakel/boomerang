@@ -1,67 +1,29 @@
 @import './tokens.css';
 
-.v2-shell {
+.v2-app {
   position: fixed;
   inset: 0;
   background: var(--v2-bg);
   color: var(--v2-text);
   font-family: var(--v2-font-body);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.v2-main {
+  flex: 1;
   overflow-y: auto;
-}
-
-.v2-welcome {
-  max-width: 460px;
-  text-align: center;
-}
-
-.v2-welcome-icon {
-  font-size: 56px;
-  line-height: 1;
-  margin-bottom: 28px;
-}
-
-.v2-welcome-title {
-  font: 700 36px/1.1 var(--v2-font-display);
-  letter-spacing: -0.015em;
-  margin: 0 0 14px;
-}
-
-.v2-welcome-body {
-  font: 400 15px/1.55 var(--v2-font-body);
-  color: var(--v2-text-meta);
-  margin: 0 0 32px;
-}
-
-.v2-welcome-back {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  height: 44px;
-  padding: 0 24px;
-  border-radius: var(--v2-radius-pill);
-  background: var(--v2-surface);
-  color: var(--v2-text);
-  border: 1px solid var(--v2-hairline);
-  font: 500 14px/1 var(--v2-font-body);
-  cursor: pointer;
-  transition: background var(--v2-dur-standard) var(--v2-ease-standard),
-              transform var(--v2-dur-quick) var(--v2-ease-standard);
 }
 
-.v2-welcome-back:hover {
-  background: var(--v2-bg);
-}
-
-.v2-welcome-back:active {
-  transform: scale(0.98);
-}
-
-.v2-welcome-meta {
-  margin-top: 20px;
-  font: 400 12px/1.4 var(--v2-font-body);
-  color: var(--v2-text-faint);
+/* Inline code in body copy (keyboard hints, URL flags, etc.) */
+:root[data-ui="v2"] code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  padding: 1px 6px;
+  background: rgba(var(--v2-text-rgb), 0.06);
+  border-radius: 4px;
 }
