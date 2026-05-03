@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 AddTaskModal + Header `+ New` button (PR4b of 8) [M]
+  - **Why.** Second of four mini-PRs porting v1's task-flow modals. Without an add path, v2 was read-only — users had to flip back to v1 just to create a task.
+  - **`src/v2/components/AddTaskModal.jsx` + `.css`.** Lean v2 form built on `ModalShell`. Reuses the shared `useTaskForm` hook so polish/size-infer/labels/attachments state machinery isn't duplicated. Fields: title (auto-focused, Enter to submit), notes (with Polish AI pill), due date, priority cycle (Normal → High → Low), size segmented buttons + Auto, energy type pill grid (appears when energy or size is set, with active-pill border in the type's color), energy drain segmented buttons (when type is set), labels pill grid (multi-select). Primary accent submit at the bottom.
+  - **What's NOT in v2 AddTaskModal yet (port later):** attachments + extract-text, Notion search/create. These are advanced flows that v1 still handles; user can flip to v1 if needed. `useTaskForm` exposes the state for these, so wiring them in PR4c (EditTaskModal, which shares the same form skeleton) or PR8 (polish) is straightforward.
+  - **`src/v2/components/Header.jsx`.** Added an optional `onOpenAdd` prop. When provided, renders a 4th icon button (the `+`) in primary accent style at the start of the header actions cluster — the calm rest state goes from 3 → 4 affordances. Header still conditionally renders the button so it doesn't appear on shells that haven't wired it yet.
+  - **`src/v2/AppV2.jsx`.** Imports `AddTaskModal` + `useToastPrefetch` + `inferSize`. New `showAdd` state opens the modal from the Header's `+` button. `handleAddTask` mirrors v1's add path: create task via shared `addTask`, kick off background AI inference for size/energy when not manually set, prefetch the completion-toast copy. Empty state CTA changes from "Back to v1" to "Add task" so first-run users have an obvious next step.
+  - **Verification.** `npm run build` clean, `npm test` smoke test passes. Manual: tap Header `+` → modal opens with title focused → fill fields → Add task → task appears in correct section, AI inference fills size/energy a moment later (visible if you re-expand).
+  - New: `src/v2/components/AddTaskModal.{jsx,css}`
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/Header.jsx`, `src/v2/components/Header.css`
+
 - feat(ui): v2 SnoozeModal + Beta-tab build number (PR4a of 8) [S]
   - **Why.** First of four mini-PRs that port v1's task-flow modals to v2 (PR4 in the build plan). Snooze is the smallest and was already broken in v2 (the TaskCard Snooze button opened a placeholder pointing back to v1). Bundling a small DX fix while we're touching Settings.
   - **`src/v2/components/SnoozeModal.jsx` + `.css`.** v2 SnoozeModal built on `ModalShell` + the hairline-list aesthetic. Reuses the shared `getSnoozeOptions()` / `getSnoozeOptionsShort()` from `store.js` and the same due-date filtering logic v1 has. Each option is a hairline-divided row with a left-aligned primary label + right-aligned meta (e.g. "Tomorrow · Tue, Apr 16 9 AM"). "Pick a date…" toggles to a custom date+time picker with an accent-pill confirm button. Mobile bottom-sheet, desktop centered panel — both inherit the ModalShell circular-pill close.

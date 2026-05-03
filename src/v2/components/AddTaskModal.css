@@ -1,0 +1,254 @@
+/* Shared form-control styles for v2 add/edit modals.
+ * Naming uses the v2-form- prefix so EditTaskModal can adopt the same classes. */
+
+.v2-form-input,
+.v2-form-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 14px/1.4 var(--v2-font-body);
+  outline: none;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-form-input:focus,
+.v2-form-textarea:focus {
+  border-color: var(--v2-accent);
+}
+
+.v2-form-title {
+  font: 500 18px/1.3 var(--v2-font-body);
+  padding: 14px 16px;
+  margin-bottom: 4px;
+}
+
+.v2-form-textarea {
+  min-height: 92px;
+  resize: vertical;
+  font-family: var(--v2-font-body);
+}
+
+.v2-form-section {
+  margin-top: 18px;
+}
+
+.v2-form-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.v2-form-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.v2-form-label {
+  display: block;
+  font: 600 11px/1 var(--v2-font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v2-text-meta);
+  margin-bottom: 8px;
+}
+
+.v2-form-textarea-wrap {
+  position: relative;
+}
+
+.v2-form-ai-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--v2-radius-pill);
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text-meta);
+  border: none;
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-form-ai-pill:hover:not(:disabled) {
+  background: var(--v2-accent);
+  color: #fff;
+}
+
+.v2-form-ai-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.v2-form-ai-pill-inline {
+  position: static;
+  margin-left: 4px;
+}
+
+.v2-form-error {
+  margin-top: 6px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-alert-overdue);
+}
+
+.v2-form-pri-toggle {
+  width: 100%;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  border: 1px solid var(--v2-hairline);
+  font: 500 14px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-form-pri-toggle:hover { background: rgba(var(--v2-text-rgb), 0.04); }
+
+.v2-form-pri-high {
+  background: rgba(242, 161, 0, 0.08);
+  border-color: var(--v2-alert-high-pri);
+  color: var(--v2-alert-high-pri);
+}
+
+.v2-form-pri-low {
+  color: var(--v2-text-meta);
+  background: rgba(var(--v2-text-rgb), 0.03);
+}
+
+.v2-form-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.v2-form-seg {
+  flex: 0 0 auto;
+  min-width: 44px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-bg);
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-form-seg:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-form-seg-active {
+  background: var(--v2-text);
+  color: var(--v2-bg);
+  border-color: var(--v2-text);
+}
+
+.v2-form-energy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+}
+
+.v2-form-energy-pill {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  border: 1px solid var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-form-energy-pill:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+
+.v2-form-energy-pill-active {
+  background: var(--v2-bg);
+  border-width: 1.5px;
+}
+
+.v2-form-label-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.v2-form-label-pill {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  border: 1px solid var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-form-label-pill:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+
+.v2-form-submit {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin-top: 28px;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-accent);
+  color: #fff;
+  border: none;
+  font: 600 15px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: filter var(--v2-dur-quick) var(--v2-ease-standard),
+              transform var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-form-submit:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.v2-form-submit:active {
+  transform: scale(0.98);
+}
+
+.v2-form-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.v2-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: v2-spin 0.6s linear infinite;
+}
+
+@keyframes v2-spin {
+  to { transform: rotate(360deg); }
+}

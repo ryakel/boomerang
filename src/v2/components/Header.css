@@ -51,6 +51,17 @@
   transform: scale(0.96);
 }
 
+.v2-header-icon-primary {
+  background: var(--v2-accent);
+  color: #fff;
+}
+
+.v2-header-icon-primary:hover {
+  background: var(--v2-accent);
+  color: #fff;
+  filter: brightness(1.08);
+}
+
 @media (min-width: 601px) {
   .v2-header {
     padding: 16px 24px;

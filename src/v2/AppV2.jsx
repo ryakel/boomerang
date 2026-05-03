@@ -6,12 +6,15 @@ import EmptyState from './components/EmptyState'
 import SectionLabel from './components/SectionLabel'
 import TaskCard from './components/TaskCard'
 import SnoozeModal from './components/SnoozeModal'
+import AddTaskModal from './components/AddTaskModal'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
 import { useServerSync } from '../hooks/useServerSync'
 import { useExternalSync } from '../hooks/useExternalSync'
 import { useSizeAutoInfer } from '../hooks/useSizeAutoInfer'
+import { useToastPrefetch } from '../hooks/useToastPrefetch'
+import { inferSize } from '../api'
 import { saveSettings, saveLabels, sortTasks } from '../store'
 import './AppV2.css'
 
@@ -42,6 +45,7 @@ const PLACEHOLDER_COPY = {
 export default function AppV2() {
   const [openModal, setOpenModal] = useState(null)
   const [snoozeTarget, setSnoozeTarget] = useState(null)
+  const [showAdd, setShowAdd] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
 
   // Mark the document so v2-namespaced tokens activate.
@@ -52,7 +56,7 @@ export default function AppV2() {
 
   // Shared task + routine state — same hooks v1 uses, no fork.
   const {
-    tasks, addSpawnedTasks, completeTask, snoozeTask, updateTask,
+    tasks, addTask, addSpawnedTasks, completeTask, snoozeTask, updateTask,
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
   } = useTasks()
   const {
@@ -64,6 +68,7 @@ export default function AppV2() {
   useNotifications(tasks)
   useExternalSync(tasks, updateTask)
   useSizeAutoInfer(tasks, updateTask)
+  const prefetchToast = useToastPrefetch(tasks, updateTask)
 
   // Server hydration + cross-client sync. Mirror v1's hydrateFromServer so
   // settings + labels stay in localStorage when other clients update them.
@@ -120,6 +125,27 @@ export default function AppV2() {
   const handleEdit = useCallback(() => setOpenModal('edit'), [])
   const handleSnooze = useCallback((task) => setSnoozeTarget(task), [])
 
+  // Mirrors v1's add path: create task, kick off AI inference for size/energy
+  // when not manually set, and prefetch the completion toast copy.
+  const handleAddTask = useCallback((taskData) => {
+    const taskId = addTask(taskData)
+    if (!taskData.size && taskData.title) {
+      inferSize(taskData.title, taskData.notes).then(inferred => {
+        const updates = {}
+        if (inferred.size) updates.size = inferred.size
+        if (inferred.energy) updates.energy = inferred.energy
+        if (inferred.energyLevel) updates.energyLevel = inferred.energyLevel
+        if (Object.keys(updates).length > 0) {
+          updates.size_inferred = true
+          updateTask(taskId, updates)
+        }
+        prefetchToast(taskId, taskData.title, inferred.energy, inferred.energyLevel)
+      }).catch(() => {})
+    } else {
+      prefetchToast(taskId, taskData.title, taskData.energy, taskData.energyLevel)
+    }
+  }, [addTask, updateTask, prefetchToast])
+
   const placeholderMeta = openModal ? PLACEHOLDER_COPY[openModal] : null
 
   const renderSection = (label, list) => list.length > 0 && (
@@ -142,6 +168,7 @@ export default function AppV2() {
   return (
     <div className="v2-app">
       <Header
+        onOpenAdd={() => setShowAdd(true)}
         onOpenAdviser={() => setOpenModal('adviser')}
         onOpenPackages={() => setOpenModal('packages')}
         onOpenMenu={() => setOpenModal('menu')}
@@ -151,9 +178,9 @@ export default function AppV2() {
           <EmptyState
             icon={ListChecks}
             title="Nothing on your plate"
-            body="No active tasks right now. Add one in v1 — quick-add UI lands in a later v2 release."
-            cta="Back to v1"
-            ctaOnClick={switchToV1}
+            body="No active tasks right now. Tap the + above to add one."
+            cta="Add task"
+            ctaOnClick={() => setShowAdd(true)}
           />
         ) : (
           <div className="v2-list">
@@ -187,6 +214,12 @@ export default function AppV2() {
           onClose={() => setSnoozeTarget(null)}
         />
       )}
+
+      <AddTaskModal
+        open={showAdd}
+        onAdd={handleAddTask}
+        onClose={() => setShowAdd(false)}
+      />
     </div>
   )
 }
