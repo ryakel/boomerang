@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, DEFAULT_SETTINGS, uuid } from '../store'
@@ -2382,59 +2382,78 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
         <div className="settings-group">
 
           {/* === Quiet hours === */}
-          <div className="settings-label" style={{ marginBottom: 4 }}>Quiet hours</div>
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-            Silence all notifications during these hours. Tasks tagged with the bypass label can still wake you (Pushover priority 1+ only).
-          </div>
-          <label className="notif-check">
+          <label className="notif-check" style={{ marginBottom: 4 }}>
             <input type="checkbox" checked={!!settings.quiet_hours_enabled} onChange={e => update('quiet_hours_enabled', e.target.checked)} />
-            <span>Enable quiet hours</span>
+            <span>Quiet hours</span>
           </label>
+          {!settings.quiet_hours_enabled && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
+              Silence all notifications during a window. Tag-bypass via "wake-me" still works.
+            </div>
+          )}
           {settings.quiet_hours_enabled && (
-            <>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 8, marginBottom: 4 }}>
-                Times in <strong>{settings.user_timezone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'server local')}</strong>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
-                <input type="time" className="settings-input" value={settings.quiet_hours_start || '22:00'} onChange={e => update('quiet_hours_start', e.target.value)} style={{ flex: 1 }} />
-                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>to</span>
-                <input type="time" className="settings-input" value={settings.quiet_hours_end || '08:00'} onChange={e => update('quiet_hours_end', e.target.value)} style={{ flex: 1 }} />
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div className="settings-label" style={{ marginBottom: 4 }}>Bypass label</div>
-                <input className="add-input" type="text" value={settings.quiet_hours_bypass_label || 'wake-me'} onChange={e => update('quiet_hours_bypass_label', e.target.value)} style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }} />
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                  Tasks tagged with this label can wake you during quiet hours. Default <code>wake-me</code>. Use the "Wake me up for this" checkbox in EditTask.
-                </div>
-              </div>
-            </>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+              <input type="time" className="settings-input" value={settings.quiet_hours_start || '22:00'} onChange={e => update('quiet_hours_start', e.target.value)} style={{ width: 110 }} />
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>to</span>
+              <input type="time" className="settings-input" value={settings.quiet_hours_end || '08:00'} onChange={e => update('quiet_hours_end', e.target.value)} style={{ width: 110 }} />
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                ({settings.user_timezone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'server')})
+              </span>
+              <input
+                className="add-input"
+                type="text"
+                value={settings.quiet_hours_bypass_label || 'wake-me'}
+                onChange={e => update('quiet_hours_bypass_label', e.target.value)}
+                placeholder="bypass label"
+                style={{ flex: '1 1 120px', minWidth: 0, fontSize: 12, padding: '4px 8px' }}
+              />
+            </div>
           )}
 
-          {/* === Notify me about (matrix) === */}
+          {/* === Notify me about === */}
           <div className="settings-label" style={{ marginTop: 24, marginBottom: 4 }}>Notify me about</div>
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>
-            Pick which channels deliver each notification type. Frequency is shared across channels.
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+            Tap chips to toggle channel delivery. Frequency is shared across channels.
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 32px 32px 32px 80px', alignItems: 'center', gap: '8px 6px', fontSize: 13 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: CHANNEL_COLORS.push, textAlign: 'center' }} title="Web Push">Web</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: CHANNEL_COLORS.pushover, textAlign: 'center' }} title="Pushover">Pvr</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: CHANNEL_COLORS.email, textAlign: 'center' }} title="Email">Mail</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Every</span>
-
+          <div className="notif-matrix">
+            <div className="notif-matrix-header">
+              <span>Type</span>
+              <span style={{ textAlign: 'center' }}>Channels</span>
+              <span style={{ textAlign: 'right' }}>Every</span>
+            </div>
             {NOTIF_TYPES.map(t => {
               const pushKey = `push_notif_${t.key}`
               const pushoverKey = `pushover_notif_${t.key}`
               const emailKey = `email_notif_${t.key}`
+              const pushOn = settings[pushKey] !== false
+              const pushoverOn = !!settings[pushoverKey]
+              const emailOn = settings[emailKey] !== false
               return (
-                <React.Fragment key={t.key}>
-                  <span>{t.label}</span>
-                  <input type="checkbox" checked={settings[pushKey] !== false} onChange={e => update(pushKey, e.target.checked)} style={{ justifySelf: 'center' }} />
-                  <input type="checkbox" checked={!!settings[pushoverKey]} onChange={e => update(pushoverKey, e.target.checked)} style={{ justifySelf: 'center' }} />
-                  <input type="checkbox" checked={settings[emailKey] !== false} onChange={e => update(emailKey, e.target.checked)} style={{ justifySelf: 'center' }} />
+                <div className="notif-matrix-row" key={t.key}>
+                  <span className="notif-matrix-row-label">{t.label}</span>
+                  <div className="notif-chips">
+                    <button
+                      type="button"
+                      className={`notif-chip notif-chip-push${pushOn ? ' on' : ''}`}
+                      onClick={() => update(pushKey, !pushOn)}
+                      title="Web Push"
+                    >Web</button>
+                    <button
+                      type="button"
+                      className={`notif-chip notif-chip-pushover${pushoverOn ? ' on' : ''}`}
+                      onClick={() => update(pushoverKey, !pushoverOn)}
+                      title="Pushover"
+                    >Pvr</button>
+                    <button
+                      type="button"
+                      className={`notif-chip notif-chip-email${emailOn ? ' on' : ''}`}
+                      onClick={() => update(emailKey, !emailOn)}
+                      title="Email"
+                    >Mail</button>
+                  </div>
                   {t.freqKey ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 2, justifySelf: 'end' }}>
+                    <div className="notif-freq-cell">
                       <input
                         className="settings-input"
                         type="number"
@@ -2443,14 +2462,13 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                         step="0.25"
                         value={settings[t.freqKey] ?? t.freqDefault}
                         onChange={e => update(t.freqKey, Math.max(t.freqMin, parseFloat(e.target.value) || t.freqMin))}
-                        style={{ width: 50, textAlign: 'center', fontSize: 12 }}
                       />
                       <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>h</span>
                     </div>
                   ) : (
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>—</span>
+                    <span className="notif-freq-cell-empty">—</span>
                   )}
-                </React.Fragment>
+                </div>
               )
             })}
           </div>
