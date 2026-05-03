@@ -173,11 +173,254 @@ const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data'
 
 // Tabs whose v2 port is heavier than what fits in this batch — they fall
 // through to a placeholder pointing at v1 Settings.
-const PLACEHOLDER_TABS = new Set(['Integrations', 'Notifications'])
+const PLACEHOLDER_TABS = new Set(['Integrations'])
 
 const PLACEHOLDER_BODY = {
   Integrations: 'Trello, Notion, Google Calendar, Gmail, 17track, Pushover. Many OAuth flows — ports in a later release.',
-  Notifications: 'Per-channel × per-type matrix. Ports in a later release.',
+}
+
+// Notification types (excluding high priority which has its own escalation
+// section) + their channel-specific setting key suffixes. Same scheme v1
+// uses: push_notif_<key>, email_notif_<key>, pushover_notif_<key>.
+const NOTIF_TYPES = [
+  { key: 'overdue', label: 'Overdue', freqKey: 'notif_freq_overdue', freqDefault: 0.5 },
+  { key: 'stale', label: 'Stale', freqKey: 'notif_freq_stale', freqDefault: 0.5 },
+  { key: 'nudge', label: 'Nudges', freqKey: 'notif_freq_nudge', freqDefault: 1 },
+  { key: 'size', label: 'Size-based', freqKey: 'notif_freq_size', freqDefault: 1 },
+  { key: 'pileup', label: 'Pile-up', freqKey: 'notif_freq_pileup', freqDefault: 2 },
+]
+
+const NOTIF_PACKAGE_TYPES = [
+  { key: 'package_delivered', label: 'Package delivered' },
+  { key: 'package_exception', label: 'Package exception' },
+]
+
+function NotificationsPanel({ settings, update }) {
+  // Channel master toggles. Pushover gates additionally on credentials being
+  // present, but for the v2 panel we just toggle the boolean and show a hint.
+  const masters = [
+    { key: 'push_notifications_enabled', label: 'Web push', hint: 'Browser-native notifications. Per-device subscription.' },
+    { key: 'email_notifications_enabled', label: 'Email', hint: 'Server-side SMTP. Address comes from `email_address` setting or NOTIFICATION_EMAIL env.' },
+    { key: 'pushover_notifications_enabled', label: 'Pushover', hint: 'iOS-friendly transport via the Pushover app. Credentials in v1 → Integrations.' },
+  ]
+
+  const Toggle = ({ checked, onChange, disabled }) => (
+    <label className={`v2-settings-toggle${disabled ? ' v2-settings-toggle-disabled' : ''}`}>
+      <input type="checkbox" checked={!!checked} onChange={onChange} disabled={disabled} />
+      <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+    </label>
+  )
+
+  return (
+    <div className="v2-settings-form">
+      {/* Channel masters */}
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Channels</div>
+        <div className="v2-settings-row-hint">Master toggle per delivery channel. Each channel still respects its per-type settings below.</div>
+        {masters.map(m => (
+          <div key={m.key} className="v2-settings-row">
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">{m.label}</div>
+              <div className="v2-settings-row-hint">{m.hint}</div>
+            </div>
+            <Toggle
+              checked={settings[m.key] === true}
+              onChange={e => update(m.key, e.target.checked)}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Per-type × per-channel matrix */}
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Notification types</div>
+        <div className="v2-settings-row-hint">Each row toggles per channel. Frequency is the cooldown between repeats.</div>
+        <div className="v2-notif-matrix-wrap">
+          <table className="v2-notif-matrix">
+            <thead>
+              <tr>
+                <th className="v2-notif-matrix-type">Type</th>
+                <th>Push</th>
+                <th>Email</th>
+                <th>Pushover</th>
+                <th>Every (h)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {NOTIF_TYPES.map(t => (
+                <tr key={t.key}>
+                  <td className="v2-notif-matrix-type">{t.label}</td>
+                  <td>
+                    <Toggle
+                      checked={settings[`push_notif_${t.key}`] !== false}
+                      onChange={e => update(`push_notif_${t.key}`, e.target.checked)}
+                      disabled={settings.push_notifications_enabled !== true}
+                    />
+                  </td>
+                  <td>
+                    <Toggle
+                      checked={settings[`email_notif_${t.key}`] !== false}
+                      onChange={e => update(`email_notif_${t.key}`, e.target.checked)}
+                      disabled={settings.email_notifications_enabled !== true}
+                    />
+                  </td>
+                  <td>
+                    <Toggle
+                      checked={settings[`pushover_notif_${t.key}`] === true}
+                      onChange={e => update(`pushover_notif_${t.key}`, e.target.checked)}
+                      disabled={settings.pushover_notifications_enabled !== true}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="v2-notif-matrix-freq"
+                      type="number"
+                      min="0.25"
+                      max="168"
+                      step="0.25"
+                      value={settings[t.freqKey] ?? t.freqDefault}
+                      onChange={e => update(t.freqKey, Math.max(0.25, parseFloat(e.target.value) || 0.25))}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {NOTIF_PACKAGE_TYPES.map(t => (
+                <tr key={t.key}>
+                  <td className="v2-notif-matrix-type">{t.label}</td>
+                  <td>
+                    <Toggle
+                      checked={settings[`push_notif_${t.key}`] !== false}
+                      onChange={e => update(`push_notif_${t.key}`, e.target.checked)}
+                      disabled={settings.push_notifications_enabled !== true}
+                    />
+                  </td>
+                  <td>
+                    <Toggle
+                      checked={settings[`email_notif_${t.key}`] !== false}
+                      onChange={e => update(`email_notif_${t.key}`, e.target.checked)}
+                      disabled={settings.email_notifications_enabled !== true}
+                    />
+                  </td>
+                  <td>
+                    <Toggle
+                      checked={settings[`pushover_notif_${t.key}`] !== false}
+                      onChange={e => update(`pushover_notif_${t.key}`, e.target.checked)}
+                      disabled={settings.pushover_notifications_enabled !== true}
+                    />
+                  </td>
+                  <td className="v2-notif-matrix-freq-na">—</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* High-priority escalation */}
+      <div className="v2-settings-block">
+        <div className="v2-form-label">High-priority escalation</div>
+        <div className="v2-settings-row-hint">Three-stage cadence as a high-pri task approaches its due date and goes overdue.</div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Enable escalation</div>
+          </div>
+          <Toggle
+            checked={settings.notif_highpri_escalate !== false}
+            onChange={e => update('notif_highpri_escalate', e.target.checked)}
+          />
+        </div>
+        {settings.notif_highpri_escalate !== false && (
+          <div className="v2-notif-stages">
+            <div className="v2-notif-stage">
+              <label className="v2-form-label">Before due (h)</label>
+              <input
+                className="v2-form-input v2-settings-narrow-input"
+                type="number" min="0.25" max="168" step="0.25"
+                value={settings.notif_freq_highpri_before ?? 24}
+                onChange={e => update('notif_freq_highpri_before', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
+              />
+            </div>
+            <div className="v2-notif-stage">
+              <label className="v2-form-label">On due day (h)</label>
+              <input
+                className="v2-form-input v2-settings-narrow-input"
+                type="number" min="0.25" max="24" step="0.25"
+                value={settings.notif_freq_highpri_due ?? 1}
+                onChange={e => update('notif_freq_highpri_due', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
+              />
+            </div>
+            <div className="v2-notif-stage">
+              <label className="v2-form-label">Overdue (h)</label>
+              <input
+                className="v2-form-input v2-settings-narrow-input"
+                type="number" min="0.25" max="24" step="0.25"
+                value={settings.notif_freq_highpri_overdue ?? 0.5}
+                onChange={e => update('notif_freq_highpri_overdue', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Quiet hours */}
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Quiet hours</div>
+        <div className="v2-settings-row-hint">Suppress most notifications during this window. Tasks tagged with the bypass label still wake you.</div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Enable quiet hours</div>
+          </div>
+          <Toggle
+            checked={!!settings.quiet_hours_enabled}
+            onChange={e => update('quiet_hours_enabled', e.target.checked)}
+          />
+        </div>
+        {settings.quiet_hours_enabled && (
+          <div className="v2-form-row" style={{ marginTop: 12 }}>
+            <div className="v2-form-field">
+              <label className="v2-form-label">Start</label>
+              <input
+                type="time"
+                className="v2-form-input"
+                value={settings.quiet_hours_start || '22:00'}
+                onChange={e => update('quiet_hours_start', e.target.value)}
+              />
+            </div>
+            <div className="v2-form-field">
+              <label className="v2-form-label">End</label>
+              <input
+                type="time"
+                className="v2-form-input"
+                value={settings.quiet_hours_end || '08:00'}
+                onChange={e => update('quiet_hours_end', e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+        {settings.quiet_hours_enabled && (
+          <div className="v2-settings-block" style={{ marginTop: 12 }}>
+            <label className="v2-form-label">Bypass label</label>
+            <div className="v2-settings-row-hint">Tasks with this tag wake you even during quiet hours.</div>
+            <input
+              className="v2-form-input v2-settings-narrow-input"
+              type="text"
+              value={settings.quiet_hours_bypass_label || 'wake-me'}
+              onChange={e => update('quiet_hours_bypass_label', e.target.value)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Pointer to v1 for the rest */}
+      <div className="v2-settings-block">
+        <div className="v2-form-label">More notification options</div>
+        <div className="v2-settings-row-hint">
+          Morning digest configuration, channel test buttons, notification history, adaptive throttling controls,
+          and Pushover priority routing live in v1 → Settings → Notifications.
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // v2 server-logs panel — same data as v1, redrawn with v2 tokens.
@@ -576,6 +819,10 @@ export default function SettingsModal({
         )}
 
         {activeTab === 'Labels' && <LabelsPanel />}
+
+        {activeTab === 'Notifications' && (
+          <NotificationsPanel settings={settings} update={update} />
+        )}
 
         {activeTab === 'Logs' && <ServerLogsPanel />}
 

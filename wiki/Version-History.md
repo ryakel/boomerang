@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 Notifications tab (PR8d of 8) [M]
+  - **Why.** Second-to-last placeholder Settings tab. The full v1 Notifications tab is 600+ lines (test buttons, digest config, adaptive throttling, Pushover priority routing, weather notifications, deliverability overrides). v2 ports the most-touched controls and points at v1 for everything else.
+  - **`NotificationsPanel`** in SettingsModal. Three sections: **Channels** (master toggles for web push / email / Pushover with hint copy), **Notification types** (compact per-type × per-channel matrix table with freq input — Overdue / Stale / Nudges / Size-based / Pile-up + Package delivered / Package exception across Push / Email / Pushover, individual toggles disabled when their channel master is off), **High-priority escalation** (master toggle + 3-stage frequency inputs), **Quiet hours** (master toggle + start/end time inputs + bypass-label override).
+  - **Defer pointer.** Bottom of the tab calls out morning digest config, channel test buttons, notification history, adaptive throttling controls, and Pushover priority routing as v1-only for now.
+  - **Disabled toggle styling.** New `.v2-settings-toggle-disabled` class drops opacity to 0.4 + disables pointer events when a row's parent channel master is off — same UX hint v1 uses.
+  - **Verification.** `npm run build` clean (835KB precache), `npm run lint` clean, `npm test` smoke test passes. Manual: Settings → Notifications → toggle channel masters, watch dependent toggles enable/disable. Edit a freq input — auto-saves with the standard 300ms debounce. Quiet hours expand on enable.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`
+
 - feat(ui): v2 Labels CRUD tab (PR8c of 8) [S]
   - **Why.** Labels was one of the three remaining placeholder tabs in v2 Settings (along with Integrations + Notifications). Most-used of the three — users add/rename/recolor tags routinely.
   - **`LabelsPanel`** in SettingsModal. Hairline-row list: each label has a color swatch (clickable `<details>` reveals a 5-column color picker grid using shared `LABEL_COLORS`), inline-editable name input, up/down reorder arrows, and a delete button with inline confirm. Add row at the bottom: color picker + name input + Add button. Auto-cycles to the next color after each add (same UX v1 has).
