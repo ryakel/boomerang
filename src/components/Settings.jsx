@@ -2253,6 +2253,8 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                     />
                     <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 12 }}>
                       When set, notifications include an "Open in Boomerang" link that opens the relevant task. Required for tappable Pushover messages.
+                      <br /><br />
+                      <strong>iOS:</strong> By default Pushover opens links in its own in-app browser, which won't open the Boomerang PWA. In the Pushover iOS app, go to Settings → and enable <em>"Open URLs in Safari"</em> so deep links land in Boomerang.
                     </div>
 
                     <div className="settings-label">Credentials</div>

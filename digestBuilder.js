@@ -142,18 +142,18 @@ export function buildDigest(settings) {
     if (streak > 0) recap.push(`Day ${streak} streak`)
     textParts.push(recap.join(' · '))
   }
-  if (today.length > 0) {
-    textParts.push(`Today: ${today.map(t => `${t.title} (${relDueLine(t) || 'no date'})`).join('; ')}`)
+  const textSection = (heading, items) => {
+    if (items.length === 0) return null
+    return `${heading}:\n${items.map(line => `• ${line}`).join('\n')}`
   }
-  if (comingUp.length > 0) {
-    textParts.push(`Coming up: ${comingUp.map(t => `${t.title} (${relDueLine(t)})`).join('; ')}`)
-  }
-  if (carrying.length > 0) {
-    textParts.push(`Carrying: ${carrying.map(t => `${t.title} (${carryingDays(t)}d)`).join('; ')}`)
-  }
-  if (quickWins.length > 0) {
-    textParts.push(`Quick wins: ${quickWins.map(t => `${t.title} (${t.size})`).join('; ')}`)
-  }
+  const todaySection = textSection('Today', today.map(t => `${t.title} (${relDueLine(t) || 'no date'})`))
+  if (todaySection) textParts.push(todaySection)
+  const comingUpSection = textSection('Coming up', comingUp.map(t => `${t.title} (${relDueLine(t)})`))
+  if (comingUpSection) textParts.push(comingUpSection)
+  const carryingSection = textSection('Carrying', carrying.map(t => `${t.title} (${carryingDays(t)}d)`))
+  if (carryingSection) textParts.push(carryingSection)
+  const quickWinsSection = textSection('Quick wins', quickWins.map(t => `${t.title} (${t.size})`))
+  if (quickWinsSection) textParts.push(quickWinsSection)
   if (weatherSummary) textParts.push(`Weather: ${weatherSummary}`)
   const textBody = textParts.join('\n\n')
 
