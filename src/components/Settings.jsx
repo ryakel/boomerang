@@ -2707,8 +2707,13 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                 <span>Web Push (browser / PWA native)</span>
               </label>
               <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, marginBottom: 8 }}>
-                Native notifications via the browser's push service (APNs on iOS, FCM on Android, native on desktop). Works when the app is closed. {settings.pushover_notifications_enabled && settings.pushover_user_key ? <strong style={{ color: '#FF6240' }}>Heads up — you also have Pushover enabled. Running both delivers each alert twice.</strong> : null}
+                Native notifications via the browser's push service (APNs on iOS, FCM on Android, native on desktop). Works when the app is closed.
               </div>
+              {settings.push_notifications_enabled && settings.pushover_notifications_enabled && settings.pushover_user_key && (
+                <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 8 }}>
+                  <strong>Heads up — you also have Pushover enabled. Running both delivers each alert twice.</strong>
+                </div>
+              )}
 
               {settings.push_notifications_enabled && (
                 <div className="notif-options">
@@ -2844,19 +2849,32 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
             </div>
           )}
 
-          {/* Pushover — per-type toggles only. Credentials + test buttons live in the Integrations tab. */}
+          {/* Pushover — master toggle + per-type toggles. Credentials + test buttons live in the Integrations tab. */}
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-            <div className="settings-label" style={{ marginBottom: 4 }}>Pushover</div>
-            {!settings.pushover_notifications_enabled || !(settings.pushover_user_key && (settings.pushover_app_token || pushoverServerStatus?.app_token_from_env)) ? (
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 8, background: 'var(--surface-elevated, rgba(0,0,0,0.04))', borderRadius: 6 }}>
-                Pushover isn't connected yet. Set it up in <strong>Settings → Integrations → Pushover</strong>, then come back here to choose which notifications fire over the channel.
-              </div>
-            ) : (
-              <>
-                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
-                  Choose which notification types fire over Pushover. Connection settings live in the Integrations tab.
-                </div>
+            <label className="notif-check">
+              <input
+                type="checkbox"
+                checked={!!settings.pushover_notifications_enabled}
+                onChange={e => update('pushover_notifications_enabled', e.target.checked)}
+              />
+              <span>Pushover</span>
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, marginBottom: 8 }}>
+              iOS-reliable notifications via the Pushover app. Connection settings live in the Integrations tab.
+            </div>
 
+            {settings.pushover_notifications_enabled && settings.push_notifications_enabled && pushSub.supported && pushServerStatus?.configured && (
+              <div style={{ fontSize: 12, color: '#FF6240', marginBottom: 8 }}>
+                <strong>Heads up — Web Push is also enabled above. Running both delivers each alert twice.</strong>
+              </div>
+            )}
+
+            {settings.pushover_notifications_enabled && !(settings.pushover_user_key && (settings.pushover_app_token || pushoverServerStatus?.app_token_from_env)) ? (
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 8, background: 'var(--surface-elevated, rgba(0,0,0,0.04))', borderRadius: 6 }}>
+                Credentials missing. Set them up in <strong>Settings → Integrations → Pushover</strong>, then come back here.
+              </div>
+            ) : settings.pushover_notifications_enabled ? (
+              <>
                 <div className="notif-type-row">
                   <label className="notif-check" style={{ flex: 1, marginBottom: 0 }}>
                     <input type="checkbox" checked={settings.pushover_notif_highpri !== false} onChange={e => update('pushover_notif_highpri', e.target.checked)} />
@@ -2906,7 +2924,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                   </label>
                 </div>
               </>
-            )}
+            ) : null}
           </div>
 
           {/* Email Notifications */}
