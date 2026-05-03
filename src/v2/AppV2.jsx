@@ -19,6 +19,7 @@ import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
 import KanbanBoard from './components/KanbanBoard'
+import Toast from './components/Toast'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -39,6 +40,7 @@ export default function AppV2() {
   const [reframeTarget, setReframeTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [toast, setToast] = useState(null)
   const [showWhatNow, setShowWhatNow] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -71,7 +73,7 @@ export default function AppV2() {
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
-    spawnDueTasks, spawnNow, hydrateRoutines,
+    completeRoutine, spawnDueTasks, spawnNow, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -125,13 +127,40 @@ export default function AppV2() {
   const backlogTasks = sortTasks(tasks.filter(t => t.status === 'backlog'), 'age')
   const projectTasks = sortTasks(tasks.filter(t => t.status === 'project'), 'name')
   const totalActive = sortedDoing.length + sortedStale.length + sortedUpNext.length + sortedWaiting.length
+  const todayStr = new Date().toDateString()
+  const todayCount = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr).length
 
   const handleComplete = useCallback((id) => {
+    const task = tasks.find(t => t.id === id)
     completeTask(id)
-    // NOTE: routine completion + Trello status push are wired in PR4 alongside
-    // the v2 modals. v2 currently completes the local task only; v1 still
-    // does the full chain when used.
-  }, [completeTask])
+    setShowWhatNow(false)
+    // Log completion on the parent routine so the cadence clock advances.
+    if (task?.routine_id) completeRoutine(task.routine_id)
+    // Score the next-best candidate for the toast's "Next up" hint —
+    // high_priority +100, due-today/overdue +50, XS/S +20. Same logic v1
+    // uses. Trello status push deferred to PR8 (needs useTrelloSync).
+    if (task) {
+      const ACTIVE = ['not_started', 'doing', 'waiting']
+      const candidates = tasks.filter(t =>
+        t.id !== id &&
+        ACTIVE.includes(t.status) &&
+        !t.gmail_pending &&
+        !t.notifications_muted &&
+        (!t.snoozed_until || new Date(t.snoozed_until) <= new Date())
+      )
+      const todayStr = new Date().toISOString().split('T')[0]
+      const score = t => {
+        let s = 0
+        if (t.high_priority) s += 100
+        if (t.due_date && t.due_date <= todayStr) s += 50
+        if (t.size === 'XS' || t.size === 'S') s += 20
+        return s
+      }
+      candidates.sort((a, b) => score(b) - score(a))
+      const nextTask = candidates[0] || null
+      setToast({ ...task, completed_at: new Date().toISOString(), nextTask })
+    }
+  }, [tasks, completeTask, completeRoutine])
 
   const handleEdit = useCallback((task) => setEditTarget(task), [])
 
@@ -168,8 +197,8 @@ export default function AppV2() {
 
   const handleUncomplete = useCallback((task) => {
     uncompleteTask(task.id)
-    // PR5+: route Trello status push back through the chain when Trello sync
-    // ports to v2. v1's handleUncomplete still does this when used.
+    setToast({ task, variant: 'reopen' })
+    // Trello status push back to active deferred to PR8.
   }, [uncompleteTask])
 
   const handleRestore = useCallback((snapshot) => {
@@ -417,6 +446,22 @@ export default function AppV2() {
         open={showAnalytics}
         onClose={() => setShowAnalytics(false)}
       />
+
+      {toast && (
+        <Toast
+          task={toast.variant ? toast.task : toast}
+          todayCount={todayCount}
+          variant={toast.variant || 'complete'}
+          nextTask={toast.nextTask}
+          onNextTaskClick={t => { setEditTarget(t); setToast(null) }}
+          onDone={() => setToast(null)}
+          onUndo={() => {
+            const taskToUndo = toast.variant ? toast.task : toast
+            uncompleteTask(taskToUndo.id)
+            setToast(null)
+          }}
+        />
+      )}
     </div>
   )
 }

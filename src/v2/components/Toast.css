@@ -1,0 +1,98 @@
+/* v2 Toast — pill-shaped, off-white background, hairline border, slides up
+ * with --v2-ease-emphasis. Reads as a calm confirmation rather than a banner. */
+
+.v2-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(0);
+  z-index: 90;
+  background: var(--v2-text);
+  color: var(--v2-bg);
+  border-radius: 18px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 280px;
+  max-width: min(92vw, 420px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  animation: v2-toast-in var(--v2-dur-emphasis) var(--v2-ease-emphasis);
+}
+
+@keyframes v2-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.v2-toast-reopen {
+  background: var(--v2-accent);
+  color: #fff;
+}
+
+.v2-toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.v2-toast-message {
+  font: 600 15px/1.3 var(--v2-font-body);
+}
+
+.v2-toast-subtitle {
+  margin-top: 2px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  opacity: 0.75;
+}
+
+.v2-toast-next {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font: 400 12px/1.3 var(--v2-font-body);
+}
+
+.v2-toast-next-label {
+  opacity: 0.65;
+}
+
+.v2-toast-next-title {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.v2-toast-next-size {
+  opacity: 0.5;
+  font-size: 11px;
+}
+
+.v2-toast-undo {
+  flex: 0 0 auto;
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--v2-radius-pill);
+  padding: 6px 14px;
+  font: 600 12px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-toast-undo:hover {
+  background: rgba(255, 255, 255, 0.10);
+}

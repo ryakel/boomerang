@@ -730,8 +730,8 @@ Boomerang ships with two UIs that share the same underlying app (server, hooks, 
 4. ✅ Modals batch 1: SnoozeModal (PR4a) + AddTaskModal (PR4b) + EditTaskModal (PR4c) + ReframeModal/WhatNowModal (PR4d)
 5. ✅ Modals batch 2: SettingsModal+Beta tab (PR5a) + Projects/DoneList/ActivityLog (PR5b) + RoutinesModal (PR5c) + PackagesModal (PR5d) + AdviserModal (PR5e) + AnalyticsModal+Balance radar (PR5f) + General/AI/Data/Logs Settings tabs (PR5g). Labels/Integrations/Notifications still defer to v1.
 6. ✅ KanbanBoard (desktop) + **v2 default cutover** (PR6)
-7. Toast + motion sweep
-8. Polish + dark mode parity
+7. ✅ Toast + routine completion logging on complete + motion audit (PR7)
+8. Polish + dark mode parity (Trello/Notion/GCal status push, swipe gestures, weather badges, Labels/Integrations/Notifications Settings tabs)
 
 Each PR is independently mergeable. v2 currently renders the calm header + a real task list (Doing / Stale / Up next / Waiting / Snoozed) wired to the shared `useTasks` / `useRoutines` / `useNotifications` / `useServerSync` / `useExternalSync` / `useSizeAutoInfer` hooks. Tap-to-expand works; Done completes (via shared `completeTask`); Snooze + Edit + every header icon open ModalShell placeholders that point users back to v1 for that surface. Routine-completion logging, Trello status push, search, sort, tag filters, backlog, projects, swipe gestures, weather badges, packages, drag-and-drop, and the inbound syncs port in PRs 4–8.
 
