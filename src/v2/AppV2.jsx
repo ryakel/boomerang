@@ -18,6 +18,7 @@ import RoutinesModal from './components/RoutinesModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
+import KanbanBoard from './components/KanbanBoard'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -28,6 +29,7 @@ import { useToastPrefetch } from '../hooks/useToastPrefetch'
 import { usePackages } from '../hooks/usePackages'
 import { usePackageNotifications } from '../hooks/usePackageNotifications'
 import { useAdviser } from '../hooks/useAdviser'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import { inferSize } from '../api'
 import { loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
 import './AppV2.css'
@@ -53,6 +55,7 @@ export default function AppV2() {
   // open/close — user can pop in, ask something, close, come back to the
   // same thread. Server session TTL still governs the staged-plan life.
   const adviserState = useAdviser()
+  const isDesktop = useIsDesktop()
 
   // Mark the document so v2-namespaced tokens activate.
   useEffect(() => {
@@ -119,6 +122,8 @@ export default function AppV2() {
   const sortedUpNext = sortTasks(upNextTasks, 'age')
   const sortedWaiting = sortTasks(waitingTasks, 'age')
   const sortedSnoozed = sortTasks(snoozedTasks, 'age')
+  const backlogTasks = sortTasks(tasks.filter(t => t.status === 'backlog'), 'age')
+  const projectTasks = sortTasks(tasks.filter(t => t.status === 'project'), 'name')
   const totalActive = sortedDoing.length + sortedStale.length + sortedUpNext.length + sortedWaiting.length
 
   const handleComplete = useCallback((id) => {
@@ -219,14 +224,34 @@ export default function AppV2() {
         onOpenPackages={() => setShowPackages(true)}
         onOpenMenu={() => setShowMenu(true)}
       />
-      <main className="v2-main">
-        {totalActive === 0 && sortedSnoozed.length === 0 ? (
+      <main className={`v2-main${isDesktop ? ' v2-main-kanban' : ''}`}>
+        {totalActive === 0 && sortedSnoozed.length === 0 && backlogTasks.length === 0 && projectTasks.length === 0 ? (
           <EmptyState
             icon={ListChecks}
             title="Nothing on your plate"
             body="No active tasks right now. Tap the + above to add one."
             cta="Add task"
             ctaOnClick={() => setShowAdd(true)}
+          />
+        ) : isDesktop ? (
+          <KanbanBoard
+            doingTasks={sortedDoing}
+            staleTasks={sortedStale}
+            upNextTasks={sortedUpNext}
+            waitingTasks={sortedWaiting}
+            snoozedTasks={sortedSnoozed}
+            backlogTasks={backlogTasks}
+            projectTasks={projectTasks}
+            onAddTask={(title, status) => {
+              const taskId = addTask({ title })
+              if (status !== 'not_started') changeStatus(taskId, status)
+            }}
+            onStatusChange={handleStatusChange}
+            expandedTaskId={expandedTaskId}
+            onToggleExpand={setExpandedTaskId}
+            onComplete={handleComplete}
+            onEdit={handleEdit}
+            onSnooze={handleSnooze}
           />
         ) : (
           <div className="v2-list">

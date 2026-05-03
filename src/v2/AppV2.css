@@ -21,6 +21,12 @@
      comfortable max-width so card lines don't stretch on desktop. */
 }
 
+/* Desktop Kanban needs the column row to be horizontally scrollable, so
+   keep overflow-y on the column bodies and let the main container span. */
+.v2-main-kanban {
+  overflow-y: hidden;
+}
+
 .v2-main:has(> .v2-list) {
   align-items: stretch;
 }

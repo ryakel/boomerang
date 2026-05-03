@@ -1,0 +1,131 @@
+/* v2 KanbanBoard — desktop only. Horizontal column layout with drag-drop. */
+
+.v2-kanban {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  padding: 12px 16px 24px;
+  overflow-x: auto;
+  height: 100%;
+  align-items: flex-start;
+}
+
+.v2-kanban-col {
+  flex: 0 0 280px;
+  background: rgba(var(--v2-text-rgb), 0.02);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-kanban-col-over {
+  background: rgba(255, 98, 64, 0.06);
+  border-color: var(--v2-accent);
+}
+
+.v2-kanban-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+
+.v2-kanban-col-title {
+  font: 600 11px/1 var(--v2-font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v2-text-meta);
+}
+
+.v2-kanban-col-count {
+  font: 500 10px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  padding: 3px 7px;
+  border-radius: var(--v2-radius-pill);
+  background: rgba(var(--v2-text-rgb), 0.06);
+}
+
+.v2-kanban-col-body {
+  flex: 1;
+  min-height: 60px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.v2-kanban-col-empty {
+  padding: 18px 8px;
+  text-align: center;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  border: 1px dashed var(--v2-hairline);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.v2-kanban-col-over .v2-kanban-col-empty {
+  color: var(--v2-accent);
+  border-color: var(--v2-accent);
+  background: rgba(255, 98, 64, 0.04);
+}
+
+.v2-kanban-card-wrap {
+  cursor: grab;
+}
+
+.v2-kanban-card-wrap:active {
+  cursor: grabbing;
+}
+
+.v2-kanban-card-wrap-dragging {
+  opacity: 0.4;
+}
+
+/* Override v2 TaskCard's default 10px bottom margin inside the column —
+ * the column body already gaps via flex-direction. Use a tighter gap. */
+.v2-kanban-card-wrap .v2-card {
+  margin-bottom: 8px;
+}
+
+.v2-kanban-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  margin-top: 4px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px dashed var(--v2-hairline);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-kanban-add-btn:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+  border-color: var(--v2-text-meta);
+}
+
+.v2-kanban-add-input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 4px;
+  border-radius: 10px;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  border: 1px solid var(--v2-accent);
+  font: 400 13px/1 var(--v2-font-body);
+  outline: none;
+}

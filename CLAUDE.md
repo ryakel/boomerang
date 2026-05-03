@@ -717,7 +717,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 ### UI v2 (Opt-in Maturity Refresh, 2026-05-03)
 Boomerang ships with two UIs that share the same underlying app (server, hooks, store, contexts, API).
 
-**Routing.** `src/App.jsx` is a thin router that reads `localStorage.ui_version` (default `'v1'`) and renders either `AppV1` (the long-standing component, in `src/AppV1.jsx`) or `AppV2` (in `src/v2/AppV2.jsx`). URL escape hatch: `?ui=v2` and `?ui=v1` set the flag, then strip themselves from the URL so deep-link params (`?task=X`) don't keep flipping it. `data-ui-version` is mirrored on the documentElement.
+**Routing.** `src/App.jsx` is a thin router that reads `localStorage.ui_version` and renders either `AppV1` (legacy, in `src/AppV1.jsx`) or `AppV2` (in `src/v2/AppV2.jsx`). **Default is `'v2'` since the cutover (PR6, 2026-05-03).** Only an explicit `'v1'` opts out — existing users who set v1 keep their preference. URL escape hatch: `?ui=v2` and `?ui=v1` set the flag, then strip themselves from the URL so deep-link params (`?task=X`) don't keep flipping it. `data-ui-version` is mirrored on the documentElement.
 
 **Tokens.** v2 design tokens live at `src/v2/tokens.css`, all namespaced `--v2-*` so they cannot leak into v1. Activated by `data-ui="v2"` (set by AppV2 on mount). Dark variant keys off the existing `data-theme="dark"` attribute.
 
@@ -728,8 +728,8 @@ Boomerang ships with two UIs that share the same underlying app (server, hooks, 
 2. ✅ Shell + Header + ModalShell + EmptyState (PR2)
 3. ✅ TaskCard + section labels (PR3)
 4. ✅ Modals batch 1: SnoozeModal (PR4a) + AddTaskModal (PR4b) + EditTaskModal (PR4c) + ReframeModal/WhatNowModal (PR4d)
-5. ✅ Modals batch 2: SettingsModal+Beta tab (PR5a) + Projects/DoneList/ActivityLog (PR5b) + RoutinesModal (PR5c) + PackagesModal (PR5d) + AdviserModal (PR5e) + AnalyticsModal+Balance radar (PR5f). Remaining Settings tabs (General/AI/Labels/Integrations/Notifications/Data/Logs) port in PR5g.
-6. KanbanBoard (desktop)
+5. ✅ Modals batch 2: SettingsModal+Beta tab (PR5a) + Projects/DoneList/ActivityLog (PR5b) + RoutinesModal (PR5c) + PackagesModal (PR5d) + AdviserModal (PR5e) + AnalyticsModal+Balance radar (PR5f) + General/AI/Data/Logs Settings tabs (PR5g). Labels/Integrations/Notifications still defer to v1.
+6. ✅ KanbanBoard (desktop) + **v2 default cutover** (PR6)
 7. Toast + motion sweep
 8. Polish + dark mode parity
 

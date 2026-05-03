@@ -425,15 +425,15 @@ export default function SettingsModal({
             <div className="v2-settings-block">
               <h3 className="v2-settings-heading">Interface</h3>
               <p className="v2-settings-body">
-                You're using <strong>v2</strong>. Toggle off to flip back to v1 instantly. Your
-                data stays put — only the interface changes.
+                You're on <strong>v2</strong> — the redesigned interface. It's the default.
+                If you want the legacy v1 interface, toggle below; you can flip back any time.
               </p>
               <label className="v2-settings-toggle v2-settings-toggle-inline">
                 <input
                   type="checkbox"
-                  checked
+                  defaultChecked={false}
                   onChange={e => {
-                    if (!e.target.checked) {
+                    if (e.target.checked) {
                       localStorage.setItem(STORAGE_KEY, 'v1')
                       window.location.reload()
                     }
@@ -442,7 +442,7 @@ export default function SettingsModal({
                 <span className="v2-settings-toggle-track">
                   <span className="v2-settings-toggle-thumb" />
                 </span>
-                <span className="v2-settings-toggle-label">Use v2 interface</span>
+                <span className="v2-settings-toggle-label">Use legacy v1 interface</span>
               </label>
               <p className="v2-settings-hint">
                 URL escape hatch: <code>?ui=v1</code> or <code>?ui=v2</code> sets the flag and reloads.

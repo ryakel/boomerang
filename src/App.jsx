@@ -5,9 +5,9 @@ import AppV2 from './v2/AppV2.jsx'
 const STORAGE_KEY = 'ui_version'
 
 function readVersion() {
-  // URL escape hatch wins and is sticky: ?ui=v2 sets the flag, then strips
-  // itself from the URL so deep-link params (e.g. ?task=X from notifications)
-  // don't keep re-flipping it on subsequent loads.
+  // URL escape hatch wins and is sticky: ?ui=v1 / ?ui=v2 sets the flag, then
+  // strips itself from the URL so deep-link params (e.g. ?task=X from
+  // notifications) don't keep re-flipping it on subsequent loads.
   const params = new URLSearchParams(window.location.search)
   const urlFlag = params.get('ui')
   if (urlFlag === 'v1' || urlFlag === 'v2') {
@@ -17,7 +17,9 @@ function readVersion() {
     window.history.replaceState({}, '', `/${search ? `?${search}` : ''}${window.location.hash}`)
     return urlFlag
   }
-  return localStorage.getItem(STORAGE_KEY) === 'v2' ? 'v2' : 'v1'
+  // Default is v2 since the cutover. Only an explicit 'v1' opts out.
+  // Existing users who chose v1 keep their preference; everyone else gets v2.
+  return localStorage.getItem(STORAGE_KEY) === 'v1' ? 'v1' : 'v2'
 }
 
 export default function App() {
