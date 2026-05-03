@@ -399,3 +399,167 @@
 .v2-spinner {
   animation: v2-spin 0.8s linear infinite;
 }
+
+/* === Labels tab === */
+
+.v2-labels-empty {
+  padding: 16px;
+  border: 1px dashed var(--v2-hairline);
+  border-radius: 10px;
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  text-align: center;
+}
+
+.v2-labels-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.v2-labels-row,
+.v2-labels-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+
+.v2-labels-list .v2-labels-row:last-child {
+  border-bottom: none;
+}
+
+.v2-labels-add {
+  border-bottom: none;
+  padding: 0;
+}
+
+.v2-labels-color {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.v2-labels-swatch {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--v2-surface);
+  box-shadow: 0 0 0 1px var(--v2-hairline);
+  cursor: pointer;
+  list-style: none;
+  transition: transform var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-labels-swatch::-webkit-details-marker { display: none; }
+.v2-labels-swatch:hover { transform: scale(1.06); }
+
+.v2-labels-color-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 12px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 22px);
+  gap: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+}
+
+.v2-labels-color-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-labels-color-dot:hover {
+  transform: scale(1.10);
+}
+
+.v2-labels-color-dot-active {
+  border-color: var(--v2-text);
+}
+
+.v2-labels-name {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--v2-text);
+  font: 500 14px/1 var(--v2-font-body);
+  outline: none;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard),
+              background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-labels-name:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+
+.v2-labels-name:focus {
+  background: var(--v2-bg);
+  border-color: var(--v2-accent);
+}
+
+.v2-labels-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.v2-labels-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font: 500 11px/1 var(--v2-font-body);
+  padding: 0;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-labels-icon-btn:hover:not(:disabled) {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-labels-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.v2-labels-icon-btn-danger:hover {
+  background: rgba(232, 68, 58, 0.08);
+  color: var(--v2-alert-overdue);
+}
+
+.v2-labels-icon-btn-confirm {
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  border-color: var(--v2-alert-overdue);
+  width: auto;
+  padding: 0 10px;
+}
+
+.v2-labels-icon-btn-confirm:hover {
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  filter: brightness(1.08);
+}

@@ -1,24 +1,181 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Trash2, Download, Upload, RefreshCw, Copy, FileText } from 'lucide-react'
+import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus } from 'lucide-react'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
   loadRoutines, saveRoutines, loadLabels, saveLabels,
+  LABEL_COLORS, uuid,
 } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import './SettingsModal.css'
 
+// Labels tab — extracted so SettingsModal stays readable.
+function LabelsPanel() {
+  const [labels, setLabels] = useState(() => loadLabels())
+  const [newName, setNewName] = useState('')
+  const [newColor, setNewColor] = useState(LABEL_COLORS[0])
+  const [confirmDelete, setConfirmDelete] = useState(null) // label.id
+
+  const persist = (next) => {
+    setLabels(next)
+    saveLabels(next)
+  }
+
+  const addLabel = () => {
+    const name = newName.trim()
+    if (!name) return
+    const next = [...labels, { id: uuid(), name, color: newColor }]
+    persist(next)
+    setNewName('')
+    const idx = LABEL_COLORS.indexOf(newColor)
+    setNewColor(LABEL_COLORS[(idx + 1) % LABEL_COLORS.length])
+  }
+
+  const removeLabel = (id) => {
+    persist(labels.filter(l => l.id !== id))
+    setConfirmDelete(null)
+  }
+
+  const updateLabel = (id, patch) => {
+    persist(labels.map(l => (l.id === id ? { ...l, ...patch } : l)))
+  }
+
+  const moveLabel = (id, dir) => {
+    const idx = labels.findIndex(l => l.id === id)
+    const target = idx + dir
+    if (idx < 0 || target < 0 || target >= labels.length) return
+    const next = [...labels]
+    const [item] = next.splice(idx, 1)
+    next.splice(target, 0, item)
+    persist(next)
+  }
+
+  return (
+    <div className="v2-settings-form">
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Existing labels</div>
+        <div className="v2-settings-row-hint">Tap a name to rename. Color swatches show the picker. Use the arrows to reorder.</div>
+        {labels.length === 0 ? (
+          <div className="v2-labels-empty">No labels yet. Add one below.</div>
+        ) : (
+          <ul className="v2-labels-list">
+            {labels.map((label, idx) => (
+              <li key={label.id} className="v2-labels-row">
+                <details className="v2-labels-color">
+                  <summary className="v2-labels-swatch" style={{ background: label.color }} aria-label="Change color" />
+                  <div className="v2-labels-color-picker">
+                    {LABEL_COLORS.map(c => (
+                      <button
+                        key={c}
+                        className={`v2-labels-color-dot${label.color === c ? ' v2-labels-color-dot-active' : ''}`}
+                        style={{ background: c }}
+                        onClick={() => updateLabel(label.id, { color: c })}
+                        aria-label={`Set color to ${c}`}
+                      />
+                    ))}
+                  </div>
+                </details>
+                <input
+                  className="v2-labels-name"
+                  value={label.name}
+                  onChange={e => updateLabel(label.id, { name: e.target.value })}
+                />
+                <div className="v2-labels-actions">
+                  <button
+                    className="v2-labels-icon-btn"
+                    onClick={() => moveLabel(label.id, -1)}
+                    disabled={idx === 0}
+                    aria-label="Move up"
+                  >
+                    <ArrowUp size={14} strokeWidth={1.75} />
+                  </button>
+                  <button
+                    className="v2-labels-icon-btn"
+                    onClick={() => moveLabel(label.id, 1)}
+                    disabled={idx === labels.length - 1}
+                    aria-label="Move down"
+                  >
+                    <ArrowDown size={14} strokeWidth={1.75} />
+                  </button>
+                  {confirmDelete === label.id ? (
+                    <>
+                      <button
+                        className="v2-labels-icon-btn v2-labels-icon-btn-confirm"
+                        onClick={() => removeLabel(label.id)}
+                        aria-label="Confirm delete"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        className="v2-labels-icon-btn"
+                        onClick={() => setConfirmDelete(null)}
+                        aria-label="Cancel"
+                      >
+                        No
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="v2-labels-icon-btn v2-labels-icon-btn-danger"
+                      onClick={() => setConfirmDelete(label.id)}
+                      aria-label="Delete"
+                    >
+                      <Trash2 size={14} strokeWidth={1.75} />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Add a label</div>
+        <div className="v2-labels-add">
+          <details className="v2-labels-color">
+            <summary className="v2-labels-swatch" style={{ background: newColor }} aria-label="Pick color" />
+            <div className="v2-labels-color-picker">
+              {LABEL_COLORS.map(c => (
+                <button
+                  key={c}
+                  className={`v2-labels-color-dot${newColor === c ? ' v2-labels-color-dot-active' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setNewColor(c)}
+                  aria-label={`Set color to ${c}`}
+                />
+              ))}
+            </div>
+          </details>
+          <input
+            className="v2-labels-name"
+            placeholder="Label name…"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addLabel() }}
+          />
+          <button
+            className="v2-settings-btn"
+            onClick={addLabel}
+            disabled={!newName.trim()}
+          >
+            <Plus size={13} strokeWidth={2} /> Add
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const STORAGE_KEY = 'ui_version'
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs', 'Beta']
 
-// Tabs whose v2 port is heavier than what fits in PR5g — they fall through
-// to a placeholder that points users at the v1 Settings for now. Keep this
-// set in sync as more tabs port (PR5h+).
-const PLACEHOLDER_TABS = new Set(['Labels', 'Integrations', 'Notifications'])
+// Tabs whose v2 port is heavier than what fits in this batch — they fall
+// through to a placeholder pointing at v1 Settings.
+const PLACEHOLDER_TABS = new Set(['Integrations', 'Notifications'])
 
 const PLACEHOLDER_BODY = {
-  Labels: 'Tag CRUD with drag-drop reordering. Ports in a later release.',
   Integrations: 'Trello, Notion, Google Calendar, Gmail, 17track, Pushover. Many OAuth flows — ports in a later release.',
   Notifications: 'Per-channel × per-type matrix. Ports in a later release.',
 }
@@ -417,6 +574,8 @@ export default function SettingsModal({
             </div>
           </div>
         )}
+
+        {activeTab === 'Labels' && <LabelsPanel />}
 
         {activeTab === 'Logs' && <ServerLogsPanel />}
 

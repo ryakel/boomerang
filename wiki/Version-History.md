@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- feat(ui): v2 Labels CRUD tab (PR8c of 8) [S]
+  - **Why.** Labels was one of the three remaining placeholder tabs in v2 Settings (along with Integrations + Notifications). Most-used of the three — users add/rename/recolor tags routinely.
+  - **`LabelsPanel`** in SettingsModal. Hairline-row list: each label has a color swatch (clickable `<details>` reveals a 5-column color picker grid using shared `LABEL_COLORS`), inline-editable name input, up/down reorder arrows, and a delete button with inline confirm. Add row at the bottom: color picker + name input + Add button. Auto-cycles to the next color after each add (same UX v1 has).
+  - **What's NOT in v2 Labels (vs v1):** drag-drop reordering. Up/down arrows are simpler and reliable across mobile + desktop without the touch-event juggling v1 needs.
+  - **Verification.** `npm run build` clean (826KB precache), `npm run lint` clean, `npm test` smoke test passes. Manual: Settings → Labels → swatch opens color picker, name edits inline, arrows reorder, delete asks for confirm. Add a new label cycles through colors. New labels show up in the task-card filter pills.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`
+
 - feat(ui): v2 swipe-to-reveal task actions on mobile (PR8b of 8) [S]
   - **Why.** v2 TaskCard required tap-to-expand → tap action button to do anything other than read. Mobile one-handed use suffered. v1 has full swipe gestures (left → reveal Edit + Complete, right → delete). v2 ports a leaner version: swipe-left only.
   - **Approach.** Each TaskCard owns its own swipe state. `touchstart` records origin + base swipeX; `touchmove` translates the card horizontally if horizontal motion dominates (vertical scroll wins after >12px); `touchend` snaps to either the open position (-120px revealing the action panel) if past the 60px threshold, or back to 0. Action panel sits absolutely-positioned behind the card on the right, clipped by the swipe wrap's `overflow: hidden`. Tap the card while swipe is open → close swipe; tap a revealed button → execute action + close.
