@@ -300,6 +300,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
   const [historyExpanded, setHistoryExpanded] = useState(false)
   const [channelExpanded, setChannelExpanded] = useState(null) // 'webpush' | 'pushover' | 'email' | null
   const [digestExpanded, setDigestExpanded] = useState(false)
+  const [notifyExpanded, setNotifyExpanded] = useState(false)
 
   // Email notification state
   const [emailSmtpStatus, setEmailSmtpStatus] = useState(null) // null | { configured, host, ... }
@@ -2410,9 +2411,21 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
             </div>
           )}
 
-          {/* === Notify me about === */}
-          <div className="settings-label" style={{ marginTop: 24, marginBottom: 4 }}>Notify me about</div>
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
+          {/* === Notify me about (collapsible) — wraps the matrix + escalation + pile-up === */}
+          <div style={{ marginTop: 24 }}>
+            <div
+              className={`integration-row${notifyExpanded ? ' expanded' : ''}`}
+              onClick={() => setNotifyExpanded(v => !v)}
+            >
+              <span className={`backlog-arrow${notifyExpanded ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className="integration-row-name">Notify me about</span>
+              {!notifyExpanded && (
+                <span className="integration-row-summary">Types, channels, frequencies, escalation</span>
+              )}
+            </div>
+            {notifyExpanded && (
+              <div className="integration-body">
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>
             Tap chips to toggle channel delivery. Frequency is shared across channels.
           </div>
 
@@ -2523,45 +2536,9 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
               <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>days</span>
             </div>
           </div>
-
-          {/* === Test buttons row === */}
-          <div className="settings-label" style={{ marginTop: 24, marginBottom: 8 }}>Send test</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <button className="ci-upload-btn" disabled={pushTestStatus === 'sending' || !pushSub.subscribed}
-              onClick={async () => {
-                setPushTestStatus('sending'); setPushTestError(null)
-                try { const result = await testPush(); if (result.success) { setPushTestStatus('sent'); setTimeout(() => setPushTestStatus(null), 3000) } else { setPushTestStatus('error'); setPushTestError(result.error || 'Send failed') } } catch { setPushTestStatus('error'); setPushTestError('Send failed') }
-              }}>{pushTestStatus === 'sending' ? 'Sending...' : pushTestStatus === 'sent' ? 'Sent!' : 'Web Push'}</button>
-            <button className="ci-upload-btn" disabled={pushoverTestStatus === 'sending' || !settings.pushover_user_key}
-              onClick={async () => {
-                setPushoverTestStatus('sending'); setPushoverTestError(null)
-                try { const result = await testPushover({ userKey: settings.pushover_user_key, appToken: settings.pushover_app_token }); if (result.success) { setPushoverTestStatus('sent'); setTimeout(() => setPushoverTestStatus(null), 3000) } else { setPushoverTestStatus('error'); setPushoverTestError(result.error || 'Send failed') } } catch { setPushoverTestStatus('error'); setPushoverTestError('Send failed') }
-              }}>{pushoverTestStatus === 'sending' ? 'Sending...' : pushoverTestStatus === 'sent' ? 'Sent!' : 'Pushover'}</button>
-            <button className="ci-upload-btn" style={{ background: '#FF6240' }} disabled={pushoverEmergencyStatus === 'sending' || !settings.pushover_user_key}
-              onClick={async () => {
-                if (!confirm('Trigger a priority-2 Emergency alarm? It auto-cancels after 90 seconds.')) return
-                setPushoverEmergencyStatus('sending'); setPushoverEmergencyError(null)
-                try { const result = await testPushoverEmergency({ userKey: settings.pushover_user_key, appToken: settings.pushover_app_token }); if (result.success) { setPushoverEmergencyStatus('sent'); setTimeout(() => setPushoverEmergencyStatus(null), 5000) } else { setPushoverEmergencyStatus('error'); setPushoverEmergencyError(result.error || 'Send failed') } } catch { setPushoverEmergencyStatus('error'); setPushoverEmergencyError('Send failed') }
-              }}>{pushoverEmergencyStatus === 'sending' ? '...' : pushoverEmergencyStatus === 'sent' ? '!' : 'Pushover Emergency'}</button>
-            <button className="ci-upload-btn" disabled={emailTestStatus === 'sending' || !emailSmtpStatus?.configured}
-              onClick={async () => {
-                setEmailTestStatus('sending'); setEmailTestError(null)
-                try { const result = await testEmail(); if (result.success) { setEmailTestStatus('sent'); setTimeout(() => setEmailTestStatus(null), 3000) } else { setEmailTestStatus('error'); setEmailTestError(result.error || 'Send failed') } } catch { setEmailTestStatus('error'); setEmailTestError('Send failed') }
-              }}>{emailTestStatus === 'sending' ? 'Sending...' : emailTestStatus === 'sent' ? 'Sent!' : 'Email'}</button>
-            <button className="ci-upload-btn" disabled={digestTestStatus === 'sending'}
-              onClick={async () => {
-                setDigestTestStatus('sending'); setDigestTestError(null)
-                try { const result = await testDigest(); if (result.success) { setDigestTestStatus('sent'); setDigestTestError(`Sent via ${result.fired.join(', ')}`); setTimeout(() => setDigestTestStatus(null), 4000) } else { setDigestTestStatus('error'); setDigestTestError(result.error || 'No channels enabled') } } catch (e) { setDigestTestStatus('error'); setDigestTestError(e.message || 'Send failed') }
-              }}>{digestTestStatus === 'sending' ? 'Sending...' : digestTestStatus === 'sent' ? 'Sent!' : 'Daily Digest'}</button>
+              </div>
+            )}
           </div>
-          {(pushTestError || pushoverTestError || pushoverEmergencyError || emailTestError) && (
-            <div style={{ fontSize: 12, color: '#FF6240', marginTop: 6 }}>
-              {pushTestError || pushoverTestError || pushoverEmergencyError || emailTestError}
-            </div>
-          )}
-          {digestTestError && (
-            <div style={{ fontSize: 12, color: digestTestStatus === 'error' ? '#FF6240' : '#52C97F', marginTop: 6 }}>{digestTestError}</div>
-          )}
 
           {/* === Channels (collapsible) === */}
           <div className="settings-label" style={{ marginTop: 24, marginBottom: 8 }}>Channels</div>
@@ -2610,7 +2587,17 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                     {settings.push_notifications_enabled && pushSub.subscribed && (
                       <>
                         <div style={{ fontSize: 12, color: '#52C97F', marginBottom: 8 }}>Subscribed on this device</div>
-                        <button className="ci-upload-btn" style={{ color: '#ef4444' }} onClick={async () => { await pushSub.unsubscribe() }}>Disable on this device</button>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button className="ci-upload-btn" disabled={pushTestStatus === 'sending'}
+                            onClick={async () => {
+                              setPushTestStatus('sending'); setPushTestError(null)
+                              try { const result = await testPush(); if (result.success) { setPushTestStatus('sent'); setTimeout(() => setPushTestStatus(null), 3000) } else { setPushTestStatus('error'); setPushTestError(result.error || 'Send failed') } } catch { setPushTestStatus('error'); setPushTestError('Send failed') }
+                            }}>{pushTestStatus === 'sending' ? 'Sending...' : pushTestStatus === 'sent' ? 'Sent!' : 'Send test'}</button>
+                          <button className="ci-upload-btn" style={{ color: '#ef4444' }} onClick={async () => { await pushSub.unsubscribe() }}>Disable on this device</button>
+                        </div>
+                        {pushTestStatus === 'error' && pushTestError && (
+                          <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{pushTestError}</div>
+                        )}
                       </>
                     )}
                   </>
@@ -2652,6 +2639,24 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                   <div style={{ fontSize: 12, color: '#FF6240', marginTop: 8 }}>
                     <strong>Heads up — Web Push is also enabled. Running both delivers each alert twice.</strong>
                   </div>
+                )}
+                {settings.pushover_notifications_enabled && settings.pushover_user_key && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+                    <button className="ci-upload-btn" disabled={pushoverTestStatus === 'sending'}
+                      onClick={async () => {
+                        setPushoverTestStatus('sending'); setPushoverTestError(null)
+                        try { const result = await testPushover({ userKey: settings.pushover_user_key, appToken: settings.pushover_app_token }); if (result.success) { setPushoverTestStatus('sent'); setTimeout(() => setPushoverTestStatus(null), 3000) } else { setPushoverTestStatus('error'); setPushoverTestError(result.error || 'Send failed') } } catch { setPushoverTestStatus('error'); setPushoverTestError('Send failed') }
+                      }}>{pushoverTestStatus === 'sending' ? 'Sending...' : pushoverTestStatus === 'sent' ? 'Sent!' : 'Send test'}</button>
+                    <button className="ci-upload-btn" style={{ background: '#FF6240', color: 'white' }} disabled={pushoverEmergencyStatus === 'sending'}
+                      onClick={async () => {
+                        if (!confirm('Trigger a priority-2 Emergency alarm? It auto-cancels after 90 seconds.')) return
+                        setPushoverEmergencyStatus('sending'); setPushoverEmergencyError(null)
+                        try { const result = await testPushoverEmergency({ userKey: settings.pushover_user_key, appToken: settings.pushover_app_token }); if (result.success) { setPushoverEmergencyStatus('sent'); setTimeout(() => setPushoverEmergencyStatus(null), 5000) } else { setPushoverEmergencyStatus('error'); setPushoverEmergencyError(result.error || 'Send failed') } } catch { setPushoverEmergencyStatus('error'); setPushoverEmergencyError('Send failed') }
+                      }}>{pushoverEmergencyStatus === 'sending' ? 'Triggering...' : pushoverEmergencyStatus === 'sent' ? 'Alarm sent!' : 'Test Emergency'}</button>
+                  </div>
+                )}
+                {(pushoverTestStatus === 'error' || pushoverEmergencyStatus === 'error') && (
+                  <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{pushoverTestError || pushoverEmergencyError}</div>
                 )}
               </div>
             )}
@@ -2707,6 +2712,18 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                       <input type="checkbox" checked={!!settings.email_batch_mode} onChange={e => update('email_batch_mode', e.target.checked)} />
                       <span>Batch mode (single hourly digest instead of per-event)</span>
                     </label>
+                    {emailSmtpStatus?.configured && (
+                      <div style={{ marginTop: 12 }}>
+                        <button className="ci-upload-btn" disabled={emailTestStatus === 'sending'}
+                          onClick={async () => {
+                            setEmailTestStatus('sending'); setEmailTestError(null)
+                            try { const result = await testEmail(); if (result.success) { setEmailTestStatus('sent'); setTimeout(() => setEmailTestStatus(null), 3000) } else { setEmailTestStatus('error'); setEmailTestError(result.error || 'Send failed') } } catch { setEmailTestStatus('error'); setEmailTestError('Send failed') }
+                          }}>{emailTestStatus === 'sending' ? 'Sending...' : emailTestStatus === 'sent' ? 'Sent!' : 'Send test'}</button>
+                        {emailTestStatus === 'error' && emailTestError && (
+                          <div style={{ fontSize: 12, color: '#FF6240', marginTop: 4 }}>{emailTestError}</div>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -2758,6 +2775,16 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                   <input type="checkbox" checked={!!settings.pushover_digest_enabled} onChange={e => update('pushover_digest_enabled', e.target.checked)} />
                   <span>Send via Pushover</span>
                 </label>
+                <div style={{ marginTop: 12 }}>
+                  <button className="ci-upload-btn" disabled={digestTestStatus === 'sending'}
+                    onClick={async () => {
+                      setDigestTestStatus('sending'); setDigestTestError(null)
+                      try { const result = await testDigest(); if (result.success) { setDigestTestStatus('sent'); setDigestTestError(`Sent via ${result.fired.join(', ')}`); setTimeout(() => setDigestTestStatus(null), 4000) } else { setDigestTestStatus('error'); setDigestTestError(result.error || 'No channels enabled') } } catch (e) { setDigestTestStatus('error'); setDigestTestError(e.message || 'Send failed') }
+                    }}>{digestTestStatus === 'sending' ? 'Sending...' : digestTestStatus === 'sent' ? 'Sent!' : 'Send test digest now'}</button>
+                  {digestTestError && (
+                    <div style={{ fontSize: 12, color: digestTestStatus === 'error' ? '#FF6240' : '#52C97F', marginTop: 4 }}>{digestTestError}</div>
+                  )}
+                </div>
               </div>
             )}
           </div>
