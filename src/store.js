@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS = {
   staleness_days: 2,
   reframe_threshold: 3,
   digest_time: '07:00',
+  user_timezone: '', // auto-detected from browser on first load via Intl API
   notifications_enabled: false,
   notif_overdue: true,
   notif_stale: true,

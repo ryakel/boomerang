@@ -13,6 +13,7 @@ import crypto from 'crypto'
 import { queryTasks, getData, getNotifThrottle, setNotifThrottle, logNotifEmail } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
+import { isInQuietHours, getUserTimeParts } from './userTime.js'
 
 // --- Environment ---
 let smtpHost = process.env.SMTP_HOST
@@ -215,18 +216,7 @@ function getFreqMs(settings, key, fallbackHours) {
   return hours * 60 * 60 * 1000
 }
 
-function isInQuietHours(settings) {
-  if (!settings.quiet_hours_enabled) return false
-  const now = new Date()
-  const currentMins = now.getHours() * 60 + now.getMinutes()
-  const [startH, startM] = (settings.quiet_hours_start || '22:00').split(':').map(Number)
-  const [endH, endM] = (settings.quiet_hours_end || '08:00').split(':').map(Number)
-  const startMins = startH * 60 + startM
-  const endMins = endH * 60 + endM
-
-  if (startMins <= endMins) return currentMins >= startMins && currentMins < endMins
-  return currentMins >= startMins || currentMins < endMins
-}
+// isInQuietHours / getUserTimeParts now imported from userTime.js
 
 function isOverdue(task) {
   if (!task.due_date) return false
@@ -296,9 +286,9 @@ async function checkDigest() {
   if (!settings.email_digest_enabled) return
 
   const digestTime = settings.digest_time || '07:00'
-  const now = new Date()
   const [hh, mm] = digestTime.split(':').map(Number)
-  if (now.getHours() !== hh || now.getMinutes() !== mm) return
+  const userNow = getUserTimeParts(settings)
+  if (userNow.hours !== hh || userNow.minutes !== mm) return
 
   if (!checkThrottle('email_digest', 23 * 60 * 60 * 1000)) return
 

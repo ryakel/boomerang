@@ -143,6 +143,22 @@ function App() {
       .finally(() => setTimeout(() => setRefreshing(false), 500))
   }, [hydrateFromServer]))
 
+  // Auto-detect user's timezone on first mount and persist if missing.
+  // Server-side notification dispatchers need it to interpret quiet hours
+  // and digest times in the user's local time, not the server's (UTC).
+  useEffect(() => {
+    const current = loadSettings()
+    if (!current.user_timezone) {
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+        if (tz) {
+          saveSettings({ ...current, user_timezone: tz })
+          flushSync()
+        }
+      } catch { /* ignore */ }
+    }
+  }, [flushSync])
+
   // Check app version on every view/modal navigation
   useEffect(() => {
     if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || editTarget || showAdd || showWhatNow) {

@@ -2393,6 +2393,9 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
               </label>
               {settings.quiet_hours_enabled && (
                 <>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 8, marginBottom: 4 }}>
+                    Times in <strong>{settings.user_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'server local'}</strong>
+                  </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
                     <input
                       type="time"
@@ -2660,6 +2663,9 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
                 onChange={e => update('digest_time', e.target.value)}
                 style={{ width: 120, fontSize: 13 }}
               />
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                {settings.user_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'server local'}
+              </span>
             </div>
 
             <div style={{ marginTop: 12 }}>
