@@ -2507,6 +2507,69 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
               <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>days</span>
             </div>
           </div>
+
+          {/* === Morning Digest (nested collapsible) — another "what" item === */}
+          <div style={{ marginTop: 16 }}>
+            <div
+              className={`integration-row${digestExpanded ? ' expanded' : ''}`}
+              onClick={() => setDigestExpanded(v => !v)}
+            >
+              <span className={`backlog-arrow${digestExpanded ? ' open' : ''}`}><ChevronRight size={12} /></span>
+              <span className="integration-row-name">Morning Digest</span>
+              {!digestExpanded && (
+                <span className="integration-row-summary">
+                  {settings.email_digest_enabled || settings.push_digest_enabled || settings.pushover_digest_enabled ? `Daily at ${settings.digest_time || '07:00'}` : 'Off'}
+                </span>
+              )}
+            </div>
+            {digestExpanded && (
+              <div className="integration-body">
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
+                  Curated daily summary — yesterday recap + streak, today's focus, coming up, carrying, quick wins. Tappable links into the app.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Style:</span>
+                  <select value={settings.digest_style || 'curated'} onChange={e => update('digest_style', e.target.value)} style={{ fontSize: 13, padding: '4px 8px' }}>
+                    <option value="curated">Curated (recommended)</option>
+                    <option value="counts">Counts only (legacy)</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Time:</span>
+                  <input type="time" className="settings-input" value={settings.digest_time || '07:00'} onChange={e => update('digest_time', e.target.value)} style={{ width: 120, fontSize: 13 }} />
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                    {settings.user_timezone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'server local')}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 8, marginBottom: 4 }}>Channels</div>
+                <div className="notif-chips" style={{ marginBottom: 8 }}>
+                  <button
+                    type="button"
+                    className={`notif-chip notif-chip-push${settings.push_digest_enabled ? ' on' : ''}`}
+                    onClick={() => update('push_digest_enabled', !settings.push_digest_enabled)}
+                  >Web</button>
+                  <button
+                    type="button"
+                    className={`notif-chip notif-chip-pushover${settings.pushover_digest_enabled ? ' on' : ''}`}
+                    onClick={() => update('pushover_digest_enabled', !settings.pushover_digest_enabled)}
+                  >Pvr</button>
+                  <button
+                    type="button"
+                    className={`notif-chip notif-chip-email${settings.email_digest_enabled ? ' on' : ''}`}
+                    onClick={() => update('email_digest_enabled', !settings.email_digest_enabled)}
+                  >Mail</button>
+                </div>
+                <button className="ci-upload-btn" disabled={digestTestStatus === 'sending'}
+                  onClick={async () => {
+                    setDigestTestStatus('sending'); setDigestTestError(null)
+                    try { const result = await testDigest(); if (result.success) { setDigestTestStatus('sent'); setDigestTestError(`Sent via ${result.fired.join(', ')}`); setTimeout(() => setDigestTestStatus(null), 4000) } else { setDigestTestStatus('error'); setDigestTestError(result.error || 'No channels enabled') } } catch (e) { setDigestTestStatus('error'); setDigestTestError(e.message || 'Send failed') }
+                  }}>{digestTestStatus === 'sending' ? 'Sending...' : digestTestStatus === 'sent' ? 'Sent!' : 'Send test digest now'}</button>
+                {digestTestError && (
+                  <div style={{ fontSize: 12, color: digestTestStatus === 'error' ? '#FF6240' : '#52C97F', marginTop: 4 }}>{digestTestError}</div>
+                )}
+              </div>
+            )}
+          </div>
               </div>
             )}
           </div>
@@ -2734,64 +2797,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
             </>
           )}
 
-          {/* === Morning Digest (collapsible) === */}
-          <div>
-            <div
-              className={`integration-row${digestExpanded ? ' expanded' : ''}`}
-              onClick={() => setDigestExpanded(v => !v)}
-            >
-              <span className={`backlog-arrow${digestExpanded ? ' open' : ''}`}><ChevronRight size={12} /></span>
-              <span className="integration-row-name">Morning Digest</span>
-              {!digestExpanded && (
-                <span className="integration-row-summary">
-                  {settings.email_digest_enabled || settings.push_digest_enabled || settings.pushover_digest_enabled ? `Daily at ${settings.digest_time || '07:00'}` : 'Off'}
-                </span>
-              )}
-            </div>
-            {digestExpanded && (
-              <div className="integration-body">
-                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
-                  Curated daily summary — yesterday recap + streak, today's focus, coming up, what you're carrying, quick wins. Tappable links into the app.
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Style:</span>
-                  <select value={settings.digest_style || 'curated'} onChange={e => update('digest_style', e.target.value)} style={{ fontSize: 13, padding: '4px 8px' }}>
-                    <option value="curated">Curated (recommended)</option>
-                    <option value="counts">Counts only (legacy)</option>
-                  </select>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Time:</span>
-                  <input type="time" className="settings-input" value={settings.digest_time || '07:00'} onChange={e => update('digest_time', e.target.value)} style={{ width: 120, fontSize: 13 }} />
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                    {settings.user_timezone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'server local')}
-                  </span>
-                </div>
-                <label className="notif-check" style={{ marginBottom: 4 }}>
-                  <input type="checkbox" checked={!!settings.email_digest_enabled} onChange={e => update('email_digest_enabled', e.target.checked)} />
-                  <span>Send via Email</span>
-                </label>
-                <label className="notif-check" style={{ marginBottom: 4 }}>
-                  <input type="checkbox" checked={!!settings.push_digest_enabled} onChange={e => update('push_digest_enabled', e.target.checked)} />
-                  <span>Send via Web Push</span>
-                </label>
-                <label className="notif-check" style={{ marginBottom: 4 }}>
-                  <input type="checkbox" checked={!!settings.pushover_digest_enabled} onChange={e => update('pushover_digest_enabled', e.target.checked)} />
-                  <span>Send via Pushover</span>
-                </label>
-                <div style={{ marginTop: 12 }}>
-                  <button className="ci-upload-btn" disabled={digestTestStatus === 'sending'}
-                    onClick={async () => {
-                      setDigestTestStatus('sending'); setDigestTestError(null)
-                      try { const result = await testDigest(); if (result.success) { setDigestTestStatus('sent'); setDigestTestError(`Sent via ${result.fired.join(', ')}`); setTimeout(() => setDigestTestStatus(null), 4000) } else { setDigestTestStatus('error'); setDigestTestError(result.error || 'No channels enabled') } } catch (e) { setDigestTestStatus('error'); setDigestTestError(e.message || 'Send failed') }
-                    }}>{digestTestStatus === 'sending' ? 'Sending...' : digestTestStatus === 'sent' ? 'Sent!' : 'Send test digest now'}</button>
-                  {digestTestError && (
-                    <div style={{ fontSize: 12, color: digestTestStatus === 'error' ? '#FF6240' : '#52C97F', marginTop: 4 }}>{digestTestError}</div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* === Morning Digest moved INSIDE Notify me about (it's another "what" item) === */}
 
           {/* === Notification history (collapsible) === */}
           <div>
