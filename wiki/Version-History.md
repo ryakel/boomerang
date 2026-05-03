@@ -4,6 +4,22 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-03
+
+- feat(ui): v2 opt-in shell — design tokens, router, Beta tab toggle [M]
+  - **Why.** UI/UX maturity refresh inspired by Wheneri and a green-themed coaching app. The four maturity dimensions in scope: typography + color discipline, card breathing + status economy, modal/affordance consistency, header staging + empty-state tone + motion. Delivered as a v2 shell behind an opt-in toggle so v1 stays exactly as-is and users can flip back any time.
+  - **Architecture.** `src/App.jsx` becomes a thin router that reads a `ui_version` flag from localStorage (default `v1`) and renders either `AppV1` (the existing 1042-line component, renamed) or `AppV2` (new placeholder shell). URL escape hatch: `?ui=v2` and `?ui=v1` set the flag and strip themselves from the URL so deep-link params (`?task=X`) don't keep flipping it. `data-ui-version` is mirrored on the documentElement for analytics/debugging. `data-ui="v2"` is set when v2 mounts so namespaced tokens key off it.
+  - **Design tokens** (`src/v2/tokens.css`). Single accent (`--v2-accent: #FF6240`), muted alert palette (`--v2-alert-overdue: #E8443A`, `--v2-alert-high-pri: #F2A100`), pastel-ified energy types (desk/people/errand/confrontation/creative/physical), off-white background `#FAFAF7` (light) and existing `#0B0B0F` (dark). Typography: Syne 700 display, DM Sans body. Three named easings + durations (`--v2-ease-emphasis/standard/quick`, `240ms/180ms/120ms`). All variables namespaced `--v2-*` so they cannot leak into v1 styles by accident.
+  - **`src/v2/AppV2.jsx`.** Placeholder welcome page that loads `tokens.css` + `AppV2.css`. Shows "v2 is on the way" with a Back to v1 button and a meta line documenting the URL escape hatch. Subsequent PRs (Header, TaskCard, ModalShell, etc.) will replace the placeholder.
+  - **Settings → Beta tab.** New top-level tab in Settings (alongside General/AI/Labels/Integrations/Notifications/Data/Logs). Single toggle: "Use v2 interface" — flips localStorage and reloads. Reserved for future opt-in experiments too.
+  - **Shared infra.** v2 reuses every server endpoint, every hook, every context, `api.js`, `store.js`, `db.js` — only the React component tree and CSS fork. No migrations, no DB changes, no new endpoints.
+  - **What does NOT change in this PR.** v1 visuals are untouched. No changes to TaskCard, Header, modals, or any user-facing behavior unless the Beta toggle is flipped.
+  - **Verification.** `npm run build` clean (no new warnings), `npm test` smoke test passes (build + server + health endpoint + JS bundle parse), Beta toggle in Settings flips the flag, `?ui=v2`/`?ui=v1` URL escape hatch works. Default load is v1 — zero behavior change for anyone who doesn't opt in.
+  - New: `src/AppV1.jsx` (renamed from `src/App.jsx`), `src/v2/tokens.css`, `src/v2/AppV2.jsx`, `src/v2/AppV2.css`
+  - Modified: `src/App.jsx` (rewrote as router), `src/components/Settings.jsx` (Beta tab), `wiki/Version-History.md`, `CLAUDE.md`, `wiki/Architecture.md`
+
+---
+
 ## 2026-05-02
 
 - fix(settings): notion shows as disconnected when only MCP is connected [XS]

@@ -1,0 +1,54 @@
+/* v2 design tokens — opt-in via ui_version='v2'. Namespaced with --v2-* so they
+ * cannot leak into v1 styles by accident. AppV2 sets data-ui="v2" on the
+ * documentElement; the dark-mode variant keys off the existing data-theme attr. */
+
+:root[data-ui="v2"] {
+  /* Typography — Syne for display (existing font), DM Sans for body */
+  --v2-font-display: 'Syne', system-ui, sans-serif;
+  --v2-font-body: 'DM Sans', system-ui, sans-serif;
+
+  /* Single accent. Status colors are alerts only — reserved for genuine outliers. */
+  --v2-accent: #FF6240;
+  --v2-alert-overdue: #E8443A;
+  --v2-alert-high-pri: #F2A100;
+
+  /* Energy types — pastel-ified vs v1's saturated palette */
+  --v2-energy-desk: #6B8AFD;
+  --v2-energy-people: #E58FB8;
+  --v2-energy-errand: #5DBC9B;
+  --v2-energy-confrontation: #E8806A;
+  --v2-energy-creative: #B58EE8;
+  --v2-energy-physical: #D9A45C;
+
+  /* Surfaces (light mode default — off-white background, hard-white cards) */
+  --v2-bg: #FAFAF7;
+  --v2-surface: #FFFFFF;
+  --v2-text: #1A1A1F;
+  --v2-text-rgb: 26, 26, 31;
+  --v2-text-meta: rgba(26, 26, 31, 0.55);
+  --v2-text-faint: rgba(26, 26, 31, 0.35);
+  --v2-hairline: rgba(0, 0, 0, 0.08);
+
+  /* Radii */
+  --v2-radius-pill: 999px;
+  --v2-radius-card: 14px;
+  --v2-radius-modal: 20px;
+
+  /* Motion */
+  --v2-ease-emphasis: cubic-bezier(.2, .8, .2, 1);
+  --v2-ease-standard: cubic-bezier(.4, 0, .2, 1);
+  --v2-ease-quick: cubic-bezier(.4, 0, 1, 1);
+  --v2-dur-emphasis: 240ms;
+  --v2-dur-standard: 180ms;
+  --v2-dur-quick: 120ms;
+}
+
+:root[data-ui="v2"][data-theme="dark"] {
+  --v2-bg: #0B0B0F;
+  --v2-surface: #141418;
+  --v2-text: #E8E8EC;
+  --v2-text-rgb: 232, 232, 236;
+  --v2-text-meta: rgba(232, 232, 236, 0.55);
+  --v2-text-faint: rgba(232, 232, 236, 0.35);
+  --v2-hairline: rgba(255, 255, 255, 0.08);
+}

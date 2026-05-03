@@ -27,6 +27,8 @@ Browser (React PWA)
 
 **TaskActionsContext** (`src/contexts/TaskActionsContext.jsx`): All task action callbacks (`onComplete`, `onSnooze`, `onEdit`, `onExtend`, `onStatusChange`, `onUpdate`, `onDelete`, `onGmailApprove`, `onGmailDismiss`) plus `isDesktop` are provided via React Context. TaskCard only receives `task`, `expanded`, and `onToggleExpand` as props. KanbanBoard and ProjectsView consume actions from context rather than prop drilling.
 
+**v1/v2 routing** (`src/App.jsx`): Thin router that reads `localStorage.ui_version` (default `'v1'`) and renders either `AppV1` (`src/AppV1.jsx` — the existing component) or `AppV2` (`src/v2/AppV2.jsx` — the in-progress redesign). URL escape hatch: `?ui=v2` and `?ui=v1` set the flag and strip themselves from the URL so deep-link params (`?task=X`) survive. `data-ui-version` is mirrored on the documentElement; v2 also sets `data-ui="v2"` so its namespaced design tokens (`src/v2/tokens.css`, all `--v2-*`) activate without leaking into v1. v2 reuses every server endpoint, every hook, every context, `api.js`, `store.js`, `db.js` — only the React component tree and CSS fork. Users opt in via Settings → Beta tab.
+
 ## Data Flow
 
 1. **On app load**: React renders immediately from localStorage (fast first paint). An SSE connection opens to `/api/events`, which returns the current server version. The client then fetches `GET /api/data` and hydrates React state and localStorage from SQLite. If the server is empty, the client pushes its localStorage state up.

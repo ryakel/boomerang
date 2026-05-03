@@ -221,7 +221,7 @@ function ServerLogs() {
   )
 }
 
-const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs']
+const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs', 'Beta']
 
 export default function Settings({ onClose, onClearCompleted, onClearAll, onFlush, onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing, onShowActivityLog, syncStatus, isDesktop }) {
   const [activeTab, setActiveTab] = useState('General')
@@ -2862,6 +2862,29 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
 
       {activeTab === 'Logs' && (
         <ServerLogs />
+      )}
+
+      {activeTab === 'Beta' && (
+        <div className="settings-group">
+          <div className="settings-label" style={{ marginBottom: 4 }}>Try the new interface (v2)</div>
+          <div className="settings-hint" style={{ marginBottom: 12 }}>
+            Opt into the redesigned UI. Same data, new look. Toggle off any time.
+          </div>
+          <label className="notif-check">
+            <input
+              type="checkbox"
+              checked={(typeof window !== 'undefined' && localStorage.getItem('ui_version') === 'v2')}
+              onChange={e => {
+                localStorage.setItem('ui_version', e.target.checked ? 'v2' : 'v1')
+                window.location.reload()
+              }}
+            />
+            <span>Use v2 interface</span>
+          </label>
+          <div className="settings-hint" style={{ marginTop: 12 }}>
+            URL escape hatch: <code>?ui=v2</code> or <code>?ui=v1</code> sets the flag and reloads.
+          </div>
+        </div>
       )}
     </>
   )

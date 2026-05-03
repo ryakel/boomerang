@@ -714,6 +714,31 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - `sharp` as devDependency for icon generation
 - Dev seed system: `SEED_DB=1` populates DB with realistic ADHD test data at startup (Claude API or static fallback)
 
+### UI v2 (Opt-in Maturity Refresh, 2026-05-03)
+Boomerang ships with two UIs that share the same underlying app (server, hooks, store, contexts, API).
+
+**Routing.** `src/App.jsx` is a thin router that reads `localStorage.ui_version` (default `'v1'`) and renders either `AppV1` (the long-standing component, in `src/AppV1.jsx`) or `AppV2` (in `src/v2/AppV2.jsx`). URL escape hatch: `?ui=v2` and `?ui=v1` set the flag, then strip themselves from the URL so deep-link params (`?task=X`) don't keep flipping it. `data-ui-version` is mirrored on the documentElement.
+
+**Tokens.** v2 design tokens live at `src/v2/tokens.css`, all namespaced `--v2-*` so they cannot leak into v1. Activated by `data-ui="v2"` (set by AppV2 on mount). Dark variant keys off the existing `data-theme="dark"` attribute.
+
+**Visual north stars** (from Wheneri): heavy display titles + generous whitespace, hairline-list aesthetic over stacked-card chrome, single circular-pill X close in the same top-right slot on every modal. v1 stays exactly as-is.
+
+**Build order** (per the plan in `/root/.claude/plans/ui-redesign-ideas-i-iridescent-wren.md`):
+1. ✅ Tokens + opt-in plumbing (this commit)
+2. Shell + Header + EmptyState + ModalShell
+3. TaskCard + section labels
+4. Modals batch 1: AddTaskModal, EditTaskModal, SnoozeModal, ReframeModal, WhatNowModal
+5. Modals batch 2: Settings, Routines, Projects, Packages, Adviser, Analytics, ActivityLog, DoneList. Analytics gets the Balance radar (tag/energy spokes) here.
+6. KanbanBoard (desktop)
+7. Toast + motion sweep
+8. Polish + dark mode parity
+
+Each PR is independently mergeable. Surfaces not yet ported in v2 fall through (v2 currently shows only a placeholder welcome page with a Back to v1 button).
+
+**User opt-in.** Settings → Beta tab → "Use v2 interface" toggle. The Beta tab is reserved for future opt-in experiments too.
+
+**End state.** After all 8 PRs ship and a 1-2 week opt-in period validates v2, flip the default to `'v2'`, leave v1 reachable via `?ui=v1` for one release, then delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`.
+
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
 
