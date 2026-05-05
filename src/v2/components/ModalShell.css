@@ -73,14 +73,36 @@
   padding: 24px;
 }
 
-@media (min-width: 601px) {
+/* Desktop: modals are right-side drawers attached to the screen edge.
+ * Floating-centered modals felt unmoored — the user described them as
+ * "mobile pop-overs that don't attach to anything." Drawers slide in
+ * from the right, span the full viewport height, and round only the
+ * left edge so they read as belonging to the right edge. The main
+ * surface stays partially visible behind a soft dim overlay so users
+ * can see they haven't "left" the app. */
+@media (min-width: 768px) {
   .v2-modal-overlay {
-    align-items: center;
+    align-items: stretch;
+    justify-content: flex-end;
+    background: rgba(0, 0, 0, 0.30);
   }
   .v2-modal {
-    border-radius: var(--v2-radius-modal);
-    max-height: 85dvh;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: var(--v2-radius-modal) 0 0 var(--v2-radius-modal);
+    box-shadow: -16px 0 40px rgba(0, 0, 0, 0.10);
+    animation: v2-modal-slide var(--v2-dur-emphasis) var(--v2-ease-emphasis);
   }
-  .v2-modal-narrow { max-width: 480px; }
-  .v2-modal-wide { max-width: 720px; }
+  .v2-modal-narrow { max-width: 480px; width: 100%; }
+  .v2-modal-wide { max-width: 640px; width: 100%; }
+
+  /* Drawer body fills available vertical space — content scrolls inside. */
+  .v2-modal-body {
+    padding: 24px;
+  }
+}
+
+@keyframes v2-modal-slide {
+  from { transform: translateX(100%); opacity: 0.7; }
+  to   { transform: translateX(0); opacity: 1; }
 }

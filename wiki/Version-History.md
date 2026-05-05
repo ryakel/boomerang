@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-03
 
+- fix(ui): v2 light-mode bg goes pure white + desktop modals slide in as right drawers [S]
+  - **Bug 1 — light bg too creamy.** `--v2-bg: #FAFAF7` had a faint warm/yellow tint that read as off-white instead of clean white. Switched to `--v2-bg: #FFFFFF`. Cards keep `--v2-surface: #FFFFFF` so they blend with the page bg, with hairline borders + subtle shadows doing the structural separation work — Wheneri-aesthetic. Dark mode untouched.
+  - **Bug 2 — desktop modals floated unmoored.** All v2 modals on desktop appeared as centered floating sheets, which the user described as "mobile pop-overs that don't attach to anything." Switched the desktop ModalShell behavior (≥768px, matching `useIsDesktop`) to right-side drawers: `align-items: stretch; justify-content: flex-end` puts the modal flush against the right edge, full-viewport-height, with only the left corners rounded (`20px 0 0 20px`). Soft-dim overlay (rgba 0.30) so the main task list stays partially visible behind. Slide-in animation translates from `100%` to `0` over `--v2-dur-emphasis`.
+  - **Width caps preserved.** `width: narrow` drawers cap at 480px; `width: wide` drawers cap at 640px (down from 720px so the drawer doesn't dominate). Width 100% within the cap so they always span the right side.
+  - **Mobile unchanged.** Below 768px, modals stay as bottom-sheets sliding up from the bottom — the original mobile-first behavior.
+  - **Verification.** `npm run build` clean (842KB precache), `npm run lint` clean, `npm test` smoke test passes. Manual: on desktop, tap any header icon → modal slides in from the right edge, attaches there, dim overlay reveals task list behind. On mobile, modals still bottom-sheet up.
+  - Modified: `src/v2/tokens.css`, `src/v2/components/ModalShell.css`
+
 - fix(ui): v2 header — equal-size action circles + colored destination icons [XS]
   - **Bug 1.** "What now?" target circle was 36px tall while the "+" circle was 38×38, and on narrow screens (≤480px) the target collapsed to icon-only with horizontal padding instead of becoming a perfect circle. Result: two adjacent orange circles that visibly didn't match. Fixed: bumped What-now? to 38px height across all viewports; on narrow screens it now switches to `width: 38px; padding: 0` so the orange "+" and orange target read as identical visual weight.
   - **Bug 2.** v1 header has tinted icons (`packages-color: #F59E0B`, `adviser-color: #A78BFA`) so Quokka/Packages stay recognizable at a glance. v2 had stripped them to plain `--v2-text-meta` grey, merging them into the icon row. Fixed: ported the same color values as `.v2-header-icon-quokka` (purple) + `.v2-header-icon-packages` (amber). Hover state shifts to a soft tinted background of the same hue.

@@ -20,8 +20,10 @@
   --v2-energy-creative: #B58EE8;
   --v2-energy-physical: #D9A45C;
 
-  /* Surfaces (light mode default — off-white background, hard-white cards) */
-  --v2-bg: #FAFAF7;
+  /* Surfaces (light mode default — pure white background + white cards.
+   * Visual separation between bg and cards comes from hairline borders +
+   * subtle shadows, not from a contrasting bg tint. Wheneri-aesthetic. */
+  --v2-bg: #FFFFFF;
   --v2-surface: #FFFFFF;
   --v2-text: #1A1A1F;
   --v2-text-rgb: 26, 26, 31;
