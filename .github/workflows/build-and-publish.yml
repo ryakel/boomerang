@@ -164,4 +164,36 @@ jobs:
             echo "::error::Tailscale connection failed (outcome=${{ steps.tailscale.outcome }}). Portainer auto-deploy skipped — image is in GHCR but the running container will not auto-update. Pull the new image manually."
             exit 1
           fi
-          curl -f -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
+          echo "Triggering Portainer webhook..."
+          HTTP_CODE=$(curl -sS -o /tmp/portainer-response.txt -w "%{http_code}" -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}")
+          BODY=$(cat /tmp/portainer-response.txt 2>/dev/null || echo "<empty>")
+          echo "Portainer HTTP status: $HTTP_CODE"
+          echo "Portainer response body: $BODY"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Portainer webhook returned $HTTP_CODE. Check that PORTAINER_WEBHOOK_URL secret matches the current stack webhook (regenerated after Portainer self-updates) and that the stack has 'auto-update on webhook' enabled."
+            exit 1
+          fi
+
+      - name: Verify deploy
+        if: github.ref == 'refs/heads/main' && steps.tailscale.outcome == 'success'
+        env:
+          HEALTH_URL: ${{ secrets.HEALTH_CHECK_URL }}
+          EXPECTED: ${{ steps.tag_version.outputs.new_tag }}
+        run: |
+          if [ -z "$HEALTH_URL" ]; then
+            echo "HEALTH_CHECK_URL secret not set — skipping deploy verification."
+            echo "(Add a secret named HEALTH_CHECK_URL pointing at https://your-host/api/health to enable end-to-end deploy confirmation.)"
+            exit 0
+          fi
+          echo "Waiting for deploy to land — expecting appVersion=$EXPECTED at $HEALTH_URL"
+          for i in 1 2 3 4 5 6; do
+            sleep 20
+            ACTUAL=$(curl -fsS --max-time 5 "$HEALTH_URL" 2>/dev/null | jq -r '.appVersion // empty' 2>/dev/null || echo "")
+            echo "Attempt $i/6 (~${i}0s in): appVersion=${ACTUAL:-<unreachable>}"
+            if [ "$ACTUAL" = "$EXPECTED" ]; then
+              echo "Deploy confirmed: server is on $ACTUAL"
+              exit 0
+            fi
+          done
+          echo "::error::After ~2min, $HEALTH_URL still reports appVersion='$ACTUAL' (expected '$EXPECTED'). Portainer received the webhook but the container did not redeploy with the new image. Check the stack's 'pull image when triggered' / image-tag-strategy in Portainer."
+          exit 1

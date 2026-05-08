@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-08
 
+- fix(ci): pipeline now logs Portainer response + verifies deploy actually landed [S]
+  - **Why.** Even with the fail-loud fix from earlier today, a successful workflow only proves the webhook returned 2xx — it doesn't prove the container actually redeployed. After Portainer self-updates (like the 2026-05-06 23:54:47 bounce that triggered the wipe), the stack's webhook URL can change, the auto-update-on-webhook flag can reset, or the registry-pull policy can be wrong. Workflow goes green, image sits in GHCR, container keeps running stale code.
+  - **Diagnostic logging.** The Trigger Portainer step now captures the webhook's HTTP status and response body and prints both. Non-2xx fails the step with a hint to re-check the webhook URL secret + Portainer's auto-update setting.
+  - **End-to-end verify.** New "Verify deploy" step polls a `HEALTH_CHECK_URL` (or `HEALTH_CHECK_DEV_URL` for dev) every 20s for up to 2 minutes, checking that `/api/health` reports the expected `appVersion`. Fails the workflow if the server hasn't picked up the new image. Skipped silently if the secret isn't set, so this opts in cleanly per environment.
+  - Modified: `.github/workflows/build-and-publish.yml`, `.github/workflows/build-and-publish-dev.yml`
+
 - fix(ci): Portainer auto-deploy fails loudly instead of skipping silently [XS]
   - **Bug.** When Tailscale failed to connect (OAuth secret stale, network blip, anything), the workflow swallowed the error (`continue-on-error: true` on the Tailscale step) and the Portainer redeploy step was silently skipped via the `steps.tailscale.outcome == 'success'` gate. Workflow showed green, image was in GHCR, but the running container never got the new image. Bit us with v0.97.9 where the build succeeded but Portainer never redeployed — old container kept running stale code until a manual pull.
   - **Fix.** Portainer step now runs unconditionally on main pushes (and dev pushes). If Tailscale didn't succeed, it emits `::error::` with a clear message and exits 1, turning the workflow red. Image publish is unaffected (Tailscale step still has `continue-on-error: true`, so transient infra failures don't block image builds).
