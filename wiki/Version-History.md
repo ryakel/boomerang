@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-08
 
+- fix(ci): Portainer auto-deploy fails loudly instead of skipping silently [XS]
+  - **Bug.** When Tailscale failed to connect (OAuth secret stale, network blip, anything), the workflow swallowed the error (`continue-on-error: true` on the Tailscale step) and the Portainer redeploy step was silently skipped via the `steps.tailscale.outcome == 'success'` gate. Workflow showed green, image was in GHCR, but the running container never got the new image. Bit us with v0.97.9 where the build succeeded but Portainer never redeployed — old container kept running stale code until a manual pull.
+  - **Fix.** Portainer step now runs unconditionally on main pushes (and dev pushes). If Tailscale didn't succeed, it emits `::error::` with a clear message and exits 1, turning the workflow red. Image publish is unaffected (Tailscale step still has `continue-on-error: true`, so transient infra failures don't block image builds).
+  - Modified: `.github/workflows/build-and-publish.yml`, `.github/workflows/build-and-publish-dev.yml`
+
+- chore(test): clean up backup file leftovers from smoke test [XS]
+  - After the daily DB snapshot landed, every `sh scripts/smoke-test.sh` run leaves a `test-smoke.db.YYYY-MM-DD.bak` in the repo root because the new `runBackup()` runs on server boot. Updated the smoke test's `cleanup()` trap to remove `test-smoke.db.*.bak` alongside `test-smoke.db`. Added `*.db.*.bak` to `.gitignore` as a safety net.
+  - Modified: `scripts/smoke-test.sh`, `.gitignore`
+
 - chore(deps): clear 4 moderate npm-audit vulnerabilities [XS]
   - `npm audit fix` resolved 4 moderate transitive vulnerabilities — `ip-address` (XSS in unused Address6 HTML methods), `express-rate-limit` (depended on the bad ip-address), `hono` (bodyLimit bypass for chunked requests), `postcss` (XSS via unescaped `</style>` in CSS Stringify, build-time only). All four resolved by lockfile updates only — no `package.json` change. Smoke test green.
   - Modified: `package-lock.json`

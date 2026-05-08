@@ -118,6 +118,10 @@ jobs:
           tags: tag:ci
 
       - name: Trigger Portainer redeploy
-        if: github.event_name != 'pull_request' && steps.tailscale.outcome == 'success'
+        if: github.event_name != 'pull_request'
         run: |
+          if [ "${{ steps.tailscale.outcome }}" != "success" ]; then
+            echo "::error::Tailscale connection failed (outcome=${{ steps.tailscale.outcome }}). Portainer auto-deploy skipped — dev image is in GHCR but the running container will not auto-update. Pull the new image manually."
+            exit 1
+          fi
           curl -f -X POST "${{ secrets.PORTAINER_DEV_WEBHOOK_URL }}"
