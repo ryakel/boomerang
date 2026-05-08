@@ -6,6 +6,26 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-08
 
+- fix(db): delete legacy tasks/routines JSON-blob ghost-revive path [S]
+  - **Why.** Post-incident audit flagged `seedFromJsonBlobs()` in `db.js` as a ghost-revive vector. On every server boot, if the SQL `tasks` / `routines` tables were empty, the function read `app_data.tasks` and `app_data.routines` JSON blobs and re-populated the SQL tables. That blob hadn't been written to since migrations 002 + 003 landed months ago — anything in it was a months-stale snapshot. Any future event that emptied the SQL tables (corruption, accidental drop, restore-with-empty-arrays) would silently re-hydrate from this stale snapshot instead of surfacing the failure obviously.
+  - **Removed:** `seedFromJsonBlobs()` function, the `seedFromJsonBlobs()` call from `initDb()`, and the `if (row.collection === 'tasks' || row.collection === 'routines') continue` skip clauses in `getAllData()` (no longer needed once the legacy rows are gone).
+  - **Added migration 022** (`migrations/022_drop_legacy_task_routine_blobs.sql`) — `DELETE FROM app_data WHERE collection IN ('tasks', 'routines')` to clean up the orphan rows.
+  - **Verified.** Smoke test passes. Bundle parses. Server boots clean (migration 022 runs once, deletes the rows, marks itself complete).
+  - Modified: `db.js`, `wiki/Architecture.md`
+  - New: `migrations/022_drop_legacy_task_routine_blobs.sql`
+
+- fix(ui): v2 SettingsModal restore uses in-app confirm modal [XS]
+  - Mirror of the v1 change. v2 already had a `confirmDialog` state pattern matching v1's, so the swap is purely call-site — replace browser-native `confirm()` in `handleImportData` with `setConfirmDialog()`. Invalid JSON and restore failures also surface in-app now.
+  - Modified: `src/v2/components/SettingsModal.jsx`
+
+- fix(settings): use in-app confirm modal for restore-from-backup [XS]
+  - The restore confirmation was using browser-native `confirm()`, which on iOS shows the awkward "[hostname] says..." prefix and doesn't match the rest of the app. `Settings.jsx` already has a `confirmDialog` state pattern with matching markup at the bottom of the component — wired the restore flow to use it. Bonus: invalid-JSON and restore-failure paths also use the modal now instead of `alert()`.
+  - Modified: `src/components/Settings.jsx`
+
+- fix(ci): bump tag on refactor/perf/chore commits, expand restoreFromBackup doc [XS]
+  - The previous `custom_release_rules` listed only `feat`/`fix`/`breaking`/`major`/`minor`/`patch`. Today's `refactor(server)` commit didn't bump the tag because `refactor` wasn't mapped — workflow ran but produced no new image. Added `refactor`, `perf`, `chore`, `style`, `docs`, `test` all → `patch` so future non-feat/non-fix commits trigger deploys reliably. Doc expansion on `restoreFromBackup` in `src/api.js` is the trigger to bypass `paths-ignore` (`.github/**` is ignored, so a workflow-only change wouldn't fire CI).
+  - Modified: `.github/workflows/build-and-publish.yml`, `src/api.js`
+
 - refactor(server): retire bulk task/routine/package writes, add restore endpoint [M]
   - **Why.** Post-incident audit found that `setAllData()` still routed `tasks`/`routines`/`packages` keys through `syncTasksFromArray()` / `syncRoutinesFromArray()` / `syncPackagesFromArray()` — bulk delete-and-replace helpers that were the wipe vector. Today's earlier fix added a 409 guard against empty/>50%-shrink task arrays, but routines had **no shrink guard at all**, and a future regression could re-introduce the same bug at any scale.
   - **Server-side closure.** `setAllData()` now throws if it sees a `tasks`/`routines`/`packages` key. `PUT/POST /api/data` reject those keys at the request level with 400 + clear `bulk_path_does_not_accept_arrays` error. Bulk path is settings + labels only. `syncTasksFromArray` / `syncRoutinesFromArray` / `syncPackagesFromArray` deleted entirely (~80 lines of dead code).

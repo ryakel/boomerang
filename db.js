@@ -61,37 +61,13 @@ function runMigrations() {
   }
 }
 
-// Post-migration data seeding: populate tasks/routines tables from JSON blobs
-function seedFromJsonBlobs() {
-  // Check that tables exist before seeding (migrations must have run first)
-  const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('tasks','routines')")
-  const tableNames = new Set((tables[0]?.values || []).map(r => r[0]))
-  if (!tableNames.has('tasks') || !tableNames.has('routines')) return
-
-  // Seed tasks table from app_data JSON blob if tasks table is empty
-  const taskCount = db.exec('SELECT COUNT(*) FROM tasks')
-  if (taskCount[0]?.values[0]?.[0] === 0) {
-    const blob = getData('tasks')
-    if (Array.isArray(blob) && blob.length > 0) {
-      console.log(`[DB] Seeding ${blob.length} tasks from JSON blob into tasks table`)
-      db.run('BEGIN TRANSACTION')
-      for (const task of blob) runUpsertTask(task)
-      db.run('COMMIT')
-    }
-  }
-
-  // Seed routines table from app_data JSON blob if routines table is empty
-  const routineCount = db.exec('SELECT COUNT(*) FROM routines')
-  if (routineCount[0]?.values[0]?.[0] === 0) {
-    const blob = getData('routines')
-    if (Array.isArray(blob) && blob.length > 0) {
-      console.log(`[DB] Seeding ${blob.length} routines from JSON blob into routines table`)
-      db.run('BEGIN TRANSACTION')
-      for (const routine of blob) runUpsertRoutine(routine)
-      db.run('COMMIT')
-    }
-  }
-}
+// (seedFromJsonBlobs removed 2026-05-08 — was a one-time migration helper that
+//  re-populated the SQL tables/routines tables from legacy app_data.tasks /
+//  app_data.routines JSON blobs. The blobs hadn't been written to since
+//  migrations 002+003 landed months ago. Keeping the helper alive made it a
+//  ghost-revive vector: any event that emptied the SQL table would silently
+//  restore a months-stale snapshot instead of surfacing the obvious empty
+//  state. Migration 022 deletes the legacy rows from app_data.)
 
 // --- Init ---
 export async function initDb(filePath) {
@@ -118,7 +94,6 @@ export async function initDb(filePath) {
   `)
 
   runMigrations()
-  seedFromJsonBlobs()
 
   flushNow()
   return db
@@ -156,11 +131,10 @@ export function setData(collection, data) {
 export function getAllData() {
   const result = {}
 
-  // Read settings, labels from app_data
+  // Read app_data JSON blobs (settings, labels, oauth tokens, vapid keys, etc).
   const stmt = db.prepare('SELECT collection, data_json FROM app_data')
   while (stmt.step()) {
     const row = stmt.getAsObject()
-    if (row.collection === 'tasks' || row.collection === 'routines') continue // skip legacy blobs
     try {
       result[row.collection] = JSON.parse(row.data_json)
     } catch {
