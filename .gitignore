@@ -12,6 +12,7 @@ dist-ssr
 
 # Database
 *.db
+*.db.*.bak
 
 # Backups
 backup-*.json
