@@ -76,6 +76,8 @@ The client side was hardened in the same change: `buildPayload()` in `src/hooks/
 
 When the live `tasks` table is lost, `scripts/recover-from-notification-log.js` (read-only) queries `notification_log` (which survives `setAllData` because it's not in the bulk-PUT collection list) and emits each unique `(task_id, most_recent_title, channels, count, in_live_db)`. Up to 500 rows of history available, covering most active+done tasks that have triggered any notification.
 
+There is intentionally **no** auto-seed-from-blob path. Earlier server versions had `seedFromJsonBlobs()` in `db.js` that re-populated empty `tasks`/`routines` tables from legacy `app_data.tasks` / `app_data.routines` JSON blobs at boot. The blob hadn't been written to since migrations 002 + 003 landed, but the read path was still active — meaning any future "tasks table emptied" event would silently re-hydrate from months-stale data instead of surfacing the failure. Removed 2026-05-08 along with migration 022 which drops the orphan rows from `app_data`.
+
 ## Storage
 
 - **localStorage** (`boom_tasks_v1`, `boom_routines_v1`, `boom_settings_v1`, `boom_labels_v1`) — browser-side cache for fast initial render and offline fallback
