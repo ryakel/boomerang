@@ -56,6 +56,22 @@ A keep-alive ping (`: ping\n\n`) is sent every 30 seconds to prevent proxy/load-
 
 Writes to `PUT /api/data` or `POST /api/data` that do not include a `_clientId` in the request body are silently rejected (200 response, no data written). This prevents stale PWA service worker caches — which may still be running old JavaScript — from overwriting current data.
 
+### Destructive Bulk-Write Guard
+
+`PUT /api/data` and `POST /api/data` reject (HTTP 409) when the incoming `body.tasks` array would catastrophically shrink the live tasks table:
+- existing > 0 AND incoming = 0 → reject (any-to-empty wipe)
+- existing ≥ 10 AND incoming < existing × 0.5 → reject (>50% shrink, with a 10-row floor)
+
+Settings-only pushes (no `tasks` key in body) are unaffected. Per-record `/api/tasks` mutations are unaffected — that is the supported path for legitimate bulk deletes. Added in response to the 2026-05-07 wipe where a client whose initial GET had failed pushed `tasks: []` via the manual-flush code path and obliterated 153 rows.
+
+### Daily DB Snapshot
+
+`scripts/backup-db.js` runs once on server boot and every 24h thereafter. Copies `$DB_PATH` to `${DB_PATH}.YYYY-MM-DD.bak`, prunes snapshots older than `BACKUP_RETENTION_DAYS` (default 7). Idempotent — re-running the same day is a no-op. Lives alongside the live DB in the same `/data` Docker volume.
+
+### Recovery From notification_log
+
+When the live `tasks` table is lost, `scripts/recover-from-notification-log.js` (read-only) queries `notification_log` (which survives `setAllData` because it's not in the bulk-PUT collection list) and emits each unique `(task_id, most_recent_title, channels, count, in_live_db)`. Up to 500 rows of history available, covering most active+done tasks that have triggered any notification.
+
 ## Storage
 
 - **localStorage** (`boom_tasks_v1`, `boom_routines_v1`, `boom_settings_v1`, `boom_labels_v1`) — browser-side cache for fast initial render and offline fallback
@@ -194,7 +210,7 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 | `GET` | `/api/keys/status` | Reports env var key availability |
 | `GET` | `/api/events` | SSE endpoint for real-time cross-client sync |
 | `GET` | `/api/data` | Get all data from SQLite (includes `_version`) |
-| `PUT` | `/api/data` | Replace all data in SQLite (requires `_clientId`) |
+| `PUT` | `/api/data` | Replace all data in SQLite (requires `_clientId`; rejects empty/>50%-shrink task replaces with HTTP 409) |
 | `POST` | `/api/data` | Same as PUT — for `navigator.sendBeacon` (requires `_clientId`) |
 | `PATCH` | `/api/data/:collection` | Update a single collection |
 | `DELETE` | `/api/data` | Clear all data |
