@@ -16,7 +16,7 @@ sleep 2
 
 cleanup() {
   kill $SERVER_PID 2>/dev/null || true
-  rm -f ./test-smoke.db
+  rm -f ./test-smoke.db ./test-smoke.db.*.bak
 }
 trap cleanup EXIT
 
