@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-08
 
+- fix(sync): strip tasks/routines from bulk PUT — close the wipe vector client-side [S]
+  - **Why.** The 2026-05-07 wipe was a 3-layer failure: Portainer bouncing the container, client hydrate-then-flush race, server bulk-PUT with no destructive-write guard. The server guard from earlier today closes layer 3. This commit closes layer 2 — the client no longer puts the entire tasks/routines arrays into the bulk PUT payload at all. The class of bug is gone from the client side, server guard becomes belt-and-suspenders rather than the only line of defense.
+  - **Change.** `buildPayload()` in `src/hooks/useServerSync.js` no longer reads tasks/routines. The bulk PUT carries only `settings` and `labels` (which still live as JSON blobs in `app_data`). All four call sites updated: `pushBulkState`, `pushChanges` no-prev fallback, `fetchAndHydrate` empty-server branch, and the `beforeunload` handler.
+  - **`pushChanges` no-prev fallback hardened.** Previously, when `prevTasks`/`prevRoutines` were null (hydrate hadn't completed yet), pushChanges fell back to `pushBulkState(tasks, routines)` which sent the unverified local state to the server. That was the exact wipe vector. Now: skip the push entirely with a log line — local state isn't authoritative until hydrate succeeds. Settings/labels changes still flush via the manual `flush()` path.
+  - **Lost capability.** The "server empty, push local state" fallback in `fetchAndHydrate` now only seeds settings/labels — not tasks/routines. In practice this branch was dead code (server always responds with at least `_version`) so the loss is theoretical. Per-record `/api/tasks` API remains the supported path for legitimate task creation.
+  - Modified: `src/hooks/useServerSync.js`
+
 - fix(ci): pipeline now logs Portainer response + verifies deploy actually landed [S]
   - **Why.** Even with the fail-loud fix from earlier today, a successful workflow only proves the webhook returned 2xx — it doesn't prove the container actually redeployed. After Portainer self-updates (like the 2026-05-06 23:54:47 bounce that triggered the wipe), the stack's webhook URL can change, the auto-update-on-webhook flag can reset, or the registry-pull policy can be wrong. Workflow goes green, image sits in GHCR, container keeps running stale code.
   - **Diagnostic logging.** The Trigger Portainer step now captures the webhook's HTTP status and response body and prints both. Non-2xx fails the step with a hint to re-check the webhook URL secret + Portainer's auto-update setting.

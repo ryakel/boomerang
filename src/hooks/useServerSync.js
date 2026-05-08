@@ -89,9 +89,10 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     latestState.current = { tasks, routines }
   }, [tasks, routines])
 
-  // Bulk push helper — fallback and used for settings/labels
-  const pushBulkState = useCallback(function pushBulkState(currentTasks, currentRoutines) {
-    const payload = buildPayload(currentTasks, currentRoutines)
+  // Bulk push helper — settings/labels only. Tasks and routines never travel
+  // through this path (per-record APIs handle them).
+  const pushBulkState = useCallback(function pushBulkState() {
+    const payload = buildPayload()
     if (!payload) {
       remoteLog('push: no payload, skipping')
       return
@@ -99,7 +100,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     payload._clientId = clientId
     payload._appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
-    remoteLog('push: PUT /api/data — tasks=', taskSummary(payload.tasks))
+    remoteLog('push: PUT /api/data (settings/labels) keys=' + Object.keys(payload).filter(k => !k.startsWith('_')).join(','))
     setSyncStatus('saving')
 
     fetch('/api/data', {
@@ -134,9 +135,13 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     const prev = prevTasks.current
     const prevR = prevRoutines.current
 
-    // If no previous state, fall back to bulk push
+    // No prior snapshot means hydrate hasn't completed (or failed). Refuse to
+    // push — local state isn't authoritative until we've successfully read the
+    // server's view at least once. Settings/labels changes will still flush
+    // via the manual `flush()` path; tasks/routines will sync once a hydrate
+    // lands and prev gets set.
     if (!prev || !prevR) {
-      pushBulkState(currentTasks, currentRoutines)
+      remoteLog('push: skipped — not yet hydrated, refusing to push unverified state')
       return
     }
 
@@ -303,8 +308,8 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           prevTasks.current = data.tasks || []
           prevRoutines.current = data.routines || []
         } else {
-          remoteLog(`${reason}: server empty, pushing local state`)
-          pushBulkState(latestState.current.tasks, latestState.current.routines)
+          remoteLog(`${reason}: server empty, pushing local settings/labels`)
+          pushBulkState()
         }
       })
       .catch(err => {
@@ -432,7 +437,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         clearTimeout(debounceTimer.current)
         debounceTimer.current = null
       }
-      const payload = buildPayload(latestState.current.tasks, latestState.current.routines)
+      const payload = buildPayload()
       if (payload) {
         payload._clientId = clientId
         payload._appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
@@ -451,7 +456,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const flush = useCallback(() => {
     remoteLog('flush: manual (settings/labels changed)')
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    pushBulkState(latestState.current.tasks, latestState.current.routines)
+    pushBulkState()
   }, [pushBulkState])
 
   // Check app version against server on demand
@@ -475,15 +480,19 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   return { flush, checkVersion, syncStatus, queueLength }
 }
 
-function buildPayload(tasks, routines) {
+// Bulk PUT carries settings + labels only. Tasks and routines have their own
+// per-record /api/tasks and /api/routines APIs; including them here was the
+// wipe vector that destroyed 153 tasks on 2026-05-07 (a client whose initial
+// GET failed sent tasks: [] via manual flush). Server has a 409 guard now,
+// but the cleanest fix is to never give the server a chance to misinterpret
+// an empty client state as a delete-all command.
+function buildPayload() {
   let settings = null
   let labels = null
   try { settings = JSON.parse(localStorage.getItem('boom_settings_v1')) } catch { /* */ }
   try { labels = JSON.parse(localStorage.getItem('boom_labels_v1')) } catch { /* */ }
 
   const data = {}
-  if (Array.isArray(tasks)) data.tasks = tasks
-  if (Array.isArray(routines)) data.routines = routines
   if (settings) data.settings = settings
   if (labels) data.labels = labels
 

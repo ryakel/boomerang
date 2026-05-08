@@ -64,6 +64,10 @@ Writes to `PUT /api/data` or `POST /api/data` that do not include a `_clientId` 
 
 Settings-only pushes (no `tasks` key in body) are unaffected. Per-record `/api/tasks` mutations are unaffected — that is the supported path for legitimate bulk deletes. Added in response to the 2026-05-07 wipe where a client whose initial GET had failed pushed `tasks: []` via the manual-flush code path and obliterated 153 rows.
 
+The client side was hardened in the same week: `buildPayload()` in `src/hooks/useServerSync.js` no longer includes `tasks` or `routines` in the bulk PUT — only `settings` and `labels`. The bulk PUT endpoint should therefore never see a `tasks` key from a current client. The server guard remains as defense in depth (catches stale browser tabs running pre-fix code, malicious payloads, etc).
+
+`pushChanges` also refuses to push when `prevTasks`/`prevRoutines` are unset (hydrate hasn't completed). Local state is not treated as authoritative until at least one successful round-trip with the server.
+
 ### Daily DB Snapshot
 
 `scripts/backup-db.js` runs once on server boot and every 24h thereafter. Copies `$DB_PATH` to `${DB_PATH}.YYYY-MM-DD.bak`, prunes snapshots older than `BACKUP_RETENTION_DAYS` (default 7). Idempotent — re-running the same day is a no-op. Lives alongside the live DB in the same `/data` Docker volume.
