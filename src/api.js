@@ -1346,7 +1346,8 @@ export async function adviserUnstarChat(id) {
 }
 
 // Restore tasks/routines/settings/labels from a backup JSON file. Server replaces
-// each table per-record; OAuth tokens, push subs, notif logs, etc. are untouched.
+// each table per-record; OAuth tokens, push subs, notif logs, weather cache,
+// adviser chats, and VAPID keys are intentionally untouched. Throws on non-2xx.
 export async function restoreFromBackup(backup) {
   const res = await fetch('/api/data/restore', {
     method: 'POST',
