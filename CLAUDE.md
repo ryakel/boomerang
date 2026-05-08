@@ -767,6 +767,16 @@ These five primitives are the v2 task-surface language. Every subsequent v2 surf
 
 **No encryption at rest.** SQLite plaintext. Anyone who can read `/data/boomerang.db` reads everything. Acceptable for self-hosted single-user; *not* acceptable for multi-tenant.
 
+## Data Durability (2026-05-08)
+
+**Daily snapshot.** `scripts/backup-db.js` runs on server boot and every 24h. Copies `$DB_PATH` → `${DB_PATH}.YYYY-MM-DD.bak` (idempotent), prunes snapshots older than `BACKUP_RETENTION_DAYS` (default 7). Snapshots live alongside the live DB in `/data`.
+
+**Bulk-write guard.** `PUT/POST /api/data` rejects (HTTP 409) any payload where `body.tasks` is an array AND would empty the table OR shrink it >50% (with a 10-row floor). This is the durability fix for the 2026-05-07 wipe — a client whose initial GET failed pushed `tasks: []` via the manual-flush code path and obliterated 153 rows. Per-record `/api/tasks` mutations are unaffected; that's the supported path for legitimate bulk deletes.
+
+**Recovery diagnostic.** `scripts/recover-from-notification-log.js` (read-only) queries `notification_log` (which survives `setAllData` since it's not in the bulk-PUT collection list) for unique `(task_id, most_recent_title)` pairs and flags which IDs are still present in the live `tasks` table. Up to 500 rows of history.
+
+**Server log timestamps.** Every `console.log/.error/.warn` call gets an ISO-8601 timestamp prefix automatically (wrappers in `server.js` near line 161). Don't add manual timestamps to log lines.
+
 ## Documentation Requirements (NON-NEGOTIABLE)
 **Every commit must be reflected in docs before pushing.** This applies to ALL changes — features, fixes, refactors, cleanup, doc-only changes, everything.
 

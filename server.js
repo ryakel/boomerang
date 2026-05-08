@@ -20,9 +20,10 @@ import {
   sendPackagePushover, cancelEmergencyForTask as cancelPushoverEmergencyForTask,
   sendDigestNow,
 } from './pushoverNotifications.js'
-import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle } from './db.js'
+import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle, getAllTasks } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
+import { runBackup } from './scripts/backup-db.js'
 import {
   listToolSchemas, newSession, getSession, abortSession, clearSession,
   handleToolCall, commitPlan,
@@ -158,9 +159,9 @@ function captureLog(level, args) {
   if (serverLogs.length > LOG_BUFFER_MAX) serverLogs.shift()
 }
 
-console.log = (...args) => { captureLog('info', args); originalConsoleLog(...args) }
-console.error = (...args) => { captureLog('error', args); originalConsoleError(...args) }
-console.warn = (...args) => { captureLog('warn', args); originalConsoleWarn(...args) }
+console.log = (...args) => { captureLog('info', args); originalConsoleLog(`[${new Date().toISOString()}]`, ...args) }
+console.error = (...args) => { captureLog('error', args); originalConsoleError(`[${new Date().toISOString()}]`, ...args) }
+console.warn = (...args) => { captureLog('warn', args); originalConsoleWarn(`[${new Date().toISOString()}]`, ...args) }
 
 // --- Express ---
 const app = express()
@@ -266,6 +267,29 @@ function guardStaleClient(req, res) {
   return false
 }
 
+// Refuse a bulk PUT/POST that would catastrophically shrink the task table.
+// Triggered the 2026-05-07 wipe: a client whose initial GET failed pushed an empty
+// task list via "manual flush" and obliterated 153 tasks. The guard fires only when
+// `body.tasks` is explicitly an array (settings-only pushes are unaffected).
+const BULK_TASK_SHRINK_FLOOR = 10
+function guardBulkTaskWrite(req, res) {
+  const incoming = req.body?.tasks
+  if (!Array.isArray(incoming)) return false
+  const existingCount = getAllTasks().length
+  if (existingCount === 0) return false
+  if (incoming.length === 0) {
+    console.warn(`[SYNC] REJECTED bulk ${req.method} /api/data — would wipe ${existingCount} tasks (incoming=0). Push originated from clientId=${req.body._clientId}`)
+    res.status(409).json({ ok: false, error: 'destructive_bulk_replace', existingCount, incomingCount: 0, version: getVersion() })
+    return true
+  }
+  if (existingCount >= BULK_TASK_SHRINK_FLOOR && incoming.length < existingCount * 0.5) {
+    console.warn(`[SYNC] REJECTED bulk ${req.method} /api/data — would shrink tasks ${existingCount}→${incoming.length} (>50%). Push originated from clientId=${req.body._clientId}`)
+    res.status(409).json({ ok: false, error: 'destructive_bulk_replace', existingCount, incomingCount: incoming.length, version: getVersion() })
+    return true
+  }
+  return false
+}
+
 function handleWeatherSettingsChange(prevSettings, nextSettings) {
   if (!nextSettings) return
   const prevLat = prevSettings?.weather_latitude
@@ -285,6 +309,7 @@ function handleWeatherSettingsChange(prevSettings, nextSettings) {
 
 app.put('/api/data', (req, res) => {
   if (guardStaleClient(req, res)) return
+  if (guardBulkTaskWrite(req, res)) return
   const clientId = req.body._clientId
   const body = { ...req.body }
   delete body._clientId
@@ -302,6 +327,7 @@ app.put('/api/data', (req, res) => {
 // POST does the same as PUT — needed because navigator.sendBeacon only sends POST
 app.post('/api/data', (req, res) => {
   if (guardStaleClient(req, res)) return
+  if (guardBulkTaskWrite(req, res)) return
   const clientId = req.body._clientId
   const body = { ...req.body }
   delete body._clientId
@@ -3308,6 +3334,13 @@ initDb(dbPath).then(async () => {
     startPushoverNotifications()
     startWeatherSync()
     startWeeklyPatternReview()
+
+    // Daily DB snapshot — runs once on boot then every 24h. Defends against the
+    // 2026-05-07 wipe class of bug where a single bad write erases everything.
+    runBackup().catch(err => console.error('[Backup] initial backup failed:', err.message))
+    setInterval(() => {
+      runBackup().catch(err => console.error('[Backup] scheduled backup failed:', err.message))
+    }, 24 * 60 * 60 * 1000)
 
     // Initialize Gmail sync
     initGmailSync({

@@ -4,6 +4,33 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-08
+
+- fix(server): guard bulk PUT/POST `/api/data` against destructive task wipes [M]
+  - **Bug.** On 2026-05-07 a client opened the app, its initial `GET /api/data` failed with `Load failed`, so the local task list was empty (0 tasks). The user changed a setting/label which triggered the existing "manual flush" code path, which issues a bulk `PUT /api/data` containing the **entire** local tasks array. The server's `setAllData` → `syncTasksFromArray` deletes every existing row whose ID is missing from the incoming array. Result: 153 tasks → 0. Stale-version guard didn't catch it because the client's `_version` matched the server's at push time.
+  - **Fix.** New `guardBulkTaskWrite(req, res)` helper in `server.js` runs before `setAllData` on both PUT and POST `/api/data` handlers. Rejects with HTTP 409 when:
+    - `body.tasks` is an array, AND
+    - `existingCount > 0`, AND
+    - either `incoming.length === 0` (any non-empty → empty wipe), OR
+    - `existingCount >= 10 && incoming.length < existingCount * 0.5` (>50% shrink, with a 10-row floor so small task lists aren't false-positives)
+  - Settings-only pushes (no `tasks` key in the body) are unaffected. Per-record `/api/tasks` mutations are unaffected — they're the supported path for legitimate bulk deletes.
+  - Modified: `server.js`
+
+- feat(ops): nightly DB snapshot + recovery script [M]
+  - **`scripts/backup-db.js`** — copies `$DB_PATH` to `${DB_PATH}.YYYY-MM-DD.bak` once per day, prunes snapshots older than `BACKUP_RETENTION_DAYS` (default 7). Idempotent — re-running the same day is a no-op. Importable (`runBackup()`) and CLI-runnable.
+  - **Wired into `server.js`** — runs once on boot, then every 24h via `setInterval`. Failures log to console but never crash the server.
+  - **`scripts/recover-from-notification-log.js`** — read-only diagnostic. Queries `notification_log` (which survives `setAllData` since it's not in the bulk-PUT collection list) for distinct `task_id` rows with most-recent title, channels, count, and a flag indicating whether each task ID is still present in the live `tasks` table. Used to recover task titles + IDs after the 2026-05-07 wipe. Outputs human-readable text by default; `--json` for machine consumption.
+  - Both scripts ship via the existing `COPY scripts ./scripts` line in the Dockerfile — no Dockerfile change needed.
+  - New: `scripts/backup-db.js`, `scripts/recover-from-notification-log.js`
+  - Modified: `server.js`
+
+- fix(logging): ISO timestamps on every server log line [XS]
+  - **Why.** Triaging the 2026-05-07 wipe was harder than necessary because the terminal log lines had no timestamps. Couldn't tell when the empty PUT happened, couldn't measure debounces, couldn't correlate across services.
+  - **Fix.** The `console.log/.error/.warn` wrappers in `server.js` now prepend `[ISO-8601]` to the args passed to the underlying console call. Format: `[2026-05-08T14:23:01.123Z] [SYNC] push: ...`. The in-memory `serverLogs` buffer (exposed via `/api/logs`) was already timestamped per-row, so its shape is unchanged.
+  - Modified: `server.js`
+
+---
+
 ## 2026-05-03
 
 - fix(ui): v2 light-mode bg goes pure white + desktop modals slide in as right drawers [S]
