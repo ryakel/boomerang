@@ -5,6 +5,7 @@ import {
   loadRoutines, saveRoutines, loadLabels, saveLabels,
   LABEL_COLORS, uuid,
 } from '../../store'
+import { restoreFromBackup } from '../../api'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import './SettingsModal.css'
@@ -701,29 +702,29 @@ export default function SettingsModal({
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
+      let data
       try {
-        const data = JSON.parse(ev.target.result)
+        data = JSON.parse(ev.target.result)
+      } catch {
+        alert('Invalid backup file')
+        return
+      }
+      const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
+      const routineCount = Array.isArray(data.routines) ? data.routines.length : 0
+      if (!confirm(`Restore from backup?\n\nThis will REPLACE your current tasks and routines with ${taskCount} tasks and ${routineCount} routines from the backup file.\n\nOAuth tokens, push subscriptions, and notification history are NOT affected.`)) {
+        return
+      }
+      try {
         if (data.tasks) saveTasks(data.tasks)
         if (data.routines) saveRoutines(data.routines)
         if (data.settings) saveSettings(data.settings)
         if (data.labels) saveLabels(data.labels)
         if (data.settings) setSettings({ ...loadSettings(), ...data.settings })
-        // Push imported data to server before reloading so the next SSE
-        // hydration doesn't overwrite it with stale server state. Same
-        // pattern v1 uses.
-        const payload = {}
-        if (data.tasks) payload.tasks = data.tasks
-        if (data.routines) payload.routines = data.routines
-        if (data.settings) payload.settings = data.settings
-        if (data.labels) payload.labels = data.labels
-        fetch('/api/data', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }).finally(() => window.location.reload())
-      } catch {
-        alert('Invalid backup file')
+        await restoreFromBackup(data)
+        window.location.reload()
+      } catch (err) {
+        alert(`Restore failed: ${err.message}`)
       }
     }
     reader.readAsText(file)
