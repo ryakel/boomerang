@@ -267,27 +267,24 @@ function guardStaleClient(req, res) {
   return false
 }
 
-// Refuse a bulk PUT/POST that would catastrophically shrink the task table.
-// Triggered the 2026-05-07 wipe: a client whose initial GET failed pushed an empty
-// task list via "manual flush" and obliterated 153 tasks. The guard fires only when
-// `body.tasks` is explicitly an array (settings-only pushes are unaffected).
-const BULK_TASK_SHRINK_FLOOR = 10
-function guardBulkTaskWrite(req, res) {
-  const incoming = req.body?.tasks
-  if (!Array.isArray(incoming)) return false
-  const existingCount = getAllTasks().length
-  if (existingCount === 0) return false
-  if (incoming.length === 0) {
-    console.warn(`[SYNC] REJECTED bulk ${req.method} /api/data — would wipe ${existingCount} tasks (incoming=0). Push originated from clientId=${req.body._clientId}`)
-    res.status(409).json({ ok: false, error: 'destructive_bulk_replace', existingCount, incomingCount: 0, version: getVersion() })
-    return true
-  }
-  if (existingCount >= BULK_TASK_SHRINK_FLOOR && incoming.length < existingCount * 0.5) {
-    console.warn(`[SYNC] REJECTED bulk ${req.method} /api/data — would shrink tasks ${existingCount}→${incoming.length} (>50%). Push originated from clientId=${req.body._clientId}`)
-    res.status(409).json({ ok: false, error: 'destructive_bulk_replace', existingCount, incomingCount: incoming.length, version: getVersion() })
-    return true
-  }
-  return false
+// Refuse a bulk PUT/POST that includes tasks/routines/packages keys at all.
+// The bulk path is settings + labels only — tasks/routines/packages have
+// dedicated per-record APIs (/api/tasks, /api/routines, /api/packages).
+// Restore-from-backup uses POST /api/data/restore with explicit confirmation.
+// This closes the wipe class of bug from any direction (current bug, future
+// regression, malicious payload, stale browser tab running pre-fix code).
+function guardBulkBlobOnly(req, res) {
+  const offendingKeys = ['tasks', 'routines', 'packages'].filter(k => k in (req.body || {}))
+  if (offendingKeys.length === 0) return false
+  console.warn(`[SYNC] REJECTED bulk ${req.method} /api/data — keys not allowed in bulk path: ${offendingKeys.join(',')}. Use per-record APIs or POST /api/data/restore. clientId=${req.body._clientId}`)
+  res.status(400).json({
+    ok: false,
+    error: 'bulk_path_does_not_accept_arrays',
+    offending_keys: offendingKeys,
+    hint: 'Use /api/tasks, /api/routines, /api/packages for record writes. Use POST /api/data/restore for backup restore (requires confirm: "wipe-and-replace").',
+    version: getVersion(),
+  })
+  return true
 }
 
 function handleWeatherSettingsChange(prevSettings, nextSettings) {
@@ -309,7 +306,7 @@ function handleWeatherSettingsChange(prevSettings, nextSettings) {
 
 app.put('/api/data', (req, res) => {
   if (guardStaleClient(req, res)) return
-  if (guardBulkTaskWrite(req, res)) return
+  if (guardBulkBlobOnly(req, res)) return
   const clientId = req.body._clientId
   const body = { ...req.body }
   delete body._clientId
@@ -327,7 +324,7 @@ app.put('/api/data', (req, res) => {
 // POST does the same as PUT — needed because navigator.sendBeacon only sends POST
 app.post('/api/data', (req, res) => {
   if (guardStaleClient(req, res)) return
-  if (guardBulkTaskWrite(req, res)) return
+  if (guardBulkBlobOnly(req, res)) return
   const clientId = req.body._clientId
   const body = { ...req.body }
   delete body._clientId
@@ -340,6 +337,39 @@ app.post('/api/data', (req, res) => {
   }
   broadcast(newVersion, clientId)
   res.json({ ok: true, version: newVersion })
+})
+
+// Restore from backup file. Explicit wipe-and-replace semantics — refuses
+// without `confirm: "wipe-and-replace"`. Replaces tasks, routines, settings,
+// and labels per-record. Does NOT touch OAuth tokens, push subscriptions,
+// notification logs, weather cache, adviser chats, or any other infrastructure.
+app.post('/api/data/restore', (req, res) => {
+  const body = req.body || {}
+  if (body.confirm !== 'wipe-and-replace') {
+    return res.status(400).json({ ok: false, error: 'restore_requires_explicit_confirm', hint: 'Send {"confirm": "wipe-and-replace"} alongside the backup payload.' })
+  }
+  const tasks = Array.isArray(body.tasks) ? body.tasks : []
+  const routines = Array.isArray(body.routines) ? body.routines : []
+  const settings = body.settings && typeof body.settings === 'object' ? body.settings : null
+  const labels = Array.isArray(body.labels) ? body.labels : null
+  const prevSettings = getData('settings')
+
+  // Replace tasks: delete current, insert from backup. Same for routines.
+  for (const t of getAllTasks()) deleteTask(t.id)
+  for (const t of tasks) upsertTask(t)
+  for (const r of getAllRoutines()) deleteRoutine(r.id)
+  for (const r of routines) upsertRoutine(r)
+  if (settings) {
+    setData('settings', settings)
+    resetTransporter()
+    handleWeatherSettingsChange(prevSettings, settings)
+  }
+  if (labels) setData('labels', labels)
+
+  const newVersion = bumpVersion()
+  broadcast(newVersion, body._clientId || null)
+  console.log(`[Restore] Replaced DB from backup: ${tasks.length} tasks, ${routines.length} routines, settings=${!!settings}, labels=${!!labels}`)
+  res.json({ ok: true, version: newVersion, restored: { tasks: tasks.length, routines: routines.length, settings: !!settings, labels: !!labels } })
 })
 
 app.patch('/api/data/:collection', (req, res) => {

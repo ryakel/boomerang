@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
 import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, DEFAULT_SETTINGS, uuid } from '../store'
-import { getKeyStatus, callClaude, notionStatus, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, pushoverStatus, testPushover, testPushoverEmergency, testDigest, getNotifLog, clearServerNotifLog, getWeather, refreshWeather, geocodeWeather } from '../api'
+import { getKeyStatus, callClaude, notionStatus, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, pushoverStatus, testPushover, testPushoverEmergency, testDigest, getNotifLog, clearServerNotifLog, getWeather, refreshWeather, geocodeWeather, restoreFromBackup } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
 const NOTIF_TYPE_LABELS = {
@@ -805,31 +805,32 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
+      let data
       try {
-        const data = JSON.parse(ev.target.result)
+        data = JSON.parse(ev.target.result)
+      } catch {
+        alert('Invalid backup file')
+        return
+      }
+      const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
+      const routineCount = Array.isArray(data.routines) ? data.routines.length : 0
+      if (!confirm(`Restore from backup?\n\nThis will REPLACE your current tasks and routines with ${taskCount} tasks and ${routineCount} routines from the backup file.\n\nOAuth tokens, push subscriptions, and notification history are NOT affected.`)) {
+        return
+      }
+      try {
+        // Update local state first so the UI reflects the new data immediately.
         if (data.tasks) saveTasks(data.tasks)
         if (data.routines) saveRoutines(data.routines)
         if (data.settings) saveSettings(data.settings)
-        if (data.labels) {
-          saveLabels(data.labels)
-          setLabels(data.labels)
-        }
+        if (data.labels) { saveLabels(data.labels); setLabels(data.labels) }
         if (data.settings) setSettings({ ...loadSettings(), ...data.settings })
-        // Push imported data to server before reloading so it isn't
-        // overwritten by stale server data on the next hydration cycle
-        const payload = {}
-        if (data.tasks) payload.tasks = data.tasks
-        if (data.routines) payload.routines = data.routines
-        if (data.settings) payload.settings = data.settings
-        if (data.labels) payload.labels = data.labels
-        fetch('/api/data', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }).finally(() => window.location.reload())
-      } catch {
-        alert('Invalid backup file')
+        // Server replaces tasks/routines/settings/labels per-record via the
+        // dedicated restore endpoint. Reload after to re-hydrate cleanly.
+        await restoreFromBackup(data)
+        window.location.reload()
+      } catch (err) {
+        alert(`Restore failed: ${err.message}`)
       }
     }
     reader.readAsText(file)

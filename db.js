@@ -197,20 +197,18 @@ export function bumpVersion() {
   return v
 }
 
+// Bulk write for app_data JSON blobs (settings, labels, etc).
+// Tasks, routines, and packages are NOT accepted here — they have proper SQL
+// tables with per-record APIs (upsertTask, upsertRoutine, upsertPackage). The
+// server-side guard rejects those keys before they reach this function; this
+// throw is belt-and-suspenders for any internal caller. Closes the wipe class
+// of bug after the 2026-05-07 incident where setAllData({tasks: []}) deleted
+// every task whose id was missing from the (empty) incoming array.
 export function setAllData(data) {
   for (const [collection, value] of Object.entries(data)) {
     if (collection === '_clientId') continue
-    if (collection === 'tasks') {
-      syncTasksFromArray(value)
-      continue
-    }
-    if (collection === 'routines') {
-      syncRoutinesFromArray(value)
-      continue
-    }
-    if (collection === 'packages') {
-      syncPackagesFromArray(value)
-      continue
+    if (collection === 'tasks' || collection === 'routines' || collection === 'packages') {
+      throw new Error(`setAllData() does not accept '${collection}' — use the per-record API`)
     }
     db.run(
       `INSERT INTO app_data (collection, data_json) VALUES (?, ?)
@@ -705,38 +703,9 @@ export function getAnalyticsHistory(days) {
   return { daily: dailyArr, byTag, byEnergy, bySize, byDayOfWeek, totalTasks, totalPoints }
 }
 
-// Sync the full tasks array — used by setAllData (bulk sync from client)
-// Wrapped in a transaction for performance (single commit instead of N)
-function syncTasksFromArray(tasksArray) {
-  if (!Array.isArray(tasksArray)) return
-
-  db.run('BEGIN TRANSACTION')
-  try {
-    const existingIds = new Set()
-    const stmt = db.prepare('SELECT id FROM tasks')
-    while (stmt.step()) {
-      existingIds.add(stmt.getAsObject().id)
-    }
-    stmt.free()
-
-    const incomingIds = new Set()
-    for (const task of tasksArray) {
-      if (!task.id) continue
-      incomingIds.add(task.id)
-      runUpsertTask(task)
-    }
-
-    for (const id of existingIds) {
-      if (!incomingIds.has(id)) {
-        db.run('DELETE FROM tasks WHERE id = ?', [id])
-      }
-    }
-    db.run('COMMIT')
-  } catch (err) {
-    db.run('ROLLBACK')
-    throw err
-  }
-}
+// (syncTasksFromArray removed 2026-05-08 — bulk-replace was the wipe vector.
+//  Use upsertTask + deleteTask per record. Restore-from-backup goes through
+//  POST /api/data/restore.)
 
 // ============================================================
 // Routine row <-> object mapping
@@ -1014,69 +983,8 @@ export function clearGmailProcessed() {
   schedulePersist()
 }
 
-// Sync the full routines array — used by setAllData (bulk sync from client)
-function syncRoutinesFromArray(routinesArray) {
-  if (!Array.isArray(routinesArray)) return
-
-  db.run('BEGIN TRANSACTION')
-  try {
-    const existingIds = new Set()
-    const stmt = db.prepare('SELECT id FROM routines')
-    while (stmt.step()) {
-      existingIds.add(stmt.getAsObject().id)
-    }
-    stmt.free()
-
-    const incomingIds = new Set()
-    for (const routine of routinesArray) {
-      if (!routine.id) continue
-      incomingIds.add(routine.id)
-      runUpsertRoutine(routine)
-    }
-
-    for (const id of existingIds) {
-      if (!incomingIds.has(id)) {
-        db.run('DELETE FROM routines WHERE id = ?', [id])
-      }
-    }
-    db.run('COMMIT')
-  } catch (err) {
-    db.run('ROLLBACK')
-    throw err
-  }
-}
-
-// Sync the full packages array — used by setAllData (bulk sync from client)
-function syncPackagesFromArray(packagesArray) {
-  if (!Array.isArray(packagesArray)) return
-
-  db.run('BEGIN TRANSACTION')
-  try {
-    const existingIds = new Set()
-    const stmt = db.prepare('SELECT id FROM packages')
-    while (stmt.step()) {
-      existingIds.add(stmt.getAsObject().id)
-    }
-    stmt.free()
-
-    const incomingIds = new Set()
-    for (const pkg of packagesArray) {
-      if (!pkg.id) continue
-      incomingIds.add(pkg.id)
-      runUpsertPackage(pkg)
-    }
-
-    for (const id of existingIds) {
-      if (!incomingIds.has(id)) {
-        db.run('DELETE FROM packages WHERE id = ?', [id])
-      }
-    }
-    db.run('COMMIT')
-  } catch (err) {
-    db.run('ROLLBACK')
-    throw err
-  }
-}
+// (syncRoutinesFromArray + syncPackagesFromArray removed 2026-05-08 alongside
+//  syncTasksFromArray. Same reason — bulk-replace was the wipe vector.)
 
 // ============================================================
 // Notification throttle & log (server-side email notifications)

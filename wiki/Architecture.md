@@ -58,17 +58,17 @@ A keep-alive ping (`: ping\n\n`) is sent every 30 seconds to prevent proxy/load-
 
 Writes to `PUT /api/data` or `POST /api/data` that do not include a `_clientId` in the request body are silently rejected (200 response, no data written). This prevents stale PWA service worker caches — which may still be running old JavaScript — from overwriting current data.
 
-### Destructive Bulk-Write Guard
+### Bulk-Write Path Is Settings/Labels Only
 
-`PUT /api/data` and `POST /api/data` reject (HTTP 409) when the incoming `body.tasks` array would catastrophically shrink the live tasks table:
-- existing > 0 AND incoming = 0 → reject (any-to-empty wipe)
-- existing ≥ 10 AND incoming < existing × 0.5 → reject (>50% shrink, with a 10-row floor)
+`PUT /api/data` and `POST /api/data` write app_data JSON blobs (settings, labels, etc) only. They reject (HTTP 400) any payload that includes `tasks`, `routines`, or `packages` keys, with `bulk_path_does_not_accept_arrays` and a hint pointing at the per-record APIs. `setAllData()` in `db.js` throws on the same keys as belt-and-suspenders for any internal caller.
 
-Settings-only pushes (no `tasks` key in body) are unaffected. Per-record `/api/tasks` mutations are unaffected — that is the supported path for legitimate bulk deletes. Added in response to the 2026-05-07 wipe where a client whose initial GET had failed pushed `tasks: []` via the manual-flush code path and obliterated 153 rows.
+The `syncTasksFromArray` / `syncRoutinesFromArray` / `syncPackagesFromArray` helpers were deleted on 2026-05-08. They were the wipe vector that destroyed 153 tasks on 2026-05-07 (a client whose initial GET failed pushed `tasks: []` via the manual-flush code path; the helpers dutifully deleted every existing row whose id was missing from the empty incoming array).
 
-The client side was hardened in the same week: `buildPayload()` in `src/hooks/useServerSync.js` no longer includes `tasks` or `routines` in the bulk PUT — only `settings` and `labels`. The bulk PUT endpoint should therefore never see a `tasks` key from a current client. The server guard remains as defense in depth (catches stale browser tabs running pre-fix code, malicious payloads, etc).
+The client side was hardened in the same change: `buildPayload()` in `src/hooks/useServerSync.js` no longer includes `tasks` or `routines` — only `settings` and `labels`. `pushChanges` refuses to push when `prevTasks`/`prevRoutines` are unset (hydrate hasn't completed). Local state is not treated as authoritative until at least one successful round-trip with the server.
 
-`pushChanges` also refuses to push when `prevTasks`/`prevRoutines` are unset (hydrate hasn't completed). Local state is not treated as authoritative until at least one successful round-trip with the server.
+### Restore From Backup
+
+`POST /api/data/restore` is the explicit replace-tasks-and-routines endpoint, used by the Settings → Import Data flow. Requires `confirm: "wipe-and-replace"` in the body. Replaces tasks and routines per-record (delete current rows, upsert from backup), and overwrites settings and labels blobs. Intentionally narrower than the legacy `clearAllData()`-based flow — does NOT touch OAuth tokens, push subscriptions, notification logs, weather cache, adviser chats, or VAPID keys, so a bad backup file can't take out integrations or subscriptions.
 
 ### Daily DB Snapshot
 
@@ -216,8 +216,9 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 | `GET` | `/api/keys/status` | Reports env var key availability |
 | `GET` | `/api/events` | SSE endpoint for real-time cross-client sync |
 | `GET` | `/api/data` | Get all data from SQLite (includes `_version`) |
-| `PUT` | `/api/data` | Replace all data in SQLite (requires `_clientId`; rejects empty/>50%-shrink task replaces with HTTP 409) |
+| `PUT` | `/api/data` | Write app_data blobs (settings, labels). Rejects `tasks`/`routines`/`packages` keys with HTTP 400. Requires `_clientId`. |
 | `POST` | `/api/data` | Same as PUT — for `navigator.sendBeacon` (requires `_clientId`) |
+| `POST` | `/api/data/restore` | Restore tasks + routines + settings + labels from a backup file. Requires `{"confirm": "wipe-and-replace"}` in body. |
 | `PATCH` | `/api/data/:collection` | Update a single collection |
 | `DELETE` | `/api/data` | Clear all data |
 | `POST` | `/api/log` | Client log relay (diagnostics to server terminal) |

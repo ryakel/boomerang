@@ -1344,3 +1344,24 @@ export async function adviserUnstarChat(id) {
   if (!res.ok) throw new Error(`Unstar failed: ${res.status}`)
   return res.json()
 }
+
+// Restore tasks/routines/settings/labels from a backup JSON file. Server replaces
+// each table per-record; OAuth tokens, push subs, notif logs, etc. are untouched.
+export async function restoreFromBackup(backup) {
+  const res = await fetch('/api/data/restore', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      confirm: 'wipe-and-replace',
+      tasks: Array.isArray(backup.tasks) ? backup.tasks : [],
+      routines: Array.isArray(backup.routines) ? backup.routines : [],
+      settings: backup.settings || null,
+      labels: Array.isArray(backup.labels) ? backup.labels : null,
+    }),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.error || `Restore failed: ${res.status}`)
+  }
+  return res.json()
+}
