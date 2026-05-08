@@ -702,30 +702,42 @@ export default function SettingsModal({
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = async (ev) => {
+    reader.onload = (ev) => {
       let data
       try {
         data = JSON.parse(ev.target.result)
       } catch {
-        alert('Invalid backup file')
+        setConfirmDialog({
+          title: 'Invalid backup file',
+          message: 'The selected file is not valid JSON. Pick a Boomerang export file (.json) and try again.',
+          onConfirm: () => setConfirmDialog(null),
+        })
         return
       }
       const taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0
       const routineCount = Array.isArray(data.routines) ? data.routines.length : 0
-      if (!confirm(`Restore from backup?\n\nThis will REPLACE your current tasks and routines with ${taskCount} tasks and ${routineCount} routines from the backup file.\n\nOAuth tokens, push subscriptions, and notification history are NOT affected.`)) {
-        return
-      }
-      try {
-        if (data.tasks) saveTasks(data.tasks)
-        if (data.routines) saveRoutines(data.routines)
-        if (data.settings) saveSettings(data.settings)
-        if (data.labels) saveLabels(data.labels)
-        if (data.settings) setSettings({ ...loadSettings(), ...data.settings })
-        await restoreFromBackup(data)
-        window.location.reload()
-      } catch (err) {
-        alert(`Restore failed: ${err.message}`)
-      }
+      setConfirmDialog({
+        title: 'Restore from backup?',
+        message: `This will REPLACE your current tasks and routines with ${taskCount} tasks and ${routineCount} routines from the backup file. OAuth tokens, push subscriptions, and notification history are NOT affected.`,
+        onConfirm: async () => {
+          setConfirmDialog(null)
+          try {
+            if (data.tasks) saveTasks(data.tasks)
+            if (data.routines) saveRoutines(data.routines)
+            if (data.settings) saveSettings(data.settings)
+            if (data.labels) saveLabels(data.labels)
+            if (data.settings) setSettings({ ...loadSettings(), ...data.settings })
+            await restoreFromBackup(data)
+            window.location.reload()
+          } catch (err) {
+            setConfirmDialog({
+              title: 'Restore failed',
+              message: err.message || 'Unknown error',
+              onConfirm: () => setConfirmDialog(null),
+            })
+          }
+        },
+      })
     }
     reader.readAsText(file)
     e.target.value = ''
