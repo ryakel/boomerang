@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-08
 
+- chore(deps): clear 4 moderate npm-audit vulnerabilities [XS]
+  - `npm audit fix` resolved 4 moderate transitive vulnerabilities — `ip-address` (XSS in unused Address6 HTML methods), `express-rate-limit` (depended on the bad ip-address), `hono` (bodyLimit bypass for chunked requests), `postcss` (XSS via unescaped `</style>` in CSS Stringify, build-time only). All four resolved by lockfile updates only — no `package.json` change. Smoke test green.
+  - Modified: `package-lock.json`
+
 - fix(server): guard bulk PUT/POST `/api/data` against destructive task wipes [M]
   - **Bug.** On 2026-05-07 a client opened the app, its initial `GET /api/data` failed with `Load failed`, so the local task list was empty (0 tasks). The user changed a setting/label which triggered the existing "manual flush" code path, which issues a bulk `PUT /api/data` containing the **entire** local tasks array. The server's `setAllData` → `syncTasksFromArray` deletes every existing row whose ID is missing from the incoming array. Result: 153 tasks → 0. Stale-version guard didn't catch it because the client's `_version` matched the server's at push time.
   - **Fix.** New `guardBulkTaskWrite(req, res)` helper in `server.js` runs before `setAllData` on both PUT and POST `/api/data` handlers. Rejects with HTTP 409 when:
