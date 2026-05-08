@@ -6,7 +6,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs'
-import { clearAllData, setAllData, flushNow } from './db.js'
+import { clearAllData, setData, upsertTask, upsertRoutine, bumpVersion, flushNow } from './db.js'
 
 function loadSeedData() {
   const p = new URL('./scripts/seed-data.json', import.meta.url).pathname
@@ -20,6 +20,9 @@ function loadSeedData() {
  * Seed the database from static JSON.
  * Called from server.js after initDb() when SEED_DB=1,
  * or via POST /api/dev/seed.
+ *
+ * Writes tasks and routines via per-record upsert (not bulk PUT) — the bulk
+ * setAllData(tasks/routines) path was retired after the 2026-05-07 wipe.
  */
 export async function seedDatabase() {
   console.log('[Seed] Seeding database...')
@@ -31,7 +34,11 @@ export async function seedDatabase() {
   }
 
   clearAllData()
-  setAllData(data)
+  for (const task of data.tasks) upsertTask(task)
+  for (const routine of data.routines) upsertRoutine(routine)
+  setData('settings', data.settings)
+  setData('labels', data.labels)
+  bumpVersion()
   flushNow()
 
   const statusCounts = {}
