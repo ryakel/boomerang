@@ -10,7 +10,7 @@ up the work in a future session.
 
 - **v2 is the default UI** since `b1f2e76` (PR6 cutover, 2026-05-03). `?ui=v1` reverts.
 - **Every v1 surface has a v2 implementation.** All 8 Settings tabs, all task-flow modals, KanbanBoard on desktop, swipe gestures on mobile, weather badges, Trello status push, routine cadence advancing on complete, multi-list checklists.
-- **The `:dev` Docker image** (built from `origin/dev`) carries everything through `9581adb` — last push was `7c6ddcf` (light-mode bg + desktop drawer modals) before direct pushes to `refs/heads/dev` started getting rejected by the proxy. **One trailing commit (`a87103e` — multi-list checklists in EditTaskModal) is held on `claude/v2-pending-merge` waiting for manual merge.**
+- **Dev-merge workflow is locked in.** Direct push to `refs/heads/dev` still 403s on the local proxy (status as of 2026-05-09). The MCP-PR-and-rebase-merge loop documented in CLAUDE.md is the canonical way work lands on `dev` — fully automated end-to-end with no GitHub-UI clicks.
 - **Dark-mode QA was deferred** at the user's request until light-mode sizes/positions/colors are dialed.
 
 ---
@@ -119,31 +119,45 @@ These are daily-use gaps that users would notice:
 
 ### Final-mile cleanup
 
-- [ ] **Skip-this-cycle, npm-audit, checklist-column, orphan-route cleanup** from main need to come into dev. Easiest path: open PR dev → main via GitHub MCP — GitHub does the merge server-side, conflicts (around App.jsx since it's now a router on dev but the v1 component on main) get resolved in the GitHub UI.
+- [ ] **Cherry-pick remaining main-only commits onto dev**: `c8ef380` (drop legacy `task.checklist` column), `3cdd943` (delete orphan API routes), `422c2ff` (skip-this-cycle in v1 — bring the `useRoutines.js` hook change so v2 can wire it up). Each is a separate small PR via the MCP loop. The npm-audit cherry-pick (`c00d520`) already landed on dev as `9b48196` (PR #22, 2026-05-09).
 - [ ] **End-state cleanup** (per `/root/.claude/plans/ui-redesign-ideas-i-iridescent-wren.md`): once v2 is validated, delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`. Leave `?ui=v1` working for one release for safety.
+- [ ] **Stranded `test-push-probe` branch** on origin can't be deleted via the proxy or MCP — needs the GitHub UI. Pointed at `a87103e` from the original 2026-05-03 diagnostic.
 
 ---
 
-## Branch / merge instructions
+## How work lands on dev
 
-This branch (`claude/v2-pending-merge`) is one commit ahead of `origin/dev`:
+Direct `git push origin dev` returns HTTP 403 from the local proxy ("Unable to parse branch information from push data"). Same bug class blocks `git push origin --delete <branch>`. Workaround loop is fully automated end-to-end:
 
 ```
-git fetch origin
-git checkout dev
-git merge --ff-only origin/claude/v2-pending-merge
-git push origin dev
+# 1. Sync local dev
+git fetch origin && git checkout dev && git reset --hard origin/dev
+
+# 2. Branch + commit
+git checkout -b <local-branch-name>
+# … make changes, commit …
+
+# 3. Push to a fresh remote ref (proxy accepts these)
+git push origin <local-branch-name>:refs/heads/claude/v2-<thing>
+
+# 4. PR + merge via MCP (zero GitHub-UI clicks)
+mcp__github__create_pull_request  base="dev"  head="claude/v2-<thing>"
+# wait for user approval
+mcp__github__merge_pull_request   merge_method="rebase"
+
+# 5. Resync local
+git fetch origin && git reset --hard origin/dev
 ```
 
-If the proxy still rejects the dev push (the issue that prompted this branch), fall back to opening a PR via the GitHub MCP from `claude/v2-pending-merge` → `dev` and merging on the server side.
+The rebase-merge auto-deletes the source branch on the remote (verified by PR #22, 2026-05-09 — `claude/v2-cherry-npm-audit` was gone from origin immediately after merge), so step 6 is normally just pruning the stale local tracking ref via `git fetch --prune`.
 
-The `origin/test-push-probe` branch is an artifact of debugging — it points at the same `a87103e` commit as this branch's parent. Safe to delete via the GitHub UI once this lands.
+**Cherry-picking from main onto dev** uses the same loop. Conflicts typically appear in `wiki/Version-History.md` since both branches add entries to the top — keep dev's entries, add main's below, then `git cherry-pick --continue`.
 
 ---
 
-## Why this branch instead of direct push
+## Why MCP PR-and-merge instead of direct push
 
-Direct pushes to `refs/heads/dev` started failing with HTTP 403 / "ERR Unable to parse branch information from push data" sometime between `7c6ddcf` (last successful direct push, 2026-05-03) and the next push attempt. Pushes to fresh branch refs continued working (verified by pushing to `test-push-probe`). Cause unclear — not a GitHub branch protection rule per the user's check; possibly a proxy-level ACL, session token scope, or a rate-limit/quota. Investigating that is left as a separate task.
+Direct pushes to `refs/heads/dev` started failing with HTTP 403 / "Unable to parse branch information from push data" sometime between `7c6ddcf` (last successful direct push, 2026-05-03) and the next push attempt. Re-tested 2026-05-09 — still broken with the same error. Pushes to fresh branch refs continue to work; only `dev` (and presumably any other already-existing branch ref) is affected. Ref **deletions** also 403, hence the inability to clean up stranded refs from the local environment. Cause undiagnosed — not a GitHub branch protection rule per the user's check; possibly a proxy-level ACL, session token scope, rate limit, or quota. Investigation is open as a separate task; it's not blocking because the MCP loop covers every workflow we need.
 
 ---
 
