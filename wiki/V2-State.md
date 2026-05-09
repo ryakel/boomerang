@@ -86,7 +86,7 @@ Categorized by priority. The future session should pick from this list.
 
 These are daily-use gaps that users would notice:
 
-- [ ] **Skip-this-cycle button in v2 RoutinesModal.** Main has it (commit `422c2ff`); dev doesn't. Was on a failed merge commit; needs to land as a linear commit. Touches `useRoutines.js` (already on main), `src/v2/AppV2.jsx` (skipCycle destructure + onSkipCycle prop), `src/v2/components/RoutinesModal.jsx` (FastForward import + Skip button + plumbing).
+- [x] ~~**Skip-this-cycle button in v2 RoutinesModal.**~~ Landed 2026-05-09. `skipCycle` ported from main into `useRoutines.js`; v2 wiring through `AppV2.jsx` + `RoutinesModal.jsx` (FastForward icon, "Skip cycle" button next to Spawn now, hidden for paused routines).
 - [ ] **Sort dropdown** above v2 task list. Currently hardcoded to 'age'. v1 has age/due-date/size/name + persists in `settings.sort_by`.
 - [ ] **Tag filter pills** above v2 task list. v1 has horizontal pill row with All + each user label + Routines filter.
 - [ ] **Search bar + results view** in v2. Uses `/api/tasks?q=` endpoint. v1 surfaces it via a magnifier icon in the header.
