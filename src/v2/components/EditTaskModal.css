@@ -377,6 +377,10 @@
   border-style: solid;
 }
 
+/* Shared add-affordance pill — dashed border, transparent bg, hover fills.
+ * Used as the empty-state "tap to add" pill across Checklists / Attachments /
+ * Comments / Connections so all four read as the same kind of action. */
+.v2-edit-add-pill,
 .v2-edit-checklist-new {
   display: inline-flex;
   align-items: center;
@@ -394,10 +398,16 @@
               border-color var(--v2-dur-quick) var(--v2-ease-standard);
 }
 
+.v2-edit-add-pill:hover:not(:disabled),
 .v2-edit-checklist-new:hover {
   background: rgba(var(--v2-text-rgb), 0.04);
   color: var(--v2-text);
   border-color: var(--v2-text-meta);
+}
+
+.v2-edit-add-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Notes toolbar — Polish + Research as a horizontal row BELOW the textarea.

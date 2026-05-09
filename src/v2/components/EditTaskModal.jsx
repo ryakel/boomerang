@@ -594,7 +594,11 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           onChange={form.handleFileSelect}
         />
         <div className="v2-edit-attach-actions">
-          <button type="button" className="v2-form-ai-pill v2-form-ai-pill-inline" onClick={() => form.fileInputRef.current?.click()}>
+          <button
+            type="button"
+            className={form.attachments.length > 0 ? 'v2-form-ai-pill v2-form-ai-pill-inline' : 'v2-edit-add-pill'}
+            onClick={() => form.fileInputRef.current?.click()}
+          >
             <Paperclip size={12} strokeWidth={1.75} /> Attach files
           </button>
           {form.attachments.length > 0 && (
@@ -657,7 +661,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           ) : !form.notionState ? (
             <button
               type="button"
-              className="v2-form-ai-pill v2-form-ai-pill-static"
+              className="v2-edit-add-pill"
               onClick={form.handleNotionSearch}
               disabled={!form.title.trim()}
               title="Search Notion for matching pages, or create a new one"
@@ -790,7 +794,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           </div>
         )}
         {!showComments && (
-          <button type="button" className="v2-form-ai-pill v2-form-ai-pill-inline" onClick={() => setShowComments(true)}>
+          <button type="button" className="v2-edit-add-pill" onClick={() => setShowComments(true)}>
             <Plus size={12} strokeWidth={2} /> Add comment
           </button>
         )}
