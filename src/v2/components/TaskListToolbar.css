@@ -66,7 +66,7 @@
   position: relative;
   flex-shrink: 0;
 }
-.v2-toolbar-sort-btn {
+.v2-toolbar-icon-btn {
   width: 30px;
   height: 30px;
   border-radius: var(--v2-radius-pill);
@@ -77,12 +77,35 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   transition: background var(--v2-dur-quick) var(--v2-ease-standard),
               color var(--v2-dur-quick) var(--v2-ease-standard);
 }
-.v2-toolbar-sort-btn:hover {
+.v2-toolbar-icon-btn:hover {
   background: rgba(var(--v2-text-rgb), 0.04);
   color: var(--v2-text);
+}
+
+/* Search mode — replaces the pills + icons with an inline input row. */
+.v2-toolbar-search {
+  align-items: center;
+}
+.v2-toolbar-search-icon {
+  color: var(--v2-text-meta);
+  flex-shrink: 0;
+}
+.v2-toolbar-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--v2-text);
+  font-family: var(--v2-font-body);
+  font-size: 14px;
+  padding: 6px 0;
+}
+.v2-toolbar-search-input::placeholder {
+  color: var(--v2-text-faint);
 }
 
 .v2-toolbar-sort-menu {

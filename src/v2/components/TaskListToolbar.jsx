@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpDown } from 'lucide-react'
+import { ArrowUpDown, Search, X } from 'lucide-react'
 import './TaskListToolbar.css'
 
 const SORT_OPTIONS = [
@@ -17,9 +17,15 @@ export default function TaskListToolbar({
   onOpenRoutines,
   sortBy,
   onSortChange,
+  searchMode,
+  searchQuery,
+  onSearchChange,
+  onOpenSearch,
+  onCloseSearch,
 }) {
   const [sortOpen, setSortOpen] = useState(false)
   const sortRef = useRef(null)
+  const searchInputRef = useRef(null)
 
   useEffect(() => {
     if (!sortOpen) return
@@ -30,9 +36,43 @@ export default function TaskListToolbar({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [sortOpen])
 
+  // Auto-focus the search input when search mode opens, and listen for Esc.
+  useEffect(() => {
+    if (!searchMode) return
+    searchInputRef.current?.focus()
+    const handleKey = (e) => { if (e.key === 'Escape') onCloseSearch() }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [searchMode, onCloseSearch])
+
   const handleSortPick = (value) => {
     onSortChange(value)
     setSortOpen(false)
+  }
+
+  if (searchMode) {
+    return (
+      <div className="v2-toolbar v2-toolbar-search">
+        <Search size={14} strokeWidth={1.75} className="v2-toolbar-search-icon" aria-hidden="true" />
+        <input
+          ref={searchInputRef}
+          type="text"
+          className="v2-toolbar-search-input"
+          placeholder="Search tasks…"
+          value={searchQuery}
+          onChange={e => onSearchChange(e.target.value)}
+          aria-label="Search tasks"
+        />
+        <button
+          className="v2-toolbar-icon-btn"
+          onClick={onCloseSearch}
+          title="Close search"
+          aria-label="Close search"
+        >
+          <X size={14} strokeWidth={1.75} />
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -71,7 +111,7 @@ export default function TaskListToolbar({
       </div>
       <div className="v2-toolbar-sort" ref={sortRef}>
         <button
-          className="v2-toolbar-sort-btn"
+          className="v2-toolbar-icon-btn"
           onClick={() => setSortOpen(o => !o)}
           title={`Sort: ${SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Age'}`}
           aria-haspopup="menu"
@@ -95,6 +135,16 @@ export default function TaskListToolbar({
           </div>
         )}
       </div>
+      {onOpenSearch && (
+        <button
+          className="v2-toolbar-icon-btn"
+          onClick={onOpenSearch}
+          title="Search tasks"
+          aria-label="Search tasks"
+        >
+          <Search size={14} strokeWidth={1.75} />
+        </button>
+      )}
     </div>
   )
 }

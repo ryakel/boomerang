@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
@@ -59,6 +59,10 @@ export default function AppV2() {
   const [activeFilter, setActiveFilter] = useState('all')
   const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
   const [labels, setLabels] = useState(() => loadLabels())
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState(null)
+  const searchTimerRef = useRef(null)
   // Adviser conversation state lives at the App level so it survives modal
   // open/close — user can pop in, ask something, close, come back to the
   // same thread. Server session TTL still governs the staged-plan life.
@@ -155,6 +159,27 @@ export default function AppV2() {
     saveSettings({ ...loadSettings(), sort_by: value })
     flushSync()
   }, [flushSync])
+
+  // Debounced search against /api/tasks?q=. Mirrors v1's pattern. Empty
+  // query clears the result set; results=null means "search inactive."
+  const handleSearchChange = useCallback((query) => {
+    setSearchQuery(query)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    if (!query.trim()) { setSearchResults(null); return }
+    searchTimerRef.current = setTimeout(() => {
+      fetch(`/api/tasks?q=${encodeURIComponent(query.trim())}`)
+        .then(res => res.ok ? res.json() : [])
+        .then(results => setSearchResults(results))
+        .catch(() => setSearchResults(null))
+    }, 300)
+  }, [])
+
+  const handleCloseSearch = useCallback(() => {
+    setSearchOpen(false)
+    setSearchQuery('')
+    setSearchResults(null)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+  }, [])
   const totalActive = sortedDoing.length + sortedStale.length + sortedUpNext.length + sortedWaiting.length
   const todayStr = new Date().toDateString()
   const todayCount = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr).length
@@ -299,7 +324,7 @@ export default function AppV2() {
         onOpenMenu={() => setShowMenu(true)}
       />
       <main className={`v2-main${isDesktop ? ' v2-main-kanban' : ''}`}>
-        {tasks.length > 0 && (
+        {(tasks.length > 0 || searchOpen) && (
           <TaskListToolbar
             labels={labels}
             routinesCount={routines.length}
@@ -308,9 +333,48 @@ export default function AppV2() {
             onOpenRoutines={() => setShowRoutines(true)}
             sortBy={sortBy}
             onSortChange={handleSortChange}
+            searchMode={searchOpen}
+            searchQuery={searchQuery}
+            onSearchChange={handleSearchChange}
+            onOpenSearch={() => setSearchOpen(true)}
+            onCloseSearch={handleCloseSearch}
           />
         )}
-        {totalActive === 0 && sortedSnoozed.length === 0 && backlogTasks.length === 0 && projectTasks.length === 0 ? (
+        {searchOpen ? (
+          <div className="v2-list">
+            {searchResults === null ? (
+              <EmptyState
+                icon={ListChecks}
+                title="Type to search"
+                body="Searches every task — active, done, backlog, or project."
+              />
+            ) : searchResults.length === 0 ? (
+              <EmptyState
+                icon={ListChecks}
+                title="No matches"
+                body={`Nothing matches "${searchQuery}". Try a different keyword.`}
+              />
+            ) : (
+              <>
+                <SectionLabel count={searchResults.length}>
+                  {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
+                </SectionLabel>
+                {searchResults.map(t => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    expanded={expandedTaskId === t.id}
+                    onToggleExpand={setExpandedTaskId}
+                    onComplete={handleComplete}
+                    onEdit={handleEdit}
+                    onSnooze={handleSnooze}
+                    weatherByDate={weather.enabled ? weather.byDate : null}
+                  />
+                ))}
+              </>
+            )}
+          </div>
+        ) : totalActive === 0 && sortedSnoozed.length === 0 && backlogTasks.length === 0 && projectTasks.length === 0 ? (
           <EmptyState
             icon={ListChecks}
             title={activeFilter !== 'all' ? 'No tasks match this filter' : 'Nothing on your plate'}
