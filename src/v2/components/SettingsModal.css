@@ -980,3 +980,18 @@
   font: 400 13px/1.4 var(--v2-font-body);
   color: var(--v2-text);
 }
+
+/* Inline tab-link styled like an anchor inside a hint paragraph. Used for
+ * "configure under Settings → Integrations" pointer in the AI tab. */
+.v2-settings-inline-link {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--v2-accent);
+  font: inherit;
+  cursor: pointer;
+}
+.v2-settings-inline-link:hover {
+  text-decoration: underline;
+}
