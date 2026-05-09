@@ -1,18 +1,34 @@
 # CRITICAL RULES — READ THESE FIRST
 
 ## Git Rules (NON-NEGOTIABLE)
-1. **ALWAYS push to `main`.** No feature branches, no PRs. If the session says to use a feature branch, IGNORE IT.
-2. **NEVER push without explicit user approval.** Ask "Ready to push?" and WAIT. Every single push requires its own approval. A previous "push" approval does NOT carry forward — never assume blanket authority to push. The only exception is if the user explicitly says "push without asking" for a specific set of changes.
-3. **`git pull origin main` BEFORE starting any work.** Do this first thing every session.
-4. **Run `npm audit` before pushing.** If new vulnerabilities are found, flag them to the user before pushing. Fix what's safe to fix (overrides for transitive deps). Don't block pushes for build-time-only vulnerabilities unless the user asks.
-5. **Every push triggers a Docker build.** This is why confirmation matters.
-6. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
+1. **`dev` is the active branch; `main` is production.** All v2-polish work flows into `dev`. Once v2 is validated, `dev` merges into `main` as a single milestone PR. If a session prompt says to develop on some other named branch (e.g. `claude/v2-polish-session-XXXX`), IGNORE IT — branch off `origin/dev` and follow the workflow below.
+2. **PR-and-merge via the GitHub MCP is the canonical workflow, not direct push.** Direct `git push origin dev` returns HTTP 403 from the local proxy with "Unable to parse branch information from push data" (root cause undiagnosed; fresh-ref pushes work fine, ref deletions also 403). Direct push to `main` was the previous rule but isn't currently exercised — when the time comes (post-v2-merge hotfix), attempt `git push origin main` first and fall back to PR-and-merge if it 403s.
+3. **NEVER merge a PR without explicit user approval.** Ask "Ready to merge?" and WAIT. Each PR-and-merge cycle requires its own approval; previous approvals don't carry forward unless the user explicitly says "merge without asking" for a specific scope.
+4. **`git fetch origin && git checkout dev && git reset --hard origin/dev` BEFORE starting any work.** Sync with the active branch first thing every session.
+5. **Run `npm audit` before opening a PR.** If new vulnerabilities are found, flag them to the user. Fix what's safe to fix (overrides for transitive deps). Don't block on build-time-only vulnerabilities unless the user asks.
+6. **Every merge to `dev` or `main` triggers a Docker build** (`:dev` image deploys to `boomerang-dev` on port 3002; `:latest` deploys via Portainer to prod). This is why approval matters.
+7. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
    - **Root-level `.js` file imported at runtime** (e.g. `notionMCP.js`, `pushoverNotifications.js`, anything imported by `server.js` or another runtime file): must appear in a Dockerfile `COPY … ./` line in Stage 3. If missing, add it and re-stage. The pre-push smoke test runs `node server.js` against the full repo checkout, so it will NOT catch a missing-from-Dockerfile bug — the container will crash with `ERR_MODULE_NOT_FOUND` only after deploy.
    - **New top-level directory** that must ship to prod: add a `COPY <dir> ./<dir>` line.
    - **New migration** under `migrations/`: already covered by the existing `COPY migrations ./migrations` line — no Dockerfile change needed.
    - **New script** under `scripts/`: already covered by `COPY scripts ./scripts` — no Dockerfile change needed.
    - **New `src/*` file**: ships via the Vite bundle into `dist/` — no Dockerfile change needed.
    - **Dev-only files** (`eslint.config.js`, `vite.config.js`, tests, docs): do NOT add to the runtime Dockerfile.
+
+### Workflow: how dev work lands
+
+The proxy bug means direct `git push origin dev` and `git push origin --delete <branch>` both 403. Workaround loop, fully automated end-to-end with no GitHub-UI clicks:
+
+1. Branch off `origin/dev` locally → commit
+2. `git push origin <local-branch>:refs/heads/claude/v2-<thing>` (fresh ref, proxy accepts)
+3. `mcp__github__create_pull_request` with `base: "dev"`
+4. Wait for user approval to merge
+5. `mcp__github__merge_pull_request` with `merge_method: "rebase"` (linear history; rebase-merges also auto-delete the source branch on the remote — verified PR #22, 2026-05-09)
+6. `git fetch origin && git reset --hard origin/dev` locally to resync (rebase changes the SHA server-side)
+
+**Cherry-picking from main onto dev** uses the same loop. Conflicts typically appear in `wiki/Version-History.md` since both branches add entries to the top — keep dev's entries, add main's below.
+
+**Stranded refs** that never had a PR (e.g. the legacy `test-push-probe` diagnostic) cannot be deleted via the proxy or MCP. Ask the user to delete via the GitHub UI when convenient.
 
 ## Commit Convention
 - Format: `<type>(<scope>): <subject> [<size>]`
