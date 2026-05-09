@@ -6,6 +6,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 EditTaskModal — Notion link + create [S]
+  - **Why.** Per-task Notion linking was the last piece of v1's EditTaskModal "Connections" panel that v2 didn't carry. `useTaskForm` already had the full handler set (`notionState`, `notionResult`, `handleNotionSearch`, `handleNotionCreate`, `handleNotionLink`, `setNotionResult`) — they just had no v2 render path.
+  - **New Connections section** between Comments and the action row. Initial state shows a "Notion" pill button (disabled if title is empty). Clicking calls `handleNotionSearch(title, notes)` → `suggestNotionLink` server-side. While searching, a spinner row reads "Searching Notion…". On error: red message + Retry pill.
+  - **Suggestions list.** Server returns matched pages via AI similarity; v2 renders them as a hairline list of full-width buttons. Picking one calls `handleNotionLink(page)` → notionResult populated → linked-pill state.
+  - **Create new.** Falls through if no good match: "Create new Notion page" pill calls `handleNotionCreate()` → server creates the page with the task's title/notes/labels → notionResult populated.
+  - **Linked state.** Shows "Notion ↗" pill linking to `notionResult.url` with a ✕ unlink. Unlinking just clears `notionResult` locally — the actual Notion page stays put; the task simply stops tracking it.
+  - **Persistence.** `handleSave` payload includes `notion_page_id: form.notionResult?.id || null` and `notion_url: form.notionResult?.url || null`. Same shape v1 saves; ongoing sync (`useExternalSync`) picks up the link automatically.
+  - **`v2-form-ai-pill-static`.** New CSS class to opt out of the default `position: absolute` on `.v2-form-ai-pill`. Lets the pill sit inline in the Connections row alongside other pills.
+  - **Note.** "DB sync configuration" (parent-page picker, database picker) split off into its own pending bullet for a future PR — that's a Settings flow with a different shape than the per-task link UI.
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 725KB precache (up from 722KB).
+  - Modified: `src/v2/components/EditTaskModal.jsx`, `src/v2/components/EditTaskModal.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 EditTaskModal — Comments, AI Research, Attachments, Extract-Text [M]
   - **Why.** Common power-user features in v1's EditTaskModal that v2 didn't carry — users had to flip back to v1 to attach files, run AI research on a task, extract text from PDFs/images, or thread comments. Medium-priority item knocked off in one PR since they all live in the same modal.
   - **Research.** New "Research" pill next to "Polish" in the Notes action row. Click toggles an inline prompt input + Go button. Submitting calls `researchTask(title, notes, prompt, attachments)` and replaces notes with the AI-augmented version. State + handler live inline in EditTaskModal v2 (not in `useTaskForm`) since AddTaskModal doesn't surface Research.
