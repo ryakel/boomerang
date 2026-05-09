@@ -172,9 +172,7 @@ const STORAGE_KEY = 'ui_version'
 
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs', 'Beta']
 
-// All Settings tabs now have v2 implementations. Integrations is a
-// status-summary panel — full OAuth flows still live in v1 because each
-// flow has 6+ states and isn't worth duplicating.
+// All Settings tabs now have v2 implementations.
 const PLACEHOLDER_TABS = new Set()
 const PLACEHOLDER_BODY = {}
 
@@ -692,10 +690,8 @@ function IntegrationsPanel({
       <div className="v2-settings-block">
         <div className="v2-form-label">Status</div>
         <div className="v2-settings-row-hint">
-          OAuth-heavy integrations (Notion, Trello, GCal, Gmail) are configured in v1
-          to avoid duplicating multi-step consent flows. Anthropic is configured in
-          the AI tab. Simple key-only integrations (17track, Pushover) can be set
-          inline below.
+          Connect, configure, and disconnect every integration inline. Tokens are shared
+          across v1 and v2 — you only have to connect once.
         </div>
         <ul className="v2-integrations-list">
           {integrations.map(int => (
@@ -1143,7 +1139,7 @@ function IntegrationsPanel({
                     {int.sync.busy ? 'Syncing…' : 'Sync now'}
                   </button>
                 )}
-                {!['pushover', 'weather', 'trello-config', 'trello-connect', 'gcal-config', 'gcal-connect', 'gmail-config', 'gmail-connect', 'notion-config', 'anthropic'].includes(int.inline) && (
+                {!['api-key', 'pushover', 'weather', 'trello-config', 'trello-connect', 'gcal-config', 'gcal-connect', 'gmail-config', 'gmail-connect', 'notion-config', 'anthropic'].includes(int.inline) && (
                   int.manageInTab ? (
                     <button
                       className="v2-settings-btn"
@@ -1188,16 +1184,6 @@ function IntegrationsPanel({
         </div>
       )}
 
-      <div className="v2-settings-block">
-        <div className="v2-form-label">Why v1 for OAuth?</div>
-        <div className="v2-settings-row-hint">
-          OAuth flows for Notion / Trello / Google Calendar / Gmail each have 4–8 UI
-          states (consent prompt, callback handling, calendar picker, scope error, env-var
-          override, disconnect with confirmation). v2 will absorb them in a future release;
-          for now, v1 → Settings → Integrations does the work, and the resulting tokens are
-          shared between v1 and v2 — connect once, both interfaces benefit.
-        </div>
-      </div>
     </div>
   )
 }
@@ -1357,11 +1343,10 @@ function NotificationsPanel({ settings, update }) {
 
       {/* High-priority escalation */}
       <div className="v2-settings-block">
-        <div className="v2-form-label">High-priority escalation</div>
-        <div className="v2-settings-row-hint">Three-stage cadence as a high-pri task approaches its due date and goes overdue.</div>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Enable escalation</div>
+            <div className="v2-settings-row-label">High-priority escalation</div>
+            <div className="v2-settings-row-hint">Three-stage cadence as a high-pri task approaches due and goes overdue.</div>
           </div>
           <Toggle
             checked={settings.notif_highpri_escalate !== false}
@@ -1369,34 +1354,37 @@ function NotificationsPanel({ settings, update }) {
           />
         </div>
         {settings.notif_highpri_escalate !== false && (
-          <div className="v2-notif-stages">
-            <div className="v2-notif-stage">
-              <label className="v2-form-label">Before due (h)</label>
+          <div className="v2-notif-stages-inline">
+            <label className="v2-notif-stage-inline">
+              <span className="v2-notif-stage-inline-label">Before due</span>
               <input
-                className="v2-form-input v2-settings-narrow-input"
+                className="v2-form-input v2-notif-stage-inline-input"
                 type="number" min="0.25" max="168" step="0.25"
                 value={settings.notif_freq_highpri_before ?? 24}
                 onChange={e => update('notif_freq_highpri_before', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
               />
-            </div>
-            <div className="v2-notif-stage">
-              <label className="v2-form-label">On due day (h)</label>
+              <span className="v2-notif-stage-inline-unit">h</span>
+            </label>
+            <label className="v2-notif-stage-inline">
+              <span className="v2-notif-stage-inline-label">On due</span>
               <input
-                className="v2-form-input v2-settings-narrow-input"
+                className="v2-form-input v2-notif-stage-inline-input"
                 type="number" min="0.25" max="24" step="0.25"
                 value={settings.notif_freq_highpri_due ?? 1}
                 onChange={e => update('notif_freq_highpri_due', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
               />
-            </div>
-            <div className="v2-notif-stage">
-              <label className="v2-form-label">Overdue (h)</label>
+              <span className="v2-notif-stage-inline-unit">h</span>
+            </label>
+            <label className="v2-notif-stage-inline">
+              <span className="v2-notif-stage-inline-label">Overdue</span>
               <input
-                className="v2-form-input v2-settings-narrow-input"
+                className="v2-form-input v2-notif-stage-inline-input"
                 type="number" min="0.25" max="24" step="0.25"
                 value={settings.notif_freq_highpri_overdue ?? 0.5}
                 onChange={e => update('notif_freq_highpri_overdue', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
               />
-            </div>
+              <span className="v2-notif-stage-inline-unit">h</span>
+            </label>
           </div>
         )}
       </div>
@@ -1683,10 +1671,9 @@ function ServerLogsPanel() {
 
   useEffect(() => { fetchLogs() }, [fetchLogs])
 
-  const FILTERS = ['all', 'Gmail', 'GCal', 'Push', 'Email', 'DB', 'SSE', 'error']
+  const FILTERS = ['all', 'Google', 'Push', 'Email', 'DB', 'SSE', 'error']
   const FILTER_PATTERNS = {
-    Gmail: ['[Gmail]'],
-    GCal: ['[GCal]', '[GCalSync]'],
+    Google: ['[Gmail]', '[GCal]', '[GCalSync]'],
     Push: ['[Push]'],
     Email: ['[Email]'],
     DB: ['[DB]'],
@@ -1975,6 +1962,14 @@ export default function SettingsModal({
                 onChange={e => update('max_open_tasks', parseInt(e.target.value) || 0)}
               />
             </div>
+
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <div className="v2-settings-row-label">Build</div>
+                <div className="v2-settings-row-hint">Static identifier of the running build.</div>
+              </div>
+              <code className="v2-settings-build">{__APP_VERSION__}</code>
+            </div>
           </div>
         )}
 
@@ -2126,12 +2121,6 @@ export default function SettingsModal({
               <p className="v2-settings-hint">
                 URL escape hatch: <code>?ui=v1</code> or <code>?ui=v2</code> sets the flag and reloads.
               </p>
-            </div>
-
-            <div className="v2-settings-block">
-              <h3 className="v2-settings-heading">Build</h3>
-              <p className="v2-settings-body">Static identifier of the running build — never overwritten by autosave.</p>
-              <code className="v2-settings-build">{__APP_VERSION__}</code>
             </div>
 
             <div className="v2-settings-block">
