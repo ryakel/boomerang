@@ -758,3 +758,17 @@
   font: 500 12px/1.4 var(--v2-font-body);
   color: var(--v2-energy-errand);
 }
+
+.v2-integrations-row-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.v2-integrations-sync-result {
+  margin-top: 6px;
+  font: 500 12px/1.4 var(--v2-font-body);
+  color: var(--v2-energy-errand);
+}
