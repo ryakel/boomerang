@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 visual bugs from device screenshots — notif cards, quiet hours, settings rows, dark-mode init, danger zone [M]
+  - Five fixes for visual bugs the user logged from the live `:dev` build earlier today.
+  - **Bug 1 — notification matrix cut off on narrow screens.** Replaced the type×channel `<table>` with a card-per-type list. Each `.v2-notif-card` has type label + freq input on top, a 3-column grid of channel toggles (Push / Email / Pushover) below — labeled chips so the channel name doesn't need a header row. Works at any width without horizontal scroll. Same data shape, same toggles, same settings keys; just a different render.
+  - **Bug 2 + 3 — quiet hours inputs.** New `.v2-settings-quiet-times` flex row with `.v2-settings-time-input` (110px wide, 8px/10px padding) for the START/END time inputs. Bypass label moved into a labeled row using the new `.v2-settings-compact-input-wide` (140px). Native `<input type="time">` retained — a custom time picker is over-engineering for the use case.
+  - **Bug 4A — dark-mode toggle desyncs from actual theme.** Two-part fix. `AppV2.jsx` mount effect now reads `loadSettings().theme` and applies `data-theme` + `meta[name="theme-color"]` so the rendered UI matches whatever the toggle reads. Settings toggle default also flipped from `(theme || 'dark') === 'dark'` to `theme === 'dark'` — v2 tokens default to light when `data-theme` is unset, so the previous "default to dark in the toggle" assumption was the source of the desync.
+  - **Bug 4B — General-tab number inputs full-width.** Each numeric setting (default due days, staleness, reframe trigger, max open tasks) restructured from a vertical block (label / hint / full-width input) to a `.v2-settings-row` (label + hint on the left, 80px right-aligned `.v2-settings-compact-input` on the right). Reads cleaner on mobile.
+  - **Bug 5 — danger-zone buttons inconsistent.** Both buttons now stack full-width (`.v2-settings-btn-block`) inside `.v2-settings-danger-actions` flex column. Outline-red "Clear completed tasks" sits above filled-red "Clear all data" — same width, same height, intentional fill-intensity step indicating destructiveness.
+  - **Other.** Removed the orphan `@media (max-width: 600px)` rule that referenced the now-deleted `.v2-notif-matrix*` classes.
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 710KB precache (up from 709KB).
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 manual sync triggers (Trello / Notion / GCal / Gmail) in Integrations [M]
   - **Why.** Last v2 ship-blocker. v2 had no manual "Sync now" UI for any of the four pull-sync integrations — users had to flip back to v1 to trigger a one-shot sync. Worse: AppV2 wasn't even mounting `useNotionSync` or `useGCalSync`, so the auto-on-mount + visibility-change syncs that v1 runs were silently disabled on dev. This commit fixes both.
   - **AppV2 hook wiring.** Added `useNotionSync(tasks, setTasks)` and `useGCalSync(tasks, setTasks)` imports and call sites alongside the existing `useTrelloSync`. Pulled `syncTrello` / `syncing: trelloSyncing` from the existing useTrelloSync call (was previously only consuming `pushStatusToTrello`). Threaded all three sync functions + their busy flags through to `<SettingsModal>` as new props.
