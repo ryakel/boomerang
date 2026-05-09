@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- style(ui): v2 labels back to flex-wrap (5-wide grid was wrong for dynamic content) [XS]
+  - Reverted PR #56's 5-column grid: with variable label counts the last row's leftover chips stretched to 1fr each (looked busted), and ellipsis-truncating long custom names ("low-energy", "phone-call") was unfriendly. Back to flex-wrap with content-sized chips. Kept the energy-type chip typography (12px font, 32px height, lowercase) so labels still read as the same kind of control as the energy chips above; just no rigid column grid.
+  - `title` attr on each chip from PR #56 stays (harmless, useful as accessible name).
+  - Modified: `src/v2/components/AddTaskModal.css`
+
 - style(ui): v2 labels grid → 5 wide to match energy-type row [XS]
   - `.v2-form-label-grid` switched from flex-wrap to `grid-template-columns: repeat(5, minmax(0, 1fr))` and chips picked up the energy-type sizing (12px font, 0 8px padding, 32px height, gap 4px). Same width math, same lowercase aesthetic. Long custom-label names ellipsis-truncate; full name available via `title` attribute.
   - Modified: `src/v2/components/AddTaskModal.css`, `src/v2/components/AddTaskModal.jsx`, `src/v2/components/EditTaskModal.jsx`
