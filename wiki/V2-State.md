@@ -115,17 +115,18 @@ These are daily-use gaps that users would notice:
 
 ### Deferred — wait for above to settle
 
-- [ ] **Dark-mode QA pass** across every v2 surface. Tokens defined; surfaces not visually audited at `data-theme="dark"`. Bug 4 below is the canonical instance — toggling the dark-mode switch in v2 → General doesn't actually flip the theme on adjacent surfaces.
+- [ ] **Dark-mode QA pass** across every v2 surface. Tokens defined; surfaces not visually audited at `data-theme="dark"`. The dark-mode toggle desync was fixed (see Bug 4 in resolved list below) but a full surface-by-surface audit at `data-theme="dark"` is still pending.
 
-### Known visual bugs (deferred — captured 2026-05-09 from device screenshots)
+### Known visual bugs (resolved 2026-05-09)
 
-These are real bugs the user logged from the live `:dev` build, intentionally parked until light-mode sizes/positions/colors stabilize. None of them block functionality; they're styling and layout polish. Pick from this list when revisiting v2 visual fit-and-finish.
+All five bugs the user logged from device screenshots have been addressed:
 
-- [ ] **Bug 1 — Notification matrix cut off on narrow screens.** Settings → Notifications → "Notification types" type×channel table on mobile (dark mode). Header row is `TYPE / PUSH / EMAIL / PUSHOVER / EVERY` and the EVERY (frequency input) column gets clipped past the viewport's right edge. Whole table needs a rethink for ≤480px — likely options: stacked rows-per-type with channel chips inline, an accordion per type, or the freq input moved into an expansion drawer behind a tap-to-edit affordance. Reference: `NotificationsPanel` in `src/v2/components/SettingsModal.jsx`.
-- [ ] **Bug 2 — Quiet hours START/END time inputs overlapping; bypass-label input oversized.** Settings → Notifications → Quiet hours section. Native `<input type="time">` boxes appear to overlap on iOS Safari and the bypass-label text input spans the full content width when it only needs ~10 chars. Inputs in general feel too large in this section.
-- [ ] **Bug 3 — Quiet hours time selectors feel weird.** Same section as Bug 2. The native iOS time picker doesn't fit the v2 hairline aesthetic and the START/END pair feels disconnected. Consider a custom time picker (e.g. two number-spin inputs side by side) or at minimum tighter container styling.
-- [ ] **Bug 4 — Dark-mode toggle visual state desyncs from actual theme + General-tab number inputs are full-width.** Settings → General. Dark-mode toggle reads "ON" (orange filled track) but the modal body + underlying app render in light mode — toggling doesn't reach every surface (related to the broader Dark-mode QA item above). Separately: the number inputs (default due days, staleness, reframe, max open tasks) span the full content width when they only need to fit one or two digits. On small screens they'd read better small (~80px) and right-aligned in the row, with the label on the left.
-- [ ] **Bug 5 — Danger zone buttons look odd.** Settings → Data → Danger zone. The pink-bordered card holds two buttons of inconsistent visual weight: outline-style "Clear completed tasks" stacked above a solid red filled "Clear all data." Different button styles + left-justified pill stacking feel unbalanced. Either match button styles (both filled or both outline with the destructive variant differentiated by color only), or rethink the layout (full-width row, side-by-side, etc.).
+- [x] ~~**Bug 1 — Notification matrix cut off on narrow screens.**~~ Replaced the table with a card-per-type list. Each card shows the type label + freq input on top, a 3-column grid of channel toggles (Push / Email / Pushover) below. Works at any viewport width without horizontal scroll.
+- [x] ~~**Bug 2 — Quiet hours START/END inputs overlapping; bypass-label oversized.**~~ START/END now sit side-by-side as 110px-wide tight inputs (`.v2-settings-time-input`). Bypass-label is a 140px compact input on the right of a labeled row.
+- [x] ~~**Bug 3 — Quiet hours time selectors feel weird.**~~ Same fix as Bug 2 — tighter widths + smaller padding pull the START/END pair together visually. Native `<input type="time">` retained (a custom picker is over-engineering for a self-hosted personal app).
+- [x] ~~**Bug 4 part A — Dark-mode toggle desyncs from actual theme.**~~ AppV2 mount-effect now applies `data-theme` from `loadSettings().theme` so the toggle's reading and the rendered UI agree. Toggle's default also flipped from `(theme || 'dark')` to `theme === 'dark'` — v2 tokens default to light without `data-theme`, so the previous default-to-dark assumption was the desync source.
+- [x] ~~**Bug 4 part B — General-tab number inputs full-width.**~~ Restructured each numeric setting from a vertical stack (label / hint / full-width input) to a labeled row (label + hint on the left, 80px right-aligned input on the right). Same for the Bypass label text input (140px).
+- [x] ~~**Bug 5 — Danger zone buttons inconsistent.**~~ Both buttons now full-width-stacked (`.v2-settings-btn-block`) inside `.v2-settings-danger-actions` flex column. Outline-red "Clear completed tasks" sits above filled-red "Clear all data" — same width, same height, intentional fill-intensity step indicating destructiveness.
 
 ### Future-direction parking lot
 

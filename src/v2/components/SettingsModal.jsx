@@ -615,88 +615,70 @@ function NotificationsPanel({ settings, update }) {
         ))}
       </div>
 
-      {/* Per-type × per-channel matrix */}
+      {/* Per-type × per-channel — card-per-type layout works at any width */}
       <div className="v2-settings-block">
         <div className="v2-form-label">Notification types</div>
-        <div className="v2-settings-row-hint">Each row toggles per channel. Frequency is the cooldown between repeats.</div>
-        <div className="v2-notif-matrix-wrap">
-          <table className="v2-notif-matrix">
-            <thead>
-              <tr>
-                <th className="v2-notif-matrix-type">Type</th>
-                <th>Push</th>
-                <th>Email</th>
-                <th>Pushover</th>
-                <th>Every (h)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {NOTIF_TYPES.map(t => (
-                <tr key={t.key}>
-                  <td className="v2-notif-matrix-type">{t.label}</td>
-                  <td>
+        <div className="v2-settings-row-hint">Each card toggles a notification type per channel. Frequency is the cooldown between repeats.</div>
+        <div className="v2-notif-cards">
+          {NOTIF_TYPES.map(t => (
+            <div key={t.key} className="v2-notif-card">
+              <div className="v2-notif-card-head">
+                <div className="v2-notif-card-label">{t.label}</div>
+                <div className="v2-notif-card-freq">
+                  <input
+                    className="v2-form-input v2-notif-card-freq-input"
+                    type="number"
+                    min="0.25"
+                    max="168"
+                    step="0.25"
+                    value={settings[t.freqKey] ?? t.freqDefault}
+                    onChange={e => update(t.freqKey, Math.max(0.25, parseFloat(e.target.value) || 0.25))}
+                    aria-label={`${t.label} frequency in hours`}
+                  />
+                  <span className="v2-notif-card-freq-unit">h</span>
+                </div>
+              </div>
+              <div className="v2-notif-card-channels">
+                {[
+                  { key: 'push', master: 'push_notifications_enabled', defaultOn: true },
+                  { key: 'email', master: 'email_notifications_enabled', defaultOn: true },
+                  { key: 'pushover', master: 'pushover_notifications_enabled', defaultOn: false },
+                ].map(c => (
+                  <label key={c.key} className={`v2-notif-card-channel${settings[c.master] !== true ? ' v2-notif-card-channel-disabled' : ''}`}>
                     <Toggle
-                      checked={settings[`push_notif_${t.key}`] !== false}
-                      onChange={e => update(`push_notif_${t.key}`, e.target.checked)}
-                      disabled={settings.push_notifications_enabled !== true}
+                      checked={c.defaultOn ? settings[`${c.key}_notif_${t.key}`] !== false : settings[`${c.key}_notif_${t.key}`] === true}
+                      onChange={e => update(`${c.key}_notif_${t.key}`, e.target.checked)}
+                      disabled={settings[c.master] !== true}
                     />
-                  </td>
-                  <td>
+                    <span className="v2-notif-card-channel-label">{c.key === 'push' ? 'Push' : c.key === 'email' ? 'Email' : 'Pushover'}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+          {NOTIF_PACKAGE_TYPES.map(t => (
+            <div key={t.key} className="v2-notif-card">
+              <div className="v2-notif-card-head">
+                <div className="v2-notif-card-label">{t.label}</div>
+              </div>
+              <div className="v2-notif-card-channels">
+                {[
+                  { key: 'push', master: 'push_notifications_enabled' },
+                  { key: 'email', master: 'email_notifications_enabled' },
+                  { key: 'pushover', master: 'pushover_notifications_enabled' },
+                ].map(c => (
+                  <label key={c.key} className={`v2-notif-card-channel${settings[c.master] !== true ? ' v2-notif-card-channel-disabled' : ''}`}>
                     <Toggle
-                      checked={settings[`email_notif_${t.key}`] !== false}
-                      onChange={e => update(`email_notif_${t.key}`, e.target.checked)}
-                      disabled={settings.email_notifications_enabled !== true}
+                      checked={settings[`${c.key}_notif_${t.key}`] !== false}
+                      onChange={e => update(`${c.key}_notif_${t.key}`, e.target.checked)}
+                      disabled={settings[c.master] !== true}
                     />
-                  </td>
-                  <td>
-                    <Toggle
-                      checked={settings[`pushover_notif_${t.key}`] === true}
-                      onChange={e => update(`pushover_notif_${t.key}`, e.target.checked)}
-                      disabled={settings.pushover_notifications_enabled !== true}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="v2-notif-matrix-freq"
-                      type="number"
-                      min="0.25"
-                      max="168"
-                      step="0.25"
-                      value={settings[t.freqKey] ?? t.freqDefault}
-                      onChange={e => update(t.freqKey, Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-                    />
-                  </td>
-                </tr>
-              ))}
-              {NOTIF_PACKAGE_TYPES.map(t => (
-                <tr key={t.key}>
-                  <td className="v2-notif-matrix-type">{t.label}</td>
-                  <td>
-                    <Toggle
-                      checked={settings[`push_notif_${t.key}`] !== false}
-                      onChange={e => update(`push_notif_${t.key}`, e.target.checked)}
-                      disabled={settings.push_notifications_enabled !== true}
-                    />
-                  </td>
-                  <td>
-                    <Toggle
-                      checked={settings[`email_notif_${t.key}`] !== false}
-                      onChange={e => update(`email_notif_${t.key}`, e.target.checked)}
-                      disabled={settings.email_notifications_enabled !== true}
-                    />
-                  </td>
-                  <td>
-                    <Toggle
-                      checked={settings[`pushover_notif_${t.key}`] !== false}
-                      onChange={e => update(`pushover_notif_${t.key}`, e.target.checked)}
-                      disabled={settings.pushover_notifications_enabled !== true}
-                    />
-                  </td>
-                  <td className="v2-notif-matrix-freq-na">—</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <span className="v2-notif-card-channel-label">{c.key === 'push' ? 'Push' : c.key === 'email' ? 'Email' : 'Pushover'}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -760,21 +742,21 @@ function NotificationsPanel({ settings, update }) {
           />
         </div>
         {settings.quiet_hours_enabled && (
-          <div className="v2-form-row" style={{ marginTop: 12 }}>
-            <div className="v2-form-field">
+          <div className="v2-settings-quiet-times">
+            <div className="v2-settings-quiet-field">
               <label className="v2-form-label">Start</label>
               <input
                 type="time"
-                className="v2-form-input"
+                className="v2-form-input v2-settings-time-input"
                 value={settings.quiet_hours_start || '22:00'}
                 onChange={e => update('quiet_hours_start', e.target.value)}
               />
             </div>
-            <div className="v2-form-field">
+            <div className="v2-settings-quiet-field">
               <label className="v2-form-label">End</label>
               <input
                 type="time"
-                className="v2-form-input"
+                className="v2-form-input v2-settings-time-input"
                 value={settings.quiet_hours_end || '08:00'}
                 onChange={e => update('quiet_hours_end', e.target.value)}
               />
@@ -782,11 +764,13 @@ function NotificationsPanel({ settings, update }) {
           </div>
         )}
         {settings.quiet_hours_enabled && (
-          <div className="v2-settings-block" style={{ marginTop: 12 }}>
-            <label className="v2-form-label">Bypass label</label>
-            <div className="v2-settings-row-hint">Tasks with this tag wake you even during quiet hours.</div>
+          <div className="v2-settings-row" style={{ marginTop: 12 }}>
+            <div className="v2-settings-row-text">
+              <label className="v2-settings-row-label">Bypass label</label>
+              <div className="v2-settings-row-hint">Tasks with this tag wake you even during quiet hours.</div>
+            </div>
             <input
-              className="v2-form-input v2-settings-narrow-input"
+              className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
               type="text"
               value={settings.quiet_hours_bypass_label || 'wake-me'}
               onChange={e => update('quiet_hours_bypass_label', e.target.value)}
@@ -1041,25 +1025,27 @@ export default function SettingsModal({
               <label className="v2-settings-toggle">
                 <input
                   type="checkbox"
-                  checked={(settings.theme || 'dark') === 'dark'}
+                  checked={settings.theme === 'dark'}
                   onChange={e => {
                     const theme = e.target.checked ? 'dark' : 'light'
                     update('theme', theme)
                     document.documentElement.setAttribute('data-theme', theme)
                     const meta = document.querySelector('meta[name="theme-color"]')
-                    if (meta) meta.content = theme === 'dark' ? '#0B0B0F' : '#F5F5F7'
+                    if (meta) meta.content = theme === 'dark' ? '#0B0B0F' : '#FFFFFF'
                   }}
                 />
                 <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
               </label>
             </div>
 
-            <div className="v2-settings-block">
-              <label className="v2-form-label" htmlFor="v2-default-due-days">Default due date (days from now)</label>
-              <div className="v2-settings-row-hint">0 means no default — tasks ship without a due date unless you pick one.</div>
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <label className="v2-settings-row-label" htmlFor="v2-default-due-days">Default due date</label>
+                <div className="v2-settings-row-hint">Days from now. 0 = no default; tasks ship without a due date unless you pick one.</div>
+              </div>
               <input
                 id="v2-default-due-days"
-                className="v2-form-input v2-settings-narrow-input"
+                className="v2-form-input v2-settings-compact-input"
                 type="number"
                 min="0"
                 max="90"
@@ -1068,12 +1054,14 @@ export default function SettingsModal({
               />
             </div>
 
-            <div className="v2-settings-block">
-              <label className="v2-form-label" htmlFor="v2-staleness-days">Staleness threshold (days)</label>
-              <div className="v2-settings-row-hint">A task with no activity for this long shows up in the Stale section.</div>
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <label className="v2-settings-row-label" htmlFor="v2-staleness-days">Staleness threshold</label>
+                <div className="v2-settings-row-hint">Days of inactivity before a task surfaces in the Stale section.</div>
+              </div>
               <input
                 id="v2-staleness-days"
-                className="v2-form-input v2-settings-narrow-input"
+                className="v2-form-input v2-settings-compact-input"
                 type="number"
                 min="1"
                 max="30"
@@ -1082,12 +1070,14 @@ export default function SettingsModal({
               />
             </div>
 
-            <div className="v2-settings-block">
-              <label className="v2-form-label" htmlFor="v2-reframe-threshold">Reframe trigger (snooze count)</label>
-              <div className="v2-settings-row-hint">After this many snoozes, tapping snooze opens the Reframe modal instead.</div>
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <label className="v2-settings-row-label" htmlFor="v2-reframe-threshold">Reframe trigger</label>
+                <div className="v2-settings-row-hint">Snooze count after which tapping Snooze opens the Reframe modal instead.</div>
+              </div>
               <input
                 id="v2-reframe-threshold"
-                className="v2-form-input v2-settings-narrow-input"
+                className="v2-form-input v2-settings-compact-input"
                 type="number"
                 min="1"
                 max="20"
@@ -1096,12 +1086,14 @@ export default function SettingsModal({
               />
             </div>
 
-            <div className="v2-settings-block">
-              <label className="v2-form-label" htmlFor="v2-max-open">Max open tasks</label>
-              <div className="v2-settings-row-hint">Warns when you exceed this. 0 = no limit.</div>
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <label className="v2-settings-row-label" htmlFor="v2-max-open">Max open tasks</label>
+                <div className="v2-settings-row-hint">Warns when you exceed this. 0 = no limit.</div>
+              </div>
               <input
                 id="v2-max-open"
-                className="v2-form-input v2-settings-narrow-input"
+                className="v2-form-input v2-settings-compact-input"
                 type="number"
                 min="0"
                 max="100"
@@ -1183,15 +1175,15 @@ export default function SettingsModal({
             <div className="v2-settings-danger">
               <div className="v2-form-label">Danger zone</div>
               <div className="v2-settings-row-hint">These wipe data. No undo other than restoring from a backup.</div>
-              <div className="v2-settings-actions">
+              <div className="v2-settings-danger-actions">
                 <button
-                  className="v2-settings-btn v2-settings-btn-danger"
+                  className="v2-settings-btn v2-settings-btn-danger v2-settings-btn-block"
                   onClick={onClearCompleted}
                 >
                   <Trash2 size={13} strokeWidth={1.75} /> Clear completed tasks
                 </button>
                 <button
-                  className="v2-settings-btn v2-settings-btn-danger v2-settings-btn-danger-strong"
+                  className="v2-settings-btn v2-settings-btn-danger v2-settings-btn-danger-strong v2-settings-btn-block"
                   onClick={() => setConfirmDialog({
                     title: 'Clear all data',
                     message: 'This will delete all tasks, settings, and history. Are you sure?',
