@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- style(ui): v2 labels grid → 5 wide to match energy-type row [XS]
+  - `.v2-form-label-grid` switched from flex-wrap to `grid-template-columns: repeat(5, minmax(0, 1fr))` and chips picked up the energy-type sizing (12px font, 0 8px padding, 32px height, gap 4px). Same width math, same lowercase aesthetic. Long custom-label names ellipsis-truncate; full name available via `title` attribute.
+  - Modified: `src/v2/components/AddTaskModal.css`, `src/v2/components/AddTaskModal.jsx`, `src/v2/components/EditTaskModal.jsx`
+
 - style(ui): v2 energy-type row fits all five chips on a single line [XS]
   - Was wrapping to two rows on iPhone (`desk / people / errand` then `creative / physical`). New layout: `flex: 1 1 0` per chip with `min-width: 0` so they share equal slices of the row, smaller font (12px) + tighter padding (0 8px) + height 32px + gap 4px. Five-chip width fits ≤375px viewports without ellipsis. `flex-wrap: nowrap` enforces one line.
   - Modified: `src/v2/components/AddTaskModal.css`

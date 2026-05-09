@@ -181,6 +181,7 @@ export default function AddTaskModal({ open, onAdd, onClose }) {
                   className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
                   onClick={() => form.toggleTag(lbl.id)}
                   style={active ? { background: lbl.color, borderColor: lbl.color, color: '#fff' } : undefined}
+                  title={lbl.name}
                 >
                   {lbl.name}
                 </button>
