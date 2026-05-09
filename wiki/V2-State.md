@@ -111,7 +111,7 @@ These are daily-use gaps that users would notice:
 - [ ] **Routine suggestion banner** (Notion-driven recurring-pattern detection, accept/dismiss).
 - [ ] **ExtendModal + FindRelatedModal + MarkdownImportModal** in v2 (rare flows).
 - [ ] **Adaptive-throttle 👍/👎 chips** on v2 Analytics (currently v1-only).
-- [ ] **Email From overrides + batch mode + weather notification toggles** in v2 Notifications.
+- [x] ~~**Email From overrides + batch mode + weather notification toggles** in v2 Notifications.~~ Landed 2026-05-09. New "Email deliverability" block (From name + From address inputs + Batch mode toggle, gated on email channel being enabled) and a "Weather notifications" block (master + per-channel push/email toggles, gated on `weather_enabled` + each channel's master). Trailing v1-pointer narrowed to digest schedule + adaptive throttle chips + Pushover priority routing helper.
 - [x] ~~**7-day forecast widget + weather-hidden toggle + GCal duration override** in v2 EditTaskModal.~~ Landed 2026-05-09. Forecast widget appears between Notes and Due when the task qualifies (outdoor energy or matching keyword/tags) — uses the shared `WeatherSection` + `resolveWeatherVisibility` from v1. Drawer mode shows a collapsed "🌤 7-day forecast" toggle that expands inline. Per-card "Hide weather on this card" checkbox writes `weather_hidden`. GCal duration override input appears when a due date is set; placeholder shows the size-derived default (XS=15 / S=30 / M=60 / L=120 / XL=240).
 
 ### Deferred — wait for above to settle

@@ -1295,12 +1295,92 @@ function NotificationsPanel({ settings, update }) {
         </div>
       )}
 
-      {/* Pointer to v1 for the rest */}
+      {/* Email deliverability — From override + batch mode */}
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Email deliverability</div>
+        <div className="v2-settings-row-hint">
+          Override the From header so emails come from a domain you control with SPF/DKIM/DMARC. The single biggest factor in keeping digests out of spam.
+        </div>
+        <div className="v2-settings-row" style={{ marginTop: 8 }}>
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">From name</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
+            type="text"
+            placeholder="Boomerang Digest"
+            value={settings.email_from_name || ''}
+            onChange={e => update('email_from_name', e.target.value)}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">From address</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
+            type="email"
+            placeholder="digest@yourdomain.com"
+            value={settings.email_from_address || ''}
+            onChange={e => update('email_from_address', e.target.value)}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Batch mode</div>
+            <div className="v2-settings-row-hint">Bundles eligible notifications into a single digest-style email instead of sending one per event. Reduces inbox noise; trades immediacy for calm.</div>
+          </div>
+          <Toggle
+            checked={!!settings.email_batch_mode}
+            onChange={e => update('email_batch_mode', e.target.checked)}
+            disabled={settings.email_notifications_enabled !== true}
+          />
+        </div>
+      </div>
+
+      {/* Weather notifications — master + per-channel toggles */}
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Weather notifications</div>
+        <div className="v2-settings-row-hint">
+          Alerts for nice-day windows, bad-weekend warnings, and consecutive-nice-day windows. Requires a weather location in Integrations.
+        </div>
+        <div className="v2-settings-row" style={{ marginTop: 8 }}>
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Enable weather notifications</div>
+          </div>
+          <Toggle
+            checked={settings.weather_notifications_enabled !== false}
+            onChange={e => update('weather_notifications_enabled', e.target.checked)}
+            disabled={!settings.weather_enabled}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Push</div>
+          </div>
+          <Toggle
+            checked={settings.weather_notif_push !== false}
+            onChange={e => update('weather_notif_push', e.target.checked)}
+            disabled={settings.weather_notifications_enabled === false || settings.push_notifications_enabled !== true}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Email</div>
+          </div>
+          <Toggle
+            checked={settings.weather_notif_email !== false}
+            onChange={e => update('weather_notif_email', e.target.checked)}
+            disabled={settings.weather_notifications_enabled === false || settings.email_notifications_enabled !== true}
+          />
+        </div>
+      </div>
+
+      {/* Pointer to v1 for the truly remaining bits */}
       <div className="v2-settings-block">
         <div className="v2-form-label">More notification options</div>
         <div className="v2-settings-row-hint">
-          Morning digest schedule + style, adaptive throttling 👍/👎 feedback chips, email From overrides + batch mode,
-          Pushover priority routing helper text, and weather-notification toggles still live in v1 → Settings → Notifications.
+          Morning digest schedule + style, adaptive throttling 👍/👎 feedback chips, and Pushover priority routing helper text still live in v1 → Settings → Notifications.
         </div>
       </div>
     </div>

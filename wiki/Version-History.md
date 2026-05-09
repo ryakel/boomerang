@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 Notifications — Email deliverability + weather notification toggles [S]
+  - **Why.** Three notifications-tab items grouped under one V2-State bullet. Until now `email_from_name`/`email_from_address`/`email_batch_mode`/`weather_notifications_enabled`/`weather_notif_push`/`weather_notif_email` were all v1-only; users had to flip back to v1 to override From, enable batch mode, or toggle weather alerts.
+  - **Email deliverability block.** Two compact `.v2-settings-row` entries with `.v2-settings-compact-input-wide` (140px right-aligned) for From name + From address. Batch-mode toggle below with explainer ("Bundles eligible notifications into a single digest-style email instead of sending one per event"). All three gated on `email_notifications_enabled === true`.
+  - **Weather notifications block.** Master toggle (gated on `weather_enabled` so it disables when no location is set) + per-channel push/email toggles (gated on the master + each channel's master). Same Toggle-row pattern the rest of the panel uses.
+  - **Trailing pointer narrowed.** Now points users at digest schedule + style, adaptive throttling 👍/👎 feedback chips, and Pushover priority routing helper as the only remaining v1-only Notifications surfaces.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 740KB precache (up from 737KB).
+  - Modified: `src/v2/components/SettingsModal.jsx`, `wiki/V2-State.md`
+
 - feat(ui): v2 EditTaskModal — 7-day forecast widget + weather-hidden + GCal duration override [S]
   - **Why.** Three power-user EditTaskModal items grouped under one V2-State bullet. v2 had no forecast widget on outdoor tasks, no per-task weather hide control, and no GCal-duration override (the size-mapping default was the only value users could get).
   - **Forecast widget.** Reuses the shared `WeatherSection` + `resolveWeatherVisibility` from v1 (no v2 fork needed — they're presentation-pure). Shows when `weather.enabled` and `forecast.days.length > 0` and the task qualifies (outdoor energy / matching keyword / tagged outside). Drawer mode renders a collapsed "🌤 7-day forecast" toggle button that expands inline.
