@@ -174,8 +174,8 @@ function FollowUpStepRow({ step, index, isFirst, isLast, onChange, onRemove, onM
           }}
         >
           <option value="min">min</option>
-          <option value="h">h</option>
-          <option value="d">d</option>
+          <option value="h">hr</option>
+          <option value="d">day</option>
         </select>
         <span className="v2-followups-step-spacer" />
         <button

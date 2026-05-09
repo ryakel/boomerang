@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- style(ui): v2 follow-ups unit picker — readable abbreviations (min / hr / day) [XS]
+  - Single-letter `h` and `d` looked stranded next to `min`. Switched the unit dropdown to `min` / `hr` / `day`. Internal value tokens stay the same (`'min'`/`'h'`/`'d'`) so existing data and conversion logic are unaffected.
+  - Modified: `src/v2/components/RoutinesModal.jsx`
+
 - fix(ui): v2 RoutinesModal — drop duplicate header on form view [XS]
   - The form view rendered its own `← Back · New routine` bar below the ModalShell header (which had an empty title slot). Stacked headers wasted vertical space and looked wrong on iPhone width. Fix: pass the form title (`New routine` / `Edit routine`) into ModalShell so it renders in the modal's normal title slot. Removed the duplicate `<h2 class="v2-routine-form-title">` and its wrapper. Back link kept as a small inline pill above the title input so users can still return to the list view without closing the modal.
   - Modified: `src/v2/components/RoutinesModal.jsx`, `src/v2/components/RoutinesModal.css`
