@@ -727,6 +727,40 @@
   }
 }
 
+/* Single-row escalation: three compact "label [input] h" groups in one line.
+ * Wraps gracefully if the parent sheet is narrower than ~360px (rare — the
+ * settings modal min-width is wider). */
+.v2-notif-stages-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+  align-items: center;
+}
+.v2-notif-stage-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.v2-notif-stage-inline-label {
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  white-space: nowrap;
+}
+.v2-notif-stage-inline-input {
+  width: 64px;
+  padding: 6px 8px;
+  height: 32px;
+  font: 500 13px/1 var(--v2-font-body);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.v2-notif-stage-inline-unit {
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
 /* Channel test buttons */
 .v2-notif-tests {
   display: flex;
