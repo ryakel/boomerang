@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 TaskListToolbar — sort dropdown + tag filter pills [M]
+  - **Why.** v2's task list was hardcoded to `'age'` sort with no filter UI — every-page gap that pushed users back to v1 just to focus on a tag or change the sort key. Last two ship-blockers from the v2 polish list landed together since they share the toolbar surface.
+  - **New `TaskListToolbar` component.** `src/v2/components/TaskListToolbar.{jsx,css}`. Renders above the task list (and above KanbanBoard on desktop). Horizontal pill row: All + each user label + Routines (visual divider, opens RoutinesModal). Active label pill takes the label's color. Sort dropdown on the right: ArrowUpDown icon → menu with age / due-date / size / name. Click-outside closes. Pills row scrolls horizontally without a visible scrollbar when overflowing.
+  - **AppV2 wiring.** Three new state pieces — `activeFilter` (default `'all'`), `sortBy` (initialized from `settings.sort_by` or `'age'`), `labels` (lifted up so the toolbar sees user-edited labels — settings close handler refreshes via `setLabels(loadLabels())`; cross-client hydrate also pushes new labels into state). `filterTasks(list)` filters on `tag` membership. All seven section arrays (doing/stale/up next/waiting/snoozed/backlog/projects) now go through `filterTasks` then `sortTasks(_, sortBy)`. Projects keeps its `name` sort when sortBy is `'age'` (visual consistency with v1 — projects lean alphabetical).
+  - **Persistence.** `handleSortChange` writes `settings.sort_by` and triggers a sync flush so the change rides the standard server path. Filter is in-memory (matches v1 — same intent, transient view state).
+  - **Empty-state nuance.** When filter is active and yields zero matches, the empty state copy switches to "No tasks match this filter" with a "Show all" CTA that resets the filter. When unfiltered list is genuinely empty, the original "Nothing on your plate" + "Add task" message stays.
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 701KB precache (up from 697KB — new component + CSS).
+  - New: `src/v2/components/TaskListToolbar.jsx`, `src/v2/components/TaskListToolbar.css`
+  - Modified: `src/v2/AppV2.jsx`, `wiki/V2-State.md`
+
 - feat(ui): v2 RoutinesModal — skip-this-cycle button [S]
   - **Why.** Top ship-blocker on the v2 polish list. Without it, vacation/illness/"the lawn doesn't need mowing this week" forces the user to spawn-now then immediately complete, which both pollutes the active task list and double-counts the cycle. Main has the feature (commit `422c2ff`, 2026-05-09 earlier in the day); dev didn't pick it up because the original landing path was a failed merge that was reverted before reaching dev.
   - **Hook port.** Ported `skipCycle(routineId)` callback from main's `useRoutines.js` verbatim. Stamps `completed_history` with `now()` so `getNextDueDate()` rolls forward by one cadence interval. No DB schema change, no server endpoint — pure local-state mutation flushed via the existing routine sync. Skips count toward the "Nx completed" total — close enough for a personal app, no separate skip log.

@@ -87,8 +87,8 @@ Categorized by priority. The future session should pick from this list.
 These are daily-use gaps that users would notice:
 
 - [x] ~~**Skip-this-cycle button in v2 RoutinesModal.**~~ Landed 2026-05-09. `skipCycle` ported from main into `useRoutines.js`; v2 wiring through `AppV2.jsx` + `RoutinesModal.jsx` (FastForward icon, "Skip cycle" button next to Spawn now, hidden for paused routines).
-- [ ] **Sort dropdown** above v2 task list. Currently hardcoded to 'age'. v1 has age/due-date/size/name + persists in `settings.sort_by`.
-- [ ] **Tag filter pills** above v2 task list. v1 has horizontal pill row with All + each user label + Routines filter.
+- [x] ~~**Sort dropdown** above v2 task list.~~ Landed 2026-05-09 in `TaskListToolbar`. Persists via `settings.sort_by`. Options: age / due-date / size / name.
+- [x] ~~**Tag filter pills** above v2 task list.~~ Landed 2026-05-09 in `TaskListToolbar`. Horizontal pill row: All + each user label (active pill takes the label's color) + Routines (opens RoutinesModal). Empty-state messaging updated for filtered-to-zero.
 - [ ] **Search bar + results view** in v2. Uses `/api/tasks?q=` endpoint. v1 surfaces it via a magnifier icon in the header.
 - [ ] **Pushover credential entry + test buttons** in v2 Integrations. Currently can't set up Pushover in v2 at all.
 - [ ] **Anthropic API key entry + model picker + status check** in v2 AI tab.
@@ -180,6 +180,7 @@ src/
       ActivityLog, RoutinesModal, PackagesModal
       AdviserModal, AnalyticsModal, BalanceRadar
       KanbanBoard                                     ← desktop only
+      TaskListToolbar                                 ← sort + filter pills above the list
 ```
 
 All v2 components consume tokens from `tokens.css` (gated by `:root[data-ui="v2"]`). Nothing in v2 imports v1 component files; v2 reuses v1 hooks (`useTasks`, `useRoutines`, etc.), `store.js`, `api.js`, `db.js`, and `utils/` directly. v1 stays untouched.
