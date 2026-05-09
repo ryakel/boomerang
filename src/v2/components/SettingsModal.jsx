@@ -197,7 +197,103 @@ const NOTIF_PACKAGE_TYPES = [
 // Integrations panel — status summary + "Configure in v1" CTAs for the
 // OAuth-heavy ones. Inline credential entry for simple key-only integrations
 // (Anthropic, 17track) since those are one-field forms.
-function IntegrationsPanel({ settings, update, switchToV1 }) {
+// Anthropic key entry + status check. Lives in the AI tab; the
+// IntegrationsPanel still surfaces a status dot but the actual key
+// management happens here.
+function AnthropicKeyBlock({ settings, update }) {
+  const [envKey, setEnvKey] = useState(false)
+  const [status, setStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
+  const [error, setError] = useState(null)
+  const [showKey, setShowKey] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    import('../../api').then(m => m.getKeyStatus()).then(keys => {
+      if (!cancelled) setEnvKey(!!keys?.anthropic)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  const runTest = async () => {
+    setStatus('checking')
+    setError(null)
+    try {
+      const api = await import('../../api')
+      await api.callClaude('Respond with just "ok".', 'ping')
+      setStatus('connected')
+      setTimeout(() => setStatus(s => s === 'connected' ? null : s), 4000)
+    } catch (e) {
+      setStatus('error')
+      setError(e?.message || 'Connection failed — check your key')
+    }
+  }
+
+  const hasKey = envKey || !!settings.anthropic_api_key
+  const summary = status === 'checking' ? 'Checking…'
+    : status === 'connected' ? 'Connected ✓'
+    : status === 'error' ? (error || 'Connection failed')
+    : envKey ? 'Provided via env var'
+    : settings.anthropic_api_key ? 'Key saved'
+    : 'Not configured'
+  const summaryClass = status === 'connected' ? 'v2-integrations-status-ok'
+    : status === 'error' ? 'v2-integrations-error'
+    : 'v2-integrations-hint'
+
+  return (
+    <div className="v2-settings-block">
+      <div className="v2-form-label">Anthropic API key</div>
+      <div className="v2-settings-row-hint">
+        Powers AI inference, Quokka, polish, what-now suggestions, and notification rewrites.
+        Keys at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>.
+      </div>
+      {envKey ? (
+        <div className="v2-integrations-env">
+          Provided via env var. Configure server-side; this field is read-only.
+        </div>
+      ) : (
+        <div className="v2-integrations-inline">
+          <input
+            type={showKey ? 'text' : 'password'}
+            className="v2-form-input"
+            placeholder="sk-ant-…"
+            value={settings.anthropic_api_key || ''}
+            onChange={e => { update('anthropic_api_key', e.target.value); setStatus(null) }}
+          />
+          <div className="v2-integrations-actions">
+            <button className="v2-settings-btn" onClick={() => setShowKey(s => !s)}>
+              {showKey ? 'Hide key' : 'Show key'}
+            </button>
+            <button
+              className="v2-settings-btn"
+              onClick={runTest}
+              disabled={!hasKey || status === 'checking'}
+            >
+              {status === 'checking' ? 'Testing…' : 'Test'}
+            </button>
+            {settings.anthropic_api_key && (
+              <button
+                className="v2-settings-btn v2-settings-btn-danger"
+                onClick={() => { update('anthropic_api_key', ''); setStatus(null) }}
+              >
+                Disconnect
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {envKey && (
+        <div className="v2-integrations-actions" style={{ marginTop: 8 }}>
+          <button className="v2-settings-btn" onClick={runTest} disabled={status === 'checking'}>
+            {status === 'checking' ? 'Testing…' : 'Test'}
+          </button>
+        </div>
+      )}
+      <div className={summaryClass} style={{ marginTop: 8 }}>{summary}</div>
+    </div>
+  )
+}
+
+function IntegrationsPanel({ settings, update, switchToV1, setActiveTab }) {
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
   const [statuses, setStatuses] = useState({})
   const [pushoverTest, setPushoverTest] = useState({ status: null, error: null })
@@ -227,12 +323,10 @@ function IntegrationsPanel({ settings, update, switchToV1 }) {
     {
       key: 'anthropic',
       label: 'Anthropic (Claude)',
-      hint: 'Powers AI inference, Quokka, polish, what-now suggestions, notification rewrites.',
+      hint: 'Powers AI inference, Quokka, polish, what-now suggestions, notification rewrites. Configure in the AI tab.',
       connected: envKeys.anthropic || !!settings.anthropic_api_key,
-      v1Section: 'Integrations → Anthropic',
-      inline: 'api-key',
-      keyName: 'anthropic_api_key',
-      envFlag: envKeys.anthropic,
+      v1Section: 'AI',
+      manageInTab: 'AI',
     },
     {
       key: 'notion',
@@ -312,8 +406,9 @@ function IntegrationsPanel({ settings, update, switchToV1 }) {
         <div className="v2-form-label">Status</div>
         <div className="v2-settings-row-hint">
           OAuth-heavy integrations (Notion, Trello, GCal, Gmail) are configured in v1
-          to avoid duplicating multi-step consent flows. Simple key-only integrations
-          (Anthropic, 17track, Pushover) can be set inline below.
+          to avoid duplicating multi-step consent flows. Anthropic is configured in
+          the AI tab. Simple key-only integrations (17track, Pushover) can be set
+          inline below.
         </div>
         <ul className="v2-integrations-list">
           {integrations.map(int => (
@@ -386,13 +481,23 @@ function IntegrationsPanel({ settings, update, switchToV1 }) {
                 )}
               </div>
               {int.inline !== 'pushover' && (
-                <button
-                  className="v2-settings-btn"
-                  onClick={switchToV1}
-                  title={`Open ${int.v1Section} in v1`}
-                >
-                  {int.connected ? 'Manage in v1' : 'Connect in v1'}
-                </button>
+                int.manageInTab ? (
+                  <button
+                    className="v2-settings-btn"
+                    onClick={() => setActiveTab(int.manageInTab)}
+                    title={`Open ${int.manageInTab} tab`}
+                  >
+                    Configure in {int.manageInTab}
+                  </button>
+                ) : (
+                  <button
+                    className="v2-settings-btn"
+                    onClick={switchToV1}
+                    title={`Open ${int.v1Section} in v1`}
+                  >
+                    {int.connected ? 'Manage in v1' : 'Connect in v1'}
+                  </button>
+                )
               )}
             </li>
           ))}
@@ -1001,17 +1106,7 @@ export default function SettingsModal({
                 )}
               </div>
             </div>
-            <div className="v2-settings-block">
-              <div className="v2-form-label">API key</div>
-              <div className="v2-settings-row-hint">
-                Anthropic API key entry + provider testing lives in v1 → Settings → AI for now.
-                It's a multi-state form (env-set vs user-provided, status check, model picker)
-                that ports in PR5h.
-              </div>
-              <button className="v2-settings-btn" onClick={switchToV1}>
-                Open v1 → AI
-              </button>
-            </div>
+            <AnthropicKeyBlock settings={settings} update={update} />
           </div>
         )}
 
@@ -1075,7 +1170,7 @@ export default function SettingsModal({
         )}
 
         {activeTab === 'Integrations' && (
-          <IntegrationsPanel settings={settings} update={update} switchToV1={switchToV1} />
+          <IntegrationsPanel settings={settings} update={update} switchToV1={switchToV1} setActiveTab={setActiveTab} />
         )}
 
         {activeTab === 'Logs' && <ServerLogsPanel />}
