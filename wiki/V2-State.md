@@ -106,8 +106,8 @@ These are daily-use gaps that users would notice:
 
 ### Polish + lower priority
 
-- [ ] **Header chrome restoration**: MiniRings + done-today counter + sync status indicator in v2 header. v2 currently has none of these.
-- [ ] **Keyboard shortcuts on desktop** (`useKeyboardShortcuts`) — `j`/`k` navigate, `x` complete, `s` snooze, `n` new, `e` edit, `?` help, Esc close.
+- [x] ~~**Header chrome restoration**: MiniRings + done-today counter + sync status indicator in v2 header.~~ Landed 2026-05-09. New `.v2-header-stats` cluster between brand and primary actions. MiniRings opens Analytics; "today" pill (count + "today" label, falls back to "Done" link when empty) opens DoneList; sync indicator shows synced/saving/offline with colored Cloud / pulsing CloudOff. Mobile: today label collapses to count only; wordmark hides ≤380px.
+- [x] ~~**Keyboard shortcuts on desktop** (`useKeyboardShortcuts`).~~ Landed 2026-05-09. Hook wired in AppV2 with the same modal-stack-aware Esc behavior v1 uses. v2 TaskCard accepts a `selected` prop that adds an accent-colored ring (also threaded through KanbanBoard so j/k highlights the right card). New `?` help dialog renders the full shortcut list as `<kbd>` chips (n / / / j↓ / k↑ / Enter·e / x / s / Esc / ?).
 - [ ] **Routine suggestion banner** (Notion-driven recurring-pattern detection, accept/dismiss).
 - [ ] **ExtendModal + FindRelatedModal + MarkdownImportModal** in v2 (rare flows).
 - [ ] **Adaptive-throttle 👍/👎 chips** on v2 Analytics (currently v1-only).

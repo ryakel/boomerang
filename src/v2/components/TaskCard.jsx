@@ -16,7 +16,7 @@ const SWIPE_THRESHOLD = 60       // px before we commit to revealing actions
 const SWIPE_OPEN_OFFSET = -120   // resting position when actions are revealed
 const SWIPE_VERT_CANCEL = 12     // px of vertical movement that cancels the swipe
 
-function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, weatherByDate }) {
+function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, weatherByDate, selected }) {
   const overdue = isOverdue(task)
   const stale = isStale(task)
   const snoozed = isSnoozed(task)
@@ -123,11 +123,13 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
         </div>
       )}
     <div
+      data-task-id={task.id}
       className={[
         'v2-card',
         tone ? `v2-card-${tone}` : '',
         task.low_priority ? 'v2-card-faded' : '',
         expanded ? 'v2-card-expanded-state' : '',
+        selected ? 'v2-card-selected' : '',
       ].filter(Boolean).join(' ')}
       style={{
         transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,

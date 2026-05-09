@@ -36,8 +36,9 @@ import { useWeather } from '../hooks/useWeather'
 import { useTrelloSync } from '../hooks/useTrelloSync'
 import { useNotionSync } from '../hooks/useNotionSync'
 import { useGCalSync } from '../hooks/useGCalSync'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard } from '../api'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from '../store'
 import './AppV2.css'
 
 export default function AppV2() {
@@ -132,7 +133,7 @@ export default function AppV2() {
     }
   }, [hydrateTasks, hydrateRoutines])
 
-  const { flush: flushSync } = useServerSync(tasks, routines, hydrateFromServer, () => {
+  const { flush: flushSync, syncStatus, queueLength } = useServerSync(tasks, routines, hydrateFromServer, () => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
         for (const r of regs) r.unregister()
@@ -200,6 +201,78 @@ export default function AppV2() {
   const totalActive = sortedDoing.length + sortedStale.length + sortedUpNext.length + sortedWaiting.length
   const todayStr = new Date().toDateString()
   const todayCount = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr).length
+  const hasDone = todayCount > 0 || tasks.some(t => t.status === 'done')
+  // Mini-rings driven by daily-stats + streak. Same colors v1 uses.
+  const settingsForRings = loadSettings()
+  const dailyStats = computeDailyStats(tasks)
+  const streak = computeStreak(tasks, settingsForRings)
+  // Flat ordered list for desktop keyboard nav (j/k). Mirrors the visual order:
+  // doing → stale → up next → waiting → snoozed → backlog → projects.
+  const visibleTasks = isDesktop
+    ? [...sortedDoing, ...sortedStale, ...sortedUpNext, ...sortedWaiting, ...sortedSnoozed, ...backlogTasks, ...projectTasks]
+    : []
+
+  const miniRingsData = [
+    { progress: (settingsForRings.daily_task_goal || 3) > 0 ? dailyStats.tasksToday / (settingsForRings.daily_task_goal || 3) : 0, color: '#52C97F' },
+    { progress: (settingsForRings.daily_points_goal || 15) > 0 ? dailyStats.pointsToday / (settingsForRings.daily_points_goal || 15) : 0, color: '#FFB347' },
+    { progress: streak > 0 ? Math.min(streak / 7, 1) : 0, color: '#4A9EFF' },
+  ]
+
+  // Keyboard-shortcut bookkeeping. activeModals is a top-down list (latest
+  // opened wins on Esc); closeTopModal pops the top one. Order matters here —
+  // if two modals can be open at once (e.g. snooze on top of the task list),
+  // the deeper one comes first.
+  const activeModals = []
+  if (snoozeTarget) activeModals.push('snooze')
+  if (reframeTarget) activeModals.push('reframe')
+  if (editTarget) activeModals.push('edit')
+  if (showAdd) activeModals.push('add')
+  if (showWhatNow) activeModals.push('whatnow')
+  if (showSettings) activeModals.push('settings')
+  if (showProjects) activeModals.push('projects')
+  if (showDone) activeModals.push('done')
+  if (showActivityLog) activeModals.push('activitylog')
+  if (showRoutines) activeModals.push('routines')
+  if (showPackages) activeModals.push('packages')
+  if (showAdviser) activeModals.push('adviser')
+  if (showAnalytics) activeModals.push('analytics')
+  if (showMenu) activeModals.push('menu')
+  if (searchOpen) activeModals.push('search')
+
+  const closeTopModal = useCallback(() => {
+    if (snoozeTarget) { setSnoozeTarget(null); return }
+    if (reframeTarget) { setReframeTarget(null); return }
+    if (editTarget) { setEditTarget(null); return }
+    if (showAdd) { setShowAdd(false); return }
+    if (showWhatNow) { setShowWhatNow(false); return }
+    if (showSettings) { setShowSettings(false); return }
+    if (showProjects) { setShowProjects(false); return }
+    if (showDone) { setShowDone(false); return }
+    if (showActivityLog) { setShowActivityLog(false); return }
+    if (showRoutines) { setShowRoutines(false); return }
+    if (showPackages) { setShowPackages(false); return }
+    if (showAdviser) { setShowAdviser(false); return }
+    if (showAnalytics) { setShowAnalytics(false); return }
+    if (showMenu) { setShowMenu(false); return }
+    if (searchOpen) { handleCloseSearch(); return }
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showMenu, searchOpen, handleCloseSearch])
+
+  const focusSearchInput = useCallback(() => {
+    setSearchOpen(true)
+    setTimeout(() => document.querySelector('.v2-toolbar-search-input')?.focus(), 60)
+  }, [])
+
+  const { selectedTaskId, showHelp, setShowHelp } = useKeyboardShortcuts({
+    isDesktop,
+    visibleTasks,
+    onEdit: setEditTarget,
+    onComplete: handleComplete,
+    onSnooze: handleSnooze,
+    openAddModal: useCallback(() => setShowAdd(true), []),
+    focusSearch: focusSearchInput,
+    activeModals,
+    closeTopModal,
+  })
 
   const handleComplete = useCallback((id) => {
     const task = tasks.find(t => t.id === id)
@@ -339,6 +412,13 @@ export default function AppV2() {
         onOpenAdviser={() => setShowAdviser(true)}
         onOpenPackages={() => setShowPackages(true)}
         onOpenMenu={() => setShowMenu(true)}
+        miniRingsData={miniRingsData}
+        onOpenAnalytics={() => setShowAnalytics(true)}
+        todayCount={todayCount}
+        hasDone={hasDone}
+        onOpenDone={() => setShowDone(true)}
+        syncStatus={syncStatus}
+        queueLength={queueLength}
       />
       <main className={`v2-main${isDesktop ? ' v2-main-kanban' : ''}`}>
         {(tasks.length > 0 || searchOpen) && (
@@ -419,6 +499,7 @@ export default function AppV2() {
             onEdit={handleEdit}
             onSnooze={handleSnooze}
             weatherByDate={weather.enabled ? weather.byDate : null}
+            selectedTaskId={selectedTaskId}
           />
         ) : (
           <div className="v2-list">
@@ -519,6 +600,34 @@ export default function AppV2() {
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
+        </ul>
+      </ModalShell>
+
+      <ModalShell open={showHelp} onClose={() => setShowHelp(false)} title="Keyboard shortcuts" width="narrow">
+        <ul className="v2-shortcut-list">
+          {[
+            { keys: ['n'], desc: 'New task' },
+            { keys: ['/'], desc: 'Search tasks' },
+            { keys: ['j', '↓'], desc: 'Next task' },
+            { keys: ['k', '↑'], desc: 'Previous task' },
+            { keys: ['Enter', 'e'], desc: 'Edit selected task' },
+            { keys: ['x'], desc: 'Complete selected task' },
+            { keys: ['s'], desc: 'Snooze selected task' },
+            { keys: ['Esc'], desc: 'Close modal or clear selection' },
+            { keys: ['?'], desc: 'Toggle this help' },
+          ].map(s => (
+            <li key={s.desc} className="v2-shortcut-row">
+              <span className="v2-shortcut-keys">
+                {s.keys.map((k, i) => (
+                  <span key={i}>
+                    <kbd className="v2-shortcut-kbd">{k}</kbd>
+                    {i < s.keys.length - 1 && <span className="v2-shortcut-sep">or</span>}
+                  </span>
+                ))}
+              </span>
+              <span className="v2-shortcut-desc">{s.desc}</span>
+            </li>
+          ))}
         </ul>
       </ModalShell>
 
