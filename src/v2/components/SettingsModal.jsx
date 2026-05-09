@@ -304,6 +304,49 @@ function IntegrationsPanel({
   const [emergencyConfirm, setEmergencyConfirm] = useState(false)
   const [gmailSyncing, setGmailSyncing] = useState(false)
   const [gmailSyncResult, setGmailSyncResult] = useState(null)
+  const [weatherQuery, setWeatherQuery] = useState('')
+  const [weatherResults, setWeatherResults] = useState([])
+  const [weatherSearching, setWeatherSearching] = useState(false)
+  const [weatherError, setWeatherError] = useState(null)
+
+  const runWeatherSearch = async () => {
+    const q = weatherQuery.trim()
+    if (!q) return
+    setWeatherSearching(true)
+    setWeatherError(null)
+    setWeatherResults([])
+    try {
+      const api = await import('../../api')
+      const results = await api.geocodeWeather(q)
+      if (!results || results.length === 0) setWeatherError('No matches found')
+      else setWeatherResults(results)
+    } catch (e) {
+      setWeatherError(e?.message || 'Search failed')
+    } finally {
+      setWeatherSearching(false)
+    }
+  }
+
+  const pickWeatherLocation = async (r) => {
+    update('weather_latitude', r.latitude)
+    update('weather_longitude', r.longitude)
+    update('weather_location_name', r.label)
+    if (r.timezone) update('weather_timezone', r.timezone)
+    if (!settings.weather_enabled) update('weather_enabled', true)
+    setWeatherResults([])
+    setWeatherQuery('')
+    try {
+      const api = await import('../../api')
+      await api.refreshWeather({ force: true })
+    } catch { /* status will catch up on next mount */ }
+  }
+
+  const clearWeatherLocation = () => {
+    update('weather_latitude', null)
+    update('weather_longitude', null)
+    update('weather_location_name', '')
+    update('weather_enabled', false)
+  }
 
   const runGmailSync = async () => {
     setGmailSyncing(true)
@@ -394,6 +437,14 @@ function IntegrationsPanel({
       envFlag: envKeys.tracking,
     },
     {
+      key: 'weather',
+      label: 'Weather (Open-Meteo)',
+      hint: 'Free 7-day forecast — no key, no auth. Powers task badges, "best days" picks, weather notifications.',
+      connected: !!settings.weather_enabled && !!settings.weather_latitude,
+      sub: settings.weather_location_name,
+      inline: 'weather',
+    },
+    {
       key: 'pushover',
       label: 'Pushover',
       hint: 'iOS-friendly transport that bypasses Safari throttling. One-time $5 app required.',
@@ -460,6 +511,48 @@ function IntegrationsPanel({
                     )}
                   </div>
                 )}
+                {int.inline === 'weather' && (
+                  <div className="v2-integrations-inline">
+                    {settings.weather_latitude && settings.weather_location_name ? (
+                      <div className="v2-weather-current">
+                        <div className="v2-weather-current-label">📍 {settings.weather_location_name}</div>
+                        <button className="v2-settings-btn" onClick={clearWeatherLocation}>Change location</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="v2-weather-search">
+                          <input
+                            type="text"
+                            className="v2-form-input"
+                            placeholder="City or zip code…"
+                            value={weatherQuery}
+                            onChange={e => setWeatherQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runWeatherSearch() } }}
+                          />
+                          <button
+                            className="v2-settings-btn"
+                            onClick={runWeatherSearch}
+                            disabled={weatherSearching || !weatherQuery.trim()}
+                          >
+                            {weatherSearching ? 'Searching…' : 'Search'}
+                          </button>
+                        </div>
+                        {weatherError && <div className="v2-integrations-error">{weatherError}</div>}
+                        {weatherResults.length > 0 && (
+                          <ul className="v2-weather-results">
+                            {weatherResults.map((r, i) => (
+                              <li key={i}>
+                                <button className="v2-weather-result" onClick={() => pickWeatherLocation(r)}>
+                                  {r.label}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
                 {int.inline === 'pushover' && (
                   <div className="v2-integrations-inline">
                     <input
@@ -520,7 +613,7 @@ function IntegrationsPanel({
                     {int.sync.busy ? 'Syncing…' : 'Sync now'}
                   </button>
                 )}
-                {int.inline !== 'pushover' && (
+                {int.inline !== 'pushover' && int.inline !== 'weather' && (
                   int.manageInTab ? (
                     <button
                       className="v2-settings-btn"

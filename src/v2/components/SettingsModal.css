@@ -923,3 +923,50 @@
   font: 500 12px/1.4 var(--v2-font-body);
   color: var(--v2-energy-errand);
 }
+
+/* Weather location picker (Integrations row) */
+.v2-weather-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+.v2-weather-current-label {
+  font: 500 13px/1.3 var(--v2-font-body);
+  color: var(--v2-text);
+}
+.v2-weather-search {
+  display: flex;
+  gap: 8px;
+}
+.v2-weather-search .v2-form-input {
+  flex: 1;
+}
+.v2-weather-results {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.v2-weather-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--v2-text);
+  font: 400 13px/1.3 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-weather-result:hover {
+  background: rgba(var(--v2-text-rgb), 0.05);
+}

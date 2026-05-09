@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 weather location picker in Integrations [S]
+  - **Why.** Medium-priority item from V2-State. v2 had no surface for setting the weather location at all — users had to flip back to v1 just to point Boomerang at a city/zip. Open-Meteo is keyless so this is purely a geocode + setting-write flow.
+  - **New `inline: 'weather'` row in IntegrationsPanel.** When unconfigured, shows a search input + Search button; Enter submits. Results render as a hairline-bordered scroll list with the geocoded `label` (city, region, country) per item. Picking a result writes `weather_latitude`, `weather_longitude`, `weather_location_name`, `weather_timezone` and flips `weather_enabled` on if it wasn't, then forces a server cache refresh so the badges/forecast update without a full reload.
+  - **Configured state.** "📍 Location name" line + a "Change location" button that clears the lat/lon/name and disables `weather_enabled`, returning the row to the search state.
+  - **Connection dot.** Weather row's status dot lights green when both `weather_enabled` is true and `weather_latitude` is set.
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 717KB precache (up from 715KB).
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 channel test buttons + notification history in Notifications tab [M]
   - **Why.** Two of the medium-priority items from V2-State knocked out together since they share the same panel. v2 Notifications had no way to fire a one-off test (Push / Email / Pushover priority-0 / Pushover Emergency / Digest) and no surface for the historical `notification_log` rows — both lived only in v1.
   - **Test buttons.** New "Test channels" block with five buttons. Each button gates on its channel master being on (and Pushover additionally on credentials being saved). Per-button state machine: idle → sending → sent ✓ → idle (4s auto-reset) or error with inline message. Digest test surfaces which channels actually fired (e.g. "Sent via push, email"). Pushover Emergency gates behind a v2 confirm dialog since it triggers the priority-2 alarm.
