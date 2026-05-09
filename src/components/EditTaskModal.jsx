@@ -399,11 +399,35 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     if (!notes.trim()) return
     setPolishing(true)
     try {
-      const result = await polishNotes(title || 'Untitled task', notes)
+      const availableLabels = labels
+      const result = await polishNotes(title || 'Untitled task', notes, availableLabels)
       const newTitle = result.title || title
       const newNotes = result.notes || notes
       setTitle(newTitle)
       setNotes(newNotes)
+
+      // Apply suggested labels (case-insensitive name match against existing labels).
+      if (Array.isArray(result.suggestedLabels) && result.suggestedLabels.length > 0) {
+        const normalize = name => String(name).trim().toLowerCase()
+        const byName = new Map(availableLabels.map(l => [normalize(l.name), l]))
+        const newTags = new Set(selectedTags)
+        for (const sl of result.suggestedLabels) {
+          const match = byName.get(normalize(sl))
+          if (match) newTags.add(match.id)
+        }
+        setSelectedTags(Array.from(newTags))
+      }
+
+      // Auto-apply suggested checklist when the task has none yet.
+      if (result.suggestedChecklist && Array.isArray(result.suggestedChecklist.items) && result.suggestedChecklist.items.length >= 2 && checklists.length === 0) {
+        setChecklists([{
+          id: uuid(),
+          name: result.suggestedChecklist.name || 'Checklist',
+          items: result.suggestedChecklist.items.map(it => ({ id: uuid(), text: it.text || '', completed: false })),
+          hideCompleted: false,
+        }])
+      }
+
       const [inferredDate, inferred] = await Promise.all([
         !dueDate ? inferDate(newTitle, newNotes).catch(() => null) : Promise.resolve(null),
         !size ? inferSize(newTitle, newNotes) : Promise.resolve({ size: null, energy: null, energyLevel: null }),

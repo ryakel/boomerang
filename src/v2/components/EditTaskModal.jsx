@@ -264,6 +264,43 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           </div>
         </div>
         {form.polishError && <div className="v2-form-error">{form.polishError}</div>}
+        {form.polishApplied && (form.polishApplied.addedLabels.length > 0 || form.suggestedChecklist) && (
+          <div className="v2-edit-polish-applied">
+            {form.polishApplied.addedLabels.length > 0 && (
+              <span>
+                Polish added label{form.polishApplied.addedLabels.length === 1 ? '' : 's'}: {form.polishApplied.addedLabels.join(', ')}.
+              </span>
+            )}
+            {form.suggestedChecklist && (
+              <span className="v2-edit-polish-checklist">
+                Checklist suggested: <strong>{form.suggestedChecklist.name}</strong> ({form.suggestedChecklist.items.length} items)
+                <button
+                  type="button"
+                  className="v2-edit-polish-apply"
+                  onClick={() => {
+                    const cl = form.consumeSuggestedChecklist()
+                    if (cl) setChecklists(prev => [...prev, {
+                      id: uuid(),
+                      name: cl.name || 'Checklist',
+                      items: (cl.items || []).map(it => ({ id: uuid(), text: it.text || '', completed: false })),
+                      hideCompleted: false,
+                    }])
+                  }}
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  className="v2-edit-polish-dismiss"
+                  onClick={() => form.consumeSuggestedChecklist()}
+                  aria-label="Dismiss suggestion"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+          </div>
+        )}
         {researchError && <div className="v2-form-error">{researchError}</div>}
         {showResearch && (
           <div className="v2-edit-research-row">
