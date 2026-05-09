@@ -15,6 +15,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - **Verification.** `npm run build` clean (852KB precache), `npm run lint` clean, `npm test` smoke test passes.
   - Modified: `src/v2/components/EditTaskModal.jsx`, `src/v2/components/EditTaskModal.css`, `src/v2/components/TaskCard.jsx`
 
+- chore(deps): clear 2 high-severity npm-audit vulnerabilities [XS]
+  - `fast-uri` 3.1.0 → 3.1.2 (path-traversal + host-confusion via percent-encoded sequences; transitive via ajv → MCP SDK).
+  - `@babel/plugin-transform-modules-systemjs` 7.29.0 → 7.29.4 (arbitrary code generation on malicious input; transitive via vite-plugin-pwa workbox; build-time only).
+  - `npm audit` clean afterward. Smoke test passes.
+  - Cherry-picked from main onto dev as the proxy-push diagnostic payload (2026-05-09 session).
+  - Modified: `package-lock.json`
+
 ---
 
 ## 2026-05-08
