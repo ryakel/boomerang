@@ -536,6 +536,7 @@ export default function AppV2() {
           onProject={handleProject}
           onStatusChange={handleStatusChange}
           onConvertToRoutine={handleConvertToRoutine}
+          weather={weather}
         />
       )}
 
