@@ -38,8 +38,11 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
   // — same byDate map shape from useWeather().
   const weatherDay = task.due_date && weatherByDate ? weatherByDate[task.due_date] : null
 
-  const checklist = Array.isArray(task.checklist_items) ? task.checklist_items : []
-  const checkedCount = checklist.filter(c => c.checked).length
+  // Checklist preview — sum items across all checklists. Multi-list shape:
+  // task.checklists = [{ id, name, items: [{ completed, text }], hideCompleted }]
+  const checklists = Array.isArray(task.checklists) ? task.checklists : []
+  const totalItems = checklists.reduce((n, cl) => n + (cl.items?.length || 0), 0)
+  const checkedItems = checklists.reduce((n, cl) => n + (cl.items?.filter(i => i.completed).length || 0), 0)
 
   // Swipe state — kept local to TaskCard so each card swipes independently.
   const [swipeX, setSwipeX] = useState(0)
@@ -171,9 +174,9 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
           {task.notes && (
             <div className="v2-card-notes">{task.notes}</div>
           )}
-          {checklist.length > 0 && (
+          {totalItems > 0 && (
             <div className="v2-card-checklist-summary">
-              {checkedCount} / {checklist.length} done
+              {checkedItems} / {totalItems} done
             </div>
           )}
           <div className="v2-card-actions">

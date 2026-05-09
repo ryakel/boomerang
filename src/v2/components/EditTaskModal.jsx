@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, Trash2, FolderKanban, Archive } from 'lucide-react'
-import { loadLabels, ENERGY_TYPES, STATUS_META } from '../../store'
+import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon } from 'lucide-react'
+import { loadLabels, ENERGY_TYPES, STATUS_META, uuid } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
 import ModalShell from './ModalShell'
 import './AddTaskModal.css' // shared form-control styles
@@ -41,6 +41,17 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
   const [cadence, setCadence] = useState('weekly')
   const [customDays, setCustomDays] = useState(14)
 
+  // Checklists — multi-list shape: [{ id, name, items: [{id, text, completed}], hideCompleted }]
+  // Migrate old flat task.checklist if present (covered by migration 018 server-side
+  // but kept here for localStorage tasks that haven't round-tripped yet).
+  const [checklists, setChecklists] = useState(() => {
+    if (task.checklists?.length) return task.checklists
+    if (task.checklist?.length) return [{ id: uuid(), name: 'Checklist', items: task.checklist, hideCompleted: false }]
+    return []
+  })
+  const [newCheckItems, setNewCheckItems] = useState({}) // { checklistId: string }
+  const [confirmDeleteChecklist, setConfirmDeleteChecklist] = useState(null)
+
   const labels = loadLabels()
   const today = new Date().toISOString().split('T')[0]
 
@@ -61,9 +72,53 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
       high_priority: form.highPriority,
       low_priority: form.lowPriority,
       size_inferred: !!form.size,
+      checklists,
       last_touched: new Date().toISOString(),
     })
     onClose()
+  }
+
+  // Checklist mutators — kept inline for clarity. Drag-drop reorder is the
+  // notable omission vs v1; can be added in a follow-up if it gets missed.
+  const addChecklist = () => {
+    setChecklists(prev => [...prev, { id: uuid(), name: 'Checklist', items: [], hideCompleted: false }])
+  }
+  const renameChecklist = (clId, name) => {
+    setChecklists(prev => prev.map(c => (c.id === clId ? { ...c, name } : c)))
+  }
+  const removeChecklist = (clId) => {
+    setChecklists(prev => prev.filter(c => c.id !== clId))
+    setConfirmDeleteChecklist(null)
+  }
+  const toggleHideCompleted = (clId) => {
+    setChecklists(prev => prev.map(c => (c.id === clId ? { ...c, hideCompleted: !c.hideCompleted } : c)))
+  }
+  const toggleItem = (clId, itemId) => {
+    setChecklists(prev => prev.map(c => (
+      c.id === clId
+        ? { ...c, items: c.items.map(i => (i.id === itemId ? { ...i, completed: !i.completed } : i)) }
+        : c
+    )))
+  }
+  const renameItem = (clId, itemId, text) => {
+    setChecklists(prev => prev.map(c => (
+      c.id === clId
+        ? { ...c, items: c.items.map(i => (i.id === itemId ? { ...i, text } : i)) }
+        : c
+    )))
+  }
+  const removeItem = (clId, itemId) => {
+    setChecklists(prev => prev.map(c => (
+      c.id === clId ? { ...c, items: c.items.filter(i => i.id !== itemId) } : c
+    )))
+  }
+  const addItem = (clId) => {
+    const text = (newCheckItems[clId] || '').trim()
+    if (!text) return
+    setChecklists(prev => prev.map(c => (
+      c.id === clId ? { ...c, items: [...c.items, { id: uuid(), text, completed: false }] } : c
+    )))
+    setNewCheckItems(prev => ({ ...prev, [clId]: '' }))
   }
 
   const handleStatusChange = (newStatus) => {
@@ -226,6 +281,108 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
             </div>
           </>
         )}
+      </div>
+
+      {/* Checklists — multi-list. Each checklist has a name + items. Items
+          can be checked, renamed, deleted. Hide-completed toggles visibility
+          of completed items. v2 omits drag-drop reorder (v1 has it). */}
+      <div className="v2-form-section">
+        <div className="v2-edit-checklist-head">
+          <label className="v2-form-label">Checklists</label>
+          {checklists.reduce((n, c) => n + c.items.length, 0) > 0 && (
+            <span className="v2-edit-checklist-summary">
+              {checklists.reduce((n, c) => n + c.items.filter(i => i.completed).length, 0)}/{checklists.reduce((n, c) => n + c.items.length, 0)} done
+            </span>
+          )}
+        </div>
+        {checklists.map(cl => {
+          const completed = cl.items.filter(i => i.completed).length
+          const total = cl.items.length
+          const pct = total ? Math.round((completed / total) * 100) : 0
+          const visible = cl.hideCompleted ? cl.items.filter(i => !i.completed) : cl.items
+          const hidden = cl.hideCompleted ? cl.items.filter(i => i.completed).length : 0
+          return (
+            <div key={cl.id} className="v2-edit-checklist">
+              <div className="v2-edit-checklist-header">
+                <input
+                  className="v2-edit-checklist-name"
+                  value={cl.name}
+                  onChange={e => renameChecklist(cl.id, e.target.value)}
+                />
+                {total > 0 && completed > 0 && (
+                  <button
+                    type="button"
+                    className="v2-edit-checklist-toggle"
+                    onClick={() => toggleHideCompleted(cl.id)}
+                  >
+                    {cl.hideCompleted ? 'Show completed' : 'Hide completed'}
+                  </button>
+                )}
+                {confirmDeleteChecklist === cl.id ? (
+                  <span className="v2-edit-checklist-confirm">
+                    Delete?
+                    <button type="button" onClick={() => removeChecklist(cl.id)}>Yes</button>
+                    <button type="button" onClick={() => setConfirmDeleteChecklist(null)}>No</button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="v2-edit-checklist-delete"
+                    onClick={() => setConfirmDeleteChecklist(cl.id)}
+                    aria-label="Delete checklist"
+                  >
+                    <Trash2 size={13} strokeWidth={1.75} />
+                  </button>
+                )}
+              </div>
+              {total > 0 && (
+                <div className="v2-edit-checklist-progress">
+                  <div className="v2-edit-checklist-progress-fill" style={{ width: `${pct}%` }} />
+                </div>
+              )}
+              <ul className="v2-edit-checklist-items">
+                {visible.map(item => (
+                  <li key={item.id} className="v2-edit-checklist-item">
+                    <input
+                      type="checkbox"
+                      className="v2-edit-checklist-check"
+                      checked={item.completed}
+                      onChange={() => toggleItem(cl.id, item.id)}
+                    />
+                    <input
+                      className={`v2-edit-checklist-text${item.completed ? ' v2-edit-checklist-text-done' : ''}`}
+                      value={item.text}
+                      onChange={e => renameItem(cl.id, item.id, e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="v2-edit-checklist-item-remove"
+                      onClick={() => removeItem(cl.id, item.id)}
+                      aria-label="Remove item"
+                    >
+                      <XIcon size={12} strokeWidth={2} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {hidden > 0 && (
+                <div className="v2-edit-checklist-hidden">{hidden} completed item{hidden > 1 ? 's' : ''} hidden</div>
+              )}
+              <div className="v2-edit-checklist-add">
+                <input
+                  className="v2-edit-checklist-add-input"
+                  placeholder="Add item…"
+                  value={newCheckItems[cl.id] || ''}
+                  onChange={e => setNewCheckItems(prev => ({ ...prev, [cl.id]: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItem(cl.id) } }}
+                />
+              </div>
+            </div>
+          )
+        })}
+        <button type="button" className="v2-edit-checklist-new" onClick={addChecklist}>
+          <Plus size={13} strokeWidth={2} /> {checklists.length === 0 ? 'Add checklist' : 'Add another checklist'}
+        </button>
       </div>
 
       {labels.length > 0 && (
