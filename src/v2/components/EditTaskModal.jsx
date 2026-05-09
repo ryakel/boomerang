@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText } from 'lucide-react'
+import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight } from 'lucide-react'
 import { loadLabels, ENERGY_TYPES, STATUS_META, uuid } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
 import { researchTask } from '../../api'
+import WeatherSection, { resolveWeatherVisibility } from '../../components/WeatherSection'
 import ModalShell from './ModalShell'
 import './AddTaskModal.css' // shared form-control styles
 import './EditTaskModal.css'
@@ -22,7 +23,7 @@ const STATUS_OPTIONS = ['not_started', 'doing', 'waiting']
 
 const CADENCE_OPTIONS = ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'custom']
 
-export default function EditTaskModal({ task, onSave, onClose, onDelete, onBacklog, onProject, onStatusChange, onConvertToRoutine }) {
+export default function EditTaskModal({ task, onSave, onClose, onDelete, onBacklog, onProject, onStatusChange, onConvertToRoutine, weather }) {
   const form = useTaskForm({
     title: task.title,
     notes: task.notes || '',
@@ -66,6 +67,11 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
   const [comments, setComments] = useState(task.comments || [])
   const [newComment, setNewComment] = useState('')
   const [showComments, setShowComments] = useState(comments.length > 0)
+
+  // Per-task weather + GCal-duration overrides.
+  const [weatherHidden, setWeatherHidden] = useState(!!task.weather_hidden)
+  const [forecastDrawerOpen, setForecastDrawerOpen] = useState(false)
+  const [gcalDuration, setGcalDuration] = useState(task.gcal_duration || '')
 
   const addComment = () => {
     const text = newComment.trim()
@@ -117,6 +123,8 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
       comments,
       notion_page_id: form.notionResult?.id || null,
       notion_url: form.notionResult?.url || null,
+      weather_hidden: weatherHidden,
+      gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
       last_touched: new Date().toISOString(),
     })
     onClose()
@@ -278,6 +286,55 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
         )}
       </div>
 
+      {(() => {
+        const forecast = weather?.status?.cache?.forecast
+        const weatherReady = !!(weather?.enabled && forecast?.days?.length)
+        if (!weatherReady) return null
+        const liveTask = { ...task, title: form.title, energy: form.energy, tags: form.selectedTags, weather_hidden: weatherHidden }
+        const visibility = resolveWeatherVisibility({ task: liveTask, labels, weatherEnabled: true })
+        if (visibility === 'hidden') return null
+        const hideToggle = (
+          <label className="v2-edit-weather-hide">
+            <input
+              type="checkbox"
+              checked={weatherHidden}
+              onChange={e => setWeatherHidden(e.target.checked)}
+            />
+            <span>Hide weather on this card</span>
+          </label>
+        )
+        if (visibility === 'visible') {
+          return (
+            <div className="v2-form-section v2-edit-weather">
+              <label className="v2-form-label">7-day forecast</label>
+              <WeatherSection forecast={forecast} dueDate={form.dueDate || null} />
+              {hideToggle}
+            </div>
+          )
+        }
+        // 'drawer' — collapsed by default, expand to reveal
+        return (
+          <div className="v2-form-section v2-edit-weather">
+            <button
+              type="button"
+              className="v2-edit-weather-drawer"
+              onClick={() => setForecastDrawerOpen(o => !o)}
+              aria-expanded={forecastDrawerOpen}
+            >
+              {forecastDrawerOpen ? <ChevronDown size={14} strokeWidth={1.75} /> : <ChevronRight size={14} strokeWidth={1.75} />}
+              <Sun size={14} strokeWidth={1.75} />
+              <span>7-day forecast</span>
+            </button>
+            {forecastDrawerOpen && (
+              <div className="v2-edit-weather-drawer-body">
+                <WeatherSection forecast={forecast} dueDate={form.dueDate || null} />
+                {hideToggle}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       <div className="v2-form-row">
         <div className="v2-form-field">
           <label className="v2-form-label">Due</label>
@@ -299,6 +356,26 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           </button>
         </div>
       </div>
+
+      {form.dueDate && (
+        <div className="v2-form-section">
+          <label className="v2-form-label" htmlFor="v2-gcal-duration">GCal duration override (min)</label>
+          <div className="v2-settings-row-hint" style={{ marginTop: -4, marginBottom: 4 }}>
+            Default uses size mapping (XS=15, S=30, M=60, L=120, XL=240). Leave blank for default.
+          </div>
+          <input
+            id="v2-gcal-duration"
+            className="v2-form-input v2-edit-duration-input"
+            type="number"
+            min="5"
+            max="480"
+            step="5"
+            placeholder={form.size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[form.size] || 'auto' : 'auto'}
+            value={gcalDuration}
+            onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
+          />
+        </div>
+      )}
 
       <div className="v2-form-section">
         <label className="v2-form-label">Size</label>

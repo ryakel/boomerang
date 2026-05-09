@@ -700,3 +700,41 @@
   color: var(--v2-text);
   background: rgba(var(--v2-text-rgb), 0.04);
 }
+
+/* 7-day forecast widget */
+.v2-edit-weather-hide {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  cursor: pointer;
+}
+
+.v2-edit-weather-drawer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px dashed var(--v2-hairline);
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-edit-weather-drawer:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-edit-weather-drawer-body {
+  margin-top: 8px;
+}
+
+/* GCal duration override input */
+.v2-edit-duration-input {
+  width: 120px;
+  font-variant-numeric: tabular-nums;
+}

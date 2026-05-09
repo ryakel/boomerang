@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 EditTaskModal — 7-day forecast widget + weather-hidden + GCal duration override [S]
+  - **Why.** Three power-user EditTaskModal items grouped under one V2-State bullet. v2 had no forecast widget on outdoor tasks, no per-task weather hide control, and no GCal-duration override (the size-mapping default was the only value users could get).
+  - **Forecast widget.** Reuses the shared `WeatherSection` + `resolveWeatherVisibility` from v1 (no v2 fork needed — they're presentation-pure). Shows when `weather.enabled` and `forecast.days.length > 0` and the task qualifies (outdoor energy / matching keyword / tagged outside). Drawer mode renders a collapsed "🌤 7-day forecast" toggle button that expands inline.
+  - **Per-task hide.** Checkbox below the forecast (or inside the drawer) writes `task.weather_hidden`. Same flag used to suppress weather chips on TaskCard.
+  - **GCal duration override.** Number input (5-480 minutes, step 5) appears in its own form section when a due date is set. Placeholder shows the size-derived default (XS=15 / S=30 / M=60 / L=120 / XL=240). Empty value falls back to size mapping at sync time.
+  - **Wiring.** AppV2 passes the existing `weather` hook value as a prop to EditTaskModal. `weather_hidden` and `gcal_duration` are persisted in `handleSave` so the changes round-trip through `updateTask`.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 737KB precache (up from 735KB).
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/EditTaskModal.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 header chrome — MiniRings + done-today + sync indicator + keyboard shortcuts [M]
   - **Why.** Two polish items from V2-State, both daily-visibility. v2 had no MiniRings (opens Analytics in v1), no done-today counter (opens DoneList in v1), no sync status indicator (saving/offline/synced cloud icon), and no keyboard shortcut wiring. Bundled together since the keyboard shortcuts also touch the header (helper modal + Esc closing).
   - **Header stats cluster.** New `.v2-header-stats` slot between brand and primary actions. Renders MiniRings (24px SVG with the same daily-task / daily-points / streak-divided-by-7 progress arcs v1 uses), a "today" pill (count + label, falls back to a "Done" link when no completions today but some history), and a sync icon (`Cloud` for saving/synced, `CloudOff` for offline; pulsing accent-colored animation while saving; alert-red while offline; subtle green while synced). Mobile collapses the "today" label to the bare count; wordmark hides ≤380px to make room.
