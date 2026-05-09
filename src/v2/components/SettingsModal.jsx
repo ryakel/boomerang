@@ -308,6 +308,11 @@ function IntegrationsPanel({
   const [weatherResults, setWeatherResults] = useState([])
   const [weatherSearching, setWeatherSearching] = useState(false)
   const [weatherError, setWeatherError] = useState(null)
+  const [notionSearchQuery, setNotionSearchQuery] = useState('')
+  const [notionSearchResults, setNotionSearchResults] = useState(null)
+  const [notionSearching, setNotionSearching] = useState(false)
+  const [notionSearchError, setNotionSearchError] = useState(null)
+  const [notionChildCount, setNotionChildCount] = useState(null)
   const [trelloBoards, setTrelloBoardsList] = useState([])
   const [trelloLists, setTrelloListsList] = useState([])
   const [trelloListsLoading, setTrelloListsLoading] = useState(false)
@@ -348,6 +353,51 @@ function IntegrationsPanel({
     update('trello_list_id', '') // reset list when board changes
     setTrelloListsList([])
   }
+
+  const runNotionSearch = async () => {
+    const q = notionSearchQuery.trim()
+    if (!q) return
+    setNotionSearching(true)
+    setNotionSearchError(null)
+    setNotionSearchResults(null)
+    try {
+      const api = await import('../../api')
+      const results = await api.notionSearch(q)
+      setNotionSearchResults(Array.isArray(results) ? results : [])
+    } catch (e) {
+      setNotionSearchError(e?.message || 'Search failed')
+    } finally {
+      setNotionSearching(false)
+    }
+  }
+
+  const pickNotionParent = async (page) => {
+    update('notion_sync_parent_id', page.id)
+    update('notion_sync_parent_title', page.title)
+    setNotionSearchResults(null)
+    setNotionSearchQuery('')
+    try {
+      const api = await import('../../api')
+      const children = await api.notionGetChildPages(page.id)
+      setNotionChildCount(Array.isArray(children) ? children.length : null)
+    } catch { /* swallow — count is informational */ }
+  }
+
+  const clearNotionParent = () => {
+    update('notion_sync_parent_id', '')
+    update('notion_sync_parent_title', '')
+    setNotionChildCount(null)
+  }
+
+  // Auto-load child count for already-configured parent pages on mount.
+  useEffect(() => {
+    if (!settings.notion_sync_parent_id || !statuses.notion?.connected) return
+    let cancelled = false
+    import('../../api').then(m => m.notionGetChildPages(settings.notion_sync_parent_id))
+      .then(c => { if (!cancelled) setNotionChildCount(Array.isArray(c) ? c.length : null) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [settings.notion_sync_parent_id, statuses.notion?.connected])
 
   const runWeatherSearch = async () => {
     const q = weatherQuery.trim()
@@ -438,6 +488,7 @@ function IntegrationsPanel({
       connected: !!statuses.notion?.connected,
       v1Section: 'Integrations → Notion',
       sync: onNotionSync && settings.notion_sync_parent_id ? { fn: onNotionSync, busy: notionSyncing } : null,
+      inline: statuses.notion?.connected ? 'notion-config' : null,
     },
     {
       key: 'trello',
@@ -551,6 +602,62 @@ function IntegrationsPanel({
                         value={settings[int.keyName] || ''}
                         onChange={e => update(int.keyName, e.target.value)}
                       />
+                    )}
+                  </div>
+                )}
+                {int.inline === 'notion-config' && (
+                  <div className="v2-integrations-inline">
+                    {settings.notion_sync_parent_id ? (
+                      <div className="v2-weather-current">
+                        <div className="v2-weather-current-label">
+                          📄 Syncing from <strong>{settings.notion_sync_parent_title || 'Selected page'}</strong>
+                          {notionChildCount != null && (
+                            <span className="v2-integrations-hint" style={{ display: 'block', marginTop: 4 }}>
+                              {notionChildCount} child page{notionChildCount === 1 ? '' : 's'} discovered
+                              {settings.notion_last_sync ? ` · last synced ${new Date(settings.notion_last_sync).toLocaleString()}` : ''}
+                            </span>
+                          )}
+                        </div>
+                        <button className="v2-settings-btn" onClick={clearNotionParent}>Change page</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="v2-integrations-hint">
+                          Pick a parent Notion page — its child pages get pulled as tasks.
+                        </div>
+                        <div className="v2-weather-search">
+                          <input
+                            type="text"
+                            className="v2-form-input"
+                            placeholder="Search Notion pages…"
+                            value={notionSearchQuery}
+                            onChange={e => setNotionSearchQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runNotionSearch() } }}
+                          />
+                          <button
+                            className="v2-settings-btn"
+                            onClick={runNotionSearch}
+                            disabled={notionSearching || !notionSearchQuery.trim()}
+                          >
+                            {notionSearching ? 'Searching…' : 'Search'}
+                          </button>
+                        </div>
+                        {notionSearchError && <div className="v2-integrations-error">{notionSearchError}</div>}
+                        {notionSearchResults && notionSearchResults.length > 0 && (
+                          <ul className="v2-weather-results">
+                            {notionSearchResults.map(page => (
+                              <li key={page.id}>
+                                <button className="v2-weather-result" onClick={() => pickNotionParent(page)}>
+                                  {page.title}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {notionSearchResults && notionSearchResults.length === 0 && (
+                          <div className="v2-integrations-hint">No pages found.</div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -758,7 +865,7 @@ function IntegrationsPanel({
                     {int.sync.busy ? 'Syncing…' : 'Sync now'}
                   </button>
                 )}
-                {!['pushover', 'weather', 'trello-config', 'gcal-config', 'gmail-config'].includes(int.inline) && (
+                {!['pushover', 'weather', 'trello-config', 'gcal-config', 'gmail-config', 'notion-config'].includes(int.inline) && (
                   int.manageInTab ? (
                     <button
                       className="v2-settings-btn"
