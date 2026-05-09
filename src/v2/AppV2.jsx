@@ -19,6 +19,7 @@ import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
 import KanbanBoard from './components/KanbanBoard'
+import TaskListToolbar from './components/TaskListToolbar'
 import Toast from './components/Toast'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
@@ -34,7 +35,7 @@ import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useWeather } from '../hooks/useWeather'
 import { useTrelloSync } from '../hooks/useTrelloSync'
 import { inferSize, trelloUpdateCard } from '../api'
-import { loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
 import './AppV2.css'
 
 export default function AppV2() {
@@ -55,6 +56,9 @@ export default function AppV2() {
   const [showAdviser, setShowAdviser] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
+  const [activeFilter, setActiveFilter] = useState('all')
+  const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
+  const [labels, setLabels] = useState(() => loadLabels())
   // Adviser conversation state lives at the App level so it survives modal
   // open/close — user can pop in, ask something, close, come back to the
   // same thread. Server session TTL still governs the staged-plan life.
@@ -97,8 +101,14 @@ export default function AppV2() {
   const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
     if (data.routines) hydrateRoutines(data.routines)
-    if (data.settings) saveSettings(data.settings)
-    if (data.labels) saveLabels(data.labels)
+    if (data.settings) {
+      saveSettings(data.settings)
+      if (data.settings.sort_by) setSortBy(data.settings.sort_by)
+    }
+    if (data.labels) {
+      saveLabels(data.labels)
+      setLabels(data.labels)
+    }
   }, [hydrateTasks, hydrateRoutines])
 
   const { flush: flushSync } = useServerSync(tasks, routines, hydrateFromServer, () => {
@@ -124,14 +134,27 @@ export default function AppV2() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routines])
 
-  // Sorted views — v2 currently uses a fixed 'age' sort. Sort UI ports later.
-  const sortedDoing = sortTasks(doingTasks, 'age')
-  const sortedStale = sortTasks(staleTasks, 'age')
-  const sortedUpNext = sortTasks(upNextTasks, 'age')
-  const sortedWaiting = sortTasks(waitingTasks, 'age')
-  const sortedSnoozed = sortTasks(snoozedTasks, 'age')
-  const backlogTasks = sortTasks(tasks.filter(t => t.status === 'backlog'), 'age')
-  const projectTasks = sortTasks(tasks.filter(t => t.status === 'project'), 'name')
+  // Filter + sort. activeFilter = 'all' | 'routines' | <label-id>; sortBy
+  // persists via settings.sort_by. Routines is a header pill that opens the
+  // RoutinesModal rather than filtering — list never sees that value.
+  const filterTasks = useCallback((list) => {
+    if (activeFilter === 'all') return list
+    return list.filter(t => Array.isArray(t.tags) && t.tags.includes(activeFilter))
+  }, [activeFilter])
+
+  const sortedDoing = sortTasks(filterTasks(doingTasks), sortBy)
+  const sortedStale = sortTasks(filterTasks(staleTasks), sortBy)
+  const sortedUpNext = sortTasks(filterTasks(upNextTasks), sortBy)
+  const sortedWaiting = sortTasks(filterTasks(waitingTasks), sortBy)
+  const sortedSnoozed = sortTasks(filterTasks(snoozedTasks), sortBy)
+  const backlogTasks = sortTasks(filterTasks(tasks.filter(t => t.status === 'backlog')), sortBy)
+  const projectTasks = sortTasks(filterTasks(tasks.filter(t => t.status === 'project')), sortBy === 'age' ? 'name' : sortBy)
+
+  const handleSortChange = useCallback((value) => {
+    setSortBy(value)
+    saveSettings({ ...loadSettings(), sort_by: value })
+    flushSync()
+  }, [flushSync])
   const totalActive = sortedDoing.length + sortedStale.length + sortedUpNext.length + sortedWaiting.length
   const todayStr = new Date().toDateString()
   const todayCount = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr).length
@@ -276,13 +299,24 @@ export default function AppV2() {
         onOpenMenu={() => setShowMenu(true)}
       />
       <main className={`v2-main${isDesktop ? ' v2-main-kanban' : ''}`}>
+        {tasks.length > 0 && (
+          <TaskListToolbar
+            labels={labels}
+            routinesCount={routines.length}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            onOpenRoutines={() => setShowRoutines(true)}
+            sortBy={sortBy}
+            onSortChange={handleSortChange}
+          />
+        )}
         {totalActive === 0 && sortedSnoozed.length === 0 && backlogTasks.length === 0 && projectTasks.length === 0 ? (
           <EmptyState
             icon={ListChecks}
-            title="Nothing on your plate"
-            body="No active tasks right now. Tap the + above to add one."
-            cta="Add task"
-            ctaOnClick={() => setShowAdd(true)}
+            title={activeFilter !== 'all' ? 'No tasks match this filter' : 'Nothing on your plate'}
+            body={activeFilter !== 'all' ? 'Tap All above to clear the filter.' : 'No active tasks right now. Tap the + above to add one.'}
+            cta={activeFilter !== 'all' ? 'Show all' : 'Add task'}
+            ctaOnClick={activeFilter !== 'all' ? () => setActiveFilter('all') : () => setShowAdd(true)}
           />
         ) : isDesktop ? (
           <KanbanBoard
@@ -409,7 +443,7 @@ export default function AppV2() {
 
       <SettingsModal
         open={showSettings}
-        onClose={() => { setShowSettings(false); flushSync() }}
+        onClose={() => { setShowSettings(false); setLabels(loadLabels()); flushSync() }}
         onFlush={flushSync}
         onClearCompleted={() => { clearCompleted(); setShowSettings(false); flushSync() }}
         onClearAll={() => { clearAll(); setShowSettings(false); flushSync() }}
