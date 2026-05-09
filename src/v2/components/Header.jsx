@@ -168,24 +168,6 @@ export default function Header({
       )}
 
       <nav className="v2-header-actions">
-        {todayCount > 0 ? (
-          <button
-            className="v2-header-today"
-            onClick={onOpenDone}
-            title="Tap to open the Done list"
-          >
-            <span className="v2-header-today-count">{todayCount}</span>
-            <span className="v2-header-today-label">today</span>
-          </button>
-        ) : hasDone ? (
-          <button
-            className="v2-header-today v2-header-today-link"
-            onClick={onOpenDone}
-            title="Tap to open the Done list"
-          >
-            Done
-          </button>
-        ) : null}
         {onOpenWhatNow && (
           <button className="v2-header-whatnow" onClick={onOpenWhatNow}>
             <Target size={14} strokeWidth={2} />

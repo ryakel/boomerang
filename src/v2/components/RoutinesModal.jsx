@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check } from 'lucide-react'
 import { loadLabels, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
@@ -37,8 +37,13 @@ function formatLastDone(routine) {
   return `done ${days}d ago`
 }
 
-function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onSkipCycle, onEdit, onTogglePause, onDelete }) {
+function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onSkipCycle, onEdit, onTogglePause, onDelete, hasActiveTask }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // 'idle' | 'spawned' — local tap feedback so the user sees a check icon
+  // immediately on tap. Reverts after 1500ms. Blocked state (an instance is
+  // already active) is rendered straight from `hasActiveTask` and is sticky;
+  // no time-based reversion since the underlying condition isn't transient.
+  const [spawnState, setSpawnState] = useState('idle')
   useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
 
   const cadenceLabel = formatCadence(routine)
@@ -46,6 +51,13 @@ function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onSkipCycle
     ? ` · ${DAY_OF_WEEK_SHORT[routine.schedule_day_of_week]}`
     : ''
   const completeCount = routine.completed_history?.length || 0
+
+  const handleSpawn = () => {
+    if (hasActiveTask) return  // button is disabled in this state, but defensive
+    onSpawnNow(routine.id)
+    setSpawnState('spawned')
+    setTimeout(() => setSpawnState('idle'), 1500)
+  }
 
   return (
     <li className={`v2-routine-row${expanded ? ' v2-routine-row-expanded' : ''}${routine.paused ? ' v2-routine-row-paused' : ''}`}>
@@ -66,8 +78,23 @@ function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onSkipCycle
             <div className="v2-routine-notes">{routine.notes}</div>
           )}
           <div className="v2-routine-actions">
-            <button className="v2-routine-action v2-routine-action-primary" onClick={() => onSpawnNow(routine.id)} title="Create a one-off task now without affecting the schedule">
-              <Plus size={14} strokeWidth={2} /> Spawn now
+            <button
+              className={`v2-routine-action v2-routine-action-primary${
+                spawnState === 'spawned' ? ' v2-routine-action-spawn-spawned' : ''
+              }${hasActiveTask ? ' v2-routine-action-spawn-blocked' : ''}`}
+              onClick={handleSpawn}
+              disabled={spawnState !== 'idle' || hasActiveTask}
+              title={hasActiveTask
+                ? "An instance is already on your list — finish or skip it before spawning another"
+                : "Create a one-off task now without affecting the schedule"}
+            >
+              {spawnState === 'spawned' ? (
+                <><Check size={14} strokeWidth={2} /> Spawned</>
+              ) : hasActiveTask ? (
+                <>Already on list</>
+              ) : (
+                <><Plus size={14} strokeWidth={2} /> Spawn now</>
+              )}
             </button>
             {!routine.paused && (
               <button className="v2-routine-action" onClick={() => onSkipCycle(routine.id)} title="Skip this cycle (advance schedule, no task)">
@@ -425,7 +452,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
 
 export default function RoutinesModal({
   open, routines, onAdd, onDelete, onTogglePause, onUpdate, onSpawnNow, onSkipCycle, onClose,
-  editRoutineId, onClearEditRoutineId,
+  editRoutineId, onClearEditRoutineId, activeRoutineIds,
 }) {
   const [view, setView] = useState('list')  // 'list' | 'form'
   const [editing, setEditing] = useState(null)  // routine being edited; null = new
@@ -524,6 +551,7 @@ export default function RoutinesModal({
                         onEdit={(routine) => { setEditing(routine); setView('form') }}
                         onTogglePause={onTogglePause}
                         onDelete={onDelete}
+                        hasActiveTask={activeRoutineIds?.has(r.id) || false}
                       />
                     ))}
                   </ul>
@@ -544,6 +572,7 @@ export default function RoutinesModal({
                         onEdit={(routine) => { setEditing(routine); setView('form') }}
                         onTogglePause={onTogglePause}
                         onDelete={onDelete}
+                        hasActiveTask={activeRoutineIds?.has(r.id) || false}
                       />
                     ))}
                   </ul>

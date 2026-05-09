@@ -13,7 +13,7 @@ const ENERGY_ICONS = { Monitor, Users, MapPin, Palette, Dumbbell }
 // actions stay in EditTaskModal with explicit confirm so the calm aesthetic
 // holds. Swipe-right-to-delete from v1 isn't ported.
 const SWIPE_THRESHOLD = 60       // px before we commit to revealing actions
-const SWIPE_OPEN_OFFSET = -120   // resting position when actions are revealed
+const SWIPE_OPEN_OFFSET = -160   // resting position when actions are revealed; must match .v2-card-swipe-actions width
 const SWIPE_VERT_CANCEL = 12     // px of vertical movement that cancels the swipe
 
 function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, weatherByDate, selected }) {

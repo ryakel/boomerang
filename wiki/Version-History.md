@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 header pill + swipe slider + routine spawn-now feedback [S]
+  - **Header today-count pill removed.** The "10 today" pill in the header was crowding the BOOMERANG wordmark on iPhone width AND duplicating the "X done today" line in the wordmark-tap popover. Dropped the pill from the action nav; the popover keeps the count, accessible via tap-the-wordmark. Header is now: wordmark · What now? · + · ✨ · 📦 · ⋯. (Bigger header redesign deferred to a separate planning conversation — too dense for a snap fix.)
+  - **Swipe slider clipping.** `SWIPE_OPEN_OFFSET` (-120px) didn't match `.v2-card-swipe-actions` width (160px), so when the card snapped open the leftmost 40px of the action panel stayed under the card — Edit's "E" got eaten and the user saw "dit". Bumped the offset to -160 so the card translates exactly the panel width.
+  - **Routine "Spawn now" feedback.** No visual confirmation on tap meant the user tapped 10 times and got 10 duplicate tasks. Two-part fix: (1) AppV2's `onSpawnNow` handler now refuses the spawn if an instance of that routine is still active on the list (returns null silently); (2) RoutineRow takes a `hasActiveTask` prop and renders the button as a disabled "Already on list" state in that case. On a successful tap, the button briefly shows ✓ + "Spawned" for 1500ms before reverting. `activeRoutineIds` Set is memoized in AppV2 from `tasks` and threaded through `RoutinesModal` → each `RoutineRow`.
+  - Modified: `src/v2/components/Header.jsx`, `src/v2/components/TaskCard.jsx`, `src/v2/components/RoutinesModal.jsx`, `src/v2/components/RoutinesModal.css`, `src/v2/AppV2.jsx`
+
 - style(ui): v2 follow-ups unit picker — readable abbreviations (min / hr / day) [XS]
   - Single-letter `h` and `d` looked stranded next to `min`. Switched the unit dropdown to `min` / `hr` / `day`. Internal value tokens stay the same (`'min'`/`'h'`/`'d'`) so existing data and conversion logic are unaffected.
   - Modified: `src/v2/components/RoutinesModal.jsx`
