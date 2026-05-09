@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 Pushover credential entry + test buttons in Integrations [S]
+  - **Why.** Pushover can't be set up from v2 at all today — clicking the row just punted to v1. But Pushover is credential-only (user_key + app_token, no OAuth flow), so the v1 punt was overkill. Ship-blocker on the v2 polish list.
+  - **Inline form.** Reclassified Pushover from OAuth-deferred to `inline: 'pushover'` in `IntegrationsPanel`. Two password inputs (user_key + app_token), with the app_token field placeholder + disabled state respecting `pushoverStatus.app_token_from_env`. Hint copy points users at the Notifications tab for type-by-type Pushover toggles.
+  - **Test buttons.** "Test" (priority-0, fires immediately) and "Test emergency" (priority-2, opens a v2 confirm dialog first since it triggers the bypass-DND alarm). Both show transient sending → sent ✓ → idle states; errors render inline in v2-alert-overdue red. Wired through dynamic-imported `testPushover` / `testPushoverEmergency` from api.js so the panel doesn't pull the test functions into the main bundle.
+  - **OAuth-deferral copy updated.** "OAuth-heavy integrations" line at the top + "OAuth flows for Notion / Trello / Google Calendar / Gmail / Pushover" line at the bottom both drop Pushover from the punt list. Anthropic + 17track + Pushover are now the three inline-credential integrations.
+  - **CSS.** `.v2-integrations-inline` now flex-column with gap so multiple inputs stack cleanly. New `.v2-integrations-actions` (flex row, wraps) and `.v2-integrations-error` (small alert-red copy).
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 705KB precache (up from 703KB).
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 search bar + results view [S]
   - **Why.** Daily-use ship-blocker. v1 had a magnifier in the header; v2 had nothing — users had to flip back to v1 to find an old task by keyword.
   - **Search lives in TaskListToolbar.** Added a Search icon button next to the sort button. Click flips the toolbar into search mode: pills + sort + search-icon hidden, replaced by a Search-icon-prefixed input + X close button in the same row real estate (no layout shift). Esc closes too.

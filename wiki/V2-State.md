@@ -90,7 +90,7 @@ These are daily-use gaps that users would notice:
 - [x] ~~**Sort dropdown** above v2 task list.~~ Landed 2026-05-09 in `TaskListToolbar`. Persists via `settings.sort_by`. Options: age / due-date / size / name.
 - [x] ~~**Tag filter pills** above v2 task list.~~ Landed 2026-05-09 in `TaskListToolbar`. Horizontal pill row: All + each user label (active pill takes the label's color) + Routines (opens RoutinesModal). Empty-state messaging updated for filtered-to-zero.
 - [x] ~~**Search bar + results view** in v2.~~ Landed 2026-05-09 in `TaskListToolbar`. Search icon next to sort flips the toolbar into search mode (input + close, Esc closes). Debounced 300ms fetch to `/api/tasks?q=`; results render as a single section with count chip in place of the regular task list. Searches every task (active, done, backlog, project) per the v1 endpoint behavior.
-- [ ] **Pushover credential entry + test buttons** in v2 Integrations. Currently can't set up Pushover in v2 at all.
+- [x] ~~**Pushover credential entry + test buttons** in v2 Integrations.~~ Landed 2026-05-09. Inline user-key + app-token password fields, "Test" (priority-0) and "Test emergency" (priority-2 with v2 confirm dialog) buttons, status feedback, env-override notice. Pushover moved out of the OAuth-deferred bucket since it's actually credential-only.
 - [ ] **Anthropic API key entry + model picker + status check** in v2 AI tab.
 - [ ] **Manual sync triggers** (Trello / Notion / GCal / Gmail Sync-Now buttons) in v2 Integrations. Background syncs run; manual one-shots don't have UI.
 
