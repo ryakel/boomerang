@@ -170,7 +170,7 @@ function LabelsPanel() {
 
 const STORAGE_KEY = 'ui_version'
 
-const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs', 'Beta']
+const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs', 'Legacy']
 
 // All Settings tabs now have v2 implementations.
 const PLACEHOLDER_TABS = new Set()
@@ -1346,7 +1346,7 @@ function NotificationsPanel({ settings, update }) {
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">High-priority escalation</div>
-            <div className="v2-settings-row-hint">Three-stage cadence as a high-pri task approaches due and goes overdue.</div>
+            <div className="v2-settings-row-hint">Three-stage cadence as a high-pri task approaches due and goes overdue. Values in hours.</div>
           </div>
           <Toggle
             checked={settings.notif_highpri_escalate !== false}
@@ -1354,48 +1354,44 @@ function NotificationsPanel({ settings, update }) {
           />
         </div>
         {settings.notif_highpri_escalate !== false && (
-          <div className="v2-notif-stages-inline">
-            <label className="v2-notif-stage-inline">
-              <span className="v2-notif-stage-inline-label">Before due</span>
+          <div className="v2-notif-stages-grid">
+            <label className="v2-notif-stage-cell">
+              <span className="v2-notif-stage-cell-label">Before due</span>
               <input
-                className="v2-form-input v2-notif-stage-inline-input"
+                className="v2-form-input v2-notif-stage-cell-input"
                 type="number" min="0.25" max="168" step="0.25"
                 value={settings.notif_freq_highpri_before ?? 24}
                 onChange={e => update('notif_freq_highpri_before', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
               />
-              <span className="v2-notif-stage-inline-unit">h</span>
             </label>
-            <label className="v2-notif-stage-inline">
-              <span className="v2-notif-stage-inline-label">On due</span>
+            <label className="v2-notif-stage-cell">
+              <span className="v2-notif-stage-cell-label">On due</span>
               <input
-                className="v2-form-input v2-notif-stage-inline-input"
+                className="v2-form-input v2-notif-stage-cell-input"
                 type="number" min="0.25" max="24" step="0.25"
                 value={settings.notif_freq_highpri_due ?? 1}
                 onChange={e => update('notif_freq_highpri_due', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
               />
-              <span className="v2-notif-stage-inline-unit">h</span>
             </label>
-            <label className="v2-notif-stage-inline">
-              <span className="v2-notif-stage-inline-label">Overdue</span>
+            <label className="v2-notif-stage-cell">
+              <span className="v2-notif-stage-cell-label">Overdue</span>
               <input
-                className="v2-form-input v2-notif-stage-inline-input"
+                className="v2-form-input v2-notif-stage-cell-input"
                 type="number" min="0.25" max="24" step="0.25"
                 value={settings.notif_freq_highpri_overdue ?? 0.5}
                 onChange={e => update('notif_freq_highpri_overdue', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
               />
-              <span className="v2-notif-stage-inline-unit">h</span>
             </label>
           </div>
         )}
       </div>
 
-      {/* Quiet hours */}
+      {/* Quiet hours — section header is the toggle row, no redundant sub-toggle */}
       <div className="v2-settings-block">
-        <div className="v2-form-label">Quiet hours</div>
-        <div className="v2-settings-row-hint">Suppress most notifications during this window. Tasks tagged with the bypass label still wake you.</div>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Enable quiet hours</div>
+            <div className="v2-settings-row-label">Quiet hours</div>
+            <div className="v2-settings-row-hint">Suppress most notifications during this window. Tasks tagged with the bypass label still wake you.</div>
           </div>
           <Toggle
             checked={!!settings.quiet_hours_enabled}
@@ -1642,13 +1638,6 @@ function NotificationsPanel({ settings, update }) {
         </div>
       </div>
 
-      {/* Pointer to v1 for the truly remaining bits */}
-      <div className="v2-settings-block">
-        <div className="v2-form-label">More notification options</div>
-        <div className="v2-settings-row-hint">
-          Morning digest schedule + style, adaptive throttling 👍/👎 feedback chips, and Pushover priority routing helper text still live in v1 → Settings → Notifications.
-        </div>
-      </div>
     </div>
   )
 }
@@ -1741,7 +1730,7 @@ export default function SettingsModal({
   open, onClose, onFlush, onClearCompleted, onClearAll, onShowActivityLog,
   onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
 }) {
-  const [activeTab, setActiveTab] = useState('Beta')
+  const [activeTab, setActiveTab] = useState('General')
   const [settings, setSettings] = useState(() => loadSettings())
   const [confirmDialog, setConfirmDialog] = useState(null)
   const flushDebounceRef = useRef(null)
@@ -2094,13 +2083,13 @@ export default function SettingsModal({
 
         {activeTab === 'Logs' && <ServerLogsPanel />}
 
-        {activeTab === 'Beta' && (
+        {activeTab === 'Legacy' && (
           <div className="v2-settings-beta">
             <div className="v2-settings-block">
-              <h3 className="v2-settings-heading">Interface</h3>
+              <h3 className="v2-settings-heading">Use the v1 interface</h3>
               <p className="v2-settings-body">
-                You're on <strong>v2</strong> — the redesigned interface. It's the default.
-                If you want the legacy v1 interface, toggle below; you can flip back any time.
+                v2 is the current interface. v1 is kept around as an escape hatch — toggle below
+                if something in v2 isn't working for you, then let me know what.
               </p>
               <label className="v2-settings-toggle v2-settings-toggle-inline">
                 <input
@@ -2116,20 +2105,11 @@ export default function SettingsModal({
                 <span className="v2-settings-toggle-track">
                   <span className="v2-settings-toggle-thumb" />
                 </span>
-                <span className="v2-settings-toggle-label">Use legacy v1 interface</span>
+                <span className="v2-settings-toggle-label">Switch to v1 and reload</span>
               </label>
               <p className="v2-settings-hint">
                 URL escape hatch: <code>?ui=v1</code> or <code>?ui=v2</code> sets the flag and reloads.
               </p>
-            </div>
-
-            <div className="v2-settings-block">
-              <h3 className="v2-settings-heading">What's coming</h3>
-              <ul className="v2-settings-roadmap">
-                <li>Remaining Settings tabs (Labels, Integrations, Notifications)</li>
-                <li>Desktop KanbanBoard</li>
-                <li>Toast + motion polish + dark-mode parity sweep</li>
-              </ul>
             </div>
           </div>
         )}
