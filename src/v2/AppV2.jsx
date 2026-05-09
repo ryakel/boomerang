@@ -55,6 +55,7 @@ export default function AppV2() {
   const [showDone, setShowDone] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showMarkdownImport, setShowMarkdownImport] = useState(false)
+  const [updateVersion, setUpdateVersion] = useState(null)
   const [showRoutines, setShowRoutines] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
@@ -135,7 +136,8 @@ export default function AppV2() {
     }
   }, [hydrateTasks, hydrateRoutines])
 
-  const { flush: flushSync, syncStatus, queueLength } = useServerSync(tasks, routines, hydrateFromServer, () => {
+  const { flush: flushSync, checkVersion, syncStatus, queueLength } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
+    setUpdateVersion(newVersion)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
         for (const r of regs) r.unregister()
@@ -143,6 +145,14 @@ export default function AppV2() {
     }
     setTimeout(() => window.location.reload(), 1000)
   })
+
+  // Check app version whenever a view/modal opens — same cadence v1 uses.
+  // Catches stale clients without waiting for the next SSE/sync round-trip.
+  useEffect(() => {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || editTarget || showAdd || showWhatNow || showMarkdownImport) {
+      checkVersion()
+    }
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
 
   // Spawn due routine tasks on load + when routines change.
   useEffect(() => {
@@ -762,6 +772,25 @@ export default function AppV2() {
             setToast(null)
           }}
         />
+      )}
+
+      {updateVersion && (
+        <div className="v2-update-overlay">
+          <div className="v2-update-modal">
+            <div className="v2-update-title">Update available</div>
+            <div className="v2-update-version">v{updateVersion}</div>
+            <div className="v2-update-sub">Refreshing automatically…</div>
+            <button
+              className="v2-update-reload"
+              onClick={() => {
+                if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(regs => { for (const r of regs) r.unregister() })
+                window.location.reload()
+              }}
+            >
+              Reload now
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

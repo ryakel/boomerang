@@ -250,3 +250,65 @@
     margin: 8px 24px 0;
   }
 }
+
+/* Update-available modal — appears when useServerSync detects a server
+ * version mismatch. The reload fires automatically after 1s; the button is
+ * for users who want to skip the delay. */
+.v2-update-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: v2-update-fade-in var(--v2-dur-emphasis) var(--v2-ease-emphasis);
+}
+
+@keyframes v2-update-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.v2-update-modal {
+  max-width: 360px;
+  width: 100%;
+  background: var(--v2-surface);
+  border-radius: var(--v2-radius-modal);
+  padding: 28px 24px 22px;
+  text-align: center;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+}
+
+.v2-update-title {
+  font: 700 20px/1.2 var(--v2-font-display);
+  color: var(--v2-text);
+  margin-bottom: 4px;
+}
+
+.v2-update-version {
+  font: 600 14px/1 var(--v2-font-body);
+  color: var(--v2-accent);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 12px;
+}
+
+.v2-update-sub {
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin-bottom: 18px;
+}
+
+.v2-update-reload {
+  width: 100%;
+  height: 42px;
+  border: none;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-accent);
+  color: #fff;
+  font: 600 14px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: filter var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-update-reload:hover { filter: brightness(1.08); }
