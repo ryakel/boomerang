@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- style(ui): v2 Settings polish — escalation row, Logs Google filter, build version, 17track gate [S]
+  - **Notifications → High-priority escalation.** Three-stage cadence collapsed to a single inline row (`Before due [24] h · On due [1] h · Overdue [0.5] h`). The enable toggle moves up alongside the section label so the whole control fits without burning vertical space on a separate "Enable escalation" row. New `.v2-notif-stages-inline` flex layout in CSS; the old `.v2-notif-stages` grid remains for any other call site.
+  - **Logs filter.** Combined the separate `Gmail` and `GCal` filter chips into a single `Google` chip that matches `[Gmail]`, `[GCal]`, and `[GCalSync]` log lines. Verified against actual log call sites — the two real prefixes (`[Gmail]`, `[GCal]`) cover every Google integration log line that either old chip would have caught.
+  - **Build version moved to General.** Was in the Beta tab as a heading + paragraph + code chip; now lives as a row in the General tab next to the other settings, using `.v2-settings-row` styling for visual parity. Beta tab no longer surfaces `__APP_VERSION__`.
+  - **17track row gate fix.** Added `'api-key'` to the IntegrationsPanel action-button allow-list so the 17track row no longer renders the "Connect/Manage in v1" fallback button alongside the inline API-key field. Removed the stale "Why v1 for OAuth?" trailing note now that Trello / GCal / Gmail all have native v2 connect flows. Status panel copy updated to drop the "OAuth-heavy integrations are configured in v1" disclaimer.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`
+
 - feat(ui): v2 ErrorBoundary + early data-ui/data-theme application [S]
   - **Why.** The 2026-05-09 TDZ bug rendered a black screen with no surfaced error because React unmounts on uncaught render exceptions and v2's :root tokens fall through to dark fallback bg with no content. Adding a top-level error boundary at AppV2's wrapper means render-time failures show a recoverable fallback instead of a dead app, AND the stack hits `/api/logs/client-error` for triage.
   - **`ErrorBoundary.jsx` + `.css`.** Class component (React error boundaries require classes). `getDerivedStateFromError` + `componentDidCatch`. Fallback UI: 🪃 + "Boomerang hit a snag" + collapsible details (message, stack, component stack) + Reload button (also unregisters service worker) + "Clear local state & reload" button (wipes localStorage with a confirm before doing so). All token-driven so it adapts to dark mode; falls back to inline defaults if `data-ui` somehow isn't set yet.
