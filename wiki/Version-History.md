@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 EditTaskModal — Due/Priority overlap + Checklists empty-collapse + Connections moves up [S]
+  - **Due/Priority overlap (iOS Safari).** `.v2-form-row` was `grid-template-columns: 1fr 1fr`. `1fr` is shorthand for `minmax(auto, 1fr)`, where `auto` falls back to the cell's intrinsic content size. iOS Safari's `<input type="date">` has a wide intrinsic content size when filled (~150px+), which expanded the Due column past its half-share and overlapped the Priority column. Fix: `minmax(0, 1fr) minmax(0, 1fr)` lets columns shrink below intrinsic. Added `min-width: 0` to `.v2-form-input` / `.v2-form-textarea` defensively.
+  - **Checklists section empty-collapse.** CHECKLISTS label only renders when at least one checklist exists. Empty state is just the "+ Add checklist" pill with the tighter `.v2-form-section-compact` margin. Same pattern Attachments / Comments / Connections already use.
+  - **Connections moved up.** Block now sits between Attachments and Labels (instead of below Comments). Groups the three "linking content" affordances together: Checklists / Attachments / Connections. Comments stays where it is — it's a task-internal thread, not external linking.
+  - **Verification.** `npm run lint` clean. `npm test` smoke passes. Bundle: 752KB precache (unchanged).
+  - Modified: `src/v2/components/EditTaskModal.jsx`, `src/v2/components/AddTaskModal.css`
+
 - fix(ui): v2 header trim + EditTaskModal density pass [M]
   - **Why.** Two surfaces became dense as v2 polish piled on. Header had 7 right-side affordances pushing the More button off-screen on iPhone (Settings unreachable). EditTaskModal had Notes pills overlapping DUE labels, Attachments pills bleeding into Energy buttons, an oversized "Convert to routine" full-width button, and unbalanced bottom action row with Delete styled as a loud destructive primary.
   - **Header — animated wordmark replaces sync icon.** Each letter of "BOOMERANG" wraps a span with a per-letter animation delay (60ms stagger). `data-sync-state` on the wordmark drives: `idle` (default), `saving` (staggered Y-bounce, 1100ms loop), `just-synced` (700ms green flash on saving→synced transition), `degraded` (yellow letters when queue is building / SSE reconnecting), `offline` (red letters steady). Removed the cloud / cloud-off icon entirely.
