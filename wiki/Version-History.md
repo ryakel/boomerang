@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(routines): "Skip this cycle" button on expanded routine cards [S]
+  - **Why.** Vacation, illness, the lawn doesn't need mowing this week — there was no way to advance a routine's cadence without spawning a task and immediately completing it. Now there's a fast-forward button next to the "+" spawn-now control.
+  - **Behavior.** Stamps `completed_history` with today's ISO timestamp, which makes `getNextDueDate()` roll forward by one cadence interval. Skips count toward the "Nx completed" total — close enough for a personal app, no separate skip log needed.
+  - **UI.** Only shows on non-paused routines (paused routines don't have a current cycle to skip). Title text: "Skip this cycle (advance schedule, no task)".
+  - Added: `skipCycle` to `useRoutines.js`, `onSkipCycle` prop wiring through `App.jsx` → `Routines.jsx` → `RoutineCard`.
+  - Modified: `src/hooks/useRoutines.js`, `src/components/Routines.jsx`, `src/App.jsx`, `CLAUDE.md`, `wiki/Features.md`
+
 - refactor(db): drop legacy `task.checklist` serialization [S]
   - Migration 018 emptied the legacy flat `checklist_json` column months ago and replaced it with the named `checklists_json` (multi-list) format. The serialization paths still wrote `task.checklist || []` on every upsert and the read path still parsed it into a `checklist` field on every row → JS object trip. Pure cleanup.
   - Removed: `task.checklist` reads/writes in `db.js` `taskToRow`/`rowToTask`/`UPSERT_TASK_SQL`, the `checklist: []` default in `src/store.js` `createTask`, the legacy fallback wrapper in `src/components/TaskCard.jsx`, the legacy migrate-on-read in `src/components/EditTaskModal.jsx`, the inert `checklist_json: '[]'` in `gmailSync.js`'s task constructor.

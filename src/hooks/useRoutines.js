@@ -49,6 +49,20 @@ export function useRoutines() {
     ))
   }, [])
 
+  // Advance a routine past its current cycle without spawning a task.
+  // Stamps completed_history with today so getNextDueDate() rolls forward by
+  // one cadence interval. Use case: vacation, illness, anything that should
+  // skip this occurrence. The "Nx completed" counter on the card includes
+  // skips — close enough for a personal app, no separate skip log needed.
+  const skipCycle = useCallback((routineId) => {
+    setRoutines(prev => prev.map(r =>
+      r.id === routineId ? {
+        ...r,
+        completed_history: [...r.completed_history, new Date().toISOString()],
+      } : r
+    ))
+  }, [])
+
   // Spawn a one-off task from a routine right now, bypassing the schedule.
   // Useful when the user wants to do the routine ad-hoc outside of its
   // scheduled cadence. Due date is today. Does NOT update completed_history
@@ -104,6 +118,7 @@ export function useRoutines() {
     updateRoutineNotion,
     spawnDueTasks,
     spawnNow,
+    skipCycle,
     hydrateRoutines,
   }
 }

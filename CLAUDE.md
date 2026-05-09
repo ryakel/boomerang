@@ -101,6 +101,8 @@ UI lives in `src/components/Routines.jsx` — new "On" dropdown next to Frequenc
 
 **Manual "Create Now" trigger:** new `spawnNow(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card shows a "+" button that bypasses the schedule and immediately spawns a one-off task with due date = today. Importantly, it does NOT append to `completed_history` — the cadence clock is unaffected until the task is actually completed. So manually creating a task doesn't shift the normal schedule.
 
+**"Skip this cycle" trigger:** `skipCycle(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card has a fast-forward button next to the "+" that stamps `completed_history` with today's timestamp WITHOUT spawning a task — `getNextDueDate()` rolls forward by one cadence interval. Use case: vacation, illness, "the lawn doesn't need mowing this week." Only renders for non-paused routines. Skips count toward the "Nx completed" total — a separate skip log is tracked-as-tech-debt-but-not-built since the personal app doesn't need the analytics distinction.
+
 ### Notion Sync (Pull + Ongoing)
 Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks in sync.
 
@@ -326,7 +328,6 @@ Free forecast integration that nudges the right tasks for the weather.
 | `GET /api/weather` | Cached forecast + status |
 | `POST /api/weather/refresh` | Force refresh (respects 30-min freshness unless `{ force: true }`) |
 | `POST /api/weather/geocode` | Geocode lookup (city/zip → lat/lon list) |
-| `POST /api/weather/clear-cache` | Wipe cached forecast |
 
 **Location:** Manual only. Settings → Integrations → Weather → search city/zip → pick result. Geolocation browser prompt is intentionally avoided.
 
