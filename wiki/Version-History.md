@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 wordmark wave completes a full pass before restarting [S]
+  - Bug. Fast syncs (saving → synced under ~200ms) flipped `data-sync-state` back to idle before the bounce wave reached the G — only the B and the first O ever moved.
+  - Fix. Header now runs a small state machine: when saving starts, the visual state is held at "saving" for a minimum 1300ms (one full wave traversal + margin). If sync completes mid-wave, the green "just-synced" flash queues to fire after the hold, instead of clobbering the in-flight wave. Subsequent saves during the hold restart the timer cleanly.
+  - Replaces the old `justSynced` boolean with an `animState` (`idle | saving | just-synced`) that's the single source of truth for wave / flash timing. `deriveSyncVisualState` reads animState, so the visible behavior matches the timing intent regardless of how quickly the underlying sync resolves.
+  - Modified: `src/v2/components/Header.jsx`
+
 - style(ui): v2 labels back to flex-wrap (5-wide grid was wrong for dynamic content) [XS]
   - Reverted PR #56's 5-column grid: with variable label counts the last row's leftover chips stretched to 1fr each (looked busted), and ellipsis-truncating long custom names ("low-energy", "phone-call") was unfriendly. Back to flex-wrap with content-sized chips. Kept the energy-type chip typography (12px font, 32px height, lowercase) so labels still read as the same kind of control as the energy chips above; just no rigid column grid.
   - `title` attr on each chip from PR #56 stays (harmless, useful as accessible name).
