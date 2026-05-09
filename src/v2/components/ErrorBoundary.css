@@ -1,0 +1,137 @@
+/* Error boundary fallback. Token-driven so it adapts to dark mode the same
+ * way the rest of v2 does. Force data-ui="v2" attribute parent context isn't
+ * relied on here — the boundary may render before AppV2 sets data-ui — so
+ * we duplicate the token defaults inline as a safety net. */
+.v2-error-boundary {
+  --eb-bg: var(--v2-bg, #FFFFFF);
+  --eb-surface: var(--v2-surface, #FFFFFF);
+  --eb-text: var(--v2-text, #1A1A1F);
+  --eb-text-rgb: var(--v2-text-rgb, 26, 26, 31);
+  --eb-text-meta: var(--v2-text-meta, rgba(26, 26, 31, 0.55));
+  --eb-hairline: var(--v2-hairline, rgba(0, 0, 0, 0.08));
+  --eb-accent: var(--v2-accent, #FF6240);
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--eb-bg);
+  color: var(--eb-text);
+  font-family: var(--v2-font-body, 'DM Sans', system-ui, sans-serif);
+  z-index: 99999;
+  overflow-y: auto;
+}
+
+.v2-error-boundary-card {
+  max-width: 520px;
+  width: 100%;
+  background: var(--eb-surface);
+  border: 1px solid var(--eb-hairline);
+  border-radius: 20px;
+  padding: 28px 24px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+}
+
+.v2-error-boundary-emoji {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.v2-error-boundary-title {
+  font: 700 22px/1.2 var(--v2-font-display, 'Syne', serif);
+  margin: 0 0 8px;
+  color: var(--eb-text);
+}
+
+.v2-error-boundary-body {
+  font: 400 14px/1.5 var(--v2-font-body, 'DM Sans', sans-serif);
+  color: var(--eb-text-meta);
+  margin: 0 0 18px;
+}
+
+.v2-error-boundary-details {
+  margin-bottom: 18px;
+  padding: 12px;
+  border: 1px solid var(--eb-hairline);
+  border-radius: 12px;
+  background: rgba(var(--eb-text-rgb), 0.03);
+}
+
+.v2-error-boundary-details summary {
+  font: 500 13px/1 var(--v2-font-body, sans-serif);
+  color: var(--eb-text-meta);
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.v2-error-boundary-details summary:hover {
+  color: var(--eb-text);
+}
+
+.v2-error-boundary-detail-block {
+  margin-top: 12px;
+}
+
+.v2-error-boundary-detail-label {
+  font: 600 10px/1 var(--v2-font-body, sans-serif);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--eb-text-meta);
+  margin-bottom: 4px;
+}
+
+.v2-error-boundary-detail-block pre {
+  font: 400 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--eb-text);
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(var(--eb-text-rgb), 0.04);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.v2-error-boundary-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.v2-error-boundary-primary {
+  flex: 1;
+  min-width: 140px;
+  height: 42px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--eb-accent);
+  color: #fff;
+  font: 600 14px/1 var(--v2-font-body, sans-serif);
+  cursor: pointer;
+  transition: filter 120ms cubic-bezier(.4, 0, .2, 1);
+}
+.v2-error-boundary-primary:hover { filter: brightness(1.08); }
+
+.v2-error-boundary-secondary {
+  flex: 1;
+  min-width: 140px;
+  height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--eb-hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--eb-text-meta);
+  font: 500 14px/1 var(--v2-font-body, sans-serif);
+  cursor: pointer;
+  transition: background 120ms cubic-bezier(.4, 0, .2, 1),
+              color 120ms cubic-bezier(.4, 0, .2, 1);
+}
+.v2-error-boundary-secondary:hover {
+  background: rgba(var(--eb-text-rgb), 0.04);
+  color: var(--eb-text);
+}

@@ -13,12 +13,18 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
     <title>Boomerang</title>
     <script>
-      // Apply saved theme before first paint to prevent flash
+      // Apply saved UI version + theme before first paint so v2 tokens (and the
+      // chosen dark/light variant) are in scope before React mounts. Critical
+      // for the ErrorBoundary fallback: if AppV2 throws on first render, the
+      // boundary still renders with the right tokens applied.
       try {
+        var v = localStorage.getItem('ui_version')
+        if (v !== 'v1') document.documentElement.setAttribute('data-ui', 'v2')
         var s = JSON.parse(localStorage.getItem('boom_settings_v1'))
-        if (s && s.theme === 'light') {
-          document.documentElement.setAttribute('data-theme', 'light')
-          document.querySelector('meta[name="theme-color"]').content = '#F5F5F7'
+        if (s && (s.theme === 'light' || s.theme === 'dark')) {
+          document.documentElement.setAttribute('data-theme', s.theme)
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.content = s.theme === 'light' ? '#FFFFFF' : '#0B0B0F'
         }
       } catch(e) {}
     </script>
