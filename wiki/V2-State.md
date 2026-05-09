@@ -96,8 +96,8 @@ These are daily-use gaps that users would notice:
 
 ### Medium priority
 
-- [ ] **Channel test buttons** (Test push / Test email / Test Pushover priority-0 / Test Pushover Emergency / Test digest) in v2 Notifications.
-- [ ] **Notification history list** in v2 (currently v1-only — stored in `notification_log` table).
+- [x] ~~**Channel test buttons** (Test push / Test email / Test Pushover priority-0 / Test Pushover Emergency / Test digest) in v2 Notifications.~~ Landed 2026-05-09. Each button gates on its channel master + credential availability; per-button state machine (idle / sending / sent ✓ / error). Emergency goes through a v2 confirm dialog before firing. Digest button surfaces which channels actually fired (e.g. "Sent via push, email").
+- [x] ~~**Notification history list** in v2 (currently v1-only — stored in `notification_log` table).~~ Landed 2026-05-09 as a collapsible section at the bottom of the Notifications tab. Loads last 50 entries from `getNotifLog(50)` on first expand, with Refresh + Clear toolbar. Hairline list with channel chip + type + time + title + body per entry.
 - [ ] **Comments + AI Research + Attachments + Extract-Text** in v2 EditTaskModal. Common power-user features in v1 EditTaskModal still v1-only.
 - [ ] **Notion search/link/create + DB sync configuration** in v2.
 - [ ] **Trello board/list pickers + GCal calendar picker + Gmail scan controls** in v2 Integrations.

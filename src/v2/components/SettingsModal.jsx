@@ -595,6 +595,56 @@ function NotificationsPanel({ settings, update }) {
     </label>
   )
 
+  // Channel test buttons — small per-button state machine: idle | sending | sent | error.
+  const [tests, setTests] = useState({})
+  const [emergencyConfirm, setEmergencyConfirm] = useState(false)
+
+  const runTest = async (key, fn) => {
+    setTests(prev => ({ ...prev, [key]: { status: 'sending' } }))
+    try {
+      const result = await fn()
+      if (result?.success === false) {
+        setTests(prev => ({ ...prev, [key]: { status: 'error', error: result.error || 'Send failed' } }))
+        return
+      }
+      const sentMsg = result?.fired ? `Sent via ${result.fired.join(', ')}` : null
+      setTests(prev => ({ ...prev, [key]: { status: 'sent', detail: sentMsg } }))
+      setTimeout(() => setTests(prev => ({ ...prev, [key]: { status: null } })), 4000)
+    } catch (e) {
+      setTests(prev => ({ ...prev, [key]: { status: 'error', error: e?.message || 'Send failed' } }))
+    }
+  }
+
+  // Notification history — last 50 entries from the server-side log.
+  const [history, setHistory] = useState(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  const loadHistory = async () => {
+    setHistoryLoading(true)
+    try {
+      const api = await import('../../api')
+      const data = await api.getNotifLog(50)
+      setHistory(Array.isArray(data) ? data : (data?.entries || []))
+    } catch {
+      setHistory([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  const clearHistory = async () => {
+    try {
+      const api = await import('../../api')
+      await api.clearServerNotifLog()
+      setHistory([])
+    } catch { /* no-op */ }
+  }
+
+  useEffect(() => {
+    if (historyOpen && history === null) loadHistory()
+  }, [historyOpen, history])
+
   return (
     <div className="v2-settings-form">
       {/* Channel masters */}
@@ -779,12 +829,133 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
+      {/* Test channels — fire a one-off notification per channel to verify config */}
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Test channels</div>
+        <div className="v2-settings-row-hint">Send a one-off test notification through each channel to verify it's working. Test buttons obey channel master toggles + Pushover credentials.</div>
+        <div className="v2-notif-tests">
+          {[
+            { key: 'push', label: 'Test push', enabled: settings.push_notifications_enabled === true,
+              fn: () => import('../../api').then(m => m.testPush()) },
+            { key: 'email', label: 'Test email', enabled: settings.email_notifications_enabled === true,
+              fn: () => import('../../api').then(m => m.testEmail()) },
+            { key: 'pushover', label: 'Test Pushover', enabled: settings.pushover_notifications_enabled === true && !!settings.pushover_user_key,
+              fn: () => import('../../api').then(m => m.testPushover({ userKey: settings.pushover_user_key, appToken: settings.pushover_app_token })) },
+            { key: 'digest', label: 'Test digest', enabled: settings.push_notifications_enabled || settings.email_notifications_enabled || settings.pushover_digest_enabled,
+              fn: () => import('../../api').then(m => m.testDigest()) },
+          ].map(t => {
+            const state = tests[t.key] || {}
+            return (
+              <div key={t.key} className="v2-notif-test-row">
+                <button
+                  className="v2-settings-btn"
+                  disabled={!t.enabled || state.status === 'sending'}
+                  onClick={() => runTest(t.key, t.fn)}
+                  title={!t.enabled ? 'Channel disabled or unconfigured' : `Send a test ${t.label.replace('Test ', '').toLowerCase()}`}
+                >
+                  {state.status === 'sending' ? 'Sending…' : state.status === 'sent' ? 'Sent ✓' : t.label}
+                </button>
+                {state.status === 'sent' && state.detail && (
+                  <span className="v2-integrations-status-ok">{state.detail}</span>
+                )}
+                {state.status === 'error' && (
+                  <span className="v2-integrations-error">{state.error}</span>
+                )}
+              </div>
+            )
+          })}
+          <div className="v2-notif-test-row">
+            <button
+              className="v2-settings-btn v2-settings-btn-danger"
+              disabled={settings.pushover_notifications_enabled !== true || !settings.pushover_user_key || (tests.emergency || {}).status === 'sending'}
+              onClick={() => setEmergencyConfirm(true)}
+              title="Trigger a real Pushover priority-2 alarm (auto-cancels after ~90s)"
+            >
+              {(tests.emergency || {}).status === 'sending' ? 'Triggering…' : (tests.emergency || {}).status === 'sent' ? 'Alarm sent ✓' : 'Test Pushover Emergency'}
+            </button>
+            {(tests.emergency || {}).status === 'error' && (
+              <span className="v2-integrations-error">{(tests.emergency || {}).error}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Notification history — collapsible to keep the panel calm by default */}
+      <div className="v2-settings-block">
+        <button
+          className="v2-notif-history-toggle"
+          onClick={() => setHistoryOpen(o => !o)}
+          aria-expanded={historyOpen}
+        >
+          <span className="v2-form-label">Notification history</span>
+          <span className="v2-notif-history-chev">{historyOpen ? '−' : '+'}</span>
+        </button>
+        {historyOpen && (
+          <div className="v2-notif-history">
+            <div className="v2-notif-history-toolbar">
+              <button className="v2-settings-btn" onClick={loadHistory} disabled={historyLoading}>
+                <RefreshCw size={13} strokeWidth={1.75} className={historyLoading ? 'v2-spinner' : ''} />
+                {historyLoading ? 'Loading…' : 'Refresh'}
+              </button>
+              <button className="v2-settings-btn v2-settings-btn-danger" onClick={clearHistory} disabled={!history?.length}>
+                <Trash2 size={13} strokeWidth={1.75} /> Clear
+              </button>
+            </div>
+            {history === null || historyLoading ? (
+              <div className="v2-notif-history-empty">Loading…</div>
+            ) : history.length === 0 ? (
+              <div className="v2-notif-history-empty">No notifications logged yet.</div>
+            ) : (
+              <ul className="v2-notif-history-list">
+                {history.map((entry, i) => (
+                  <li key={i} className="v2-notif-history-item">
+                    <div className="v2-notif-history-meta">
+                      <span className="v2-notif-history-channel">{entry.channel || 'unknown'}</span>
+                      <span className="v2-notif-history-type">{entry.type}</span>
+                      <span className="v2-notif-history-time">{new Date(entry.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                    </div>
+                    {entry.title && <div className="v2-notif-history-title">{entry.title}</div>}
+                    {entry.body && <div className="v2-notif-history-body">{entry.body}</div>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
+      {emergencyConfirm && (
+        <div className="v2-settings-confirm-overlay" onClick={() => setEmergencyConfirm(false)}>
+          <div className="v2-settings-confirm" onClick={e => e.stopPropagation()}>
+            <div className="v2-settings-confirm-title">Trigger Emergency alarm?</div>
+            <div className="v2-settings-confirm-message">
+              This fires a Pushover priority-2 alarm that repeats every 30 seconds and bypasses Do Not Disturb. Auto-cancels after about 90 seconds.
+            </div>
+            <div className="v2-settings-confirm-actions">
+              <button className="v2-settings-btn" onClick={() => setEmergencyConfirm(false)}>Cancel</button>
+              <button
+                className="v2-settings-btn v2-settings-btn-danger"
+                onClick={() => {
+                  setEmergencyConfirm(false)
+                  runTest('emergency', () => import('../../api').then(m => m.testPushoverEmergency({
+                    userKey: settings.pushover_user_key,
+                    appToken: settings.pushover_app_token,
+                  })))
+                }}
+              >
+                Trigger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Pointer to v1 for the rest */}
       <div className="v2-settings-block">
         <div className="v2-form-label">More notification options</div>
         <div className="v2-settings-row-hint">
-          Morning digest configuration, channel test buttons, notification history, adaptive throttling controls,
-          and Pushover priority routing live in v1 → Settings → Notifications.
+          Morning digest schedule + style, adaptive throttling 👍/👎 feedback chips, email From overrides + batch mode,
+          Pushover priority routing helper text, and weather-notification toggles still live in v1 → Settings → Notifications.
         </div>
       </div>
     </div>

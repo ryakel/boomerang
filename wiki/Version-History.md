@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 channel test buttons + notification history in Notifications tab [M]
+  - **Why.** Two of the medium-priority items from V2-State knocked out together since they share the same panel. v2 Notifications had no way to fire a one-off test (Push / Email / Pushover priority-0 / Pushover Emergency / Digest) and no surface for the historical `notification_log` rows — both lived only in v1.
+  - **Test buttons.** New "Test channels" block with five buttons. Each button gates on its channel master being on (and Pushover additionally on credentials being saved). Per-button state machine: idle → sending → sent ✓ → idle (4s auto-reset) or error with inline message. Digest test surfaces which channels actually fired (e.g. "Sent via push, email"). Pushover Emergency gates behind a v2 confirm dialog since it triggers the priority-2 alarm.
+  - **Notification history.** Collapsible block at the bottom of the panel. First expand triggers `getNotifLog(50)` and renders a hairline list of recent entries: channel chip + type + time on the meta row, then title + body. Refresh button (with spinner) and Clear button (calls `clearServerNotifLog()`) in a small toolbar. Capped at 50 entries; max-height 360px with internal scroll.
+  - **Polish.** Trailing "More notification options" pointer narrowed — no longer mentions test buttons or history (those landed); now points at digest schedule + style, adaptive throttling 👍/👎 chips, email From overrides + batch mode, Pushover priority routing helper, and weather-notification toggles as the remaining v1-only surfaces.
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 715KB precache (up from 710KB).
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/V2-State.md`
+
 - fix(ui): v2 visual bugs from device screenshots — notif cards, quiet hours, settings rows, dark-mode init, danger zone [M]
   - Five fixes for visual bugs the user logged from the live `:dev` build earlier today.
   - **Bug 1 — notification matrix cut off on narrow screens.** Replaced the type×channel `<table>` with a card-per-type list. Each `.v2-notif-card` has type label + freq input on top, a 3-column grid of channel toggles (Push / Email / Pushover) below — labeled chips so the channel name doesn't need a header row. Works at any width without horizontal scroll. Same data shape, same toggles, same settings keys; just a different render.
