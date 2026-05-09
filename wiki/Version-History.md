@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- docs(v2): log 5 known visual bugs from device screenshots [XS]
+  - User reported 5 visual bugs from the live `:dev` build via screenshots: Notifications matrix cut off on narrow screens (Bug 1), Quiet hours time inputs overlap + bypass-label input oversized (Bug 2), time selectors feel disconnected (Bug 3), Dark-mode toggle desyncs from actual theme + General-tab number inputs full-width (Bug 4), Danger zone buttons inconsistent (Bug 5). Captured in V2-State.md "Known visual bugs (deferred)" with reproduction context and fix-direction hints. None block functionality — parked until light-mode polish settles. Also updated the dark-mode QA bullet to reference Bug 4 as the canonical instance, and the final-mile cherry-pick bullet to drop `422c2ff` from the skip-cycle entry (the hook port already landed via PR #24).
+  - Modified: `wiki/V2-State.md`
+
 - feat(ui): v2 Anthropic key entry + status check in AI tab [S]
   - **Why.** Ship-blocker. AI tab had a "Open v1 → AI" punt button for the entire API-key flow; users couldn't configure Claude from v2 at all. Notion/Trello-class punts make sense (heavy OAuth flows); Anthropic doesn't (pure key entry).
   - **`AnthropicKeyBlock`.** New sub-component in the AI tab. Loads `getKeyStatus()` on mount to detect `ANTHROPIC_API_KEY` env var. If env-set: read-only notice + a Test button. If user-set: password input (with show/hide toggle for verifying paste), Test button, Disconnect button (clears the key + resets status). Test calls `api.callClaude('Respond with just "ok".', 'ping')`. Status states: null / 'checking' / 'connected' / 'error', surfaced as a live status line below the controls.

@@ -115,11 +115,21 @@ These are daily-use gaps that users would notice:
 
 ### Deferred — wait for above to settle
 
-- [ ] **Dark-mode QA pass** across every v2 surface. Tokens defined; surfaces not visually audited at `data-theme="dark"`.
+- [ ] **Dark-mode QA pass** across every v2 surface. Tokens defined; surfaces not visually audited at `data-theme="dark"`. Bug 4 below is the canonical instance — toggling the dark-mode switch in v2 → General doesn't actually flip the theme on adjacent surfaces.
+
+### Known visual bugs (deferred — captured 2026-05-09 from device screenshots)
+
+These are real bugs the user logged from the live `:dev` build, intentionally parked until light-mode sizes/positions/colors stabilize. None of them block functionality; they're styling and layout polish. Pick from this list when revisiting v2 visual fit-and-finish.
+
+- [ ] **Bug 1 — Notification matrix cut off on narrow screens.** Settings → Notifications → "Notification types" type×channel table on mobile (dark mode). Header row is `TYPE / PUSH / EMAIL / PUSHOVER / EVERY` and the EVERY (frequency input) column gets clipped past the viewport's right edge. Whole table needs a rethink for ≤480px — likely options: stacked rows-per-type with channel chips inline, an accordion per type, or the freq input moved into an expansion drawer behind a tap-to-edit affordance. Reference: `NotificationsPanel` in `src/v2/components/SettingsModal.jsx`.
+- [ ] **Bug 2 — Quiet hours START/END time inputs overlapping; bypass-label input oversized.** Settings → Notifications → Quiet hours section. Native `<input type="time">` boxes appear to overlap on iOS Safari and the bypass-label text input spans the full content width when it only needs ~10 chars. Inputs in general feel too large in this section.
+- [ ] **Bug 3 — Quiet hours time selectors feel weird.** Same section as Bug 2. The native iOS time picker doesn't fit the v2 hairline aesthetic and the START/END pair feels disconnected. Consider a custom time picker (e.g. two number-spin inputs side by side) or at minimum tighter container styling.
+- [ ] **Bug 4 — Dark-mode toggle visual state desyncs from actual theme + General-tab number inputs are full-width.** Settings → General. Dark-mode toggle reads "ON" (orange filled track) but the modal body + underlying app render in light mode — toggling doesn't reach every surface (related to the broader Dark-mode QA item above). Separately: the number inputs (default due days, staleness, reframe, max open tasks) span the full content width when they only need to fit one or two digits. On small screens they'd read better small (~80px) and right-aligned in the row, with the label on the left.
+- [ ] **Bug 5 — Danger zone buttons look odd.** Settings → Data → Danger zone. The pink-bordered card holds two buttons of inconsistent visual weight: outline-style "Clear completed tasks" stacked above a solid red filled "Clear all data." Different button styles + left-justified pill stacking feel unbalanced. Either match button styles (both filled or both outline with the destructive variant differentiated by color only), or rethink the layout (full-width row, side-by-side, etc.).
 
 ### Final-mile cleanup
 
-- [ ] **Cherry-pick remaining main-only commits onto dev**: `c8ef380` (drop legacy `task.checklist` column), `3cdd943` (delete orphan API routes), `422c2ff` (skip-this-cycle in v1 — bring the `useRoutines.js` hook change so v2 can wire it up). Each is a separate small PR via the MCP loop. The npm-audit cherry-pick (`c00d520`) already landed on dev as `9b48196` (PR #22, 2026-05-09).
+- [ ] **Cherry-pick remaining main-only commits onto dev**: `c8ef380` (drop legacy `task.checklist` column), `3cdd943` (delete orphan API routes). Each is a separate small PR via the MCP loop. The npm-audit cherry-pick (`c00d520`) already landed on dev as `9b48196` (PR #22, 2026-05-09). The skip-this-cycle hook change from `422c2ff` was ported manually as part of PR #24 (v2 RoutinesModal Skip button); v1 wiring intentionally skipped since v1 is frozen and gets deleted in the end-state cleanup below.
 - [ ] **End-state cleanup** (per `/root/.claude/plans/ui-redesign-ideas-i-iridescent-wren.md`): once v2 is validated, delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`. Leave `?ui=v1` working for one release for safety.
 - [ ] **Stranded `test-push-probe` branch** on origin can't be deleted via the proxy or MCP — needs the GitHub UI. Pointed at `a87103e` from the original 2026-05-03 diagnostic.
 
