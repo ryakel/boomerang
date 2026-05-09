@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 RoutinesModal — drop duplicate header on form view [XS]
+  - The form view rendered its own `← Back · New routine` bar below the ModalShell header (which had an empty title slot). Stacked headers wasted vertical space and looked wrong on iPhone width. Fix: pass the form title (`New routine` / `Edit routine`) into ModalShell so it renders in the modal's normal title slot. Removed the duplicate `<h2 class="v2-routine-form-title">` and its wrapper. Back link kept as a small inline pill above the title input so users can still return to the list view without closing the modal.
+  - Modified: `src/v2/components/RoutinesModal.jsx`, `src/v2/components/RoutinesModal.css`
+
 - feat(routines): Sequences PR 1 — completion-triggered follow-up chains [M]
   - **What.** Routines can hold an ordered template of follow-up steps. When a routine spawns a task instance, the template is copied onto the spawned task. Completing the spawned task spawns the next step with `due_date` derived from `now + step.offset_minutes`, and the chain walks forward as each step is completed. Use case (the user's mop): clean floors → auto-clean mop (offset 0) → empty tanks (30 min) → put back (2 days).
   - **Schema.** Migration 023 adds `follow_ups_json TEXT DEFAULT '[]'` to both `tasks` and `routines`. Step shape: `{id, title, offset_minutes, energy_type?, energy_level?, notes?}`. Routines hold the template; tasks hold the live in-flight chain. PR 1 editor exposes title + offset only — energy/notes can be added later or filled in by the background size-inference hook.

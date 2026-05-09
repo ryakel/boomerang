@@ -283,10 +283,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
 
   return (
     <div className="v2-routine-form">
-      <div className="v2-routine-form-top">
-        <button className="v2-routine-back" onClick={onCancel}>← Back</button>
-        <h2 className="v2-routine-form-title">{isNew ? 'New routine' : 'Edit routine'}</h2>
-      </div>
+      <button type="button" className="v2-routine-back" onClick={onCancel}>← Back to routines</button>
 
       <input
         className="v2-form-input v2-form-title"
@@ -488,7 +485,7 @@ export default function RoutinesModal({
     <ModalShell
       open={open}
       onClose={onClose}
-      title={view === 'form' ? '' : 'Routines'}
+      title={view === 'form' ? (editing ? 'Edit routine' : 'New routine') : 'Routines'}
       subtitle={view === 'list' && routines.length > 0
         ? `${active.length} active${paused.length ? ` · ${paused.length} paused` : ''}`
         : undefined}
