@@ -48,11 +48,14 @@
   color: var(--v2-text);
 }
 
-/* Saving: subtle stagger-bounce. ~6px Y travel, 50ms delay per letter. */
+/* Saving: subtle stagger-bounce. ~6px Y travel, 50ms delay per letter.
+ * Letters keep full text color — the bounce alone signals state. The
+ * previous dim-to-meta on top hurt readability in dark mode (55% alpha
+ * over dark bg) and was redundant with the motion cue. */
 .v2-header-wordmark[data-sync-state="saving"] .v2-header-wordmark-letter {
   animation: v2-header-wordmark-bounce 1100ms var(--v2-ease-emphasis) infinite;
   animation-delay: calc(var(--letter-index) * 60ms);
-  color: var(--v2-text-meta);
+  color: var(--v2-text);
 }
 
 @keyframes v2-header-wordmark-bounce {

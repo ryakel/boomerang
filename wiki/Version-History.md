@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 Notifications + Header bug pass + Beta → Legacy rename [S]
+  - **Escalation row.** Single inline row from PR #63 wrapped awkwardly on iPhone width (Before due + On due fit row 1, Overdue dropped to row 2 alone with the input far left). Replaced `.v2-notif-stages-inline` flex layout with `.v2-notif-stages-grid` — three equal columns (label-above, centered input below) that fit symmetrically on iPhone-mini width without wrap. Per-cell "h" units removed; unit appears once in the section hint copy.
+  - **Quiet hours.** Same redundant-title-row treatment as escalation: hoisted toggle into the section header row alongside the "Quiet hours" label + hint, dropped the duplicate "Enable quiet hours" sub-row.
+  - **More notification options block removed.** Stale v1 deferral pointer at the bottom of NotificationsPanel ("Morning digest schedule + style, adaptive throttling 👍/👎 feedback chips, Pushover priority routing helper text still live in v1") deleted — those configurations are surfaced in v2 surfaces (digest in NotificationsPanel, throttle chips in AnalyticsModal, Pushover priority hint in Pushover row of IntegrationsPanel).
+  - **Beta tab → Legacy.** `Beta` was a v2 onboarding artifact when v2 was opt-in; now that v2 is the default, the tab's only remaining purpose is the v1 escape hatch. Renamed to `Legacy`, dropped the stale "What's coming" roadmap (all items shipped), reworded copy to frame v1 as an escape hatch rather than a "legacy interface".
+  - **Wordmark dark-mode contrast.** During the `saving` state the BOOMERANG letters were dimmed to `--v2-text-meta` (55% alpha), which reads fine in light mode but poorly against dark-mode bg. Removed the color override — bounce animation alone signals state, dim-on-top was redundant double-encoding.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `src/v2/components/Header.css`
+
+- docs(v2): park Sequences feature + better Logs filter UX as post-v2 follow-ups [XS]
+  - Documented "Smart follow-up sequences" (completion-triggered task chains; user's mop example: clean → auto-clean → empty tanks → put back) under V2-State Future-direction parking lot, including the two implementation shapes considered (standalone Sequence primitive vs `follow_ups` array on Tasks/Routines) and open questions on cancel/snooze semantics.
+  - Documented "Better Logs filter UX" — current chips are hand-curated string matches; ideas include auto-discovering tag prefixes from the log stream and/or moving to structured logs (`{level, tag, msg}` objects) so chips reflect reality without hand-maintenance.
+  - Modified: `wiki/V2-State.md`
+
 - style(ui): v2 Settings polish — escalation row, Logs Google filter, build version, 17track gate [S]
   - **Notifications → High-priority escalation.** Three-stage cadence collapsed to a single inline row (`Before due [24] h · On due [1] h · Overdue [0.5] h`). The enable toggle moves up alongside the section label so the whole control fits without burning vertical space on a separate "Enable escalation" row. New `.v2-notif-stages-inline` flex layout in CSS; the old `.v2-notif-stages` grid remains for any other call site.
   - **Logs filter.** Combined the separate `Gmail` and `GCal` filter chips into a single `Google` chip that matches `[Gmail]`, `[GCal]`, and `[GCalSync]` log lines. Verified against actual log call sites — the two real prefixes (`[Gmail]`, `[GCal]`) cover every Google integration log line that either old chip would have caught.
