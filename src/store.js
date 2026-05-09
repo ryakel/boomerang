@@ -260,7 +260,6 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     energy: null,        // energy type: desk|people|errand|confrontation|creative|physical
     energyLevel: null,   // drain intensity: 1 (low), 2 (medium), 3 (high)
     attachments: [],
-    checklist: [],       // deprecated — migrated to checklists[]
     checklists: [],      // [{ id, name, items: [{ id, text, completed }], hideCompleted }]
     comments: [],
   }

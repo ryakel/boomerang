@@ -274,7 +274,6 @@ function createTaskFromGmail(item, messageId) {
     energy_level: null,
     tags_json: '[]',
     attachments_json: '[]',
-    checklist_json: '[]',
     checklists_json: '[]',
     comments_json: '[]',
     toast_messages_json: null,

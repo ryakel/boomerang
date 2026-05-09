@@ -233,7 +233,6 @@ function taskToRow(task) {
     energy_level: task.energyLevel ?? task.energy_level ?? null,
     tags_json: JSON.stringify(task.tags || []),
     attachments_json: JSON.stringify(task.attachments || []),
-    checklist_json: JSON.stringify(task.checklist || []),
     checklists_json: JSON.stringify(task.checklists || []),
     comments_json: JSON.stringify(task.comments || []),
     toast_messages_json: task.toast_messages ? JSON.stringify(task.toast_messages) : null,
@@ -274,7 +273,6 @@ function rowToTask(row) {
     energyLevel: row.energy_level ?? null,
     tags: safeJsonParse(row.tags_json, []),
     attachments: safeJsonParse(row.attachments_json, []),
-    checklist: safeJsonParse(row.checklist_json, []),
     checklists: safeJsonParse(row.checklists_json, []),
     comments: safeJsonParse(row.comments_json, []),
     toast_messages: safeJsonParse(row.toast_messages_json, null),
@@ -298,15 +296,18 @@ function safeJsonParse(str, fallback) {
 // Task CRUD operations
 // ============================================================
 
+// checklist_json column is kept in the schema (migration 018 emptied it; SQLite
+// column drops are painful) but is no longer written or read. It will retain its
+// existing '[]' value via the schema default for any rows touched here.
 const UPSERT_TASK_SQL = `
   INSERT INTO tasks (id, title, status, notes, due_date, snoozed_until, snooze_count,
     staleness_days, last_touched, created_at, completed_at, reframe_notes,
     notion_page_id, notion_url, trello_card_id, trello_card_url, routine_id,
     high_priority, low_priority, size, energy, energy_level, tags_json, attachments_json,
-    checklist_json, checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
+    checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
     gcal_event_id, gcal_duration, gmail_message_id, gmail_pending, weather_hidden, size_inferred,
     pushover_receipt)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -319,7 +320,7 @@ const UPSERT_TASK_SQL = `
     low_priority=excluded.low_priority,
     size=excluded.size, energy=excluded.energy, energy_level=excluded.energy_level,
     tags_json=excluded.tags_json, attachments_json=excluded.attachments_json,
-    checklist_json=excluded.checklist_json, checklists_json=excluded.checklists_json,
+    checklists_json=excluded.checklists_json,
     comments_json=excluded.comments_json, toast_messages_json=excluded.toast_messages_json,
     trello_sync_enabled=excluded.trello_sync_enabled,
     gcal_event_id=excluded.gcal_event_id, gcal_duration=excluded.gcal_duration,
@@ -334,7 +335,7 @@ function runUpsertTask(task) {
     r.staleness_days, r.last_touched, r.created_at, r.completed_at, r.reframe_notes,
     r.notion_page_id, r.notion_url, r.trello_card_id, r.trello_card_url, r.routine_id,
     r.high_priority, r.low_priority, r.size, r.energy, r.energy_level, r.tags_json, r.attachments_json,
-    r.checklist_json, r.checklists_json, r.comments_json, r.toast_messages_json,
+    r.checklists_json, r.comments_json, r.toast_messages_json,
     r.trello_sync_enabled, r.gcal_event_id, r.gcal_duration,
     r.gmail_message_id, r.gmail_pending, r.weather_hidden, r.size_inferred,
     r.pushover_receipt,
