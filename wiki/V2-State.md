@@ -135,7 +135,7 @@ All five bugs the user logged from device screenshots have been addressed:
 
 ### Final-mile cleanup
 
-- [ ] **Cherry-pick remaining main-only commits onto dev**: `c8ef380` (drop legacy `task.checklist` column), `3cdd943` (delete orphan API routes). Each is a separate small PR via the MCP loop. The npm-audit cherry-pick (`c00d520`) already landed on dev as `9b48196` (PR #22, 2026-05-09). The skip-this-cycle hook change from `422c2ff` was ported manually as part of PR #24 (v2 RoutinesModal Skip button); v1 wiring intentionally skipped since v1 is frozen and gets deleted in the end-state cleanup below.
+- [x] ~~**Cherry-pick remaining main-only commits onto dev.**~~ Completed 2026-05-09. `c00d520` (npm-audit clears) landed via PR #22 as `9b48196`. `c8ef380` (drop legacy `task.checklist` column) landed via PR #45. `3cdd943` (delete orphan API routes) landed via PR #45. The skip-this-cycle hook change from `422c2ff` was ported manually as part of PR #24 (v2 RoutinesModal Skip button); v1 wiring intentionally skipped since v1 is frozen and gets deleted in the end-state cleanup below. Dev and main are functionally aligned for the v2 cutover; remaining commits on main are doc-only and auto-merge cleanly.
 - [ ] **End-state cleanup** (per `/root/.claude/plans/ui-redesign-ideas-i-iridescent-wren.md`): once v2 is validated, delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`. Leave `?ui=v1` working for one release for safety.
 - [ ] **Stranded `test-push-probe` branch** on origin can't be deleted via the proxy or MCP — needs the GitHub UI. Pointed at `a87103e` from the original 2026-05-03 diagnostic.
 
