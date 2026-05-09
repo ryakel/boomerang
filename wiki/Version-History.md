@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 EditTaskModal — strip native date-input chrome + unified add-pill style [S]
+  - **Due/Priority STILL overlapped** despite the `minmax(0, 1fr)` fix in PR #51. Root cause was iOS Safari rendering native chrome on `<input type="date">` that bleeds *outside* the styled border into the adjacent grid column. `-webkit-appearance: none; appearance: none;` on `.v2-form-input` strips the native UI and leaves only the styled box; the picker still triggers on tap.
+  - **Add-affordance pills were inconsistent.** "+ Add checklist" (dashed, transparent), "Attach files" (gray-fill), "Notion" (gray-fill), "+ Add comment" (gray-fill) — three different visual treatments for four structurally-identical "tap to add" empty-state pills. New shared `.v2-edit-add-pill` class with the dashed-border treatment; applied to all four. Existing `.v2-edit-checklist-new` aliased to the same selector to keep the original markup working.
+  - **Verification.** `npm run lint` clean. `npm test` smoke passes. Bundle: 752KB precache (unchanged).
+  - Modified: `src/v2/components/AddTaskModal.css`, `src/v2/components/EditTaskModal.css`, `src/v2/components/EditTaskModal.jsx`
+
 - fix(ui): v2 EditTaskModal — Due/Priority overlap + Checklists empty-collapse + Connections moves up [S]
   - **Due/Priority overlap (iOS Safari).** `.v2-form-row` was `grid-template-columns: 1fr 1fr`. `1fr` is shorthand for `minmax(auto, 1fr)`, where `auto` falls back to the cell's intrinsic content size. iOS Safari's `<input type="date">` has a wide intrinsic content size when filled (~150px+), which expanded the Due column past its half-share and overlapped the Priority column. Fix: `minmax(0, 1fr) minmax(0, 1fr)` lets columns shrink below intrinsic. Added `min-width: 0` to `.v2-form-input` / `.v2-form-textarea` defensively.
   - **Checklists section empty-collapse.** CHECKLISTS label only renders when at least one checklist exists. Empty state is just the "+ Add checklist" pill with the tighter `.v2-form-section-compact` margin. Same pattern Attachments / Comments / Connections already use.

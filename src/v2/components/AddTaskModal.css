@@ -12,6 +12,12 @@
   font: 400 14px/1.4 var(--v2-font-body);
   outline: none;
   transition: border-color var(--v2-dur-quick) var(--v2-ease-standard);
+  /* Strip the native iOS Safari date-input chrome (which renders an internal
+   * UI that bleeds past the styled border and breaks grid column width).
+   * The picker still triggers on tap; only the rendered field becomes
+   * fully styleable. */
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .v2-form-input:focus,
