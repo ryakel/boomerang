@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- style(ui): v2 energy-type row fits all five chips on a single line [XS]
+  - Was wrapping to two rows on iPhone (`desk / people / errand` then `creative / physical`). New layout: `flex: 1 1 0` per chip with `min-width: 0` so they share equal slices of the row, smaller font (12px) + tighter padding (0 8px) + height 32px + gap 4px. Five-chip width fits ≤375px viewports without ellipsis. `flex-wrap: nowrap` enforces one line.
+  - Modified: `src/v2/components/AddTaskModal.css`
+
 - style(ui): v2 chip controls — energy type matches energy drain shape, lowercase chip text [XS]
   - Energy type pills now share the `.v2-form-seg` shape: full pill (`var(--v2-radius-pill)`), 36px height, flex-wrap layout (was 96px-min grid columns with rounded-rect 10px corners). The per-type color treatment in the active state still distinguishes Desk / People / Errand / Creative / Physical via inline border + text colors.
   - Added `text-transform: lowercase` to both `.v2-form-seg` and `.v2-form-energy-pill` so all chip controls read like the user's lowercase labels (Status / Size / Energy type / Energy drain).

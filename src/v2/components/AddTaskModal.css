@@ -197,25 +197,33 @@
   border-color: var(--v2-text);
 }
 
-/* Energy type — matches Energy drain (.v2-form-seg) in shape: full pill,
- * 36px height, lowercase. Differentiation comes from per-type color
- * (border + text in the active state), set inline via the energy palette. */
+/* Energy type — flex row with all five chips sharing equal width via
+ * flex: 1, so the full set (desk / people / errand / creative / physical)
+ * fits on one row at iPhone-mini widths. Smaller font + padding than the
+ * shared .v2-form-seg shape so "physical" / "creative" don't truncate.
+ * Per-type color in the active state still distinguishes via inline border
+ * + text colors. */
 .v2-form-energy-grid {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 4px;
 }
 
 .v2-form-energy-pill {
-  flex: 0 0 auto;
-  height: 36px;
-  padding: 0 14px;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
   border-radius: var(--v2-radius-pill);
   background: var(--v2-bg);
   color: var(--v2-text);
   border: 1px solid var(--v2-hairline);
-  font: 500 13px/1 var(--v2-font-body);
+  font: 500 12px/1 var(--v2-font-body);
+  text-align: center;
   text-transform: lowercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   transition: background var(--v2-dur-quick) var(--v2-ease-standard),
               border-color var(--v2-dur-quick) var(--v2-ease-standard);
