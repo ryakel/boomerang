@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- refactor(db): drop legacy `task.checklist` serialization [S]
+  - Migration 018 emptied the legacy flat `checklist_json` column months ago and replaced it with the named `checklists_json` (multi-list) format. The serialization paths still wrote `task.checklist || []` on every upsert and the read path still parsed it into a `checklist` field on every row → JS object trip. Pure cleanup.
+  - Removed: `task.checklist` reads/writes in `db.js` `taskToRow`/`rowToTask`/`UPSERT_TASK_SQL`, the `checklist: []` default in `src/store.js` `createTask`, the legacy fallback wrapper in `src/components/TaskCard.jsx`, the legacy migrate-on-read in `src/components/EditTaskModal.jsx`, the inert `checklist_json: '[]'` in `gmailSync.js`'s task constructor.
+  - **Column kept.** `checklist_json` stays in the schema (SQLite column drops are painful). It's inert — never read, never written. Existing rows retain their `'[]'` value via the schema default.
+  - Cherry-picked from main onto dev (final-mile cleanup, 2026-05-09).
+  - Modified: `db.js`, `gmailSync.js`, `src/store.js`, `src/components/TaskCard.jsx`, `src/components/EditTaskModal.jsx`
+
 - feat(ui): v2 MarkdownImportModal + skip ExtendModal/FindRelatedModal as superseded [S]
   - **Why.** Final polish item from V2-State. v1 has three "rare flow" modals — Extend (date preset shortcut), FindRelated (Notion search to link a task), MarkdownImport (bulk task creation from markdown). Audit found Extend + FindRelated are redundant in v2: EditTaskModal's date input already covers Extend's use case, and the inline Notion search in EditTaskModal Connections (PR #36) already covers FindRelated. MarkdownImport is the only one with an actual gap.
   - **`MarkdownImportModal.jsx` + `.css`.** Direct port of v1's component into v2 idiom — wide ModalShell, paste-or-upload first step, preview-and-toggle-tasks second step, "Import N task(s)" CTA. Uses the existing `parseMarkdown` util. Bullets (`- item`), checkboxes (`- [ ] item`), and section headings (`## Section`) all supported; headings become group labels on each parsed task.

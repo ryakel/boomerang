@@ -223,7 +223,7 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
           <div className="desktop-notes-preview">{task.notes.length > 120 ? task.notes.slice(0, 120) + '...' : task.notes}</div>
         )}
         {(() => {
-          const lists = task.checklists?.length ? task.checklists : task.checklist?.length ? [{ items: task.checklist }] : []
+          const lists = task.checklists?.length ? task.checklists : []
           const total = lists.reduce((s, c) => s + c.items.length, 0)
           const done = lists.reduce((s, c) => s + c.items.filter(i => i.completed).length, 0)
           if (total === 0) return null
@@ -397,8 +397,6 @@ export default memo(function TaskCard({ task, expanded = false, onToggleExpand }
             {task.notes && (
               <div className="task-notes">{task.notes}</div>
             )}
-            {/* Named checklists (post-migration 018, legacy flat `checklist`
-                field is always empty). */}
             {task.checklists?.length > 0 && (() => {
               const lists = task.checklists
               return lists.map(cl => (
