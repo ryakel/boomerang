@@ -115,7 +115,7 @@ export default function AppV2() {
   // Notion + GCal pull-syncs. Both also auto-fire on mount + visibility-change
   // when configured — matching v1 behavior. v2 previously didn't run them at
   // all, so the dev image was silently missing inbound Notion/GCal sync.
-  const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
+  const { syncing: notionSyncing, syncNotion, routineSuggestions, dismissSuggestion, acceptSuggestion } = useNotionSync(tasks, setTasks)
   const { syncing: gcalSyncing, syncGCal } = useGCalSync(tasks, setTasks)
 
   // Server hydration + cross-client sync. Mirror v1's hydrateFromServer so
@@ -436,6 +436,34 @@ export default function AppV2() {
             onOpenSearch={() => setSearchOpen(true)}
             onCloseSearch={handleCloseSearch}
           />
+        )}
+        {!searchOpen && routineSuggestions?.length > 0 && (
+          <div className="v2-routine-suggestions">
+            {routineSuggestions.map(s => (
+              <div key={s.patternKey} className="v2-routine-suggestion">
+                <div className="v2-routine-suggestion-text">
+                  Create routine: <strong>{s.title}</strong>
+                  <span className="v2-routine-suggestion-cadence">{s.cadence}</span>
+                </div>
+                <button
+                  className="v2-routine-suggestion-accept"
+                  onClick={() => {
+                    addRoutine(s.title, s.cadence, undefined, [], s.notes)
+                    acceptSuggestion(s.patternKey)
+                  }}
+                >
+                  Create
+                </button>
+                <button
+                  className="v2-routine-suggestion-dismiss"
+                  onClick={() => dismissSuggestion(s.patternKey)}
+                  aria-label="Dismiss suggestion"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         )}
         {searchOpen ? (
           <div className="v2-list">
