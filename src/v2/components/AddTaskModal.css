@@ -238,20 +238,28 @@
   border-width: 1.5px;
 }
 
+/* Labels — 5-wide grid that matches the energy-type row width-for-width.
+ * Long user labels ellipsis-truncate (the full name is in the title attr
+ * + accessible name; tap registers regardless). */
 .v2-form-label-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .v2-form-label-pill {
+  min-width: 0;
   height: 32px;
-  padding: 0 12px;
+  padding: 0 8px;
   border-radius: var(--v2-radius-pill);
   background: var(--v2-bg);
   color: var(--v2-text);
   border: 1px solid var(--v2-hairline);
-  font: 500 13px/1 var(--v2-font-body);
+  font: 500 12px/1 var(--v2-font-body);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   transition: background var(--v2-dur-quick) var(--v2-ease-standard),
               border-color var(--v2-dur-quick) var(--v2-ease-standard);
