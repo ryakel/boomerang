@@ -221,8 +221,6 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 | `PUT` | `/api/data` | Write app_data blobs (settings, labels). Rejects `tasks`/`routines`/`packages` keys with HTTP 400. Requires `_clientId`. |
 | `POST` | `/api/data` | Same as PUT — for `navigator.sendBeacon` (requires `_clientId`) |
 | `POST` | `/api/data/restore` | Restore tasks + routines + settings + labels from a backup file. Requires `{"confirm": "wipe-and-replace"}` in body. |
-| `PATCH` | `/api/data/:collection` | Update a single collection |
-| `DELETE` | `/api/data` | Clear all data |
 | `POST` | `/api/log` | Client log relay (diagnostics to server terminal) |
 | `POST` | `/api/messages` | Proxy to Anthropic Claude API |
 | `POST` | `/api/adviser/chat` | SSE stream — runs the Claude tool-use loop for the AI Adviser |
@@ -271,7 +269,6 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 | `PUT` | `/api/trello/cards/:cardId/checkItem/:itemId` | Update a check item |
 | `DELETE` | `/api/trello/checklists/:id` | Delete a checklist |
 | `POST` | `/api/trello/cards/:id/attachments` | Upload attachment to card |
-| `POST` | `/api/trello/sync` | Pull cards from a Trello list |
 | `POST` | `/api/trello/sync-all-lists` | Pull cards from multiple Trello lists at once |
 | `GET` | `/api/gcal/auth-url` | Generate Google OAuth authorization URL |
 | `GET` | `/api/gcal/callback` | OAuth callback — exchanges code for tokens |
@@ -293,7 +290,6 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 | `GET` | `/api/weather` | Get cached forecast + status |
 | `POST` | `/api/weather/refresh` | Force-refresh forecast (respects 30-min freshness unless `{ force: true }`) |
 | `POST` | `/api/weather/geocode` | Geocode a location query via Open-Meteo |
-| `POST` | `/api/weather/clear-cache` | Clear the cached forecast |
 
 ## AI Adviser
 
