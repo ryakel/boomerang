@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 routine suggestion banner [XS]
+  - **Why.** `useNotionSync` was already returning `routineSuggestions` / `dismissSuggestion` / `acceptSuggestion` to v2 (PR #31's wiring), but v2 wasn't rendering the suggestion banner — the recurring-pattern detection ran but had no surface.
+  - **Banner.** New `.v2-routine-suggestions` row between the TaskListToolbar and the task list. Each suggestion shows "Create routine: **Title** [cadence chip]" with a primary Create button (calls `addRoutine(...)` then `acceptSuggestion`) and a ✕ dismiss button. Soft purple background matches v1's coloring for the banner.
+  - **Search-aware.** Hidden when search mode is active so the search results view stays focused.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 741KB precache (up from 740KB).
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/AppV2.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 Notifications — Email deliverability + weather notification toggles [S]
   - **Why.** Three notifications-tab items grouped under one V2-State bullet. Until now `email_from_name`/`email_from_address`/`email_batch_mode`/`weather_notifications_enabled`/`weather_notif_push`/`weather_notif_email` were all v1-only; users had to flip back to v1 to override From, enable batch mode, or toggle weather alerts.
   - **Email deliverability block.** Two compact `.v2-settings-row` entries with `.v2-settings-compact-input-wide` (140px right-aligned) for From name + From address. Batch-mode toggle below with explainer ("Bundles eligible notifications into a single digest-style email instead of sending one per event"). All three gated on `email_notifications_enabled === true`.

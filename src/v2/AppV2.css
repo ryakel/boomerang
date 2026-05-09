@@ -178,3 +178,75 @@
   font: 400 13px/1.4 var(--v2-font-body);
   color: var(--v2-text);
 }
+
+/* Routine-suggestion banner — Notion pattern detection. Accept-or-dismiss
+ * row that appears between the toolbar and the task list when the sync
+ * notices a recurring pattern. */
+.v2-routine-suggestions {
+  margin: 8px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.v2-routine-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(167, 139, 250, 0.08);
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+}
+
+.v2-routine-suggestion-text {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v2-routine-suggestion-cadence {
+  font: 500 11px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--v2-text-meta);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(var(--v2-text-rgb), 0.06);
+}
+
+.v2-routine-suggestion-accept {
+  padding: 6px 12px;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-accent);
+  color: #fff;
+  border: none;
+  font: 600 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: filter var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-routine-suggestion-accept:hover { filter: brightness(1.08); }
+
+.v2-routine-suggestion-dismiss {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 14px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-routine-suggestion-dismiss:hover {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text);
+}
+
+@media (min-width: 601px) {
+  .v2-routine-suggestions {
+    margin: 8px 24px 0;
+  }
+}
