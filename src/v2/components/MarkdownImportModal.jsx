@@ -44,18 +44,18 @@ export default function MarkdownImportModal({ open, onImport, onClose }) {
   const selectAll = () => setSelected(new Set(parsed.map((_, i) => i)))
   const selectNone = () => setSelected(new Set())
 
-  const handleImport = () => {
-    if (!parsed) return
-    const tasksToImport = parsed.filter((_, i) => selected.has(i))
-    onImport(tasksToImport)
-    handleClose()
-  }
-
   const handleClose = () => {
     setText('')
     setParsed(null)
     setSelected(new Set())
     onClose()
+  }
+
+  const handleImport = () => {
+    if (!parsed) return
+    const tasksToImport = parsed.filter((_, i) => selected.has(i))
+    onImport(tasksToImport)
+    handleClose()
   }
 
   return (
