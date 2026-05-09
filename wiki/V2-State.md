@@ -132,6 +132,7 @@ All five bugs the user logged from device screenshots have been addressed:
 ### Future-direction parking lot
 
 - [ ] **Terminal-aesthetic theme toggle.** Inspiration: [init.habits](https://inithabits.com) — monospace + ASCII-style checkboxes `[ ] / [✓]`, command-prompt header (`user@init.habits $ daily`), tabbed nav (habits / stats / profile), fire-emoji streak indicator, calendar-row date picker, soft glow on a deep-blue terminal palette. Could ship as a third tier beyond light/dark — likely a new `data-ui` mode (e.g. `data-ui="terminal"`) that swaps `tokens.css` for a terminal-specific palette + monospace font stack, leaving the layout/component contracts untouched. Not a v2 ship item; revisit after the dev → main merge.
+  - **Terminal-flavored loading/sync animations.** The current `BOOMERANG` wordmark wave (PR #58) — letter-by-letter bounce on saving, green flash on done, yellow/red for degraded/offline — translates beautifully to the terminal aesthetic. Ideas to carry forward into the terminal theme: ASCII spinner glyphs (`| / - \`) cycling per letter instead of bounce; cursor blink on the trailing `_` while saving; `[OK]` / `[ERR]` / `[BUSY]` bracketed status flashes that match terminal status conventions; `loading…` ellipsis dot-cycling; output-line scroll for status messages instead of a popover. Same state machine (`idle / saving / just-synced / degraded / offline`) drives a different visual vocabulary.
 
 ### Final-mile cleanup
 

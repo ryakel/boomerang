@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- docs(v2): note terminal-flavored loading animations on the parking-lot terminal-theme bullet [XS]
+  - The wordmark-wave from PR #58 is exactly the kind of ambient state-feedback that the terminal theme should preserve. Added an idea-bank sub-bullet to V2-State's terminal-aesthetic entry: ASCII spinner glyphs per letter, cursor blink on the trailing `_`, `[OK]/[ERR]/[BUSY]` bracketed flashes, `loading…` ellipsis cycling, output-line scroll. Same `animState` state machine drives a different visual vocabulary.
+  - Modified: `wiki/V2-State.md`
+
 - style(ui): v2 AI tab — Anthropic key UI moves to Integrations, AI shows pointer note [XS]
   - Anthropic key UI was duplicated across the AI tab (full editable block) and the Integrations row (which routed back to AI). Consolidated: Integrations row now embeds the editable block directly via a new `inline: 'anthropic'` mode; AI tab drops the full block and shows a one-line pointer ("Get a key at console.anthropic.com, then configure under Settings → Integrations") with a clickable inline link that flips active tab to Integrations. Fixes the visual cramming where the ANTHROPIC API KEY header was butted against the Custom-instructions Clear button.
   - `AnthropicKeyBlock` gains an `embedded` prop that strips the outer block wrapper + the redundant header/hint when rendered inside the Integrations row.
