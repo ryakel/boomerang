@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- docs(v2): park "web push deprecation trial" decision for after v2 → main merge [XS]
+  - Pushover is now the recommended primary on iOS but web push is still live with all its plumbing. Logged a parking-lot bullet that explicitly schedules a tap-rate / completion-rate review in Engagement Analytics 2 weeks post-v2-merge, with concrete go / no-go criteria and a rough scope estimate (~250-400 LOC net delete) if go.
+  - Modified: `wiki/V2-State.md`
+
 - feat(ui): v2 Integrations — Trello / GCal / Gmail connect flows ported out of v1 [M]
   - Removed the "Connect in v1" / "Manage in v1" punt for the three OAuth-style integrations. Each integration row now renders its own connect UI inline when not connected.
   - **Trello.** New `inline: 'trello-connect'` mode. Hint links to `trello.com/app-key`; "Enter credentials" reveals API key + Token password inputs. Connect button calls `trelloStatus()` to verify; on success populates the boards list. Disconnect button in the connected (`trello-config`) state clears `trello_api_key` + `trello_secret` and resets cached status.
