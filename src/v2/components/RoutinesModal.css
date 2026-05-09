@@ -177,36 +177,25 @@
   flex-direction: column;
 }
 
-.v2-routine-form-top {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 8px;
-  margin-top: -28px; /* tighten against modal top hairline */
-}
-
+/* Back-to-list link sits inline at the top of the form body. The form's
+ * own h1 is gone — the modal header carries the title now. */
 .v2-routine-back {
-  height: 32px;
-  padding: 0 12px;
+  align-self: flex-start;
+  height: 28px;
+  padding: 0 10px;
   border-radius: var(--v2-radius-pill);
   background: transparent;
   color: var(--v2-text-meta);
   border: 1px solid var(--v2-hairline);
   font: 500 12px/1 var(--v2-font-body);
   cursor: pointer;
+  margin-bottom: 4px;
   transition: background var(--v2-dur-quick) var(--v2-ease-standard),
               color var(--v2-dur-quick) var(--v2-ease-standard);
 }
-
 .v2-routine-back:hover {
   background: rgba(var(--v2-text-rgb), 0.04);
   color: var(--v2-text);
-}
-
-.v2-routine-form-title {
-  font: 700 22px/1.2 var(--v2-font-display);
-  letter-spacing: -0.01em;
-  margin: 0;
 }
 
 /* Follow-ups editor on the routine form. Each step is a small card with
