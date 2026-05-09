@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- docs(v2): park "terminal-aesthetic theme" idea (init.habits inspiration) [XS]
+  - User shared a screenshot of [init.habits](https://inithabits.com) — monospace + ASCII checkboxes + terminal palette + command-prompt header. Logged as a future-direction parking-lot bullet in V2-State.md: a possible third theme tier beyond light/dark via a new `data-ui` mode that swaps `tokens.css`. Explicitly not a v2 ship item; post-dev→main experiment.
+  - Modified: `wiki/V2-State.md`
+
 - docs(v2): log 5 known visual bugs from device screenshots [XS]
   - User reported 5 visual bugs from the live `:dev` build via screenshots: Notifications matrix cut off on narrow screens (Bug 1), Quiet hours time inputs overlap + bypass-label input oversized (Bug 2), time selectors feel disconnected (Bug 3), Dark-mode toggle desyncs from actual theme + General-tab number inputs full-width (Bug 4), Danger zone buttons inconsistent (Bug 5). Captured in V2-State.md "Known visual bugs (deferred)" with reproduction context and fix-direction hints. None block functionality — parked until light-mode polish settles. Also updated the dark-mode QA bullet to reference Bug 4 as the canonical instance, and the final-mile cherry-pick bullet to drop `422c2ff` from the skip-cycle entry (the hook port already landed via PR #24).
   - Modified: `wiki/V2-State.md`
