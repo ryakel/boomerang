@@ -200,6 +200,9 @@ const NOTIF_PACKAGE_TYPES = [
 function IntegrationsPanel({ settings, update, switchToV1 }) {
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
   const [statuses, setStatuses] = useState({})
+  const [pushoverTest, setPushoverTest] = useState({ status: null, error: null })
+  const [pushoverEmer, setPushoverEmer] = useState({ status: null, error: null })
+  const [emergencyConfirm, setEmergencyConfirm] = useState(false)
 
   // Load env-key flags + each integration's connection status on mount.
   // Failures are silent — a missing status just leaves the dot grey.
@@ -277,17 +280,40 @@ function IntegrationsPanel({ settings, update, switchToV1 }) {
       hint: 'iOS-friendly transport that bypasses Safari throttling. One-time $5 app required.',
       connected: !!statuses.pushover?.configured,
       v1Section: 'Integrations → Pushover',
+      inline: 'pushover',
+      appTokenFromEnv: !!statuses.pushover?.app_token_from_env,
     },
   ]
+
+  const runPushoverTest = async (emergency) => {
+    const setter = emergency ? setPushoverEmer : setPushoverTest
+    setter({ status: 'sending', error: null })
+    try {
+      const api = await import('../../api')
+      const fn = emergency ? api.testPushoverEmergency : api.testPushover
+      const result = await fn({
+        userKey: settings.pushover_user_key,
+        appToken: settings.pushover_app_token,
+      })
+      if (result?.success) {
+        setter({ status: 'sent', error: null })
+        setTimeout(() => setter({ status: null, error: null }), 4000)
+      } else {
+        setter({ status: 'error', error: result?.error || 'Send failed' })
+      }
+    } catch (e) {
+      setter({ status: 'error', error: e?.message || 'Send failed' })
+    }
+  }
 
   return (
     <div className="v2-settings-form">
       <div className="v2-settings-block">
         <div className="v2-form-label">Status</div>
         <div className="v2-settings-row-hint">
-          OAuth-heavy integrations (Notion, Trello, GCal, Gmail, Pushover) are configured in v1
+          OAuth-heavy integrations (Notion, Trello, GCal, Gmail) are configured in v1
           to avoid duplicating multi-step consent flows. Simple key-only integrations
-          (Anthropic, 17track) can be set inline below.
+          (Anthropic, 17track, Pushover) can be set inline below.
         </div>
         <ul className="v2-integrations-list">
           {integrations.map(int => (
@@ -314,23 +340,89 @@ function IntegrationsPanel({ settings, update, switchToV1 }) {
                     )}
                   </div>
                 )}
+                {int.inline === 'pushover' && (
+                  <div className="v2-integrations-inline">
+                    <input
+                      type="password"
+                      className="v2-form-input"
+                      placeholder="User Key (from pushover.net dashboard)"
+                      value={settings.pushover_user_key || ''}
+                      onChange={e => update('pushover_user_key', e.target.value)}
+                    />
+                    <input
+                      type="password"
+                      className="v2-form-input"
+                      placeholder={int.appTokenFromEnv ? 'App Token (from env var)' : 'App Token (create app named "Boomerang")'}
+                      value={settings.pushover_app_token || ''}
+                      onChange={e => update('pushover_app_token', e.target.value)}
+                      disabled={int.appTokenFromEnv && !settings.pushover_app_token}
+                    />
+                    <div className="v2-integrations-actions">
+                      <button
+                        className="v2-settings-btn"
+                        disabled={pushoverTest.status === 'sending'}
+                        onClick={() => runPushoverTest(false)}
+                      >
+                        {pushoverTest.status === 'sending' ? 'Sending…' : pushoverTest.status === 'sent' ? 'Sent ✓' : 'Test'}
+                      </button>
+                      <button
+                        className="v2-settings-btn v2-settings-btn-danger"
+                        disabled={pushoverEmer.status === 'sending'}
+                        onClick={() => setEmergencyConfirm(true)}
+                      >
+                        {pushoverEmer.status === 'sending' ? 'Triggering…' : pushoverEmer.status === 'sent' ? 'Alarm sent ✓' : 'Test emergency'}
+                      </button>
+                    </div>
+                    {pushoverTest.status === 'error' && pushoverTest.error && (
+                      <div className="v2-integrations-error">{pushoverTest.error}</div>
+                    )}
+                    {pushoverEmer.status === 'error' && pushoverEmer.error && (
+                      <div className="v2-integrations-error">{pushoverEmer.error}</div>
+                    )}
+                    <div className="v2-integrations-hint" style={{ marginTop: 6 }}>
+                      Configure which notification types fire over Pushover in the Notifications tab.
+                    </div>
+                  </div>
+                )}
               </div>
-              <button
-                className="v2-settings-btn"
-                onClick={switchToV1}
-                title={`Open ${int.v1Section} in v1`}
-              >
-                {int.connected ? 'Manage in v1' : 'Connect in v1'}
-              </button>
+              {int.inline !== 'pushover' && (
+                <button
+                  className="v2-settings-btn"
+                  onClick={switchToV1}
+                  title={`Open ${int.v1Section} in v1`}
+                >
+                  {int.connected ? 'Manage in v1' : 'Connect in v1'}
+                </button>
+              )}
             </li>
           ))}
         </ul>
       </div>
 
+      {emergencyConfirm && (
+        <div className="v2-settings-confirm-overlay" onClick={() => setEmergencyConfirm(false)}>
+          <div className="v2-settings-confirm" onClick={e => e.stopPropagation()}>
+            <div className="v2-settings-confirm-title">Trigger Emergency alarm?</div>
+            <div className="v2-settings-confirm-message">
+              This will fire a priority-2 Pushover alarm on your iOS device that repeats every 30 seconds and bypasses Do Not Disturb. The alarm auto-cancels after about 90 seconds.
+            </div>
+            <div className="v2-settings-confirm-actions">
+              <button className="v2-settings-btn" onClick={() => setEmergencyConfirm(false)}>Cancel</button>
+              <button
+                className="v2-settings-btn v2-settings-btn-danger"
+                onClick={() => { setEmergencyConfirm(false); runPushoverTest(true) }}
+              >
+                Trigger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="v2-settings-block">
         <div className="v2-form-label">Why v1 for OAuth?</div>
         <div className="v2-settings-row-hint">
-          OAuth flows for Notion / Trello / Google Calendar / Gmail / Pushover each have 4–8 UI
+          OAuth flows for Notion / Trello / Google Calendar / Gmail each have 4–8 UI
           states (consent prompt, callback handling, calendar picker, scope error, env-var
           override, disconnect with confirmation). v2 will absorb them in a future release;
           for now, v1 → Settings → Integrations does the work, and the resulting tokens are
