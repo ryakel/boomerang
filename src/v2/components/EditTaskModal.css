@@ -398,3 +398,189 @@
   color: var(--v2-text);
   border-color: var(--v2-text-meta);
 }
+
+/* Notes action row — Polish + Research as inline pills. The pills are
+ * normally absolute-positioned (single-pill case in AddTaskModal); inside
+ * this wrapper we reset to static so they flow side-by-side. */
+.v2-edit-notes-actions {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+}
+.v2-edit-notes-actions .v2-form-ai-pill {
+  position: static;
+}
+
+/* Research prompt input — appears below Notes when toggle is on */
+.v2-edit-research-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.v2-edit-research-row .v2-form-input {
+  flex: 1;
+}
+
+.v2-edit-research-go {
+  padding: 0 16px;
+  height: 38px;
+  border-radius: var(--v2-radius-pill);
+  border: 1px solid var(--v2-accent);
+  background: var(--v2-accent);
+  color: #fff;
+  font: 600 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: filter var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-edit-research-go:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.v2-edit-research-go:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Attachments + Comments shared head row */
+.v2-edit-attach-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.v2-edit-attach-summary {
+  font: 500 11px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+  color: var(--v2-text-meta);
+  flex: 1;
+}
+
+.v2-edit-attach-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v2-edit-attach-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 10px;
+}
+
+.v2-edit-attach-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+.v2-edit-attach-item:last-child {
+  border-bottom: none;
+}
+
+.v2-edit-attach-name {
+  flex: 1;
+  font: 400 13px/1.3 var(--v2-font-body);
+  color: var(--v2-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v2-edit-attach-size {
+  font: 500 11px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.v2-edit-attach-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--v2-text-meta);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-edit-attach-remove:hover {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text);
+}
+
+/* Comments list */
+.v2-edit-comment-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.v2-edit-comment-item {
+  padding: 10px 12px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 10px;
+  background: rgba(var(--v2-text-rgb), 0.02);
+}
+
+.v2-edit-comment-text {
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.v2-edit-comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.v2-edit-comment-time {
+  font: 500 10px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--v2-text-faint);
+}
+
+.v2-edit-comment-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--v2-text-faint);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-edit-comment-remove:hover {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text);
+}
+
+.v2-edit-comment-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.v2-edit-comment-input-row .v2-form-input {
+  flex: 1;
+}

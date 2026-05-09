@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon } from 'lucide-react'
+import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText } from 'lucide-react'
 import { loadLabels, ENERGY_TYPES, STATUS_META, uuid } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
+import { researchTask } from '../../api'
 import ModalShell from './ModalShell'
 import './AddTaskModal.css' // shared form-control styles
 import './EditTaskModal.css'
@@ -33,7 +34,45 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
     highPriority: task.high_priority || false,
     lowPriority: task.low_priority || false,
     sizeInferred: !!task.size_inferred,
+    attachments: task.attachments || [],
   })
+
+  // Research state — inline because only EditTaskModal supports it; not worth
+  // promoting into useTaskForm since AddTaskModal doesn't use it.
+  const [showResearch, setShowResearch] = useState(false)
+  const [researchPrompt, setResearchPrompt] = useState('')
+  const [researching, setResearching] = useState(false)
+  const [researchError, setResearchError] = useState(null)
+
+  const runResearch = async () => {
+    const prompt = researchPrompt.trim()
+    if (!prompt && !form.attachments.length) return
+    setResearching(true)
+    setResearchError(null)
+    try {
+      const result = await researchTask(form.title || 'Untitled task', form.notes, prompt, form.attachments)
+      if (result?.notes) form.setNotes(result.notes)
+      setResearchPrompt('')
+      setShowResearch(false)
+    } catch (e) {
+      setResearchError(e?.message || 'Research failed')
+    } finally {
+      setResearching(false)
+    }
+  }
+
+  // Comments — task-local thread of dated notes. Same shape v1 uses.
+  const [comments, setComments] = useState(task.comments || [])
+  const [newComment, setNewComment] = useState('')
+  const [showComments, setShowComments] = useState(comments.length > 0)
+
+  const addComment = () => {
+    const text = newComment.trim()
+    if (!text) return
+    setComments(prev => [...prev, { id: uuid(), text, created_at: new Date().toISOString() }])
+    setNewComment('')
+  }
+  const removeComment = (id) => setComments(prev => prev.filter(c => c.id !== id))
 
   const [currentStatus, setCurrentStatus] = useState(task.status === 'open' ? 'not_started' : task.status)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -73,6 +112,8 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
       low_priority: form.lowPriority,
       size_inferred: !!form.size,
       checklists,
+      attachments: form.attachments,
+      comments,
       last_touched: new Date().toISOString(),
     })
     onClose()
@@ -193,14 +234,45 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
             value={form.notes}
             onChange={e => form.setNotes(e.target.value)}
           />
-          {form.notes.trim() && (
-            <button className="v2-form-ai-pill" onClick={form.handlePolish} disabled={form.polishing}>
-              {form.polishing ? <span className="v2-spinner" /> : <Sparkles size={12} strokeWidth={1.75} />}
-              {form.polishing ? 'Polishing…' : 'Polish'}
+          <div className="v2-edit-notes-actions">
+            {form.notes.trim() && (
+              <button className="v2-form-ai-pill" onClick={form.handlePolish} disabled={form.polishing}>
+                {form.polishing ? <span className="v2-spinner" /> : <Sparkles size={12} strokeWidth={1.75} />}
+                {form.polishing ? 'Polishing…' : 'Polish'}
+              </button>
+            )}
+            <button
+              className="v2-form-ai-pill"
+              onClick={(e) => { e.preventDefault(); setShowResearch(s => !s) }}
+              disabled={researching}
+              title="Ask the AI to research and append findings to notes"
+            >
+              {researching ? <span className="v2-spinner" /> : <Search size={12} strokeWidth={1.75} />}
+              {researching ? 'Researching…' : 'Research'}
             </button>
-          )}
+          </div>
         </div>
         {form.polishError && <div className="v2-form-error">{form.polishError}</div>}
+        {researchError && <div className="v2-form-error">{researchError}</div>}
+        {showResearch && (
+          <div className="v2-edit-research-row">
+            <input
+              className="v2-form-input"
+              placeholder="What do you need to know?"
+              value={researchPrompt}
+              onChange={e => setResearchPrompt(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runResearch() } }}
+              autoFocus
+            />
+            <button
+              className="v2-edit-research-go"
+              onClick={runResearch}
+              disabled={researching || (!researchPrompt.trim() && !form.attachments.length)}
+            >
+              {researching ? '…' : 'Go'}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="v2-form-row">
@@ -385,6 +457,62 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
         </button>
       </div>
 
+      {/* Attachments — file uploads with optional AI text extraction. */}
+      <div className="v2-form-section">
+        <div className="v2-edit-attach-head">
+          <label className="v2-form-label">Attachments</label>
+          {form.attachments.length > 0 && (
+            <span className="v2-edit-attach-summary">
+              {form.attachments.length} · {form.formatFileSize(form.attachments.reduce((n, a) => n + a.size, 0))}
+            </span>
+          )}
+        </div>
+        <input
+          ref={form.fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,.pdf,.txt,.md,.csv,.json"
+          hidden
+          onChange={form.handleFileSelect}
+        />
+        <div className="v2-edit-attach-actions">
+          <button type="button" className="v2-form-ai-pill" onClick={() => form.fileInputRef.current?.click()}>
+            <Paperclip size={12} strokeWidth={1.75} /> Attach files
+          </button>
+          {form.attachments.length > 0 && (
+            <button
+              type="button"
+              className="v2-form-ai-pill"
+              onClick={form.handleExtractText}
+              disabled={form.extracting}
+              title="Run AI text extraction on attachments and append to notes"
+            >
+              {form.extracting ? <span className="v2-spinner" /> : <FileText size={12} strokeWidth={1.75} />}
+              {form.extracting ? 'Extracting…' : 'Extract text'}
+            </button>
+          )}
+        </div>
+        {form.attachError && <div className="v2-form-error">{form.attachError}</div>}
+        {form.attachments.length > 0 && (
+          <ul className="v2-edit-attach-list">
+            {form.attachments.map(a => (
+              <li key={a.id} className="v2-edit-attach-item">
+                <span className="v2-edit-attach-name">{a.name}</span>
+                <span className="v2-edit-attach-size">{form.formatFileSize(a.size)}</span>
+                <button
+                  type="button"
+                  className="v2-edit-attach-remove"
+                  onClick={() => form.removeAttachment(a.id)}
+                  aria-label={`Remove ${a.name}`}
+                >
+                  <XIcon size={13} strokeWidth={2} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {labels.length > 0 && (
         <div className="v2-form-section">
           <label className="v2-form-label">Labels</label>
@@ -441,6 +569,65 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           )}
         </div>
       )}
+
+      {/* Comments — task-local thread. Each comment is a {id, text, created_at}. */}
+      <div className="v2-form-section">
+        <div className="v2-edit-attach-head">
+          <label className="v2-form-label">Comments</label>
+          {comments.length > 0 && (
+            <span className="v2-edit-attach-summary">{comments.length}</span>
+          )}
+          {!showComments && (
+            <button type="button" className="v2-form-ai-pill" onClick={() => setShowComments(true)}>
+              <Plus size={12} strokeWidth={2} /> Add
+            </button>
+          )}
+        </div>
+        {showComments && (
+          <>
+            {comments.length > 0 && (
+              <ul className="v2-edit-comment-list">
+                {comments.map(c => (
+                  <li key={c.id} className="v2-edit-comment-item">
+                    <div className="v2-edit-comment-text">{c.text}</div>
+                    <div className="v2-edit-comment-meta">
+                      <span className="v2-edit-comment-time">
+                        {new Date(c.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        {' · '}
+                        {new Date(c.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                      <button
+                        type="button"
+                        className="v2-edit-comment-remove"
+                        onClick={() => removeComment(c.id)}
+                        aria-label="Remove comment"
+                      >
+                        <XIcon size={11} strokeWidth={2} />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="v2-edit-comment-input-row">
+              <input
+                className="v2-form-input"
+                placeholder="Add a comment…"
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addComment() } }}
+              />
+              <button
+                className="v2-edit-research-go"
+                disabled={!newComment.trim()}
+                onClick={addComment}
+              >
+                Add
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="v2-form-section v2-edit-actions-row">
         <button
