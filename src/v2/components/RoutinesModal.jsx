@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward } from 'lucide-react'
+import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { loadLabels, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
@@ -105,6 +105,102 @@ function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onSkipCycle
   )
 }
 
+// Convert offset_minutes back to a {value, unit} pair for display. We pick
+// the largest unit that produces an integer to avoid awkward decimals like
+// "0.5 d" when the user typed "12 h".
+function offsetToDisplay(minutes) {
+  const m = Math.max(0, Number(minutes) || 0)
+  if (m === 0) return { value: 0, unit: 'min' }
+  if (m % 1440 === 0) return { value: m / 1440, unit: 'd' }
+  if (m % 60 === 0) return { value: m / 60, unit: 'h' }
+  return { value: m, unit: 'min' }
+}
+function displayToOffsetMinutes(value, unit) {
+  const v = Math.max(0, Number(value) || 0)
+  if (unit === 'd') return v * 1440
+  if (unit === 'h') return v * 60
+  return v
+}
+
+function FollowUpStepRow({ step, index, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDown }) {
+  const display = offsetToDisplay(step.offset_minutes)
+  const [unit, setUnit] = useState(display.unit)
+  const [valueDraft, setValueDraft] = useState(String(display.value))
+
+  const commitValue = (raw, nextUnit = unit) => {
+    const minutes = displayToOffsetMinutes(raw, nextUnit)
+    onChange({ offset_minutes: minutes })
+  }
+
+  return (
+    <li className="v2-followups-step">
+      <div className="v2-followups-step-head">
+        <span className="v2-followups-step-num">{index + 1}</span>
+        <input
+          className="v2-form-input v2-followups-step-title"
+          type="text"
+          placeholder="Step title"
+          value={step.title}
+          onChange={e => onChange({ title: e.target.value })}
+        />
+        <button
+          type="button"
+          className="v2-followups-step-icon"
+          onClick={onRemove}
+          aria-label="Remove step"
+        >
+          <X size={14} strokeWidth={1.75} />
+        </button>
+      </div>
+      <div className="v2-followups-step-body">
+        <span className="v2-followups-step-meta-label">Offset</span>
+        <input
+          className="v2-form-input v2-followups-step-value"
+          type="number"
+          min="0"
+          step={unit === 'min' ? '1' : '0.25'}
+          value={valueDraft}
+          onChange={e => {
+            setValueDraft(e.target.value)
+            commitValue(e.target.value)
+          }}
+        />
+        <select
+          className="v2-form-input v2-followups-step-unit"
+          value={unit}
+          onChange={e => {
+            setUnit(e.target.value)
+            commitValue(valueDraft, e.target.value)
+          }}
+        >
+          <option value="min">min</option>
+          <option value="h">h</option>
+          <option value="d">d</option>
+        </select>
+        <span className="v2-followups-step-spacer" />
+        <button
+          type="button"
+          className="v2-followups-step-icon"
+          onClick={onMoveUp}
+          disabled={isFirst}
+          aria-label="Move up"
+        >
+          <ChevronUp size={14} strokeWidth={1.75} />
+        </button>
+        <button
+          type="button"
+          className="v2-followups-step-icon"
+          onClick={onMoveDown}
+          disabled={isLast}
+          aria-label="Move down"
+        >
+          <ChevronDown size={14} strokeWidth={1.75} />
+        </button>
+      </div>
+    </li>
+  )
+}
+
 function RoutineForm({ initial, onSave, onCancel }) {
   const isNew = !initial
   const [title, setTitle] = useState(initial?.title || '')
@@ -117,6 +213,9 @@ function RoutineForm({ initial, onSave, onCancel }) {
   const [notes, setNotes] = useState(initial?.notes || '')
   const [highPriority, setHighPriority] = useState(initial?.high_priority || false)
   const [endDate, setEndDate] = useState(initial?.end_date || '')
+  const [followUps, setFollowUps] = useState(() =>
+    Array.isArray(initial?.follow_ups) ? initial.follow_ups.map(s => ({ ...s })) : []
+  )
 
   const labels = loadLabels()
   const today = new Date().toISOString().split('T')[0]
@@ -126,8 +225,49 @@ function RoutineForm({ initial, onSave, onCancel }) {
     setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
   }
 
+  // Follow-ups editor helpers. Step shape:
+  // { id, title, offset_minutes, energy_type?, energy_level?, notes? }
+  // For PR1 the editor only exposes title + offset (value + unit). Energy and
+  // notes can be added later; missing fields fall back to AI inference on
+  // spawn (size_inferred=false, background hook fills them in).
+  const addStep = () => {
+    setFollowUps(prev => [...prev, {
+      id: crypto.randomUUID(),
+      title: '',
+      offset_minutes: 30,
+    }])
+  }
+  const updateStep = (id, patch) => {
+    setFollowUps(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
+  }
+  const removeStep = (id) => {
+    setFollowUps(prev => prev.filter(s => s.id !== id))
+  }
+  const moveStep = (id, dir) => {
+    setFollowUps(prev => {
+      const idx = prev.findIndex(s => s.id === id)
+      if (idx < 0) return prev
+      const next = idx + dir
+      if (next < 0 || next >= prev.length) return prev
+      const copy = prev.slice()
+      ;[copy[idx], copy[next]] = [copy[next], copy[idx]]
+      return copy
+    })
+  }
+
   const handleSave = () => {
     if (!title.trim()) return
+    // Strip incomplete steps and ensure offset_minutes is a number.
+    const cleanFollowUps = followUps
+      .filter(s => s.title?.trim())
+      .map(s => ({
+        id: s.id,
+        title: s.title.trim(),
+        offset_minutes: Math.max(0, Number(s.offset_minutes) || 0),
+        ...(s.energy_type ? { energy_type: s.energy_type } : {}),
+        ...(s.energy_level ? { energy_level: s.energy_level } : {}),
+        ...(s.notes?.trim() ? { notes: s.notes.trim() } : {}),
+      }))
     onSave({
       title: title.trim(),
       cadence,
@@ -137,6 +277,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
       highPriority,
       endDate: endDate || null,
       scheduleDayOfWeek: parsedDay,
+      followUps: cleanFollowUps,
     })
   }
 
@@ -226,6 +367,33 @@ function RoutineForm({ initial, onSave, onCancel }) {
         />
       </div>
 
+      <div className="v2-form-section">
+        <label className="v2-form-label">Follow-ups</label>
+        <div className="v2-form-section-hint">
+          Steps that auto-spawn when each previous one is completed. Offset is the delay between completion and the next step appearing.
+        </div>
+        {followUps.length > 0 && (
+          <ol className="v2-followups-list">
+            {followUps.map((step, idx) => (
+              <FollowUpStepRow
+                key={step.id}
+                step={step}
+                index={idx}
+                isFirst={idx === 0}
+                isLast={idx === followUps.length - 1}
+                onChange={patch => updateStep(step.id, patch)}
+                onRemove={() => removeStep(step.id)}
+                onMoveUp={() => moveStep(step.id, -1)}
+                onMoveDown={() => moveStep(step.id, +1)}
+              />
+            ))}
+          </ol>
+        )}
+        <button type="button" className="v2-edit-add-pill" onClick={addStep}>
+          + Add step
+        </button>
+      </div>
+
       {labels.length > 0 && (
         <div className="v2-form-section">
           <label className="v2-form-label">Labels</label>
@@ -302,12 +470,14 @@ export default function RoutinesModal({
         high_priority: data.highPriority,
         end_date: data.endDate,
         schedule_day_of_week: data.scheduleDayOfWeek,
+        follow_ups: data.followUps,
       })
     } else {
       onAdd(
         data.title, data.cadence, data.customDays,
         data.tags, data.notes, data.highPriority,
         data.endDate, data.scheduleDayOfWeek,
+        data.followUps,
       )
     }
     setView('list')

@@ -208,3 +208,99 @@
   letter-spacing: -0.01em;
   margin: 0;
 }
+
+/* Follow-ups editor on the routine form. Each step is a small card with
+ * the title input on the head row and the offset controls on the body row.
+ * Reorder + remove sit on the right of the body row. */
+.v2-form-section-hint {
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin-top: -4px;
+  margin-bottom: 8px;
+}
+.v2-followups-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.v2-followups-step {
+  border: 1px solid var(--v2-hairline);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--v2-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.v2-followups-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.v2-followups-step-num {
+  font: 600 11px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  min-width: 18px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.v2-followups-step-title {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 6px 10px;
+  font: 500 14px/1 var(--v2-font-body);
+}
+.v2-followups-step-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 26px;
+}
+.v2-followups-step-meta-label {
+  font: 500 11px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  white-space: nowrap;
+}
+.v2-followups-step-value {
+  width: 64px;
+  height: 32px;
+  padding: 4px 8px;
+  font: 500 13px/1 var(--v2-font-body);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.v2-followups-step-unit {
+  width: 64px;
+  height: 32px;
+  padding: 4px 8px;
+  font: 500 13px/1 var(--v2-font-body);
+}
+.v2-followups-step-spacer {
+  flex: 1;
+}
+.v2-followups-step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--v2-text-meta);
+  cursor: pointer;
+  transition: background 120ms var(--v2-ease-standard), color 120ms var(--v2-ease-standard);
+}
+.v2-followups-step-icon:hover:not(:disabled) {
+  background: rgba(var(--v2-text-rgb), 0.05);
+  color: var(--v2-text);
+}
+.v2-followups-step-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
