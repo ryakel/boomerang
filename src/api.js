@@ -688,16 +688,6 @@ export async function trelloUploadAttachment(cardId, name, mimeType, data) {
   return res.json()
 }
 
-export async function trelloSyncCards(idList) {
-  const res = await fetch('/api/trello/sync', {
-    method: 'POST',
-    headers: getApiHeaders(),
-    body: JSON.stringify({ idList }),
-  })
-  if (!res.ok) throw new Error('Failed to sync cards')
-  return res.json()
-}
-
 export async function trelloSyncAllLists(listIds) {
   const res = await fetch('/api/trello/sync-all-lists', {
     method: 'POST',
@@ -926,13 +916,6 @@ export async function serverDeleteTask(id) {
   return res.json()
 }
 
-export async function serverFetchTasks(filters = {}) {
-  const params = new URLSearchParams(filters)
-  const res = await fetch(`/api/tasks?${params}`)
-  if (!res.ok) throw new Error(`fetch tasks failed: ${res.status}`)
-  return res.json()
-}
-
 export async function serverCreateRoutine(routine, clientId) {
   const res = await fetch('/api/routines', {
     method: 'POST',
@@ -965,12 +948,6 @@ export async function fetchPackages(status) {
   const params = status ? `?status=${status}` : ''
   const res = await fetch(`/api/packages${params}`)
   if (!res.ok) throw new Error(`fetch packages failed: ${res.status}`)
-  return res.json()
-}
-
-export async function fetchPackage(id) {
-  const res = await fetch(`/api/packages/${id}`)
-  if (!res.ok) throw new Error(`fetch package failed: ${res.status}`)
   return res.json()
 }
 

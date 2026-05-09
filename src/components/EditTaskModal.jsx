@@ -62,18 +62,13 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
   const [attachments, setAttachments] = useState(task.attachments || [])
   const [attachError, setAttachError] = useState(null)
   const [extracting, setExtracting] = useState(false)
-  // Migrate old flat checklist → named checklists
-  const [checklists, setChecklists] = useState(() => {
-    if (task.checklists?.length) return task.checklists
-    if (task.checklist?.length) return [{ id: uuid(), name: 'Checklist', items: task.checklist, hideCompleted: false }]
-    return []
-  })
+  const [checklists, setChecklists] = useState(() => task.checklists || [])
   const [newCheckItems, setNewCheckItems] = useState({}) // { checklistId: string }
   const [confirmDeleteChecklist, setConfirmDeleteChecklist] = useState(null)
   // Collapsible sections — expand if content exists
   const [expandedSections, setExpandedSections] = useState(() => {
     const s = new Set()
-    if (task.checklists?.length || task.checklist?.length) s.add('checklists')
+    if (task.checklists?.length) s.add('checklists')
     if (task.comments?.length) s.add('comments')
     if (task.attachments?.length) s.add('attachments')
     return s
