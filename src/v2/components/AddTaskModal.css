@@ -173,12 +173,13 @@
   flex: 0 0 auto;
   min-width: 44px;
   height: 36px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: var(--v2-radius-pill);
   background: var(--v2-bg);
   color: var(--v2-text-meta);
   border: 1px solid var(--v2-hairline);
   font: 500 13px/1 var(--v2-font-body);
+  text-transform: lowercase;
   cursor: pointer;
   transition: background var(--v2-dur-quick) var(--v2-ease-standard),
               color var(--v2-dur-quick) var(--v2-ease-standard),
@@ -196,20 +197,25 @@
   border-color: var(--v2-text);
 }
 
+/* Energy type — matches Energy drain (.v2-form-seg) in shape: full pill,
+ * 36px height, lowercase. Differentiation comes from per-type color
+ * (border + text in the active state), set inline via the energy palette. */
 .v2-form-energy-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .v2-form-energy-pill {
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
+  flex: 0 0 auto;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--v2-radius-pill);
   background: var(--v2-bg);
   color: var(--v2-text);
   border: 1px solid var(--v2-hairline);
   font: 500 13px/1 var(--v2-font-body);
+  text-transform: lowercase;
   cursor: pointer;
   transition: background var(--v2-dur-quick) var(--v2-ease-standard),
               border-color var(--v2-dur-quick) var(--v2-ease-standard);
