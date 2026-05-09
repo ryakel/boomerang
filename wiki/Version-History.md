@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 manual sync triggers (Trello / Notion / GCal / Gmail) in Integrations [M]
+  - **Why.** Last v2 ship-blocker. v2 had no manual "Sync now" UI for any of the four pull-sync integrations — users had to flip back to v1 to trigger a one-shot sync. Worse: AppV2 wasn't even mounting `useNotionSync` or `useGCalSync`, so the auto-on-mount + visibility-change syncs that v1 runs were silently disabled on dev. This commit fixes both.
+  - **AppV2 hook wiring.** Added `useNotionSync(tasks, setTasks)` and `useGCalSync(tasks, setTasks)` imports and call sites alongside the existing `useTrelloSync`. Pulled `syncTrello` / `syncing: trelloSyncing` from the existing useTrelloSync call (was previously only consuming `pushStatusToTrello`). Threaded all three sync functions + their busy flags through to `<SettingsModal>` as new props.
+  - **IntegrationsPanel "Sync now" buttons.** New `sync` field on each integration descriptor — `{ fn, busy }`. Trello gated on `trello_sync_enabled`, Notion on `notion_sync_parent_id`, GCal on `gcal_pull_enabled`. Button uses `RefreshCw` icon with `v2-spinner` class while busy and "Syncing…" / "Sync now" labels.
+  - **Gmail.** Doesn't have a hook — handled inline via `runGmailSync()` in IntegrationsPanel. Dynamic-imports `gmailSync(gmail_scan_days)`, then surfaces a `syncResult` line under the row ("N task(s), M package(s)" or "Error: …") that auto-fades after 6 seconds.
+  - **Row layout.** `.v2-integrations-row-actions` is a vertical flex column on the right side of each row holding the Sync now button stacked above the existing Configure / Manage button. `.v2-integrations-sync-result` lives at the bottom of the meta column for the Gmail post-sync summary.
+  - **Behavior fix.** AppV2 now runs Notion + GCal pull-sync on mount + on visibility-change, matching v1 — fixes a silent regression where the dev image wasn't pulling inbound from those integrations at all.
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 709KB precache (up from 707KB).
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/V2-State.md`
+
 - docs(v2): park "terminal-aesthetic theme" idea (init.habits inspiration) [XS]
   - User shared a screenshot of [init.habits](https://inithabits.com) — monospace + ASCII checkboxes + terminal palette + command-prompt header. Logged as a future-direction parking-lot bullet in V2-State.md: a possible third theme tier beyond light/dark via a new `data-ui` mode that swaps `tokens.css`. Explicitly not a v2 ship item; post-dev→main experiment.
   - Modified: `wiki/V2-State.md`

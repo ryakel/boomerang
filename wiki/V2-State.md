@@ -9,7 +9,7 @@ up the work in a future session.
 ## TL;DR
 
 - **v2 is the default UI** since `b1f2e76` (PR6 cutover, 2026-05-03). `?ui=v1` reverts.
-- **Every v1 surface has a v2 implementation.** All 8 Settings tabs, all task-flow modals, KanbanBoard on desktop, swipe gestures on mobile, weather badges, Trello status push, routine cadence advancing on complete, multi-list checklists.
+- **Every v1 surface has a v2 implementation.** All 8 Settings tabs, all task-flow modals, KanbanBoard on desktop, swipe gestures on mobile, weather badges, Trello status push, routine cadence advancing on complete, multi-list checklists. As of 2026-05-09, all six v2-polish ship-blockers have landed (skip-this-cycle, sort+filter pills, search, Pushover credentials, Anthropic key, manual sync triggers). Visual bugs deferred per the "Known visual bugs" section below.
 - **Dev-merge workflow is locked in.** Direct push to `refs/heads/dev` still 403s on the local proxy (status as of 2026-05-09). The MCP-PR-and-rebase-merge loop documented in CLAUDE.md is the canonical way work lands on `dev` — fully automated end-to-end with no GitHub-UI clicks.
 - **Dark-mode QA was deferred** at the user's request until light-mode sizes/positions/colors are dialed.
 
@@ -92,7 +92,7 @@ These are daily-use gaps that users would notice:
 - [x] ~~**Search bar + results view** in v2.~~ Landed 2026-05-09 in `TaskListToolbar`. Search icon next to sort flips the toolbar into search mode (input + close, Esc closes). Debounced 300ms fetch to `/api/tasks?q=`; results render as a single section with count chip in place of the regular task list. Searches every task (active, done, backlog, project) per the v1 endpoint behavior.
 - [x] ~~**Pushover credential entry + test buttons** in v2 Integrations.~~ Landed 2026-05-09. Inline user-key + app-token password fields, "Test" (priority-0) and "Test emergency" (priority-2 with v2 confirm dialog) buttons, status feedback, env-override notice. Pushover moved out of the OAuth-deferred bucket since it's actually credential-only.
 - [x] ~~**Anthropic API key entry + status check** in v2 AI tab.~~ Landed 2026-05-09. New `AnthropicKeyBlock` in the AI tab: env-var notice OR password input with show/hide toggle, "Test" button (calls `callClaude("ok")` ping), Disconnect, status feedback (Checking… / Connected ✓ / error message). Integrations panel's Anthropic row now points users at the AI tab via "Configure in AI" rather than punting to v1. **Model picker** dropped from scope — neither v1 nor server-side has a user-facing model selector today (both `ADVISER_MODEL` and other call sites are hardcoded). When that work happens, the picker can land in the same block.
-- [ ] **Manual sync triggers** (Trello / Notion / GCal / Gmail Sync-Now buttons) in v2 Integrations. Background syncs run; manual one-shots don't have UI.
+- [x] ~~**Manual sync triggers** (Trello / Notion / GCal / Gmail Sync-Now buttons) in v2 Integrations.~~ Landed 2026-05-09. AppV2 now mounts `useNotionSync` + `useGCalSync` (previously missing — the dev image was silently not running inbound Notion/GCal pull-sync), and exposes `syncTrello` / `syncNotion` / `syncGCal` to SettingsModal. IntegrationsPanel renders a "Sync now" button (RefreshCw icon, spinner while syncing) on each integration row when its inbound sync is configured: Trello (gated on `trello_sync_enabled`), Notion (gated on `notion_sync_parent_id`), GCal (gated on `gcal_pull_enabled`), Gmail (gated on connection status, calls `gmailSync(scan_days)` directly with task/package counts shown after).
 
 ### Medium priority
 

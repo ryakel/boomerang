@@ -34,6 +34,8 @@ import { useAdviser } from '../hooks/useAdviser'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useWeather } from '../hooks/useWeather'
 import { useTrelloSync } from '../hooks/useTrelloSync'
+import { useNotionSync } from '../hooks/useNotionSync'
+import { useGCalSync } from '../hooks/useGCalSync'
 import { inferSize, trelloUpdateCard } from '../api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks } from '../store'
 import './AppV2.css'
@@ -98,7 +100,12 @@ export default function AppV2() {
   usePackageNotifications(packages)
   // Trello status push lives at this level so handleComplete / status-change
   // / handleUncomplete can fire it for any task with a linked Trello card.
-  const { pushStatusToTrello } = useTrelloSync(tasks, setTasks, changeStatus)
+  const { pushStatusToTrello, syncTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
+  // Notion + GCal pull-syncs. Both also auto-fire on mount + visibility-change
+  // when configured — matching v1 behavior. v2 previously didn't run them at
+  // all, so the dev image was silently missing inbound Notion/GCal sync.
+  const { syncing: notionSyncing, syncNotion } = useNotionSync(tasks, setTasks)
+  const { syncing: gcalSyncing, syncGCal } = useGCalSync(tasks, setTasks)
 
   // Server hydration + cross-client sync. Mirror v1's hydrateFromServer so
   // settings + labels stay in localStorage when other clients update them.
@@ -512,6 +519,12 @@ export default function AppV2() {
         onClearCompleted={() => { clearCompleted(); setShowSettings(false); flushSync() }}
         onClearAll={() => { clearAll(); setShowSettings(false); flushSync() }}
         onShowActivityLog={() => setShowActivityLog(true)}
+        onTrelloSync={syncTrello}
+        trelloSyncing={trelloSyncing}
+        onNotionSync={syncNotion}
+        notionSyncing={notionSyncing}
+        onGCalSync={syncGCal}
+        gcalSyncing={gcalSyncing}
       />
       <ProjectsView
         open={showProjects}

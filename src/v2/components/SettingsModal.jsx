@@ -293,12 +293,32 @@ function AnthropicKeyBlock({ settings, update }) {
   )
 }
 
-function IntegrationsPanel({ settings, update, switchToV1, setActiveTab }) {
+function IntegrationsPanel({
+  settings, update, switchToV1, setActiveTab,
+  onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
+}) {
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
   const [statuses, setStatuses] = useState({})
   const [pushoverTest, setPushoverTest] = useState({ status: null, error: null })
   const [pushoverEmer, setPushoverEmer] = useState({ status: null, error: null })
   const [emergencyConfirm, setEmergencyConfirm] = useState(false)
+  const [gmailSyncing, setGmailSyncing] = useState(false)
+  const [gmailSyncResult, setGmailSyncResult] = useState(null)
+
+  const runGmailSync = async () => {
+    setGmailSyncing(true)
+    setGmailSyncResult(null)
+    try {
+      const api = await import('../../api')
+      const result = await api.gmailSync(settings.gmail_scan_days || 7)
+      setGmailSyncResult(`${result.tasksCreated || 0} task(s), ${result.packagesCreated || 0} package(s)`)
+      setTimeout(() => setGmailSyncResult(null), 6000)
+    } catch (e) {
+      setGmailSyncResult(`Error: ${e?.message || 'Sync failed'}`)
+    } finally {
+      setGmailSyncing(false)
+    }
+  }
 
   // Load env-key flags + each integration's connection status on mount.
   // Failures are silent — a missing status just leaves the dot grey.
@@ -334,6 +354,7 @@ function IntegrationsPanel({ settings, update, switchToV1, setActiveTab }) {
       hint: 'Pull pages as tasks, sync edits both ways. MCP-based connection (recommended).',
       connected: !!statuses.notion?.connected,
       v1Section: 'Integrations → Notion',
+      sync: onNotionSync && settings.notion_sync_parent_id ? { fn: onNotionSync, busy: notionSyncing } : null,
     },
     {
       key: 'trello',
@@ -341,6 +362,7 @@ function IntegrationsPanel({ settings, update, switchToV1, setActiveTab }) {
       hint: 'Push tasks to Trello with checklists + attachments. Bidirectional status sync.',
       connected: !!statuses.trello?.connected,
       v1Section: 'Integrations → Trello',
+      sync: onTrelloSync && settings.trello_sync_enabled ? { fn: onTrelloSync, busy: trelloSyncing } : null,
     },
     {
       key: 'gcal',
@@ -349,6 +371,7 @@ function IntegrationsPanel({ settings, update, switchToV1, setActiveTab }) {
       connected: !!statuses.gcal?.connected,
       sub: statuses.gcal?.email,
       v1Section: 'Integrations → Google Calendar',
+      sync: onGCalSync && settings.gcal_pull_enabled ? { fn: onGCalSync, busy: gcalSyncing } : null,
     },
     {
       key: 'gmail',
@@ -357,6 +380,8 @@ function IntegrationsPanel({ settings, update, switchToV1, setActiveTab }) {
       connected: !!statuses.gmail?.connected,
       sub: statuses.gmail?.email,
       v1Section: 'Integrations → Gmail',
+      sync: statuses.gmail?.connected ? { fn: runGmailSync, busy: gmailSyncing } : null,
+      syncResult: gmailSyncResult,
     },
     {
       key: 'tracking',
@@ -479,26 +504,42 @@ function IntegrationsPanel({ settings, update, switchToV1, setActiveTab }) {
                     </div>
                   </div>
                 )}
+                {int.syncResult && (
+                  <div className="v2-integrations-sync-result">{int.syncResult}</div>
+                )}
               </div>
-              {int.inline !== 'pushover' && (
-                int.manageInTab ? (
+              <div className="v2-integrations-row-actions">
+                {int.sync && (
                   <button
                     className="v2-settings-btn"
-                    onClick={() => setActiveTab(int.manageInTab)}
-                    title={`Open ${int.manageInTab} tab`}
+                    onClick={() => int.sync.fn()}
+                    disabled={int.sync.busy}
+                    title="Pull/refresh from this integration"
                   >
-                    Configure in {int.manageInTab}
+                    <RefreshCw size={13} strokeWidth={1.75} className={int.sync.busy ? 'v2-spinner' : ''} />
+                    {int.sync.busy ? 'Syncing…' : 'Sync now'}
                   </button>
-                ) : (
-                  <button
-                    className="v2-settings-btn"
-                    onClick={switchToV1}
-                    title={`Open ${int.v1Section} in v1`}
-                  >
-                    {int.connected ? 'Manage in v1' : 'Connect in v1'}
-                  </button>
-                )
-              )}
+                )}
+                {int.inline !== 'pushover' && (
+                  int.manageInTab ? (
+                    <button
+                      className="v2-settings-btn"
+                      onClick={() => setActiveTab(int.manageInTab)}
+                      title={`Open ${int.manageInTab} tab`}
+                    >
+                      Configure in {int.manageInTab}
+                    </button>
+                  ) : (
+                    <button
+                      className="v2-settings-btn"
+                      onClick={switchToV1}
+                      title={`Open ${int.v1Section} in v1`}
+                    >
+                      {int.connected ? 'Manage in v1' : 'Connect in v1'}
+                    </button>
+                  )
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -853,6 +894,7 @@ function ServerLogsPanel() {
 
 export default function SettingsModal({
   open, onClose, onFlush, onClearCompleted, onClearAll, onShowActivityLog,
+  onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
 }) {
   const [activeTab, setActiveTab] = useState('Beta')
   const [settings, setSettings] = useState(() => loadSettings())
@@ -1170,7 +1212,18 @@ export default function SettingsModal({
         )}
 
         {activeTab === 'Integrations' && (
-          <IntegrationsPanel settings={settings} update={update} switchToV1={switchToV1} setActiveTab={setActiveTab} />
+          <IntegrationsPanel
+            settings={settings}
+            update={update}
+            switchToV1={switchToV1}
+            setActiveTab={setActiveTab}
+            onTrelloSync={onTrelloSync}
+            trelloSyncing={trelloSyncing}
+            onNotionSync={onNotionSync}
+            notionSyncing={notionSyncing}
+            onGCalSync={onGCalSync}
+            gcalSyncing={gcalSyncing}
+          />
         )}
 
         {activeTab === 'Logs' && <ServerLogsPanel />}
