@@ -77,6 +77,7 @@
 .v2-edit-actions-row {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
   margin-top: 24px;
   padding-top: 20px;
@@ -399,18 +400,15 @@
   border-color: var(--v2-text-meta);
 }
 
-/* Notes action row — Polish + Research as inline pills. The pills are
- * normally absolute-positioned (single-pill case in AddTaskModal); inside
- * this wrapper we reset to static so they flow side-by-side. */
-.v2-edit-notes-actions {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
+/* Notes toolbar — Polish + Research as a horizontal row BELOW the textarea.
+ * Earlier these were absolute-positioned at the textarea's bottom-right
+ * corner; that overlaid typed text and visually crowded the next form
+ * section. Inline row beneath the textarea is cheaper and clearer. */
+.v2-edit-notes-toolbar {
   display: flex;
   gap: 6px;
-}
-.v2-edit-notes-actions .v2-form-ai-pill {
-  position: static;
+  margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 /* Research prompt input — appears below Notes when toggle is on */
