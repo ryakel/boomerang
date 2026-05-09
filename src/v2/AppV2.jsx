@@ -274,18 +274,6 @@ export default function AppV2() {
     setTimeout(() => document.querySelector('.v2-toolbar-search-input')?.focus(), 60)
   }, [])
 
-  const { selectedTaskId, showHelp, setShowHelp } = useKeyboardShortcuts({
-    isDesktop,
-    visibleTasks,
-    onEdit: setEditTarget,
-    onComplete: handleComplete,
-    onSnooze: handleSnooze,
-    openAddModal: useCallback(() => setShowAdd(true), []),
-    focusSearch: focusSearchInput,
-    activeModals,
-    closeTopModal,
-  })
-
   const handleComplete = useCallback((id) => {
     const task = tasks.find(t => t.id === id)
     completeTask(id)
@@ -355,6 +343,22 @@ export default function AppV2() {
       setSnoozeTarget(task)
     }
   }, [])
+
+  // Keyboard shortcuts hook needs handleComplete + handleSnooze in scope —
+  // const declarations don't hoist, so this call lives below the handler
+  // definitions. Hook order is stable across renders, which is all React
+  // requires.
+  const { selectedTaskId, showHelp, setShowHelp } = useKeyboardShortcuts({
+    isDesktop,
+    visibleTasks,
+    onEdit: setEditTarget,
+    onComplete: handleComplete,
+    onSnooze: handleSnooze,
+    openAddModal: useCallback(() => setShowAdd(true), []),
+    focusSearch: focusSearchInput,
+    activeModals,
+    closeTopModal,
+  })
 
   const handleStatusChange = useCallback((id, newStatus) => {
     if (newStatus === 'done') { handleComplete(id); return }
