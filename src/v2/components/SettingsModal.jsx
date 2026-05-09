@@ -362,6 +362,118 @@ function IntegrationsPanel({
     setTrelloListsList([])
   }
 
+  // Trello connect — key + token verification (no popup OAuth; Trello's
+  // dev portal generates a long-lived token that the user pastes here).
+  const [trelloConnecting, setTrelloConnecting] = useState(false)
+  const [trelloError, setTrelloError] = useState(null)
+  const [showTrelloCreds, setShowTrelloCreds] = useState(false)
+
+  const handleTrelloConnect = async () => {
+    setTrelloConnecting(true)
+    setTrelloError(null)
+    try {
+      const api = await import('../../api')
+      const status = await api.trelloStatus()
+      if (status.connected) {
+        setStatuses(prev => ({ ...prev, trello: status }))
+        const boards = await api.trelloBoards().catch(() => [])
+        setTrelloBoardsList(Array.isArray(boards) ? boards : [])
+      } else {
+        setTrelloError('Could not connect. Check your API key and token.')
+      }
+    } catch (e) {
+      setTrelloError(e?.message || 'Connect failed')
+    } finally {
+      setTrelloConnecting(false)
+    }
+  }
+
+  const handleTrelloDisconnect = () => {
+    update('trello_api_key', '')
+    update('trello_secret', '')
+    setStatuses(prev => ({ ...prev, trello: { connected: false } }))
+    setTrelloBoardsList([])
+  }
+
+  // GCal connect — popup OAuth. Server returns authUrl; we open it in a
+  // popup; on success the popup posts {type: 'gcal-connected'} which
+  // triggers a status refresh.
+  const [gcalConnecting, setGcalConnecting] = useState(false)
+  const [gcalError, setGcalError] = useState(null)
+  const [showGcalCreds, setShowGcalCreds] = useState(false)
+
+  const handleGcalConnect = async () => {
+    setGcalConnecting(true)
+    setGcalError(null)
+    try {
+      const api = await import('../../api')
+      const { url } = await api.gcalGetAuthUrl()
+      window.open(url, '_blank', 'width=500,height=600')
+    } catch (e) {
+      setGcalError(e?.message || 'Connect failed')
+    } finally {
+      setGcalConnecting(false)
+    }
+  }
+
+  const handleGcalDisconnect = async () => {
+    try {
+      const api = await import('../../api')
+      await api.gcalDisconnect()
+      setStatuses(prev => ({ ...prev, gcal: { connected: false } }))
+    } catch { /* swallow */ }
+  }
+
+  // Gmail connect — same popup pattern as GCal, reuses gcal_client_id +
+  // gcal_client_secret (same Google Cloud project). Status refreshed via
+  // postMessage handler below.
+  const [gmailConnecting, setGmailConnecting] = useState(false)
+  const [gmailError, setGmailError] = useState(null)
+
+  const handleGmailConnect = async () => {
+    setGmailConnecting(true)
+    setGmailError(null)
+    try {
+      const api = await import('../../api')
+      const { url } = await api.gmailGetAuthUrl()
+      window.open(url, '_blank', 'width=500,height=600')
+    } catch (e) {
+      setGmailError(e?.message || 'Connect failed')
+    } finally {
+      setGmailConnecting(false)
+    }
+  }
+
+  const handleGmailDisconnect = async () => {
+    try {
+      const api = await import('../../api')
+      await api.gmailDisconnect()
+      setStatuses(prev => ({ ...prev, gmail: { connected: false } }))
+    } catch { /* swallow */ }
+  }
+
+  // Popup postMessage handlers — refresh status when the OAuth callback page
+  // signals success.
+  useEffect(() => {
+    const handler = async (event) => {
+      if (event.data?.type === 'gcal-connected') {
+        try {
+          const api = await import('../../api')
+          const s = await api.gcalStatus()
+          setStatuses(prev => ({ ...prev, gcal: s }))
+        } catch { /* swallow */ }
+      } else if (event.data?.type === 'gmail-connected') {
+        try {
+          const api = await import('../../api')
+          const s = await api.gmailStatus()
+          setStatuses(prev => ({ ...prev, gmail: s }))
+        } catch { /* swallow */ }
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
   const runNotionSearch = async () => {
     const q = notionSearchQuery.trim()
     if (!q) return
@@ -502,9 +614,9 @@ function IntegrationsPanel({
       label: 'Trello',
       hint: 'Push tasks to Trello with checklists + attachments. Bidirectional status sync.',
       connected: !!statuses.trello?.connected,
-      v1Section: 'Integrations → Trello',
+      sub: statuses.trello?.username ? `Connected as ${statuses.trello.username}` : null,
       sync: onTrelloSync && settings.trello_sync_enabled ? { fn: onTrelloSync, busy: trelloSyncing } : null,
-      inline: statuses.trello?.connected ? 'trello-config' : null,
+      inline: statuses.trello?.connected ? 'trello-config' : 'trello-connect',
     },
     {
       key: 'gcal',
@@ -512,9 +624,8 @@ function IntegrationsPanel({
       hint: 'Schedule tasks as events, AI-inferred times, optional pull-from-calendar.',
       connected: !!statuses.gcal?.connected,
       sub: statuses.gcal?.email,
-      v1Section: 'Integrations → Google Calendar',
       sync: onGCalSync && settings.gcal_pull_enabled ? { fn: onGCalSync, busy: gcalSyncing } : null,
-      inline: statuses.gcal?.connected ? 'gcal-config' : null,
+      inline: statuses.gcal?.connected ? 'gcal-config' : 'gcal-connect',
     },
     {
       key: 'gmail',
@@ -522,10 +633,9 @@ function IntegrationsPanel({
       hint: 'AI-extracted tasks + tracking numbers from your inbox. Manual approval per item.',
       connected: !!statuses.gmail?.connected,
       sub: statuses.gmail?.email,
-      v1Section: 'Integrations → Gmail',
       sync: statuses.gmail?.connected ? { fn: runGmailSync, busy: gmailSyncing } : null,
       syncResult: gmailSyncResult,
-      inline: statuses.gmail?.connected ? 'gmail-config' : null,
+      inline: statuses.gmail?.connected ? 'gmail-config' : 'gmail-connect',
     },
     {
       key: 'tracking',
@@ -673,8 +783,146 @@ function IntegrationsPanel({
                     )}
                   </div>
                 )}
+                {int.inline === 'trello-connect' && (
+                  <div className="v2-integrations-inline">
+                    <div className="v2-integrations-hint">
+                      Get your API key from <a href="https://trello.com/app-key" target="_blank" rel="noreferrer">trello.com/app-key</a>, then click "Token" on that page to generate a Token (paste it below — not the Secret).
+                    </div>
+                    {showTrelloCreds ? (
+                      <>
+                        <input
+                          type="password"
+                          className="v2-form-input"
+                          placeholder="API key"
+                          value={settings.trello_api_key || ''}
+                          onChange={e => update('trello_api_key', e.target.value)}
+                        />
+                        <input
+                          type="password"
+                          className="v2-form-input"
+                          placeholder="Token"
+                          value={settings.trello_secret || ''}
+                          onChange={e => update('trello_secret', e.target.value)}
+                        />
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="v2-settings-btn"
+                        onClick={() => setShowTrelloCreds(true)}
+                      >
+                        Enter credentials
+                      </button>
+                    )}
+                    {showTrelloCreds && (
+                      <div className="v2-integrations-actions">
+                        <button
+                          type="button"
+                          className="v2-settings-btn"
+                          onClick={handleTrelloConnect}
+                          disabled={trelloConnecting || !settings.trello_api_key || !settings.trello_secret}
+                        >
+                          {trelloConnecting ? 'Connecting…' : 'Connect'}
+                        </button>
+                        <button
+                          type="button"
+                          className="v2-settings-btn"
+                          onClick={() => { setShowTrelloCreds(false); setTrelloError(null) }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                    {trelloError && <div className="v2-integrations-error">{trelloError}</div>}
+                  </div>
+                )}
+                {int.inline === 'gcal-connect' && (
+                  <div className="v2-integrations-inline">
+                    <div className="v2-integrations-hint">
+                      Create OAuth credentials in your <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Google Cloud project</a> (Web app type, redirect URI <code>{window.location.origin}/api/gcal/callback</code>), paste the client ID + secret, then connect.
+                    </div>
+                    {showGcalCreds ? (
+                      <>
+                        <input
+                          type="text"
+                          className="v2-form-input"
+                          placeholder="Client ID"
+                          value={settings.gcal_client_id || ''}
+                          onChange={e => update('gcal_client_id', e.target.value)}
+                        />
+                        <input
+                          type="password"
+                          className="v2-form-input"
+                          placeholder="Client Secret"
+                          value={settings.gcal_client_secret || ''}
+                          onChange={e => update('gcal_client_secret', e.target.value)}
+                        />
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="v2-settings-btn"
+                        onClick={() => setShowGcalCreds(true)}
+                      >
+                        Enter credentials
+                      </button>
+                    )}
+                    {showGcalCreds && (
+                      <div className="v2-integrations-actions">
+                        <button
+                          type="button"
+                          className="v2-settings-btn"
+                          onClick={handleGcalConnect}
+                          disabled={gcalConnecting || !settings.gcal_client_id || !settings.gcal_client_secret}
+                        >
+                          {gcalConnecting ? 'Connecting…' : 'Connect'}
+                        </button>
+                        <button
+                          type="button"
+                          className="v2-settings-btn"
+                          onClick={() => { setShowGcalCreds(false); setGcalError(null) }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                    {gcalError && <div className="v2-integrations-error">{gcalError}</div>}
+                  </div>
+                )}
+                {int.inline === 'gmail-connect' && (
+                  <div className="v2-integrations-inline">
+                    <div className="v2-integrations-hint">
+                      Reuses Google credentials from the Google Calendar row above (same Google Cloud project). Add the redirect URI <code>{window.location.origin}/api/gmail/callback</code> to your OAuth client first.
+                    </div>
+                    <div className="v2-integrations-actions">
+                      <button
+                        type="button"
+                        className="v2-settings-btn"
+                        onClick={handleGmailConnect}
+                        disabled={gmailConnecting || !settings.gcal_client_id || !settings.gcal_client_secret}
+                      >
+                        {gmailConnecting ? 'Connecting…' : 'Connect Gmail'}
+                      </button>
+                    </div>
+                    {gmailError && <div className="v2-integrations-error">{gmailError}</div>}
+                    {!settings.gcal_client_id && (
+                      <div className="v2-integrations-hint">
+                        Configure Google Calendar credentials first.
+                      </div>
+                    )}
+                  </div>
+                )}
                 {int.inline === 'trello-config' && (
                   <div className="v2-integrations-inline">
+                    <div className="v2-integrations-actions" style={{ marginBottom: 8 }}>
+                      <button
+                        type="button"
+                        className="v2-settings-btn v2-settings-btn-danger"
+                        onClick={handleTrelloDisconnect}
+                      >
+                        Disconnect
+                      </button>
+                    </div>
                     <label className="v2-form-label">Board</label>
                     <select
                       className="v2-form-input"
@@ -712,6 +960,15 @@ function IntegrationsPanel({
                 )}
                 {int.inline === 'gcal-config' && (
                   <div className="v2-integrations-inline">
+                    <div className="v2-integrations-actions" style={{ marginBottom: 8 }}>
+                      <button
+                        type="button"
+                        className="v2-settings-btn v2-settings-btn-danger"
+                        onClick={handleGcalDisconnect}
+                      >
+                        Disconnect
+                      </button>
+                    </div>
                     <label className="v2-form-label">Calendar</label>
                     <select
                       className="v2-form-input"
@@ -751,6 +1008,15 @@ function IntegrationsPanel({
                 )}
                 {int.inline === 'gmail-config' && (
                   <div className="v2-integrations-inline">
+                    <div className="v2-integrations-actions" style={{ marginBottom: 8 }}>
+                      <button
+                        type="button"
+                        className="v2-settings-btn v2-settings-btn-danger"
+                        onClick={handleGmailDisconnect}
+                      >
+                        Disconnect
+                      </button>
+                    </div>
                     <div className="v2-integrations-toggle-row">
                       <span>Auto-scan inbox for tasks &amp; tracking numbers</span>
                       <label className="v2-settings-toggle">
@@ -877,7 +1143,7 @@ function IntegrationsPanel({
                     {int.sync.busy ? 'Syncing…' : 'Sync now'}
                   </button>
                 )}
-                {!['pushover', 'weather', 'trello-config', 'gcal-config', 'gmail-config', 'notion-config', 'anthropic'].includes(int.inline) && (
+                {!['pushover', 'weather', 'trello-config', 'trello-connect', 'gcal-config', 'gcal-connect', 'gmail-config', 'gmail-connect', 'notion-config', 'anthropic'].includes(int.inline) && (
                   int.manageInTab ? (
                     <button
                       className="v2-settings-btn"

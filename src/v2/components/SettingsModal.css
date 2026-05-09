@@ -47,6 +47,14 @@
   border-bottom: 1px solid var(--v2-hairline);
 }
 
+/* Sibling blocks need top breathing room so each label has air above the
+ * divider line from the previous block — without this, headers like
+ * ANTHROPIC API KEY butted directly against the Custom Instructions
+ * action row. */
+.v2-settings-block + .v2-settings-block {
+  padding-top: 24px;
+}
+
 .v2-settings-block:last-child {
   border-bottom: none;
   padding-bottom: 0;

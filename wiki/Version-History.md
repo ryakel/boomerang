@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 Integrations — Trello / GCal / Gmail connect flows ported out of v1 [M]
+  - Removed the "Connect in v1" / "Manage in v1" punt for the three OAuth-style integrations. Each integration row now renders its own connect UI inline when not connected.
+  - **Trello.** New `inline: 'trello-connect'` mode. Hint links to `trello.com/app-key`; "Enter credentials" reveals API key + Token password inputs. Connect button calls `trelloStatus()` to verify; on success populates the boards list. Disconnect button in the connected (`trello-config`) state clears `trello_api_key` + `trello_secret` and resets cached status.
+  - **Google Calendar.** New `inline: 'gcal-connect'` mode. Hint links to Google Cloud console + shows the redirect URI to add. Client ID + secret inputs. Connect opens an OAuth popup via `gcalGetAuthUrl()`; the success callback posts `{type: 'gcal-connected'}` which a postMessage listener in the panel picks up to refresh status. Disconnect via `gcalDisconnect()`.
+  - **Gmail.** New `inline: 'gmail-connect'` mode — reuses GCal credentials (same Google Cloud project, per Boomerang's existing pattern). One Connect button if creds set, else a "Configure Google Calendar credentials first" hint. Same popup + postMessage flow as GCal. Disconnect via `gmailDisconnect()`.
+  - Action-button gate updated so all six new modes (`*-connect`, `*-config`) skip rendering the right-side "Connect/Manage in v1" fallback. Trello's `username` surfaces as the row's `sub` line when connected.
+  - Fixes the "Settings → Integrations" section being unable to onboard new users without flipping back to v1.
+  - Modified: `src/v2/components/SettingsModal.jsx`
+
+- fix(ui): v2 Settings blocks have padding-top so labels don't butt against the divider above [XS]
+  - `.v2-settings-block` was `padding-bottom: 24px + border-bottom` only — sibling blocks rendered their first label flush against the previous block's divider. Added `.v2-settings-block + .v2-settings-block { padding-top: 24px }` to give every non-first block breathing room.
+  - Modified: `src/v2/components/SettingsModal.css`
+
 - docs(v2): note terminal-flavored loading animations on the parking-lot terminal-theme bullet [XS]
   - The wordmark-wave from PR #58 is exactly the kind of ambient state-feedback that the terminal theme should preserve. Added an idea-bank sub-bullet to V2-State's terminal-aesthetic entry: ASCII spinner glyphs per letter, cursor blink on the trailing `_`, `[OK]/[ERR]/[BUSY]` bracketed flashes, `loading…` ellipsis cycling, output-line scroll. Same `animState` state machine drives a different visual vocabulary.
   - Modified: `wiki/V2-State.md`
