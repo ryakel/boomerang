@@ -101,7 +101,7 @@ These are daily-use gaps that users would notice:
 - [ ] **Comments + AI Research + Attachments + Extract-Text** in v2 EditTaskModal. Common power-user features in v1 EditTaskModal still v1-only.
 - [ ] **Notion search/link/create + DB sync configuration** in v2.
 - [ ] **Trello board/list pickers + GCal calendar picker + Gmail scan controls** in v2 Integrations.
-- [ ] **Weather geocode/location picker** in v2 Settings.
+- [x] ~~**Weather geocode/location picker** in v2 Settings.~~ Landed 2026-05-09 as an inline `inline: 'weather'` row in IntegrationsPanel. Search box → `geocodeWeather(query)` → results list → pick a result writes `weather_latitude`/`longitude`/`location_name`/`timezone` and triggers a forced server cache refresh. Configured state shows "📍 Location" with a "Change location" button to clear and re-pick.
 
 ### Polish + lower priority
 
