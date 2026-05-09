@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 MarkdownImportModal + skip ExtendModal/FindRelatedModal as superseded [S]
+  - **Why.** Final polish item from V2-State. v1 has three "rare flow" modals — Extend (date preset shortcut), FindRelated (Notion search to link a task), MarkdownImport (bulk task creation from markdown). Audit found Extend + FindRelated are redundant in v2: EditTaskModal's date input already covers Extend's use case, and the inline Notion search in EditTaskModal Connections (PR #36) already covers FindRelated. MarkdownImport is the only one with an actual gap.
+  - **`MarkdownImportModal.jsx` + `.css`.** Direct port of v1's component into v2 idiom — wide ModalShell, paste-or-upload first step, preview-and-toggle-tasks second step, "Import N task(s)" CTA. Uses the existing `parseMarkdown` util. Bullets (`- item`), checkboxes (`- [ ] item`), and section headings (`## Section`) all supported; headings become group labels on each parsed task.
+  - **More menu wiring.** New "Import from markdown" row in the v2 More menu (Upload icon). State + render wired in AppV2 with the same shape as other secondary modals.
+  - **Extend + FindRelated explicitly skipped.** V2-State updated to mark both as "superseded by existing v2 flows" rather than pending. If a future workflow re-introduces a need for fast-preset extending or standalone Notion-search, they can land then.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 746KB precache (up from 743KB).
+  - New: `src/v2/components/MarkdownImportModal.jsx`, `src/v2/components/MarkdownImportModal.css`
+  - Modified: `src/v2/AppV2.jsx`, `wiki/V2-State.md`
+
 - feat(ui): v2 Analytics — adaptive-throttle 👍/👎 feedback chips [S]
   - **Why.** Analytics polish item from V2-State. v1 surfaced a row of back-off decisions ("Push overdue: 1.0× → 1.5×") with thumbs-up / thumbs-down buttons letting users approve or revert auto-tuning; v2 had no surface, so users couldn't curate the adaptive throttle from v2 at all.
   - **New section.** "Adaptive throttle decisions" at the bottom of v2 Analytics, only renders when there are unreviewed decisions in the last 30 days. Hairline list with channel chip (capitalized), type label, multiplier-before → multiplier-after, decision date, and 👍 / 👎 chip buttons.

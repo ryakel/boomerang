@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw } from 'lucide-react'
+import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw, Upload } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import EmptyState from './components/EmptyState'
@@ -20,6 +20,7 @@ import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
 import KanbanBoard from './components/KanbanBoard'
 import TaskListToolbar from './components/TaskListToolbar'
+import MarkdownImportModal from './components/MarkdownImportModal'
 import Toast from './components/Toast'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
@@ -53,6 +54,7 @@ export default function AppV2() {
   const [showProjects, setShowProjects] = useState(false)
   const [showDone, setShowDone] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
+  const [showMarkdownImport, setShowMarkdownImport] = useState(false)
   const [showRoutines, setShowRoutines] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
@@ -629,8 +631,23 @@ export default function AppV2() {
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
+          <li>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowMarkdownImport(true) }}>
+              <Upload size={18} strokeWidth={1.75} className="v2-more-row-icon" />
+              <span className="v2-more-row-label">Import from markdown</span>
+              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
+            </button>
+          </li>
         </ul>
       </ModalShell>
+
+      <MarkdownImportModal
+        open={showMarkdownImport}
+        onClose={() => setShowMarkdownImport(false)}
+        onImport={(tasks) => {
+          for (const t of tasks) addTask({ title: t.title })
+        }}
+      />
 
       <ModalShell open={showHelp} onClose={() => setShowHelp(false)} title="Keyboard shortcuts" width="narrow">
         <ul className="v2-shortcut-list">
