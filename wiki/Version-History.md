@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 Anthropic key entry + status check in AI tab [S]
+  - **Why.** Ship-blocker. AI tab had a "Open v1 → AI" punt button for the entire API-key flow; users couldn't configure Claude from v2 at all. Notion/Trello-class punts make sense (heavy OAuth flows); Anthropic doesn't (pure key entry).
+  - **`AnthropicKeyBlock`.** New sub-component in the AI tab. Loads `getKeyStatus()` on mount to detect `ANTHROPIC_API_KEY` env var. If env-set: read-only notice + a Test button. If user-set: password input (with show/hide toggle for verifying paste), Test button, Disconnect button (clears the key + resets status). Test calls `api.callClaude('Respond with just "ok".', 'ping')`. Status states: null / 'checking' / 'connected' / 'error', surfaced as a live status line below the controls.
+  - **Integrations panel split.** Anthropic row in IntegrationsPanel previously had its own inline api-key input (duplicating what the AI tab now has). New `manageInTab` field on the integration descriptor — Anthropic's row now reads "Configure in AI" and clicking flips the active tab. `setActiveTab` threaded into IntegrationsPanel.
+  - **OAuth-deferral copy updated.** The intro hint at the top of Integrations now reads "Anthropic is configured in the AI tab. Simple key-only integrations (17track, Pushover) can be set inline below."
+  - **Model picker dropped.** Original ship-blocker text said "API key entry + model picker + status check." Dropped the picker — server-side `ADVISER_MODEL` and all other call sites are hardcoded today, so there's nothing for a UI picker to drive. Easy to add later if model selection becomes user-controllable.
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 707KB precache (up from 705KB).
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 Pushover credential entry + test buttons in Integrations [S]
   - **Why.** Pushover can't be set up from v2 at all today — clicking the row just punted to v1. But Pushover is credential-only (user_key + app_token, no OAuth flow), so the v1 punt was overkill. Ship-blocker on the v2 polish list.
   - **Inline form.** Reclassified Pushover from OAuth-deferred to `inline: 'pushover'` in `IntegrationsPanel`. Two password inputs (user_key + app_token), with the app_token field placeholder + disabled state respecting `pushoverStatus.app_token_from_env`. Hint copy points users at the Notifications tab for type-by-type Pushover toggles.

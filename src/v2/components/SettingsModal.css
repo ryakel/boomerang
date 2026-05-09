@@ -753,3 +753,8 @@
   font: 400 12px/1.4 var(--v2-font-body);
   color: var(--v2-alert-overdue);
 }
+
+.v2-integrations-status-ok {
+  font: 500 12px/1.4 var(--v2-font-body);
+  color: var(--v2-energy-errand);
+}
