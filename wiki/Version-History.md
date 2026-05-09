@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 search bar + results view [S]
+  - **Why.** Daily-use ship-blocker. v1 had a magnifier in the header; v2 had nothing — users had to flip back to v1 to find an old task by keyword.
+  - **Search lives in TaskListToolbar.** Added a Search icon button next to the sort button. Click flips the toolbar into search mode: pills + sort + search-icon hidden, replaced by a Search-icon-prefixed input + X close button in the same row real estate (no layout shift). Esc closes too.
+  - **Debounced fetch.** AppV2 owns `searchOpen` / `searchQuery` / `searchResults`. `handleSearchChange` debounces 300ms then hits `GET /api/tasks?q=<query>` (same endpoint v1 uses; covers every task — active, done, backlog, project). `searchResults === null` means "search mode active, but no query / not yet fetched"; an empty array means "no matches"; a populated array renders.
+  - **Results render.** When `searchOpen`, the regular section list is replaced by a single SectionLabel ("N result(s)") + TaskCard list. Wired through the same TaskActionsContext-style handlers as the regular list — Complete / Edit / Snooze all work from results.
+  - **Empty states.** "Type to search" while idle, "No matches" when the query returns nothing.
+  - **`onCloseSearch`.** Resets query + results + clears the debounce timer. Toolbar still renders even when there are zero tasks if search is open (so the close button is reachable).
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 703KB precache (up from 701KB).
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/TaskListToolbar.jsx`, `src/v2/components/TaskListToolbar.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 TaskListToolbar — sort dropdown + tag filter pills [M]
   - **Why.** v2's task list was hardcoded to `'age'` sort with no filter UI — every-page gap that pushed users back to v1 just to focus on a tag or change the sort key. Last two ship-blockers from the v2 polish list landed together since they share the toolbar surface.
   - **New `TaskListToolbar` component.** `src/v2/components/TaskListToolbar.{jsx,css}`. Renders above the task list (and above KanbanBoard on desktop). Horizontal pill row: All + each user label + Routines (visual divider, opens RoutinesModal). Active label pill takes the label's color. Sort dropdown on the right: ArrowUpDown icon → menu with age / due-date / size / name. Click-outside closes. Pills row scrolls horizontally without a visible scrollbar when overflowing.
