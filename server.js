@@ -3,7 +3,7 @@ import cors from 'cors'
 import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
-import { initDb, getAllData, setAllData, setData, clearAllData, getVersion, bumpVersion, flushNow,
+import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flushNow,
   upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
   getAnalytics, getAnalyticsHistory, getData,
@@ -370,20 +370,6 @@ app.post('/api/data/restore', (req, res) => {
   broadcast(newVersion, body._clientId || null)
   console.log(`[Restore] Replaced DB from backup: ${tasks.length} tasks, ${routines.length} routines, settings=${!!settings}, labels=${!!labels}`)
   res.json({ ok: true, version: newVersion, restored: { tasks: tasks.length, routines: routines.length, settings: !!settings, labels: !!labels } })
-})
-
-app.patch('/api/data/:collection', (req, res) => {
-  setData(req.params.collection, req.body)
-  const newVersion = bumpVersion()
-  broadcast(newVersion, null)
-  res.json({ ok: true, version: newVersion })
-})
-
-app.delete('/api/data', (req, res) => {
-  clearAllData()
-  const newVersion = bumpVersion()
-  broadcast(newVersion, null)
-  res.json({ ok: true, version: newVersion })
 })
 
 // --- Analytics ---
@@ -1187,21 +1173,6 @@ app.post('/api/trello/cards/:id/attachments', async (req, res) => {
     const result = await response.json()
     if (!response.ok) return res.status(response.status).json(result)
     res.json(result)
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-app.post('/api/trello/sync', async (req, res) => {
-  const { key, token } = getTrelloAuth(req)
-  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
-  try {
-    const { idList } = req.body
-    if (!idList) return res.status(400).json({ error: 'idList is required' })
-    const response = await fetch(`${TRELLO_BASE}/lists/${idList}/cards?fields=name,desc,closed,idList,pos,due,labels,url&key=${key}&token=${token}`)
-    const data = await response.json()
-    if (!response.ok) return res.status(response.status).json(data)
-    res.json(data)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -2470,11 +2441,6 @@ app.post('/api/weather/geocode', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
-})
-
-app.post('/api/weather/clear-cache', (req, res) => {
-  clearWeatherCache()
-  res.json({ ok: true })
 })
 
 // --- Push notification endpoints ---

@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-09
+
+- chore(server): delete orphan API routes + dead client wrappers [S]
+  - Post-wipe-incident orphan sweep: 4 routes had no callers, 3 client wrappers had no callers. Deleting now to shrink the surface area before someone wires them to something fragile.
+  - **Routes deleted (server.js):** `PATCH /api/data/:collection`, `DELETE /api/data`, `POST /api/weather/clear-cache`, `POST /api/trello/sync`. The first two were bulk-blob escape hatches from before the per-record API took over; `weather/clear-cache` was an early debugging endpoint; `trello/sync` is single-list while the working code uses `trello/sync-all-lists`.
+  - **Client wrappers deleted (src/api.js):** `trelloSyncCards`, `serverFetchTasks`, `fetchPackage`. None had callers anywhere in `src/` or `public/`.
+  - **Kept:** `clearAllData()` in `db.js` is still used by `seed.js`; `clearWeatherCache()` is still used internally on weather-location changes.
+  - Modified: `server.js`, `src/api.js`, `wiki/Architecture.md`
+
+---
+
 ## 2026-05-08
 
 - fix(db): delete legacy tasks/routines JSON-blob ghost-revive path [S]
