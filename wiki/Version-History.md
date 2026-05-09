@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 Integrations — Trello board/list, GCal calendar, Gmail scan-window pickers [M]
+  - **Why.** Final piece of the v2-Integrations medium-priority list. Connected Trello/GCal/Gmail rows previously just showed status + a "Manage in v1" button. Now they expose the most-touched settings inline so users don't need v1 for daily picker tweaks.
+  - **Trello config.** When `statuses.trello.connected` is true, the row's inline area shows a Board dropdown (loaded once via `trelloBoards()`) and — once a board is picked — a Default list dropdown (loaded via `trelloBoardLists(boardId)` whenever the board changes). Picking a board resets the list selection. Multi-list sync checkboxes deferred; the per-task list picker in EditTaskModal still lets users override per push.
+  - **GCal config.** Calendar dropdown loaded via `gcalListCalendars()`; renders calendar `summary` with "(Primary)" suffix where applicable. Push / Pull toggles for `gcal_sync_enabled` / `gcal_pull_enabled`, each as a `.v2-integrations-toggle-row` (label-left + iOS-style toggle right). Status filter checkboxes deferred — sensible defaults (all active statuses) cover the common case.
+  - **Gmail config.** Auto-scan toggle + scan-window number input (1-30 days, default 7). Same row pattern as GCal toggles.
+  - **Status-gated lazy loading.** All three pickers fetch data only when their integration is connected, with cleanup flags to avoid setting state on unmount mid-fetch. Cancellable via `cancelled` closure. Failures are silent (status dot already telegraphs disconnection).
+  - **Right-column action button.** Hidden for any integration whose `inline` mode is non-null — the new picker UIs replace the "Configure / Manage in v1" button. Updated the gate from a 2-mode list to a 5-mode allow-list.
+  - **CSS.** New `.v2-integrations-toggle-row` (flex space-between, label-left + control-right) for the GCal/Gmail toggle pairs.
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 729KB precache (up from 725KB).
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 EditTaskModal — Notion link + create [S]
   - **Why.** Per-task Notion linking was the last piece of v1's EditTaskModal "Connections" panel that v2 didn't carry. `useTaskForm` already had the full handler set (`notionState`, `notionResult`, `handleNotionSearch`, `handleNotionCreate`, `handleNotionLink`, `setNotionResult`) — they just had no v2 render path.
   - **New Connections section** between Comments and the action row. Initial state shows a "Notion" pill button (disabled if title is empty). Clicking calls `handleNotionSearch(title, notes)` → `suggestNotionLink` server-side. While searching, a spinner row reads "Searching Notion…". On error: red message + Retry pill.
