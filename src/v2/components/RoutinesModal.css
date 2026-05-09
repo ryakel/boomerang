@@ -124,6 +124,31 @@
   filter: brightness(1.08);
 }
 
+/* Brief feedback states on the Spawn now button. 'spawned' shows ✓ + "Spawned"
+ * for 1.5s after a successful tap; 'blocked' shows "Already on list" when an
+ * instance of this routine is still active. Both lock the button so a frenzied
+ * user can't keep spawning duplicates. */
+.v2-routine-action-spawn-spawned {
+  background: var(--v2-energy-errand);
+  border-color: var(--v2-energy-errand);
+}
+.v2-routine-action-spawn-spawned:hover {
+  background: var(--v2-energy-errand);
+}
+.v2-routine-action-spawn-blocked {
+  background: rgba(var(--v2-text-rgb), 0.08);
+  color: var(--v2-text-meta);
+  border-color: var(--v2-hairline);
+}
+.v2-routine-action-spawn-blocked:hover {
+  background: rgba(var(--v2-text-rgb), 0.08);
+  color: var(--v2-text-meta);
+  filter: none;
+}
+.v2-routine-action[disabled] {
+  cursor: default;
+}
+
 .v2-routine-action-danger {
   color: var(--v2-alert-overdue);
 }

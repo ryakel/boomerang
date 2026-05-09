@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw, Upload } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
@@ -110,6 +110,18 @@ export default function AppV2() {
   useExternalSync(tasks, updateTask)
   useSizeAutoInfer(tasks, updateTask)
   const prefetchToast = useToastPrefetch(tasks, updateTask)
+
+  // Routine-id set for routines with an active instance on the list. Drives
+  // the "Already on list" disabled state on the RoutinesModal Spawn now button.
+  const activeRoutineIds = useMemo(() => {
+    const s = new Set()
+    for (const t of tasks) {
+      if (t.routine_id && !['done', 'completed', 'cancelled'].includes(t.status)) {
+        s.add(t.routine_id)
+      }
+    }
+    return s
+  }, [tasks])
   const { packages, addPackage, removePackage, refresh: refreshPackage, refreshAll: refreshAllPackages } = usePackages()
   usePackageNotifications(packages)
   // Trello status push lives at this level so handleComplete / status-change
@@ -754,9 +766,19 @@ export default function AppV2() {
         onTogglePause={togglePause}
         onUpdate={updateRoutine}
         onSpawnNow={(routineId) => {
+          // Guard at the call site: if an instance of this routine is still
+          // active on the list, refuse the spawn. Stops the "tap 10 times,
+          // get 10 duplicates" footgun the user hit.
+          const hasActive = tasks.some(t =>
+            t.routine_id === routineId &&
+            !['done', 'completed', 'cancelled'].includes(t.status)
+          )
+          if (hasActive) return null
           const task = spawnNow(routineId)
           if (task) addSpawnedTasks([task])
+          return task
         }}
+        activeRoutineIds={activeRoutineIds}
         onSkipCycle={skipCycle}
         onClose={() => { setShowRoutines(false); setEditRoutineId(null) }}
         editRoutineId={editRoutineId}
