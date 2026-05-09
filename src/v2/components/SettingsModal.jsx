@@ -200,7 +200,9 @@ const NOTIF_PACKAGE_TYPES = [
 // Anthropic key entry + status check. Lives in the AI tab; the
 // IntegrationsPanel still surfaces a status dot but the actual key
 // management happens here.
-function AnthropicKeyBlock({ settings, update }) {
+// Anthropic key entry + test. Embedded under the Anthropic row in
+// IntegrationsPanel; the AI tab just shows a one-liner pointer.
+function AnthropicKeyBlock({ settings, update, embedded = false }) {
   const [envKey, setEnvKey] = useState(false)
   const [status, setStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
   const [error, setError] = useState(null)
@@ -239,19 +241,23 @@ function AnthropicKeyBlock({ settings, update }) {
     : status === 'error' ? 'v2-integrations-error'
     : 'v2-integrations-hint'
 
-  return (
-    <div className="v2-settings-block">
-      <div className="v2-form-label">Anthropic API key</div>
-      <div className="v2-settings-row-hint">
-        Powers AI inference, Quokka, polish, what-now suggestions, and notification rewrites.
-        Keys at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>.
-      </div>
+  const inner = (
+    <>
+      {!embedded && (
+        <>
+          <div className="v2-form-label">Anthropic API key</div>
+          <div className="v2-settings-row-hint">
+            Powers AI inference, Quokka, polish, what-now suggestions, and notification rewrites.
+            Keys at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>.
+          </div>
+        </>
+      )}
       {envKey ? (
         <div className="v2-integrations-env">
           Provided via env var. Configure server-side; this field is read-only.
         </div>
       ) : (
-        <div className="v2-integrations-inline">
+        <>
           <input
             type={showKey ? 'text' : 'password'}
             className="v2-form-input"
@@ -279,18 +285,20 @@ function AnthropicKeyBlock({ settings, update }) {
               </button>
             )}
           </div>
-        </div>
+        </>
       )}
       {envKey && (
-        <div className="v2-integrations-actions" style={{ marginTop: 8 }}>
+        <div className="v2-integrations-actions">
           <button className="v2-settings-btn" onClick={runTest} disabled={status === 'checking'}>
             {status === 'checking' ? 'Testing…' : 'Test'}
           </button>
         </div>
       )}
-      <div className={summaryClass} style={{ marginTop: 8 }}>{summary}</div>
-    </div>
+      <div className={summaryClass}>{summary}</div>
+    </>
   )
+
+  return embedded ? inner : <div className="v2-settings-block">{inner}</div>
 }
 
 function IntegrationsPanel({
@@ -476,10 +484,9 @@ function IntegrationsPanel({
     {
       key: 'anthropic',
       label: 'Anthropic (Claude)',
-      hint: 'Powers AI inference, Quokka, polish, what-now suggestions, notification rewrites. Configure in the AI tab.',
+      hint: 'Powers AI inference, Quokka, polish, what-now suggestions, notification rewrites.',
       connected: envKeys.anthropic || !!settings.anthropic_api_key,
-      v1Section: 'AI',
-      manageInTab: 'AI',
+      inline: 'anthropic',
     },
     {
       key: 'notion',
@@ -603,6 +610,11 @@ function IntegrationsPanel({
                         onChange={e => update(int.keyName, e.target.value)}
                       />
                     )}
+                  </div>
+                )}
+                {int.inline === 'anthropic' && (
+                  <div className="v2-integrations-inline">
+                    <AnthropicKeyBlock settings={settings} update={update} embedded />
                   </div>
                 )}
                 {int.inline === 'notion-config' && (
@@ -865,7 +877,7 @@ function IntegrationsPanel({
                     {int.sync.busy ? 'Syncing…' : 'Sync now'}
                   </button>
                 )}
-                {!['pushover', 'weather', 'trello-config', 'gcal-config', 'gmail-config', 'notion-config'].includes(int.inline) && (
+                {!['pushover', 'weather', 'trello-config', 'gcal-config', 'gmail-config', 'notion-config', 'anthropic'].includes(int.inline) && (
                   int.manageInTab ? (
                     <button
                       className="v2-settings-btn"
@@ -1736,7 +1748,12 @@ export default function SettingsModal({
                 )}
               </div>
             </div>
-            <AnthropicKeyBlock settings={settings} update={update} />
+            <div className="v2-settings-block">
+              <div className="v2-form-label">Anthropic API key</div>
+              <div className="v2-settings-row-hint">
+                Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>, then configure it under <button type="button" className="v2-settings-inline-link" onClick={() => setActiveTab('Integrations')}>Settings → Integrations</button>.
+              </div>
+            </div>
           </div>
         )}
 

@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- style(ui): v2 AI tab — Anthropic key UI moves to Integrations, AI shows pointer note [XS]
+  - Anthropic key UI was duplicated across the AI tab (full editable block) and the Integrations row (which routed back to AI). Consolidated: Integrations row now embeds the editable block directly via a new `inline: 'anthropic'` mode; AI tab drops the full block and shows a one-line pointer ("Get a key at console.anthropic.com, then configure under Settings → Integrations") with a clickable inline link that flips active tab to Integrations. Fixes the visual cramming where the ANTHROPIC API KEY header was butted against the Custom-instructions Clear button.
+  - `AnthropicKeyBlock` gains an `embedded` prop that strips the outer block wrapper + the redundant header/hint when rendered inside the Integrations row.
+  - New `.v2-settings-inline-link` utility for tab-link-as-anchor styling.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`
+
 - fix(ui): v2 wordmark wave completes a full pass before restarting [S]
   - Bug. Fast syncs (saving → synced under ~200ms) flipped `data-sync-state` back to idle before the bounce wave reached the G — only the B and the first O ever moved.
   - Fix. Header now runs a small state machine: when saving starts, the visual state is held at "saving" for a minimum 1300ms (one full wave traversal + margin). If sync completes mid-wave, the green "just-synced" flash queues to fire after the hold, instead of clobbering the in-flight wave. Subsequent saves during the hold restart the timer cleanly.
