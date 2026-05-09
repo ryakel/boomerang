@@ -44,4 +44,22 @@ export default [
       ],
     },
   },
+  // v2-only: stricter check for the TDZ class of bug that took down v2 on
+  // 2026-05-09. `useKeyboardShortcuts({ onComplete: handleComplete })`
+  // referenced a `const handleComplete = useCallback(...)` defined later in
+  // the component. const doesn't hoist, so every fresh mount threw a
+  // ReferenceError before AppV2's useEffect could set data-ui="v2". Smoke
+  // test parses the bundle but doesn't mount React, so it shipped.
+  // `functions: false` keeps regular `function foo()` forward references OK
+  // (those genuinely hoist); `variables: true` is the new gate.
+  // Scoped to src/v2/** because v1 has 40 legitimate-at-runtime forward
+  // references inside `.then()` / `setTimeout` callbacks (they only execute
+  // after all consts are defined) and v1 is being deleted in the end-state
+  // cleanup anyway.
+  {
+    files: ['src/v2/**/*.{js,jsx}'],
+    rules: {
+      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }],
+    },
+  },
 ]
