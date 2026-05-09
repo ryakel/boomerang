@@ -9,11 +9,12 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = []) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes)
     if (highPriority) routine.high_priority = true
     if (endDate) routine.end_date = endDate
     if (scheduleDayOfWeek != null) routine.schedule_day_of_week = scheduleDayOfWeek
+    if (Array.isArray(followUps) && followUps.length > 0) routine.follow_ups = followUps
     setRoutines(prev => [routine, ...prev])
     return routine
   }, [])
@@ -79,6 +80,9 @@ export function useRoutines() {
     if (routine.high_priority) task.high_priority = true
     if (routine.energy) task.energy = routine.energy
     if (routine.energyLevel) task.energyLevel = routine.energyLevel
+    if (Array.isArray(routine.follow_ups) && routine.follow_ups.length > 0) {
+      task.follow_ups = routine.follow_ups
+    }
     return task
   }, [routines])
 
@@ -97,6 +101,9 @@ export function useRoutines() {
       task.notion_page_id = routine.notion_page_id
       task.notion_url = routine.notion_url
       if (routine.high_priority) task.high_priority = true
+      if (Array.isArray(routine.follow_ups) && routine.follow_ups.length > 0) {
+        task.follow_ups = routine.follow_ups
+      }
       spawned.push(task)
     })
     return spawned

@@ -117,6 +117,8 @@ UI lives in `src/components/Routines.jsx` — new "On" dropdown next to Frequenc
 
 **Manual "Create Now" trigger:** new `spawnNow(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card shows a "+" button that bypasses the schedule and immediately spawns a one-off task with due date = today. Importantly, it does NOT append to `completed_history` — the cadence clock is unaffected until the task is actually completed. So manually creating a task doesn't shift the normal schedule.
 
+**Follow-up sequences (`follow_ups` JSON column on tasks + routines, migration 023):** Completion-triggered task chains. Each routine can hold an ordered template of `[{id, title, offset_minutes, energy_type?, energy_level?, notes?}]` steps. When a routine spawns a task instance, the template is copied onto the spawned task. As each step is completed, `db.js` `spawnNextChainStep()` walks the chain — spawns the next step with `due_date` derived from `now + offset_minutes` and `follow_ups = task.follow_ups.slice(1)`. Sub-day offsets snooze the new task until its trigger time so it doesn't surface until the cycle is up. Use case: clean floors → auto-clean mop (immediate) → empty tanks (30 min) → put back (2 days). Editor lives on the routine form (RoutinesModal). Full spec + roadmap (delete prompt, skip-and-advance, AI-mediated edit reconciliation, Quokka tools) in `wiki/Sequences.md`.
+
 ### Notion Sync (Pull + Ongoing)
 Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks in sync.
 
