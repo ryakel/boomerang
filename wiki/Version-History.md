@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- style(ui): v2 chip controls — energy type matches energy drain shape, lowercase chip text [XS]
+  - Energy type pills now share the `.v2-form-seg` shape: full pill (`var(--v2-radius-pill)`), 36px height, flex-wrap layout (was 96px-min grid columns with rounded-rect 10px corners). The per-type color treatment in the active state still distinguishes Desk / People / Errand / Creative / Physical via inline border + text colors.
+  - Added `text-transform: lowercase` to both `.v2-form-seg` and `.v2-form-energy-pill` so all chip controls read like the user's lowercase labels (Status / Size / Energy type / Energy drain).
+  - Modified: `src/v2/components/AddTaskModal.css`
+
 - fix(ui): v2 date input collapses with `appearance: none` — force block + min-height [S]
   - PR #52 stripped iOS Safari's native `<input type="date">` chrome to fix the overflow into Priority. Side effect: with native chrome gone, iOS gives an empty date input zero intrinsic dimensions, so the rendered border collapsed to padding-only and no longer matched the Priority button's width.
   - Fix: `display: block` forces it out of inline layout (where iOS computes width against content); explicit `min-height: 44px` matches `.v2-form-pri-toggle` so the row aligns vertically too. Cleaned up a duplicate `min-width: 0` block while editing.
