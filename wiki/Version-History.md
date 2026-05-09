@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- chore(deps): clear 2 high-severity npm-audit vulnerabilities [XS]
+  - `fast-uri` 3.1.0 → 3.1.2 (path-traversal + host-confusion via percent-encoded sequences; transitive via ajv → MCP SDK).
+  - `@babel/plugin-transform-modules-systemjs` 7.29.0 → 7.29.4 (arbitrary code generation on malicious input; transitive via vite-plugin-pwa workbox; build-time only).
+  - `npm audit` clean afterward. Smoke test passes.
+  - Modified: `package-lock.json`
+
 - feat(routines): "Skip this cycle" button on expanded routine cards [S]
   - **Why.** Vacation, illness, the lawn doesn't need mowing this week — there was no way to advance a routine's cadence without spawning a task and immediately completing it. Now there's a fast-forward button next to the "+" spawn-now control.
   - **Behavior.** Stamps `completed_history` with today's ISO timestamp, which makes `getNextDueDate()` roll forward by one cadence interval. Skips count toward the "Nx completed" total — close enough for a personal app, no separate skip log needed.
