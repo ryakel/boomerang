@@ -15,9 +15,21 @@
   /* Strip the native iOS Safari date-input chrome (which renders an internal
    * UI that bleeds past the styled border and breaks grid column width).
    * The picker still triggers on tap; only the rendered field becomes
-   * fully styleable. */
+   * fully styleable.
+   *
+   * Once native chrome is gone iOS won't give an empty <input type="date">
+   * any intrinsic dimensions — `display: block` + an explicit min-height
+   * keep the styled border filling its grid column instead of collapsing
+   * to padding-only. */
   -webkit-appearance: none;
   appearance: none;
+  display: block;
+  min-width: 0;
+}
+
+.v2-form-input {
+  /* Match .v2-form-pri-toggle's 44px so date+priority rows align. */
+  min-height: 44px;
 }
 
 .v2-form-input:focus,
@@ -66,11 +78,6 @@
 }
 
 .v2-form-field {
-  min-width: 0;
-}
-
-.v2-form-input,
-.v2-form-textarea {
   min-width: 0;
 }
 

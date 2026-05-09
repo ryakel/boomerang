@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 date input collapses with `appearance: none` — force block + min-height [S]
+  - PR #52 stripped iOS Safari's native `<input type="date">` chrome to fix the overflow into Priority. Side effect: with native chrome gone, iOS gives an empty date input zero intrinsic dimensions, so the rendered border collapsed to padding-only and no longer matched the Priority button's width.
+  - Fix: `display: block` forces it out of inline layout (where iOS computes width against content); explicit `min-height: 44px` matches `.v2-form-pri-toggle` so the row aligns vertically too. Cleaned up a duplicate `min-width: 0` block while editing.
+  - Modified: `src/v2/components/AddTaskModal.css`
+
 - fix(ui): v2 EditTaskModal — strip native date-input chrome + unified add-pill style [S]
   - **Due/Priority STILL overlapped** despite the `minmax(0, 1fr)` fix in PR #51. Root cause was iOS Safari rendering native chrome on `<input type="date">` that bleeds *outside* the styled border into the adjacent grid column. `-webkit-appearance: none; appearance: none;` on `.v2-form-input` strips the native UI and leaves only the styled box; the picker still triggers on tap.
   - **Add-affordance pills were inconsistent.** "+ Add checklist" (dashed, transparent), "Attach files" (gray-fill), "Notion" (gray-fill), "+ Add comment" (gray-fill) — three different visual treatments for four structurally-identical "tap to add" empty-state pills. New shared `.v2-edit-add-pill` class with the dashed-border treatment; applied to all four. Existing `.v2-edit-checklist-new` aliased to the same selector to keep the original markup working.
