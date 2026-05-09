@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Play, Pause, Pencil, Trash2, RotateCw } from 'lucide-react'
+import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward } from 'lucide-react'
 import { loadLabels, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
@@ -37,7 +37,7 @@ function formatLastDone(routine) {
   return `done ${days}d ago`
 }
 
-function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onEdit, onTogglePause, onDelete }) {
+function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onSkipCycle, onEdit, onTogglePause, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
 
@@ -69,6 +69,11 @@ function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onEdit, onT
             <button className="v2-routine-action v2-routine-action-primary" onClick={() => onSpawnNow(routine.id)} title="Create a one-off task now without affecting the schedule">
               <Plus size={14} strokeWidth={2} /> Spawn now
             </button>
+            {!routine.paused && (
+              <button className="v2-routine-action" onClick={() => onSkipCycle(routine.id)} title="Skip this cycle (advance schedule, no task)">
+                <FastForward size={14} strokeWidth={1.75} /> Skip cycle
+              </button>
+            )}
             <button className="v2-routine-action" onClick={() => onEdit(routine)}>
               <Pencil size={14} strokeWidth={1.75} /> Edit
             </button>
@@ -254,7 +259,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
 }
 
 export default function RoutinesModal({
-  open, routines, onAdd, onDelete, onTogglePause, onUpdate, onSpawnNow, onClose,
+  open, routines, onAdd, onDelete, onTogglePause, onUpdate, onSpawnNow, onSkipCycle, onClose,
   editRoutineId, onClearEditRoutineId,
 }) {
   const [view, setView] = useState('list')  // 'list' | 'form'
@@ -348,6 +353,7 @@ export default function RoutinesModal({
                         expanded={expandedId === r.id}
                         onToggleExpand={() => setExpandedId(expandedId === r.id ? null : r.id)}
                         onSpawnNow={onSpawnNow}
+                        onSkipCycle={onSkipCycle}
                         onEdit={(routine) => { setEditing(routine); setView('form') }}
                         onTogglePause={onTogglePause}
                         onDelete={onDelete}
@@ -367,6 +373,7 @@ export default function RoutinesModal({
                         expanded={expandedId === r.id}
                         onToggleExpand={() => setExpandedId(expandedId === r.id ? null : r.id)}
                         onSpawnNow={onSpawnNow}
+                        onSkipCycle={onSkipCycle}
                         onEdit={(routine) => { setEditing(routine); setView('form') }}
                         onTogglePause={onTogglePause}
                         onDelete={onDelete}

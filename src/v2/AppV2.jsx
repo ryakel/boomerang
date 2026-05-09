@@ -76,7 +76,7 @@ export default function AppV2() {
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
-    completeRoutine, spawnDueTasks, spawnNow, hydrateRoutines,
+    completeRoutine, spawnDueTasks, spawnNow, skipCycle, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -445,6 +445,7 @@ export default function AppV2() {
           const task = spawnNow(routineId)
           if (task) addSpawnedTasks([task])
         }}
+        onSkipCycle={skipCycle}
         onClose={() => { setShowRoutines(false); setEditRoutineId(null) }}
         editRoutineId={editRoutineId}
         onClearEditRoutineId={() => setEditRoutineId(null)}
