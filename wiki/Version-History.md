@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 version-refresh modal [S]
+  - **Why.** v2's `onVersionMismatch` handler unregistered the service worker and triggered `window.location.reload()` after 1s, but rendered no UI between detection and reload. Users on slow connections saw the page seemingly hang then snap-reload — the v1 `update-modal` ("Update available: v0.99 · Refreshing automatically… [Reload now]") wasn't ported.
+  - **`v2-update-overlay` + `.v2-update-modal`.** New full-viewport overlay (z-index 9999, fade-in) holding a centered modal with the version label, "Refreshing automatically…" subtitle, and an explicit "Reload now" button for users who don't want to wait the 1s. Service-worker unregister still fires either way.
+  - **`checkVersion` polling.** Wired the version-check trigger v1 has — opening any of Settings / Done / Analytics / Routines / Activity Log / Packages / Projects / Adviser / Add / WhatNow / EditTask / MarkdownImport polls `checkVersion()`, which surfaces a stale-client modal without waiting for the next SSE round-trip.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 746KB precache (unchanged).
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/AppV2.css`
+
 - chore(server): delete orphan API routes + dead client wrappers [S]
   - Post-wipe-incident orphan sweep: 4 routes had no callers, 3 client wrappers had no callers. Deleting now to shrink the surface area before someone wires them to something fragile.
   - **Routes deleted (server.js):** `PATCH /api/data/:collection`, `DELETE /api/data`, `POST /api/weather/clear-cache`, `POST /api/trello/sync`. The first two were bulk-blob escape hatches from before the per-record API took over; `weather/clear-cache` was an early debugging endpoint; `trello/sync` is single-list while the working code uses `trello/sync-all-lists`.
