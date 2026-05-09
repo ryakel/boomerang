@@ -35,6 +35,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
     lowPriority: task.low_priority || false,
     sizeInferred: !!task.size_inferred,
     attachments: task.attachments || [],
+    notion: task.notion_page_id ? { id: task.notion_page_id, url: task.notion_url } : null,
   })
 
   // Research state — inline because only EditTaskModal supports it; not worth
@@ -114,6 +115,8 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
       checklists,
       attachments: form.attachments,
       comments,
+      notion_page_id: form.notionResult?.id || null,
+      notion_url: form.notionResult?.url || null,
       last_touched: new Date().toISOString(),
     })
     onClose()
@@ -626,6 +629,98 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
               </button>
             </div>
           </>
+        )}
+      </div>
+
+      {/* Connections — Notion link/create. Wired through useTaskForm's
+          notionState/notionResult/handlers. Trello + GCal connections still
+          deferred since they need fuller picker UIs that haven't ported yet. */}
+      <div className="v2-form-section">
+        <div className="v2-edit-attach-head">
+          <label className="v2-form-label">Connections</label>
+        </div>
+        <div className="v2-edit-connections">
+          {form.notionResult ? (
+            <div className="v2-edit-connection-pill v2-edit-connection-linked">
+              <a href={form.notionResult.url} target="_blank" rel="noopener noreferrer">Notion ↗</a>
+              <button
+                type="button"
+                className="v2-edit-connection-unlink"
+                onClick={() => form.setNotionResult(null)}
+                aria-label="Unlink Notion page"
+              >
+                <XIcon size={11} strokeWidth={2} />
+              </button>
+            </div>
+          ) : !form.notionState ? (
+            <button
+              type="button"
+              className="v2-form-ai-pill v2-form-ai-pill-static"
+              onClick={form.handleNotionSearch}
+              disabled={!form.title.trim()}
+              title="Search Notion for matching pages, or create a new one"
+            >
+              <Search size={12} strokeWidth={1.75} /> Notion
+            </button>
+          ) : null}
+        </div>
+        {form.notionState === 'searching' && (
+          <div className="v2-edit-notion-status">
+            <span className="v2-spinner" /> Searching Notion…
+          </div>
+        )}
+        {form.notionState?.action === 'error' && (
+          <div className="v2-form-error">
+            {form.notionState.reason}
+            <button
+              type="button"
+              className="v2-form-ai-pill v2-form-ai-pill-static"
+              onClick={form.handleNotionSearch}
+              style={{ marginLeft: 8 }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {form.notionState && form.notionState !== 'searching' && form.notionState.action !== 'error' && (
+          <div className="v2-edit-notion-suggestions">
+            {form.notionState.pages?.length > 0 && (
+              <>
+                <div className="v2-edit-notion-reason">{form.notionState.reason}</div>
+                <ul className="v2-edit-notion-list">
+                  {form.notionState.pages.map(page => (
+                    <li key={page.id}>
+                      <button
+                        type="button"
+                        className="v2-edit-notion-page"
+                        onClick={() => form.handleNotionLink(page)}
+                      >
+                        {page.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <div className="v2-edit-notion-actions">
+              <button
+                type="button"
+                className="v2-form-ai-pill v2-form-ai-pill-static"
+                onClick={form.handleNotionCreate}
+                disabled={form.notionCreating}
+              >
+                {form.notionCreating ? <span className="v2-spinner" /> : <Plus size={12} strokeWidth={2} />}
+                {form.notionCreating ? 'Creating…' : 'Create new Notion page'}
+              </button>
+              <button
+                type="button"
+                className="v2-edit-notion-cancel"
+                onClick={() => form.setNotionState(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
