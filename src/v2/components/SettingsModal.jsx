@@ -308,6 +308,46 @@ function IntegrationsPanel({
   const [weatherResults, setWeatherResults] = useState([])
   const [weatherSearching, setWeatherSearching] = useState(false)
   const [weatherError, setWeatherError] = useState(null)
+  const [trelloBoards, setTrelloBoardsList] = useState([])
+  const [trelloLists, setTrelloListsList] = useState([])
+  const [trelloListsLoading, setTrelloListsLoading] = useState(false)
+  const [gcalCalendars, setGcalCalendarsList] = useState([])
+
+  // Load Trello boards + GCal calendars when their integrations are connected.
+  useEffect(() => {
+    if (!statuses.trello?.connected) return
+    let cancelled = false
+    import('../../api').then(m => m.trelloBoards()).then(boards => {
+      if (!cancelled) setTrelloBoardsList(Array.isArray(boards) ? boards : [])
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [statuses.trello?.connected])
+
+  useEffect(() => {
+    if (!settings.trello_board_id || !statuses.trello?.connected) return
+    let cancelled = false
+    setTrelloListsLoading(true)
+    import('../../api').then(m => m.trelloBoardLists(settings.trello_board_id)).then(lists => {
+      if (!cancelled) setTrelloListsList(Array.isArray(lists) ? lists : [])
+    }).catch(() => { if (!cancelled) setTrelloListsList([]) })
+      .finally(() => { if (!cancelled) setTrelloListsLoading(false) })
+    return () => { cancelled = true }
+  }, [settings.trello_board_id, statuses.trello?.connected])
+
+  useEffect(() => {
+    if (!statuses.gcal?.connected) return
+    let cancelled = false
+    import('../../api').then(m => m.gcalListCalendars()).then(cals => {
+      if (!cancelled) setGcalCalendarsList(Array.isArray(cals) ? cals : [])
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [statuses.gcal?.connected])
+
+  const handleTrelloBoardChange = (boardId) => {
+    update('trello_board_id', boardId)
+    update('trello_list_id', '') // reset list when board changes
+    setTrelloListsList([])
+  }
 
   const runWeatherSearch = async () => {
     const q = weatherQuery.trim()
@@ -406,6 +446,7 @@ function IntegrationsPanel({
       connected: !!statuses.trello?.connected,
       v1Section: 'Integrations → Trello',
       sync: onTrelloSync && settings.trello_sync_enabled ? { fn: onTrelloSync, busy: trelloSyncing } : null,
+      inline: statuses.trello?.connected ? 'trello-config' : null,
     },
     {
       key: 'gcal',
@@ -415,6 +456,7 @@ function IntegrationsPanel({
       sub: statuses.gcal?.email,
       v1Section: 'Integrations → Google Calendar',
       sync: onGCalSync && settings.gcal_pull_enabled ? { fn: onGCalSync, busy: gcalSyncing } : null,
+      inline: statuses.gcal?.connected ? 'gcal-config' : null,
     },
     {
       key: 'gmail',
@@ -425,6 +467,7 @@ function IntegrationsPanel({
       v1Section: 'Integrations → Gmail',
       sync: statuses.gmail?.connected ? { fn: runGmailSync, busy: gmailSyncing } : null,
       syncResult: gmailSyncResult,
+      inline: statuses.gmail?.connected ? 'gmail-config' : null,
     },
     {
       key: 'tracking',
@@ -509,6 +552,108 @@ function IntegrationsPanel({
                         onChange={e => update(int.keyName, e.target.value)}
                       />
                     )}
+                  </div>
+                )}
+                {int.inline === 'trello-config' && (
+                  <div className="v2-integrations-inline">
+                    <label className="v2-form-label">Board</label>
+                    <select
+                      className="v2-form-input"
+                      value={settings.trello_board_id || ''}
+                      onChange={e => handleTrelloBoardChange(e.target.value)}
+                    >
+                      <option value="" disabled>Select a board…</option>
+                      {trelloBoards.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                    {settings.trello_board_id && (
+                      <>
+                        <label className="v2-form-label">Default list</label>
+                        <div className="v2-settings-row-hint" style={{ marginTop: -4, marginBottom: 4 }}>
+                          You can pick a different list when pushing each task.
+                        </div>
+                        {trelloListsLoading ? (
+                          <div className="v2-integrations-hint">Loading lists…</div>
+                        ) : (
+                          <select
+                            className="v2-form-input"
+                            value={settings.trello_list_id || ''}
+                            onChange={e => update('trello_list_id', e.target.value)}
+                          >
+                            <option value="" disabled>Select a list…</option>
+                            {trelloLists.map(l => (
+                              <option key={l.id} value={l.id}>{l.name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+                {int.inline === 'gcal-config' && (
+                  <div className="v2-integrations-inline">
+                    <label className="v2-form-label">Calendar</label>
+                    <select
+                      className="v2-form-input"
+                      value={settings.gcal_calendar_id || 'primary'}
+                      onChange={e => update('gcal_calendar_id', e.target.value)}
+                    >
+                      {gcalCalendars.length === 0 && <option value="primary">Primary</option>}
+                      {gcalCalendars.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.summary}{c.primary ? ' (Primary)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="v2-integrations-toggle-row">
+                      <span>Push tasks as calendar events</span>
+                      <label className="v2-settings-toggle">
+                        <input
+                          type="checkbox"
+                          checked={!!settings.gcal_sync_enabled}
+                          onChange={e => update('gcal_sync_enabled', e.target.checked)}
+                        />
+                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                      </label>
+                    </div>
+                    <div className="v2-integrations-toggle-row">
+                      <span>Pull events as tasks</span>
+                      <label className="v2-settings-toggle">
+                        <input
+                          type="checkbox"
+                          checked={!!settings.gcal_pull_enabled}
+                          onChange={e => update('gcal_pull_enabled', e.target.checked)}
+                        />
+                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+                {int.inline === 'gmail-config' && (
+                  <div className="v2-integrations-inline">
+                    <div className="v2-integrations-toggle-row">
+                      <span>Auto-scan inbox for tasks &amp; tracking numbers</span>
+                      <label className="v2-settings-toggle">
+                        <input
+                          type="checkbox"
+                          checked={!!settings.gmail_sync_enabled}
+                          onChange={e => update('gmail_sync_enabled', e.target.checked)}
+                        />
+                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                      </label>
+                    </div>
+                    <div className="v2-integrations-toggle-row">
+                      <span>Scan window (days back)</span>
+                      <input
+                        className="v2-form-input v2-settings-compact-input"
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={settings.gmail_scan_days || 7}
+                        onChange={e => update('gmail_scan_days', parseInt(e.target.value, 10) || 7)}
+                      />
+                    </div>
                   </div>
                 )}
                 {int.inline === 'weather' && (
@@ -613,7 +758,7 @@ function IntegrationsPanel({
                     {int.sync.busy ? 'Syncing…' : 'Sync now'}
                   </button>
                 )}
-                {int.inline !== 'pushover' && int.inline !== 'weather' && (
+                {!['pushover', 'weather', 'trello-config', 'gcal-config', 'gmail-config'].includes(int.inline) && (
                   int.manageInTab ? (
                     <button
                       className="v2-settings-btn"

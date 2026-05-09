@@ -970,3 +970,13 @@
 .v2-weather-result:hover {
   background: rgba(var(--v2-text-rgb), 0.05);
 }
+
+/* Inline toggle row inside Integrations config sections (GCal, Gmail) */
+.v2-integrations-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+}
