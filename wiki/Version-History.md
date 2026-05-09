@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- chore(server): delete orphan API routes + dead client wrappers [S]
+  - Post-wipe-incident orphan sweep: 4 routes had no callers, 3 client wrappers had no callers. Deleting now to shrink the surface area before someone wires them to something fragile.
+  - **Routes deleted (server.js):** `PATCH /api/data/:collection`, `DELETE /api/data`, `POST /api/weather/clear-cache`, `POST /api/trello/sync`. The first two were bulk-blob escape hatches from before the per-record API took over; `weather/clear-cache` was an early debugging endpoint; `trello/sync` is single-list while the working code uses `trello/sync-all-lists`.
+  - **Client wrappers deleted (src/api.js):** `trelloSyncCards`, `serverFetchTasks`, `fetchPackage`. None had callers anywhere in `src/` or `public/`.
+  - **Kept:** `clearAllData()` in `db.js` is still used by `seed.js`; `clearWeatherCache()` is still used internally on weather-location changes.
+  - Cherry-picked from main onto dev (final-mile cleanup, 2026-05-09).
+  - Modified: `server.js`, `src/api.js`, `wiki/Architecture.md`
+
 - refactor(db): drop legacy `task.checklist` serialization [S]
   - Migration 018 emptied the legacy flat `checklist_json` column months ago and replaced it with the named `checklists_json` (multi-list) format. The serialization paths still wrote `task.checklist || []` on every upsert and the read path still parsed it into a `checklist` field on every row → JS object trip. Pure cleanup.
   - Removed: `task.checklist` reads/writes in `db.js` `taskToRow`/`rowToTask`/`UPSERT_TASK_SQL`, the `checklist: []` default in `src/store.js` `createTask`, the legacy fallback wrapper in `src/components/TaskCard.jsx`, the legacy migrate-on-read in `src/components/EditTaskModal.jsx`, the inert `checklist_json: '[]'` in `gmailSync.js`'s task constructor.
