@@ -4,6 +4,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-09
+
+- feat(ui): v2 EditTaskModal — multi-list checklists [M]
+  - **Why.** Biggest daily-use gap in v2 EditTaskModal — no way to add/manage checklist items, so users had to flip back to v1 to edit any task with a checklist. Ships the multi-list shape v1 already uses (`task.checklists = [{ id, name, items: [{id,text,completed}], hideCompleted }]`). Migration 018 promoted `task.checklist_items` → `task.checklists` server-side; v2 TaskCard count was reading the legacy field — also fixed.
+  - **Scope.** Add/rename/delete checklists, add/check/rename/delete items, hide-completed toggle (+ "N completed hidden" footer), per-list progress bar, "Add another checklist" affordance. Modeled on v1's section but with the v2 hairline + accent palette.
+  - **Deferred (vs v1).** Drag-drop reorder of items within a list and reorder of lists themselves. Use case is rare enough to defer; if it gets missed, can come back as a separate commit. The data shape is identical so reorder UI can drop in without migrations.
+  - **TaskCard fix.** v2 TaskCard expanded view summary now reads from `task.checklists` (sums items across all lists) instead of the legacy `task.checklist_items`. Renders correctly for the new shape.
+  - **`handleSave`.** Serializes `checklists` into the patch sent to the shared `updateTask`. No server-side change — same shape v1 saves.
+  - **Verification.** `npm run build` clean (852KB precache), `npm run lint` clean, `npm test` smoke test passes.
+  - Modified: `src/v2/components/EditTaskModal.jsx`, `src/v2/components/EditTaskModal.css`, `src/v2/components/TaskCard.jsx`
+
+---
+
 ## 2026-05-08
 
 - fix(db): delete legacy tasks/routines JSON-blob ghost-revive path [S]
