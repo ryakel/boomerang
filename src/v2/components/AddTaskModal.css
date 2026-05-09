@@ -45,15 +45,26 @@
 /* Two-column row used for date+priority etc. CSS Grid (over flex) so each
  * column gets exactly half the available width regardless of intrinsic
  * content widths — Safari/iOS renders empty <input type="date"> at a
- * collapsed intrinsic width which broke the flex layout. */
+ * collapsed intrinsic width which broke the flex layout.
+ *
+ * minmax(0, 1fr) (not the shorthand `1fr` which is minmax(auto, 1fr)) so
+ * filled date inputs don't expand the column past its half-share —
+ * iOS Safari's date intrinsic-content-width is wide enough to overflow
+ * 1fr. Coupled with min-width: 0 on the field child + 100% width on the
+ * input, the cell clamps cleanly. */
 .v2-form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   margin-top: 18px;
 }
 
 .v2-form-field {
+  min-width: 0;
+}
+
+.v2-form-input,
+.v2-form-textarea {
   min-width: 0;
 }
 
