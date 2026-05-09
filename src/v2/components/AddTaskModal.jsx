@@ -74,6 +74,16 @@ export default function AddTaskModal({ open, onAdd, onClose }) {
           )}
         </div>
         {form.polishError && <div className="v2-form-error">{form.polishError}</div>}
+        {form.polishApplied?.addedLabels?.length > 0 && (
+          <div className="v2-edit-polish-applied">
+            <span>Polish added label{form.polishApplied.addedLabels.length === 1 ? '' : 's'}: {form.polishApplied.addedLabels.join(', ')}.</span>
+          </div>
+        )}
+        {form.suggestedChecklist && (
+          <div className="v2-edit-polish-applied">
+            <span>Checklist suggested ({form.suggestedChecklist.items.length} items). Save and re-open this task to apply.</span>
+          </div>
+        )}
       </div>
 
       <div className="v2-form-row">

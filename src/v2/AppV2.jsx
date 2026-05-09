@@ -294,9 +294,13 @@ export default function AppV2() {
     if (task?.routine_id) completeRoutine(task.routine_id)
     // Push completion to Trello so the linked card moves to the done list.
     if (task?.trello_card_id) pushStatusToTrello(task, 'done')
-    // Score the next-best candidate for the toast's "Next up" hint —
-    // high_priority +100, due-today/overdue +50, XS/S +20. Same logic v1
-    // uses. Trello status push deferred to PR8 (needs useTrelloSync).
+    // Score the next-best candidate for the toast's "Next up" hint.
+    // Base signal: high_priority +100, due-today/overdue +50, XS/S +20 (v1 carryover).
+    // Follow-up signal: prefer tasks that look related to the one just completed —
+    // shared routine_id (next instance of the same recurring task), shared
+    // notion_page_id (same Notion-doc context), shared tags (related work),
+    // explicit follow-up keywords in the title. Caps the follow-up bonus so
+    // a wildly-overdue stranger task can still beat a same-tag low-pri future task.
     if (task) {
       const ACTIVE = ['not_started', 'doing', 'waiting']
       const candidates = tasks.filter(t =>
@@ -307,11 +311,29 @@ export default function AppV2() {
         (!t.snoozed_until || new Date(t.snoozed_until) <= new Date())
       )
       const todayStr = new Date().toISOString().split('T')[0]
+      const completedTags = new Set(task.tags || [])
+      const completedTitleLower = (task.title || '').toLowerCase()
+      const followUpKeywords = ['follow up', 'follow-up', 'followup', 'after ', 'next step', 'reply to', 'respond to']
       const score = t => {
         let s = 0
         if (t.high_priority) s += 100
         if (t.due_date && t.due_date <= todayStr) s += 50
         if (t.size === 'XS' || t.size === 'S') s += 20
+        // Follow-up signal — capped at +90 total so it tunes the order rather than dominating.
+        let followUp = 0
+        if (task.routine_id && t.routine_id === task.routine_id) followUp += 40
+        if (task.notion_page_id && t.notion_page_id === task.notion_page_id) followUp += 25
+        if (Array.isArray(t.tags) && t.tags.length > 0) {
+          const sharedTags = t.tags.filter(tag => completedTags.has(tag)).length
+          if (sharedTags > 0) followUp += Math.min(60, sharedTags * 30)
+        }
+        const titleLower = (t.title || '').toLowerCase()
+        if (followUpKeywords.some(kw => titleLower.includes(kw))) followUp += 35
+        // "After X" / "X follow-up" style — title mentions the completed task's title.
+        if (completedTitleLower && completedTitleLower.length > 3 && titleLower.includes(completedTitleLower)) {
+          followUp += 50
+        }
+        s += Math.min(90, followUp)
         return s
       }
       candidates.sort((a, b) => score(b) - score(a))
