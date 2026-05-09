@@ -247,3 +247,67 @@
 .v2-analytics-heatmap-cell-future {
   background: transparent;
 }
+
+/* Adaptive throttle 👍/👎 chips */
+.v2-analytics-throttle-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.v2-analytics-throttle-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(var(--v2-text-rgb), 0.04);
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+}
+
+.v2-analytics-throttle-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.v2-analytics-throttle-channel {
+  text-transform: capitalize;
+}
+
+.v2-analytics-throttle-date {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--v2-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.v2-analytics-throttle-up,
+.v2-analytics-throttle-down {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-analytics-throttle-up:hover {
+  background: rgba(93, 188, 155, 0.12);
+  border-color: var(--v2-energy-errand);
+}
+
+.v2-analytics-throttle-down:hover {
+  background: rgba(232, 68, 58, 0.10);
+  border-color: var(--v2-alert-overdue);
+}

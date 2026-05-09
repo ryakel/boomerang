@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 Analytics — adaptive-throttle 👍/👎 feedback chips [S]
+  - **Why.** Analytics polish item from V2-State. v1 surfaced a row of back-off decisions ("Push overdue: 1.0× → 1.5×") with thumbs-up / thumbs-down buttons letting users approve or revert auto-tuning; v2 had no surface, so users couldn't curate the adaptive throttle from v2 at all.
+  - **New section.** "Adaptive throttle decisions" at the bottom of v2 Analytics, only renders when there are unreviewed decisions in the last 30 days. Hairline list with channel chip (capitalized), type label, multiplier-before → multiplier-after, decision date, and 👍 / 👎 chip buttons.
+  - **Wiring.** `getThrottleDecisions(30)` loads on modal open + after each feedback action; `markThrottleFeedback(id, 'up'|'down')` records the answer. Both functions are dynamic-imported so the test surface stays light.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 743KB precache (up from 741KB).
+  - Modified: `src/v2/components/AnalyticsModal.jsx`, `src/v2/components/AnalyticsModal.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 routine suggestion banner [XS]
   - **Why.** `useNotionSync` was already returning `routineSuggestions` / `dismissSuggestion` / `acceptSuggestion` to v2 (PR #31's wiring), but v2 wasn't rendering the suggestion banner — the recurring-pattern detection ran but had no surface.
   - **Banner.** New `.v2-routine-suggestions` row between the TaskListToolbar and the task list. Each suggestion shows "Create routine: **Title** [cadence chip]" with a primary Create button (calls `addRoutine(...)` then `acceptSuggestion`) and a ✕ dismiss button. Soft purple background matches v1's coloring for the banner.

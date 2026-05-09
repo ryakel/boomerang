@@ -57,6 +57,28 @@ export default function AnalyticsModal({ open, onClose }) {
   const [heatMapData, setHeatMapData] = useState(null)
   const [heatMapMetric, setHeatMapMetric] = useState('tasks')
   const [radarMode, setRadarMode] = useState('tags')
+  const [throttleDecisions, setThrottleDecisions] = useState([])
+
+  const loadThrottleDecisions = async () => {
+    try {
+      const api = await import('../../api')
+      const data = await api.getThrottleDecisions(30)
+      setThrottleDecisions(Array.isArray(data) ? data : [])
+    } catch { /* swallow — section just won't render */ }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    loadThrottleDecisions()
+  }, [open])
+
+  const handleThrottleFeedback = async (id, feedback) => {
+    try {
+      const api = await import('../../api')
+      await api.markThrottleFeedback(id, feedback)
+      loadThrottleDecisions()
+    } catch { /* no-op */ }
+  }
 
   // Range-filtered history feeds the daily chart, dow patterns, breakdowns, radar.
   useEffect(() => {
@@ -362,6 +384,43 @@ export default function AnalyticsModal({ open, onClose }) {
                   ))}
                 </div>
               </div>
+            </section>
+          )}
+
+          {throttleDecisions.filter(d => !d.feedback).length > 0 && (
+            <section className="v2-analytics-section">
+              <div className="v2-analytics-section-head">
+                <h2 className="v2-analytics-section-title">Adaptive throttle decisions</h2>
+              </div>
+              <p className="v2-analytics-section-sub">
+                Boomerang auto-tuned these notification frequencies because the recent ones weren't being tapped. Was that right?
+              </p>
+              <ul className="v2-analytics-throttle-list">
+                {throttleDecisions.filter(d => !d.feedback).slice(0, 10).map(d => {
+                  const date = new Date(d.decided_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                  return (
+                    <li key={d.id} className="v2-analytics-throttle-item">
+                      <span className="v2-analytics-throttle-text">
+                        <strong className="v2-analytics-throttle-channel">{d.channel}</strong>{' '}
+                        {d.type.replace(/_/g, ' ')} backed off {d.multiplier_old.toFixed(1)}× → {d.multiplier_new.toFixed(1)}×
+                        <span className="v2-analytics-throttle-date">{date}</span>
+                      </span>
+                      <button
+                        className="v2-analytics-throttle-up"
+                        onClick={() => handleThrottleFeedback(d.id, 'up')}
+                        title="Yes, that was right"
+                        aria-label="Approve back-off"
+                      >👍</button>
+                      <button
+                        className="v2-analytics-throttle-down"
+                        onClick={() => handleThrottleFeedback(d.id, 'down')}
+                        title="No, undo this back-off and don't auto-tune for 7 days"
+                        aria-label="Revert back-off"
+                      >👎</button>
+                    </li>
+                  )
+                })}
+              </ul>
             </section>
           )}
         </>
