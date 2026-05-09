@@ -35,6 +35,13 @@
   margin-top: 18px;
 }
 
+/* Compact variant — no label and minimal content (e.g. an empty
+ * Attachments / Comments / Connections row showing only the "+ Add" pill).
+ * Tighter top margin so empty sections don't pad out the modal. */
+.v2-form-section-compact {
+  margin-top: 8px;
+}
+
 /* Two-column row used for date+priority etc. CSS Grid (over flex) so each
  * column gets exactly half the available width regardless of intrinsic
  * content widths — Safari/iOS renders empty <input type="date"> at a

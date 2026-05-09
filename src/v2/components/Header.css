@@ -14,13 +14,164 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  position: relative;
 }
 
 .v2-header-wordmark {
   font: 700 14px/1 var(--v2-font-display);
   letter-spacing: 0.08em;
   color: var(--v2-text);
+  display: inline-flex;
+  /* The `letter-spacing` doesn't compose with inline-flex children the same
+   * way it does with raw text, so we add explicit gap to match. */
+  gap: 0.08em;
 }
+
+/* Each letter is a span so we can stagger animations across the wordmark
+ * without breaking text shape. */
+.v2-header-wordmark-letter {
+  display: inline-block;
+  transform-origin: center bottom;
+  transition: color var(--v2-dur-standard) var(--v2-ease-standard);
+}
+
+/* === Sync states on the wordmark ===================================== */
+
+/* Idle: no animation, default text color. */
+.v2-header-wordmark[data-sync-state="idle"] .v2-header-wordmark-letter {
+  color: var(--v2-text);
+}
+
+/* Saving: subtle stagger-bounce. ~6px Y travel, 50ms delay per letter. */
+.v2-header-wordmark[data-sync-state="saving"] .v2-header-wordmark-letter {
+  animation: v2-header-wordmark-bounce 1100ms var(--v2-ease-emphasis) infinite;
+  animation-delay: calc(var(--letter-index) * 60ms);
+  color: var(--v2-text-meta);
+}
+
+@keyframes v2-header-wordmark-bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
+
+/* Just-synced: 700ms green flash that fades to idle. */
+.v2-header-wordmark[data-sync-state="just-synced"] .v2-header-wordmark-letter {
+  animation: v2-header-wordmark-flash-green 700ms var(--v2-ease-standard);
+}
+
+@keyframes v2-header-wordmark-flash-green {
+  0% { color: var(--v2-energy-errand); transform: translateY(0); }
+  20% { color: var(--v2-energy-errand); transform: translateY(-2px); }
+  100% { color: var(--v2-text); transform: translateY(0); }
+}
+
+/* Degraded: queue building, sync slow / SSE dropped. Yellow steady. */
+.v2-header-wordmark[data-sync-state="degraded"] .v2-header-wordmark-letter {
+  color: var(--v2-alert-high-pri);
+}
+
+/* Offline: red steady. */
+.v2-header-wordmark[data-sync-state="offline"] .v2-header-wordmark-letter {
+  color: var(--v2-alert-overdue);
+}
+
+/* === Brand popover =================================================== */
+
+.v2-header-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 16px;
+  min-width: 240px;
+  z-index: 20;
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  animation: v2-header-popover-in var(--v2-dur-quick) var(--v2-ease-emphasis);
+}
+
+@keyframes v2-header-popover-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (min-width: 601px) {
+  .v2-header-popover {
+    left: 24px;
+  }
+}
+
+.v2-header-popover-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  font: 500 13px/1.3 var(--v2-font-body);
+  color: var(--v2-text);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-header-popover-row:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+
+.v2-header-popover-row-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--v2-text-meta);
+}
+
+.v2-header-popover-row-label {
+  flex: 1;
+}
+
+.v2-header-popover-row-aside {
+  border: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border-radius: var(--v2-radius-pill);
+  padding: 4px 10px;
+  font: 500 11px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-header-popover-row-aside:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-header-popover-rings .mini-rings {
+  flex-shrink: 0;
+}
+
+.v2-header-popover-sync {
+  cursor: default;
+}
+.v2-header-popover-sync:hover {
+  background: transparent;
+}
+.v2-header-popover-sync-idle .v2-header-popover-row-icon { color: var(--v2-energy-errand); }
+.v2-header-popover-sync-saving .v2-header-popover-row-icon { color: var(--v2-accent); }
+.v2-header-popover-sync-just-synced .v2-header-popover-row-icon { color: var(--v2-energy-errand); }
+.v2-header-popover-sync-degraded .v2-header-popover-row-icon { color: var(--v2-alert-high-pri); }
+.v2-header-popover-sync-offline .v2-header-popover-row-icon { color: var(--v2-alert-overdue); }
+
+/* === Header actions cluster ========================================== */
 
 .v2-header-actions {
   display: flex;
@@ -28,23 +179,13 @@
   gap: 4px;
 }
 
-/* Stats cluster — MiniRings + done-today + sync indicator. Sits between
- * brand and primary actions. Hidden on the smallest screens to keep the
- * action row breathing. */
-.v2-header-stats {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-right: 6px;
-  padding-right: 8px;
-  border-right: 1px solid var(--v2-hairline);
-}
-
-.v2-header-stat-btn {
+/* Today-pill — survives the header trim because it's actionable, not just
+ * ambient. Clicking it opens DoneList. */
+.v2-header-today {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   height: 30px;
   border-radius: var(--v2-radius-pill);
   background: transparent;
@@ -55,20 +196,9 @@
   transition: background var(--v2-dur-quick) var(--v2-ease-standard),
               color var(--v2-dur-quick) var(--v2-ease-standard);
 }
-.v2-header-stat-btn:hover {
+.v2-header-today:hover {
   background: rgba(var(--v2-text-rgb), 0.04);
   color: var(--v2-text);
-}
-
-.v2-header-rings-btn {
-  padding: 0 6px;
-  border: none;
-}
-.v2-header-rings-btn:hover {
-  background: rgba(var(--v2-text-rgb), 0.04);
-}
-.v2-header-rings-btn .mini-rings {
-  cursor: pointer;
 }
 
 .v2-header-today-count {
@@ -80,50 +210,21 @@
   font: 500 11px/1 var(--v2-font-body);
   color: var(--v2-text-meta);
 }
-
 .v2-header-today-link {
-  border: none;
   font-weight: 500;
 }
 
-.v2-header-sync {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  color: var(--v2-text-faint);
-}
-.v2-header-sync-saving {
-  color: var(--v2-accent);
-  animation: v2-header-sync-pulse 1.4s ease-in-out infinite;
-}
-.v2-header-sync-offline {
-  color: var(--v2-alert-overdue);
-}
-.v2-header-sync-synced {
-  color: var(--v2-energy-errand);
-}
-
-@keyframes v2-header-sync-pulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
-}
-
 @media (max-width: 600px) {
-  .v2-header-stats {
-    margin-right: 4px;
-    padding-right: 6px;
-    gap: 4px;
-  }
   .v2-header-today-label,
+  .v2-header-today-link {
+    /* Hide label on phone — count alone communicates. */
+  }
+  .v2-header-today {
+    padding: 4px 8px;
+  }
   .v2-header-today-link {
     display: none;
   }
-}
-
-@media (max-width: 380px) {
-  .v2-header-wordmark { display: none; }
 }
 
 .v2-header-icon {
@@ -149,9 +250,6 @@
   transform: scale(0.96);
 }
 
-/* Tinted variants — same brand colors v1 uses, ported into v2. Keeps
- * Quokka and Packages identifiable at a glance instead of merging into
- * the grey-icon row. The accent + button stays the loudest affordance. */
 .v2-header-icon-quokka {
   color: #A78BFA;
 }
@@ -179,10 +277,6 @@
   filter: brightness(1.08);
 }
 
-/* What now? — primary-accent action.
- * Default: pill shape (icon + label).
- * Narrow screens: collapses to a perfect 38×38 circle so the orange "+"
- * and the orange target read as the same visual weight. */
 .v2-header-whatnow {
   display: inline-flex;
   align-items: center;
@@ -220,4 +314,8 @@
   .v2-header {
     padding: 16px 24px;
   }
+}
+
+@media (max-width: 380px) {
+  .v2-header-wordmark { display: none; }
 }

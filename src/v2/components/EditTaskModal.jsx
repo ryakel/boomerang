@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight } from 'lucide-react'
+import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight, RotateCw } from 'lucide-react'
 import { loadLabels, ENERGY_TYPES, STATUS_META, uuid } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
 import { researchTask } from '../../api'
@@ -238,30 +238,28 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
 
       <div className="v2-form-section">
         <label className="v2-form-label">Notes</label>
-        <div className="v2-form-textarea-wrap">
-          <textarea
-            className="v2-form-textarea"
-            placeholder="Brain dump here…"
-            value={form.notes}
-            onChange={e => form.setNotes(e.target.value)}
-          />
-          <div className="v2-edit-notes-actions">
-            {form.notes.trim() && (
-              <button className="v2-form-ai-pill" onClick={form.handlePolish} disabled={form.polishing}>
-                {form.polishing ? <span className="v2-spinner" /> : <Sparkles size={12} strokeWidth={1.75} />}
-                {form.polishing ? 'Polishing…' : 'Polish'}
-              </button>
-            )}
-            <button
-              className="v2-form-ai-pill"
-              onClick={(e) => { e.preventDefault(); setShowResearch(s => !s) }}
-              disabled={researching}
-              title="Ask the AI to research and append findings to notes"
-            >
-              {researching ? <span className="v2-spinner" /> : <Search size={12} strokeWidth={1.75} />}
-              {researching ? 'Researching…' : 'Research'}
+        <textarea
+          className="v2-form-textarea"
+          placeholder="Brain dump here…"
+          value={form.notes}
+          onChange={e => form.setNotes(e.target.value)}
+        />
+        <div className="v2-edit-notes-toolbar">
+          {form.notes.trim() && (
+            <button className="v2-form-ai-pill v2-form-ai-pill-inline" onClick={form.handlePolish} disabled={form.polishing}>
+              {form.polishing ? <span className="v2-spinner" /> : <Sparkles size={12} strokeWidth={1.75} />}
+              {form.polishing ? 'Polishing…' : 'Polish'}
             </button>
-          </div>
+          )}
+          <button
+            className="v2-form-ai-pill v2-form-ai-pill-inline"
+            onClick={(e) => { e.preventDefault(); setShowResearch(s => !s) }}
+            disabled={researching}
+            title="Ask the AI to research and append findings to notes"
+          >
+            {researching ? <span className="v2-spinner" /> : <Search size={12} strokeWidth={1.75} />}
+            {researching ? 'Researching…' : 'Research'}
+          </button>
         </div>
         {form.polishError && <div className="v2-form-error">{form.polishError}</div>}
         {form.polishApplied && (form.polishApplied.addedLabels.length > 0 || form.suggestedChecklist) && (
@@ -574,16 +572,18 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
         </button>
       </div>
 
-      {/* Attachments — file uploads with optional AI text extraction. */}
-      <div className="v2-form-section">
-        <div className="v2-edit-attach-head">
-          <label className="v2-form-label">Attachments</label>
-          {form.attachments.length > 0 && (
+      {/* Attachments — file uploads with optional AI text extraction. The
+          ATTACHMENTS label only renders when there's content; empty state is
+          a lone "+ Attach files" pill in the affordance strip below. */}
+      <div className={`v2-form-section${form.attachments.length === 0 ? ' v2-form-section-compact' : ''}`}>
+        {form.attachments.length > 0 && (
+          <div className="v2-edit-attach-head">
+            <label className="v2-form-label">Attachments</label>
             <span className="v2-edit-attach-summary">
               {form.attachments.length} · {form.formatFileSize(form.attachments.reduce((n, a) => n + a.size, 0))}
             </span>
-          )}
-        </div>
+          </div>
+        )}
         <input
           ref={form.fileInputRef}
           type="file"
@@ -593,13 +593,13 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           onChange={form.handleFileSelect}
         />
         <div className="v2-edit-attach-actions">
-          <button type="button" className="v2-form-ai-pill" onClick={() => form.fileInputRef.current?.click()}>
+          <button type="button" className="v2-form-ai-pill v2-form-ai-pill-inline" onClick={() => form.fileInputRef.current?.click()}>
             <Paperclip size={12} strokeWidth={1.75} /> Attach files
           </button>
           {form.attachments.length > 0 && (
             <button
               type="button"
-              className="v2-form-ai-pill"
+              className="v2-form-ai-pill v2-form-ai-pill-inline"
               onClick={form.handleExtractText}
               disabled={form.extracting}
               title="Run AI text extraction on attachments and append to notes"
@@ -651,55 +651,53 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
         </div>
       )}
 
-      {/* Routine conversion — only meaningful for non-routine-spawned tasks */}
-      {!task.routine_id && (
+      {/* Routine-conversion picker — only visible while the user is actively
+          converting. Trigger lives as a small pill in the bottom action row. */}
+      {!task.routine_id && makeRecurring && (
         <div className="v2-form-section">
-          <label className="v2-form-label">Make recurring</label>
-          {!makeRecurring ? (
-            <button className="v2-edit-routine-toggle" onClick={() => setMakeRecurring(true)}>
-              Convert to routine
-            </button>
-          ) : (
-            <div className="v2-edit-routine-row">
-              <select
-                className="v2-form-input v2-edit-routine-select"
-                value={cadence}
-                onChange={e => setCadence(e.target.value)}
-              >
-                {CADENCE_OPTIONS.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              {cadence === 'custom' && (
-                <input
-                  className="v2-form-input v2-edit-routine-days"
-                  type="number"
-                  min="1"
-                  value={customDays}
-                  onChange={e => setCustomDays(e.target.value)}
-                  placeholder="days"
-                />
-              )}
-              <button className="v2-edit-routine-confirm" onClick={handleConvertToRoutine}>Convert</button>
-              <button className="v2-edit-routine-cancel" onClick={() => setMakeRecurring(false)}>Cancel</button>
-            </div>
-          )}
+          <label className="v2-form-label">Cadence</label>
+          <div className="v2-edit-routine-row">
+            <select
+              className="v2-form-input v2-edit-routine-select"
+              value={cadence}
+              onChange={e => setCadence(e.target.value)}
+            >
+              {CADENCE_OPTIONS.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {cadence === 'custom' && (
+              <input
+                className="v2-form-input v2-edit-routine-days"
+                type="number"
+                min="1"
+                value={customDays}
+                onChange={e => setCustomDays(e.target.value)}
+                placeholder="days"
+              />
+            )}
+            <button className="v2-edit-routine-confirm" onClick={handleConvertToRoutine}>Convert</button>
+            <button className="v2-edit-routine-cancel" onClick={() => setMakeRecurring(false)}>Cancel</button>
+          </div>
         </div>
       )}
 
-      {/* Comments — task-local thread. Each comment is a {id, text, created_at}. */}
-      <div className="v2-form-section">
-        <div className="v2-edit-attach-head">
-          <label className="v2-form-label">Comments</label>
-          {comments.length > 0 && (
-            <span className="v2-edit-attach-summary">{comments.length}</span>
-          )}
-          {!showComments && (
-            <button type="button" className="v2-form-ai-pill" onClick={() => setShowComments(true)}>
-              <Plus size={12} strokeWidth={2} /> Add
-            </button>
-          )}
-        </div>
+      {/* Comments — task-local thread. COMMENTS label only when content
+          OR explicitly opened; otherwise just the "+ Add" pill. */}
+      <div className={`v2-form-section${comments.length === 0 && !showComments ? ' v2-form-section-compact' : ''}`}>
+        {(comments.length > 0 || showComments) && (
+          <div className="v2-edit-attach-head">
+            <label className="v2-form-label">Comments</label>
+            {comments.length > 0 && (
+              <span className="v2-edit-attach-summary">{comments.length}</span>
+            )}
+          </div>
+        )}
+        {!showComments && (
+          <button type="button" className="v2-form-ai-pill v2-form-ai-pill-inline" onClick={() => setShowComments(true)}>
+            <Plus size={12} strokeWidth={2} /> Add comment
+          </button>
+        )}
         {showComments && (
           <>
             {comments.length > 0 && (
@@ -746,13 +744,15 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
         )}
       </div>
 
-      {/* Connections — Notion link/create. Wired through useTaskForm's
-          notionState/notionResult/handlers. Trello + GCal connections still
-          deferred since they need fuller picker UIs that haven't ported yet. */}
-      <div className="v2-form-section">
-        <div className="v2-edit-attach-head">
-          <label className="v2-form-label">Connections</label>
-        </div>
+      {/* Connections — Notion link/create. CONNECTIONS label only when
+          something is linked or in-flight; empty state is just the
+          "Notion" pill. */}
+      <div className={`v2-form-section${!form.notionResult && !form.notionState ? ' v2-form-section-compact' : ''}`}>
+        {(form.notionResult || form.notionState) && (
+          <div className="v2-edit-attach-head">
+            <label className="v2-form-label">Connections</label>
+          </div>
+        )}
         <div className="v2-edit-connections">
           {form.notionResult ? (
             <div className="v2-edit-connection-pill v2-edit-connection-linked">
@@ -853,9 +853,18 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
         >
           <FolderKanban size={14} strokeWidth={1.75} /> Projects
         </button>
+        {!task.routine_id && !makeRecurring && (
+          <button
+            className="v2-edit-action"
+            onClick={() => setMakeRecurring(true)}
+            title="Convert this task into a recurring routine"
+          >
+            <RotateCw size={14} strokeWidth={1.75} /> Make recurring
+          </button>
+        )}
         {!confirmDelete ? (
           <button
-            className="v2-edit-action v2-edit-action-danger"
+            className="v2-edit-action"
             onClick={() => setConfirmDelete(true)}
             title="Delete task"
           >
