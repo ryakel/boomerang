@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import AppV1 from './AppV1.jsx'
 import AppV2 from './v2/AppV2.jsx'
+import ErrorBoundary from './v2/components/ErrorBoundary.jsx'
 
 const STORAGE_KEY = 'ui_version'
 
@@ -29,5 +30,16 @@ export default function App() {
     document.documentElement.setAttribute('data-ui-version', version)
   }, [version])
 
-  return version === 'v2' ? <AppV2 /> : <AppV1 />
+  // Error boundary wraps v2 so a render-time exception (TDZ, undefined
+  // hook return, broken third-party module) shows a recoverable fallback
+  // with the actual error instead of a black screen. v1 stays unwrapped to
+  // keep the legacy escape hatch identical to its historical behavior.
+  if (version === 'v2') {
+    return (
+      <ErrorBoundary>
+        <AppV2 />
+      </ErrorBoundary>
+    )
+  }
+  return <AppV1 />
 }

@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 ErrorBoundary + early data-ui/data-theme application [S]
+  - **Why.** The 2026-05-09 TDZ bug rendered a black screen with no surfaced error because React unmounts on uncaught render exceptions and v2's :root tokens fall through to dark fallback bg with no content. Adding a top-level error boundary at AppV2's wrapper means render-time failures show a recoverable fallback instead of a dead app, AND the stack hits `/api/logs/client-error` for triage.
+  - **`ErrorBoundary.jsx` + `.css`.** Class component (React error boundaries require classes). `getDerivedStateFromError` + `componentDidCatch`. Fallback UI: 🪃 + "Boomerang hit a snag" + collapsible details (message, stack, component stack) + Reload button (also unregisters service worker) + "Clear local state & reload" button (wipes localStorage with a confirm before doing so). All token-driven so it adapts to dark mode; falls back to inline defaults if `data-ui` somehow isn't set yet.
+  - **`src/App.jsx` wiring.** v2 path wraps `<AppV2>` in `<ErrorBoundary>`. v1 stays unwrapped — legacy surface, no need to add behavior.
+  - **`server.js` `/api/logs/client-error` endpoint.** Receives `{message, stack, componentStack, url, userAgent, appVersion}` from the boundary and prints to the server log via the `[CLIENT-ERROR]` prefix. Best-effort — no DB write, just visibility for triage.
+  - **`index.html` early-paint script** now applies both `data-ui="v2"` (when not opted into v1) AND `data-theme` (when settings.theme is set, light OR dark) BEFORE React mounts. Without this, an error during AppV2's first render would show the boundary in light mode regardless of user preference, since data-ui was previously only set in AppV2's mount effect.
+  - **Dark-mode audit.** Walked every v2 surface for hardcoded colors that wouldn't swap. All `var(--v2-*)` token references adapt cleanly. `#fff` text is always paired with `var(--v2-accent)` filled buttons (orange + white reads on both modes). Hardcoded RGB tints (alert-tinted card backgrounds, hover tints, etc.) are low-alpha and read on both modes. Active-state pattern (`background: var(--v2-text); color: var(--v2-bg)`) inverts cleanly across modes. No surface flagged for follow-up.
+  - **Verification.** `npm run lint` clean. `npm test` smoke passes. Bundle: 762KB precache (up from 759KB).
+  - New: `src/v2/components/ErrorBoundary.jsx`, `src/v2/components/ErrorBoundary.css`
+  - Modified: `src/App.jsx`, `index.html`, `server.js`
+
 - docs(v2): park "web push deprecation trial" decision for after v2 → main merge [XS]
   - Pushover is now the recommended primary on iOS but web push is still live with all its plumbing. Logged a parking-lot bullet that explicitly schedules a tap-rate / completion-rate review in Engagement Analytics 2 weeks post-v2-merge, with concrete go / no-go criteria and a rough scope estimate (~250-400 LOC net delete) if go.
   - Modified: `wiki/V2-State.md`
