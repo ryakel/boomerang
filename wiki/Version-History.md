@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 Integrations — Notion parent-page sync configuration [S]
+  - **Why.** Last item on the v2-medium-priority list. v2 had no UI for picking the Notion parent page that drives pull-sync — users had to flip back to v1 to set or change it. Now the Notion row exposes a parent-page picker inline.
+  - **`inline: 'notion-config'` mode on the Notion row** (when connected). Unconfigured state: search input + Search button. Calls `notionSearch(query)`; results render in the same hairline scroll list pattern Weather + Trello pickers use. Picking a result writes `notion_sync_parent_id` + `notion_sync_parent_title` and immediately fetches `notionGetChildPages(id)` to surface the child count.
+  - **Configured state.** "📄 Syncing from **Page name**" with child count + last-sync timestamp underneath; "Change page" button to clear and re-pick. The Sync-now button on the row continues to fire `syncNotion()` (already wired via PR #31).
+  - **Mount-time hydration.** New effect re-fetches the child-page count on settings open whenever a parent ID is configured + Notion is connected. Cleanup-flag pattern matches the other status-gated lazy loaders in the panel.
+  - **Database sync** (querying a Notion database directly rather than walking a parent's children) deferred — that's a separate config flow with its own quirks.
+  - **All seven medium-priority items now done.** Channel test buttons + notification history (PR #33), weather geocode (PR #34), EditTaskModal Comments/Research/Attachments/Extract-Text (PR #35), Notion link/create on tasks (PR #36), Trello/GCal/Gmail picker UIs (PR #37), and Notion DB sync config (this PR). V2-State TL;DR updated.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 732KB precache (up from 729KB).
+  - Modified: `src/v2/components/SettingsModal.jsx`, `wiki/V2-State.md`
+
 - feat(ui): v2 Integrations — Trello board/list, GCal calendar, Gmail scan-window pickers [M]
   - **Why.** Final piece of the v2-Integrations medium-priority list. Connected Trello/GCal/Gmail rows previously just showed status + a "Manage in v1" button. Now they expose the most-touched settings inline so users don't need v1 for daily picker tweaks.
   - **Trello config.** When `statuses.trello.connected` is true, the row's inline area shows a Board dropdown (loaded once via `trelloBoards()`) and — once a board is picked — a Default list dropdown (loaded via `trelloBoardLists(boardId)` whenever the board changes). Picking a board resets the list selection. Multi-list sync checkboxes deferred; the per-task list picker in EditTaskModal still lets users override per push.
