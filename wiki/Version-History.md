@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 EditTaskModal — Comments, AI Research, Attachments, Extract-Text [M]
+  - **Why.** Common power-user features in v1's EditTaskModal that v2 didn't carry — users had to flip back to v1 to attach files, run AI research on a task, extract text from PDFs/images, or thread comments. Medium-priority item knocked off in one PR since they all live in the same modal.
+  - **Research.** New "Research" pill next to "Polish" in the Notes action row. Click toggles an inline prompt input + Go button. Submitting calls `researchTask(title, notes, prompt, attachments)` and replaces notes with the AI-augmented version. State + handler live inline in EditTaskModal v2 (not in `useTaskForm`) since AddTaskModal doesn't surface Research.
+  - **Attachments.** New section between Checklists and Labels. Reuses the `useTaskForm` attachments support (`attachments` / `handleFileSelect` / `removeAttachment` / `formatFileSize` / `attachError` / `extracting` / `handleExtractText`) which was already present but never rendered in v2. File picker accepts images/PDF/text formats; 5MB total cap; hairline-bordered list with name + size + ✕ remove per item.
+  - **Extract Text.** When ≥1 attachment is present, an "Extract text" pill appears next to "Attach files." Calls `extractAttachmentText(attachments)` and appends the AI-extracted text to the existing notes (preserves the user's manual notes; doesn't overwrite).
+  - **Comments.** New section between Make-recurring and the action row. Each comment is `{id, text, created_at}` (same shape v1 saves). List shows comment text + relative timestamp + ✕ remove per item. Input + Add button at the bottom; Enter also adds. Collapsed by default for tasks with no comments — "+ Add" affordance opens it.
+  - **Persistence.** `handleSave` payload now includes `attachments: form.attachments` and `comments` so the changes round-trip through the existing `updateTask` path. Same data shape v1 uses, so cross-UI parity is preserved.
+  - **Action-pill positioning.** v2's `.v2-form-ai-pill` was previously absolute-positioned solo at bottom-right of the textarea wrap. New `.v2-edit-notes-actions` flex container holds Polish + Research at `position: absolute; bottom: 8px; right: 8px`, with the pills inside reset to `position: static` so they flow side-by-side cleanly.
+  - **Verification.** `npm run lint` clean (warnings only). `npm test` smoke test passes. Bundle: 722KB precache (up from 717KB).
+  - Modified: `src/v2/components/EditTaskModal.jsx`, `src/v2/components/EditTaskModal.css`, `wiki/V2-State.md`
+
 - feat(ui): v2 weather location picker in Integrations [S]
   - **Why.** Medium-priority item from V2-State. v2 had no surface for setting the weather location at all — users had to flip back to v1 just to point Boomerang at a city/zip. Open-Meteo is keyless so this is purely a geocode + setting-write flow.
   - **New `inline: 'weather'` row in IntegrationsPanel.** When unconfigured, shows a search input + Search button; Enter submits. Results render as a hairline-bordered scroll list with the geocoded `label` (city, region, country) per item. Picking a result writes `weather_latitude`, `weather_longitude`, `weather_location_name`, `weather_timezone` and flips `weather_enabled` on if it wasn't, then forces a server cache refresh so the badges/forecast update without a full reload.
