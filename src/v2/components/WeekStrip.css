@@ -1,0 +1,208 @@
+/* 7-day calendar strip. Renders above the task sections when
+ * `show_week_strip` is on. Two visual modes via theme:
+ *
+ *   light/dark — rounded card-style day cells with soft hairline,
+ *                colored intensity dot underneath
+ *   terminal   — bare monospace row, today gets a `*` prefix on its
+ *                date number, intensity rendered as a block char
+ *                (handled via the cards.css terminal overrides at the
+ *                bottom of this file)
+ */
+
+.v2-week-strip {
+  margin: 0 -8px 16px;
+  padding: 0 8px;
+}
+
+.v2-week-strip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.v2-week-strip-range {
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  letter-spacing: 0.02em;
+}
+
+.v2-week-strip-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--v2-hairline);
+  background: transparent;
+  border-radius: var(--v2-radius-pill);
+  color: var(--v2-text-meta);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-week-strip-nav:hover {
+  color: var(--v2-text);
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+
+.v2-week-strip-row {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.v2-week-strip-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: var(--v2-radius-card);
+  font: 500 11px/1 var(--v2-font-body);
+  background: var(--v2-surface);
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-week-strip-day-today {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  border-color: var(--v2-accent);
+}
+
+.v2-week-strip-day-future {
+  opacity: 0.55;
+}
+
+.v2-week-strip-label {
+  font-size: 10px;
+  color: var(--v2-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.v2-week-strip-num {
+  font: 600 16px/1 var(--v2-font-body);
+  color: var(--v2-text);
+}
+
+.v2-week-strip-day-today .v2-week-strip-num {
+  color: var(--v2-accent);
+}
+
+/* Activity intensity bar — soft pastel dot underneath each day. Empty
+ * day = invisible, low = pale, medium = mid, high = full accent. */
+.v2-week-strip-bar {
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.v2-week-strip-day-i1 .v2-week-strip-bar {
+  background: rgba(var(--v2-text-rgb), 0.12);
+}
+
+.v2-week-strip-day-i2 .v2-week-strip-bar {
+  background: var(--v2-accent);
+  opacity: 0.55;
+}
+
+.v2-week-strip-day-i3 .v2-week-strip-bar {
+  background: var(--v2-accent);
+  opacity: 1;
+}
+
+/* === Terminal mode override =========================================
+ * Drop the card chrome — bare row of day cells. Each day's number gets
+ * a `*` prefix when it's today. Intensity bar becomes a block character
+ * (▁ ▃ ▆ █) instead of a colored dot.
+ */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip {
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-head {
+  padding: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-range::before {
+  content: "// ";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-row {
+  gap: 0;
+  border-top: 1px solid var(--v2-hairline);
+  border-bottom: 1px solid var(--v2-hairline);
+  padding: 6px 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-day {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 4px 0;
+  gap: 2px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-day-today {
+  background: transparent;
+  border: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-label {
+  letter-spacing: 0;
+  text-transform: lowercase;
+  font-size: 11px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-num {
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-day-today .v2-week-strip-num::before {
+  content: "*";
+  color: var(--v2-accent);
+  margin-right: 1px;
+}
+
+/* Block-character intensity. Hide the card-mode bar, render via ::after
+ * on the day cell. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-bar {
+  display: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-day::after {
+  content: "·";
+  font-size: 12px;
+  font-family: var(--v2-font-body);
+  color: var(--v2-text-faint);
+  line-height: 1;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-day-i1::after {
+  content: "▁";
+  color: var(--v2-text-meta);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-day-i2::after {
+  content: "▃";
+  color: var(--v2-accent);
+  opacity: 0.7;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-day-i3::after {
+  content: "█";
+  color: var(--v2-accent);
+}

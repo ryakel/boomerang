@@ -1,0 +1,109 @@
+/* Bottom-of-list goal progress bar. Renders below the last task
+ * section when `show_goal_progress` is on.
+ *
+ * Light/dark — soft pill-track + accent fill + small caption row
+ * Terminal  — monospace block-character bar via CSS overrides at the
+ *             bottom of this file.
+ */
+
+.v2-goal-progress {
+  margin: 16px -4px 8px;
+  padding: 12px 4px;
+  border-top: 1px solid var(--v2-hairline);
+}
+
+.v2-goal-progress-track {
+  position: relative;
+  height: 6px;
+  background: var(--v2-hairline);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.v2-goal-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--v2-accent);
+  border-radius: 999px;
+  transition: width var(--v2-dur-emphasis) var(--v2-ease-emphasis);
+}
+
+.v2-goal-progress-overshoot {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--v2-alert-high-pri);
+  border-radius: 999px;
+  transition: width var(--v2-dur-emphasis) var(--v2-ease-emphasis);
+  /* Sits above the fill — visually a "second tier" past 100%. */
+  mix-blend-mode: difference;
+}
+
+.v2-goal-progress-meta {
+  margin-top: 6px;
+  display: flex;
+  justify-content: space-between;
+  font: 500 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-goal-progress-caption {
+  color: var(--v2-text-faint);
+}
+
+.v2-goal-progress-count {
+  color: var(--v2-text);
+  font-weight: 600;
+}
+
+.v2-goal-progress-pct {
+  color: var(--v2-text-meta);
+  font-weight: 500;
+}
+
+/* === Terminal mode override =========================================
+ * Block-character bar. The track becomes a row of `▁` characters; the
+ * fill replaces the leading portion with `█`. Pure CSS via background-
+ * image gradients — render the track as an `▁`-ish baseline character
+ * via ::before, then the fill on top.
+ *
+ * Simpler: keep the track as a thin line, but use a monospaced block
+ * character above it via the meta caption row. We use a leading
+ * `[` `]` bracket pair on the meta caption to read as a CLI status
+ * line: `[10/10] // 100%  goal: 10 tasks`.
+ */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-goal-progress {
+  margin: 16px 0 8px;
+  padding: 12px 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-goal-progress-track {
+  height: 4px;
+  border-radius: 0;
+  background: rgba(var(--v2-text-rgb), 0.10);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-goal-progress-fill {
+  border-radius: 0;
+  box-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-goal-progress-overshoot {
+  border-radius: 0;
+  mix-blend-mode: normal;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-goal-progress-caption::before {
+  content: "// ";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-goal-progress-count::before {
+  content: "[";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-goal-progress-count::after {
+  content: "]";
+  color: var(--v2-text-faint);
+}
