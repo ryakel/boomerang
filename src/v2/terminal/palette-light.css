@@ -25,15 +25,15 @@
   --v2-text-faint: rgba(31, 35, 40, 0.40);
   --v2-hairline: rgba(31, 35, 40, 0.14);
 
-  /* Accent — terminal green (init flavor) on a light canvas. Reads as
-   * a unified family with terminal-dark; same role as the dark variant. */
-  --v2-accent: #1F8E3A;
+  /* Accent — GitHub Light's deep link blue. Returned to canon after a
+   * brief green detour; structural language carries the init feel. */
+  --v2-accent: #0969DA;
 
-  /* Status — alarm colors matched against a white background. */
+  /* Status — GitHub Light alarm colors against a white canvas. */
   --v2-alert-overdue: #CF222E;
   --v2-alert-high-pri: #9A6700;
 
-  /* Energy types — kept GitHub Light flavors (work fine on white). */
+  /* Energy types — GitHub Light segment colors. */
   --v2-energy-desk: #0969DA;
   --v2-energy-people: #BF3989;
   --v2-energy-errand: #1A7F37;

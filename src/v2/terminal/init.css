@@ -77,11 +77,89 @@
   text-shadow: 0 0 12px rgba(126, 231, 135, 0.65);
 }
 
-/* === Energy chip: hide completely ================================== */
+/* === Energy chip: powerlevel10k segment ============================
+ *
+ * Init.habits hides per-row energy info. We don't — energy type +
+ * level is a real signal we want to keep visible. Render it as a
+ * powerlevel10k-style colored segment instead of a pill: emoji prefix
+ * (per type) + `⚡`-character bolts (per level) in the energy color.
+ *
+ * Lucide icon hidden via CSS. Emoji rendered via [title^="..."]
+ * attribute selector since `task.energy` doesn't surface to the DOM.
+ * Bolt SVGs replaced with `⚡` text via [title*="level N"].
+ *
+ * Each energy type gets its own color from the palette tokens — applied
+ * to the whole chip via attribute selector so the prefix + bolts read
+ * as one segment in the type's color. */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font: 500 12px/1 var(--v2-font-body);
+  letter-spacing: 0;
+  gap: 2px !important;
+}
+
+/* Hide the lucide icon — emoji prefix replaces it */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy > svg {
   display: none !important;
 }
+
+/* Emoji prefix per energy type. ENERGY_TYPES labels are capitalized
+ * (Desk, People, Errand, Creative, Physical) so [title^="X"] matches
+ * `title="Desk · level 2"` etc. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Desk"]::before {
+  content: "💻 ";
+  color: var(--v2-energy-desk);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="People"]::before {
+  content: "👥 ";
+  color: var(--v2-energy-people);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Errand"]::before {
+  content: "🏃 ";
+  color: var(--v2-energy-errand);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Creative"]::before {
+  content: "🎨 ";
+  color: var(--v2-energy-creative);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Physical"]::before {
+  content: "💪 ";
+  color: var(--v2-energy-physical);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Confrontation"]::before {
+  content: "⚡ ";
+  color: var(--v2-energy-confrontation);
+}
+
+/* Color the entire segment (prefix + bolts) per energy type so it reads
+ * as one colored powerlevel10k cell. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Desk"] { color: var(--v2-energy-desk); }
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="People"] { color: var(--v2-energy-people); }
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Errand"] { color: var(--v2-energy-errand); }
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Creative"] { color: var(--v2-energy-creative); }
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Physical"] { color: var(--v2-energy-physical); }
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title^="Confrontation"] { color: var(--v2-energy-confrontation); }
+
+/* Hide the bolt SVGs — replace with `⚡` text per level via the
+ * energy-bolts container's ::after. The container's parent has the
+ * title; use combinator to read level from the title. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy-bolts > svg {
+  display: none !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy-bolts {
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Level → bolt-text glyphs. Use the parent .v2-card-energy's title to
+ * pick the right count. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title*="level 1"] .v2-card-energy-bolts::after { content: "⚡"; }
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title*="level 2"] .v2-card-energy-bolts::after { content: "⚡⚡"; }
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy[title*="level 3"] .v2-card-energy-bolts::after { content: "⚡⚡⚡"; }
 
 /* === Section labels: lowercase + smaller + dimmed count ============ */
 

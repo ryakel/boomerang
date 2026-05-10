@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal theme — revert palette to GitHub Dark/Light + powerlevel10k energy segments [S]
+  - **Why.** User: "Stick with GitHub light and dark color palettes. So you don't need to completely strip everything. Incorporate our add ons like energy and whatever into the init design. Think like powerlevel10k or similar." — and a follow-up: "We can have a terminal look without losing all of the features."
+  - **Palette reverted.** terminal-dark back to canonical GitHub Dark blue (`#58A6FF` accent, `#0D1117` canvas, `#C9D1D9` text, cyan glow). terminal-light back to GitHub Light blue (`#0969DA`). The structural language (powerlevel10k segments, bracketed text, bare rows, lowercased section labels with `✦` prefix) carries the init feel; the palette stays canonical.
+  - **Energy chip restored as powerlevel10k segment.** Init.habits hides per-row energy info, but for Boomerang energy is real signal. Render it as a colored segment instead of a pill: emoji prefix per type + `⚡`-character bolts per level, in the energy-type color, on transparent. Lucide icon + Zap SVGs hidden via CSS. Emoji + bolt-text rendered via attribute selectors (`[title^="Desk"]`, `[title*="level 2"]`, etc.) since `task.energy`/`task.energyLevel` don't surface to the DOM. Per-type color applied to the whole segment so the prefix + bolts read as one cell:
+    - 💻 desk → `var(--v2-energy-desk)`
+    - 👥 people → `var(--v2-energy-people)`
+    - 🏃 errand → `var(--v2-energy-errand)`
+    - 🎨 creative → `var(--v2-energy-creative)`
+    - 💪 physical → `var(--v2-energy-physical)`
+    - ⚡ confrontation → `var(--v2-energy-confrontation)`
+  - **Convention reaffirmed.** Don't strip features to chase the aesthetic. When something doesn't fit init's exact look, find the powerlevel10k-style monospace re-render (sigil + colored text segment) instead of `display: none`. Same pattern can apply to any other surface where the init reflex says "remove" but the feature is actually useful.
+  - Modified: `src/v2/terminal/palette-dark.css`, `src/v2/terminal/palette-light.css`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal theme — full init aesthetic pass [M]
   - **Why.** User: "Done fucking around. Go full init aesthetic. Fuck the duplication and deviation comments from earlier." Stress test is over — the call is to commit. PR pushes the rest of the way to look like init.habits.
   - **Palette swap.** GitHub Dark blue accent → terminal green (`#7EE787`). Canvas darkened with a subtle green tint (`#0D1117` → `#0B1110`); text shifts cool gray → light green-gray (`#C9D1D9` → `#C2D1C5`). Hairlines pick up the green. Glow shadow shifts cyan → green. terminal-light gets matching green accent (`#0969DA` → `#1F8E3A`). Radii zeroed across the board (`pill: 6px → 0`, `card: 4px → 0`, `modal: 6px → 0`).
