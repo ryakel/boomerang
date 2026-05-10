@@ -49,6 +49,12 @@ export const DEFAULT_SETTINGS = {
   sort_by: 'age',
   daily_task_goal: 3,
   daily_points_goal: 15,
+  // Home-screen surfaces (PR H, opt-in). When true, AppV2 renders a 7-day
+  // calendar strip above the first task section / a daily-goal progress bar
+  // below the last section. Theme-aware visuals (cards in light/dark, bare
+  // monospace strip + block-character bar in terminal).
+  show_week_strip: false,
+  show_goal_progress: false,
   vacation_mode: false,
   vacation_started: null,
   trello_api_key: '',

@@ -21,6 +21,8 @@ import AnalyticsModal from './components/AnalyticsModal'
 import KanbanBoard from './components/KanbanBoard'
 import TaskListToolbar from './components/TaskListToolbar'
 import MarkdownImportModal from './components/MarkdownImportModal'
+import WeekStrip from './components/WeekStrip'
+import GoalProgressBar from './components/GoalProgressBar'
 import Toast from './components/Toast'
 import FloatingCapture from './components/FloatingCapture'
 import ConfirmDialog from './components/ConfirmDialog'
@@ -669,11 +671,17 @@ export default function AppV2() {
           />
         ) : (
           <div className="v2-list">
+            {settingsForRings.show_week_strip && (
+              <WeekStrip tasks={tasks} dailyTaskGoal={settingsForRings.daily_task_goal || 3} />
+            )}
             {renderSection('Doing', sortedDoing)}
             {renderSection('Stale', sortedStale)}
             {renderSection('Up next', sortedUpNext)}
             {renderSection('Waiting', sortedWaiting)}
             {renderSection('Snoozed', sortedSnoozed)}
+            {settingsForRings.show_goal_progress && (
+              <GoalProgressBar tasksToday={dailyStats.tasksToday} goal={settingsForRings.daily_task_goal || 3} />
+            )}
           </div>
         )}
       </main>

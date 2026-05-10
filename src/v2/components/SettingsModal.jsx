@@ -1962,6 +1962,54 @@ export default function SettingsModal({
               />
             </div>
 
+            <div className="v2-settings-subhead">Home screen</div>
+
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <div className="v2-settings-row-label">Show 7-day strip</div>
+                <div className="v2-settings-row-hint">Calendar row above the task list with activity intensity per day. Renders as cards in light/dark, monospace block characters in terminal.</div>
+              </div>
+              <label className="v2-settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.show_week_strip}
+                  onChange={e => update('show_week_strip', e.target.checked)}
+                />
+                <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+              </label>
+            </div>
+
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <div className="v2-settings-row-label">Show daily goal progress</div>
+                <div className="v2-settings-row-hint">Progress bar below the task list against the daily task goal. Rounded pill in light/dark, block-character bar in terminal.</div>
+              </div>
+              <label className="v2-settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.show_goal_progress}
+                  onChange={e => update('show_goal_progress', e.target.checked)}
+                />
+                <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+              </label>
+            </div>
+
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <label className="v2-settings-row-label" htmlFor="v2-daily-goal">Daily task goal</label>
+                <div className="v2-settings-row-hint">Used by the progress bar + activity intensity on the 7-day strip.</div>
+              </div>
+              <input
+                id="v2-daily-goal"
+                className="v2-form-input v2-settings-compact-input"
+                type="number"
+                min="1"
+                max="50"
+                value={settings.daily_task_goal ?? 3}
+                onChange={e => update('daily_task_goal', parseInt(e.target.value) || 1)}
+              />
+            </div>
+
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
                 <div className="v2-settings-row-label">Build</div>

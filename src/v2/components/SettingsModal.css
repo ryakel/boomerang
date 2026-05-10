@@ -163,6 +163,29 @@
   border-bottom: 1px solid var(--v2-hairline);
 }
 
+/* Sub-heading inside a tab — divides logical groups (e.g. "Home screen"
+ * within General). Visually a small ALL-CAPS caption with extra top
+ * margin so the previous row's bottom border reads as a closer. */
+.v2-settings-subhead {
+  margin: 24px 0 4px;
+  font: 600 11px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-subhead {
+  text-transform: lowercase;
+  letter-spacing: 0;
+  font-size: 12px;
+  color: var(--v2-text-meta);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-subhead::before {
+  content: "// ";
+  color: var(--v2-text-faint);
+}
+
 .v2-settings-row:last-child {
   border-bottom: none;
 }
