@@ -42,6 +42,7 @@ import { useTrelloSync } from '../hooks/useTrelloSync'
 import { useNotionSync } from '../hooks/useNotionSync'
 import { useGCalSync } from '../hooks/useGCalSync'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { useTerminalMode } from './hooks/useTerminalMode'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask } from '../api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, computeRoutineStreak, logActivity } from '../store'
 import './AppV2.css'
@@ -78,6 +79,7 @@ export default function AppV2() {
   // same thread. Server session TTL still governs the staged-plan life.
   const adviserState = useAdviser()
   const isDesktop = useIsDesktop()
+  const isTerminal = useTerminalMode()
   const weather = useWeather()
 
   // Mark the document so v2-namespaced tokens activate. Also apply the saved
@@ -671,7 +673,26 @@ export default function AppV2() {
           />
         ) : (
           <div className="v2-list">
-            {settingsForRings.show_week_strip && (
+            {/* Terminal home header: date + streak + today's progress as a
+              * single powerlevel10k-style segmented line. Only renders in
+              * terminal mode; light/dark have the mini-rings in the app
+              * header for the same job. */}
+            {isTerminal && (
+              <div className="v2-terminal-home-stats" aria-hidden="false">
+                <span className="v2-thx-date">
+                  📅 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                </span>
+                <span className="v2-thx-sep">·</span>
+                <span className="v2-thx-streak">
+                  🔥 {streak} day{streak === 1 ? '' : 's'}
+                </span>
+                <span className="v2-thx-sep">·</span>
+                <span className="v2-thx-today">
+                  ✓ {dailyStats.tasksToday}/{settingsForRings.daily_task_goal || 3} today
+                </span>
+              </div>
+            )}
+            {(settingsForRings.show_week_strip || isTerminal) && (
               <WeekStrip tasks={tasks} dailyTaskGoal={settingsForRings.daily_task_goal || 3} />
             )}
             {renderSection('Doing', sortedDoing, '→')}
@@ -679,7 +700,7 @@ export default function AppV2() {
             {renderSection('Up next', sortedUpNext, '+')}
             {renderSection('Waiting', sortedWaiting, '…')}
             {renderSection('Snoozed', sortedSnoozed, 'z')}
-            {settingsForRings.show_goal_progress && (
+            {(settingsForRings.show_goal_progress || isTerminal) && (
               <GoalProgressBar tasksToday={dailyStats.tasksToday} goal={settingsForRings.daily_task_goal || 3} />
             )}
           </div>
