@@ -6,6 +6,29 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- refactor(ui): terminal theme PR E — palette family + directory split [M]
+  - **Why.** Terminal theme shipped as a single `data-theme="terminal"` value with one navy/cyan palette baked into `tokens.css` and `terminal.css`. To go deeper into the aesthetic and let the theme branch into sub-palettes (GitHub Dark, GitHub Light), the structure had to grow up. This PR is the foundation for the rest of the v2-polish-terminal-v2 set.
+  - **Two sub-palettes.** Single `'terminal'` value retired in favor of:
+    - `'terminal-dark'` — GitHub Dark colors (#0D1117 canvas, #58A6FF blue accent, #F85149/#D29922/#7EE787 alarm colors). Reads as "code editor in dark mode."
+    - `'terminal-light'` — GitHub Light colors (#FFFFFF canvas, #F6F8FA panel, #0969DA blue accent, #1F2328 text). Reads as "code editor in light mode." Same monospace + ASCII flourishes, white canvas. Different brain, different lighting.
+  - **Migration.** `loadSettings()` upgrades stored `theme: 'terminal'` → `'terminal-dark'` on first read and saves back. `index.html` pre-paint script does the same migration in localStorage so the right tokens are scoped before React mounts. AppV2's mount-time theme effect understands all four values. Idempotent — once migrated, the old value never reappears.
+  - **Architecture.** Split the monolithic `src/v2/terminal.css` (273 lines) into `src/v2/terminal/` directory:
+    - `palette-dark.css` — GitHub Dark tokens (45 lines)
+    - `palette-light.css` — GitHub Light tokens (45 lines)
+    - `wordmark.css` — `$ boomerang_` cursor + sync-state animations (95 lines)
+    - `sections.css` — chevron section bullets, bracketed counts, popover bracket dot (50 lines)
+    - `cards.css` — `[ ] ` task-title prefix, `[ Done ]` button brackets, modal buttons (75 lines)
+    - `index.css` — `@import` aggregator (5 lines)
+  - **Selector convention.** Structural overrides switched from `[data-theme="terminal"]` to `[data-theme^="terminal"]` so both sub-variants pick up the ASCII flourishes uniformly. Adding a new sub-palette later is one drop-in `palette-*.css` file plus an @import.
+  - **Picker UI.** SettingsModal Theme picker grew from 3 options to 4 (Light / Dark / Term Dark / Term Light). New `.v2-settings-segment-4` modifier tightens padding so all four labels fit a one-row segmented control down to ~320px viewport.
+  - **Theme-color meta.** Pre-paint and AppV2 effect both extend the theme-color map to all four values. terminal-light → `#FFFFFF` (white status bar to match white canvas). terminal-dark → `#0D1117` (true GitHub Dark canvas, slightly lighter than the previous `#0A0E1A`).
+  - **Glow token.** terminal-dark keeps `--v2-glow: 0 0 8px rgba(88, 166, 255, 0.45)` (signature GitHub Dark blue). terminal-light sets `--v2-glow: none` — glow on white reads as a blur artifact, not an effect, so light-canvas variants intentionally drop it.
+  - **Bundle.** CSS bundle is 195.5KB (gzipped 29.7KB), up ~2KB from the second palette + 4-option picker styles. JS unchanged.
+  - **Visual QA.** Cycling through Light → Dark → Term Dark → Term Light reloads cleanly, settings persist, no FOUC, status-bar color matches each canvas.
+  - Modified: `src/store.js`, `index.html`, `src/v2/AppV2.jsx`, `src/v2/AppV2.css`, `src/v2/tokens.css`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/Version-History.md`
+  - Added: `src/v2/terminal/palette-dark.css`, `src/v2/terminal/palette-light.css`, `src/v2/terminal/wordmark.css`, `src/v2/terminal/sections.css`, `src/v2/terminal/cards.css`, `src/v2/terminal/index.css`
+  - Removed: `src/v2/terminal.css` (split into the directory above)
+
 - feat(ui): terminal theme PR D — sync animations [S]
   - **Why.** Light/dark themes use a letter-by-letter wave bounce + green flash for the saving / just-synced sync states. Brand-y, slightly playful — wrong vibe for terminal. PR D replaces those with status conventions terminals actually use.
   - **Sync states in terminal mode.**

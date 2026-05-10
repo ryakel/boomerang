@@ -22,7 +22,18 @@
         var v = localStorage.getItem('ui_version')
         if (v !== 'v1') document.documentElement.setAttribute('data-ui', 'v2')
         var s = JSON.parse(localStorage.getItem('boom_settings_v1'))
-        var themeColors = { light: '#FFFFFF', dark: '#0B0B0F', terminal: '#0A0E1A' }
+        // Migrate legacy 'terminal' to 'terminal-dark' before pre-paint so
+        // the right palette tokens are scoped from the very first frame.
+        if (s && s.theme === 'terminal') {
+          s.theme = 'terminal-dark'
+          try { localStorage.setItem('boom_settings_v1', JSON.stringify(s)) } catch(_) {}
+        }
+        var themeColors = {
+          light: '#FFFFFF',
+          dark: '#0B0B0F',
+          'terminal-dark': '#0D1117',
+          'terminal-light': '#FFFFFF'
+        }
         if (s && themeColors[s.theme]) {
           document.documentElement.setAttribute('data-theme', s.theme)
           var meta = document.querySelector('meta[name="theme-color"]')
