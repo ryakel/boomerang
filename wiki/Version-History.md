@@ -6,6 +6,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — audit-pass cleanup (settings tabs, Kanban sigils, WeatherBadge, hover glow) [S]
+  - **Why.** User: "go through and look for any inconsistencies in the terminal layouts. Check everything so as to minimize what I need to tell you to go fix." Five issues found and fixed; two genuine design forks asked and confirmed as "keep both" (action vocab: sigil+text on cards vs bracketed on modal CTAs; picker idiom: underline toolbar pills vs bracket settings segments).
+  - **Settings tabs** (`.v2-settings-tab` — General/AI/Labels/Integrations/etc.) had no terminal override beyond font-size; still rendered as bordered pills. Now flat text-tabs with bottom-border accent underline-on-active, matching the toolbar pill idiom (both are "navigate between sub-views" tabs).
+  - **Kanban column sigils** were uniform `✦` while mobile sections used per-section sigils. Threaded a `sigil` prop through `KanbanColumn` JSX + new `data-sigil` attribute on `.v2-kanban-col-title`. Terminal CSS reads it via `attr()` so desktop matches mobile:
+    - `→ doing`, `+ up next`, `… waiting`, `z snoozed`, `≈ backlog`, `§ projects`
+  - **WeatherBadge** (`🌧 64°` on task meta) had no terminal treatment — picked up default font + color. Added explicit `var(--v2-font-body)` monospace + meta-text color so it blends into the rest of the card meta line.
+  - **Hover glow normalization** — most accent-colored interactive elements used hardcoded rgba glows of varying intensity (6px 0.45, 8px 0.55, 12px 0.65, 14px 0.7). Standardized on `var(--v2-glow)` everywhere the color is accent. Errand-green (`✓ done` action, `[✓]` tap-active), overdue-red (`[ delete ]`), and high-pri-amber (`↷ skip`) keep their non-accent hardcoded glows intentionally — they signal a color identity distinct from "primary interactive."
+  - **Two design forks confirmed as "keep both" (no action):**
+    - Action vocab: card actions stay sigil+text (`☾ snooze`, `✎ edit`, `✓ done`); modal CTAs stay bracketed (`[ Save ]`, `[ apply ]`, `[ send ]`). Reads as "row-level vs commit-level."
+    - Picker idiom: toolbar filter pills stay underline-tab style; settings family/mode segments stay bracket-radio style. Reads as "navigate between views vs pick one value."
+  - Modified: `src/v2/components/KanbanBoard.jsx`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal — `$` prompt prefix → `>` everywhere [XS]
   - **Why.** User: "Replace the terminal $ with >". `$` reads as shell-prompt; `>` reads as more universal CLI-prompt (matches our `→` section sigils + the chevron-y feel of the rest of the language).
   - **Bulk replace across all terminal-mode prompt strings:**
