@@ -1746,5 +1746,19 @@
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty-demo {
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* Per-line `> ` prefix on each typed phrase so it reads as a sequence
+ * of prompts being entered. Completed lines fade their prompt slightly
+ * so the in-progress one stands out — eye lands on the active cursor. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-prompt-line::before {
+  content: "> ";
+  color: var(--v2-accent);
+  font-weight: 700;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-prompt-line-complete::before {
+  color: var(--v2-text-meta);
+  text-shadow: none;
 }
