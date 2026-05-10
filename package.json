@@ -9,6 +9,7 @@
     "start": "node server.js",
     "lint": "eslint .",
     "check:terminal-titles": "node scripts/check-terminal-titles.js",
+    "check:terminal-buttons": "node scripts/check-terminal-buttons.js",
     "test": "sh scripts/smoke-test.sh",
     "prepare": "git config core.hooksPath .githooks || true",
     "preview": "vite preview"

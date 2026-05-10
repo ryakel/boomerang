@@ -6,6 +6,22 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- chore(ui): terminal — root-cause + sweep 32 missed button classes + add coverage guard [S]
+  - **Why.** User asked why energy/auto/research/priority got missed in earlier "comprehensive button strip" passes and to proactively scan for others. Root cause analysis below; sweep covers everything found; new smoke test prevents it happening again.
+  - **Root cause.** When earlier passes "generalized" the button strip, they only targeted **shared** classes (`.v2-form-seg`, `.v2-card-action`, `.v2-form-input`). v2 has several **custom-class** button shapes that exist as their own class because they needed unique sizing/icon rules: `.v2-form-energy-pill` (flex sharing), `.v2-form-ai-pill` (sparkle icon variant), `.v2-form-pri-toggle` (cycling state), `.v2-analytics-range-btn`, `.v2-adviser-history-btn`, `.v2-package-action`, etc. The generic rules never matched them. Plus I never opened AnalyticsModal, full ReframeModal, the Labels CRUD modal, or notification settings rows during this session — so their entire button surfaces never got swept.
+  - **Sweep — 32 classes added in this PR:**
+    - **Adviser**: `.v2-adviser-btn`, `.v2-adviser-history-btn`, `.v2-adviser-chat-icon-btn`, `.v2-adviser-chat-row`
+    - **Analytics**: `.v2-analytics-range-btn` (+ active), `.v2-analytics-metric-btn` (+ active), `.v2-analytics-bd-row`, `.v2-analytics-dow-row`
+    - **EditTaskModal subviews**: `.v2-edit-add-pill`, `.v2-edit-connection-pill`, `.v2-edit-checklist-toggle`, `.v2-edit-routine-toggle`, `.v2-edit-routine-row`, `.v2-edit-comment-input-row`
+    - **Settings**: `.v2-integrations-toggle-row`, `.v2-notif-test-row`, `.v2-settings-log-row`, `.v2-labels-row`, `.v2-labels-icon-btn`, `.v2-notif-history-toggle`, `.v2-notif-history-chev`
+    - **List rows**: `.v2-done-row`, `.v2-shortcut-row`, `.v2-snooze-custom-row`, `.v2-activity-row`
+    - **Modal-specific**: `.v2-reconcile-suggestion-row`, `.v2-reframe-result-row`, `.v2-package-action`, `.v2-routine-new-btn`, `.v2-routine-action`, `.v2-activity-action`, `.v2-header-popover-row`
+  - **New guard: `scripts/check-terminal-buttons.js`.** Greps every CSS file in `src/v2/components/` for class definitions matching `.v2-*-{btn|pill|toggle|seg|chip|tab|option|action|row|cta|trigger}` and asserts each one is referenced from at least one rule inside `src/v2/terminal/*.css` OR from a terminal-gated rule inside the component's own CSS (so per-component overrides like `DateField.css`'s terminal block count). Layout-only containers can be exempt-listed at the top of the script — currently 24 exemptions for things like `.v2-form-row`, `.v2-settings-row`, etc. that are pure flex containers with no chrome of their own. Run via `npm run check:terminal-buttons`. Wired into `.githooks/pre-push` between the existing terminal-titles check and the smoke test. Catches drift on every push.
+  - **Baseline.** 58 button-shaped classes covered, 0 missed.
+  - **Bundle.** CSS 248.6KB gzip 35.5KB (+~4.5KB sweep). JS unchanged.
+  - Modified: `src/v2/terminal/init.css`, `package.json`, `.githooks/pre-push`, `wiki/Version-History.md`
+  - Added: `scripts/check-terminal-buttons.js`
+
 - feat(ui): terminal — DateField + form polish (energy/auto/research/priority as labels) [S]
   - **Why.** User feedback: "Center up the calendar row at the top. Energy type should look like labels. Same with auto, research and priority. I think date should just be the word [due date] and have it open a calendar picker. Once picked, Date format should be YYYY-MM-DD. Give me an option to clear the due date."
   - **`DateField` (new component).** Replaces the bare `<input type="date">` in AddTaskModal + EditTaskModal. Renders as a `[ due date ]` placeholder when empty, `[ YYYY-MM-DD ]` when filled, with an inline `× clear` button (only visible when filled). Tap the trigger → calls `.showPicker()` on a hidden off-screen `<input type="date">`; falls back to focus+click for older browsers. Modern support is iOS 16.4+ / Chrome 99+ / Firefox 101+, which covers what Boomerang targets. Same UX in light/dark (looks like a regular input rect with the placeholder/value text inside) and terminal (collapses to bare bracketed text).
