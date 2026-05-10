@@ -188,6 +188,20 @@ app.post('/api/log', (req, res) => {
   res.json({ ok: true })
 })
 
+// --- Client render-error capture (v2 ErrorBoundary fallback fires this) ---
+app.post('/api/logs/client-error', (req, res) => {
+  const { message, stack, componentStack, url, userAgent, appVersion } = req.body || {}
+  console.error('[CLIENT-ERROR]', JSON.stringify({
+    message: message || 'unknown',
+    url: url || null,
+    userAgent: userAgent || null,
+    appVersion: appVersion || null,
+  }))
+  if (stack) console.error('[CLIENT-ERROR] stack:\n' + stack)
+  if (componentStack) console.error('[CLIENT-ERROR] component stack:\n' + componentStack)
+  res.json({ ok: true })
+})
+
 // --- Key status route (tells frontend what's configured via env) ---
 app.get('/api/keys/status', (req, res) => {
   res.json({

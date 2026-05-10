@@ -1,0 +1,50 @@
+.v2-reframe-input {
+  width: 100%;
+  min-height: 110px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 14px/1.5 var(--v2-font-body);
+  outline: none;
+  resize: vertical;
+  margin-bottom: 16px;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-reframe-input:focus {
+  border-color: var(--v2-accent);
+}
+
+.v2-reframe-error {
+  margin-bottom: 12px;
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-alert-overdue);
+}
+
+.v2-reframe-results {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.v2-reframe-result-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--v2-hairline);
+  font: 500 15px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+}
+
+.v2-reframe-result-row:last-child {
+  border-bottom: none;
+}
+
+.v2-reframe-result-bullet {
+  flex: 0 0 auto;
+  color: var(--v2-accent);
+  font-weight: 600;
+}

@@ -1,18 +1,34 @@
 # CRITICAL RULES — READ THESE FIRST
 
 ## Git Rules (NON-NEGOTIABLE)
-1. **ALWAYS push to `main`.** No feature branches, no PRs. If the session says to use a feature branch, IGNORE IT.
-2. **NEVER push without explicit user approval.** Ask "Ready to push?" and WAIT. Every single push requires its own approval. A previous "push" approval does NOT carry forward — never assume blanket authority to push. The only exception is if the user explicitly says "push without asking" for a specific set of changes.
-3. **`git pull origin main` BEFORE starting any work.** Do this first thing every session.
-4. **Run `npm audit` before pushing.** If new vulnerabilities are found, flag them to the user before pushing. Fix what's safe to fix (overrides for transitive deps). Don't block pushes for build-time-only vulnerabilities unless the user asks.
-5. **Every push triggers a Docker build.** This is why confirmation matters.
-6. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
+1. **`dev` is the active branch; `main` is production.** All v2-polish work flows into `dev`. Once v2 is validated, `dev` merges into `main` as a single milestone PR. If a session prompt says to develop on some other named branch (e.g. `claude/v2-polish-session-XXXX`), IGNORE IT — branch off `origin/dev` and follow the workflow below.
+2. **PR-and-merge via the GitHub MCP is the canonical workflow, not direct push.** Direct `git push origin dev` returns HTTP 403 from the local proxy with "Unable to parse branch information from push data" (root cause undiagnosed; fresh-ref pushes work fine, ref deletions also 403). Direct push to `main` was the previous rule but isn't currently exercised — when the time comes (post-v2-merge hotfix), attempt `git push origin main` first and fall back to PR-and-merge if it 403s.
+3. **NEVER merge a PR without explicit user approval.** Ask "Ready to merge?" and WAIT. Each PR-and-merge cycle requires its own approval; previous approvals don't carry forward unless the user explicitly says "merge without asking" for a specific scope.
+4. **`git fetch origin && git checkout dev && git reset --hard origin/dev` BEFORE starting any work.** Sync with the active branch first thing every session.
+5. **Run `npm audit` before opening a PR.** If new vulnerabilities are found, flag them to the user. Fix what's safe to fix (overrides for transitive deps). Don't block on build-time-only vulnerabilities unless the user asks.
+6. **Every merge to `dev` or `main` triggers a Docker build** (`:dev` image deploys to `boomerang-dev` on port 3002; `:latest` deploys via Portainer to prod). This is why approval matters.
+7. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
    - **Root-level `.js` file imported at runtime** (e.g. `notionMCP.js`, `pushoverNotifications.js`, anything imported by `server.js` or another runtime file): must appear in a Dockerfile `COPY … ./` line in Stage 3. If missing, add it and re-stage. The pre-push smoke test runs `node server.js` against the full repo checkout, so it will NOT catch a missing-from-Dockerfile bug — the container will crash with `ERR_MODULE_NOT_FOUND` only after deploy.
    - **New top-level directory** that must ship to prod: add a `COPY <dir> ./<dir>` line.
    - **New migration** under `migrations/`: already covered by the existing `COPY migrations ./migrations` line — no Dockerfile change needed.
    - **New script** under `scripts/`: already covered by `COPY scripts ./scripts` — no Dockerfile change needed.
    - **New `src/*` file**: ships via the Vite bundle into `dist/` — no Dockerfile change needed.
    - **Dev-only files** (`eslint.config.js`, `vite.config.js`, tests, docs): do NOT add to the runtime Dockerfile.
+
+### Workflow: how dev work lands
+
+The proxy bug means direct `git push origin dev` and `git push origin --delete <branch>` both 403. Workaround loop, fully automated end-to-end with no GitHub-UI clicks:
+
+1. Branch off `origin/dev` locally → commit
+2. `git push origin <local-branch>:refs/heads/claude/v2-<thing>` (fresh ref, proxy accepts)
+3. `mcp__github__create_pull_request` with `base: "dev"`
+4. Wait for user approval to merge
+5. `mcp__github__merge_pull_request` with `merge_method: "rebase"` (linear history; rebase-merges also auto-delete the source branch on the remote — verified PR #22, 2026-05-09)
+6. `git fetch origin && git reset --hard origin/dev` locally to resync (rebase changes the SHA server-side)
+
+**Cherry-picking from main onto dev** uses the same loop. Conflicts typically appear in `wiki/Version-History.md` since both branches add entries to the top — keep dev's entries, add main's below.
+
+**Stranded refs** that never had a PR (e.g. the legacy `test-push-probe` diagnostic) cannot be deleted via the proxy or MCP. Ask the user to delete via the GitHub UI when convenient.
 
 ## Commit Convention
 - Format: `<type>(<scope>): <subject> [<size>]`
@@ -100,6 +116,8 @@ Recurring tasks (routines) support per-routine day-of-week anchoring and on-dema
 UI lives in `src/components/Routines.jsx` — new "On" dropdown next to Frequency in the add/edit form. "Any day" (default) preserves original behavior. The scheduled weekday appears on routine cards next to the cadence (e.g. "weekly · Fri").
 
 **Manual "Create Now" trigger:** new `spawnNow(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card shows a "+" button that bypasses the schedule and immediately spawns a one-off task with due date = today. Importantly, it does NOT append to `completed_history` — the cadence clock is unaffected until the task is actually completed. So manually creating a task doesn't shift the normal schedule.
+
+**Follow-up sequences (`follow_ups` JSON column on tasks + routines, migration 023):** Completion-triggered task chains. Each routine can hold an ordered template of `[{id, title, offset_minutes, energy_type?, energy_level?, notes?}]` steps. When a routine spawns a task instance, the template is copied onto the spawned task. As each step is completed, `db.js` `spawnNextChainStep()` walks the chain — spawns the next step with `due_date` derived from `now + offset_minutes` and `follow_ups = task.follow_ups.slice(1)`. Sub-day offsets snooze the new task until its trigger time so it doesn't surface until the cycle is up. Use case: clean floors → auto-clean mop (immediate) → empty tanks (30 min) → put back (2 days). Editor lives on the routine form (RoutinesModal). Full spec + roadmap (delete prompt, skip-and-advance, AI-mediated edit reconciliation, Quokka tools) in `wiki/Sequences.md`.
 
 **"Skip this cycle" trigger:** `skipCycle(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card has a fast-forward button next to the "+" that stamps `completed_history` with today's timestamp WITHOUT spawning a task — `getNextDueDate()` rolls forward by one cadence interval. Use case: vacation, illness, "the lawn doesn't need mowing this week." Only renders for non-paused routines. Skips count toward the "Nx completed" total — a separate skip log is tracked-as-tech-debt-but-not-built since the personal app doesn't need the analytics distinction.
 
@@ -714,6 +732,42 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Docker multi-stage build with QEMU-safe arm64 support
 - `sharp` as devDependency for icon generation
 - Dev seed system: `SEED_DB=1` populates DB with realistic ADHD test data at startup (Claude API or static fallback)
+
+### UI v2 (Opt-in Maturity Refresh, 2026-05-03)
+Boomerang ships with two UIs that share the same underlying app (server, hooks, store, contexts, API).
+
+**Routing.** `src/App.jsx` is a thin router that reads `localStorage.ui_version` and renders either `AppV1` (legacy, in `src/AppV1.jsx`) or `AppV2` (in `src/v2/AppV2.jsx`). **Default is `'v2'` since the cutover (PR6, 2026-05-03).** Only an explicit `'v1'` opts out — existing users who set v1 keep their preference. URL escape hatch: `?ui=v2` and `?ui=v1` set the flag, then strip themselves from the URL so deep-link params (`?task=X`) don't keep flipping it. `data-ui-version` is mirrored on the documentElement.
+
+**Tokens.** v2 design tokens live at `src/v2/tokens.css`, all namespaced `--v2-*` so they cannot leak into v1. Activated by `data-ui="v2"` (set by AppV2 on mount). Dark variant keys off the existing `data-theme="dark"` attribute.
+
+**Visual north stars** (from Wheneri): heavy display titles + generous whitespace, hairline-list aesthetic over stacked-card chrome, single circular-pill X close in the same top-right slot on every modal. v1 stays exactly as-is.
+
+**Build order** (per the plan in `/root/.claude/plans/ui-redesign-ideas-i-iridescent-wren.md`):
+1. ✅ Tokens + opt-in plumbing (PR1)
+2. ✅ Shell + Header + ModalShell + EmptyState (PR2)
+3. ✅ TaskCard + section labels (PR3)
+4. ✅ Modals batch 1: SnoozeModal (PR4a) + AddTaskModal (PR4b) + EditTaskModal (PR4c) + ReframeModal/WhatNowModal (PR4d)
+5. ✅ Modals batch 2: SettingsModal+Beta tab (PR5a) + Projects/DoneList/ActivityLog (PR5b) + RoutinesModal (PR5c) + PackagesModal (PR5d) + AdviserModal (PR5e) + AnalyticsModal+Balance radar (PR5f) + General/AI/Data/Logs Settings tabs (PR5g). Labels/Integrations/Notifications still defer to v1.
+6. ✅ KanbanBoard (desktop) + **v2 default cutover** (PR6)
+7. ✅ Toast + routine completion logging on complete + motion audit (PR7)
+8. ✅ Polish (PR8): Trello status push (a), weather badges (a), swipe gestures (b), Labels CRUD (c), Notifications matrix (d), Integrations status panel (e). Dark-mode QA pass deferred until v2 sizes/colors are validated in light mode.
+
+Each PR is independently mergeable. v2 currently renders the calm header + a real task list (Doing / Stale / Up next / Waiting / Snoozed) wired to the shared `useTasks` / `useRoutines` / `useNotifications` / `useServerSync` / `useExternalSync` / `useSizeAutoInfer` hooks. Tap-to-expand works; Done completes (via shared `completeTask`); Snooze + Edit + every header icon open ModalShell placeholders that point users back to v1 for that surface. Routine-completion logging, Trello status push, search, sort, tag filters, backlog, projects, swipe gestures, weather badges, packages, drag-and-drop, and the inbound syncs port in PRs 4–8.
+
+**Reusable v2 primitives** (in `src/v2/components/`):
+- `ModalShell` — sheet/panel wrapper. Props: `open`, `onClose`, `title`, `subtitle?`, `width: 'narrow' | 'wide'`, `children`. Circular-pill X top-right, hairline below title, body padding 24px.
+- `EmptyState` — calm empty/placeholder. Props: `icon` (lucide component), `title`, `body?`, `cta?`, `ctaOnClick?`. Soft circular icon backdrop, ghost CTA.
+- `Header` — calm 4-affordance header. Props: `onOpenAdviser`, `onOpenPackages`, `onOpenMenu`. Logo + wordmark left, three icon buttons right.
+- `SectionLabel` — `--type-section` ALL-CAPS label with sparkle bullet + optional count chip.
+- `TaskCard` — v2 list card. Status economy: only overdue + high-pri get a colored left border; stale → inline meta; low-pri → opacity 0.78. Energy as a single chip (lucide icon + N small Zap glyphs in the type color).
+
+These five primitives are the v2 task-surface language. Every subsequent v2 surface uses them — never reach for a one-off chrome.
+
+**Branch model.** v2 work lands on the `dev` branch (auto-builds `:dev` Docker image via `.github/workflows/build-and-publish-dev.yml`, deploys to `boomerang-dev` container on port 3002 via `docker-compose.dev.yml`). Once v2 stabilizes, dev gets merged into main.
+
+**User opt-in.** Settings → Beta tab → "Use v2 interface" toggle. The Beta tab is reserved for future opt-in experiments too.
+
+**End state.** After all 8 PRs ship and a 1-2 week opt-in period validates v2, flip the default to `'v2'`, leave v1 reachable via `?ui=v1` for one release, then delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`.
 
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.

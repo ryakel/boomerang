@@ -1,0 +1,31 @@
+.v2-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 4px 10px;
+  font: 600 11px/1 var(--v2-font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v2-text-meta);
+}
+
+.v2-section-label:first-child {
+  padding-top: 12px;
+}
+
+.v2-section-label-bullet {
+  color: var(--v2-accent);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.v2-section-label-text {
+  flex: 0 0 auto;
+}
+
+.v2-section-label-count {
+  margin-left: auto;
+  font-weight: 500;
+  color: var(--v2-text-faint);
+  letter-spacing: 0;
+}

@@ -1,0 +1,229 @@
+/* Swipe wrap — clips the card so the revealed action panel isn't visible
+ * until the card translates. The card itself stays positioned relative for
+ * the status border + content; the action panel is absolutely positioned
+ * behind it on the right. */
+.v2-card-swipe-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--v2-radius-card);
+  margin-bottom: 10px;
+}
+
+.v2-card-swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 160px;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+}
+
+.v2-card-swipe-action {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  cursor: pointer;
+  font: 600 11px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+}
+
+.v2-card-swipe-edit {
+  background: rgba(var(--v2-text-rgb), 0.10);
+  color: var(--v2-text);
+}
+
+.v2-card-swipe-done {
+  background: var(--v2-accent);
+  color: #fff;
+}
+
+.v2-card-swipe-wrap > .v2-card {
+  margin-bottom: 0;
+}
+
+.v2-card {
+  position: relative;
+  background: var(--v2-surface);
+  border-radius: var(--v2-radius-card);
+  margin-bottom: 10px;
+  border: 1px solid var(--v2-hairline);
+  overflow: hidden;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard),
+              box-shadow var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-card-faded {
+  opacity: 0.78;
+}
+
+.v2-card-overdue { border-left: 2px solid var(--v2-alert-overdue); }
+.v2-card-high-pri { border-left: 2px solid var(--v2-alert-high-pri); }
+
+.v2-card-expanded-state {
+  border-color: rgba(var(--v2-text-rgb), 0.16);
+}
+
+/* Keyboard-shortcut selection ring (desktop j/k navigation). */
+.v2-card-selected {
+  border-color: var(--v2-accent);
+  box-shadow: 0 0 0 2px rgba(255, 98, 64, 0.18);
+}
+
+.v2-card-main {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--v2-text);
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-card-main:hover {
+  background: rgba(var(--v2-text-rgb), 0.02);
+}
+
+.v2-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.v2-card-title {
+  font: 600 16px/1.35 var(--v2-font-body);
+  color: var(--v2-text);
+  word-break: break-word;
+}
+
+.v2-card-meta {
+  margin-top: 6px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.v2-card-meta-sep {
+  margin: 0 2px;
+  color: var(--v2-text-faint);
+}
+
+.v2-card-energy {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--v2-radius-pill);
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+
+.v2-card-energy-bolts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+
+.v2-card-energy-bolts svg + svg {
+  margin-left: -3px;
+}
+
+.v2-weather-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font: 400 12px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-weather-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.v2-weather-temp {
+  font-variant-numeric: tabular-nums;
+}
+
+.v2-card-expanded {
+  padding: 0 16px 14px;
+  border-top: 1px solid var(--v2-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: v2-card-expand var(--v2-dur-standard) var(--v2-ease-standard);
+}
+
+@keyframes v2-card-expand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.v2-card-notes {
+  margin-top: 12px;
+  font: 400 13px/1.55 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.v2-card-checklist-summary {
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  letter-spacing: 0.02em;
+}
+
+.v2-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.v2-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0 12px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-card-action:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-card-action:active {
+  transform: scale(0.97);
+}
+
+.v2-card-action-primary {
+  background: var(--v2-accent);
+  color: #fff;
+  border-color: var(--v2-accent);
+}
+
+.v2-card-action-primary:hover {
+  background: var(--v2-accent);
+  filter: brightness(1.08);
+  color: #fff;
+}

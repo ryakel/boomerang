@@ -1,0 +1,314 @@
+@import './tokens.css';
+
+.v2-app {
+  position: fixed;
+  inset: 0;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font-family: var(--v2-font-body);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.v2-main {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* The empty state centers itself; the task list aligns to top with a
+     comfortable max-width so card lines don't stretch on desktop. */
+}
+
+/* Desktop Kanban needs the column row to be horizontally scrollable, so
+   keep overflow-y on the column bodies and let the main container span. */
+.v2-main-kanban {
+  overflow-y: hidden;
+}
+
+.v2-main:has(> .v2-list) {
+  align-items: stretch;
+}
+
+.v2-list {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 8px 16px 32px;
+}
+
+/* Inline code in body copy (keyboard hints, URL flags, etc.) */
+:root[data-ui="v2"] code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  padding: 1px 6px;
+  background: rgba(var(--v2-text-rgb), 0.06);
+  border-radius: 4px;
+}
+
+/* When the empty state is the only content of v2-main, center it vertically. */
+.v2-main > .v2-empty {
+  margin: auto;
+}
+
+@media (min-width: 601px) {
+  .v2-list {
+    padding: 16px 24px 48px;
+  }
+}
+
+/* More-menu rows — hairline-list aesthetic for the overflow sheet. */
+.v2-more-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.v2-more-menu li + li {
+  border-top: 1px solid var(--v2-hairline);
+}
+
+.v2-more-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 4px;
+  background: transparent;
+  border: none;
+  color: var(--v2-text);
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-more-row:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+
+.v2-more-row svg:first-of-type {
+  color: var(--v2-text-meta);
+  flex: 0 0 auto;
+}
+
+/* Tinted destination icons — same brand colors v1 uses on header-menu items
+ * so users can recognize destinations at a glance. */
+.v2-more-row-icon-settings  { color: var(--v2-text-meta); }
+.v2-more-row-icon-projects  { color: #A78BFA; }
+.v2-more-row-icon-routines  { color: #5DBC9B; }
+.v2-more-row-icon-done      { color: #5DBC9B; }
+.v2-more-row-icon-analytics { color: #60A5FA; }
+.v2-more-row-icon-activity  { color: var(--v2-text-meta); }
+
+.v2-more-row .v2-more-row-icon { color: inherit; }
+.v2-more-row svg.v2-more-row-icon-projects  { color: #A78BFA; }
+.v2-more-row svg.v2-more-row-icon-routines  { color: #5DBC9B; }
+.v2-more-row svg.v2-more-row-icon-done      { color: #5DBC9B; }
+.v2-more-row svg.v2-more-row-icon-analytics { color: #60A5FA; }
+
+.v2-more-row-label {
+  flex: 1;
+  font: 500 15px/1 var(--v2-font-body);
+}
+
+.v2-more-row-chev {
+  color: var(--v2-text-faint);
+}
+
+.v2-more-row-tag {
+  font: 600 10px/1 var(--v2-font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v2-text-faint);
+  padding: 4px 8px;
+  border-radius: var(--v2-radius-pill);
+  background: rgba(var(--v2-text-rgb), 0.06);
+}
+
+/* Keyboard shortcut help dialog */
+.v2-shortcut-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.v2-shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+
+.v2-shortcut-row:last-child { border-bottom: none; }
+
+.v2-shortcut-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 110px;
+}
+
+.v2-shortcut-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text);
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.v2-shortcut-sep {
+  font: 400 11px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  margin: 0 4px;
+}
+
+.v2-shortcut-desc {
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+}
+
+/* Routine-suggestion banner — Notion pattern detection. Accept-or-dismiss
+ * row that appears between the toolbar and the task list when the sync
+ * notices a recurring pattern. */
+.v2-routine-suggestions {
+  margin: 8px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.v2-routine-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(167, 139, 250, 0.08);
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+}
+
+.v2-routine-suggestion-text {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v2-routine-suggestion-cadence {
+  font: 500 11px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--v2-text-meta);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(var(--v2-text-rgb), 0.06);
+}
+
+.v2-routine-suggestion-accept {
+  padding: 6px 12px;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-accent);
+  color: #fff;
+  border: none;
+  font: 600 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: filter var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-routine-suggestion-accept:hover { filter: brightness(1.08); }
+
+.v2-routine-suggestion-dismiss {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 14px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-routine-suggestion-dismiss:hover {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text);
+}
+
+@media (min-width: 601px) {
+  .v2-routine-suggestions {
+    margin: 8px 24px 0;
+  }
+}
+
+/* Update-available modal — appears when useServerSync detects a server
+ * version mismatch. The reload fires automatically after 1s; the button is
+ * for users who want to skip the delay. */
+.v2-update-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: v2-update-fade-in var(--v2-dur-emphasis) var(--v2-ease-emphasis);
+}
+
+@keyframes v2-update-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.v2-update-modal {
+  max-width: 360px;
+  width: 100%;
+  background: var(--v2-surface);
+  border-radius: var(--v2-radius-modal);
+  padding: 28px 24px 22px;
+  text-align: center;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+}
+
+.v2-update-title {
+  font: 700 20px/1.2 var(--v2-font-display);
+  color: var(--v2-text);
+  margin-bottom: 4px;
+}
+
+.v2-update-version {
+  font: 600 14px/1 var(--v2-font-body);
+  color: var(--v2-accent);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 12px;
+}
+
+.v2-update-sub {
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin-bottom: 18px;
+}
+
+.v2-update-reload {
+  width: 100%;
+  height: 42px;
+  border: none;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-accent);
+  color: #fff;
+  font: 600 14px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: filter var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-update-reload:hover { filter: brightness(1.08); }

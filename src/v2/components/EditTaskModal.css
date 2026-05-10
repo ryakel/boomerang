@@ -1,0 +1,796 @@
+/* v2 EditTaskModal — extends shared form styles in AddTaskModal.css */
+
+.v2-edit-status-row .v2-form-seg {
+  flex: 1 1 auto;
+}
+
+/* Done is a one-shot action button (transition the task to done), NOT a
+ * status the task can currently be in. Keep it visually neutral at rest so
+ * it doesn't compete with the inverted-active "selected" status — the leading
+ * ✓ glyph already reads as an action. Accent only on hover. */
+.v2-edit-status-done {
+  color: var(--v2-text-meta);
+}
+
+.v2-edit-status-done:hover {
+  background: var(--v2-accent);
+  color: #fff;
+  border-color: var(--v2-accent);
+}
+
+.v2-edit-routine-toggle {
+  width: 100%;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  border: 1px dashed var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-routine-toggle:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  border-color: var(--v2-text-meta);
+}
+
+.v2-edit-routine-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.v2-edit-routine-select {
+  flex: 1 1 120px;
+  text-transform: capitalize;
+}
+
+.v2-edit-routine-days {
+  flex: 0 0 80px;
+}
+
+.v2-edit-routine-confirm {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-accent);
+  color: #fff;
+  border: none;
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+
+.v2-edit-routine-cancel {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+
+.v2-edit-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--v2-hairline);
+}
+
+.v2-edit-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-action:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-edit-action-danger {
+  color: var(--v2-alert-overdue);
+}
+
+.v2-edit-action-danger:hover {
+  background: rgba(232, 68, 58, 0.08);
+  color: var(--v2-alert-overdue);
+}
+
+.v2-edit-action-confirm-yes {
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  border-color: var(--v2-alert-overdue);
+}
+
+.v2-edit-action-confirm-yes:hover {
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.v2-edit-confirm-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.v2-edit-confirm-label {
+  font: 500 13px/1 var(--v2-font-body);
+  color: var(--v2-alert-overdue);
+}
+
+/* === Checklists === */
+
+.v2-edit-checklist-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.v2-edit-checklist-summary {
+  font: 500 11px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+  color: var(--v2-text-meta);
+}
+
+.v2-edit-checklist {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(var(--v2-text-rgb), 0.02);
+  border: 1px solid var(--v2-hairline);
+}
+
+.v2-edit-checklist + .v2-edit-checklist {
+  margin-top: 0;
+}
+
+.v2-edit-checklist-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.v2-edit-checklist-name {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--v2-text);
+  font: 600 14px/1.2 var(--v2-font-body);
+  outline: none;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard),
+              background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-checklist-name:hover {
+  background: rgba(var(--v2-text-rgb), 0.03);
+}
+
+.v2-edit-checklist-name:focus {
+  background: var(--v2-bg);
+  border-color: var(--v2-accent);
+}
+
+.v2-edit-checklist-toggle {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 11px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-checklist-toggle:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-edit-checklist-delete {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-checklist-delete:hover {
+  background: rgba(232, 68, 58, 0.08);
+  color: var(--v2-alert-overdue);
+}
+
+.v2-edit-checklist-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 11px/1 var(--v2-font-body);
+  color: var(--v2-alert-overdue);
+}
+
+.v2-edit-checklist-confirm button {
+  padding: 4px 8px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px solid var(--v2-hairline);
+  font: 500 11px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+
+.v2-edit-checklist-confirm button:first-of-type {
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  border-color: var(--v2-alert-overdue);
+}
+
+.v2-edit-checklist-progress {
+  height: 4px;
+  background: rgba(var(--v2-text-rgb), 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.v2-edit-checklist-progress-fill {
+  height: 100%;
+  background: var(--v2-accent);
+  transition: width var(--v2-dur-standard) var(--v2-ease-standard);
+}
+
+.v2-edit-checklist-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.v2-edit-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.v2-edit-checklist-check {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--v2-accent);
+  cursor: pointer;
+}
+
+.v2-edit-checklist-text {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--v2-text);
+  font: 400 14px/1.3 var(--v2-font-body);
+  outline: none;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard),
+              background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-checklist-text:hover {
+  background: rgba(var(--v2-text-rgb), 0.03);
+}
+
+.v2-edit-checklist-text:focus {
+  background: var(--v2-bg);
+  border-color: var(--v2-accent);
+}
+
+.v2-edit-checklist-text-done {
+  color: var(--v2-text-meta);
+  text-decoration: line-through;
+  text-decoration-color: var(--v2-text-faint);
+}
+
+.v2-edit-checklist-item-remove {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--v2-text-faint);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--v2-dur-quick) var(--v2-ease-standard),
+              background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-checklist-item:hover .v2-edit-checklist-item-remove {
+  opacity: 1;
+}
+
+.v2-edit-checklist-item-remove:hover {
+  background: rgba(232, 68, 58, 0.08);
+  color: var(--v2-alert-overdue);
+}
+
+.v2-edit-checklist-hidden {
+  font: 400 11px/1.4 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  padding: 4px 0 0 24px;
+}
+
+.v2-edit-checklist-add {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--v2-hairline);
+}
+
+.v2-edit-checklist-add-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px dashed var(--v2-hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--v2-text);
+  font: 400 13px/1.3 var(--v2-font-body);
+  outline: none;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-checklist-add-input:focus {
+  border-color: var(--v2-accent);
+  border-style: solid;
+}
+
+/* Shared add-affordance pill — dashed border, transparent bg, hover fills.
+ * Used as the empty-state "tap to add" pill across Checklists / Attachments /
+ * Comments / Connections so all four read as the same kind of action. */
+.v2-edit-add-pill,
+.v2-edit-checklist-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  border: 1px dashed var(--v2-hairline);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-add-pill:hover:not(:disabled),
+.v2-edit-checklist-new:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+  border-color: var(--v2-text-meta);
+}
+
+.v2-edit-add-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Notes toolbar — Polish + Research as a horizontal row BELOW the textarea.
+ * Earlier these were absolute-positioned at the textarea's bottom-right
+ * corner; that overlaid typed text and visually crowded the next form
+ * section. Inline row beneath the textarea is cheaper and clearer. */
+.v2-edit-notes-toolbar {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* Research prompt input — appears below Notes when toggle is on */
+.v2-edit-research-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.v2-edit-research-row .v2-form-input {
+  flex: 1;
+}
+
+.v2-edit-research-go {
+  padding: 0 16px;
+  height: 38px;
+  border-radius: var(--v2-radius-pill);
+  border: 1px solid var(--v2-accent);
+  background: var(--v2-accent);
+  color: #fff;
+  font: 600 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: filter var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-edit-research-go:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.v2-edit-research-go:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Attachments + Comments shared head row */
+.v2-edit-attach-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.v2-edit-attach-summary {
+  font: 500 11px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+  color: var(--v2-text-meta);
+  flex: 1;
+}
+
+.v2-edit-attach-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v2-edit-attach-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 10px;
+}
+
+.v2-edit-attach-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+.v2-edit-attach-item:last-child {
+  border-bottom: none;
+}
+
+.v2-edit-attach-name {
+  flex: 1;
+  font: 400 13px/1.3 var(--v2-font-body);
+  color: var(--v2-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v2-edit-attach-size {
+  font: 500 11px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.v2-edit-attach-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--v2-text-meta);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-edit-attach-remove:hover {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text);
+}
+
+/* Comments list */
+.v2-edit-comment-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.v2-edit-comment-item {
+  padding: 10px 12px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 10px;
+  background: rgba(var(--v2-text-rgb), 0.02);
+}
+
+.v2-edit-comment-text {
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.v2-edit-comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.v2-edit-comment-time {
+  font: 500 10px/1 var(--v2-font-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--v2-text-faint);
+}
+
+.v2-edit-comment-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--v2-text-faint);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-edit-comment-remove:hover {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text);
+}
+
+.v2-edit-comment-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.v2-edit-comment-input-row .v2-form-input {
+  flex: 1;
+}
+
+/* Connections row — Notion link button or "Notion ↗" linked pill */
+.v2-edit-connections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.v2-form-ai-pill-static {
+  position: static !important;
+}
+
+.v2-edit-connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--v2-radius-pill);
+  background: rgba(var(--v2-text-rgb), 0.06);
+  font: 500 12px/1 var(--v2-font-body);
+}
+
+.v2-edit-connection-pill a {
+  color: var(--v2-text);
+  text-decoration: none;
+}
+.v2-edit-connection-pill a:hover {
+  text-decoration: underline;
+}
+
+.v2-edit-connection-unlink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--v2-text-faint);
+  cursor: pointer;
+}
+.v2-edit-connection-unlink:hover {
+  background: rgba(var(--v2-text-rgb), 0.08);
+  color: var(--v2-text);
+}
+
+.v2-edit-notion-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin-top: 8px;
+}
+
+.v2-edit-notion-suggestions {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.v2-edit-notion-reason {
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-edit-notion-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.v2-edit-notion-page {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--v2-text);
+  font: 400 13px/1.3 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+.v2-edit-notion-page:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  border-color: var(--v2-text-meta);
+}
+
+.v2-edit-notion-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v2-edit-notion-cancel {
+  padding: 0 12px;
+  height: 26px;
+  border-radius: var(--v2-radius-pill);
+  border: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-edit-notion-cancel:hover {
+  color: var(--v2-text);
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+
+/* 7-day forecast widget */
+.v2-edit-weather-hide {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  cursor: pointer;
+}
+
+.v2-edit-weather-drawer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px dashed var(--v2-hairline);
+  border-radius: var(--v2-radius-pill);
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-edit-weather-drawer:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-edit-weather-drawer-body {
+  margin-top: 8px;
+}
+
+/* GCal duration override input */
+.v2-edit-duration-input {
+  width: 120px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Polish-applied note — appears below polishError when AI applied labels
+ * and/or proposed a checklist. */
+.v2-edit-polish-applied {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(167, 139, 250, 0.10);
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.v2-edit-polish-checklist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v2-edit-polish-apply {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-accent);
+  color: #fff;
+  font: 600 11px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-edit-polish-apply:hover { filter: brightness(1.08); }
+
+.v2-edit-polish-dismiss {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font-size: 13px;
+  cursor: pointer;
+}
+.v2-edit-polish-dismiss:hover {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text);
+}

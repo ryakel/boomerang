@@ -1,0 +1,70 @@
+.v2-radar {
+  display: block;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.v2-radar-empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--v2-text-meta);
+  font: 400 13px/1.5 var(--v2-font-body);
+}
+
+.v2-radar-guide {
+  fill: none;
+  stroke: var(--v2-text-faint);
+  stroke-width: 1;
+}
+
+.v2-radar-spoke {
+  stroke: var(--v2-text-faint);
+  stroke-width: 1;
+  opacity: 0.18;
+}
+
+.v2-radar-current {
+  fill: var(--v2-accent);
+  fill-opacity: 0.16;
+  stroke: var(--v2-accent);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.v2-radar-comparison {
+  fill: none;
+  stroke: var(--v2-text-meta);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  stroke-linejoin: round;
+  opacity: 0.5;
+}
+
+.v2-radar-dot {
+  stroke: var(--v2-surface);
+  stroke-width: 1.5;
+}
+
+.v2-radar-label {
+  font: 600 11px/1 var(--v2-font-body);
+  fill: var(--v2-text);
+  letter-spacing: 0.02em;
+}
+
+.v2-radar-label-value {
+  font: 400 10px/1 var(--v2-font-body);
+  fill: var(--v2-text-meta);
+}
+
+.v2-radar-label-group {
+  pointer-events: none;
+}
+
+.v2-radar-label-clickable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.v2-radar-label-clickable:hover .v2-radar-label {
+  fill: var(--v2-accent);
+}

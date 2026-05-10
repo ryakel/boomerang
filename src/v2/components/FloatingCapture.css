@@ -1,0 +1,278 @@
+/* Right-edge speed-dial. Pinned to the lower-right of the viewport, sits
+ * above the iOS safe-area inset so the home-bar gesture doesn't overlap
+ * the +. Two slots stacked with a small gap; tapping a circle expands
+ * it leftward into a slim card.
+ *
+ * Aesthetic: v2 hairline + soft shadow + tokens. No drop-in modal weight
+ * — the card emerges from the button itself, not from a separate scrim. */
+.v2-floating-capture {
+  position: fixed;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-end;
+  pointer-events: none;  /* children re-enable; lets list scroll past the gap */
+  /* Smooth the keyboard-occlusion lift so the wrapper rides up with the
+   * keyboard slide-in instead of snapping. Direct style.transform writes
+   * inherit this transition. */
+  transition: transform 200ms cubic-bezier(.4, 0, .2, 1);
+}
+
+.v2-floating-capture > * {
+  pointer-events: auto;
+}
+
+/* Each slot wraps either a circle button or an expanded card. Width
+ * transitions are driven by the inner content swapping between fixed-
+ * width (48px circle) and full-width (~280px card). The slot itself
+ * just provides the alignment context. */
+.v2-fc-slot {
+  display: flex;
+  justify-content: flex-end;
+  width: auto;
+}
+
+/* === Circle buttons (collapsed state) ============================== */
+
+.v2-fc-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-surface);
+  color: var(--v2-text);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
+  transition: transform var(--v2-dur-quick) var(--v2-ease-emphasis),
+              box-shadow var(--v2-dur-quick) var(--v2-ease-standard),
+              background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-fc-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.10);
+}
+
+.v2-fc-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.v2-fc-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* The + on the quick-add circle is the "primary" affordance — accent
+ * filled. Whatnow stays neutral. */
+.v2-fc-button-add {
+  background: var(--v2-accent);
+  color: #fff;
+  border-color: var(--v2-accent);
+}
+
+.v2-fc-button-add:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+/* What-now is also accent — same brand language as quick-add — but uses
+ * black rings so the target glyph reads against the orange instead of
+ * disappearing into white-on-orange. */
+.v2-fc-button-whatnow {
+  background: var(--v2-accent);
+  border-color: var(--v2-accent);
+  color: #000;
+}
+
+.v2-fc-button-whatnow:hover:not(:disabled) {
+  filter: brightness(1.06);
+  color: #000;
+}
+
+/* When a card is open the trailing button (X / +) is anchored to the
+ * card's right edge, no longer floating on its own. Drop the shadow so
+ * it doesn't double-up with the card's shadow. */
+.v2-fc-button-anchor {
+  flex-shrink: 0;
+  box-shadow: none;
+  border: none;
+  background: transparent;
+  color: var(--v2-text-meta);
+}
+
+.v2-fc-button-anchor.v2-fc-button-add {
+  background: var(--v2-accent);
+  color: #fff;
+}
+
+/* In-card target keeps the orange-fill / black-rings treatment from the
+ * standalone FAB so it visibly persists as the same affordance — same
+ * pattern as the in-card + on the quick-add side. Tapping it closes
+ * the card (toggle behavior). */
+.v2-fc-button-anchor.v2-fc-button-whatnow {
+  background: var(--v2-accent);
+  color: #000;
+  border-color: var(--v2-accent);
+}
+
+.v2-fc-button-anchor:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* === Cards (expanded state) ======================================== */
+
+.v2-fc-card {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  /* No right padding — the trailing in-card button (X / +) needs to share
+   * an x-axis with the standalone FAB above. Any padding here would inset
+   * the in-card button and break vertical alignment between the two slots
+   * when one is expanded. */
+  padding: 0 0 0 14px;
+  gap: 8px;
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
+  /* Animate in. Right edge stays anchored; width grows leftward. */
+  animation: v2-fc-card-in var(--v2-dur-standard) var(--v2-ease-emphasis);
+  transform-origin: right center;
+}
+
+/* Add-card animation: short pill (48px tall, same as FAB), so only width
+ * needs to grow. Origin right center keeps the right edge anchored. */
+@keyframes v2-fc-card-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.13);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+/* What-now-card animation: card is taller than the FAB it replaces (85px
+ * vs 48px), so scaleX-only would slam the full card height in at frame 1.
+ * Scale BOTH axes from the FAB footprint and anchor origin to the
+ * bottom-right corner where the FAB was sitting. The card inflates out
+ * of the FAB position instead of dropping in over it. */
+@keyframes v2-fc-card-whatnow-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.13) scaleY(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1);
+  }
+}
+
+.v2-fc-card-add {
+  width: min(320px, calc(100vw - 32px));
+}
+
+/* What-now card is taller (heading row + chips row) so it can't keep
+ * the pill defaults — drop the 999px radius and the fixed 48px height,
+ * use vertical padding, align the close button to the top so it doesn't
+ * float in the middle of the multi-line content. */
+.v2-fc-card-whatnow {
+  width: min(360px, calc(100vw - 32px));
+  height: auto;
+  border-radius: 20px;
+  /* Same alignment principle as the base card: 0 right padding so the
+   * close X shares an x-axis with the FAB above. */
+  padding: 12px 0 12px 14px;
+  align-items: flex-start;
+  /* Override the base card's animation so the whatnow inflates from
+   * the FAB footprint (bottom-right corner) instead of slamming in at
+   * full height with only width animating. */
+  animation-name: v2-fc-card-whatnow-in;
+  transform-origin: right bottom;
+}
+
+.v2-fc-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.v2-fc-card-heading {
+  font: 500 13px/1.2 var(--v2-font-body);
+  color: var(--v2-text);
+  letter-spacing: -0.005em;
+}
+
+.v2-fc-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--v2-text);
+  font: 500 15px/1 var(--v2-font-body);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.v2-fc-input::placeholder {
+  color: var(--v2-text-meta);
+}
+
+/* Capacity chips inside the whatnow card. Compact, tappable, evenly
+ * spaced. flex: 1 1 0 makes them share space equally regardless of
+ * label length so "5 min" and "2 hr+" feel like peers. */
+.v2-fc-chips {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.v2-fc-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 999px;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-fc-chip:hover {
+  background: rgba(var(--v2-text-rgb), 0.05);
+  border-color: var(--v2-text-meta);
+}
+
+.v2-fc-chip:active {
+  background: rgba(var(--v2-text-rgb), 0.08);
+}
+
+/* Reduce-motion: skip the scale-in animation, just fade. Applies to both
+ * card variants since the override on whatnow doesn't disable this rule. */
+@media (prefers-reduced-motion: reduce) {
+  .v2-fc-card,
+  .v2-fc-card-whatnow {
+    animation: v2-fc-card-fade var(--v2-dur-quick) ease-out;
+  }
+  @keyframes v2-fc-card-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}

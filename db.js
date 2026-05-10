@@ -244,6 +244,7 @@ function taskToRow(task) {
     weather_hidden: task.weather_hidden ? 1 : 0,
     size_inferred: task.size_inferred ? 1 : 0,
     pushover_receipt: task.pushover_receipt || null,
+    follow_ups_json: JSON.stringify(task.follow_ups || []),
   }
 }
 
@@ -284,6 +285,7 @@ function rowToTask(row) {
     weather_hidden: !!row.weather_hidden,
     size_inferred: !!row.size_inferred,
     pushover_receipt: row.pushover_receipt || null,
+    follow_ups: safeJsonParse(row.follow_ups_json, []),
   }
 }
 
@@ -306,8 +308,8 @@ const UPSERT_TASK_SQL = `
     high_priority, low_priority, size, energy, energy_level, tags_json, attachments_json,
     checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
     gcal_event_id, gcal_duration, gmail_message_id, gmail_pending, weather_hidden, size_inferred,
-    pushover_receipt)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    pushover_receipt, follow_ups_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -326,7 +328,8 @@ const UPSERT_TASK_SQL = `
     gcal_event_id=excluded.gcal_event_id, gcal_duration=excluded.gcal_duration,
     gmail_message_id=excluded.gmail_message_id, gmail_pending=excluded.gmail_pending,
     weather_hidden=excluded.weather_hidden, size_inferred=excluded.size_inferred,
-    pushover_receipt=excluded.pushover_receipt`
+    pushover_receipt=excluded.pushover_receipt,
+    follow_ups_json=excluded.follow_ups_json`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -338,7 +341,7 @@ function runUpsertTask(task) {
     r.checklists_json, r.comments_json, r.toast_messages_json,
     r.trello_sync_enabled, r.gcal_event_id, r.gcal_duration,
     r.gmail_message_id, r.gmail_pending, r.weather_hidden, r.size_inferred,
-    r.pushover_receipt,
+    r.pushover_receipt, r.follow_ups_json,
   ])
 }
 
@@ -373,7 +376,65 @@ export function updateTaskPartial(id, updates) {
   }
 
   upsertTask(merged)
+
+  // Sequence chain-spawn. If the task transitioned into done/completed AND has
+  // a non-empty follow_ups chain, spawn the next step. The new task gets the
+  // remaining chain (slice(1)) so each subsequent completion walks forward by
+  // one step. routine_id is inherited so the chain stays grouped with its
+  // source routine for completed_history + activity log.
+  if (
+    updates.status && updates.status !== existing.status &&
+    ['done', 'completed'].includes(updates.status) &&
+    Array.isArray(merged.follow_ups) && merged.follow_ups.length > 0
+  ) {
+    spawnNextChainStep(merged)
+  }
+
   return getTask(id)
+}
+
+// Spawn the next step in a follow-ups chain. Sub-day offsets snooze the new
+// task until its trigger time so it doesn't surface until then; ≥1-day offsets
+// land on the future date directly. Auto energy/title fall back to step
+// descriptor; missing energy gets re-inferred by the background sizer hook.
+function spawnNextChainStep(parentTask) {
+  const [step, ...remaining] = parentTask.follow_ups
+  if (!step?.title) return
+  const offsetMs = Math.max(0, (step.offset_minutes || 0) * 60000)
+  const triggerAt = Date.now() + offsetMs
+  const triggerDate = new Date(triggerAt)
+  const todayUTC = new Date(); todayUTC.setHours(0, 0, 0, 0)
+  const sameDay = offsetMs < 24 * 60 * 60 * 1000
+    && triggerDate.toDateString() === todayUTC.toDateString()
+  const dueDate = sameDay
+    ? `${todayUTC.getFullYear()}-${String(todayUTC.getMonth() + 1).padStart(2, '0')}-${String(todayUTC.getDate()).padStart(2, '0')}`
+    : `${triggerDate.getFullYear()}-${String(triggerDate.getMonth() + 1).padStart(2, '0')}-${String(triggerDate.getDate()).padStart(2, '0')}`
+
+  const newTask = {
+    id: crypto.randomUUID(),
+    title: step.title,
+    status: 'not_started',
+    notes: step.notes || '',
+    due_date: dueDate,
+    snoozed_until: offsetMs > 0 && sameDay ? new Date(triggerAt).toISOString() : null,
+    snooze_count: 0,
+    staleness_days: 2,
+    last_touched: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    routine_id: parentTask.routine_id || null,
+    high_priority: false,
+    low_priority: false,
+    energy: step.energy_type || null,
+    energyLevel: step.energy_level ?? null,
+    size: step.energy_type ? 'M' : null,
+    size_inferred: false,
+    tags: [],
+    attachments: [],
+    checklists: [],
+    comments: [],
+    follow_ups: remaining,
+  }
+  upsertTask(newTask)
 }
 
 // True when `updates` represents a user-driven resolution of the task.
@@ -704,6 +765,7 @@ function routineToRow(routine) {
     completed_history_json: JSON.stringify(routine.completed_history || []),
     end_date: routine.end_date || null,
     schedule_day_of_week: routine.schedule_day_of_week ?? null,
+    follow_ups_json: JSON.stringify(routine.follow_ups || []),
   }
 }
 
@@ -725,6 +787,7 @@ function rowToRoutine(row) {
     completed_history: safeJsonParse(row.completed_history_json, []),
     end_date: row.end_date || null,
     schedule_day_of_week: row.schedule_day_of_week ?? null,
+    follow_ups: safeJsonParse(row.follow_ups_json, []),
   }
 }
 
@@ -735,15 +798,16 @@ function rowToRoutine(row) {
 const UPSERT_ROUTINE_SQL = `
   INSERT INTO routines (id, title, cadence, custom_days, notes, high_priority,
     energy, energy_level, notion_page_id, notion_url, created_at, paused,
-    tags_json, completed_history_json, end_date, schedule_day_of_week)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    tags_json, completed_history_json, end_date, schedule_day_of_week, follow_ups_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
     notes=excluded.notes, high_priority=excluded.high_priority, energy=excluded.energy,
     energy_level=excluded.energy_level, notion_page_id=excluded.notion_page_id,
     notion_url=excluded.notion_url, created_at=excluded.created_at, paused=excluded.paused,
     tags_json=excluded.tags_json, completed_history_json=excluded.completed_history_json,
-    end_date=excluded.end_date, schedule_day_of_week=excluded.schedule_day_of_week`
+    end_date=excluded.end_date, schedule_day_of_week=excluded.schedule_day_of_week,
+    follow_ups_json=excluded.follow_ups_json`
 
 function runUpsertRoutine(routine) {
   const r = routineToRow(routine)
@@ -751,6 +815,7 @@ function runUpsertRoutine(routine) {
     r.id, r.title, r.cadence, r.custom_days, r.notes, r.high_priority,
     r.energy, r.energy_level, r.notion_page_id, r.notion_url, r.created_at, r.paused,
     r.tags_json, r.completed_history_json, r.end_date, r.schedule_day_of_week,
+    r.follow_ups_json,
   ])
 }
 

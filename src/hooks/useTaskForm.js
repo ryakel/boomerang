@@ -42,6 +42,8 @@ export function useTaskForm(initial = {}) {
   // Polish state
   const [polishing, setPolishing] = useState(false)
   const [polishError, setPolishError] = useState(null)
+  const [polishApplied, setPolishApplied] = useState(null) // { addedLabels, addedChecklist }
+  const [suggestedChecklist, setSuggestedChecklist] = useState(null) // proposed but not yet inserted
 
   // Size/energy inference state
   const [sizing, setSizing] = useState(false)
@@ -70,12 +72,46 @@ export function useTaskForm(initial = {}) {
     if (!notes.trim()) return
     setPolishing(true)
     setPolishError(null)
+    setPolishApplied(null)
     try {
-      const result = await polishNotes(title || 'Untitled task', notes)
+      const availableLabels = loadLabels()
+      const result = await polishNotes(title || 'Untitled task', notes, availableLabels)
       const newTitle = result.title && (!title.trim() || result.title !== title) ? result.title : title
       const newNotes = result.notes || notes
       setTitle(newTitle)
       setNotes(newNotes)
+
+      // Apply label suggestions — match by case-insensitive name against the
+      // user's existing labels. Never auto-create a new label (destructive).
+      let addedLabelNames = []
+      if (Array.isArray(result.suggestedLabels) && result.suggestedLabels.length > 0) {
+        const normalized = name => String(name).trim().toLowerCase()
+        const labelByName = new Map(availableLabels.map(l => [normalized(l.name), l]))
+        setSelectedTags(prev => {
+          const next = new Set(prev)
+          for (const suggested of result.suggestedLabels) {
+            const match = labelByName.get(normalized(suggested))
+            if (match && !next.has(match.id)) {
+              next.add(match.id)
+              addedLabelNames.push(match.name)
+            }
+          }
+          return Array.from(next)
+        })
+      }
+
+      // Surface a multi-step checklist proposal — consumers decide whether to
+      // insert it (e.g. only if no existing checklists). Stored on form state;
+      // consumer renders an "Apply" affordance or auto-applies.
+      const proposedChecklist = result.suggestedChecklist
+      if (proposedChecklist && Array.isArray(proposedChecklist.items) && proposedChecklist.items.length >= 2) {
+        setSuggestedChecklist(proposedChecklist)
+      }
+
+      setPolishApplied({
+        addedLabels: addedLabelNames,
+        proposedChecklist: proposedChecklist || null,
+      })
 
       // Infer date, size, and energy from polished content
       const [inferredDate, inferred] = await Promise.all([
@@ -91,6 +127,12 @@ export function useTaskForm(initial = {}) {
     } finally {
       setPolishing(false)
     }
+  }
+
+  const consumeSuggestedChecklist = () => {
+    const cl = suggestedChecklist
+    setSuggestedChecklist(null)
+    return cl
   }
 
   const handleInferSize = async (e) => {
@@ -213,6 +255,8 @@ export function useTaskForm(initial = {}) {
 
     // Polish
     polishing, polishError, handlePolish,
+    polishApplied, setPolishApplied,
+    suggestedChecklist, consumeSuggestedChecklist,
 
     // Size/energy inference
     sizing, handleInferSize,
