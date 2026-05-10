@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { saveTasks, saveRoutines, saveSettings, saveLabels, uuid } from '../store'
+import { saveTasks, saveRoutines, saveSettings, saveLabels, loadSettings, uuid } from '../store'
 import { serverCreateTask, serverUpdateTask, serverDeleteTask,
   serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine } from '../api'
 
@@ -303,7 +303,18 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           onHydrate(data)
           if (data.tasks) saveTasks(data.tasks)
           if (data.routines) saveRoutines(data.routines)
-          if (data.settings) saveSettings(data.settings)
+          if (data.settings) {
+            // Preserve local theme. Theme is device-local (laptop vs phone vs
+            // tablet have different ergonomics; user might prefer terminal on
+            // one device and light on another). Without this guard, a
+            // hydration that lands within ~300ms of a theme pick can overwrite
+            // the just-saved local theme with stale server data and the
+            // preference appears to revert on refresh.
+            const localTheme = (loadSettings() || {}).theme
+            const merged = { ...data.settings }
+            if (localTheme) merged.theme = localTheme
+            saveSettings(merged)
+          }
           if (data.labels) saveLabels(data.labels)
           prevTasks.current = data.tasks || []
           prevRoutines.current = data.routines || []
