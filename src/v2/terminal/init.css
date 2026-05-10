@@ -194,6 +194,24 @@
   color: var(--v2-text-faint);
 }
 
+/* === Brand logo: hide in terminal mode ============================
+ * The orange `v` SVG is a brand mark and reads as a misfit on a CLI
+ * aesthetic. Hide it; the `$ boomerang` prompt is identity enough. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-brand > svg {
+  display: none !important;
+}
+
+/* === Section dividers: hairline between groups ====================
+ * Whitespace alone wasn't doing enough visual work to separate
+ * sections; init uses a thin rule above each group. Apply to any
+ * section label preceded by a card (i.e., not the first section). */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-swipe-wrap + .v2-section-label,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card + .v2-section-label {
+  border-top: 1px solid var(--v2-hairline);
+  margin-top: 14px;
+  padding-top: 16px;
+}
+
 /* === Wordmark: tighten ============================================== */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-header-wordmark {
