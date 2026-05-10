@@ -148,11 +148,16 @@ export default function AppV2() {
 
   // Server hydration + cross-client sync. Mirror v1's hydrateFromServer so
   // settings + labels stay in localStorage when other clients update them.
+  //
+  // Note on theme: `useServerSync` owns the localStorage write for settings
+  // and has a theme-preservation guard (theme is device-local; a stale
+  // server snapshot shouldn't overwrite a fresh local pick). Don't call
+  // `saveSettings(data.settings)` here — it'd bypass that guard. We only
+  // mirror downstream React state that depends on server-side settings.
   const hydrateFromServer = useCallback((data) => {
     if (data.tasks) hydrateTasks(data.tasks)
     if (data.routines) hydrateRoutines(data.routines)
     if (data.settings) {
-      saveSettings(data.settings)
       if (data.settings.sort_by) setSortBy(data.settings.sort_by)
     }
     if (data.labels) {
