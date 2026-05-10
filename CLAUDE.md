@@ -769,6 +769,40 @@ These five primitives are the v2 task-surface language. Every subsequent v2 surf
 
 **End state.** After all 8 PRs ship and a 1-2 week opt-in period validates v2, flip the default to `'v2'`, leave v1 reachable via `?ui=v1` for one release, then delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`.
 
+### Terminal Theme Stress Test (2026-05-10)
+
+**Working hypothesis: terminal may become the default forever.** PR A–H shipped a four-palette family — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) — with terminal-specific structural overrides (ASCII flourishes, monospace stack, bracket toggles, `$ verb` modal headers, `// manage` section, density signals on TaskCard). The user is now stress-testing whether terminal feels right as the daily driver. Light/dark stay maintained as defensive baseline.
+
+**The convention while we stress-test:**
+
+1. **Don't widen JSX divergence for new features.** The existing theme-aware plumbing — `terminalTitle` on ModalShell + ConfirmDialog, `terminalCommand` on EmptyState, `data-terminal-cmd` attr on `.v2-edit-action-label` spans, `useTerminalMode` hook — is enough. Don't introduce new patterns. New features go terminal-first OR theme-agnostic; they should not branch on theme.
+
+2. **CSS overrides are still cheap.** Adding selectors gated on `[data-theme^="terminal"]` is free (gating cleanly, no leakage). Use those for visual flourishes without thinking about it.
+
+3. **New ModalShell call sites must include `terminalTitle`.** Smoke test in `scripts/check-terminal-titles.js` runs in CI / pre-push to catch silent drift. Run via `npm run check:terminal-titles`.
+
+4. **Density signals on TaskCard are currently terminal-only by user preference (PR G, 2026-05-10).** They ship in markup always, hidden by CSS in non-terminal themes. **Graduate criteria:** if usage validates that the user wants `[X/Y]` counter, `🔥N` streak, and one-line notes preview in their daily flow, drop the `[data-theme^="terminal"]` gate in `terminal/cards.css` and let any theme show them. Do NOT add a fourth terminal-only TaskCard signal without revisiting this.
+
+5. **Decision criterion for "terminal forever."** If the user is still in `theme: 'terminal-dark'` (or `'terminal-light'`) after ~30 days of daily use, terminal becomes the default for new installs and Light/Dark deprecation timeline starts. Until then, all four palettes stay live and equal in the picker.
+
+6. **What "terminal forever" means structurally:**
+   - Light + Dark palettes get marked deprecated in tokens.css (kept compiling for 1-2 releases)
+   - Picker collapses from 4 options to "Theme: Terminal Dark / Terminal Light"
+   - `[data-theme^="terminal"]` selectors lose their guard (terminal IS v2)
+   - Density signals graduate to always-on
+   - `useTerminalMode` hook + `terminalTitle`/`terminalCommand` props get unified — modal titles use the `$ verb` form unconditionally, no fallback
+   - `src/v2/terminal/` directory contents merge into the regular component CSS
+
+7. **What "terminal didn't stick" means structurally:**
+   - `rm -rf src/v2/terminal/`
+   - Drop `'terminal-dark'`/`'terminal-light'` from picker, leaving Light + Dark
+   - Remove `terminalTitle` / `terminalCommand` props from ModalShell + EmptyState
+   - Delete `useTerminalMode` hook
+   - Reset density signals (delete from TaskCard JSX)
+   - Migration shim in `loadSettings()` flips `terminal-*` → `dark`
+
+The whole thing was designed so either pivot is cheap. Don't make it expensive by piling on more terminal-only features without revisiting whether they should be terminal-only.
+
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
 

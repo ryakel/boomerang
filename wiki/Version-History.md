@@ -6,6 +6,26 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- chore(ui): terminal theme PR I — stress-test convention + smoke test + docs [S]
+  - **Why.** PR A–H built four palettes + extensive terminal-only treatments (CSS overrides, `terminalTitle`/`terminalCommand` props on 16 modals + 7 empty states, three TaskCard density signals hidden from light/dark, bracket toggles, manage-section reflow). The user's working hypothesis: "terminal might become the default forever — let's stress-test that, but be careful about creating more divergence in the meantime." PR I writes that down so subsequent work doesn't accidentally widen the gap.
+  - **CLAUDE.md → "Terminal Theme Stress Test" section.** Documents the working hypothesis + the convention while we stress-test:
+    1. Don't widen JSX divergence for new features — existing plumbing is enough; new features go terminal-first OR theme-agnostic, not theme-branched
+    2. CSS overrides under `[data-theme^="terminal"]` are still cheap; use them for visual flourishes
+    3. New `<ModalShell>` call sites must include `terminalTitle` (smoke test enforces)
+    4. Density signals on TaskCard are terminal-only by user preference (PR G); graduate criteria documented — drop the gate if usage validates
+    5. Decision criterion for "terminal forever": ~30 days of daily use in `terminal-*` → terminal becomes default; Light/Dark deprecation timeline starts
+    6. Structural plan for both pivots: "terminal forever" (lock in, deprecate light/dark, drop CSS gates) and "terminal didn't stick" (rm -rf src/v2/terminal/, drop variants from picker, delete useTerminalMode + theme-aware props)
+  - **Smoke test: `scripts/check-terminal-titles.js`.** Scans every v2 component for `<ModalShell` JSX and asserts each call site carries a `terminalTitle=` prop. Uses a brace-counting parser (not naive regex) so JSX with embedded arrow functions like `onClose={() => setOpen(false)}` doesn't trip on the inner `>`. Wired into:
+    - `npm run check:terminal-titles` script in package.json
+    - `.githooks/pre-push` between lint and smoke test, with a clear failure message pointing to the CLAUDE.md section
+    - Run on PR I baseline: clean — all 15 `<ModalShell>` call sites have `terminalTitle`
+  - **wiki/V2-State.md.** Flipped "Terminal-aesthetic theme toggle" parking-lot bullet from `[ ]` to `[x]` with a full PR A–I summary + the stress-test note pointing to CLAUDE.md.
+  - **wiki/Architecture.md.** Added "Theme palette family" subsection under Component Architecture documenting the four `data-theme` values, the directory layout (`src/v2/terminal/`), the migration shim, the theme-aware JSX hooks/props (`useTerminalMode`, `terminalTitle`, `terminalCommand`, `data-terminal-cmd`), and the smoke-test convention.
+  - **wiki/Features.md.** New "Themes" section near the top with a 4-row table covering Light / Dark / Terminal Dark / Terminal Light, plus a paragraph on `$ verb` modal headers and the opt-in home-screen surfaces (week strip + goal bar).
+  - **No code shipped beyond the smoke test.** This is the lockdown PR — code is the docs + the guardrail. Visual QA pass is a manual session in browser, not a code change.
+  - Modified: `CLAUDE.md`, `wiki/V2-State.md`, `wiki/Architecture.md`, `wiki/Features.md`, `wiki/Version-History.md`, `package.json` (added `check:terminal-titles` script), `.githooks/pre-push` (added the check between lint and smoke test)
+  - Added: `scripts/check-terminal-titles.js`
+
 - feat(ui): terminal theme PR H — home-screen 7-day strip + goal progress bar (opt-in) [M]
   - **Why.** init.habits puts a daily-rhythm strip at the top of its main view and a goal progress bar at the bottom — both surface "where am I in my day?" without the user having to open Analytics or do math. PR H adds those two surfaces to v2's home screen, opt-in (default off) and theme-aware so they fit any palette.
   - **`WeekStrip` component (new).** 7-day calendar row rendered above the first task section. Each day cell shows day-of-week label + date number + an activity-intensity indicator. Today is highlighted; future days dim to 0.55 opacity. Activity intensity buckets:

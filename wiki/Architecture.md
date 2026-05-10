@@ -29,6 +29,14 @@ Browser (React PWA)
 
 **v1/v2 routing** (`src/App.jsx`): Thin router that reads `localStorage.ui_version` (default `'v1'`) and renders either `AppV1` (`src/AppV1.jsx` — the existing component) or `AppV2` (`src/v2/AppV2.jsx` — the in-progress redesign). URL escape hatch: `?ui=v2` and `?ui=v1` set the flag and strip themselves from the URL so deep-link params (`?task=X`) survive. `data-ui-version` is mirrored on the documentElement; v2 also sets `data-ui="v2"` so its namespaced design tokens (`src/v2/tokens.css`, all `--v2-*`) activate without leaking into v1. v2 reuses every server endpoint, every hook, every context, `api.js`, `store.js`, `db.js` — only the React component tree and CSS fork. Users opt in via Settings → Beta tab.
 
+**Theme palette family** (`data-theme` attribute on documentElement): four values — `light` (default), `dark`, `terminal-dark` (GitHub Dark colors + monospace), `terminal-light` (GitHub Light colors + monospace). Light + dark token defaults live in `src/v2/tokens.css`; terminal sub-palettes live in `src/v2/terminal/palette-{dark,light}.css`. Structural ASCII flourishes (wordmark cursor, bracket buttons, section bullets, density signals) live in `src/v2/terminal/{wordmark,sections,cards,controls}.css`, all gated on `[data-theme^="terminal"]` so light/dark cannot see them. Migration shim in `loadSettings()` upgrades legacy `'terminal'` → `'terminal-dark'`. Theme-aware JSX (modal titles, empty states, manage-section labels) flows through:
+- `useTerminalMode()` hook in `src/v2/hooks/useTerminalMode.js` — MutationObserver on `data-theme`, returns true when prefix matches `terminal-`
+- `terminalTitle` prop on `ModalShell` + `ConfirmDialog` — overrides the regular `title` when terminal mode is active
+- `terminalCommand` prop on `EmptyState` — short-circuits the icon+title+body tree to a `// comment` line
+- `data-terminal-cmd` attr on `.v2-edit-action-label` spans — visible label swaps via CSS `attr()` to its CLI form (`$ archive`, `$ delete --confirm`, etc.)
+
+Convention smoke test: `scripts/check-terminal-titles.js` (wired into the pre-push hook) asserts every `<ModalShell>` JSX call site carries `terminalTitle`. Run via `npm run check:terminal-titles`. See CLAUDE.md → "Terminal Theme Stress Test" for the policy on what's terminal-only vs theme-agnostic going forward.
+
 ## Data Flow
 
 1. **On app load**: React renders immediately from localStorage (fast first paint). An SSE connection opens to `/api/events`, which returns the current server version. The client then fetches `GET /api/data` and hydrates React state and localStorage from SQLite. If the server is empty, the client pushes its localStorage state up.
