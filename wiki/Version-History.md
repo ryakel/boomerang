@@ -4,6 +4,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-10
+
+- fix(ui): v2 header — iOS status bar overlap on PWA [XS]
+  - **Bug.** With `apple-mobile-web-app-status-bar-style: black-translucent` (set in `index.html`), iOS PWA in standalone mode renders the system status bar (clock, signal, battery) OVER the app's content — the BOOMERANG wordmark area got the iPhone's clock display rendered on top of it, producing the "B 22:25 MERANG" overlap visible in v1.0.0 prod.
+  - **Fix.** `.v2-header` `padding-top` now uses `max(14px, env(safe-area-inset-top, 0px))` (and `max(16px, ...)` on the `min-width: 601px` desktop variant) so our header content sits below the iOS status bar instead of behind it. The `viewport-fit=cover` meta tag is already in place. Header background remains a solid `var(--v2-bg)` so the status bar's text reads on a contrasting surface.
+  - Modified: `src/v2/components/Header.css`
+
+---
+
 ## 2026-05-09
 
 - fix(ui): v2 FloatingCapture — target icon stays visible when what-now card opens [XS]
