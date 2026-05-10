@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal theme — hide brand logo + add section dividers [XS]
+  - **Why.** Side-by-side check vs init showed two remaining misfits: the orange `v` brand SVG sitting next to the `$ boomerang` prompt (modern brand mark on a CLI aesthetic — wrong vibe) and section spacing relying on whitespace alone, which wasn't doing enough visual work to separate groups (init uses a thin rule above each section).
+  - **Brand logo hidden.** `.v2-header-brand > svg { display: none }` in terminal mode. The `$ boomerang_` text prompt is identity enough; the visual payload of the SVG conflicts with the bare-text feel everywhere else.
+  - **Section hairlines.** Any `.v2-section-label` preceded by a `.v2-card` or `.v2-card-swipe-wrap` gets `border-top: 1px solid hairline` + extra top padding. The first section in a list (which has no preceding card) doesn't get the rule, so the page top stays clean.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal theme — per-section sigils + sigil+text action buttons [S]
   - **Why.** Locked-in design decisions from a four-question round: per-section sigils to differentiate sections at a glance (vs the uniform `✦`), and sigil+text action buttons to read as powerlevel10k segments (vs flat bracketed text). Energy chip stays top-right; status indicators stay leading-bracket — those were already right.
   - **`SectionLabel.jsx` accepts a `sigil` prop.** Defaults to `✦` (light/dark see uniform sparkle, no behavior change). The bullet span renders `✦` as inline text AND carries `data-sigil={sigil}` as an attribute. Light/dark CSS shows the inline text. Terminal CSS reads `attr(data-sigil)` via `::before`. Cost: one prop, JSX stays minimal.
