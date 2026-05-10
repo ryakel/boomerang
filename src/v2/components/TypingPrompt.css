@@ -1,22 +1,23 @@
-/* Typing-cursor demo line. Used in Quokka's empty state above the
- * static suggestion buttons. Cycles through `PROMPT_SUGGESTIONS`,
- * character-by-character. Cursor blinks like a terminal prompt.
- *
- * The cursor renders in every theme (a blinking `_` reads as a hint
- * that this is a typing input). Terminal mode picks up the accent
- * automatically from the surrounding theme tokens. */
+/* Typing-prompt — types each phrase in sequence, builds up a list of
+ * completed lines, holds the final state. Used by Quokka's empty-state
+ * demo above the static suggestion buttons. */
 
 .v2-typing-prompt {
-  display: inline;
-  font-variant-ligatures: none;
-  letter-spacing: 0;
-  white-space: pre-wrap;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.v2-typing-prompt-line {
+  font: 400 13px/1.5 var(--v2-font-body);
+  color: var(--v2-text);
   word-break: break-word;
   overflow-wrap: break-word;
 }
 
-.v2-typing-prompt-text {
-  color: var(--v2-text);
+.v2-typing-prompt-line-complete {
+  color: var(--v2-text-meta);
 }
 
 .v2-typing-prompt-cursor {
