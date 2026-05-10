@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 FloatingCapture — what-now card inflates from FAB footprint [XS]
+  - The taller what-now card (85px) was using the same scaleX-only animation as the 48px add card. Result: at frame 1 the full vertical height appeared instantly while only the width animated, reading as a "slam" instead of an emergence. Added a separate `v2-fc-card-whatnow-in` keyframe that scales BOTH axes from the FAB footprint (`scaleX(0.13) scaleY(0.55) → 1`) with `transform-origin: right bottom`. The card now visually inflates out of the FAB's last position. Add card unchanged.
+  - Modified: `src/v2/components/FloatingCapture.css`
+
 - fix(ui): v2 FloatingCapture — align in-card buttons with standalone FABs [XS]
   - Card had 4px right padding which inset the trailing in-card button (`+` / `X`) by that much. With the other slot still showing a standalone FAB flush against the wrap edge, the two orange circles fell out of vertical alignment. Drop right padding to 0 on both card variants so every button shares the same x-axis regardless of which slot is expanded.
   - Modified: `src/v2/components/FloatingCapture.css`

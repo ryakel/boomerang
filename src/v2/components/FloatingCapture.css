@@ -136,14 +136,32 @@
   transform-origin: right center;
 }
 
+/* Add-card animation: short pill (48px tall, same as FAB), so only width
+ * needs to grow. Origin right center keeps the right edge anchored. */
 @keyframes v2-fc-card-in {
   from {
     opacity: 0;
-    transform: scaleX(0.4);
+    transform: scaleX(0.13);
   }
   to {
     opacity: 1;
     transform: scaleX(1);
+  }
+}
+
+/* What-now-card animation: card is taller than the FAB it replaces (85px
+ * vs 48px), so scaleX-only would slam the full card height in at frame 1.
+ * Scale BOTH axes from the FAB footprint and anchor origin to the
+ * bottom-right corner where the FAB was sitting. The card inflates out
+ * of the FAB position instead of dropping in over it. */
+@keyframes v2-fc-card-whatnow-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.13) scaleY(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1);
   }
 }
 
@@ -163,6 +181,11 @@
    * close X shares an x-axis with the FAB above. */
   padding: 12px 0 12px 14px;
   align-items: flex-start;
+  /* Override the base card's animation so the whatnow inflates from
+   * the FAB footprint (bottom-right corner) instead of slamming in at
+   * full height with only width animating. */
+  animation-name: v2-fc-card-whatnow-in;
+  transform-origin: right bottom;
 }
 
 .v2-fc-card-body {
@@ -231,9 +254,11 @@
   background: rgba(var(--v2-text-rgb), 0.08);
 }
 
-/* Reduce-motion: skip the scale-in animation, just fade. */
+/* Reduce-motion: skip the scale-in animation, just fade. Applies to both
+ * card variants since the override on whatnow doesn't disable this rule. */
 @media (prefers-reduced-motion: reduce) {
-  .v2-fc-card {
+  .v2-fc-card,
+  .v2-fc-card-whatnow {
     animation: v2-fc-card-fade var(--v2-dur-quick) ease-out;
   }
   @keyframes v2-fc-card-fade {
