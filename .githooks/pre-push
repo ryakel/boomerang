@@ -10,6 +10,9 @@ npm run lint --silent || { echo "BLOCKED: lint failed"; exit 1; }
 echo "==> Terminal-title convention..."
 npm run check:terminal-titles --silent || { echo "BLOCKED: terminal-title check failed (see CLAUDE.md → Terminal Theme Stress Test)"; exit 1; }
 
+echo "==> Terminal-button coverage..."
+npm run check:terminal-buttons --silent || { echo "BLOCKED: terminal-button check failed (see CLAUDE.md → Terminal Theme Stress Test)"; exit 1; }
+
 echo "==> Smoke test (build + server + verify)..."
 npm run test || { echo "BLOCKED: smoke test failed"; exit 1; }
 
