@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal theme PR A — palette, monospace stack, 3-way picker [M]
+  - **Why.** Light + dark covered the calm-product end of the aesthetic spectrum, but the user wanted a third mode that reads as "this app is a tool, not a product" — inspired by [init.habits](https://inithabits.com) and classic dev-tool dark themes. Deep navy bg, monospace everywhere, cyan accents with a soft glow. Layout/component contracts are unchanged; this PR is purely tokens + the picker.
+  - **Token block.** New `:root[data-ui="v2"][data-theme="terminal"]` variant in `tokens.css`. Bg `#0A0E1A`, surface `#0F1424`, text `#D8DEF0`, accent cyan `#4FC3F7`. Energy types desaturated to fit the navy palette without competing with the accent. Radii dropped from `999px / 14px / 20px` to `6px / 4px / 6px` so cards/pills read "terminal box" instead of "iOS pill." New `--v2-glow` token (subtle cyan blur) reserved for opt-in use by sync/wordmark/buttons in the next theme PRs.
+  - **Font stack.** `JetBrains Mono` from Google Fonts as the primary, `'SF Mono' / 'Cascadia Code' / 'Fira Code' / ui-monospace` fallbacks. Both `--v2-font-display` and `--v2-font-body` collapse to the same monospace stack — no mixed font weights, the typographic flat-out reads as terminal.
+  - **Picker.** Settings → General "Dark mode" toggle becomes a 3-way segmented control (Light / Dark / Terminal). Stacked layout because three pills don't fit alongside the row label on phone width. Wires through to `update('theme', value)` + `data-theme` attr + `meta[name="theme-color"]`. Defaults to `light` when unset (existing users keep their light/dark choice).
+  - **Pre-paint application.** `index.html` inline script extended to recognize `'terminal'` alongside `'light'`/`'dark'` so the navy bg paints before React mounts (no white-flash on terminal theme load).
+  - **Bundle.** 779KB precache (+1KB from token block + segmented control CSS).
+  - **What this PR doesn't do.** ASCII flourishes (bracket buttons, `[ ] / [✓]` checkboxes, `>` section bullets), cursor-blink/spinner sync animations, and command-prompt header styling all land in PR B / C / D as the theme builds out.
+  - Modified: `src/v2/tokens.css`, `src/v2/AppV2.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `index.html`, `wiki/Version-History.md`
+
 - feat(adviser): Sequences PR 5 — Quokka tools for chain editing [S]
   - **Why.** Quokka could read routines but couldn't edit a chain template — no atomic ops on `follow_ups`. Users had to open RoutinesModal manually to add/remove/reorder steps. Now natural-language commands like *"add a 'rinse the brushes' step to the mop routine right after auto-clean"* can do the work.
   - **Four new tools** in `adviserToolsTasks.js`, each capturing the routine's pre-state in their compensation closure for rollback:

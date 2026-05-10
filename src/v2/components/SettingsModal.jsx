@@ -1867,25 +1867,34 @@ export default function SettingsModal({
 
         {activeTab === 'General' && (
           <div className="v2-settings-form">
-            <div className="v2-settings-row">
+            <div className="v2-settings-row v2-settings-row-stacked">
               <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Dark mode</div>
-                <div className="v2-settings-row-hint">Light mode flips the off-white background to soft grey and inverts the text palette.</div>
+                <div className="v2-settings-row-label">Theme</div>
+                <div className="v2-settings-row-hint">Light is the default. Dark inverts the palette. Terminal is a monospace navy aesthetic with cyan accents — inspired by init.habits.</div>
               </div>
-              <label className="v2-settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={settings.theme === 'dark'}
-                  onChange={e => {
-                    const theme = e.target.checked ? 'dark' : 'light'
-                    update('theme', theme)
-                    document.documentElement.setAttribute('data-theme', theme)
-                    const meta = document.querySelector('meta[name="theme-color"]')
-                    if (meta) meta.content = theme === 'dark' ? '#0B0B0F' : '#FFFFFF'
-                  }}
-                />
-                <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-              </label>
+              <div className="v2-settings-segment" role="radiogroup" aria-label="Theme">
+                {[
+                  { value: 'light', label: 'Light', themeColor: '#FFFFFF' },
+                  { value: 'dark', label: 'Dark', themeColor: '#0B0B0F' },
+                  { value: 'terminal', label: 'Terminal', themeColor: '#0A0E1A' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={(settings.theme || 'light') === opt.value}
+                    className={`v2-settings-segment-btn${(settings.theme || 'light') === opt.value ? ' v2-settings-segment-btn-active' : ''}`}
+                    onClick={() => {
+                      update('theme', opt.value)
+                      document.documentElement.setAttribute('data-theme', opt.value)
+                      const meta = document.querySelector('meta[name="theme-color"]')
+                      if (meta) meta.content = opt.themeColor
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="v2-settings-row">

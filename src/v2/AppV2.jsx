@@ -79,17 +79,19 @@ export default function AppV2() {
   const weather = useWeather()
 
   // Mark the document so v2-namespaced tokens activate. Also apply the saved
-  // theme on mount so the rendered UI matches whatever the Settings dark-mode
-  // toggle reads — without this, settings.theme could be 'dark' (carried over
-  // from another device or previous session) but data-theme would be unset,
-  // making the modal say ON while the rest of the app renders light.
+  // theme on mount so the rendered UI matches whatever the Settings theme
+  // picker reads — without this, settings.theme could be 'dark'/'terminal'
+  // (carried over from another device or previous session) but data-theme
+  // would be unset, making the modal say one thing while the rest of the
+  // app renders another.
   useEffect(() => {
     document.documentElement.setAttribute('data-ui', 'v2')
     const theme = loadSettings().theme
-    if (theme === 'dark' || theme === 'light') {
+    const themeColors = { light: '#FFFFFF', dark: '#0B0B0F', terminal: '#0A0E1A' }
+    if (theme === 'dark' || theme === 'light' || theme === 'terminal') {
       document.documentElement.setAttribute('data-theme', theme)
       const meta = document.querySelector('meta[name="theme-color"]')
-      if (meta) meta.content = theme === 'dark' ? '#0B0B0F' : '#FFFFFF'
+      if (meta) meta.content = themeColors[theme]
     }
     return () => { document.documentElement.removeAttribute('data-ui') }
   }, [])
