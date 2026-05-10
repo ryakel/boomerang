@@ -70,6 +70,64 @@
   color: var(--v2-alert-high-pri);
 }
 
+/* === Sync-state animations (PR D) ===================================
+ * Light/dark themes use a letter-by-letter wave bounce + green flash
+ * for the saving / just-synced states. That feels brand-y and a little
+ * playful — wrong vibe for the terminal theme. Replace with status
+ * conventions terminals actually use:
+ *
+ *   saving      → cycling spinner glyph at the cursor position
+ *                 (| / - \ — the universal CLI loading indicator)
+ *   just-synced → static green ✓ for the 700ms hold
+ *   idle        → blinking _ cursor (already from PR B)
+ *   degraded    → blinking _ in amber (already from PR B)
+ *   offline     → blinking _ in red    (already from PR B)
+ *
+ * The letters themselves stay solid — no bounce, no flash — so the
+ * spinner / checkmark at the trailing cursor position is the sole
+ * channel for state. Reads as a CLI status line.
+ *
+ * The `content` property is animatable in modern browsers (Chrome 105+,
+ * Safari 16.4+, Firefox 110+, all from 2022-2023) — that's how we cycle
+ * the spinner glyphs. Older browsers fall back to the static `|` from
+ * the saving::after content declaration. */
+
+:root[data-ui="v2"][data-theme="terminal"] .v2-header-wordmark[data-sync-state="saving"]::after {
+  content: '|';
+  color: var(--v2-accent);
+  animation: v2-terminal-spinner 0.6s steps(4) infinite;
+}
+
+@keyframes v2-terminal-spinner {
+  0%   { content: '|'; }
+  25%  { content: '/'; }
+  50%  { content: '-'; }
+  75%  { content: '\\'; }
+  100% { content: '|'; }
+}
+
+/* Mute the letter bounce during saving — clean letters + spinner is the
+ * terminal language. Same for just-synced (no green wash on letters). */
+:root[data-ui="v2"][data-theme="terminal"] .v2-header-wordmark[data-sync-state="saving"] .v2-header-wordmark-letter,
+:root[data-ui="v2"][data-theme="terminal"] .v2-header-wordmark[data-sync-state="just-synced"] .v2-header-wordmark-letter {
+  animation: none;
+  color: var(--v2-text);
+  transform: none;
+}
+
+:root[data-ui="v2"][data-theme="terminal"] .v2-header-wordmark[data-sync-state="just-synced"]::after {
+  content: '\2713';  /* ✓ */
+  color: var(--v2-energy-errand);
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-ui="v2"][data-theme="terminal"] .v2-header-wordmark[data-sync-state="saving"]::after {
+    animation: none;
+    content: '*';
+  }
+}
+
 /* === Section labels ==================================================
  * Light/dark: "✦ DOING                3" — sparkle bullet + plain count.
  * Terminal: "> DOING               [3]" — chevron prompt + bracketed
