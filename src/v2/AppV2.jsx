@@ -517,9 +517,9 @@ export default function AppV2() {
     }
   }, [addTask, updateTask, prefetchToast])
 
-  const renderSection = (label, list) => list.length > 0 && (
+  const renderSection = (label, list, sigil) => list.length > 0 && (
     <>
-      <SectionLabel count={list.length}>{label}</SectionLabel>
+      <SectionLabel count={list.length} sigil={sigil}>{label}</SectionLabel>
       {list.map(t => (
         <TaskCard
           key={t.id}
@@ -674,11 +674,11 @@ export default function AppV2() {
             {settingsForRings.show_week_strip && (
               <WeekStrip tasks={tasks} dailyTaskGoal={settingsForRings.daily_task_goal || 3} />
             )}
-            {renderSection('Doing', sortedDoing)}
-            {renderSection('Stale', sortedStale)}
-            {renderSection('Up next', sortedUpNext)}
-            {renderSection('Waiting', sortedWaiting)}
-            {renderSection('Snoozed', sortedSnoozed)}
+            {renderSection('Doing', sortedDoing, '→')}
+            {renderSection('Stale', sortedStale, '~')}
+            {renderSection('Up next', sortedUpNext, '+')}
+            {renderSection('Waiting', sortedWaiting, '…')}
+            {renderSection('Snoozed', sortedSnoozed, 'z')}
             {settingsForRings.show_goal_progress && (
               <GoalProgressBar tasksToday={dailyStats.tasksToday} goal={settingsForRings.daily_task_goal || 3} />
             )}
