@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — checkbox idiom inline, not stacked [XS]
+  - **Why.** Last PR replaced the status segmented control's filled buttons with `[•] doing` checkbox notation but stacked the options vertically. User: "Buttons don't make sense in terminal but we need to not just stack everything vertically when we eliminate them." The fix: keep horizontal layout, just swap chrome for inline `[ ]` / `[•]` per option.
+  - **Generalized to ALL segmented controls.** Previous rule only targeted `.v2-edit-status-row .v2-form-seg`; new rule targets every `.v2-form-seg` instance. So status, priority (Normal/High/Low), size (XS/S/M/L/XL/Auto), energy type (desk/people/errand/creative/physical), energy drain (low/medium/high) all get the same inline checkbox treatment in terminal mode.
+  - **Layout: `flex-wrap: wrap` keeps horizontal flow.** Options sit on one line at desktop widths, wrap to additional lines on narrow phones. `gap: 4px 14px` (row × column) gives breathing room without ballooning vertically.
+  - **Per-option text:**
+    - Inactive: `[ ] xs` in faint bracket + meta text
+    - Active: `[•] xs` in accent + cyan glow
+    - Hover: text color lifts from meta to text on inactive options
+  - The `✓ Done` row in EditTaskModal status keeps errand-green so it still reads as the completion action.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal — toolbar buffer + checkbox-style status idiom [XS]
   - **Why.** Two specific feedback items: (1) the filter pill scroll-strip at the top of the home was sitting flush against the viewport edge — needed left/right padding to breathe; (2) the EditTaskModal status row (`not started / doing / waiting / done`) still rendered as filled segmented buttons even in terminal mode, which "made zero sense" against the rest of the bare-text aesthetic.
   - **Toolbar padding.** `padding: 8px 0` from the earlier flatten was too aggressive — restored to `padding: 8px 16px`. The first tab no longer sits flush; the scroll-strip has room to breathe.

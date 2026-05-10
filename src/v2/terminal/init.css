@@ -596,73 +596,70 @@
   padding: 10px !important;
 }
 
-/* === EditTaskModal status row: [•] checkbox idiom ================
- * The status segmented control (`not started / doing / waiting / done`)
- * renders as filled buttons in light/dark — out of place in terminal.
- * Strip the chrome and render each option as a checkbox row:
- *   [•] doing         (active — accent dot)
- *   [ ] not started   (inactive — empty bracket)
- *   [ ] waiting
- *   [ ] done
- * Mutually exclusive single-pick, so `[•]` (radio dot) instead of `[x]`.
- * Visually arranges as a vertical column of bracketed text rows. */
+/* === Form segmented controls → inline `[ ]` / `[•]` checkboxes ====
+ * Every segmented control in v2 (status, priority, size, energy type,
+ * energy drain) uses `.v2-form-segmented` + `.v2-form-seg`. Filled-
+ * button chrome reads as out-of-place in terminal mode; replace with
+ * inline checkbox notation while keeping the horizontal layout (don't
+ * stack vertically — that wastes too much space).
+ *
+ *   `[•] doing  [ ] not started  [ ] waiting  [ ] done`
+ *
+ * Mutually exclusive single-pick uses `[•]` radio dot rather than `[x]`
+ * checkbox. Wraps to multiple lines if the row doesn't fit. */
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-row {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-segmented {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: center;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-row .v2-form-seg {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-seg {
   background: transparent !important;
   color: var(--v2-text-meta) !important;
   border: none !important;
   border-radius: 0 !important;
-  padding: 6px 8px !important;
-  text-align: left !important;
-  text-transform: lowercase !important;
-  font: 500 13px/1.2 var(--v2-font-body) !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
+  padding: 4px 0 !important;
   height: auto !important;
+  min-width: 0 !important;
+  font: 500 13px/1.2 var(--v2-font-body) !important;
+  text-transform: lowercase !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex: 0 0 auto !important;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-row .v2-form-seg::before {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-seg::before {
   content: "[ ]";
   color: var(--v2-text-faint);
   font-weight: 500;
   letter-spacing: 0;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-row .v2-form-seg-active {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-seg-active {
   color: var(--v2-accent) !important;
   text-shadow: var(--v2-glow);
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-row .v2-form-seg-active::before {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-seg-active::before {
   content: "[•]";
   color: var(--v2-accent);
   font-weight: 700;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-row .v2-form-seg:hover:not(.v2-form-seg-active) {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-seg:hover:not(.v2-form-seg-active) {
   color: var(--v2-text) !important;
   background: transparent !important;
 }
 
-/* The `✓ Done` row at the bottom keeps its own visual weight — a status
- * change that ends the task. Render as a bracketed accent text row but
- * keep the leading checkmark idiom from the JSX. */
+/* The `✓ Done` button in EditTaskModal status keeps its errand-green
+ * so it still reads as the completion action. JSX renders it as the
+ * last child of the segmented container; CSS just colors the row. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-done {
   color: var(--v2-energy-errand) !important;
   text-shadow: 0 0 6px rgba(126, 231, 135, 0.35);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-done::before {
-  content: "[ ]";
-  color: var(--v2-text-faint);
 }
 
 /* === EditTaskModal form labels: // comment style ================= */
