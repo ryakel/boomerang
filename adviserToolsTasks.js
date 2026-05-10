@@ -48,6 +48,19 @@ function summarizeRoutine(r) {
     paused: !!r.paused,
     end_date: r.end_date || null,
     last_completed: r.completed_history?.[r.completed_history.length - 1] || null,
+    // Sequences: expose the chain template so adviser can address steps
+    // by id when calling add/edit/remove/reorder_follow_up tools.
+    follow_ups: Array.isArray(r.follow_ups)
+      ? r.follow_ups.map((s, i) => ({
+          step_index: i,
+          step_id: s.id,
+          title: s.title,
+          offset_minutes: s.offset_minutes,
+          ...(s.energy_type ? { energy_type: s.energy_type } : {}),
+          ...(s.energy_level ? { energy_level: s.energy_level } : {}),
+          ...(s.notes ? { notes: s.notes } : {}),
+        }))
+      : [],
   }
 }
 
@@ -559,6 +572,213 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       return {
         result: { id, task: summarizeTask(getTask(id)) },
         compensation: async () => { deleteTask(id) },
+      }
+    },
+  })
+
+  // === Sequences PR 5: chain-editing tools =============================
+  // Atomic operations on a routine's `follow_ups` array (the chain
+  // template). All four tools capture the entire pre-state of the
+  // routine in their compensation closure so a rollback restores the
+  // chain regardless of what changed.
+  //
+  // The routine `follow_ups` field is the TEMPLATE — already-spawned
+  // task instances carry their own snapshot via PR 1's spawn copy,
+  // so editing the template never retroactively mutates in-flight
+  // tasks. Adviser-driven changes only affect the NEXT spawn cycle.
+
+  const ENERGY_TYPE_ENUM = ['desk', 'people', 'errand', 'confrontation', 'creative', 'physical']
+
+  const summarizeChain = (routine) => {
+    const chain = Array.isArray(routine?.follow_ups) ? routine.follow_ups : []
+    return chain.map((s, i) => ({
+      step_index: i,
+      step_id: s.id,
+      title: s.title,
+      offset_minutes: s.offset_minutes,
+      ...(s.energy_type ? { energy_type: s.energy_type } : {}),
+      ...(s.energy_level ? { energy_level: s.energy_level } : {}),
+      ...(s.notes ? { notes: s.notes } : {}),
+    }))
+  }
+
+  registerTool({
+    name: 'add_follow_up',
+    description: `Append (or insert) a follow-up step to a routine's chain template. Steps fire in order after each previous step is COMPLETED — \`offset_minutes\` is the delay from that completion. Sub-day offsets snooze the spawned task until trigger time so it doesn't surface in the list until the cycle is up.`,
+    schema: {
+      type: 'object',
+      properties: {
+        routine_id: { type: 'string' },
+        title: { type: 'string', minLength: 1 },
+        offset_minutes: { type: 'integer', minimum: 0 },
+        energy_type: { type: 'string', enum: ENERGY_TYPE_ENUM },
+        energy_level: { type: 'integer', minimum: 1, maximum: 3 },
+        notes: { type: 'string' },
+        step_index: { type: 'integer', minimum: 0, description: '0-based insertion position. Default: append to end.' },
+      },
+      required: ['routine_id', 'title', 'offset_minutes'],
+    },
+    preview: (args) => `Add chain step "${args.title}" to routine "${routineLabel(args.routine_id)}"`,
+    execute: async (args) => {
+      const before = getRoutine(args.routine_id)
+      if (!before) throw new Error(`Routine not found: ${args.routine_id}`)
+      const stepId = crypto.randomUUID()
+      const newStep = {
+        id: stepId,
+        title: args.title.trim(),
+        offset_minutes: Math.max(0, args.offset_minutes),
+        ...(args.energy_type ? { energy_type: args.energy_type } : {}),
+        ...(args.energy_level ? { energy_level: args.energy_level } : {}),
+        ...(args.notes ? { notes: args.notes.trim() } : {}),
+      }
+      const oldChain = Array.isArray(before.follow_ups) ? before.follow_ups : []
+      const newChain = oldChain.slice()
+      const idx = Number.isInteger(args.step_index) && args.step_index >= 0 && args.step_index <= newChain.length
+        ? args.step_index
+        : newChain.length
+      newChain.splice(idx, 0, newStep)
+      updateRoutinePartial(args.routine_id, { follow_ups: newChain })
+      return {
+        result: { routine_id: args.routine_id, step_id: stepId, chain: summarizeChain(getRoutine(args.routine_id)) },
+        compensation: async () => { upsertRoutine(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'edit_follow_up',
+    description: 'Update one or more fields of a single chain step. Identify the step by `step_id` (preferred) or `step_index` (0-based). Only fields you pass are changed.',
+    schema: {
+      type: 'object',
+      properties: {
+        routine_id: { type: 'string' },
+        step_id: { type: 'string' },
+        step_index: { type: 'integer', minimum: 0 },
+        title: { type: 'string', minLength: 1 },
+        offset_minutes: { type: 'integer', minimum: 0 },
+        energy_type: { type: ['string', 'null'], enum: [...ENERGY_TYPE_ENUM, null] },
+        energy_level: { type: ['integer', 'null'], minimum: 1, maximum: 3 },
+        notes: { type: ['string', 'null'] },
+      },
+      required: ['routine_id'],
+    },
+    preview: (args) => `Edit chain step in routine "${routineLabel(args.routine_id)}"`,
+    execute: async (args) => {
+      const before = getRoutine(args.routine_id)
+      if (!before) throw new Error(`Routine not found: ${args.routine_id}`)
+      const oldChain = Array.isArray(before.follow_ups) ? before.follow_ups : []
+      let idx = -1
+      if (args.step_id) {
+        idx = oldChain.findIndex(s => s.id === args.step_id)
+      } else if (Number.isInteger(args.step_index)) {
+        idx = args.step_index
+      }
+      if (idx < 0 || idx >= oldChain.length) {
+        throw new Error(`Step not found in chain (step_id=${args.step_id ?? '∅'}, step_index=${args.step_index ?? '∅'})`)
+      }
+      const newChain = oldChain.slice()
+      const target = { ...newChain[idx] }
+      if (typeof args.title === 'string' && args.title.trim()) target.title = args.title.trim()
+      if (Number.isInteger(args.offset_minutes)) target.offset_minutes = Math.max(0, args.offset_minutes)
+      if (Object.prototype.hasOwnProperty.call(args, 'energy_type')) {
+        if (args.energy_type) target.energy_type = args.energy_type
+        else delete target.energy_type
+      }
+      if (Object.prototype.hasOwnProperty.call(args, 'energy_level')) {
+        if (args.energy_level) target.energy_level = args.energy_level
+        else delete target.energy_level
+      }
+      if (Object.prototype.hasOwnProperty.call(args, 'notes')) {
+        if (args.notes && args.notes.trim()) target.notes = args.notes.trim()
+        else delete target.notes
+      }
+      newChain[idx] = target
+      updateRoutinePartial(args.routine_id, { follow_ups: newChain })
+      return {
+        result: { routine_id: args.routine_id, step_id: target.id, chain: summarizeChain(getRoutine(args.routine_id)) },
+        compensation: async () => { upsertRoutine(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'remove_follow_up',
+    description: 'Remove a step from a routine\'s chain. Identify the step by `step_id` or `step_index`. Already-spawned tasks are NOT affected — only the template changes.',
+    schema: {
+      type: 'object',
+      properties: {
+        routine_id: { type: 'string' },
+        step_id: { type: 'string' },
+        step_index: { type: 'integer', minimum: 0 },
+      },
+      required: ['routine_id'],
+    },
+    preview: (args) => `Remove chain step from routine "${routineLabel(args.routine_id)}"`,
+    execute: async (args) => {
+      const before = getRoutine(args.routine_id)
+      if (!before) throw new Error(`Routine not found: ${args.routine_id}`)
+      const oldChain = Array.isArray(before.follow_ups) ? before.follow_ups : []
+      let idx = -1
+      if (args.step_id) {
+        idx = oldChain.findIndex(s => s.id === args.step_id)
+      } else if (Number.isInteger(args.step_index)) {
+        idx = args.step_index
+      }
+      if (idx < 0 || idx >= oldChain.length) {
+        throw new Error(`Step not found in chain (step_id=${args.step_id ?? '∅'}, step_index=${args.step_index ?? '∅'})`)
+      }
+      const removed = oldChain[idx]
+      const newChain = oldChain.slice(0, idx).concat(oldChain.slice(idx + 1))
+      updateRoutinePartial(args.routine_id, { follow_ups: newChain })
+      return {
+        result: { routine_id: args.routine_id, removed_step: removed, chain: summarizeChain(getRoutine(args.routine_id)) },
+        compensation: async () => { upsertRoutine(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'reorder_follow_ups',
+    description: 'Reorder a routine\'s chain. Provide either `step_ids` (preferred — array of step ids in the new order) OR a single (`from_index`, `to_index`) pair to move one step. The lengths and ids must match the existing chain exactly when using `step_ids`.',
+    schema: {
+      type: 'object',
+      properties: {
+        routine_id: { type: 'string' },
+        step_ids: { type: 'array', items: { type: 'string' } },
+        from_index: { type: 'integer', minimum: 0 },
+        to_index: { type: 'integer', minimum: 0 },
+      },
+      required: ['routine_id'],
+    },
+    preview: (args) => `Reorder chain steps in routine "${routineLabel(args.routine_id)}"`,
+    execute: async (args) => {
+      const before = getRoutine(args.routine_id)
+      if (!before) throw new Error(`Routine not found: ${args.routine_id}`)
+      const oldChain = Array.isArray(before.follow_ups) ? before.follow_ups : []
+      let newChain
+      if (Array.isArray(args.step_ids)) {
+        if (args.step_ids.length !== oldChain.length) {
+          throw new Error(`step_ids length (${args.step_ids.length}) does not match chain length (${oldChain.length})`)
+        }
+        const byId = new Map(oldChain.map(s => [s.id, s]))
+        newChain = args.step_ids.map(id => {
+          const step = byId.get(id)
+          if (!step) throw new Error(`Step id "${id}" not found in chain`)
+          return step
+        })
+      } else if (Number.isInteger(args.from_index) && Number.isInteger(args.to_index)) {
+        if (args.from_index < 0 || args.from_index >= oldChain.length) throw new Error(`from_index out of range`)
+        if (args.to_index < 0 || args.to_index >= oldChain.length) throw new Error(`to_index out of range`)
+        newChain = oldChain.slice()
+        const [moved] = newChain.splice(args.from_index, 1)
+        newChain.splice(args.to_index, 0, moved)
+      } else {
+        throw new Error('reorder_follow_ups requires either `step_ids` or both `from_index`+`to_index`')
+      }
+      updateRoutinePartial(args.routine_id, { follow_ups: newChain })
+      return {
+        result: { routine_id: args.routine_id, chain: summarizeChain(getRoutine(args.routine_id)) },
+        compensation: async () => { upsertRoutine(before) },
       }
     },
   })

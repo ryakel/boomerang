@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(adviser): Sequences PR 5 — Quokka tools for chain editing [S]
+  - **Why.** Quokka could read routines but couldn't edit a chain template — no atomic ops on `follow_ups`. Users had to open RoutinesModal manually to add/remove/reorder steps. Now natural-language commands like *"add a 'rinse the brushes' step to the mop routine right after auto-clean"* can do the work.
+  - **Four new tools** in `adviserToolsTasks.js`, each capturing the routine's pre-state in their compensation closure for rollback:
+    - `add_follow_up({routine_id, title, offset_minutes, [step_index], [energy_*], [notes]})` — append or insert. Returns the new `step_id` so chained tool calls can reference it.
+    - `edit_follow_up({routine_id, step_id|step_index, [title, offset_minutes, energy_*, notes]})` — update a single step's fields. `null` for energy_type/level/notes clears that field.
+    - `remove_follow_up({routine_id, step_id|step_index})` — delete one step.
+    - `reorder_follow_ups({routine_id, step_ids[] OR (from_index, to_index)})` — full reorder by id list, or single-step move by indices. Validates length match for the array form.
+  - **Visibility into chain steps.** `summarizeRoutine` now serializes `follow_ups` with `step_index` + `step_id` + fields per step so `get_routine` and `list_routines` give the model what it needs to address steps without a separate fetch. Cost: a few hundred bytes per routine in the tool response.
+  - **Tool count.** `50 → 54`. CLAUDE.md updated.
+  - **Scope.** Template-only (matching PR 4). Already-spawned task instances carry their own `follow_ups` snapshot from PR 1's spawn copy and aren't retroactively mutated by template edits — the model can't accidentally rewrite a chain that's already mid-flight.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 778KB precache (server-side only — no client bundle change).
+  - Modified: `adviserToolsTasks.js`, `CLAUDE.md`, `wiki/Sequences.md`
+
 - feat(routines): Sequences PR 4 — AI chain reconciliation [M]
   - **Why.** Editing a step in a multi-step chain often makes the OTHER steps read inconsistently — rename "Empty the dirty tank" to "Drain the rinse tank" and the "Put dry tanks back" step at the end now sounds slightly off. Without reconciliation, the user has to remember to revisit each downstream step manually. Now Quokka does the cross-step pass on demand.
   - **Behavior.** When the routine form saves an EXISTING chain with edits/additions/removals, a `ChainReconcileModal` intercepts. Three states: `review` (summary of the user's changes + "Ask Quokka" / "Save without scan" buttons) → `loading` (Quokka spinner) → `diffs` (per-suggestion accept/reject toggles + "Apply selected" / "Skip all" buttons). Brand-new chains skip the gate — no point reconciling steps you just drafted. Title-only trigger; offset/notes/energy edits don't propagate linguistically.
