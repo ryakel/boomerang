@@ -1,35 +1,37 @@
-/* Terminal — Strip modern app chrome.
+/* Terminal — Strip modern app chrome (deep flatten v2).
  *
- * The previous PRs (A–I) painted terminal text + ASCII flourishes on top
- * of a fundamentally modern card-based UI: rounded card surfaces with
- * borders, filled accent buttons, glowing FAB, drop-shadowed modals,
- * pill-shaped action chrome. Reads as "modern app in monospace," not as
- * a CLI tool.
+ * The first flatten pass kept hairline row separators on cards, kept
+ * thin borders on action buttons, and kept the FAB as a small bordered
+ * square. Side-by-side with init.habits, all of that still reads as
+ * "modern app chrome." Init has zero borders on individual rows, zero
+ * borders on action buttons (just bracketed `[add]` text), zero
+ * borders on filter chips (just text-tabs with an underline-on-active
+ * indicator).
  *
- * This file flattens it. Every override under `[data-theme^="terminal"]`
- * removes a piece of chrome that doesn't belong in a terminal aesthetic:
+ * This file goes the rest of the way:
+ *   - TaskCard rows become bare text on the page bg. No border-top, no
+ *     hover bg tint, no expanded-state bg tint
+ *   - Card action buttons (Done / Snooze / Edit / Skip) lose their box
+ *     borders entirely. Done becomes `[ Done ]` text with an accent-
+ *     color text-shadow glow on hover. The icon-only buttons become
+ *     bare icons with a hover color shift
+ *   - Filter pills become text-tabs with a 2px accent underline on the
+ *     active one. Inline-style overrides (label.color bg) are knocked
+ *     out via `!important`
+ *   - FAB drops its border entirely. The `+` and target glyphs are
+ *     bare icons, accent color, no chrome. Hover is a color glow only
+ *   - Section labels drop the border-bottom — the `> DOING [6]` text
+ *     itself is the heading; the rule is overkill
+ *   - Toolbar icon buttons (sort, search) drop borders too
+ *   - Form submit drops the border, just `[ Save ]` text
+ *   - Manage cluster buttons in EditTaskModal drop borders, become
+ *     bracketed text rows
  *
- *   - Card surface elevation → flat rows on the page bg, separated by
- *     a single hairline rule
- *   - Status border-left (overdue/high-pri) → leading [!] / [*] glyph
- *     on the title via the existing ::before machinery
- *   - Filled "Done" button → bordered `[ Done ]` text with accent-color
- *     hover wash, no fill, no shadow
- *   - Pill-shaped action buttons (snooze/edit/skip) → flat squared
- *     borders, no hover bg pill
- *   - Energy chip pill → bare inline icon + text
- *   - Modal sheet rounded-corner + drop-shadow → flat rectangle with a
- *     hairline border, square corners, deeper overlay scrim
- *   - FAB circular fill + shadow + glow → flat square `[+]` glyph in
- *     a thin accent-bordered box
- *   - Form submit primary fill → bracketed `[ Save ]` text, no fill
- *   - EditTaskModal manage-cluster pills → bordered text rows that
- *     read as command rows
- *   - Toast pill → flat status line
- *   - Settings segment-control pill cluster → joined-border tab strip
- *
- * Light + dark are completely untouched. The whole file is one selector
- * scope; deleting the file removes every flattening override at once.
+ * All under `[data-theme^="terminal"]`. Light + dark untouched.
+ * Selectors that need to override component-inline styles use
+ * `!important` deliberately — those styles are JSX-coupled and the
+ * stress-test convention is "no JSX divergence for terminal," so the
+ * CSS battle is the right tradeoff.
  */
 
 /* === TaskCard ======================================================= */
@@ -37,36 +39,27 @@
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card {
   background: transparent;
   border: none;
-  border-top: 1px solid var(--v2-hairline);
   border-radius: 0;
   box-shadow: none;
   transition: none;
 }
 
-/* First card in any list-context sits flush against the section label
- * or page top — no extra hairline. (`adjacent-sibling` covers section
- * labels; `:first-child` covers raw lists.) */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label + .v2-card-swipe-wrap > .v2-card,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label + .v2-card,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-card-swipe-wrap:first-child > .v2-card,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-list > .v2-card-swipe-wrap:first-of-type > .v2-card {
-  border-top: none;
-}
-
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card:hover {
-  background: rgba(var(--v2-text-rgb), 0.02);
-  border-color: var(--v2-hairline);
+  background: transparent;
+  border: none;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-expanded-state {
-  background: rgba(var(--v2-text-rgb), 0.025);
+  background: transparent;
   box-shadow: none;
 }
 
-/* Status: replace the colored 2px left border with a leading [!] / [*]
- * on the title. The existing PR C terminal selector painted `[ ] ` as
- * the title prefix; for overdue / high-pri we override that prefix
- * with the status glyph + matching color. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-expanded {
+  border-top: none;
+  padding-top: 4px;
+}
+
+/* Status: replace 2px left border with leading [!] / [*] on the title. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue,
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-high-pri {
   border-left: none;
@@ -84,78 +77,236 @@
   font-weight: 700;
 }
 
-/* Energy chip — drop the pill bg, become inline icon + bolts only. */
+/* Energy chip → inline icon + bolts, no pill bg */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy {
   background: transparent;
   border-radius: 0;
   padding: 0 4px;
 }
 
-/* Card action buttons — strip pill chrome. Snooze + Edit + Skip become
- * flat squared boxes; Done becomes bracketed accent-color text. */
+/* Card action buttons — drop ALL borders. The icon-only buttons
+ * (Snooze/Edit/Skip) become bare icons. Done keeps its `[ Done ]`
+ * bracket text from PR C but loses the box border. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action {
-  height: auto;
-  min-width: 28px;
-  padding: 4px 10px;
+  background: transparent !important;
+  border: none !important;
   border-radius: 0;
-  border: 1px solid var(--v2-hairline);
-  background: transparent;
+  height: auto;
+  min-width: 0;
+  padding: 4px 8px;
+  box-shadow: none !important;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action:hover {
-  background: transparent;
-  border-color: var(--v2-text-meta);
+  background: transparent !important;
   color: var(--v2-text);
+  filter: none;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action:active {
   transform: none;
-  background: rgba(var(--v2-text-rgb), 0.06);
+  background: transparent !important;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary {
-  background: transparent;
+  background: transparent !important;
   color: var(--v2-accent);
-  border: 1px solid var(--v2-accent);
-  box-shadow: none;
+  border: none !important;
   text-shadow: var(--v2-glow);
+  padding: 4px 8px;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary:hover {
-  background: rgba(88, 166, 255, 0.08);
+  background: transparent !important;
   filter: none;
   color: var(--v2-accent);
+  text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary svg {
   color: var(--v2-accent);
 }
 
-/* The PR C `[ ` / ` ]` brackets used a translucent white that read
- * against the orange fill. Now that the button is transparent, match
- * the bracket color to the rest of the button (accent). */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::before,
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::after {
   color: var(--v2-accent);
-  font-weight: 700;
+  font-weight: 500;
 }
 
-/* Skip-advance: keep amber but flatten. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-skip {
-  background: transparent;
-  border-color: var(--v2-alert-high-pri);
+  background: transparent !important;
+  color: var(--v2-alert-high-pri);
+  border: none !important;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-skip:hover {
-  background: rgba(255, 184, 77, 0.08);
+  background: transparent !important;
+  text-shadow: 0 0 8px rgba(255, 184, 77, 0.45);
 }
 
-/* Card swipe-action panel (mobile) — flat. */
+/* Card swipe-action panel (mobile) — flat */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-swipe-action {
   border-radius: 0;
 }
 
-/* === ModalShell + sheets ============================================ */
+/* === Section labels — no border-bottom; just text + space ========== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label {
+  border-bottom: none;
+  padding: 16px 0 6px;
+  margin-bottom: 0;
+}
+
+/* === Toolbar (filter pills + sort + search) ======================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar {
+  background: transparent;
+  border: none;
+}
+
+/* Filter pills → text-tabs. Inline styles on active filter set
+ * background + borderColor + color from label.color — knock those out
+ * with !important so terminal mode reads as plain text-tabs with a
+ * 2px accent underline on the active one. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-pill {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  padding: 6px 4px !important;
+  margin: 0 8px !important;
+  font-weight: 500;
+  text-shadow: none !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-pill:first-child {
+  margin-left: 0 !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-pill:hover {
+  background: transparent !important;
+  color: var(--v2-text) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-pill-active {
+  color: var(--v2-accent) !important;
+  border-bottom-color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-pill-routines {
+  border-bottom-color: transparent !important;
+}
+
+/* Sort + search icons — bare icons, no border */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-icon-btn {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--v2-text-meta);
+  padding: 6px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-icon-btn:hover {
+  background: transparent;
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+
+/* Sort dropdown menu — flat panel, accent border */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-sort-menu {
+  background: var(--v2-bg);
+  border: 1px solid var(--v2-accent);
+  border-radius: 0;
+  box-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-sort-option {
+  border-radius: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-sort-option-active {
+  color: var(--v2-accent);
+}
+
+/* Toolbar search input — flat */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-search-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--v2-hairline);
+  border-radius: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-search-input:focus {
+  border-bottom-color: var(--v2-accent);
+  outline: none;
+}
+
+/* === FloatingCapture (FAB) — bare icons, no chrome =============== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button {
+  width: auto;
+  height: auto;
+  padding: 8px;
+  border-radius: 0;
+  border: none;
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  box-shadow: none !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: transparent !important;
+  filter: none;
+  text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button:active:not(:disabled) {
+  transform: none;
+  background: transparent !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-add,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-whatnow,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-anchor.v2-fc-button-add,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-anchor.v2-fc-button-whatnow {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  border-color: transparent !important;
+  text-shadow: var(--v2-glow);
+}
+
+/* FAB icons themselves: scale up slightly since they're now bare */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-card,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-card-whatnow {
+  background: var(--v2-bg);
+  border: 1px solid var(--v2-accent);
+  border-radius: 0;
+  box-shadow: var(--v2-glow);
+  height: auto;
+  min-height: 36px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-chip {
+  border-radius: 0;
+  background: transparent;
+  border-color: var(--v2-hairline);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-chip:hover {
+  border-color: var(--v2-accent);
+  background: transparent;
+}
+
+/* === ModalShell ==================================================== */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-modal-overlay {
   background: rgba(0, 0, 0, 0.70);
@@ -177,95 +328,37 @@
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-modal-close {
   background: transparent;
-  border: 1px solid var(--v2-hairline);
+  border: none;
   border-radius: 0;
-  width: 28px;
-  height: 28px;
+  color: var(--v2-text-meta);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-modal-close:hover {
-  background: rgba(var(--v2-text-rgb), 0.06);
-  border-color: var(--v2-text-meta);
-}
-
-/* === FloatingCapture (FAB) ========================================= */
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button {
-  width: 36px;
-  height: 36px;
-  border-radius: 0;
-  border: 1px solid var(--v2-accent);
   background: transparent;
   color: var(--v2-accent);
-  box-shadow: none;
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button:hover:not(:disabled) {
-  transform: none;
-  box-shadow: none;
-  background: rgba(88, 166, 255, 0.10);
-  filter: none;
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button:active:not(:disabled) {
-  transform: none;
-  background: rgba(88, 166, 255, 0.18);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-add,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-whatnow {
-  background: transparent;
-  color: var(--v2-accent);
-  border-color: var(--v2-accent);
   text-shadow: var(--v2-glow);
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-anchor.v2-fc-button-add,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-anchor.v2-fc-button-whatnow {
-  background: transparent;
-  color: var(--v2-accent);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-card,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-card-whatnow {
-  background: var(--v2-bg);
-  border: 1px solid var(--v2-accent);
-  border-radius: 0;
-  box-shadow: var(--v2-glow);
-  height: auto;
-  min-height: 36px;
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-chip {
-  border-radius: 0;
-  background: transparent;
-  border-color: var(--v2-hairline);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-chip:hover {
-  border-color: var(--v2-accent);
-  background: rgba(88, 166, 255, 0.06);
-}
-
-/* === Form submit + form pills ===================================== */
+/* === Form submit + form pills ====================================== */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit {
   background: transparent;
   color: var(--v2-accent);
-  border: 1px solid var(--v2-accent);
+  border: none;
   border-radius: 0;
   height: 40px;
   text-shadow: var(--v2-glow);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit:hover:not(:disabled) {
-  background: rgba(88, 166, 255, 0.10);
+  background: transparent;
   filter: none;
+  text-shadow: 0 0 14px rgba(88, 166, 255, 0.7);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit:active:not(:disabled) {
   transform: none;
-  background: rgba(88, 166, 255, 0.18);
+  background: transparent;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit::before {
@@ -300,36 +393,40 @@
   border: 1px solid var(--v2-hairline);
 }
 
-/* === EditTaskModal manage cluster ================================== */
+/* === EditTaskModal manage cluster — text rows, no borders =========== */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action {
   border-radius: 0;
   background: transparent;
-  border: 1px solid var(--v2-hairline);
+  border: none;
+  padding: 4px 8px;
+  height: auto;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action:hover {
-  background: rgba(var(--v2-text-rgb), 0.06);
-  border-color: var(--v2-text-meta);
+  background: transparent;
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-danger {
-  border-color: var(--v2-alert-overdue);
+  color: var(--v2-alert-overdue);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-danger:hover {
-  background: rgba(248, 81, 73, 0.08);
-  border-color: var(--v2-alert-overdue);
+  background: transparent;
+  color: var(--v2-alert-overdue);
+  text-shadow: 0 0 8px rgba(248, 81, 73, 0.45);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-confirm-yes {
   background: transparent;
   color: var(--v2-alert-overdue);
-  border-color: var(--v2-alert-overdue);
+  border: 1px solid var(--v2-alert-overdue);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-confirm-yes:hover {
-  background: rgba(248, 81, 73, 0.12);
+  background: rgba(248, 81, 73, 0.10);
   filter: none;
 }
 
@@ -343,7 +440,7 @@
   box-shadow: var(--v2-glow);
 }
 
-/* === Settings segmented control =================================== */
+/* === Settings segmented control — joined-border tab strip ========= */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment {
   border-radius: 0;
@@ -376,7 +473,7 @@
   text-shadow: var(--v2-glow);
 }
 
-/* === Settings rows + toggles ====================================== */
+/* === Settings rows + numeric inputs ================================ */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle-disabled {
   opacity: 0.5;
@@ -389,22 +486,11 @@
   padding: 4px 8px;
 }
 
-/* === Compact input on Settings number rows ======================== */
-
 :root[data-ui="v2"][data-theme^="terminal"] .v2-settings-compact-input {
   border-radius: 0;
 }
 
-/* === Section labels — add a trailing rule so the label reads as a
- *      listing header rather than just floating text. */
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label {
-  border-bottom: 1px solid var(--v2-hairline);
-  padding-bottom: 4px;
-  margin-bottom: 0;
-}
-
-/* === Confirm dialog + Reconcile modal ============================== */
+/* === ConfirmDialog + Reconcile modal ============================== */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-confirm,
 :root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile {
