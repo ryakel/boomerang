@@ -838,7 +838,7 @@ export default function AppV2() {
         <div className="v2-update-overlay">
           <div className="v2-update-modal">
             <div className="v2-update-title">Update available</div>
-            <div className="v2-update-version">v{updateVersion}</div>
+            <div className="v2-update-version">{/^\d/.test(updateVersion) ? `v${updateVersion}` : updateVersion}</div>
             <div className="v2-update-sub">Refreshing automatically…</div>
             <button
               className="v2-update-reload"

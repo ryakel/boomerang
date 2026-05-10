@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 update-modal — drop `v` prefix on sha-style versions [XS]
+  - `<div className="v2-update-version">v{updateVersion}</div>` rendered `vdev-e1ba2aa` on non-tagged builds. Changed to a conditional prefix: only prepend `v` when the version starts with a digit (i.e. semver like `0.10.0` → `v0.10.0`); sha-style versions like `dev-e1ba2aa` render bare. Future-proof for tagged releases without uglying up the dev sha display.
+  - Modified: `src/v2/AppV2.jsx`
+
 - feat(ui): v2 right-edge speed-dial — FloatingCapture for quick-add + what-now [M]
   - **Why.** Header was crowded (5 affordances on iPhone width) and v1's bottom bar didn't aesthetically fit the v2 calmer language. New pattern: right-edge speed-dial with two stacked floating circles. Tap a circle, it expands leftward into a slim card with the relevant input. Tap-outside or Escape collapses.
   - **Quick-add (+).** Lower circle, accent-filled. Tap → expands into a 320px input pill anchored to the right edge. Enter or tap + creates a task with just the title (size auto-infer hook fills in energy on the next render). Card stays open after submit so rapid-fire capture is one tap, type, Enter, type, Enter — not modal open/close churn.
