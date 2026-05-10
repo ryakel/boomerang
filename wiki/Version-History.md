@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — toolbar buffer + checkbox-style status idiom [XS]
+  - **Why.** Two specific feedback items: (1) the filter pill scroll-strip at the top of the home was sitting flush against the viewport edge — needed left/right padding to breathe; (2) the EditTaskModal status row (`not started / doing / waiting / done`) still rendered as filled segmented buttons even in terminal mode, which "made zero sense" against the rest of the bare-text aesthetic.
+  - **Toolbar padding.** `padding: 8px 0` from the earlier flatten was too aggressive — restored to `padding: 8px 16px`. The first tab no longer sits flush; the scroll-strip has room to breathe.
+  - **Status row → `[ ]` / `[•]` checkbox column.** In terminal mode, the segmented buttons strip all chrome, become a vertical column of bracketed text rows:
+    - `[•] doing` (active — accent radio dot + glow)
+    - `[ ] not started` (inactive — empty bracket, faint)
+    - `[ ] waiting`
+    - `[ ] done` (kept as its own row from the JSX; green errand-color since it's the completion state)
+  - Mutually exclusive single-pick uses `[•]` (radio dot) rather than `[x]` (checkbox). Hover lifts inactive rows from meta to text color.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - feat(ui): terminal — init treatment for modals + theme picker reorg + global Analytics→stats [M]
   - **Why.** "Now put that same treatment on the edit menus, routines, and packages. Also globally replace analytics with stats in the terminal themes." Plus a follow-up: theme picker should be `Standard / Terminal` family with a `Light / Dark` mode underneath, not a flat 4-option strip.
   - **More menu rows** (`AppV2.jsx` + `init.css`). Each row label gets a `data-terminal-cmd` attribute (`$ settings`, `$ projects`, `$ routines`, `$ done`, `$ stats`, `$ log`, `$ import --markdown`). Terminal CSS hides the visible label text (`font-size: 0`) and renders the `$ verb` form via `attr(data-terminal-cmd)` on `::before`. Same pattern as PR F's manage-cluster labels. Hover lights the row's command text in accent + glow. Card chrome on the row dropped — flat with hairline separator below.
