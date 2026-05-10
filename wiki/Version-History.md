@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal theme PR G — TaskCard density (terminal-only) [S]
+  - **Why.** init.habits packs more information per row than v2's calm card does — checklist completion at a glance, notes preview without expanding, streak indicator for recurring tasks. PR G ports those three signals into TaskCard, gated on terminal mode so light/dark stay calm.
+  - **Inline `[X/Y]` checklist counter.** When a task has any checklist items, the title row gets a small `[3/5]` counter span after the title. CSS-gated to terminal mode — light/dark hide it via `display: none`.
+  - **One-line notes preview.** When a task has notes, the collapsed card renders a clamped first-line preview as a sub-row under the title (with a `// ` comment prefix so it reads as inline notes attached to the task). Trims to 140 chars + first newline cut so multi-line notes render as a single sentence. CSS-gated to terminal mode + collapsed state — expanded view still shows full notes via the existing `.v2-card-notes` block.
+  - **Routine streak indicator.** Tasks with `task.routine_id` show a small `🔥N` indicator after the title (or after the checklist counter if both present). New `computeRoutineStreak(routine)` in `src/store.js` walks `completed_history` from newest to oldest, counting consecutive entries spaced ≤1.5× the cadence interval. Cadence intervals: daily=1d, weekly=7d, monthly=30d, quarterly=91d, annually=365d, custom=N×days. Returns 0 for never-completed routines.
+  - **`routineStreaks` prop.** AppV2 builds a memoized `Record<routineId, number>` map from the live `routines` array via `useMemo`, threads it down through `renderSection` (mobile list), `KanbanBoard` (desktop), `ProjectsView`, and the search-results path. Recomputed only when `routines` changes — completing a routine instance bumps the array, which rebuilds the map.
+  - **CSS architecture.** All three new spans (`.v2-card-checklist-inline`, `.v2-card-routine-streak`, `.v2-card-notes-preview`) ship with `display: none` in the base CSS. Terminal-mode CSS in `src/v2/terminal/cards.css` flips them to `display: inline` (or `display: -webkit-box` for the clamped notes line). Adding to light/dark later is a one-line change (drop the data-theme prefix scope).
+  - **Bundle.** CSS 198.6KB gzip 30.1KB (+~1KB from the density rules). JS 802KB gzip 222KB (+~1KB from the streak computation + map build).
+  - Modified: `src/store.js`, `src/v2/components/TaskCard.jsx`, `src/v2/components/KanbanBoard.jsx`, `src/v2/components/ProjectsView.jsx`, `src/v2/AppV2.jsx`, `src/v2/terminal/cards.css`, `wiki/Version-History.md`
+
 - feat(ui): terminal theme PR F — control language (bracket toggles, $ verb modal headers, // manage section) [M]
   - **Why.** PR A–E got terminal mode looking right (palette, monospace, ASCII flourishes, sub-palettes). PR F gets it speaking right — modal headers read as commands, settings toggles read as switch states, destructive actions in EditTaskModal read as a CLI subcommand cluster.
   - **`useTerminalMode` hook.** New `src/v2/hooks/useTerminalMode.js` — subscribes to the documentElement's `data-theme` attribute via MutationObserver, returns `true` when the theme starts with `terminal-`. Used wherever JSX needs to swap copy or rendering (not pure CSS overrides).
