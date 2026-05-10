@@ -6,6 +6,49 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(adviser): Sequences PR 5 — Quokka tools for chain editing [S]
+  - **Why.** Quokka could read routines but couldn't edit a chain template — no atomic ops on `follow_ups`. Users had to open RoutinesModal manually to add/remove/reorder steps. Now natural-language commands like *"add a 'rinse the brushes' step to the mop routine right after auto-clean"* can do the work.
+  - **Four new tools** in `adviserToolsTasks.js`, each capturing the routine's pre-state in their compensation closure for rollback:
+    - `add_follow_up({routine_id, title, offset_minutes, [step_index], [energy_*], [notes]})` — append or insert. Returns the new `step_id` so chained tool calls can reference it.
+    - `edit_follow_up({routine_id, step_id|step_index, [title, offset_minutes, energy_*, notes]})` — update a single step's fields. `null` for energy_type/level/notes clears that field.
+    - `remove_follow_up({routine_id, step_id|step_index})` — delete one step.
+    - `reorder_follow_ups({routine_id, step_ids[] OR (from_index, to_index)})` — full reorder by id list, or single-step move by indices. Validates length match for the array form.
+  - **Visibility into chain steps.** `summarizeRoutine` now serializes `follow_ups` with `step_index` + `step_id` + fields per step so `get_routine` and `list_routines` give the model what it needs to address steps without a separate fetch. Cost: a few hundred bytes per routine in the tool response.
+  - **Tool count.** `50 → 54`. CLAUDE.md updated.
+  - **Scope.** Template-only (matching PR 4). Already-spawned task instances carry their own `follow_ups` snapshot from PR 1's spawn copy and aren't retroactively mutated by template edits — the model can't accidentally rewrite a chain that's already mid-flight.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 778KB precache (server-side only — no client bundle change).
+  - Modified: `adviserToolsTasks.js`, `CLAUDE.md`, `wiki/Sequences.md`
+
+- feat(routines): Sequences PR 4 — AI chain reconciliation [M]
+  - **Why.** Editing a step in a multi-step chain often makes the OTHER steps read inconsistently — rename "Empty the dirty tank" to "Drain the rinse tank" and the "Put dry tanks back" step at the end now sounds slightly off. Without reconciliation, the user has to remember to revisit each downstream step manually. Now Quokka does the cross-step pass on demand.
+  - **Behavior.** When the routine form saves an EXISTING chain with edits/additions/removals, a `ChainReconcileModal` intercepts. Three states: `review` (summary of the user's changes + "Ask Quokka" / "Save without scan" buttons) → `loading` (Quokka spinner) → `diffs` (per-suggestion accept/reject toggles + "Apply selected" / "Skip all" buttons). Brand-new chains skip the gate — no point reconciling steps you just drafted. Title-only trigger; offset/notes/energy edits don't propagate linguistically.
+  - **AI prompt.** Conservative-by-default. The system prompt explicitly says "empty list is the right answer most of the time" and "don't suggest changes for taste alone." Returns `[{stepIndex, suggestedTitle, reasoning}]`. Defensive parsing: ignores out-of-range indices, drops suggestions that match the current title, falls back to `[]` on any error so a flaky API never blocks the save flow.
+  - **Implementation.** New `aiReconcileChain(originalChain, currentChain, parentTitle)` in `src/api.js` — uses the existing `/api/messages` proxy with a focused prompt. New `src/v2/components/ChainReconcileModal.jsx` + `.css` (state machine + per-suggestion checkboxes + accessible close + reduced-motion fallback). Hooked into `RoutineForm.handleSave` via `pendingSave` state.
+  - **Scope deferred.** Live in-flight chain editing (Scenario B in `wiki/Sequences.md`) is parked. Editing a chain-step task's title in EditTaskModal doesn't yet trigger reconciliation against the queued steps. Template-only (Scenario A) is the MVP that ships here; live-edit reconciliation lands in a follow-up PR if the use case shows up enough.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 778KB precache (+7KB from the modal + AI helper).
+  - New: `src/v2/components/ChainReconcileModal.jsx`, `src/v2/components/ChainReconcileModal.css`
+  - Modified: `src/api.js`, `src/v2/components/RoutinesModal.jsx`, `wiki/Sequences.md`
+
+- feat(routines): Sequences PR 3 — skip & advance [S]
+  - **Why.** Sometimes a chain-step task isn't gonna happen this cycle ("I forgot to clean the mop after I finished mopping the floors") but the rest of the chain still needs to fire (the auto-clean cycle still has to happen so the dirty tank gets emptied). Without skip-advance, the user's only options were complete-as-if-done (lies in analytics) or cancel (kills the chain). Skip-advance threads the needle: this step is abandoned, but the chain advances.
+  - **Behavior.** New amber `SkipForward` icon button in the expanded TaskCard action row, only renders when `task.follow_ups.length > 0`. Tap → optimistic local update marks the task `cancelled` + `skipped=true` + `completed_at=now`, fires `serverSkipAdvanceTask` which atomically persists those fields server-side AND runs `spawnNextChainStep`. New spawned step arrives via SSE-triggered refetch.
+  - **Server.** `POST /api/tasks/:id/skip-advance` — single endpoint that does the cancel-mark + spawn in one DB pass, broadcasts an SSE update on success.
+  - **Schema.** Migration 024 adds `skipped INTEGER DEFAULT 0` to `tasks`. Wired through `taskToRow` / `rowToTask` / `UPSERT_TASK_SQL` / `runUpsertTask` (column 36 in the upsert tuple).
+  - **Activity log.** `logActivity('skipped', task)` fires from the optimistic-update path so DoneList / ActivityLog can render skipped vs cancelled differently in future polish (PR 3 doesn't change those views; the data is just queryable now).
+  - **Idempotency.** PATCH and skip-advance can race; both end at the same canonical state. PATCH only spawns on transitions to `done`/`completed`, so a concurrent PATCH-cancel doesn't double-spawn. SkipAdvance handles its own spawn; second-try is a no-op since the task is already cancelled.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 771KB precache (+1KB from SkipForward icon + handler).
+  - New: `migrations/024_add_task_skipped.sql`
+  - Modified: `db.js`, `server.js`, `src/api.js`, `src/v2/AppV2.jsx`, `src/v2/components/TaskCard.jsx`, `src/v2/components/TaskCard.css`, `src/v2/components/KanbanBoard.jsx`, `wiki/Sequences.md`
+
+- feat(routines): Sequences PR 2 — chain-break confirmation [S]
+  - **Why.** PR 1 shipped follow-up chains, but a user could silently kill a chain by deleting the parent task / moving it to backlog / cancelling it without realizing the queued steps wouldn't spawn. After running mop chains for a few days the user wanted an explicit warning before destructive actions on chain-bearing tasks.
+  - **Behavior.** Any task with `follow_ups.length > 0` triggers a `ConfirmDialog` before delete / cancel / move-to-backlog / move-to-projects: *"Stop the follow-up chain? This task has N follow-up step(s) queued. {Action} will stop the chain — the queued step(s) won't spawn."* Two options: confirm-with-stop (red destructive button) or "Keep task" (cancel). Completion is intentionally ungated since `done` ADVANCES the chain via `spawnNextChainStep` — completing isn't "breaking" the chain, it's how the chain walks forward.
+  - **Implementation.** `gateOnChainBreak(task, actionLabel, confirmLabel, proceed)` helper in `AppV2.jsx` wraps the four destructive handlers (`handleDelete` / `handleBacklog` / `handleProject` / `handleStatusChange` for `cancelled`). Empty-chain tasks short-circuit and proceed immediately — no behavior change. State lives in `chainConfirm` set on `AppV2`.
+  - **Reusable confirm primitive.** Extracted the dialog pattern from `SettingsModal.jsx`'s inline confirm into `src/v2/components/ConfirmDialog.jsx` + `.css`. Props: `open` / `title` / `body` / `confirmLabel` / `cancelLabel` / `tone` (`'danger'` or `'primary'`) / `onConfirm` / `onCancel`. Escape-to-close. Future destructive flows (skip-and-advance, clear-all-data, etc.) can reuse it.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 770KB precache (up from 768KB).
+  - New: `src/v2/components/ConfirmDialog.jsx`, `src/v2/components/ConfirmDialog.css`
+  - Modified: `src/v2/AppV2.jsx`, `wiki/Sequences.md`
+
 - fix(ui): v2 header — iOS status bar overlap on PWA [XS]
   - **Bug.** With `apple-mobile-web-app-status-bar-style: black-translucent` (set in `index.html`), iOS PWA in standalone mode renders the system status bar (clock, signal, battery) OVER the app's content — the BOOMERANG wordmark area got the iPhone's clock display rendered on top of it, producing the "B 22:25 MERANG" overlap visible in v1.0.0 prod.
   - **Fix.** `.v2-header` `padding-top` now uses `max(14px, env(safe-area-inset-top, 0px))` (and `max(16px, ...)` on the `min-width: 601px` desktop variant) so our header content sits below the iOS status bar instead of behind it. The `viewport-fit=cover` meta tag is already in place. Header background remains a solid `var(--v2-bg)` so the status bar's text reads on a contrasting surface.

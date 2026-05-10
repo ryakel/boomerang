@@ -98,6 +98,84 @@ Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLev
   }
 }
 
+// Sequences PR 4: chain edit reconciliation. The user just edited some
+// steps in a follow-up chain (routine template); ask Claude to look for
+// language inconsistencies in the steps that DIDN'T change. Returns
+// suggestions only — never applied automatically; the user picks which
+// ones to accept in the ChainReconcileModal.
+//
+// Returns: [{ stepIndex, originalTitle, suggestedTitle, reasoning }]. Empty
+// array means "the chain reads consistently after your edits, no changes
+// needed." Falls back to [] on any error so the save flow doesn't block
+// when the API is down.
+export async function aiReconcileChain(originalChain, currentChain, parentTitle) {
+  // Build a compact representation of what changed. Only title-level
+  // diffs trigger reconciliation — offset and notes changes are mechanical
+  // and don't usually require linguistic propagation.
+  const titleChanges = []
+  for (const cur of currentChain) {
+    const orig = originalChain.find(s => s.id === cur.id)
+    if (!orig) {
+      titleChanges.push({ kind: 'added', currentTitle: cur.title })
+    } else if (orig.title !== cur.title) {
+      titleChanges.push({ kind: 'edited', originalTitle: orig.title, currentTitle: cur.title })
+    }
+  }
+  for (const orig of originalChain) {
+    if (!currentChain.find(s => s.id === orig.id)) {
+      titleChanges.push({ kind: 'removed', originalTitle: orig.title })
+    }
+  }
+  if (titleChanges.length === 0) return []
+
+  const system = `You analyze edits to a workflow chain (an ordered sequence of follow-up steps that fire after a parent task completes).
+The user just edited one or more steps. Your job: identify steps that DIDN'T change but now read inconsistently with the edits.
+Suggest matching updates only when there's a clear linguistic or conceptual mismatch — not for taste, not for clarity in the abstract.
+Skip suggestions for steps that read fine standalone, even if they no longer match the parent verbatim. Be conservative: empty list is the right answer most of the time.
+
+Return JSON only, no prose. Schema: {"suggestions": [{"stepIndex": <int 0-based>, "originalTitle": "<exact current title>", "suggestedTitle": "<your proposed replacement>", "reasoning": "<one short sentence explaining why>"}]}.`
+
+  const user = `Parent task: "${parentTitle || '(untitled)'}"
+
+Original chain:
+${originalChain.map((s, i) => `${i}. ${s.title}`).join('\n') || '(empty)'}
+
+Current chain (after the user's edits):
+${currentChain.map((s, i) => `${i}. ${s.title}`).join('\n') || '(empty)'}
+
+Changes the user just made:
+${titleChanges.map(c => {
+  if (c.kind === 'edited') return `- Renamed: "${c.originalTitle}" → "${c.currentTitle}"`
+  if (c.kind === 'added') return `- Added: "${c.currentTitle}"`
+  return `- Removed: "${c.originalTitle}"`
+}).join('\n')}
+
+Suggest title updates for the steps that didn't change but now read inconsistently. JSON only.`
+
+  try {
+    const text = await callClaude(system, user)
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return []
+    const parsed = JSON.parse(match[0])
+    if (!Array.isArray(parsed.suggestions)) return []
+    // Filter: only suggestions that point at an unchanged step, and where
+    // the suggestion actually differs from the current title. Defensive
+    // against the model hallucinating an index outside the chain.
+    return parsed.suggestions
+      .filter(s => Number.isInteger(s.stepIndex) && s.stepIndex >= 0 && s.stepIndex < currentChain.length)
+      .filter(s => typeof s.suggestedTitle === 'string' && s.suggestedTitle.trim())
+      .filter(s => s.suggestedTitle.trim() !== currentChain[s.stepIndex].title)
+      .map(s => ({
+        stepIndex: s.stepIndex,
+        originalTitle: currentChain[s.stepIndex].title,
+        suggestedTitle: s.suggestedTitle.trim(),
+        reasoning: typeof s.reasoning === 'string' ? s.reasoning.trim() : '',
+      }))
+  } catch {
+    return []
+  }
+}
+
 // --- Routine due date suggestion ---
 export async function suggestRoutineDueDate(title, notes, cadence, lastCompleted) {
   const today = new Date().toISOString().split('T')[0]
@@ -929,6 +1007,20 @@ export async function serverUpdateTask(id, updates, clientId) {
 export async function serverDeleteTask(id) {
   const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`delete task failed: ${res.status}`)
+  return res.json()
+}
+
+// Sequences PR 3. Marks the task cancelled+skipped server-side AND fires
+// spawnNextChainStep, so the chain keeps walking despite this step being
+// abandoned. Server broadcasts an SSE update; the client's normal refetch
+// hydration brings in both the cancelled task and the new spawned step.
+export async function serverSkipAdvanceTask(id, clientId) {
+  const res = await fetch(`/api/tasks/${id}/skip-advance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ _clientId: clientId }),
+  })
+  if (!res.ok) throw new Error(`skip-advance failed: ${res.status}`)
   return res.json()
 }
 

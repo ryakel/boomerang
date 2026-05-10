@@ -1,0 +1,243 @@
+/* Sequences PR 4: chain edit reconciliation modal. Renders above the
+ * RoutinesModal at z-index 200 — same tier as ConfirmDialog. Single
+ * stack of states (review → loading → diffs / none-found) so the user
+ * never feels "lost" inside multiple sub-screens. */
+
+.v2-reconcile-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: v2-reconcile-overlay-in var(--v2-dur-quick) ease-out;
+}
+
+@keyframes v2-reconcile-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.v2-reconcile {
+  position: relative;
+  background: var(--v2-surface);
+  color: var(--v2-text);
+  border-radius: 18px;
+  padding: 24px;
+  max-width: 460px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  animation: v2-reconcile-in var(--v2-dur-standard) var(--v2-ease-emphasis);
+}
+
+@keyframes v2-reconcile-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.v2-reconcile-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text-meta);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-reconcile-close:hover {
+  background: rgba(var(--v2-text-rgb), 0.05);
+  color: var(--v2-text);
+}
+
+.v2-reconcile-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 28px 10px 0;
+}
+
+.v2-reconcile-title {
+  font: 700 18px/1.2 var(--v2-font-display);
+  margin: 0;
+}
+
+.v2-reconcile-spark {
+  color: #A78BFA;  /* same purple Quokka uses across the rest of the app */
+  flex-shrink: 0;
+}
+
+.v2-reconcile-spark-spin {
+  animation: v2-reconcile-spin 1.4s linear infinite;
+}
+
+@keyframes v2-reconcile-spin {
+  to { transform: rotate(360deg); }
+}
+
+.v2-reconcile-check {
+  color: var(--v2-energy-errand);  /* the same green used for "synced" */
+  flex-shrink: 0;
+}
+
+.v2-reconcile-body {
+  font: 400 13px/1.55 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin: 0 0 16px;
+}
+
+.v2-reconcile-error {
+  font: 500 12px/1.4 var(--v2-font-body);
+  color: var(--v2-alert-overdue);
+  margin: -6px 0 12px;
+}
+
+.v2-reconcile-changes,
+.v2-reconcile-suggestions {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: 500 13px/1.4 var(--v2-font-body);
+}
+
+.v2-reconcile-change {
+  padding: 8px 12px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 10px;
+  background: var(--v2-bg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v2-reconcile-change-from {
+  text-decoration: line-through;
+  color: var(--v2-text-meta);
+}
+
+.v2-reconcile-change-arrow {
+  color: var(--v2-text-meta);
+  font-weight: 600;
+}
+
+.v2-reconcile-change-to {
+  color: var(--v2-text);
+  font-weight: 600;
+}
+
+.v2-reconcile-change-added,
+.v2-reconcile-change-removed {
+  font-weight: 500;
+}
+
+.v2-reconcile-change-added { color: var(--v2-energy-errand); }
+.v2-reconcile-change-removed { color: var(--v2-alert-overdue); }
+
+.v2-reconcile-suggestion {
+  border: 1px solid var(--v2-hairline);
+  border-radius: 12px;
+  background: var(--v2-bg);
+}
+
+.v2-reconcile-suggestion-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  align-items: flex-start;
+}
+
+.v2-reconcile-suggestion-row input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.v2-reconcile-suggestion-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.v2-reconcile-suggestion-diff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.v2-reconcile-suggestion-reason {
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  font-style: italic;
+}
+
+.v2-reconcile-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px 0 8px;
+  color: var(--v2-text-meta);
+  font: 500 14px/1 var(--v2-font-body);
+}
+
+.v2-reconcile-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.v2-reconcile-btn {
+  border-radius: var(--v2-radius-pill);
+  padding: 8px 16px;
+  font: 600 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  border: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard),
+              filter var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-reconcile-btn-cancel:hover {
+  background: rgba(var(--v2-text-rgb), 0.05);
+}
+
+.v2-reconcile-btn-primary {
+  background: var(--v2-accent);
+  border-color: var(--v2-accent);
+  color: #fff;
+}
+
+.v2-reconcile-btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-reconcile-overlay,
+  .v2-reconcile,
+  .v2-reconcile-spark-spin {
+    animation: none;
+  }
+}
