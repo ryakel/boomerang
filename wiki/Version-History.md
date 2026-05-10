@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — urgency moves from checkbox glyph to title color [XS]
+  - **Why.** User: "Why are you dropping the urgency? Shit is that what those were? I thought they were done check boxes." The leading `[!]` (overdue) and `[*]` (high-pri) glyphs on the checkbox were misreading as alternate checkbox states rather than urgency markers — especially now that the checkbox is a real tappable button. Suggested fix: title color for urgency.
+  - **What changed.** The `.v2-card-overdue .v2-card-checkbox::before` and `.v2-card-high-pri .v2-card-checkbox::before` overrides removed. Checkbox now reads `[ ]` always (or `[✓]` on tap-active). Urgency signal moves to the title text:
+    - Overdue → `.v2-card-title { color: var(--v2-alert-overdue) }` (red)
+    - High-pri → `.v2-card-title { color: var(--v2-alert-high-pri) }` (amber)
+    - Both (overdue + high-pri) → red wins (overdue is the more urgent of the two)
+  - **Clean separation now:** `[ ]` is state (tap to complete); title color is urgency. No more "is this a different kind of checkbox?" confusion.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - feat(ui): terminal — clickable `[ ]` checkbox + drop duplicate done affordances [S]
   - **Why.** User: "I should be able to click on the empty check box squares on the tasks page and have them be marked as done. I know that is duplicative of the done slider and done button. Wondering if it actually mitigates the need for those. Thoughts? Edit and done on click AND slide already feel a little duplicative." Locked-in answer after a 2-question round: tap `[ ]` toggles done; drop `✓ done` from expanded actions; drop swipe-left gestures entirely. Terminal mode only.
   - **JSX.** Added a `<span role="button" className="v2-card-checkbox">` before the title text in TaskCard. Click handler stops propagation (so taps don't also expand the card) and calls `onComplete(task.id)`. Keyboard accessible via Enter/Space. Used `<span role="button">` rather than `<button>` because TaskCard's outer `.v2-card-main` is already a `<button>` and HTML doesn't allow nested buttons. Light/dark mode hides the element via `display: none`.
