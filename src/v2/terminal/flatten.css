@@ -436,35 +436,57 @@
 
 /* === Settings segmented control — joined-border tab strip ========= */
 
+/* Settings segmented controls (Theme: Standard/Terminal, Mode: Light/Dark,
+ * any other family/mode pickers). Match the bare bracket idiom used by
+ * `.v2-form-seg` everywhere else — `[•] standard  [ ] terminal` — so
+ * the picker reads as text radios, not bordered buttons. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment {
   border-radius: 0;
   border: none;
   padding: 0;
-  gap: 0;
+  gap: 16px;
+  display: flex;
+  flex-wrap: wrap;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn {
-  border-radius: 0;
-  border: 1px solid var(--v2-hairline);
-  border-right-width: 0;
-  background: transparent;
+  border-radius: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 4px 0 !important;
+  height: auto !important;
+  min-width: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase !important;
+  font: 500 13px/1.2 var(--v2-font-body) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn:last-child {
-  border-right-width: 1px;
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn::before {
+  content: "[ ]";
+  color: var(--v2-text-faint);
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn:hover:not(.v2-settings-segment-btn-active) {
-  background: rgba(var(--v2-text-rgb), 0.05);
+  background: transparent !important;
+  color: var(--v2-text) !important;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn-active {
-  background: transparent;
-  color: var(--v2-accent);
-  border-color: var(--v2-accent);
-  position: relative;
-  z-index: 1;
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  border: none !important;
   text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn-active::before {
+  content: "[•]";
+  color: var(--v2-accent);
+  font-weight: 700;
 }
 
 /* === Settings rows + numeric inputs ================================ */
