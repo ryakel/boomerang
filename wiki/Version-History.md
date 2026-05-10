@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(routines): Sequences PR 2 — chain-break confirmation [S]
+  - **Why.** PR 1 shipped follow-up chains, but a user could silently kill a chain by deleting the parent task / moving it to backlog / cancelling it without realizing the queued steps wouldn't spawn. After running mop chains for a few days the user wanted an explicit warning before destructive actions on chain-bearing tasks.
+  - **Behavior.** Any task with `follow_ups.length > 0` triggers a `ConfirmDialog` before delete / cancel / move-to-backlog / move-to-projects: *"Stop the follow-up chain? This task has N follow-up step(s) queued. {Action} will stop the chain — the queued step(s) won't spawn."* Two options: confirm-with-stop (red destructive button) or "Keep task" (cancel). Completion is intentionally ungated since `done` ADVANCES the chain via `spawnNextChainStep` — completing isn't "breaking" the chain, it's how the chain walks forward.
+  - **Implementation.** `gateOnChainBreak(task, actionLabel, confirmLabel, proceed)` helper in `AppV2.jsx` wraps the four destructive handlers (`handleDelete` / `handleBacklog` / `handleProject` / `handleStatusChange` for `cancelled`). Empty-chain tasks short-circuit and proceed immediately — no behavior change. State lives in `chainConfirm` set on `AppV2`.
+  - **Reusable confirm primitive.** Extracted the dialog pattern from `SettingsModal.jsx`'s inline confirm into `src/v2/components/ConfirmDialog.jsx` + `.css`. Props: `open` / `title` / `body` / `confirmLabel` / `cancelLabel` / `tone` (`'danger'` or `'primary'`) / `onConfirm` / `onCancel`. Escape-to-close. Future destructive flows (skip-and-advance, clear-all-data, etc.) can reuse it.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 770KB precache (up from 768KB).
+  - New: `src/v2/components/ConfirmDialog.jsx`, `src/v2/components/ConfirmDialog.css`
+  - Modified: `src/v2/AppV2.jsx`, `wiki/Sequences.md`
+
 - fix(ui): v2 header — iOS status bar overlap on PWA [XS]
   - **Bug.** With `apple-mobile-web-app-status-bar-style: black-translucent` (set in `index.html`), iOS PWA in standalone mode renders the system status bar (clock, signal, battery) OVER the app's content — the BOOMERANG wordmark area got the iPhone's clock display rendered on top of it, producing the "B 22:25 MERANG" overlap visible in v1.0.0 prod.
   - **Fix.** `.v2-header` `padding-top` now uses `max(14px, env(safe-area-inset-top, 0px))` (and `max(16px, ...)` on the `min-width: 601px` desktop variant) so our header content sits below the iOS status bar instead of behind it. The `viewport-fit=cover` meta tag is already in place. Header background remains a solid `var(--v2-bg)` so the status bar's text reads on a contrasting surface.
