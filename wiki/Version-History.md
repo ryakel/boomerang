@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal — DateField + form polish (energy/auto/research/priority as labels) [S]
+  - **Why.** User feedback: "Center up the calendar row at the top. Energy type should look like labels. Same with auto, research and priority. I think date should just be the word [due date] and have it open a calendar picker. Once picked, Date format should be YYYY-MM-DD. Give me an option to clear the due date."
+  - **`DateField` (new component).** Replaces the bare `<input type="date">` in AddTaskModal + EditTaskModal. Renders as a `[ due date ]` placeholder when empty, `[ YYYY-MM-DD ]` when filled, with an inline `× clear` button (only visible when filled). Tap the trigger → calls `.showPicker()` on a hidden off-screen `<input type="date">`; falls back to focus+click for older browsers. Modern support is iOS 16.4+ / Chrome 99+ / Firefox 101+, which covers what Boomerang targets. Same UX in light/dark (looks like a regular input rect with the placeholder/value text inside) and terminal (collapses to bare bracketed text).
+  - **Energy type, Auto, Research, Priority → bracketed labels.** Earlier passes only stripped some of these. This pass generalizes:
+    - `.v2-form-energy-pill` → `[ desk ]` / `[ people ]` / `[ errand ]` / etc. — active state keeps the inline energy-type color (so the segment legend on the form matches the chip color on the card row)
+    - `.v2-form-ai-pill` (Auto, Polish, Research toggle) → `[ auto ]` / `[ polish ]` / `[ research ]` accent text + glow
+    - `.v2-edit-research-go` (the inline "Go" inside the research input row) → `[ go ]` accent
+    - `.v2-form-pri-toggle` → `[ normal ]` / `[ ↑ high ]` / `[ ↓ low ]` bracket text; hover lifts to accent + glow
+  - **Center home-stats line.** `.v2-terminal-home-stats` was left-aligned by the default `flex` flow. Added `justify-content: center` + `text-align: center` so the date · streak · today line sits centered above the calendar.
+  - **Bundle.** CSS 244.0KB gzip 35.0KB (+~3KB for energy/ai-pill/priority/date-field overrides). JS 810.5KB gzip 224.4KB (+~1KB for the new DateField component).
+  - Modified: `src/v2/components/AddTaskModal.jsx`, `src/v2/components/EditTaskModal.jsx`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+  - Added: `src/v2/components/DateField.jsx`, `src/v2/components/DateField.css`
+
 - fix(adviser): render assistant markdown as React nodes, not HTML [XS]
   - **Bug.** Quokka assistant messages were rendering as the literal string `[object Object]` whenever the message content was non-empty. Reproduced consistently on multi-step plan responses (the screenshot the user reported was a "Combine the two UPS drop off tasks" plan where the assistant text bubble between the tool calls and the planned changes showed `[object Object]`).
   - **Root cause.** `AdviserModal.jsx` used `dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}`, but `renderMarkdown()` (in `src/utils/renderMarkdown.js`) returns **React nodes**, not an HTML string. Assigning a React element to `innerHTML` calls the element's `toString()` which produces `[object Object]`.

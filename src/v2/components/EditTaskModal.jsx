@@ -5,6 +5,7 @@ import { useTaskForm } from '../../hooks/useTaskForm'
 import { researchTask } from '../../api'
 import WeatherSection, { resolveWeatherVisibility } from '../../components/WeatherSection'
 import ModalShell from './ModalShell'
+import DateField from './DateField'
 import './AddTaskModal.css' // shared form-control styles
 import './EditTaskModal.css'
 
@@ -373,13 +374,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
       <div className="v2-form-row">
         <div className="v2-form-field">
           <label className="v2-form-label">Due</label>
-          <input
-            className="v2-form-input"
-            type="date"
-            value={form.dueDate}
-            min={today}
-            onChange={e => form.setDueDate(e.target.value)}
-          />
+          <DateField value={form.dueDate} onChange={form.setDueDate} min={today} />
         </div>
         <div className="v2-form-field">
           <label className="v2-form-label">Priority</label>
