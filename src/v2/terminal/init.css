@@ -291,7 +291,11 @@
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-col-title::before {
-  content: "✦ ";
+  /* Per-column sigil from JSX data-sigil attribute. Matches mobile
+   * section sigils so desktop + mobile speak the same vocabulary:
+   *   → doing   + up next   … waiting   z snoozed   ≈ backlog   § projects
+   * Falls back to `✦` if no sigil supplied. */
+  content: attr(data-sigil) " ";
   color: var(--v2-accent);
 }
 
@@ -1570,3 +1574,100 @@
 :root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle:hover::after {
   color: var(--v2-accent);
 }
+
+/* === Audit-pass cleanup: Settings tabs + WeatherBadge ============== */
+
+/* Settings tabs (General / AI / Labels / Integrations / etc.) — match
+ * the toolbar pill underline-tab idiom. They're "navigate between sub-
+ * views" tabs, same UX role as the toolbar filter pills, so they should
+ * read identically. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-tab {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 6px 4px !important;
+  margin: 0 10px 0 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase !important;
+  font-weight: 500;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-tab:hover {
+  background: transparent !important;
+  color: var(--v2-text) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-tab-active {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  border-bottom-color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+/* WeatherBadge — give it monospace + meta-text color to match the rest
+ * of the card meta line. The emoji icon stays at native size; the temp
+ * picks up the meta text color so it doesn't read brighter than the
+ * surrounding date/stale meta. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-weather-badge {
+  font: 400 11px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  letter-spacing: 0;
+  gap: 2px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-weather-icon {
+  font-size: 12px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-weather-temp {
+  color: var(--v2-text-meta);
+}
+
+/* === Hover-glow normalization =====================================
+ *
+ * Standardize on `var(--v2-glow)` for accent-colored interactive
+ * elements. Hardcoded rgba glows are kept ONLY where the color is
+ * NOT the accent (errand-green for done; alert-overdue red for danger;
+ * high-pri amber for warning). All other accent-colored hovers use the
+ * shared `--v2-glow` token. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-checkbox:hover::before {
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit:hover:not(:disabled) {
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send:hover:not(:disabled) {
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-toolbar-btn:hover:not(:disabled) {
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-go:hover:not(:disabled),
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-ai-pill:hover:not(:disabled) {
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-routine-new-btn:hover {
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-activity-action:hover {
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-action:hover:not(:disabled) {
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn:hover:not(:disabled) {
+  text-shadow: var(--v2-glow);
+}
+
+/* The `✓ done` card action stays green (errand-green) — the completion
+ * state has its own color identity distinct from accent. Same for the
+ * checkbox tap-active `[✓]` and the `.v2-confirm-btn-danger` red glow. */

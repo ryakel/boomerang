@@ -42,7 +42,7 @@ function AddCardInline({ onAdd, status }) {
 }
 
 function KanbanColumn({
-  title, tasks, defaultStatus, onAddTask,
+  title, sigil, tasks, defaultStatus, onAddTask,
   dragOverColumn, onDragOver, onDrop, onDragStart, draggingId,
   expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate,
   selectedTaskId, routineStreaks,
@@ -58,7 +58,7 @@ function KanbanColumn({
       onDrop={acceptsDrop ? (e) => { e.preventDefault(); onDrop(defaultStatus) } : undefined}
     >
       <div className="v2-kanban-col-head">
-        <span className="v2-kanban-col-title">{title}</span>
+        <span className="v2-kanban-col-title" data-sigil={sigil || '✦'}>{title}</span>
         {tasks.length > 0 && <span className="v2-kanban-col-count">{tasks.length}</span>}
       </div>
       <div className="v2-kanban-col-body">
@@ -145,12 +145,12 @@ export default function KanbanBoard({
 
   return (
     <div className="v2-kanban">
-      <KanbanColumn title="Doing" tasks={doing} defaultStatus="doing" onAddTask={onAddTask} {...dragCallbacks} {...cardCallbacks} />
-      <KanbanColumn title="Up next" tasks={upNext} defaultStatus="not_started" onAddTask={onAddTask} {...dragCallbacks} {...cardCallbacks} />
-      <KanbanColumn title="Waiting" tasks={waiting} defaultStatus="waiting" onAddTask={onAddTask} {...dragCallbacks} {...cardCallbacks} />
-      <KanbanColumn title="Snoozed" tasks={snoozedTasks} {...dragCallbacks} {...cardCallbacks} />
-      <KanbanColumn title="Backlog" tasks={backlogTasks} defaultStatus="backlog" {...dragCallbacks} {...cardCallbacks} />
-      <KanbanColumn title="Projects" tasks={projectTasks} defaultStatus="project" {...dragCallbacks} {...cardCallbacks} />
+      <KanbanColumn title="Doing" sigil="→" tasks={doing} defaultStatus="doing" onAddTask={onAddTask} {...dragCallbacks} {...cardCallbacks} />
+      <KanbanColumn title="Up next" sigil="+" tasks={upNext} defaultStatus="not_started" onAddTask={onAddTask} {...dragCallbacks} {...cardCallbacks} />
+      <KanbanColumn title="Waiting" sigil="…" tasks={waiting} defaultStatus="waiting" onAddTask={onAddTask} {...dragCallbacks} {...cardCallbacks} />
+      <KanbanColumn title="Snoozed" sigil="z" tasks={snoozedTasks} {...dragCallbacks} {...cardCallbacks} />
+      <KanbanColumn title="Backlog" sigil="≈" tasks={backlogTasks} defaultStatus="backlog" {...dragCallbacks} {...cardCallbacks} />
+      <KanbanColumn title="Projects" sigil="§" tasks={projectTasks} defaultStatus="project" {...dragCallbacks} {...cardCallbacks} />
     </div>
   )
 }
