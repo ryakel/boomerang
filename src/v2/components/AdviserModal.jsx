@@ -221,7 +221,7 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit }) 
   }
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Quokka" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Quokka" terminalTitle="$ quokka" width="wide">
       <div className="v2-adviser-toolbar">
         <button
           className="v2-adviser-tool-btn"

@@ -561,6 +561,7 @@ export default function RoutinesModal({
       open={open}
       onClose={onClose}
       title={view === 'form' ? (editing ? 'Edit routine' : 'New routine') : 'Routines'}
+      terminalTitle={view === 'form' ? (editing ? '$ routine --edit' : '$ routine --new') : '$ routines'}
       subtitle={view === 'list' && routines.length > 0
         ? `${active.length} active${paused.length ? ` · ${paused.length} paused` : ''}`
         : undefined}
@@ -581,6 +582,7 @@ export default function RoutinesModal({
               body="Recurring tasks like dentist visits, plant watering, oil changes. Create one to start tracking the rhythm."
               cta="New routine"
               ctaOnClick={() => { setEditing(null); setView('form') }}
+              terminalCommand="// no routines yet. recurring tasks live here — dentist, oil change, water plants."
             />
           ) : (
             <>

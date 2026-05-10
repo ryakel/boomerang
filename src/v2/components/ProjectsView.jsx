@@ -15,6 +15,7 @@ export default function ProjectsView({ open, tasks, onClose, onComplete, onEdit,
       open={open}
       onClose={onClose}
       title="Projects"
+      terminalTitle="$ projects"
       subtitle={projectTasks.length > 0
         ? `${projectTasks.length} project${projectTasks.length !== 1 ? 's' : ''} · no notifications, take your time`
         : undefined}
@@ -25,6 +26,7 @@ export default function ProjectsView({ open, tasks, onClose, onComplete, onEdit,
           icon={FolderKanban}
           title="No projects yet"
           body={`Move longer-term tasks here so they stop nagging you. Use "Move to projects" in any task's edit modal.`}
+          terminalCommand="// no projects — move long-haul tasks here to stop the nag"
         />
       ) : (
         <div className="v2-projects-list">
