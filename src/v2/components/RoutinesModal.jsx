@@ -3,6 +3,7 @@ import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp,
 import { loadLabels, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
+import ChainReconcileModal from './ChainReconcileModal'
 import SectionLabel from './SectionLabel'
 import './RoutinesModal.css'
 
@@ -282,9 +283,29 @@ function RoutineForm({ initial, onSave, onCancel }) {
     })
   }
 
+  // Sequences PR 4. When the user finishes editing the chain and clicks
+  // Save, we look for *title* changes against the original (the only kind
+  // of edit that propagates linguistically). If we find any AND the chain
+  // is large enough to be worth scanning (2+ steps), we pause the save
+  // flow inside `pendingSave` and pop the reconcile modal — the modal
+  // calls `commitSave(finalChain)` once the user picks Apply / Skip.
+  // Empty / single-step / pure-offset edits skip the gate entirely.
+  const [pendingSave, setPendingSave] = useState(null)
+
+  const buildSavePayload = (followUpsArray) => ({
+    title: title.trim(),
+    cadence,
+    customDays: cadence === 'custom' ? Number(customDays) : null,
+    tags: selectedTags,
+    notes: notes.trim(),
+    highPriority,
+    endDate: endDate || null,
+    scheduleDayOfWeek: parsedDay,
+    followUps: followUpsArray,
+  })
+
   const handleSave = () => {
     if (!title.trim()) return
-    // Strip incomplete steps and ensure offset_minutes is a number.
     const cleanFollowUps = followUps
       .filter(s => s.title?.trim())
       .map(s => ({
@@ -295,17 +316,36 @@ function RoutineForm({ initial, onSave, onCancel }) {
         ...(s.energy_level ? { energy_level: s.energy_level } : {}),
         ...(s.notes?.trim() ? { notes: s.notes.trim() } : {}),
       }))
-    onSave({
-      title: title.trim(),
-      cadence,
-      customDays: cadence === 'custom' ? Number(customDays) : null,
-      tags: selectedTags,
-      notes: notes.trim(),
-      highPriority,
-      endDate: endDate || null,
-      scheduleDayOfWeek: parsedDay,
-      followUps: cleanFollowUps,
+    const originalFollowUps = Array.isArray(initial?.follow_ups) ? initial.follow_ups : []
+    // Detect title-level changes only — offset / notes / energy edits are
+    // mechanical and don't usually need linguistic propagation.
+    const titleEdits = cleanFollowUps.filter(cur => {
+      const orig = originalFollowUps.find(o => o.id === cur.id)
+      return orig && orig.title !== cur.title
     })
+    const additions = cleanFollowUps.filter(cur => !originalFollowUps.find(o => o.id === cur.id))
+    const removals = originalFollowUps.filter(orig => !cleanFollowUps.find(c => c.id === orig.id))
+    // Only reconcile when there's a pre-existing chain to compare against.
+    // Drafting a brand-new chain doesn't need a "scan for inconsistencies"
+    // pass — the user is writing it fresh, not patching it.
+    const isExistingChain = originalFollowUps.length > 0
+    const shouldReconcile =
+      isExistingChain &&
+      cleanFollowUps.length >= 2 &&
+      (titleEdits.length + additions.length + removals.length) > 0
+    if (shouldReconcile) {
+      setPendingSave({ originalChain: originalFollowUps, currentChain: cleanFollowUps })
+      return
+    }
+    onSave(buildSavePayload(cleanFollowUps))
+  }
+
+  const commitSave = (finalChain) => {
+    onSave(buildSavePayload(finalChain))
+    setPendingSave(null)
+  }
+  const cancelReconcile = () => {
+    setPendingSave(null)
   }
 
   return (
@@ -446,6 +486,14 @@ function RoutineForm({ initial, onSave, onCancel }) {
       >
         {isNew ? 'Create routine' : 'Save changes'}
       </button>
+      <ChainReconcileModal
+        open={!!pendingSave}
+        parentTitle={title.trim() || ''}
+        originalChain={pendingSave?.originalChain || []}
+        currentChain={pendingSave?.currentChain || []}
+        onApply={commitSave}
+        onCancel={cancelReconcile}
+      />
     </div>
   )
 }
