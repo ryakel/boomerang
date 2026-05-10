@@ -437,13 +437,13 @@
  * list and the card unmounts. Light/dark themes don't get this — their
  * Done button-driven completion just removes the row immediately. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-completing {
-  animation: v2-card-completing-out 350ms var(--v2-ease-standard) forwards;
+  animation: v2-card-completing-out 700ms var(--v2-ease-standard) forwards;
   pointer-events: none;
 }
 
 @keyframes v2-card-completing-out {
   0%   { opacity: 1; transform: translateX(0); }
-  25%  { opacity: 1; transform: translateX(0); }
+  60%  { opacity: 1; transform: translateX(0); }
   100% { opacity: 0; transform: translateX(8px); }
 }
 

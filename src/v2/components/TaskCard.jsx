@@ -28,7 +28,10 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
   const completeWithFade = useCallback((taskId) => {
     if (completing) return
     setCompleting(true)
-    completeTimer.current = setTimeout(() => onComplete(taskId), 350)
+    // 700ms — long enough for the `[✓]` checkmark to register before the
+    // card unmounts. Bumped from 350ms after user feedback that it was
+    // too brief. Matches the CSS keyframe duration.
+    completeTimer.current = setTimeout(() => onComplete(taskId), 700)
   }, [completing, onComplete])
 
   useEffect(() => () => {
