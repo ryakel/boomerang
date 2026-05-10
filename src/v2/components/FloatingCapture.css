@@ -147,9 +147,30 @@
   width: min(320px, calc(100vw - 32px));
 }
 
+/* What-now card is taller (heading row + chips row) so it can't keep
+ * the pill defaults — drop the 999px radius and the fixed 48px height,
+ * use vertical padding, align the close button to the top so it doesn't
+ * float in the middle of the multi-line content. */
 .v2-fc-card-whatnow {
   width: min(360px, calc(100vw - 32px));
-  padding-left: 8px;
+  height: auto;
+  border-radius: 20px;
+  padding: 12px 8px 12px 14px;
+  align-items: flex-start;
+}
+
+.v2-fc-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.v2-fc-card-heading {
+  font: 500 13px/1.2 var(--v2-font-body);
+  color: var(--v2-text);
+  letter-spacing: -0.005em;
 }
 
 .v2-fc-input {

@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- style(ui): v2 FloatingCapture — heading on what-now card [XS]
+  - Five unlabeled time chips ("5 min", "15 min", …) didn't communicate intent on their own — what does tapping a number do? Added a small heading "How much time do you have?" above the chip row. Card grows from a single-row 48px pill into a stacked 80-90px card with rounded-card border-radius (20px instead of 999px); close button aligns to top so it doesn't float against multi-line content.
+  - Modified: `src/v2/components/FloatingCapture.jsx`, `src/v2/components/FloatingCapture.css`
+
 - fix(ui): v2 FloatingCapture — orange what-now + iOS keyboard occlusion fix [S]
   - **What-now FAB orange w/ black rings.** Originally hairline-bordered neutral so it didn't compete with the accent-filled `+`. User feedback: both should be brand-accent. Now both circles share the orange fill; what-now uses black `currentColor` so the target/dartboard rings read against the orange (white-on-orange would have lost contrast on the inner ring weights).
   - **iOS keyboard occlusion.** When the soft keyboard opened, the floating capture sat at `bottom: 16px` of the layout viewport — but the keyboard covered the bottom ~40% of the screen, so the input landed behind it and the user typed blind. Now uses the `visualViewport` API to measure how much of the bottom is occluded and translates the wrapper upward by that amount; `resize` listener handles keyboard show/hide and orientation changes. CSS transition smooths the lift so it rides up with the keyboard slide-in instead of snapping.
