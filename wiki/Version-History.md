@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- fix(sync): preserve local theme on server hydration [XS]
+  - **Bug.** Terminal mode preference didn't persist on refresh. User picks Terminal in Settings → Theme; refresh; back to the previous theme.
+  - **Root cause.** `useServerSync.js` hydration path called `saveSettings(data.settings)` unconditionally on every SSE-triggered server fetch. If a refresh landed within the ~300ms debounce window between a local theme pick and the server flush — OR if the server was briefly unreachable when the flush fired — the hydration would overwrite the just-saved local theme with stale server data. The preference appeared to revert.
+  - **Fix.** Theme is now device-local: hydrate preserves whatever local theme value was set before the hydrate ran. The reasoning: different devices have different ergonomics (laptop vs phone vs tablet) and the user might genuinely want terminal on one device and light on another. First-install case (no local theme yet) still adopts the server's theme — only an explicitly-set local theme blocks server overwrite.
+  - Other settings (notification preferences, integration tokens, etc.) still sync through the bulk path. Theme is the only key the hydrate now ignores from the server.
+  - Modified: `src/hooks/useServerSync.js`, `wiki/Version-History.md`
+
 - fix(ui): edit modal — done status didn't show active state [XS]
   - **Bug.** In EditTaskModal's status row, the `✓ Done` button never showed as "selected" even when the task's current status was `done`. The user reported it as "done checkmark doesn't show up when checked; selected vs not may be inverted."
   - **Root cause.** `STATUS_OPTIONS` only contains `['not_started', 'doing', 'waiting']`, and the JSX threads the active class via `currentStatus === s ? ' v2-form-seg-active' : ''` only on the map. The `✓ Done` button is rendered outside the map as a separate "mark complete" affordance and hardcodes `className="v2-form-seg v2-edit-status-done"` with no active-state branch. Result: when `status === 'done'`, none of the four options showed the `[•]` radio dot — nothing read as currently selected.
