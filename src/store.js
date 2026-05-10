@@ -479,6 +479,43 @@ export function computeStreak(tasks, settings) {
   return streak
 }
 
+// Per-routine streak — counts consecutive cadence cycles completed without
+// a miss, walking back from the most recent completion. A "miss" is a gap
+// between two consecutive `completed_history` entries that exceeds 1.5×
+// the cadence interval. Returns 0 if the routine has never been completed.
+//
+// Used by TaskCard to render a small `🔥N` indicator next to routine-spawned
+// tasks in terminal mode (PR G density). Per-routine, not per-task — every
+// task spawned by routine X shares the same routine streak number.
+export function computeRoutineStreak(routine) {
+  const history = routine?.completed_history || []
+  if (history.length === 0) return 0
+  if (history.length === 1) return 1
+
+  const tolerance = cadenceIntervalMs(routine.cadence, routine.custom_days) * 1.5
+  let streak = 1
+  for (let i = history.length - 1; i > 0; i--) {
+    const a = new Date(history[i]).getTime()
+    const b = new Date(history[i - 1]).getTime()
+    if (a - b <= tolerance) streak++
+    else break
+  }
+  return streak
+}
+
+function cadenceIntervalMs(cadence, customDays) {
+  const day = 24 * 60 * 60 * 1000
+  switch (cadence) {
+    case 'daily': return day
+    case 'weekly': return 7 * day
+    case 'monthly': return 30 * day
+    case 'quarterly': return 91 * day
+    case 'annually': return 365 * day
+    case 'custom': return (customDays || 1) * day
+    default: return day
+  }
+}
+
 // Activity log — tracks task lifecycle events for recovery
 const MAX_ACTIVITY_LOG = 500
 
