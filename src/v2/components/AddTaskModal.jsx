@@ -3,6 +3,7 @@ import { Sparkles } from 'lucide-react'
 import { loadLabels, getDefaultDueDate, ENERGY_TYPES } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
 import ModalShell from './ModalShell'
+import DateField from './DateField'
 import './AddTaskModal.css'
 
 const ENERGY_LEVEL_LABELS = [
@@ -89,13 +90,7 @@ export default function AddTaskModal({ open, onAdd, onClose }) {
       <div className="v2-form-row">
         <div className="v2-form-field">
           <label className="v2-form-label">Due</label>
-          <input
-            className="v2-form-input"
-            type="date"
-            value={form.dueDate}
-            min={today}
-            onChange={e => form.setDueDate(e.target.value)}
-          />
+          <DateField value={form.dueDate} onChange={form.setDueDate} min={today} />
         </div>
         <div className="v2-form-field">
           <label className="v2-form-label">Priority</label>
