@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal theme — typography scale-down [S]
+  - **Why.** First in-browser look at the merged terminal aesthetic showed text feeling chunky — task titles dominating the column, modal headers eating half the screen. Monospace is denser per-character than proportional fonts at the same point size, but the v2 sizes were originally tuned for Syne + DM Sans. Swapping to JetBrains Mono at the same numeric sizes overshoots.
+  - **Approach.** New `src/v2/terminal/typography.css` with size overrides under `[data-theme^="terminal"]`. Light + dark stay at the calm Wheneri-tuned sizes. Dedicated file (not inline per component) so "what does terminal change about text?" is one grep, and graduating the smaller scale to all themes (if that's where we land) is one block to delete or de-gate.
+  - **Major reductions:** modal title 32px Syne → 22px mono; empty title 22px Syne → 16px mono; card title 16px → 14px; card meta + notes preview + density spans 12px → 11px; form input/textarea 14px → 12px; form title 18px → 15px; settings row label 14px → 12px; settings row hint → 11px; ConfirmDialog title 16px monospace; Adviser chat → 12px.
+  - **Held steady.** Section labels (already 11px), week-strip range/label (already 11/10px), edit-manage label, header wordmark range — these were already tuned for monospace and stayed.
+  - **Bundle.** CSS 208KB gzip 31.2KB (+~3KB from 100 lines of override rules). JS unchanged.
+  - Modified: `src/v2/terminal/index.css`, `wiki/Version-History.md`
+  - Added: `src/v2/terminal/typography.css`
+
 - chore(ui): terminal theme PR I — stress-test convention + smoke test + docs [S]
   - **Why.** PR A–H built four palettes + extensive terminal-only treatments (CSS overrides, `terminalTitle`/`terminalCommand` props on 16 modals + 7 empty states, three TaskCard density signals hidden from light/dark, bracket toggles, manage-section reflow). The user's working hypothesis: "terminal might become the default forever — let's stress-test that, but be careful about creating more divergence in the meantime." PR I writes that down so subsequent work doesn't accidentally widen the gap.
   - **CLAUDE.md → "Terminal Theme Stress Test" section.** Documents the working hypothesis + the convention while we stress-test:

@@ -1,0 +1,221 @@
+/* Terminal — Typography scale-down.
+ *
+ * Monospace is denser per-character than proportional fonts at the same
+ * point size, but the existing v2 sizes were tuned for proportional
+ * (Syne display + DM Sans body). When terminal mode swaps to JetBrains
+ * Mono, everything reads chunkier than it should — task titles dominate
+ * the column, modal headers eat half the screen, form labels feel loud.
+ *
+ * Solution: scale common text-bearing classes down 1–4px in terminal
+ * mode. Pure CSS overrides under `[data-theme^="terminal"]`. Light +
+ * dark stay at the calm Wheneri-tuned sizes.
+ *
+ * Why a dedicated file (not inline overrides per component): typography
+ * is structural, not visual flourish. Keeping all the size cuts in one
+ * place makes "what does terminal mode change about text?" one grep
+ * away, and graduating the smaller scale to all themes (if that's where
+ * we land) is one block to delete or de-gate.
+ */
+
+/* === Modal headers ================================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-modal-title {
+  font: 600 22px/1.2 var(--v2-font-body);
+  letter-spacing: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-modal-subtitle {
+  font: 400 12px/1.4 var(--v2-font-body);
+}
+
+/* === Section labels ================================================ */
+
+/* Already 11px which is fine for monospace; leave as-is. */
+
+/* === TaskCard ======================================================= */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-title {
+  font: 600 14px/1.35 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-meta {
+  font: 400 11px/1.4 var(--v2-font-body);
+  margin-top: 4px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-notes-preview {
+  font: 400 11px/1.4 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-checklist-inline,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-routine-streak {
+  font: 500 11px/1 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action {
+  font: 500 12px/1 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-meta-sep::before {
+  font-size: 11px;
+}
+
+/* === EmptyState ===================================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-empty-title {
+  font: 600 16px/1.25 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-empty-body {
+  font: 400 12px/1.55 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-empty-cta {
+  font: 500 12px/1 var(--v2-font-body);
+}
+
+/* === Forms (inputs, textareas, labels, titles) ===================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-input,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-textarea {
+  font: 400 12px/1.4 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-title {
+  font: 500 15px/1.3 var(--v2-font-body);
+  padding: 12px 14px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label {
+  font-size: 12px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-hint {
+  font-size: 11px;
+}
+
+/* === Settings rows (largest dense surface) ========================= */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-row-label {
+  font: 500 12px/1.3 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-row-hint {
+  font-size: 11px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-4 .v2-settings-segment-btn {
+  font-size: 11px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle-label {
+  font-size: 12px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-tab {
+  font-size: 12px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-build {
+  font-size: 11px;
+}
+
+/* === EditTaskModal manage cluster + action labels ================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action {
+  font: 500 12px/1 var(--v2-font-body);
+  height: 32px;
+  padding: 0 12px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-label::before {
+  font-size: 11px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit {
+  font-size: 13px;
+}
+
+/* === Header wordmark + brand popover =============================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-wordmark {
+  font-size: 13px;
+}
+
+/* === Home-screen surfaces (PR H) =================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-range {
+  font-size: 11px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-label {
+  font-size: 10px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-num {
+  font-size: 13px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-goal-progress-meta {
+  font-size: 11px;
+}
+
+/* === Task-list filter chips + toolbar =============================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-task-filter-chip,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-task-toolbar-btn,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-task-sort-btn {
+  font-size: 12px;
+}
+
+/* === ConfirmDialog + ChainReconcileModal =========================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-title {
+  font: 600 16px/1.25 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-body {
+  font: 400 12px/1.5 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn {
+  font-size: 12px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-title {
+  font: 600 16px/1.25 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-body,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-row {
+  font-size: 12px;
+}
+
+/* === Toast ========================================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toast {
+  font-size: 12px;
+}
+
+/* === Adviser chat ==================================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-msg-text,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-input,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-tool-btn {
+  font-size: 12px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-msg-text {
+  line-height: 1.5;
+}
+
+/* === Subhead labels (added in PR H) ================================ */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-subhead {
+  font-size: 11px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-manage-label {
+  font-size: 11px;
+}
