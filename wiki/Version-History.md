@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — settings segments → bare brackets + double completion-fade duration [XS]
+  - **Why.** Settings → General Theme picker (Standard/Terminal + Light/Dark rows) still rendered as bordered button boxes despite the bare-bracket idiom used everywhere else. And user feedback on the completion fade: "Could stand to have the card and check stay a little longer. What if you double that."
+  - **Settings segments.** `.v2-settings-segment-btn` overrides in flatten.css rewritten to match the `.v2-form-seg` style:
+    - Inactive: `[ ] standard` (faint bracket + meta text)
+    - Active: `[•] standard` (accent bracket + accent text + glow)
+    - No background, no border, lowercase, monospace
+    - 16px gap between options (horizontal flex-wrap)
+    Reads identical to status/energy/size/etc. pickers now.
+  - **Completion fade 350ms → 700ms.** TaskCard's `completeTimer` setTimeout bumped to 700ms; CSS keyframe `v2-card-completing-out` matched. The `[✓]` checkmark now holds at full opacity for the first 60% of the window (~420ms) before the slide+fade kicks in. Total time on screen for user confirmation: roughly twice as long. Reduced-motion path unchanged.
+  - Modified: `src/v2/components/TaskCard.jsx`, `src/v2/terminal/flatten.css`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - fix(ui): terminal — checkbox `[✓]` persists with row fade-out on complete [XS]
   - **Bug.** When the user tapped `[ ]` to complete a task, the `[✓]` only rendered during `:active` (finger held down). The moment they lifted their finger, React processed `onComplete`, the parent filtered the task out of the active list, the card unmounted — and the user never saw a confirmation. The check felt non-existent.
   - **Fix.** Add a local `completing` state to TaskCard. On checkbox tap: `setCompleting(true)` immediately, then `setTimeout(onComplete, 350)`. While completing:
