@@ -664,6 +664,22 @@
   text-shadow: 0 0 6px rgba(126, 231, 135, 0.35);
 }
 
+/* When the task IS done, the done button gets `.v2-form-seg-active`
+ * (added in JSX) — the generic seg-active rule turns the [•] dot and
+ * text accent-blue. Override here so done's selected state stays in
+ * the errand-green family (matches the green-on-not-done resting
+ * color but brightens the dot + adds a stronger glow). */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-done.v2-form-seg-active {
+  color: var(--v2-energy-errand) !important;
+  text-shadow: 0 0 10px rgba(126, 231, 135, 0.6);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-status-done.v2-form-seg-active::before {
+  content: "[•]";
+  color: var(--v2-energy-errand);
+  font-weight: 700;
+}
+
 /* === EditTaskModal form labels: // comment style ================= */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-form-label {
