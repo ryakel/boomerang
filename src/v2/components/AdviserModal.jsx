@@ -59,10 +59,9 @@ function MessageBubble({ message }) {
         </div>
       )}
       {message.content && (
-        <div
-          className="v2-adviser-msg-content v2-adviser-msg-markdown"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
-        />
+        <div className="v2-adviser-msg-content v2-adviser-msg-markdown">
+          {renderMarkdown(typeof message.content === 'string' ? message.content : String(message.content ?? ''))}
+        </div>
       )}
       {plan.length > 0 && !message.committed && (
         <div className="v2-adviser-plan">
