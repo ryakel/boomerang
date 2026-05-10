@@ -5,6 +5,7 @@ import {
   formatSnoozeLabel, formatDueDate, daysOld, ENERGY_TYPES,
 } from '../../store'
 import WeatherBadge from './WeatherBadge'
+import { useTerminalMode } from '../hooks/useTerminalMode'
 import './TaskCard.css'
 
 const ENERGY_ICONS = { Monitor, Users, MapPin, Palette, Dumbbell }
@@ -17,6 +18,7 @@ const SWIPE_OPEN_OFFSET = -160   // resting position when actions are revealed; 
 const SWIPE_VERT_CANCEL = 12     // px of vertical movement that cancels the swipe
 
 function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate, selected, routineStreaks }) {
+  const isTerminal = useTerminalMode()
   const overdue = isOverdue(task)
   const stale = isStale(task)
   const snoozed = isSnoozed(task)
@@ -69,11 +71,16 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
   }, [])
 
   const handleTouchStart = useCallback((e) => {
+    // Terminal mode replaces the swipe-action gesture with a tappable
+    // `[ ]` checkbox + expanded action row. Bail early to keep the
+    // gesture from stealing taps that should expand or check off.
+    if (isTerminal) return
     const t = e.touches[0]
     touchStart.current = { x: t.clientX, y: t.clientY, startX: swipeX }
-  }, [swipeX])
+  }, [swipeX, isTerminal])
 
   const handleTouchMove = useCallback((e) => {
+    if (isTerminal) return
     if (!touchStart.current) return
     const t = e.touches[0]
     const dx = t.clientX - touchStart.current.x
@@ -90,7 +97,7 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
       // close it but never go past 0.
       setSwipeX(Math.max(-160, Math.min(0, next)))
     }
-  }, [swiping])
+  }, [swiping, isTerminal])
 
   const handleTouchEnd = useCallback(() => {
     if (!touchStart.current) { setSwiping(false); return }
@@ -155,6 +162,25 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
       <button type="button" className="v2-card-main" onClick={onMainClick}>
         <div className="v2-card-content">
           <div className="v2-card-title">
+            {/* Clickable checkbox — visible in terminal mode only, hidden in
+              * light/dark via CSS. Renders `[ ]` / `[!]` / `[*]` per the
+              * task's overdue/high-pri state via ::before; tap toggles done.
+              * Uses span+role=button so it can nest inside .v2-card-main
+              * (which is already a <button>). */}
+            <span
+              role="button"
+              tabIndex={0}
+              className="v2-card-checkbox"
+              aria-label={`Mark "${task.title}" done`}
+              onClick={(e) => { e.stopPropagation(); onComplete(task.id) }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onComplete(task.id)
+                }
+              }}
+            />
             {task.title}
             {totalItems > 0 && (
               <span className="v2-card-checklist-inline" aria-label={`${checkedItems} of ${totalItems} checklist items done`}>
