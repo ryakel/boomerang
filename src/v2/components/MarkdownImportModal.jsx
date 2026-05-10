@@ -59,7 +59,7 @@ export default function MarkdownImportModal({ open, onImport, onClose }) {
   }
 
   return (
-    <ModalShell open={open} onClose={handleClose} title="Import from Markdown" terminalTitle="$ import --markdown" width="wide">
+    <ModalShell open={open} onClose={handleClose} title="Import from Markdown" terminalTitle="> import --markdown" width="wide">
       {!parsed ? (
         <div className="v2-md-import">
           <div className="v2-md-import-hint">

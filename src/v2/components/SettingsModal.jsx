@@ -1842,7 +1842,7 @@ export default function SettingsModal({
   }
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Settings" terminalTitle="$ settings" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Settings" terminalTitle="> settings" width="wide">
       <div className="v2-settings-tabs">
         {TABS.map(tab => (
           <button
