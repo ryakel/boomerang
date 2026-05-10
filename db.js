@@ -245,6 +245,7 @@ function taskToRow(task) {
     size_inferred: task.size_inferred ? 1 : 0,
     pushover_receipt: task.pushover_receipt || null,
     follow_ups_json: JSON.stringify(task.follow_ups || []),
+    skipped: task.skipped ? 1 : 0,
   }
 }
 
@@ -286,6 +287,7 @@ function rowToTask(row) {
     size_inferred: !!row.size_inferred,
     pushover_receipt: row.pushover_receipt || null,
     follow_ups: safeJsonParse(row.follow_ups_json, []),
+    skipped: !!row.skipped,
   }
 }
 
@@ -308,8 +310,8 @@ const UPSERT_TASK_SQL = `
     high_priority, low_priority, size, energy, energy_level, tags_json, attachments_json,
     checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
     gcal_event_id, gcal_duration, gmail_message_id, gmail_pending, weather_hidden, size_inferred,
-    pushover_receipt, follow_ups_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    pushover_receipt, follow_ups_json, skipped)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -329,7 +331,8 @@ const UPSERT_TASK_SQL = `
     gmail_message_id=excluded.gmail_message_id, gmail_pending=excluded.gmail_pending,
     weather_hidden=excluded.weather_hidden, size_inferred=excluded.size_inferred,
     pushover_receipt=excluded.pushover_receipt,
-    follow_ups_json=excluded.follow_ups_json`
+    follow_ups_json=excluded.follow_ups_json,
+    skipped=excluded.skipped`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -341,7 +344,7 @@ function runUpsertTask(task) {
     r.checklists_json, r.comments_json, r.toast_messages_json,
     r.trello_sync_enabled, r.gcal_event_id, r.gcal_duration,
     r.gmail_message_id, r.gmail_pending, r.weather_hidden, r.size_inferred,
-    r.pushover_receipt, r.follow_ups_json,
+    r.pushover_receipt, r.follow_ups_json, r.skipped,
   ])
 }
 
@@ -435,6 +438,30 @@ function spawnNextChainStep(parentTask) {
     follow_ups: remaining,
   }
   upsertTask(newTask)
+}
+
+// Sequences PR 3: skip-and-advance. User wants to abandon this step but
+// keep the chain walking — useful for the "I forgot to clean the mop, but
+// the dirty-tank-empty step still needs to happen" case. Marks the task
+// cancelled+skipped (so it stops appearing in active lists, distinguishable
+// from a true cancellation in DoneList / activity log) and runs
+// spawnNextChainStep regardless of the current status. Returns the new
+// task that was spawned (or null if there was nothing to advance to).
+export function skipAndAdvanceTask(id) {
+  const existing = getTask(id)
+  if (!existing) return null
+  const merged = {
+    ...existing,
+    status: 'cancelled',
+    skipped: true,
+    completed_at: new Date().toISOString(),
+    last_touched: new Date().toISOString(),
+  }
+  upsertTask(merged)
+  if (Array.isArray(merged.follow_ups) && merged.follow_ups.length > 0) {
+    spawnNextChainStep(merged)
+  }
+  return getTask(id)
 }
 
 // True when `updates` represents a user-driven resolution of the task.

@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(routines): Sequences PR 3 — skip & advance [S]
+  - **Why.** Sometimes a chain-step task isn't gonna happen this cycle ("I forgot to clean the mop after I finished mopping the floors") but the rest of the chain still needs to fire (the auto-clean cycle still has to happen so the dirty tank gets emptied). Without skip-advance, the user's only options were complete-as-if-done (lies in analytics) or cancel (kills the chain). Skip-advance threads the needle: this step is abandoned, but the chain advances.
+  - **Behavior.** New amber `SkipForward` icon button in the expanded TaskCard action row, only renders when `task.follow_ups.length > 0`. Tap → optimistic local update marks the task `cancelled` + `skipped=true` + `completed_at=now`, fires `serverSkipAdvanceTask` which atomically persists those fields server-side AND runs `spawnNextChainStep`. New spawned step arrives via SSE-triggered refetch.
+  - **Server.** `POST /api/tasks/:id/skip-advance` — single endpoint that does the cancel-mark + spawn in one DB pass, broadcasts an SSE update on success.
+  - **Schema.** Migration 024 adds `skipped INTEGER DEFAULT 0` to `tasks`. Wired through `taskToRow` / `rowToTask` / `UPSERT_TASK_SQL` / `runUpsertTask` (column 36 in the upsert tuple).
+  - **Activity log.** `logActivity('skipped', task)` fires from the optimistic-update path so DoneList / ActivityLog can render skipped vs cancelled differently in future polish (PR 3 doesn't change those views; the data is just queryable now).
+  - **Idempotency.** PATCH and skip-advance can race; both end at the same canonical state. PATCH only spawns on transitions to `done`/`completed`, so a concurrent PATCH-cancel doesn't double-spawn. SkipAdvance handles its own spawn; second-try is a no-op since the task is already cancelled.
+  - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 771KB precache (+1KB from SkipForward icon + handler).
+  - New: `migrations/024_add_task_skipped.sql`
+  - Modified: `db.js`, `server.js`, `src/api.js`, `src/v2/AppV2.jsx`, `src/v2/components/TaskCard.jsx`, `src/v2/components/TaskCard.css`, `src/v2/components/KanbanBoard.jsx`, `wiki/Sequences.md`
+
 - feat(routines): Sequences PR 2 — chain-break confirmation [S]
   - **Why.** PR 1 shipped follow-up chains, but a user could silently kill a chain by deleting the parent task / moving it to backlog / cancelling it without realizing the queued steps wouldn't spawn. After running mop chains for a few days the user wanted an explicit warning before destructive actions on chain-bearing tasks.
   - **Behavior.** Any task with `follow_ups.length > 0` triggers a `ConfirmDialog` before delete / cancel / move-to-backlog / move-to-projects: *"Stop the follow-up chain? This task has N follow-up step(s) queued. {Action} will stop the chain — the queued step(s) won't spawn."* Two options: confirm-with-stop (red destructive button) or "Keep task" (cancel). Completion is intentionally ungated since `done` ADVANCES the chain via `spawnNextChainStep` — completing isn't "breaking" the chain, it's how the chain walks forward.

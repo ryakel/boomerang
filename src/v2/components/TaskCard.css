@@ -227,3 +227,19 @@
   filter: brightness(1.08);
   color: #fff;
 }
+
+/* Skip-advance — chain-step affordance. Tinted with the high-pri amber
+ * to read as "this is a deliberate fast-forward action," distinct from
+ * the neutral Snooze/Edit and the orange-fill primary Done. Only renders
+ * when task.follow_ups is non-empty, so the visual weight isn't a
+ * problem on the common no-chain card. */
+.v2-card-action-skip {
+  color: var(--v2-alert-high-pri);
+  border-color: rgba(242, 161, 0, 0.4);
+}
+
+.v2-card-action-skip:hover {
+  background: rgba(242, 161, 0, 0.10);
+  color: var(--v2-alert-high-pri);
+  border-color: var(--v2-alert-high-pri);
+}
