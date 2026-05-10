@@ -6,6 +6,28 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal theme — full init aesthetic pass [M]
+  - **Why.** User: "Done fucking around. Go full init aesthetic. Fuck the duplication and deviation comments from earlier." Stress test is over — the call is to commit. PR pushes the rest of the way to look like init.habits.
+  - **Palette swap.** GitHub Dark blue accent → terminal green (`#7EE787`). Canvas darkened with a subtle green tint (`#0D1117` → `#0B1110`); text shifts cool gray → light green-gray (`#C9D1D9` → `#C2D1C5`). Hairlines pick up the green. Glow shadow shifts cyan → green. terminal-light gets matching green accent (`#0969DA` → `#1F8E3A`). Radii zeroed across the board (`pill: 6px → 0`, `card: 4px → 0`, `modal: 6px → 0`).
+  - **Card action buttons → text buttons.** Lucide icons hidden via CSS. CSS attribute selectors render bracketed text buttons:
+    - `aria-label="Snooze"` → `[snooze]`
+    - `aria-label="Edit"` → `[edit]`
+    - `aria-label*="Skip"` → `[skip]` (amber)
+    - `aria-label="Mark done"` → `[ done ]` (existing PR C bracket prefix retained, lowercased + green)
+  - Hover shifts color to bright accent + glow text-shadow.
+  - **Energy chip hidden.** Init habits don't carry per-row energy badges; the title speaks for itself. `display: none` via `!important`.
+  - **Section labels: lowercase + smaller + sparkle prefix.** `> DOING [6]` → `✦ doing [6]`. The chevron `>` from PR B's section bullet replaced with `✦` (init's section sparkle). Text lowercased, font dropped to 13px, count badge dimmed to faint.
+  - **Wordmark tightened.** `$ boomerang_` text drops 2px more (15 → 13). Letters use accent green with glow. `$` prefix stays meta-color.
+  - **Header icons** lose any background/border, become bare 16px lucide icons in meta-text color, hover to accent + glow.
+  - **Filter pills further tightened.** Smaller font (12px), lowercase, gap dropped between tabs.
+  - **Kanban (desktop) gets the same treatment.** Column headers lowercase + sparkle prefix + accent. Count badges bracketed. "Add task" inline button becomes `[+] add task` text. Inline add input becomes a bottom-bordered transparent field.
+  - **Notes preview indented** to match init's `// description` indent under each habit (24px left padding, 11px font).
+  - **Floating capture position** tightened (right: 16px → 12px) so the bare `+` glyph hugs the corner.
+  - **Architecture.** New `src/v2/terminal/init.css` (~220 lines). Imported last in `terminal/index.css` so its rules override anything from earlier files. All under `[data-theme^="terminal"]`. `!important` used liberally where component CSS / inline styles would otherwise win — JSX stays untouched per the stress-test convention but the convention's "be conservative" guideline is loosened: user's call is explicit.
+  - **Bundle.** CSS 223.9KB gzip 33.1KB (+~5KB). JS unchanged.
+  - Modified: `src/v2/terminal/palette-dark.css`, `src/v2/terminal/palette-light.css`, `src/v2/terminal/index.css`, `wiki/Version-History.md`
+  - Added: `src/v2/terminal/init.css`
+
 - style(ui): terminal theme — deeper flatten (no row borders, bare buttons, text-tab filters) [S]
   - **Why.** First flatten pass (PR earlier today) kept hairline row separators on cards, kept thin borders on action buttons, kept the FAB as a small bordered square. Side-by-side with init.habits, all of that still reads as "modern app chrome" — init has zero borders on individual rows, zero borders on action buttons (just bracketed `[add]` text), zero borders on filter chips (just text-tabs with underline-on-active).
   - **TaskCard rows.** Top hairline `border-top` removed. Hover background tint removed. Expanded-state background tint removed. Cards become bare text on the page bg, separated by line-height alone. Status `[!]`/`[*]` glyph leading characters from the previous PR continue to do the work for overdue/high-pri.
