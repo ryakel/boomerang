@@ -6,6 +6,21 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal — init treatment for modals + theme picker reorg + global Analytics→stats [M]
+  - **Why.** "Now put that same treatment on the edit menus, routines, and packages. Also globally replace analytics with stats in the terminal themes." Plus a follow-up: theme picker should be `Standard / Terminal` family with a `Light / Dark` mode underneath, not a flat 4-option strip.
+  - **More menu rows** (`AppV2.jsx` + `init.css`). Each row label gets a `data-terminal-cmd` attribute (`$ settings`, `$ projects`, `$ routines`, `$ done`, `$ stats`, `$ log`, `$ import --markdown`). Terminal CSS hides the visible label text (`font-size: 0`) and renders the `$ verb` form via `attr(data-terminal-cmd)` on `::before`. Same pattern as PR F's manage-cluster labels. Hover lights the row's command text in accent + glow. Card chrome on the row dropped — flat with hairline separator below.
+  - **Header popover "Open Analytics"** (`Header.jsx` + `init.css`). Span gets `data-terminal-cmd="open $ stats"`; same CSS treatment swaps the visible text in terminal mode.
+  - **AnalyticsModal empty state** (`AnalyticsModal.jsx`). Wired the existing `terminalCommand` prop on EmptyState to show `// loading stats — pulling completion data` and `// no completions yet — finish a task to start seeing patterns`.
+  - **Routines list rows** flatten in terminal mode. Card chrome dropped; rows become bare flat rows with hairline below. Routine title gets a `↻ ` accent prefix. Cadence/meta in monospace, no chip bg. Notes prefixed with `// `. Action buttons (pause/edit/delete/spawn) become bare lowercase text-buttons with hover glow.
+  - **Packages rows** flatten. Card chrome dropped; same row pattern. Label gets a `📦 ` prefix. Status text loses its colored pill bg, becomes bracketed colored text (`[ in transit ]`, `[ delivered ]`) inheriting the existing per-status colors. Add-form panel flattens to dashed-border rect.
+  - **EditTaskModal form labels** (`v2-form-label`) get the `// ` comment prefix in terminal mode + lowercase. Section headers like "Notes", "Checklist", "Attachments", "Connections" read as `// notes`, `// checklist`, etc.
+  - **Theme picker reorg** (`SettingsModal.jsx`). Replaced the flat 4-option `[Light] [Dark] [Term Dark] [Term Light]` segmented control with two stacked rows:
+    - **Family**: `[Standard] [Terminal]`
+    - **Mode**: `[Light] [Dark]`
+    Combined value still maps to the four `theme` settings: `light`, `dark`, `terminal-light`, `terminal-dark`. Helper closure derives `family` + `mode` from `settings.theme` and the click handler reconstructs the full value before saving + applying. Reads more naturally — pick a family, pick a canvas.
+  - **Bundle.** CSS 231.3KB gzip 33.9KB (+~4KB modal overrides + theme picker rework). JS 809.5KB gzip 224.0KB (+~1KB JSX touches).
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/Header.jsx`, `src/v2/components/AnalyticsModal.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - feat(ui): terminal — home stats line (date · streak · today) + auto-enable WeekStrip + restore brand mark [S]
   - **Why.** User's focus shifted to the main section: bring init's calendar + date-progress + fire-streak signals up there. PR-H opt-in surfaces (WeekStrip + GoalProgressBar) get auto-enabled in terminal mode so users don't have to toggle them. New segmented status line at the top renders date + streak + today's progress as three powerlevel10k cells.
   - **`📅 Sun, May 10  ·  🔥 14 days  ·  ✓ 3/5 today`.** New `.v2-terminal-home-stats` div rendered above the WeekStrip (only in terminal mode). Each cell has a meaningful color: date in muted text, streak in high-pri amber (the fire color, with soft amber glow), today in errand-green (success, with soft green glow). Separators in faint text. Streak comes from existing `computeStreak(tasks, settings)`; today comes from `dailyStats.tasksToday` / `daily_task_goal`. Pluralization handled (`1 day`, `N days`).

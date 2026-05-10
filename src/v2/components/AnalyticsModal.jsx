@@ -176,12 +176,14 @@ export default function AnalyticsModal({ open, onClose }) {
           icon={BarChart3}
           title="Loading analytics…"
           body="Pulling completion data from the server."
+          terminalCommand="// loading stats — pulling completion data from the server"
         />
       ) : history.totalTasks === 0 ? (
         <EmptyState
           icon={BarChart3}
           title="No completed tasks yet"
           body="Finish a task to start seeing patterns."
+          terminalCommand="// no completions yet — finish a task to start seeing patterns"
         />
       ) : (
         <>
