@@ -136,7 +136,7 @@ export default function Header({
               onClick={() => { setPopoverOpen(false); onOpenAnalytics?.() }}
             >
               <MiniRings rings={miniRingsData} />
-              <span data-terminal-cmd="open $ stats">Open Analytics</span>
+              <span data-terminal-cmd="open > stats">Open Analytics</span>
             </button>
           )}
           {(todayCount > 0 || hasDone) && (

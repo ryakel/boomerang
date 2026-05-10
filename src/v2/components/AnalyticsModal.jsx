@@ -141,7 +141,7 @@ export default function AnalyticsModal({ open, onClose }) {
   }, [history, metric])
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Analytics" terminalTitle="$ stats" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Analytics" terminalTitle="> stats" width="wide">
       {/* Range + metric controls */}
       <div className="v2-analytics-toolbar">
         <div className="v2-analytics-range">

@@ -44,7 +44,7 @@ export default function AddTaskModal({ open, onAdd, onClose }) {
   const priorityLabel = priorityState === 'high' ? '! High' : priorityState === 'low' ? '↓ Low' : 'Normal'
 
   return (
-    <ModalShell open={open} onClose={onClose} title="New task" terminalTitle="$ task --new" width="narrow">
+    <ModalShell open={open} onClose={onClose} title="New task" terminalTitle="> task --new" width="narrow">
       <input
         ref={titleRef}
         className="v2-form-input v2-form-title"

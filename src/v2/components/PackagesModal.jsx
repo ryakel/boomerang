@@ -194,7 +194,7 @@ export default function PackagesModal({
   }
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Packages" terminalTitle="$ packages" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Packages" terminalTitle="> packages" width="wide">
       <div className="v2-packages-toolbar">
         <button
           className="v2-package-toolbar-btn"

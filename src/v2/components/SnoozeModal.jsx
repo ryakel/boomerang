@@ -54,7 +54,7 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
       open={!!task}
       onClose={onClose}
       title={task.title}
-      terminalTitle="$ snooze"
+      terminalTitle="> snooze"
       subtitle="When should this come back?"
     >
       {filteredOptions.length === 0 && !showCustom ? (

@@ -771,7 +771,7 @@ These five primitives are the v2 task-surface language. Every subsequent v2 surf
 
 ### Terminal Theme Stress Test (2026-05-10)
 
-**Working hypothesis: terminal may become the default forever.** PR A–H shipped a four-palette family — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) — with terminal-specific structural overrides (ASCII flourishes, monospace stack, bracket toggles, `$ verb` modal headers, `// manage` section, density signals on TaskCard). The user is now stress-testing whether terminal feels right as the daily driver. Light/dark stay maintained as defensive baseline.
+**Working hypothesis: terminal may become the default forever.** PR A–H shipped a four-palette family — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) — with terminal-specific structural overrides (ASCII flourishes, monospace stack, bracket toggles, `> verb` modal headers, `// manage` section, density signals on TaskCard). The user is now stress-testing whether terminal feels right as the daily driver. Light/dark stay maintained as defensive baseline.
 
 **The convention while we stress-test:**
 
@@ -790,7 +790,7 @@ These five primitives are the v2 task-surface language. Every subsequent v2 surf
    - Picker collapses from 4 options to "Theme: Terminal Dark / Terminal Light"
    - `[data-theme^="terminal"]` selectors lose their guard (terminal IS v2)
    - Density signals graduate to always-on
-   - `useTerminalMode` hook + `terminalTitle`/`terminalCommand` props get unified — modal titles use the `$ verb` form unconditionally, no fallback
+   - `useTerminalMode` hook + `terminalTitle`/`terminalCommand` props get unified — modal titles use the `> verb` form unconditionally, no fallback
    - `src/v2/terminal/` directory contents merge into the regular component CSS
 
 7. **What "terminal didn't stick" means structurally:**
