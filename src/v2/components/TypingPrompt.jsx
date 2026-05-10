@@ -1,24 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
 import './TypingPrompt.css'
 
-// Cycles through a list of phrases, typing each one character by
-// character, pausing while complete, then erasing and moving to the
-// next. Renders inline with a blinking cursor. Used by Quokka's empty
-// state to demo what the user could ask without overwhelming the
-// static suggestion list below it.
+// Types out each phrase in `phrases` sequentially, ONE TIME. As each
+// phrase finishes typing, it stays on screen and the next phrase types
+// below it. Once the last phrase finishes, the animation stops — the
+// final layout shows every phrase as a typed line, no looping.
 //
-// Respects `prefers-reduced-motion` — if reduced motion is preferred,
-// shows the longest phrase statically with no animation.
+// Used by Quokka's empty state to demo what the user could ask. The
+// static suggestion buttons below give the actual one-tap shortcut;
+// this is just the visual "Quokka can do these things" demo.
+//
+// `prefers-reduced-motion` short-circuits to rendering all phrases
+// statically with no typing animation.
 export default function TypingPrompt({
   phrases,
-  typeMs = 55,
-  eraseMs = 25,
-  holdMs = 1600,
-  pauseBetweenMs = 400,
+  typeMs = 45,
+  holdMs = 700,
 }) {
-  const [text, setText] = useState('')
-  const [phase, setPhase] = useState('typing')
-  const [phraseIdx, setPhraseIdx] = useState(0)
+  const [completed, setCompleted] = useState([])
+  const [currentIdx, setCurrentIdx] = useState(0)
+  const [currentText, setCurrentText] = useState('')
+  const [phase, setPhase] = useState('typing')   // typing | holding | done
   const reducedMotion = useRef(false)
 
   useEffect(() => {
@@ -29,37 +31,49 @@ export default function TypingPrompt({
   useEffect(() => {
     if (!Array.isArray(phrases) || phrases.length === 0) return
     if (reducedMotion.current) {
-      const longest = phrases.reduce((a, b) => (b.length > a.length ? b : a), '')
-      setText(longest)
+      setCompleted(phrases)
+      setPhase('done')
       return
     }
-    const phrase = phrases[phraseIdx % phrases.length]
+    if (phase === 'done') return
+    const phrase = phrases[currentIdx]
+    if (!phrase) { setPhase('done'); return }
     let timer
     if (phase === 'typing') {
-      if (text.length < phrase.length) {
-        timer = setTimeout(() => setText(phrase.slice(0, text.length + 1)), typeMs)
+      if (currentText.length < phrase.length) {
+        timer = setTimeout(() => setCurrentText(phrase.slice(0, currentText.length + 1)), typeMs)
       } else {
         timer = setTimeout(() => setPhase('holding'), holdMs)
       }
     } else if (phase === 'holding') {
-      timer = setTimeout(() => setPhase('erasing'), 0)
-    } else if (phase === 'erasing') {
-      if (text.length > 0) {
-        timer = setTimeout(() => setText(text.slice(0, -1)), eraseMs)
-      } else {
-        timer = setTimeout(() => {
-          setPhraseIdx(i => (i + 1) % phrases.length)
+      timer = setTimeout(() => {
+        setCompleted(prev => [...prev, phrase])
+        setCurrentText('')
+        const next = currentIdx + 1
+        if (next >= phrases.length) {
+          setPhase('done')
+        } else {
+          setCurrentIdx(next)
           setPhase('typing')
-        }, pauseBetweenMs)
-      }
+        }
+      }, 0)
     }
     return () => clearTimeout(timer)
-  }, [text, phase, phraseIdx, phrases, typeMs, eraseMs, holdMs, pauseBetweenMs])
+  }, [currentText, phase, currentIdx, phrases, typeMs, holdMs])
 
   return (
-    <span className="v2-typing-prompt" aria-hidden="true">
-      <span className="v2-typing-prompt-text">{text}</span>
-      <span className="v2-typing-prompt-cursor">_</span>
-    </span>
+    <div className="v2-typing-prompt" aria-hidden="true">
+      {completed.map((p, i) => (
+        <div key={i} className="v2-typing-prompt-line v2-typing-prompt-line-complete">
+          {p}
+        </div>
+      ))}
+      {phase !== 'done' && (
+        <div className="v2-typing-prompt-line v2-typing-prompt-line-active">
+          <span className="v2-typing-prompt-text">{currentText}</span>
+          <span className="v2-typing-prompt-cursor">_</span>
+        </div>
+      )}
+    </div>
   )
 }
