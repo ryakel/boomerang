@@ -116,6 +116,35 @@
   margin-bottom: 18px;
 }
 
+/* Typing-cursor demo line. Above the static suggestion buttons; cycles
+ * through the same phrases character-by-character so the user sees
+ * Quokka "demoing" what they could ask. Terminal mode adds a `>`
+ * prompt prefix. */
+.v2-adviser-empty-demo {
+  width: 100%;
+  font: 400 13px/1.55 var(--v2-font-body);
+  color: var(--v2-text);
+  margin-bottom: 14px;
+  min-height: 1.55em;
+  padding: 10px 12px;
+  background: rgba(var(--v2-text-rgb), 0.04);
+  border-radius: 10px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty-demo {
+  background: transparent;
+  border-radius: 0;
+  border-left: 2px solid var(--v2-hairline);
+  padding: 6px 0 6px 10px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty-demo::before {
+  content: "> ";
+  color: var(--v2-accent);
+  font-weight: 700;
+  text-shadow: var(--v2-glow);
+}
+
 .v2-adviser-suggestions {
   display: flex;
   flex-direction: column;

@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): quokka — typing-prompt demo above example suggestions [XS]
+  - **Why.** User: "Can you do typing text? I'd love to see that added to the examples in quokka." Adds a CLI-demo feel to Quokka's empty state — Quokka literally types out what you could ask, cycling through `PROMPT_SUGGESTIONS`.
+  - **New `TypingPrompt` component.** Character-by-character typing with a blinking cursor (`_`). Cycles through provided phrases: type → hold (~1.6s) → erase → next phrase. Configurable `typeMs` / `eraseMs` / `holdMs` / `pauseBetweenMs` props. `prefers-reduced-motion` short-circuits to a static render of the longest phrase, no animation.
+  - **Wiring.** Rendered inside AdviserModal's empty state, between the intro body text and the static suggestion buttons below. Standard themes give it a faint background tint + rounded corners (callout look). Terminal mode swaps to a left-hairline + `> ` prompt prefix in accent green-blue with glow, so it reads as a live CLI demo.
+  - **Static buttons still ship.** The typing line is a demo; the four clickable suggestion buttons under it still give users a one-tap shortcut to populate the input.
+  - Modified: `src/v2/components/AdviserModal.jsx`, `src/v2/components/AdviserModal.css`, `wiki/Version-History.md`
+  - Added: `src/v2/components/TypingPrompt.jsx`, `src/v2/components/TypingPrompt.css`
+
 - style(ui): terminal — audit-pass cleanup (settings tabs, Kanban sigils, WeatherBadge, hover glow) [S]
   - **Why.** User: "go through and look for any inconsistencies in the terminal layouts. Check everything so as to minimize what I need to tell you to go fix." Five issues found and fixed; two genuine design forks asked and confirmed as "keep both" (action vocab: sigil+text on cards vs bracketed on modal CTAs; picker idiom: underline toolbar pills vs bracket settings segments).
   - **Settings tabs** (`.v2-settings-tab` — General/AI/Labels/Integrations/etc.) had no terminal override beyond font-size; still rendered as bordered pills. Now flat text-tabs with bottom-border accent underline-on-active, matching the toolbar pill idiom (both are "navigate between sub-views" tabs).
