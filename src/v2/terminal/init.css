@@ -681,3 +681,322 @@
 :root[data-ui="v2"][data-theme^="terminal"] .v2-list > .v2-section-label:first-child {
   padding-top: 6px;
 }
+
+/* === Comprehensive button strip ====================================
+ *
+ * Anywhere a button still ships with filled or bordered chrome in
+ * terminal mode, replace with bracketed text. Mobile-aware: keep
+ * horizontal flow, don't stack vertically when an inline list works.
+ *
+ * Convention: primary actions get accent color + glow, secondary +
+ * destructive get the appropriate token color. Tap target preserved
+ * via min-height (44px on phone-friendly rows; less on inline ones).
+ */
+
+/* SnoozeModal — option list */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-snooze-row {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  padding: 12px 8px !important;
+  min-height: 44px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-snooze-row:hover {
+  background: rgba(var(--v2-text-rgb), 0.025) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-snooze-row-label {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-snooze-row-label::before {
+  content: "[ ";
+  color: var(--v2-accent);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-snooze-row-label::after {
+  content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-snooze-custom-toggle {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-snooze-custom-toggle:hover {
+  color: var(--v2-accent) !important;
+  background: transparent !important;
+  text-shadow: var(--v2-glow);
+}
+
+/* WhatNowModal — option list + capacity buttons + skip */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-whatnow-option {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  padding: 12px 8px !important;
+  min-height: 44px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-whatnow-option:hover {
+  background: rgba(var(--v2-text-rgb), 0.025) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-whatnow-option-label {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-whatnow-option-label::before {
+  content: "[ ";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-whatnow-option-label::after {
+  content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-whatnow-capacity-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 8px 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-whatnow-capacity-btn:hover {
+  color: var(--v2-accent) !important;
+  background: transparent !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-whatnow-skip {
+  background: transparent !important;
+  border: none !important;
+  color: var(--v2-text-meta) !important;
+}
+
+/* ConfirmDialog buttons — bracketed inline */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  text-transform: lowercase;
+  padding: 8px 12px !important;
+  min-height: 40px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-cancel {
+  color: var(--v2-text-meta) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-cancel:hover {
+  color: var(--v2-text) !important;
+  background: transparent !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-danger {
+  color: var(--v2-alert-overdue) !important;
+  text-shadow: 0 0 6px rgba(248, 81, 73, 0.35);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-danger::before {
+  content: "[ ";
+  color: var(--v2-alert-overdue);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-danger::after {
+  content: " ]";
+  color: var(--v2-alert-overdue);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-danger:hover {
+  background: transparent !important;
+  filter: none;
+  text-shadow: 0 0 12px rgba(248, 81, 73, 0.55);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-primary {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-primary::before {
+  content: "[ ";
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-primary::after {
+  content: " ]";
+}
+
+/* Settings buttons (Connect, Test, Save, etc.) */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-accent) !important;
+  text-transform: lowercase;
+  padding: 6px 0 !important;
+  min-height: 32px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn::before {
+  content: "[ ";
+  color: var(--v2-accent);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn::after {
+  content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn:hover:not(:disabled) {
+  background: transparent !important;
+  filter: none;
+  text-shadow: 0 0 8px rgba(88, 166, 255, 0.55);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn-danger {
+  color: var(--v2-alert-overdue) !important;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn-danger::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn-danger::after {
+  color: var(--v2-alert-overdue);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn-danger-strong {
+  color: var(--v2-alert-overdue) !important;
+  font-weight: 700;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn-danger-strong::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-btn-danger-strong::after {
+  color: var(--v2-alert-overdue);
+}
+
+/* AddTaskModal — priority toggle + label pills */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  text-transform: lowercase;
+  padding: 8px 0 !important;
+  height: auto !important;
+  min-height: 40px !important;
+  color: var(--v2-text) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle:hover {
+  background: transparent !important;
+  border-bottom-color: var(--v2-accent) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label-pill {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  padding: 4px 0 !important;
+  margin-right: 12px;
+  text-transform: lowercase;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label-pill::before {
+  content: "[ ";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label-pill::after {
+  content: " ]";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label-pill:hover {
+  color: var(--v2-accent) !important;
+  background: transparent !important;
+  text-shadow: var(--v2-glow);
+}
+
+/* AdviserModal — send + tool buttons */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-accent) !important;
+  text-transform: lowercase;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send::before {
+  content: "[ ";
+  color: var(--v2-accent);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send::after {
+  content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send:hover:not(:disabled) {
+  filter: none;
+  text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
+}
+
+/* PackagesModal — toolbar buttons */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-toolbar-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+  padding: 6px 0 !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-toolbar-btn::before {
+  content: "[ ";
+  color: var(--v2-text-faint);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-toolbar-btn::after {
+  content: " ]";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-toolbar-btn:hover:not(:disabled) {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-toolbar-btn-primary {
+  color: var(--v2-accent) !important;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-toolbar-btn-primary::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-toolbar-btn-primary::after {
+  color: var(--v2-accent);
+}
+
+/* Research button + comment input button + similar inline action buttons
+ * inside EditTaskModal's content blocks. They use various class names
+ * but share the v1 inline pill shape. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-btn,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-row button {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-accent) !important;
+  text-transform: lowercase;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-btn::before {
+  content: "[ ";
+  color: var(--v2-accent);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-btn::after {
+  content: " ]";
+  color: var(--v2-accent);
+}

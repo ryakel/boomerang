@@ -6,6 +6,23 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — comprehensive button strip across all modals [S]
+  - **Why.** "We should get rid of all of the buttons when in terminal but also be aware that most of how we interact with this is mobile, so real estate is limited." Previous passes hit task-card actions + segmented controls + manage cluster + more menu, but several modal surfaces still shipped with filled / bordered button chrome.
+  - **What got stripped this pass:**
+    - **SnoozeModal** option rows (`.v2-snooze-row`): card chrome → flat hairline-separated rows; label rendered as `[ later today ]` accent-bracketed text. Custom-time toggle button → text-only.
+    - **WhatNowModal** option list + capacity buttons + skip link: same flat-row treatment with `[ 5 min ]` bracketed labels.
+    - **ConfirmDialog** buttons: cancel becomes plain meta text, danger becomes `[ delete ]` red text + glow on hover, primary becomes `[ apply ]` accent.
+    - **Settings buttons** (`.v2-settings-btn` family): Connect / Test / Save / Disconnect / etc. → `[ verb ]` accent text. Danger variants get red bracket text. Strong-danger gets bold red.
+    - **AddTaskModal**: priority toggle becomes a bottom-bordered transparent text pill that lights up on hover; label pills become `[ +tag ]` faint-bracketed text rows.
+    - **AdviserModal** send button: `[ send ]` accent text + glow.
+    - **PackagesModal** toolbar buttons: `[ refresh all ]`, `[ + add tracking ]` accent text.
+    - **EditTaskModal** research button + inline edit-research input row: `[ research ]` accent text.
+  - **Mobile real-estate awareness.** Where buttons were stacked vertically (snooze options, whatnow options), keep that layout because each option needs a full tap target — but with `min-height: 44px` for touch and zero card chrome, the row is denser. Where buttons were inline (settings, package toolbar, manage cluster), keep them inline; flat text wraps cleanly without extra padding.
+  - **Tap-target preserved.** All flat-text buttons keep a `min-height: 32–44px` so the actual click target stays comfortable on phones — the visual flatness doesn't shrink the hit zone.
+  - **Convention:** primary actions get accent + glow + brackets `[ verb ]`; secondary actions get meta-text without brackets; destructive actions get the appropriate red/amber + brackets.
+  - **Bundle.** CSS 240.3KB gzip 34.5KB (+~7.8KB). JS unchanged.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal — checkbox idiom inline, not stacked [XS]
   - **Why.** Last PR replaced the status segmented control's filled buttons with `[•] doing` checkbox notation but stacked the options vertically. User: "Buttons don't make sense in terminal but we need to not just stack everything vertically when we eliminate them." The fix: keep horizontal layout, just swap chrome for inline `[ ]` / `[•]` per option.
   - **Generalized to ALL segmented controls.** Previous rule only targeted `.v2-edit-status-row .v2-form-seg`; new rule targets every `.v2-form-seg` instance. So status, priority (Normal/High/Low), size (XS/S/M/L/XL/Auto), energy type (desk/people/errand/creative/physical), energy drain (low/medium/high) all get the same inline checkbox treatment in terminal mode.
