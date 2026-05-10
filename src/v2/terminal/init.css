@@ -31,21 +31,24 @@
   color: var(--v2-text-meta);
 }
 
+/* Sigil + text, no brackets. Each action gets a meaningful glyph
+ * prefix that reads as a powerlevel10k segment. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action[aria-label="Snooze"]::before {
-  content: "[snooze]";
+  content: "☾ snooze";
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action[aria-label="Edit"]::before {
-  content: "[edit]";
+  content: "✎ edit";
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action[aria-label*="Skip"]::before {
-  content: "[skip]";
+  content: "↷ skip";
   color: var(--v2-alert-high-pri);
 }
 
 /* Done — the primary. Icon hidden, the existing <span>Done</span>
- * stays visible and gets bracket prefixes from PR C. Lowercase it. */
+ * stays visible. Drop the bracket prefix/suffix from PR C, render a
+ * leading `✓ ` glyph instead. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary {
   text-transform: lowercase;
   color: var(--v2-accent) !important;
@@ -53,17 +56,14 @@
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::before {
-  content: "[";
+  content: "✓ ";
   margin-right: 0;
   color: var(--v2-accent);
   font-weight: 500;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::after {
-  content: "]";
-  margin-left: 0;
-  color: var(--v2-accent);
-  font-weight: 500;
+  content: "";
 }
 
 /* Hover glow on text buttons */
@@ -172,7 +172,11 @@
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-bullet::before {
-  content: "✦";
+  /* Read per-section sigil from the JSX-supplied data attribute. Falls
+   * back to `✦` for sections that don't pass one. Light/dark show the
+   * inline `✦` text content; terminal hides that and renders the
+   * data-sigil glyph here. */
+  content: attr(data-sigil);
   color: var(--v2-accent);
   text-shadow: var(--v2-glow);
   font-weight: 400;
