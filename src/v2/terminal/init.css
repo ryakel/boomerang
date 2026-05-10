@@ -413,10 +413,45 @@
   text-shadow: 0 0 6px rgba(88, 166, 255, 0.5);
 }
 
+/* Mid-tap (:active) — instant feedback while finger is down. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-checkbox:active::before {
   content: "[✓]";
   color: var(--v2-energy-errand);
   text-shadow: 0 0 8px rgba(126, 231, 135, 0.55);
+}
+
+/* Completing state — locked in by TaskCard when the user taps. The
+ * class stays on for ~350ms (matched to the card's fade-out below)
+ * so the `[✓]` mark persists the entire time the row is on screen.
+ * Without this, `:active` would only render the check while the finger
+ * was down — too brief to register before the card unmounts. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-completing .v2-card-checkbox::before {
+  content: "[✓]" !important;
+  color: var(--v2-energy-errand) !important;
+  text-shadow: 0 0 10px rgba(126, 231, 135, 0.7) !important;
+  font-weight: 700;
+}
+
+/* The whole row fades + slides slightly while the user reads the
+ * completion. After 350ms the parent removes the task from the active
+ * list and the card unmounts. Light/dark themes don't get this — their
+ * Done button-driven completion just removes the row immediately. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-completing {
+  animation: v2-card-completing-out 350ms var(--v2-ease-standard) forwards;
+  pointer-events: none;
+}
+
+@keyframes v2-card-completing-out {
+  0%   { opacity: 1; transform: translateX(0); }
+  25%  { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-ui="v2"][data-theme^="terminal"] .v2-card-completing {
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 /* === Drop the `✓ done` button in the expanded action row ===========

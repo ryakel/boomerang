@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Check, Pencil, Moon, Monitor, Users, MapPin, Palette, Dumbbell, Zap, SkipForward } from 'lucide-react'
 import {
   isStale, isSnoozed, isOverdue,
@@ -19,6 +19,21 @@ const SWIPE_VERT_CANCEL = 12     // px of vertical movement that cancels the swi
 
 function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate, selected, routineStreaks }) {
   const isTerminal = useTerminalMode()
+  // Track a brief "completing" window so the checkbox can stay `[✓]` and
+  // the row can fade out while still visible — without this the card
+  // unmounts on the next render after onComplete and the user never sees
+  // the checkmark land. ~350ms feels confirmatory without dragging.
+  const [completing, setCompleting] = useState(false)
+  const completeTimer = useRef(null)
+  const completeWithFade = useCallback((taskId) => {
+    if (completing) return
+    setCompleting(true)
+    completeTimer.current = setTimeout(() => onComplete(taskId), 350)
+  }, [completing, onComplete])
+
+  useEffect(() => () => {
+    if (completeTimer.current) clearTimeout(completeTimer.current)
+  }, [])
   const overdue = isOverdue(task)
   const stale = isStale(task)
   const snoozed = isSnoozed(task)
@@ -150,6 +165,7 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
         task.low_priority ? 'v2-card-faded' : '',
         expanded ? 'v2-card-expanded-state' : '',
         selected ? 'v2-card-selected' : '',
+        completing ? 'v2-card-completing' : '',
       ].filter(Boolean).join(' ')}
       style={{
         transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
@@ -172,12 +188,12 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
               tabIndex={0}
               className="v2-card-checkbox"
               aria-label={`Mark "${task.title}" done`}
-              onClick={(e) => { e.stopPropagation(); onComplete(task.id) }}
+              onClick={(e) => { e.stopPropagation(); completeWithFade(task.id) }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
                   e.stopPropagation()
-                  onComplete(task.id)
+                  completeWithFade(task.id)
                 }
               }}
             />
