@@ -6,6 +6,25 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal theme — per-section sigils + sigil+text action buttons [S]
+  - **Why.** Locked-in design decisions from a four-question round: per-section sigils to differentiate sections at a glance (vs the uniform `✦`), and sigil+text action buttons to read as powerlevel10k segments (vs flat bracketed text). Energy chip stays top-right; status indicators stay leading-bracket — those were already right.
+  - **`SectionLabel.jsx` accepts a `sigil` prop.** Defaults to `✦` (light/dark see uniform sparkle, no behavior change). The bullet span renders `✦` as inline text AND carries `data-sigil={sigil}` as an attribute. Light/dark CSS shows the inline text. Terminal CSS reads `attr(data-sigil)` via `::before`. Cost: one prop, JSX stays minimal.
+  - **Per-section sigils on the home screen:**
+    - `→ doing` (active, in-progress)
+    - `~ stale` (squiggle, languishing)
+    - `+ up next` (queued)
+    - `… waiting` (pending external)
+    - `z snoozed` (sleep)
+    - Kanban columns keep uniform `✦` for now (different code path; a follow-up could differentiate those too)
+  - **Card action buttons → sigil + text, no brackets.** Lucide icons hidden via CSS. Each action gets a meaningful glyph prefix:
+    - `☾ snooze` (moon, rest)
+    - `✎ edit` (pencil)
+    - `↷ skip` (rotation arrow, advance chain)
+    - `✓ done` (check; primary; replaces the `[ ]` bracket wrap from PR C)
+  - The Done bracket wrap from PR C dropped — `::before` content goes from `[ ` to `✓ `, `::after` content empties out. Reads as `✓ done` in accent green/blue with the existing glow on hover.
+  - **Bundle.** CSS 226.0KB gzip 33.4KB (unchanged — content swaps, not additions). JS +0.06KB (the SectionLabel sigil prop + AppV2 renderSection signature change).
+  - Modified: `src/v2/components/SectionLabel.jsx`, `src/v2/AppV2.jsx`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal theme — revert palette to GitHub Dark/Light + powerlevel10k energy segments [S]
   - **Why.** User: "Stick with GitHub light and dark color palettes. So you don't need to completely strip everything. Incorporate our add ons like energy and whatever into the init design. Think like powerlevel10k or similar." — and a follow-up: "We can have a terminal look without losing all of the features."
   - **Palette reverted.** terminal-dark back to canonical GitHub Dark blue (`#58A6FF` accent, `#0D1117` canvas, `#C9D1D9` text, cyan glow). terminal-light back to GitHub Light blue (`#0969DA`). The structural language (powerlevel10k segments, bracketed text, bare rows, lowercased section labels with `✦` prefix) carries the init feel; the palette stays canonical.
