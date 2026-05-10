@@ -15,6 +15,10 @@
   gap: 12px;
   align-items: flex-end;
   pointer-events: none;  /* children re-enable; lets list scroll past the gap */
+  /* Smooth the keyboard-occlusion lift so the wrapper rides up with the
+   * keyboard slide-in instead of snapping. Direct style.transform writes
+   * inherit this transition. */
+  transition: transform 200ms cubic-bezier(.4, 0, .2, 1);
 }
 
 .v2-floating-capture > * {
@@ -76,12 +80,18 @@
   filter: brightness(1.06);
 }
 
+/* What-now is also accent — same brand language as quick-add — but uses
+ * black rings so the target glyph reads against the orange instead of
+ * disappearing into white-on-orange. */
 .v2-fc-button-whatnow {
-  color: var(--v2-text-meta);
+  background: var(--v2-accent);
+  border-color: var(--v2-accent);
+  color: #000;
 }
 
-.v2-fc-button-whatnow:hover {
-  color: var(--v2-text);
+.v2-fc-button-whatnow:hover:not(:disabled) {
+  filter: brightness(1.06);
+  color: #000;
 }
 
 /* When a card is open the trailing button (X / +) is anchored to the

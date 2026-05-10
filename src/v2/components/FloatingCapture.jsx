@@ -64,6 +64,33 @@ export default function FloatingCapture({ onAddTask, onOpenWhatNow }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [mode])
 
+  // iOS keyboard occlusion fix. When the soft keyboard opens, the floating
+  // capture sits at `bottom: 16px` of the layout viewport — but the keyboard
+  // covers the bottom ~40% of the screen, so the input lands behind it and
+  // the user types blind. Use `visualViewport` to detect the occluded
+  // height and translate the wrapper upward by that amount so it floats
+  // just above the keyboard. Resize listener handles keyboard show/hide
+  // and orientation changes.
+  useEffect(() => {
+    if (mode !== 'add') return
+    const vv = window.visualViewport
+    if (!vv) return
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const update = () => {
+      const occluded = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      wrap.style.transform = occluded > 0 ? `translateY(${-occluded}px)` : ''
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      wrap.style.transform = ''
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [mode])
+
   const submitAdd = () => {
     const title = draft.trim()
     if (!title) return

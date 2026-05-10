@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 FloatingCapture — orange what-now + iOS keyboard occlusion fix [S]
+  - **What-now FAB orange w/ black rings.** Originally hairline-bordered neutral so it didn't compete with the accent-filled `+`. User feedback: both should be brand-accent. Now both circles share the orange fill; what-now uses black `currentColor` so the target/dartboard rings read against the orange (white-on-orange would have lost contrast on the inner ring weights).
+  - **iOS keyboard occlusion.** When the soft keyboard opened, the floating capture sat at `bottom: 16px` of the layout viewport — but the keyboard covered the bottom ~40% of the screen, so the input landed behind it and the user typed blind. Now uses the `visualViewport` API to measure how much of the bottom is occluded and translates the wrapper upward by that amount; `resize` listener handles keyboard show/hide and orientation changes. CSS transition smooths the lift so it rides up with the keyboard slide-in instead of snapping.
+  - Modified: `src/v2/components/FloatingCapture.jsx`, `src/v2/components/FloatingCapture.css`
+
 - fix(ui): v2 update-modal — drop `v` prefix on sha-style versions [XS]
   - `<div className="v2-update-version">v{updateVersion}</div>` rendered `vdev-e1ba2aa` on non-tagged builds. Changed to a conditional prefix: only prepend `v` when the version starts with a digit (i.e. semver like `0.10.0` → `v0.10.0`); sha-style versions like `dev-e1ba2aa` render bare. Future-proof for tagged releases without uglying up the dev sha display.
   - Modified: `src/v2/AppV2.jsx`
