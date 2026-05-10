@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- fix(ui): edit modal — done status didn't show active state [XS]
+  - **Bug.** In EditTaskModal's status row, the `✓ Done` button never showed as "selected" even when the task's current status was `done`. The user reported it as "done checkmark doesn't show up when checked; selected vs not may be inverted."
+  - **Root cause.** `STATUS_OPTIONS` only contains `['not_started', 'doing', 'waiting']`, and the JSX threads the active class via `currentStatus === s ? ' v2-form-seg-active' : ''` only on the map. The `✓ Done` button is rendered outside the map as a separate "mark complete" affordance and hardcodes `className="v2-form-seg v2-edit-status-done"` with no active-state branch. Result: when `status === 'done'`, none of the four options showed the `[•]` radio dot — nothing read as currently selected.
+  - **Fix.** Add `${currentStatus === 'done' ? ' v2-form-seg-active' : ''}` to the done button's className. Terminal CSS gains an override so the `v2-edit-status-done.v2-form-seg-active` state stays in the errand-green family (`[•]` dot + stronger green glow) rather than flipping to the generic accent-blue from `.v2-form-seg-active`.
+  - Modified: `src/v2/components/EditTaskModal.jsx`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - chore(ui): terminal — root-cause + sweep 32 missed button classes + add coverage guard [S]
   - **Why.** User asked why energy/auto/research/priority got missed in earlier "comprehensive button strip" passes and to proactively scan for others. Root cause analysis below; sweep covers everything found; new smoke test prevents it happening again.
   - **Root cause.** When earlier passes "generalized" the button strip, they only targeted **shared** classes (`.v2-form-seg`, `.v2-card-action`, `.v2-form-input`). v2 has several **custom-class** button shapes that exist as their own class because they needed unique sizing/icon rules: `.v2-form-energy-pill` (flex sharing), `.v2-form-ai-pill` (sparkle icon variant), `.v2-form-pri-toggle` (cycling state), `.v2-analytics-range-btn`, `.v2-adviser-history-btn`, `.v2-package-action`, etc. The generic rules never matched them. Plus I never opened AnalyticsModal, full ReframeModal, the Labels CRUD modal, or notification settings rows during this session — so their entire button surfaces never got swept.
