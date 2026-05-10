@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal theme PR C — TaskCard ASCII flourishes [S]
+  - **Why.** Cards picked up the theme's palette + radii from PR A, but they still read as "v2 cards in dark blue." PR C makes them feel like rows in CLI task-list output.
+  - **Title prefix.** `[ ] ` checkbox affordance prepended to every task title via `.v2-card-title::before`. Universal terminal TODO marker — Active tasks still aren't done so they always show the empty checkbox; once they complete they leave the active list anyway, so a `[✓]` state isn't needed in this view.
+  - **Primary action button.** "Done" wraps in `[ Done ]` brackets via `::before` / `::after`, plus a subtle cyan `--v2-glow` box-shadow so the primary affordance pulses with the accent — the one place the theme allows itself a little ornament beyond pure characters.
+  - **Skip-advance button.** Amber outline + faint amber background fill so it reads as a peer command in the action row (instead of feeling out of place against the cyan primary).
+  - **Meta separator.** `·` → `|` via `font-size: 0` + `::before`. Pipe reads as terminal output column separator.
+  - **Modal buttons.** Same `[ ... ]` bracket treatment applies to `ConfirmDialog`'s danger button and `ChainReconcileModal`'s primary button so destructive confirms and Quokka apply-suggestions reads as one visual language with the in-card primary. Reconcile primary also gets the cyan glow.
+  - **Bundle.** 779KB precache (terminal.css gained ~1KB CSS source, no measurable bundle change after compression).
+  - **What's still pending.** Sync-state animations: ASCII spinner per letter on saving, `[OK]/[ERR]/[BUSY]` bracketed status flashes (PR D — last theme PR).
+  - Modified: `src/v2/terminal.css`, `wiki/Version-History.md`
+
 - feat(ui): terminal theme PR B — wordmark prompt + section bullets [S]
   - **Why.** PR A swapped the palette + font; PR B layers the actual ASCII flourishes that make the theme feel like a CLI instead of just "v2 in dark blue."
   - **Wordmark.** `BOOMERANG` becomes `$ boomerang_` in terminal mode. Lowercase via `text-transform`, leading `$ ` prompt prefix as `::before`, blinking trailing `_` cursor as `::after` (1.1s `steps(2)` blink — hard on/off cut, not smooth fade). Cursor color picks up the cyan accent in idle state, switches to amber/red when sync goes degraded/offline. Existing letter-span saving wave still fires unchanged because the pseudo-elements aren't part of the spans.
