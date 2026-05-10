@@ -167,6 +167,55 @@
   border-bottom: none;
 }
 
+/* Stacked variant — used when the control is too wide to share a flex
+ * row with the label (e.g. the 3-way Theme segment on phone widths).
+ * Label sits above; control occupies the full row beneath. */
+.v2-settings-row-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+/* Segmented radio control. Three (or N) pill buttons in a single
+ * border-wrapped capsule so it reads as one widget. Active option
+ * fills with the accent color; others stay transparent. */
+.v2-settings-segment {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--v2-hairline);
+  border-radius: var(--v2-radius-pill);
+  padding: 3px;
+  gap: 2px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.v2-settings-segment-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--v2-text-meta);
+  font: 500 13px/1 var(--v2-font-body);
+  padding: 8px 12px;
+  border-radius: calc(var(--v2-radius-pill) - 4px);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-settings-segment-btn:hover:not(.v2-settings-segment-btn-active) {
+  background: rgba(var(--v2-text-rgb), 0.05);
+  color: var(--v2-text);
+}
+
+.v2-settings-segment-btn-active {
+  background: var(--v2-accent);
+  color: #fff;
+}
+
 .v2-settings-row-text {
   flex: 1;
   min-width: 0;
