@@ -1,0 +1,206 @@
+/* Right-edge speed-dial. Pinned to the lower-right of the viewport, sits
+ * above the iOS safe-area inset so the home-bar gesture doesn't overlap
+ * the +. Two slots stacked with a small gap; tapping a circle expands
+ * it leftward into a slim card.
+ *
+ * Aesthetic: v2 hairline + soft shadow + tokens. No drop-in modal weight
+ * — the card emerges from the button itself, not from a separate scrim. */
+.v2-floating-capture {
+  position: fixed;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-end;
+  pointer-events: none;  /* children re-enable; lets list scroll past the gap */
+}
+
+.v2-floating-capture > * {
+  pointer-events: auto;
+}
+
+/* Each slot wraps either a circle button or an expanded card. Width
+ * transitions are driven by the inner content swapping between fixed-
+ * width (48px circle) and full-width (~280px card). The slot itself
+ * just provides the alignment context. */
+.v2-fc-slot {
+  display: flex;
+  justify-content: flex-end;
+  width: auto;
+}
+
+/* === Circle buttons (collapsed state) ============================== */
+
+.v2-fc-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-surface);
+  color: var(--v2-text);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
+  transition: transform var(--v2-dur-quick) var(--v2-ease-emphasis),
+              box-shadow var(--v2-dur-quick) var(--v2-ease-standard),
+              background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-fc-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.10);
+}
+
+.v2-fc-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.v2-fc-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* The + on the quick-add circle is the "primary" affordance — accent
+ * filled. Whatnow stays neutral. */
+.v2-fc-button-add {
+  background: var(--v2-accent);
+  color: #fff;
+  border-color: var(--v2-accent);
+}
+
+.v2-fc-button-add:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.v2-fc-button-whatnow {
+  color: var(--v2-text-meta);
+}
+
+.v2-fc-button-whatnow:hover {
+  color: var(--v2-text);
+}
+
+/* When a card is open the trailing button (X / +) is anchored to the
+ * card's right edge, no longer floating on its own. Drop the shadow so
+ * it doesn't double-up with the card's shadow. */
+.v2-fc-button-anchor {
+  flex-shrink: 0;
+  box-shadow: none;
+  border: none;
+  background: transparent;
+  color: var(--v2-text-meta);
+}
+
+.v2-fc-button-anchor.v2-fc-button-add {
+  background: var(--v2-accent);
+  color: #fff;
+}
+
+.v2-fc-button-anchor:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* === Cards (expanded state) ======================================== */
+
+.v2-fc-card {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 4px 0 14px;
+  gap: 8px;
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
+  /* Animate in. Right edge stays anchored; width grows leftward. */
+  animation: v2-fc-card-in var(--v2-dur-standard) var(--v2-ease-emphasis);
+  transform-origin: right center;
+}
+
+@keyframes v2-fc-card-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.v2-fc-card-add {
+  width: min(320px, calc(100vw - 32px));
+}
+
+.v2-fc-card-whatnow {
+  width: min(360px, calc(100vw - 32px));
+  padding-left: 8px;
+}
+
+.v2-fc-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--v2-text);
+  font: 500 15px/1 var(--v2-font-body);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.v2-fc-input::placeholder {
+  color: var(--v2-text-meta);
+}
+
+/* Capacity chips inside the whatnow card. Compact, tappable, evenly
+ * spaced. flex: 1 1 0 makes them share space equally regardless of
+ * label length so "5 min" and "2 hr+" feel like peers. */
+.v2-fc-chips {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.v2-fc-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 999px;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-fc-chip:hover {
+  background: rgba(var(--v2-text-rgb), 0.05);
+  border-color: var(--v2-text-meta);
+}
+
+.v2-fc-chip:active {
+  background: rgba(var(--v2-text-rgb), 0.08);
+}
+
+/* Reduce-motion: skip the scale-in animation, just fade. */
+@media (prefers-reduced-motion: reduce) {
+  .v2-fc-card {
+    animation: v2-fc-card-fade var(--v2-dur-quick) ease-out;
+  }
+  @keyframes v2-fc-card-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}

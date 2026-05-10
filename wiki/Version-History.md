@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- feat(ui): v2 right-edge speed-dial — FloatingCapture for quick-add + what-now [M]
+  - **Why.** Header was crowded (5 affordances on iPhone width) and v1's bottom bar didn't aesthetically fit the v2 calmer language. New pattern: right-edge speed-dial with two stacked floating circles. Tap a circle, it expands leftward into a slim card with the relevant input. Tap-outside or Escape collapses.
+  - **Quick-add (+).** Lower circle, accent-filled. Tap → expands into a 320px input pill anchored to the right edge. Enter or tap + creates a task with just the title (size auto-infer hook fills in energy on the next render). Card stays open after submit so rapid-fire capture is one tap, type, Enter, type, Enter — not modal open/close churn.
+  - **What-now (target).** Upper circle, neutral. Tap → expands into a 360px card with capacity chips (`5 min` / `15 min` / `30 min` / `1 hr` / `2 hr+`). Tap a chip → opens WhatNowModal seeded with that capacity preset (preset wiring deferred — for now the chip just opens WhatNowModal, capacity arg is accepted by the handler but ignored downstream).
+  - **Header cleanup.** Removed `+ Add` orange circle and `What now?` inline pill from the Header. Also dropped now-unused `Plus` and `Target` imports + the `onOpenAdd`/`onOpenWhatNow` props. Header is now: logo · BOOMERANG · ✨ · 📦 · ⋯ — calmer, room to breathe.
+  - **Positioning.** `position: fixed; right: 16px; bottom: max(16px, env(safe-area-inset-bottom, 0px))` so the bottom row sits above the iOS PWA home-bar gesture indicator. Z-index 50 — above task list, below modals (which use 99999). `pointer-events: none` on the wrapper so the gap between circles doesn't block list scroll.
+  - **Animation.** Scale-in transform-origin: right center keeps the right edge anchored, card grows leftward from the button. Respects `prefers-reduced-motion` (fade only, no scale).
+  - **Reduce-motion-friendly + iOS-safe focus.** iOS Safari needs focus to chain through a user-tap event handler — we route the `<input>` focus through the click handler, with a useEffect safety net for keyboard-only users. autoFocus on the input handles desktop.
+  - New: `src/v2/components/FloatingCapture.jsx`, `src/v2/components/FloatingCapture.css`
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/Header.jsx`
+
 - fix(ui): v2 header pill + swipe slider + routine spawn-now feedback [S]
   - **Header today-count pill removed.** The "10 today" pill in the header was crowding the BOOMERANG wordmark on iPhone width AND duplicating the "X done today" line in the wordmark-tap popover. Dropped the pill from the action nav; the popover keeps the count, accessible via tap-the-wordmark. Header is now: wordmark · What now? · + · ✨ · 📦 · ⋯. (Bigger header redesign deferred to a separate planning conversation — too dense for a snap fix.)
   - **Swipe slider clipping.** `SWIPE_OPEN_OFFSET` (-120px) didn't match `.v2-card-swipe-actions` width (160px), so when the card snapped open the leftmost 40px of the action panel stayed under the card — Edit's "E" got eaten and the user saw "dit". Bumped the offset to -160 so the card translates exactly the panel width.

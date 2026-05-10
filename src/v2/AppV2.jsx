@@ -22,6 +22,7 @@ import KanbanBoard from './components/KanbanBoard'
 import TaskListToolbar from './components/TaskListToolbar'
 import MarkdownImportModal from './components/MarkdownImportModal'
 import Toast from './components/Toast'
+import FloatingCapture from './components/FloatingCapture'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -457,8 +458,6 @@ export default function AppV2() {
   return (
     <div className="v2-app">
       <Header
-        onOpenWhatNow={() => setShowWhatNow(true)}
-        onOpenAdd={() => setShowAdd(true)}
         onOpenAdviser={() => setShowAdviser(true)}
         onOpenPackages={() => setShowPackages(true)}
         onOpenMenu={() => setShowMenu(true)}
@@ -804,6 +803,19 @@ export default function AppV2() {
       <AnalyticsModal
         open={showAnalytics}
         onClose={() => setShowAnalytics(false)}
+      />
+
+      <FloatingCapture
+        onAddTask={(title) => {
+          const id = addTask({ title })
+          if (id) {
+            // Quick-add lands a task with the configured default due-date,
+            // M size, and the size-auto-infer hook will refine energy on
+            // the next render tick. No EditTaskModal opens — the user is
+            // doing rapid-fire capture, not careful curation.
+          }
+        }}
+        onOpenWhatNow={() => setShowWhatNow(true)}
       />
 
       {toast && (
