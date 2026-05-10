@@ -4,6 +4,21 @@
 
 Every task always comes back. Dismissal is never free — every "not now" requires a "then when."
 
+## Themes
+
+Four palettes, picked in Settings → General → Theme:
+
+| Theme | Look |
+|---|---|
+| **Light** | Wheneri-style — warm orange accent, soft pastels, rounded pills, generous whitespace |
+| **Dark** | Same layout language, dark canvas |
+| **Terminal Dark** | GitHub Dark code-editor aesthetic — monospace stack, cyan-blue accent on `#0D1117` canvas, `$ boomerang_` blinking-cursor wordmark, ASCII flourishes (`[ ]` task prefix, `[ Done ]` bracket buttons, `> SECTION [3]` chevron labels), `[off] [on]` bracket toggles in Settings, density signals on TaskCard (`[3/5]` checklist counter, `🔥N` routine streak, one-line notes preview) |
+| **Terminal Light** | Same monospace aesthetic on a white canvas with GitHub Light colors (deep-link blue `#0969DA`, `#1F2328` text). Same density signals, same ASCII structure |
+
+Modal headers in terminal mode read as commands: `$ task --new`, `$ snooze`, `$ what-now`, `$ settings`, `$ quokka`, `$ delete --confirm`. Empty states render as `// comment` lines. Light + Dark stay calm and unchanged.
+
+**Home-screen surfaces (opt-in, theme-aware):** Settings → General → Home screen offers two toggles. The 7-day calendar strip renders above the task list with activity-intensity dots/blocks per day; the goal progress bar sits below the list and tracks `tasksToday / daily_task_goal`. Both render as cards in light/dark, bare monospace strip + block characters in terminal mode.
+
 ## Task Management
 
 - **Quick add** — type and hit Enter from the bottom bar to instantly create a task
