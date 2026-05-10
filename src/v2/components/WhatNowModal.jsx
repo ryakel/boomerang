@@ -92,7 +92,7 @@ export default function WhatNowModal({ open, tasks, onClose, onComplete }) {
   }[step]
 
   return (
-    <ModalShell open={open} onClose={handleClose} title="What now?" terminalTitle="$ what-now" subtitle={stepTitle} width="narrow">
+    <ModalShell open={open} onClose={handleClose} title="What now?" terminalTitle="> what-now" subtitle={stepTitle} width="narrow">
       {step === 1 && (
         <ul className="v2-whatnow-options">
           {TIME_OPTIONS.map(opt => (

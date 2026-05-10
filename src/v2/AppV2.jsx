@@ -752,54 +752,54 @@ export default function AppV2() {
 
       {/* More-menu sheet. Each row's icon is tinted to match v1's color hint
           system so users can recognize destinations at a glance. */}
-      <ModalShell open={showMenu} onClose={() => setShowMenu(false)} title="More" terminalTitle="$ menu" width="narrow">
+      <ModalShell open={showMenu} onClose={() => setShowMenu(false)} title="More" terminalTitle="> menu" width="narrow">
         <ul className="v2-more-menu">
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowSettings(true) }}>
               <SettingsIcon size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-settings" />
-              <span className="v2-more-row-label" data-terminal-cmd="$ settings">Settings</span>
+              <span className="v2-more-row-label" data-terminal-cmd="> settings">Settings</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowProjects(true) }}>
               <FolderKanban size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-projects" />
-              <span className="v2-more-row-label" data-terminal-cmd="$ projects">Projects</span>
+              <span className="v2-more-row-label" data-terminal-cmd="> projects">Projects</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowRoutines(true) }}>
               <RotateCw size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-routines" />
-              <span className="v2-more-row-label" data-terminal-cmd="$ routines">Routines</span>
+              <span className="v2-more-row-label" data-terminal-cmd="> routines">Routines</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowDone(true) }}>
               <CheckCircle2 size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-done" />
-              <span className="v2-more-row-label" data-terminal-cmd="$ done">Done</span>
+              <span className="v2-more-row-label" data-terminal-cmd="> done">Done</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowAnalytics(true) }}>
               <BarChart3 size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-analytics" />
-              <span className="v2-more-row-label" data-terminal-cmd="$ stats">Analytics</span>
+              <span className="v2-more-row-label" data-terminal-cmd="> stats">Analytics</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowActivityLog(true) }}>
               <History size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-activity" />
-              <span className="v2-more-row-label" data-terminal-cmd="$ log">Activity log</span>
+              <span className="v2-more-row-label" data-terminal-cmd="> log">Activity log</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowMarkdownImport(true) }}>
               <Upload size={18} strokeWidth={1.75} className="v2-more-row-icon" />
-              <span className="v2-more-row-label" data-terminal-cmd="$ import --markdown">Import from markdown</span>
+              <span className="v2-more-row-label" data-terminal-cmd="> import --markdown">Import from markdown</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
@@ -814,7 +814,7 @@ export default function AppV2() {
         }}
       />
 
-      <ModalShell open={showHelp} onClose={() => setShowHelp(false)} title="Keyboard shortcuts" terminalTitle="$ help --keys" width="narrow">
+      <ModalShell open={showHelp} onClose={() => setShowHelp(false)} title="Keyboard shortcuts" terminalTitle="> help --keys" width="narrow">
         <ul className="v2-shortcut-list">
           {[
             { keys: ['n'], desc: 'New task' },

@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — `$` prompt prefix → `>` everywhere [XS]
+  - **Why.** User: "Replace the terminal $ with >". `$` reads as shell-prompt; `>` reads as more universal CLI-prompt (matches our `→` section sigils + the chevron-y feel of the rest of the language).
+  - **Bulk replace across all terminal-mode prompt strings:**
+    - `terminalTitle` props on 15 modal call sites: `$ task --new` → `> task --new`, `$ snooze` → `> snooze`, `$ settings` → `> settings`, `$ stats` → `> stats`, etc.
+    - `data-terminal-cmd` attributes on the More menu + EditTaskModal manage cluster: `$ archive` → `> archive`, `$ delete --confirm` → `> delete --confirm`, etc.
+    - Header popover: `open $ stats` → `open > stats`
+    - Wordmark CSS: `content: "$ "` → `content: "> "` (so the `$ boomerang_` brand wordmark becomes `> boomerang_`)
+    - CLAUDE.md convention doc updated to reference `> verb` as the canonical form
+  - **No JSX shape change**, just literal text. Light + dark themes don't see any of these — they remain the modal's regular `title` prop value.
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/AddTaskModal.jsx`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/SnoozeModal.jsx`, `src/v2/components/ReframeModal.jsx`, `src/v2/components/WhatNowModal.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/PackagesModal.jsx`, `src/v2/components/AnalyticsModal.jsx`, `src/v2/components/ProjectsView.jsx`, `src/v2/components/DoneList.jsx`, `src/v2/components/ActivityLog.jsx`, `src/v2/components/AdviserModal.jsx`, `src/v2/components/MarkdownImportModal.jsx`, `src/v2/components/Header.jsx`, `src/v2/terminal/wordmark.css`, `CLAUDE.md`, `wiki/Version-History.md`
+
 - style(ui): terminal — settings segments → bare brackets + double completion-fade duration [XS]
   - **Why.** Settings → General Theme picker (Standard/Terminal + Light/Dark rows) still rendered as bordered button boxes despite the bare-bracket idiom used everywhere else. And user feedback on the completion fade: "Could stand to have the card and check stay a little longer. What if you double that."
   - **Settings segments.** `.v2-settings-segment-btn` overrides in flatten.css rewritten to match the `.v2-form-seg` style:

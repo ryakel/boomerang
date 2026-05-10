@@ -21,7 +21,7 @@
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-header-wordmark::before {
-  content: "$ ";
+  content: "> ";
   color: var(--v2-text-meta);
   font-weight: 500;
   margin-right: 2px;

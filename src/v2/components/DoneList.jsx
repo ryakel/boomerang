@@ -95,7 +95,7 @@ export default function DoneList({ open, onClose, onUncomplete }) {
   )
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Done" terminalTitle="$ done --list" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Done" terminalTitle="> done --list" width="wide">
       {loading && <div className="v2-done-loading">Loading…</div>}
 
       {!loading && doneTasks.length === 0 && (

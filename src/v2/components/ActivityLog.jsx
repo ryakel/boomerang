@@ -63,7 +63,7 @@ export default function ActivityLog({ open, onRestore, onClose }) {
   }
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Activity log" terminalTitle="$ log" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Activity log" terminalTitle="> log" width="wide">
       <div className="v2-activity-toolbar">
         <div className="v2-activity-filters">
           <button

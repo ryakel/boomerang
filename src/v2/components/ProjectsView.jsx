@@ -15,7 +15,7 @@ export default function ProjectsView({ open, tasks, onClose, onComplete, onEdit,
       open={open}
       onClose={onClose}
       title="Projects"
-      terminalTitle="$ projects"
+      terminalTitle="> projects"
       subtitle={projectTasks.length > 0
         ? `${projectTasks.length} project${projectTasks.length !== 1 ? 's' : ''} · no notifications, take your time`
         : undefined}
