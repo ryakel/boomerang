@@ -116,52 +116,10 @@
   margin-bottom: 18px;
 }
 
-/* Typing-cursor demo block. Types each PROMPT_SUGGESTION sequentially
- * (one line per phrase), accumulates them, holds the final state.
- * Standard themes: faint bg + rounded corners (callout look). Terminal
- * mode: bare left-hairline + `> ` prefix on each typed line. */
-.v2-adviser-empty-demo {
-  width: 100%;
-  font: 400 13px/1.5 var(--v2-font-body);
-  color: var(--v2-text);
-  margin-bottom: 14px;
-  padding: 10px 12px;
-  background: rgba(var(--v2-text-rgb), 0.04);
-  border-radius: 10px;
-  text-align: left;
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty-demo {
-  background: transparent;
-  border-radius: 0;
-  border-left: 2px solid var(--v2-hairline);
-  padding: 6px 0 6px 10px;
-}
-
-.v2-adviser-suggestions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-}
-
-.v2-adviser-suggestion {
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: var(--v2-bg);
-  color: var(--v2-text);
-  border: 1px solid var(--v2-hairline);
-  text-align: left;
-  font: 400 13px/1.4 var(--v2-font-body);
-  cursor: pointer;
-  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard),
-              background var(--v2-dur-quick) var(--v2-ease-standard);
-}
-
-.v2-adviser-suggestion:hover {
-  border-color: var(--v2-accent);
-  background: rgba(255, 98, 64, 0.04);
-}
+/* The old `.v2-adviser-empty-demo` callout + separate `.v2-adviser-
+ * suggestion` static buttons have been replaced by the single
+ * `TypingSuggestions` component (see TypingSuggestions.css). The
+ * suggestions ARE the demo — they type themselves in. */
 
 .v2-adviser-msg {
   display: flex;

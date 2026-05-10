@@ -6,7 +6,7 @@ import {
 import { renderMarkdown } from '../../utils/renderMarkdown'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
-import TypingPrompt from './TypingPrompt'
+import TypingSuggestions from './TypingSuggestions'
 import './AdviserModal.css'
 
 const PROMPT_SUGGESTIONS = [
@@ -261,20 +261,10 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit }) 
                 <div className="v2-adviser-empty-body">
                   I can make changes across tasks, routines, calendar, Notion, Trello, Gmail, packages, weather, and settings. Every action is previewed before it runs.
                 </div>
-                <div className="v2-adviser-empty-demo" aria-hidden="true">
-                  <TypingPrompt phrases={PROMPT_SUGGESTIONS} />
-                </div>
-                <div className="v2-adviser-suggestions">
-                  {PROMPT_SUGGESTIONS.map((s, i) => (
-                    <button
-                      key={i}
-                      className="v2-adviser-suggestion"
-                      onClick={() => { setInput(s); inputRef.current?.focus() }}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+                <TypingSuggestions
+                  phrases={PROMPT_SUGGESTIONS}
+                  onSelect={(s) => { setInput(s); inputRef.current?.focus() }}
+                />
               </div>
             ) : (
               <>
