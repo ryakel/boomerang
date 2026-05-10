@@ -127,3 +127,88 @@
   color: var(--v2-text-faint);
   margin-left: 2px;
 }
+
+/* === Task cards ======================================================
+ * Cards already pick up the terminal palette + boxy 4px radii via
+ * tokens. Layered ASCII flourishes here:
+ *   - "[ ] " checkbox prefix on each task title (the universal terminal
+ *     "TODO" affordance — reads as a row in `task-list output`)
+ *   - "[ done ]" bracket wrapping on the primary action button (the
+ *     only one with a text label; icon-only buttons keep the box)
+ *   - Soft cyan glow on the primary button so it pulses with the
+ *     accent — the one place the theme allows itself a little
+ *     ornament beyond pure characters. */
+
+:root[data-ui="v2"][data-theme="terminal"] .v2-card-title::before {
+  content: "[ ] ";
+  color: var(--v2-text-meta);
+  font-weight: 500;
+  /* Using letter-spacing 0 keeps the brackets crisp; the rest of the
+   * line spacing is inherited so the title still aligns with the
+   * action-row buttons below. */
+  letter-spacing: 0;
+}
+
+:root[data-ui="v2"][data-theme="terminal"] .v2-card-action-primary {
+  /* Primary "Done" — wrap the existing icon + label in [ ... ]
+   * brackets so it reads as a CLI subcommand. The icon and text inside
+   * are unchanged; we only decorate the outer button. */
+  box-shadow: var(--v2-glow);
+  font-weight: 700;
+}
+
+:root[data-ui="v2"][data-theme="terminal"] .v2-card-action-primary::before {
+  content: "[ ";
+  margin-right: 2px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+:root[data-ui="v2"][data-theme="terminal"] .v2-card-action-primary::after {
+  content: " ]";
+  margin-left: 2px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* Skip-advance keeps its amber color but gets the same boxy radius +
+ * subtle outline-glow so it reads as a peer command, not a stranger. */
+:root[data-ui="v2"][data-theme="terminal"] .v2-card-action-skip {
+  border-color: var(--v2-alert-high-pri);
+  background: rgba(255, 184, 77, 0.06);
+}
+
+/* The meta separator `·` becomes a more terminal-y `|` — same line of
+ * text, different glyph that reads as pipe/output separator. */
+:root[data-ui="v2"][data-theme="terminal"] .v2-card-meta-sep {
+  font-size: 0;
+}
+:root[data-ui="v2"][data-theme="terminal"] .v2-card-meta-sep::before {
+  content: "|";
+  font-size: 12px;
+  color: var(--v2-text-faint);
+}
+
+/* === Buttons across modals (ConfirmDialog, ChainReconcileModal) ======
+ * Same bracket treatment for the primary action so destructive confirm
+ * dialogs and Quokka apply-suggestions buttons read as a single visual
+ * language with the in-card primary. Cancel/secondary stays bare. */
+
+:root[data-ui="v2"][data-theme="terminal"] .v2-confirm-btn-danger::before,
+:root[data-ui="v2"][data-theme="terminal"] .v2-reconcile-btn-primary::before {
+  content: "[ ";
+  margin-right: 2px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+:root[data-ui="v2"][data-theme="terminal"] .v2-confirm-btn-danger::after,
+:root[data-ui="v2"][data-theme="terminal"] .v2-reconcile-btn-primary::after {
+  content: " ]";
+  margin-left: 2px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+:root[data-ui="v2"][data-theme="terminal"] .v2-reconcile-btn-primary {
+  box-shadow: var(--v2-glow);
+}
