@@ -55,7 +55,7 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
 - Header icons: Packages + Quokka (AI adviser) always visible in the top-right; overflow "..." menu contains Settings, Projects, Import, Analytics, Activity Log
-- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics). 50 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial.
+- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics). 54 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial.
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
 
 ### Energy/Capacity Tagging System
@@ -642,10 +642,10 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 
 **Server modules:**
 - `adviserTools.js` — registry, session/plan storage (10-min TTL, 1-min sweep), `handleToolCall()`, `commitPlan()` with rollback
-- `adviserToolsTasks.js` — 17 task + routine tools
+- `adviserToolsTasks.js` — 21 task + routine tools (incl. 4 Sequences chain editors: `add_follow_up`, `edit_follow_up`, `remove_follow_up`, `reorder_follow_ups`)
 - `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools
 - `adviserToolsMisc.js` — 20 Gmail + packages + weather + settings + analytics tools
-- **Total:** 50 tools; diagnostic list at `GET /api/adviser/tools`
+- **Total:** 54 tools; diagnostic list at `GET /api/adviser/tools`
 
 **Server endpoints:**
 | Endpoint | Purpose |
