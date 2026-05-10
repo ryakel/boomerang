@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- fix(adviser): render assistant markdown as React nodes, not HTML [XS]
+  - **Bug.** Quokka assistant messages were rendering as the literal string `[object Object]` whenever the message content was non-empty. Reproduced consistently on multi-step plan responses (the screenshot the user reported was a "Combine the two UPS drop off tasks" plan where the assistant text bubble between the tool calls and the planned changes showed `[object Object]`).
+  - **Root cause.** `AdviserModal.jsx` used `dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}`, but `renderMarkdown()` (in `src/utils/renderMarkdown.js`) returns **React nodes**, not an HTML string. Assigning a React element to `innerHTML` calls the element's `toString()` which produces `[object Object]`.
+  - **Fix.** Render `renderMarkdown(...)` as JSX children of the bubble div. Also defensive-coerce `message.content` to a string if a legacy/persisted chat happened to store it as anything else (the JS-on-server-and-client paths both currently produce strings, but the coercion is cheap insurance for stored-chat migrations or future server changes).
+  - Modified: `src/v2/components/AdviserModal.jsx`, `wiki/Version-History.md`
+
 - style(ui): terminal — comprehensive button strip across all modals [S]
   - **Why.** "We should get rid of all of the buttons when in terminal but also be aware that most of how we interact with this is mobile, so real estate is limited." Previous passes hit task-card actions + segmented controls + manage cluster + more menu, but several modal surfaces still shipped with filled / bordered button chrome.
   - **What got stripped this pass:**
