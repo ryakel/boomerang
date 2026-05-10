@@ -6,6 +6,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- fix(ui): terminal — checkbox `[✓]` persists with row fade-out on complete [XS]
+  - **Bug.** When the user tapped `[ ]` to complete a task, the `[✓]` only rendered during `:active` (finger held down). The moment they lifted their finger, React processed `onComplete`, the parent filtered the task out of the active list, the card unmounted — and the user never saw a confirmation. The check felt non-existent.
+  - **Fix.** Add a local `completing` state to TaskCard. On checkbox tap: `setCompleting(true)` immediately, then `setTimeout(onComplete, 350)`. While completing:
+    - The card root gets `v2-card-completing` class → CSS animates a 350ms opacity-out + slight rightward slide
+    - The checkbox `::before` flips to `[✓]` (errand-green + glow) via a class-based rule that wins over the default `[ ]`
+    - `pointer-events: none` while fading so accidental double-taps can't re-fire
+    - 350ms timer hits → `onComplete(task.id)` fires → task removed from active list → card unmounts cleanly
+  - **Cleanup.** `useEffect` clears the timer if the card unmounts for some other reason (parent removes the task, navigation, etc.) so the callback can't fire on a stale instance.
+  - **Light/dark unchanged.** Their Done button + swipe-to-Done paths still remove the row immediately. The fade is terminal-only — it's specifically the answer to "the checkbox tap feels invisible because the checkmark doesn't stay long enough."
+  - **Reduced motion.** `prefers-reduced-motion` reduces the animation to a flat `opacity: 0.5` while fading.
+  - Modified: `src/v2/components/TaskCard.jsx`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal — urgency moves from checkbox glyph to title color [XS]
   - **Why.** User: "Why are you dropping the urgency? Shit is that what those were? I thought they were done check boxes." The leading `[!]` (overdue) and `[*]` (high-pri) glyphs on the checkbox were misreading as alternate checkbox states rather than urgency markers — especially now that the checkbox is a real tappable button. Suggested fix: title color for urgency.
   - **What changed.** The `.v2-card-overdue .v2-card-checkbox::before` and `.v2-card-high-pri .v2-card-checkbox::before` overrides removed. Checkbox now reads `[ ]` always (or `[✓]` on tap-active). Urgency signal moves to the title text:
