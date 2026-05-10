@@ -206,7 +206,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
   }, [confirmDelete])
 
   return (
-    <ModalShell open={!!task} onClose={onClose} title="Edit task" width="narrow">
+    <ModalShell open={!!task} onClose={onClose} title="Edit task" terminalTitle="$ task --edit" width="narrow">
       <input
         className="v2-form-input v2-form-title"
         placeholder="What needs doing?"
@@ -845,55 +845,58 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
         )}
       </div>
 
-      <div className="v2-form-section v2-edit-actions-row">
-        <button
-          className="v2-edit-action"
-          onClick={() => { onBacklog(task.id, true); onClose() }}
-          title="Move to backlog"
-        >
-          <Archive size={14} strokeWidth={1.75} /> Backlog
-        </button>
-        <button
-          className="v2-edit-action"
-          onClick={() => { onProject(task.id, true); onClose() }}
-          title="Move to projects"
-        >
-          <FolderKanban size={14} strokeWidth={1.75} /> Projects
-        </button>
-        {!task.routine_id && !makeRecurring && (
+      <div className="v2-form-section v2-edit-manage">
+        <div className="v2-edit-manage-label">Manage</div>
+        <div className="v2-edit-actions-row">
           <button
             className="v2-edit-action"
-            onClick={() => setMakeRecurring(true)}
-            title="Convert this task into a recurring routine"
+            onClick={() => { onBacklog(task.id, true); onClose() }}
+            title="Move to backlog"
           >
-            <RotateCw size={14} strokeWidth={1.75} /> Make recurring
+            <Archive size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="$ archive">Backlog</span>
           </button>
-        )}
-        {!confirmDelete ? (
           <button
             className="v2-edit-action"
-            onClick={() => setConfirmDelete(true)}
-            title="Delete task"
+            onClick={() => { onProject(task.id, true); onClose() }}
+            title="Move to projects"
           >
-            <Trash2 size={14} strokeWidth={1.75} /> Delete
+            <FolderKanban size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="$ move-to-projects">Projects</span>
           </button>
-        ) : (
-          <div className="v2-edit-confirm-delete">
-            <span className="v2-edit-confirm-label">Delete?</span>
-            <button
-              className="v2-edit-action v2-edit-action-confirm-yes"
-              onClick={() => { onDelete(task.id); onClose() }}
-            >
-              Yes
-            </button>
+          {!task.routine_id && !makeRecurring && (
             <button
               className="v2-edit-action"
-              onClick={() => setConfirmDelete(false)}
+              onClick={() => setMakeRecurring(true)}
+              title="Convert this task into a recurring routine"
             >
-              No
+              <RotateCw size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="$ make-recurring">Make recurring</span>
             </button>
-          </div>
-        )}
+          )}
+          {!confirmDelete ? (
+            <button
+              className="v2-edit-action v2-edit-action-danger"
+              onClick={() => setConfirmDelete(true)}
+              title="Delete task"
+            >
+              <Trash2 size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="$ delete --confirm">Delete</span>
+            </button>
+          ) : (
+            <div className="v2-edit-confirm-delete">
+              <span className="v2-edit-confirm-label">Delete?</span>
+              <button
+                className="v2-edit-action v2-edit-action-confirm-yes"
+                onClick={() => { onDelete(task.id); onClose() }}
+              >
+                Yes
+              </button>
+              <button
+                className="v2-edit-action"
+                onClick={() => setConfirmDelete(false)}
+              >
+                No
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <button

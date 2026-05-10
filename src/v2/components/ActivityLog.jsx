@@ -63,7 +63,7 @@ export default function ActivityLog({ open, onRestore, onClose }) {
   }
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Activity log" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Activity log" terminalTitle="$ log" width="wide">
       <div className="v2-activity-toolbar">
         <div className="v2-activity-filters">
           <button
@@ -91,6 +91,7 @@ export default function ActivityLog({ open, onRestore, onClose }) {
           icon={History}
           title="No activity yet"
           body="Edits, completions, and deletes show up here as you work."
+          terminalCommand="// log empty — edits, completions, and deletes will appear here"
         />
       ) : (
         <ul className="v2-activity-list">

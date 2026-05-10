@@ -74,14 +74,60 @@
   cursor: pointer;
 }
 
+/* The Manage section — destructive + admin actions grouped under a
+ * subtle header so they read as a distinct cluster, not just more
+ * buttons in the form flow. The hairline + label do the visual
+ * grouping; in terminal mode the label becomes `// manage` via the
+ * data-terminal-cmd CSS swap below. */
+.v2-edit-manage {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--v2-hairline);
+}
+
+.v2-edit-manage-label {
+  font: 600 11px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-manage-label {
+  letter-spacing: 0;
+  /* Lowercase the visible "Manage" text in terminal mode without
+   * touching the JSX so light/dark stay capitalized cleanly. */
+  text-transform: lowercase;
+  text-align: left;
+  font-size: 12px;
+  color: var(--v2-text-meta);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-manage-label::before {
+  content: "// ";
+  color: var(--v2-text-faint);
+}
+
 .v2-edit-actions-row {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--v2-hairline);
+}
+
+/* Terminal-mode action label swap. JSX renders both `Backlog` (visible
+ * by default) and a data-terminal-cmd attribute holding `$ archive`. In
+ * terminal mode, the visible text is hidden via font-size 0 and the
+ * attribute is rendered via ::before. Reads as a CLI subcommand. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-label {
+  font-size: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-label::before {
+  content: attr(data-terminal-cmd);
+  font-size: 12px;
+  font-family: var(--v2-font-body);
 }
 
 .v2-edit-action {

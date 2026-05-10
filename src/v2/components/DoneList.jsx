@@ -95,7 +95,7 @@ export default function DoneList({ open, onClose, onUncomplete }) {
   )
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Done" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Done" terminalTitle="$ done --list" width="wide">
       {loading && <div className="v2-done-loading">Loading…</div>}
 
       {!loading && doneTasks.length === 0 && (
@@ -103,6 +103,7 @@ export default function DoneList({ open, onClose, onUncomplete }) {
           icon={CheckCircle2}
           title="Nothing completed yet"
           body="You'll see your wins here as you finish tasks."
+          terminalCommand="// no completions yet — they show up here as you finish tasks"
         />
       )}
 

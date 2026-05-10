@@ -194,7 +194,7 @@ export default function PackagesModal({
   }
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Packages" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Packages" terminalTitle="$ packages" width="wide">
       <div className="v2-packages-toolbar">
         <button
           className="v2-package-toolbar-btn"
@@ -248,6 +248,7 @@ export default function PackagesModal({
           icon={PackageIcon}
           title="No packages tracked"
           body="Add a tracking number above to start watching it. Carrier auto-detects from most major carriers."
+          terminalCommand="// no packages tracked — paste a tracking number above"
         />
       ) : (
         <ul className="v2-package-list">
