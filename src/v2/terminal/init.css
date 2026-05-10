@@ -1,0 +1,279 @@
+/* Terminal — init.habits aesthetic pass.
+ *
+ * After PR #95's deeper flatten, the user's call: "go full init."
+ * This file pushes the rest of the way:
+ *
+ *   - Card action icons (Snooze / Edit / Skip / Done) replaced with
+ *     bracketed text buttons via CSS attribute selectors. SVGs hidden;
+ *     `[snooze]` `[edit]` `[done]` `[skip]` rendered in monospace.
+ *   - Energy chip hidden entirely. Init habits don't carry per-row
+ *     energy badges — the title speaks for itself.
+ *   - Section labels lowercased, smaller, count badge dimmed.
+ *   - Wordmark tightened — smaller font, less prominent.
+ *   - Kanban columns + their headers go bare-text on the dark canvas.
+ *
+ * !important is used liberally where component CSS / inline styles
+ * would otherwise win. Per the stress-test convention, JSX stays
+ * untouched; CSS does the work.
+ */
+
+/* === Card actions: text buttons instead of icon buttons ============= */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action svg {
+  display: none !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action {
+  font: 500 13px/1 var(--v2-font-body);
+  letter-spacing: 0;
+  text-transform: lowercase;
+  padding: 4px 6px;
+  color: var(--v2-text-meta);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action[aria-label="Snooze"]::before {
+  content: "[snooze]";
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action[aria-label="Edit"]::before {
+  content: "[edit]";
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action[aria-label*="Skip"]::before {
+  content: "[skip]";
+  color: var(--v2-alert-high-pri);
+}
+
+/* Done — the primary. Icon hidden, the existing <span>Done</span>
+ * stays visible and gets bracket prefixes from PR C. Lowercase it. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary {
+  text-transform: lowercase;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::before {
+  content: "[";
+  margin-right: 0;
+  color: var(--v2-accent);
+  font-weight: 500;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::after {
+  content: "]";
+  margin-left: 0;
+  color: var(--v2-accent);
+  font-weight: 500;
+}
+
+/* Hover glow on text buttons */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action:hover {
+  color: var(--v2-text);
+  text-shadow: 0 0 6px rgba(194, 209, 197, 0.45);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary:hover {
+  color: var(--v2-accent) !important;
+  text-shadow: 0 0 12px rgba(126, 231, 135, 0.65);
+}
+
+/* === Energy chip: hide completely ================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy {
+  display: none !important;
+}
+
+/* === Section labels: lowercase + smaller + dimmed count ============ */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label {
+  text-transform: lowercase !important;
+  letter-spacing: 0 !important;
+  font: 500 13px/1 var(--v2-font-body);
+  color: var(--v2-accent);
+  padding: 18px 0 4px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-bullet::before {
+  content: "✦";
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+  font-weight: 400;
+  margin-right: 6px;
+  font-size: 12px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-count {
+  color: var(--v2-text-faint) !important;
+  font-weight: 400;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-count::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-count::after {
+  color: var(--v2-text-faint);
+}
+
+/* === Wordmark: tighten ============================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-wordmark {
+  font-size: 13px;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-wordmark::before {
+  color: var(--v2-text-meta);
+  font-weight: 400;
+}
+
+/* The wordmark `boomerang` letters themselves should be plain accent —
+ * no brand-y wave bounce in terminal mode. (PR D already mutes the
+ * letter animation during sync states; we extend that to idle too.) */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-wordmark-letter {
+  color: var(--v2-accent);
+  font-weight: 500;
+  text-shadow: var(--v2-glow);
+}
+
+/* === Header icons: smaller, bare ==================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-icon-btn,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-icon {
+  background: transparent !important;
+  border: none !important;
+  color: var(--v2-text-meta) !important;
+  padding: 6px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-icon-btn:hover {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+/* === Filter pills: tighten further to true tabs ==================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar {
+  padding: 8px 0;
+  gap: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-pills {
+  gap: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-pill {
+  font: 500 12px/1 var(--v2-font-body) !important;
+  text-transform: lowercase;
+  padding: 8px 4px !important;
+  margin: 0 10px 0 0 !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toolbar-pill:first-child {
+  margin-left: 0 !important;
+}
+
+/* === Kanban (desktop) — make column headers + cards init-flavored == */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-col {
+  background: transparent !important;
+  border: none !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-col-head {
+  border-bottom: none !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-col-title {
+  text-transform: lowercase !important;
+  letter-spacing: 0 !important;
+  font: 500 13px/1 var(--v2-font-body) !important;
+  color: var(--v2-accent) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-col-title::before {
+  content: "✦ ";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-col-count {
+  color: var(--v2-text-faint) !important;
+  background: transparent !important;
+  font-weight: 400 !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-col-count::before {
+  content: "[";
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-col-count::after {
+  content: "]";
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-add-btn {
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--v2-accent) !important;
+  text-transform: lowercase;
+  padding: 8px 4px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-add-btn:hover {
+  background: transparent !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-add-btn::before {
+  content: "[+] ";
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-add-input {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  color: var(--v2-text);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-kanban-add-input:focus {
+  border-bottom-color: var(--v2-accent) !important;
+  outline: none;
+}
+
+/* === Card title: drop the `[ ] ` prefix when status indicator
+ *      already provides one ([!] / [*]) so we don't double-up. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue .v2-card-title::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-high-pri .v2-card-title::before {
+  /* keep the override from flatten.css — already correct */
+}
+
+/* === Card title spacing: fix tap target leakage ==================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-main {
+  padding: 12px 8px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-content {
+  padding: 0;
+}
+
+/* === Notes preview: use indented text style (matches init's
+ *      `// description` indent under each habit) ==================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-notes-preview {
+  padding-left: 24px;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+/* === Floating capture: position closer to the corner =============== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-floating-capture {
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  gap: 14px;
+}
+
+/* === Subtle: section-label first-of-kind has less top padding ===== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-list > .v2-section-label:first-child {
+  padding-top: 6px;
+}
