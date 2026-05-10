@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- fix(sync): terminal theme persistence — REAL fix (AppV2's hydrate also clobbered local) [XS]
+  - **Bug.** PR #109 added a theme-preservation guard inside `useServerSync.js`, but the persistence bug came back. User: "The terminal setting isn't sticking still."
+  - **Why #109 was incomplete.** `AppV2.jsx`'s `hydrateFromServer` callback ALSO wrote `saveSettings(data.settings)` directly — and it ran BEFORE the protected save in useServerSync. So the order on every hydrate was: (1) onHydrate clobbers local theme with server's stale value; (2) useServerSync reads localStorage to get "the local theme" — which is now the stale server value just written; (3) "preserves" it — i.e. writes it back as a no-op. Net effect: local pick gets overwritten.
+  - **Fix.** Drop the `saveSettings(data.settings)` call from `hydrateFromServer`. useServerSync owns the localStorage write for settings (with the theme-preservation guard from #109). The hydrate callback now only mirrors downstream React state — `setSortBy(data.settings.sort_by)` — and lets useServerSync handle persistence.
+  - Modified: `src/v2/AppV2.jsx`, `wiki/Version-History.md`
+
 - fix(ui): quokka — typing demo types each phrase once, sequentially, no loop [XS]
   - **Bug.** Typing-prompt was effectively looping the same phrase. User: "You should b typing each line sequentially once. Not the same one over and over."
   - **Rewrite.** Each phrase types once, in order. As it finishes, it moves into a `completed[]` array (rendered as a static line) and the next phrase starts typing below it. After the last phrase, `phase` flips to `'done'` — no more animation, all phrases visible as a stack. The cursor sits on the active line during typing; completed lines fade to meta-text so the eye lands on the typing one.
