@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal — clickable `[ ]` checkbox + drop duplicate done affordances [S]
+  - **Why.** User: "I should be able to click on the empty check box squares on the tasks page and have them be marked as done. I know that is duplicative of the done slider and done button. Wondering if it actually mitigates the need for those. Thoughts? Edit and done on click AND slide already feel a little duplicative." Locked-in answer after a 2-question round: tap `[ ]` toggles done; drop `✓ done` from expanded actions; drop swipe-left gestures entirely. Terminal mode only.
+  - **JSX.** Added a `<span role="button" className="v2-card-checkbox">` before the title text in TaskCard. Click handler stops propagation (so taps don't also expand the card) and calls `onComplete(task.id)`. Keyboard accessible via Enter/Space. Used `<span role="button">` rather than `<button>` because TaskCard's outer `.v2-card-main` is already a `<button>` and HTML doesn't allow nested buttons. Light/dark mode hides the element via `display: none`.
+  - **CSS.** The existing `[ ]` / `[!]` / `[*]` glyphs that previously rendered on `.v2-card-title::before` moved to `.v2-card-checkbox::before` (so the user is tapping a real DOM element, not a pseudo-element). Hover lifts the bracket to accent + glow. Active state flips to `[✓]` errand-green so the tap lands visibly before the task disappears from the list. `.v2-card-action-primary` (the `✓ done` button in expand) is `display: none` in terminal — duplicate of the checkbox. `.v2-card-swipe-actions` panel hidden too.
+  - **Gesture.** `handleTouchStart` and `handleTouchMove` short-circuit when `useTerminalMode()` is true so the swipe gesture itself never engages. Light/dark themes keep swipe.
+  - **Expand actions in terminal now show:** `☾ snooze` + `✎ edit` (+ `↷ skip` for chain tasks). Done is no longer here — the checkbox at the top is the canonical way.
+  - **Tap target.** Checkbox has `min-width: 32px` and `min-height: 32px` with negative `margin-left: -4px` to extend the hit zone slightly past the visual `[ ]` width without changing layout.
+  - Modified: `src/v2/components/TaskCard.jsx`, `src/v2/terminal/cards.css`, `src/v2/terminal/flatten.css`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - fix(sync): preserve local theme on server hydration [XS]
   - **Bug.** Terminal mode preference didn't persist on refresh. User picks Terminal in Settings → Theme; refresh; back to the previous theme.
   - **Root cause.** `useServerSync.js` hydration path called `saveSettings(data.settings)` unconditionally on every SSE-triggered server fetch. If a refresh landed within the ~300ms debounce window between a local theme pick and the server flush — OR if the server was briefly unreachable when the flush fired — the hydration would overwrite the just-saved local theme with stale server data. The preference appeared to revert.
