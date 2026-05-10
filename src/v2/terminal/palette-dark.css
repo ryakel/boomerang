@@ -1,0 +1,57 @@
+/* Terminal — GitHub Dark palette.
+ * Classic dev-tool dark theme: deep code-editor navy, blue-grey text,
+ * cyan accent, GitHub Dark's signature green/red/amber alarm colors.
+ *
+ * Background hex values are pulled from GitHub's Primer design system
+ * (https://primer.style/foundations/color/dark) so the look reads as
+ * "code editor in dark mode" to anyone who's spent time on github.com.
+ *
+ * Layout, spacing, and component contracts stay identical to light/dark
+ * v2; only the palette and font stack swap. */
+
+:root[data-ui="v2"][data-theme="terminal-dark"] {
+  /* Type — full monospace stack. JetBrains Mono / SF Mono / Cascadia
+   * preferred where available; fall back to system mono. */
+  --v2-font-display: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+  --v2-font-body: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+
+  /* Surfaces — GitHub Dark canvas + surface. The cards and bg differ by
+   * a few percent lightness so cards still read as elevated. Terminal
+   * UIs lean flat, not Material-shadowy. */
+  --v2-bg: #0D1117;
+  --v2-surface: #161B22;
+  --v2-text: #C9D1D9;
+  --v2-text-rgb: 201, 209, 217;
+  --v2-text-meta: rgba(201, 209, 217, 0.55);
+  --v2-text-faint: rgba(201, 209, 217, 0.32);
+  --v2-hairline: rgba(240, 246, 252, 0.10);
+
+  /* Accent — GitHub Dark's signature blue. Reads as "this is a link or
+   * an active control" anywhere on github.com; same affordance here. */
+  --v2-accent: #58A6FF;
+
+  /* Status — GitHub Dark alarm colors, semantically aligned with
+   * light/dark (overdue=red, high-pri=amber). */
+  --v2-alert-overdue: #F85149;
+  --v2-alert-high-pri: #D29922;
+
+  /* Energy types — slightly desaturated to fit the palette and not
+   * compete with the cyan/blue accent. */
+  --v2-energy-desk: #79C0FF;
+  --v2-energy-people: #FF9DC0;
+  --v2-energy-errand: #7EE787;
+  --v2-energy-confrontation: #FF7B72;
+  --v2-energy-creative: #D2A8FF;
+  --v2-energy-physical: #FFA657;
+
+  /* Soft glow — components opt in via this token. Used sparingly on the
+   * wordmark, primary buttons, the sync indicator. The blur is small
+   * enough not to soften legibility. */
+  --v2-glow: 0 0 8px rgba(88, 166, 255, 0.45);
+
+  /* Slightly softer radii so the look feels "boxy terminal" not
+   * "iOS pill" while still staying tap-friendly. */
+  --v2-radius-pill: 6px;
+  --v2-radius-card: 4px;
+  --v2-radius-modal: 6px;
+}

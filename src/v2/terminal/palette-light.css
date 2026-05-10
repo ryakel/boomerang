@@ -1,0 +1,55 @@
+/* Terminal — GitHub Light palette.
+ * Same monospace structural language as terminal-dark, but rendered on
+ * a white canvas with GitHub Light's Primer colors. Reads as "code
+ * editor in light mode" — a very particular aesthetic that's distinct
+ * from boomerang's regular Light theme (which is Wheneri-style: warm
+ * orange accent, soft pastels, rounded pills).
+ *
+ * The point of having a Light variant of Terminal: some users prefer
+ * the monospace + density of terminal but read better on white during
+ * the day. Same brain, different lighting. */
+
+:root[data-ui="v2"][data-theme="terminal-light"] {
+  /* Type — same monospace stack as terminal-dark. */
+  --v2-font-display: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+  --v2-font-body: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+
+  /* Surfaces — GitHub Light canvas + the f6f8fa "raised panel" gray.
+   * Pure white background with surface differing by a small lightness
+   * step so cards read as elevated without leaning on shadow. */
+  --v2-bg: #FFFFFF;
+  --v2-surface: #F6F8FA;
+  --v2-text: #1F2328;
+  --v2-text-rgb: 31, 35, 40;
+  --v2-text-meta: rgba(31, 35, 40, 0.62);
+  --v2-text-faint: rgba(31, 35, 40, 0.40);
+  --v2-hairline: rgba(31, 35, 40, 0.14);
+
+  /* Accent — GitHub Light's deep link blue (#0969da). This replaces
+   * the orange of regular Light v2. */
+  --v2-accent: #0969DA;
+
+  /* Status — GitHub Light alarm colors (red #cf222e, amber #9a6700)
+   * matched against a white background. */
+  --v2-alert-overdue: #CF222E;
+  --v2-alert-high-pri: #9A6700;
+
+  /* Energy types — desaturated to GitHub Light's character. */
+  --v2-energy-desk: #0969DA;
+  --v2-energy-people: #BF3989;
+  --v2-energy-errand: #1A7F37;
+  --v2-energy-confrontation: #CF222E;
+  --v2-energy-creative: #8250DF;
+  --v2-energy-physical: #9A6700;
+
+  /* No glow on the light variant — glow on a white bg looks like a
+   * blur artifact, not an effect. Components that read this token will
+   * fall back to no shadow. */
+  --v2-glow: none;
+
+  /* Same boxy radii as terminal-dark so the look feels "boxy terminal"
+   * not "iOS pill." */
+  --v2-radius-pill: 6px;
+  --v2-radius-card: 4px;
+  --v2-radius-modal: 6px;
+}

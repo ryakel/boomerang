@@ -1,0 +1,21 @@
+/* Terminal theme — entry point. Imports the two palette files (one
+ * per sub-variant) and the structural overrides shared between them.
+ *
+ * Palette files own the design tokens (colors, fonts, radii). Each
+ * targets a specific `data-theme="terminal-*"` value.
+ *
+ * Structural files own the ASCII flourishes — wordmark cursor, section
+ * chevron + bracketed count, card "[ ] " checkbox prefix, "[ done ]"
+ * bracket buttons. These use `[data-theme^="terminal"]` so they apply
+ * to every terminal sub-variant uniformly. Adding a new sub-palette
+ * later is a single new `palette-*.css` file plus an @import here.
+ *
+ * Why split this way? Terminal-only structural changes belong here so
+ * "what does terminal mode change?" is one directory away. Components
+ * stay neutral; light + dark stay the canonical appearance. */
+
+@import './palette-dark.css';
+@import './palette-light.css';
+@import './wordmark.css';
+@import './sections.css';
+@import './cards.css';

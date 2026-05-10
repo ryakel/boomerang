@@ -206,6 +206,17 @@
               color var(--v2-dur-quick) var(--v2-ease-standard);
 }
 
+/* 4-option variant — theme picker. Tighter padding + smaller font so
+ * the four labels (including "Term Dark"/"Term Light") fit on one row
+ * down to ~320px viewport. */
+.v2-settings-segment-4 {
+  max-width: 420px;
+}
+.v2-settings-segment-4 .v2-settings-segment-btn {
+  padding: 8px 6px;
+  font-size: 12px;
+}
+
 .v2-settings-segment-btn:hover:not(.v2-settings-segment-btn-active) {
   background: rgba(var(--v2-text-rgb), 0.05);
   color: var(--v2-text);
