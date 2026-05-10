@@ -117,17 +117,20 @@ export default function FloatingCapture({ onAddTask, onOpenWhatNow }) {
       <div className={`v2-fc-slot v2-fc-slot-whatnow${mode === 'whatnow' ? ' v2-fc-slot-open' : ''}`}>
         {mode === 'whatnow' ? (
           <div className="v2-fc-card v2-fc-card-whatnow">
-            <div className="v2-fc-chips">
-              {CAPACITIES.map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="v2-fc-chip"
-                  onClick={() => pickCapacity(c)}
-                >
-                  {c.label}
-                </button>
-              ))}
+            <div className="v2-fc-card-body">
+              <div className="v2-fc-card-heading">How much time do you have?</div>
+              <div className="v2-fc-chips">
+                {CAPACITIES.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="v2-fc-chip"
+                    onClick={() => pickCapacity(c)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <button
               type="button"
