@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Target, X } from 'lucide-react'
+import { Plus, Target } from 'lucide-react'
 import './FloatingCapture.css'
 
 // Right-edge speed-dial. Two circles stacked at the lower-right of the
@@ -134,11 +134,11 @@ export default function FloatingCapture({ onAddTask, onOpenWhatNow }) {
             </div>
             <button
               type="button"
-              className="v2-fc-button v2-fc-button-anchor"
+              className="v2-fc-button v2-fc-button-anchor v2-fc-button-whatnow"
               onClick={() => setMode('idle')}
               aria-label="Close"
             >
-              <X size={20} strokeWidth={1.75} />
+              <Target size={20} strokeWidth={2} />
             </button>
           </div>
         ) : (

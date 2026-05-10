@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 FloatingCapture — target icon stays visible when what-now card opens [XS]
+  - The target FAB was being replaced by a generic X close button when the card opened — making it look like the FAB had been "covered" by the card. Now the target icon stays at the right end of the card (same role as the `+` icon at the right of the quick-add input pill — visually persistent affordance, tap to toggle closed). Same orange-fill / black-rings treatment as the standalone FAB. Removed the unused X import.
+  - Modified: `src/v2/components/FloatingCapture.jsx`, `src/v2/components/FloatingCapture.css`
+
 - fix(ui): v2 FloatingCapture — what-now card inflates from FAB footprint [XS]
   - The taller what-now card (85px) was using the same scaleX-only animation as the 48px add card. Result: at frame 1 the full vertical height appeared instantly while only the width animated, reading as a "slam" instead of an emergence. Added a separate `v2-fc-card-whatnow-in` keyframe that scales BOTH axes from the FAB footprint (`scaleX(0.13) scaleY(0.55) → 1`) with `transform-origin: right bottom`. The card now visually inflates out of the FAB's last position. Add card unchanged.
   - Modified: `src/v2/components/FloatingCapture.css`
