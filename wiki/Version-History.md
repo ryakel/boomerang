@@ -6,6 +6,26 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal theme PR H — home-screen 7-day strip + goal progress bar (opt-in) [M]
+  - **Why.** init.habits puts a daily-rhythm strip at the top of its main view and a goal progress bar at the bottom — both surface "where am I in my day?" without the user having to open Analytics or do math. PR H adds those two surfaces to v2's home screen, opt-in (default off) and theme-aware so they fit any palette.
+  - **`WeekStrip` component (new).** 7-day calendar row rendered above the first task section. Each day cell shows day-of-week label + date number + an activity-intensity indicator. Today is highlighted; future days dim to 0.55 opacity. Activity intensity buckets:
+    - 0 (no completions) — empty
+    - 1 (some completions but below daily goal) — pale dot/pale block
+    - 2 (met goal, up to 2× goal) — accent dot at 0.55 opacity / `▃` block
+    - 3 (≥2× goal — over-achievement) — full accent dot / `█` block
+    - `< prev` / `next >` arrows on the row header navigate weeks. State managed locally; defaults to current week. Range label reads as "May 4–10" (or "Apr 27–May 3" if straddling a month boundary).
+    - Tap a day = no-op for v1. Hook reserved for future "filter to that day" / "jump to that day" interactions.
+  - **`GoalProgressBar` component (new).** Renders below the last task section. Shows `tasksToday / daily_task_goal` as a horizontal progress bar with caption row underneath. Bar fills 100% at goal, then a thin amber "stretch" segment past 100% indicates over-achievement. Caption: "Goal: N tasks" + count `3/5 · 60%`.
+  - **Theme-aware visuals (CSS-only, same JSX both modes):**
+    - Light/dark — rounded card-style day cells with hairline border, soft accent-colored intensity bar; pill-shape progress track with rounded fill
+    - Terminal — bare monospace strip (no card chrome), today's date number gets a `*` prefix, intensity rendered as block characters (`▁ ▃ █`); progress bar uses `[N/N]` brackets in the count + `// goal:` comment-prefixed caption + glow shadow on the fill
+  - **Settings.** New "Home screen" subhead in General tab with three rows: 7-day strip toggle, goal progress toggle, daily task goal numeric input. The subhead renders as small uppercase "HOME SCREEN" caption in light/dark and `// home screen` lowercase comment in terminal — same `.v2-settings-subhead` class with terminal-mode CSS override.
+  - **Default state.** Both `show_week_strip` and `show_goal_progress` ship as `false`. Existing users see no change until they opt in. New users start without them so the calm minimal home screen is the first impression.
+  - **Wiring.** AppV2's mobile list (the `<div className="v2-list">`) renders `<WeekStrip>` above the first `renderSection` call when `show_week_strip` is true, and `<GoalProgressBar>` after the last `renderSection` call when `show_goal_progress` is true. Both inside the scroll container so they move with the list. Desktop Kanban view doesn't render either — Kanban is already dense; revisit in PR I if usage warrants.
+  - **Bundle.** CSS 204.2KB gzip 30.9KB (+~5.5KB from the two new component CSS files + subhead override). JS 807KB gzip 223.6KB (+~5KB from the two components + memoized completion bucketing).
+  - Modified: `src/store.js` (added `show_week_strip` + `show_goal_progress` defaults), `src/v2/AppV2.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/Version-History.md`
+  - Added: `src/v2/components/WeekStrip.jsx`, `src/v2/components/WeekStrip.css`, `src/v2/components/GoalProgressBar.jsx`, `src/v2/components/GoalProgressBar.css`
+
 - feat(ui): terminal theme PR G — TaskCard density (terminal-only) [S]
   - **Why.** init.habits packs more information per row than v2's calm card does — checklist completion at a glance, notes preview without expanding, streak indicator for recurring tasks. PR G ports those three signals into TaskCard, gated on terminal mode so light/dark stay calm.
   - **Inline `[X/Y]` checklist counter.** When a task has any checklist items, the title row gets a small `[3/5]` counter span after the title. CSS-gated to terminal mode — light/dark hide it via `display: none`.
