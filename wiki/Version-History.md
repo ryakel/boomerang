@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-09
 
+- fix(ui): v2 FloatingCapture — align in-card buttons with standalone FABs [XS]
+  - Card had 4px right padding which inset the trailing in-card button (`+` / `X`) by that much. With the other slot still showing a standalone FAB flush against the wrap edge, the two orange circles fell out of vertical alignment. Drop right padding to 0 on both card variants so every button shares the same x-axis regardless of which slot is expanded.
+  - Modified: `src/v2/components/FloatingCapture.css`
+
 - style(ui): v2 FloatingCapture — heading on what-now card [XS]
   - Five unlabeled time chips ("5 min", "15 min", …) didn't communicate intent on their own — what does tapping a number do? Added a small heading "How much time do you have?" above the chip row. Card grows from a single-row 48px pill into a stacked 80-90px card with rounded-card border-radius (20px instead of 999px); close button aligns to top so it doesn't float against multi-line content.
   - Modified: `src/v2/components/FloatingCapture.jsx`, `src/v2/components/FloatingCapture.css`
