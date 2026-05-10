@@ -6,6 +6,45 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal theme PR F — control language (bracket toggles, $ verb modal headers, // manage section) [M]
+  - **Why.** PR A–E got terminal mode looking right (palette, monospace, ASCII flourishes, sub-palettes). PR F gets it speaking right — modal headers read as commands, settings toggles read as switch states, destructive actions in EditTaskModal read as a CLI subcommand cluster.
+  - **`useTerminalMode` hook.** New `src/v2/hooks/useTerminalMode.js` — subscribes to the documentElement's `data-theme` attribute via MutationObserver, returns `true` when the theme starts with `terminal-`. Used wherever JSX needs to swap copy or rendering (not pure CSS overrides).
+  - **`$ verb --flag` modal headers.** ModalShell accepts a new optional `terminalTitle` prop; when set + terminal-mode is active, that's rendered instead of the regular `title`. Wired across every v2 modal:
+    - AddTaskModal: `$ task --new`
+    - EditTaskModal: `$ task --edit`
+    - SnoozeModal: `$ snooze`
+    - ReframeModal: `$ reframe`
+    - WhatNowModal: `$ what-now`
+    - SettingsModal: `$ settings`
+    - PackagesModal: `$ packages`
+    - AnalyticsModal: `$ stats`
+    - ProjectsView: `$ projects`
+    - DoneList: `$ done --list`
+    - ActivityLog: `$ log`
+    - RoutinesModal: `$ routines` / `$ routine --new` / `$ routine --edit` (state-dependent)
+    - AdviserModal: `$ quokka`
+    - MarkdownImportModal: `$ import --markdown`
+    - AppV2 More menu: `$ menu`
+    - AppV2 Help modal: `$ help --keys`
+    - ConfirmDialog: prop added, no callers wiring it for now (chain-confirm contextual titles like "Stop the follow-up chain?" carry better signal than a generic `$ confirm`)
+  - **`// manage` section reflow in EditTaskModal.** Destructive + admin actions (Backlog / Projects / Make recurring / Delete) moved into a labeled cluster under a new "Manage" sub-header. Light/dark renders the label as a small uppercase "MANAGE" caption with letter-spacing 0.08em; terminal renders as `// manage` (lowercase, monospace, comment prefix). The hairline + label do the visual grouping; in terminal mode `data-terminal-cmd` attributes on inner spans swap each button's label to its CLI form (`$ archive`, `$ move-to-projects`, `$ make-recurring`, `$ delete --confirm`) via CSS `attr()`. Light/dark show the regular "Backlog" / "Projects" / "Make recurring" / "Delete" labels.
+  - **Bracket-toggle CSS-only override.** `[off] [on]` bracket pairs replace iOS-pill toggles in terminal mode. The existing `<input>+<track>+<thumb>` markup stays unchanged; CSS in `terminal/controls.css` hides the thumb, blanks the track background, and renders both labels via `::before` and `::after` on the track. The active state matches the input's `:checked` state via the sibling combinator. Active label gets the accent color + glow; inactive reads as faded text. Light/dark themes are completely untouched.
+  - **EmptyState `terminalCommand` prop.** `EmptyState` accepts a new optional prop that, when provided + terminal mode is active, short-circuits the icon + title + body + CTA tree to render as a single `// comment` line — same vibe as a CLI "no results" output. Wired into 7 callers covering the main empty-state surfaces:
+    - Home screen (no tasks): `// no active tasks. that's either bold or concerning. press + to add.`
+    - Search empty: `// type a query — searches active, done, backlog, projects`
+    - Search no matches: `// no matches for "..."`
+    - DoneList: `// no completions yet — they show up here as you finish tasks`
+    - ActivityLog: `// log empty — edits, completions, and deletes will appear here`
+    - ProjectsView: `// no projects — move long-haul tasks here to stop the nag`
+    - PackagesModal: `// no packages tracked — paste a tracking number above`
+    - RoutinesModal: `// no routines yet. recurring tasks live here — dentist, oil change, water plants.`
+    Other empty-state callers (Settings sub-tabs, AdviserModal, AnalyticsModal) keep the regular icon-and-body layout — those reads are dense enough that the comment form would lose information.
+  - **Architecture.** New `src/v2/terminal/controls.css` joins the directory; imported via `terminal/index.css`. Holds the bracket-toggle override + empty-state-terminal renderer. Selectors all use `[data-theme^="terminal"]` so both `terminal-dark` and `terminal-light` pick up the same treatment.
+  - **Bundle.** CSS 197.8KB gzip 30.0KB (+~2KB from controls.css + manage section + new pseudo-element rules). JS 801KB gzip 222KB (+~3KB from useTerminalMode hook + threaded props across modals).
+  - **What's not in this PR.** Tap-to-cycle interactions on TaskCard (planned for PR G with the density features), home-screen week strip + goal bar (PR H), polish + visual QA (PR I).
+  - Modified: `src/v2/components/ModalShell.jsx`, `src/v2/components/ConfirmDialog.jsx`, `src/v2/components/EmptyState.jsx`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/EditTaskModal.css`, `src/v2/components/AddTaskModal.jsx`, `src/v2/components/SnoozeModal.jsx`, `src/v2/components/ReframeModal.jsx`, `src/v2/components/WhatNowModal.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/PackagesModal.jsx`, `src/v2/components/AnalyticsModal.jsx`, `src/v2/components/ProjectsView.jsx`, `src/v2/components/DoneList.jsx`, `src/v2/components/ActivityLog.jsx`, `src/v2/components/RoutinesModal.jsx`, `src/v2/components/AdviserModal.jsx`, `src/v2/components/MarkdownImportModal.jsx`, `src/v2/AppV2.jsx`, `src/v2/terminal/index.css`, `wiki/Version-History.md`
+  - Added: `src/v2/hooks/useTerminalMode.js`, `src/v2/terminal/controls.css`
+
 - refactor(ui): terminal theme PR E — palette family + directory split [M]
   - **Why.** Terminal theme shipped as a single `data-theme="terminal"` value with one navy/cyan palette baked into `tokens.css` and `terminal.css`. To go deeper into the aesthetic and let the theme branch into sub-palettes (GitHub Dark, GitHub Light), the structure had to grow up. This PR is the foundation for the rest of the v2-polish-terminal-v2 set.
   - **Two sub-palettes.** Single `'terminal'` value retired in favor of:

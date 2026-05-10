@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { useTerminalMode } from '../hooks/useTerminalMode'
 import './ModalShell.css'
 
-export default function ModalShell({ open, onClose, title, subtitle, children, width = 'narrow' }) {
+export default function ModalShell({ open, onClose, title, terminalTitle, subtitle, children, width = 'narrow' }) {
+  const terminal = useTerminalMode()
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -24,7 +26,7 @@ export default function ModalShell({ open, onClose, title, subtitle, children, w
           <X size={18} strokeWidth={1.75} />
         </button>
         <header className="v2-modal-header">
-          <h1 className="v2-modal-title">{title}</h1>
+          <h1 className="v2-modal-title">{terminal && terminalTitle ? terminalTitle : title}</h1>
           {subtitle && <p className="v2-modal-subtitle">{subtitle}</p>}
         </header>
         <div className="v2-modal-body">

@@ -590,12 +590,14 @@ export default function AppV2() {
                 icon={ListChecks}
                 title="Type to search"
                 body="Searches every task — active, done, backlog, or project."
+                terminalCommand="// type a query — searches active, done, backlog, projects"
               />
             ) : searchResults.length === 0 ? (
               <EmptyState
                 icon={ListChecks}
                 title="No matches"
                 body={`Nothing matches "${searchQuery}". Try a different keyword.`}
+                terminalCommand={`// no matches for "${searchQuery}"`}
               />
             ) : (
               <>
@@ -625,6 +627,9 @@ export default function AppV2() {
             body={activeFilter !== 'all' ? 'Tap All above to clear the filter.' : 'No active tasks right now. Tap the + above to add one.'}
             cta={activeFilter !== 'all' ? 'Show all' : 'Add task'}
             ctaOnClick={activeFilter !== 'all' ? () => setActiveFilter('all') : () => setShowAdd(true)}
+            terminalCommand={activeFilter !== 'all'
+              ? '// no matches under this filter — clear it to see everything'
+              : '// no active tasks. that\'s either bold or concerning. press + to add.'}
           />
         ) : isDesktop ? (
           <KanbanBoard
@@ -705,7 +710,7 @@ export default function AppV2() {
 
       {/* More-menu sheet. Each row's icon is tinted to match v1's color hint
           system so users can recognize destinations at a glance. */}
-      <ModalShell open={showMenu} onClose={() => setShowMenu(false)} title="More" width="narrow">
+      <ModalShell open={showMenu} onClose={() => setShowMenu(false)} title="More" terminalTitle="$ menu" width="narrow">
         <ul className="v2-more-menu">
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowSettings(true) }}>
@@ -767,7 +772,7 @@ export default function AppV2() {
         }}
       />
 
-      <ModalShell open={showHelp} onClose={() => setShowHelp(false)} title="Keyboard shortcuts" width="narrow">
+      <ModalShell open={showHelp} onClose={() => setShowHelp(false)} title="Keyboard shortcuts" terminalTitle="$ help --keys" width="narrow">
         <ul className="v2-shortcut-list">
           {[
             { keys: ['n'], desc: 'New task' },
