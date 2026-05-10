@@ -1,0 +1,448 @@
+/* Terminal — Strip modern app chrome.
+ *
+ * The previous PRs (A–I) painted terminal text + ASCII flourishes on top
+ * of a fundamentally modern card-based UI: rounded card surfaces with
+ * borders, filled accent buttons, glowing FAB, drop-shadowed modals,
+ * pill-shaped action chrome. Reads as "modern app in monospace," not as
+ * a CLI tool.
+ *
+ * This file flattens it. Every override under `[data-theme^="terminal"]`
+ * removes a piece of chrome that doesn't belong in a terminal aesthetic:
+ *
+ *   - Card surface elevation → flat rows on the page bg, separated by
+ *     a single hairline rule
+ *   - Status border-left (overdue/high-pri) → leading [!] / [*] glyph
+ *     on the title via the existing ::before machinery
+ *   - Filled "Done" button → bordered `[ Done ]` text with accent-color
+ *     hover wash, no fill, no shadow
+ *   - Pill-shaped action buttons (snooze/edit/skip) → flat squared
+ *     borders, no hover bg pill
+ *   - Energy chip pill → bare inline icon + text
+ *   - Modal sheet rounded-corner + drop-shadow → flat rectangle with a
+ *     hairline border, square corners, deeper overlay scrim
+ *   - FAB circular fill + shadow + glow → flat square `[+]` glyph in
+ *     a thin accent-bordered box
+ *   - Form submit primary fill → bracketed `[ Save ]` text, no fill
+ *   - EditTaskModal manage-cluster pills → bordered text rows that
+ *     read as command rows
+ *   - Toast pill → flat status line
+ *   - Settings segment-control pill cluster → joined-border tab strip
+ *
+ * Light + dark are completely untouched. The whole file is one selector
+ * scope; deleting the file removes every flattening override at once.
+ */
+
+/* === TaskCard ======================================================= */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card {
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--v2-hairline);
+  border-radius: 0;
+  box-shadow: none;
+  transition: none;
+}
+
+/* First card in any list-context sits flush against the section label
+ * or page top — no extra hairline. (`adjacent-sibling` covers section
+ * labels; `:first-child` covers raw lists.) */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label + .v2-card-swipe-wrap > .v2-card,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label + .v2-card,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-swipe-wrap:first-child > .v2-card,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-list > .v2-card-swipe-wrap:first-of-type > .v2-card {
+  border-top: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card:hover {
+  background: rgba(var(--v2-text-rgb), 0.02);
+  border-color: var(--v2-hairline);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-expanded-state {
+  background: rgba(var(--v2-text-rgb), 0.025);
+  box-shadow: none;
+}
+
+/* Status: replace the colored 2px left border with a leading [!] / [*]
+ * on the title. The existing PR C terminal selector painted `[ ] ` as
+ * the title prefix; for overdue / high-pri we override that prefix
+ * with the status glyph + matching color. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-high-pri {
+  border-left: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue .v2-card-title::before {
+  content: "[!] ";
+  color: var(--v2-alert-overdue);
+  font-weight: 700;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-high-pri .v2-card-title::before {
+  content: "[*] ";
+  color: var(--v2-alert-high-pri);
+  font-weight: 700;
+}
+
+/* Energy chip — drop the pill bg, become inline icon + bolts only. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy {
+  background: transparent;
+  border-radius: 0;
+  padding: 0 4px;
+}
+
+/* Card action buttons — strip pill chrome. Snooze + Edit + Skip become
+ * flat squared boxes; Done becomes bracketed accent-color text. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action {
+  height: auto;
+  min-width: 28px;
+  padding: 4px 10px;
+  border-radius: 0;
+  border: 1px solid var(--v2-hairline);
+  background: transparent;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action:hover {
+  background: transparent;
+  border-color: var(--v2-text-meta);
+  color: var(--v2-text);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action:active {
+  transform: none;
+  background: rgba(var(--v2-text-rgb), 0.06);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary {
+  background: transparent;
+  color: var(--v2-accent);
+  border: 1px solid var(--v2-accent);
+  box-shadow: none;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary:hover {
+  background: rgba(88, 166, 255, 0.08);
+  filter: none;
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary svg {
+  color: var(--v2-accent);
+}
+
+/* The PR C `[ ` / ` ]` brackets used a translucent white that read
+ * against the orange fill. Now that the button is transparent, match
+ * the bracket color to the rest of the button (accent). */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::after {
+  color: var(--v2-accent);
+  font-weight: 700;
+}
+
+/* Skip-advance: keep amber but flatten. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-skip {
+  background: transparent;
+  border-color: var(--v2-alert-high-pri);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-skip:hover {
+  background: rgba(255, 184, 77, 0.08);
+}
+
+/* Card swipe-action panel (mobile) — flat. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-swipe-action {
+  border-radius: 0;
+}
+
+/* === ModalShell + sheets ============================================ */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-modal-overlay {
+  background: rgba(0, 0, 0, 0.70);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-modal {
+  background: var(--v2-bg);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+@media (min-width: 768px) {
+  :root[data-ui="v2"][data-theme^="terminal"] .v2-modal {
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-modal-close {
+  background: transparent;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 0;
+  width: 28px;
+  height: 28px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-modal-close:hover {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  border-color: var(--v2-text-meta);
+}
+
+/* === FloatingCapture (FAB) ========================================= */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 0;
+  border: 1px solid var(--v2-accent);
+  background: transparent;
+  color: var(--v2-accent);
+  box-shadow: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: rgba(88, 166, 255, 0.10);
+  filter: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button:active:not(:disabled) {
+  transform: none;
+  background: rgba(88, 166, 255, 0.18);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-add,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-whatnow {
+  background: transparent;
+  color: var(--v2-accent);
+  border-color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-anchor.v2-fc-button-add,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-button-anchor.v2-fc-button-whatnow {
+  background: transparent;
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-card,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-card-whatnow {
+  background: var(--v2-bg);
+  border: 1px solid var(--v2-accent);
+  border-radius: 0;
+  box-shadow: var(--v2-glow);
+  height: auto;
+  min-height: 36px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-chip {
+  border-radius: 0;
+  background: transparent;
+  border-color: var(--v2-hairline);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-fc-chip:hover {
+  border-color: var(--v2-accent);
+  background: rgba(88, 166, 255, 0.06);
+}
+
+/* === Form submit + form pills ===================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit {
+  background: transparent;
+  color: var(--v2-accent);
+  border: 1px solid var(--v2-accent);
+  border-radius: 0;
+  height: 40px;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.10);
+  filter: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit:active:not(:disabled) {
+  transform: none;
+  background: rgba(88, 166, 255, 0.18);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit::before {
+  content: "[ ";
+  color: var(--v2-accent);
+  font-weight: 500;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-submit::after {
+  content: " ]";
+  color: var(--v2-accent);
+  font-weight: 500;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-input,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-textarea,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-title {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--v2-hairline);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-input:focus,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-textarea:focus,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-title:focus {
+  border-color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label-pill,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--v2-hairline);
+}
+
+/* === EditTaskModal manage cluster ================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--v2-hairline);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action:hover {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  border-color: var(--v2-text-meta);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-danger {
+  border-color: var(--v2-alert-overdue);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-danger:hover {
+  background: rgba(248, 81, 73, 0.08);
+  border-color: var(--v2-alert-overdue);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-confirm-yes {
+  background: transparent;
+  color: var(--v2-alert-overdue);
+  border-color: var(--v2-alert-overdue);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-confirm-yes:hover {
+  background: rgba(248, 81, 73, 0.12);
+  filter: none;
+}
+
+/* === Toast ========================================================= */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-toast {
+  border-radius: 0;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  border: 1px solid var(--v2-accent);
+  box-shadow: var(--v2-glow);
+}
+
+/* === Settings segmented control =================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment {
+  border-radius: 0;
+  border: none;
+  padding: 0;
+  gap: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn {
+  border-radius: 0;
+  border: 1px solid var(--v2-hairline);
+  border-right-width: 0;
+  background: transparent;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn:last-child {
+  border-right-width: 1px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn:hover:not(.v2-settings-segment-btn-active) {
+  background: rgba(var(--v2-text-rgb), 0.05);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-segment-btn-active {
+  background: transparent;
+  color: var(--v2-accent);
+  border-color: var(--v2-accent);
+  position: relative;
+  z-index: 1;
+  text-shadow: var(--v2-glow);
+}
+
+/* === Settings rows + toggles ====================================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle-disabled {
+  opacity: 0.5;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-build {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--v2-hairline);
+  padding: 4px 8px;
+}
+
+/* === Compact input on Settings number rows ======================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-compact-input {
+  border-radius: 0;
+}
+
+/* === Section labels — add a trailing rule so the label reads as a
+ *      listing header rather than just floating text. */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label {
+  border-bottom: 1px solid var(--v2-hairline);
+  padding-bottom: 4px;
+  margin-bottom: 0;
+}
+
+/* === Confirm dialog + Reconcile modal ============================== */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile {
+  background: var(--v2-bg);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-overlay,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-overlay {
+  background: rgba(0, 0, 0, 0.70);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-btn {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--v2-hairline);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-danger {
+  color: var(--v2-alert-overdue);
+  border-color: var(--v2-alert-overdue);
+  background: transparent;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-danger:hover {
+  background: rgba(248, 81, 73, 0.10);
+  filter: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-btn-primary {
+  color: var(--v2-accent);
+  border-color: var(--v2-accent);
+  background: transparent;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-btn-primary:hover {
+  background: rgba(88, 166, 255, 0.08);
+}
