@@ -1,0 +1,74 @@
+/* TypingSuggestions — a list of suggestion buttons that type themselves
+ * in one by one. Each slot is a real button (clickable once typed,
+ * disabled while empty/typing). Replaces the previous separate
+ * "TypingPrompt demo + static suggestion buttons" pair so there's no
+ * visual duplication.
+ *
+ * Light/dark: bordered buttons with rounded corners (callout look).
+ * Terminal: bare-text with `> ` prefix, dashed hairline divider (set in
+ * src/v2/terminal/init.css). */
+
+.v2-typing-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.v2-typing-suggestion {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  border: 1px solid var(--v2-hairline);
+  text-align: left;
+  font: 400 13px/1.4 var(--v2-font-body);
+  cursor: pointer;
+  min-height: 40px;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard),
+              background var(--v2-dur-quick) var(--v2-ease-standard),
+              opacity var(--v2-dur-quick) var(--v2-ease-standard);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.v2-typing-suggestion:not(.v2-typing-suggestion-complete) {
+  /* Slots that haven't been typed yet are visually quieter. The active
+   * one (currently typing) stays at normal weight; the empty pending
+   * ones fade. */
+  opacity: 0.55;
+  cursor: default;
+}
+
+.v2-typing-suggestion-active {
+  opacity: 1;
+}
+
+.v2-typing-suggestion-complete:hover {
+  border-color: var(--v2-accent);
+  background: rgba(255, 98, 64, 0.04);
+}
+
+.v2-typing-suggestion-cursor {
+  color: var(--v2-accent);
+  font-weight: 700;
+  animation: v2-typing-suggestion-blink 1.1s steps(2) infinite;
+}
+
+@keyframes v2-typing-suggestion-blink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-typing-suggestion-cursor {
+    animation: none;
+    opacity: 0.6;
+  }
+  .v2-typing-suggestion:not(.v2-typing-suggestion-complete) {
+    opacity: 1;
+  }
+}
