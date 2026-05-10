@@ -1083,6 +1083,322 @@
   text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
 }
 
+/* =====================================================================
+ * Missed-buttons sweep (2026-05-10) — surfaces I never opened during
+ * earlier passes, OR classes that don't share `.v2-form-seg` /
+ * `.v2-card-action` so they slipped through the generic rules.
+ *
+ * Pattern: bracketed accent text for primary actions, plain meta text
+ * for secondary, hairline-separated flat rows for list items.
+ * ===================================================================== */
+
+/* --- Adviser modal: chat history + tool buttons -------------------- */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-btn,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-history-btn,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-chat-icon-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+  padding: 6px 8px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-btn:hover,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-history-btn:hover,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-chat-icon-btn:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-chat-row {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  padding: 10px 8px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-chat-row:hover {
+  background: rgba(var(--v2-text-rgb), 0.025) !important;
+}
+
+/* --- Analytics modal ---------------------------------------------- */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-range-btn,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-metric-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+  padding: 6px 10px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-range-btn::before {
+  content: "[ ";
+  color: var(--v2-text-faint);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-range-btn::after {
+  content: " ]";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-range-btn-active,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-metric-btn-active {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-range-btn-active::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-range-btn-active::after {
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-bd-row,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-dow-row {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 6px 0 !important;
+}
+
+/* --- Edit modal subviews ----------------------------------------- */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-add-pill,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-connection-pill {
+  background: transparent !important;
+  border: 1px dashed var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+  padding: 6px 10px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-add-pill:hover,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-connection-pill:hover {
+  background: transparent !important;
+  border-color: var(--v2-accent) !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-checklist-toggle,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-routine-toggle {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-checklist-toggle:hover,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-routine-toggle:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-routine-row {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  padding: 10px 8px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-comment-input-row {
+  background: transparent !important;
+  border: 1px dashed var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  padding: 6px !important;
+}
+
+/* --- Settings subviews ------------------------------------------- */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-integrations-toggle-row,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-notif-test-row,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-log-row,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-labels-row {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  padding: 10px 0 !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-labels-icon-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  padding: 4px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-labels-icon-btn:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-notif-history-toggle {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+  padding: 6px 0 !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-notif-history-toggle:hover {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-notif-history-chev {
+  color: var(--v2-text-faint) !important;
+}
+
+/* --- List rows (DoneList, keyboard shortcuts, snooze custom) ---- */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-row,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-shortcut-row,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-snooze-custom-row {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  padding: 10px 8px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-row:hover,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-shortcut-row:hover {
+  background: rgba(var(--v2-text-rgb), 0.025) !important;
+}
+
+/* --- Modal-specific rows ----------------------------------------- */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-suggestion-row,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reframe-result-row {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  padding: 10px 8px !important;
+}
+
+/* Package row action buttons (inside the expanded detail) */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-action {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-accent) !important;
+  text-transform: lowercase;
+  padding: 4px 0 !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-action::before {
+  content: "[ ";
+  color: var(--v2-accent);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-action::after {
+  content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-package-action:hover:not(:disabled) {
+  background: transparent !important;
+  filter: none;
+  text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
+}
+
+/* Activity log row + inline action */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-activity-row {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  padding: 10px 8px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-activity-action {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-accent) !important;
+  text-transform: lowercase;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-activity-action::before {
+  content: "[ ";
+  color: var(--v2-accent);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-activity-action::after {
+  content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-activity-action:hover {
+  background: transparent !important;
+  filter: none;
+  text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
+}
+
+/* Header popover rows (sync indicator + open-stats button) */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-row {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 8px !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-row:hover {
+  background: rgba(var(--v2-text-rgb), 0.04) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-row:last-child {
+  border-bottom: none !important;
+}
+
+/* Routine action buttons (in expanded routine card) */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-routine-action {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+  padding: 4px 8px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-routine-action:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+/* New-routine button in RoutinesModal */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-routine-new-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-accent) !important;
+  text-transform: lowercase;
+  padding: 8px 0 !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-routine-new-btn::before {
+  content: "[ + ";
+  color: var(--v2-accent);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-routine-new-btn::after {
+  content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-routine-new-btn:hover {
+  background: transparent !important;
+  text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
+}
+
 /* Priority toggle — refine the previous pass. Show the priority text
  * wrapped in brackets so it reads as a label, not a button. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle {
