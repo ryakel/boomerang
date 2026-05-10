@@ -45,7 +45,7 @@ function KanbanColumn({
   title, tasks, defaultStatus, onAddTask,
   dragOverColumn, onDragOver, onDrop, onDragStart, draggingId,
   expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate,
-  selectedTaskId,
+  selectedTaskId, routineStreaks,
 }) {
   const acceptsDrop = !!defaultStatus
   const isDropTarget = dragOverColumn === defaultStatus && acceptsDrop
@@ -88,6 +88,7 @@ function KanbanColumn({
               onSkipAdvance={onSkipAdvance}
               weatherByDate={weatherByDate}
               selected={selectedTaskId === t.id}
+              routineStreaks={routineStreaks}
             />
           </div>
         ))}
@@ -103,7 +104,7 @@ export default function KanbanBoard({
   doingTasks, staleTasks, upNextTasks, waitingTasks, snoozedTasks, backlogTasks, projectTasks,
   onAddTask, onStatusChange,
   expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate,
-  selectedTaskId,
+  selectedTaskId, routineStreaks,
 }) {
   const dragRef = useRef(null)
   const [dragOverColumn, setDragOverColumn] = useState(null)
@@ -140,7 +141,7 @@ export default function KanbanBoard({
   }, [staleTasks, doingTasks, upNextTasks, waitingTasks])
 
   const dragCallbacks = { dragOverColumn, onDragOver: handleDragOver, onDrop: handleDrop, onDragStart: handleDragStart, draggingId }
-  const cardCallbacks = { expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate, selectedTaskId }
+  const cardCallbacks = { expandedTaskId, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate, selectedTaskId, routineStreaks }
 
   return (
     <div className="v2-kanban">

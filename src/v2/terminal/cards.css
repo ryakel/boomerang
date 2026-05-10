@@ -42,6 +42,67 @@
   background: rgba(255, 184, 77, 0.06);
 }
 
+/* === Card density (PR G, terminal-only) ============================
+ * Three small additions to the collapsed task card that lift the data
+ * density of the daily list to match init.habits. All three are
+ * gated on terminal mode by user preference (2026-05-10) — extending
+ * to light/dark later is a 1-line change (drop the data-theme prefix
+ * scope) once usage validates.
+ *
+ *   1. [X/Y] checklist counter inline after the title
+ *   2. 🔥N routine-streak indicator inline after the title (or after
+ *      the counter if both present)
+ *   3. One-line clamped notes preview as a sub-row under the title
+ *
+ * Markup for all three ships in every theme; CSS hides them outside
+ * terminal mode via display:none.
+ */
+
+.v2-card-checklist-inline,
+.v2-card-routine-streak,
+.v2-card-notes-preview {
+  display: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-checklist-inline {
+  display: inline;
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  margin-left: 8px;
+  letter-spacing: 0;
+  /* Pulled toward the title baseline; superscript-ish without actually
+   * shrinking. The title sits at the same line, the counter floats next
+   * to it. */
+  vertical-align: baseline;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-routine-streak {
+  display: inline;
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-alert-high-pri);
+  margin-left: 8px;
+  letter-spacing: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-notes-preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  letter-spacing: 0;
+  /* Comment-ish prefix so the line reads as inline notes attached to
+   * the task, not a stray paragraph. */
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-notes-preview::before {
+  content: "// ";
+  color: var(--v2-text-faint);
+}
+
 /* The meta separator `·` becomes a more terminal-y `|` — pipe/output
  * separator. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-meta-sep {

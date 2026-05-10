@@ -41,7 +41,7 @@ import { useNotionSync } from '../hooks/useNotionSync'
 import { useGCalSync } from '../hooks/useGCalSync'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask } from '../api'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity } from '../store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, computeRoutineStreak, logActivity } from '../store'
 import './AppV2.css'
 
 export default function AppV2() {
@@ -239,6 +239,16 @@ export default function AppV2() {
   const settingsForRings = loadSettings()
   const dailyStats = computeDailyStats(tasks)
   const streak = computeStreak(tasks, settingsForRings)
+  // Per-routine streak map → threaded down to TaskCard so routine-spawned
+  // tasks can render an inline 🔥N. Recomputed only when `routines` changes.
+  const routineStreaks = useMemo(() => {
+    const map = {}
+    for (const r of routines) {
+      const s = computeRoutineStreak(r)
+      if (s > 0) map[r.id] = s
+    }
+    return map
+  }, [routines])
   // Flat ordered list for desktop keyboard nav (j/k). Mirrors the visual order:
   // doing → stale → up next → waiting → snoozed → backlog → projects.
   const visibleTasks = isDesktop
@@ -519,6 +529,7 @@ export default function AppV2() {
           onSnooze={handleSnooze}
           onSkipAdvance={handleSkipAdvance}
           weatherByDate={weather.enabled ? weather.byDate : null}
+          routineStreaks={routineStreaks}
         />
       ))}
     </>
@@ -615,6 +626,7 @@ export default function AppV2() {
                     onSnooze={handleSnooze}
                     onSkipAdvance={handleSkipAdvance}
                     weatherByDate={weather.enabled ? weather.byDate : null}
+                    routineStreaks={routineStreaks}
                   />
                 ))}
               </>
@@ -653,6 +665,7 @@ export default function AppV2() {
             onSkipAdvance={handleSkipAdvance}
             weatherByDate={weather.enabled ? weather.byDate : null}
             selectedTaskId={selectedTaskId}
+            routineStreaks={routineStreaks}
           />
         ) : (
           <div className="v2-list">
@@ -822,6 +835,7 @@ export default function AppV2() {
         onEdit={handleEdit}
         onSnooze={handleSnooze}
         weatherByDate={weather.enabled ? weather.byDate : null}
+        routineStreaks={routineStreaks}
       />
       <DoneList
         open={showDone}

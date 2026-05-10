@@ -16,7 +16,7 @@ const SWIPE_THRESHOLD = 60       // px before we commit to revealing actions
 const SWIPE_OPEN_OFFSET = -160   // resting position when actions are revealed; must match .v2-card-swipe-actions width
 const SWIPE_VERT_CANCEL = 12     // px of vertical movement that cancels the swipe
 
-function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate, selected }) {
+function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate, selected, routineStreaks }) {
   const overdue = isOverdue(task)
   const stale = isStale(task)
   const snoozed = isSnoozed(task)
@@ -43,6 +43,19 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
   const checklists = Array.isArray(task.checklists) ? task.checklists : []
   const totalItems = checklists.reduce((n, cl) => n + (cl.items?.length || 0), 0)
   const checkedItems = checklists.reduce((n, cl) => n + (cl.items?.filter(i => i.completed).length || 0), 0)
+
+  // Routine streak — only renders for routine-spawned tasks. The map is
+  // computed once at AppV2 level and threaded down; missing key is fine
+  // (one-off tasks). Currently CSS-gated to terminal mode; the markup
+  // ships in every theme so flipping the gate later is a one-line change.
+  const routineStreak = task.routine_id && routineStreaks ? routineStreaks[task.routine_id] : 0
+
+  // First-line notes preview for the collapsed card. Trimmed + first
+  // newline cut so a multi-line notes string renders as a single sentence.
+  // CSS clamps to one line and hides this outside terminal mode.
+  const notesPreview = task.notes
+    ? task.notes.replace(/\s+/g, ' ').trim().slice(0, 140)
+    : ''
 
   // Swipe state — kept local to TaskCard so each card swipes independently.
   const [swipeX, setSwipeX] = useState(0)
@@ -141,7 +154,22 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
     >
       <button type="button" className="v2-card-main" onClick={onMainClick}>
         <div className="v2-card-content">
-          <div className="v2-card-title">{task.title}</div>
+          <div className="v2-card-title">
+            {task.title}
+            {totalItems > 0 && (
+              <span className="v2-card-checklist-inline" aria-label={`${checkedItems} of ${totalItems} checklist items done`}>
+                [{checkedItems}/{totalItems}]
+              </span>
+            )}
+            {routineStreak > 0 && (
+              <span className="v2-card-routine-streak" aria-label={`Routine streak: ${routineStreak}`}>
+                🔥{routineStreak}
+              </span>
+            )}
+          </div>
+          {!expanded && notesPreview && (
+            <div className="v2-card-notes-preview" aria-hidden="true">{notesPreview}</div>
+          )}
           {(meta.length > 0 || weatherDay) && (
             <div className="v2-card-meta">
               {meta.map((m, i) => (
