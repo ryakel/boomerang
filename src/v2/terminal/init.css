@@ -1702,13 +1702,21 @@
   text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
 }
 
-/* === Adviser suggestion buttons: ensure wrap, drop chrome ========= */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-suggestion {
+/* === TypingSuggestions in Quokka's empty state =====================
+ *
+ * Single-component replacement for the old "static suggestion buttons
+ * + separate typing-prompt demo callout" pair. Each suggestion slot is
+ * its own button — types in sequentially, becomes clickable when
+ * complete. Terminal mode strips chrome to bare text with a `> `
+ * prefix per slot (active line in accent + glow, completed lines in
+ * meta-text, pending lines in faint text). */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-suggestion {
   background: transparent !important;
   border: none !important;
   border-bottom: 1px dashed var(--v2-hairline) !important;
   border-radius: 0 !important;
   padding: 10px 8px !important;
+  min-height: 32px;
   color: var(--v2-text-meta) !important;
   white-space: normal;
   word-break: break-word;
@@ -1716,20 +1724,40 @@
   width: 100%;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-suggestion:hover {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-suggestion::before {
+  content: "> ";
+  color: var(--v2-text-faint);
+  font-weight: 700;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-suggestion-active {
+  color: var(--v2-text) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-suggestion-active::before {
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-suggestion-complete {
+  color: var(--v2-text-meta) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-suggestion-complete::before {
+  color: var(--v2-text-meta);
+  text-shadow: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-suggestion-complete:hover {
   background: transparent !important;
   border-color: var(--v2-accent) !important;
   color: var(--v2-accent) !important;
   text-shadow: var(--v2-glow);
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-suggestion::before {
-  content: "> ";
-  color: var(--v2-text-faint);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-suggestion:hover::before {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-suggestion-complete:hover::before {
   color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
 }
 
 /* === Adviser empty state: prevent horizontal overflow ============= */
@@ -1742,23 +1770,4 @@
 :root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty-title {
   word-break: break-word;
   overflow-wrap: break-word;
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty-demo {
-  overflow: hidden;
-}
-
-/* Per-line `> ` prefix on each typed phrase so it reads as a sequence
- * of prompts being entered. Completed lines fade their prompt slightly
- * so the in-progress one stands out — eye lands on the active cursor. */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-prompt-line::before {
-  content: "> ";
-  color: var(--v2-accent);
-  font-weight: 700;
-  text-shadow: var(--v2-glow);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-typing-prompt-line-complete::before {
-  color: var(--v2-text-meta);
-  text-shadow: none;
 }
