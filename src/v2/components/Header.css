@@ -2,7 +2,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  /* iOS PWA in standalone mode uses `apple-mobile-web-app-status-bar-style:
+   * black-translucent`, which lets the system status bar (clock, battery)
+   * render OVER our header. Add safe-area padding so our content sits below
+   * the status bar instead of behind the iPhone's clock display. */
+  padding: max(14px, env(safe-area-inset-top, 0px)) 16px 14px;
   border-bottom: 1px solid var(--v2-hairline);
   background: var(--v2-bg);
   position: sticky;
@@ -315,7 +319,7 @@
 
 @media (min-width: 601px) {
   .v2-header {
-    padding: 16px 24px;
+    padding: max(16px, env(safe-area-inset-top, 0px)) 24px 16px;
   }
 }
 
