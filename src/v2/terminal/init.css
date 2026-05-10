@@ -388,11 +388,13 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 6px 8px;
   padding: 12px 0 10px;
   font: 500 12px/1 var(--v2-font-body);
   color: var(--v2-text-meta);
   letter-spacing: 0;
+  text-align: center;
 }
 
 .v2-thx-date {
@@ -980,23 +982,135 @@
   color: var(--v2-accent);
 }
 
-/* Research button + comment input button + similar inline action buttons
- * inside EditTaskModal's content blocks. They use various class names
- * but share the v1 inline pill shape. */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-btn,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-row button {
+/* AI / Auto / Polish / Research pills — bracketed accent text. The
+ * sparkle icon stays as a visual cue, the chrome drops. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-ai-pill,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-ai-pill-inline {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  color: var(--v2-accent) !important;
+  font: 500 12px/1 var(--v2-font-body) !important;
+  text-transform: lowercase;
+  text-shadow: var(--v2-glow);
+  height: auto !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-ai-pill::before {
+  content: "[ ";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-ai-pill::after {
+  content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-ai-pill:hover:not(:disabled) {
+  background: transparent !important;
+  filter: none;
+  text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
+}
+
+/* Energy type pills — same bracketed treatment as the labels grid.
+ * Inline `style={{ borderColor, color }}` from the JSX leaks the
+ * energy-type color through, which is what we want — the active pill
+ * gets its energy color rather than the generic accent. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-energy-grid {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-energy-pill {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  height: auto !important;
+  flex: 0 0 auto !important;
+  color: var(--v2-text-meta) !important;
+  font: 500 13px/1.2 var(--v2-font-body) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-energy-pill::before {
+  content: "[ ";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-energy-pill::after {
+  content: " ]";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-energy-pill:hover {
+  background: transparent !important;
+  color: var(--v2-text) !important;
+}
+
+/* Active energy pill — keep the inline color (energy-type) but drop the
+ * border. The text + brackets already pick up the inline color via
+ * cascade since JSX sets `style={{ color: et.color }}`. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-energy-pill-active {
+  background: transparent !important;
+  border-width: 0 !important;
+  text-shadow: 0 0 8px currentColor;
+}
+
+/* The Research toggle button is also `.v2-form-ai-pill` so it gets the
+ * treatment above. Inline research-row "Go" button keeps its accent
+ * bracket treatment. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-go {
   background: transparent !important;
   border: none !important;
   border-radius: 0 !important;
   color: var(--v2-accent) !important;
   text-transform: lowercase;
+  text-shadow: var(--v2-glow);
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-btn::before {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-go::before {
   content: "[ ";
   color: var(--v2-accent);
 }
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-btn::after {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-go::after {
   content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-research-go:hover:not(:disabled) {
+  filter: none;
+  text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
+}
+
+/* Priority toggle — refine the previous pass. Show the priority text
+ * wrapped in brackets so it reads as a label, not a button. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle {
+  border-bottom: none !important;
+  padding: 4px 0 !important;
+  font: 500 13px/1.2 var(--v2-font-body) !important;
+  color: var(--v2-text) !important;
+  height: auto !important;
+  min-height: 32px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle::before {
+  content: "[ ";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle::after {
+  content: " ]";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle:hover::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle:hover::after {
   color: var(--v2-accent);
 }

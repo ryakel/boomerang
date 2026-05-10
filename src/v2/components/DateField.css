@@ -1,0 +1,116 @@
+/* DateField — bracketed text trigger that opens the native date picker.
+ *
+ * Light/dark: looks like a regular form input (bordered rect with the
+ * date or "due date" placeholder text inside). Terminal: collapses to
+ * bare bracketed text. Clear button is plain accent-colored text.
+ *
+ * Hidden input is positioned off-screen but still focusable for the
+ * picker. We call .showPicker() on tap to open the native calendar
+ * without ever rendering the input visually. */
+
+.v2-form-date-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.v2-form-date-hidden-input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+}
+
+/* Light/dark: regular input-styled trigger */
+.v2-form-date-trigger {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 14px/1.4 var(--v2-font-body);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-form-date-trigger:hover {
+  border-color: var(--v2-text-meta);
+}
+
+.v2-form-date-trigger:not(.v2-form-date-trigger-filled) {
+  color: var(--v2-text-meta);
+}
+
+.v2-form-date-clear {
+  background: transparent;
+  border: none;
+  color: var(--v2-text-meta);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  padding: 4px 6px;
+  text-transform: lowercase;
+}
+
+.v2-form-date-clear:hover {
+  color: var(--v2-alert-overdue);
+}
+
+/* === Terminal mode ================================================= */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-field {
+  gap: 10px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-trigger {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  padding: 4px 0 !important;
+  min-height: 32px !important;
+  font: 500 13px/1 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-trigger::before {
+  content: "[ ";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-trigger::after {
+  content: " ]";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-trigger-filled {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-trigger-filled::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-trigger-filled::after {
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-trigger:hover {
+  color: var(--v2-text) !important;
+  text-shadow: 0 0 6px rgba(194, 209, 197, 0.3);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-clear {
+  color: var(--v2-text-faint) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-clear:hover {
+  color: var(--v2-alert-overdue) !important;
+  text-shadow: 0 0 6px rgba(248, 81, 73, 0.4);
+}
