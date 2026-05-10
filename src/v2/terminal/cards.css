@@ -9,12 +9,14 @@
  *     glow falls back to `none` in terminal-light)
  */
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-card-title::before {
-  content: "[ ] ";
-  color: var(--v2-text-meta);
-  font-weight: 500;
-  letter-spacing: 0;
-}
+/* The `[ ]` / `[!]` / `[*]` title prefix is rendered by the
+ * `.v2-card-checkbox` <span role="button"> element (see TaskCard.jsx)
+ * so the user can tap it to complete the task. Title text itself no
+ * longer carries a ::before; checkbox CSS lives in flatten.css /
+ * init.css next to the rest of the checkbox styling.
+ *
+ * Left intentionally empty — the structural prefix moved to a real
+ * interactive element. */
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary {
   box-shadow: var(--v2-glow);

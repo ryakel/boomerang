@@ -65,17 +65,11 @@
   border-left: none;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue .v2-card-title::before {
-  content: "[!] ";
-  color: var(--v2-alert-overdue);
-  font-weight: 700;
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-card-high-pri .v2-card-title::before {
-  content: "[*] ";
-  color: var(--v2-alert-high-pri);
-  font-weight: 700;
-}
+/* Status: `[!]` and `[*]` glyphs are now rendered by the `.v2-card-
+ * checkbox` ::before (see Clickable checkbox block at end of this
+ * file). The colored title-prefix rules below were the old behavior
+ * before the checkbox became interactive — kept empty here so the
+ * cascade resolves correctly. */
 
 /* Energy chip → inline icon + bolts, no pill bg */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-energy {

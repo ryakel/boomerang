@@ -339,11 +339,85 @@
   outline: none;
 }
 
-/* === Card title: drop the `[ ] ` prefix when status indicator
- *      already provides one ([!] / [*]) so we don't double-up. */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue .v2-card-title::before,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-card-high-pri .v2-card-title::before {
-  /* keep the override from flatten.css — already correct */
+/* === Clickable checkbox =============================================
+ *
+ * Tappable `[ ]` / `[!]` / `[*]` element before the title. JSX renders
+ * a `<span role="button" className="v2-card-checkbox">`. CSS hides it
+ * in light/dark (the existing card chrome carries the done affordance
+ * there) and renders the bracketed glyph via ::before in terminal mode.
+ *
+ * On click → onComplete(task.id). The :active state flips to `[✓]`
+ * green for a moment so the user sees the toggle land before the task
+ * disappears from the list. Click bubbling is stopped in JSX so taps
+ * here don't also expand the card. */
+
+.v2-card-checkbox {
+  display: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-right: 8px;
+  cursor: pointer;
+  font: 500 14px/1.35 var(--v2-font-body);
+  vertical-align: baseline;
+  color: var(--v2-text-meta);
+  /* Generous tap target without bloating visual size — extends the
+   * hit zone with negative-margin padding. */
+  min-width: 32px;
+  min-height: 32px;
+  margin-left: -4px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-checkbox::before {
+  content: "[ ]";
+  color: var(--v2-text-meta);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue .v2-card-checkbox::before {
+  content: "[!]";
+  color: var(--v2-alert-overdue);
+  font-weight: 700;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-high-pri .v2-card-checkbox::before {
+  content: "[*]";
+  color: var(--v2-alert-high-pri);
+  font-weight: 700;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-checkbox:hover::before {
+  color: var(--v2-accent);
+  text-shadow: 0 0 6px rgba(88, 166, 255, 0.5);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-checkbox:active::before {
+  content: "[✓]";
+  color: var(--v2-energy-errand);
+  text-shadow: 0 0 8px rgba(126, 231, 135, 0.55);
+}
+
+/* === Drop the `✓ done` button in the expanded action row ===========
+ * The clickable checkbox at the top of the card handles done now.
+ * Keeping a second affordance in expand is duplication. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary {
+  display: none !important;
+}
+
+/* === Hide the swipe-left action panel ==============================
+ * Terminal mode replaces swipe-to-Done/Edit with the visible checkbox
+ * + expand-actions pattern. The swipe gesture itself is short-
+ * circuited in JSX (handleTouchStart bails on isTerminal), but we
+ * also hide the visual panel in case any stale state lingers. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-swipe-actions {
+  display: none !important;
 }
 
 /* === Card title spacing: fix tap target leakage ==================== */
