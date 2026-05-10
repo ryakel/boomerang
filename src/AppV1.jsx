@@ -58,7 +58,7 @@ function AppV1() {
 
   const {
     routines, addRoutine, deleteRoutine, togglePause,
-    completeRoutine, updateRoutine, updateRoutineNotion, spawnDueTasks, spawnNow, hydrateRoutines,
+    completeRoutine, updateRoutine, updateRoutineNotion, spawnDueTasks, spawnNow, skipCycle, hydrateRoutines,
   } = useRoutines()
 
   const isDesktop = useIsDesktop()
@@ -956,6 +956,7 @@ function AppV1() {
             const task = spawnNow(routineId)
             if (task) addSpawnedTasks([task])
           }}
+          onSkipCycle={skipCycle}
           onClose={() => { setShowRoutines(false); setEditRoutineId(null) }}
           editRoutineId={editRoutineId}
           onClearEditRoutineId={() => setEditRoutineId(null)}

@@ -197,6 +197,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - **Verification.** `npm run lint` clean. `npm test` smoke test passes. Bundle: 746KB precache (unchanged).
   - Modified: `src/v2/AppV2.jsx`, `src/v2/AppV2.css`
 
+- feat(routines): "Skip this cycle" button on expanded routine cards [S]
+  - **Why.** Vacation, illness, the lawn doesn't need mowing this week — there was no way to advance a routine's cadence without spawning a task and immediately completing it. Now there's a fast-forward button next to the "+" spawn-now control.
+  - **Behavior.** Stamps `completed_history` with today's ISO timestamp, which makes `getNextDueDate()` roll forward by one cadence interval. Skips count toward the "Nx completed" total — close enough for a personal app, no separate skip log needed.
+  - **UI.** Only shows on non-paused routines (paused routines don't have a current cycle to skip). Title text: "Skip this cycle (advance schedule, no task)".
+  - Added: `skipCycle` to `useRoutines.js`, `onSkipCycle` prop wiring through `App.jsx` → `Routines.jsx` → `RoutineCard`.
+  - Cherry-picked from main onto dev as part of the v2 → main milestone merge (2026-05-09).
+  - Modified: `src/hooks/useRoutines.js`, `src/components/Routines.jsx`, `src/App.jsx`, `CLAUDE.md`, `wiki/Features.md`
+
 - chore(server): delete orphan API routes + dead client wrappers [S]
   - Post-wipe-incident orphan sweep: 4 routes had no callers, 3 client wrappers had no callers. Deleting now to shrink the surface area before someone wires them to something fragile.
   - **Routes deleted (server.js):** `PATCH /api/data/:collection`, `DELETE /api/data`, `POST /api/weather/clear-cache`, `POST /api/trello/sync`. The first two were bulk-blob escape hatches from before the per-record API took over; `weather/clear-cache` was an early debugging endpoint; `trello/sync` is single-list while the working code uses `trello/sync-all-lists`.
