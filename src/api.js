@@ -932,6 +932,20 @@ export async function serverDeleteTask(id) {
   return res.json()
 }
 
+// Sequences PR 3. Marks the task cancelled+skipped server-side AND fires
+// spawnNextChainStep, so the chain keeps walking despite this step being
+// abandoned. Server broadcasts an SSE update; the client's normal refetch
+// hydration brings in both the cancelled task and the new spawned step.
+export async function serverSkipAdvanceTask(id, clientId) {
+  const res = await fetch(`/api/tasks/${id}/skip-advance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ _clientId: clientId }),
+  })
+  if (!res.ok) throw new Error(`skip-advance failed: ${res.status}`)
+  return res.json()
+}
+
 export async function serverCreateRoutine(routine, clientId) {
   const res = await fetch('/api/routines', {
     method: 'POST',

@@ -40,8 +40,8 @@ import { useTrelloSync } from '../hooks/useTrelloSync'
 import { useNotionSync } from '../hooks/useNotionSync'
 import { useGCalSync } from '../hooks/useGCalSync'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
-import { inferSize, trelloUpdateCard } from '../api'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from '../store'
+import { inferSize, trelloUpdateCard, serverSkipAdvanceTask } from '../api'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity } from '../store'
 import './AppV2.css'
 
 export default function AppV2() {
@@ -452,6 +452,31 @@ export default function AppV2() {
     setShowActivityLog(false)
   }, [setTasks])
 
+  // Sequences PR 3: skip-and-advance handler. Optimistically marks the task
+  // cancelled+skipped locally so the card disappears instantly, then calls
+  // the dedicated server endpoint which atomically marks it cancelled+
+  // skipped and fires spawnNextChainStep. The new spawned task arrives
+  // via SSE-triggered hydration. If the server call fails, the optimistic
+  // change is reverted on the next /api/data refetch.
+  const handleSkipAdvance = useCallback((task) => {
+    // Optimistic local update — the server response will overwrite this
+    // with the canonical state including any new spawned step.
+    updateTask(task.id, {
+      status: 'cancelled',
+      skipped: true,
+      completed_at: new Date().toISOString(),
+      last_touched: new Date().toISOString(),
+    })
+    // Activity log marks this as 'skipped' so DoneList / ActivityLog can
+    // distinguish it from a true cancellation in future polish.
+    logActivity('skipped', task)
+    serverSkipAdvanceTask(task.id).catch(err => {
+      console.error('skip-advance failed:', err)
+      // On failure, the server stays authoritative — next refetch reverts
+      // the optimistic update if the action didn't actually land.
+    })
+  }, [updateTask])
+
   // Mirrors v1's add path: create task, kick off AI inference for size/energy
   // when not manually set, and prefetch the completion toast copy.
   const handleAddTask = useCallback((taskData) => {
@@ -485,6 +510,7 @@ export default function AppV2() {
           onComplete={handleComplete}
           onEdit={handleEdit}
           onSnooze={handleSnooze}
+          onSkipAdvance={handleSkipAdvance}
           weatherByDate={weather.enabled ? weather.byDate : null}
         />
       ))}
@@ -578,6 +604,7 @@ export default function AppV2() {
                     onComplete={handleComplete}
                     onEdit={handleEdit}
                     onSnooze={handleSnooze}
+                    onSkipAdvance={handleSkipAdvance}
                     weatherByDate={weather.enabled ? weather.byDate : null}
                   />
                 ))}
@@ -611,6 +638,7 @@ export default function AppV2() {
             onComplete={handleComplete}
             onEdit={handleEdit}
             onSnooze={handleSnooze}
+            onSkipAdvance={handleSkipAdvance}
             weatherByDate={weather.enabled ? weather.byDate : null}
             selectedTaskId={selectedTaskId}
           />

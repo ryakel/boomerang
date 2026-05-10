@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flushNow,
-  upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
+  upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial, skipAndAdvanceTask,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
   getAnalytics, getAnalyticsHistory, getData,
   upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial,
@@ -435,6 +435,18 @@ app.delete('/api/tasks/:id', (req, res) => {
   const newVersion = bumpVersion()
   broadcast(newVersion, null)
   res.json({ ok: true, version: newVersion })
+})
+
+// Sequences PR 3: skip-and-advance. Marks the task cancelled+skipped and
+// fires spawnNextChainStep so the chain keeps walking even though this
+// step wasn't completed. No-op (404) if the task doesn't exist.
+app.post('/api/tasks/:id/skip-advance', (req, res) => {
+  const clientId = req.body?._clientId || null
+  const task = skipAndAdvanceTask(req.params.id)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const newVersion = bumpVersion()
+  broadcast(newVersion, clientId)
+  res.json({ task, version: newVersion })
 })
 
 // --- Per-record Routine API ---

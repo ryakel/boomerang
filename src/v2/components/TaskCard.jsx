@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react'
-import { Check, Pencil, Moon, Monitor, Users, MapPin, Palette, Dumbbell, Zap } from 'lucide-react'
+import { Check, Pencil, Moon, Monitor, Users, MapPin, Palette, Dumbbell, Zap, SkipForward } from 'lucide-react'
 import {
   isStale, isSnoozed, isOverdue,
   formatSnoozeLabel, formatDueDate, daysOld, ENERGY_TYPES,
@@ -16,7 +16,7 @@ const SWIPE_THRESHOLD = 60       // px before we commit to revealing actions
 const SWIPE_OPEN_OFFSET = -160   // resting position when actions are revealed; must match .v2-card-swipe-actions width
 const SWIPE_VERT_CANCEL = 12     // px of vertical movement that cancels the swipe
 
-function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, weatherByDate, selected }) {
+function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate, selected }) {
   const overdue = isOverdue(task)
   const stale = isStale(task)
   const snoozed = isSnoozed(task)
@@ -190,6 +190,22 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
               <Check size={16} strokeWidth={2} />
               <span>Done</span>
             </button>
+            {/* Skip-advance — only on chain-step tasks (i.e., tasks with
+              * queued follow_ups). Marks this step cancelled+skipped and
+              * fires the next step in the chain anyway. Useful when the
+              * user can't do this step but the rest of the cycle should
+              * still proceed (e.g., "I forgot to clean the mop, but the
+              * dirty-tank-empty step still needs to happen"). */}
+            {Array.isArray(task.follow_ups) && task.follow_ups.length > 0 && onSkipAdvance && (
+              <button
+                className="v2-card-action v2-card-action-skip"
+                onClick={() => onSkipAdvance(task)}
+                aria-label={`Skip step and advance chain (${task.follow_ups.length} step${task.follow_ups.length === 1 ? '' : 's'} remaining)`}
+                title="Skip step & advance chain"
+              >
+                <SkipForward size={16} strokeWidth={1.75} />
+              </button>
+            )}
             <button
               className="v2-card-action"
               onClick={() => onSnooze(task)}
