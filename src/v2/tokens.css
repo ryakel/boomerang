@@ -54,3 +54,65 @@
   --v2-text-faint: rgba(232, 232, 236, 0.35);
   --v2-hairline: rgba(255, 255, 255, 0.08);
 }
+
+/* Terminal theme — third aesthetic mode beyond light/dark.
+ * Inspired by init.habits and classic dev-tool dark themes. Deep-navy
+ * background, monospace everywhere, cyan accents with a soft glow. The
+ * point isn't pixel-perfect retro CRT — it's "this app feels like a
+ * tool, not a product." Layout, spacing, and component contracts stay
+ * identical to the light/dark variants; only the palette and font
+ * stack swap. ASCII flourishes (bracketed labels, checkbox prefixes,
+ * spinner glyphs) layer on in subsequent PRs.
+ *
+ * Why a third theme value instead of a separate data-ui mode? Because
+ * Terminal IS v2 in every structural sense — it just dresses different.
+ * Treating it as a theme means dark↔light↔terminal is one toggle, no
+ * extra flag for users to track. */
+:root[data-ui="v2"][data-theme="terminal"] {
+  /* Type — full monospace stack. JetBrains Mono / SF Mono / Cascadia
+   * preferred where available; fall back to system mono to keep the
+   * bundle lean (no @font-face load for v1.1). */
+  --v2-font-display: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+  --v2-font-body: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+
+  /* Surfaces — deep navy. The cards and bg differ by ~6% lightness so
+   * cards still read as elevated, but the contrast is subtle (terminal
+   * UIs lean flat, not Material-shadowy). */
+  --v2-bg: #0A0E1A;
+  --v2-surface: #0F1424;
+  --v2-text: #D8DEF0;
+  --v2-text-rgb: 216, 222, 240;
+  --v2-text-meta: rgba(216, 222, 240, 0.55);
+  --v2-text-faint: rgba(216, 222, 240, 0.32);
+  --v2-hairline: rgba(120, 140, 200, 0.16);
+
+  /* Accent — cyan, the universal "command-line glow." Replaces the
+   * orange of light/dark. Bright enough to read on the navy bg without
+   * looking radioactive. */
+  --v2-accent: #4FC3F7;
+
+  /* Status — terminal-flavored alarm colors, kept semantically aligned
+   * with light/dark (overdue=red, high-pri=amber). */
+  --v2-alert-overdue: #FF6B6B;
+  --v2-alert-high-pri: #FFB84D;
+
+  /* Energy types — recolored to fit the navy palette. Slightly
+   * desaturated so they don't compete with the cyan accent. */
+  --v2-energy-desk: #7DC4F7;
+  --v2-energy-people: #F0A6CA;
+  --v2-energy-errand: #6FCF97;
+  --v2-energy-confrontation: #F2A07B;
+  --v2-energy-creative: #C5A0E8;
+  --v2-energy-physical: #F0C674;
+
+  /* Soft glow — components opt in via this token. Used sparingly on
+   * the wordmark, primary buttons, the sync indicator. The blur is
+   * small enough not to soften legibility. */
+  --v2-glow: 0 0 8px rgba(79, 195, 247, 0.45);
+
+  /* Slightly softer radii so the look feels "boxy terminal" not
+   * "iOS pill" while still staying tap-friendly. */
+  --v2-radius-pill: 6px;
+  --v2-radius-card: 4px;
+  --v2-radius-modal: 6px;
+}
