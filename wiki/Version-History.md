@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- fix(ui): quokka — typing demo types each phrase once, sequentially, no loop [XS]
+  - **Bug.** Typing-prompt was effectively looping the same phrase. User: "You should b typing each line sequentially once. Not the same one over and over."
+  - **Rewrite.** Each phrase types once, in order. As it finishes, it moves into a `completed[]` array (rendered as a static line) and the next phrase starts typing below it. After the last phrase, `phase` flips to `'done'` — no more animation, all phrases visible as a stack. The cursor sits on the active line during typing; completed lines fade to meta-text so the eye lands on the typing one.
+  - **State model** simplified: `{ completed: string[], currentIdx, currentText, phase: 'typing' | 'holding' | 'done' }`. No erase phase, no loop.
+  - **`prefers-reduced-motion`** sets `completed = phrases` immediately, no animation.
+  - **Terminal mode** adds a `> ` prefix per line via `.v2-typing-prompt-line::before`; completed-line prefix fades to meta.
+  - **NOTE:** PR #118 was a false-positive merge — pushed against a stale local branch ref so the diff was empty against base. This is the real ship.
+  - Modified: `src/v2/components/TypingPrompt.jsx`, `src/v2/components/TypingPrompt.css`, `src/v2/components/AdviserModal.css`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - fix(ui): quokka — horizontal overflow + missed toolbar buttons [XS]
   - **Bug.** Quokka modal scrolling expanded the page horizontally — text in the empty state body, the typing-prompt line, and the suggestion buttons all extended past the visible viewport. Plus the "+ New chat" and "Chats" toolbar buttons still rendered as filled-blue / outlined-blue pills in terminal mode (audit miss — they use `.v2-adviser-tool-btn` not `.v2-adviser-btn`).
   - **Root cause #1 — `white-space: pre` on `.v2-typing-prompt`.** The longest suggestion phrase rendered as a non-wrapping single line, forced its parent wide, and cascaded the overflow up through the empty state into the modal body. **Fix:** changed to `white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word`. Preserves the visible spaces in the typed phrase but wraps when needed.
