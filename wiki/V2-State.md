@@ -131,8 +131,18 @@ All five bugs the user logged from device screenshots have been addressed:
 
 ### Future-direction parking lot
 
-- [ ] **Terminal-aesthetic theme toggle.** Inspiration: [init.habits](https://inithabits.com) — monospace + ASCII-style checkboxes `[ ] / [✓]`, command-prompt header (`user@init.habits $ daily`), tabbed nav (habits / stats / profile), fire-emoji streak indicator, calendar-row date picker, soft glow on a deep-blue terminal palette. Could ship as a third tier beyond light/dark — likely a new `data-ui` mode (e.g. `data-ui="terminal"`) that swaps `tokens.css` for a terminal-specific palette + monospace font stack, leaving the layout/component contracts untouched. Not a v2 ship item; revisit after the dev → main merge.
-  - **Terminal-flavored loading/sync animations.** The current `BOOMERANG` wordmark wave (PR #58) — letter-by-letter bounce on saving, green flash on done, yellow/red for degraded/offline — translates beautifully to the terminal aesthetic. Ideas to carry forward into the terminal theme: ASCII spinner glyphs (`| / - \`) cycling per letter instead of bounce; cursor blink on the trailing `_` while saving; `[OK]` / `[ERR]` / `[BUSY]` bracketed status flashes that match terminal status conventions; `loading…` ellipsis dot-cycling; output-line scroll for status messages instead of a popover. Same state machine (`idle / saving / just-synced / degraded / offline`) drives a different visual vocabulary.
+- [x] **Terminal aesthetic — shipped 2026-05-10 (PR A–I).** Originally parked as "third tier beyond light/dark." Shipped as a four-palette family: `light`, `dark`, `terminal-dark` (GitHub Dark), `terminal-light` (GitHub Light), with terminal-specific structural overrides in `src/v2/terminal/` (palette files + wordmark + sections + cards + controls).
+  - **PR A** — palette swap, monospace stack, 3-way picker
+  - **PR B** — `$ boomerang_` wordmark with blinking cursor + chevron section bullets
+  - **PR C** — `[ ]` task-title prefix + `[ Done ]` bracket buttons + soft cyan glow
+  - **PR D** — sync-state animations (`| / - \\` spinner, `✓` confirmation, status-line cursor color shift)
+  - **PR E** — split into `terminal-dark` + `terminal-light` sub-palettes, refactored monolith into `src/v2/terminal/` directory
+  - **PR F** — `$ verb --flag` modal headers (16 modals), `// manage` section in EditTaskModal, `[off] [on]` bracket toggles, `// comment`-style empty states, `useTerminalMode` hook
+  - **PR G** — TaskCard density (terminal-only): inline `[X/Y]` checklist counter, `🔥N` routine streak, one-line notes preview
+  - **PR H** — opt-in `WeekStrip` (7-day calendar) + `GoalProgressBar` on the home screen, theme-aware visuals
+  - **PR I** — convention lockdown + smoke test (`scripts/check-terminal-titles.js`, wired to pre-push) + visual QA + this doc reorg
+
+  **Now stress-testing whether terminal becomes the default forever** (see CLAUDE.md → "Terminal Theme Stress Test"). Light + dark stay maintained as defensive baseline. Decision criterion: ~30 days of daily use in `terminal-*` → terminal becomes the default for new installs and Light/Dark deprecation timeline starts. The whole stack was built so either pivot is cheap (CSS gates remove cleanly; `terminalTitle`/`terminalCommand` props delete or graduate; `useTerminalMode` hook deletes; `terminal/` directory either merges into the regular component CSS or `rm -rf`'s).
 
 - [x] **Smart follow-up sequences — PR 1 shipped.** Completion-triggered task chains (`follow_ups` JSON column on tasks + routines, migration 023). Routine form has a step editor; spawned task instances inherit the chain; each completion walks the chain forward. Full spec in `wiki/Sequences.md`. Remaining slices: PR 2 delete prompt for mid-chain tasks, PR 3 skip-and-advance, PR 4 AI-mediated edit reconciliation, PR 5 Quokka tools (`add_follow_up` / `edit_follow_up` / `remove_follow_up` / `reorder_follow_ups`).
 
