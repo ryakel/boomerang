@@ -6,6 +6,21 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal theme PR D — sync animations [S]
+  - **Why.** Light/dark themes use a letter-by-letter wave bounce + green flash for the saving / just-synced sync states. Brand-y, slightly playful — wrong vibe for terminal. PR D replaces those with status conventions terminals actually use.
+  - **Sync states in terminal mode.**
+    - `saving` → cycling spinner glyph at the cursor position (`| / - \` — the universal CLI loading indicator). 0.6s `steps(4)` rotation, cyan accent color.
+    - `just-synced` → static `✓` (green via `--v2-energy-errand`) for the 700ms hold, then back to idle cursor.
+    - `idle` → blinking `_` cursor (PR B).
+    - `degraded` → blinking `_` in amber (PR B).
+    - `offline` → blinking `_` in red (PR B).
+  - **Letter behavior.** The bounce wave and green flash on individual letters are muted in terminal mode for both `saving` and `just-synced`. Letters stay solid; the spinner / checkmark at the cursor position is the sole channel for state. Reads as a CLI status line, not a brand animation.
+  - **Implementation.** Uses CSS `content` animation — `@keyframes` cycle through `|` / `/` / `-` / `\\`. Modern-browser support landed 2022-2023 (Chrome 105+, Safari 16.4+, Firefox 110+). Older browsers fall back to the static `|` from the `::after` content declaration.
+  - **Reduced-motion.** Spinner glyph stays static at `*` instead of cycling.
+  - **Bundle.** 779KB precache (CSS-only, ~1KB source).
+  - **Terminal theme is now feature-complete for the PR set in V2-State.md.** Future polish (e.g. `[OK]/[ERR]/[BUSY]` badges next to the wordmark, command-prompt style for the brand popover, alternate cadences) can land as smaller follow-ups based on usage.
+  - Modified: `src/v2/terminal.css`, `wiki/Version-History.md`
+
 - feat(ui): terminal theme PR C — TaskCard ASCII flourishes [S]
   - **Why.** Cards picked up the theme's palette + radii from PR A, but they still read as "v2 cards in dark blue." PR C makes them feel like rows in CLI task-list output.
   - **Title prefix.** `[ ] ` checkbox affordance prepended to every task title via `.v2-card-title::before`. Universal terminal TODO marker — Active tasks still aren't done so they always show the empty checkbox; once they complete they leave the active list anyway, so a `[✓]` state isn't needed in this view.
