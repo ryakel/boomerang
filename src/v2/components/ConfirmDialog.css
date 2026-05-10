@@ -1,0 +1,99 @@
+/* Generic v2 confirm dialog. Renders above modals (z-index 200 — same as
+ * SettingsModal's local pattern) so it can pop on top of an open
+ * EditTaskModal etc. Centered card, max-width, ample padding. The action
+ * row keeps Cancel left and the destructive Confirm right per Apple/iOS
+ * convention so destructive actions don't sit under the thumb. */
+
+.v2-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: v2-confirm-overlay-in var(--v2-dur-quick) ease-out;
+}
+
+@keyframes v2-confirm-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.v2-confirm {
+  background: var(--v2-surface);
+  color: var(--v2-text);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  animation: v2-confirm-in var(--v2-dur-standard) var(--v2-ease-emphasis);
+}
+
+@keyframes v2-confirm-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.v2-confirm-title {
+  font: 700 18px/1.2 var(--v2-font-display);
+  margin: 0 0 8px;
+}
+
+.v2-confirm-body {
+  font: 400 13px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin: 0 0 18px;
+}
+
+.v2-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.v2-confirm-btn {
+  border-radius: var(--v2-radius-pill);
+  padding: 8px 16px;
+  font: 600 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  border: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text);
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard),
+              filter var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-confirm-btn-cancel:hover {
+  background: rgba(var(--v2-text-rgb), 0.05);
+}
+
+.v2-confirm-btn-danger {
+  background: var(--v2-alert-overdue);
+  border-color: var(--v2-alert-overdue);
+  color: #fff;
+}
+
+.v2-confirm-btn-danger:hover {
+  filter: brightness(1.06);
+}
+
+.v2-confirm-btn-primary {
+  background: var(--v2-accent);
+  border-color: var(--v2-accent);
+  color: #fff;
+}
+
+.v2-confirm-btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-confirm-overlay,
+  .v2-confirm {
+    animation: none;
+  }
+}

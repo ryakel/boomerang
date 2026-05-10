@@ -23,6 +23,7 @@ import TaskListToolbar from './components/TaskListToolbar'
 import MarkdownImportModal from './components/MarkdownImportModal'
 import Toast from './components/Toast'
 import FloatingCapture from './components/FloatingCapture'
+import ConfirmDialog from './components/ConfirmDialog'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -373,21 +374,51 @@ export default function AppV2() {
     closeTopModal,
   })
 
+  // Sequences PR 2: chain-break confirmation gate. When a task with queued
+  // follow-ups is about to be deleted / cancelled / moved to backlog / moved
+  // to projects, pop a modal warning that the chain will stop. Completion
+  // (`status='done'`) goes through `handleComplete` and ADVANCES the chain
+  // — never gated. Going FROM backlog/project back to active is also fine.
+  const [chainConfirm, setChainConfirm] = useState(null)
+  const gateOnChainBreak = useCallback((task, actionLabel, confirmLabel, proceed) => {
+    const len = Array.isArray(task?.follow_ups) ? task.follow_ups.length : 0
+    if (len === 0) { proceed(); return }
+    setChainConfirm({
+      title: 'Stop the follow-up chain?',
+      body: `This task has ${len} follow-up step${len === 1 ? '' : 's'} queued. ${actionLabel} will stop the chain — the queued step${len === 1 ? '' : 's'} won't spawn.`,
+      confirmLabel,
+      onConfirm: () => { setChainConfirm(null); proceed() },
+    })
+  }, [])
+
   const handleStatusChange = useCallback((id, newStatus) => {
     if (newStatus === 'done') { handleComplete(id); return }
-    changeStatus(id, newStatus)
-    // Push the new status to Trello if the task has a linked card.
     const task = tasks.find(t => t.id === id)
-    if (task?.trello_card_id) pushStatusToTrello(task, newStatus)
-  }, [handleComplete, changeStatus, tasks, pushStatusToTrello])
+    const chainBreaking = ['cancelled', 'backlog', 'project'].includes(newStatus)
+    const proceed = () => {
+      changeStatus(id, newStatus)
+      if (task?.trello_card_id) pushStatusToTrello(task, newStatus)
+    }
+    if (chainBreaking) {
+      gateOnChainBreak(task, `Moving to ${newStatus === 'cancelled' ? 'cancelled' : newStatus}`, 'Stop chain', proceed)
+    } else {
+      proceed()
+    }
+  }, [handleComplete, changeStatus, tasks, pushStatusToTrello, gateOnChainBreak])
 
   const handleBacklog = useCallback((id, toBacklog) => {
-    updateTask(id, { status: toBacklog ? 'backlog' : 'not_started', last_touched: new Date().toISOString() })
-  }, [updateTask])
+    const apply = () => updateTask(id, { status: toBacklog ? 'backlog' : 'not_started', last_touched: new Date().toISOString() })
+    if (!toBacklog) { apply(); return }
+    const task = tasks.find(t => t.id === id)
+    gateOnChainBreak(task, 'Moving to backlog', 'Stop chain & move', apply)
+  }, [updateTask, tasks, gateOnChainBreak])
 
   const handleProject = useCallback((id, toProject) => {
-    updateTask(id, { status: toProject ? 'project' : 'not_started', last_touched: new Date().toISOString() })
-  }, [updateTask])
+    const apply = () => updateTask(id, { status: toProject ? 'project' : 'not_started', last_touched: new Date().toISOString() })
+    if (!toProject) { apply(); return }
+    const task = tasks.find(t => t.id === id)
+    gateOnChainBreak(task, 'Moving to projects', 'Stop chain & move', apply)
+  }, [updateTask, tasks, gateOnChainBreak])
 
   const handleConvertToRoutine = useCallback((taskId, { title, cadence, customDays, tags, notes }) => {
     const routine = addRoutine(title, cadence, customDays, tags, notes)
@@ -402,14 +433,19 @@ export default function AppV2() {
   }, [uncompleteTask, pushStatusToTrello])
 
   // Archive the Trello card on delete so the next inbound sync doesn't
-  // re-import the task. Mirrors v1 handleDelete.
+  // re-import the task. Mirrors v1 handleDelete. Also gated on chain-break
+  // — if the task has queued follow-ups, the user gets a confirmation
+  // modal before the delete proceeds.
   const handleDelete = useCallback((id) => {
     const task = tasks.find(t => t.id === id)
-    if (task?.trello_card_id) {
-      trelloUpdateCard(task.trello_card_id, { closed: true }).catch(() => {})
+    const proceed = () => {
+      if (task?.trello_card_id) {
+        trelloUpdateCard(task.trello_card_id, { closed: true }).catch(() => {})
+      }
+      deleteTask(id)
     }
-    deleteTask(id)
-  }, [tasks, deleteTask])
+    gateOnChainBreak(task, 'Deleting', 'Stop chain & delete', proceed)
+  }, [tasks, deleteTask, gateOnChainBreak])
 
   const handleRestore = useCallback((snapshot) => {
     setTasks(prev => [snapshot, ...prev])
@@ -816,6 +852,17 @@ export default function AppV2() {
           }
         }}
         onOpenWhatNow={() => setShowWhatNow(true)}
+      />
+
+      <ConfirmDialog
+        open={!!chainConfirm}
+        title={chainConfirm?.title || ''}
+        body={chainConfirm?.body || ''}
+        confirmLabel={chainConfirm?.confirmLabel || 'Confirm'}
+        cancelLabel="Keep task"
+        tone="danger"
+        onConfirm={() => chainConfirm?.onConfirm?.()}
+        onCancel={() => setChainConfirm(null)}
       />
 
       {toast && (

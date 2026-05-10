@@ -87,11 +87,9 @@ Both copy `routine.follow_ups` onto the spawned task. The walk takes over from t
 
 ---
 
-## Open questions / Roadmap
+## Roadmap
 
-The user has signed off on the following follow-up PRs (in order):
-
-- **PR 2 — Delete prompt.** Deleting (or moving to backlog/projects/cancelled) a task that has non-empty `follow_ups` opens a modal asking: *"This task has N follow-ups queued. Delete this step only (chain stops), or cancel the whole chain?"*
+- **PR 2 — Chain-break confirmation (SHIPPED).** When a task with queued follow-ups is about to be deleted, moved to backlog, moved to projects, or cancelled, a `ConfirmDialog` warns: *"This task has N follow-up step(s) queued. {Action} will stop the chain — the queued step(s) won't spawn."* Two options: confirm-with-stop (red), or "Keep task" (cancel). Completion is intentionally ungated since `done`/`completed` ADVANCE the chain — they don't break it. Implementation: `gateOnChainBreak()` helper in `AppV2.jsx` wraps `handleDelete`/`handleBacklog`/`handleProject`/`handleStatusChange`. Reusable `src/v2/components/ConfirmDialog.jsx` + `.css`.
 - **PR 3 — Skip & advance.** Button on a chain-step task that marks it `cancelled` with `skipped: true`, then runs the spawn logic anyway. Activity log distinguishes skip from completion.
 - **PR 4 — AI-mediated edit reconciliation.** Editing a step (live OR template) pops a small Quokka modal: *"You changed X. Want me to update the rest of the chain to match?"* AI suggests per-step diffs, user accepts/rejects.
 - **PR 5 — Quokka tools.** `add_follow_up`, `edit_follow_up`, `remove_follow_up`, `reorder_follow_ups` so chains can be created/edited via natural language.
