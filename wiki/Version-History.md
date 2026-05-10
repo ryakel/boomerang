@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal — home stats line (date · streak · today) + auto-enable WeekStrip + restore brand mark [S]
+  - **Why.** User's focus shifted to the main section: bring init's calendar + date-progress + fire-streak signals up there. PR-H opt-in surfaces (WeekStrip + GoalProgressBar) get auto-enabled in terminal mode so users don't have to toggle them. New segmented status line at the top renders date + streak + today's progress as three powerlevel10k cells.
+  - **`📅 Sun, May 10  ·  🔥 14 days  ·  ✓ 3/5 today`.** New `.v2-terminal-home-stats` div rendered above the WeekStrip (only in terminal mode). Each cell has a meaningful color: date in muted text, streak in high-pri amber (the fire color, with soft amber glow), today in errand-green (success, with soft green glow). Separators in faint text. Streak comes from existing `computeStreak(tasks, settings)`; today comes from `dailyStats.tasksToday` / `daily_task_goal`. Pluralization handled (`1 day`, `N days`).
+  - **WeekStrip + GoalProgressBar auto-enable in terminal mode.** Previously gated behind `settings.show_week_strip` / `settings.show_goal_progress` (default off). Now `(setting || isTerminal)` flips the gate — terminal mode always renders both. Light/dark users still opt-in via Settings → General → Home screen.
+  - **`useTerminalMode` hook imported in AppV2.** Already existed for `terminalTitle` / `terminalCommand`; now drives the auto-enable + the new stats line.
+  - **Brand `v` logo restored.** Earlier same day it was hidden ("modern brand on CLI aesthetic" misfit), but user's call: keep as a deliberate idiosyncrasy. One drop of brand color next to the prompt is fine.
+  - **Bundle.** CSS 226.7KB gzip 33.5KB (+~0.4KB stats-line CSS). JS 808.2KB gzip 223.8KB (+~0.6KB stats-line JSX + useTerminalMode hook).
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal theme — hide brand logo + add section dividers [XS]
   - **Why.** Side-by-side check vs init showed two remaining misfits: the orange `v` brand SVG sitting next to the `$ boomerang` prompt (modern brand mark on a CLI aesthetic — wrong vibe) and section spacing relying on whitespace alone, which wasn't doing enough visual work to separate groups (init uses a thin rule above each section).
   - **Brand logo hidden.** `.v2-header-brand > svg { display: none }` in terminal mode. The `$ boomerang_` text prompt is identity enough; the visual payload of the SVG conflicts with the bare-text feel everywhere else.

@@ -194,12 +194,10 @@
   color: var(--v2-text-faint);
 }
 
-/* === Brand logo: hide in terminal mode ============================
- * The orange `v` SVG is a brand mark and reads as a misfit on a CLI
- * aesthetic. Hide it; the `$ boomerang` prompt is identity enough. */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-header-brand > svg {
-  display: none !important;
-}
+/* === Brand logo: kept ==============================================
+ * The orange `v` SVG was briefly hidden ("modern brand on a CLI aesthetic"
+ * misfit), but the user's call is to keep it as a deliberate idiosyncrasy.
+ * One drop of brand color next to the `$ boomerang_` prompt. */
 
 /* === Section dividers: hairline between groups ====================
  * Whitespace alone wasn't doing enough visual work to separate
@@ -370,6 +368,46 @@
   right: 12px;
   bottom: max(12px, env(safe-area-inset-bottom, 0px));
   gap: 14px;
+}
+
+/* === Terminal home stats line ======================================
+ * Powerlevel10k-style segmented status line at the top of the task
+ * list, only in terminal mode. Renders date + streak + today's
+ * progress as colored cells:
+ *   📅 Sun, May 10  ·  🔥 14 days  ·  ✓ 3/5 today
+ *
+ * Each segment in a meaningful color: date in muted text, streak in
+ * the high-pri amber (the fire color), today in the success green
+ * (errand-green). Separators in faint text.
+ */
+
+.v2-terminal-home-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 12px 0 10px;
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  letter-spacing: 0;
+}
+
+.v2-thx-date {
+  color: var(--v2-text-meta);
+}
+
+.v2-thx-streak {
+  color: var(--v2-alert-high-pri);
+  text-shadow: 0 0 6px rgba(255, 184, 77, 0.35);
+}
+
+.v2-thx-today {
+  color: var(--v2-energy-errand);
+  text-shadow: 0 0 6px rgba(126, 231, 135, 0.35);
+}
+
+.v2-thx-sep {
+  color: var(--v2-text-faint);
 }
 
 /* === Subtle: section-label first-of-kind has less top padding ===== */
