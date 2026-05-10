@@ -6,6 +6,25 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal theme — strip modern app chrome (flatten) [M]
+  - **Why.** PR A–I shipped terminal text + ASCII flourishes on top of a fundamentally modern card-based UI: rounded card surfaces with borders, filled accent buttons, glowing FAB, drop-shadowed modals, pill-shaped action chrome. Reads as "modern app in monospace," not as a CLI tool. User feedback after first in-browser look: didn't go far enough. PR J flattens the chrome.
+  - **TaskCard.** Surface bg dropped, border + border-radius dropped, box-shadow dropped. Cards become flat rows on `var(--v2-bg)`, separated by a single hairline `border-top` (skipped on the first card after a section label or at top of list). Hover gets a faint 2% bg tint instead of an accent border. Expanded card uses a slightly elevated 2.5% bg tint so the open row reads as the focused one without pretending to be a card. Status colors no longer ride a 2px left border — overdue + high-pri override the existing `[ ]` title prefix to `[!] ` (red) / `[*] ` (amber) so status reads as a leading character on the title line, not as a chrome decoration.
+  - **Card actions.** Snooze/Edit/Skip lose their pill chrome — flat 1px hairline boxes, square corners, no hover bg fill. The Done primary button drops the accent fill + brand glow box-shadow + brightness-filter hover; becomes bordered `[ Done ]` text in accent color with a soft cyan text-shadow glow and a 0.08 opacity wash on hover. Skip-advance keeps amber but flattens the same way.
+  - **Energy chip.** Pill bg removed; becomes inline icon + bolts only.
+  - **ModalShell.** Sheet bg shifts to `var(--v2-bg)` (matches page) with a 1px hairline border instead of the surface elevation. Border-radius zeroed at all breakpoints, box-shadow zeroed (desktop drawer no longer floats with a shadow). Overlay scrim deepened from 0.45 to 0.70 so the modal reads as a takeover, not a card. Close X button squares off too.
+  - **FAB.** 48px circle → 36px square. Accent fill → transparent with thin accent border. Box-shadow + hover lift removed. Hover gets a 0.10 accent wash, active gets 0.18. Same flattening for both `+` (add) and target (what-now) variants. The FC card panel that expands from the FAB switches to flat-rect with accent border + cyan glow text-shadow.
+  - **Form submit primary.** "Save changes" / "Add task" fills replaced with bordered `[ verb ]` text — uses `::before` `[ ` and `::after` ` ]` brackets with the same accent color as the button text. No fill, no shadow, no transform on click.
+  - **Form inputs + textarea + title.** Border-radius 10px → 0. Border-color stays hairline; focus state still flips to accent.
+  - **EditTaskModal manage cluster.** Pill-shaped `Backlog` / `Projects` / `Make recurring` / `Delete` buttons → flat squared boxes. Delete border colors with overdue red. Confirm-yes button drops its red fill, becomes red-bordered transparent text.
+  - **Settings segmented control.** Rounded-pill cluster → joined-border tab strip. Adjacent buttons share a border (right-border collapsed except on the last child); active button gets accent border + accent text + glow text-shadow. No background fill on active.
+  - **Section labels.** Add a thin hairline `border-bottom` so the label reads as a listing header. Padding-bottom 4px so the rule sits close to the text but not flush.
+  - **ConfirmDialog + ChainReconcileModal.** Same flattening — bg matches page, border becomes hairline, radius zeroed, shadow removed, deeper overlay.
+  - **Toast.** Pill bg → bordered flat rect with accent border + cyan glow text-shadow.
+  - **Architecture.** New `src/v2/terminal/flatten.css` (~330 lines). Imported via `terminal/index.css` between `typography.css` and the existing structural override files. All selectors gated on `[data-theme^="terminal"]`. Light + dark are completely untouched. Deleting the file restores the modern chrome to terminal mode entirely.
+  - **Bundle.** CSS 217KB gzip 32.2KB (+~9KB from the new file's coverage). JS unchanged.
+  - Modified: `src/v2/terminal/index.css`, `wiki/Version-History.md`
+  - Added: `src/v2/terminal/flatten.css`
+
 - style(ui): terminal theme — typography scale-down [S]
   - **Why.** First in-browser look at the merged terminal aesthetic showed text feeling chunky — task titles dominating the column, modal headers eating half the screen. Monospace is denser per-character than proportional fonts at the same point size, but the v2 sizes were originally tuned for Syne + DM Sans. Swapping to JetBrains Mono at the same numeric sizes overshoots.
   - **Approach.** New `src/v2/terminal/typography.css` with size overrides under `[data-theme^="terminal"]`. Light + dark stay at the calm Wheneri-tuned sizes. Dedicated file (not inline per component) so "what does terminal change about text?" is one grep, and graduating the smaller scale to all themes (if that's where we land) is one block to delete or de-gate.
