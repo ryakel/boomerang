@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- fix(ui): quokka — horizontal overflow + missed toolbar buttons [XS]
+  - **Bug.** Quokka modal scrolling expanded the page horizontally — text in the empty state body, the typing-prompt line, and the suggestion buttons all extended past the visible viewport. Plus the "+ New chat" and "Chats" toolbar buttons still rendered as filled-blue / outlined-blue pills in terminal mode (audit miss — they use `.v2-adviser-tool-btn` not `.v2-adviser-btn`).
+  - **Root cause #1 — `white-space: pre` on `.v2-typing-prompt`.** The longest suggestion phrase rendered as a non-wrapping single line, forced its parent wide, and cascaded the overflow up through the empty state into the modal body. **Fix:** changed to `white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word`. Preserves the visible spaces in the typed phrase but wraps when needed.
+  - **Root cause #2 — audit miss on toolbar buttons.** `.v2-adviser-tool-btn` only had a font-size override in terminal mode. The base CSS still rendered borders/fills. Added explicit chrome strip: bare lowercase text, `-primary` variant gets accent color + glow.
+  - **Suggestion buttons** also flattened in terminal mode: dashed bottom hairline, `> ` prefix on each row, full-width with `word-break: break-word` so long prompts wrap.
+  - **Empty state** got safety constraints: `max-width: 100%`, `padding: 24px 4px 16px` (less horizontal), and `overflow: hidden; text-overflow: ellipsis` on the demo line as a fallback.
+  - Modified: `src/v2/components/TypingPrompt.css`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - feat(ui): quokka — typing-prompt demo above example suggestions [XS]
   - **Why.** User: "Can you do typing text? I'd love to see that added to the examples in quokka." Adds a CLI-demo feel to Quokka's empty state — Quokka literally types out what you could ask, cycling through `PROMPT_SUGGESTIONS`.
   - **New `TypingPrompt` component.** Character-by-character typing with a blinking cursor (`_`). Cycles through provided phrases: type → hold (~1.6s) → erase → next phrase. Configurable `typeMs` / `eraseMs` / `holdMs` / `pauseBetweenMs` props. `prefers-reduced-motion` short-circuits to a static render of the longest phrase, no animation.

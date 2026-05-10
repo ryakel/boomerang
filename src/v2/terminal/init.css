@@ -1671,3 +1671,80 @@
 /* The `✓ done` card action stays green (errand-green) — the completion
  * state has its own color identity distinct from accent. Same for the
  * checkbox tap-active `[✓]` and the `.v2-confirm-btn-danger` red glow. */
+
+/* === Adviser toolbar buttons (Chats / New chat) ====================
+ * The audit missed these — they use `.v2-adviser-tool-btn` (not
+ * `.v2-adviser-btn`) and the primary variant adds accent fill. Strip
+ * chrome to match the rest of the terminal idiom. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-tool-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+  padding: 6px 8px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-tool-btn:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-tool-btn-primary {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-tool-btn-primary:hover {
+  color: var(--v2-accent) !important;
+  filter: none;
+  text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
+}
+
+/* === Adviser suggestion buttons: ensure wrap, drop chrome ========= */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-suggestion {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px dashed var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  padding: 10px 8px !important;
+  color: var(--v2-text-meta) !important;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  width: 100%;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-suggestion:hover {
+  background: transparent !important;
+  border-color: var(--v2-accent) !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-suggestion::before {
+  content: "> ";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-suggestion:hover::before {
+  color: var(--v2-accent);
+}
+
+/* === Adviser empty state: prevent horizontal overflow ============= */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty {
+  max-width: 100%;
+  padding: 24px 4px 16px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty-body,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty-title {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-empty-demo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

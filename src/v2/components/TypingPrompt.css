@@ -7,10 +7,12 @@
  * automatically from the surrounding theme tokens. */
 
 .v2-typing-prompt {
-  display: inline-block;
+  display: inline;
   font-variant-ligatures: none;
   letter-spacing: 0;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .v2-typing-prompt-text {
