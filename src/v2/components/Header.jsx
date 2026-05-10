@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Sparkles, Package, MoreVertical, Target } from 'lucide-react'
+import { Sparkles, Package, MoreVertical } from 'lucide-react'
 import Logo from '../../components/Logo'
 import { MiniRings } from '../../components/Rings'
 import './Header.css'
@@ -22,7 +22,7 @@ function deriveSyncVisualState(syncStatus, queueLength, animState) {
 }
 
 export default function Header({
-  onOpenAdviser, onOpenPackages, onOpenMenu, onOpenAdd, onOpenWhatNow,
+  onOpenAdviser, onOpenPackages, onOpenMenu,
   miniRingsData, onOpenAnalytics,
   todayCount, hasDone, onOpenDone, onOpenLogs,
   syncStatus, queueLength,
@@ -168,17 +168,9 @@ export default function Header({
       )}
 
       <nav className="v2-header-actions">
-        {onOpenWhatNow && (
-          <button className="v2-header-whatnow" onClick={onOpenWhatNow}>
-            <Target size={14} strokeWidth={2} />
-            <span className="v2-header-whatnow-label">What now?</span>
-          </button>
-        )}
-        {onOpenAdd && (
-          <button className="v2-header-icon v2-header-icon-primary" onClick={onOpenAdd} aria-label="New task">
-            <Plus size={20} strokeWidth={2} />
-          </button>
-        )}
+        {/* + Add and target/whatnow moved to FloatingCapture (right-edge
+         * speed-dial) so the header isn't crowded. Header now carries only
+         * brand affordances + integrations + overflow. */}
         <button className="v2-header-icon v2-header-icon-quokka" onClick={onOpenAdviser} aria-label="Quokka">
           <Sparkles size={20} strokeWidth={1.75} />
         </button>
