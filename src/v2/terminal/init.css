@@ -381,16 +381,31 @@
   letter-spacing: 0;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue .v2-card-checkbox::before {
-  content: "[!]";
+/* Urgency signal: title color, not checkbox glyph.
+ *
+ * The leading `[!]` / `[*]` markers were confusing — they read as
+ * "alternate checkbox states" rather than urgency, especially now that
+ * the checkbox is a real tappable button. The checkbox stays `[ ]`
+ * always (or `[✓]` on tap-active); urgency moves to the title text
+ * color. Cleaner separation:
+ *   `[ ]`     = tap to complete (state)
+ *   red text  = overdue (urgency)
+ *   amber     = high priority (urgency)
+ */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue .v2-card-title {
   color: var(--v2-alert-overdue);
-  font-weight: 700;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-card-high-pri .v2-card-checkbox::before {
-  content: "[*]";
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-high-pri .v2-card-title {
   color: var(--v2-alert-high-pri);
-  font-weight: 700;
+}
+
+/* If a task is both overdue AND high-pri, overdue wins (red beats amber
+ * in the "needs attention now" hierarchy). The :where(...) wrap keeps
+ * specificity low so explicit overrides at the same level still win. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-overdue.v2-card-high-pri .v2-card-title {
+  color: var(--v2-alert-overdue);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-card-checkbox:hover::before {
