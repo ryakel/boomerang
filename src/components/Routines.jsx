@@ -15,7 +15,7 @@ const DAY_OF_WEEK_OPTIONS = [
 
 const DAY_OF_WEEK_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onUpdateNotion, onSpawnNow, onClose, editRoutineId, onClearEditRoutineId, isDesktop }) {
+export default function Routines({ routines, onAdd, onDelete, onTogglePause, onUpdate, onUpdateNotion, onSpawnNow, onSkipCycle, onClose, editRoutineId, onClearEditRoutineId, isDesktop }) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingRoutine, setEditingRoutine] = useState(null)
   const [title, setTitle] = useState('')
@@ -328,7 +328,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
         <>
           <div className="section-label">Active</div>
           {active.map(r => (
-            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} onSpawnNow={onSpawnNow} />
+            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} />
           ))}
         </>
       )}
@@ -337,7 +337,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
         <>
           <div className="section-label">Paused</div>
           {paused.map(r => (
-            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} onSpawnNow={onSpawnNow} />
+            <RoutineCard key={r.id} routine={r} onDelete={onDelete} onConfirmDelete={setConfirmDelete} onTogglePause={onTogglePause} onEdit={handleEdit} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} />
           ))}
         </>
       )}
@@ -386,7 +386,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
 const SWIPE_THRESHOLD = 70
 const SWIPE_OPEN_OFFSET = -140
 
-function RoutineCard({ routine, onDelete, onConfirmDelete, onTogglePause, onEdit, onSpawnNow }) {
+function RoutineCard({ routine, onDelete, onConfirmDelete, onTogglePause, onEdit, onSpawnNow, onSkipCycle }) {
   const [expanded, setExpanded] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -543,6 +543,15 @@ function RoutineCard({ routine, onDelete, onConfirmDelete, onTogglePause, onEdit
                 title="Create task now (bypass schedule)"
               >
                 <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              </button>
+            )}
+            {onSkipCycle && !routine.paused && (
+              <button
+                className="toolbar-pill snooze"
+                onClick={() => { setExpanded(false); onSkipCycle(routine.id) }}
+                title="Skip this cycle (advance schedule, no task)"
+              >
+                <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4" /><line x1="19" y1="5" x2="19" y2="19" /></svg>
               </button>
             )}
             <button className="toolbar-pill edit" onClick={() => { setExpanded(false); onEdit(routine) }} title="Edit">
