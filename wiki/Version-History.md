@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- feat(ui): terminal theme PR B — wordmark prompt + section bullets [S]
+  - **Why.** PR A swapped the palette + font; PR B layers the actual ASCII flourishes that make the theme feel like a CLI instead of just "v2 in dark blue."
+  - **Wordmark.** `BOOMERANG` becomes `$ boomerang_` in terminal mode. Lowercase via `text-transform`, leading `$ ` prompt prefix as `::before`, blinking trailing `_` cursor as `::after` (1.1s `steps(2)` blink — hard on/off cut, not smooth fade). Cursor color picks up the cyan accent in idle state, switches to amber/red when sync goes degraded/offline. Existing letter-span saving wave still fires unchanged because the pseudo-elements aren't part of the spans.
+  - **Section labels.** `✦ DOING                3` becomes `> DOING               [3]`. Sparkle character hidden via `font-size: 0`; chevron prompt rendered as `::before` on the bullet span; brackets wrap the count via `::before` + `::after` on the count span. Reads as a CLI listing row.
+  - **Brand popover sync row.** The `●` indicator gets bracketed: `[●] Synced ✓` for status-line vibes.
+  - **Empty-state icon backdrop** rounds to the smaller terminal `--v2-radius-card` (4px) so the soft circle becomes a boxy square — matches the theme's overall geometry.
+  - **Architecture choice.** All terminal overrides live in a single new `src/v2/terminal.css` (imported from `AppV2.css`) instead of being scattered across each component's stylesheet. Two reasons: (1) easier to audit "what does terminal mode change?", (2) component CSS stays neutral so light + dark remain canonical.
+  - **Reduced-motion.** Cursor blink respects `prefers-reduced-motion` — solid cursor instead of animation.
+  - **Bundle.** 779KB precache (unchanged — terminal.css adds ~3KB of CSS source that compresses into the existing chunk).
+  - **What's still pending.** Bracket buttons, `[ ]/[✓]` checkboxes on TaskCard (PR C). Sync wordmark spinner + `[OK]/[ERR]/[BUSY]` flashes (PR D).
+  - New: `src/v2/terminal.css`
+  - Modified: `src/v2/AppV2.css`, `wiki/Version-History.md`
+
 - feat(ui): terminal theme PR A — palette, monospace stack, 3-way picker [M]
   - **Why.** Light + dark covered the calm-product end of the aesthetic spectrum, but the user wanted a third mode that reads as "this app is a tool, not a product" — inspired by [init.habits](https://inithabits.com) and classic dev-tool dark themes. Deep navy bg, monospace everywhere, cyan accents with a soft glow. Layout/component contracts are unchanged; this PR is purely tokens + the picker.
   - **Token block.** New `:root[data-ui="v2"][data-theme="terminal"]` variant in `tokens.css`. Bg `#0A0E1A`, surface `#0F1424`, text `#D8DEF0`, accent cyan `#4FC3F7`. Energy types desaturated to fit the navy palette without competing with the accent. Radii dropped from `999px / 14px / 20px` to `6px / 4px / 6px` so cards/pills read "terminal box" instead of "iOS pill." New `--v2-glow` token (subtle cyan blur) reserved for opt-in use by sync/wordmark/buttons in the next theme PRs.
