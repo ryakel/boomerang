@@ -757,49 +757,49 @@ export default function AppV2() {
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowSettings(true) }}>
               <SettingsIcon size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-settings" />
-              <span className="v2-more-row-label">Settings</span>
+              <span className="v2-more-row-label" data-terminal-cmd="$ settings">Settings</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowProjects(true) }}>
               <FolderKanban size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-projects" />
-              <span className="v2-more-row-label">Projects</span>
+              <span className="v2-more-row-label" data-terminal-cmd="$ projects">Projects</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowRoutines(true) }}>
               <RotateCw size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-routines" />
-              <span className="v2-more-row-label">Routines</span>
+              <span className="v2-more-row-label" data-terminal-cmd="$ routines">Routines</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowDone(true) }}>
               <CheckCircle2 size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-done" />
-              <span className="v2-more-row-label">Done</span>
+              <span className="v2-more-row-label" data-terminal-cmd="$ done">Done</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowAnalytics(true) }}>
               <BarChart3 size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-analytics" />
-              <span className="v2-more-row-label">Analytics</span>
+              <span className="v2-more-row-label" data-terminal-cmd="$ stats">Analytics</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowActivityLog(true) }}>
               <History size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-activity" />
-              <span className="v2-more-row-label">Activity log</span>
+              <span className="v2-more-row-label" data-terminal-cmd="$ log">Activity log</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
           <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowMarkdownImport(true) }}>
               <Upload size={18} strokeWidth={1.75} className="v2-more-row-icon" />
-              <span className="v2-more-row-label">Import from markdown</span>
+              <span className="v2-more-row-label" data-terminal-cmd="$ import --markdown">Import from markdown</span>
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>

@@ -1867,36 +1867,78 @@ export default function SettingsModal({
 
         {activeTab === 'General' && (
           <div className="v2-settings-form">
-            <div className="v2-settings-row v2-settings-row-stacked">
-              <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Theme</div>
-                <div className="v2-settings-row-hint">Light + Dark are the canonical palettes. Terminal Dark + Terminal Light are monospace, GitHub-flavored variants — same density and ASCII flourishes, dark or light canvas.</div>
-              </div>
-              <div className="v2-settings-segment v2-settings-segment-4" role="radiogroup" aria-label="Theme">
-                {[
-                  { value: 'light', label: 'Light', themeColor: '#FFFFFF' },
-                  { value: 'dark', label: 'Dark', themeColor: '#0B0B0F' },
-                  { value: 'terminal-dark', label: 'Term Dark', themeColor: '#0D1117' },
-                  { value: 'terminal-light', label: 'Term Light', themeColor: '#FFFFFF' },
-                ].map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={(settings.theme || 'light') === opt.value}
-                    className={`v2-settings-segment-btn${(settings.theme || 'light') === opt.value ? ' v2-settings-segment-btn-active' : ''}`}
-                    onClick={() => {
-                      update('theme', opt.value)
-                      document.documentElement.setAttribute('data-theme', opt.value)
-                      const meta = document.querySelector('meta[name="theme-color"]')
-                      if (meta) meta.content = opt.themeColor
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {(() => {
+              const themeColors = {
+                light: '#FFFFFF',
+                dark: '#0B0B0F',
+                'terminal-light': '#FFFFFF',
+                'terminal-dark': '#0D1117',
+              }
+              const currentTheme = settings.theme || 'light'
+              const isTerminal = currentTheme.startsWith('terminal')
+              const isDark = currentTheme === 'dark' || currentTheme === 'terminal-dark'
+              const family = isTerminal ? 'terminal' : 'standard'
+              const mode = isDark ? 'dark' : 'light'
+              const setTheme = (nextFamily, nextMode) => {
+                const value = nextFamily === 'terminal'
+                  ? (nextMode === 'dark' ? 'terminal-dark' : 'terminal-light')
+                  : (nextMode === 'dark' ? 'dark' : 'light')
+                update('theme', value)
+                document.documentElement.setAttribute('data-theme', value)
+                const meta = document.querySelector('meta[name="theme-color"]')
+                if (meta) meta.content = themeColors[value]
+              }
+              return (
+                <>
+                  <div className="v2-settings-row v2-settings-row-stacked">
+                    <div className="v2-settings-row-text">
+                      <div className="v2-settings-row-label">Theme</div>
+                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Terminal is monospace + ASCII flourishes — init-style on a GitHub palette.</div>
+                    </div>
+                    <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
+                      {[
+                        { value: 'standard', label: 'Standard' },
+                        { value: 'terminal', label: 'Terminal' },
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={family === opt.value}
+                          className={`v2-settings-segment-btn${family === opt.value ? ' v2-settings-segment-btn-active' : ''}`}
+                          onClick={() => setTheme(opt.value, mode)}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="v2-settings-row v2-settings-row-stacked">
+                    <div className="v2-settings-row-text">
+                      <div className="v2-settings-row-label">Mode</div>
+                      <div className="v2-settings-row-hint">Light or dark canvas. Applies to whichever family is active.</div>
+                    </div>
+                    <div className="v2-settings-segment" role="radiogroup" aria-label="Theme mode">
+                      {[
+                        { value: 'light', label: 'Light' },
+                        { value: 'dark', label: 'Dark' },
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={mode === opt.value}
+                          className={`v2-settings-segment-btn${mode === opt.value ? ' v2-settings-segment-btn-active' : ''}`}
+                          onClick={() => setTheme(family, opt.value)}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
 
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
