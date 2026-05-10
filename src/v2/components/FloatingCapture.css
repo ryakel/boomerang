@@ -110,6 +110,16 @@
   color: #fff;
 }
 
+/* In-card target keeps the orange-fill / black-rings treatment from the
+ * standalone FAB so it visibly persists as the same affordance — same
+ * pattern as the in-card + on the quick-add side. Tapping it closes
+ * the card (toggle behavior). */
+.v2-fc-button-anchor.v2-fc-button-whatnow {
+  background: var(--v2-accent);
+  color: #000;
+  border-color: var(--v2-accent);
+}
+
 .v2-fc-button-anchor:hover:not(:disabled) {
   transform: none;
   box-shadow: none;
