@@ -121,7 +121,11 @@
   display: flex;
   align-items: center;
   height: 48px;
-  padding: 0 4px 0 14px;
+  /* No right padding — the trailing in-card button (X / +) needs to share
+   * an x-axis with the standalone FAB above. Any padding here would inset
+   * the in-card button and break vertical alignment between the two slots
+   * when one is expanded. */
+  padding: 0 0 0 14px;
   gap: 8px;
   background: var(--v2-surface);
   border: 1px solid var(--v2-hairline);
@@ -155,7 +159,9 @@
   width: min(360px, calc(100vw - 32px));
   height: auto;
   border-radius: 20px;
-  padding: 12px 8px 12px 14px;
+  /* Same alignment principle as the base card: 0 right padding so the
+   * close X shares an x-axis with the FAB above. */
+  padding: 12px 0 12px 14px;
   align-items: flex-start;
 }
 
