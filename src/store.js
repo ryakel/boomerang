@@ -222,6 +222,14 @@ export function loadSettings() {
   }
   // Remove legacy notif_frequency field
   delete saved.notif_frequency
+  // Theme palette family migration (2026-05-10): the original 'terminal'
+  // theme value is now the GitHub Dark sub-palette. terminal-light joined
+  // as a peer. Old value silently upgrades to terminal-dark; saved back so
+  // the next read short-circuits.
+  if (saved.theme === 'terminal') {
+    saved.theme = 'terminal-dark'
+    save(SETTINGS_KEY, saved)
+  }
   return { ...DEFAULT_SETTINGS, ...saved }
 }
 export function saveSettings(settings) { save(SETTINGS_KEY, settings); touchModified() }

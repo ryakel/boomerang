@@ -1,5 +1,5 @@
 @import './tokens.css';
-@import './terminal.css';
+@import './terminal/index.css';
 
 .v2-app {
   position: fixed;

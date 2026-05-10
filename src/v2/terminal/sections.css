@@ -1,0 +1,49 @@
+/* Terminal — Section labels, empty states, brand popover.
+ *
+ * Section labels go from "✦ DOING                3" to
+ * "> DOING               [3]" — chevron prompt + bracketed count, reads
+ * as listing rows in a CLI output. Empty-state icon backdrop squares
+ * off to match the boxy 4px radii. Brand popover sync-row icon gets
+ * bracketed for status-line vibes.
+ */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-bullet {
+  font-size: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-bullet::before {
+  content: ">";
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-count::before {
+  content: "[";
+  color: var(--v2-text-faint);
+  margin-right: 1px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-count::after {
+  content: "]";
+  color: var(--v2-text-faint);
+  margin-left: 1px;
+}
+
+/* Empty states — squared-off icon backdrop. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-empty-icon {
+  border-radius: var(--v2-radius-card);
+}
+
+/* Brand popover sync row — bracket the status dot. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-sync .v2-header-popover-row-icon::before {
+  content: "[";
+  color: var(--v2-text-faint);
+  margin-right: 2px;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-sync .v2-header-popover-row-icon::after {
+  content: "]";
+  color: var(--v2-text-faint);
+  margin-left: 2px;
+}

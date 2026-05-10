@@ -1870,13 +1870,14 @@ export default function SettingsModal({
             <div className="v2-settings-row v2-settings-row-stacked">
               <div className="v2-settings-row-text">
                 <div className="v2-settings-row-label">Theme</div>
-                <div className="v2-settings-row-hint">Light is the default. Dark inverts the palette. Terminal is a monospace navy aesthetic with cyan accents — inspired by init.habits.</div>
+                <div className="v2-settings-row-hint">Light + Dark are the canonical palettes. Terminal Dark + Terminal Light are monospace, GitHub-flavored variants — same density and ASCII flourishes, dark or light canvas.</div>
               </div>
-              <div className="v2-settings-segment" role="radiogroup" aria-label="Theme">
+              <div className="v2-settings-segment v2-settings-segment-4" role="radiogroup" aria-label="Theme">
                 {[
                   { value: 'light', label: 'Light', themeColor: '#FFFFFF' },
                   { value: 'dark', label: 'Dark', themeColor: '#0B0B0F' },
-                  { value: 'terminal', label: 'Terminal', themeColor: '#0A0E1A' },
+                  { value: 'terminal-dark', label: 'Term Dark', themeColor: '#0D1117' },
+                  { value: 'terminal-light', label: 'Term Light', themeColor: '#FFFFFF' },
                 ].map(opt => (
                   <button
                     key={opt.value}

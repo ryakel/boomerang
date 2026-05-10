@@ -87,8 +87,13 @@ export default function AppV2() {
   useEffect(() => {
     document.documentElement.setAttribute('data-ui', 'v2')
     const theme = loadSettings().theme
-    const themeColors = { light: '#FFFFFF', dark: '#0B0B0F', terminal: '#0A0E1A' }
-    if (theme === 'dark' || theme === 'light' || theme === 'terminal') {
+    const themeColors = {
+      light: '#FFFFFF',
+      dark: '#0B0B0F',
+      'terminal-dark': '#0D1117',
+      'terminal-light': '#FFFFFF',
+    }
+    if (themeColors[theme]) {
       document.documentElement.setAttribute('data-theme', theme)
       const meta = document.querySelector('meta[name="theme-color"]')
       if (meta) meta.content = themeColors[theme]
