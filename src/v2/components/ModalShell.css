@@ -52,6 +52,23 @@
   background: var(--v2-hairline);
 }
 
+/* Slot for status pills/indicators (e.g. AutosaveIndicator) — sits at
+ * the same top-row as the close X, offset to its left. Caller controls
+ * what gets rendered; this just provides positioning. */
+.v2-modal-header-slot {
+  position: absolute;
+  top: 24px;
+  right: 64px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.v2-modal-header-slot > * {
+  pointer-events: auto;
+}
+
 .v2-modal-header {
   padding: 40px 24px 20px;
   border-bottom: 1px solid var(--v2-hairline);

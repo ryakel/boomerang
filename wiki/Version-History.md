@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- feat(ui): v2 AutosaveIndicator — pill at top of EditTaskModal [S]
+  - **Why.** User: "I used to have a save indicator at the top of the places I would edit in v1. For each theme that should come back to show that auto save happened." v1 had `.autosave-pill` near the close X showing "Auto Save" idle / "✓ Saved" 2s flash. v2 shipped without it; with autosave back from PR #134 the user has no feedback that saves are actually firing.
+  - **`AutosaveIndicator` component.** Single `saved` boolean prop. Idle state reads "Autosave"; flash state reads "✓ Saved" for 2s.
+  - **Light/dark.** Pill chrome: rounded, soft `rgba(text, 0.06)` bg, meta-color text. Saved flash uses the green success color (`#52C97F` on 15% bg) matching v1's `.autosave-pill-saved` palette.
+  - **Terminal.** Drops pill chrome entirely. Renders as `// autosave` / `// ✓ saved` — same comment idiom used throughout terminal mode. Saved flash uses `--v2-accent` + glow.
+  - **`ModalShell` `headerSlot` prop.** New optional render-prop slot positioned at the same top-row as the close X (offset 64px to its left to avoid overlap). Mirrors v1's `.autosave-pill-floating` placement.
+  - **EditTaskModal wiring.** Local `justSaved` flag flips true inside the autosave effect's setTimeout (right after `onSave` fires), back to false after 2s. Separate cleanup useEffect clears the timer on unmount to avoid set-state-on-unmounted warnings.
+  - Modified: `src/v2/components/ModalShell.jsx`, `src/v2/components/ModalShell.css`, `src/v2/components/EditTaskModal.jsx`, `wiki/Version-History.md`
+  - Added: `src/v2/components/AutosaveIndicator.jsx`, `src/v2/components/AutosaveIndicator.css`
+
 - fix(ui): v2 EditTaskModal — restore field autosave (v1 parity) [S]
   - **Why.** User: "Everything else used to auto save before v2. This was a regression." Correct — v1 EditTaskModal autosaved every form change on blur/onChange. v2 shipped with an explicit `[ Save changes ]` button intentionally (per the source comment: "less surprising for the new UI, easier to reason about. PR8 polish can add per-field autosave if it feels natural in use"), but in practice the modal partially autosaved anyway: status changes and the manage actions (`> archive`, `> delete --confirm`, etc.) fired immediately, while form fields (title, notes, tags, due date, size, energy, priority, checklists, attachments, comments, weather-hidden, gcal-duration) only persisted on explicit Save. The mixed behavior trained the user to expect autosave for everything; checklist edits silently dropped when they closed the modal via X.
   - **Fix.** Single `useMemo`-built `savePayload`, watched by a debounced (500ms) autosave effect. JSON-string ref-compare so reference churn on array/object state (e.g. `selectedTags`) doesn't fire spurious saves. Empty-title guard preserved. `last_touched` removed from the payload — `useTasks.updateTask` already stamps it.
