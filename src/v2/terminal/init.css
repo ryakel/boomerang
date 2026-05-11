@@ -529,6 +529,52 @@
   color: var(--v2-text-meta);
 }
 
+/* The date is a button that toggles the WeekStrip below. Strip the
+ * button defaults so it reads as plain text + chevron. Hover/active
+ * states tint accent. When the `week_strip_always_open` setting is
+ * on, the toggle disables (still renders as plain text, no chevron). */
+.v2-thx-date-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--v2-text-meta);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color var(--v2-dur-quick) var(--v2-ease-standard),
+              text-shadow var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-thx-date-toggle:hover:not(:disabled),
+.v2-thx-date-toggle:focus-visible:not(:disabled) {
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+  outline: none;
+}
+
+.v2-thx-date-toggle:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.v2-thx-date-open {
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+
+.v2-thx-date-chev {
+  font-family: var(--v2-font-body);
+  font-size: 10px;
+  color: var(--v2-text-faint);
+  transition: color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-thx-date-open .v2-thx-date-chev {
+  color: var(--v2-accent);
+}
+
 .v2-thx-streak {
   color: var(--v2-alert-high-pri);
   text-shadow: 0 0 6px rgba(255, 184, 77, 0.35);
