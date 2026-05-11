@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- style+fix: terminal stats `◎` + WhatNow icon swapped to Compass [XS]
+  - **Bug.** Brand popover's stats row still rendered the colored MiniRings SVG in terminal mode — the only ring of color in an otherwise monochrome popover. User flagged it as "hasn't migrated to the new look."
+  - **Fix.** Terminal CSS hides the SVG and renders `◎` (bullseye glyph) in accent color + glow via `::before` on `.mini-rings`. Rings concept preserved (per user request "I want to keep the rings concept for stats"), look matches the rest of the terminal idiom.
+  - **Identity collision.** The WhatNow FAB at the lower-right used `Target` (concentric rings), the same visual identity as Stats. User: "Come up with a new icon for what's next that's not a +." Replaced `Target` → `Compass` in `FloatingCapture.jsx` (both render slots: the idle button and the open-card anchor). Compass reads as "find direction / pick a path forward" — semantically right for "what should I do now?" without overlapping with stats or with the `+` add affordance. `WhatNowModal`'s internal "Anything" capacity button keeps `Target` — semantically distinct (open-ended, no constraint).
+  - Modified: `src/v2/components/FloatingCapture.jsx`, `src/v2/terminal/sections.css`, `wiki/Version-History.md`
+
 - fix+style: EditTaskModal CTA → "Close" + restore section-count alignment [XS]
   - **CTA rename.** With autosave back (#134) and the AutosaveIndicator showing "✓ Saved" feedback (#136), the `[ Save changes ]` button no longer commits anything new — it just closes the modal. Relabeled to `Close` so the affordance reads honestly. RoutinesModal kept as-is (still explicit-save; no autosave there).
   - **Count regression.** Collapsible sections (#138) introduced `.v2-section-label-toggle .v2-section-label-count { margin-left: 0 }` to make room for the chevron — that stranded the count flush-left next to the section text instead of pushed right. The chevron also had `margin-left: auto`, which became redundant. Fix: drop the count override, drop the chevron's auto, give it an 8px gap. Count returns to the right; chevron sits beside it.
