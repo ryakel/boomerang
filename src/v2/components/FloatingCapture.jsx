@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Target } from 'lucide-react'
+import { Plus, Compass } from 'lucide-react'
 import './FloatingCapture.css'
 
 // Right-edge speed-dial. Two circles stacked at the lower-right of the
@@ -138,7 +138,7 @@ export default function FloatingCapture({ onAddTask, onOpenWhatNow }) {
               onClick={() => setMode('idle')}
               aria-label="Close"
             >
-              <Target size={20} strokeWidth={2} />
+              <Compass size={20} strokeWidth={2} />
             </button>
           </div>
         ) : (
@@ -148,7 +148,7 @@ export default function FloatingCapture({ onAddTask, onOpenWhatNow }) {
             onClick={() => setMode('whatnow')}
             aria-label="What can I do right now?"
           >
-            <Target size={20} strokeWidth={2} />
+            <Compass size={20} strokeWidth={2} />
           </button>
         )}
       </div>

@@ -67,3 +67,24 @@
   color: var(--v2-text-faint);
   margin-left: 2px;
 }
+
+/* Brand popover stats row — drop the colored ring SVG, render `[◎]` as
+ * a flat ASCII bullseye matching the rest of the terminal idiom. The
+ * `.v2-header-popover-rings` button still routes to Analytics. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-rings .mini-rings svg {
+  display: none;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-rings .mini-rings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-family: var(--v2-font-body);
+  font-size: 16px;
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-rings .mini-rings::before {
+  content: "◎";
+}
