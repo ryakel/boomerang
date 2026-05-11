@@ -1940,3 +1940,65 @@
   filter: none;
   text-shadow: 0 0 12px rgba(88, 166, 255, 0.65);
 }
+
+/* === Done list buttons ============================================
+ * `.v2-done-reopen` (per-row Reopen button) and `.v2-done-load-more`
+ * (bottom "Load more" pagination) were missed in earlier sweeps —
+ * still rendered as hairline-bordered rounded pills. Flatten to
+ * bracketed accent text matching the other CTA convention. */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-reopen {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  height: auto !important;
+  padding: 4px 0 !important;
+  color: var(--v2-accent) !important;
+  text-transform: lowercase;
+  font: 500 12px/1 var(--v2-font-body) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-reopen::before {
+  content: "[ ";
+  color: var(--v2-accent);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-reopen::after {
+  content: " ]";
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-reopen:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-load-more {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+  padding: 8px 0 !important;
+  font: 500 13px/1 var(--v2-font-body) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-load-more::before {
+  content: "[ ";
+  color: var(--v2-text-faint);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-load-more::after {
+  content: " ]";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-load-more:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-load-more:hover::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-done-load-more:hover::after {
+  color: var(--v2-accent);
+}
