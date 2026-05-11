@@ -6,14 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
-- feat(ui): v2 AutosaveIndicator — pill at top of EditTaskModal [S]
-  - **Why.** User: "I used to have a save indicator at the top of the places I would edit in v1. For each theme that should come back to show that auto save happened." v1 had `.autosave-pill` near the close X showing "Auto Save" idle / "✓ Saved" 2s flash. v2 shipped without it; with autosave back from PR #134 the user has no feedback that saves are actually firing.
+- feat(ui): v2 AutosaveIndicator — restored everywhere v1 had it [S]
+  - **Why.** User: "I used to have a save indicator at the top of the places I would edit in v1. For each theme that should come back." Then: "I want it everywhere it was in v1." v1 had the `.autosave-pill` at the top of `EditTaskModal` (driven by local `justSaved`) and `Settings.jsx` (driven by `syncStatus`). Both restored.
   - **`AutosaveIndicator` component.** Single `saved` boolean prop. Idle state reads "Autosave"; flash state reads "✓ Saved" for 2s.
   - **Light/dark.** Pill chrome: rounded, soft `rgba(text, 0.06)` bg, meta-color text. Saved flash uses the green success color (`#52C97F` on 15% bg) matching v1's `.autosave-pill-saved` palette.
   - **Terminal.** Drops pill chrome entirely. Renders as `// autosave` / `// ✓ saved` — same comment idiom used throughout terminal mode. Saved flash uses `--v2-accent` + glow.
   - **`ModalShell` `headerSlot` prop.** New optional render-prop slot positioned at the same top-row as the close X (offset 64px to its left to avoid overlap). Mirrors v1's `.autosave-pill-floating` placement.
-  - **EditTaskModal wiring.** Local `justSaved` flag flips true inside the autosave effect's setTimeout (right after `onSave` fires), back to false after 2s. Separate cleanup useEffect clears the timer on unmount to avoid set-state-on-unmounted warnings.
-  - Modified: `src/v2/components/ModalShell.jsx`, `src/v2/components/ModalShell.css`, `src/v2/components/EditTaskModal.jsx`, `wiki/Version-History.md`
+  - **EditTaskModal wiring.** `justSaved` flag flips true inside the autosave effect's setTimeout (right after `onSave` fires), back to false after 2s. Cleanup useEffect clears the timer on unmount.
+  - **SettingsModal wiring.** Same `justSaved` flag, flipped inside the existing 300ms `flushDebounceRef` debounce after `onFlush()` runs. Every settings change → debounced save → 2s flash. Cleanup mirrored.
+  - Modified: `src/v2/components/ModalShell.jsx`, `src/v2/components/ModalShell.css`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/SettingsModal.jsx`, `wiki/Version-History.md`
   - Added: `src/v2/components/AutosaveIndicator.jsx`, `src/v2/components/AutosaveIndicator.css`
 
 - fix(ui): v2 EditTaskModal — restore field autosave (v1 parity) [S]
