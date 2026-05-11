@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- fix(ui): ship-prep batch — Quokka send button + autofocus + docs [XS]
+  - **Why.** User feedback: "Quokka seems fixed. The paper airplane should probably be adjusted to p10k or true word only send button. There is also a bug in PWA where it drops me immediately into the text box and the keyboard covers up half the stuff." Plus the heads-up that `DateField` + `TypingSuggestions` weren't yet in `wiki/Architecture.md`.
+  - **Send button** (`.v2-adviser-send`) — was rendering an airplane SVG flanked by `[` `]` brackets in terminal mode (the JSX child is `<Send>` lucide; my bracket-wrap `::before`/`::after` rules wrapped the SVG). Hidden the SVG in terminal mode via `display: none` and replaced with `[ send ]` text via `::before` content. Matches the bracketed-CTA convention used by `.v2-form-submit`, `.v2-confirm-btn-primary`, etc.
+  - **Autofocus bug** — `useEffect(() => { if (open && !showHistory) inputRef.current?.focus() }, ...)` was firing the keyboard immediately on modal open, covering half the empty-state typing demo + suggestion buttons on iOS PWA. Removed. Focus moves into the input naturally when the user taps it or picks a suggestion (the existing `inputRef.current?.focus()` inside the `onSelect` callback still works).
+  - **wiki/Architecture.md** — `DateField` and `TypingSuggestions` added to the v2 component family list with notes on what they do + their terminal-mode treatment. Also bumped the convention-smoke-test mention to reference both `check:terminal-titles` AND `check:terminal-buttons`.
+  - Modified: `src/v2/components/AdviserModal.jsx`, `src/v2/terminal/init.css`, `wiki/Architecture.md`, `wiki/Version-History.md`
+
 - fix(sync): terminal theme persistence — REAL fix (AppV2's hydrate also clobbered local) [XS]
   - **Bug.** PR #109 added a theme-preservation guard inside `useServerSync.js`, but the persistence bug came back. User: "The terminal setting isn't sticking still."
   - **Why #109 was incomplete.** `AppV2.jsx`'s `hydrateFromServer` callback ALSO wrote `saveSettings(data.settings)` directly — and it ran BEFORE the protected save in useServerSync. So the order on every hydrate was: (1) onHydrate clobbers local theme with server's stale value; (2) useServerSync reads localStorage to get "the local theme" — which is now the stale server value just written; (3) "preserves" it — i.e. writes it back as a no-op. Net effect: local pick gets overwritten.

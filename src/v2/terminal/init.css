@@ -1069,23 +1069,39 @@
   text-shadow: var(--v2-glow);
 }
 
-/* AdviserModal — send + tool buttons */
+/* AdviserModal — send button. The JSX renders a `<Send>` lucide SVG
+ * as the only child (no text). Hide the SVG and render `[ send ]` text
+ * via ::before so terminal mode reads as `[ send ]` instead of an
+ * airplane icon flanked by brackets. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send {
   background: transparent !important;
   border: none !important;
   border-radius: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 4px 0 !important;
   color: var(--v2-accent) !important;
   text-transform: lowercase;
   text-shadow: var(--v2-glow);
+  font: 500 13px/1 var(--v2-font-body);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send svg {
+  display: none !important;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send::before {
-  content: "[ ";
+  content: "[ send ]";
   color: var(--v2-accent);
+  font-weight: 500;
 }
+
 :root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send::after {
-  content: " ]";
-  color: var(--v2-accent);
+  content: "";
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send:disabled {
+  opacity: 0.4;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-adviser-send:hover:not(:disabled) {
