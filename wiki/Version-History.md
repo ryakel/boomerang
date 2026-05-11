@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- feat(ui): terminal — WeekStrip toggle moves to home-stats calendar date [S]
+  - **Why.** User: "The weekstrip makes no sense anyway when the dates are hidden. Remove the today N and hide the '// Month dd-dd' with the dates below that are already hidden with the toggle. Make the calendar icon and the date next to it as the hide/show button." Right call — the WeekStrip had its own internal range-toggle while the home stats line above already showed today's count, so toggling the days alone left an orphan header. And the `today 3/3` in the header duplicated `✓ 3/3 today` in the stats line one row up.
+  - **Behavior.** Default in terminal mode: the home stats line shows `📅 Sun, May 10 ▾ · 🔥 1 day · ✓ 3/3 today`. The WeekStrip is entirely hidden. Tapping `📅 Sun, May 10 ▾` reveals the strip (header + day cells together); chevron flips to `▴` and the date+chevron tint accent. Tap again to hide.
+  - **WeekStrip simplified.** Dropped the internal `userExpanded` state, the range-label-as-button, the `today N/goal` summary, and the `alwaysOpen` prop. The component is now a "dumb display" — when mounted, it renders fully. Visibility is owned by AppV2.
+  - **Light/dark unchanged.** `show_week_strip` setting still gates the strip in light/dark mode (always-visible when opted in). The new click-to-toggle behavior is terminal-only. Setting label clarified: "Show 7-day strip (light/dark)".
+  - **`week_strip_always_open` preserved** — terminal users who want the strip permanently visible can flip it in Settings → General → Home screen. When on, the date-toggle button disables (no chevron) and the strip renders permanently.
+  - Modified: `src/v2/components/WeekStrip.jsx`, `src/v2/components/WeekStrip.css`, `src/v2/AppV2.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal — flatten EditTaskModal "add" pills [XS]
   - **Why.** Screenshot showed `+ Add checklist`, `📎 attach files`, `🔍 notion`, `+ add comment` still rendering as dashed-border boxes in terminal mode. The dashed chrome was a holdover from an earlier pass that meant to drop borders but didn't go far enough — they read as boxes, not commands.
   - **Treatment.** All four classes (`.v2-edit-add-pill`, `.v2-edit-checklist-new`, `.v2-edit-connection-pill`) collapse to flat `+ verb noun` text. Border, radius, padding chrome all dropped. Inline SVG icons hidden — the `+ ` sigil via `::before` replaces them. Hover swaps text + sigil to accent + glow, same idiom as the `// manage` section rows. Disabled state fades to 0.4 opacity.

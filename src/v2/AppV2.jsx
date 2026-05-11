@@ -65,6 +65,10 @@ export default function AppV2() {
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
+  // Terminal-mode 7-day strip visibility. The calendar+date span in the
+  // home stats line acts as the toggle (default closed). The
+  // `week_strip_always_open` setting forces it visible regardless.
+  const [weekStripShown, setWeekStripShown] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
   const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
@@ -681,26 +685,41 @@ export default function AppV2() {
               * single powerlevel10k-style segmented line. Only renders in
               * terminal mode; light/dark have the mini-rings in the app
               * header for the same job. */}
-            {isTerminal && (
-              <div className="v2-terminal-home-stats" aria-hidden="false">
-                <span className="v2-thx-date">
-                  📅 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </span>
-                <span className="v2-thx-sep">·</span>
-                <span className="v2-thx-streak">
-                  🔥 {streak} day{streak === 1 ? '' : 's'}
-                </span>
-                <span className="v2-thx-sep">·</span>
-                <span className="v2-thx-today">
-                  ✓ {dailyStats.tasksToday}/{settingsForRings.daily_task_goal || 3} today
-                </span>
-              </div>
-            )}
-            {(settingsForRings.show_week_strip || isTerminal) && (
+            {isTerminal && (() => {
+              const alwaysOpen = !!settingsForRings.week_strip_always_open
+              const open = alwaysOpen || weekStripShown
+              return (
+                <div className="v2-terminal-home-stats" aria-hidden="false">
+                  <button
+                    type="button"
+                    className={`v2-thx-date v2-thx-date-toggle${open ? ' v2-thx-date-open' : ''}`}
+                    onClick={() => !alwaysOpen && setWeekStripShown(v => !v)}
+                    aria-expanded={open}
+                    aria-controls="v2-week-strip-days"
+                    aria-label={open ? 'Hide 7-day strip' : 'Show 7-day strip'}
+                    disabled={alwaysOpen}
+                  >
+                    📅 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {!alwaysOpen && (
+                      <span className="v2-thx-date-chev" aria-hidden="true">{open ? '▴' : '▾'}</span>
+                    )}
+                  </button>
+                  <span className="v2-thx-sep">·</span>
+                  <span className="v2-thx-streak">
+                    🔥 {streak} day{streak === 1 ? '' : 's'}
+                  </span>
+                  <span className="v2-thx-sep">·</span>
+                  <span className="v2-thx-today">
+                    ✓ {dailyStats.tasksToday}/{settingsForRings.daily_task_goal || 3} today
+                  </span>
+                </div>
+              )
+            })()}
+            {((isTerminal && (settingsForRings.week_strip_always_open || weekStripShown)) ||
+              (!isTerminal && settingsForRings.show_week_strip)) && (
               <WeekStrip
                 tasks={tasks}
                 dailyTaskGoal={settingsForRings.daily_task_goal || 3}
-                alwaysOpen={!!settingsForRings.week_strip_always_open}
               />
             )}
             {renderSection('Doing', sortedDoing, '→')}

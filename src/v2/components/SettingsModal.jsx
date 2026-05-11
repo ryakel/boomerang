@@ -2008,8 +2008,8 @@ export default function SettingsModal({
 
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Show 7-day strip</div>
-                <div className="v2-settings-row-hint">Calendar row above the task list with activity intensity per day. Renders as cards in light/dark, monospace block characters in terminal.</div>
+                <div className="v2-settings-row-label">Show 7-day strip (light/dark)</div>
+                <div className="v2-settings-row-hint">Calendar row above the task list with activity intensity per day. In terminal mode the strip is always available — tap the date in the home stats line to show/hide.</div>
               </div>
               <label className="v2-settings-toggle">
                 <input
@@ -2023,8 +2023,8 @@ export default function SettingsModal({
 
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Keep day cells expanded</div>
-                <div className="v2-settings-row-hint">By default the day cells are hidden — tap the range label to show them. Enable this to keep them visible permanently.</div>
+                <div className="v2-settings-row-label">Keep 7-day strip always open</div>
+                <div className="v2-settings-row-hint">In terminal mode, force the strip visible permanently so you don't have to tap the date to expand it.</div>
               </div>
               <label className="v2-settings-toggle">
                 <input
