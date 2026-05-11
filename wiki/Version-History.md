@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — notif cards + logs view + analytics brackets + markdown CTA [XS]
+  - **Why.** Four screenshots in quick succession (per the new batching rule):
+    1. Notif cards rendered each frequency type as a bordered card with surface-bg fill — "these don't fit with the aesthetic"
+    2. Logs filter chips had pill chrome + the log-stream wrapper had card border + radius — "Logs of all things should look like terminal"
+    3. Stats range buttons wrapped mid-button — closing `]` orphaned on next line, "alignment on the braces looks like shit in stats"
+    4. Markdown import "Preview tasks" CTA still rendered as filled-blue pill — "Import markdown preview is a button"
+  - **Notification cards** (`.v2-notif-card`): bordered surface-bg card → flat row with hairline-bottom separator. Channel toggle wrapper (`.v2-notif-card-channel`) drops its tinted bg + radius. Disabled state fades opacity. `.v2-notif-cards` gap zeroed since hairlines now separate.
+  - **Logs filter chips** (`.v2-settings-filter`): pill chrome → bracket-radio idiom matching `.v2-form-seg` and `.v2-settings-segment-btn`. Inactive `[ ] all`, active `[•] all` with accent + glow.
+  - **Logs stream** (`.v2-settings-logs-stream`): bordered card with rounded corners + faint bg → bare div. Log rows drop their 4px radius, gain a dashed bottom hairline so consecutive entries read as a log feed. Empty state gets `// ` prefix.
+  - **Stats range/metric buttons** (`.v2-analytics-range-btn`, `.v2-analytics-metric-btn`): `white-space: nowrap` + `flex-shrink: 0` so `[ 7d ]` etc. stay on one line. Parent `.v2-analytics-range` / `.v2-analytics-metric` get `flex-wrap: wrap` + `gap: 4px 8px` so the row wraps at button boundaries instead of inside buttons.
+  - **Markdown import primary CTA** (`.v2-md-import-primary`): the audit miss — used by "Preview tasks" and "Import N tasks" buttons. Filled-blue pill → bracketed accent text matching `.v2-form-submit` convention.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - fix(ui): ship-prep batch — Quokka send button + autofocus + docs [XS]
   - **Why.** User feedback: "Quokka seems fixed. The paper airplane should probably be adjusted to p10k or true word only send button. There is also a bug in PWA where it drops me immediately into the text box and the keyboard covers up half the stuff." Plus the heads-up that `DateField` + `TypingSuggestions` weren't yet in `wiki/Architecture.md`.
   - **Send button** (`.v2-adviser-send`) — was rendering an airplane SVG flanked by `[` `]` brackets in terminal mode (the JSX child is `<Send>` lucide; my bracket-wrap `::before`/`::after` rules wrapped the SVG). Hidden the SVG in terminal mode via `display: none` and replaced with `[ send ]` text via `::before` content. Matches the bracketed-CTA convention used by `.v2-form-submit`, `.v2-confirm-btn-primary`, etc.
