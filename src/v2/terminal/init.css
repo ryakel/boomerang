@@ -1322,23 +1322,61 @@
   padding: 6px 0 !important;
 }
 
-/* --- Edit modal subviews ----------------------------------------- */
+/* --- Edit modal subviews -----------------------------------------
+ * "Add checklist / attach files / link Notion / add comment" pills:
+ * drop the dashed-border chrome entirely. Each renders as flat
+ * `+ verb noun` text with the SVG icon hidden — uniform with the
+ * `// manage` section's sigil-prefixed rows. The `.v2-edit-add-pill`
+ * text already starts with the verb ("Add checklist", "Attach files",
+ * "Notion", "Add comment"); we just prefix `+ ` and lowercase via CSS. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-add-pill,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-checklist-new,
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-connection-pill {
   background: transparent !important;
-  border: 1px dashed var(--v2-hairline) !important;
+  border: none !important;
   border-radius: 0 !important;
   color: var(--v2-text-meta) !important;
   text-transform: lowercase;
-  padding: 6px 10px !important;
+  padding: 4px 0 !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font: 500 13px/1 var(--v2-font-body) !important;
+  height: auto !important;
 }
 
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-add-pill:hover,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-connection-pill:hover {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-add-pill > svg,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-checklist-new > svg,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-connection-pill > svg {
+  display: none !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-add-pill::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-checklist-new::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-connection-pill::before {
+  content: "+ ";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-add-pill:hover:not(:disabled),
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-checklist-new:hover:not(:disabled),
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-connection-pill:hover:not(:disabled) {
   background: transparent !important;
-  border-color: var(--v2-accent) !important;
   color: var(--v2-accent) !important;
   text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-add-pill:hover:not(:disabled)::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-checklist-new:hover:not(:disabled)::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-connection-pill:hover:not(:disabled)::before {
+  color: var(--v2-accent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-add-pill:disabled,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-checklist-new:disabled,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-connection-pill:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-checklist-toggle,

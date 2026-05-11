@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- style(ui): terminal — flatten EditTaskModal "add" pills [XS]
+  - **Why.** Screenshot showed `+ Add checklist`, `📎 attach files`, `🔍 notion`, `+ add comment` still rendering as dashed-border boxes in terminal mode. The dashed chrome was a holdover from an earlier pass that meant to drop borders but didn't go far enough — they read as boxes, not commands.
+  - **Treatment.** All four classes (`.v2-edit-add-pill`, `.v2-edit-checklist-new`, `.v2-edit-connection-pill`) collapse to flat `+ verb noun` text. Border, radius, padding chrome all dropped. Inline SVG icons hidden — the `+ ` sigil via `::before` replaces them. Hover swaps text + sigil to accent + glow, same idiom as the `// manage` section rows. Disabled state fades to 0.4 opacity.
+  - **Notion search.** Stays as `+ notion` — uniform `+` sigil reads as "add this thing to the task" across all four. The button's actual behavior (search/link/create) is intact; just visually it joins the family.
+  - **Light/dark unchanged.** Base CSS dashed-border treatment kept — this is terminal-only.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - feat(ui): WeekStrip days collapse by default, click range to toggle [S]
   - **Why.** User: "I want to be able to click on the calendar on the main page and have it hide/show the days under the weekly summary. It should be hidden by default and can [be] enabled permanently in settings." The strip was always-open, taking 60+px of vertical space on every load even when the user just wants the task list.
   - **Behavior.** WeekStrip default state is collapsed — only the header row renders, showing `< May 4-10 · today 3/5 ▾ >`. Clicking the range label toggles the day grid below. Nav arrows still shift the visible week; they don't fold/unfold.
