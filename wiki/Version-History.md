@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- refactor(ui): drop GoalProgressBar, fold count into WeekStrip's today cell [S]
+  - **Why.** User: "Let's move the completion bar up to the top. I thought we were using the shaded boxes for that." Right — WeekStrip's intensity fill on each day cell already encodes `count vs goal` (0/some/met/2×met). GoalProgressBar duplicated the signal underneath, so the home screen had two indicators for the same number. Recommended dropping the bar and folding the exact `N/goal` count into today's cell; user approved.
+  - **WeekStrip.** Today's cell gets a new `.v2-week-strip-count` line between the date number and the intensity bar, rendered only when `isToday`. Light/dark: 11px medium meta-color, accent on today. Terminal: 11px monospace accent. The intensity fill still does the at-a-glance week scan; the count gives the exact number for today without breaking the 7-cell grid rhythm.
+  - **GoalProgressBar gone.** `src/v2/components/GoalProgressBar.{jsx,css}` deleted. Render removed from `AppV2.jsx`, import line dropped. `show_goal_progress` setting removed from `src/store.js` defaults + Settings → General → Home screen toggle. No migration needed — settings are a JSON blob, stale keys are silently ignored.
+  - **Trade-off accepted.** Linear-percent visual is gone. Reading exact progress now means reading the fraction inside today's box. Fine — boxes are already the right shape, and one indicator beats two.
+  - Modified: `src/v2/components/WeekStrip.jsx`, `src/v2/components/WeekStrip.css`, `src/v2/AppV2.jsx`, `src/v2/components/SettingsModal.jsx`, `src/store.js`, `wiki/Version-History.md`
+  - Deleted: `src/v2/components/GoalProgressBar.jsx`, `src/v2/components/GoalProgressBar.css`
+
 - refactor(ui): move markdown import from overflow menu to Settings → Data [XS]
   - **Why.** User: "Let's move import markdown to the data tab. I'm not positive it's going to live long. But I have it built for now. It's a rarely used function." Crowding the top-level overflow menu with a feature that may be deprecated isn't worth the slot.
   - **Settings → Data.** New "Markdown import" block sits between Activity and Danger zone. Bracketed `[ import from markdown ]` button (terminal idiom inherited from `.v2-settings-btn` class) opens the existing `MarkdownImportModal` after closing Settings.

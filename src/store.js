@@ -49,12 +49,11 @@ export const DEFAULT_SETTINGS = {
   sort_by: 'age',
   daily_task_goal: 3,
   daily_points_goal: 15,
-  // Home-screen surfaces (PR H, opt-in). When true, AppV2 renders a 7-day
-  // calendar strip above the first task section / a daily-goal progress bar
-  // below the last section. Theme-aware visuals (cards in light/dark, bare
-  // monospace strip + block-character bar in terminal).
+  // 7-day calendar strip above the task sections. Opt-in in light/dark,
+  // auto-on in terminal mode. Today's cell shows N/goal inline + intensity
+  // fill; this is the single source of truth for daily-goal progress
+  // (GoalProgressBar was removed 2026-05-11).
   show_week_strip: false,
-  show_goal_progress: false,
   vacation_mode: false,
   vacation_started: null,
   trello_api_key: '',
