@@ -54,6 +54,10 @@ export const DEFAULT_SETTINGS = {
   // fill; this is the single source of truth for daily-goal progress
   // (GoalProgressBar was removed 2026-05-11).
   show_week_strip: false,
+  // When true, the day cells stay expanded all the time. When false
+  // (default), the strip renders collapsed — just the range label +
+  // today's count — and tapping the range expands the days.
+  week_strip_always_open: false,
   vacation_mode: false,
   vacation_started: null,
   trello_api_key: '',
