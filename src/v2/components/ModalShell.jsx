@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { useTerminalMode } from '../hooks/useTerminalMode'
 import './ModalShell.css'
 
-export default function ModalShell({ open, onClose, title, terminalTitle, subtitle, children, width = 'narrow' }) {
+export default function ModalShell({ open, onClose, title, terminalTitle, subtitle, headerSlot, children, width = 'narrow' }) {
   const terminal = useTerminalMode()
   useEffect(() => {
     if (!open) return
@@ -25,6 +25,7 @@ export default function ModalShell({ open, onClose, title, terminalTitle, subtit
         <button className="v2-modal-close" onClick={onClose} aria-label="Close">
           <X size={18} strokeWidth={1.75} />
         </button>
+        {headerSlot && <div className="v2-modal-header-slot">{headerSlot}</div>}
         <header className="v2-modal-header">
           <h1 className="v2-modal-title">{terminal && terminalTitle ? terminalTitle : title}</h1>
           {subtitle && <p className="v2-modal-subtitle">{subtitle}</p>}
