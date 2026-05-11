@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import './WeekStrip.css'
 
 // 7-day calendar strip rendered above the task list. Each day cell shows
@@ -8,13 +8,12 @@ import './WeekStrip.css'
 // were completed that day relative to `daily_task_goal`. Today's cell
 // also shows the exact `count/goal` inline.
 //
-// Opt-in via the `show_week_strip` setting (always-on in terminal mode).
-// The day cells are hidden by default — clicking the range label
-// expands/collapses them. The `alwaysOpen` prop (driven by the
-// `week_strip_always_open` setting) keeps them expanded permanently.
+// Visibility is owned by the parent (AppV2): the calendar date in the
+// home stats line is the show/hide toggle in terminal mode. This
+// component is "dumb display" — when mounted, it renders fully.
 //
-// Week navigation: < prev / next > arrows. Arrow clicks don't toggle
-// expansion; they shift the visible week regardless of state.
+// Week navigation: < prev / next > arrows. State managed locally —
+// defaults to the week containing today; arrows shift by ±7 days.
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -29,10 +28,8 @@ function startOfWeekSunday(date) {
   return d
 }
 
-export default function WeekStrip({ tasks, dailyTaskGoal, alwaysOpen = false }) {
+export default function WeekStrip({ tasks, dailyTaskGoal }) {
   const [weekOffset, setWeekOffset] = useState(0)
-  const [userExpanded, setUserExpanded] = useState(false)
-  const expanded = alwaysOpen || userExpanded
 
   const completionsByDate = useMemo(() => {
     const map = {}
@@ -85,11 +82,8 @@ export default function WeekStrip({ tasks, dailyTaskGoal, alwaysOpen = false }) 
     return `${firstMonth} ${first.getDate()}–${lastMonth} ${last.getDate()}`
   }, [days])
 
-  const today = days.find(d => d.isToday)
-  const canToggle = !alwaysOpen
-
   return (
-    <div className={`v2-week-strip${expanded ? ' v2-week-strip-expanded' : ' v2-week-strip-collapsed'}`}>
+    <div className="v2-week-strip">
       <div className="v2-week-strip-head">
         <button
           className="v2-week-strip-nav"
@@ -98,31 +92,9 @@ export default function WeekStrip({ tasks, dailyTaskGoal, alwaysOpen = false }) 
         >
           <ChevronLeft size={14} strokeWidth={2} />
         </button>
-        {canToggle ? (
-          <button
-            className="v2-week-strip-range v2-week-strip-range-toggle"
-            onClick={() => setUserExpanded(v => !v)}
-            aria-expanded={expanded}
-            aria-controls="v2-week-strip-days"
-          >
-            <span className="v2-week-strip-range-label">{rangeLabel}</span>
-            {today && (
-              <span className="v2-week-strip-range-today">· today {today.count}/{today.goal}</span>
-            )}
-            <ChevronDown
-              size={12}
-              strokeWidth={2}
-              className={`v2-week-strip-range-chev${expanded ? ' v2-week-strip-range-chev-open' : ''}`}
-            />
-          </button>
-        ) : (
-          <span className="v2-week-strip-range">
-            <span className="v2-week-strip-range-label">{rangeLabel}</span>
-            {today && (
-              <span className="v2-week-strip-range-today">· today {today.count}/{today.goal}</span>
-            )}
-          </span>
-        )}
+        <span className="v2-week-strip-range">
+          <span className="v2-week-strip-range-label">{rangeLabel}</span>
+        </span>
         <button
           className="v2-week-strip-nav"
           onClick={() => setWeekOffset(o => o + 1)}
@@ -131,29 +103,27 @@ export default function WeekStrip({ tasks, dailyTaskGoal, alwaysOpen = false }) 
           <ChevronRight size={14} strokeWidth={2} />
         </button>
       </div>
-      {expanded && (
-        <ol id="v2-week-strip-days" className="v2-week-strip-row">
-          {days.map(d => (
-            <li
-              key={d.key}
-              className={[
-                'v2-week-strip-day',
-                d.isToday ? 'v2-week-strip-day-today' : '',
-                d.isFuture ? 'v2-week-strip-day-future' : '',
-                `v2-week-strip-day-i${d.intensity}`,
-              ].filter(Boolean).join(' ')}
-              aria-label={`${d.label} ${d.dayNumber}: ${d.count} task${d.count === 1 ? '' : 's'} completed`}
-            >
-              <span className="v2-week-strip-label">{d.label}</span>
-              <span className="v2-week-strip-num">{d.dayNumber}</span>
-              {d.isToday && (
-                <span className="v2-week-strip-count">{d.count}/{d.goal}</span>
-              )}
-              <span className="v2-week-strip-bar" aria-hidden="true" />
-            </li>
-          ))}
-        </ol>
-      )}
+      <ol id="v2-week-strip-days" className="v2-week-strip-row">
+        {days.map(d => (
+          <li
+            key={d.key}
+            className={[
+              'v2-week-strip-day',
+              d.isToday ? 'v2-week-strip-day-today' : '',
+              d.isFuture ? 'v2-week-strip-day-future' : '',
+              `v2-week-strip-day-i${d.intensity}`,
+            ].filter(Boolean).join(' ')}
+            aria-label={`${d.label} ${d.dayNumber}: ${d.count} task${d.count === 1 ? '' : 's'} completed`}
+          >
+            <span className="v2-week-strip-label">{d.label}</span>
+            <span className="v2-week-strip-num">{d.dayNumber}</span>
+            {d.isToday && (
+              <span className="v2-week-strip-count">{d.count}/{d.goal}</span>
+            )}
+            <span className="v2-week-strip-bar" aria-hidden="true" />
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }
