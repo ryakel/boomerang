@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- style(ui): terminal — flatten update-available modal [XS]
+  - **Why.** User: "The reload module still has a button." The version-mismatch modal (`v2-update-overlay` / `v2-update-modal`) still rendered with rounded-modal chrome + a filled accent reload pill in terminal mode.
+  - **Modal.** Drop the border-radius + drop-shadow chrome. Add a hairline border + soft accent glow ring. Match the terminal flat-card idiom used elsewhere.
+  - **Title.** "Update available" → `// update available` in monospace meta.
+  - **Sub copy.** "Refreshing automatically…" → `// refreshing automatically…` matching the comment idiom.
+  - **Version.** Rendered in monospace accent with glow.
+  - **Reload button.** `Reload now` → `[ reload now ]` — flat bracketed accent text, no fill, no pill radius. Matches every other terminal CTA (`[ Save changes ]`, `[ Done ]`, etc).
+  - Modified: `src/v2/AppV2.css`, `wiki/Version-History.md`
+
 - feat(ui): terminal — WeekStrip toggle moves to home-stats calendar date [S]
   - **Why.** User: "The weekstrip makes no sense anyway when the dates are hidden. Remove the today N and hide the '// Month dd-dd' with the dates below that are already hidden with the toggle. Make the calendar icon and the date next to it as the hide/show button." Right call — the WeekStrip had its own internal range-toggle while the home stats line above already showed today's count, so toggling the days alone left an orphan header. And the `today 3/3` in the header duplicated `✓ 3/3 today` in the stats line one row up.
   - **Behavior.** Default in terminal mode: the home stats line shows `📅 Sun, May 10 ▾ · 🔥 1 day · ✓ 3/3 today`. The WeekStrip is entirely hidden. Tapping `📅 Sun, May 10 ▾` reveals the strip (header + day cells together); chevron flips to `▴` and the date+chevron tint accent. Tap again to hide.
