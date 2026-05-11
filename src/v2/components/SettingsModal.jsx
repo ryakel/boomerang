@@ -8,6 +8,7 @@ import {
 import { restoreFromBackup } from '../../api'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
+import AutosaveIndicator from './AutosaveIndicator'
 import './SettingsModal.css'
 
 // Labels tab — extracted so SettingsModal stays readable.
@@ -1736,11 +1737,20 @@ export default function SettingsModal({
   const flushDebounceRef = useRef(null)
   const dataImportRef = useRef(null)
   const ciFileRef = useRef(null)
+  // Mirror the EditTaskModal autosave-flash pattern. Flips true when
+  // the debounced flush fires; back to false after 2s.
+  const [justSaved, setJustSaved] = useState(false)
+  const justSavedTimer = useRef(null)
 
   // Reload settings whenever the modal reopens — server may have updated them.
   useEffect(() => {
     if (open) setSettings(loadSettings())
   }, [open])
+
+  // Cleanup the saved-flash timer on unmount.
+  useEffect(() => () => {
+    if (justSavedTimer.current) clearTimeout(justSavedTimer.current)
+  }, [])
 
   const update = useCallback((key, value) => {
     setSettings(prev => {
@@ -1750,7 +1760,12 @@ export default function SettingsModal({
     })
     if (onFlush) {
       if (flushDebounceRef.current) clearTimeout(flushDebounceRef.current)
-      flushDebounceRef.current = setTimeout(() => { onFlush() }, 300)
+      flushDebounceRef.current = setTimeout(() => {
+        onFlush()
+        setJustSaved(true)
+        if (justSavedTimer.current) clearTimeout(justSavedTimer.current)
+        justSavedTimer.current = setTimeout(() => setJustSaved(false), 2000)
+      }, 300)
     }
   }, [onFlush])
 
@@ -1842,7 +1857,14 @@ export default function SettingsModal({
   }
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Settings" terminalTitle="> settings" width="wide">
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      title="Settings"
+      terminalTitle="> settings"
+      width="wide"
+      headerSlot={<AutosaveIndicator saved={justSaved} />}
+    >
       <div className="v2-settings-tabs">
         {TABS.map(tab => (
           <button
