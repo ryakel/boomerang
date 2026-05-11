@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- fix(ui): terminal — markdown import button row alignment [XS]
+  - **Why.** User: "Alignment on the buttons here is fucked." `[ preview tasks ]` and `[ upload .md ]` sat in a row but `[ preview tasks ]` was centered awkwardly in its half.
+  - **Root cause.** Base CSS on `.v2-md-import-primary` sets `flex: 1` so the button expands to fill remaining space. With chrome stripped in terminal mode, the bracketed text floats centered in an invisible-but-expanded button slot. Visual mismatch with `[ upload .md ]` (which uses `.v2-settings-btn`, natural width).
+  - **Fix.** Override `flex: 0 0 auto` + `margin-right: 18px` in terminal mode so the preview button takes natural width and the two buttons sit side-by-side from the row's start, with a comfortable gap between.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal — DoneList reopen + load-more buttons [XS]
   - **Why.** User: "Done list reopen are buttons. Import markdown preview is a button." The markdown preview button was already fixed in #123 — the user is seeing a cached PWA build. Done-list reopen + load-more genuinely weren't touched.
   - **`.v2-done-reopen`** (per-row "Reopen" button on each completed task): hairline-bordered pill → bracketed accent text `[ reopen ]`. Hover deepens the glow.

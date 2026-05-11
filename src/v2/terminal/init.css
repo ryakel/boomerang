@@ -1924,6 +1924,14 @@
   padding: 6px 0 !important;
   font: 500 13px/1.2 var(--v2-font-body) !important;
   text-transform: lowercase;
+  /* Base CSS sets `flex: 1` so the button expands to fill its row —
+   * centers the bracketed text awkwardly in the left half while the
+   * secondary `[ upload .md ]` sits separately to the right. Override
+   * to natural width + push the gap so both sit side-by-side from the
+   * row's start. */
+  flex: 0 0 auto !important;
+  min-width: 0;
+  margin-right: 18px;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-md-import-primary::before {
