@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- feat(ui): WeekStrip days collapse by default, click range to toggle [S]
+  - **Why.** User: "I want to be able to click on the calendar on the main page and have it hide/show the days under the weekly summary. It should be hidden by default and can [be] enabled permanently in settings." The strip was always-open, taking 60+px of vertical space on every load even when the user just wants the task list.
+  - **Behavior.** WeekStrip default state is collapsed — only the header row renders, showing `< May 4-10 · today 3/5 ▾ >`. Clicking the range label toggles the day grid below. Nav arrows still shift the visible week; they don't fold/unfold.
+  - **`week_strip_always_open` setting.** New Settings → General → Home screen toggle ("Keep day cells expanded"). When on, days stay rendered permanently and the range label loses its toggle affordance (chevron hidden, no hover bg). When off (default), the toggle works.
+  - **Collapsed-header summary.** When collapsed, the header gains `· today N/goal` right after the range so users still see today's progress without expanding. Hidden when there's no today cell in the visible week (i.e., user navigated to a past/future week).
+  - **Visual.** Light/dark: range becomes a hover-tinted pill, chevron rotates 180° when expanded. Terminal: range stays flat, chevron swaps to `▾` (collapsed) / `▴` (expanded) ASCII via `::after` on the toggle, accent color when expanded. Today summary renders accent color in both themes.
+  - **A11y.** Toggle button has `aria-expanded` + `aria-controls` pointing at the day list. Days list gets `id="v2-week-strip-days"`. Reading the collapsed header conveys today's progress aloud.
+  - Modified: `src/v2/components/WeekStrip.jsx`, `src/v2/components/WeekStrip.css`, `src/v2/AppV2.jsx`, `src/v2/components/SettingsModal.jsx`, `src/store.js`, `wiki/Version-History.md`
+
 - refactor(ui): drop GoalProgressBar, fold count into WeekStrip's today cell [S]
   - **Why.** User: "Let's move the completion bar up to the top. I thought we were using the shaded boxes for that." Right — WeekStrip's intensity fill on each day cell already encodes `count vs goal` (0/some/met/2×met). GoalProgressBar duplicated the signal underneath, so the home screen had two indicators for the same number. Recommended dropping the bar and folding the exact `N/goal` count into today's cell; user approved.
   - **WeekStrip.** Today's cell gets a new `.v2-week-strip-count` line between the date number and the intensity bar, rendered only when `isToday`. Light/dark: 11px medium meta-color, accent on today. Terminal: 11px monospace accent. The intensity fill still does the at-a-glance week scan; the count gives the exact number for today without breaking the 7-cell grid rhythm.

@@ -2023,6 +2023,21 @@ export default function SettingsModal({
 
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
+                <div className="v2-settings-row-label">Keep day cells expanded</div>
+                <div className="v2-settings-row-hint">By default the day cells are hidden — tap the range label to show them. Enable this to keep them visible permanently.</div>
+              </div>
+              <label className="v2-settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.week_strip_always_open}
+                  onChange={e => update('week_strip_always_open', e.target.checked)}
+                />
+                <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+              </label>
+            </div>
+
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
                 <label className="v2-settings-row-label" htmlFor="v2-daily-goal">Daily task goal</label>
                 <div className="v2-settings-row-hint">Used by the progress bar + activity intensity on the 7-day strip.</div>
               </div>
