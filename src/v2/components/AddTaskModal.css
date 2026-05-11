@@ -267,6 +267,21 @@
   background: rgba(var(--v2-text-rgb), 0.04);
 }
 
+/* Selected state — fills with the label's own color. The pill JSX
+ * passes `style={{ '--label-color': lbl.color }}` so this rule reads
+ * the per-label color without inline-style !important wars with the
+ * terminal-mode override. */
+.v2-form-label-pill-active {
+  background: var(--label-color);
+  border-color: var(--label-color);
+  color: #fff;
+}
+
+.v2-form-label-pill-active:hover {
+  background: var(--label-color);
+  filter: brightness(1.08);
+}
+
 .v2-form-submit {
   display: block;
   width: 100%;

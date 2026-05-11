@@ -54,6 +54,10 @@ export const DEFAULT_SETTINGS = {
   // fill; this is the single source of truth for daily-goal progress
   // (GoalProgressBar was removed 2026-05-11).
   show_week_strip: false,
+  // Per-section collapsed state on the home task list. Map of section
+  // name → bool (true = collapsed). Synced via settings so the preference
+  // persists across reloads. Sections not in the map default to expanded.
+  collapsed_sections: {},
   // When true, the day cells stay expanded all the time. When false
   // (default), the strip renders collapsed — just the range label +
   // today's count — and tapping the range expands the days.
