@@ -1,0 +1,54 @@
+/* Top-of-modal autosave pill. Caller positions it (typically in
+ * ModalShell's header slot, mirroring v1's `.autosave-pill-floating`
+ * spot near the close X). Default: pill chrome in light/dark, bracketed
+ * comment-text in terminal mode. */
+
+.v2-autosave-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--v2-radius-pill);
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text-meta);
+  font: 500 11px/1 var(--v2-font-body);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-autosave-pill-saved {
+  background: rgba(82, 201, 127, 0.15);
+  color: #52C97F;
+}
+
+/* === Terminal mode override =====================================
+ * No pill chrome. Render as `// autosave` / `// ✓ saved` — same
+ * comment idiom used everywhere else in terminal mode. Accent + glow
+ * on the saved flash. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-autosave-pill {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: var(--v2-text-faint);
+  font-family: var(--v2-font-body);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-autosave-pill::before {
+  content: "// ";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-autosave-pill-saved {
+  background: transparent;
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-autosave-pill-saved::before {
+  color: var(--v2-accent);
+}

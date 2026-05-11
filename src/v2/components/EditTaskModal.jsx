@@ -5,6 +5,7 @@ import { useTaskForm } from '../../hooks/useTaskForm'
 import { researchTask } from '../../api'
 import WeatherSection, { resolveWeatherVisibility } from '../../components/WeatherSection'
 import ModalShell from './ModalShell'
+import AutosaveIndicator from './AutosaveIndicator'
 import DateField from './DateField'
 import './AddTaskModal.css' // shared form-control styles
 import './EditTaskModal.css'
@@ -139,6 +140,10 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
   const lastSavedJson = useRef(null)
   const savePayloadRef = useRef(savePayload)
   savePayloadRef.current = savePayload
+  // Drives the "✓ Saved" flash in the AutosaveIndicator. Flips true
+  // when an autosave fires, back to false after 2s.
+  const [justSaved, setJustSaved] = useState(false)
+  const justSavedTimer = useRef(null)
 
   useEffect(() => {
     const json = JSON.stringify(savePayload)
@@ -153,9 +158,17 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
     const t = setTimeout(() => {
       lastSavedJson.current = json
       onSave(task.id, savePayload)
+      setJustSaved(true)
+      if (justSavedTimer.current) clearTimeout(justSavedTimer.current)
+      justSavedTimer.current = setTimeout(() => setJustSaved(false), 2000)
     }, 500)
     return () => clearTimeout(t)
   }, [savePayload, onSave, task.id])
+
+  // Clean up the saved-flash timer on unmount.
+  useEffect(() => () => {
+    if (justSavedTimer.current) clearTimeout(justSavedTimer.current)
+  }, [])
 
   // Flush any pending edits on unmount. Without this, closing the modal
   // (X button, route change) within the 500ms debounce window would
@@ -253,7 +266,14 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
   }, [confirmDelete])
 
   return (
-    <ModalShell open={!!task} onClose={onClose} title="Edit task" terminalTitle="> task --edit" width="narrow">
+    <ModalShell
+      open={!!task}
+      onClose={onClose}
+      title="Edit task"
+      terminalTitle="> task --edit"
+      width="narrow"
+      headerSlot={<AutosaveIndicator saved={justSaved} />}
+    >
       <input
         className="v2-form-input v2-form-title"
         placeholder="What needs doing?"
