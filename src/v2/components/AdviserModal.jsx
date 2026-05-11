@@ -177,7 +177,10 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit }) 
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, status])
 
-  useEffect(() => { if (open && !showHistory) inputRef.current?.focus() }, [open, activeId, showHistory])
+  // Don't auto-focus the input on modal open — on iOS PWA the keyboard
+  // pops immediately and covers half the empty-state typing demo +
+  // suggestion buttons before the user can read them. Focus moves into
+  // the input naturally when the user taps it or picks a suggestion.
 
   // Auto-grow textarea up to a sensible max.
   useEffect(() => {

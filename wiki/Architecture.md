@@ -33,9 +33,15 @@ Browser (React PWA)
 - `useTerminalMode()` hook in `src/v2/hooks/useTerminalMode.js` — MutationObserver on `data-theme`, returns true when prefix matches `terminal-`
 - `terminalTitle` prop on `ModalShell` + `ConfirmDialog` — overrides the regular `title` when terminal mode is active
 - `terminalCommand` prop on `EmptyState` — short-circuits the icon+title+body tree to a `// comment` line
-- `data-terminal-cmd` attr on `.v2-edit-action-label` spans — visible label swaps via CSS `attr()` to its CLI form (`$ archive`, `$ delete --confirm`, etc.)
+- `data-terminal-cmd` attr on `.v2-edit-action-label` spans + `.v2-more-row-label` + others — visible label swaps via CSS `attr()` to its CLI form (`> archive`, `> delete --confirm`, etc.)
+- `DateField` (`src/v2/components/DateField.jsx`) — bracketed text trigger that opens the native date picker via `input.showPicker()`. Renders `[ due date ]` empty / `[ YYYY-MM-DD ]` filled, plus an inline `× clear` button. Same component shape in all themes; terminal mode flattens the trigger to bare bracketed text via CSS.
+- `TypingSuggestions` (`src/v2/components/TypingSuggestions.jsx`) — Quokka empty-state suggestion list where each row types itself in sequentially. Pending/active/complete states render the same element with different visual treatments; completed rows are real clickable buttons.
 
-Convention smoke test: `scripts/check-terminal-titles.js` (wired into the pre-push hook) asserts every `<ModalShell>` JSX call site carries `terminalTitle`. Run via `npm run check:terminal-titles`. See CLAUDE.md → "Terminal Theme Stress Test" for the policy on what's terminal-only vs theme-agnostic going forward.
+Convention smoke tests (both wired into the pre-push hook):
+- `npm run check:terminal-titles` — asserts every `<ModalShell>` JSX call site carries `terminalTitle`
+- `npm run check:terminal-buttons` — asserts every button-shaped v2 class (matching `.v2-*-{btn|pill|toggle|seg|chip|tab|option|action|row|cta|trigger}`) has a terminal-mode rule somewhere under `[data-theme^="terminal"]`. Layout-only containers are exempt-listed at the top of the script.
+
+See CLAUDE.md → "Terminal Theme Stress Test" for the policy on what's terminal-only vs theme-agnostic going forward.
 
 ## Data Flow
 
