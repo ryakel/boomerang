@@ -697,7 +697,11 @@ export default function AppV2() {
               </div>
             )}
             {(settingsForRings.show_week_strip || isTerminal) && (
-              <WeekStrip tasks={tasks} dailyTaskGoal={settingsForRings.daily_task_goal || 3} />
+              <WeekStrip
+                tasks={tasks}
+                dailyTaskGoal={settingsForRings.daily_task_goal || 3}
+                alwaysOpen={!!settingsForRings.week_strip_always_open}
+              />
             )}
             {renderSection('Doing', sortedDoing, '→')}
             {renderSection('Stale', sortedStale, '~')}
