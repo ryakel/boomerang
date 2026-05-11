@@ -7,6 +7,7 @@ import WeatherSection, { resolveWeatherVisibility } from '../../components/Weath
 import ModalShell from './ModalShell'
 import AutosaveIndicator from './AutosaveIndicator'
 import DateField from './DateField'
+import TicTacToe from './TicTacToe'
 import './AddTaskModal.css' // shared form-control styles
 import './EditTaskModal.css'
 
@@ -25,7 +26,7 @@ const STATUS_OPTIONS = ['not_started', 'doing', 'waiting']
 
 const CADENCE_OPTIONS = ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'custom']
 
-export default function EditTaskModal({ task, onSave, onClose, onDelete, onBacklog, onProject, onStatusChange, onConvertToRoutine, weather }) {
+export default function EditTaskModal({ task, onSave, onFlush, onClose, onDelete, onBacklog, onProject, onStatusChange, onConvertToRoutine, weather }) {
   const form = useTaskForm({
     title: task.title,
     notes: task.notes || '',
@@ -85,6 +86,22 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
 
   const [currentStatus, setCurrentStatus] = useState(task.status === 'open' ? 'not_started' : task.status)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Easter egg trigger — Android-build-number metaphor. 7 taps on the
+  // modal title within a rolling 2s window opens the hidden tic-tac-toe
+  // game. Undocumented in user-facing copy; discoverable by power users.
+  const [tttOpen, setTttOpen] = useState(false)
+  const titleTapsRef = useRef({ count: 0, last: 0 })
+  const handleTitleTap = () => {
+    const now = Date.now()
+    const taps = titleTapsRef.current
+    if (now - taps.last > 2000) taps.count = 0
+    taps.count += 1
+    taps.last = now
+    if (taps.count >= 7) {
+      taps.count = 0
+      setTttOpen(true)
+    }
+  }
   const [makeRecurring, setMakeRecurring] = useState(false)
   const [cadence, setCadence] = useState('weekly')
   const [customDays, setCustomDays] = useState(14)
@@ -273,6 +290,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
       terminalTitle="> task --edit"
       width="narrow"
       headerSlot={<AutosaveIndicator saved={justSaved} />}
+      onTitleTap={handleTitleTap}
     >
       <input
         className="v2-form-input v2-form-title"
@@ -968,6 +986,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
       >
         Close
       </button>
+      <TicTacToe open={tttOpen} onClose={() => setTttOpen(false)} onPointEarned={onFlush} />
     </ModalShell>
   )
 }

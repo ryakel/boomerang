@@ -23,9 +23,15 @@ export function calculateTaskPoints(task) {
   return Math.round(base * energyMult * speedMultiplier)
 }
 
-// Compute today's task count and total points.
-export function computeDailyStats(tasks) {
+// Compute today's task count and total points. Optional `settings` arg
+// applies the Easter-egg bonus: winning the hidden tic-tac-toe game
+// (triggered by 7-tapping the EditTaskModal title) stamps
+// `easter_egg_wins[today] = true` and contributes +1 task + +1 point
+// once per day. Tap, fight, win, and you've already done "something
+// today" before lifting a finger on the actual list.
+export function computeDailyStats(tasks, settings = null) {
   const todayStr = new Date().toDateString()
+  const todayIso = new Date().toISOString().split('T')[0]
   const todayTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
 
   let points = 0
@@ -33,7 +39,12 @@ export function computeDailyStats(tasks) {
     points += calculateTaskPoints(t)
   }
 
-  return { tasksToday: todayTasks.length, pointsToday: points }
+  const eggBonus = settings?.easter_egg_wins?.[todayIso] ? 1 : 0
+
+  return {
+    tasksToday: todayTasks.length + eggBonus,
+    pointsToday: points + eggBonus,
+  }
 }
 
 // Compute all-time records: best day (tasks & points), longest streak.
