@@ -58,6 +58,11 @@ export const DEFAULT_SETTINGS = {
   // name → bool (true = collapsed). Synced via settings so the preference
   // persists across reloads. Sections not in the map default to expanded.
   collapsed_sections: {},
+  // Days the user won the hidden tic-tac-toe Easter egg. Map of
+  // ISO date → true. Each win contributes +1 task + +1 point to that
+  // day's computeDailyStats, but only once per day. Trigger: 7-tap the
+  // EditTaskModal title (Android-build-number metaphor).
+  easter_egg_wins: {},
   // When true, the day cells stay expanded all the time. When false
   // (default), the strip renders collapsed — just the range label +
   // today's count — and tapping the range expands the days.
@@ -456,6 +461,40 @@ export function sortTasks(list, sortBy) {
 // computeDailyStats, computeRecords, computeTaskPoints, calculateTaskPoints
 // Re-exported below for backward compatibility.
 
+// Did the user have any actionable tasks on a given date? Used by
+// computeStreak to skip "empty days" (no tasks queued, nothing due) so
+// the streak doesn't punish for not gaming the list to keep it alive.
+// A task counts as actionable on date D if:
+//   - status is active (not done before D, not backlog/project/cancelled)
+//   - created_at <= end-of-D (existed by then)
+//   - snoozed_until is null or <= end-of-D (not snoozed past it)
+// Tasks that were completed ON D obviously count (they're an action).
+function hadActiveTasksOnDay(tasks, date) {
+  const endOfDay = new Date(date)
+  endOfDay.setHours(23, 59, 59, 999)
+  const startOfDay = new Date(date)
+  startOfDay.setHours(0, 0, 0, 0)
+
+  for (const t of tasks) {
+    if (['backlog', 'project', 'cancelled'].includes(t.status)) continue
+    if (!t.created_at) continue
+    const created = new Date(t.created_at)
+    if (created > endOfDay) continue
+    // If already completed before this day, it wasn't actionable on D.
+    if (t.status === 'done' && t.completed_at) {
+      const completed = new Date(t.completed_at)
+      if (completed < startOfDay) continue
+    }
+    // If snoozed past end-of-day, it wasn't actionable on D.
+    if (t.snoozed_until) {
+      const snoozedUntil = new Date(t.snoozed_until)
+      if (snoozedUntil > endOfDay) continue
+    }
+    return true
+  }
+  return false
+}
+
 export function computeStreak(tasks, settings) {
   if (settings.vacation_mode) {
     // Auto-expire vacation if end date has passed
@@ -467,8 +506,12 @@ export function computeStreak(tasks, settings) {
   }
 
   const freeDays = new Set(settings.free_days || [])
+  const easterEggWins = settings.easter_egg_wins || {}
 
-  // Count consecutive days with at least 1 completion (or a free day), working backward from today
+  // Count consecutive days with at least 1 completion (or a free day),
+  // working backward from today. Empty-task days (no completions AND no
+  // tasks were active on that day) are treated as no-fault — the streak
+  // continues across them. Easter-egg wins count as a completion.
   const completionDates = new Set()
   for (const t of tasks) {
     if (t.status === 'done' && t.completed_at) {
@@ -476,15 +519,26 @@ export function computeStreak(tasks, settings) {
     }
   }
 
+  const isNoFaultDay = (d) => {
+    const iso = d.toISOString().split('T')[0]
+    if (freeDays.has(iso)) return true
+    if (easterEggWins[iso]) return false // counted as completion below, not no-fault
+    return !hadActiveTasksOnDay(tasks, d)
+  }
+  const hasCompletionOn = (d) => (
+    completionDates.has(d.toDateString()) || !!easterEggWins[d.toISOString().split('T')[0]]
+  )
+
   let streak = 0
   const d = new Date()
-  // Check today first - if nothing done today and not a free day, check yesterday
-  if (!completionDates.has(d.toDateString()) && !freeDays.has(d.toISOString().split('T')[0])) {
+  // Today special: if nothing done today and not a no-fault day, peek at
+  // yesterday before declaring the streak broken.
+  if (!hasCompletionOn(d) && !isNoFaultDay(d)) {
     d.setDate(d.getDate() - 1)
-    if (!completionDates.has(d.toDateString()) && !freeDays.has(d.toISOString().split('T')[0])) return 0
+    if (!hasCompletionOn(d) && !isNoFaultDay(d)) return 0
   }
 
-  while (completionDates.has(d.toDateString()) || freeDays.has(d.toISOString().split('T')[0])) {
+  while (hasCompletionOn(d) || isNoFaultDay(d)) {
     streak++
     d.setDate(d.getDate() - 1)
   }

@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- feat: no-fault streak + hidden tic-tac-toe Easter egg [M]
+  - **No-fault streak.** User: "Not every day is going to have something that needs to make it to the list, and gaming the list just to put something on it to check it off seems antithetical to the goal." Right. `computeStreak` now treats "empty days" (zero completions + zero active tasks on that calendar date) as no-fault — the streak walks across them instead of breaking. Manual `free_days` still respected.
+  - **`hadActiveTasksOnDay(tasks, date)` helper.** A task counts as actionable on day D if: status is active (not in backlog/projects/cancelled), `created_at <= end-of-D`, `snoozed_until` null or `<= end-of-D`, and not already completed before start-of-D. If no tasks meet this on D and D has no completions, it's a no-fault day.
+  - **Easter egg — hidden tic-tac-toe.** New `TicTacToe.jsx` component. Triggered by 7-tapping the EditTaskModal title within a rolling 2s window (Android build-number metaphor — works fine in PWAs, just JS click handlers + timing). On the player's first win each day, stamps `settings.easter_egg_wins[YYYY-MM-DD] = true` and contributes +1 task + +1 point to that day's `computeDailyStats`. Subsequent wins same day: no point. Win days also count as completion days for `computeStreak`.
+  - **AI difficulty:** intentionally moderate, not unbeatable. Always takes a winning move, blocks the player's winning move 70% of the time, otherwise random. Means ~30% of player threats slip through — beatable without being trivial.
+  - **Persistence:** stampWin writes to localStorage via `saveSettings`, then calls `onPointEarned` which is wired to `useServerSync.flush()` so the new wins map syncs to the server immediately (otherwise a subsequent SSE hydrate would wipe the local-only change).
+  - **Discoverability:** zero user-facing copy mentions the egg. Power users find it by mashing the modal title — the same way Android users discover developer options.
+  - Modified: `src/store.js`, `src/scoring.js`, `src/v2/AppV2.jsx`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/ModalShell.jsx`, `wiki/Version-History.md`
+  - Added: `src/v2/components/TicTacToe.jsx`, `src/v2/components/TicTacToe.css`
+
 - style+fix: terminal stats `◎` + WhatNow icon swapped to Compass [XS]
   - **Bug.** Brand popover's stats row still rendered the colored MiniRings SVG in terminal mode — the only ring of color in an otherwise monochrome popover. User flagged it as "hasn't migrated to the new look."
   - **Fix.** Terminal CSS hides the SVG and renders `◎` (bullseye glyph) in accent color + glow via `::before` on `.mini-rings`. Rings concept preserved (per user request "I want to keep the rings concept for stats"), look matches the rest of the terminal idiom.
