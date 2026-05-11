@@ -29,3 +29,38 @@
   color: var(--v2-text-faint);
   letter-spacing: 0;
 }
+
+/* When the label doubles as a collapse toggle, the count loses
+ * `margin-left: auto` so the chevron can claim that slot instead. */
+.v2-section-label-toggle .v2-section-label-count {
+  margin-left: 0;
+}
+
+.v2-section-label-toggle {
+  border: none;
+  background: transparent;
+  width: 100%;
+  cursor: pointer;
+  text-transform: uppercase;
+  font: inherit;
+  color: inherit;
+  letter-spacing: 0.08em;
+  text-align: left;
+}
+
+.v2-section-label-toggle:hover {
+  color: var(--v2-text);
+}
+
+.v2-section-label-chev {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--v2-text-faint);
+  font-family: var(--v2-font-body);
+  letter-spacing: 0;
+  transition: color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-section-label-toggle:hover .v2-section-label-chev {
+  color: var(--v2-accent);
+}

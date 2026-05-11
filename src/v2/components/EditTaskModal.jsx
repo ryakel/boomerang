@@ -800,9 +800,10 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
               return (
                 <button
                   key={lbl.id}
+                  type="button"
                   className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
                   onClick={() => form.toggleTag(lbl.id)}
-                  style={active ? { background: lbl.color, borderColor: lbl.color, color: '#fff' } : undefined}
+                  style={{ '--label-color': lbl.color }}
                   title={lbl.name}
                 >
                   {lbl.name}

@@ -249,16 +249,18 @@ Respond with JSON only — an object with two fields:
 // --- Polish notes ---
 export async function polishNotes(title, rawNotes, availableLabels = []) {
   const labelHint = availableLabels.length > 0
-    ? `\n\nAvailable labels (suggest only from this list, exact case-insensitive match): ${availableLabels.map(l => l.name).join(', ')}`
-    : ''
+    ? `\n\nUser's existing labels (these are the ONLY valid suggestions — copy a name verbatim or omit): ${availableLabels.map(l => l.name).join(', ')}`
+    : '\n\nThe user has no labels configured. suggestedLabels MUST be an empty array.'
 
   const system = `You are a task assistant for someone with ADHD. You take messy, raw notes about a task and turn them into clear, actionable bullet points. Keep the person's voice — don't make it corporate. Be specific and concrete. If there are implicit next steps, surface them.
 
+Do NOT mention labels, tags, or categories inside the notes text — those belong only in the suggestedLabels field.
+
 Return JSON with these fields:
 - "title" (string) — cleaned-up task title if the original is vague, or the same title if it's already good
-- "notes" (string) — polished notes with line breaks between bullets, each starting with "- "
-- "suggestedChecklist" (object | null) — only if the notes describe a multi-step process that's better tracked as a checklist than a notes blob. Shape: { "name": "Steps" or similar, "items": [{ "text": "..." }, ...] }. Set to null if the task isn't multi-step or already has a clear narrative form.
-- "suggestedLabels" (array of strings) — label names from the user's available list that clearly apply to this task. Only suggest labels that match exactly; never invent new label names. Empty array if none apply.${labelHint}`
+- "notes" (string) — polished notes with line breaks between bullets, each starting with "- ". Do not include a "Labels:" / "Tags:" line.
+- "suggestedChecklist" (object | null) — DEFAULT TO null. Only set this when the task is a genuine multi-step procedure with 4+ discrete actionable steps the user must perform in order, AND those steps are not already obvious from the notes. Examples that DO warrant a checklist: "ship the dishwasher install", "onboard a new employee". Examples that DO NOT: a task with 2-3 sub-bullets, a task with discussion notes, a task that's a single action with context. When in doubt, return null. Shape when set: { "name": "Steps" or similar, "items": [{ "text": "..." }, ...] }.
+- "suggestedLabels" (array of strings) — names that EXACTLY match the user's existing labels above, copy-pasted verbatim (case-insensitive okay). Never invent, abbreviate, pluralize, or paraphrase. Return an empty array if no exact match applies.${labelHint}`
 
   const user = `Task: "${title}"\n\nRaw notes:\n${rawNotes}\n\nPolish these into clear, actionable notes. Return JSON only.`
 

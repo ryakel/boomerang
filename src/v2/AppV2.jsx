@@ -85,6 +85,19 @@ export default function AppV2() {
   const isTerminal = useTerminalMode()
   const weather = useWeather()
 
+  // Per-section collapsed state on the home task list. Initialized from
+  // settings, written back on every toggle so it persists across reloads
+  // (and syncs across devices via the standard /api/data round-trip).
+  const [collapsedSections, setCollapsedSections] = useState(() => loadSettings().collapsed_sections || {})
+  const toggleSection = useCallback((name) => {
+    setCollapsedSections(prev => {
+      const next = { ...prev, [name]: !prev[name] }
+      const merged = { ...loadSettings(), collapsed_sections: next }
+      saveSettings(merged)
+      return next
+    })
+  }, [])
+
   // Mark the document so v2-namespaced tokens activate. Also apply the saved
   // theme on mount so the rendered UI matches whatever the Settings theme
   // picker reads — without this, settings.theme could be 'dark'/'terminal'
@@ -527,25 +540,36 @@ export default function AppV2() {
     }
   }, [addTask, updateTask, prefetchToast])
 
-  const renderSection = (label, list, sigil) => list.length > 0 && (
-    <>
-      <SectionLabel count={list.length} sigil={sigil}>{label}</SectionLabel>
-      {list.map(t => (
-        <TaskCard
-          key={t.id}
-          task={t}
-          expanded={expandedTaskId === t.id}
-          onToggleExpand={setExpandedTaskId}
-          onComplete={handleComplete}
-          onEdit={handleEdit}
-          onSnooze={handleSnooze}
-          onSkipAdvance={handleSkipAdvance}
-          weatherByDate={weather.enabled ? weather.byDate : null}
-          routineStreaks={routineStreaks}
-        />
-      ))}
-    </>
-  )
+  const renderSection = (label, list, sigil) => {
+    if (list.length === 0) return null
+    const collapsed = !!collapsedSections[label]
+    return (
+      <>
+        <SectionLabel
+          count={list.length}
+          sigil={sigil}
+          onToggle={() => toggleSection(label)}
+          collapsed={collapsed}
+        >
+          {label}
+        </SectionLabel>
+        {!collapsed && list.map(t => (
+          <TaskCard
+            key={t.id}
+            task={t}
+            expanded={expandedTaskId === t.id}
+            onToggleExpand={setExpandedTaskId}
+            onComplete={handleComplete}
+            onEdit={handleEdit}
+            onSnooze={handleSnooze}
+            onSkipAdvance={handleSkipAdvance}
+            weatherByDate={weather.enabled ? weather.byDate : null}
+            routineStreaks={routineStreaks}
+          />
+        ))}
+      </>
+    )
+  }
 
   return (
     <div className="v2-app">
