@@ -966,7 +966,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
         disabled={!form.title.trim()}
         onClick={handleSave}
       >
-        Save changes
+        Close
       </button>
     </ModalShell>
   )

@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- fix+style: EditTaskModal CTA → "Close" + restore section-count alignment [XS]
+  - **CTA rename.** With autosave back (#134) and the AutosaveIndicator showing "✓ Saved" feedback (#136), the `[ Save changes ]` button no longer commits anything new — it just closes the modal. Relabeled to `Close` so the affordance reads honestly. RoutinesModal kept as-is (still explicit-save; no autosave there).
+  - **Count regression.** Collapsible sections (#138) introduced `.v2-section-label-toggle .v2-section-label-count { margin-left: 0 }` to make room for the chevron — that stranded the count flush-left next to the section text instead of pushed right. The chevron also had `margin-left: auto`, which became redundant. Fix: drop the count override, drop the chevron's auto, give it an 8px gap. Count returns to the right; chevron sits beside it.
+  - Modified: `src/v2/components/EditTaskModal.jsx`, `src/v2/components/SectionLabel.css`, `wiki/Version-History.md`
+
 - fix+feat: label visual selection + tightened Polish + collapsible sections [M]
   - **Three bundled changes.** All client-side polish surfacing issues the user flagged in one batch.
   - **Bug — label selection invisible (especially in terminal).** `.v2-form-label-pill` in terminal CSS used `background: transparent !important` + `color: var(--v2-text-meta) !important`, which beat the inline `style={{ background, color }}` set by the active state in JSX. The user saw no visual distinction between picked and unpicked labels, and couldn't tell which were "really" selected. Fix: each pill now exposes its color as a CSS custom property `--label-color` via inline style; new `.v2-form-label-pill-active` rules read the var in both light/dark (fill the pill) and terminal (color the bracketed text + a glow). Saves were already wired correctly — the perceived save bug was the visual bug masquerading.

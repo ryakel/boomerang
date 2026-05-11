@@ -30,12 +30,6 @@
   letter-spacing: 0;
 }
 
-/* When the label doubles as a collapse toggle, the count loses
- * `margin-left: auto` so the chevron can claim that slot instead. */
-.v2-section-label-toggle .v2-section-label-count {
-  margin-left: 0;
-}
-
 .v2-section-label-toggle {
   border: none;
   background: transparent;
@@ -52,8 +46,11 @@
   color: var(--v2-text);
 }
 
+/* Chevron sits to the right of the count (which already pushed itself
+ * right via `margin-left: auto`). Just a small gap, no extra auto so
+ * we don't strand the count flush-left. */
 .v2-section-label-chev {
-  margin-left: auto;
+  margin-left: 8px;
   font-size: 10px;
   color: var(--v2-text-faint);
   font-family: var(--v2-font-body);
