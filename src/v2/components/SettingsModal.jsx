@@ -1727,7 +1727,7 @@ function ServerLogsPanel() {
 }
 
 export default function SettingsModal({
-  open, onClose, onFlush, onClearCompleted, onClearAll, onShowActivityLog,
+  open, onClose, onFlush, onClearCompleted, onClearAll, onShowActivityLog, onShowMarkdownImport,
   onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
 }) {
   const [activeTab, setActiveTab] = useState('General')
@@ -2132,6 +2132,18 @@ export default function SettingsModal({
                 disabled={!onShowActivityLog}
               >
                 <FileText size={13} strokeWidth={1.75} /> Open activity log
+              </button>
+            </div>
+
+            <div className="v2-settings-block">
+              <div className="v2-form-label">Markdown import</div>
+              <div className="v2-settings-row-hint">Paste a markdown list or checklist and have it parsed into tasks. Rarely used; lives here so it doesn't crowd the main menu.</div>
+              <button
+                className="v2-settings-btn"
+                onClick={() => { onClose?.(); onShowMarkdownImport?.() }}
+                disabled={!onShowMarkdownImport}
+              >
+                <Upload size={13} strokeWidth={1.75} /> Import from markdown
               </button>
             </div>
 
