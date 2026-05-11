@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw, Upload } from 'lucide-react'
+import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import EmptyState from './components/EmptyState'
@@ -801,13 +801,6 @@ export default function AppV2() {
               <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
             </button>
           </li>
-          <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowMarkdownImport(true) }}>
-              <Upload size={18} strokeWidth={1.75} className="v2-more-row-icon" />
-              <span className="v2-more-row-label" data-terminal-cmd="> import --markdown">Import from markdown</span>
-              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
-            </button>
-          </li>
         </ul>
       </ModalShell>
 
@@ -854,6 +847,7 @@ export default function AppV2() {
         onClearCompleted={() => { clearCompleted(); setShowSettings(false); flushSync() }}
         onClearAll={() => { clearAll(); setShowSettings(false); flushSync() }}
         onShowActivityLog={() => setShowActivityLog(true)}
+        onShowMarkdownImport={() => setShowMarkdownImport(true)}
         onTrelloSync={syncTrello}
         trelloSyncing={trelloSyncing}
         onNotionSync={syncNotion}

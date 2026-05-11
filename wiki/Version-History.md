@@ -4,6 +4,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-11
+
+- refactor(ui): move markdown import from overflow menu to Settings → Data [XS]
+  - **Why.** User: "Let's move import markdown to the data tab. I'm not positive it's going to live long. But I have it built for now. It's a rarely used function." Crowding the top-level overflow menu with a feature that may be deprecated isn't worth the slot.
+  - **Settings → Data.** New "Markdown import" block sits between Activity and Danger zone. Bracketed `[ import from markdown ]` button (terminal idiom inherited from `.v2-settings-btn` class) opens the existing `MarkdownImportModal` after closing Settings.
+  - **Wiring.** `SettingsModal` gains an `onShowMarkdownImport` prop, mirroring the existing `onShowActivityLog` pattern. `AppV2` passes `() => setShowMarkdownImport(true)`.
+  - **Overflow menu.** "Import from markdown" row removed from the `…` menu. `Upload` lucide icon dropped from `AppV2.jsx` import list (no longer used there).
+  - **No behavior change** beyond placement — the modal itself is untouched.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/AppV2.jsx`, `wiki/Version-History.md`, `wiki/Architecture.md`
+
+---
+
 ## 2026-05-10
 
 - fix(ui): terminal — markdown import button row alignment [XS]
