@@ -12,12 +12,14 @@ Four palettes, picked in Settings → General → Theme:
 |---|---|
 | **Light** | Wheneri-style — warm orange accent, soft pastels, rounded pills, generous whitespace |
 | **Dark** | Same layout language, dark canvas |
-| **Terminal Dark** | GitHub Dark code-editor aesthetic — monospace stack, cyan-blue accent on `#0D1117` canvas, `$ boomerang_` blinking-cursor wordmark, ASCII flourishes (`[ ]` task prefix, `[ Done ]` bracket buttons, `> SECTION [3]` chevron labels), `[off] [on]` bracket toggles in Settings, density signals on TaskCard (`[3/5]` checklist counter, `🔥N` routine streak, one-line notes preview) |
+| **Terminal Dark** | GitHub Dark code-editor aesthetic — monospace stack, cyan-blue accent on `#0D1117` canvas, `> boomerang_` blinking-cursor wordmark, ASCII flourishes (`[ ]` clickable checkboxes on task rows, `[ Save changes ]` bracket buttons, `> section [3]` sigil-prefixed labels), no-button-chrome philosophy (every settings control flat sigil+text or bracket-radio idiom), density signals on TaskCard (`[3/5]` checklist counter, `🔥N` routine streak, one-line notes preview) |
 | **Terminal Light** | Same monospace aesthetic on a white canvas with GitHub Light colors (deep-link blue `#0969DA`, `#1F2328` text). Same density signals, same ASCII structure |
 
-Modal headers in terminal mode read as commands: `$ task --new`, `$ snooze`, `$ what-now`, `$ settings`, `$ quokka`, `$ delete --confirm`. Empty states render as `// comment` lines. Light + Dark stay calm and unchanged.
+Modal headers in terminal mode read as commands: `> task --new`, `> snooze`, `> what-now`, `> settings`, `> quokka`, `> delete --confirm`. Empty states render as `// comment` lines. Light + Dark stay calm and unchanged.
 
-**Home-screen surfaces (opt-in, theme-aware):** Settings → General → Home screen offers two toggles. The 7-day calendar strip renders above the task list with activity-intensity dots/blocks per day; the goal progress bar sits below the list and tracks `tasksToday / daily_task_goal`. Both render as cards in light/dark, bare monospace strip + block characters in terminal mode.
+**Home stats line (terminal):** Above the task list, a single segmented line shows `📅 Sun, May 10 ▾ · 🔥 N days · ✓ N/goal today`. Tap the calendar date to show/hide the 7-day strip below — the strip is collapsed by default. The `🔥 streak` is the global day-streak; the `✓ today` tracks `tasksToday / daily_task_goal`.
+
+**7-day strip:** Shows activity intensity per day (▁▃█ in terminal, soft dots in light/dark) with today's exact `count/goal` inline. Hidden by default in terminal mode — tap the date in the home stats line to reveal. Light/dark users opt-in via Settings → General → Home screen. `week_strip_always_open` setting keeps it permanently visible.
 
 ## Task Management
 

@@ -769,9 +769,9 @@ These five primitives are the v2 task-surface language. Every subsequent v2 surf
 
 **End state.** After all 8 PRs ship and a 1-2 week opt-in period validates v2, flip the default to `'v2'`, leave v1 reachable via `?ui=v1` for one release, then delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`.
 
-### Terminal Theme Stress Test (2026-05-10)
+### Terminal Theme Stress Test (2026-05-10, shipped to main 2026-05-11)
 
-**Working hypothesis: terminal may become the default forever.** PR A–H shipped a four-palette family — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) — with terminal-specific structural overrides (ASCII flourishes, monospace stack, bracket toggles, `> verb` modal headers, `// manage` section, density signals on TaskCard). The user is now stress-testing whether terminal feels right as the daily driver. Light/dark stay maintained as defensive baseline.
+**Working hypothesis: terminal may become the default forever.** PR A–H shipped a four-palette family — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) — with terminal-specific structural overrides (ASCII flourishes, monospace stack, bracket toggles, `> verb` modal headers, `// manage` section, density signals on TaskCard, no-button-chrome on settings controls, WeekStrip toggle from home stats date). The user shipped v0.11.0 to `main` on 2026-05-11 with terminal as their daily driver; the 30-day decision criterion (terminal-forever vs. didn't-stick) starts clocking from there. Light/dark stay maintained as defensive baseline.
 
 **The convention while we stress-test:**
 
