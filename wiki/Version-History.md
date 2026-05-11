@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — DoneList reopen + load-more buttons [XS]
+  - **Why.** User: "Done list reopen are buttons. Import markdown preview is a button." The markdown preview button was already fixed in #123 — the user is seeing a cached PWA build. Done-list reopen + load-more genuinely weren't touched.
+  - **`.v2-done-reopen`** (per-row "Reopen" button on each completed task): hairline-bordered pill → bracketed accent text `[ reopen ]`. Hover deepens the glow.
+  - **`.v2-done-load-more`** (bottom "Load more" pagination): same treatment, meta-text inactive, accent on hover.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - style(ui): terminal — notif cards + logs view + analytics brackets + markdown CTA [XS]
   - **Why.** Four screenshots in quick succession (per the new batching rule):
     1. Notif cards rendered each frequency type as a bordered card with surface-bg fill — "these don't fit with the aesthetic"
