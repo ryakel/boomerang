@@ -96,6 +96,19 @@
   color: var(--v2-accent);
 }
 
+/* Today-only count line: replaces GoalProgressBar. Shows `N/goal` under
+ * the date number so today's exact progress sits inside its own cell —
+ * the intensity bar still gives the at-a-glance read. */
+.v2-week-strip-count {
+  font: 600 11px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  letter-spacing: 0;
+}
+
+.v2-week-strip-day-today .v2-week-strip-count {
+  color: var(--v2-accent);
+}
+
 /* Activity intensity bar — soft pastel dot underneath each day. Empty
  * day = invisible, low = pale, medium = mid, high = full accent. */
 .v2-week-strip-bar {
@@ -175,6 +188,13 @@
   content: "*";
   color: var(--v2-accent);
   margin-right: 1px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-week-strip-count {
+  font-family: var(--v2-font-body);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--v2-accent);
 }
 
 /* Block-character intensity. Hide the card-mode bar, render via ::after
