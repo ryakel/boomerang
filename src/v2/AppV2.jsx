@@ -262,7 +262,7 @@ export default function AppV2() {
   const hasDone = todayCount > 0 || tasks.some(t => t.status === 'done')
   // Mini-rings driven by daily-stats + streak. Same colors v1 uses.
   const settingsForRings = loadSettings()
-  const dailyStats = computeDailyStats(tasks)
+  const dailyStats = computeDailyStats(tasks, settingsForRings)
   const streak = computeStreak(tasks, settingsForRings)
   // Per-routine streak map → threaded down to TaskCard so routine-spawned
   // tasks can render an inline 🔥N. Recomputed only when `routines` changes.
@@ -773,6 +773,7 @@ export default function AppV2() {
         <EditTaskModal
           task={editTarget}
           onSave={updateTask}
+          onFlush={flushSync}
           onClose={() => setEditTarget(null)}
           onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
           onBacklog={handleBacklog}
