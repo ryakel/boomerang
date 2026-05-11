@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-10
 
+- style(ui): terminal — flatten notification cards + logs view [XS]
+  - **Why.** Two screenshots in quick succession: (1) Settings → Notifications still rendered each frequency type as a bordered rounded card with surface-bg fill and a tinted-bg cell around each channel toggle — user: "These don't fit with the aesthetic." (2) Settings → Logs filter chips had pill chrome (active = filled black/white inversion) and the log-stream wrapper had a card border + radius — user: "Buttons and the box don't line up. Logs of all things should look like terminal."
+  - **Notification cards** (`.v2-notif-card`): bordered surface-bg card → flat row with hairline-bottom separator. Channel toggle wrapper (`.v2-notif-card-channel`) drops its tinted bg + radius. Disabled state (`-disabled`) fades opacity. `.v2-notif-cards` gap zeroed since hairlines now do the separating.
+  - **Logs filter chips** (`.v2-settings-filter`): pill chrome dropped → bracket-radio idiom matching `.v2-form-seg` and `.v2-settings-segment-btn`. Inactive `[ ] all`, active `[•] all` with accent + glow. Wraps onto a second line on narrow widths.
+  - **Logs stream** (`.v2-settings-logs-stream`): bordered card with rounded corners + faint bg → bare div. Log rows lose their `border-radius: 4px` and gain a dashed bottom hairline so consecutive entries read as a log feed. Empty state gets a `// ` prefix.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - fix(ui): ship-prep batch — Quokka send button + autofocus + docs [XS]
   - **Why.** User feedback: "Quokka seems fixed. The paper airplane should probably be adjusted to p10k or true word only send button. There is also a bug in PWA where it drops me immediately into the text box and the keyboard covers up half the stuff." Plus the heads-up that `DateField` + `TypingSuggestions` weren't yet in `wiki/Architecture.md`.
   - **Send button** (`.v2-adviser-send`) — was rendering an airplane SVG flanked by `[` `]` brackets in terminal mode (the JSX child is `<Send>` lucide; my bracket-wrap `::before`/`::after` rules wrapped the SVG). Hidden the SVG in terminal mode via `display: none` and replaced with `[ send ]` text via `::before` content. Matches the bracketed-CTA convention used by `.v2-form-submit`, `.v2-confirm-btn-primary`, etc.

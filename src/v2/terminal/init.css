@@ -1787,3 +1787,123 @@
   word-break: break-word;
   overflow-wrap: break-word;
 }
+
+/* === Notification frequency cards =================================
+ *
+ * `.v2-notif-card` shipped with rounded corners + border + bg surface
+ * (modern card chrome). Per audit-feedback ("these don't fit with the
+ * aesthetic"), strip all of that — flat rows with a hairline separator,
+ * channel toggles inline without their tinted-bg cells. */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-notif-cards {
+  gap: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-notif-card {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  border-radius: 0 !important;
+  padding: 14px 0 !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-notif-card-channel {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-notif-card-channel:hover {
+  background: transparent !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-notif-card-channel-disabled {
+  opacity: 0.45;
+}
+
+/* === Settings → Logs view =========================================
+ *
+ * "Logs of all things should look like terminal." Strip the wrapping
+ * card chrome, replace filter pills with the bracket-radio idiom that
+ * matches `.v2-form-seg` / `.v2-settings-segment-btn`, drop the row
+ * border-radius. The log content (timestamp + [TAG] msg) was already
+ * monospace; just clearing the chrome out of the way. */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-logs-toolbar {
+  border-bottom: none;
+  padding-bottom: 0;
+  gap: 16px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-logs-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  border-bottom: 1px solid var(--v2-hairline) !important;
+  padding-bottom: 10px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-filter {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase !important;
+  font: 500 12px/1.2 var(--v2-font-body) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-filter::before {
+  content: "[ ]";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-filter:hover:not(.v2-settings-filter-active) {
+  background: transparent !important;
+  color: var(--v2-text) !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-filter-active {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  border: none !important;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-filter-active::before {
+  content: "[•]";
+  color: var(--v2-accent);
+  font-weight: 700;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-logs-stream {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin-top: 10px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-log-row {
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  border-bottom: 1px dashed var(--v2-hairline);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-log-row + .v2-settings-log-row {
+  margin-top: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-logs-empty {
+  color: var(--v2-text-meta);
+  text-align: left;
+  padding: 12px 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-logs-empty::before {
+  content: "// ";
+  color: var(--v2-text-faint);
+}
