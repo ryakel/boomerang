@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight, RotateCw } from 'lucide-react'
 import { loadLabels, ENERGY_TYPES, STATUS_META, uuid } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
@@ -102,32 +102,78 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
   const labels = loadLabels()
   const today = new Date().toISOString().split('T')[0]
 
-  // Auto-save title/notes/due/priority/size/energy/tags on blur/change is
-  // common in v1 EditTaskModal. v2 keeps the explicit Save button for now —
-  // less surprising for the new UI, easier to reason about. PR8 polish can
-  // add per-field autosave if it feels natural in use.
+  // v2 autosaves every field change with a 500ms debounce, mirroring v1
+  // behavior the user expects. The Save button is kept as an explicit
+  // flush-and-close affordance — useful when the modal is dismissed via
+  // route change or in case the autosave debounce hasn't fired yet.
+  //
+  // Payload is JSON-serialized + ref-compared so reference churn on
+  // array/object state (e.g. selectedTags) doesn't fire spurious saves.
+  // `last_touched` is omitted here — useTasks.updateTask stamps it.
+  const savePayload = useMemo(() => ({
+    title: form.title.trim(),
+    notes: form.notes,
+    tags: form.selectedTags,
+    due_date: form.dueDate || null,
+    size: form.size,
+    energy: form.energy,
+    energyLevel: form.energyLevel,
+    high_priority: form.highPriority,
+    low_priority: form.lowPriority,
+    size_inferred: !!form.size,
+    checklists,
+    attachments: form.attachments,
+    comments,
+    notion_page_id: form.notionResult?.id || null,
+    notion_url: form.notionResult?.url || null,
+    weather_hidden: weatherHidden,
+    gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
+  }), [
+    form.title, form.notes, form.selectedTags, form.dueDate,
+    form.size, form.energy, form.energyLevel,
+    form.highPriority, form.lowPriority,
+    form.attachments, form.notionResult,
+    checklists, comments, weatherHidden, gcalDuration,
+  ])
+
+  const lastSavedJson = useRef(null)
+  const savePayloadRef = useRef(savePayload)
+  savePayloadRef.current = savePayload
+
+  useEffect(() => {
+    const json = JSON.stringify(savePayload)
+    // First render: capture the loaded-task baseline so we don't fire
+    // a redundant save immediately on open.
+    if (lastSavedJson.current === null) {
+      lastSavedJson.current = json
+      return
+    }
+    if (lastSavedJson.current === json) return
+    if (!savePayload.title) return // empty-title guard
+    const t = setTimeout(() => {
+      lastSavedJson.current = json
+      onSave(task.id, savePayload)
+    }, 500)
+    return () => clearTimeout(t)
+  }, [savePayload, onSave, task.id])
+
+  // Flush any pending edits on unmount. Without this, closing the modal
+  // (X button, route change) within the 500ms debounce window would
+  // strand the user's last few edits.
+  useEffect(() => {
+    return () => {
+      const json = JSON.stringify(savePayloadRef.current)
+      if (lastSavedJson.current === json) return
+      if (!savePayloadRef.current.title) return
+      onSave(task.id, savePayloadRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleSave = () => {
     if (!form.title.trim()) return
-    onSave(task.id, {
-      title: form.title.trim(),
-      notes: form.notes,
-      tags: form.selectedTags,
-      due_date: form.dueDate || null,
-      size: form.size,
-      energy: form.energy,
-      energyLevel: form.energyLevel,
-      high_priority: form.highPriority,
-      low_priority: form.lowPriority,
-      size_inferred: !!form.size,
-      checklists,
-      attachments: form.attachments,
-      comments,
-      notion_page_id: form.notionResult?.id || null,
-      notion_url: form.notionResult?.url || null,
-      weather_hidden: weatherHidden,
-      gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
-      last_touched: new Date().toISOString(),
-    })
+    lastSavedJson.current = JSON.stringify(savePayload)
+    onSave(task.id, savePayload)
     onClose()
   }
 

@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- fix(ui): v2 EditTaskModal — restore field autosave (v1 parity) [S]
+  - **Why.** User: "Everything else used to auto save before v2. This was a regression." Correct — v1 EditTaskModal autosaved every form change on blur/onChange. v2 shipped with an explicit `[ Save changes ]` button intentionally (per the source comment: "less surprising for the new UI, easier to reason about. PR8 polish can add per-field autosave if it feels natural in use"), but in practice the modal partially autosaved anyway: status changes and the manage actions (`> archive`, `> delete --confirm`, etc.) fired immediately, while form fields (title, notes, tags, due date, size, energy, priority, checklists, attachments, comments, weather-hidden, gcal-duration) only persisted on explicit Save. The mixed behavior trained the user to expect autosave for everything; checklist edits silently dropped when they closed the modal via X.
+  - **Fix.** Single `useMemo`-built `savePayload`, watched by a debounced (500ms) autosave effect. JSON-string ref-compare so reference churn on array/object state (e.g. `selectedTags`) doesn't fire spurious saves. Empty-title guard preserved. `last_touched` removed from the payload — `useTasks.updateTask` already stamps it.
+  - **Unmount flush.** A separate effect with empty deps fires on unmount: if the latest payload differs from the last-saved baseline, save synchronously before the modal goes away. Closing via X / route change within the 500ms window no longer strands edits.
+  - **Save button kept.** Still wired to `handleSave` — explicit flush-and-close affordance. Updates `lastSavedJson` ref so the autosave doesn't double-fire.
+  - Modified: `src/v2/components/EditTaskModal.jsx`, `wiki/Version-History.md`
+
 - release: v0.11.0 — terminal theme + v2 milestone to main [L]
   - **What's in this release.** First merge of `dev` → `main` since the v2 cutover. Bundles every PR from 2026-05-10 + 2026-05-11. Highlights:
     - **Terminal theme family** (PR A–H) — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) palettes; ASCII flourishes, monospace stack, `> verb` modal headers, `// section` labels, bracket toggles, density signals on TaskCard.
