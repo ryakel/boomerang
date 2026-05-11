@@ -28,7 +28,8 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - **Real-time sync** — cross-client sync via Server-Sent Events (SSE)
 - **Desktop UI** — kanban board with drag-and-drop, responsive modals, hover states
 - **Mobile-first PWA** — installable to home screen, swipe gestures (left for Edit/Done, right to delete)
-- **Dark mode**, custom labels, due dates, high-priority escalation
+- **Themes** — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light). Terminal mode swaps the calm-modern aesthetic for a monospace power-user shell with ASCII flourishes, `> verb` modal headers, flat sigil+text controls, and density signals on every task card
+- **Custom labels**, due dates, high-priority escalation
 
 ### Notifications
 

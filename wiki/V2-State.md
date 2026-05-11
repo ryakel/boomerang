@@ -1,6 +1,6 @@
 # V2 — Current State and Future Work
 
-The v2 redesign was built between 2026-05-03 and 2026-05-09. This doc captures
+The v2 redesign was built between 2026-05-03 and 2026-05-11. This doc captures
 where v2 stands today, what's shipped, what's still pending, and how to pick
 up the work in a future session.
 
@@ -8,10 +8,12 @@ up the work in a future session.
 
 ## TL;DR
 
+- **v0.11.0 milestone shipped to `main` 2026-05-11.** v2 is the default; terminal-dark / terminal-light palettes joined Light / Dark in the picker; WeekStrip + EditTaskModal + update modal all flattened to the terminal idiom; every "add" pill collapsed to `+ verb noun` text; markdown import moved to Settings → Data; GoalProgressBar removed (folded into WeekStrip).
 - **v2 is the default UI** since `b1f2e76` (PR6 cutover, 2026-05-03). `?ui=v1` reverts.
-- **Every v1 surface has a v2 implementation.** All 8 Settings tabs, all task-flow modals, KanbanBoard on desktop, swipe gestures on mobile, weather badges, Trello status push, routine cadence advancing on complete, multi-list checklists. As of 2026-05-09, all six v2-polish ship-blockers + all seven medium-priority items have landed (skip-this-cycle, sort+filter pills, search, Pushover credentials, Anthropic key, manual sync triggers, channel test buttons, notification history, EditTaskModal Comments/Research/Attachments/Extract-Text, weather geocode, Notion link/create on tasks, Trello/GCal/Gmail picker UIs, Notion DB sync config). Visual bugs from screenshots all fixed. Polish + lower-priority items still pending; final-mile cherry-picks + dev → main merge prep are next.
-- **Dev-merge workflow is locked in.** Direct push to `refs/heads/dev` still 403s on the local proxy (status as of 2026-05-09). The MCP-PR-and-rebase-merge loop documented in CLAUDE.md is the canonical way work lands on `dev` — fully automated end-to-end with no GitHub-UI clicks.
-- **Dark-mode QA was deferred** at the user's request until light-mode sizes/positions/colors are dialed.
+- **Every v1 surface has a v2 implementation.** All 8 Settings tabs, all task-flow modals, KanbanBoard on desktop, swipe gestures on mobile, weather badges, Trello status push, routine cadence advancing on complete, multi-list checklists. As of 2026-05-09, all six v2-polish ship-blockers + all seven medium-priority items have landed.
+- **Terminal theme is the active aesthetic.** GitHub Dark + GitHub Light sub-palettes. Per CLAUDE.md "Terminal Theme Stress Test", structural decision-criteria (30-day daily use → deprecate Light/Dark) still apply; ship-to-main is a strong signal but not the formal trigger.
+- **Dev-merge workflow is locked in.** Direct push to `refs/heads/dev` still 403s on the local proxy (status as of 2026-05-11). The MCP-PR-and-rebase-merge loop documented in CLAUDE.md is the canonical way work lands on `dev`.
+- **Dark-mode QA was deferred** at the user's request until light-mode sizes/positions/colors are dialed. Less critical now that terminal is the daily driver.
 
 ---
 

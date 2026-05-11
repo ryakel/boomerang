@@ -6,6 +6,24 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-11
 
+- release: v0.11.0 — terminal theme + v2 milestone to main [L]
+  - **What's in this release.** First merge of `dev` → `main` since the v2 cutover. Bundles every PR from 2026-05-10 + 2026-05-11. Highlights:
+    - **Terminal theme family** (PR A–H) — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) palettes; ASCII flourishes, monospace stack, `> verb` modal headers, `// section` labels, bracket toggles, density signals on TaskCard.
+    - **No-button-chrome philosophy** in terminal — every settings control, every notification card, every modal CTA, every "add" pill flattened to sigil+text or bracket-radio idiom. Update-available modal included.
+    - **Home stats line** (`📅 Sun, May 10 ▾ · 🔥 N days · ✓ N/goal today`) where the calendar date is the WeekStrip show/hide toggle.
+    - **WeekStrip** lost its internal range-toggle + `today N/goal` summary (folded into home stats line). GoalProgressBar removed entirely — today's count lives in WeekStrip's today cell.
+    - **EditTaskModal "add" pills** (`+ add checklist`, `+ attach files`, `+ notion`, `+ add comment`) — dashed borders dropped, flat `+ verb noun` idiom matching the `// manage` section.
+    - **Markdown import** moved from overflow menu to Settings → Data.
+    - Click-to-complete `[ ]` checkboxes on task cards (terminal); urgency as title text color; 700ms `[✓]` confirmation pulse.
+    - Sequential typing demo on Quokka empty state; `[ object Object ]` bug fixed.
+    - Theme persistence rewrite — local theme survives server hydration.
+    - DateField component — `[ due date ]` opens native picker, renders `[ YYYY-MM-DD ]` filled.
+    - Smoke tests for terminal-title + terminal-button coverage in pre-push hook.
+  - **Audit.** `npm audit` reports 0 vulnerabilities.
+  - **Decision criterion clock starts now.** Per CLAUDE.md → "Terminal Theme Stress Test", 30 days of daily terminal use → consider Light/Dark deprecation. All four palettes stay live + equal in the picker until that date.
+  - Bumped: `package.json` 0.10.0 → 0.11.0, `package-lock.json` to match
+  - Modified: `wiki/V2-State.md` (status flip), `wiki/Features.md` (`>` prefix, home stats line, WeekStrip behavior), `CLAUDE.md` (terminal section header)
+
 - style(ui): terminal — flatten update-available modal [XS]
   - **Why.** User: "The reload module still has a button." The version-mismatch modal (`v2-update-overlay` / `v2-update-modal`) still rendered with rounded-modal chrome + a filled accent reload pill in terminal mode.
   - **Modal.** Drop the border-radius + drop-shadow chrome. Add a hairline border + soft accent glow ring. Match the terminal flat-card idiom used elsewhere.
