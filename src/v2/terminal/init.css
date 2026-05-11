@@ -1115,6 +1115,25 @@
   text-shadow: var(--v2-glow);
 }
 
+/* Selected: text + brackets take the label's own color (passed via the
+ * `--label-color` custom property on each pill's inline style). The
+ * `!important` matches the base terminal rule above so the active
+ * styling isn't silently lost. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label-pill-active {
+  color: var(--label-color) !important;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--label-color) 60%, transparent);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label-pill-active::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label-pill-active::after {
+  color: var(--label-color);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-label-pill-active:hover {
+  color: var(--label-color) !important;
+  filter: brightness(1.15);
+}
+
 /* AdviserModal — send button. The JSX renders a `<Send>` lucide SVG
  * as the only child (no text). Hide the SVG and render `[ send ]` text
  * via ::before so terminal mode reads as `[ send ]` instead of an

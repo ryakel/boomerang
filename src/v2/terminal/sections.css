@@ -36,6 +36,26 @@
   border-radius: var(--v2-radius-card);
 }
 
+/* Collapse-toggle chevron on section labels. The button itself gets
+ * its baseline reset; the chevron swaps from SVG-ish to ASCII matching
+ * the rest of the terminal idiom. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-toggle {
+  background: transparent;
+  border: none;
+  width: 100%;
+  padding-left: 0;
+  text-align: left;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-chev {
+  color: var(--v2-text-faint);
+  font-size: 11px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-toggle:hover .v2-section-label-chev {
+  color: var(--v2-accent);
+}
+
 /* Brand popover sync row — bracket the status dot. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-sync .v2-header-popover-row-icon::before {
   content: "[";
