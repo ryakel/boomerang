@@ -22,7 +22,6 @@ import KanbanBoard from './components/KanbanBoard'
 import TaskListToolbar from './components/TaskListToolbar'
 import MarkdownImportModal from './components/MarkdownImportModal'
 import WeekStrip from './components/WeekStrip'
-import GoalProgressBar from './components/GoalProgressBar'
 import Toast from './components/Toast'
 import FloatingCapture from './components/FloatingCapture'
 import ConfirmDialog from './components/ConfirmDialog'
@@ -705,9 +704,6 @@ export default function AppV2() {
             {renderSection('Up next', sortedUpNext, '+')}
             {renderSection('Waiting', sortedWaiting, '…')}
             {renderSection('Snoozed', sortedSnoozed, 'z')}
-            {(settingsForRings.show_goal_progress || isTerminal) && (
-              <GoalProgressBar tasksToday={dailyStats.tasksToday} goal={settingsForRings.daily_task_goal || 3} />
-            )}
           </div>
         )}
       </main>

@@ -2023,21 +2023,6 @@ export default function SettingsModal({
 
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Show daily goal progress</div>
-                <div className="v2-settings-row-hint">Progress bar below the task list against the daily task goal. Rounded pill in light/dark, block-character bar in terminal.</div>
-              </div>
-              <label className="v2-settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.show_goal_progress}
-                  onChange={e => update('show_goal_progress', e.target.checked)}
-                />
-                <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-              </label>
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
                 <label className="v2-settings-row-label" htmlFor="v2-daily-goal">Daily task goal</label>
                 <div className="v2-settings-row-hint">Used by the progress bar + activity intensity on the 7-day strip.</div>
               </div>

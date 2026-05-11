@@ -70,6 +70,7 @@ export default function WeekStrip({ tasks, dailyTaskGoal }) {
         isToday: key === todayKey,
         isFuture: d > new Date(),
         count,
+        goal,
         intensity,
       })
     }
@@ -121,6 +122,9 @@ export default function WeekStrip({ tasks, dailyTaskGoal }) {
           >
             <span className="v2-week-strip-label">{d.label}</span>
             <span className="v2-week-strip-num">{d.dayNumber}</span>
+            {d.isToday && (
+              <span className="v2-week-strip-count">{d.count}/{d.goal}</span>
+            )}
             <span className="v2-week-strip-bar" aria-hidden="true" />
           </li>
         ))}
