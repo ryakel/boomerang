@@ -1729,6 +1729,7 @@ function ServerLogsPanel() {
 
 export default function SettingsModal({
   open, onClose, onFlush, onClearCompleted, onClearAll, onShowActivityLog, onShowMarkdownImport,
+  onOpenEasterEgg,
   onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
 }) {
   const [activeTab, setActiveTab] = useState('General')
@@ -1741,6 +1742,22 @@ export default function SettingsModal({
   // the debounced flush fires; back to false after 2s.
   const [justSaved, setJustSaved] = useState(false)
   const justSavedTimer = useRef(null)
+  // Easter egg trigger — 7 taps on the Build row within a rolling 2s
+  // window opens the hidden tic-tac-toe game. Android-build-number
+  // metaphor. Undocumented in user-facing copy.
+  const buildTapsRef = useRef({ count: 0, last: 0 })
+  const handleBuildTap = () => {
+    if (!onOpenEasterEgg) return
+    const now = Date.now()
+    const taps = buildTapsRef.current
+    if (now - taps.last > 2000) taps.count = 0
+    taps.count += 1
+    taps.last = now
+    if (taps.count >= 7) {
+      taps.count = 0
+      onOpenEasterEgg()
+    }
+  }
 
   // Reload settings whenever the modal reopens — server may have updated them.
   useEffect(() => {
@@ -2079,7 +2096,12 @@ export default function SettingsModal({
                 <div className="v2-settings-row-label">Build</div>
                 <div className="v2-settings-row-hint">Static identifier of the running build.</div>
               </div>
-              <code className="v2-settings-build">{__APP_VERSION__}</code>
+              <code
+                className="v2-settings-build"
+                onClick={handleBuildTap}
+                role="button"
+                tabIndex={-1}
+              >{__APP_VERSION__}</code>
             </div>
           </div>
         )}
