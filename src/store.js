@@ -513,11 +513,24 @@ export function computeStreak(tasks, settings) {
   // tasks were active on that day) are treated as no-fault — the streak
   // continues across them. Easter-egg wins count as a completion.
   const completionDates = new Set()
+  let earliest = null
   for (const t of tasks) {
     if (t.status === 'done' && t.completed_at) {
       completionDates.add(new Date(t.completed_at).toDateString())
     }
+    if (t.created_at) {
+      const c = new Date(t.created_at)
+      if (Number.isFinite(c.getTime()) && (!earliest || c < earliest)) earliest = c
+    }
   }
+
+  // Streak floor — once we walk past the user's earliest task, there's
+  // nothing meaningful before then. Without this floor, no-fault empty
+  // days (which all pre-history days qualify as) would walk back
+  // indefinitely until JS Date underflowed and `.toISOString()` threw.
+  const floor = earliest
+    ? new Date(earliest.getFullYear(), earliest.getMonth(), earliest.getDate())
+    : null
 
   const isNoFaultDay = (d) => {
     const iso = d.toISOString().split('T')[0]
@@ -538,7 +551,11 @@ export function computeStreak(tasks, settings) {
     if (!hasCompletionOn(d) && !isNoFaultDay(d)) return 0
   }
 
-  while (hasCompletionOn(d) || isNoFaultDay(d)) {
+  // Hard iteration cap as a defense-in-depth in case the floor logic
+  // ever misbehaves. 3650 = ~10 years; well beyond any realistic streak.
+  let guard = 3650
+  while ((hasCompletionOn(d) || isNoFaultDay(d)) && guard-- > 0) {
+    if (floor && d < floor) break
     streak++
     d.setDate(d.getDate() - 1)
   }
