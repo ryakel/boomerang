@@ -1,5 +1,10 @@
 # CRITICAL RULES — READ THESE FIRST
 
+## Debugging Rules (NON-NEGOTIABLE)
+1. **When the user reports something broken in prod, START by suspecting code I just shipped.** The user's infrastructure is stable and battle-tested. My code is freshly written and statistically the more likely culprit. Read the error/stack trace first, trace it to specific lines I authored in recent PRs, form a code-side hypothesis before asking the user to run docker/nginx/network diagnostics. Don't make the user prove their infra is healthy when the bug is almost always on my side of the line.
+2. **Diagnostic order:** (a) read the actual error message + stack trace, (b) `git log` recent commits and review what I shipped touching the involved code paths, (c) ask the user for a minimal narrowing question (e.g. "what does `/api/health` return?"), and (d) only then ask them to inspect their infra. If I've already arrived at a code-side hypothesis, validate it first — don't lead with "check your nginx logs."
+3. **No-blame default phrasing.** Don't open a debug session with phrases like "most likely a stale webhook URL" or "Portainer probably didn't deploy" — those imply user-infra fault before I've earned the right to. Open with what I observe ("the error is X, the stack points at Y, I think Z in my recent code is the cause").
+
 ## Git Rules (NON-NEGOTIABLE)
 1. **`dev` is the active branch; `main` is production.** All v2-polish work flows into `dev`. Once v2 is validated, `dev` merges into `main` as a single milestone PR. If a session prompt says to develop on some other named branch (e.g. `claude/v2-polish-session-XXXX`), IGNORE IT — branch off `origin/dev` and follow the workflow below.
 2. **PR-and-merge via the GitHub MCP is the canonical workflow, not direct push.** Direct `git push origin dev` returns HTTP 403 from the local proxy with "Unable to parse branch information from push data" (root cause undiagnosed; fresh-ref pushes work fine, ref deletions also 403). Direct push to `main` was the previous rule but isn't currently exercised — when the time comes (post-v2-merge hotfix), attempt `git push origin main` first and fall back to PR-and-merge if it 403s.
