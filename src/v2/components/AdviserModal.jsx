@@ -161,7 +161,13 @@ function ChatList({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew
   )
 }
 
-export default function AdviserModal({ open, adviser, onClose, onAfterCommit }) {
+// Easter-egg trigger phrase — matched against user input before the
+// message hits the AI. WarGames reference. Tight regex so it only fires
+// on intent ("want to play a game", "wanna play a game") and not on
+// passing mentions of games.
+const EASTER_EGG_PHRASE = /\b(?:want to|wanna|let'?s|shall we) play (?:a |an )?game\b/i
+
+export default function AdviserModal({ open, adviser, onClose, onAfterCommit, onOpenEasterEgg }) {
   const {
     messages, status, lastError,
     send, commit, abort,
@@ -202,6 +208,14 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit }) 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!canSend) return
+    // Easter-egg short-circuit: intercept the trigger phrase before it
+    // hits the AI. No chat entry recorded — the game appears, and on
+    // close the user is back in the modal with input cleared.
+    if (onOpenEasterEgg && EASTER_EGG_PHRASE.test(input)) {
+      onOpenEasterEgg()
+      setInput('')
+      return
+    }
     send(input)
     setInput('')
   }

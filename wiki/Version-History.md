@@ -4,6 +4,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-12
+
+- feat: relocate Easter-egg triggers (build row + Quokka phrase) [S]
+  - **Why.** User: "Let's actually put it on the build number so I don't accidentally edit something. Also I want to trigger it with quokka if I say 'Want to play a game'." Original 7-tap location (EditTaskModal title) was too easy to fat-finger while editing real tasks.
+  - **TicTacToe lifted to AppV2.** Top-level state + render. Any modal can call `openEasterEgg()` to launch it. Removed from EditTaskModal entirely (title-tap counter, state, render, import).
+  - **Build row trigger.** Settings → Logs → Build code (`__APP_VERSION__`) gets a 7-tap counter inside a rolling 2s window. Same Android-build-number metaphor, just on the version display where accidental triggering doesn't matter.
+  - **Quokka phrase intercept.** AdviserModal's `handleSubmit` checks user input against `/\b(?:want to|wanna|let'?s|shall we) play (?:a |an )?game\b/i` before sending to the AI. Match → fire `onOpenEasterEgg`, clear input, skip the network call. No chat entry recorded; on game close, user is back in Quokka with a clean input. WarGames reference baked into the regex variants.
+  - **ModalShell `onTitleTap` prop removed** — no callers now that EditTaskModal doesn't use it.
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/ModalShell.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/AdviserModal.jsx`, `wiki/Version-History.md`
+
+---
+
 ## 2026-05-11
 
 - feat: no-fault streak + hidden tic-tac-toe Easter egg [M]
