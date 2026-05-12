@@ -25,6 +25,7 @@ import WeekStrip from './components/WeekStrip'
 import Toast from './components/Toast'
 import FloatingCapture from './components/FloatingCapture'
 import ConfirmDialog from './components/ConfirmDialog'
+import TicTacToe from './components/TicTacToe'
 import { useTasks } from '../hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from '../hooks/useRoutines'
 import { useNotifications } from '../hooks/useNotifications'
@@ -85,9 +86,11 @@ export default function AppV2() {
   const isTerminal = useTerminalMode()
   const weather = useWeather()
 
-  // Per-section collapsed state on the home task list. Initialized from
-  // settings, written back on every toggle so it persists across reloads
-  // (and syncs across devices via the standard /api/data round-trip).
+  // Hidden tic-tac-toe Easter egg. Triggered by either: 7-tap the Build
+  // row in Settings → Logs (Android-build-number metaphor) OR say "want
+  // to play a game" / "wanna play a game" to Quokka.
+  const [tttOpen, setTttOpen] = useState(false)
+  const openEasterEgg = useCallback(() => setTttOpen(true), [])
   const [collapsedSections, setCollapsedSections] = useState(() => loadSettings().collapsed_sections || {})
   const toggleSection = useCallback((name) => {
     setCollapsedSections(prev => {
@@ -773,7 +776,6 @@ export default function AppV2() {
         <EditTaskModal
           task={editTarget}
           onSave={updateTask}
-          onFlush={flushSync}
           onClose={() => setEditTarget(null)}
           onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
           onBacklog={handleBacklog}
@@ -892,6 +894,7 @@ export default function AppV2() {
         onClearAll={() => { clearAll(); setShowSettings(false); flushSync() }}
         onShowActivityLog={() => setShowActivityLog(true)}
         onShowMarkdownImport={() => setShowMarkdownImport(true)}
+        onOpenEasterEgg={openEasterEgg}
         onTrelloSync={syncTrello}
         trelloSyncing={trelloSyncing}
         onNotionSync={syncNotion}
@@ -960,6 +963,13 @@ export default function AppV2() {
         open={showAdviser}
         adviser={adviserState}
         onClose={() => setShowAdviser(false)}
+        onOpenEasterEgg={openEasterEgg}
+      />
+
+      <TicTacToe
+        open={tttOpen}
+        onClose={() => setTttOpen(false)}
+        onPointEarned={flushSync}
       />
 
       <AnalyticsModal
