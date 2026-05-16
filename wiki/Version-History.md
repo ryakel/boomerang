@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-16
 
+- release: v0.12.0 — activity prompts (auto-roll, habit mode, suggestions) to main [L]
+  - Bump version 0.11.0 → 0.12.0. Ship the full Activity-Prompts feature set from `dev` to `main`. Three user-facing features land together: routine `auto_roll` (medication-style — missed days roll the existing task forward instead of stacking), `spawn_mode: 'habit'` (target-frequency tracking with `+ Log it` button and behind-pace push nudges), and a weekly pattern-detection scan that surfaces routine suggestions from completed-task history. Plus a snooze-leak fix that stops the dispatcher from nudging on items the user explicitly silenced.
+  - **Schema deltas:** migrations 025 (`auto_roll`), 026 (`spawn_mode` + `target_count` + `target_period`), 027 (`pattern_suggestions` table). Existing rows unaffected — every new field defaults safely.
+  - **Notifications matrix gains two rows:** `habit_nudge` (push priority-0 only, never Pushover) and `routine_suggestion` (weekly; push + email default-on, pushover opt-in). Settings UI auto-renders both.
+  - **New surfaces:** v2 SuggestionsModal accessible via overflow ⋯ → Suggestions. v2 RoutinesModal gains Auto/Habit segmented picker + auto-roll toggle. Quokka gets `list_suggestions` / `dismiss_suggestion` / `snooze_suggestion` tools.
+  - **Durability:** `pattern_suggestions` is server-only, outside the `/api/data` bulk-PUT path — same posture as `notification_log` post-2026-05-08 wipe.
+  - **Docs:** README updated with Routines+Habits+Suggestions line and two new notification-table rows. Spec in `wiki/Activity-Prompts.md`; comprehensive test plan in `wiki/Activity-Prompts-Testing.md`.
+  - `npm audit` reports 0 vulnerabilities.
+  - Modified: `package.json`, `package-lock.json`, `README.md`, `wiki/Version-History.md`
+
 - fix(routines): priority toggle alignment in habit-mode form [XS]
   - **Why.** User: "Priority isn't aligned like the rest." In habit mode the End date / Priority row collapses to just Priority (End date is hidden) inside a 2-column grid (`v2-form-row`). With End date gone, Priority fills the left half-column with center-aligned bracketed text, making `[ normal ]` float at ~25% from the left — visually offset from every other field in the form which hugs the left edge.
   - **Fix.** Split the JSX: keep the End date + Priority row when `!isHabit`; render Priority as its own full-width `v2-form-section` when `isHabit` (same pattern as the Mode picker and the now-hidden Auto-roll section). Now `[ normal ]` aligns flush-left with the other section labels.

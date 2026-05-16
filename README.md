@@ -29,6 +29,7 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - **Desktop UI** — kanban board with drag-and-drop, responsive modals, hover states
 - **Mobile-first PWA** — installable to home screen, swipe gestures (left for Edit/Done, right to delete)
 - **Themes** — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light). Terminal mode swaps the calm-modern aesthetic for a monospace power-user shell with ASCII flourishes, `> verb` modal headers, flat sigil+text controls, and density signals on every task card
+- **Routines + Habits + Suggestions** — recurring tasks with cadence (daily/weekly/monthly/quarterly/annually), an `auto_roll` flag for meds that can't double up, habit mode for target-frequency tracking (`2× / week`, behind-pace nudges), plus a weekly server scan that detects patterns in completed-task history and surfaces them as routine suggestions
 - **Custom labels**, due dates, high-priority escalation
 
 ### Notifications
@@ -43,6 +44,8 @@ Configurable notification types with ADHD-friendly defaults:
 | Nudges | General ADHD-friendly pokes | configurable (hours) |
 | Size-based | Reminders scaled by task size | configurable (hours) |
 | Pile-up warnings | Alerts when too many tasks accumulate | configurable (hours) |
+| Habit nudges | Behind-pace pokes for habit-mode routines (push only, never Pushover) | 24h per habit |
+| Routine suggestions | Weekly summary of pattern-detected routine candidates from history | weekly |
 
 All frequencies are set in hours (supports fractional values, e.g. `0.25` = 15 minutes). Quiet hours, notification history, and avoidance boost (confrontation/errand tasks get nagged more frequently) included.
 
