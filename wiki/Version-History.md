@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-16
 
+- fix(routines): priority toggle alignment in habit-mode form [XS]
+  - **Why.** User: "Priority isn't aligned like the rest." In habit mode the End date / Priority row collapses to just Priority (End date is hidden) inside a 2-column grid (`v2-form-row`). With End date gone, Priority fills the left half-column with center-aligned bracketed text, making `[ normal ]` float at ~25% from the left — visually offset from every other field in the form which hugs the left edge.
+  - **Fix.** Split the JSX: keep the End date + Priority row when `!isHabit`; render Priority as its own full-width `v2-form-section` when `isHabit` (same pattern as the Mode picker and the now-hidden Auto-roll section). Now `[ normal ]` aligns flush-left with the other section labels.
+  - Modified: `src/v2/components/RoutinesModal.jsx`, `wiki/Version-History.md`
+
 - feat(routines): historic-pattern detection + suggestions inbox [L]
   - **Why.** User: "I'd like the app to prompt me to add things based on historic activities." Most repeating work in Boomerang lives as ad-hoc tasks the user manually re-creates each time — patterns the app could detect and offer to routinize. This PR adds a weekly scan over 12 months of completed-task history, surfaces detected patterns in a Suggestions inbox, and lets the user accept (creates a routine with cadence-aware defaults), snooze, or permanently dismiss each one.
   - **Migration 027.** New `pattern_suggestions` table (server-only, outside `/api/data` bulk-PUT — same durability posture as `notification_log` post-2026-05-08 wipe). 12 columns including `snooze_until` for the "Not yet" action.
