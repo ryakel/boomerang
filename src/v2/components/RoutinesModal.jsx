@@ -517,8 +517,8 @@ function RoutineForm({ initial, onSave, onCancel }) {
         </div>
       )}
 
-      <div className="v2-form-row">
-        {!isHabit && (
+      {!isHabit && (
+        <div className="v2-form-row">
           <div className="v2-form-field">
             <label className="v2-form-label">End date (optional)</label>
             <input
@@ -529,8 +529,20 @@ function RoutineForm({ initial, onSave, onCancel }) {
               onChange={e => setEndDate(e.target.value)}
             />
           </div>
-        )}
-        <div className="v2-form-field">
+          <div className="v2-form-field">
+            <label className="v2-form-label">Priority</label>
+            <button
+              className={`v2-form-pri-toggle v2-form-pri-${highPriority ? 'high' : 'normal'}`}
+              onClick={() => setHighPriority(!highPriority)}
+            >
+              {highPriority ? '! High' : 'Normal'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isHabit && (
+        <div className="v2-form-section">
           <label className="v2-form-label">Priority</label>
           <button
             className={`v2-form-pri-toggle v2-form-pri-${highPriority ? 'high' : 'normal'}`}
@@ -539,7 +551,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
             {highPriority ? '! High' : 'Normal'}
           </button>
         </div>
-      </div>
+      )}
 
       {!isHabit && (
         <div className="v2-form-section">
