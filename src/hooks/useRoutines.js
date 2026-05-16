@@ -121,12 +121,16 @@ export function useRoutines() {
             due_date: today,
             last_touched: new Date().toISOString(),
           }
-          // Clear any past snoozed_until — if the user snoozed yesterday's
-          // pill past today, we want it surfacing today. A future snooze
-          // beyond today is left alone (already covers future).
-          if (activeInstance.snoozed_until) {
-            const snoozedDate = activeInstance.snoozed_until.split('T')[0]
-            if (snoozedDate <= today) updates.snoozed_until = null
+          // Clear snoozed_until only if it's already in the past — a
+          // forward-looking snooze ("don't bother me until 8pm tonight")
+          // is the user's explicit signal and auto-roll shouldn't override
+          // it. Past snoozes are stale and would otherwise leave the
+          // newly-rolled task hidden.
+          if (
+            activeInstance.snoozed_until &&
+            new Date(activeInstance.snoozed_until) <= new Date()
+          ) {
+            updates.snoozed_until = null
           }
           rolled.push({ taskId: activeInstance.id, updates })
           return
