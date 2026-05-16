@@ -1333,6 +1333,135 @@ export function markThrottleDecisionFeedback(id, feedback) {
   return true
 }
 
+// ============================================================
+// Pattern suggestions (Activity Prompts PR 3)
+// ============================================================
+// Server-only table — never round-tripped through /api/data bulk PUT.
+// Same posture as notification_log post-2026-05-08 wipe guard.
+
+function rowToSuggestion(row) {
+  return {
+    id: row.id,
+    normalized_title: row.normalized_title,
+    display_title: row.display_title,
+    sample_titles: safeJsonParse(row.sample_titles_json, []),
+    detected_cadence: row.detected_cadence,
+    occurrence_count: row.occurrence_count,
+    last_seen_at: row.last_seen_at,
+    confidence: row.confidence,
+    status: row.status,
+    snooze_until: row.snooze_until ?? null,
+    created_at: row.created_at,
+    decided_at: row.decided_at ?? null,
+  }
+}
+
+// Surface a suggestion (insert new or update count + last_seen on an existing
+// pending row with the same normalized_title). Permanently dismissed or
+// accepted rows are left alone — once the user has decided, the scanner
+// shouldn't re-surface the same pattern.
+export function upsertPatternSuggestion(suggestion) {
+  const stmt = db.prepare('SELECT id, status FROM pattern_suggestions WHERE normalized_title = ?')
+  stmt.bind([suggestion.normalized_title])
+  let existingId = null
+  let existingStatus = null
+  if (stmt.step()) {
+    const row = stmt.getAsObject()
+    existingId = row.id
+    existingStatus = row.status
+  }
+  stmt.free()
+
+  if (existingStatus === 'dismissed' || existingStatus === 'accepted') return existingId
+
+  if (existingId) {
+    db.run(
+      `UPDATE pattern_suggestions SET
+        display_title = ?, sample_titles_json = ?, detected_cadence = ?,
+        occurrence_count = ?, last_seen_at = ?, confidence = ?
+       WHERE id = ?`,
+      [
+        suggestion.display_title,
+        JSON.stringify(suggestion.sample_titles || []),
+        suggestion.detected_cadence,
+        suggestion.occurrence_count,
+        suggestion.last_seen_at,
+        suggestion.confidence,
+        existingId,
+      ]
+    )
+    schedulePersist()
+    return existingId
+  }
+  db.run(
+    `INSERT INTO pattern_suggestions
+       (normalized_title, display_title, sample_titles_json, detected_cadence,
+        occurrence_count, last_seen_at, confidence, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+    [
+      suggestion.normalized_title,
+      suggestion.display_title,
+      JSON.stringify(suggestion.sample_titles || []),
+      suggestion.detected_cadence,
+      suggestion.occurrence_count,
+      suggestion.last_seen_at,
+      suggestion.confidence,
+      Date.now(),
+    ]
+  )
+  schedulePersist()
+  return null
+}
+
+// Pending = status='pending' AND (snooze_until is null OR snooze_until <= now).
+// Sorted by confidence DESC so the highest-signal suggestions surface first.
+export function listPendingSuggestions() {
+  const now = Date.now()
+  const stmt = db.prepare(
+    `SELECT * FROM pattern_suggestions
+     WHERE status = 'pending' AND (snooze_until IS NULL OR snooze_until <= ?)
+     ORDER BY confidence DESC, last_seen_at DESC`
+  )
+  stmt.bind([now])
+  const results = []
+  while (stmt.step()) results.push(rowToSuggestion(stmt.getAsObject()))
+  stmt.free()
+  return results
+}
+
+// Count of currently-actionable pending suggestions. Drives the
+// routine_suggestion notification + UI badge.
+export function countPendingSuggestions() {
+  return listPendingSuggestions().length
+}
+
+export function getPatternSuggestion(id) {
+  const stmt = db.prepare('SELECT * FROM pattern_suggestions WHERE id = ?')
+  stmt.bind([id])
+  if (stmt.step()) {
+    const row = stmt.getAsObject()
+    stmt.free()
+    return rowToSuggestion(row)
+  }
+  stmt.free()
+  return null
+}
+
+export function updateSuggestionStatus(id, status, decidedAt = Date.now()) {
+  db.run(
+    `UPDATE pattern_suggestions SET status = ?, decided_at = ? WHERE id = ?`,
+    [status, decidedAt, id]
+  )
+  schedulePersist()
+}
+
+export function snoozeSuggestion(id, snoozeUntil) {
+  db.run(`UPDATE pattern_suggestions SET snooze_until = ? WHERE id = ?`, [snoozeUntil, id])
+  schedulePersist()
+}
+
+// ============================================================
+
 // Aggregated engagement summary for the analytics endpoint.
 // Returns rows of { channel, type, sent, tapped, completed } over `days` days.
 export function getNotificationAnalytics(days = 30) {

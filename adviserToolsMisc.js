@@ -4,6 +4,7 @@ import {
   getTask, deleteTask, updateTaskPartial,
   getPackage, getAllPackages, upsertPackage, deletePackage, updatePackagePartial,
   getData, setData, getAnalytics, getAnalyticsHistory, getGmailProcessedCount,
+  listPendingSuggestions, getPatternSuggestion, updateSuggestionStatus, snoozeSuggestion,
 } from './db.js'
 import { registerTool } from './adviserTools.js'
 
@@ -393,6 +394,71 @@ export function registerSettingsTools() {
 }
 
 // ============================================================
+// Pattern-suggestion tools (Activity Prompts PR 3)
+// ============================================================
+
+export function registerSuggestionTools() {
+  registerTool({
+    name: 'list_suggestions',
+    description: 'List pending routine suggestions detected from completed-task history. These are patterns the user has completed at a regular cadence but not yet routinized. Each suggestion can be accepted (creates a routine), dismissed (hidden permanently), or snoozed (resurfaces after N days).',
+    readOnly: true,
+    schema: { type: 'object', properties: {} },
+    execute: async () => {
+      const suggestions = listPendingSuggestions()
+      return { result: { count: suggestions.length, suggestions } }
+    },
+  })
+
+  registerTool({
+    name: 'dismiss_suggestion',
+    description: 'Permanently dismiss a routine suggestion. Future scans will skip this normalized title forever. Use when the user explicitly says "no, I don\'t want this as a routine."',
+    schema: {
+      type: 'object',
+      properties: { id: { type: 'integer' } },
+      required: ['id'],
+    },
+    preview: (a) => `Dismiss suggestion #${a.id}`,
+    execute: async (args) => {
+      const sug = getPatternSuggestion(args.id)
+      ensure(sug, `Suggestion ${args.id} not found`)
+      const prevStatus = sug.status
+      const prevDecidedAt = sug.decided_at
+      updateSuggestionStatus(args.id, 'dismissed')
+      return {
+        result: { dismissed: true, suggestion: sug },
+        compensation: async () => updateSuggestionStatus(args.id, prevStatus, prevDecidedAt),
+      }
+    },
+  })
+
+  registerTool({
+    name: 'snooze_suggestion',
+    description: 'Snooze a routine suggestion so it doesn\'t re-surface for N days (default 14, max 180). The suggestion stays in pending but won\'t appear in scans / notifications until past the snooze. Use when the user says "not now" or "maybe later."',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer' },
+        days: { type: 'integer', minimum: 1, maximum: 180, default: 14 },
+      },
+      required: ['id'],
+    },
+    preview: (a) => `Snooze suggestion #${a.id} for ${a.days || 14}d`,
+    execute: async (args) => {
+      const sug = getPatternSuggestion(args.id)
+      ensure(sug, `Suggestion ${args.id} not found`)
+      const prevSnooze = sug.snooze_until
+      const days = Math.max(1, Math.min(180, args.days || 14))
+      const snoozeUntil = Date.now() + days * 24 * 60 * 60 * 1000
+      snoozeSuggestion(args.id, snoozeUntil)
+      return {
+        result: { snoozed_until: snoozeUntil, days },
+        compensation: async () => snoozeSuggestion(args.id, prevSnooze),
+      }
+    },
+  })
+}
+
+// ============================================================
 // Register all misc tools
 // ============================================================
 
@@ -401,4 +467,5 @@ export function registerMiscTools() {
   registerPackageTools()
   registerWeatherTools()
   registerSettingsTools()
+  registerSuggestionTools()
 }
