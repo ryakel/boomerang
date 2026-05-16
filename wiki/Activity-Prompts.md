@@ -260,15 +260,41 @@ Three PRs, each independently mergeable on `dev`:
 - Settings UI: `habit_nudge` row added to the v2 Notifications matrix; toggles map to `push_notif_habit_nudge` / `email_notif_habit_nudge` / `pushover_notif_habit_nudge`. (Pushover toggle is rendered but the dispatcher ignores it.)
 - Manual test: create a habit routine "Workout 2× / week", verify the card shows 0/2 this week, tap "+ Log it" twice, verify card shows 2/2 + streak chip appears next period.
 
-### PR 3 — Pattern detection + suggestion inbox (L)
+### PR 3 — Pattern detection + suggestion inbox (L) ✅ SHIPPED 2026-05-16
 
-- Migration 026 (`pattern_suggestions` table)
-- `patternDetection.js` server module + weekly scheduler
-- AI clustering pass (gated on API key)
-- `routine_suggestion` notification type + settings keys
-- Review UI screen
-- Quokka chat seed + 2 new Quokka tools
-- Manual test: backfill 12 months of completed tasks with a known pattern, run the scan, verify the suggestion + notification + review flow
+- **Migration 027** created `pattern_suggestions` table with `id, normalized_title, display_title, sample_titles_json, detected_cadence, occurrence_count, last_seen_at, confidence, status, snooze_until, created_at, decided_at` columns + two indices (status, normalized_title).
+- **`patternDetection.js`** server module:
+  - Title normalization (lowercase, strip articles like "the/a/an/my/our", collapse whitespace, drop trailing punctuation)
+  - Cadence classification by interval mean+stddev windows — `daily` (1–2d/σ<1), `weekly` (6–10d/σ<3), `monthly` (26–35d/σ<7), `quarterly` (85–100d/σ<15), `annually` (320–400d/σ<60)
+  - Confidence = `min(1.0, count/6) × (1 - stddev/mean)`, floor at 0.45 (annual pair exempted)
+  - **AI clustering pass** (optional, gated on `anthropic_api_key`) merges near-duplicates like "mow lawn" / "mow the grass" / "cut grass" via Claude. Bounded to 50 candidate titles per run to cap cost.
+  - Skips clusters with `normalized_title` matching an existing routine's title (no double-suggesting).
+  - Weekly scheduler runs **Sunday 3am local time** (timezone from `settings.user_timezone`). One-shot per Sunday via `app_data.pattern_last_scan` marker, survives restarts.
+- **Server endpoints:**
+  - `GET /api/suggestions` — list pending (filters out snoozed by timestamp)
+  - `POST /api/suggestions/:id/accept` — body `{ routineConfig }`; creates the routine + marks accepted. Cadence-aware defaults: daily/weekly → `auto_roll: true`; longer cadences → plain auto.
+  - `POST /api/suggestions/:id/dismiss` — permanent close
+  - `POST /api/suggestions/:id/snooze` — body `{ days }`, default 14, max 180
+  - `POST /api/suggestions/scan` — manual trigger for tests / Quokka
+- **db.js** CRUD: `upsertPatternSuggestion` (idempotent on `normalized_title`, dismissed/accepted rows are left alone), `listPendingSuggestions`, `countPendingSuggestions`, `getPatternSuggestion`, `updateSuggestionStatus`, `snoozeSuggestion`. Server-only table — outside `/api/data` bulk PUT path.
+- **Notification type `routine_suggestion`:**
+  - Push: weekly throttle, default ON. Payload carries `data.suggestionsView: true`.
+  - Email: weekly throttle, default ON.
+  - Pushover: weekly throttle, opt-in only (`=== true` gate).
+  - Settings UI: added to the v2 Notifications matrix.
+- **Service worker** opens `/?suggestions=1` when payload has `suggestionsView` and no taskId.
+- **`SuggestionsModal.jsx` + .css** in `src/v2/components/`:
+  - List of suggestion cards with title, cadence chip, sample titles (collapsible if multiple), "5× in past 12mo · last 3d ago · 67% match" meta
+  - Three actions per card: **Make it a routine** (accepts inline with cadence-aware defaults; user can refine on Routines screen afterward), **Not yet (14d)** (snooze), **Dismiss** (permanent)
+  - Empty state with "Run scan now" CTA
+  - Toast confirmation after accept
+- **`AppV2`:**
+  - New `showSuggestions` state, modal render call, Escape-handler entry
+  - Lightbulb-icon row added to the overflow menu under Routines
+  - Deep-link handler reads `?task=X` (already wanted but absent) AND `?suggestions=1`; strips the query after handling
+- **Quokka tools** (`adviserToolsMisc.js`): `list_suggestions` (read), `dismiss_suggestion`, `snooze_suggestion` (with rollback compensation that restores prior status / snooze).
+- Dockerfile: `patternDetection.js` added to the Stage 3 COPY list so the runtime container actually ships it.
+- Manual test: see `wiki/Activity-Prompts-Testing.md`.
 
 ---
 

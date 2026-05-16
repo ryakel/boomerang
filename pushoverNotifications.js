@@ -18,7 +18,7 @@ import crypto from 'crypto'
 import {
   queryTasks, getData, getNotifThrottle, setNotifThrottle,
   logNotifPush, getTask, updateTaskPartial,
-  getEffectiveThrottleMultiplier,
+  getEffectiveThrottleMultiplier, countPendingSuggestions,
 } from './db.js'
 import { rewriteNotifBody, canRewriteThisTick, shouldRewrite } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -526,6 +526,28 @@ async function runPushoverCheck() {
           }
         }
         if (sent) markThrottle('pushover_pileup')
+      }
+    }
+
+    // Routine suggestions (Activity Prompts PR 3). Opt-in only — most users
+    // who set up Pushover want it for high-stakes alarms, not weekly
+    // soft-suggestion summaries. Matches the matrix's pushover defaultOn=false
+    // policy: only fires when the toggle is explicitly === true.
+    if (settings.pushover_notif_routine_suggestion === true) {
+      const freq = 7 * 24 * 60 * 60 * 1000
+      if (checkThrottle('pushover_routine_suggestion', freq)) {
+        const pending = countPendingSuggestions()
+        if (pending > 0) {
+          const title = '[BOOMERANG] Routine suggestions'
+          const body = pending === 1
+            ? '1 routine suggestion waiting in Boomerang'
+            : `${pending} routine suggestions waiting in Boomerang`
+          const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
+          if (result.ok) {
+            markThrottle('pushover_routine_suggestion')
+            logNotifPush(genId(), 'routine_suggestion', null, title, body, 'pushover')
+          }
+        }
       }
     }
   } catch (err) {

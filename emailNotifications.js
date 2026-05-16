@@ -10,7 +10,7 @@
 import nodemailer from 'nodemailer'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail } from './db.js'
+import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail, countPendingSuggestions } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -548,6 +548,27 @@ async function runNotificationCheck() {
         if (sent) markThrottle('email_pileup')
       }
     }
+
+    // Routine suggestions (Activity Prompts PR 3). Weekly summary of pending
+    // pattern-detected routine ideas. Defaults ON since the scan is opt-in
+    // upstream via pattern_scan_enabled; if the scanner produces nothing,
+    // the dispatcher silently sends nothing.
+    if (settings.email_notif_routine_suggestion !== false) {
+      const freq = 7 * 24 * 60 * 60 * 1000 // weekly
+      if (checkThrottle('email_routine_suggestion', freq)) {
+        const pending = countPendingSuggestions()
+        if (pending > 0) {
+          const subject = pending === 1 ? 'Boomerang: 1 routine suggestion' : `Boomerang: ${pending} routine suggestions`
+          const body = 'Boomerang noticed patterns in your completed task history. Open the app to review and accept or dismiss.'
+          const sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
+          if (sent) {
+            markThrottle('email_routine_suggestion')
+            logNotifEmail(genId(), 'routine_suggestion', null, subject, body)
+          }
+        }
+      }
+    }
+
     // Batch mode: send all collected items as one email
     if (batchMode && batchItems.length > 0) {
       const subject = `Boomerang: ${batchItems.length} notification${batchItems.length > 1 ? 's' : ''}`

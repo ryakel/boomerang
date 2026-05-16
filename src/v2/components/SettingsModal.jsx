@@ -190,6 +190,9 @@ const NOTIF_TYPES = [
   // freqKey/freqDefault carried for matrix consistency but the dispatcher
   // ignores them.
   { key: 'habit_nudge', label: 'Habit nudges', freqKey: 'notif_freq_habit_nudge', freqDefault: 24 },
+  // Activity Prompts PR 3: weekly suggestion summary. The frequency input is
+  // carried for matrix consistency but the dispatcher hard-codes weekly.
+  { key: 'routine_suggestion', label: 'Routine suggestions', freqKey: 'notif_freq_routine_suggestion', freqDefault: 168 },
 ]
 
 const NOTIF_PACKAGE_TYPES = [

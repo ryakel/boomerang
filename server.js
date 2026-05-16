@@ -23,6 +23,8 @@ import {
 import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle, getAllTasks } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
+import { startPatternDetection, runPatternScan } from './patternDetection.js'
+import { listPendingSuggestions, getPatternSuggestion, updateSuggestionStatus, snoozeSuggestion, countPendingSuggestions } from './db.js'
 import { runBackup } from './scripts/backup-db.js'
 import {
   listToolSchemas, newSession, getSession, abortSession, clearSession,
@@ -2613,6 +2615,88 @@ app.post('/api/notifications/action/not-today', (req, res) => {
   res.json({ ok: true })
 })
 
+// ============================================================
+// Pattern suggestions (Activity Prompts PR 3)
+// ============================================================
+
+app.get('/api/suggestions', (req, res) => {
+  res.json({ suggestions: listPendingSuggestions(), count: countPendingSuggestions() })
+})
+
+// Accept a suggestion → create a routine from it. The client posts the
+// finalized routine config (the user may have tweaked title, cadence, etc.
+// in the RoutinesModal pre-fill). Marking accepted is what prevents the
+// scanner from re-surfacing the same pattern.
+app.post('/api/suggestions/:id/accept', (req, res) => {
+  const id = parseInt(req.params.id, 10)
+  if (!id) return res.status(400).json({ error: 'Invalid suggestion id' })
+  const sug = getPatternSuggestion(id)
+  if (!sug) return res.status(404).json({ error: 'Suggestion not found' })
+  const routineConfig = req.body?.routineConfig || {}
+  // Build the routine from the suggestion (defaults) + any client overrides.
+  // Short cadences default to auto+auto_roll; longer cadences (quarterly /
+  // annually) default to a normal auto routine. spawn_mode='prompt' is a
+  // planned future mode — until it ships, we default to auto+auto_roll.
+  const cadence = routineConfig.cadence || sug.detected_cadence
+  const shouldAutoRoll = ['daily', 'weekly'].includes(cadence) ? true : false
+  const routine = {
+    id: crypto.randomUUID(),
+    title: routineConfig.title || sug.display_title,
+    cadence,
+    custom_days: routineConfig.custom_days ?? null,
+    notes: routineConfig.notes || '',
+    high_priority: !!routineConfig.high_priority,
+    energy: routineConfig.energy || null,
+    energy_level: routineConfig.energy_level ?? null,
+    notion_page_id: null,
+    notion_url: null,
+    created_at: new Date().toISOString(),
+    paused: false,
+    tags: routineConfig.tags || [],
+    completed_history: [],
+    end_date: routineConfig.end_date || null,
+    schedule_day_of_week: routineConfig.schedule_day_of_week ?? null,
+    auto_roll: routineConfig.auto_roll !== undefined ? routineConfig.auto_roll : shouldAutoRoll,
+    follow_ups: routineConfig.follow_ups || [],
+  }
+  upsertRoutine(routine)
+  updateSuggestionStatus(id, 'accepted')
+  bumpVersion()
+  res.json({ ok: true, routineId: routine.id })
+})
+
+app.post('/api/suggestions/:id/dismiss', (req, res) => {
+  const id = parseInt(req.params.id, 10)
+  if (!id) return res.status(400).json({ error: 'Invalid suggestion id' })
+  const sug = getPatternSuggestion(id)
+  if (!sug) return res.status(404).json({ error: 'Suggestion not found' })
+  updateSuggestionStatus(id, 'dismissed')
+  res.json({ ok: true })
+})
+
+// "Not yet" → snooze for N days (default 14). Suggestion stops re-surfacing
+// in scans until past the snooze timestamp.
+app.post('/api/suggestions/:id/snooze', (req, res) => {
+  const id = parseInt(req.params.id, 10)
+  if (!id) return res.status(400).json({ error: 'Invalid suggestion id' })
+  const sug = getPatternSuggestion(id)
+  if (!sug) return res.status(404).json({ error: 'Suggestion not found' })
+  const days = Math.max(1, Math.min(180, Number(req.body?.days) || 14))
+  const snoozeUntil = Date.now() + days * 24 * 60 * 60 * 1000
+  snoozeSuggestion(id, snoozeUntil)
+  res.json({ ok: true, snooze_until: snoozeUntil })
+})
+
+// Manual trigger — debug + Quokka + immediate-test paths use this.
+app.post('/api/suggestions/scan', async (req, res) => {
+  try {
+    const result = await runPatternScan()
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.post('/api/notifications/tap', (req, res) => {
   const { taskId, channel } = req.body || {}
   if (!taskId) return res.status(400).json({ error: 'Missing taskId' })
@@ -3400,6 +3484,7 @@ initDb(dbPath).then(async () => {
     startPushoverNotifications()
     startWeatherSync()
     startWeeklyPatternReview()
+    startPatternDetection()
 
     // Daily DB snapshot — runs once on boot then every 24h. Defends against the
     // 2026-05-07 wipe class of bug where a single bad write erases everything.

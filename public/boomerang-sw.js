@@ -108,9 +108,12 @@ self.addEventListener('notificationclick', function (event) {
     return
   }
 
-  // Bare tap (no action) — open the app on the relevant task. This is the
-  // North-Star path: user wants to engage, give them context.
-  var path = taskId ? '/?task=' + taskId : (routineId ? '/?routine=' + routineId : '/')
+  // Bare tap (no action) — open the app on the relevant task / surface.
+  // North-Star path: the user wants to engage, give them context.
+  var path = '/'
+  if (taskId) path = '/?task=' + taskId
+  else if (routineId) path = '/?routine=' + routineId
+  else if (data.suggestionsView) path = '/?suggestions=1'
   var url = self.location.origin + path
 
   event.waitUntil(
