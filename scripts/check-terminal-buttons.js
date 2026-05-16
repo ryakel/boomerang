@@ -39,7 +39,6 @@ const EXEMPT = new Set([
   'v2-edit-routine-row',   // covered explicitly
   'v2-edit-status-row',    // covered by .v2-form-seg child rule
   'v2-form-pri-action',    // sub-element of priority toggle
-  'v2-form-toggle',        // sub-element
   'v2-card-meta-row',      // pure layout
   'v2-card-row',           // alias for swipe-wrap
   'v2-card-swipe-wrap',    // wrapper

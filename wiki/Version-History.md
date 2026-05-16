@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-16
 
+- fix(terminal): auto-roll toggle no longer renders as a chromed button [XS]
+  - **Why.** Production sighting on v1.6.0 — the auto-roll On/Off toggle in the RoutinesModal form rendered with rounded-rectangle button chrome in terminal mode, breaking the no-button-chrome idiom that every other control follows. The `.v2-form-toggle` class had base styling but no terminal-mode override; the check-terminal-buttons script had it listed under EXEMPT with a misleading "sub-element" comment, which silenced the guard.
+  - **Fix.** Terminal-mode rules added to `src/v2/terminal/init.css`: transparent background, no border, bracket prefix/suffix (`[ on ]` / `[ off ]`) matching `.v2-form-pri-toggle`. Off renders muted, On renders accent + glow.
+  - Removed `v2-form-toggle` from `check-terminal-buttons.js` EXEMPT so the guard will catch future regressions on this class. Confirmed `OK — 64 classes checked`.
+  - Modified: `src/v2/terminal/init.css`, `scripts/check-terminal-buttons.js`, `wiki/Version-History.md`
+
 - release: v0.12.0 — activity prompts (auto-roll, habit mode, suggestions) to main [L]
   - Bump version 0.11.0 → 0.12.0. Ship the full Activity-Prompts feature set from `dev` to `main`. Three user-facing features land together: routine `auto_roll` (medication-style — missed days roll the existing task forward instead of stacking), `spawn_mode: 'habit'` (target-frequency tracking with `+ Log it` button and behind-pace push nudges), and a weekly pattern-detection scan that surfaces routine suggestions from completed-task history. Plus a snooze-leak fix that stops the dispatcher from nudging on items the user explicitly silenced.
   - **Schema deltas:** migrations 025 (`auto_roll`), 026 (`spawn_mode` + `target_count` + `target_period`), 027 (`pattern_suggestions` table). Existing rows unaffected — every new field defaults safely.
