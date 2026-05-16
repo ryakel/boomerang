@@ -203,9 +203,12 @@ export default function AppV2() {
     }
   }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
 
-  // Spawn due routine tasks on load + when routines change.
+  // Spawn due routine tasks on load + when routines change. Auto-roll routines
+  // bump an existing active instance forward instead of spawning a duplicate
+  // — see useRoutines.spawnDueTasks + wiki/Activity-Prompts.md.
   useEffect(() => {
-    const spawned = spawnDueTasks(tasks)
+    const { spawned, rolled } = spawnDueTasks(tasks)
+    for (const { taskId, updates } of rolled) updateTask(taskId, updates)
     if (spawned.length > 0) {
       addSpawnedTasks(spawned)
       enhanceSpawnedTasks(spawned, routines).then(enhanced => {
