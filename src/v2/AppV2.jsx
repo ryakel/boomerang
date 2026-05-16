@@ -132,7 +132,7 @@ export default function AppV2() {
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
-    completeRoutine, spawnDueTasks, spawnNow, skipCycle, hydrateRoutines,
+    completeRoutine, spawnDueTasks, spawnNow, logHabit, skipCycle, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -928,6 +928,7 @@ export default function AppV2() {
       <RoutinesModal
         open={showRoutines}
         routines={routines}
+        tasks={tasks}
         onAdd={addRoutine}
         onDelete={deleteRoutine}
         onTogglePause={togglePause}
@@ -942,6 +943,11 @@ export default function AppV2() {
           )
           if (hasActive) return null
           const task = spawnNow(routineId)
+          if (task) addSpawnedTasks([task])
+          return task
+        }}
+        onLogHabit={(routineId) => {
+          const task = logHabit(routineId)
           if (task) addSpawnedTasks([task])
           return task
         }}

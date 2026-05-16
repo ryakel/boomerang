@@ -259,6 +259,38 @@
   color: var(--v2-text-meta);
   background: rgba(var(--v2-text-rgb), 0.03);
 }
+
+/* Habit-mode picker: segmented control between Auto and Habit. The segmented
+ * class is reused from AddTaskModal.css. */
+.v2-form-mode-segmented {
+  margin-top: 4px;
+}
+
+/* Habit-row visual indicators: progress chip + streak. Shown in the summary
+ * cadence line for habit-mode routines. Behind-pace state highlights the
+ * progress with the alert color so the user notices at a glance. */
+.v2-habit-progress {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--v2-text);
+}
+.v2-habit-progress-behind {
+  color: var(--v2-alert-high-pri);
+  font-weight: 500;
+}
+.v2-habit-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--v2-accent);
+}
+.v2-habit-streak svg {
+  vertical-align: -1px;
+}
+.v2-routine-row-habit .v2-routine-cadence {
+  font-feature-settings: 'tnum' 1; /* monospaced digits so the 1/2 doesn't jitter as it changes */
+}
+
 .v2-followups-list {
   list-style: none;
   margin: 0 0 8px;
