@@ -240,15 +240,25 @@ Three PRs, each independently mergeable on `dev`:
 - v2 `RoutinesModal` form gained an "Auto-roll" section below End date / Priority. Generic `.v2-form-toggle` style (not the priority orange) to keep the visual semantics clean.
 - Manual test: create a daily routine with `auto_roll: true`, observe yesterday's lingering instance rolling forward instead of stacking a new task today.
 
-### PR 2 — Habit mode + Workouts (M)
+### PR 2 — Habit mode + Workouts (M) ✅ SHIPPED 2026-05-16
 
-- Migration 025 amendment OR migration 025a (decide at PR time)
-- `spawn_mode: 'habit'` plumbing through `useRoutines`, RoutinesModal, routine card
-- Always-visible card with "+ Log it" button + period progress + streak
-- `POST /api/routines/:id/log` endpoint
-- `GET /api/routines/:id/habit-stats` endpoint
-- Behind-pace nudge in the notification dispatcher loop
-- Inline web-push actions: Log it / Not today
+- Migration 026 added `spawn_mode TEXT DEFAULT 'auto'`, `target_count INTEGER`, `target_period TEXT` to `routines`.
+- `createRoutine` defaults the new fields; db.js round-trips them. `addRoutine` in `useRoutines.js` accepts new positional args for habit-mode.
+- `computeHabitStats(routine, tasks, weekStartsOn)` in `src/store.js` returns `{ period_start, period_end, completions, target, streak, behind_pace, elapsed_ratio }`. Behind-pace fires only past the 30% elapsed mark to avoid early-period nags.
+- `isRoutineDue` short-circuits to `false` for habit-mode routines so they never enter the cadence-driven spawn loop.
+- v2 RoutinesModal:
+  - Form: segmented Auto / Habit picker after Title. Habit mode shows target_count + target_period inputs and hides cadence / day-of-week / end-date / auto-roll.
+  - List: habit cards render `habit · 2× / week · 1/2 this week · 🔥3` meta. Behind-pace shows the progress in alert color. Expanded actions show "+ Log it" instead of "Spawn now" / "Skip cycle"; the Log button creates a task with `status='done'` linked to the routine in one tap.
+- Server-side behind-pace nudge:
+  - `pushNotifications.js` — habit nudge block fires push priority-0, throttled 24h per routine, per spec. Inline web-push actions Log it / Not today.
+  - `emailNotifications.js` — habit nudge default-OFF (opt-in via `email_notif_habit_nudge`); same 24h throttle.
+  - `pushoverNotifications.js` — intentionally NOT wired. Habits are encouragement, never alarms.
+- Inline web-push actions:
+  - `public/boomerang-sw.js` — when `payload.data.habitAction` is set, surfaces Log it / Not today action buttons. Bare tap on a habit nudge deep-links to `/?routine=<id>`.
+  - `POST /api/notifications/action/log-habit` — creates a `status='done'` task linked to the routine.
+  - `POST /api/notifications/action/not-today` — bumps the push/email throttle keys 24h forward.
+- Settings UI: `habit_nudge` row added to the v2 Notifications matrix; toggles map to `push_notif_habit_nudge` / `email_notif_habit_nudge` / `pushover_notif_habit_nudge`. (Pushover toggle is rendered but the dispatcher ignores it.)
+- Manual test: create a habit routine "Workout 2× / week", verify the card shows 0/2 this week, tap "+ Log it" twice, verify card shows 2/2 + streak chip appears next period.
 
 ### PR 3 — Pattern detection + suggestion inbox (L)
 

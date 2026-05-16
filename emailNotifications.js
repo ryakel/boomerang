@@ -10,7 +10,7 @@
 import nodemailer from 'nodemailer'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getData, getNotifThrottle, setNotifThrottle, logNotifEmail } from './db.js'
+import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -273,6 +273,51 @@ function markThrottle(key) {
   setNotifThrottle(key, new Date().toISOString())
 }
 
+// Habit-mode helpers (mirror pushNotifications.js + computeHabitStats in
+// src/store.js — must stay in sync across all three or the user gets nudge /
+// progress drift between channels and the card).
+function habitPeriodBounds(period, weekStartsOn = 1, now = new Date()) {
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  if (period === 'week') {
+    const dow = start.getDay()
+    const diff = (dow - weekStartsOn + 7) % 7
+    start.setDate(start.getDate() - diff)
+    const end = new Date(start); end.setDate(end.getDate() + 7)
+    return { start, end, lengthDays: 7 }
+  }
+  start.setDate(1)
+  const end = new Date(start); end.setMonth(end.getMonth() + 1)
+  const lengthDays = Math.round((end.getTime() - start.getTime()) / 86400000)
+  return { start, end, lengthDays }
+}
+
+function countHabitCompletions(routineId, tasks, start, end) {
+  return tasks.filter(t => {
+    if (t.routine_id !== routineId) return false
+    if (!t.completed_at) return false
+    const c = new Date(t.completed_at).getTime()
+    return c >= start.getTime() && c < end.getTime()
+  }).length
+}
+
+function isHabitBehindPace(routine, tasks, weekStartsOn) {
+  const { start, lengthDays } = habitPeriodBounds(routine.target_period, weekStartsOn)
+  const completions = countHabitCompletions(routine.id, tasks, start, new Date())
+  const elapsedRatio = Math.min(1, (Date.now() - start.getTime()) / (lengthDays * 86400000))
+  const expected = elapsedRatio * routine.target_count
+  return {
+    completions,
+    target: routine.target_count,
+    elapsedRatio,
+    behind: completions < expected && elapsedRatio >= 0.3 && completions < routine.target_count,
+  }
+}
+
+function periodLabel(period) {
+  return period === 'week' ? 'this week' : 'this month'
+}
+
 function genId() {
   return crypto.randomUUID()
 }
@@ -424,6 +469,29 @@ async function runNotificationCheck() {
         if (sent) {
           markThrottle('email_nudge')
           logNotifEmail(genId(), 'nudge', null, subject, body)
+        }
+      }
+    }
+
+    // Habit-mode behind-pace nudge. Default OFF (push is the primary channel
+    // for habits; email is opt-in for users who batch their notifications).
+    // One email per habit per 24h max, only when past the 30% pace mark.
+    if (settings.email_notif_habit_nudge === true) {
+      const weekStartsOn = settings.week_starts_on ?? 1
+      const habitRoutines = getAllRoutines().filter(
+        r => !r.paused && r.spawn_mode === 'habit' && r.target_count && r.target_period
+      )
+      for (const routine of habitRoutines) {
+        const throttleKey = `email_habit:${routine.id}`
+        if (!checkThrottle(throttleKey, 24 * 60 * 60 * 1000)) continue
+        const { completions, target, behind } = isHabitBehindPace(routine, allTasks, weekStartsOn)
+        if (!behind) continue
+        const subject = `Habit check-in: ${routine.title}`
+        const body = `${completions}/${target} ${periodLabel(routine.target_period)} — want to log one today?`
+        const sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
+        if (sent) {
+          markThrottle(throttleKey)
+          logNotifEmail(genId(), 'habit_nudge', null, subject, body)
         }
       }
     }

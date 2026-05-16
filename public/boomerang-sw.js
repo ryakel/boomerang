@@ -25,6 +25,12 @@ self.addEventListener('push', function (event) {
       { action: 'snooze1h', title: 'Snooze 1h' },
       { action: 'done', title: 'Done' }
     ]
+  } else if (payload.data && payload.data.habitAction && payload.data.routineId) {
+    // Habit-mode behind-pace nudge: Log it / Not today
+    actions = [
+      { action: 'log_habit', title: 'Log it' },
+      { action: 'not_today', title: 'Not today' }
+    ]
   }
 
   event.waitUntil(
@@ -77,10 +83,34 @@ self.addEventListener('notificationclick', function (event) {
     )
     return
   }
+  // Habit actions — log_habit creates+completes a task linked to the habit
+  // routine; not_today bumps the push throttle so the same routine doesn't
+  // re-nudge for 24h. Neither opens the app.
+  var routineId = data.routineId
+  if (event.action === 'log_habit' && routineId) {
+    event.waitUntil(
+      fetch('/api/notifications/action/log-habit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ routineId: routineId })
+      }).catch(function () {})
+    )
+    return
+  }
+  if (event.action === 'not_today' && routineId) {
+    event.waitUntil(
+      fetch('/api/notifications/action/not-today', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ routineId: routineId })
+      }).catch(function () {})
+    )
+    return
+  }
 
   // Bare tap (no action) — open the app on the relevant task. This is the
   // North-Star path: user wants to engage, give them context.
-  var path = taskId ? '/?task=' + taskId : '/'
+  var path = taskId ? '/?task=' + taskId : (routineId ? '/?routine=' + routineId : '/')
   var url = self.location.origin + path
 
   event.waitUntil(

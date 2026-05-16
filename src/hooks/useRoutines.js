@@ -9,13 +9,18 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes)
     if (highPriority) routine.high_priority = true
     if (endDate) routine.end_date = endDate
     if (scheduleDayOfWeek != null) routine.schedule_day_of_week = scheduleDayOfWeek
     if (Array.isArray(followUps) && followUps.length > 0) routine.follow_ups = followUps
     if (autoRoll) routine.auto_roll = true
+    if (spawnMode === 'habit') {
+      routine.spawn_mode = 'habit'
+      routine.target_count = targetCount
+      routine.target_period = targetPeriod
+    }
     setRoutines(prev => [routine, ...prev])
     return routine
   }, [])
@@ -64,6 +69,27 @@ export function useRoutines() {
       } : r
     ))
   }, [])
+
+  // Habit-mode "+ Log it": spawn a task and immediately mark it done. The
+  // returned task lands on the list with status='done' and counts toward the
+  // current period total. Use case: "I just did a workout, log it." The
+  // routine itself has no cadence so there's no schedule to update.
+  const logHabit = useCallback((routineId) => {
+    const routine = routines.find(r => r.id === routineId)
+    if (!routine || routine.spawn_mode !== 'habit') return null
+    const today = new Date().toISOString().split('T')[0]
+    const now = new Date().toISOString()
+    const task = createTask(routine.title, routine.tags, today, routine.notes)
+    task.routine_id = routine.id
+    task.notion_page_id = routine.notion_page_id
+    task.notion_url = routine.notion_url
+    task.status = 'done'
+    task.completed_at = now
+    task.last_touched = now
+    if (routine.energy) task.energy = routine.energy
+    if (routine.energyLevel) task.energyLevel = routine.energyLevel
+    return task
+  }, [routines])
 
   // Spawn a one-off task from a routine right now, bypassing the schedule.
   // Useful when the user wants to do the routine ad-hoc outside of its
@@ -177,6 +203,7 @@ export function useRoutines() {
     updateRoutineNotion,
     spawnDueTasks,
     spawnNow,
+    logHabit,
     skipCycle,
     hydrateRoutines,
   }
