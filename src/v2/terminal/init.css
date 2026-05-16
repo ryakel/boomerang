@@ -1720,6 +1720,49 @@
   color: var(--v2-accent);
 }
 
+/* Generic on/off toggle (auto-roll, future binary flags). Same bracket
+ * treatment as .v2-form-pri-toggle so it doesn't look like a chrome'd
+ * button in terminal mode. Off = muted, On = accent + glow. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-toggle {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  font: 500 13px/1.2 var(--v2-font-body) !important;
+  color: var(--v2-text) !important;
+  height: auto !important;
+  min-height: 32px !important;
+  text-transform: lowercase;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-toggle::before {
+  content: "[ ";
+  color: var(--v2-text-faint);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-toggle::after {
+  content: " ]";
+  color: var(--v2-text-faint);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-toggle-on {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-toggle-off {
+  color: var(--v2-text-meta) !important;
+  background: transparent !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-toggle:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-toggle:hover::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-toggle:hover::after {
+  color: var(--v2-accent);
+}
+
 /* === Audit-pass cleanup: Settings tabs + WeatherBadge ============== */
 
 /* Settings tabs (General / AI / Labels / Integrations / etc.) — match
