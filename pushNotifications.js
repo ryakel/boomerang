@@ -9,7 +9,7 @@
 import webpush from 'web-push'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush } from './db.js'
+import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -165,6 +165,52 @@ function markThrottle(key) {
   setNotifThrottle(key, new Date().toISOString())
 }
 
+// Habit-mode helpers. Mirror computeHabitStats in src/store.js but server-side
+// and inlined to avoid cross-importing a frontend module. Both must agree on
+// period bounds and behind-pace semantics or the user gets nudge / progress
+// drift between the card and the push.
+function habitPeriodBounds(period, weekStartsOn = 1, now = new Date()) {
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  if (period === 'week') {
+    const dow = start.getDay()
+    const diff = (dow - weekStartsOn + 7) % 7
+    start.setDate(start.getDate() - diff)
+    const end = new Date(start); end.setDate(end.getDate() + 7)
+    return { start, end, lengthDays: 7 }
+  }
+  start.setDate(1)
+  const end = new Date(start); end.setMonth(end.getMonth() + 1)
+  const lengthDays = Math.round((end.getTime() - start.getTime()) / 86400000)
+  return { start, end, lengthDays }
+}
+
+function countHabitCompletions(routineId, tasks, start, end) {
+  return tasks.filter(t => {
+    if (t.routine_id !== routineId) return false
+    if (!t.completed_at) return false
+    const c = new Date(t.completed_at).getTime()
+    return c >= start.getTime() && c < end.getTime()
+  }).length
+}
+
+function isHabitBehindPace(routine, tasks, weekStartsOn) {
+  const { start, lengthDays } = habitPeriodBounds(routine.target_period, weekStartsOn)
+  const completions = countHabitCompletions(routine.id, tasks, start, new Date())
+  const elapsedRatio = Math.min(1, (Date.now() - start.getTime()) / (lengthDays * 86400000))
+  const expected = elapsedRatio * routine.target_count
+  return {
+    completions,
+    target: routine.target_count,
+    elapsedRatio,
+    behind: completions < expected && elapsedRatio >= 0.3 && completions < routine.target_count,
+  }
+}
+
+function periodLabel(period) {
+  return period === 'week' ? 'this week' : 'this month'
+}
+
 function genId() {
   return crypto.randomUUID()
 }
@@ -312,6 +358,36 @@ async function runPushCheck() {
         if (sent) {
           markThrottle('push_nudge')
           logNotifPush(genId(), 'nudge', null, title, body)
+        }
+      }
+    }
+
+    // Habit-mode behind-pace nudge. One push per habit per 24h max, only when
+    // we're past the 30% mark of the period AND the user is below the linear
+    // pace. Push priority-0 only (per spec — habits are encouragement, not
+    // alarms). Inline actions Log it / Not today let the user resolve without
+    // opening the app.
+    if (settings.push_notif_habit_nudge !== false) {
+      const weekStartsOn = settings.week_starts_on ?? 1
+      const habitRoutines = getAllRoutines().filter(
+        r => !r.paused && r.spawn_mode === 'habit' && r.target_count && r.target_period
+      )
+      for (const routine of habitRoutines) {
+        const throttleKey = `push_habit:${routine.id}`
+        if (!checkThrottle(throttleKey, 24 * 60 * 60 * 1000)) continue
+        const { completions, target, behind } = isHabitBehindPace(routine, allTasks, weekStartsOn)
+        if (!behind) continue
+        const title = routine.title
+        const body = `${completions}/${target} ${periodLabel(routine.target_period)} — want to log one today?`
+        const sent = await sendPush({
+          title,
+          body,
+          tag: `habit:${routine.id}`,
+          data: { routineId: routine.id, habitAction: true },
+        })
+        if (sent) {
+          markThrottle(throttleKey)
+          logNotifPush(genId(), 'habit_nudge', null, title, body)
         }
       }
     }

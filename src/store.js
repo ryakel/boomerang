@@ -314,6 +314,12 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
                          // active instance forward instead of stacking a new
                          // task. Use case: pills, anything you can't double up
                          // on. Full spec: wiki/Activity-Prompts.md.
+    spawn_mode: 'auto',  // 'auto' (cadence-driven) | 'habit' (target frequency,
+                         // no auto-spawn, "+ Log it" + behind-pace nudges).
+                         // Habit mode ignores cadence + schedule_day_of_week
+                         // + auto_roll.
+    target_count: null,  // habit mode: completions per period (e.g. 2)
+    target_period: null, // habit mode: 'week' or 'month'
     gcal_recurring_event_id: null, // Google Calendar recurring event ID
   }
 }
@@ -356,6 +362,10 @@ export function getNextDueDate(routine) {
 
 export function isRoutineDue(routine) {
   if (routine.paused) return false
+  // Habit-mode routines have no cadence — they never "spawn due" the
+  // automatic way. Users log them proactively via "+ Log it" or through
+  // a behind-pace push nudge. Skip entirely.
+  if (routine.spawn_mode === 'habit') return false
   if (routine.end_date) {
     const endOfDay = new Date(routine.end_date + 'T23:59:59')
     if (Date.now() > endOfDay.getTime()) return false
@@ -385,6 +395,113 @@ export function isOverdue(task) {
   const due = parseDateLocal(task.due_date)
   due.setHours(23, 59, 59, 999)
   return Date.now() > due.getTime()
+}
+
+// Compute current period boundaries for a habit-mode routine.
+// weekStartsOn: 0=Sun, 1=Mon (default). For 'month', always calendar month.
+// Returns { start: Date, end: Date, lengthDays: number }. Both bounds are
+// inclusive at start-of-day / exclusive at next-period-start.
+export function getHabitPeriodBounds(period, weekStartsOn = 1, now = new Date()) {
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  if (period === 'week') {
+    const dow = start.getDay()
+    const diff = (dow - weekStartsOn + 7) % 7
+    start.setDate(start.getDate() - diff)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 7)
+    return { start, end, lengthDays: 7 }
+  }
+  // month
+  start.setDate(1)
+  const end = new Date(start)
+  end.setMonth(end.getMonth() + 1)
+  const lengthDays = Math.round((end.getTime() - start.getTime()) / 86400000)
+  return { start, end, lengthDays }
+}
+
+// Count completions linked to a habit routine in [start, end).
+function countHabitCompletions(routineId, tasks, start, end) {
+  return tasks.filter(t => {
+    if (t.routine_id !== routineId) return false
+    if (!t.completed_at) return false
+    const c = new Date(t.completed_at).getTime()
+    return c >= start.getTime() && c < end.getTime()
+  }).length
+}
+
+// Streak: walk backwards period-by-period from the most recently completed
+// period (not including current). Each period that hit target adds 1.
+// Periods where target_count is 0 are skipped — paused / inactive periods
+// don't reset the streak (mirrors computeStreak's no-fault day semantics).
+function computeHabitStreak(routine, tasks, weekStartsOn) {
+  if (!routine.target_count) return 0
+  const periodStartOf = routine.target_period === 'week'
+    ? (d) => {
+        const out = new Date(d); out.setHours(0, 0, 0, 0)
+        const diff = (out.getDay() - weekStartsOn + 7) % 7
+        out.setDate(out.getDate() - diff)
+        return out
+      }
+    : (d) => {
+        const out = new Date(d); out.setHours(0, 0, 0, 0); out.setDate(1)
+        return out
+      }
+
+  // Start at the period BEFORE current.
+  const currentStart = periodStartOf(new Date())
+  let cursorStart = new Date(currentStart)
+  if (routine.target_period === 'week') cursorStart.setDate(cursorStart.getDate() - 7)
+  else cursorStart.setMonth(cursorStart.getMonth() - 1)
+
+  let streak = 0
+  // Cap walk at 52 periods (year) to avoid runaway in case of bad data.
+  for (let i = 0; i < 52; i++) {
+    const cursorEnd = new Date(cursorStart)
+    if (routine.target_period === 'week') cursorEnd.setDate(cursorEnd.getDate() + 7)
+    else cursorEnd.setMonth(cursorEnd.getMonth() + 1)
+    const completions = countHabitCompletions(routine.id, tasks, cursorStart, cursorEnd)
+    if (completions >= routine.target_count) {
+      streak++
+      // step back one period
+      if (routine.target_period === 'week') cursorStart.setDate(cursorStart.getDate() - 7)
+      else cursorStart.setMonth(cursorStart.getMonth() - 1)
+    } else {
+      break
+    }
+  }
+  return streak
+}
+
+// Return habit stats for an active habit-mode routine, or null if not habit.
+//   completions: int — number of completions in current period
+//   target: int — routine.target_count
+//   period_start / period_end: Date objects (start inclusive, end exclusive)
+//   streak: consecutive prior periods that hit target
+//   behind_pace: bool — true if completions are below expected linear pace
+//                       AND we're past the early "give-it-a-rest" window
+export function computeHabitStats(routine, tasks, weekStartsOn = 1) {
+  if (!routine || routine.spawn_mode !== 'habit' || !routine.target_count || !routine.target_period) {
+    return null
+  }
+  const { start, end, lengthDays } = getHabitPeriodBounds(routine.target_period, weekStartsOn)
+  const completions = countHabitCompletions(routine.id, tasks, start, end)
+  const elapsedMs = Date.now() - start.getTime()
+  const elapsedDays = Math.max(0, elapsedMs / 86400000)
+  const elapsedRatio = Math.min(1, elapsedDays / lengthDays)
+  const expectedAtPace = elapsedRatio * routine.target_count
+  // Don't fire "behind pace" warnings in the first 30% of the period — early
+  // is normal, not a problem.
+  const behindPace = completions < expectedAtPace && elapsedRatio >= 0.3 && completions < routine.target_count
+  return {
+    period_start: start,
+    period_end: end,
+    completions,
+    target: routine.target_count,
+    streak: computeHabitStreak(routine, tasks, weekStartsOn),
+    behind_pace: behindPace,
+    elapsed_ratio: elapsedRatio,
+  }
 }
 
 function parseDateLocal(dateStr) {

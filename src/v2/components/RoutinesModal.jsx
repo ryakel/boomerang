@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check } from 'lucide-react'
-import { loadLabels, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../../store'
+import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check, Flame } from 'lucide-react'
+import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, getNextDueDate, computeHabitStats } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import ChainReconcileModal from './ChainReconcileModal'
@@ -38,17 +38,24 @@ function formatLastDone(routine) {
   return `done ${days}d ago`
 }
 
-function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onSkipCycle, onEdit, onTogglePause, onDelete, hasActiveTask }) {
+function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLogHabit, onSkipCycle, onEdit, onTogglePause, onDelete, hasActiveTask }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   // 'idle' | 'spawned' — local tap feedback so the user sees a check icon
   // immediately on tap. Reverts after 1500ms. Blocked state (an instance is
   // already active) is rendered straight from `hasActiveTask` and is sticky;
   // no time-based reversion since the underlying condition isn't transient.
   const [spawnState, setSpawnState] = useState('idle')
+  const [logState, setLogState] = useState('idle')
   useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
 
-  const cadenceLabel = formatCadence(routine)
-  const dayOfWeek = routine.schedule_day_of_week != null
+  const isHabit = routine.spawn_mode === 'habit'
+  const weekStartsOn = loadSettings()?.week_starts_on ?? 1
+  const habitStats = isHabit ? computeHabitStats(routine, tasks, weekStartsOn) : null
+
+  const cadenceLabel = isHabit && habitStats
+    ? `habit · ${habitStats.target}× / ${routine.target_period}`
+    : formatCadence(routine)
+  const dayOfWeek = !isHabit && routine.schedule_day_of_week != null
     ? ` · ${DAY_OF_WEEK_SHORT[routine.schedule_day_of_week]}`
     : ''
   const completeCount = routine.completed_history?.length || 0
@@ -59,45 +66,93 @@ function RoutineRow({ routine, expanded, onToggleExpand, onSpawnNow, onSkipCycle
     setSpawnState('spawned')
     setTimeout(() => setSpawnState('idle'), 1500)
   }
+  const handleLog = () => {
+    onLogHabit?.(routine.id)
+    setLogState('logged')
+    setTimeout(() => setLogState('idle'), 1500)
+  }
 
   return (
-    <li className={`v2-routine-row${expanded ? ' v2-routine-row-expanded' : ''}${routine.paused ? ' v2-routine-row-paused' : ''}`}>
+    <li className={`v2-routine-row${expanded ? ' v2-routine-row-expanded' : ''}${routine.paused ? ' v2-routine-row-paused' : ''}${isHabit ? ' v2-routine-row-habit' : ''}`}>
       <button className="v2-routine-summary" onClick={onToggleExpand}>
         <span className="v2-routine-title">{routine.title}</span>
-        <span className="v2-routine-cadence">{cadenceLabel}{dayOfWeek}</span>
+        <span className="v2-routine-cadence">
+          {cadenceLabel}{dayOfWeek}
+          {isHabit && habitStats && (
+            <>
+              {' · '}
+              <span className={habitStats.behind_pace ? 'v2-habit-progress v2-habit-progress-behind' : 'v2-habit-progress'}>
+                {habitStats.completions}/{habitStats.target}
+                {habitStats.target_period === 'week' ? ' this week' : ' this month'}
+              </span>
+              {habitStats.streak > 0 && (
+                <span className="v2-habit-streak"> · <Flame size={11} strokeWidth={1.75} /> {habitStats.streak}</span>
+              )}
+            </>
+          )}
+        </span>
       </button>
       {expanded && (
         <div className="v2-routine-detail">
           <div className="v2-routine-meta">
-            <span>{formatLastDone(routine)}</span>
-            <span className="v2-routine-meta-sep">·</span>
-            <span>{formatNextDue(routine)}</span>
-            <span className="v2-routine-meta-sep">·</span>
-            <span>{completeCount}× completed</span>
+            {isHabit ? (
+              <>
+                <span>
+                  {habitStats?.completions || 0} of {habitStats?.target || routine.target_count} this {routine.target_period}
+                </span>
+                <span className="v2-routine-meta-sep">·</span>
+                <span>streak: {habitStats?.streak || 0}</span>
+                <span className="v2-routine-meta-sep">·</span>
+                <span>{completeCount}× lifetime</span>
+              </>
+            ) : (
+              <>
+                <span>{formatLastDone(routine)}</span>
+                <span className="v2-routine-meta-sep">·</span>
+                <span>{formatNextDue(routine)}</span>
+                <span className="v2-routine-meta-sep">·</span>
+                <span>{completeCount}× completed</span>
+              </>
+            )}
           </div>
           {routine.notes && (
             <div className="v2-routine-notes">{routine.notes}</div>
           )}
           <div className="v2-routine-actions">
-            <button
-              className={`v2-routine-action v2-routine-action-primary${
-                spawnState === 'spawned' ? ' v2-routine-action-spawn-spawned' : ''
-              }${hasActiveTask ? ' v2-routine-action-spawn-blocked' : ''}`}
-              onClick={handleSpawn}
-              disabled={spawnState !== 'idle' || hasActiveTask}
-              title={hasActiveTask
-                ? "An instance is already on your list — finish or skip it before spawning another"
-                : "Create a one-off task now without affecting the schedule"}
-            >
-              {spawnState === 'spawned' ? (
-                <><Check size={14} strokeWidth={2} /> Spawned</>
-              ) : hasActiveTask ? (
-                <>Already on list</>
-              ) : (
-                <><Plus size={14} strokeWidth={2} /> Spawn now</>
-              )}
-            </button>
-            {!routine.paused && (
+            {isHabit ? (
+              <button
+                className={`v2-routine-action v2-routine-action-primary${logState === 'logged' ? ' v2-routine-action-spawn-spawned' : ''}`}
+                onClick={handleLog}
+                disabled={logState !== 'idle'}
+                title="Log a completion of this habit right now (creates a done task linked to this routine)"
+              >
+                {logState === 'logged' ? (
+                  <><Check size={14} strokeWidth={2} /> Logged</>
+                ) : (
+                  <><Plus size={14} strokeWidth={2} /> Log it</>
+                )}
+              </button>
+            ) : (
+              <button
+                className={`v2-routine-action v2-routine-action-primary${
+                  spawnState === 'spawned' ? ' v2-routine-action-spawn-spawned' : ''
+                }${hasActiveTask ? ' v2-routine-action-spawn-blocked' : ''}`}
+                onClick={handleSpawn}
+                disabled={spawnState !== 'idle' || hasActiveTask}
+                title={hasActiveTask
+                  ? "An instance is already on your list — finish or skip it before spawning another"
+                  : "Create a one-off task now without affecting the schedule"}
+              >
+                {spawnState === 'spawned' ? (
+                  <><Check size={14} strokeWidth={2} /> Spawned</>
+                ) : hasActiveTask ? (
+                  <>Already on list</>
+                ) : (
+                  <><Plus size={14} strokeWidth={2} /> Spawn now</>
+                )}
+              </button>
+            )}
+            {!routine.paused && !isHabit && (
               <button className="v2-routine-action" onClick={() => onSkipCycle(routine.id)} title="Skip this cycle (advance schedule, no task)">
                 <FastForward size={14} strokeWidth={1.75} /> Skip cycle
               </button>
@@ -242,9 +297,13 @@ function RoutineForm({ initial, onSave, onCancel }) {
   const [highPriority, setHighPriority] = useState(initial?.high_priority || false)
   const [endDate, setEndDate] = useState(initial?.end_date || '')
   const [autoRoll, setAutoRoll] = useState(initial?.auto_roll || false)
+  const [spawnMode, setSpawnMode] = useState(initial?.spawn_mode || 'auto')
+  const [targetCount, setTargetCount] = useState(initial?.target_count || 2)
+  const [targetPeriod, setTargetPeriod] = useState(initial?.target_period || 'week')
   const [followUps, setFollowUps] = useState(() =>
     Array.isArray(initial?.follow_ups) ? initial.follow_ups.map(s => ({ ...s })) : []
   )
+  const isHabit = spawnMode === 'habit'
 
   const labels = loadLabels()
   const today = new Date().toISOString().split('T')[0]
@@ -303,7 +362,10 @@ function RoutineForm({ initial, onSave, onCancel }) {
     endDate: endDate || null,
     scheduleDayOfWeek: parsedDay,
     followUps: followUpsArray,
-    autoRoll,
+    autoRoll: isHabit ? false : autoRoll,
+    spawnMode,
+    targetCount: isHabit ? Math.max(1, Number(targetCount) || 1) : null,
+    targetPeriod: isHabit ? targetPeriod : null,
   })
 
   const handleSave = () => {
@@ -356,62 +418,118 @@ function RoutineForm({ initial, onSave, onCancel }) {
 
       <input
         className="v2-form-input v2-form-title"
-        placeholder="What recurring task?"
+        placeholder={isHabit ? "What habit?" : "What recurring task?"}
         value={title}
         onChange={e => setTitle(e.target.value)}
       />
 
-      <div className="v2-form-row">
-        <div className="v2-form-field">
-          <label className="v2-form-label">Frequency</label>
-          <select
-            className="v2-form-input"
-            value={cadence}
-            onChange={e => setCadence(e.target.value)}
-          >
-            {RECURRENCE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+      <div className="v2-form-section">
+        <label className="v2-form-label">Mode</label>
+        <div className="v2-form-section-hint">
+          <strong>Auto</strong> spawns a task on a cadence (daily, weekly, etc.). <strong>Habit</strong> tracks a target frequency (e.g. 2× / week) without locking it to specific days — you log proactively or get a gentle behind-pace nudge.
         </div>
-        <div className="v2-form-field">
-          <label className="v2-form-label">On</label>
-          <select
-            className="v2-form-input"
-            value={scheduleDayOfWeek}
-            onChange={e => setScheduleDayOfWeek(e.target.value)}
+        <div className="v2-form-segmented v2-form-mode-segmented">
+          <button
+            type="button"
+            className={`v2-form-seg${!isHabit ? ' v2-form-seg-active' : ''}`}
+            onClick={() => setSpawnMode('auto')}
           >
-            {DAY_OF_WEEK_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            Auto (cadence)
+          </button>
+          <button
+            type="button"
+            className={`v2-form-seg${isHabit ? ' v2-form-seg-active' : ''}`}
+            onClick={() => setSpawnMode('habit')}
+          >
+            Habit (target frequency)
+          </button>
         </div>
       </div>
 
-      {cadence === 'custom' && (
-        <div className="v2-form-section">
-          <label className="v2-form-label">Every N days</label>
-          <input
-            className="v2-form-input"
-            type="number"
-            min="1"
-            value={customDays}
-            onChange={e => setCustomDays(e.target.value)}
-          />
+      {!isHabit && (
+        <>
+          <div className="v2-form-row">
+            <div className="v2-form-field">
+              <label className="v2-form-label">Frequency</label>
+              <select
+                className="v2-form-input"
+                value={cadence}
+                onChange={e => setCadence(e.target.value)}
+              >
+                {RECURRENCE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="v2-form-field">
+              <label className="v2-form-label">On</label>
+              <select
+                className="v2-form-input"
+                value={scheduleDayOfWeek}
+                onChange={e => setScheduleDayOfWeek(e.target.value)}
+              >
+                {DAY_OF_WEEK_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {cadence === 'custom' && (
+            <div className="v2-form-section">
+              <label className="v2-form-label">Every N days</label>
+              <input
+                className="v2-form-input"
+                type="number"
+                min="1"
+                value={customDays}
+                onChange={e => setCustomDays(e.target.value)}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {isHabit && (
+        <div className="v2-form-row">
+          <div className="v2-form-field">
+            <label className="v2-form-label">Target count</label>
+            <input
+              className="v2-form-input"
+              type="number"
+              min="1"
+              max="100"
+              value={targetCount}
+              onChange={e => setTargetCount(e.target.value)}
+            />
+          </div>
+          <div className="v2-form-field">
+            <label className="v2-form-label">Per</label>
+            <select
+              className="v2-form-input"
+              value={targetPeriod}
+              onChange={e => setTargetPeriod(e.target.value)}
+            >
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+            </select>
+          </div>
         </div>
       )}
 
       <div className="v2-form-row">
-        <div className="v2-form-field">
-          <label className="v2-form-label">End date (optional)</label>
-          <input
-            className="v2-form-input"
-            type="date"
-            min={today}
-            value={endDate}
-            onChange={e => setEndDate(e.target.value)}
-          />
-        </div>
+        {!isHabit && (
+          <div className="v2-form-field">
+            <label className="v2-form-label">End date (optional)</label>
+            <input
+              className="v2-form-input"
+              type="date"
+              min={today}
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+            />
+          </div>
+        )}
         <div className="v2-form-field">
           <label className="v2-form-label">Priority</label>
           <button
@@ -423,20 +541,22 @@ function RoutineForm({ initial, onSave, onCancel }) {
         </div>
       </div>
 
-      <div className="v2-form-section">
-        <label className="v2-form-label">Auto-roll</label>
-        <div className="v2-form-section-hint">
-          If a previous task is still active when the next one is due, roll its date forward instead of stacking a duplicate. Useful for medication or anything you can't double up on.
+      {!isHabit && (
+        <div className="v2-form-section">
+          <label className="v2-form-label">Auto-roll</label>
+          <div className="v2-form-section-hint">
+            If a previous task is still active when the next one is due, roll its date forward instead of stacking a duplicate. Useful for medication or anything you can't double up on.
+          </div>
+          <button
+            type="button"
+            className={`v2-form-toggle v2-form-toggle-${autoRoll ? 'on' : 'off'}`}
+            onClick={() => setAutoRoll(!autoRoll)}
+            aria-pressed={autoRoll}
+          >
+            {autoRoll ? 'On' : 'Off'}
+          </button>
         </div>
-        <button
-          type="button"
-          className={`v2-form-toggle v2-form-toggle-${autoRoll ? 'on' : 'off'}`}
-          onClick={() => setAutoRoll(!autoRoll)}
-          aria-pressed={autoRoll}
-        >
-          {autoRoll ? 'On' : 'Off'}
-        </button>
-      </div>
+      )}
 
       <div className="v2-form-section">
         <label className="v2-form-label">Notes</label>
@@ -516,7 +636,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
 }
 
 export default function RoutinesModal({
-  open, routines, onAdd, onDelete, onTogglePause, onUpdate, onSpawnNow, onSkipCycle, onClose,
+  open, routines, tasks = [], onAdd, onDelete, onTogglePause, onUpdate, onSpawnNow, onLogHabit, onSkipCycle, onClose,
   editRoutineId, onClearEditRoutineId, activeRoutineIds,
 }) {
   const [view, setView] = useState('list')  // 'list' | 'form'
@@ -561,6 +681,9 @@ export default function RoutinesModal({
         schedule_day_of_week: data.scheduleDayOfWeek,
         follow_ups: data.followUps,
         auto_roll: data.autoRoll,
+        spawn_mode: data.spawnMode,
+        target_count: data.targetCount,
+        target_period: data.targetPeriod,
       })
     } else {
       onAdd(
@@ -568,6 +691,7 @@ export default function RoutinesModal({
         data.tags, data.notes, data.highPriority,
         data.endDate, data.scheduleDayOfWeek,
         data.followUps, data.autoRoll,
+        data.spawnMode, data.targetCount, data.targetPeriod,
       )
     }
     setView('list')
@@ -612,9 +736,11 @@ export default function RoutinesModal({
                       <RoutineRow
                         key={r.id}
                         routine={r}
+                        tasks={tasks}
                         expanded={expandedId === r.id}
                         onToggleExpand={() => setExpandedId(expandedId === r.id ? null : r.id)}
                         onSpawnNow={onSpawnNow}
+                        onLogHabit={onLogHabit}
                         onSkipCycle={onSkipCycle}
                         onEdit={(routine) => { setEditing(routine); setView('form') }}
                         onTogglePause={onTogglePause}
@@ -633,9 +759,11 @@ export default function RoutinesModal({
                       <RoutineRow
                         key={r.id}
                         routine={r}
+                        tasks={tasks}
                         expanded={expandedId === r.id}
                         onToggleExpand={() => setExpandedId(expandedId === r.id ? null : r.id)}
                         onSpawnNow={onSpawnNow}
+                        onLogHabit={onLogHabit}
                         onSkipCycle={onSkipCycle}
                         onEdit={(routine) => { setEditing(routine); setView('form') }}
                         onTogglePause={onTogglePause}

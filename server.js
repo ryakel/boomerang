@@ -2569,6 +2569,50 @@ app.post('/api/notifications/action/done', (req, res) => {
   res.json({ ok: true })
 })
 
+// Habit-mode inline actions. log-habit creates a fully-completed task linked
+// to a habit routine in one shot; not-today bumps the per-routine push
+// throttle so it doesn't re-nudge for 24h. These let the user resolve a
+// habit nudge directly from the push without opening the app.
+app.post('/api/notifications/action/log-habit', (req, res) => {
+  const { routineId } = req.body || {}
+  if (!routineId) return res.status(400).json({ error: 'Missing routineId' })
+  const routine = getRoutine(routineId)
+  if (!routine) return res.status(404).json({ error: 'Routine not found' })
+  if (routine.spawn_mode !== 'habit') return res.status(400).json({ error: 'Not a habit routine' })
+  const now = new Date().toISOString()
+  const today = new Date().toISOString().split('T')[0]
+  const task = {
+    id: crypto.randomUUID(),
+    title: routine.title,
+    status: 'done',
+    notes: routine.notes || '',
+    due_date: today,
+    completed_at: now,
+    last_touched: now,
+    created_at: now,
+    routine_id: routine.id,
+    notion_page_id: routine.notion_page_id,
+    notion_url: routine.notion_url,
+    tags: routine.tags || [],
+    energy: routine.energy,
+    energyLevel: routine.energyLevel,
+  }
+  upsertTask(task)
+  bumpVersion()
+  res.json({ ok: true, taskId: task.id })
+})
+
+app.post('/api/notifications/action/not-today', (req, res) => {
+  const { routineId } = req.body || {}
+  if (!routineId) return res.status(400).json({ error: 'Missing routineId' })
+  // Bump the habit throttle one full freq forward so the dispatcher will
+  // skip this routine for the next 24h. Same effect as if we'd just fired
+  // a nudge — the natural throttle check covers it.
+  setNotifThrottle(`push_habit:${routineId}`, new Date().toISOString())
+  setNotifThrottle(`email_habit:${routineId}`, new Date().toISOString())
+  res.json({ ok: true })
+})
+
 app.post('/api/notifications/tap', (req, res) => {
   const { taskId, channel } = req.body || {}
   if (!taskId) return res.status(400).json({ error: 'Missing taskId' })

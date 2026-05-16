@@ -186,6 +186,10 @@ const NOTIF_TYPES = [
   { key: 'nudge', label: 'Nudges', freqKey: 'notif_freq_nudge', freqDefault: 1 },
   { key: 'size', label: 'Size-based', freqKey: 'notif_freq_size', freqDefault: 1 },
   { key: 'pileup', label: 'Pile-up', freqKey: 'notif_freq_pileup', freqDefault: 2 },
+  // Habit nudges are throttled per-routine (24h), not by global frequency —
+  // freqKey/freqDefault carried for matrix consistency but the dispatcher
+  // ignores them.
+  { key: 'habit_nudge', label: 'Habit nudges', freqKey: 'notif_freq_habit_nudge', freqDefault: 24 },
 ]
 
 const NOTIF_PACKAGE_TYPES = [

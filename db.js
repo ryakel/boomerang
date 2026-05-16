@@ -793,6 +793,9 @@ function routineToRow(routine) {
     end_date: routine.end_date || null,
     schedule_day_of_week: routine.schedule_day_of_week ?? null,
     auto_roll: routine.auto_roll ? 1 : 0,
+    spawn_mode: routine.spawn_mode || 'auto',
+    target_count: routine.target_count ?? null,
+    target_period: routine.target_period || null,
     follow_ups_json: JSON.stringify(routine.follow_ups || []),
   }
 }
@@ -816,6 +819,9 @@ function rowToRoutine(row) {
     end_date: row.end_date || null,
     schedule_day_of_week: row.schedule_day_of_week ?? null,
     auto_roll: !!row.auto_roll,
+    spawn_mode: row.spawn_mode || 'auto',
+    target_count: row.target_count ?? null,
+    target_period: row.target_period || null,
     follow_ups: safeJsonParse(row.follow_ups_json, []),
   }
 }
@@ -828,8 +834,8 @@ const UPSERT_ROUTINE_SQL = `
   INSERT INTO routines (id, title, cadence, custom_days, notes, high_priority,
     energy, energy_level, notion_page_id, notion_url, created_at, paused,
     tags_json, completed_history_json, end_date, schedule_day_of_week, auto_roll,
-    follow_ups_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    spawn_mode, target_count, target_period, follow_ups_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
     notes=excluded.notes, high_priority=excluded.high_priority, energy=excluded.energy,
@@ -837,7 +843,9 @@ const UPSERT_ROUTINE_SQL = `
     notion_url=excluded.notion_url, created_at=excluded.created_at, paused=excluded.paused,
     tags_json=excluded.tags_json, completed_history_json=excluded.completed_history_json,
     end_date=excluded.end_date, schedule_day_of_week=excluded.schedule_day_of_week,
-    auto_roll=excluded.auto_roll, follow_ups_json=excluded.follow_ups_json`
+    auto_roll=excluded.auto_roll, spawn_mode=excluded.spawn_mode,
+    target_count=excluded.target_count, target_period=excluded.target_period,
+    follow_ups_json=excluded.follow_ups_json`
 
 function runUpsertRoutine(routine) {
   const r = routineToRow(routine)
@@ -845,7 +853,8 @@ function runUpsertRoutine(routine) {
     r.id, r.title, r.cadence, r.custom_days, r.notes, r.high_priority,
     r.energy, r.energy_level, r.notion_page_id, r.notion_url, r.created_at, r.paused,
     r.tags_json, r.completed_history_json, r.end_date, r.schedule_day_of_week,
-    r.auto_roll, r.follow_ups_json,
+    r.auto_roll, r.spawn_mode, r.target_count, r.target_period,
+    r.follow_ups_json,
   ])
 }
 
