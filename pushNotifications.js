@@ -9,7 +9,7 @@
 import webpush from 'web-push'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush } from './db.js'
+import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush, countPendingSuggestions } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -442,6 +442,31 @@ async function runPushCheck() {
           }
         }
         if (sent) markThrottle('push_pileup')
+      }
+    }
+
+    // Routine suggestions (Activity Prompts PR 3). One ping per week max
+    // when pending suggestions are waiting in the inbox. The actual scan
+    // runs Sunday 3am local; this notification rides alongside on the
+    // next dispatcher tick so the user sees the result of the scan.
+    if (settings.push_notif_routine_suggestion !== false) {
+      const freq = 7 * 24 * 60 * 60 * 1000 // weekly
+      if (checkThrottle('push_routine_suggestion', freq)) {
+        const pending = countPendingSuggestions()
+        if (pending > 0) {
+          const title = pending === 1 ? '1 routine suggestion waiting' : `${pending} routine suggestions waiting`
+          const body = 'Boomerang noticed patterns in your completed history. Tap to review.'
+          const sent = await sendPush({
+            title,
+            body,
+            tag: 'routine_suggestion',
+            data: { suggestionsView: true },
+          })
+          if (sent) {
+            markThrottle('push_routine_suggestion')
+            logNotifPush(genId(), 'routine_suggestion', null, title, body)
+          }
+        }
       }
     }
   } catch (err) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw } from 'lucide-react'
+import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw, Lightbulb } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import EmptyState from './components/EmptyState'
@@ -15,6 +15,7 @@ import ProjectsView from './components/ProjectsView'
 import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
+import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
@@ -66,6 +67,7 @@ export default function AppV2() {
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
   // Terminal-mode 7-day strip visibility. The calendar+date span in the
   // home stats line acts as the toggle (default closed). The
   // `week_strip_always_open` setting forces it visible regardless.
@@ -198,10 +200,36 @@ export default function AppV2() {
   // Check app version whenever a view/modal opens — same cadence v1 uses.
   // Catches stale clients without waiting for the next SSE/sync round-trip.
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || editTarget || showAdd || showWhatNow || showMarkdownImport) {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || editTarget || showAdd || showWhatNow || showMarkdownImport) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
+
+  // Deep-link handler. Notifications come in as `/?task=<id>` (task tap),
+  // `/?routine=<id>` (habit nudge tap, PR 2 — currently no-op without
+  // matching state), or `/?suggestions=1` (routine_suggestion push, PR 3).
+  // Strip the query after handling so reload doesn't re-trigger.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const taskId = params.get('task')
+    const wantSuggestions = params.get('suggestions') === '1'
+    if (!taskId && !wantSuggestions) return
+    params.delete('task')
+    params.delete('suggestions')
+    const search = params.toString()
+    window.history.replaceState({}, '', `/${search ? `?${search}` : ''}${window.location.hash}`)
+    if (taskId) {
+      const task = tasks.find(t => t.id === taskId)
+      if (task) setEditTarget(task)
+      import('../api').then(({ markNotificationTap }) => {
+        markNotificationTap?.(taskId).catch(() => {})
+      }).catch(() => {})
+    }
+    if (wantSuggestions) {
+      setShowSuggestions(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Spawn due routine tasks on load + when routines change. Auto-roll routines
   // bump an existing active instance forward instead of spawning a duplicate
@@ -310,6 +338,7 @@ export default function AppV2() {
   if (showPackages) activeModals.push('packages')
   if (showAdviser) activeModals.push('adviser')
   if (showAnalytics) activeModals.push('analytics')
+  if (showSuggestions) activeModals.push('suggestions')
   if (showMenu) activeModals.push('menu')
   if (searchOpen) activeModals.push('search')
 
@@ -327,9 +356,10 @@ export default function AppV2() {
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
     if (showAnalytics) { setShowAnalytics(false); return }
+    if (showSuggestions) { setShowSuggestions(false); return }
     if (showMenu) { setShowMenu(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showMenu, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, showMenu, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -844,6 +874,13 @@ export default function AppV2() {
             </button>
           </li>
           <li>
+            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowSuggestions(true) }}>
+              <Lightbulb size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-suggestions" />
+              <span className="v2-more-row-label" data-terminal-cmd="> suggestions">Suggestions</span>
+              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
+            </button>
+          </li>
+          <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowActivityLog(true) }}>
               <History size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-activity" />
               <span className="v2-more-row-label" data-terminal-cmd="> log">Activity log</span>
@@ -956,6 +993,17 @@ export default function AppV2() {
         onClose={() => { setShowRoutines(false); setEditRoutineId(null) }}
         editRoutineId={editRoutineId}
         onClearEditRoutineId={() => setEditRoutineId(null)}
+      />
+
+      <SuggestionsModal
+        open={showSuggestions}
+        onClose={() => setShowSuggestions(false)}
+        onAccepted={() => {
+          // Routine was just created server-side — refresh the local routines
+          // cache on next SSE poke (handled by useServerSync), or fall back
+          // to a manual flush. The user will see the new routine on the
+          // Routines screen.
+        }}
       />
 
       <PackagesModal
