@@ -217,13 +217,13 @@ ALTER TABLE routines ADD COLUMN target_period TEXT;               -- 'week'|'mon
 
 Three PRs, each independently mergeable on `dev`:
 
-### PR 1 — Auto-roll + Pills (S)
+### PR 1 — Auto-roll + Pills (S) ✅ SHIPPED 2026-05-16
 
-- Migration 025 (just `auto_roll`; `spawn_mode` + habit columns added in PR 2 for cleaner staging)
-- `spawnDueTasks` checks `auto_roll`; rolls forward instead of spawning when a non-terminal instance exists
-- RoutinesModal form: auto-roll toggle
-- Wiki: this doc + Version-History entry
-- Manual test: create a Pills routine with `auto_roll: true`, simulate missing a day, verify the existing task's due_date bumps to today instead of a second task appearing
+- Migration 025 added `auto_roll INTEGER DEFAULT 0` to `routines` (`spawn_mode` + habit columns deferred to PR 2 for cleaner staging)
+- `spawnDueTasks` in `src/hooks/useRoutines.js` now returns `{ spawned, rolled }`. The `rolled` list carries `{ taskId, updates }` instructions for auto-roll routines whose active instance needs its `due_date` bumped to today (and `snoozed_until` cleared if it was past). Callers in `AppV1.jsx` + `AppV2.jsx` apply rolls via `updateTask` before processing spawned tasks.
+- Active-instance check for auto-roll uses a stricter "TERMINAL_FOR_ROLL" set (`done`/`completed`/`cancelled`/`backlog`/`project`) — a cancelled/back-burnered instance shouldn't block a roll. The legacy non-auto-roll path keeps its original `!== 'done'` check unchanged to avoid scope-creeping a behavior change.
+- v2 `RoutinesModal` form gained an "Auto-roll" section below End date / Priority. Generic `.v2-form-toggle` style (not the priority orange) to keep the visual semantics clean.
+- Manual test: create a daily routine with `auto_roll: true`, observe yesterday's lingering instance rolling forward instead of stacking a new task today.
 
 ### PR 2 — Habit mode + Workouts (M)
 

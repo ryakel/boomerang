@@ -9,12 +9,13 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = []) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes)
     if (highPriority) routine.high_priority = true
     if (endDate) routine.end_date = endDate
     if (scheduleDayOfWeek != null) routine.schedule_day_of_week = scheduleDayOfWeek
     if (Array.isArray(followUps) && followUps.length > 0) routine.follow_ups = followUps
+    if (autoRoll) routine.auto_roll = true
     setRoutines(prev => [routine, ...prev])
     return routine
   }, [])
@@ -86,14 +87,61 @@ export function useRoutines() {
     return task
   }, [routines])
 
-  // Spawn tasks for due routines — returns IDs of spawned tasks
+  // Spawn tasks for due routines. Returns { spawned, rolled }:
+  //  - spawned: newly-created task objects (caller writes them via addSpawnedTasks)
+  //  - rolled:  [{ taskId, updates }] — for auto_roll routines that already have
+  //             an active instance, the existing task's due_date is bumped to
+  //             today (and any past snoozed_until is cleared) instead of
+  //             spawning a duplicate. Caller applies via updateTask.
+  // Use case for rolled: medication. You can't double up, so yesterday's stale
+  // pill task should roll forward, not coexist with today's. Full spec in
+  // wiki/Activity-Prompts.md.
   const spawnDueTasks = useCallback((existingTasks) => {
     const spawned = []
+    const rolled = []
+    // Statuses we treat as terminal for auto_roll's purposes — these instances
+    // should NOT block a new spawn nor get rolled forward. backlog/project are
+    // user-driven defers, cancelled is explicit abandonment. (The legacy
+    // non-auto-roll path uses a looser `!== 'done'` check — preserved below
+    // to avoid scope-creeping a behavior change into PR 1.)
+    const TERMINAL_FOR_ROLL = new Set(['done', 'completed', 'cancelled', 'backlog', 'project'])
+    const today = new Date().toISOString().split('T')[0]
+
     routines.forEach(routine => {
       if (!isRoutineDue(routine)) return
-      // Don't spawn if there's already an active task for this routine
-      const hasActive = existingTasks.some(t => t.routine_id === routine.id && t.status !== 'done')
-      if (hasActive) return
+
+      if (routine.auto_roll) {
+        // Auto-roll path: find a truly-active instance and bump it forward.
+        // If none, fall through to a normal spawn.
+        const activeInstance = existingTasks.find(
+          t => t.routine_id === routine.id && !TERMINAL_FOR_ROLL.has(t.status),
+        )
+        if (activeInstance) {
+          const updates = {
+            due_date: today,
+            last_touched: new Date().toISOString(),
+          }
+          // Clear any past snoozed_until — if the user snoozed yesterday's
+          // pill past today, we want it surfacing today. A future snooze
+          // beyond today is left alone (already covers future).
+          if (activeInstance.snoozed_until) {
+            const snoozedDate = activeInstance.snoozed_until.split('T')[0]
+            if (snoozedDate <= today) updates.snoozed_until = null
+          }
+          rolled.push({ taskId: activeInstance.id, updates })
+          return
+        }
+      } else {
+        // Legacy path: skip spawn if any non-done instance exists, preserving
+        // the original behavior for every routine that hasn't opted into
+        // auto-roll. (A separate cleanup PR could revisit whether
+        // backlog/project instances should block routine spawning, but that's
+        // a behavior change outside PR 1's scope.)
+        const hasActive = existingTasks.some(
+          t => t.routine_id === routine.id && t.status !== 'done',
+        )
+        if (hasActive) return
+      }
 
       const nextDue = getNextDueDate(routine)
       const task = createTask(routine.title, routine.tags, nextDue.toISOString().split('T')[0], routine.notes)
@@ -106,7 +154,7 @@ export function useRoutines() {
       }
       spawned.push(task)
     })
-    return spawned
+    return { spawned, rolled }
   }, [routines])
 
   const hydrateRoutines = useCallback((data) => {

@@ -241,6 +241,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
   const [notes, setNotes] = useState(initial?.notes || '')
   const [highPriority, setHighPriority] = useState(initial?.high_priority || false)
   const [endDate, setEndDate] = useState(initial?.end_date || '')
+  const [autoRoll, setAutoRoll] = useState(initial?.auto_roll || false)
   const [followUps, setFollowUps] = useState(() =>
     Array.isArray(initial?.follow_ups) ? initial.follow_ups.map(s => ({ ...s })) : []
   )
@@ -302,6 +303,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
     endDate: endDate || null,
     scheduleDayOfWeek: parsedDay,
     followUps: followUpsArray,
+    autoRoll,
   })
 
   const handleSave = () => {
@@ -419,6 +421,21 @@ function RoutineForm({ initial, onSave, onCancel }) {
             {highPriority ? '! High' : 'Normal'}
           </button>
         </div>
+      </div>
+
+      <div className="v2-form-section">
+        <label className="v2-form-label">Auto-roll</label>
+        <div className="v2-form-section-hint">
+          If a previous task is still active when the next one is due, roll its date forward instead of stacking a duplicate. Useful for medication or anything you can't double up on.
+        </div>
+        <button
+          type="button"
+          className={`v2-form-toggle v2-form-toggle-${autoRoll ? 'on' : 'off'}`}
+          onClick={() => setAutoRoll(!autoRoll)}
+          aria-pressed={autoRoll}
+        >
+          {autoRoll ? 'On' : 'Off'}
+        </button>
       </div>
 
       <div className="v2-form-section">
@@ -543,13 +560,14 @@ export default function RoutinesModal({
         end_date: data.endDate,
         schedule_day_of_week: data.scheduleDayOfWeek,
         follow_ups: data.followUps,
+        auto_roll: data.autoRoll,
       })
     } else {
       onAdd(
         data.title, data.cadence, data.customDays,
         data.tags, data.notes, data.highPriority,
         data.endDate, data.scheduleDayOfWeek,
-        data.followUps,
+        data.followUps, data.autoRoll,
       )
     }
     setView('list')

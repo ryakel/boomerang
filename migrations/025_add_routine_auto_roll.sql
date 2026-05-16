@@ -1,0 +1,16 @@
+-- Activity Prompts PR 1: auto-roll flag on routines.
+--
+-- When set, the cadence-driven spawn check looks for an active (non-terminal)
+-- task already linked to this routine. If one exists, its `due_date` is bumped
+-- to today (and any past `snoozed_until` is cleared) instead of spawning a new
+-- duplicate. If none exists, spawn proceeds normally.
+--
+-- Use case: medication. You can't take two sets of pills to make up for the
+-- one you missed — so yesterday's pill task should roll forward to today, not
+-- coexist with today's. Most routines stay auto_roll=0; legitimately want
+-- multiple instances stacking is a signal (last week's weekly task still
+-- pending? that means something).
+--
+-- Default 0 to preserve existing behavior for every routine already in the
+-- table. Full spec in wiki/Activity-Prompts.md.
+ALTER TABLE routines ADD COLUMN auto_roll INTEGER DEFAULT 0;

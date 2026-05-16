@@ -6,6 +6,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-16
 
+- feat(routines): auto-roll flag — pills no longer stack on missed days [S]
+  - **Why.** User asked for a way to add daily medication that handles missed days gracefully: "Pills has to auto roll. I can't take two sets of pills to make up for the missed one." Today's routines either skip spawning when an active instance exists or — for cadences like daily where the active instance is from yesterday — would have left a stale task on the list indefinitely. Auto-roll fixes both.
+  - **Migration 025.** `routines.auto_roll INTEGER DEFAULT 0`. Opt-in per routine; existing routines unchanged.
+  - **`spawnDueTasks` returns `{ spawned, rolled }`.** For auto-roll routines that find an existing non-terminal instance, instead of skipping the spawn, push `{ taskId, updates }` into `rolled` to bump the existing task's `due_date` forward to today (and clear `snoozed_until` if past). For routines without auto-roll, behavior is unchanged.
+  - **Stricter terminal-status set on auto-roll path.** A cancelled / backlog / project instance shouldn't block a new spawn nor get rolled forward — those statuses are user-driven deferrals or abandonments, not active instances. The legacy non-auto-roll path keeps its original `!== 'done'` guard to avoid scope-creeping a behavior change. Cleanup of the legacy path's permissive guard is left for a future PR.
+  - **Callers updated.** `src/AppV2.jsx` and `src/AppV1.jsx` now destructure `{ spawned, rolled }` and apply rolls via `updateTask` before the existing spawn-enhance path runs. Same useEffect, same trigger conditions.
+  - **UI.** v2 `RoutinesModal` form gained an "Auto-roll" section between End date / Priority and Notes, with a hint paragraph and a single On/Off button. New `.v2-form-toggle` CSS rules — bordered button that uses `var(--v2-accent)` for "On" so the visual doesn't read as priority-orange. v1 RoutinesModal intentionally not updated (v1 is on its way out post-cutover).
+  - **Why a stricter active-check for auto-roll.** The legacy guard treats `cancelled`/`backlog`/`project` as "active" and silently suppresses spawning — which is arguably a bug, but one that's been live for months. Auto-roll's check (`TERMINAL_FOR_ROLL`) treats those as terminal so a back-burnered pill instance doesn't get bumped forward against the user's intent.
+  - **Smoke test passed.** Migration 025 applies cleanly, server boots, JS bundle parses, lint shows 0 errors (9 pre-existing warnings unrelated).
+  - **Spec status.** `wiki/Activity-Prompts.md` PR 1 section marked ✅ SHIPPED. PR 2 (habit mode) and PR 3 (pattern detection) still planned.
+  - Modified: `migrations/025_add_routine_auto_roll.sql` (new), `db.js`, `src/store.js`, `src/hooks/useRoutines.js`, `src/AppV1.jsx`, `src/v2/AppV2.jsx`, `src/v2/components/RoutinesModal.jsx`, `src/v2/components/RoutinesModal.css`, `wiki/Activity-Prompts.md`, `wiki/Features.md`, `wiki/Version-History.md`
+
 - docs(spec): activity prompts — auto-roll, habits, historic suggestions [S]
   - **Why.** User: three related needs surfaced in one ask — "prompt me to add things based on historic activities," "prompt me to work out a couple times a week (not ready for it to be a routine)," and "I need to be better about taking my pills, not sure routine is the right shape." Designed all three together first per user request before any code lands.
   - **Unifying shape.** "Suggest, don't spawn." Today's routines fire on cadence whether you wanted a task or not. The three needs all want softer behavior — the schedule knows when something *might* happen; spawning is decided per-instance.
