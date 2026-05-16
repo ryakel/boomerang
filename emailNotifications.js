@@ -368,7 +368,7 @@ async function runNotificationCheck() {
     if (settings.email_notif_overdue !== false) {
       const freq = getFreqMs(settings, 'notif_freq_overdue', 0.5)
       if (checkThrottle('email_overdue', freq)) {
-        const overdueTasks = activeTasks.filter(isOverdue)
+        const overdueTasks = nonSnoozed.filter(isOverdue)
         if (overdueTasks.length > 0) {
           const intro = `You have ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''}`
           const text = overdueTasks.map(t => `- ${t.title} (due ${t.due_date})`).join('\n')
@@ -385,7 +385,7 @@ async function runNotificationCheck() {
     if (settings.email_notif_stale !== false) {
       const freq = getFreqMs(settings, 'notif_freq_stale', 0.5)
       if (checkThrottle('email_stale', freq)) {
-        const staleTasks = activeTasks.filter(t => isStale(t, settings.staleness_days))
+        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days))
         if (staleTasks.length > 0) {
           const intro = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
           const text = staleTasks.map(t => `- ${t.title}`).join('\n')
@@ -401,11 +401,11 @@ async function runNotificationCheck() {
     // General nudge (with AI when available)
     if (settings.email_notif_nudge !== false) {
       const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
-      if (checkThrottle('email_nudge', freq) && activeTasks.length > 0) {
-        const smallTasks = activeTasks.filter(t => t.size === 'XS' || t.size === 'S')
+      if (checkThrottle('email_nudge', freq) && nonSnoozed.length > 0) {
+        const smallTasks = nonSnoozed.filter(t => t.size === 'XS' || t.size === 'S')
         const pick = smallTasks.length > 0
           ? smallTasks[Math.floor(Math.random() * smallTasks.length)]
-          : activeTasks[Math.floor(Math.random() * activeTasks.length)]
+          : nonSnoozed[Math.floor(Math.random() * nonSnoozed.length)]
 
         let subject, body
         // Try AI nudge first
@@ -418,7 +418,7 @@ async function runNotificationCheck() {
           body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
         } else {
           subject = 'Boomerang'
-          body = `You have ${activeTasks.length} open tasks. Pick the easiest one and knock it out.`
+          body = `You have ${nonSnoozed.length} open tasks. Pick the easiest one and knock it out.`
         }
         const sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
         if (sent) {
@@ -433,7 +433,7 @@ async function runNotificationCheck() {
       const freq = getFreqMs(settings, 'notif_freq_size', 1)
       if (checkThrottle('email_size', freq)) {
         const sizeLeadDays = { XL: 3, L: 2, M: 1 }
-        const upcoming = activeTasks.filter(t => {
+        const upcoming = nonSnoozed.filter(t => {
           if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
           const dueDate = new Date(t.due_date)
           const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
@@ -465,11 +465,11 @@ async function runNotificationCheck() {
           if (sent) logNotifEmail(genId(), 'pileup', null, subject, body)
         }
         if (!sent && settings.stale_warn_pct > 0) {
-          const oldTasks = activeTasks.filter(t => {
+          const oldTasks = nonSnoozed.filter(t => {
             const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
             return age > (settings.stale_warn_days || 7)
           })
-          const pct = activeTasks.length > 0 ? Math.round(oldTasks.length / activeTasks.length * 100) : 0
+          const pct = nonSnoozed.length > 0 ? Math.round(oldTasks.length / nonSnoozed.length * 100) : 0
           if (pct >= settings.stale_warn_pct) {
             const subject = 'Tasks piling up'
             const body = `${pct}% of your tasks have been open for ${settings.stale_warn_days || 7}+ days`

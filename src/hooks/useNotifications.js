@@ -238,11 +238,11 @@ export function useNotifications(tasks) {
 
           // Check for high percentage of old tasks
           if (settings.stale_warn_pct > 0) {
-            const oldTasks = activeTasks.filter(t => {
+            const oldTasks = nonSnoozed.filter(t => {
               const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
               return age > (settings.stale_warn_days || 7)
             })
-            const pct = activeTasks.length > 0 ? Math.round(oldTasks.length / activeTasks.length * 100) : 0
+            const pct = nonSnoozed.length > 0 ? Math.round(oldTasks.length / nonSnoozed.length * 100) : 0
             if (pct >= settings.stale_warn_pct) {
               sendNotification('pileup', 'Tasks piling up', `${pct}% of your tasks have been open for ${settings.stale_warn_days}+ days`, 'stale-warn')
             }
@@ -254,7 +254,7 @@ export function useNotifications(tasks) {
           lc.size = now
 
           const sizeLeadDays = { XL: 3, L: 2, M: 1 }
-          const upcomingBySize = activeTasks.filter(t => {
+          const upcomingBySize = nonSnoozed.filter(t => {
             if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
             const dueDate = new Date(t.due_date)
             const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
@@ -272,7 +272,7 @@ export function useNotifications(tasks) {
         if (settings.notif_overdue !== false && now - lc.overdue >= freqs.overdue) {
           lc.overdue = now
 
-          const overdueTasks = activeTasks.filter(isOverdue)
+          const overdueTasks = nonSnoozed.filter(isOverdue)
           if (overdueTasks.length > 0) {
             const names = overdueTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
             const extra = overdueTasks.length > 2 ? ` and ${overdueTasks.length - 2} more` : ''
@@ -284,7 +284,7 @@ export function useNotifications(tasks) {
         if (settings.notif_stale !== false && now - lc.stale >= freqs.stale) {
           lc.stale = now
 
-          const staleTasks = activeTasks.filter(isStale)
+          const staleTasks = nonSnoozed.filter(isStale)
           if (staleTasks.length > 0) {
             const names = staleTasks.slice(0, 2).map(t => `"${t.title}"`).join(', ')
             const extra = staleTasks.length > 2 ? ` and ${staleTasks.length - 2} more` : ''
@@ -293,17 +293,17 @@ export function useNotifications(tasks) {
         }
 
         // General nudge
-        if (settings.notif_nudge !== false && now - lc.nudge >= freqs.nudge && activeTasks.length > 0) {
+        if (settings.notif_nudge !== false && now - lc.nudge >= freqs.nudge && nonSnoozed.length > 0) {
           lc.nudge = now
 
           // Check for quick wins first
-          const smallTasks = activeTasks.filter(t => t.size === 'XS' || t.size === 'S')
+          const smallTasks = nonSnoozed.filter(t => t.size === 'XS' || t.size === 'S')
           if (smallTasks.length > 0) {
             const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
             sendNotification('nudge', 'Quick win available', `Got 5 min? Try: "${pick.title}" (${pick.size})`, 'nudge')
           } else {
             // Fall back to AI or generic nudge
-            const message = await getAINudge(activeTasks.length)
+            const message = await getAINudge(nonSnoozed.length)
             sendNotification('nudge', 'Boomerang', message, 'nudge')
           }
         }

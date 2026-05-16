@@ -99,9 +99,11 @@ export function buildDigest(settings) {
   const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
   const nonMuted = nonSnoozed.filter(t => !t.notifications_muted)
 
-  // Counts-style fallback (preserve legacy behavior when user opts in)
+  // Counts-style fallback (preserve legacy behavior when user opts in).
+  // Counts derive from nonSnoozed only — items the user has explicitly
+  // silenced shouldn't pad the digest's "N open" / overdue / stale numbers.
   if (settings.digest_style === 'counts') {
-    return buildCountsDigest(settings, allTasks, activeTasks)
+    return buildCountsDigest(settings, nonSnoozed)
   }
 
   const base = getPublicAppUrl(settings)
@@ -207,29 +209,31 @@ export function buildDigest(settings) {
   return { hasContent: true, subject, textBody, htmlBody, today, comingUp, carrying, quickWins }
 }
 
-// Legacy counts-only digest, preserved for users who set digest_style='counts'
-function buildCountsDigest(settings, allTasks, activeTasks) {
-  if (activeTasks.length === 0) return { hasContent: false }
-  const overdueTasks = activeTasks.filter(t => {
+// Legacy counts-only digest, preserved for users who set digest_style='counts'.
+// All counts derive from nonSnoozed so the digest excludes items the user
+// has explicitly silenced.
+function buildCountsDigest(settings, nonSnoozed) {
+  if (nonSnoozed.length === 0) return { hasContent: false }
+  const overdueTasks = nonSnoozed.filter(t => {
     if (!t.due_date) return false
     const due = new Date(t.due_date + 'T23:59:59.999')
     return Date.now() > due.getTime()
   })
   const todayStr = new Date().toISOString().split('T')[0]
-  const dueTodayTasks = activeTasks.filter(t => t.due_date === todayStr)
+  const dueTodayTasks = nonSnoozed.filter(t => t.due_date === todayStr)
   const staleDays = settings.staleness_days || 2
-  const staleTasks = activeTasks.filter(t => {
+  const staleTasks = nonSnoozed.filter(t => {
     const elapsed = Date.now() - new Date(t.last_touched).getTime()
     return elapsed > staleDays * 86400000
   })
 
-  const parts = [`${activeTasks.length} open`]
+  const parts = [`${nonSnoozed.length} open`]
   if (dueTodayTasks.length > 0) parts.push(`${dueTodayTasks.length} due today`)
   if (overdueTasks.length > 0) parts.push(`${overdueTasks.length} overdue`)
   if (staleTasks.length > 0) parts.push(`${staleTasks.length} stale`)
 
   let textBody = parts.join(' · ')
-  let htmlBody = `<p>You have <strong>${activeTasks.length}</strong> open tasks.</p>`
+  let htmlBody = `<p>You have <strong>${nonSnoozed.length}</strong> open tasks.</p>`
   if (dueTodayTasks.length > 0) htmlBody += `<p><strong>${dueTodayTasks.length}</strong> due today</p>`
   if (overdueTasks.length > 0) htmlBody += `<p><strong>${overdueTasks.length}</strong> overdue</p>`
   if (staleTasks.length > 0) htmlBody += `<p><strong>${staleTasks.length}</strong> stale</p>`
@@ -242,7 +246,7 @@ function buildCountsDigest(settings, allTasks, activeTasks) {
 
   return {
     hasContent: true,
-    subject: `Morning Digest: ${activeTasks.length} open tasks`,
+    subject: `Morning Digest: ${nonSnoozed.length} open tasks`,
     textBody,
     htmlBody,
   }

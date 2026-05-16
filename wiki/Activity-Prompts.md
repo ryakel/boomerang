@@ -20,6 +20,18 @@ All three split **scheduling** from **spawning**:
 
 These are three independently useful mechanisms that compose. Each ships in its own PR.
 
+## Snooze as the "not before" signal
+
+Closely related to the design above: **snooze is the user's explicit "be quiet about this until time T" signal**, and every activity-prompt feature must respect it. Today a task's `snoozed_until` timestamp means "don't surface this in active lists and don't notify me about it until T." That semantic generalizes: anything we add to the system that fires notifications or pulls a task forward needs to honor a forward-looking snooze and ignore stale (past) ones.
+
+Concretely:
+
+- **Auto-roll (PR 1).** A forward-looking `snoozed_until` is left alone — auto-roll bumps `due_date` but doesn't override the user's "not before 8pm tonight." A past `snoozed_until` is cleared so the rolled task doesn't stay hidden forever. Comparison is done on timestamps, not date strings, so a snooze to "today at 8pm" survives the roll.
+- **Habit mode (PR 2).** The behind-pace nudge needs an equivalent of "not now." The Quokka-style **"Not today"** action on the nudge stores a habit-level `next_nudge_after` timestamp on the routine (or in a per-day suppression map) so the user can dismiss without disabling the nudge entirely. The spawned tasks from `+ Log it` follow normal `snoozed_until` rules.
+- **Pattern detection (PR 3).** The `pattern_suggestions` row gains an optional `snooze_until INTEGER` field. **"Not yet"** sets `snooze_until = now + 14 days` (or whatever the user picks) so the suggestion stops re-surfacing during scans until past that timestamp. **"Dismiss"** sets `status = 'dismissed'` (permanent). The two actions split the same way snooze and cancel split for tasks: temporary silence vs. permanent close.
+
+**Notification dispatcher hygiene** (fixed bundled with PR 1): every notification type — overdue, stale, nudge, size-based, pile-up — must filter on the `nonSnoozed` task set, not the raw `activeTasks` set. The high-priority loop already does this; the rest used to leak snoozed items into the count and the body text. All four dispatchers (`pushNotifications.js`, `emailNotifications.js`, `pushoverNotifications.js`, `src/hooks/useNotifications.js`) plus the legacy counts-style digest now flow through `nonSnoozed`. New notification types added by PRs 2 and 3 must follow this convention.
+
 ---
 
 ## Mechanism 1: `auto_roll` flag on routines
@@ -128,6 +140,9 @@ CREATE TABLE pattern_suggestions (
   last_seen_at INTEGER NOT NULL,      -- epoch ms of most recent completion in cluster
   confidence REAL NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',  -- 'pending'|'accepted'|'dismissed'
+  snooze_until INTEGER,               -- epoch ms; "Not yet" sets this so the
+                                      -- suggestion doesn't re-surface in scans
+                                      -- until past this point. NULL = no snooze.
   created_at INTEGER NOT NULL,
   decided_at INTEGER
 );
@@ -157,7 +172,7 @@ The review screen is a stack of suggestion cards. Each card shows:
 - Three actions:
   - **Make it a routine** — opens RoutinesModal pre-filled with title, cadence, `spawn_mode: 'prompt'` (planned future mode; until prompt mode ships, default to `'auto'` with `auto_roll: true`). On save: mark suggestion `accepted`.
   - **Dismiss** — mark suggestion `dismissed`. Future scans skip this `normalized_title` permanently.
-  - **Not yet** — leave as `pending`; resurfaces next scan if pattern persists.
+  - **Not yet (N days)** — set `snooze_until = now + N days` (default 14, configurable). Scans don't re-surface the suggestion until past that timestamp. Distinguishes "I might want this later" from a permanent Dismiss.
 
 ### Endpoints
 

@@ -397,7 +397,7 @@ async function runPushoverCheck() {
       if (!inQuiet) {
         const freq = adaptiveFreq('overdue', getFreqMs(settings, 'notif_freq_overdue', 0.5))
         if (checkThrottle('pushover_overdue', freq)) {
-          const overdueTasks = activeTasks.filter(isOverdue)
+          const overdueTasks = nonSnoozed.filter(isOverdue)
           if (overdueTasks.length > 0) {
             const body = `${overdueTasks.length} overdue: ${overdueTasks.slice(0, 3).map(t => t.title).join(', ')}`
             // For multi-task overdue, deep link to the most overdue task.
@@ -427,7 +427,7 @@ async function runPushoverCheck() {
     if (settings.pushover_notif_stale !== false) {
       const freq = adaptiveFreq('stale', getFreqMs(settings, 'notif_freq_stale', 0.5))
       if (checkThrottle('pushover_stale', freq)) {
-        const staleTasks = activeTasks.filter(t => isStale(t, settings.staleness_days))
+        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days))
         if (staleTasks.length > 0) {
           const body = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
           const result = await sendPushover({
@@ -447,8 +447,8 @@ async function runPushoverCheck() {
     // Nudge
     if (settings.pushover_notif_nudge !== false) {
       const freq = adaptiveFreq('nudge', getFreqMs(settings, 'notif_freq_nudge', 1))
-      if (checkThrottle('pushover_nudge', freq) && activeTasks.length > 0) {
-        const smallTasks = activeTasks.filter(t => t.size === 'XS' || t.size === 'S')
+      if (checkThrottle('pushover_nudge', freq) && nonSnoozed.length > 0) {
+        const smallTasks = nonSnoozed.filter(t => t.size === 'XS' || t.size === 'S')
         let title, body
         if (smallTasks.length > 0) {
           const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
@@ -456,7 +456,7 @@ async function runPushoverCheck() {
           body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
         } else {
           title = '[BOOMERANG] Pick one'
-          body = `${activeTasks.length} open tasks. Pick the easiest one.`
+          body = `${nonSnoozed.length} open tasks. Pick the easiest one.`
         }
         const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
         if (result.ok) {
@@ -471,7 +471,7 @@ async function runPushoverCheck() {
       const freq = adaptiveFreq('size', getFreqMs(settings, 'notif_freq_size', 1))
       if (checkThrottle('pushover_size', freq)) {
         const sizeLeadDays = { XL: 3, L: 2, M: 1 }
-        const upcoming = activeTasks.filter(t => {
+        const upcoming = nonSnoozed.filter(t => {
           if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
           const dueDate = new Date(t.due_date)
           const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
@@ -510,11 +510,11 @@ async function runPushoverCheck() {
           }
         }
         if (!sent && settings.stale_warn_pct > 0) {
-          const oldTasks = activeTasks.filter(t => {
+          const oldTasks = nonSnoozed.filter(t => {
             const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
             return age > (settings.stale_warn_days || 7)
           })
-          const pct = activeTasks.length > 0 ? Math.round(oldTasks.length / activeTasks.length * 100) : 0
+          const pct = nonSnoozed.length > 0 ? Math.round(oldTasks.length / nonSnoozed.length * 100) : 0
           if (pct >= settings.stale_warn_pct) {
             const title = '[BOOMERANG] Tasks piling up'
             const body = `${pct}% of your tasks have been open ${settings.stale_warn_days || 7}+ days`

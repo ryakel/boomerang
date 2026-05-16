@@ -266,7 +266,7 @@ async function runPushCheck() {
     if (settings.push_notif_overdue !== false) {
       const freq = getFreqMs(settings, 'notif_freq_overdue', 0.5)
       if (checkThrottle('push_overdue', freq)) {
-        const overdueTasks = activeTasks.filter(isOverdue)
+        const overdueTasks = nonSnoozed.filter(isOverdue)
         if (overdueTasks.length > 0) {
           const body = `You have ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''}: ${overdueTasks.slice(0, 3).map(t => t.title).join(', ')}`
           const sent = await sendPush({ title: 'Overdue Tasks', body, tag: 'overdue' })
@@ -282,7 +282,7 @@ async function runPushCheck() {
     if (settings.push_notif_stale !== false) {
       const freq = getFreqMs(settings, 'notif_freq_stale', 0.5)
       if (checkThrottle('push_stale', freq)) {
-        const staleTasks = activeTasks.filter(t => isStale(t, settings.staleness_days))
+        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days))
         if (staleTasks.length > 0) {
           const body = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
           const sent = await sendPush({ title: 'Stale Tasks', body, tag: 'stale' })
@@ -297,8 +297,8 @@ async function runPushCheck() {
     // General nudge
     if (settings.push_notif_nudge !== false) {
       const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
-      if (checkThrottle('push_nudge', freq) && activeTasks.length > 0) {
-        const smallTasks = activeTasks.filter(t => t.size === 'XS' || t.size === 'S')
+      if (checkThrottle('push_nudge', freq) && nonSnoozed.length > 0) {
+        const smallTasks = nonSnoozed.filter(t => t.size === 'XS' || t.size === 'S')
         let title, body
         if (smallTasks.length > 0) {
           const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
@@ -306,7 +306,7 @@ async function runPushCheck() {
           body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
         } else {
           title = 'Boomerang'
-          body = `You have ${activeTasks.length} open tasks. Pick the easiest one and knock it out.`
+          body = `You have ${nonSnoozed.length} open tasks. Pick the easiest one and knock it out.`
         }
         const sent = await sendPush({ title, body, tag: 'nudge' })
         if (sent) {
@@ -321,7 +321,7 @@ async function runPushCheck() {
       const freq = getFreqMs(settings, 'notif_freq_size', 1)
       if (checkThrottle('push_size', freq)) {
         const sizeLeadDays = { XL: 3, L: 2, M: 1 }
-        const upcoming = activeTasks.filter(t => {
+        const upcoming = nonSnoozed.filter(t => {
           if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
           const dueDate = new Date(t.due_date)
           const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
@@ -353,11 +353,11 @@ async function runPushCheck() {
           if (sent) logNotifPush(genId(), 'pileup', null, title, body)
         }
         if (!sent && settings.stale_warn_pct > 0) {
-          const oldTasks = activeTasks.filter(t => {
+          const oldTasks = nonSnoozed.filter(t => {
             const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
             return age > (settings.stale_warn_days || 7)
           })
-          const pct = activeTasks.length > 0 ? Math.round(oldTasks.length / activeTasks.length * 100) : 0
+          const pct = nonSnoozed.length > 0 ? Math.round(oldTasks.length / nonSnoozed.length * 100) : 0
           if (pct >= settings.stale_warn_pct) {
             const title = 'Tasks piling up'
             const body = `${pct}% of your tasks have been open for ${settings.stale_warn_days || 7}+ days`
