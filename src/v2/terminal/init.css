@@ -1637,6 +1637,32 @@
   text-shadow: var(--v2-glow);
 }
 
+/* SuggestionsModal action buttons + samples toggle — same no-chrome
+ * idiom as routine actions so they fit terminal mode. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-suggestion-action,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-suggestion-samples-toggle {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--v2-text-meta) !important;
+  text-transform: lowercase;
+  padding: 4px 8px !important;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-suggestion-action:hover:not(:disabled),
+:root[data-ui="v2"][data-theme^="terminal"] .v2-suggestion-samples-toggle:hover {
+  background: transparent !important;
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+  text-decoration: none;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-suggestion-action-primary {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-suggestion-action-primary::before {
+  content: '> ';
+}
+
 /* New-routine button in RoutinesModal */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-routine-new-btn {
   background: transparent !important;
