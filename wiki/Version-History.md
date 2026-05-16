@@ -4,6 +4,24 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-16
+
+- docs(spec): activity prompts — auto-roll, habits, historic suggestions [S]
+  - **Why.** User: three related needs surfaced in one ask — "prompt me to add things based on historic activities," "prompt me to work out a couple times a week (not ready for it to be a routine)," and "I need to be better about taking my pills, not sure routine is the right shape." Designed all three together first per user request before any code lands.
+  - **Unifying shape.** "Suggest, don't spawn." Today's routines fire on cadence whether you wanted a task or not. The three needs all want softer behavior — the schedule knows when something *might* happen; spawning is decided per-instance.
+  - **Three independent mechanisms, three PRs.**
+    1. **`auto_roll` flag on routines.** Solves pills. If a non-terminal instance already exists when the schedule fires, roll its `due_date` forward instead of stacking a duplicate. You can't take two sets of pills to make up for the missed one.
+    2. **`spawn_mode: 'habit'` on routines.** Solves workouts. Target N per week/month, no cadence-locked schedule, no auto-spawn. Always-visible routine card with "+ Log it" button for retroactive logging. Behind-pace web-push nudge mid-week, escalating Fri/Sat, never Pushover. Per-period streak tracking.
+    3. **Pattern detection → `pattern_suggestions` table.** Solves historic prompts. Weekly Sunday 3am scan over 12 months of completed tasks, normalizes titles, detects cadence (daily / weekly / monthly / quarterly / annually) by interval mean+stddev, optional AI clustering pass for near-duplicate titles. Surfaces as new `routine_suggestion` notification type (web push default-on, email/Pushover default-off) deep-linking to a review screen.
+  - **Durability lesson encoded.** `pattern_suggestions` lives server-side, outside the bulk-PUT path used by `/api/data` — same posture as `notification_log` after the 2026-05-07 wipe. A future wipe can't take suggestions out.
+  - **Schema deltas planned.** Migrations 025 (`auto_roll` + `spawn_mode` + `target_count` + `target_period` on routines) and 026 (`pattern_suggestions` table). PR 1 only needs the `auto_roll` column; the habit columns can land with PR 2 cleanly.
+  - **Open questions deferred to PR time** documented in the spec — cadence inference for accepted suggestions, annual cadence detection with only 2 occurrences, "not yet" auto-dismiss after 3 weeks, retroactive habit log dates, habit + sequences interaction.
+  - **No code yet.** Spec-first per user request: "Spec first, then PR 1." Implementation lands in three follow-up PRs starting with PR 1 (auto-roll + pills).
+  - Added: `wiki/Activity-Prompts.md`
+  - Modified: `wiki/Version-History.md`, `wiki/Features.md`
+
+---
+
 ## 2026-05-12
 
 - feat: relocate Easter-egg triggers (build row + Quokka phrase) [S]
