@@ -183,9 +183,12 @@ function AppV1() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Spawn routine tasks on load and every minute
+  // Spawn routine tasks on load and every minute. Auto-roll routines bump an
+  // existing active instance forward instead of stacking — see
+  // useRoutines.spawnDueTasks.
   useEffect(() => {
-    const spawned = spawnDueTasks(tasks)
+    const { spawned, rolled } = spawnDueTasks(tasks)
+    for (const { taskId, updates } of rolled) updateTask(taskId, updates)
     if (spawned.length > 0) {
       addSpawnedTasks(spawned)
       // Try to enhance with AI dates (non-blocking)
