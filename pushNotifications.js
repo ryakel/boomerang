@@ -9,7 +9,7 @@
 import webpush from 'web-push'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush, countPendingSuggestions } from './db.js'
+import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush, countPendingSuggestions, isNotifiable } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -47,6 +47,8 @@ function ensureVapidKeys() {
 }
 
 const AVOIDANCE_ENERGY_TYPES = ['errand']
+// ACTIVE_STATUSES retained for any legacy refs; new code uses isNotifiable()
+// from db.js which folds in project / snooze_indefinite / gmail_pending rules.
 const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
 
 let loopTimer = null
@@ -265,7 +267,7 @@ async function runPushCheck() {
     if (subscriptions.length === 0) return
 
     const allTasks = queryTasks({})
-    const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
+    const activeTasks = allTasks.filter(isNotifiable)
     if (activeTasks.length === 0) return
 
     const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())

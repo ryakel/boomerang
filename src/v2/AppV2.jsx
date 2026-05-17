@@ -20,6 +20,7 @@ import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
 import KanbanBoard from './components/KanbanBoard'
+import ProjectPinnedSection from './components/ProjectPinnedSection'
 import TaskListToolbar from './components/TaskListToolbar'
 import MarkdownImportModal from './components/MarkdownImportModal'
 import WeekStrip from './components/WeekStrip'
@@ -128,9 +129,11 @@ export default function AppV2() {
 
   // Shared task + routine state — same hooks v1 uses, no fork.
   const {
-    tasks, setTasks, addTask, addSpawnedTasks, completeTask, snoozeTask, replaceTask, updateTask,
+    tasks, setTasks, addTask, addSpawnedTasks, completeTask, snoozeTask, unsnoozeTask, replaceTask, updateTask,
     uncompleteTask, changeStatus, deleteTask, clearCompleted, clearAll,
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
+    pinnedProjects, activeChildrenOfPinned,
+    setProjectPinned, setTaskParent, setChildVisibility, logProjectSession,
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
@@ -498,6 +501,30 @@ export default function AppV2() {
     gateOnChainBreak(task, 'Moving to projects', 'Stop chain & move', apply)
   }, [updateTask, tasks, gateOnChainBreak])
 
+  // Pin a project to the main list (or unpin). Pinning is a visibility
+  // toggle only — nags and child-spawn behavior unchanged. The pinned
+  // section renders above all the regular sections on the main list.
+  const handleUnpinProject = useCallback((id) => {
+    setProjectPinned(id, false)
+  }, [setProjectPinned])
+
+  // "Add child task" launcher — opens the standard AddTaskModal with the
+  // parent_id pre-populated. The modal already handles size/energy inference
+  // and routing through the same createTask path; we just append the parent
+  // link to the result.
+  const [addChildOfProject, setAddChildOfProject] = useState(null)
+  const handleAddChildToProject = useCallback((project) => {
+    setAddChildOfProject(project)
+    setShowAdd(true)
+  }, [])
+
+  // Log a project session. Renders a toast with the points awarded, or an
+  // explanatory message when capped. Falls back silently to a local-only
+  // update if the network is unavailable so the user doesn't lose the tap.
+  const handleLogSession = useCallback(async (projectId) => {
+    return logProjectSession(projectId)
+  }, [logProjectSession])
+
   const handleConvertToRoutine = useCallback((taskId, { title, cadence, customDays, tags, notes }) => {
     const routine = addRoutine(title, cadence, customDays, tags, notes)
     updateTask(taskId, { routine_id: routine.id, last_touched: new Date().toISOString() })
@@ -556,9 +583,17 @@ export default function AppV2() {
   }, [updateTask])
 
   // Mirrors v1's add path: create task, kick off AI inference for size/energy
-  // when not manually set, and prefetch the completion toast copy.
+  // when not manually set, and prefetch the completion toast copy. If the
+  // user opened the modal via "Add child" on a pinned project, stamp the
+  // parent_id + active visibility so the new task surfaces under the
+  // project. The "addChildOfProject" state is cleared after one use.
   const handleAddTask = useCallback((taskData) => {
     const taskId = addTask(taskData)
+    if (addChildOfProject) {
+      setTaskParent(taskId, addChildOfProject.id)
+      setChildVisibility(taskId, 'active')
+      setAddChildOfProject(null)
+    }
     if (!taskData.size && taskData.title) {
       inferSize(taskData.title, taskData.notes).then(inferred => {
         const updates = {}
@@ -574,7 +609,7 @@ export default function AppV2() {
     } else {
       prefetchToast(taskId, taskData.title, taskData.energy, taskData.energyLevel)
     }
-  }, [addTask, updateTask, prefetchToast])
+  }, [addTask, updateTask, prefetchToast, addChildOfProject, setTaskParent, setChildVisibility])
 
   const renderSection = (label, list, sigil) => {
     if (list.length === 0) return null
@@ -782,6 +817,23 @@ export default function AppV2() {
                 dailyTaskGoal={settingsForRings.daily_task_goal || 3}
               />
             )}
+            <ProjectPinnedSection
+              projects={pinnedProjects}
+              activeChildren={activeChildrenOfPinned}
+              allTasks={tasks}
+              expandedTaskId={expandedTaskId}
+              onToggleExpand={setExpandedTaskId}
+              onLogSession={handleLogSession}
+              onUnpin={handleUnpinProject}
+              onAddChild={handleAddChildToProject}
+              onEditProject={handleEdit}
+              onComplete={handleComplete}
+              onEdit={handleEdit}
+              onSnooze={handleSnooze}
+              onSkipAdvance={handleSkipAdvance}
+              weatherByDate={weather.enabled ? weather.byDate : null}
+              routineStreaks={routineStreaks}
+            />
             {renderSection('Doing', sortedDoing, '→')}
             {renderSection('Stale', sortedStale, '~')}
             {renderSection('Up next', sortedUpNext, '+')}
@@ -795,6 +847,7 @@ export default function AppV2() {
         <SnoozeModal
           task={snoozeTarget}
           onSnooze={snoozeTask}
+          onUnsnooze={unsnoozeTask}
           onClose={() => setSnoozeTarget(null)}
         />
       )}
@@ -802,7 +855,8 @@ export default function AppV2() {
       <AddTaskModal
         open={showAdd}
         onAdd={handleAddTask}
-        onClose={() => setShowAdd(false)}
+        onClose={() => { setShowAdd(false); setAddChildOfProject(null) }}
+        parentProject={addChildOfProject}
       />
 
       {editTarget && (
@@ -816,6 +870,12 @@ export default function AppV2() {
           onStatusChange={handleStatusChange}
           onConvertToRoutine={handleConvertToRoutine}
           weather={weather}
+          projects={tasks.filter(t => t.status === 'project')}
+          onLogSession={handleLogSession}
+          onAddChild={(project) => {
+            setEditTarget(null)
+            handleAddChildToProject(project)
+          }}
         />
       )}
 
@@ -951,6 +1011,9 @@ export default function AppV2() {
         onSnooze={handleSnooze}
         weatherByDate={weather.enabled ? weather.byDate : null}
         routineStreaks={routineStreaks}
+        onTogglePin={(id, pinned) => setProjectPinned(id, pinned)}
+        onAddChild={(project) => { setShowProjects(false); handleAddChildToProject(project) }}
+        onSetChildVisibility={setChildVisibility}
       />
       <DoneList
         open={showDone}

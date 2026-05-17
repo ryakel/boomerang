@@ -47,7 +47,8 @@ Tasks are organized into sections on the main screen:
 - **Waiting** — tasks marked as blocked/waiting on someone
 - **Snoozed** — tasks with a future snooze date, showing when they'll return
 - **Backlog** — someday/maybe tasks in a collapsible section at the bottom. Move tasks to backlog to keep them out of your active list without losing them.
-- **Projects** — dedicated space for longer-term tasks. Accessible via the overflow menu ("...") in the header. No notifications, no nagging, no stale/overdue visual pressure. Use "Move to Projects" in any task's edit modal.
+- **Pinned projects** — projects you've pinned to today appear at the top of the main list as expanded cards with progress meta and a Log Session button. Sessions count toward your daily points and streak. Pin from the Projects modal or the project's edit modal.
+- **Projects** — long-term work lives here. Accessible via the overflow menu ("..."). Silent by default — no nagging, no stale/overdue pressure. Pin a project to today to surface it on the main list. Add child tasks under a project so completions also count toward project progress. Opt projects into nagging per-project (`Allow nags without a due date`) or just set a due date and the normal escalation rules apply.
 
 ## Task Count Display
 
@@ -105,6 +106,17 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 ## Snooze System
 
 Context-aware preset options that show the exact date and time (e.g., "Tomorrow · Mon Apr 6 9 AM"). Options adapt to the current day of week — "This Weekend" only appears Mon–Thu, "Tonight" disappears after 7 PM, and duplicate days are automatically removed. A "Pick a date..." button opens a custom date/time picker for full control. High-priority tasks get shorter intervals (2 Hours, Tonight, Tomorrow, Day After). Each snooze increments a counter. After hitting the reframe threshold (configurable, default: 3), snoozing triggers the Reframe flow instead.
+
+**Later — set aside.** A "Later — set aside (no resurface)" option at the bottom of the snooze list parks a task indefinitely. The task stays in the Snoozed section but never auto-resurfaces, and notifications skip it entirely. Use it for "I don't want to think about this right now and I don't know when I will." Bring it back manually by opening Snooze on the task and tapping "↺ Bring back now" at the top.
+
+## Projects
+
+`status: 'project'` tasks. Silent by default — no notifications, no stale pressure. Pin a project to today to surface it on the main list with a dedicated card.
+
+- **Log session** — tap to record "I worked on this for a chunk." Awards points (roughly 10% of the project's effort budget per session, scaled by children's complexity), bumps the streak, and writes an activity-log entry. Capped at 10 sessions per project before you have to complete a child task or the project itself to keep earning credit.
+- **Add child step** — break a project into smaller tasks. Children show up under the pinned project on the main list (or stay backstage if you toggle "Show in main list" off). Completing a child task awards its own normal points.
+- **Allow nags without a due date** — off by default. Turn on for gentle stale/nudge notifications. Set a `due_date` and full escalation runs regardless.
+- **Drill-down** — the Projects modal lets you tap into any project to see its children (active + done + backlog).
 
 ## Routines (Recurring Tasks)
 

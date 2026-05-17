@@ -104,13 +104,14 @@ There is intentionally **no** auto-seed-from-blob path. Earlier server versions 
 Tasks and routines have proper SQL tables with individual columns, indexes, and per-record CRUD. Settings and labels remain as JSON blobs in `app_data` (intentional — small, rarely updated).
 
 ```sql
--- Tasks table (migration 002 + 004 + 005)
+-- Tasks table (migration 002 + subsequent ALTERs through 028)
 CREATE TABLE tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'not_started',
   notes TEXT DEFAULT '',
   due_date TEXT, snoozed_until TEXT, snooze_count INTEGER DEFAULT 0,
+  snooze_indefinite INTEGER DEFAULT 0,   -- migration 028 — "set aside" flag
   staleness_days INTEGER DEFAULT 2,
   last_touched TEXT NOT NULL, created_at TEXT NOT NULL, completed_at TEXT,
   reframe_notes TEXT,
@@ -121,10 +122,19 @@ CREATE TABLE tasks (
   tags_json TEXT, attachments_json TEXT,
   checklist_json TEXT, checklists_json TEXT, comments_json TEXT,
   toast_messages_json TEXT,
-  gcal_event_id TEXT, gcal_duration INTEGER
+  gcal_event_id TEXT, gcal_duration INTEGER,
+  -- Project pinning, sessions, parent/child (migration 028):
+  parent_id TEXT,                        -- self-FK; child task of a project
+  pinned_to_today INTEGER DEFAULT 0,     -- project surfaces on main list when 1
+  nag_allowed INTEGER DEFAULT 0,         -- project notifications opt-in
+  session_count INTEGER DEFAULT 0,
+  last_session_at TEXT,
+  session_log_json TEXT DEFAULT '[]',    -- [{timestamp, points}, ...]
+  child_visibility TEXT DEFAULT 'backstage'  -- 'active' | 'backstage'
 );
 
--- Indexes on status, due_date, energy, created_at, routine_id, completed_at
+-- Indexes on status, due_date, energy, created_at, routine_id, completed_at,
+-- parent_id (migration 028), pinned_to_today (migration 028)
 
 -- Key-value store for settings, labels, version
 CREATE TABLE app_data (
@@ -298,6 +308,8 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 | `POST` | `/api/tasks` | Create a task |
 | `PATCH` | `/api/tasks/:id` | Update a task |
 | `DELETE` | `/api/tasks/:id` | Delete a task |
+| `GET` | `/api/projects/:id/children` | Project + child tasks + budget + session points + cap |
+| `POST` | `/api/projects/:id/log-session` | Log a project session (409 if cap reached) |
 | `GET` | `/api/analytics` | Get today's stats, streaks, all-time records |
 | `GET` | `/api/analytics/history` | Aggregated completion history (daily, by-tag, by-energy, by-size, by-DOW). Accepts `?days=N` param. |
 | `POST` | `/api/dev/seed` | Wipe DB and reload seed data on demand |
@@ -307,7 +319,7 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 
 ## AI Adviser
 
-`adviserTools.js` is the engine. `adviserToolsTasks.js`, `adviserToolsIntegrations.js`, and `adviserToolsMisc.js` register 49 tools via `registerTool({ name, description, schema, readOnly, preview, execute })`.
+`adviserTools.js` is the engine. `adviserToolsTasks.js`, `adviserToolsIntegrations.js`, and `adviserToolsMisc.js` register 54+ tools via `registerTool({ name, description, schema, readOnly, preview, execute })`. Includes 5 project tools added 2026-05-17: `pin_project_to_today`, `log_project_session`, `project_set_nag_policy`, `link_task_to_project`, `list_project_children`.
 
 **Staged execution.** During `/api/adviser/chat`, read-only tools run immediately and return data; mutation tools do nothing except return a `preview` string and push a staged step into the session's plan. When the user confirms, `/api/adviser/commit` runs every staged step in order via `commitPlan()`.
 

@@ -246,6 +246,14 @@ function taskToRow(task) {
     pushover_receipt: task.pushover_receipt || null,
     follow_ups_json: JSON.stringify(task.follow_ups || []),
     skipped: task.skipped ? 1 : 0,
+    parent_id: task.parent_id || null,
+    pinned_to_today: task.pinned_to_today ? 1 : 0,
+    nag_allowed: task.nag_allowed ? 1 : 0,
+    session_count: task.session_count || 0,
+    last_session_at: task.last_session_at || null,
+    session_log_json: JSON.stringify(task.session_log || []),
+    child_visibility: task.child_visibility || 'backstage',
+    snooze_indefinite: task.snooze_indefinite ? 1 : 0,
   }
 }
 
@@ -288,6 +296,14 @@ function rowToTask(row) {
     pushover_receipt: row.pushover_receipt || null,
     follow_ups: safeJsonParse(row.follow_ups_json, []),
     skipped: !!row.skipped,
+    parent_id: row.parent_id || null,
+    pinned_to_today: !!row.pinned_to_today,
+    nag_allowed: !!row.nag_allowed,
+    session_count: row.session_count || 0,
+    last_session_at: row.last_session_at || null,
+    session_log: safeJsonParse(row.session_log_json, []),
+    child_visibility: row.child_visibility || 'backstage',
+    snooze_indefinite: !!row.snooze_indefinite,
   }
 }
 
@@ -310,8 +326,10 @@ const UPSERT_TASK_SQL = `
     high_priority, low_priority, size, energy, energy_level, tags_json, attachments_json,
     checklists_json, comments_json, toast_messages_json, trello_sync_enabled,
     gcal_event_id, gcal_duration, gmail_message_id, gmail_pending, weather_hidden, size_inferred,
-    pushover_receipt, follow_ups_json, skipped)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    pushover_receipt, follow_ups_json, skipped,
+    parent_id, pinned_to_today, nag_allowed, session_count, last_session_at,
+    session_log_json, child_visibility, snooze_indefinite)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -332,7 +350,11 @@ const UPSERT_TASK_SQL = `
     weather_hidden=excluded.weather_hidden, size_inferred=excluded.size_inferred,
     pushover_receipt=excluded.pushover_receipt,
     follow_ups_json=excluded.follow_ups_json,
-    skipped=excluded.skipped`
+    skipped=excluded.skipped,
+    parent_id=excluded.parent_id, pinned_to_today=excluded.pinned_to_today,
+    nag_allowed=excluded.nag_allowed, session_count=excluded.session_count,
+    last_session_at=excluded.last_session_at, session_log_json=excluded.session_log_json,
+    child_visibility=excluded.child_visibility, snooze_indefinite=excluded.snooze_indefinite`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -345,6 +367,8 @@ function runUpsertTask(task) {
     r.trello_sync_enabled, r.gcal_event_id, r.gcal_duration,
     r.gmail_message_id, r.gmail_pending, r.weather_hidden, r.size_inferred,
     r.pushover_receipt, r.follow_ups_json, r.skipped,
+    r.parent_id, r.pinned_to_today, r.nag_allowed, r.session_count, r.last_session_at,
+    r.session_log_json, r.child_visibility, r.snooze_indefinite,
   ])
 }
 
@@ -593,6 +617,98 @@ export function queryTasks(filters = {}) {
   }
   stmt.free()
   return results
+}
+
+// ============================================================
+// Project helpers — child queries, budget/session math
+// ============================================================
+
+// Session model: each "I worked on this" log awards SESSION_PCT of the
+// project's effort budget, capped at SESSION_CAP sessions total. After cap,
+// the user has to either complete a child task or the project itself to
+// keep earning credit. The cap exists to prevent gaming — without it you
+// could log infinite sessions and never finish anything.
+const SESSION_PCT = 0.10
+const SESSION_CAP = 10
+const DEFAULT_PROJECT_BUDGET = 20
+
+export function getChildTasks(parentId) {
+  if (!parentId) return []
+  const stmt = db.prepare('SELECT * FROM tasks WHERE parent_id = ? ORDER BY created_at ASC')
+  stmt.bind([parentId])
+  const out = []
+  while (stmt.step()) out.push(rowToTask(stmt.getAsObject()))
+  stmt.free()
+  return out
+}
+
+// Effort budget for a project. Sum of all children's base (size × energy_level)
+// points, with the project's own base as a floor and DEFAULT_PROJECT_BUDGET
+// as a final fallback. No speed multiplier — sessions don't get the
+// same-day bonus that completions do. Budget grows as children are added,
+// which lets a project that started small accrue more session credit if it
+// turns out to be bigger than anticipated.
+export function computeProjectBudget(project) {
+  if (!project) return DEFAULT_PROJECT_BUDGET
+  const SIZE = { XS: 1, S: 2, M: 5, L: 10, XL: 20 }
+  const ENERGY = { 1: 1.0, 2: 1.5, 3: 2.0 }
+  const basePts = (t) => (SIZE[t.size] || SIZE.M) * (ENERGY[t.energyLevel ?? t.energy_level] || 1.0)
+  const own = basePts(project)
+  const children = getChildTasks(project.id)
+  const childSum = children.reduce((sum, c) => sum + basePts(c), 0)
+  return Math.max(own, childSum, DEFAULT_PROJECT_BUDGET)
+}
+
+// Per-session credit. Floors at 1 so a tiny project still rewards a tap.
+export function computeSessionPoints(project) {
+  const budget = computeProjectBudget(project)
+  return Math.max(1, Math.round(budget * SESSION_PCT))
+}
+
+// Log a "worked on this" session for a project. Returns the new session
+// entry and updated counts so callers can surface a toast / update local
+// state without re-fetching. Refuses past the cap.
+export function logProjectSession(projectId) {
+  const project = getTask(projectId)
+  if (!project) throw new Error(`Project not found: ${projectId}`)
+  if (project.status !== 'project') throw new Error('logProjectSession requires a project task')
+  if ((project.session_count || 0) >= SESSION_CAP) {
+    return { capped: true, sessionCount: project.session_count, sessionCap: SESSION_CAP }
+  }
+  const points = computeSessionPoints(project)
+  const now = new Date().toISOString()
+  const log = Array.isArray(project.session_log) ? [...project.session_log] : []
+  log.push({ timestamp: now, points })
+  updateTaskPartial(projectId, {
+    session_count: (project.session_count || 0) + 1,
+    last_session_at: now,
+    session_log: log,
+  })
+  return {
+    capped: false,
+    points,
+    sessionCount: (project.session_count || 0) + 1,
+    sessionCap: SESSION_CAP,
+    timestamp: now,
+  }
+}
+
+export const PROJECT_CONSTANTS = { SESSION_PCT, SESSION_CAP, DEFAULT_PROJECT_BUDGET }
+
+// Single source of truth for "should this task trigger any notification?".
+// Used by push/email/pushover engines + digest builder. The rules:
+//   - gmail_pending tasks are inbox suggestions, never notified
+//   - snooze_indefinite ("Until I come back") bypasses everything
+//   - the usual active-status set always qualifies
+//   - projects qualify only when they have a due date (escalation rules
+//     apply normally) OR the user opted them into nags via nag_allowed
+export function isNotifiable(task) {
+  if (!task) return false
+  if (task.gmail_pending) return false
+  if (task.snooze_indefinite) return false
+  if (['not_started', 'doing', 'waiting'].includes(task.status)) return true
+  if (task.status === 'project' && (task.due_date || task.nag_allowed)) return true
+  return false
 }
 
 // ============================================================

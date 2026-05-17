@@ -10,7 +10,9 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial,
   markNotificationTapped, getNotificationAnalytics,
   listThrottleDecisions, markThrottleDecisionFeedback,
-  listNotifLog, clearNotifLog as clearServerNotifLog } from './db.js'
+  listNotifLog, clearNotifLog as clearServerNotifLog,
+  getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
+  PROJECT_CONSTANTS } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
@@ -449,6 +451,59 @@ app.post('/api/tasks/:id/skip-advance', (req, res) => {
   const newVersion = bumpVersion()
   broadcast(newVersion, clientId)
   res.json({ task, version: newVersion })
+})
+
+// --- Project endpoints ---
+// Pinning, session logging, child listing. All mutations bump the version
+// so connected clients refetch and see the change. Session points are
+// surfaced to the client via the response so the toast can show what was
+// awarded without recomputing.
+
+app.get('/api/projects/:id/children', (req, res) => {
+  const project = getTask(req.params.id)
+  if (!project) return res.status(404).json({ error: 'Project not found' })
+  const children = getChildTasks(req.params.id)
+  const budget = computeProjectBudget(project)
+  const sessionPoints = computeSessionPoints(project)
+  res.json({
+    project,
+    children,
+    budget,
+    session_points: sessionPoints,
+    session_count: project.session_count || 0,
+    session_cap: PROJECT_CONSTANTS.SESSION_CAP,
+  })
+})
+
+app.post('/api/projects/:id/log-session', (req, res) => {
+  const clientId = req.body?._clientId || null
+  const project = getTask(req.params.id)
+  if (!project) return res.status(404).json({ error: 'Project not found' })
+  if (project.status !== 'project') {
+    return res.status(400).json({ error: 'Task is not a project' })
+  }
+  try {
+    const result = logProjectSession(req.params.id)
+    if (result.capped) {
+      return res.status(409).json({
+        error: 'Session cap reached',
+        session_count: result.sessionCount,
+        session_cap: result.sessionCap,
+      })
+    }
+    const newVersion = bumpVersion()
+    broadcast(newVersion, clientId)
+    res.json({
+      task: getTask(req.params.id),
+      points: result.points,
+      session_count: result.sessionCount,
+      session_cap: result.sessionCap,
+      timestamp: result.timestamp,
+      version: newVersion,
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 // --- Per-record Routine API ---

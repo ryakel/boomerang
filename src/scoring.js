@@ -23,12 +23,39 @@ export function calculateTaskPoints(task) {
   return Math.round(base * energyMult * speedMultiplier)
 }
 
+// Sum project session points logged today across the entire task list.
+// Each project's `session_log` is an array of { timestamp, points }; we
+// only count entries whose timestamp lands on today's calendar date.
+// Each logged session also counts as a "task" for the daily-task ring so
+// chipping at a project shows up in both gauges.
+export function computeSessionStatsToday(tasks) {
+  const todayStr = new Date().toDateString()
+  let count = 0
+  let points = 0
+  for (const t of tasks) {
+    if (t.status !== 'project') continue
+    const log = Array.isArray(t.session_log) ? t.session_log : []
+    for (const entry of log) {
+      if (!entry?.timestamp) continue
+      if (new Date(entry.timestamp).toDateString() !== todayStr) continue
+      count += 1
+      points += entry.points || 0
+    }
+  }
+  return { count, points }
+}
+
 // Compute today's task count and total points. Optional `settings` arg
 // applies the Easter-egg bonus: winning the hidden tic-tac-toe game
 // (triggered by 7-tapping the EditTaskModal title) stamps
 // `easter_egg_wins[today] = true` and contributes +1 task + +1 point
 // once per day. Tap, fight, win, and you've already done "something
 // today" before lifting a finger on the actual list.
+//
+// Project session logs also contribute — each logged session is +1 task
+// and its awarded points roll into the day's total. Lets the daily-progress
+// rings reflect "I worked on the basement today" the same as completing
+// a one-shot task.
 export function computeDailyStats(tasks, settings = null) {
   const todayStr = new Date().toDateString()
   const todayIso = new Date().toISOString().split('T')[0]
@@ -39,11 +66,12 @@ export function computeDailyStats(tasks, settings = null) {
     points += calculateTaskPoints(t)
   }
 
+  const sessions = computeSessionStatsToday(tasks)
   const eggBonus = settings?.easter_egg_wins?.[todayIso] ? 1 : 0
 
   return {
-    tasksToday: todayTasks.length + eggBonus,
-    pointsToday: points + eggBonus,
+    tasksToday: todayTasks.length + sessions.count + eggBonus,
+    pointsToday: points + sessions.points + eggBonus,
   }
 }
 
@@ -76,6 +104,32 @@ export function computeRecords(tasks) {
   if (current > longestStreak) longestStreak = current
 
   return { bestTasks, bestPoints, longestStreak }
+}
+
+// Project session model — kept in sync with server-side db.js constants.
+// Per-session credit = budget × SESSION_PCT, capped at SESSION_CAP sessions.
+// Budget = max(project's own base, sum of children's base, DEFAULT).
+export const PROJECT_SESSION_PCT = 0.10
+export const PROJECT_SESSION_CAP = 10
+const DEFAULT_PROJECT_BUDGET = 20
+
+function baseTaskPoints(task) {
+  const size = SIZE_POINTS[task?.size] || SIZE_POINTS.M
+  const energy = ENERGY_MULTIPLIER[task?.energyLevel ?? task?.energy_level] || 1.0
+  return size * energy
+}
+
+export function computeProjectBudget(project, allTasks = []) {
+  if (!project) return DEFAULT_PROJECT_BUDGET
+  const own = baseTaskPoints(project)
+  const children = allTasks.filter(t => t.parent_id === project.id)
+  const childSum = children.reduce((sum, c) => sum + baseTaskPoints(c), 0)
+  return Math.max(own, childSum, DEFAULT_PROJECT_BUDGET)
+}
+
+export function computeProjectSessionPoints(project, allTasks = []) {
+  const budget = computeProjectBudget(project, allTasks)
+  return Math.max(1, Math.round(budget * PROJECT_SESSION_PCT))
 }
 
 export { SIZE_POINTS, ENERGY_MULTIPLIER }

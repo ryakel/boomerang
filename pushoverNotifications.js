@@ -18,7 +18,7 @@ import crypto from 'crypto'
 import {
   queryTasks, getData, getNotifThrottle, setNotifThrottle,
   logNotifPush, getTask, updateTaskPartial,
-  getEffectiveThrottleMultiplier, countPendingSuggestions,
+  getEffectiveThrottleMultiplier, countPendingSuggestions, isNotifiable,
 } from './db.js'
 import { rewriteNotifBody, canRewriteThisTick, shouldRewrite } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -332,7 +332,7 @@ async function runPushoverCheck() {
     if (!userKey || !appToken) return
 
     const allTasks = queryTasks({})
-    const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
+    const activeTasks = allTasks.filter(isNotifiable)
     if (activeTasks.length === 0) return
 
     const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())

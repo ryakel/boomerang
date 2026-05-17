@@ -50,7 +50,7 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
 
   const meta = []
   if (task.due_date) meta.push(formatDueDate(task.due_date))
-  if (snoozed) meta.push(formatSnoozeLabel(task.snoozed_until))
+  if (snoozed) meta.push(formatSnoozeLabel(task.snoozed_until, { indefinite: task.snooze_indefinite }))
   if (stale && !snoozed) meta.push(`${daysOld(task)}d on list`)
 
   // Weather badge: only render if the task has a due_date that falls within

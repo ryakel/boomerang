@@ -3,7 +3,7 @@ import { getSnoozeOptions, getSnoozeOptionsShort } from '../../store'
 import ModalShell from './ModalShell'
 import './SnoozeModal.css'
 
-export default function SnoozeModal({ task, onSnooze, onClose }) {
+export default function SnoozeModal({ task, onSnooze, onUnsnooze, onClose }) {
   const [showCustom, setShowCustom] = useState(false)
   const defaultDate = () => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0] }
   const [customDate, setCustomDate] = useState(defaultDate)
@@ -57,6 +57,17 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
       terminalTitle="> snooze"
       subtitle="When should this come back?"
     >
+      {task.snoozed_until && onUnsnooze && (
+        <button
+          className="v2-snooze-unsnooze"
+          onClick={() => { onUnsnooze(task.id); onClose() }}
+        >
+          ↺ Bring back now
+          <span className="v2-snooze-unsnooze-meta">
+            {task.snooze_indefinite ? 'Currently set aside indefinitely' : 'Currently snoozed'}
+          </span>
+        </button>
+      )}
       {filteredOptions.length === 0 && !showCustom ? (
         <p className="v2-snooze-empty">This task is due today or overdue — snoozing isn't available.</p>
       ) : (
@@ -109,6 +120,22 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
           Pick a date…
         </button>
       )}
+
+      {/* "Later, fuck off" — indefinite snooze. Stays in the Snoozed
+        * section but never auto-resurfaces. User can unsnooze manually
+        * when ready. Visible on every task; bypasses the due-date filter
+        * since there's no specific resurface time to clamp. */}
+      <button
+        className="v2-snooze-indefinite"
+        onClick={() => {
+          const farFuture = new Date(2099, 11, 31)
+          onSnooze(task.id, farFuture, { indefinite: true })
+          onClose()
+        }}
+      >
+        Later — set aside
+        <span className="v2-snooze-indefinite-meta">Hide indefinitely, no resurface timer</span>
+      </button>
     </ModalShell>
   )
 }
