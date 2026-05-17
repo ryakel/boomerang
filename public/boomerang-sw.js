@@ -110,11 +110,18 @@ self.addEventListener('notificationclick', function (event) {
 
   // Bare tap (no action) — open the app on the relevant task / surface.
   // North-Star path: the user wants to engage, give them context.
-  var path = '/'
-  if (taskId) path = '/?task=' + taskId
-  else if (routineId) path = '/?routine=' + routineId
-  else if (data.suggestionsView) path = '/?suggestions=1'
-  var url = self.location.origin + path
+  // Quokka plan-ready notifications include a fully-qualified `url` field
+  // (with ?adviser=<chatId>) — honor that directly when present.
+  var url
+  if (data.url) {
+    url = data.url
+  } else {
+    var path = '/'
+    if (taskId) path = '/?task=' + taskId
+    else if (routineId) path = '/?routine=' + routineId
+    else if (data.suggestionsView) path = '/?suggestions=1'
+    url = self.location.origin + path
+  }
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windowClients) {

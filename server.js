@@ -15,7 +15,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   PROJECT_CONSTANTS } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
-import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush } from './pushNotifications.js'
+import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush } from './pushNotifications.js'
 import {
   startPushoverNotifications, sendTestNotification as sendTestPushover,
   sendTestEmergency as sendTestPushoverEmergency, getPushoverStatus,
@@ -31,6 +31,9 @@ import { runBackup } from './scripts/backup-db.js'
 import {
   listToolSchemas, newSession, getSession, abortSession, clearSession,
   handleToolCall, commitPlan,
+  appendEvent, subscribeSession, unsubscribeSession, setRunnerState,
+  attachChatId, enqueueMessage, dequeueMessage,
+  onPlanReady,
 } from './adviserTools.js'
 import { registerTaskTools } from './adviserToolsTasks.js'
 import { registerGCalTools, registerNotionTools, registerTrelloTools } from './adviserToolsIntegrations.js'
@@ -2926,13 +2929,9 @@ Integration status:
 Important: ALL mutation tools are STAGED, not executed. Tell the user what you've queued in your final message. They will review and approve the plan separately. Do not ask them to confirm inside your message — the UI handles that.`
 }
 
-function sseWrite(res, event, data) {
-  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-  // Force Node to flush the chunk instead of waiting for a bigger buffer —
-  // matters on slow connections and with some proxy setups where SSE events
-  // would otherwise batch up and the client looks hung.
-  if (typeof res.flush === 'function') res.flush()
-}
+// (sseWrite removed 2026-05-17 — chat events now route through adviserTools'
+// appendEvent which fans out to all subscribers. The pre-stream session
+// event is written directly via res.write in the chat handler.)
 
 const ADVISER_TURN_TIMEOUT_MS = 90000
 
@@ -2970,77 +2969,39 @@ async function callAdviserModel(apiKey, body, outerSignal) {
   }
 }
 
-app.post('/api/adviser/chat', async (req, res) => {
-  const apiKey = getAnthropicKey(req)
-  if (!apiKey) return res.status(400).json({ error: 'No Anthropic API key configured' })
-
-  const { message, history, sessionId: clientSessionId } = req.body || {}
-  if (!message || typeof message !== 'string') return res.status(400).json({ error: 'message is required' })
-
-  const sessionId = clientSessionId && getSession(clientSessionId) ? clientSessionId : newSession()
+// runChatTurn — detached async runner for one Quokka turn. Lives on the
+// session, not the HTTP request. Events are emitted via appendEvent
+// (fan-out to all current subscribers + replay buffer). Closing the
+// HTTP connection that started it doesn't abort the work; only an
+// explicit /api/adviser/abort does. When the runner finishes:
+//   - plan staged → setRunnerState('awaiting_confirm') (push notif fires
+//     if no live subscribers)
+//   - no plan staged → setRunnerState('idle') and the queue advances
+//   - error → setRunnerState('errored')
+async function runChatTurn(sessionId, apiKey, message, history, deps, abortController) {
   const logTag = `[Adviser ${sessionId.slice(0, 8)}]`
-  console.log(`${logTag} chat start — message="${message.slice(0, 80).replace(/\n/g, ' ')}${message.length > 80 ? '…' : ''}" historyLen=${Array.isArray(history) ? history.length : 0}`)
+  setRunnerState(sessionId, 'running')
+  console.log(`${logTag} runner start — message="${message.slice(0, 80).replace(/\n/g, ' ')}${message.length > 80 ? '…' : ''}" historyLen=${Array.isArray(history) ? history.length : 0}`)
 
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no',
-  })
-  // Prime the connection so any intermediate proxy/buffer commits the chunked
-  // response immediately instead of waiting for ~1 KB of body. Matters on iOS
-  // Safari behind some CDNs where the client would otherwise block on the
-  // initial event.
-  res.write(': connected\n\n')
-  if (typeof res.flush === 'function') res.flush()
-  sseWrite(res, 'session', { sessionId })
-
-  // Heartbeat so the browser doesn't silently drop the long-lived connection
-  // while we're waiting on a slow Claude turn.
-  const heartbeat = setInterval(() => {
-    try {
-      res.write(': heartbeat\n\n')
-      if (typeof res.flush === 'function') res.flush()
-    } catch { /* client gone */ }
-  }, 15000)
-  req.on('close', () => {
-    clearInterval(heartbeat)
-    console.log(`${logTag} client closed connection`)
-  })
-
-  // Build conversation: prior history (user+assistant turns) + new user message.
   const messages = Array.isArray(history) ? history.slice(-20) : []
   messages.push({ role: 'user', content: message })
 
-  // Client tools (executed by us) + Anthropic's server-side web_search (executed
-  // by Anthropic during the same API call; results come back inline in the
-  // response content — we don't handle them, just surface them to the UI).
   const tools = [
     ...listToolSchemas(),
     { type: 'web_search_20250305', name: 'web_search', max_uses: 5 },
   ]
-  const deps = adviserDeps(req)
-  try {
-    deps.gcalToken = await getGCalAccessToken()
-  } catch { /* non-fatal */ }
-  try {
-    const oauth = await getNotionAccessToken(req)
-    if (oauth) deps.notionToken = oauth
-  } catch { /* non-fatal */ }
-
-  const abortController = new AbortController()
-  adviserAbortMap.set(sessionId, abortController)
 
   try {
     for (let turn = 0; turn < ADVISER_MAX_TURNS; turn++) {
       const session = getSession(sessionId)
       if (!session || session.aborted) {
         console.log(`${logTag} aborted before turn ${turn + 1}`)
-        sseWrite(res, 'error', { message: 'Session aborted' })
-        break
+        appendEvent(sessionId, { type: 'error', data: { message: 'Session aborted' } })
+        setRunnerState(sessionId, 'aborted')
+        return
       }
       console.log(`${logTag} turn ${turn + 1}/${ADVISER_MAX_TURNS} — calling model, messages=${messages.length}`)
-      sseWrite(res, 'turn', { n: turn + 1 })
+      appendEvent(sessionId, { type: 'turn', data: { n: turn + 1 } })
 
       const t0 = Date.now()
       let response
@@ -3058,45 +3019,34 @@ app.post('/api/adviser/chat', async (req, res) => {
       }
       console.log(`${logTag} turn ${turn + 1} response — stop_reason=${response.stop_reason} content_blocks=${response.content?.length || 0} (${Date.now() - t0}ms)`)
 
-      // Emit any text blocks + surface server-side tool activity (web_search)
-      // so the user sees what Quokka is doing instead of a silent pause.
       for (const block of response.content || []) {
         if (block.type === 'text' && block.text?.trim()) {
-          sseWrite(res, 'message', { text: block.text })
+          appendEvent(sessionId, { type: 'message', data: { text: block.text } })
         } else if (block.type === 'server_tool_use' && block.name === 'web_search') {
-          sseWrite(res, 'tool_call', {
-            id: block.id, name: 'web_search', input: block.input,
-          })
+          appendEvent(sessionId, { type: 'tool_call', data: { id: block.id, name: 'web_search', input: block.input } })
         } else if (block.type === 'web_search_tool_result') {
           const r = block.content
           const count = Array.isArray(r) ? r.length : 0
-          sseWrite(res, 'tool_result', {
-            id: block.tool_use_id, name: 'web_search',
-            result: { ok: true, data: { results: count } },
-          })
+          appendEvent(sessionId, { type: 'tool_result', data: { id: block.tool_use_id, name: 'web_search', result: { ok: true, data: { results: count } } } })
         }
       }
 
-      // Collect client-executed tool_use blocks (server_tool_use is handled by
-      // Anthropic and doesn't come through our handleToolCall path).
       const toolUses = (response.content || []).filter(b => b.type === 'tool_use')
       if (toolUses.length === 0) {
         console.log(`${logTag} turn ${turn + 1} ended — no tool_use blocks`)
         break
       }
 
-      // Add assistant's turn to messages
       messages.push({ role: 'assistant', content: response.content })
 
-      // Execute each tool, collect results
       const toolResults = []
       for (const tu of toolUses) {
         console.log(`${logTag} tool_call: ${tu.name}(${JSON.stringify(tu.input).slice(0, 120)})`)
-        sseWrite(res, 'tool_call', { id: tu.id, name: tu.name, input: tu.input })
+        appendEvent(sessionId, { type: 'tool_call', data: { id: tu.id, name: tu.name, input: tu.input } })
         const tt0 = Date.now()
         const result = await handleToolCall(sessionId, tu.name, tu.input, deps)
         console.log(`${logTag} tool_result: ${tu.name} ${result.error ? 'ERROR: ' + result.error : (result.staged ? 'staged' : 'ok')} (${Date.now() - tt0}ms)`)
-        sseWrite(res, 'tool_result', { id: tu.id, name: tu.name, result })
+        appendEvent(sessionId, { type: 'tool_result', data: { id: tu.id, name: tu.name, result } })
         toolResults.push({
           type: 'tool_result',
           tool_use_id: tu.id,
@@ -3105,7 +3055,6 @@ app.post('/api/adviser/chat', async (req, res) => {
         })
       }
 
-      // Add tool results as next user message
       messages.push({ role: 'user', content: toolResults })
 
       if (response.stop_reason === 'end_turn') { console.log(`${logTag} stop_reason end_turn, breaking`); break }
@@ -3114,25 +3063,158 @@ app.post('/api/adviser/chat', async (req, res) => {
 
     const session = getSession(sessionId)
     const plan = session ? session.plan : []
-    console.log(`${logTag} chat done — staged ${plan.length} step(s)`)
-    sseWrite(res, 'plan', {
-      sessionId,
-      steps: plan.map(p => ({ stepId: p.stepId, toolName: p.toolName, preview: p.preview })),
+    console.log(`${logTag} runner done — staged ${plan.length} step(s)`)
+    appendEvent(sessionId, {
+      type: 'plan',
+      data: { sessionId, steps: plan.map(p => ({ stepId: p.stepId, toolName: p.toolName, preview: p.preview })) },
     })
-    sseWrite(res, 'done', { sessionId })
+    appendEvent(sessionId, { type: 'done', data: { sessionId } })
+
+    if (plan.length > 0) {
+      setRunnerState(sessionId, 'awaiting_confirm')
+    } else {
+      setRunnerState(sessionId, 'idle')
+      processQueue(sessionId, apiKey, deps)
+    }
   } catch (err) {
     if (err.name === 'AbortError') {
       console.log(`${logTag} aborted: ${err.message || ''}`)
-      sseWrite(res, 'error', { message: err.message || 'Aborted' })
+      appendEvent(sessionId, { type: 'error', data: { message: err.message || 'Aborted' } })
+      setRunnerState(sessionId, 'aborted')
     } else {
-      console.error(`${logTag} chat error:`, err.message)
-      sseWrite(res, 'error', { message: err.message })
+      console.error(`${logTag} runner error:`, err.message)
+      appendEvent(sessionId, { type: 'error', data: { message: err.message } })
+      setRunnerState(sessionId, 'errored')
     }
   } finally {
-    clearInterval(heartbeat)
     adviserAbortMap.delete(sessionId)
-    res.end()
   }
+}
+
+// Advance the queue: pop the next message and start a new runner.
+// Called when the previous runner finishes with no plan (idle state) or
+// after commit/abort. If the queue is empty, no-op.
+function processQueue(sessionId, apiKey, deps) {
+  const next = dequeueMessage(sessionId)
+  if (!next) return
+  const ac = new AbortController()
+  adviserAbortMap.set(sessionId, ac)
+  const session = getSession(sessionId)
+  if (session) session.runnerPromise = runChatTurn(sessionId, apiKey, next.message, next.history, deps, ac)
+}
+
+// Plan-ready push notification — fires when a session transitions to
+// awaiting_confirm and there are no live subscribers (user is
+// backgrounded). Goes through the existing web push infrastructure,
+// gated by `push_notif_quokka_plan_ready` setting (default ON).
+// Pushover would be redundant for this — Quokka is informational, not
+// nag-urgent — so web push only for now.
+onPlanReady(async (sessionId, session) => {
+  try {
+    const settings = getData('settings') || {}
+    if (!settings.push_notifications_enabled) return
+    if (settings.push_notif_quokka_plan_ready === false) return  // explicit opt-out (default ON)
+    const planCount = (session.plan || []).length
+    if (planCount === 0) return
+    const previewLines = session.plan.slice(0, 3).map(p => p.preview).join(' · ')
+    const body = planCount === 1 ? previewLines : `${planCount} changes — ${previewLines}${planCount > 3 ? ' …' : ''}`
+    const base = (settings.public_app_url || process.env.PUBLIC_APP_URL || '').replace(/\/$/, '')
+    const tapUrl = base ? `${base}/?adviser=${encodeURIComponent(session.chatId || '')}` : null
+    await sendQuokkaPlanReadyPush({ title: '✨ Quokka has a plan ready', body, url: tapUrl })
+    appendEvent(sessionId, { type: 'push_sent', data: { planCount } })
+  } catch (err) {
+    console.error('[Adviser] plan-ready push failed:', err?.message)
+  }
+})
+
+app.post('/api/adviser/chat', async (req, res) => {
+  const apiKey = getAnthropicKey(req)
+  if (!apiKey) return res.status(400).json({ error: 'No Anthropic API key configured' })
+
+  const { message, history, sessionId: clientSessionId, chatId, subscribeOnly } = req.body || {}
+  const hasMessage = !!(message && typeof message === 'string')
+  // For pure reconnect (subscribeOnly=true): need a valid existing sessionId.
+  // For a new send: need a message string.
+  if (!hasMessage && !subscribeOnly) {
+    return res.status(400).json({ error: 'message is required (or set subscribeOnly with a valid sessionId)' })
+  }
+  if (subscribeOnly && !(clientSessionId && getSession(clientSessionId))) {
+    return res.status(404).json({ error: 'No session to subscribe to' })
+  }
+
+  const sessionId = clientSessionId && getSession(clientSessionId) ? clientSessionId : newSession({ chatId })
+  if (chatId) attachChatId(sessionId, chatId)
+  const logTag = `[Adviser ${sessionId.slice(0, 8)}]`
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  })
+  res.write(': connected\n\n')
+  if (typeof res.flush === 'function') res.flush()
+
+  // Subscribe AFTER the priming/heartbeat are set up. Subscribing replays
+  // any buffered events for this session — so reconnecting clients catch
+  // up automatically. The `session` event is emitted as a buffer entry
+  // by the first call to appendEvent below (or already in the buffer for
+  // re-subscribers).
+  const subBefore = subscribeSession(sessionId, res)
+  // Always send the session id as the first event (idempotent — if the
+  // session was new, no events buffered yet, so this is the only thing).
+  // Re-subscribers also benefit: confirms which session they joined.
+  res.write(`event: session\ndata: ${JSON.stringify({ sessionId, runnerState: getSession(sessionId)?.runnerState || 'idle' })}\n\n`)
+  if (typeof res.flush === 'function') res.flush()
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': heartbeat\n\n')
+      if (typeof res.flush === 'function') res.flush()
+    } catch { /* client gone */ }
+  }, 15000)
+
+  req.on('close', () => {
+    clearInterval(heartbeat)
+    unsubscribeSession(sessionId, subBefore)
+    console.log(`${logTag} subscriber dropped (runner continues if running)`)
+  })
+
+  if (subscribeOnly && !hasMessage) {
+    // Just attach to existing stream. The runner (if any) continues; we
+    // already replayed buffered events. Nothing else to do.
+    console.log(`${logTag} subscribed (replay-only)`)
+    return
+  }
+
+  const session = getSession(sessionId)
+  // Concurrent message handling. If the runner is busy or has a staged
+  // plan, queue the message rather than starting a new run. The queue
+  // advances when the current runner returns to idle (no plan) or the
+  // user commits/aborts the staged plan.
+  if (session && (session.runnerState === 'running' || session.runnerState === 'awaiting_confirm')) {
+    const queuedLen = enqueueMessage(sessionId, { message, history })
+    console.log(`${logTag} message queued (runner is ${session.runnerState}, queue len=${queuedLen})`)
+    return
+  }
+
+  // Build the dependency bag once. Tokens are resolved here in the
+  // request scope (we need req for cookies + headers), but the runner
+  // itself doesn't reference req afterwards — it can outlive the request.
+  const deps = adviserDeps(req)
+  try { deps.gcalToken = await getGCalAccessToken() } catch { /* non-fatal */ }
+  try {
+    const oauth = await getNotionAccessToken(req)
+    if (oauth) deps.notionToken = oauth
+  } catch { /* non-fatal */ }
+
+  const abortController = new AbortController()
+  adviserAbortMap.set(sessionId, abortController)
+
+  // Detached: don't await. The runner emits via appendEvent which fans
+  // out to subscribers (this response + any other connected clients).
+  const sessObj = getSession(sessionId)
+  if (sessObj) sessObj.runnerPromise = runChatTurn(sessionId, apiKey, message, history, deps, abortController)
 })
 
 app.post('/api/adviser/commit', async (req, res) => {
@@ -3154,6 +3236,14 @@ app.post('/api/adviser/commit', async (req, res) => {
     broadcast(newVersion, 'adviser')
     outcome.version = newVersion
   }
+
+  // If commit succeeded and there's a queued follow-up message, advance
+  // the queue now. Session is alive (commitPlan no longer deletes it),
+  // so the new turn runs on the same chat conversation.
+  if (outcome.ok) {
+    const apiKey = getAnthropicKey(req)
+    if (apiKey) processQueue(sessionId, apiKey, deps)
+  }
   res.json(outcome)
 })
 
@@ -3163,6 +3253,10 @@ app.post('/api/adviser/abort', (req, res) => {
   abortSession(sessionId)
   const ctrl = adviserAbortMap.get(sessionId)
   if (ctrl) ctrl.abort()
+  // Abort also drops any queued follow-ups — user is explicitly stopping
+  // the conversation, queued messages would be confusing to resume.
+  const session = getSession(sessionId)
+  if (session) session.queue = []
   clearSession(sessionId)
   res.json({ ok: true })
 })

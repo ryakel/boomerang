@@ -478,6 +478,31 @@ async function runPushCheck() {
 
 // --- Package push (called from server.js) ---
 
+// Quokka plan-ready push. Fired by the adviser background runner when
+// a plan transitions to awaiting_confirm with no live subscribers
+// (i.e. the user backgrounded the app). Tapping the notification
+// deep-links via `data.url` (read by the service worker) to /?adviser=…
+// so the user lands directly in the Quokka modal with their plan visible.
+export async function sendQuokkaPlanReadyPush({ title, body, url } = {}) {
+  if (!isConfigured()) return false
+  const settings = getData('settings') || {}
+  if (!settings.push_notifications_enabled) return false
+  // New per-type toggle, default ON. Master toggle still gates.
+  if (settings.push_notif_quokka_plan_ready === false) return false
+  const sent = await sendPush({
+    title: title || 'Quokka has a plan ready',
+    body: body || 'Open the adviser to review.',
+    tag: 'quokka:plan',
+    // url goes inside `data` so the service worker's notification
+    // handler can read it (notification.data) and openWindow(data.url).
+    // Also flag `no_actions` so the snooze/done action buttons (which
+    // are taskId-gated) don't appear on this notification.
+    data: { url: url || null, no_actions: true },
+  })
+  if (sent) logNotifPush(genId(), 'quokka_plan_ready', null, title, body)
+  return sent
+}
+
 export async function sendPackagePush(pkg, eventType) {
   if (!isConfigured()) return
   const settings = getData('settings') || {}

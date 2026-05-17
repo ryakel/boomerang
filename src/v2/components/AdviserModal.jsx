@@ -171,6 +171,7 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
   const {
     messages, status, lastError,
     send, commit, abort,
+    runnerState, queueLength,
     chats, activeId, activeChat,
     newChat, switchChat, deleteChat, starChat, unstarChat,
   } = adviser
@@ -289,8 +290,18 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
                 {streaming && (
                   <div className="v2-adviser-status">
                     <Loader2 size={14} className="v2-adviser-spin" />
-                    <span>thinking…</span>
+                    <span>{runnerState === 'running' ? 'thinking… (running in background)' : 'thinking…'}</span>
                     <button className="v2-adviser-link" onClick={abort}>stop</button>
+                  </div>
+                )}
+                {status === 'queued' && (
+                  <div className="v2-adviser-status v2-adviser-status-queued">
+                    <Loader2 size={14} className="v2-adviser-spin" />
+                    <span>
+                      {queueLength > 1
+                        ? `queued — ${queueLength} messages will run after current finishes`
+                        : 'queued — will run after current message finishes'}
+                    </span>
                   </div>
                 )}
                 {committing && (

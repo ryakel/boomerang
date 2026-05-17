@@ -688,11 +688,12 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 
 **Entry point:** `✨` sparkle icon in the header (took the slot where the gear used to be). Settings moved into the overflow `⋯` menu.
 
-**Architecture (3 non-negotiables baked into V1):**
+**Architecture (5 non-negotiables):**
 1. **Atomic execute-on-confirm.** Nothing mutates during the chat turn. Mutations are staged in a server-side session plan; user reviews the plan, clicks Apply, and the plan runs in order with LIFO rollback compensation on any failure.
 2. **Search-first context.** No task dumps in the prompt. The model uses `search_tasks`, `list_routines`, `gcal_list_events`, `notion_search`, etc. to explore before acting. Works the same at 10 tasks or 1000.
-3. **Streaming progress.** SSE events (`turn`, `tool_call`, `tool_result`, `message`, `plan`, `done`) fire live during the tool-use loop so the user sees what the model is doing. Includes an abort button.
+3. **Streaming progress.** SSE events (`turn`, `tool_call`, `tool_result`, `message`, `plan`, `done`, `runner_state`, `queue_update`, `committed`) fire live during the tool-use loop so the user sees what the model is doing. Includes an abort button.
 4. **Coalesced broadcast.** During `commitPlan()` execution, individual record mutations suppress their usual SSE broadcast. A single `bumpVersion() + broadcast('adviser')` fires at the end so connected clients refetch once, not 15 times.
+5. **Detached runner (2026-05-17, "F").** The Claude tool-use loop runs as an async task tied to the session, NOT the HTTP request. Closing the SSE connection doesn't abort the runner. Every event is appended to `session.events` (in-memory buffer, 500-event cap) AND fanned out to all current subscribers. New SSE connections via `subscribeOnly: true` get a replay of the buffered events first, then live events as they happen. Session TTL extends while the runner is `running`; staged plans get a 30-min hard cap before auto-abort so compensation can't unwind hours-old state. Concurrent messages (sent while runner is `running` or `awaiting_confirm`) queue on the session and advance after the user commits/aborts the current plan or the runner returns to idle. Plan-ready push notification (`push_notif_quokka_plan_ready`, default ON) fires when the runner stages a plan with no live subscribers — tap deep-links to `/?adviser=<chatId>` which opens the Quokka modal. Session lifecycle: `idle | running | awaiting_confirm | committed | errored | aborted`.
 
 **Server modules:**
 - `adviserTools.js` — registry, session/plan storage (10-min TTL, 1-min sweep), `handleToolCall()`, `commitPlan()` with rollback

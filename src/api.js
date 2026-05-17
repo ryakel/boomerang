@@ -1322,14 +1322,17 @@ export async function geocodeWeather(query) {
 
 // Opens a streaming SSE connection to the adviser. Calls `onEvent(event, data)` for each
 // server-sent event. Returns { abort } — call abort() to cut the stream client-side.
-export function adviserChat({ message, history, sessionId, onEvent, onError, onDone }) {
+// Closing the stream does NOT cancel any in-flight server-side runner — the runner
+// continues in the background and can be re-attached by calling adviserChat again
+// with `subscribeOnly: true` and the same sessionId.
+export function adviserChat({ message, history, sessionId, chatId, subscribeOnly, onEvent, onError, onDone }) {
   const controller = new AbortController()
   ;(async () => {
     try {
       const res = await fetch('/api/adviser/chat', {
         method: 'POST',
         headers: getApiHeaders(),
-        body: JSON.stringify({ message, history, sessionId }),
+        body: JSON.stringify({ message, history, sessionId, chatId, subscribeOnly: !!subscribeOnly }),
         signal: controller.signal,
       })
       if (!res.ok) {
