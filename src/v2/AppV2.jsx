@@ -518,6 +518,17 @@ export default function AppV2() {
     setShowAdd(true)
   }, [])
 
+  // "+ New project" launcher — opens AddTaskModal with a flag so the
+  // created task lands as status='project' instead of the default
+  // 'not_started'. Mutually exclusive with the "Add child" path
+  // (parents are tasks, projects are top-level).
+  const [createAsProject, setCreateAsProject] = useState(false)
+  const handleCreateProject = useCallback(() => {
+    setShowProjects(false)
+    setCreateAsProject(true)
+    setShowAdd(true)
+  }, [])
+
   // Log a project session. Renders a toast with the points awarded, or an
   // explanatory message when capped. Falls back silently to a local-only
   // update if the network is unavailable so the user doesn't lose the tap.
@@ -586,13 +597,19 @@ export default function AppV2() {
   // when not manually set, and prefetch the completion toast copy. If the
   // user opened the modal via "Add child" on a pinned project, stamp the
   // parent_id + active visibility so the new task surfaces under the
-  // project. The "addChildOfProject" state is cleared after one use.
+  // project. If the user opened via "+ New project" from ProjectsView,
+  // promote the new task to status='project' immediately. Both context
+  // flags clear after one use.
   const handleAddTask = useCallback((taskData) => {
     const taskId = addTask(taskData)
     if (addChildOfProject) {
       setTaskParent(taskId, addChildOfProject.id)
       setChildVisibility(taskId, 'active')
       setAddChildOfProject(null)
+    }
+    if (createAsProject) {
+      updateTask(taskId, { status: 'project' })
+      setCreateAsProject(false)
     }
     if (!taskData.size && taskData.title) {
       inferSize(taskData.title, taskData.notes).then(inferred => {
@@ -609,7 +626,7 @@ export default function AppV2() {
     } else {
       prefetchToast(taskId, taskData.title, taskData.energy, taskData.energyLevel)
     }
-  }, [addTask, updateTask, prefetchToast, addChildOfProject, setTaskParent, setChildVisibility])
+  }, [addTask, updateTask, prefetchToast, addChildOfProject, setTaskParent, setChildVisibility, createAsProject])
 
   const renderSection = (label, list, sigil) => {
     if (list.length === 0) return null
@@ -855,8 +872,9 @@ export default function AppV2() {
       <AddTaskModal
         open={showAdd}
         onAdd={handleAddTask}
-        onClose={() => { setShowAdd(false); setAddChildOfProject(null) }}
+        onClose={() => { setShowAdd(false); setAddChildOfProject(null); setCreateAsProject(false) }}
         parentProject={addChildOfProject}
+        createAsProject={createAsProject}
       />
 
       {editTarget && (
@@ -1014,6 +1032,7 @@ export default function AppV2() {
         onTogglePin={(id, pinned) => setProjectPinned(id, pinned)}
         onAddChild={(project) => { setShowProjects(false); handleAddChildToProject(project) }}
         onSetChildVisibility={setChildVisibility}
+        onCreateProject={handleCreateProject}
       />
       <DoneList
         open={showDone}
