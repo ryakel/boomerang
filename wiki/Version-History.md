@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(projects): backstage subs no longer leak into the main list on desktop [XS]
+  - **Bug.** "Show in main list when the parent project is pinned" checkbox respected on mobile but not desktop — backstage subs were appearing in the Kanban Up Next column even when the toggle was off.
+  - **Cause.** The earlier fix that made pinned-project subs visible on desktop (PR #176, "C. Pinned-child filter on desktop") removed the filter unconditionally instead of narrowing it to active children only. Result: backstage subs also fell through into the regular sections on desktop.
+  - **Fix.** New `isBackstageSub(t)` helper in `useTasks`: returns true when `t.parent_id` is set, `t.child_visibility === 'backstage'`, and the parent is a project. Applied to `openTasks` unconditionally — backstage subs never show in the main list (mobile or desktop), only inside the Projects drill-down. The existing `isPinnedChild` filter still handles avoiding double-display of active subs on mobile.
+  - Modified: `src/hooks/useTasks.js`, `wiki/Version-History.md`
+
 - fix(git): correct dev→main flow — never use dev as PR head, GitHub deletes it [XS]
   - **What happened.** PR #179 was head=`dev`, base=`main`, rebase-merge. GitHub's "automatically delete head branches" setting deleted `dev` from the remote when the PR merged. Discovered when `git ls-remote origin refs/heads/dev` returned nothing right after a "successful" merge.
   - **Recovery.** `git push origin refs/remotes/origin/main:refs/heads/dev` recreated dev from main's tip. Branches realigned, zero content delta.
