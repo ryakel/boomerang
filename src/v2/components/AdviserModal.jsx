@@ -331,21 +331,23 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
             </div>
           )}
 
-          <form className="v2-adviser-composer" onSubmit={handleSubmit}>
-            <textarea
-              ref={inputRef}
-              className="v2-adviser-input"
-              placeholder={awaitingConfirm ? 'Confirm or cancel the plan above first…' : 'What should I do?'}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              disabled={streaming || committing || awaitingConfirm}
-            />
-            <button type="submit" className="v2-adviser-send" disabled={!canSend} aria-label="Send">
-              {streaming ? <StopCircle size={18} /> : <Send size={18} strokeWidth={1.75} />}
-            </button>
-          </form>
+          <div className="v2-adviser-composer-wrap">
+            <form className="v2-adviser-composer" onSubmit={handleSubmit}>
+              <textarea
+                ref={inputRef}
+                className="v2-adviser-input"
+                placeholder={awaitingConfirm ? 'Confirm or cancel the plan above first…' : 'What should I do?'}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                disabled={streaming || committing || awaitingConfirm}
+              />
+              <button type="submit" className="v2-adviser-send" disabled={!canSend} aria-label="Send">
+                {streaming ? <StopCircle size={18} /> : <Send size={18} strokeWidth={1.75} />}
+              </button>
+            </form>
+          </div>
         </>
       )}
     </ModalShell>
