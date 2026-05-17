@@ -103,6 +103,19 @@ export default function AppV2() {
       return next
     })
   }, [])
+  // Per-project collapse state for the pinned-projects section. Keyed by
+  // project id so each pinned project can fold its sub list independently
+  // (useful when you have multiple pinned and only want one expanded).
+  // Persisted in settings → survives reloads + cross-device sync.
+  const [collapsedPinnedProjects, setCollapsedPinnedProjects] = useState(() => loadSettings().collapsed_pinned_projects || {})
+  const togglePinnedProjectCollapse = useCallback((projectId) => {
+    setCollapsedPinnedProjects(prev => {
+      const next = { ...prev, [projectId]: !prev[projectId] }
+      const merged = { ...loadSettings(), collapsed_pinned_projects: next }
+      saveSettings(merged)
+      return next
+    })
+  }, [])
 
   // Mark the document so v2-namespaced tokens activate. Also apply the saved
   // theme on mount so the rendered UI matches whatever the Settings theme
@@ -807,14 +820,15 @@ export default function AppV2() {
         ) : (
           <div className="v2-list">
             {/* Terminal home header: date + streak + today's progress as a
-              * single powerlevel10k-style segmented line. Only renders in
-              * terminal mode; light/dark have the mini-rings in the app
-              * header for the same job. */}
-            {isTerminal && (() => {
+              * single segmented line. Originally terminal-only; lifted
+              * to all themes 2026-05-17 because users want the streak +
+              * today's progress glanceable across the board. Date is a
+              * toggle for the WeekStrip below. */}
+            {(() => {
               const alwaysOpen = !!settingsForRings.week_strip_always_open
               const open = alwaysOpen || weekStripShown
               return (
-                <div className="v2-terminal-home-stats" aria-hidden="false">
+                <div className="v2-home-stats" aria-hidden="false">
                   <button
                     type="button"
                     className={`v2-thx-date v2-thx-date-toggle${open ? ' v2-thx-date-open' : ''}`}
@@ -840,7 +854,7 @@ export default function AppV2() {
                 </div>
               )
             })()}
-            {((isTerminal && (settingsForRings.week_strip_always_open || weekStripShown)) ||
+            {(settingsForRings.week_strip_always_open || weekStripShown ||
               (!isTerminal && settingsForRings.show_week_strip)) && (
               <WeekStrip
                 tasks={tasks}
@@ -863,6 +877,8 @@ export default function AppV2() {
               onSkipAdvance={handleSkipAdvance}
               weatherByDate={weather.enabled ? weather.byDate : null}
               routineStreaks={routineStreaks}
+              collapsedProjects={collapsedPinnedProjects}
+              onToggleCollapse={togglePinnedProjectCollapse}
             />
             {renderSection('Doing', sortedDoing, '→')}
             {renderSection('Stale', sortedStale, '~')}

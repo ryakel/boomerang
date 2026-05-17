@@ -39,11 +39,38 @@
   margin-bottom: 4px;
 }
 
+.v2-pp-collapse-chev {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  color: var(--v2-text-meta);
+  transition: color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-pp-main:hover .v2-pp-collapse-chev {
+  color: var(--v2-text);
+}
+
 .v2-pp-title {
   font: 600 16px/1.3 var(--v2-font-display, var(--v2-font-body));
   color: var(--v2-text);
   word-break: break-word;
   overflow-wrap: anywhere;
+}
+
+.v2-pp-next-due {
+  color: var(--v2-text);
+}
+
+.v2-pp-next-due-date {
+  color: var(--v2-text-meta);
+  font-weight: 500;
+}
+
+/* Collapsed card: tighter padding since the children section is hidden. */
+.v2-pp-block-collapsed .v2-pp-card {
+  padding-bottom: 10px;
 }
 
 .v2-pp-due {

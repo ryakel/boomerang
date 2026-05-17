@@ -39,6 +39,21 @@
   padding: 8px 16px 32px;
 }
 
+/* Home stats line — date + streak + today's progress, centered above
+ * the WeekStrip and main task list. Renders in every theme; terminal
+ * adds its own monospace flavoring via terminal/init.css. */
+.v2-home-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 10px;
+  padding: 14px 0 10px;
+  font: 500 13px/1.2 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  text-align: center;
+}
+
 /* Inline code in body copy (keyboard hints, URL flags, etc.) */
 :root[data-ui="v2"] code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
