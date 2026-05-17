@@ -36,6 +36,21 @@ export function registerTool(def) {
     readOnly: !!def.readOnly,
     preview: def.preview || ((args) => `Will run ${def.name}`),
     execute: def.execute || (async () => ({ result: null })),
+    // Optional preStage(input) hook: mutation tools that create a new
+    // resource can use this to pre-stamp a real id at stage time and
+    // return it to the model. Without pre-stamping, chained creates
+    // (e.g. create_task project, then create_task sub with parent_id=X)
+    // have no real id to reference — the model would otherwise hallucinate
+    // ids or use stepId fragments, leading to commit failures.
+    // Return shape: { id, input } where input is the augmented version
+    // with the id stamped in.
+    preStage: def.preStage || null,
+    // Optional stagedValidate(input, session) hook: returns null if the
+    // staging is valid, or an error string. Useful for "parent_id must
+    // refer to a real task OR an earlier staged create" checks that
+    // need to surface to the model during the chat loop rather than
+    // blow up the whole plan at commit time.
+    stagedValidate: def.stagedValidate || null,
   })
 }
 
@@ -92,22 +107,65 @@ export async function handleToolCall(sessionId, toolName, input, deps) {
     }
   }
 
-  // Mutation → stage it, return a preview string to the model
+  // Mutation → stage it.
+  // 1. Stage-time validation. Lets tools reject obviously-broken inputs
+  //    (e.g. parent_id pointing nowhere) BEFORE the plan reaches commit
+  //    so the model can self-correct in the chat loop instead of having
+  //    the whole plan roll back atomically.
+  if (tool.stagedValidate) {
+    try {
+      const err = tool.stagedValidate(input, session)
+      if (err) return { error: err }
+    } catch (e) {
+      return { error: e.message || String(e) }
+    }
+  }
+
+  // 2. Pre-stamp a real id at stage time for "creates a new resource"
+  //    tools that opt in via preStage. The id is returned to the model
+  //    AND stamped into the staged step's input, so chained creates
+  //    (project then subs with parent_id) work without hallucination.
+  let stagedInput = input
+  let preStampedId = null
+  if (tool.preStage) {
+    try {
+      const out = tool.preStage(input, session)
+      if (out?.id) preStampedId = out.id
+      if (out?.input) stagedInput = out.input
+    } catch (e) {
+      return { error: e.message || String(e) }
+    }
+  }
+
   const stepId = crypto.randomUUID()
   let previewText
   try {
-    previewText = tool.preview(input)
+    previewText = tool.preview(stagedInput, session)
   } catch {
     previewText = `Will run ${toolName}`
   }
-  session.plan.push({ stepId, toolName, input, preview: previewText, status: 'staged' })
-  return {
+  session.plan.push({ stepId, toolName, input: stagedInput, preview: previewText, status: 'staged' })
+  const response = {
     ok: true,
     staged: true,
     stepId,
     preview: previewText,
     note: 'This action is STAGED and will execute only after user confirmation. Do not call this tool again for the same action.',
   }
+  if (preStampedId) response.id = preStampedId
+  return response
+}
+
+// Find a staged create_task / create_routine / etc. step whose pre-stamped
+// id matches. Used by preview formatters and stagedValidate hooks to
+// resolve forward references (e.g. a sub's parent_id pointing at a not-
+// yet-committed project earlier in the same plan).
+export function findStagedCreate(session, id) {
+  if (!session?.plan || !id) return null
+  for (const step of session.plan) {
+    if (step.input?.id === id) return step
+  }
+  return null
 }
 
 // Called by /api/adviser/commit. Executes all staged steps atomically.

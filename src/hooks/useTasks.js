@@ -297,10 +297,18 @@ export function useTasks() {
     isActiveTask(t)
   )
 
-  // Filter regular task sections so pinned-project children don't double up.
+  // Pre-2026-05-17: openTasks unconditionally filtered out children of pinned
+  // projects so they wouldn't double-render (once in the regular section,
+  // once under the project card). That left desktop with NO way to surface
+  // them — the Kanban path doesn't draw a ProjectPinnedSection. Result:
+  // subs were invisible on desktop unless the user changed the project's
+  // status away from 'project'. Now openTasks ignores pinning; the mobile
+  // renderer filters via isPinnedChild for its own sections, and desktop
+  // shows everything in their natural columns. `isPinnedChild` exported so
+  // mobile callers can apply the filter themselves.
   const isPinnedChild = (t) => t.parent_id && pinnedProjectIds.has(t.parent_id) && t.child_visibility === 'active'
 
-  const openTasks = tasks.filter(t => isActiveTask(t) && !isPinnedChild(t))
+  const openTasks = tasks.filter(t => isActiveTask(t))
   const staleTasks = openTasks.filter(t => isStale(t))
   const snoozedTasks = openTasks.filter(t => isSnoozed(t))
   const waitingTasks = openTasks.filter(t => (t.status === 'waiting') && !isStale(t) && !isSnoozed(t))
@@ -318,6 +326,7 @@ export function useTasks() {
     upNextTasks,
     pinnedProjects,
     activeChildrenOfPinned,
+    isPinnedChild,
     addTask,
     addSpawnedTasks,
     completeTask,

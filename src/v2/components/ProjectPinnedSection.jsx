@@ -65,7 +65,16 @@ function ProjectPinnedSection({
         Pinned projects
       </SectionLabel>
       {projects.map(project => {
-        const children = activeChildren.filter(c => c.parent_id === project.id)
+        // Sort active children by due date ascending (no-due-date last) so
+        // the user sees the most-urgent step first when chipping away.
+        // Drag-to-reorder is a future enhancement tracked separately.
+        const children = activeChildren
+          .filter(c => c.parent_id === project.id)
+          .sort((a, b) => {
+            const ad = a.due_date || '9999-12-31'
+            const bd = b.due_date || '9999-12-31'
+            return ad.localeCompare(bd)
+          })
         const budget = computeProjectBudget(project, allTasks)
         const sessionPts = computeProjectSessionPoints(project, allTasks)
         const sessionCount = project.session_count || 0

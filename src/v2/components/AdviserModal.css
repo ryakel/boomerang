@@ -72,7 +72,8 @@
 }
 
 .v2-adviser-messages {
-  min-height: 280px;
+  flex: 1 1 auto;
+  min-height: 200px;
   max-height: 60dvh;
   overflow-y: auto;
   padding-right: 4px;
@@ -80,6 +81,17 @@
   flex-direction: column;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+/* Desktop drawer mode: ModalShell is rendered with flexBody=true, so the
+ * messages container can fill all remaining vertical space instead of
+ * being capped at 60dvh. The min-height stays so empty chats don't
+ * collapse to nothing; the cap lifts. Mobile still uses the 60dvh cap so
+ * the keyboard doesn't crush the messages list. */
+@media (min-width: 768px) {
+  .v2-modal-body-flex .v2-adviser-messages {
+    max-height: none;
+  }
 }
 
 .v2-adviser-empty {
@@ -323,13 +335,14 @@
   margin-bottom: 12px;
 }
 
-/* Composer is sticky-pinned to the bottom of the modal scroll container
- * so it stays visible when the chat history scrolls past viewport. The
- * outer wrapper handles the sticky positioning + a hairline divider so
- * the composer reads as anchored to the modal frame. The wrapper extends
- * past the modal-body padding via negative margins so the sticky
- * background covers the full modal width. */
-.v2-adviser-composer-wrap {
+/* Sticky footer container — holds confirm bar, committed bar, and composer
+ * in one pinned-to-bottom group. They stack vertically inside the footer
+ * so they never overlap each other (the old approach used two separate
+ * `position: sticky` rules at different `bottom:` offsets, which collided
+ * when bars + composer were both present). Negative margins extend the
+ * footer through the modal-body padding so the surface background covers
+ * the full modal width. */
+.v2-adviser-footer {
   position: sticky;
   bottom: 0;
   z-index: 2;
@@ -337,6 +350,16 @@
   margin: 12px -24px -24px;
   padding: 12px 24px 16px;
   border-top: 1px solid var(--v2-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.v2-adviser-confirm-bar,
+.v2-adviser-committed-bar {
+  /* Bars now live inside .v2-adviser-footer (above the composer) so the
+   * own-margin-bottom from the old layout is unwanted. */
+  margin-bottom: 0;
 }
 
 .v2-adviser-composer {
