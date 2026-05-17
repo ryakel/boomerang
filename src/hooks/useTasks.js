@@ -1,6 +1,17 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadTasks, saveTasks, createTask, isStale, isSnoozed, isActiveTask, logActivity } from '../store'
 
+// Activity-log noise filter. updateTask is called from many paths
+// (user form saves, AI auto-sizing, sync writebacks, GCal id assignment,
+// weather_hidden toggles, etc.). Only the keys below count as user-visible
+// edits worth logging. Priority flips get their own action label.
+const MEANINGFUL_EDIT_KEYS = new Set([
+  'title', 'notes', 'tags', 'due_date',
+  'size', 'energy', 'energy_level', 'energyLevel',
+  'checklist_json', 'attachments',
+])
+const PRIORITY_KEYS = new Set(['high_priority', 'low_priority'])
+
 function remoteLog(...args) {
   const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
   // Fire-and-forget log relay to server
@@ -44,6 +55,7 @@ export function useTasks() {
     if (attachments.length > 0) task.attachments = attachments
     if (highPriority) task.high_priority = true
     if (lowPriority) task.low_priority = true
+    logActivity('created', task)
     setTasks(prev => [task, ...prev])
     return task.id
   }, [])
@@ -51,6 +63,7 @@ export function useTasks() {
   const addSpawnedTasks = useCallback((spawnedTasks) => {
     if (spawnedTasks.length === 0) return
     remoteLog('addSpawnedTasks:', spawnedTasks.length, 'tasks')
+    for (const t of spawnedTasks) logActivity('created', t)
     setTasks(prev => [...spawnedTasks, ...prev])
   }, [])
 
@@ -74,14 +87,18 @@ export function useTasks() {
 
   const snoozeTask = useCallback((id, until) => {
     remoteLog('snoozeTask:', `id=${id.slice(0, 8)}`, 'until=', until.toISOString())
-    setTasks(prev => prev.map(t =>
-      t.id === id ? {
-        ...t,
-        snoozed_until: until.toISOString(),
-        snooze_count: t.snooze_count + 1,
-        last_touched: new Date().toISOString(),
-      } : t
-    ))
+    setTasks(prev => {
+      const task = prev.find(t => t.id === id)
+      if (task) logActivity('snoozed', task)
+      return prev.map(t =>
+        t.id === id ? {
+          ...t,
+          snoozed_until: until.toISOString(),
+          snooze_count: t.snooze_count + 1,
+          last_touched: new Date().toISOString(),
+        } : t
+      )
+    })
   }, [])
 
   const replaceTask = useCallback((id, newTitles, tags = []) => {
@@ -100,16 +117,30 @@ export function useTasks() {
       if (k === 'notes' || k === 'attachments') return `${k}=(${String(v).length} chars)`
       return `${k}=${v}`
     }).join(', '))
-    setTasks(prev => prev.map(t =>
-      t.id === id ? { ...t, ...updates, last_touched: new Date().toISOString() } : t
-    ))
+    setTasks(prev => {
+      const task = prev.find(t => t.id === id)
+      if (task) {
+        const keys = Object.keys(updates)
+        const hasPriorityChange = keys.some(k => PRIORITY_KEYS.has(k))
+        const hasMeaningfulEdit = keys.some(k => MEANINGFUL_EDIT_KEYS.has(k))
+        if (hasPriorityChange) logActivity('priority_changed', task)
+        else if (hasMeaningfulEdit) logActivity('edited', task)
+      }
+      return prev.map(t =>
+        t.id === id ? { ...t, ...updates, last_touched: new Date().toISOString() } : t
+      )
+    })
   }, [])
 
   const uncompleteTask = useCallback((id) => {
     remoteLog('uncompleteTask:', `id=${id.slice(0, 8)}`)
-    setTasks(prev => prev.map(t =>
-      t.id === id ? { ...t, status: 'not_started', completed_at: null, last_touched: new Date().toISOString() } : t
-    ))
+    setTasks(prev => {
+      const task = prev.find(t => t.id === id)
+      if (task) logActivity('reopened', task)
+      return prev.map(t =>
+        t.id === id ? { ...t, status: 'not_started', completed_at: null, last_touched: new Date().toISOString() } : t
+      )
+    })
   }, [])
 
   const clearCompleted = useCallback(() => {
@@ -133,13 +164,23 @@ export function useTasks() {
 
   const changeStatus = useCallback((id, newStatus) => {
     remoteLog('changeStatus:', `id=${id.slice(0, 8)}`, '→', newStatus)
-    setTasks(prev => prev.map(t => {
-      if (t.id !== id) return t
-      const updates = { status: newStatus, last_touched: new Date().toISOString() }
-      if (newStatus === 'done') updates.completed_at = new Date().toISOString()
-      if (t.status === 'done' && newStatus !== 'done') updates.completed_at = null
-      return { ...t, ...updates }
-    }))
+    setTasks(prev => {
+      const task = prev.find(t => t.id === id)
+      if (task && task.status !== newStatus) {
+        // 'done' transition gets the full completed label; other status flips
+        // (project, backlog, waiting, doing) share status_changed.
+        if (newStatus === 'done') logActivity('completed', task)
+        else if (task.status === 'done') logActivity('reopened', task)
+        else logActivity('status_changed', task)
+      }
+      return prev.map(t => {
+        if (t.id !== id) return t
+        const updates = { status: newStatus, last_touched: new Date().toISOString() }
+        if (newStatus === 'done') updates.completed_at = new Date().toISOString()
+        if (t.status === 'done' && newStatus !== 'done') updates.completed_at = null
+        return { ...t, ...updates }
+      })
+    })
   }, [])
 
   const hydrateTasks = useCallback((data) => {

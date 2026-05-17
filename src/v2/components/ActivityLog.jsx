@@ -8,10 +8,12 @@ import './ActivityLog.css'
 const ACTION_LABELS = {
   created: 'Created',
   completed: 'Completed',
+  reopened: 'Reopened',
   deleted: 'Deleted',
   status_changed: 'Status changed',
   edited: 'Edited',
   snoozed: 'Snoozed',
+  skipped: 'Skipped',
   priority_changed: 'Priority changed',
 }
 
@@ -19,10 +21,12 @@ const ACTION_LABELS = {
 const ACTION_TONE = {
   created: 'var(--v2-accent)',
   completed: '#5DBC9B',
+  reopened: '#6B8AFD',
   deleted: 'var(--v2-alert-overdue)',
   status_changed: '#6B8AFD',
   edited: 'var(--v2-alert-high-pri)',
   snoozed: 'var(--v2-text-faint)',
+  skipped: 'var(--v2-text-faint)',
   priority_changed: 'var(--v2-alert-high-pri)',
 }
 
@@ -90,8 +94,8 @@ export default function ActivityLog({ open, onRestore, onClose }) {
         <EmptyState
           icon={History}
           title="No activity yet"
-          body="Edits, completions, and deletes show up here as you work."
-          terminalCommand="// log empty — edits, completions, and deletes will appear here"
+          body="Creates, edits, completions, snoozes, status changes, and deletes show up here as you work."
+          terminalCommand="// log empty — creates, edits, completions, snoozes, status changes, and deletes will appear here"
         />
       ) : (
         <ul className="v2-activity-list">
