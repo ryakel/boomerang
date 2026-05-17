@@ -38,13 +38,16 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/],
       },
       manifest: {
+        id: '/',
         name: 'Boomerang',
         short_name: 'Boomerang',
         description: 'Tasks that always come back',
         theme_color: '#0B0B0F',
         background_color: '#0B0B0F',
         display: 'standalone',
+        scope: '/',
         start_url: '/',
+        handle_links: 'preferred',
         icons: [
           {
             src: '/icon-192.png',

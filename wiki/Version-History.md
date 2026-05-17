@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-17
+
+- fix(ui): tighten PWA manifest for iOS install recognition [XS]
+  - **Why.** Diagnosing Pushover-on-iOS deep-link UX. Tapping a notification opens Safari (per Pushover settings), but Safari was not showing the "Open in Boomerang" affordance that hands a URL off to an installed PWA. iOS Safari's PWA install-matching logic is opaque, but `id` (stable identity anchor) and explicit `scope` are documented prerequisites for reliable association across manifest updates. Current manifest had neither.
+  - **Fix.** Add `id: '/'`, explicit `scope: '/'`, and `handle_links: 'preferred'` to the VitePWA manifest. `id` anchors PWA identity so iOS doesn't treat post-update manifests as a different app. Explicit `scope` removes ambiguity vs. the implicit start_url-derived default. `handle_links` is a Chrome-respected hint that doesn't hurt Safari.
+  - **iOS users must delete + re-add the Home Screen icon** for changes to take effect — iOS caches the manifest at install time. Manifest changes have zero effect on already-installed PWAs.
+  - **What this does NOT solve.** iOS does not deep-link from third-party apps directly to PWAs — that's a platform limitation. Best case after this change is "Pushover → Safari → tap 'Open in Boomerang' banner → PWA" (one extra tap). If the banner still doesn't appear after re-install, we've hit the iOS ceiling and the options narrow to (a) live with manual app-switch after Pushover, or (b) Capacitor wrap.
+  - Modified: `vite.config.js`, `wiki/Version-History.md`
+
+---
+
 ## 2026-05-16
 
 - fix(terminal): three small RoutinesModal bugs [XS]
