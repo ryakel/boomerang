@@ -275,7 +275,8 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 AI-powered email scanning that automatically finds tasks and package tracking numbers in your inbox.
 
 - **OAuth connection** — uses the same Google OAuth credentials as Google Calendar. Just enable the Gmail API in your Cloud project.
-- **AI email analysis** — Claude analyzes your inbox emails to find actionable tasks (appointments, deadlines, documents to submit) and package tracking numbers from shipping confirmations.
+- **AI email analysis** — Claude analyzes your inbox emails to find actionable tasks (appointments, deadlines, documents to submit) and package tracking numbers from shipping confirmations. The classifier defaults to "skip" — when in doubt, it doesn't create anything.
+- **Junk pre-filter** — verification codes, MFA / OTP, sign-in alerts, password resets, "verify your email" prompts, suspicious-activity notices, and auto-replies / bounces are rejected via a cheap subject/sender regex before they ever reach the AI. Saves tokens AND prevents tracking-number regex from misfiring on auth codes.
 - **Pending review** — imported items appear with a yellow border and envelope badge. Expand a card to "Keep" (approve) or "Dismiss" it. No items are auto-committed without your review.
 - **Configurable scan window** — defaults to 7 days back, adjustable in Settings.
 - **Auto-scan** — optional 5-minute polling for new emails when enabled.

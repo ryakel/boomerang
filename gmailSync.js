@@ -161,6 +161,60 @@ function extractEmailContent(message) {
   return { subject, from, date, body, messageId: message.id, threadId: message.threadId }
 }
 
+// --- Obvious-junk pre-filter ---
+// Tight patterns ONLY. False positives here silently drop real tasks, so each
+// pattern must match emails that are almost certainly transactional noise.
+// The AI prompt handles the long tail (receipts, marketing, etc.).
+const JUNK_SUBJECT_PATTERNS = [
+  // MFA / OTP / verification codes — by far the noisiest category
+  /\bverification code\b/i,
+  /\bsecurity code\b/i,
+  /\bauthentication code\b/i,
+  /\bone[- ]time (?:code|password|passcode|pin)\b/i,
+  /\bOTP\b/,
+  /\b2FA\b/i,
+  /\btwo[- ]factor\b/i,
+  /\b(?:your|sign[- ]in) code\b/i,
+  /\bsign[- ]in (?:link|attempt)\b/i,
+  /\bmagic link\b/i,
+  /^\d{4,8} is your\b/i,                       // "123456 is your verification code"
+  /\bis your (?:verification|security|sign[- ]in|login|access) code\b/i,
+  /\bconfirm your email\b/i,
+  /\bverify your (?:email|account|identity)\b/i,
+  /\bactivate your account\b/i,
+  // Password / account security
+  /\bpassword (?:was |has been )?(?:reset|changed|updated)\b/i,
+  /\breset your password\b/i,
+  /\bnew (?:sign[- ]in|login|device)\b/i,
+  /\bsuspicious (?:activity|sign[- ]in|login)\b/i,
+  /\bsecurity alert\b/i,
+  /\bwas that you\b/i,
+  // Auto-replies / bounces
+  /^(?:auto(?:matic)?[- ]?reply|out of office|automatic reply)\b/i,
+  /^undeliverable:/i,
+  /^delivery (?:status|failure) notification/i,
+]
+
+const JUNK_FROM_PATTERNS = [
+  /no[- ]?reply@accounts\./i,
+  /security[-_]?(?:noreply|alerts?)@/i,
+  /<verify@/i,
+  /<verification@/i,
+  /<otp@/i,
+]
+
+function isObviousJunk(subject, from) {
+  const subj = subject || ''
+  const sender = from || ''
+  for (const re of JUNK_SUBJECT_PATTERNS) {
+    if (re.test(subj)) return { junk: true, reason: `subject matches ${re}` }
+  }
+  for (const re of JUNK_FROM_PATTERNS) {
+    if (re.test(sender)) return { junk: true, reason: `sender matches ${re}` }
+  }
+  return { junk: false }
+}
+
 // --- AI analysis ---
 
 async function callClaude(systemPrompt, userMessage) {
@@ -183,6 +237,8 @@ async function callClaude(systemPrompt, userMessage) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2048,
+      // Conservative classifier — drift from "skip" should require strong signal.
+      temperature: 0,
       system,
       messages: [{ role: 'user', content: userMessage }],
     }),
@@ -206,13 +262,48 @@ async function analyzeEmails(emails) {
     `--- EMAIL ${i + 1} ---\nMessage ID: ${e.messageId}\nFrom: ${e.from}\nDate: ${e.date}\nSubject: ${e.subject}\nBody:\n${e.body}\n`
   )).join('\n')
 
-  const systemPrompt = `You analyze emails to extract actionable items. For each email, determine if it contains:
-1. An actionable task (appointment, deadline, action required, bill due, document to submit, etc.)
-2. A package tracking number (from order confirmations, shipping notifications, etc.)
-3. Neither (newsletters, marketing, social notifications, receipts with no action needed)
+  const systemPrompt = `You are a strict email classifier. Your job is to AVOID creating noise. The default answer is "skip". Only create a task when the user clearly needs to DO something with a real deadline or commitment. When in doubt, skip.
 
-For tracking numbers, look for patterns like:
-- USPS: starts with 92, 93, 94, 95 (20+ digits), or prefixed with 420+ZIP (e.g., 420501499300...), or two letters + 9 digits + US
+For each email, classify as one of:
+1. "task" — the user must take a concrete action with a clear deadline or commitment
+2. "package" — the email contains a shipment tracking number that isn't already obvious from the subject
+3. "skip" — everything else (default)
+
+ALWAYS SKIP these categories — no exceptions, no matter how the email is worded:
+- Verification codes, OTP, one-time passwords, MFA / 2FA / two-factor codes, sign-in codes, security codes, magic links
+- Password reset emails, "your password was changed", "set up your password"
+- Sign-in / login alerts ("new sign-in to your account", "we detected a login from…", "was that you?")
+- Account security alerts, suspicious activity notices, device added / removed
+- "Verify your email" / "confirm your email address" / account activation
+- Order confirmations, receipts, payment confirmations, refund notifications, invoices marked PAID — these are FYI, not action
+- Subscription renewal notices, billing reminders that auto-charge, "your trial ends in N days" (unless explicit cancellation needed by a date the user set)
+- Shipping notifications (the package extractor handles these — never create a task for "your order has shipped")
+- Marketing, promotions, sales, newsletters, digests, "weekly summary", product announcements
+- Social media notifications, "X mentioned you", "Y commented", LinkedIn invites, friend requests
+- Calendar invites (handled by Google Calendar sync)
+- "Welcome to…", onboarding sequences, tips & tricks emails
+- Surveys, feedback requests, NPS prompts
+- GitHub / GitLab / Jira / Slack / Discord activity notifications
+- Status pages, uptime reports, system notices, deployment notifications
+- Read receipts, auto-replies, out-of-office bounces
+- Newsletters, blog post notifications, content digests
+- Donation receipts, charity acknowledgments
+- "Your statement is ready", "your bill is ready to view" (unless an explicit DUE date appears AND it's not on autopay)
+
+ONLY create a task when the email contains ONE of these clear signals:
+- An appointment that the user must attend (with a specific date/time) and that isn't already on their calendar via GCal sync
+- A bill or payment DUE by a specific date that requires manual action (NOT autopay confirmations)
+- A document to sign, form to fill out, or paperwork to submit by a deadline
+- An item to return / exchange within a return window
+- An RSVP or reservation that must be confirmed/declined by a date
+- A real human writing personally and asking for a reply or action
+- A jury duty notice, tax deadline, legal filing, court date, or government deadline
+- A medical follow-up / prescription pickup / lab result requiring action
+
+If an email is borderline ("could be useful to track" / "might want to do something"), SKIP it. The user can star it in Gmail if they want a reminder.
+
+For tracking numbers (carrier patterns):
+- USPS: starts with 92, 93, 94, 95 (20+ digits), or prefixed with 420+ZIP, or two letters + 9 digits + US
 - UPS: starts with 1Z (18 chars)
 - FedEx: 12, 15, 20, or 22 digits
 - Amazon: starts with TBA (15+ chars)
@@ -224,19 +315,19 @@ Return ONLY valid JSON with this structure:
     {
       "message_id": "the gmail message id",
       "type": "task" | "package" | "skip",
+      "reason": "one short sentence — WHY this classification (helps the user tune the filter)",
       "task": { "title": "...", "notes": "...", "due_date": "YYYY-MM-DD or null" },
       "package": { "tracking_number": "...", "carrier": "usps|ups|fedex|amazon|dhl|other", "label": "item description" }
     }
   ]
 }
 
-Rules:
-- Be conservative — only create tasks for genuinely actionable items that require the user to DO something
-- Do NOT create tasks for: order confirmations with no action needed, password reset emails, social media notifications, newsletters, marketing
-- DO create tasks for: appointment confirmations (with date), bills due, documents to sign/submit, items to return, reservations to confirm
-- For packages: extract the tracking number and identify the carrier. Include a short item description as the label.
-- Keep task titles short and actionable (imperative mood). Include relevant details in notes.
-- If an email contains BOTH a task and a tracking number, return both as separate results with the same message_id.`
+Output rules:
+- Every email MUST appear in results exactly once. Use "skip" liberally.
+- "reason" is required for every result. Be specific ("contains MFA code", "Amazon order receipt — no action needed", "appointment on 2026-05-22 needs RSVP"). This is the user's only window into your reasoning, so don't be vague.
+- Task titles: short imperative phrasing ("Pay water bill", "Sign refi paperwork", "Return Patagonia jacket"). No "Email re:" prefix, no "Reply to John about…" unless a real reply is genuinely required.
+- Put dates, amounts, and confirmation numbers in notes — keep titles clean.
+- If an email contains BOTH a real task AND a tracking number, return two results with the same message_id (one task, one package).`
 
   const response = await callClaude(systemPrompt, emailSummaries)
   const parsed = extractJSON(response)
@@ -434,12 +525,33 @@ export async function syncGmail(daysBack = 7) {
     let tasksCreated = 0
     let packagesCreated = 0
     let skipped = 0
+    let prefiltered = 0
+
+    // --- Phase 0: Obvious-junk pre-filter (no AI, no regex scan) ---
+    // MFA codes / sign-in alerts / password resets etc. never contain
+    // shipping context AND never become tasks. Short-circuit them here
+    // to save AI tokens AND avoid the digit-regex misfiring on auth codes.
+    const survivors = []
+    for (const email of emails) {
+      const verdict = isObviousJunk(email.subject, email.from)
+      if (verdict.junk) {
+        markGmailProcessed(email.messageId, email.threadId, email.subject, email.from, 'skipped', null)
+        skipped++
+        prefiltered++
+        console.log(`[Gmail] Pre-filter skip: "${email.subject}" — ${verdict.reason}`)
+      } else {
+        survivors.push(email)
+      }
+    }
+    if (prefiltered > 0) {
+      console.log(`[Gmail] Pre-filtered ${prefiltered}/${emails.length} as obvious junk`)
+    }
 
     // --- Phase 1: Regex-based tracking number extraction (free, instant) ---
     const existingPackages = getAllPackages()
     const existingTrackingNums = new Set(existingPackages.map(p => p.tracking_number.toLowerCase()))
     const emailsForAI = []
-    for (const email of emails) {
+    for (const email of survivors) {
       const trackingNumbers = extractTrackingNumbers(email.subject, email.body)
       console.log(`[Gmail] Regex scan "${email.subject}": ${trackingNumbers.length} tracking number(s) found${trackingNumbers.length > 0 ? ': ' + trackingNumbers.map(t => t.tracking_number).join(', ') : ''}`)
       if (trackingNumbers.length > 0) {
@@ -500,12 +612,14 @@ export async function syncGmail(daysBack = 7) {
         const email = batch.find(e => e.messageId === result.message_id)
         if (!email) continue
 
+        // Reason is the user's only window into the AI's decision.
+        const reason = result.reason ? ` (${result.reason})` : ''
         if (result.type === 'task' && result.task?.title) {
           const taskId = createTaskFromGmail(result, result.message_id)
           markGmailProcessed(result.message_id, email.threadId, email.subject, email.from, 'task', taskId)
           processedIds.add(result.message_id)
           tasksCreated++
-          console.log(`[Gmail] Created task: "${result.task.title}" from "${email.subject}"`)
+          console.log(`[Gmail] Created task: "${result.task.title}" from "${email.subject}"${reason}`)
         } else if (result.type === 'package' && result.package?.tracking_number) {
           if (existingTrackingNums.has(result.package.tracking_number.toLowerCase())) {
             console.log(`[Gmail] AI: skipping duplicate tracking ${result.package.tracking_number}`)
@@ -513,7 +627,7 @@ export async function syncGmail(daysBack = 7) {
             const pkgId = createPackageFromGmail(result, result.message_id)
             existingTrackingNums.add(result.package.tracking_number.toLowerCase())
             packagesCreated++
-            console.log(`[Gmail] Created package: ${result.package.tracking_number} from "${email.subject}"`)
+            console.log(`[Gmail] Created package: ${result.package.tracking_number} from "${email.subject}"${reason}`)
           }
           markGmailProcessed(result.message_id, email.threadId, email.subject, email.from, 'package', null)
           processedIds.add(result.message_id)
@@ -521,6 +635,7 @@ export async function syncGmail(daysBack = 7) {
           if (!processedIds.has(result.message_id)) {
             markGmailProcessed(result.message_id, email.threadId, email.subject, email.from, 'skipped', null)
             processedIds.add(result.message_id)
+            console.log(`[Gmail] AI skip: "${email.subject}"${reason}`)
           }
           skipped++
         }
@@ -541,7 +656,7 @@ export async function syncGmail(daysBack = 7) {
       broadcastFn(newVersion, null)
     }
 
-    const summary = { tasks: tasksCreated, packages: packagesCreated, skipped, total: emails.length }
+    const summary = { tasks: tasksCreated, packages: packagesCreated, skipped, prefiltered, total: emails.length }
     console.log(`[Gmail] Sync complete:`, summary)
 
     // Update last sync timestamp

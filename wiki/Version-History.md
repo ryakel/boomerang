@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(gmail): much stricter classifier — kill MFA / OTP / sign-in noise [S]
+  - **Bug.** The Gmail auto-add was creating pending tasks for verification codes, sign-in alerts, password resets, and other transactional noise. The system prompt had a one-liner "don't create tasks for password resets" but no explicit reject categories, no temperature pin, and no cheap pre-filter — so the model was inventing actions ("Enter verification code 487291", "Review sign-in attempt") out of obvious junk.
+  - **Fixes (all in `gmailSync.js`):**
+    - **Pre-filter (Phase 0).** New `isObviousJunk(subject, from)` runs before the tracking-regex scan. Tight subject/sender patterns catch verification codes, OTP, 2FA, sign-in attempts, magic links, password reset/changed notifications, "confirm/verify your email", suspicious-activity alerts, "was that you", auto-replies, undeliverable bounces, and common transactional sender shapes (`noreply@accounts.*`, `security-alerts@*`, `verify@*`, etc.). Match → mark processed as `skipped` immediately. Saves AI tokens AND avoids the digit-regex misfiring on auth codes.
+    - **Strengthened system prompt.** Reframed as a strict classifier with "default to skip" guidance. Explicit ALWAYS-SKIP list (15+ categories including all the noise types above plus marketing, social, system alerts, calendar invites already on GCal, etc.). Explicit short ONLY-CREATE list (appointments, bills with real due dates, documents to sign, returns, RSVPs, real human asks, government deadlines, medical follow-ups). Every result now includes a required `reason` field so the user (via server logs) can see exactly why something was classified the way it was.
+    - **Temperature pinned to 0.** Deterministic, conservative output — drift away from "skip" should require strong signal, not a creative roll.
+    - **Reason logged.** AI's `reason` is appended to every `[Gmail]` log line (created task, created package, skipped). First diagnostic surface when the filter is too strict or too loose.
+  - **Pre-filter smoke test.** 20/21 obvious-junk subjects flagged; 0/7 real tasks falsely flagged. The one miss ("Your password was changed" with "was" between the words) was fixed by widening the pattern to `password (?:was |has been )?(?:reset|changed|updated)`.
+  - **Out of scope.** Moving pending Gmail items out of the main task list into a dedicated Suggestions inbox surface (the user's "wrapped into suggestions" suggestion) — that's a separate UX change, this PR keeps the existing pending-review UX (yellow border + Keep/Dismiss on cards). The AI-smartness fix is what the actual complaint was about.
+  - Modified: `gmailSync.js`, `wiki/Version-History.md`, `CLAUDE.md`
+
 - feat(activity-log): fully wire activity log to all task mutations [S]
   - **Bug.** The Activity Log in the v2 overflow menu was almost always empty. `ACTION_LABELS` in `ActivityLog.jsx` declared seven action types (created, completed, deleted, status_changed, edited, snoozed, priority_changed) but `logActivity()` was only called from three places: complete, delete, and skipped (chain-step). Creates, edits, snoozes, status changes, priority flips, and reopens all silently dropped on the floor.
   - **Fix.** Wire `logActivity()` into every user-facing mutation in `src/hooks/useTasks.js`:
