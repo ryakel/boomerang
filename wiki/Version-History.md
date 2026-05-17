@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(notifications): v2 Settings never wired up web-push subscribe flow [S]
+  - **Bug.** Toggling "Web push" ON in v2 Settings → Notifications never triggered an iOS notification permission prompt, never registered a device subscription, and never caused Boomerang to appear in iOS Settings → Notifications. Web push couldn't actually deliver.
+  - **Cause.** v2's `NotificationsPanel` only flipped the server-side `push_notifications_enabled` boolean. It never imported `usePushSubscription`, never called `Notification.requestPermission()`, never called `pushManager.subscribe()`, never POSTed an endpoint to the server. v1 has the correct flow (the "Enable on this device" button at `Settings.jsx:2625`) but v2 has been the default since the 2026-05-03 cutover, so anyone who newly enabled web push in v2 silently got no delivery. Server-side `subscription_count` could still read >0 because of stale subscriptions from before the cutover, hiding the bug from the diagnostic endpoint.
+  - **Fix.** Wire `usePushSubscription` into v2 `NotificationsPanel`. When `push_notifications_enabled === true` and the device isn't yet subscribed, render an "Enable on this device" button that runs the full subscribe handshake (permission prompt → pushManager.subscribe → POST endpoint). When subscribed, render a "Disable on this device" button. Surface any subscribe error inline.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `wiki/Version-History.md`
+
 - fix(settings): notification history showed "Invalid Date" on every row [XS]
   - **Bug.** Notification history list rendered every timestamp as "INVALID DATE" in both v1 and v2 Settings.
   - **Cause.** Server's `GET /api/notifications/log` returns rows with `sent_at` (matching the SQLite column name), but both `Settings.jsx` and v2 `SettingsModal.jsx` read `entry.timestamp` — a field that doesn't exist on the response. `new Date(undefined)` → Invalid Date.
