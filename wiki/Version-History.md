@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(git): use merge-commit for dev→main; rebase rewrites SHAs and recreates divergence [XS]
+  - **The actual root cause of the "branches keep diverging" problem.** Not cherry-picking (that was already gone). Not using dev as PR head (already fixed). It's that `merge_method=rebase` rewrites the commit's SHA when it lands on the target. Every dev→main promotion via rebase produces a new SHA on main for the same content. `git log` then sees the commits as different by SHA → next promotion has 3-way-merge conflicts on same-content changes.
+  - **Fix.** dev→main always uses `merge_method=merge`. Merge commits preserve dev's SHAs as parents. `git diff origin/main origin/dev` stays empty after every promotion forever.
+  - **Feature → dev keeps `merge_method=rebase`** for linear history within dev. dev is its own source of truth there, no cross-branch alignment to preserve.
+  - Modified: `CLAUDE.md`, `wiki/Version-History.md`
+
 - fix(projects): backstage subs no longer leak into the main list on desktop [XS]
   - **Bug.** "Show in main list when the parent project is pinned" checkbox respected on mobile but not desktop — backstage subs were appearing in the Kanban Up Next column even when the toggle was off.
   - **Cause.** The earlier fix that made pinned-project subs visible on desktop (PR #176, "C. Pinned-child filter on desktop") removed the filter unconditionally instead of narrowing it to active children only. Result: backstage subs also fell through into the regular sections on desktop.
