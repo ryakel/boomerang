@@ -1674,6 +1674,12 @@
   text-shadow: var(--v2-glow);
 }
 
+/* Hide the JSX Plus icon — the terminal-mode "[ + " prefix already
+ * provides the visual marker, so the SVG would render as a second plus. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-routine-new-btn > svg {
+  display: none !important;
+}
+
 :root[data-ui="v2"][data-theme^="terminal"] .v2-routine-new-btn::before {
   content: "[ + ";
   color: var(--v2-accent);
@@ -1697,6 +1703,7 @@
   color: var(--v2-text) !important;
   height: auto !important;
   min-height: 32px !important;
+  text-align: left !important;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-form-pri-toggle::before {
@@ -1733,6 +1740,7 @@
   height: auto !important;
   min-height: 32px !important;
   text-transform: lowercase;
+  text-align: left !important;
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-form-toggle::before {
