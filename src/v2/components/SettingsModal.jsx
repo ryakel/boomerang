@@ -6,6 +6,7 @@ import {
   LABEL_COLORS, uuid,
 } from '../../store'
 import { restoreFromBackup } from '../../api'
+import { usePushSubscription } from '../../hooks/usePushSubscription'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import AutosaveIndicator from './AutosaveIndicator'
@@ -1205,6 +1206,13 @@ function NotificationsPanel({ settings, update }) {
     { key: 'pushover_notifications_enabled', label: 'Pushover', hint: 'iOS-friendly transport via the Pushover app. Credentials in v1 → Integrations.' },
   ]
 
+  // Web push needs a per-device subscribe step (browser permission +
+  // pushManager.subscribe). The master toggle alone only flips the server-side
+  // boolean — without this, no iOS permission prompt fires and the server
+  // never gets an endpoint to push to.
+  const pushSub = usePushSubscription()
+  const [subscribeError, setSubscribeError] = useState(null)
+
   const Toggle = ({ checked, onChange, disabled }) => (
     <label className={`v2-settings-toggle${disabled ? ' v2-settings-toggle-disabled' : ''}`}>
       <input type="checkbox" checked={!!checked} onChange={onChange} disabled={disabled} />
@@ -1280,6 +1288,56 @@ function NotificationsPanel({ settings, update }) {
             />
           </div>
         ))}
+
+        {/* Per-device subscribe — only relevant when Web push is enabled. */}
+        {settings.push_notifications_enabled === true && pushSub.supported && (
+          <div className="v2-settings-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">This device</div>
+              <div className="v2-settings-row-hint">
+                {pushSub.subscribed
+                  ? 'Subscribed. Push notifications will deliver to this browser.'
+                  : 'Not subscribed. Grant notification permission to receive web push on this device.'}
+              </div>
+            </div>
+            {!pushSub.subscribed && (
+              <button
+                className="v2-settings-btn"
+                disabled={pushSub.loading}
+                onClick={async () => {
+                  setSubscribeError(null)
+                  const result = await pushSub.subscribe()
+                  if (!result.success) setSubscribeError(result.error)
+                }}
+              >
+                {pushSub.loading ? 'Enabling…' : 'Enable on this device'}
+              </button>
+            )}
+            {pushSub.subscribed && (
+              <button
+                className="v2-settings-btn"
+                disabled={pushSub.loading}
+                onClick={async () => {
+                  setSubscribeError(null)
+                  const result = await pushSub.unsubscribe()
+                  if (!result.success) setSubscribeError(result.error)
+                }}
+              >
+                {pushSub.loading ? 'Disabling…' : 'Disable on this device'}
+              </button>
+            )}
+            {subscribeError && (
+              <div className="v2-settings-row-hint" style={{ color: 'var(--v2-danger, #c83a3a)' }}>
+                {subscribeError}
+              </div>
+            )}
+          </div>
+        )}
+        {settings.push_notifications_enabled === true && !pushSub.supported && (
+          <div className="v2-settings-row-hint" style={{ marginTop: 8 }}>
+            Web push isn't supported in this browser. On iOS, add Boomerang to the Home Screen and open from there.
+          </div>
+        )}
       </div>
 
       {/* Per-type × per-channel — card-per-type layout works at any width */}
