@@ -16,6 +16,11 @@ const TASK_FIELDS = [
   'title', 'notes', 'due_date', 'status', 'size', 'energy', 'energy_level',
   'tags', 'high_priority', 'low_priority', 'snoozed_until', 'checklist',
   'reframe_notes', 'weather_hidden', 'gcal_duration',
+  // Project + parent-child fields (migration 028). Including them in
+  // pickTaskUpdates lets `update_task` set parent_id / child_visibility /
+  // pin / nag in one call instead of forcing a separate link_task_to_project
+  // tool round-trip.
+  'parent_id', 'child_visibility', 'pinned_to_today', 'nag_allowed',
 ]
 
 function summarizeTask(t) {
@@ -140,7 +145,7 @@ export function registerTaskTools() {
   // --- CREATE ---
   registerTool({
     name: 'create_task',
-    description: 'Create a new task. Defaults: size M, status not_started. Size/energy will be auto-refined by the background AI sizer. For multi-part tasks, populate `checklist` with sub-items so the user gets one umbrella task with a checklist rather than 8 separate tasks.',
+    description: 'Create a new task. Defaults: size M, status not_started. Size/energy will be auto-refined by the background AI sizer. For multi-part tasks, populate `checklist_items` with sub-items so the user gets one umbrella task with a checklist rather than 8 separate tasks. For PROJECT sub-tasks (the user wants real, independent tasks broken out from a project so each can complete on its own schedule), set `parent_id` to the project id — the task is linked at creation, no follow-up `link_task_to_project` call needed. To create a project itself, set `status: "project"`; optionally `pinned_to_today: true` and `nag_allowed: true`.',
     schema: {
       type: 'object',
       properties: {
@@ -170,16 +175,44 @@ export function registerTaskTools() {
           type: 'string',
           description: 'Optional name for the checklist (default: "Checklist").',
         },
+        parent_id: {
+          type: 'string',
+          description: 'When creating a sub-task of an existing project, set this to the project\'s id. The sub-task is linked at creation — do NOT also call link_task_to_project. Leave unset for top-level tasks.',
+        },
+        child_visibility: {
+          type: 'string',
+          enum: ['active', 'backstage'],
+          description: 'Only used when parent_id is set. "active" (default for new sub-tasks) surfaces this sub in the main list under the pinned parent project. "backstage" keeps it inside the Projects drill-down only.',
+        },
+        pinned_to_today: {
+          type: 'boolean',
+          description: 'Project-only flag (ignored unless status=project). When true, the project pins to the main task list as a "Pinned projects" section.',
+        },
+        nag_allowed: {
+          type: 'boolean',
+          description: 'Project-only flag (ignored unless status=project). When true, the project triggers calm stale/nudge notifications even without a due date. Default false — projects are silent by default. A due_date overrides this and triggers full escalation regardless.',
+        },
       },
       required: ['title'],
     },
     preview: (args) => {
-      const parts = [`Create task: "${args.title}"`]
+      const parts = [args.status === 'project' ? `Create project: "${args.title}"` : `Create task: "${args.title}"`]
+      if (args.parent_id) parts.push(`sub of "${taskLabel(args.parent_id)}"`)
       if (args.due_date) parts.push(`due ${args.due_date}`)
       if (args.checklist_items?.length) parts.push(`${args.checklist_items.length} checklist item${args.checklist_items.length !== 1 ? 's' : ''}`)
+      if (args.pinned_to_today) parts.push('pinned')
+      if (args.nag_allowed) parts.push('nags allowed')
       return parts.join(' · ')
     },
     execute: async (args) => {
+      // If parent_id was passed, sanity-check it points to a real project
+      // (or another task) before stamping. Cheap validation, surfaces a
+      // clear error in the plan instead of silently creating an orphan.
+      if (args.parent_id) {
+        const parent = getTask(args.parent_id)
+        if (!parent) throw new Error(`Parent not found: ${args.parent_id}`)
+        if (args.parent_id === args.id) throw new Error('A task cannot be its own parent')
+      }
       const id = `task-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
       const now = new Date().toISOString()
       const items = Array.isArray(args.checklist_items) ? args.checklist_items.map((item, i) => ({
@@ -193,6 +226,13 @@ export function registerTaskTools() {
         items,
         hideCompleted: false,
       }] : []
+      // child_visibility defaults to 'active' when a parent is set (matches
+      // the manual "+ Add child step" UI) so the sub surfaces under the
+      // pinned parent automatically. Without a parent it stays 'backstage'
+      // (the column default) which has no visible effect on top-level tasks.
+      const childVis = args.parent_id
+        ? (args.child_visibility || 'active')
+        : 'backstage'
       const task = {
         id,
         title: args.title,
@@ -208,6 +248,12 @@ export function registerTaskTools() {
         size_inferred: args.size ? true : false,
         checklist: [],
         checklists,
+        parent_id: args.parent_id || null,
+        child_visibility: childVis,
+        // Project-only flags. Harmless on non-project tasks but skipped
+        // out of the payload when status != 'project' to avoid surprise.
+        pinned_to_today: args.status === 'project' ? !!args.pinned_to_today : false,
+        nag_allowed: args.status === 'project' ? !!args.nag_allowed : false,
         created_at: now,
         updated_at: now,
         last_touched: now,
@@ -223,7 +269,7 @@ export function registerTaskTools() {
   // --- UPDATE ---
   registerTool({
     name: 'update_task',
-    description: 'Update any subset of task fields. Only provided fields change. For common transitions prefer complete_task/reopen_task/snooze_task/move_to_projects.',
+    description: 'Update any subset of task fields. Only provided fields change. Use this to link an orphan task to a project (set parent_id), pin a project (pinned_to_today), opt a project into nags (nag_allowed), or fix child_visibility — all in a single call, no need for separate link/pin tools. For common transitions prefer complete_task/reopen_task/snooze_task/move_to_projects.',
     schema: {
       type: 'object',
       properties: {
@@ -242,6 +288,10 @@ export function registerTaskTools() {
         checklist: { type: 'array' },
         gcal_duration: { type: ['integer', 'null'] },
         weather_hidden: { type: 'boolean' },
+        parent_id: { type: ['string', 'null'], description: 'Link to a project. Pass null to unlink.' },
+        child_visibility: { type: 'string', enum: ['active', 'backstage'], description: 'Visibility under the parent project. Only meaningful when parent_id is set.' },
+        pinned_to_today: { type: 'boolean', description: 'Project pin toggle (status=project tasks only).' },
+        nag_allowed: { type: 'boolean', description: 'Project nag opt-in (status=project tasks only).' },
       },
       required: ['id'],
     },
@@ -252,6 +302,12 @@ export function registerTaskTools() {
     execute: async (args) => {
       const before = getTask(args.id)
       if (!before) throw new Error(`Task not found: ${args.id}`)
+      // Validate parent_id refers to a real task (when set).
+      if (args.parent_id) {
+        if (args.parent_id === args.id) throw new Error('A task cannot be its own parent')
+        const parent = getTask(args.parent_id)
+        if (!parent) throw new Error(`Parent not found: ${args.parent_id}`)
+      }
       const updates = pickTaskUpdates(args)
       const now = new Date().toISOString()
       updates.updated_at = now
@@ -267,7 +323,7 @@ export function registerTaskTools() {
   // --- DELETE ---
   registerTool({
     name: 'delete_task',
-    description: 'Permanently delete a task. Use sparingly — prefer move_to_backlog for "maybe someday" items.',
+    description: 'Permanently delete a task. Idempotent: deleting an already-gone task is a no-op, not an error — duplicate delete steps in the same plan are safe. Use sparingly — prefer move_to_backlog for "maybe someday" items.',
     schema: {
       type: 'object',
       properties: { id: { type: 'string' } },
@@ -276,7 +332,13 @@ export function registerTaskTools() {
     preview: (args) => `Delete task "${taskLabel(args.id)}"`,
     execute: async ({ id }) => {
       const before = getTask(id)
-      if (!before) throw new Error(`Task not found: ${id}`)
+      if (!before) {
+        // Already deleted (most commonly: model staged duplicate delete
+        // steps from overlapping search results). Treat as a no-op so the
+        // whole plan doesn't roll back. No compensation needed since
+        // nothing was mutated.
+        return { result: { id, deleted: false, already_gone: true } }
+      }
       deleteTask(id)
       return {
         result: { id, deleted: true },
