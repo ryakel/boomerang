@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(projects): mobile layout — title truncated to "Canc...", actions too cramped [XS]
+  - **Bug.** ProjectsView card rendered chev + title + meta + 3 action buttons all on one row. On a narrow viewport (iPhone, etc.) the title got `text-overflow: ellipsis`-clipped to "Canc..." for any project longer than ~5 characters, and the icon-only Pin/Add/Edit buttons jammed against the title's right edge with no breathing room.
+  - **Fixes (`ProjectsView.{jsx,css}`):**
+    - Restructured card from horizontal `[chev][title][meta][actions]` flex to vertical: top row is `[chev][title + meta column]`, bottom row is `[actions]` with `margin-left: 22px` to align past the chev. Wraps cleanly at any width.
+    - Title now wraps (`word-break: break-word`, removed `white-space: nowrap`) instead of truncating. Long project names render across multiple lines instead of "Canc...".
+    - Action buttons gained text labels next to their icons ("Pin"/"Pinned", "Step", "Edit") for finger-target clarity.
+    - Added a `pinned` chip next to the meta line so the pin state is glanceable without relying on icon color alone.
+  - **Also touched `ProjectPinnedSection.css`:** `.v2-pp-title-row` now allows wrap so the same crowding can't happen on the main-list pinned card if the title + due date overflow a narrow viewport.
+  - Modified: `src/v2/components/ProjectsView.jsx`, `src/v2/components/ProjectsView.css`, `src/v2/components/ProjectPinnedSection.css`, `wiki/Version-History.md`
+
 - feat(projects): pinning, session logging, parent/child, nag policy, "set aside" snooze [L]
   - **The problem.** Projects (status='project' tasks) were buried in a separate modal and contributed nothing to daily progress — a project would sit untouched for weeks not because it didn't matter but because it was out of sight, out of mind. The user explicitly wanted: integrate projects into the daily flow, count session work toward points/streak, keep nags off by default but allow them when there's a deadline, and add a "later, fuck off" snooze for everything else.
   - **Data model (migration 028).** Eight new columns on `tasks`: `parent_id` (self-FK + index), `pinned_to_today` (project pin), `nag_allowed` (project-level escalation opt-in), `session_count` + `last_session_at` + `session_log_json` (session tracking), `child_visibility` ('active' = surfaces in main list under pinned parent, 'backstage' = drill-down only), `snooze_indefinite` ("set aside" flag).
