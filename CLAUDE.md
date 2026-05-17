@@ -33,12 +33,18 @@ The proxy bug means direct `git push origin dev` and `git push origin --delete <
 
 ### Workflow: promoting dev → main
 
-**Canonical: direct dev → main PR.** No cherry-pick branches.
+**Canonical: push dev's tip to a fresh short-lived release branch, PR THAT to main.** **NEVER use `dev` itself as a PR head** — GitHub auto-deletes the head branch on merge (verified the hard way on PR #179, 2026-05-17: `head=dev, base=main, merge_method=rebase` → dev was deleted from the remote). The release-branch indirection is the only reliable workaround.
 
-1. After a feature PR merges to `dev`, open a PR with `head: 'dev'` and `base: 'main'` via `mcp__github__create_pull_request`. Title like `release: <feature>` and a brief body.
-2. Wait for user approval (every promotion is its own approval — previous approvals don't carry forward).
-3. `mcp__github__merge_pull_request` with `merge_method: "rebase"`.
-4. `git fetch origin && git checkout main && git reset --hard origin/main` to resync locally.
+1. Locally: `git fetch origin && git checkout dev && git reset --hard origin/dev`.
+2. `git push origin dev:refs/heads/claude/release-<thing>` — pushes dev's current tip to a new short-lived ref. The proxy accepts fresh-ref pushes.
+3. `mcp__github__create_pull_request` with `head: 'claude/release-<thing>'`, `base: 'main'`. Title like `release: <feature>`.
+4. Wait for user approval (every promotion is its own approval — previous approvals don't carry forward).
+5. `mcp__github__merge_pull_request` with `merge_method: "rebase"`. GitHub deletes `claude/release-<thing>` automatically on merge; `dev` is untouched.
+6. `git fetch origin && git checkout main && git reset --hard origin/main` to resync locally.
+
+After step 5, `dev` and `main` are content-identical at the tip. Verify with `git diff origin/main origin/dev --stat` returning empty output.
+
+**If dev gets deleted anyway** (e.g. someone forgot the indirection): recreate it from main with `git push origin refs/remotes/origin/main:refs/heads/dev`. Branches are now realigned and ready for the next feature loop.
 
 **Why cherry-pick branches went away (2026-05-17):** earlier in this codebase's life, dev → main promotions ran through a cherry-pick branch off main. Each cherry-pick produced a new SHA on main even though the content matched dev exactly. After ~10 promotions, the branches accumulated 10 same-content / different-SHA commit pairs and a direct dev → main PR started failing with conflicts because git's 3-way merge couldn't tell the cherry-picked versions and the original dev versions were the same change. A one-time alignment merge resolved it: `git merge -X theirs origin/dev` on main (always take dev's version on conflict) produced an identical-content main with a clean merge commit bridging the histories. Followup commit (`align(adviser-modal-css)`) cleaned up a unique-to-main hunk the `-X theirs` couldn't auto-handle. Going forward: never cherry-pick — direct dev → main PRs only.
 
