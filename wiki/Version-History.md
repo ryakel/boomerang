@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- chore(git): end the dev→main cherry-pick era; CLAUDE.md updated with new flow [XS]
+  - **What happened.** Earlier dev→main promotions ran through a cherry-pick branch off main. Each cherry-pick produced a new SHA even though content matched dev exactly. After ~10 promotions, branches accumulated 10 same-content / different-SHA commit pairs. A direct dev→main PR started failing with 13 file conflicts because git's 3-way merge can't tell that the cherry-picked and original versions are the same change.
+  - **Fix.** One-time alignment merge on main: `git merge -X theirs origin/dev` (always take dev's version on conflict) → identical-content main with a clean merge commit bridging the histories. Followup commit (`align(adviser-modal-css)`) cleaned up a unique-to-main hunk left over from an earlier cherry-pick that `-X theirs` couldn't auto-handle (an old `position: sticky` rule the polish round had removed).
+  - **Going forward.** Direct dev→main PRs only. No cherry-pick branches. The merge-base is now dev's tip, so each future dev commit applies cleanly. Workflow documented in CLAUDE.md.
+  - Modified: `CLAUDE.md`, `wiki/Version-History.md` (plus the historical `align(adviser-modal-css)` commit + the merge commit, already on main)
+
 - fix(projects+quokka): polish round — composer overlap, project-aware edit modal, desktop sub visibility, sort-by-due, vertical fill, chained-create ids [M]
   - **Single PR bundling A–E from the bug-dump conversation plus the highest-impact Quokka fixes from the sub-agent analysis.** All shipped together because they're entangled with the same projects+subs workflow.
   - **A. Quokka modal overlap.** The "APPLIED N CHANGES" green bar and the composer were two independent `position: sticky` blocks at different `bottom:` offsets — they collided on commit. Replaced with a single `.v2-adviser-footer` flex column that contains both bars + the composer in one sticky-bottom unit. No more overlap; action buttons stay reachable.
