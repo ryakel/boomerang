@@ -30,6 +30,8 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - **Mobile-first PWA** — installable to home screen, swipe gestures (left for Edit/Done, right to delete)
 - **Themes** — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light). Terminal mode swaps the calm-modern aesthetic for a monospace power-user shell with ASCII flourishes, `> verb` modal headers, flat sigil+text controls, and density signals on every task card
 - **Routines + Habits + Suggestions** — recurring tasks with cadence (daily/weekly/monthly/quarterly/annually), an `auto_roll` flag for meds that can't double up, habit mode for target-frequency tracking (`2× / week`, behind-pace nudges), plus a weekly server scan that detects patterns in completed-task history and surfaces them as routine suggestions
+- **Projects with sessions** — long-term work lives as projects. Pin a project to the main list to chip away; "Log session" awards points + bumps the streak (capped at 10 sessions before requiring a child completion). Add child tasks for the concrete steps; completing them awards their own points. Silent by default; opt in to nags via `Allow nags without a due date` or just set a deadline
+- **"Later — set aside" snooze** — park a task indefinitely with no auto-resurface; bring it back from the Snooze modal when you're ready
 - **Custom labels**, due dates, high-priority escalation
 
 ### Notifications

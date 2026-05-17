@@ -108,6 +108,17 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
             Pick a date...
           </button>
         )}
+
+        <button
+          className="snooze-option snooze-indefinite"
+          onClick={() => {
+            const farFuture = new Date(2099, 11, 31)
+            onSnooze(task.id, farFuture, { indefinite: true })
+            onClose()
+          }}
+        >
+          Later — set aside (no resurface)
+        </button>
       </div>
     </div>
   )

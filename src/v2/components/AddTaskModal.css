@@ -43,6 +43,30 @@
   margin-bottom: 4px;
 }
 
+/* "Adding a child to <project>" banner — shown when AddTaskModal opens
+ * from the "Add child step" affordance on a pinned project card. */
+.v2-form-parent-banner {
+  margin: 4px 0 12px;
+  padding: 10px 12px;
+  background: rgba(var(--v2-text-rgb), 0.04);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 10px;
+  color: var(--v2-text-meta);
+  font: 400 13px/1.4 var(--v2-font-body);
+}
+
+.v2-form-parent-banner strong {
+  color: var(--v2-text);
+}
+
+[data-theme^="terminal"] .v2-form-parent-banner {
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  border-left: 2px solid var(--v2-accent);
+  padding-left: 10px;
+}
+
 .v2-form-textarea {
   min-height: 92px;
   resize: vertical;

@@ -25,7 +25,7 @@ const STATUS_OPTIONS = ['not_started', 'doing', 'waiting']
 
 const CADENCE_OPTIONS = ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'custom']
 
-export default function EditTaskModal({ task, onSave, onClose, onDelete, onBacklog, onProject, onStatusChange, onConvertToRoutine, weather }) {
+export default function EditTaskModal({ task, onSave, onClose, onDelete, onBacklog, onProject, onStatusChange, onConvertToRoutine, weather, projects = [], onLogSession, onAddChild }) {
   const form = useTaskForm({
     title: task.title,
     notes: task.notes || '',
@@ -74,6 +74,39 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
   const [weatherHidden, setWeatherHidden] = useState(!!task.weather_hidden)
   const [forecastDrawerOpen, setForecastDrawerOpen] = useState(false)
   const [gcalDuration, setGcalDuration] = useState(task.gcal_duration || '')
+
+  // Project + parent-child state.
+  // - For projects: pinned_to_today + nag_allowed are project-level toggles.
+  // - For child tasks: parent_id + child_visibility ('active' surfaces under
+  //   pinned parent on main list; 'backstage' is only visible in the
+  //   project drill-down).
+  // All four feed into savePayload below so the existing autosave loop
+  // persists them without extra plumbing.
+  const isProject = task.status === 'project'
+  const [pinnedToToday, setPinnedToToday] = useState(!!task.pinned_to_today)
+  const [nagAllowed, setNagAllowed] = useState(!!task.nag_allowed)
+  const [parentId, setParentId] = useState(task.parent_id || '')
+  const [childVisibility, setChildVisibility] = useState(task.child_visibility || 'backstage')
+  const [sessionFeedback, setSessionFeedback] = useState(null)
+  const [loggingSession, setLoggingSession] = useState(false)
+  const availableParents = projects.filter(p => p.id !== task.id)
+  const handleLogSessionClick = async () => {
+    if (!onLogSession || loggingSession) return
+    setLoggingSession(true)
+    try {
+      const result = await onLogSession(task.id)
+      setSessionFeedback({ ok: true, text: `+${result.points} pts logged · ${result.sessionCount}/${result.sessionCap} sessions` })
+    } catch (err) {
+      if (err.code === 'SESSION_CAP_REACHED') {
+        setSessionFeedback({ ok: false, text: `Cap reached — complete a child or the project to log more.` })
+      } else {
+        setSessionFeedback({ ok: false, text: 'Failed to log session.' })
+      }
+    } finally {
+      setLoggingSession(false)
+      setTimeout(() => setSessionFeedback(null), 4000)
+    }
+  }
 
   const addComment = () => {
     const text = newComment.trim()
@@ -129,12 +162,17 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
     notion_url: form.notionResult?.url || null,
     weather_hidden: weatherHidden,
     gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
+    pinned_to_today: pinnedToToday,
+    nag_allowed: nagAllowed,
+    parent_id: parentId || null,
+    child_visibility: parentId ? childVisibility : 'backstage',
   }), [
     form.title, form.notes, form.selectedTags, form.dueDate,
     form.size, form.energy, form.energyLevel,
     form.highPriority, form.lowPriority,
     form.attachments, form.notionResult,
     checklists, comments, weatherHidden, gcalDuration,
+    pinnedToToday, nagAllowed, parentId, childVisibility,
   ])
 
   const lastSavedJson = useRef(null)
@@ -906,6 +944,104 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           </>
         )}
       </div>
+
+      {/* Project-only controls: pinning, nag toggle, session log, add child.
+        * For a non-project task, render the "Parent project" picker instead
+        * so the user can link / unlink the task to a project. */}
+      {isProject ? (
+        <div className="v2-form-section v2-edit-project-controls">
+          <div className="v2-edit-manage-label">Project</div>
+          <div className="v2-edit-project-toggles">
+            <label className="v2-edit-toggle-row">
+              <input
+                type="checkbox"
+                checked={pinnedToToday}
+                onChange={e => setPinnedToToday(e.target.checked)}
+              />
+              <span className="v2-edit-toggle-label">
+                Pin to today
+                <span className="v2-edit-toggle-meta">Surfaces this project on the main list</span>
+              </span>
+            </label>
+            <label className="v2-edit-toggle-row">
+              <input
+                type="checkbox"
+                checked={nagAllowed}
+                onChange={e => setNagAllowed(e.target.checked)}
+                disabled={!!form.dueDate}
+              />
+              <span className="v2-edit-toggle-label">
+                Allow nags without a due date
+                <span className="v2-edit-toggle-meta">
+                  {form.dueDate
+                    ? 'Due date set — escalation runs anyway, this toggle is ignored.'
+                    : 'Off by default. Turn on if you want gentle reminders even with no deadline.'}
+                </span>
+              </span>
+            </label>
+          </div>
+          <div className="v2-edit-project-sessions">
+            <div className="v2-edit-project-sessions-meta">
+              {(task.session_count || 0) > 0
+                ? `🔥 ${task.session_count} session${task.session_count === 1 ? '' : 's'} logged${task.last_session_at ? ` · last ${new Date(task.last_session_at).toLocaleDateString()}` : ''}`
+                : 'No sessions logged yet. Tap below when you chip away at this.'}
+            </div>
+            <div className="v2-edit-project-actions">
+              <button
+                type="button"
+                className="v2-edit-action v2-edit-action-primary"
+                disabled={loggingSession || (task.session_count || 0) >= 10}
+                onClick={handleLogSessionClick}
+                title={(task.session_count || 0) >= 10 ? 'Session cap reached' : 'Log a session — gives points + bumps the streak'}
+              >
+                {loggingSession ? 'Logging…' : ((task.session_count || 0) >= 10 ? 'Cap reached' : '+ Log session')}
+              </button>
+              {onAddChild && (
+                <button
+                  type="button"
+                  className="v2-edit-action"
+                  onClick={() => onAddChild(task)}
+                  title="Add a child task under this project"
+                >
+                  + Add child step
+                </button>
+              )}
+            </div>
+            {sessionFeedback && (
+              <div className={`v2-edit-session-feedback v2-edit-session-feedback-${sessionFeedback.ok ? 'ok' : 'warn'}`}>
+                {sessionFeedback.text}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : availableParents.length > 0 ? (
+        <div className="v2-form-section v2-edit-project-controls">
+          <div className="v2-edit-manage-label">Project link</div>
+          <select
+            className="v2-edit-parent-select"
+            value={parentId}
+            onChange={e => setParentId(e.target.value)}
+          >
+            <option value="">— No parent project —</option>
+            {availableParents.map(p => (
+              <option key={p.id} value={p.id}>{p.title}</option>
+            ))}
+          </select>
+          {parentId && (
+            <label className="v2-edit-toggle-row v2-edit-toggle-row-compact">
+              <input
+                type="checkbox"
+                checked={childVisibility === 'active'}
+                onChange={e => setChildVisibility(e.target.checked ? 'active' : 'backstage')}
+              />
+              <span className="v2-edit-toggle-label">
+                Show in main list when the parent project is pinned
+                <span className="v2-edit-toggle-meta">Off = visible only inside the Projects modal.</span>
+              </span>
+            </label>
+          )}
+        </div>
+      ) : null}
 
       <div className="v2-form-section v2-edit-manage">
         <div className="v2-edit-manage-label">Manage</div>
