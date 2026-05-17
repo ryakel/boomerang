@@ -14,7 +14,7 @@ const ENERGY_LEVEL_LABELS = [
 
 const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL']
 
-export default function AddTaskModal({ open, onAdd, onClose, parentProject = null }) {
+export default function AddTaskModal({ open, onAdd, onClose, parentProject = null, createAsProject = false }) {
   const form = useTaskForm({ dueDate: getDefaultDueDate() })
   const titleRef = useRef(null)
 
@@ -47,8 +47,8 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
     <ModalShell
       open={open}
       onClose={onClose}
-      title={parentProject ? `New sub in ${parentProject.title}` : 'New task'}
-      terminalTitle={parentProject ? `> task --new --parent="${parentProject.title}"` : '> task --new'}
+      title={createAsProject ? 'New project' : parentProject ? `New sub in ${parentProject.title}` : 'New task'}
+      terminalTitle={createAsProject ? '> project --new' : parentProject ? `> task --new --parent="${parentProject.title}"` : '> task --new'}
       width="narrow"
     >
       {parentProject && (
@@ -56,10 +56,15 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
           Adding a sub-task to <strong>{parentProject.title}</strong>. It surfaces under the pinned project automatically.
         </div>
       )}
+      {createAsProject && !parentProject && (
+        <div className="v2-form-parent-banner">
+          Creating a <strong>project</strong> — silent by default, no nags unless you set a due date or opt in. Add subs after creation to break it into concrete steps.
+        </div>
+      )}
       <input
         ref={titleRef}
         className="v2-form-input v2-form-title"
-        placeholder={parentProject ? 'What\'s the next sub?' : 'What needs doing?'}
+        placeholder={createAsProject ? 'What\'s the project?' : parentProject ? 'What\'s the next sub?' : 'What needs doing?'}
         value={form.title}
         onChange={e => form.setTitle(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit() }}

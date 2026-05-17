@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- feat(projects): "+ New project" button inside the Projects modal [XS]
+  - **The hole.** After the projects-integration feature shipped, projects were first-class — but the only way to *create* one was the legacy "create a regular task, open EditTaskModal, hit Move to Projects" path. Awkward when the Projects modal is the primary surface for managing them.
+  - **Fix.** New `+ New project` button in the ProjectsView toolbar. Click → ProjectsView closes, AddTaskModal opens with a project-flavored title (`New project` / terminal `> project --new`), explanatory banner ("silent by default, no nags unless you set a due date or opt in"), and the created task lands directly as `status='project'`. EmptyState also gains a tappable CTA when no projects exist yet so first-time users have an obvious way in.
+  - Plumbing: new `createAsProject` boolean state on AppV2 mirrors the existing `addChildOfProject` pattern. `handleAddTask` reads the flag and bumps status post-creation. Both context flags clear on close.
+  - Modified: `src/v2/components/ProjectsView.jsx`, `src/v2/components/ProjectsView.css`, `src/v2/components/AddTaskModal.jsx`, `src/v2/AppV2.jsx`, `wiki/Version-History.md`
+
 - copy(projects): "children" → "subs" everywhere user-visible [XS]
   - **Why.** "no children · no sessions · budget 20" sounded clinical/awkward on the Projects modal meta line. User preference: subs.
   - **Visible strings updated.** ProjectsView meta `"no children"` / `"X/Y active"` → `"no subs"` / `"X/Y subs"`. Empty drill-down `"No child tasks yet."` → `"No subs yet."` Empty Projects state body mentions "subs" explicitly now. Pinned-section meta `"N active steps"` → `"N active subs"`. Cap-feedback strings `"complete a child or the project"` → `"complete a sub or the project"`. Add-child buttons relabeled `"Sub"` (was `"Step"`). AddTaskModal title `"New step in X"` → `"New sub in X"`; banner copy + placeholder updated to match. Tooltips and aria-labels harmonized.
