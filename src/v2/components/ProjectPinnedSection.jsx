@@ -96,7 +96,7 @@ function ProjectPinnedSection({
                     {sessionCount > 0 ? `🔥 ${sessionCount} session${sessionCount === 1 ? '' : 's'}` : 'no sessions yet'}
                   </span>
                   <span className="v2-pp-meta-sep">·</span>
-                  <span>{children.length} active step{children.length === 1 ? '' : 's'}</span>
+                  <span>{children.length} active sub{children.length === 1 ? '' : 's'}</span>
                   <span className="v2-pp-meta-sep">·</span>
                   <span>budget {budget} pts</span>
                   {daysSinceLast !== null && (
@@ -115,7 +115,7 @@ function ProjectPinnedSection({
                   className={`v2-pp-action v2-pp-action-primary${capped ? ' v2-pp-action-disabled' : ''}`}
                   onClick={() => !capped && handleLog(project)}
                   disabled={capped || logging === project.id}
-                  title={capped ? `Cap reached — complete a child or the project to log more` : `Log a +${sessionPts}-pt session`}
+                  title={capped ? `Cap reached — complete a sub or the project to log more` : `Log a +${sessionPts}-pt session`}
                 >
                   <Activity size={14} strokeWidth={1.75} />
                   <span>{capped ? `Capped ${sessionCount}/${PROJECT_SESSION_CAP}` : `+${sessionPts} session`}</span>
@@ -124,10 +124,10 @@ function ProjectPinnedSection({
                   type="button"
                   className="v2-pp-action"
                   onClick={() => onAddChild(project)}
-                  title="Add a child task to this project"
+                  title="Add a sub-task under this project"
                 >
                   <Plus size={14} strokeWidth={1.75} />
-                  <span>Step</span>
+                  <span>Sub</span>
                 </button>
                 <button
                   type="button"
