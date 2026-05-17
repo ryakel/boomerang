@@ -1527,7 +1527,7 @@ function NotificationsPanel({ settings, update }) {
                     <div className="v2-notif-history-meta">
                       <span className="v2-notif-history-channel">{entry.channel || 'unknown'}</span>
                       <span className="v2-notif-history-type">{entry.type}</span>
-                      <span className="v2-notif-history-time">{new Date(entry.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                      <span className="v2-notif-history-time">{new Date(entry.sent_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
                     </div>
                     {entry.title && <div className="v2-notif-history-title">{entry.title}</div>}
                     {entry.body && <div className="v2-notif-history-body">{entry.body}</div>}

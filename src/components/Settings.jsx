@@ -103,9 +103,9 @@ function NotificationHistory() {
               </span>
             </span>
             <span className="notif-history-time">
-              {new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {new Date(entry.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               {' '}
-              {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+              {new Date(entry.sent_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
             </span>
           </div>
           <div className="notif-history-title">{entry.title}</div>
