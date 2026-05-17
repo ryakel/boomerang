@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-16
 
+- fix(terminal): three small RoutinesModal bugs [XS]
+  - **Double plus on "new routine" button.** Terminal CSS renders `[ + ` as a `::before` prefix; the JSX also rendered a Lucide `<Plus>` SVG icon, so terminal users saw `[ + + new routine ]`. Hide the SVG when in terminal mode via `.v2-routine-new-btn > svg { display: none }`. Light/dark themes still get the proper icon.
+  - **Priority `[ normal ]` center-aligned.** Both modes: button text was inheriting browser-default `text-align: center`, so the bracketed text floated mid-row in habit mode (full-width section) and mid-column in auto mode (half-width grid cell). Added `text-align: left` to `.v2-form-pri-toggle` under the terminal selector.
+  - **Auto-roll `[ on ]` / `[ off ]` center-aligned.** Same cause; same fix on `.v2-form-toggle`.
+  - Modified: `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - fix(terminal): auto-roll toggle no longer renders as a chromed button [XS]
   - **Why.** Production sighting on v1.6.0 — the auto-roll On/Off toggle in the RoutinesModal form rendered with rounded-rectangle button chrome in terminal mode, breaking the no-button-chrome idiom that every other control follows. The `.v2-form-toggle` class had base styling but no terminal-mode override; the check-terminal-buttons script had it listed under EXEMPT with a misleading "sub-element" comment, which silenced the guard.
   - **Fix.** Terminal-mode rules added to `src/v2/terminal/init.css`: transparent background, no border, bracket prefix/suffix (`[ on ]` / `[ off ]`) matching `.v2-form-pri-toggle`. Off renders muted, On renders accent + glow.
