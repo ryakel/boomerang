@@ -300,15 +300,21 @@ export function useTasks() {
   // Pre-2026-05-17: openTasks unconditionally filtered out children of pinned
   // projects so they wouldn't double-render (once in the regular section,
   // once under the project card). That left desktop with NO way to surface
-  // them — the Kanban path doesn't draw a ProjectPinnedSection. Result:
-  // subs were invisible on desktop unless the user changed the project's
-  // status away from 'project'. Now openTasks ignores pinning; the mobile
-  // renderer filters via isPinnedChild for its own sections, and desktop
-  // shows everything in their natural columns. `isPinnedChild` exported so
-  // mobile callers can apply the filter themselves.
+  // them — the Kanban path doesn't draw a ProjectPinnedSection. Now openTasks
+  // ignores pinning for ACTIVE subs; the mobile renderer filters them via
+  // `isPinnedChild` and shows them under the project card, and desktop shows
+  // them in their natural columns. BACKSTAGE subs are filtered unconditionally
+  // — those should never appear in the main list (only inside the Projects
+  // drill-down), regardless of platform or whether the parent is pinned.
   const isPinnedChild = (t) => t.parent_id && pinnedProjectIds.has(t.parent_id) && t.child_visibility === 'active'
+  const isBackstageSub = (t) => {
+    if (!t.parent_id) return false
+    if (t.child_visibility !== 'backstage') return false
+    const parent = tasks.find(x => x.id === t.parent_id)
+    return parent?.status === 'project'
+  }
 
-  const openTasks = tasks.filter(t => isActiveTask(t))
+  const openTasks = tasks.filter(t => isActiveTask(t) && !isBackstageSub(t))
   const staleTasks = openTasks.filter(t => isStale(t))
   const snoozedTasks = openTasks.filter(t => isSnoozed(t))
   const waitingTasks = openTasks.filter(t => (t.status === 'waiting') && !isStale(t) && !isSnoozed(t))
