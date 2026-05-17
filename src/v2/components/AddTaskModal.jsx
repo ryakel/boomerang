@@ -47,19 +47,19 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
     <ModalShell
       open={open}
       onClose={onClose}
-      title={parentProject ? `New step in ${parentProject.title}` : 'New task'}
+      title={parentProject ? `New sub in ${parentProject.title}` : 'New task'}
       terminalTitle={parentProject ? `> task --new --parent="${parentProject.title}"` : '> task --new'}
       width="narrow"
     >
       {parentProject && (
         <div className="v2-form-parent-banner">
-          Adding a child step to <strong>{parentProject.title}</strong>. It surfaces under the pinned project automatically.
+          Adding a sub-task to <strong>{parentProject.title}</strong>. It surfaces under the pinned project automatically.
         </div>
       )}
       <input
         ref={titleRef}
         className="v2-form-input v2-form-title"
-        placeholder={parentProject ? 'What\'s the next step?' : 'What needs doing?'}
+        placeholder={parentProject ? 'What\'s the next sub?' : 'What needs doing?'}
         value={form.title}
         onChange={e => form.setTitle(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit() }}

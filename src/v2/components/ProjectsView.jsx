@@ -46,8 +46,8 @@ export default function ProjectsView({
         <EmptyState
           icon={FolderKanban}
           title="No projects yet"
-          body={`Move longer-term work here so it stops nagging you. Pin projects to today when you want to chip away.`}
-          terminalCommand="// no projects — move long-haul work here, pin when you want to chip"
+          body={`Move longer-term work here so it stops nagging you. Add subs for the concrete steps, pin to today when you want to chip away.`}
+          terminalCommand="// no projects — move long-haul work here, add subs, pin to chip away"
         />
       ) : (
         <div className="v2-projects-list">
@@ -78,7 +78,7 @@ export default function ProjectsView({
                             <span className="v2-pv-meta-sep">·</span>
                           </>
                         )}
-                        {children.length === 0 ? 'no children' : `${activeChildren.length}/${children.length} active`}
+                        {children.length === 0 ? 'no subs' : `${activeChildren.length}/${children.length} subs`}
                         <span className="v2-pv-meta-sep">·</span>
                         {sessionCount > 0 ? `🔥 ${sessionCount}${capped ? ` (capped)` : ''}` : 'no sessions'}
                         <span className="v2-pv-meta-sep">·</span>
@@ -103,11 +103,11 @@ export default function ProjectsView({
                       type="button"
                       className="v2-pv-action"
                       onClick={(e) => { e.stopPropagation(); onAddChild && onAddChild(project) }}
-                      aria-label="Add child step"
-                      title="Add child step"
+                      aria-label="Add sub"
+                      title="Add a sub-task under this project"
                     >
                       <Plus size={14} strokeWidth={1.75} />
-                      <span>Step</span>
+                      <span>Sub</span>
                     </button>
                     <button
                       type="button"
@@ -123,7 +123,7 @@ export default function ProjectsView({
                   <div className="v2-pv-children">
                     {children.length === 0 ? (
                       <div className="v2-pv-empty-children">
-                        No child tasks yet. Use the + button above to add one, or ask Quokka.
+                        No subs yet. Use the + button above to add one, or ask Quokka.
                       </div>
                     ) : (
                       <>
