@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(settings): notification history showed "Invalid Date" on every row [XS]
+  - **Bug.** Notification history list rendered every timestamp as "INVALID DATE" in both v1 and v2 Settings.
+  - **Cause.** Server's `GET /api/notifications/log` returns rows with `sent_at` (matching the SQLite column name), but both `Settings.jsx` and v2 `SettingsModal.jsx` read `entry.timestamp` — a field that doesn't exist on the response. `new Date(undefined)` → Invalid Date.
+  - **Fix.** Read `entry.sent_at` in both components. No server-side change.
+  - Modified: `src/components/Settings.jsx`, `src/v2/components/SettingsModal.jsx`, `wiki/Version-History.md`
+
 - fix(ui): tighten PWA manifest for iOS install recognition [XS]
   - **Why.** Diagnosing Pushover-on-iOS deep-link UX. Tapping a notification opens Safari (per Pushover settings), but Safari was not showing the "Open in Boomerang" affordance that hands a URL off to an installed PWA. iOS Safari's PWA install-matching logic is opaque, but `id` (stable identity anchor) and explicit `scope` are documented prerequisites for reliable association across manifest updates. Current manifest had neither.
   - **Fix.** Add `id: '/'`, explicit `scope: '/'`, and `handle_links: 'preferred'` to the VitePWA manifest. `id` anchors PWA identity so iOS doesn't treat post-update manifests as a different app. Explicit `scope` removes ambiguity vs. the implicit start_url-derived default. `handle_links` is a Chrome-respected hint that doesn't hurt Safari.
