@@ -377,15 +377,6 @@
   border-color: var(--v2-accent);
 }
 
-/* Sticky bars (confirm + committed) sit ABOVE the composer with the same
- * pinning so the user always sees the action buttons even mid-scroll. */
-.v2-adviser-confirm-bar,
-.v2-adviser-committed-bar {
-  position: sticky;
-  bottom: 76px;   /* leaves room for the composer wrap below */
-  z-index: 1;
-}
-
 .v2-adviser-input {
   flex: 1;
   border: none;
