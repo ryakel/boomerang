@@ -6,6 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- feat(activity-log): fully wire activity log to all task mutations [S]
+  - **Bug.** The Activity Log in the v2 overflow menu was almost always empty. `ACTION_LABELS` in `ActivityLog.jsx` declared seven action types (created, completed, deleted, status_changed, edited, snoozed, priority_changed) but `logActivity()` was only called from three places: complete, delete, and skipped (chain-step). Creates, edits, snoozes, status changes, priority flips, and reopens all silently dropped on the floor.
+  - **Fix.** Wire `logActivity()` into every user-facing mutation in `src/hooks/useTasks.js`:
+    - `addTask` → `created`
+    - `addSpawnedTasks` → `created` per task (covers routine spawns, markdown import, GCal pull, etc.)
+    - `snoozeTask` → `snoozed`
+    - `updateTask` → `priority_changed` if `high_priority`/`low_priority` touched; `edited` if any of `title`/`notes`/`tags`/`due_date`/`size`/`energy`/`energyLevel`/`checklist_json`/`attachments` touched; otherwise no entry (filters out background housekeeping like `size_inferred` flips, sync-back assignments, `weather_hidden` toggles)
+    - `uncompleteTask` → `reopened`
+    - `changeStatus` → `completed` for done transitions, `reopened` for coming-out-of-done, `status_changed` for everything else (project, backlog, waiting, doing)
+  - **UI.** Added `reopened` + `skipped` to `ACTION_LABELS` and `ACTION_TONE` (the `skipped` action was already being logged from AppV2's chain-step path but had no label/color, so it was rendering as bare action name). Updated empty-state body text to enumerate all logged action types.
+  - **Out of scope (left for future).** UI filters still just toggle "All / Deleted." With more action types now flowing in, faceted filters (by action, by date) would help — but this is the wiring fix the user asked for, not a UI redesign. localStorage 500-entry cap unchanged.
+  - Modified: `src/hooks/useTasks.js`, `src/v2/components/ActivityLog.jsx`, `wiki/Version-History.md`
+
 - fix(notifications): v2 Settings missing digest config; digest test failed silently [S]
   - **Bug.** "Test digest" button in v2 Settings → Notifications returned a generic "Send failed" with no useful info. There was no UI anywhere in v2 to opt a specific channel into the digest, so even with push/email/pushover channel masters on, all three `*_digest_enabled` flags defaulted to falsy and `sendDigestNow()` skipped every channel.
   - **Causes.** (1) v2's `NotificationsPanel` never exposed the three per-channel digest toggles (`push_digest_enabled`, `email_digest_enabled`, `pushover_digest_enabled`) or the `digest_time` picker — v1 has them all under "Morning Digest" but v2 omitted the whole block. (2) `sendDigestNow()` returned `{success: false, fired: [], skipped: [...]}` with no `error` field when no channel delivered, so the v2 test runner fell back to the generic "Send failed" message. (3) The test button's `enabled` predicate checked channel masters, not the digest opt-in flags — so the button was clickable even when nothing could deliver.
