@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadTasks, saveTasks, createTask, isStale, isSnoozed, isActiveTask, logActivity } from '../store'
+import { logProjectSession as apiLogProjectSession } from '../api'
+import { computeProjectSessionPoints, PROJECT_SESSION_CAP } from '../scoring'
 
 // Activity-log noise filter. updateTask is called from many paths
 // (user form saves, AI auto-sizing, sync writebacks, GCal id assignment,
@@ -85,8 +87,24 @@ export function useTasks() {
     return completed
   }, [])
 
-  const snoozeTask = useCallback((id, until) => {
-    remoteLog('snoozeTask:', `id=${id.slice(0, 8)}`, 'until=', until.toISOString())
+  const unsnoozeTask = useCallback((id) => {
+    remoteLog('unsnoozeTask:', `id=${id.slice(0, 8)}`)
+    setTasks(prev => prev.map(t =>
+      t.id === id ? {
+        ...t,
+        snoozed_until: null,
+        snooze_indefinite: false,
+        last_touched: new Date().toISOString(),
+      } : t
+    ))
+  }, [])
+
+  // Sentinel: any snooze date past 2099-01-01 is treated as "until I come
+  // back" — the task gets the snooze_indefinite flag so notifications skip
+  // it AND it can be filtered/labeled separately from time-bound snoozes.
+  const snoozeTask = useCallback((id, until, opts = {}) => {
+    const indefinite = !!opts.indefinite || (until && until.getFullYear() >= 2099)
+    remoteLog('snoozeTask:', `id=${id.slice(0, 8)}`, indefinite ? 'indefinite' : `until=${until.toISOString()}`)
     setTasks(prev => {
       const task = prev.find(t => t.id === id)
       if (task) logActivity('snoozed', task)
@@ -94,6 +112,7 @@ export function useTasks() {
         t.id === id ? {
           ...t,
           snoozed_until: until.toISOString(),
+          snooze_indefinite: indefinite,
           snooze_count: t.snooze_count + 1,
           last_touched: new Date().toISOString(),
         } : t
@@ -192,7 +211,96 @@ export function useTasks() {
     }
   }, [])
 
-  const openTasks = tasks.filter(t => isActiveTask(t))
+  // --- Projects (pinning, sessions, parent/child links) ---
+
+  // Quick + optimistic pin toggle. The pinned-projects section on the main
+  // list reacts immediately; server sync flushes via setTasks → saveTasks.
+  const setProjectPinned = useCallback((id, pinned) => {
+    remoteLog('setProjectPinned:', `id=${id.slice(0, 8)}`, pinned)
+    setTasks(prev => prev.map(t =>
+      t.id === id ? { ...t, pinned_to_today: !!pinned, last_touched: new Date().toISOString() } : t
+    ))
+  }, [])
+
+  const setProjectNagAllowed = useCallback((id, allowed) => {
+    remoteLog('setProjectNagAllowed:', `id=${id.slice(0, 8)}`, allowed)
+    setTasks(prev => prev.map(t =>
+      t.id === id ? { ...t, nag_allowed: !!allowed, last_touched: new Date().toISOString() } : t
+    ))
+  }, [])
+
+  const setTaskParent = useCallback((id, parentId) => {
+    remoteLog('setTaskParent:', `id=${id.slice(0, 8)}`, '→', parentId ? parentId.slice(0, 8) : 'none')
+    setTasks(prev => prev.map(t =>
+      t.id === id ? { ...t, parent_id: parentId || null, last_touched: new Date().toISOString() } : t
+    ))
+  }, [])
+
+  const setChildVisibility = useCallback((id, visibility) => {
+    if (!['active', 'backstage'].includes(visibility)) return
+    remoteLog('setChildVisibility:', `id=${id.slice(0, 8)}`, visibility)
+    setTasks(prev => prev.map(t =>
+      t.id === id ? { ...t, child_visibility: visibility, last_touched: new Date().toISOString() } : t
+    ))
+  }, [])
+
+  // Log a "worked on this" project session. Hits the server (which is the
+  // points authority) and applies the result optimistically. Returns the
+  // session result so callers can pop a toast with the points awarded;
+  // throws with code='SESSION_CAP_REACHED' when the cap is exhausted.
+  // Reads `tasks` via closure rather than functional setState so the
+  // server call has the latest snapshot for offline-fallback points math.
+  const logProjectSession = useCallback(async (projectId) => {
+    const project = tasks.find(t => t.id === projectId)
+    if (!project) throw new Error('Project not found')
+    const expectedPoints = computeProjectSessionPoints(project, tasks)
+    try {
+      const result = await apiLogProjectSession(projectId)
+      // Server is canonical — overwrite the project with the returned record
+      // (session_count, last_session_at, session_log all updated).
+      setTasks(prev => prev.map(t => t.id === projectId ? { ...t, ...result.task } : t))
+      logActivity('session_logged', { ...project, _session_points: result.points })
+      return { points: result.points, sessionCount: result.session_count, sessionCap: result.session_cap }
+    } catch (err) {
+      if (err.code === 'SESSION_CAP_REACHED') {
+        throw err
+      }
+      // Network or server error — fall back to optimistic local-only update
+      // so the user's tap isn't lost. Next /api/data sync will reconcile.
+      const now = new Date().toISOString()
+      setTasks(prev => prev.map(t => {
+        if (t.id !== projectId) return t
+        const log = Array.isArray(t.session_log) ? [...t.session_log] : []
+        if ((t.session_count || 0) >= PROJECT_SESSION_CAP) return t
+        log.push({ timestamp: now, points: expectedPoints })
+        return {
+          ...t,
+          session_count: (t.session_count || 0) + 1,
+          last_session_at: now,
+          session_log: log,
+          last_touched: now,
+        }
+      }))
+      logActivity('session_logged', { ...project, _session_points: expectedPoints })
+      return { points: expectedPoints, sessionCount: (project.session_count || 0) + 1, sessionCap: PROJECT_SESSION_CAP, offline: true }
+    }
+  }, [tasks])
+
+  // Active children of pinned projects surface in the main list with a
+  // parent-project badge. Pinning a project doesn't auto-promote its
+  // children — each child has its own `child_visibility` setting.
+  const pinnedProjects = tasks.filter(t => t.status === 'project' && t.pinned_to_today)
+  const pinnedProjectIds = new Set(pinnedProjects.map(p => p.id))
+  const activeChildrenOfPinned = tasks.filter(t =>
+    t.parent_id && pinnedProjectIds.has(t.parent_id) &&
+    t.child_visibility === 'active' &&
+    isActiveTask(t)
+  )
+
+  // Filter regular task sections so pinned-project children don't double up.
+  const isPinnedChild = (t) => t.parent_id && pinnedProjectIds.has(t.parent_id) && t.child_visibility === 'active'
+
+  const openTasks = tasks.filter(t => isActiveTask(t) && !isPinnedChild(t))
   const staleTasks = openTasks.filter(t => isStale(t))
   const snoozedTasks = openTasks.filter(t => isSnoozed(t))
   const waitingTasks = openTasks.filter(t => (t.status === 'waiting') && !isStale(t) && !isSnoozed(t))
@@ -208,10 +316,13 @@ export function useTasks() {
     waitingTasks,
     doingTasks,
     upNextTasks,
+    pinnedProjects,
+    activeChildrenOfPinned,
     addTask,
     addSpawnedTasks,
     completeTask,
     snoozeTask,
+    unsnoozeTask,
     replaceTask,
     updateTask,
     uncompleteTask,
@@ -220,5 +331,10 @@ export function useTasks() {
     deleteTask,
     clearAll,
     hydrateTasks,
+    setProjectPinned,
+    setProjectNagAllowed,
+    setTaskParent,
+    setChildVisibility,
+    logProjectSession,
   }
 }

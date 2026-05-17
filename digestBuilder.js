@@ -18,9 +18,12 @@
  *   7. Weather — existing buildWeatherSummary() output if configured
  */
 
-import { queryTasks, getData, getAnalytics } from './db.js'
+import { queryTasks, getData, getAnalytics, isNotifiable } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 
+// ACTIVE_STATUSES retained for any legacy refs; new code uses isNotifiable()
+// from db.js so the digest respects nag_allowed / snooze_indefinite / project
+// rules without duplication.
 const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
 
 const LEAD_INS = [
@@ -95,7 +98,7 @@ function getYesterdayCompletions() {
  */
 export function buildDigest(settings) {
   const allTasks = queryTasks({})
-  const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
+  const activeTasks = allTasks.filter(isNotifiable)
   const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
   const nonMuted = nonSnoozed.filter(t => !t.notifications_muted)
 

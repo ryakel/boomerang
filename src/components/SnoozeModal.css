@@ -56,3 +56,12 @@
 .snooze-custom-confirm:disabled {
   opacity: 0.4;
 }
+
+.snooze-indefinite {
+  margin-top: 12px;
+  background: transparent;
+  border: 1px dashed var(--border, rgba(127, 127, 127, 0.3));
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}

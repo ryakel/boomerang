@@ -1260,6 +1260,31 @@ export async function clearServerNotifLog() {
   return res.json()
 }
 
+// --- Projects ---
+export async function getProjectChildren(projectId) {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/children`)
+  if (!res.ok) throw new Error(`get children failed: ${res.status}`)
+  return res.json()
+}
+
+export async function logProjectSession(projectId, clientId = null) {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/log-session`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ _clientId: clientId }),
+  })
+  if (res.status === 409) {
+    const body = await res.json().catch(() => ({}))
+    const err = new Error('Session cap reached')
+    err.code = 'SESSION_CAP_REACHED'
+    err.sessionCount = body.session_count
+    err.sessionCap = body.session_cap
+    throw err
+  }
+  if (!res.ok) throw new Error(`log session failed: ${res.status}`)
+  return res.json()
+}
+
 // --- Weather ---
 
 export async function getWeather() {
