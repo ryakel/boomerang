@@ -21,6 +21,10 @@ const TASK_FIELDS = [
   // pin / nag in one call instead of forcing a separate link_task_to_project
   // tool round-trip.
   'parent_id', 'child_visibility', 'pinned_to_today', 'nag_allowed',
+  // Sub-task dependencies (migration 029). blocked_by is an array of
+  // sibling sub IDs. A sub is "blocked" (hidden from main list) when
+  // any blocker is incomplete.
+  'blocked_by',
 ]
 
 function summarizeTask(t) {
@@ -112,6 +116,46 @@ function pickTaskUpdates(input) {
     if (input[k] !== undefined) out[k] = input[k]
   }
   return out
+}
+
+// Cycle check for blocked_by graphs. Returns the id of a candidate
+// blocker that would create a cycle (i.e. transitively waits on this
+// task), or null if all blockers are safe. Used by stagedValidate to
+// surface clear errors to the model instead of silently corrupting the
+// graph.
+function findBlockedByCycle(taskId, candidateBlockers, session) {
+  if (!Array.isArray(candidateBlockers) || candidateBlockers.length === 0) return null
+  // Walk each candidate's transitive blockers via DB + session.plan.
+  // If we ever reach taskId, it's a cycle.
+  const sessionEdges = new Map()
+  if (session?.plan) {
+    for (const step of session.plan) {
+      if (step.toolName === 'create_task' || step.toolName === 'update_task') {
+        const id = step.input?.id
+        if (id && Array.isArray(step.input?.blocked_by)) {
+          sessionEdges.set(id, step.input.blocked_by)
+        }
+      }
+    }
+  }
+  const blockersOf = (id) => {
+    // Session-staged values take precedence over DB (newer intent).
+    if (sessionEdges.has(id)) return sessionEdges.get(id)
+    const t = getTask(id)
+    return Array.isArray(t?.blocked_by) ? t.blocked_by : []
+  }
+  for (const candidate of candidateBlockers) {
+    const seen = new Set()
+    const stack = [candidate]
+    while (stack.length) {
+      const cur = stack.pop()
+      if (cur === taskId) return candidate
+      if (seen.has(cur)) continue
+      seen.add(cur)
+      for (const up of blockersOf(cur)) stack.push(up)
+    }
+  }
+  return null
 }
 
 export function registerTaskTools() {
@@ -206,6 +250,11 @@ export function registerTaskTools() {
           type: 'boolean',
           description: 'Project-only flag (ignored unless status=project). When true, the project triggers calm stale/nudge notifications even without a due date. Default false — projects are silent by default. A due_date overrides this and triggers full escalation regardless.',
         },
+        blocked_by: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of sibling sub task ids that must complete before this sub appears in the main list. Use to model dependency chains (e.g. "Booking day" waits on "Choose destination" + "Research flights"). Hidden from main list until every blocker reaches status=done; shown in the Projects drill-down with a "⏸ waits on X, Y" indicator. Cycles (A blocks B blocks A) are rejected at stage time.',
+        },
       },
       required: ['title'],
     },
@@ -228,12 +277,34 @@ export function registerTaskTools() {
     // Stage-time validation: surface bad parent_id refs to the model NOW
     // instead of letting the whole plan roll back at commit. Accepts a
     // parent_id that points to a real task OR an earlier staged create in
-    // the same plan.
+    // the same plan. Also rejects blocked_by entries that would create a
+    // cycle or reference non-existent tasks.
     stagedValidate: (args, session) => {
-      if (!args.parent_id) return null
-      if (getTask(args.parent_id)) return null
-      if (findStagedCreate(session, args.parent_id)) return null
-      return `parent_id "${args.parent_id}" doesn't match any real task or any staged create earlier in this plan. When chaining a project + subs, the create_task response for the project includes an "id" field — use that id as the parent_id for the subs.`
+      if (args.parent_id) {
+        if (!getTask(args.parent_id) && !findStagedCreate(session, args.parent_id)) {
+          return `parent_id "${args.parent_id}" doesn't match any real task or any staged create earlier in this plan. When chaining a project + subs, the create_task response for the project includes an "id" field — use that id as the parent_id for the subs.`
+        }
+      }
+      if (Array.isArray(args.blocked_by) && args.blocked_by.length > 0) {
+        for (const id of args.blocked_by) {
+          if (!getTask(id) && !findStagedCreate(session, id)) {
+            return `blocked_by id "${id}" doesn't match any real task or any staged create earlier in this plan.`
+          }
+        }
+        // Self-reference and cycle detection use the pre-stamped id (preStage)
+        // which is already set in args by the time stagedValidate runs.
+        const taskId = args.id
+        if (taskId && args.blocked_by.includes(taskId)) {
+          return 'A task cannot block on itself.'
+        }
+        if (taskId) {
+          const cycleAt = findBlockedByCycle(taskId, args.blocked_by, session)
+          if (cycleAt) {
+            return `Adding "${cycleAt}" as a blocker would create a cycle — that task (transitively) already waits on this one.`
+          }
+        }
+      }
+      return null
     },
     execute: async (args) => {
       // Parent validation already happened at stage time via stagedValidate,
@@ -327,6 +398,7 @@ export function registerTaskTools() {
         child_visibility: { type: 'string', enum: ['active', 'backstage'], description: 'Visibility under the parent project. Only meaningful when parent_id is set.' },
         pinned_to_today: { type: 'boolean', description: 'Project pin toggle (status=project tasks only).' },
         nag_allowed: { type: 'boolean', description: 'Project nag opt-in (status=project tasks only).' },
+        blocked_by: { type: 'array', items: { type: 'string' }, description: 'Array of sibling sub task ids that must complete before this sub becomes visible in the main list. Empty array clears all blockers. Cycles are rejected.' },
       },
       required: ['id'],
     },
@@ -336,8 +408,8 @@ export function registerTaskTools() {
     },
     // Stage-time validation: reject updates pointing at non-existent
     // tasks UNLESS they reference a staged create earlier in the plan
-    // (forward reference resolved at commit). Also reject parent_id
-    // forward refs the same way.
+    // (forward reference resolved at commit). Also reject parent_id and
+    // blocked_by forward refs + blocked_by cycles.
     stagedValidate: (args, session) => {
       if (!args.id) return 'update_task requires an id'
       const hasReal = !!getTask(args.id)
@@ -348,6 +420,20 @@ export function registerTaskTools() {
       if (args.parent_id && args.parent_id !== args.id) {
         if (!getTask(args.parent_id) && !findStagedCreate(session, args.parent_id)) {
           return `parent_id "${args.parent_id}" doesn't match any real task or any staged create.`
+        }
+      }
+      if (Array.isArray(args.blocked_by) && args.blocked_by.length > 0) {
+        for (const id of args.blocked_by) {
+          if (!getTask(id) && !findStagedCreate(session, id)) {
+            return `blocked_by id "${id}" doesn't match any real task or any staged create.`
+          }
+        }
+        if (args.blocked_by.includes(args.id)) {
+          return 'A task cannot block on itself.'
+        }
+        const cycleAt = findBlockedByCycle(args.id, args.blocked_by, session)
+        if (cycleAt) {
+          return `Adding "${cycleAt}" as a blocker would create a cycle — that task (transitively) already waits on this one.`
         }
       }
       return null

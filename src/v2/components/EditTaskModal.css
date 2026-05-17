@@ -459,6 +459,94 @@
   background: transparent;
 }
 
+/* Blocked-by chips — pickable sibling-sub list under a sub's Project link
+ * section. Chips toggle on/off; selected ones add to this sub's blockers.
+ * Cycle-causing candidates are pre-filtered in JSX. */
+.v2-edit-blockers {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--v2-hairline);
+}
+
+.v2-edit-blockers-label {
+  font: 600 11px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.v2-edit-blockers-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.v2-edit-blocker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--v2-radius-pill, 999px);
+  background: transparent;
+  border: 1px solid var(--v2-hairline);
+  color: var(--v2-text-meta);
+  font: 500 12px/1.2 var(--v2-font-body);
+  cursor: pointer;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard),
+              border-color var(--v2-dur-quick) var(--v2-ease-standard);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v2-edit-blocker-chip:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+  color: var(--v2-text);
+}
+
+.v2-edit-blocker-chip-on {
+  background: rgba(167, 139, 250, 0.12);
+  color: var(--v2-text);
+  border-color: rgba(167, 139, 250, 0.4);
+}
+
+.v2-edit-blocker-chip-on:hover {
+  background: rgba(167, 139, 250, 0.2);
+}
+
+.v2-edit-blocker-chip-done {
+  opacity: 0.6;
+}
+
+.v2-edit-blocker-check {
+  color: #A78BFA;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.v2-edit-blockers-hint {
+  font: 400 11px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+[data-theme^="terminal"] .v2-edit-blockers {
+  border-top: 1px dashed var(--v2-text-meta);
+}
+
+[data-theme^="terminal"] .v2-edit-blocker-chip {
+  border-radius: 0;
+}
+
+[data-theme^="terminal"] .v2-edit-blocker-chip-on {
+  background: transparent;
+  border: 1px dashed var(--v2-accent);
+  color: var(--v2-accent);
+}
+
 .v2-edit-confirm-delete {
   display: inline-flex;
   align-items: center;

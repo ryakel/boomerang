@@ -30,6 +30,7 @@ export default function EditTaskModal({
   onConvertToRoutine, weather,
   projects = [],
   childTasks = [],
+  siblingSubs = [],
   onLogSession, onAddChild, onOpenTask,
 }) {
   const form = useTaskForm({
@@ -95,6 +96,10 @@ export default function EditTaskModal({
   const [nagAllowed, setNagAllowed] = useState(!!task.nag_allowed)
   const [parentId, setParentId] = useState(task.parent_id || '')
   const [childVisibility, setChildVisibility] = useState(task.child_visibility || 'backstage')
+  // blocked_by — array of sibling sub IDs this sub waits on. Hidden from
+  // main list when any blocker is incomplete. Cycle prevention happens
+  // when computing availableBlockers below.
+  const [blockedBy, setBlockedBy] = useState(() => Array.isArray(task.blocked_by) ? task.blocked_by : [])
   const [sessionFeedback, setSessionFeedback] = useState(null)
   const [loggingSession, setLoggingSession] = useState(false)
   const availableParents = projects.filter(p => p.id !== task.id)
@@ -174,13 +179,14 @@ export default function EditTaskModal({
     nag_allowed: nagAllowed,
     parent_id: parentId || null,
     child_visibility: parentId ? childVisibility : 'backstage',
+    blocked_by: parentId ? blockedBy : [],
   }), [
     form.title, form.notes, form.selectedTags, form.dueDate,
     form.size, form.energy, form.energyLevel,
     form.highPriority, form.lowPriority,
     form.attachments, form.notionResult,
     checklists, comments, weatherHidden, gcalDuration,
-    pinnedToToday, nagAllowed, parentId, childVisibility,
+    pinnedToToday, nagAllowed, parentId, childVisibility, blockedBy,
   ])
 
   const lastSavedJson = useRef(null)
@@ -1104,6 +1110,72 @@ export default function EditTaskModal({
                 <span className="v2-edit-toggle-meta">Off = visible only inside the Projects modal.</span>
               </span>
             </label>
+          )}
+          {/* Blocked-by chips. Renders sibling subs of the same parent
+            * project as togglable chips. Each chip is a potential blocker.
+            * Tap to add/remove. Subs that would create a cycle are filtered
+            * out at compute time. Done subs render with a checkmark but
+            * stay tappable (the user might be tracking history). */}
+          {parentId && siblingSubs.length > 0 && (
+            <div className="v2-edit-blockers">
+              <div className="v2-edit-blockers-label">Waits on</div>
+              {(() => {
+                // Build a transitive-blockers map so we can detect cycles.
+                // A candidate X is excluded if X (transitively) blocks on
+                // the current task — adding X as a blocker would close the
+                // loop. Trust the data: blocked_by arrays are authoritative.
+                const blockerMap = new Map(
+                  siblingSubs.map(s => [s.id, Array.isArray(s.blocked_by) ? s.blocked_by : []])
+                )
+                blockerMap.set(task.id, blockedBy) // include self in the graph
+                const wouldCycle = (candidateId) => {
+                  // BFS from candidateId following blocked_by edges.
+                  // If we reach task.id, candidate is downstream of task → cycle.
+                  const seen = new Set()
+                  const stack = [candidateId]
+                  while (stack.length) {
+                    const cur = stack.pop()
+                    if (cur === task.id) return true
+                    if (seen.has(cur)) continue
+                    seen.add(cur)
+                    const ups = blockerMap.get(cur) || []
+                    for (const u of ups) stack.push(u)
+                  }
+                  return false
+                }
+                const candidates = siblingSubs.filter(s => !wouldCycle(s.id))
+                return (
+                  <div className="v2-edit-blockers-list">
+                    {candidates.map(s => {
+                      const selected = blockedBy.includes(s.id)
+                      const isDone = s.status === 'done'
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={`v2-edit-blocker-chip${selected ? ' v2-edit-blocker-chip-on' : ''}${isDone ? ' v2-edit-blocker-chip-done' : ''}`}
+                          onClick={() => {
+                            setBlockedBy(prev => selected
+                              ? prev.filter(id => id !== s.id)
+                              : [...prev, s.id]
+                            )
+                          }}
+                          title={isDone ? `${s.title} (done — no longer blocking)` : s.title}
+                        >
+                          {selected && <span className="v2-edit-blocker-check">{isDone ? '✓' : '⏸'}</span>}
+                          {s.title}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+              <div className="v2-edit-blockers-hint">
+                {blockedBy.length > 0
+                  ? `Hidden from the main list until ${blockedBy.length === 1 ? 'this blocker is' : 'these blockers are'} done. Visible in the Projects drill-down with a "⏸ waits on" indicator.`
+                  : 'Tap a sibling sub to mark it as a blocker. This sub will only appear in the main list when all blockers are done.'}
+              </div>
+            </div>
           )}
         </div>
       ) : null}

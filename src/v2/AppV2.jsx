@@ -895,6 +895,9 @@ export default function AppV2() {
           weather={weather}
           projects={tasks.filter(t => t.status === 'project')}
           childTasks={tasks.filter(t => t.parent_id === editTarget.id)}
+          siblingSubs={editTarget.parent_id
+            ? tasks.filter(t => t.parent_id === editTarget.parent_id && t.id !== editTarget.id)
+            : []}
           onLogSession={handleLogSession}
           onAddChild={(project) => {
             setEditTarget(null)
