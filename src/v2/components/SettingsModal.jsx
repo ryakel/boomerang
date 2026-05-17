@@ -1502,6 +1502,59 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
+      {/* Daily digest — per-channel opt-in. sendDigestNow gates on these flags,
+          not on channel masters, so users with push/email/pushover enabled still
+          need to opt into the digest separately. */}
+      <div className="v2-settings-block">
+        <div className="v2-form-label">Daily digest</div>
+        <div className="v2-settings-row-hint">Curated daily summary — yesterday recap + streak, today's focus, coming up, carrying, quick wins. Each channel must opt in separately.</div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Web push digest</div>
+            <div className="v2-settings-row-hint">Requires Web push to be enabled and subscribed on this device.</div>
+          </div>
+          <Toggle
+            checked={settings.push_digest_enabled === true}
+            onChange={e => update('push_digest_enabled', e.target.checked)}
+            disabled={settings.push_notifications_enabled !== true}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Email digest</div>
+            <div className="v2-settings-row-hint">Requires Email to be enabled with a recipient address.</div>
+          </div>
+          <Toggle
+            checked={settings.email_digest_enabled === true}
+            onChange={e => update('email_digest_enabled', e.target.checked)}
+            disabled={settings.email_notifications_enabled !== true}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Pushover digest</div>
+            <div className="v2-settings-row-hint">Delivers as a single priority-0 Pushover message each morning.</div>
+          </div>
+          <Toggle
+            checked={settings.pushover_digest_enabled === true}
+            onChange={e => update('pushover_digest_enabled', e.target.checked)}
+            disabled={settings.pushover_notifications_enabled !== true}
+          />
+        </div>
+        <div className="v2-settings-row" style={{ marginTop: 8 }}>
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">Delivery time</label>
+            <div className="v2-settings-row-hint">Local time on the server. Default 07:00.</div>
+          </div>
+          <input
+            type="time"
+            className="v2-form-input v2-settings-time-input"
+            value={settings.digest_time || '07:00'}
+            onChange={e => update('digest_time', e.target.value)}
+          />
+        </div>
+      </div>
+
       {/* Test channels — fire a one-off notification per channel to verify config */}
       <div className="v2-settings-block">
         <div className="v2-form-label">Test channels</div>
@@ -1514,7 +1567,8 @@ function NotificationsPanel({ settings, update }) {
               fn: () => import('../../api').then(m => m.testEmail()) },
             { key: 'pushover', label: 'Test Pushover', enabled: settings.pushover_notifications_enabled === true && !!settings.pushover_user_key,
               fn: () => import('../../api').then(m => m.testPushover({ userKey: settings.pushover_user_key, appToken: settings.pushover_app_token })) },
-            { key: 'digest', label: 'Test digest', enabled: settings.push_notifications_enabled || settings.email_notifications_enabled || settings.pushover_digest_enabled,
+            { key: 'digest', label: 'Test digest',
+              enabled: settings.push_digest_enabled === true || settings.email_digest_enabled === true || settings.pushover_digest_enabled === true,
               fn: () => import('../../api').then(m => m.testDigest()) },
           ].map(t => {
             const state = tests[t.key] || {}

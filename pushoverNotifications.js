@@ -691,7 +691,16 @@ export async function sendDigestNow() {
     skipped.push({ channel: 'push', reason: 'disabled' })
   }
 
-  return { success: fired.length > 0, fired, skipped, subject: digest.subject }
+  if (fired.length === 0) {
+    const reasons = skipped.map(s => `${s.channel}: ${s.reason}`).join('; ')
+    return {
+      success: false,
+      fired,
+      skipped,
+      error: `No digest channel delivered. Enable at least one of push_digest, email_digest, or pushover_digest in Settings → Notifications → Daily digest. (${reasons})`,
+    }
+  }
+  return { success: true, fired, skipped, subject: digest.subject }
 }
 
 // --- Lifecycle ---
