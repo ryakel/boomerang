@@ -793,15 +793,17 @@ export default function AppV2() {
           />
         ) : (
           <div className="v2-list">
-            {/* Terminal home header: date + streak + today's progress as a
-              * single powerlevel10k-style segmented line. Only renders in
-              * terminal mode; light/dark have the mini-rings in the app
-              * header for the same job. */}
-            {isTerminal && (() => {
+            {/* Home stats line: date + streak + today's progress.
+              * Originally terminal-only; lifted to all themes 2026-05-17
+              * because users still want the streak + today's progress
+              * glanceable even when the mini-rings are visible in the
+              * header (rings show ratios, this line names them). Date
+              * is a toggle for the WeekStrip below. */}
+            {(() => {
               const alwaysOpen = !!settingsForRings.week_strip_always_open
               const open = alwaysOpen || weekStripShown
               return (
-                <div className="v2-terminal-home-stats" aria-hidden="false">
+                <div className="v2-home-stats" aria-hidden="false">
                   <button
                     type="button"
                     className={`v2-thx-date v2-thx-date-toggle${open ? ' v2-thx-date-open' : ''}`}
@@ -827,7 +829,7 @@ export default function AppV2() {
                 </div>
               )
             })()}
-            {((isTerminal && (settingsForRings.week_strip_always_open || weekStripShown)) ||
+            {(settingsForRings.week_strip_always_open || weekStripShown ||
               (!isTerminal && settingsForRings.show_week_strip)) && (
               <WeekStrip
                 tasks={tasks}

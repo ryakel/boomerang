@@ -512,17 +512,12 @@
  * (errand-green). Separators in faint text.
  */
 
-.v2-terminal-home-stats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 6px 8px;
-  padding: 12px 0 10px;
+/* Terminal-specific surface for the home stats line. Light/dark get
+ * their own base styling in src/v2/AppV2.css; this just adds the
+ * terminal-flavor padding + segment alignment. */
+[data-theme^="terminal"] .v2-home-stats {
   font: 500 12px/1 var(--v2-font-body);
-  color: var(--v2-text-meta);
   letter-spacing: 0;
-  text-align: center;
 }
 
 .v2-thx-date {

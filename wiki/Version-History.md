@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- feat(ui): home stats line now renders in light/dark, not just terminal [XS]
+  - **The gap.** Terminal mode shows a "📅 Sun, May 17 · 🔥 12 days · ✓ 3/3 today" line above the WeekStrip — a powerlevel10k-style status segment. Light + dark themes had this gated off via `isTerminal &&` in AppV2.jsx; users saw the WeekStrip but not the textual header. Mini-rings in the app header technically convey the same info but they're ratios, not named values.
+  - **Fix.** Drop the `isTerminal` JSX gate. The home-stats line renders in every theme. The wrapper class renamed from `.v2-terminal-home-stats` → `.v2-home-stats` (theme-agnostic). Base styling lives in `AppV2.css`; terminal-specific monospace flavoring stays in `terminal/init.css` under `[data-theme^="terminal"] .v2-home-stats`. Date toggle behavior (click to expand/collapse the WeekStrip) works in all themes.
+  - The WeekStrip-visibility condition also simplified — `weekStripShown` state now applies to all themes, not just terminal.
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/AppV2.css`, `src/v2/terminal/init.css`, `wiki/Version-History.md`
+
 - fix(quokka): orphan sub-tasks + duplicate-delete crash + chat bar disappearing [M]
   - **Bug A — orphan sub-tasks.** Quokka asked to "build out sub-tasks for the vacation project" created 8 top-level tasks with NO `parent_id`. The model would then try a follow-up `link_task_to_project` for each, but `search_tasks` only returns 20 hits by default and the model couldn't find them all → most stayed orphan. Root cause: `create_task` schema didn't accept `parent_id`, forcing a two-step create-then-link workflow.
   - **Fix A.** `create_task` schema gains `parent_id` + `child_visibility` + `pinned_to_today` + `nag_allowed`. The new task is linked at creation time — no follow-up tool call. `update_task` gains the same four fields so existing orphans can be linked with a single call instead of a separate `link_task_to_project`. `TASK_FIELDS` updated so `pickTaskUpdates` passes them through. `child_visibility` defaults to `'active'` when `parent_id` is set (matches the manual "+ Add child step" UI). Validation: parent must exist and can't be self.
