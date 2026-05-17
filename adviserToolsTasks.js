@@ -7,6 +7,8 @@ import crypto from 'crypto'
 import {
   upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
+  getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
+  PROJECT_CONSTANTS,
 } from './db.js'
 import { registerTool } from './adviserTools.js'
 
@@ -29,11 +31,18 @@ function summarizeTask(t) {
     tags: t.tags || [],
     high_priority: !!t.high_priority,
     snoozed_until: t.snoozed_until || null,
+    snooze_indefinite: !!t.snooze_indefinite,
     notion_page_id: t.notion_page_id || null,
     trello_card_id: t.trello_card_id || null,
     gcal_event_id: t.gcal_event_id || null,
     created_at: t.created_at,
     completed_at: t.completed_at || null,
+    parent_id: t.parent_id || null,
+    pinned_to_today: !!t.pinned_to_today,
+    nag_allowed: !!t.nag_allowed,
+    session_count: t.session_count || 0,
+    last_session_at: t.last_session_at || null,
+    child_visibility: t.child_visibility || 'backstage',
   }
 }
 
@@ -305,9 +314,160 @@ export function registerTaskTools() {
     () => ({ completed_at: new Date().toISOString() }))
   statusShortcut('reopen_task', 'Reopen a completed task. Sets status=not_started and clears completed_at.', 'not_started',
     () => ({ completed_at: null }))
-  statusShortcut('move_to_projects', 'Move to Projects (long-term, no notifications, no nagging).', 'project')
+  statusShortcut('move_to_projects', 'Move to Projects (long-term, no notifications by default — see project_set_nag_policy to opt in).', 'project')
   statusShortcut('move_to_backlog', 'Move to Backlog (someday/maybe, hidden from main view).', 'backlog')
   statusShortcut('activate_task', 'Move a project/backlog task back to the active list.', 'not_started')
+
+  // --- PROJECT TOOLS ---
+  // Pinning, session logging, child management, nag policy. These all
+  // operate on tasks where status='project'. They share the same capture-
+  // and-restore compensation pattern as the rest of the task tools.
+
+  registerTool({
+    name: 'list_project_children',
+    description: 'List child tasks (status + size + energy) of a project. Use to figure out what the project is actually composed of before adding/editing.',
+    readOnly: true,
+    schema: {
+      type: 'object',
+      properties: { project_id: { type: 'string' } },
+      required: ['project_id'],
+    },
+    execute: async ({ project_id }) => {
+      const project = getTask(project_id)
+      if (!project) throw new Error(`Project not found: ${project_id}`)
+      const children = getChildTasks(project_id)
+      const budget = computeProjectBudget(project)
+      const sessionPoints = computeSessionPoints(project)
+      return {
+        result: {
+          project: summarizeTask(project),
+          children: children.map(summarizeTask),
+          budget,
+          session_points: sessionPoints,
+          session_count: project.session_count || 0,
+          session_cap: PROJECT_CONSTANTS.SESSION_CAP,
+          pinned_to_today: !!project.pinned_to_today,
+          nag_allowed: !!project.nag_allowed,
+        },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'pin_project_to_today',
+    description: 'Pin or unpin a project to the main task list. Pinning surfaces it as a "Pinned projects" section above the regular task list. Visibility only — no nags are introduced.',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        pinned: { type: 'boolean', description: 'true to pin, false to unpin' },
+      },
+      required: ['id', 'pinned'],
+    },
+    preview: (args) => `${args.pinned ? 'Pin' : 'Unpin'} project "${taskLabel(args.id)}"`,
+    execute: async ({ id, pinned }) => {
+      const before = getTask(id)
+      if (!before) throw new Error(`Project not found: ${id}`)
+      if (before.status !== 'project') throw new Error('pin_project_to_today requires a project (status=project)')
+      updateTaskPartial(id, { pinned_to_today: !!pinned, last_touched: new Date().toISOString() })
+      return {
+        result: { id, pinned: !!pinned },
+        compensation: async () => { upsertTask(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'log_project_session',
+    description: 'Log a "worked on this" session for a project — awards a fraction of the project effort budget as points, bumps the streak, and writes an activity-log entry. Capped at 10 sessions per project before requiring a child completion.',
+    schema: {
+      type: 'object',
+      properties: { project_id: { type: 'string' } },
+      required: ['project_id'],
+    },
+    preview: (args) => `Log a session on "${taskLabel(args.project_id)}"`,
+    execute: async ({ project_id }) => {
+      const before = getTask(project_id)
+      if (!before) throw new Error(`Project not found: ${project_id}`)
+      if (before.status !== 'project') throw new Error('log_project_session requires a project (status=project)')
+      const result = logProjectSession(project_id)
+      if (result.capped) {
+        return {
+          result: { capped: true, session_count: result.sessionCount, session_cap: result.sessionCap },
+        }
+      }
+      return {
+        result: {
+          points: result.points,
+          session_count: result.sessionCount,
+          session_cap: result.sessionCap,
+          timestamp: result.timestamp,
+        },
+        compensation: async () => { upsertTask(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'project_set_nag_policy',
+    description: 'Toggle whether a project can produce notifications when it has no due date. Off = silent (default). On = calm stale/nudge reminders fire. When a due date IS set on the project, escalation runs regardless of this flag.',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        nag_allowed: { type: 'boolean' },
+      },
+      required: ['id', 'nag_allowed'],
+    },
+    preview: (args) => `${args.nag_allowed ? 'Enable' : 'Disable'} nags on project "${taskLabel(args.id)}"`,
+    execute: async ({ id, nag_allowed }) => {
+      const before = getTask(id)
+      if (!before) throw new Error(`Project not found: ${id}`)
+      if (before.status !== 'project') throw new Error('project_set_nag_policy requires a project (status=project)')
+      updateTaskPartial(id, { nag_allowed: !!nag_allowed, last_touched: new Date().toISOString() })
+      return {
+        result: { id, nag_allowed: !!nag_allowed },
+        compensation: async () => { upsertTask(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'link_task_to_project',
+    description: 'Set a task\'s parent_id to a project (so completing the task counts toward the project). Pass parent_id=null to unlink. Optionally set child_visibility: "active" surfaces the child in the main list under the pinned project; "backstage" hides it until you drill into the project.',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        parent_id: { type: ['string', 'null'] },
+        child_visibility: { type: 'string', enum: ['active', 'backstage'] },
+      },
+      required: ['id'],
+    },
+    preview: (args) => args.parent_id
+      ? `Link "${taskLabel(args.id)}" under project "${taskLabel(args.parent_id)}"${args.child_visibility ? ` (${args.child_visibility})` : ''}`
+      : `Unlink "${taskLabel(args.id)}" from its project`,
+    execute: async ({ id, parent_id, child_visibility }) => {
+      const before = getTask(id)
+      if (!before) throw new Error(`Task not found: ${id}`)
+      if (parent_id) {
+        const parent = getTask(parent_id)
+        if (!parent) throw new Error(`Parent project not found: ${parent_id}`)
+        if (parent.status !== 'project') throw new Error('Parent must be a project (status=project)')
+        if (parent_id === id) throw new Error('A task cannot be its own parent')
+      }
+      const updates = {
+        parent_id: parent_id || null,
+        last_touched: new Date().toISOString(),
+      }
+      if (child_visibility) updates.child_visibility = child_visibility
+      updateTaskPartial(id, updates)
+      return {
+        result: { id, parent_id: parent_id || null, child_visibility: child_visibility || before.child_visibility },
+        compensation: async () => { upsertTask(before) },
+      }
+    },
+  })
 
   registerTool({
     name: 'snooze_task',

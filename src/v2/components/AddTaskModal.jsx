@@ -14,7 +14,7 @@ const ENERGY_LEVEL_LABELS = [
 
 const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL']
 
-export default function AddTaskModal({ open, onAdd, onClose }) {
+export default function AddTaskModal({ open, onAdd, onClose, parentProject = null }) {
   const form = useTaskForm({ dueDate: getDefaultDueDate() })
   const titleRef = useRef(null)
 
@@ -44,11 +44,22 @@ export default function AddTaskModal({ open, onAdd, onClose }) {
   const priorityLabel = priorityState === 'high' ? '! High' : priorityState === 'low' ? '↓ Low' : 'Normal'
 
   return (
-    <ModalShell open={open} onClose={onClose} title="New task" terminalTitle="> task --new" width="narrow">
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      title={parentProject ? `New step in ${parentProject.title}` : 'New task'}
+      terminalTitle={parentProject ? `> task --new --parent="${parentProject.title}"` : '> task --new'}
+      width="narrow"
+    >
+      {parentProject && (
+        <div className="v2-form-parent-banner">
+          Adding a child step to <strong>{parentProject.title}</strong>. It surfaces under the pinned project automatically.
+        </div>
+      )}
       <input
         ref={titleRef}
         className="v2-form-input v2-form-title"
-        placeholder="What needs doing?"
+        placeholder={parentProject ? 'What\'s the next step?' : 'What needs doing?'}
         value={form.title}
         onChange={e => form.setTitle(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit() }}

@@ -523,8 +523,12 @@ export function formatDueDate(dateStr) {
   return `due ${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
 }
 
-export function formatSnoozeLabel(dateStr) {
+export function formatSnoozeLabel(dateStr, opts = {}) {
   const date = new Date(dateStr)
+  // "Later — set aside" sentinel: any date past year 2099. Used by the
+  // indefinite-snooze option. Caller can also pass {indefinite: true} for
+  // explicit checks against task.snooze_indefinite.
+  if (opts.indefinite || date.getFullYear() >= 2099) return 'set aside'
   const now = new Date()
   const diffMs = date.getTime() - now.getTime()
   const diffHours = diffMs / 3600000
@@ -633,11 +637,19 @@ export function computeStreak(tasks, settings) {
   // working backward from today. Empty-task days (no completions AND no
   // tasks were active on that day) are treated as no-fault — the streak
   // continues across them. Easter-egg wins count as a completion.
+  // Project session logs also count as completions for streak purposes —
+  // chipping away at a project counts as "did something today" the same
+  // as ticking off a one-shot task.
   const completionDates = new Set()
   let earliest = null
   for (const t of tasks) {
     if (t.status === 'done' && t.completed_at) {
       completionDates.add(new Date(t.completed_at).toDateString())
+    }
+    if (t.status === 'project' && Array.isArray(t.session_log)) {
+      for (const entry of t.session_log) {
+        if (entry?.timestamp) completionDates.add(new Date(entry.timestamp).toDateString())
+      }
     }
     if (t.created_at) {
       const c = new Date(t.created_at)
@@ -738,7 +750,9 @@ export function logActivity(action, task) {
   const log = loadActivityLog()
   log.unshift({
     id: uuid(),
-    action, // 'created' | 'completed' | 'deleted' | 'status_changed' | 'edited' | 'snoozed' | 'priority_changed'
+    // 'created' | 'completed' | 'deleted' | 'status_changed' | 'edited' |
+    // 'snoozed' | 'priority_changed' | 'reopened' | 'skipped' | 'session_logged'
+    action,
     task_id: task.id,
     task_title: task.title,
     task_snapshot: { ...task },

@@ -562,28 +562,54 @@ Repeat subscribes from the same device (PWA reinstall, iOS evicts subscription, 
 - **Centralized notification dispatcher** — refactor three independent transport loops into one shared dispatcher when the 4th transport lands.
 - **Default-off web push if Pushover dominates analytics** — 2-week decision criterion. Not a code change; a config flip if data warrants.
 
-### Projects (Long-term Safe Space)
-Dedicated space for longer-term tasks that should never trigger notifications or nagging.
+### Projects (Long-term Work, Now Integrated into the Daily Flow)
+Long-term work lives as `status: 'project'` tasks. Originally a fully calm "safe space" away from the daily list; expanded 2026-05-17 to surface in the daily flow on demand, count sessions toward points, and opt into nagging when a deadline matters.
 
-**Status:** Tasks with `status: 'project'` live in a separate Projects view, accessible via the folder icon in the header.
+**The four moving parts (migration 028 added the columns):**
 
-**Behavior:**
-- Excluded from all notifications (client-side, email, push) — not in `ACTIVE_STATUSES`
-- Excluded from "What Now?" suggestions
-- Excluded from GCal sync (existing events are removed when moved to Projects)
-- Excluded from Trello status sync (Boomerang-local-only, like backlog)
-- No stale/overdue visual indicators in the Projects view
-- Separate from backlog — projects are intentional longer-term work, backlog is someday/maybe
-- "Move to Projects" button in EditTaskModal, "Activate" to move back to active
-- Projects column in desktop Kanban view
+1. **Pinning (`pinned_to_today`).** Visibility toggle. Pinned projects render as a "Pinned projects" section at the top of the v2 main list with a custom card (session count, days-since-last-touched, budget, child count, primary actions). Toggle from the EditTaskModal "Project" section, the ProjectsView card pin icon, or Quokka's `pin_project_to_today` tool. Unpinning never deletes — the project just falls back to the Projects modal.
 
-**UI:**
-- Header icon (FolderKanban, purple `#A78BFA`) opens the Projects view
-- Mobile: full-screen overlay (same pattern as Settings/Packages)
-- Desktop: sheet modal (same pattern as Packages)
-- Calm empty state with instructions when no projects exist
+2. **Sessions (`session_count` + `last_session_at` + `session_log_json`).** Tap **Log session** on a pinned project (or call `log_project_session`) to record "I worked on this for a chunk." Awards `effort_budget × 0.10` points (min 1, rounded), capped at 10 sessions per project. After the cap the button greys out with "Complete a child or the project to log more." Sessions feed:
+   - The daily points/tasks counter (`computeDailyStats` in `src/scoring.js` sums today's session entries across every project).
+   - The streak (`computeStreak` in `src/store.js` treats every session-logged day as a completion day, alongside `done` tasks and easter-egg wins).
+   - The activity log (`logActivity('session_logged', task)`).
+   - The project card's visible meta (`🔥 N sessions · last touched 2d ago`).
 
-**Implementation:** `src/components/ProjectsView.jsx`, `src/components/ProjectsView.css`
+   **Budget formula:** `max(project's own size×energy, sum of children's size×energy, 20-pt floor)`. Sums-of-children means the project naturally scales without needing sizes beyond XL — a vacation with 8 children at ~25pt each becomes a 200pt budget → 20pt/session. Tiny solo projects fall back to the 20pt floor.
+
+3. **Parent/child (`parent_id` + `child_visibility`).** A task with `parent_id` set is a child of a project. `child_visibility` is `'active'` or `'backstage'`:
+   - `'active'` children of a **pinned** project surface in the main list under the parent with a `↳` continuation glyph, are filtered out of the regular Doing/Stale/Up next sections, and render as full `TaskCard`s.
+   - `'backstage'` children only show inside the ProjectsView drill-down.
+   - Defaults to `'backstage'` so adding a child via Quokka or the edit modal doesn't immediately clutter the main list.
+
+   Set the parent + visibility via EditTaskModal's "Project link" section, the "+ Add child step" button on a pinned project card (which opens AddTaskModal pre-stamping the parent + visibility=active), or `link_task_to_project`. The ProjectsView drill-down has a per-child toggle to flip Active↔Backstage in place.
+
+4. **Nag policy (`nag_allowed`).** Projects stay silent by default. Set `nag_allowed=true` per project to enable calm stale/nudge notifications when there's no due date. Set a `due_date` and the project gets the full high-priority escalation regardless (the toggle UI disables itself with a note explaining why). Implementation lives in the shared `isNotifiable(task)` helper in `db.js` — all four notification surfaces (push/email/pushover/digest) consume it instead of the legacy hardcoded `ACTIVE_STATUSES.includes(...)` filter.
+
+**"Later, fuck off" snooze (`snooze_indefinite`).** Not project-specific but shipped together. New snooze option labeled "Later — set aside" sets `snoozed_until = 2099-12-31` + `snooze_indefinite = true`. Task lives in Snoozed but never auto-resurfaces. `isNotifiable()` excludes any task with `snooze_indefinite`. `formatSnoozeLabel()` renders the sentinel as "set aside". v2 SnoozeModal also gains an "↺ Bring back now" affordance at the top when the task is already snoozed.
+
+**Server endpoints (in `server.js`):**
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/projects/:id/children` | Project + children + budget + session_points + cap |
+| `POST /api/projects/:id/log-session` | Log a session (409 if capped) |
+
+**Existing behavior preserved:**
+- Projects still excluded from "What Now?" suggestions.
+- Projects still excluded from GCal sync (existing events removed when moved to Projects).
+- Projects still excluded from Trello status sync.
+- Projects column still appears in desktop Kanban view (uses TaskCard, so no session-logging UI there — that lives on the dedicated `ProjectPinnedSection` card).
+- Header icon (`FolderKanban`, purple `#A78BFA`) still opens ProjectsView from the overflow menu.
+
+**Quokka tools (5 new):** `pin_project_to_today`, `log_project_session`, `project_set_nag_policy`, `link_task_to_project`, `list_project_children`. All follow the existing capture-and-restore compensation pattern. `summarizeTask()` now exposes the new project fields so Quokka can read state before acting.
+
+**Implementation:** `src/v2/components/ProjectPinnedSection.{jsx,css}` (pinned card + indented children), `src/v2/components/ProjectsView.{jsx,css}` (drill-down), `src/v2/components/EditTaskModal.{jsx,css}` (Project + Project-link sections), `src/v2/components/SnoozeModal.{jsx,css}` ("set aside" + bring-back), `src/hooks/useTasks.js` (state + actions), `src/scoring.js` (budget + session-points helpers + streak counting), `src/store.js` (`computeStreak` extension + `formatSnoozeLabel` sentinel), `db.js` (`isNotifiable`, `logProjectSession`, `computeProjectBudget`, `getChildTasks`), `adviserToolsTasks.js` (5 new tools).
+
+**Known limitations:**
+- Desktop Kanban doesn't render the dedicated pinned-project card with session controls — it still uses generic TaskCard. Log session + Add child have to be done from the EditTaskModal or the mobile/main view. Tracked as future polish.
+- No analytics surface for session frequency yet (could detect "you're only logging sessions on this project once every 2 weeks → are you sure it should be active?").
+- Sessions can't be retroactively edited (timestamps + points are immutable once logged) — would need an "undo last session" affordance if it becomes a problem.
+- Auto-completion of a project when all children are done is NOT wired — the user has to explicitly mark the project done. Intentional: the project usually represents wrap-up work beyond the children themselves.
 
 ### Gmail Integration (AI Email Scanner)
 Connects to Gmail via OAuth and uses AI to automatically extract tasks and package tracking numbers from emails.

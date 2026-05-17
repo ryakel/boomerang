@@ -10,7 +10,7 @@
 import nodemailer from 'nodemailer'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail, countPendingSuggestions } from './db.js'
+import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail, countPendingSuggestions, isNotifiable } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -366,7 +366,7 @@ async function runNotificationCheck() {
     const batchItems = [] // collect items when batching
 
     const allTasks = queryTasks({})
-    const activeTasks = allTasks.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.gmail_pending)
+    const activeTasks = allTasks.filter(isNotifiable)
     if (activeTasks.length === 0) return
 
     const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
