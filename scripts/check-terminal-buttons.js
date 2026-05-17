@@ -56,6 +56,7 @@ const EXEMPT = new Set([
   'v2-suggestion-title-row', // pure layout — title + cadence chip side by side
   'v2-edit-toggle',          // false positive from .v2-edit-toggle-row (covered explicitly)
   'v2-pp-title-row',         // layout — title + due-date row inside pinned-project card
+  'v2-pv-visibility-row',    // layout — single-button row under a sub card; child .v2-pv-visibility-toggle is covered
 ])
 
 async function walk(dir, ext, out = []) {

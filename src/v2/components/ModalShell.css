@@ -117,6 +117,26 @@
   .v2-modal-body {
     padding: 24px;
   }
+
+  /* flexBody mode (opt-in via prop) — the modal itself becomes a flex
+   * column with the header fixed and the body filling remaining height.
+   * Used by AdviserModal so its internal messages container can grow to
+   * fill the viewport instead of being capped at 60dvh. Other modals
+   * are unaffected. */
+  .v2-modal-flex {
+    display: flex;
+    flex-direction: column;
+  }
+  .v2-modal-flex .v2-modal-header {
+    flex: 0 0 auto;
+  }
+  .v2-modal-body-flex {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;       /* allow children with overflow to size correctly */
+    overflow: hidden;    /* internal content handles its own scroll */
+  }
 }
 
 @keyframes v2-modal-slide {
