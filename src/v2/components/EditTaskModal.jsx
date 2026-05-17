@@ -98,7 +98,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
       setSessionFeedback({ ok: true, text: `+${result.points} pts logged · ${result.sessionCount}/${result.sessionCap} sessions` })
     } catch (err) {
       if (err.code === 'SESSION_CAP_REACHED') {
-        setSessionFeedback({ ok: false, text: `Cap reached — complete a child or the project to log more.` })
+        setSessionFeedback({ ok: false, text: `Cap reached — complete a sub or the project to log more.` })
       } else {
         setSessionFeedback({ ok: false, text: 'Failed to log session.' })
       }
@@ -1001,9 +1001,9 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
                   type="button"
                   className="v2-edit-action"
                   onClick={() => onAddChild(task)}
-                  title="Add a child task under this project"
+                  title="Add a sub-task under this project"
                 >
-                  + Add child step
+                  + Add sub
                 </button>
               )}
             </div>

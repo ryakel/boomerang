@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- copy(projects): "children" → "subs" everywhere user-visible [XS]
+  - **Why.** "no children · no sessions · budget 20" sounded clinical/awkward on the Projects modal meta line. User preference: subs.
+  - **Visible strings updated.** ProjectsView meta `"no children"` / `"X/Y active"` → `"no subs"` / `"X/Y subs"`. Empty drill-down `"No child tasks yet."` → `"No subs yet."` Empty Projects state body mentions "subs" explicitly now. Pinned-section meta `"N active steps"` → `"N active subs"`. Cap-feedback strings `"complete a child or the project"` → `"complete a sub or the project"`. Add-child buttons relabeled `"Sub"` (was `"Step"`). AddTaskModal title `"New step in X"` → `"New sub in X"`; banner copy + placeholder updated to match. Tooltips and aria-labels harmonized.
+  - **Code names unchanged.** `child_visibility`, `parent_id`, `getChildTasks()`, `getChildren`, `activeChildren`, `onAddChild` etc. stay as-is — they're internal terminology, not user-facing.
+  - Modified: `src/v2/components/ProjectsView.jsx`, `src/v2/components/ProjectPinnedSection.jsx`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/AddTaskModal.jsx`, `wiki/Version-History.md`
+
 - fix(projects): mobile layout — title truncated to "Canc...", actions too cramped [XS]
   - **Bug.** ProjectsView card rendered chev + title + meta + 3 action buttons all on one row. On a narrow viewport (iPhone, etc.) the title got `text-overflow: ellipsis`-clipped to "Canc..." for any project longer than ~5 characters, and the icon-only Pin/Add/Edit buttons jammed against the title's right edge with no breathing room.
   - **Fixes (`ProjectsView.{jsx,css}`):**
