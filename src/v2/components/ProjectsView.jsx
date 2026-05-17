@@ -147,7 +147,11 @@ export default function ProjectsView({
                         {activeChildren.length > 0 && (
                           <div className="v2-pv-children-group">
                             <div className="v2-pv-children-label">Active</div>
-                            {activeChildren.map(child => (
+                            {[...activeChildren].sort((a, b) => {
+                              const ad = a.due_date || '9999-12-31'
+                              const bd = b.due_date || '9999-12-31'
+                              return ad.localeCompare(bd)
+                            }).map(child => (
                               <div key={child.id} className="v2-pv-child-card">
                                 <TaskCard
                                   task={child}
@@ -160,14 +164,16 @@ export default function ProjectsView({
                                   routineStreaks={routineStreaks}
                                 />
                                 {onSetChildVisibility && (
-                                  <button
-                                    type="button"
-                                    className="v2-pv-visibility-toggle"
-                                    onClick={() => onSetChildVisibility(child.id, child.child_visibility === 'active' ? 'backstage' : 'active')}
-                                    title={child.child_visibility === 'active' ? 'Hide from main list' : 'Show in main list'}
-                                  >
-                                    {child.child_visibility === 'active' ? 'In main list' : 'Backstage'}
-                                  </button>
+                                  <div className="v2-pv-visibility-row">
+                                    <button
+                                      type="button"
+                                      className="v2-pv-visibility-toggle"
+                                      onClick={() => onSetChildVisibility(child.id, child.child_visibility === 'active' ? 'backstage' : 'active')}
+                                      title={child.child_visibility === 'active' ? 'Hide from main list' : 'Show in main list'}
+                                    >
+                                      {child.child_visibility === 'active' ? '✓ in main list' : '○ backstage'}
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             ))}

@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { useTerminalMode } from '../hooks/useTerminalMode'
 import './ModalShell.css'
 
-export default function ModalShell({ open, onClose, title, terminalTitle, subtitle, headerSlot, children, width = 'narrow' }) {
+export default function ModalShell({ open, onClose, title, terminalTitle, subtitle, headerSlot, children, width = 'narrow', flexBody = false }) {
   const terminal = useTerminalMode()
   useEffect(() => {
     if (!open) return
@@ -21,7 +21,10 @@ export default function ModalShell({ open, onClose, title, terminalTitle, subtit
 
   return (
     <div className="v2-modal-overlay" onClick={onClose}>
-      <div className={`v2-modal v2-modal-${width}`} onClick={e => e.stopPropagation()}>
+      <div
+        className={`v2-modal v2-modal-${width}${flexBody ? ' v2-modal-flex' : ''}`}
+        onClick={e => e.stopPropagation()}
+      >
         <button className="v2-modal-close" onClick={onClose} aria-label="Close">
           <X size={18} strokeWidth={1.75} />
         </button>
@@ -30,7 +33,7 @@ export default function ModalShell({ open, onClose, title, terminalTitle, subtit
           <h1 className="v2-modal-title">{terminal && terminalTitle ? terminalTitle : title}</h1>
           {subtitle && <p className="v2-modal-subtitle">{subtitle}</p>}
         </header>
-        <div className="v2-modal-body">
+        <div className={`v2-modal-body${flexBody ? ' v2-modal-body-flex' : ''}`}>
           {children}
         </div>
       </div>

@@ -208,20 +208,28 @@
 }
 
 .v2-pv-child-card {
-  position: relative;
+  /* No longer position: relative — the visibility toggle now lives on its
+   * own row below the TaskCard via .v2-pv-visibility-row so it can't
+   * overlap the card's energy chip in the top-right corner. */
+}
+
+.v2-pv-visibility-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 2px 0 8px;
+  padding: 0 8px;
 }
 
 .v2-pv-visibility-toggle {
-  position: absolute;
-  top: 8px;
-  right: 8px;
   background: transparent;
   border: 1px dashed var(--v2-hairline);
   color: var(--v2-text-meta);
   font: 500 10px/1 var(--v2-font-body);
   border-radius: var(--v2-radius-pill, 999px);
-  padding: 4px 8px;
+  padding: 4px 10px;
   cursor: pointer;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard),
+              color var(--v2-dur-quick) var(--v2-ease-standard);
 }
 
 .v2-pv-visibility-toggle:hover {

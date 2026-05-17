@@ -132,7 +132,7 @@ export default function AppV2() {
     tasks, setTasks, addTask, addSpawnedTasks, completeTask, snoozeTask, unsnoozeTask, replaceTask, updateTask,
     uncompleteTask, changeStatus, deleteTask, clearCompleted, clearAll,
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
-    pinnedProjects, activeChildrenOfPinned,
+    pinnedProjects, activeChildrenOfPinned, isPinnedChild,
     setProjectPinned, setTaskParent, setChildVisibility, logProjectSession,
   } = useTasks()
   const {
@@ -259,11 +259,16 @@ export default function AppV2() {
     return list.filter(t => Array.isArray(t.tags) && t.tags.includes(activeFilter))
   }, [activeFilter])
 
-  const sortedDoing = sortTasks(filterTasks(doingTasks), sortBy)
-  const sortedStale = sortTasks(filterTasks(staleTasks), sortBy)
-  const sortedUpNext = sortTasks(filterTasks(upNextTasks), sortBy)
-  const sortedWaiting = sortTasks(filterTasks(waitingTasks), sortBy)
-  const sortedSnoozed = sortTasks(filterTasks(snoozedTasks), sortBy)
+  // On mobile, active children of pinned projects render inside the
+  // ProjectPinnedSection so we filter them out of the regular sections to
+  // avoid double-display. On desktop, the Kanban has no pinned-projects
+  // section, so the children show in their natural status columns.
+  const dropPinnedChildren = (list) => isDesktop ? list : list.filter(t => !isPinnedChild(t))
+  const sortedDoing = sortTasks(dropPinnedChildren(filterTasks(doingTasks)), sortBy)
+  const sortedStale = sortTasks(dropPinnedChildren(filterTasks(staleTasks)), sortBy)
+  const sortedUpNext = sortTasks(dropPinnedChildren(filterTasks(upNextTasks)), sortBy)
+  const sortedWaiting = sortTasks(dropPinnedChildren(filterTasks(waitingTasks)), sortBy)
+  const sortedSnoozed = sortTasks(dropPinnedChildren(filterTasks(snoozedTasks)), sortBy)
   const backlogTasks = sortTasks(filterTasks(tasks.filter(t => t.status === 'backlog')), sortBy)
   const projectTasks = sortTasks(filterTasks(tasks.filter(t => t.status === 'project')), sortBy === 'age' ? 'name' : sortBy)
 
@@ -889,11 +894,13 @@ export default function AppV2() {
           onConvertToRoutine={handleConvertToRoutine}
           weather={weather}
           projects={tasks.filter(t => t.status === 'project')}
+          childTasks={tasks.filter(t => t.parent_id === editTarget.id)}
           onLogSession={handleLogSession}
           onAddChild={(project) => {
             setEditTarget(null)
             handleAddChildToProject(project)
           }}
+          onOpenTask={(otherTask) => setEditTarget(otherTask)}
         />
       )}
 

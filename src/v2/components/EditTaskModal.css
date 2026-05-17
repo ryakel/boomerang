@@ -289,6 +289,176 @@
   font-family: var(--v2-font-body);
 }
 
+/* "Sub of <project>" banner — surfaces parent project at the top of the
+ * EditTaskModal when this task has a parent. Tappable; opens the parent.
+ * Sits above the title input. */
+.v2-edit-parent-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  margin: -4px 0 12px;
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.30);
+  border-radius: 10px;
+  color: var(--v2-text);
+  font: 500 13px/1.2 var(--v2-font-body);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-parent-banner:hover {
+  background: rgba(167, 139, 250, 0.14);
+}
+
+.v2-edit-parent-banner svg {
+  color: #A78BFA;
+  flex: 0 0 auto;
+}
+
+.v2-edit-parent-banner-label {
+  color: var(--v2-text-meta);
+}
+
+.v2-edit-parent-banner-title {
+  flex: 1;
+  font-weight: 600;
+  color: var(--v2-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v2-edit-parent-banner-arrow {
+  color: var(--v2-text-meta);
+}
+
+[data-theme^="terminal"] .v2-edit-parent-banner {
+  background: transparent;
+  border: 1px dashed var(--v2-accent);
+  border-radius: 0;
+}
+
+/* Subs list inside a project's edit modal. Tap any row to open that sub
+ * (replaces the current edit modal). Sorted by due date in the JSX. */
+.v2-edit-subs {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--v2-hairline);
+}
+
+.v2-edit-subs-label {
+  font: 600 11px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.v2-edit-subs-count {
+  font-weight: 400;
+  color: var(--v2-text-meta);
+  letter-spacing: 0;
+}
+
+.v2-edit-subs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.v2-edit-sub-row {
+  border-radius: 8px;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-edit-sub-row:hover {
+  background: rgba(var(--v2-text-rgb), 0.04);
+}
+
+.v2-edit-sub-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  color: var(--v2-text);
+  font: 400 13px/1.3 var(--v2-font-body);
+  cursor: pointer;
+  text-align: left;
+}
+
+.v2-edit-sub-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.v2-edit-sub-dot-active { background: var(--v2-accent); }
+.v2-edit-sub-dot-done { background: var(--v2-text-faint); }
+
+.v2-edit-sub-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v2-edit-sub-title-done {
+  text-decoration: line-through;
+  color: var(--v2-text-meta);
+}
+
+.v2-edit-sub-due {
+  font: 500 11px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  flex: 0 0 auto;
+}
+
+.v2-edit-sub-backstage {
+  font: 500 10px/1 var(--v2-font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--v2-text-faint);
+  padding: 3px 6px;
+  border-radius: var(--v2-radius-pill, 999px);
+  background: rgba(var(--v2-text-rgb), 0.05);
+  flex: 0 0 auto;
+}
+
+.v2-edit-subs-empty {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px dashed var(--v2-hairline);
+  border-radius: 10px;
+  color: var(--v2-text-meta);
+  font: 400 12px/1.4 var(--v2-font-body);
+}
+
+[data-theme^="terminal"] .v2-edit-subs {
+  border-top: 1px dashed var(--v2-text-meta);
+}
+
+[data-theme^="terminal"] .v2-edit-sub-row:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+[data-theme^="terminal"] .v2-edit-subs-empty {
+  border-radius: 0;
+  background: transparent;
+}
+
 .v2-edit-confirm-delete {
   display: inline-flex;
   align-items: center;

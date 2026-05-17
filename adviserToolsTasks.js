@@ -10,7 +10,7 @@ import {
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
   PROJECT_CONSTANTS,
 } from './db.js'
-import { registerTool } from './adviserTools.js'
+import { registerTool, findStagedCreate } from './adviserTools.js'
 
 const TASK_FIELDS = [
   'title', 'notes', 'due_date', 'status', 'size', 'energy', 'energy_level',
@@ -78,11 +78,25 @@ function summarizeRoutine(r) {
   }
 }
 
-function taskLabel(id) {
+function taskLabel(id, session = null) {
+  if (!id) return '(no id)'
+  // Real, already-committed task — primary path.
   const t = getTask(id)
-  if (!t) return `(missing task ${id.slice(0, 8)})`
-  const title = t.title?.trim() || '(untitled)'
-  return title.length > 60 ? `${title.slice(0, 57)}…` : title
+  if (t) {
+    const title = t.title?.trim() || '(untitled)'
+    return title.length > 60 ? `${title.slice(0, 57)}…` : title
+  }
+  // Forward reference to a not-yet-committed staged create in the same
+  // session plan. Resolves the friendly title from the staged input so
+  // the preview reads naturally instead of "(missing task abc12345)".
+  if (session) {
+    const staged = findStagedCreate(session, id)
+    if (staged?.input?.title) {
+      const title = String(staged.input.title).trim() || '(untitled)'
+      return (title.length > 60 ? `${title.slice(0, 57)}…` : title) + ' (pending)'
+    }
+  }
+  return `(missing task ${id.slice(0, 8)})`
 }
 
 function routineLabel(id) {
@@ -195,25 +209,46 @@ export function registerTaskTools() {
       },
       required: ['title'],
     },
-    preview: (args) => {
+    preview: (args, session) => {
       const parts = [args.status === 'project' ? `Create project: "${args.title}"` : `Create task: "${args.title}"`]
-      if (args.parent_id) parts.push(`sub of "${taskLabel(args.parent_id)}"`)
+      if (args.parent_id) parts.push(`sub of "${taskLabel(args.parent_id, session)}"`)
       if (args.due_date) parts.push(`due ${args.due_date}`)
       if (args.checklist_items?.length) parts.push(`${args.checklist_items.length} checklist item${args.checklist_items.length !== 1 ? 's' : ''}`)
       if (args.pinned_to_today) parts.push('pinned')
       if (args.nag_allowed) parts.push('nags allowed')
       return parts.join(' · ')
     },
+    // Pre-stamp the new task's id at stage time so chained creates (project
+    // then subs with parent_id) can reference it. Returned to the model as
+    // `id` in the staged response. At commit time, execute uses args.id.
+    preStage: (args) => {
+      const id = `task-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
+      return { id, input: { ...args, id } }
+    },
+    // Stage-time validation: surface bad parent_id refs to the model NOW
+    // instead of letting the whole plan roll back at commit. Accepts a
+    // parent_id that points to a real task OR an earlier staged create in
+    // the same plan.
+    stagedValidate: (args, session) => {
+      if (!args.parent_id) return null
+      if (getTask(args.parent_id)) return null
+      if (findStagedCreate(session, args.parent_id)) return null
+      return `parent_id "${args.parent_id}" doesn't match any real task or any staged create earlier in this plan. When chaining a project + subs, the create_task response for the project includes an "id" field — use that id as the parent_id for the subs.`
+    },
     execute: async (args) => {
-      // If parent_id was passed, sanity-check it points to a real project
-      // (or another task) before stamping. Cheap validation, surfaces a
-      // clear error in the plan instead of silently creating an orphan.
+      // Parent validation already happened at stage time via stagedValidate,
+      // but recheck here against the real DB (the parent may have been
+      // staged in this same plan and is about to land — commit runs steps
+      // in order, so by the time we reach a sub, its parent create has
+      // executed).
       if (args.parent_id) {
         const parent = getTask(args.parent_id)
         if (!parent) throw new Error(`Parent not found: ${args.parent_id}`)
         if (args.parent_id === args.id) throw new Error('A task cannot be its own parent')
       }
-      const id = `task-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
+      // args.id is now always pre-stamped via preStage; fall back to a
+      // fresh generation in case anything still calls execute directly.
+      const id = args.id || `task-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
       const now = new Date().toISOString()
       const items = Array.isArray(args.checklist_items) ? args.checklist_items.map((item, i) => ({
         id: `ci-${Date.now()}-${i}-${crypto.randomBytes(2).toString('hex')}`,
@@ -295,9 +330,27 @@ export function registerTaskTools() {
       },
       required: ['id'],
     },
-    preview: (args) => {
+    preview: (args, session) => {
       const changes = Object.keys(args).filter(k => k !== 'id')
-      return `Update "${taskLabel(args.id)}": ${changes.join(', ') || '(no changes)'}`
+      return `Update "${taskLabel(args.id, session)}": ${changes.join(', ') || '(no changes)'}`
+    },
+    // Stage-time validation: reject updates pointing at non-existent
+    // tasks UNLESS they reference a staged create earlier in the plan
+    // (forward reference resolved at commit). Also reject parent_id
+    // forward refs the same way.
+    stagedValidate: (args, session) => {
+      if (!args.id) return 'update_task requires an id'
+      const hasReal = !!getTask(args.id)
+      const hasStaged = !!findStagedCreate(session, args.id)
+      if (!hasReal && !hasStaged) {
+        return `update_task target "${args.id}" doesn't match any real task or any staged create earlier in this plan. If you meant to update something you just staged with create_task, use the "id" field from that create_task's response.`
+      }
+      if (args.parent_id && args.parent_id !== args.id) {
+        if (!getTask(args.parent_id) && !findStagedCreate(session, args.parent_id)) {
+          return `parent_id "${args.parent_id}" doesn't match any real task or any staged create.`
+        }
+      }
+      return null
     },
     execute: async (args) => {
       const before = getTask(args.id)

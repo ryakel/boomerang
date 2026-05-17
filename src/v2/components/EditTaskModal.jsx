@@ -25,7 +25,13 @@ const STATUS_OPTIONS = ['not_started', 'doing', 'waiting']
 
 const CADENCE_OPTIONS = ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'custom']
 
-export default function EditTaskModal({ task, onSave, onClose, onDelete, onBacklog, onProject, onStatusChange, onConvertToRoutine, weather, projects = [], onLogSession, onAddChild }) {
+export default function EditTaskModal({
+  task, onSave, onClose, onDelete, onBacklog, onProject, onStatusChange,
+  onConvertToRoutine, weather,
+  projects = [],
+  childTasks = [],
+  onLogSession, onAddChild, onOpenTask,
+}) {
   const form = useTaskForm({
     title: task.title,
     notes: task.notes || '',
@@ -83,6 +89,8 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
   // All four feed into savePayload below so the existing autosave loop
   // persists them without extra plumbing.
   const isProject = task.status === 'project'
+  const parentProject = task.parent_id ? projects.find(p => p.id === task.parent_id) : null
+  const isSub = !!parentProject
   const [pinnedToToday, setPinnedToToday] = useState(!!task.pinned_to_today)
   const [nagAllowed, setNagAllowed] = useState(!!task.nag_allowed)
   const [parentId, setParentId] = useState(task.parent_id || '')
@@ -307,14 +315,31 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
     <ModalShell
       open={!!task}
       onClose={onClose}
-      title="Edit task"
-      terminalTitle="> task --edit"
+      title={isProject ? 'Edit project' : isSub ? 'Edit sub' : 'Edit task'}
+      terminalTitle={isProject ? '> project --edit' : isSub ? '> sub --edit' : '> task --edit'}
       width="narrow"
       headerSlot={<AutosaveIndicator saved={justSaved} />}
     >
+      {/* "Sub of <project>" banner — surfaces parent project at the top of
+        * the modal when this task is a child. Tap to open the parent's
+        * edit modal (replaces this one). Without this banner, the parent
+        * link is buried mid-modal in the "Project link" section and hard
+        * to spot. */}
+      {parentProject && onOpenTask && (
+        <button
+          type="button"
+          className="v2-edit-parent-banner"
+          onClick={() => onOpenTask(parentProject)}
+        >
+          <FolderKanban size={14} strokeWidth={1.75} />
+          <span className="v2-edit-parent-banner-label">Sub of</span>
+          <span className="v2-edit-parent-banner-title">{parentProject.title}</span>
+          <ChevronRight size={14} strokeWidth={1.75} className="v2-edit-parent-banner-arrow" />
+        </button>
+      )}
       <input
         className="v2-form-input v2-form-title"
-        placeholder="What needs doing?"
+        placeholder={isProject ? 'What\'s the project?' : isSub ? 'What\'s the sub?' : 'What needs doing?'}
         value={form.title}
         onChange={e => form.setTitle(e.target.value)}
       />
@@ -1013,6 +1038,46 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
               </div>
             )}
           </div>
+          {/* Subs list — surfaces the child tasks attached to this project
+            * so the user can see and edit them without leaving the modal.
+            * Sorted by due date ascending (no-due last). Empty state when
+            * the project has no subs yet — nudges the user toward Add sub. */}
+          {childTasks.length > 0 ? (
+            <div className="v2-edit-subs">
+              <div className="v2-edit-subs-label">
+                Subs <span className="v2-edit-subs-count">({childTasks.length})</span>
+              </div>
+              <ul className="v2-edit-subs-list">
+                {[...childTasks].sort((a, b) => {
+                  const ad = a.due_date || '9999-12-31'
+                  const bd = b.due_date || '9999-12-31'
+                  return ad.localeCompare(bd)
+                }).map(sub => (
+                  <li key={sub.id} className="v2-edit-sub-row">
+                    <button
+                      type="button"
+                      className="v2-edit-sub-main"
+                      onClick={() => onOpenTask && onOpenTask(sub)}
+                      title={sub.notes ? sub.notes.slice(0, 200) : sub.title}
+                    >
+                      <span className={`v2-edit-sub-dot v2-edit-sub-dot-${sub.status === 'done' ? 'done' : 'active'}`} aria-hidden="true" />
+                      <span className={`v2-edit-sub-title${sub.status === 'done' ? ' v2-edit-sub-title-done' : ''}`}>
+                        {sub.title}
+                      </span>
+                      {sub.due_date && <span className="v2-edit-sub-due">due {sub.due_date.slice(5)}</span>}
+                      {sub.child_visibility !== 'active' && (
+                        <span className="v2-edit-sub-backstage" title="Hidden from main list">backstage</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className="v2-edit-subs-empty">
+              No subs yet. Tap <strong>+ Add sub</strong> above to break the project into concrete steps.
+            </div>
+          )}
         </div>
       ) : availableParents.length > 0 ? (
         <div className="v2-form-section v2-edit-project-controls">
@@ -1053,13 +1118,20 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
           >
             <Archive size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="> archive">Backlog</span>
           </button>
-          <button
-            className="v2-edit-action"
-            onClick={() => { onProject(task.id, true); onClose() }}
-            title="Move to projects"
-          >
-            <FolderKanban size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="> move-to-projects">Projects</span>
-          </button>
+          {/* Hide "Move to projects" button when this task IS a project —
+            * it'd be a no-op. Same for sub-tasks: moving a sub to project
+            * status would orphan it from its parent (status changes); keep
+            * the affordance for sub-tasks since the user might want to
+            * promote one to its own project. */}
+          {!isProject && (
+            <button
+              className="v2-edit-action"
+              onClick={() => { onProject(task.id, true); onClose() }}
+              title="Move to projects"
+            >
+              <FolderKanban size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="> move-to-projects">Projects</span>
+            </button>
+          )}
           {!task.routine_id && !makeRecurring && (
             <button
               className="v2-edit-action"
@@ -1073,7 +1145,7 @@ export default function EditTaskModal({ task, onSave, onClose, onDelete, onBackl
             <button
               className="v2-edit-action v2-edit-action-danger"
               onClick={() => setConfirmDelete(true)}
-              title="Delete task"
+              title={isProject ? 'Delete project (subs become orphans)' : isSub ? 'Delete sub' : 'Delete task'}
             >
               <Trash2 size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="> delete --confirm">Delete</span>
             </button>

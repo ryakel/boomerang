@@ -238,7 +238,7 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
   }
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Quokka" terminalTitle="> quokka" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Quokka" terminalTitle="> quokka" width="wide" flexBody>
       <div className="v2-adviser-toolbar">
         <button
           className="v2-adviser-tool-btn"
@@ -309,29 +309,33 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
             )}
           </div>
 
-          {awaitingConfirm && (
-            <div className="v2-adviser-confirm-bar">
-              <div className="v2-adviser-confirm-summary">
-                Review the {(messages[messages.length - 1]?.plan || []).length} planned change{(messages[messages.length - 1]?.plan || []).length !== 1 ? 's' : ''} above.
+          {/* Sticky footer: confirm/committed bars + composer all live in one
+            * pinned-to-bottom container so they never overlap each other or
+            * scroll off-screen. The wrap extends past modal-body padding via
+            * negative margins so the background covers the full modal width. */}
+          <div className="v2-adviser-footer">
+            {awaitingConfirm && (
+              <div className="v2-adviser-confirm-bar">
+                <div className="v2-adviser-confirm-summary">
+                  Review the {(messages[messages.length - 1]?.plan || []).length} planned change{(messages[messages.length - 1]?.plan || []).length !== 1 ? 's' : ''} above.
+                </div>
+                <div className="v2-adviser-confirm-actions">
+                  <button className="v2-adviser-btn v2-adviser-btn-secondary" onClick={abort}>Cancel</button>
+                  <button className="v2-adviser-btn v2-adviser-btn-primary" onClick={commit}>
+                    Apply {(messages[messages.length - 1]?.plan || []).length} change{(messages[messages.length - 1]?.plan || []).length !== 1 ? 's' : ''}
+                  </button>
+                </div>
               </div>
-              <div className="v2-adviser-confirm-actions">
-                <button className="v2-adviser-btn v2-adviser-btn-secondary" onClick={abort}>Cancel</button>
-                <button className="v2-adviser-btn v2-adviser-btn-primary" onClick={commit}>
-                  Apply {(messages[messages.length - 1]?.plan || []).length} change{(messages[messages.length - 1]?.plan || []).length !== 1 ? 's' : ''}
-                </button>
+            )}
+
+            {status === 'committed' && (
+              <div className="v2-adviser-committed-bar">
+                <CheckCircle2 size={16} />
+                <span>Changes applied. Ask for more or start a fresh chat.</span>
+                <button className="v2-adviser-link" onClick={handleNewChat}>new chat</button>
               </div>
-            </div>
-          )}
+            )}
 
-          {status === 'committed' && (
-            <div className="v2-adviser-committed-bar">
-              <CheckCircle2 size={16} />
-              <span>Changes applied. Ask for more or start a fresh chat.</span>
-              <button className="v2-adviser-link" onClick={handleNewChat}>new chat</button>
-            </div>
-          )}
-
-          <div className="v2-adviser-composer-wrap">
             <form className="v2-adviser-composer" onSubmit={handleSubmit}>
               <textarea
                 ref={inputRef}
