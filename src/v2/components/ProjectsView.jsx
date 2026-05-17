@@ -69,13 +69,21 @@ export default function ProjectsView({
                     <span className="v2-pv-chev" aria-hidden="true">
                       {expanded ? <ChevronDown size={14} strokeWidth={1.75} /> : <ChevronRight size={14} strokeWidth={1.75} />}
                     </span>
-                    <span className="v2-pv-title">{project.title}</span>
-                    <span className="v2-pv-meta">
-                      {children.length === 0 ? 'no children' : `${activeChildren.length}/${children.length} active`}
-                      <span className="v2-pv-meta-sep">·</span>
-                      {sessionCount > 0 ? `🔥 ${sessionCount}${capped ? ` (capped)` : ''}` : 'no sessions'}
-                      <span className="v2-pv-meta-sep">·</span>
-                      budget {budget}
+                    <span className="v2-pv-card-main-text">
+                      <span className="v2-pv-title">{project.title}</span>
+                      <span className="v2-pv-meta">
+                        {project.pinned_to_today && (
+                          <>
+                            <span className="v2-pv-pinned-chip">pinned</span>
+                            <span className="v2-pv-meta-sep">·</span>
+                          </>
+                        )}
+                        {children.length === 0 ? 'no children' : `${activeChildren.length}/${children.length} active`}
+                        <span className="v2-pv-meta-sep">·</span>
+                        {sessionCount > 0 ? `🔥 ${sessionCount}${capped ? ` (capped)` : ''}` : 'no sessions'}
+                        <span className="v2-pv-meta-sep">·</span>
+                        budget {budget}
+                      </span>
                     </span>
                   </button>
                   <div className="v2-pv-actions">
@@ -89,6 +97,7 @@ export default function ProjectsView({
                       {project.pinned_to_today
                         ? <PinOff size={14} strokeWidth={1.75} />
                         : <Pin size={14} strokeWidth={1.75} />}
+                      <span>{project.pinned_to_today ? 'Pinned' : 'Pin'}</span>
                     </button>
                     <button
                       type="button"
@@ -98,6 +107,7 @@ export default function ProjectsView({
                       title="Add child step"
                     >
                       <Plus size={14} strokeWidth={1.75} />
+                      <span>Step</span>
                     </button>
                     <button
                       type="button"
