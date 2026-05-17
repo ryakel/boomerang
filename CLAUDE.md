@@ -605,10 +605,11 @@ Connects to Gmail via OAuth and uses AI to automatically extract tasks and packa
 1. Queries inbox (excluding promotions/social/updates/forums) for recent emails
 2. Filters out already-processed messages via `gmail_processed` table
 3. Fetches full message content, extracts plain text (HTML stripped)
-4. Batches emails (10 at a time) to Claude for analysis
-5. AI extracts: actionable tasks (title, due date, notes) and tracking numbers (number, carrier, label)
-6. Creates tasks/packages with `gmail_pending: 1` flag for user review
-7. Broadcasts SSE update so all clients see new items immediately
+4. **Phase 0 — obvious-junk pre-filter (free, no AI).** `isObviousJunk(subject, from)` short-circuits MFA / OTP / verification-code / sign-in-attempt / password-reset / "verify your email" / suspicious-activity / auto-reply / bounce subjects, plus common transactional sender shapes (`noreply@accounts.*`, `security-alerts@*`, `verify@*`). Match → mark `skipped` immediately. Saves AI tokens AND avoids the digit-regex misfiring on auth codes.
+5. **Phase 1 — tracking-number regex extraction (free, instant)** on survivors. Hits become pending packages.
+6. **Phase 2 — AI classifier** on the rest. Batched 10 at a time to Claude with a strict "default to skip" prompt: explicit ALWAYS-SKIP list (verification codes, password resets, sign-in alerts, receipts, marketing, social notifications, etc.) and a short ONLY-CREATE list (appointments with dates, bills due, documents to sign, returns, RSVPs, real human asks, government deadlines, medical follow-ups). Temperature pinned to 0 for deterministic, conservative output. Every result includes a required `reason` field — logged on every `[Gmail]` line so the user has visibility into classifications when tuning.
+7. Creates tasks/packages with `gmail_pending: 1` flag for user review.
+8. Broadcasts SSE update so all clients see new items immediately.
 
 **Pending Review Flow:**
 - Gmail-imported items have yellow left border + envelope badge on cards
@@ -630,9 +631,10 @@ Connects to Gmail via OAuth and uses AI to automatically extract tasks and packa
 **Known Limitations:**
 - Requires Gmail API enabled in Google Cloud project (same project as GCal)
 - No webhook support (polling only)
-- AI analysis costs Anthropic API tokens (~10 emails per batch)
+- AI analysis costs Anthropic API tokens (~10 emails per batch); the Phase 0 pre-filter and "skip" default cut this materially
 - Email body truncated to 4000 chars for AI processing
 - Only scans primary inbox (excludes promotions, social, updates, forums)
+- Pending items still surface in the main task list with a yellow border + Keep/Dismiss buttons. Moving them out into a dedicated Suggestions inbox surface is a separate (parked) UX change.
 
 ### Quokka (AI Adviser)
 Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and Quokka finds related tasks/GCal events/routines and queues the fix. Named after the quokka (a small, perpetually-smiling Australian marsupial). User-facing branding uses "Quokka"; internal code (module names, CSS classes, endpoints under `/api/adviser/`, state vars like `showAdviser`) stays as `adviser`/`Adviser` — renaming plumbing provides no value.
