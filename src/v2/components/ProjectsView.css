@@ -4,6 +4,49 @@
   gap: 14px;
 }
 
+/* "+ New project" toolbar above the list. Right-aligned so it doesn't
+ * compete with the modal title for visual weight on first glance. */
+.v2-pv-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 14px;
+}
+
+.v2-pv-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--v2-radius-pill, 999px);
+  background: var(--v2-accent);
+  color: #fff;
+  border: none;
+  font: 500 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  transition: filter var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-pv-create:hover {
+  filter: brightness(1.08);
+}
+
+[data-theme^="terminal"] .v2-pv-create {
+  background: transparent;
+  color: var(--v2-accent);
+  border: 1px dashed var(--v2-accent);
+  border-radius: 0;
+}
+
+[data-theme^="terminal"] .v2-pv-create span {
+  font-size: 0;
+}
+
+[data-theme^="terminal"] .v2-pv-create span::before {
+  content: attr(data-terminal-cmd);
+  font-size: 12px;
+  font-family: var(--v2-font-body);
+}
+
 .v2-pv-block {
   border-radius: var(--v2-radius-lg, 14px);
 }
