@@ -291,10 +291,25 @@ export function useTasks() {
   // children — each child has its own `child_visibility` setting.
   const pinnedProjects = tasks.filter(t => t.status === 'project' && t.pinned_to_today)
   const pinnedProjectIds = new Set(pinnedProjects.map(p => p.id))
+  // Active children of pinned projects, MINUS any that are blocked by
+  // an incomplete sibling. Blocked subs only appear in the Projects
+  // drill-down so the pinned section stays focused on "what can I do
+  // right now?".
+  const _pinnedProjectIds_set = pinnedProjectIds // alias for closure clarity
+  const _tasksById_local = new Map(tasks.map(t => [t.id, t]))
+  const _isBlockedLocal = (t) => {
+    const blockers = Array.isArray(t.blocked_by) ? t.blocked_by : []
+    if (blockers.length === 0) return false
+    return blockers.some(id => {
+      const b = _tasksById_local.get(id)
+      return b && b.status !== 'done'
+    })
+  }
   const activeChildrenOfPinned = tasks.filter(t =>
-    t.parent_id && pinnedProjectIds.has(t.parent_id) &&
+    t.parent_id && _pinnedProjectIds_set.has(t.parent_id) &&
     t.child_visibility === 'active' &&
-    isActiveTask(t)
+    isActiveTask(t) &&
+    !_isBlockedLocal(t)
   )
 
   // Pre-2026-05-17: openTasks unconditionally filtered out children of pinned
@@ -313,8 +328,23 @@ export function useTasks() {
     const parent = tasks.find(x => x.id === t.parent_id)
     return parent?.status === 'project'
   }
+  // A sub is "blocked" when any of its declared blockers is not yet
+  // completed. Blocked subs are hidden from the main list (mobile +
+  // desktop) and only visible inside the Projects drill-down, where
+  // they render with a "⏸ waits on X, Y" indicator. The blocker list
+  // is `blocked_by` (array of task ids), set per-sub via the edit
+  // modal or Quokka. Cycles are prevented at write time.
+  const tasksById = new Map(tasks.map(t => [t.id, t]))
+  const isBlockedSub = (t) => {
+    const blockers = Array.isArray(t.blocked_by) ? t.blocked_by : []
+    if (blockers.length === 0) return false
+    return blockers.some(id => {
+      const b = tasksById.get(id)
+      return b && b.status !== 'done'
+    })
+  }
 
-  const openTasks = tasks.filter(t => isActiveTask(t) && !isBackstageSub(t))
+  const openTasks = tasks.filter(t => isActiveTask(t) && !isBackstageSub(t) && !isBlockedSub(t))
   const staleTasks = openTasks.filter(t => isStale(t))
   const snoozedTasks = openTasks.filter(t => isSnoozed(t))
   const waitingTasks = openTasks.filter(t => (t.status === 'waiting') && !isStale(t) && !isSnoozed(t))
@@ -333,6 +363,7 @@ export function useTasks() {
     pinnedProjects,
     activeChildrenOfPinned,
     isPinnedChild,
+    isBlockedSub,
     addTask,
     addSpawnedTasks,
     completeTask,
