@@ -22,7 +22,7 @@
 
 ### Workflow: how dev work lands
 
-The proxy bug means direct `git push origin dev` and `git push origin --delete <branch>` both 403. Workaround loop, fully automated end-to-end with no GitHub-UI clicks:
+The proxy bug means direct `git push origin dev` and `git push origin --delete <branch>` both 403. Direct `git push origin main` DOES work (verified 2026-05-17). Workaround loop for dev, fully automated end-to-end with no GitHub-UI clicks:
 
 1. Branch off `origin/dev` locally → commit
 2. `git push origin <local-branch>:refs/heads/claude/v2-<thing>` (fresh ref, proxy accepts)
@@ -31,7 +31,18 @@ The proxy bug means direct `git push origin dev` and `git push origin --delete <
 5. `mcp__github__merge_pull_request` with `merge_method: "rebase"` (linear history; rebase-merges also auto-delete the source branch on the remote — verified PR #22, 2026-05-09)
 6. `git fetch origin && git reset --hard origin/dev` locally to resync (rebase changes the SHA server-side)
 
-**Cherry-picking from main onto dev** uses the same loop. Conflicts typically appear in `wiki/Version-History.md` since both branches add entries to the top — keep dev's entries, add main's below.
+### Workflow: promoting dev → main
+
+**Canonical: direct dev → main PR.** No cherry-pick branches.
+
+1. After a feature PR merges to `dev`, open a PR with `head: 'dev'` and `base: 'main'` via `mcp__github__create_pull_request`. Title like `release: <feature>` and a brief body.
+2. Wait for user approval (every promotion is its own approval — previous approvals don't carry forward).
+3. `mcp__github__merge_pull_request` with `merge_method: "rebase"`.
+4. `git fetch origin && git checkout main && git reset --hard origin/main` to resync locally.
+
+**Why cherry-pick branches went away (2026-05-17):** earlier in this codebase's life, dev → main promotions ran through a cherry-pick branch off main. Each cherry-pick produced a new SHA on main even though the content matched dev exactly. After ~10 promotions, the branches accumulated 10 same-content / different-SHA commit pairs and a direct dev → main PR started failing with conflicts because git's 3-way merge couldn't tell the cherry-picked versions and the original dev versions were the same change. A one-time alignment merge resolved it: `git merge -X theirs origin/dev` on main (always take dev's version on conflict) produced an identical-content main with a clean merge commit bridging the histories. Followup commit (`align(adviser-modal-css)`) cleaned up a unique-to-main hunk the `-X theirs` couldn't auto-handle. Going forward: never cherry-pick — direct dev → main PRs only.
+
+**Cherry-picking from main onto dev** (the reverse direction — e.g. main-only hotfixes that need to land on dev) uses the standard feature loop above. Conflicts typically appear in `wiki/Version-History.md` since both branches add entries to the top — keep dev's entries, add main's below.
 
 **Stranded refs** that never had a PR (e.g. the legacy `test-push-probe` diagnostic) cannot be deleted via the proxy or MCP. Ask the user to delete via the GitHub UI when convenient.
 
