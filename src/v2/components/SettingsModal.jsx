@@ -1404,6 +1404,26 @@ function NotificationsPanel({ settings, update }) {
               </div>
             </div>
           ))}
+          {/* Quokka plan-ready — web push only (informational, not a nag).
+            * Fires when the background runner stages a plan and the user
+            * isn't actively watching. Default ON since the whole point of
+            * the background-runner feature is "you can leave it." */}
+          <div className="v2-notif-card">
+            <div className="v2-notif-card-head">
+              <div className="v2-notif-card-label">Quokka plan ready</div>
+              <div className="v2-notif-card-hint">Fires when Quokka finishes thinking in the background and has a plan ready to review. Web push only.</div>
+            </div>
+            <div className="v2-notif-card-channels">
+              <label className={`v2-notif-card-channel${settings.push_notifications_enabled !== true ? ' v2-notif-card-channel-disabled' : ''}`}>
+                <Toggle
+                  checked={settings.push_notif_quokka_plan_ready !== false}
+                  onChange={e => update('push_notif_quokka_plan_ready', e.target.checked)}
+                  disabled={settings.push_notifications_enabled !== true}
+                />
+                <span className="v2-notif-card-channel-label">Push</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
