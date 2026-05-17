@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(notifications): v2 Settings missing digest config; digest test failed silently [S]
+  - **Bug.** "Test digest" button in v2 Settings → Notifications returned a generic "Send failed" with no useful info. There was no UI anywhere in v2 to opt a specific channel into the digest, so even with push/email/pushover channel masters on, all three `*_digest_enabled` flags defaulted to falsy and `sendDigestNow()` skipped every channel.
+  - **Causes.** (1) v2's `NotificationsPanel` never exposed the three per-channel digest toggles (`push_digest_enabled`, `email_digest_enabled`, `pushover_digest_enabled`) or the `digest_time` picker — v1 has them all under "Morning Digest" but v2 omitted the whole block. (2) `sendDigestNow()` returned `{success: false, fired: [], skipped: [...]}` with no `error` field when no channel delivered, so the v2 test runner fell back to the generic "Send failed" message. (3) The test button's `enabled` predicate checked channel masters, not the digest opt-in flags — so the button was clickable even when nothing could deliver.
+  - **Fixes.**
+    - Add "Daily digest" block to v2 `NotificationsPanel` with three per-channel toggles (each disabled if its channel master is off), digest-time picker, and explanatory hints.
+    - `sendDigestNow()` now returns a clear `error` string when `fired.length === 0`, listing each channel and why it was skipped.
+    - Test-digest button `enabled` predicate now requires at least one `*_digest_enabled` flag to be on.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `pushoverNotifications.js`, `wiki/Version-History.md`
+
 - fix(notifications): v2 Settings never wired up web-push subscribe flow [S]
   - **Bug.** Toggling "Web push" ON in v2 Settings → Notifications never triggered an iOS notification permission prompt, never registered a device subscription, and never caused Boomerang to appear in iOS Settings → Notifications. Web push couldn't actually deliver.
   - **Cause.** v2's `NotificationsPanel` only flipped the server-side `push_notifications_enabled` boolean. It never imported `usePushSubscription`, never called `Notification.requestPermission()`, never called `pushManager.subscribe()`, never POSTed an endpoint to the server. v1 has the correct flow (the "Enable on this device" button at `Settings.jsx:2625`) but v2 has been the default since the 2026-05-03 cutover, so anyone who newly enabled web push in v2 silently got no delivery. Server-side `subscription_count` could still read >0 because of stale subscriptions from before the cutover, hiding the bug from the diagnostic endpoint.
