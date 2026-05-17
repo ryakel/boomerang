@@ -10,21 +10,144 @@
 // - One coalesced SSE broadcast fires after the whole plan commits (prevents storm).
 //
 // Sessions are in-memory with a 10-minute TTL. No persistence.
+//
+// Background-runner support (2026-05-17, "F" branch):
+// - The chat tool-use loop runs as a detached async task tied to the session
+//   (`session.runnerState` + `session.runnerPromise`). Closing the HTTP
+//   connection doesn't abort it.
+// - Events fan out via `appendEvent`: pushed onto `session.events` AND
+//   streamed to every connected subscriber (SSE response object).
+// - New SSE connections SUBSCRIBE via `subscribeSession` which replays the
+//   buffered events first, then pipes live events as they happen.
+// - TTL extends to whichever of (a) idle 10 min from last activity, (b) the
+//   runner is running, or (c) the runner is awaiting_confirm and < 30 min
+//   since plan staged. Stale `awaiting_confirm` plans get auto-aborted so
+//   compensation can't bring back data from hours ago.
+// - Queued messages: while `runnerState in ('running', 'awaiting_confirm')`,
+//   a new message arriving is appended to `session.queue` instead of
+//   starting a new turn. The queue advances after the runner returns to
+//   `idle` (no plan staged) or after the user commits/aborts a plan.
 
 import crypto from 'crypto'
 
-const SESSION_TTL_MS = 10 * 60 * 1000
+const SESSION_IDLE_TTL_MS = 10 * 60 * 1000     // idle session timeout
+const SESSION_AWAITING_TTL_MS = 30 * 60 * 1000 // max time a staged plan can wait before auto-abort
+const EVENT_BUFFER_CAP = 500                    // per-session event cap so a runaway loop doesn't blow memory
 
 const tools = new Map() // name -> tool def
-const sessions = new Map() // sessionId -> { plan, createdAt, aborted }
+// session = {
+//   plan, createdAt, aborted, lastActivityAt,
+//   events: [{type, data}], subscribers: Set<{res, lastSent}>,
+//   runnerState: 'idle' | 'running' | 'awaiting_confirm' | 'committed' | 'errored' | 'aborted',
+//   queue: [{message, history, deps}],
+//   chatId, runnerPromise,
+// }
+const sessions = new Map() // sessionId -> session
+// Module-level subscription to plan-ready events. The push-notification
+// dispatcher in server.js sets this to fire a notification when a plan
+// transitions to awaiting_confirm with no live subscribers. Keeping the
+// callback module-local instead of a circular import.
+let planReadyHandler = null
+export function onPlanReady(handler) { planReadyHandler = handler }
 
-// Periodic cleanup of stale sessions
+// Periodic cleanup of stale sessions. Honors three TTLs:
+// - idle (10 min since last activity): default — runner is idle
+// - awaiting (30 min cap on a staged plan): force-abort to prevent the
+//   compensation system from reverting hours-old state
+// - running: never expire; the runner manages its own progress
 setInterval(() => {
   const now = Date.now()
   for (const [id, s] of sessions) {
-    if (now - s.createdAt > SESSION_TTL_MS) sessions.delete(id)
+    if (s.runnerState === 'running') continue
+    const idleFor = now - (s.lastActivityAt || s.createdAt)
+    if (s.runnerState === 'awaiting_confirm') {
+      if (idleFor > SESSION_AWAITING_TTL_MS) {
+        s.aborted = true
+        appendEvent(id, { type: 'error', data: { message: 'Staged plan expired (30-min cap). Re-prompt to try again.' } })
+        setRunnerState(id, 'aborted')
+        sessions.delete(id)
+      }
+      continue
+    }
+    if (idleFor > SESSION_IDLE_TTL_MS) sessions.delete(id)
   }
 }, 60 * 1000).unref?.()
+
+// --- Event buffer + subscriber fan-out --------------------------------
+
+export function appendEvent(sessionId, event) {
+  const session = sessions.get(sessionId)
+  if (!session) return
+  session.events.push(event)
+  if (session.events.length > EVENT_BUFFER_CAP) {
+    // Drop oldest events; subscribers may miss some on late reconnect.
+    // 500-event cap is generous (a 15-turn loop with 10 tool calls per
+    // turn = ~150 events; the cap covers ~3x that).
+    session.events.shift()
+  }
+  session.lastActivityAt = Date.now()
+  for (const sub of session.subscribers) {
+    try {
+      writeSSE(sub.res, event.type, event.data)
+      sub.lastSent = session.events.length
+    } catch {
+      session.subscribers.delete(sub)
+    }
+  }
+}
+
+function writeSSE(res, type, data) {
+  res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`)
+  if (typeof res.flush === 'function') res.flush()
+}
+
+// Subscribe an SSE response to a session's event stream. Replays the
+// buffered events first so the client catches up from any backgrounding,
+// then continues live as new events arrive. Returns the subscriber
+// handle so the caller can unsubscribe on disconnect.
+export function subscribeSession(sessionId, res) {
+  const session = sessions.get(sessionId)
+  if (!session) return null
+  const sub = { res, lastSent: 0 }
+  // Replay everything we have so far. Sub is registered AFTER replay so
+  // it doesn't double-receive any events appended mid-replay (impossible
+  // here since this is synchronous, but defensive).
+  for (const event of session.events) {
+    try { writeSSE(res, event.type, event.data) } catch { return null }
+    sub.lastSent = session.events.length
+  }
+  session.subscribers.add(sub)
+  return sub
+}
+
+export function unsubscribeSession(sessionId, sub) {
+  const session = sessions.get(sessionId)
+  if (session && sub) session.subscribers.delete(sub)
+}
+
+// State transition for the runner. Emits a `runner_state` event so
+// subscribers (and the replay buffer) can show "thinking…", "plan
+// ready", etc. Also triggers the push-notification handler when a plan
+// becomes ready with no live subscribers.
+export function setRunnerState(sessionId, state) {
+  const session = sessions.get(sessionId)
+  if (!session) return
+  const previous = session.runnerState
+  if (previous === state) return
+  session.runnerState = state
+  appendEvent(sessionId, { type: 'runner_state', data: { state, previous } })
+
+  if (state === 'awaiting_confirm' && session.subscribers.size === 0 && planReadyHandler) {
+    Promise.resolve()
+      .then(() => planReadyHandler(sessionId, session))
+      .catch(err => console.error('[Adviser] planReady handler failed:', err?.message))
+  }
+}
+
+export function getSubscriberCount(sessionId) {
+  const session = sessions.get(sessionId)
+  return session ? session.subscribers.size : 0
+}
 
 export function registerTool(def) {
   if (!def?.name) throw new Error('Tool requires a name')
@@ -69,10 +192,44 @@ export function listToolSchemas() {
 
 // --- Session / plan management ---
 
-export function newSession() {
+export function newSession(opts = {}) {
   const id = crypto.randomUUID()
-  sessions.set(id, { plan: [], createdAt: Date.now(), aborted: false })
+  sessions.set(id, {
+    plan: [],
+    createdAt: Date.now(),
+    lastActivityAt: Date.now(),
+    aborted: false,
+    events: [],
+    subscribers: new Set(),
+    runnerState: 'idle',
+    runnerPromise: null,
+    queue: [],
+    chatId: opts.chatId || null,
+  })
   return id
+}
+
+export function attachChatId(sessionId, chatId) {
+  const session = sessions.get(sessionId)
+  if (session) session.chatId = chatId
+}
+
+// Enqueue a follow-up message arriving while the runner is busy. Returns
+// the queue length so the API can report it back.
+export function enqueueMessage(sessionId, payload) {
+  const session = sessions.get(sessionId)
+  if (!session) return -1
+  session.queue.push(payload)
+  appendEvent(sessionId, { type: 'queue_update', data: { length: session.queue.length, queued: { preview: (payload.message || '').slice(0, 80) } } })
+  return session.queue.length
+}
+
+export function dequeueMessage(sessionId) {
+  const session = sessions.get(sessionId)
+  if (!session || session.queue.length === 0) return null
+  const next = session.queue.shift()
+  appendEvent(sessionId, { type: 'queue_update', data: { length: session.queue.length } })
+  return next
 }
 
 export function getSession(sessionId) {
@@ -208,18 +365,27 @@ export async function commitPlan(sessionId, deps) {
   }
 
   if (failed) {
-    // Roll back prior successful steps (LIFO)
+    // Roll back prior successful steps (LIFO). Plan stays so the user
+    // can see what happened; runner state moves to errored.
     for (let i = compensations.length - 1; i >= 0; i--) {
       try { await compensations[i]() } catch (err) {
         console.error('[Adviser] Compensation failed:', err.message)
       }
     }
-    sessions.delete(sessionId)
+    session.runnerState = 'errored'
+    session.lastActivityAt = Date.now()
     return { ok: false, error: failureError, results, broadcastNeeded: true }
   }
 
-  sessions.delete(sessionId)
+  // Commit succeeded. Keep the session alive so its queued follow-ups
+  // (if any) can advance. Reset the plan + runner state — the session
+  // becomes "fresh" for the next turn within the same conversation.
+  // TTL cleanup still applies (10 min idle → expire).
   const broadcastNeeded = session.plan.some(s => !tools.get(s.toolName)?.readOnly)
+  session.plan = []
+  session.runnerState = 'idle'
+  session.lastActivityAt = Date.now()
+  appendEvent(sessionId, { type: 'committed', data: { results: results.map(r => ({ stepId: r.stepId, toolName: r.toolName, ok: r.ok })) } })
   return { ok: true, results, broadcastNeeded }
 }
 

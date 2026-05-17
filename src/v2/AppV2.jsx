@@ -216,9 +216,11 @@ export default function AppV2() {
     const params = new URLSearchParams(window.location.search)
     const taskId = params.get('task')
     const wantSuggestions = params.get('suggestions') === '1'
-    if (!taskId && !wantSuggestions) return
+    const wantAdviser = params.has('adviser')
+    if (!taskId && !wantSuggestions && !wantAdviser) return
     params.delete('task')
     params.delete('suggestions')
+    params.delete('adviser')
     const search = params.toString()
     window.history.replaceState({}, '', `/${search ? `?${search}` : ''}${window.location.hash}`)
     if (taskId) {
@@ -230,6 +232,12 @@ export default function AppV2() {
     }
     if (wantSuggestions) {
       setShowSuggestions(true)
+    }
+    // Plan-ready push deep-link — open the Quokka modal so the user can
+    // review the staged plan. The chatId in the URL param is informational
+    // for analytics; useAdviser hydrates the active chat regardless.
+    if (wantAdviser) {
+      setShowAdviser(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

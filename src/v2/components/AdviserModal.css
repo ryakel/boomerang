@@ -265,6 +265,13 @@
   padding: 8px 12px;
 }
 
+.v2-adviser-status-queued {
+  background: rgba(255, 98, 64, 0.06);
+  border: 1px dashed var(--v2-accent);
+  border-radius: 10px;
+  color: var(--v2-text);
+}
+
 .v2-adviser-error {
   display: flex;
   align-items: flex-start;
