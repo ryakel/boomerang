@@ -8,14 +8,17 @@ import TaskCard from './TaskCard'
 import './ProjectsView.css'
 
 // Projects modal — list of all projects with drill-down. Each project
-// card surfaces session/budget/child counts + Pin and Add-child buttons.
-// Tap a project to expand its children inline (active + backstage). Active
-// children render as full TaskCards (so they can be completed/snoozed in
-// place); backstage children show as compact rows.
+// card surfaces session/budget/sub counts + Pin and Add-sub buttons.
+// Tap a project to expand its subs inline (active + backstage). Active
+// subs render as full TaskCards (so they can be completed/snoozed in
+// place); backstage subs show as compact rows.
+// "+ New project" lives in the modal header so the user can spin up a
+// project from this surface — no more "create a task, then move it"
+// roundabout.
 
 export default function ProjectsView({
   open, tasks, onClose, onComplete, onEdit, onSnooze, weatherByDate, routineStreaks,
-  onTogglePin, onAddChild, onSetChildVisibility,
+  onTogglePin, onAddChild, onSetChildVisibility, onCreateProject,
 }) {
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [expandedProjectId, setExpandedProjectId] = useState(null)
@@ -42,12 +45,26 @@ export default function ProjectsView({
         : undefined}
       width="wide"
     >
+      {onCreateProject && (
+        <div className="v2-pv-toolbar">
+          <button
+            type="button"
+            className="v2-pv-create"
+            onClick={onCreateProject}
+          >
+            <Plus size={14} strokeWidth={1.75} />
+            <span data-terminal-cmd="> project --new">New project</span>
+          </button>
+        </div>
+      )}
       {projectTasks.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
           title="No projects yet"
-          body={`Move longer-term work here so it stops nagging you. Add subs for the concrete steps, pin to today when you want to chip away.`}
-          terminalCommand="// no projects — move long-haul work here, add subs, pin to chip away"
+          body={`Start a long-haul project to track the work without nagging yourself. Add subs for the concrete steps, pin to today when you want to chip away.`}
+          terminalCommand="// no projects yet — tap '+ new project' above"
+          cta={onCreateProject ? 'New project' : undefined}
+          ctaOnClick={onCreateProject}
         />
       ) : (
         <div className="v2-projects-list">
