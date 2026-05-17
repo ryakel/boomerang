@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(git): correct dev→main flow — never use dev as PR head, GitHub deletes it [XS]
+  - **What happened.** PR #179 was head=`dev`, base=`main`, rebase-merge. GitHub's "automatically delete head branches" setting deleted `dev` from the remote when the PR merged. Discovered when `git ls-remote origin refs/heads/dev` returned nothing right after a "successful" merge.
+  - **Recovery.** `git push origin refs/remotes/origin/main:refs/heads/dev` recreated dev from main's tip. Branches realigned, zero content delta.
+  - **Corrected flow** (documented in CLAUDE.md): always push dev's tip to a fresh short-lived release branch first, then PR that branch to main. Auto-delete then nukes the release branch on merge, leaving dev untouched.
+  - Modified: `CLAUDE.md`, `wiki/Version-History.md`
+
 - chore(git): end the dev→main cherry-pick era; CLAUDE.md updated with new flow [XS]
   - **What happened.** Earlier dev→main promotions ran through a cherry-pick branch off main. Each cherry-pick produced a new SHA even though content matched dev exactly. After ~10 promotions, branches accumulated 10 same-content / different-SHA commit pairs. A direct dev→main PR started failing with 13 file conflicts because git's 3-way merge can't tell that the cherry-picked and original versions are the same change.
   - **Fix.** One-time alignment merge on main: `git merge -X theirs origin/dev` (always take dev's version on conflict) → identical-content main with a clean merge commit bridging the histories. Followup commit (`align(adviser-modal-css)`) cleaned up a unique-to-main hunk left over from an earlier cherry-pick that `-X theirs` couldn't auto-handle (an old `position: sticky` rule the polish round had removed).
