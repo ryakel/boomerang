@@ -1,9 +1,10 @@
 import { memo, useState } from 'react'
-import { Pin, Plus, Activity, Edit3 } from 'lucide-react'
+import { Pin, Plus, Activity, Edit3, ChevronDown, ChevronRight } from 'lucide-react'
 import SectionLabel from './SectionLabel'
 import TaskCard from './TaskCard'
 import { computeProjectBudget, computeProjectSessionPoints, PROJECT_SESSION_CAP } from '../../scoring'
 import { useTerminalMode } from '../hooks/useTerminalMode'
+import { formatDueDate } from '../../store'
 import './ProjectPinnedSection.css'
 
 // Pinned projects appear at the top of the main task list with their own
@@ -11,6 +12,12 @@ import './ProjectPinnedSection.css'
 // Log Session + Add Child + Unpin actions. Active children of the pinned
 // project surface as regular task cards beneath, prefixed with a "↳"
 // continuation glyph.
+//
+// Per-project COLLAPSE: tap the project title row (chevron + title) to
+// hide/show the sub list. When collapsed, the meta line includes the
+// next-due date so the most-relevant info stays glanceable. Collapse
+// state is owned by the parent so it can persist across navigation
+// (passed in via `collapsedProjects` + `onToggleCollapse`).
 //
 // Projects whose budget cap is exhausted (10 sessions logged with no
 // child completion) show a greyed-out Log Session button with the cap
@@ -32,6 +39,8 @@ function ProjectPinnedSection({
   onSkipAdvance,
   weatherByDate,
   routineStreaks,
+  collapsedProjects = {},
+  onToggleCollapse,
 }) {
   const isTerminal = useTerminalMode()
   const [logging, setLogging] = useState(null) // project id mid-tap
@@ -85,35 +94,69 @@ function ProjectPinnedSection({
           : null
         const fb = feedback?.id === project.id ? feedback.text : null
 
+        const collapsed = !!collapsedProjects[project.id]
+        const nextDueSub = children.find(c => c.due_date) // children already sorted asc by due
+
         return (
-          <div key={project.id} className="v2-pp-block">
+          <div key={project.id} className={`v2-pp-block${collapsed ? ' v2-pp-block-collapsed' : ''}`}>
             <div className="v2-pp-card">
               <button
                 type="button"
                 className="v2-pp-main"
-                onClick={() => onEditProject(project)}
-                aria-label={`Open ${project.title}`}
+                onClick={() => onToggleCollapse && onToggleCollapse(project.id)}
+                aria-label={collapsed ? `Expand ${project.title}` : `Collapse ${project.title}`}
+                aria-expanded={!collapsed}
               >
                 <div className="v2-pp-title-row">
+                  <span className="v2-pp-collapse-chev" aria-hidden="true">
+                    {collapsed ? <ChevronRight size={14} strokeWidth={1.75} /> : <ChevronDown size={14} strokeWidth={1.75} />}
+                  </span>
                   <span className="v2-pp-title">{project.title}</span>
                   {project.due_date && (
                     <span className="v2-pp-due">due {project.due_date}</span>
                   )}
                 </div>
                 <div className="v2-pp-meta">
-                  <span className="v2-pp-sessions">
-                    {sessionCount > 0 ? `🔥 ${sessionCount} session${sessionCount === 1 ? '' : 's'}` : 'no sessions yet'}
-                  </span>
-                  <span className="v2-pp-meta-sep">·</span>
-                  <span>{children.length} active sub{children.length === 1 ? '' : 's'}</span>
-                  <span className="v2-pp-meta-sep">·</span>
-                  <span>budget {budget} pts</span>
-                  {daysSinceLast !== null && (
+                  {collapsed ? (
+                    // Collapsed meta: count + next-due. Compact, glanceable.
+                    // The full session / budget / last-touched info is one
+                    // tap away (expand the card).
                     <>
-                      <span className="v2-pp-meta-sep">·</span>
-                      <span>
-                        last touched {daysSinceLast === 0 ? 'today' : `${daysSinceLast}d ago`}
+                      <span>{children.length} active sub{children.length === 1 ? '' : 's'}</span>
+                      {nextDueSub && (
+                        <>
+                          <span className="v2-pp-meta-sep">·</span>
+                          <span className="v2-pp-next-due">
+                            next: {nextDueSub.title.length > 32 ? `${nextDueSub.title.slice(0, 30)}…` : nextDueSub.title}
+                            {' '}<span className="v2-pp-next-due-date">({formatDueDate(nextDueSub.due_date)})</span>
+                          </span>
+                        </>
+                      )}
+                      {sessionCount > 0 && (
+                        <>
+                          <span className="v2-pp-meta-sep">·</span>
+                          <span className="v2-pp-sessions">🔥 {sessionCount}</span>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    // Expanded meta: full progress detail.
+                    <>
+                      <span className="v2-pp-sessions">
+                        {sessionCount > 0 ? `🔥 ${sessionCount} session${sessionCount === 1 ? '' : 's'}` : 'no sessions yet'}
                       </span>
+                      <span className="v2-pp-meta-sep">·</span>
+                      <span>{children.length} active sub{children.length === 1 ? '' : 's'}</span>
+                      <span className="v2-pp-meta-sep">·</span>
+                      <span>budget {budget} pts</span>
+                      {daysSinceLast !== null && (
+                        <>
+                          <span className="v2-pp-meta-sep">·</span>
+                          <span>
+                            last touched {daysSinceLast === 0 ? 'today' : `${daysSinceLast}d ago`}
+                          </span>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -159,7 +202,7 @@ function ProjectPinnedSection({
               </div>
               {fb && <div className="v2-pp-feedback">{fb}</div>}
             </div>
-            {children.length > 0 && (
+            {!collapsed && children.length > 0 && (
               <div className="v2-pp-children">
                 {children.map(child => (
                   <div key={child.id} className="v2-pp-child">
