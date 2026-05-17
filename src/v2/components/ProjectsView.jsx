@@ -142,63 +142,110 @@ export default function ProjectsView({
                       <div className="v2-pv-empty-children">
                         No subs yet. Use the + button above to add one, or ask Quokka.
                       </div>
-                    ) : (
-                      <>
-                        {activeChildren.length > 0 && (
-                          <div className="v2-pv-children-group">
-                            <div className="v2-pv-children-label">Active</div>
-                            {[...activeChildren].sort((a, b) => {
-                              const ad = a.due_date || '9999-12-31'
-                              const bd = b.due_date || '9999-12-31'
-                              return ad.localeCompare(bd)
-                            }).map(child => (
-                              <div key={child.id} className="v2-pv-child-card">
-                                <TaskCard
-                                  task={child}
-                                  expanded={expandedTaskId === child.id}
-                                  onToggleExpand={setExpandedTaskId}
-                                  onComplete={onComplete}
-                                  onEdit={onEdit}
-                                  onSnooze={onSnooze}
-                                  weatherByDate={weatherByDate}
-                                  routineStreaks={routineStreaks}
-                                />
-                                {onSetChildVisibility && (
-                                  <div className="v2-pv-visibility-row">
+                    ) : (() => {
+                      // Split active children into ready (no blockers waiting)
+                      // and blocked (≥1 incomplete blocker). Blocked subs get
+                      // a "⏸ waits on X, Y" indicator and stay in the
+                      // drill-down — they're filtered from the main list.
+                      const sortByDue = (a, b) => {
+                        const ad = a.due_date || '9999-12-31'
+                        const bd = b.due_date || '9999-12-31'
+                        return ad.localeCompare(bd)
+                      }
+                      const childById = new Map(children.map(c => [c.id, c]))
+                      const isChildBlocked = (c) => {
+                        const blockers = Array.isArray(c.blocked_by) ? c.blocked_by : []
+                        return blockers.some(id => {
+                          const b = childById.get(id)
+                          return b && b.status !== 'done'
+                        })
+                      }
+                      const readyChildren = [...activeChildren].filter(c => !isChildBlocked(c)).sort(sortByDue)
+                      const blockedChildren = [...activeChildren].filter(c => isChildBlocked(c)).sort(sortByDue)
+                      const otherChildren = children.filter(c => !isActiveTask(c))
+                      return (
+                        <>
+                          {readyChildren.length > 0 && (
+                            <div className="v2-pv-children-group">
+                              <div className="v2-pv-children-label">Active</div>
+                              {readyChildren.map(child => (
+                                <div key={child.id} className="v2-pv-child-card">
+                                  <TaskCard
+                                    task={child}
+                                    expanded={expandedTaskId === child.id}
+                                    onToggleExpand={setExpandedTaskId}
+                                    onComplete={onComplete}
+                                    onEdit={onEdit}
+                                    onSnooze={onSnooze}
+                                    weatherByDate={weatherByDate}
+                                    routineStreaks={routineStreaks}
+                                  />
+                                  {onSetChildVisibility && (
+                                    <div className="v2-pv-visibility-row">
+                                      <button
+                                        type="button"
+                                        className="v2-pv-visibility-toggle"
+                                        onClick={() => onSetChildVisibility(child.id, child.child_visibility === 'active' ? 'backstage' : 'active')}
+                                        title={child.child_visibility === 'active' ? 'Hide from main list' : 'Show in main list'}
+                                      >
+                                        {child.child_visibility === 'active' ? '✓ in main list' : '○ backstage'}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {blockedChildren.length > 0 && (
+                            <div className="v2-pv-children-group">
+                              <div className="v2-pv-children-label">Waiting on others</div>
+                              {blockedChildren.map(child => {
+                                const blockerTitles = (child.blocked_by || [])
+                                  .map(id => childById.get(id))
+                                  .filter(b => b && b.status !== 'done')
+                                  .map(b => b.title)
+                                return (
+                                  <div key={child.id} className="v2-pv-child-row v2-pv-child-row-blocked">
+                                    <span className="v2-pv-child-blocked-icon" aria-hidden="true">⏸</span>
+                                    <div className="v2-pv-child-blocked-text">
+                                      <div className="v2-pv-child-title">{child.title}</div>
+                                      <div className="v2-pv-child-blocked-meta">
+                                        waits on {blockerTitles.join(', ')}
+                                      </div>
+                                    </div>
                                     <button
                                       type="button"
-                                      className="v2-pv-visibility-toggle"
-                                      onClick={() => onSetChildVisibility(child.id, child.child_visibility === 'active' ? 'backstage' : 'active')}
-                                      title={child.child_visibility === 'active' ? 'Hide from main list' : 'Show in main list'}
+                                      className="v2-pv-child-edit"
+                                      onClick={() => onEdit(child)}
                                     >
-                                      {child.child_visibility === 'active' ? '✓ in main list' : '○ backstage'}
+                                      Edit
                                     </button>
                                   </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {children.filter(c => !isActiveTask(c)).length > 0 && (
-                          <div className="v2-pv-children-group">
-                            <div className="v2-pv-children-label">Other</div>
-                            {children.filter(c => !isActiveTask(c)).map(child => (
-                              <div key={child.id} className="v2-pv-child-row">
-                                <span className="v2-pv-child-status">{child.status}</span>
-                                <span className="v2-pv-child-title">{child.title}</span>
-                                <button
-                                  type="button"
-                                  className="v2-pv-child-edit"
-                                  onClick={() => onEdit(child)}
-                                >
-                                  Edit
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
+                                )
+                              })}
+                            </div>
+                          )}
+                          {otherChildren.length > 0 && (
+                            <div className="v2-pv-children-group">
+                              <div className="v2-pv-children-label">Other</div>
+                              {otherChildren.map(child => (
+                                <div key={child.id} className="v2-pv-child-row">
+                                  <span className="v2-pv-child-status">{child.status}</span>
+                                  <span className="v2-pv-child-title">{child.title}</span>
+                                  <button
+                                    type="button"
+                                    className="v2-pv-child-edit"
+                                    onClick={() => onEdit(child)}
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                 )}
               </div>

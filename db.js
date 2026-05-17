@@ -254,6 +254,7 @@ function taskToRow(task) {
     session_log_json: JSON.stringify(task.session_log || []),
     child_visibility: task.child_visibility || 'backstage',
     snooze_indefinite: task.snooze_indefinite ? 1 : 0,
+    blocked_by_json: JSON.stringify(task.blocked_by || []),
   }
 }
 
@@ -304,6 +305,7 @@ function rowToTask(row) {
     session_log: safeJsonParse(row.session_log_json, []),
     child_visibility: row.child_visibility || 'backstage',
     snooze_indefinite: !!row.snooze_indefinite,
+    blocked_by: safeJsonParse(row.blocked_by_json, []),
   }
 }
 
@@ -328,8 +330,8 @@ const UPSERT_TASK_SQL = `
     gcal_event_id, gcal_duration, gmail_message_id, gmail_pending, weather_hidden, size_inferred,
     pushover_receipt, follow_ups_json, skipped,
     parent_id, pinned_to_today, nag_allowed, session_count, last_session_at,
-    session_log_json, child_visibility, snooze_indefinite)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    session_log_json, child_visibility, snooze_indefinite, blocked_by_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -354,7 +356,8 @@ const UPSERT_TASK_SQL = `
     parent_id=excluded.parent_id, pinned_to_today=excluded.pinned_to_today,
     nag_allowed=excluded.nag_allowed, session_count=excluded.session_count,
     last_session_at=excluded.last_session_at, session_log_json=excluded.session_log_json,
-    child_visibility=excluded.child_visibility, snooze_indefinite=excluded.snooze_indefinite`
+    child_visibility=excluded.child_visibility, snooze_indefinite=excluded.snooze_indefinite,
+    blocked_by_json=excluded.blocked_by_json`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -368,7 +371,7 @@ function runUpsertTask(task) {
     r.gmail_message_id, r.gmail_pending, r.weather_hidden, r.size_inferred,
     r.pushover_receipt, r.follow_ups_json, r.skipped,
     r.parent_id, r.pinned_to_today, r.nag_allowed, r.session_count, r.last_session_at,
-    r.session_log_json, r.child_visibility, r.snooze_indefinite,
+    r.session_log_json, r.child_visibility, r.snooze_indefinite, r.blocked_by_json,
   ])
 }
 

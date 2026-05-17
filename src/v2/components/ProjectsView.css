@@ -277,6 +277,50 @@
   color: var(--v2-text);
 }
 
+/* Blocked-sub row in the drill-down. Faded + "waits on X" subtitle.
+ * Distinct from the "Other" rows (done/cancelled) — these are active
+ * subs that just can't be worked on yet because their blockers aren't
+ * done. The row stays interactive (edit button) so the user can adjust
+ * blockers or status. */
+.v2-pv-child-row-blocked {
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(167, 139, 250, 0.05);
+  opacity: 0.85;
+}
+
+.v2-pv-child-blocked-icon {
+  font-size: 14px;
+  line-height: 1.4;
+  flex: 0 0 auto;
+  color: #A78BFA;
+}
+
+.v2-pv-child-blocked-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.v2-pv-child-blocked-text .v2-pv-child-title {
+  color: var(--v2-text);
+  margin-bottom: 2px;
+  white-space: normal;
+}
+
+.v2-pv-child-blocked-meta {
+  font: 400 11px/1.3 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+[data-theme^="terminal"] .v2-pv-child-row-blocked {
+  background: transparent;
+  border-left: 2px dashed var(--v2-accent);
+  border-radius: 0;
+}
+
 /* Terminal overrides. */
 [data-theme^="terminal"] .v2-pv-card {
   background: transparent;
