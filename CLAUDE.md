@@ -39,10 +39,14 @@ The proxy bug means direct `git push origin dev` and `git push origin --delete <
 2. `git push origin dev:refs/heads/claude/release-<thing>` — pushes dev's current tip to a new short-lived ref. The proxy accepts fresh-ref pushes.
 3. `mcp__github__create_pull_request` with `head: 'claude/release-<thing>'`, `base: 'main'`. Title like `release: <feature>`.
 4. Wait for user approval (every promotion is its own approval — previous approvals don't carry forward).
-5. `mcp__github__merge_pull_request` with `merge_method: "rebase"`. GitHub deletes `claude/release-<thing>` automatically on merge; `dev` is untouched.
+5. `mcp__github__merge_pull_request` with `merge_method: "merge"` (creates a merge commit on main with dev's tip as a parent — **NEVER use rebase here**, see "Why merge not rebase" below). GitHub deletes `claude/release-<thing>` automatically on merge; `dev` is untouched.
 6. `git fetch origin && git checkout main && git reset --hard origin/main` to resync locally.
 
-After step 5, `dev` and `main` are content-identical at the tip. Verify with `git diff origin/main origin/dev --stat` returning empty output.
+After step 5, `dev` and `main` are content-identical at the tip. Verify with `git diff origin/main origin/dev --stat` returning empty output. dev's tip SHA stays reachable from main (as a parent of the merge commit), so future `git log origin/main..origin/dev` returns empty.
+
+**Why merge not rebase for dev→main (2026-05-17):** rebase-merge rewrites commit SHAs on the target branch. Each promotion would land dev's commit on main under a brand-new SHA — even though the content is identical. `git log origin/main..origin/dev` would show the original commit as "not on main" by SHA, and the NEXT release PR would conflict because git's 3-way merge can't tell that two same-content commits are the same change. Merge-commit method preserves SHAs: main contains dev's tip exactly, as a parent of a merge commit. Histories stay linked. No conflicts on future promotions.
+
+Feature → dev still uses `merge_method: "rebase"` for linear history within dev. The rebase rewrite there is fine because dev is the source of truth for its own commits — no cross-branch alignment to preserve.
 
 **If dev gets deleted anyway** (e.g. someone forgot the indirection): recreate it from main with `git push origin refs/remotes/origin/main:refs/heads/dev`. Branches are now realigned and ready for the next feature loop.
 
