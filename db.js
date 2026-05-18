@@ -709,9 +709,43 @@ export function isNotifiable(task) {
   if (!task) return false
   if (task.gmail_pending) return false
   if (task.snooze_indefinite) return false
+  if (task.notifications_muted) return false
   if (['not_started', 'doing', 'waiting'].includes(task.status)) return true
   if (task.status === 'project' && (task.due_date || task.nag_allowed)) return true
   return false
+}
+
+// Full notification-eligibility filter. Combines isNotifiable() with the
+// project-aware filters that previously only lived on the client:
+//   - Backstage subs of projects (child_visibility='backstage', parent
+//     is a project): never notify — they only show in the Projects
+//     drill-down, the user can't act on them from the main list.
+//   - Blocked subs (any task in `blocked_by` not yet completed): never
+//     notify — the task isn't actionable yet, surfacing it on a lock
+//     screen is just noise.
+// Returns an array containing only the tasks that should be considered
+// for notifications. Pass the full task list; the function builds an
+// internal id→task map for blocker/parent resolution.
+export function filterNotifiableTasks(allTasks) {
+  if (!Array.isArray(allTasks)) return []
+  const byId = new Map(allTasks.map(t => [t.id, t]))
+  return allTasks.filter(t => {
+    if (!isNotifiable(t)) return false
+    // Backstage sub of a project
+    if (t.parent_id && t.child_visibility === 'backstage') {
+      const parent = byId.get(t.parent_id)
+      if (parent?.status === 'project') return false
+    }
+    // Blocked by an incomplete sibling
+    if (Array.isArray(t.blocked_by) && t.blocked_by.length > 0) {
+      const someoneBlocking = t.blocked_by.some(id => {
+        const b = byId.get(id)
+        return b && b.status !== 'done'
+      })
+      if (someoneBlocking) return false
+    }
+    return true
+  })
 }
 
 // ============================================================
