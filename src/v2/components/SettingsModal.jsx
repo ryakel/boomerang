@@ -3,7 +3,7 @@ import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
   loadRoutines, saveRoutines, loadLabels, saveLabels,
-  LABEL_COLORS, uuid,
+  LABEL_COLORS, uuid, localYMD,
 } from '../../store'
 import { restoreFromBackup } from '../../api'
 import { usePushSubscription } from '../../hooks/usePushSubscription'
@@ -1937,7 +1937,7 @@ export default function SettingsModal({
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `boomerang-backup-${new Date().toISOString().split('T')[0]}.json`
+    a.download = `boomerang-backup-${localYMD()}.json`
     a.click()
     URL.revokeObjectURL(url)
   }

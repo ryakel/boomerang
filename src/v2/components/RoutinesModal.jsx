@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check, Flame } from 'lucide-react'
-import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, getNextDueDate, computeHabitStats } from '../../store'
+import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, getNextDueDate, computeHabitStats, localYMD } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import ChainReconcileModal from './ChainReconcileModal'
@@ -306,7 +306,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
   const isHabit = spawnMode === 'habit'
 
   const labels = loadLabels()
-  const today = new Date().toISOString().split('T')[0]
+  const today = localYMD()
   const parsedDay = scheduleDayOfWeek === '' ? null : parseInt(scheduleDayOfWeek, 10)
 
   const toggleTag = (id) => {

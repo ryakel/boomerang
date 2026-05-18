@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { ENERGY_TYPES, loadLabels } from '../../store'
+import { ENERGY_TYPES, loadLabels, localYMD } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import BalanceRadar from './BalanceRadar'
@@ -29,7 +29,7 @@ function buildHeatMapGrid(dailyData, metric) {
   const end = new Date(today); end.setDate(end.getDate() + (6 - end.getDay()))
   const d = new Date(start)
   while (d <= end) {
-    const key = d.toISOString().split('T')[0]
+    const key = localYMD(d)
     const data = dataMap[key]
     const value = data ? (metric === 'points' ? data.points : data.tasks) : 0
     cells.push({ key, value, dow: d.getDay(), isFuture: d > today })

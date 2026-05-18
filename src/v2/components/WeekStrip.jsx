@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { localYMD } from '../../store'
 import './WeekStrip.css'
 
 // 7-day calendar strip rendered above the task list. Each day cell shows
@@ -17,17 +18,10 @@ import './WeekStrip.css'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// LOCAL-timezone YYYY-MM-DD key. `toISOString()` converts to UTC which
-// flips the day boundary at midnight UTC — for a user in Central time
-// (UTC-5/-6), that means after 6pm/7pm CST the WeekStrip would think
-// "today" is tomorrow. Use the local components instead so the "today"
-// pill matches the calendar date the user actually sees in the header.
-function ymd(date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
+// `ymd` is just an alias for `localYMD` — kept as a local for backward
+// compatibility within this file. See store.localYMD for why we DON'T
+// use date.toISOString().slice(0, 10).
+const ymd = localYMD
 
 function startOfWeekSunday(date) {
   const d = new Date(date)

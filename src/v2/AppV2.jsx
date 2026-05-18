@@ -46,7 +46,7 @@ import { useGCalSync } from '../hooks/useGCalSync'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useTerminalMode } from './hooks/useTerminalMode'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask } from '../api'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, computeRoutineStreak, logActivity } from '../store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, computeRoutineStreak, logActivity, localYMD } from '../store'
 import './AppV2.css'
 
 export default function AppV2() {
@@ -419,7 +419,7 @@ export default function AppV2() {
         !t.notifications_muted &&
         (!t.snoozed_until || new Date(t.snoozed_until) <= new Date())
       )
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayStr = localYMD()
       const completedTags = new Set(task.tags || [])
       const completedTitleLower = (task.title || '').toLowerCase()
       const followUpKeywords = ['follow up', 'follow-up', 'followup', 'after ', 'next step', 'reply to', 'respond to']

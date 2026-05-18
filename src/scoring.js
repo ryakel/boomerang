@@ -57,8 +57,12 @@ export function computeSessionStatsToday(tasks) {
 // rings reflect "I worked on the basement today" the same as completing
 // a one-shot task.
 export function computeDailyStats(tasks, settings = null) {
-  const todayStr = new Date().toDateString()
-  const todayIso = new Date().toISOString().split('T')[0]
+  const now = new Date()
+  const todayStr = now.toDateString()
+  // Local YMD — UTC variant would flip to "tomorrow" at night Central
+  // time and miss easter-egg wins / mismatch other systems that key by
+  // local calendar date.
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const todayTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
 
   let points = 0
