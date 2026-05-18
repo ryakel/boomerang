@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { localYMD } from '../../store'
 import './WeekStrip.css'
 
 // 7-day calendar strip rendered above the task list. Each day cell shows
@@ -17,9 +18,10 @@ import './WeekStrip.css'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function ymd(date) {
-  return date.toISOString().slice(0, 10)
-}
+// `ymd` is just an alias for `localYMD` — kept as a local for backward
+// compatibility within this file. See store.localYMD for why we DON'T
+// use date.toISOString().slice(0, 10).
+const ymd = localYMD
 
 function startOfWeekSunday(date) {
   const d = new Date(date)

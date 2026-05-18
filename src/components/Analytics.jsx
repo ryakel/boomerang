@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import './Analytics.css'
 import { FullRings } from './Rings'
-import { loadSettings, saveSettings, loadLabels, ENERGY_TYPES } from '../store'
+import { loadSettings, saveSettings, loadLabels, ENERGY_TYPES, localYMD } from '../store'
 import { SIZE_POINTS } from '../scoring'
 import EnergyIcon from './EnergyIcon'
 import { Search, ChevronRight } from 'lucide-react'
@@ -32,7 +32,7 @@ function buildHeatMapGrid(dailyData, metric) {
 
   const d = new Date(start)
   while (d <= end) {
-    const key = d.toISOString().split('T')[0]
+    const key = localYMD(d)
     const data = dataMap[key]
     const value = data ? (metric === 'points' ? data.points : data.tasks) : 0
     const isFuture = d > today
@@ -156,7 +156,7 @@ export default function Analytics({ onClose, isDesktop }) {
   const [vacationMode, setVacationMode] = useState(settings.vacation_mode || false)
   const [showVacationPicker, setShowVacationPicker] = useState(false)
   const [customDays, setCustomDays] = useState('')
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = localYMD()
   const [isFreeDay, setIsFreeDay] = useState(() => (settings.free_days || []).includes(todayStr))
   const [resetState, setResetState] = useState('idle')
   const resetTimer = useRef(null)

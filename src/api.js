@@ -1,4 +1,4 @@
-import { loadSettings } from './store'
+import { loadSettings, localYMD } from './store'
 
 const PROXY_URL = '/api/messages'
 
@@ -44,7 +44,7 @@ export async function callClaude(systemPrompt, userMessage) {
 
 // --- Date inference ---
 export async function inferDate(title, notes = '') {
-  const today = new Date().toISOString().split('T')[0]
+  const today = localYMD()
   const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' })
 
   const system = `You extract dates from task descriptions. Today is ${today} (${dayOfWeek}). If the text mentions a date or time reference (tomorrow, next Friday, end of month, etc.), return the ISO date string (YYYY-MM-DD). If no date is mentioned, return null. Return JSON only: {"date": "YYYY-MM-DD" or null}`
@@ -178,7 +178,7 @@ Suggest title updates for the steps that didn't change but now read inconsistent
 
 // --- Routine due date suggestion ---
 export async function suggestRoutineDueDate(title, notes, cadence, lastCompleted) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = localYMD()
   const system = `You suggest optimal due dates for recurring tasks. Consider the task description, notes, cadence, and when it was last completed. Return JSON only: {"date": "YYYY-MM-DD", "reason": "one sentence"}`
 
   const user = `Recurring task: "${title}"
@@ -949,7 +949,7 @@ export async function gmailReset() {
 const SIZE_TO_MINUTES = { XS: 15, S: 30, M: 60, L: 120, XL: 240 }
 
 export async function inferEventTime(title, notes, size, energy) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = localYMD()
   const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' })
 
   const system = `You suggest a time of day and duration for calendar events based on task context. Today is ${today} (${dayOfWeek}).

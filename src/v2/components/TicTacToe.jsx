@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { loadSettings, saveSettings } from '../../store'
+import { loadSettings, saveSettings, localYMD } from '../../store'
 import './TicTacToe.css'
 
 // Hidden engagement game. Triggered by 7-tapping the EditTaskModal
@@ -47,7 +47,10 @@ function pickMove(board, ai, human) {
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10)
+  // Use local timezone — easter-egg wins are keyed by the user's calendar
+  // day, not UTC, so the bonus aligns with `computeDailyStats` and the
+  // streak's free-day handling.
+  return localYMD()
 }
 
 function alreadyWonToday() {

@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { getSnoozeOptions, getSnoozeOptionsShort } from '../../store'
+import { getSnoozeOptions, getSnoozeOptionsShort, localYMD } from '../../store'
 import ModalShell from './ModalShell'
 import './SnoozeModal.css'
 
 export default function SnoozeModal({ task, onSnooze, onUnsnooze, onClose }) {
   const [showCustom, setShowCustom] = useState(false)
-  const defaultDate = () => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0] }
+  const defaultDate = () => { const d = new Date(); d.setDate(d.getDate() + 7); return localYMD(d) }
   const [customDate, setCustomDate] = useState(defaultDate)
   const [customTime, setCustomTime] = useState('09:00')
 
@@ -43,7 +43,7 @@ export default function SnoozeModal({ task, onSnooze, onUnsnooze, onClose }) {
 
   const minDate = new Date()
   minDate.setDate(minDate.getDate() + 1)
-  const minDateStr = minDate.toISOString().split('T')[0]
+  const minDateStr = localYMD(minDate)
 
   const customLabel = customDate
     ? `${new Date(customDate + 'T' + customTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} ${new Date('2000-01-01T' + customTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`

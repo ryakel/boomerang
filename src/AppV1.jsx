@@ -5,7 +5,7 @@ import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scro
 import 'mobile-drag-drop/default.css'
 import './App.css'
 import './components/Modal.css'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak } from './store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, localYMD } from './store'
 import { inferSize, trelloUpdateCard, gmailApprove, gmailDismiss } from './api'
 import { useTasks } from './hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from './hooks/useRoutines'
@@ -272,7 +272,7 @@ function AppV1() {
         (!t.snoozed_until || new Date(t.snoozed_until) <= new Date())
       )
       // Score: high_priority +100, due today/overdue +50, XS/S +20, otherwise 0
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayStr = localYMD()
       const score = t => {
         let s = 0
         if (t.high_priority) s += 100

@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react'
 import './AddTaskModal.css'
-import { loadLabels, getDefaultDueDate, ENERGY_TYPES } from '../store'
+import { loadLabels, getDefaultDueDate, ENERGY_TYPES, localYMD } from '../store'
 import { useTaskForm } from '../hooks/useTaskForm'
 import { Sparkles } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
@@ -20,7 +20,7 @@ export default function AddTaskModal({ onAdd, onClose }) {
     onClose()
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = localYMD()
 
   // Pull-to-close on the handle bar
   const sheetRef = useRef(null)

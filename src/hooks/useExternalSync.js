@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { loadSettings, loadRoutines } from '../store'
+import { loadSettings, loadRoutines, localYMD } from '../store'
 import {
   trelloUpdateCard,
   trelloCreateChecklist,
@@ -557,7 +557,7 @@ export function useExternalSync(tasks, onUpdateTask) {
     if (!settings.gcal_sync_enabled) return
 
     const syncStatuses = settings.gcal_sync_statuses || ['not_started', 'doing', 'waiting', 'open']
-    const today = new Date().toISOString().split('T')[0]
+    const today = localYMD()
     const unsyncedTasks = tasks.filter(t =>
       t.due_date && !t.gcal_event_id && syncStatuses.includes(t.status) && t.due_date >= today
     )

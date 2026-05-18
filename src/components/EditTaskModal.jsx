@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import './EditTaskModal.css'
-import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES, uuid } from '../store'
+import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES, uuid, localYMD } from '../store'
 import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists, extractAttachmentText } from '../api'
 import { Sparkles, Search, ChevronRight, ChevronDown, Trash2, Plus, Sun } from 'lucide-react'
 import EnergyIcon from './EnergyIcon'
@@ -522,7 +522,7 @@ export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClos
     }
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = localYMD()
   const isAlreadyRoutine = !!task.routine_id
   const parentRoutine = isAlreadyRoutine ? loadRoutines().find(r => r.id === task.routine_id) : null
 
