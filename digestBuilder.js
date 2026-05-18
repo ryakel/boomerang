@@ -18,7 +18,7 @@
  *   7. Weather — existing buildWeatherSummary() output if configured
  */
 
-import { queryTasks, getData, getAnalytics, isNotifiable } from './db.js'
+import { queryTasks, getData, getAnalytics, filterNotifiableTasks } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 
 // ACTIVE_STATUSES retained for any legacy refs; new code uses isNotifiable()
@@ -98,7 +98,7 @@ function getYesterdayCompletions() {
  */
 export function buildDigest(settings) {
   const allTasks = queryTasks({})
-  const activeTasks = allTasks.filter(isNotifiable)
+  const activeTasks = filterNotifiableTasks(allTasks)
   const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
   const nonMuted = nonSnoozed.filter(t => !t.notifications_muted)
 
