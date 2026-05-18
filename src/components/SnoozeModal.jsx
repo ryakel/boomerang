@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import './SnoozeModal.css'
-import { getSnoozeOptions, getSnoozeOptionsShort } from '../store'
+import { getSnoozeOptions, getSnoozeOptionsShort, localYMD } from '../store'
 
 export default function SnoozeModal({ task, onSnooze, onClose }) {
   const [showCustom, setShowCustom] = useState(false)
-  const defaultDate = () => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0] }
+  const defaultDate = () => { const d = new Date(); d.setDate(d.getDate() + 7); return localYMD(d) }
   const [customDate, setCustomDate] = useState(defaultDate)
   const [customTime, setCustomTime] = useState('09:00')
 
@@ -43,7 +43,7 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
   // Min date for custom picker = tomorrow
   const minDate = new Date()
   minDate.setDate(minDate.getDate() + 1)
-  const minDateStr = minDate.toISOString().split('T')[0]
+  const minDateStr = localYMD(minDate)
 
   return (
     <div className="sheet-overlay" onClick={onClose}>

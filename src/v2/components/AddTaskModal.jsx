@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Sparkles } from 'lucide-react'
-import { loadLabels, getDefaultDueDate, ENERGY_TYPES } from '../../store'
+import { loadLabels, getDefaultDueDate, ENERGY_TYPES, localYMD } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
 import ModalShell from './ModalShell'
 import DateField from './DateField'
@@ -26,7 +26,7 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
   }, [open])
 
   const labels = loadLabels()
-  const today = new Date().toISOString().split('T')[0]
+  const today = localYMD()
 
   const handleSubmit = () => {
     if (!form.title.trim()) return

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronRight } from 'lucide-react'
 import './Settings.css'
-import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, DEFAULT_SETTINGS, uuid } from '../store'
+import { loadSettings, saveSettings, loadLabels, saveLabels, loadTasks, saveTasks, loadRoutines, saveRoutines, LABEL_COLORS, loadNotifLog, clearNotifLog, DEFAULT_SETTINGS, uuid, localYMD } from '../store'
 import { getKeyStatus, callClaude, notionStatus, notionMCPConnect, notionMCPStatus, notionMCPDisconnect, trelloStatus, trelloBoards, trelloBoardLists, notionSearch, notionGetChildPages, notionQueryDatabase, gcalGetAuthUrl, gcalStatus, gcalDisconnect, gcalListCalendars, gcalBulkDeleteEvents, gmailGetAuthUrl, gmailStatus, gmailDisconnect, gmailSync, gmailReset, emailStatus, testEmail, pushStatus, testPush, pushoverStatus, testPushover, testPushoverEmergency, testDigest, getNotifLog, clearServerNotifLog, getWeather, refreshWeather, geocodeWeather, restoreFromBackup } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
@@ -796,7 +796,7 @@ export default function Settings({ onClose, onClearCompleted, onClearAll, onFlus
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `boomerang-backup-${new Date().toISOString().split('T')[0]}.json`
+    a.download = `boomerang-backup-${localYMD()}.json`
     a.click()
     URL.revokeObjectURL(url)
   }

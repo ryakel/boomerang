@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight, RotateCw } from 'lucide-react'
-import { loadLabels, ENERGY_TYPES, STATUS_META, uuid } from '../../store'
+import { loadLabels, ENERGY_TYPES, STATUS_META, uuid, localYMD } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
 import { researchTask } from '../../api'
 import WeatherSection, { resolveWeatherVisibility } from '../../components/WeatherSection'
@@ -147,7 +147,7 @@ export default function EditTaskModal({
   const [confirmDeleteChecklist, setConfirmDeleteChecklist] = useState(null)
 
   const labels = loadLabels()
-  const today = new Date().toISOString().split('T')[0]
+  const today = localYMD()
 
   // v2 autosaves every field change with a 500ms debounce, mirroring v1
   // behavior the user expects. The Save button is kept as an explicit

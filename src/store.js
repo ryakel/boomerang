@@ -211,6 +211,19 @@ function touchModified() {
   localStorage.setItem(MODIFIED_KEY, String(Date.now()))
 }
 
+// LOCAL-timezone YYYY-MM-DD key. Prefer this over `date.toISOString().slice(0, 10)`
+// for anything that represents the user's calendar day (today, due dates,
+// streak buckets, easter-egg wins). The toISOString variant converts to UTC
+// first — for a user in Central time, after ~6pm CST that flips the key to
+// the next calendar day and causes subtle off-by-one bugs across the UI.
+// Pass no argument to get today's local key.
+export function localYMD(d = new Date()) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export function getLocalModified() {
   return parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10)
 }
@@ -550,7 +563,7 @@ export function getDefaultDueDate() {
   if (!days || days <= 0) return ''
   const d = new Date()
   d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+  return localYMD(d)
 }
 
 export function sortTasks(list, sortBy) {
@@ -666,13 +679,13 @@ export function computeStreak(tasks, settings) {
     : null
 
   const isNoFaultDay = (d) => {
-    const iso = d.toISOString().split('T')[0]
+    const iso = localYMD(d)
     if (freeDays.has(iso)) return true
     if (easterEggWins[iso]) return false // counted as completion below, not no-fault
     return !hadActiveTasksOnDay(tasks, d)
   }
   const hasCompletionOn = (d) => (
-    completionDates.has(d.toDateString()) || !!easterEggWins[d.toISOString().split('T')[0]]
+    completionDates.has(d.toDateString()) || !!easterEggWins[localYMD(d)]
   )
 
   let streak = 0

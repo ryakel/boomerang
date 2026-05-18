@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, getNextDueDate } from '../store'
+import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, getNextDueDate, localYMD } from '../store'
 import { suggestNotionLink, generateNotionContent, notionCreatePage } from '../api'
 
 const DAY_OF_WEEK_OPTIONS = [
@@ -36,7 +36,7 @@ export default function Routines({ routines, onAdd, onDelete, onTogglePause, onU
   const defaultEndDate = () => {
     const d = new Date()
     d.setDate(d.getDate() + 7)
-    return d.toISOString().split('T')[0]
+    return localYMD(d)
   }
 
   const resetForm = () => {

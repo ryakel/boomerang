@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { localYMD } from '../store'
 
 export default function ExtendModal({ task, onExtend, onClose }) {
   const [customDate, setCustomDate] = useState('')
@@ -13,7 +14,7 @@ export default function ExtendModal({ task, onExtend, onClose }) {
   const extend = (days) => {
     const newDate = new Date(currentDue)
     newDate.setDate(newDate.getDate() + days)
-    onExtend(task.id, newDate.toISOString().split('T')[0])
+    onExtend(task.id, localYMD(newDate))
     onClose()
   }
 
@@ -25,7 +26,7 @@ export default function ExtendModal({ task, onExtend, onClose }) {
 
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
-  const minDate = tomorrow.toISOString().split('T')[0]
+  const minDate = localYMD(tomorrow)
 
   return (
     <div className="sheet-overlay" onClick={onClose}>

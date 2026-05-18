@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, createTask } from '../store'
+import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, createTask, localYMD } from '../store'
 import { suggestRoutineDueDate } from '../api'
 
 export function useRoutines() {
@@ -77,7 +77,7 @@ export function useRoutines() {
   const logHabit = useCallback((routineId) => {
     const routine = routines.find(r => r.id === routineId)
     if (!routine || routine.spawn_mode !== 'habit') return null
-    const today = new Date().toISOString().split('T')[0]
+    const today = localYMD()
     const now = new Date().toISOString()
     const task = createTask(routine.title, routine.tags, today, routine.notes)
     task.routine_id = routine.id
@@ -99,7 +99,7 @@ export function useRoutines() {
   const spawnNow = useCallback((routineId) => {
     const routine = routines.find(r => r.id === routineId)
     if (!routine) return null
-    const today = new Date().toISOString().split('T')[0]
+    const today = localYMD()
     const task = createTask(routine.title, routine.tags, today, routine.notes)
     task.routine_id = routine.id
     task.notion_page_id = routine.notion_page_id
@@ -131,7 +131,7 @@ export function useRoutines() {
     // non-auto-roll path uses a looser `!== 'done'` check — preserved below
     // to avoid scope-creeping a behavior change into PR 1.)
     const TERMINAL_FOR_ROLL = new Set(['done', 'completed', 'cancelled', 'backlog', 'project'])
-    const today = new Date().toISOString().split('T')[0]
+    const today = localYMD()
 
     routines.forEach(routine => {
       if (!isRoutineDue(routine)) return
@@ -174,7 +174,7 @@ export function useRoutines() {
       }
 
       const nextDue = getNextDueDate(routine)
-      const task = createTask(routine.title, routine.tags, nextDue.toISOString().split('T')[0], routine.notes)
+      const task = createTask(routine.title, routine.tags, localYMD(nextDue), routine.notes)
       task.routine_id = routine.id
       task.notion_page_id = routine.notion_page_id
       task.notion_url = routine.notion_url
