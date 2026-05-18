@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(settings): notifications panel cleanup — collapsible sections, descriptions on every type, Quokka card matches the rest [S]
+  - **Three asks from the screenshots:**
+    1. Collapse the noisy notif sections so the panel isn't a wall of toggles.
+    2. The Quokka card has descriptive text none of the others have — either remove it or give the others the same treatment.
+    3. Each notification type should have a short description, formatted title-above-text like the channel-master rows.
+  - **Fixes:**
+    - **Collapsible section headers.** New `SectionHeader` component renders a clickable row with a `▾`/`▸` chevron + label + hint. Click to fold/unfold. State persists in `settings.collapsed_notif_sections` (cross-device + reload). Applied to Channels, Notification types, Daily digest, Test channels, Email deliverability, Weather notifications. High-priority escalation + Quiet hours kept as-is — those already gate their content via their primary Toggle row.
+    - **`desc` field on every NOTIF_TYPE.** Overdue/Stale/Nudges/Size/Pile-up/Habit nudges/Routine suggestions all gain a one-line description rendered under the title (same shape as the Quokka card). Package types too.
+    - **Card head restructured.** New `.v2-notif-card-text` column wraps title + description as a vertical stack so the frequency input + channel toggles align top-right correctly. Quokka card now uses the same structure; no longer special-cased.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/Version-History.md`
+
 - fix(notifications): respect backstage subs, blocked subs, and notifications_muted server-side [S]
   - **Bug.** A "Quick win available" push fired with `"Organize travel documents & confirmations" (S)` — a backstage sub of the Summer '26 Vacation project that's blocked behind several earlier subs. Not in the user's main list, not actionable yet, definitely shouldn't be on the lock screen.
   - **Cause.** Server-side notification dispatchers (push, email, pushover, digest) used `isNotifiable(task)` which only checks status / snooze_indefinite / gmail_pending. The project-aware filters (`isBackstageSub`, `isBlockedSub`) and the `notifications_muted` flag were enforced only by the client when building the visible task list. Server-side never saw them.
