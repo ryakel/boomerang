@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(notifications): respect backstage subs, blocked subs, and notifications_muted server-side [S]
+  - **Bug.** A "Quick win available" push fired with `"Organize travel documents & confirmations" (S)` — a backstage sub of the Summer '26 Vacation project that's blocked behind several earlier subs. Not in the user's main list, not actionable yet, definitely shouldn't be on the lock screen.
+  - **Cause.** Server-side notification dispatchers (push, email, pushover, digest) used `isNotifiable(task)` which only checks status / snooze_indefinite / gmail_pending. The project-aware filters (`isBackstageSub`, `isBlockedSub`) and the `notifications_muted` flag were enforced only by the client when building the visible task list. Server-side never saw them.
+  - **Fix.** New `filterNotifiableTasks(allTasks)` helper in `db.js` — composes `isNotifiable` plus per-context filters:
+    - Backstage subs of projects (`child_visibility === 'backstage'` AND parent is a project) → skip.
+    - Blocked subs (any id in `blocked_by` not yet `done`) → skip.
+    - Also: `isNotifiable` now respects `task.notifications_muted` directly so dispatcher branches that didn't already filter for it get the rule too.
+  - Replaced `allTasks.filter(isNotifiable)` with `filterNotifiableTasks(allTasks)` in `pushNotifications.js`, `emailNotifications.js`, `pushoverNotifications.js`, `digestBuilder.js`.
+  - **Out of scope.** The general-nudge picker still chooses a small task at random from the eligible pool. With this filter applied, random will now pick from a much smaller, accurate set — but priority-aware picking (high-pri first, then earliest due) is the obvious follow-up if random still feels noisy.
+  - Modified: `db.js`, `pushNotifications.js`, `emailNotifications.js`, `pushoverNotifications.js`, `digestBuilder.js`, `wiki/Version-History.md`
+
 - fix(tz): replace every UTC-based date key with a local-timezone helper [S]
   - **Bug originally reported.** At 7pm Central on Sunday May 17, the home-stats header said "Sun, May 17" but the WeekStrip highlighted MON 18 as today with a 0/3 count.
   - **Cause.** `date.toISOString().slice(0, 10)` (or `.split('T')[0]`) converts to UTC before slicing. After ~6-7pm Central, UTC has already rolled to the next calendar day. Anywhere this was used for "today" / "due date" / per-day bucket keys, the date silently shifted forward at night Central.
