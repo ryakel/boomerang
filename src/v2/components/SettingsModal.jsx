@@ -182,23 +182,23 @@ const PLACEHOLDER_BODY = {}
 // section) + their channel-specific setting key suffixes. Same scheme v1
 // uses: push_notif_<key>, email_notif_<key>, pushover_notif_<key>.
 const NOTIF_TYPES = [
-  { key: 'overdue', label: 'Overdue', freqKey: 'notif_freq_overdue', freqDefault: 0.5 },
-  { key: 'stale', label: 'Stale', freqKey: 'notif_freq_stale', freqDefault: 0.5 },
-  { key: 'nudge', label: 'Nudges', freqKey: 'notif_freq_nudge', freqDefault: 1 },
-  { key: 'size', label: 'Size-based', freqKey: 'notif_freq_size', freqDefault: 1 },
-  { key: 'pileup', label: 'Pile-up', freqKey: 'notif_freq_pileup', freqDefault: 2 },
+  { key: 'overdue', label: 'Overdue', desc: 'Past-due tasks. Repeats until done or snoozed.', freqKey: 'notif_freq_overdue', freqDefault: 0.5 },
+  { key: 'stale', label: 'Stale', desc: 'Tasks untouched longer than the staleness threshold.', freqKey: 'notif_freq_stale', freqDefault: 0.5 },
+  { key: 'nudge', label: 'Nudges', desc: 'General "got a minute?" pokes when the list is sitting idle.', freqKey: 'notif_freq_nudge', freqDefault: 1 },
+  { key: 'size', label: 'Size-based', desc: 'Heads-up on L/XL tasks approaching their due date.', freqKey: 'notif_freq_size', freqDefault: 1 },
+  { key: 'pileup', label: 'Pile-up', desc: 'Warning when too many active tasks accumulate.', freqKey: 'notif_freq_pileup', freqDefault: 2 },
   // Habit nudges are throttled per-routine (24h), not by global frequency —
   // freqKey/freqDefault carried for matrix consistency but the dispatcher
   // ignores them.
-  { key: 'habit_nudge', label: 'Habit nudges', freqKey: 'notif_freq_habit_nudge', freqDefault: 24 },
+  { key: 'habit_nudge', label: 'Habit nudges', desc: 'Behind-pace pokes for habit routines (e.g. "2× / week").', freqKey: 'notif_freq_habit_nudge', freqDefault: 24 },
   // Activity Prompts PR 3: weekly suggestion summary. The frequency input is
   // carried for matrix consistency but the dispatcher hard-codes weekly.
-  { key: 'routine_suggestion', label: 'Routine suggestions', freqKey: 'notif_freq_routine_suggestion', freqDefault: 168 },
+  { key: 'routine_suggestion', label: 'Routine suggestions', desc: 'Weekly summary of pattern-detected routine candidates.', freqKey: 'notif_freq_routine_suggestion', freqDefault: 168 },
 ]
 
 const NOTIF_PACKAGE_TYPES = [
-  { key: 'package_delivered', label: 'Package delivered' },
-  { key: 'package_exception', label: 'Package exception' },
+  { key: 'package_delivered', label: 'Package delivered', desc: 'Shipping carrier reports the package was delivered.' },
+  { key: 'package_exception', label: 'Package exception', desc: 'Delivery issue or routing problem reported by carrier.' },
 ]
 
 // Integrations panel — status summary + "Configure in v1" CTAs for the
@@ -1270,12 +1270,39 @@ function NotificationsPanel({ settings, update }) {
     if (historyOpen && history === null) loadHistory()
   }, [historyOpen, history])
 
+  // Per-section collapse state for the notifications panel. Persists via
+  // settings so each section's fold state survives reloads. Section keys
+  // match the labels below; default is "all expanded" so first-time
+  // users see everything.
+  const collapsedSections = settings.collapsed_notif_sections || {}
+  const isCollapsed = (key) => !!collapsedSections[key]
+  const toggleCollapsed = (key) => {
+    update('collapsed_notif_sections', { ...collapsedSections, [key]: !collapsedSections[key] })
+  }
+  const SectionHeader = ({ k, label, hint }) => (
+    <button
+      type="button"
+      className={`v2-settings-section-header${isCollapsed(k) ? ' v2-settings-section-header-collapsed' : ''}`}
+      onClick={() => toggleCollapsed(k)}
+      aria-expanded={!isCollapsed(k)}
+    >
+      <span className="v2-settings-section-chev" aria-hidden="true">
+        {isCollapsed(k) ? '▸' : '▾'}
+      </span>
+      <span className="v2-settings-section-header-text">
+        <span className="v2-form-label">{label}</span>
+        {hint && <span className="v2-settings-row-hint">{hint}</span>}
+      </span>
+    </button>
+  )
+
   return (
     <div className="v2-settings-form">
       {/* Channel masters */}
       <div className="v2-settings-block">
-        <div className="v2-form-label">Channels</div>
-        <div className="v2-settings-row-hint">Master toggle per delivery channel. Each channel still respects its per-type settings below.</div>
+        <SectionHeader k="channels" label="Channels" hint="Master toggle per delivery channel. Each channel still respects its per-type settings below." />
+        {!isCollapsed('channels') && (<>
+
         {masters.map(m => (
           <div key={m.key} className="v2-settings-row">
             <div className="v2-settings-row-text">
@@ -1338,17 +1365,21 @@ function NotificationsPanel({ settings, update }) {
             Web push isn't supported in this browser. On iOS, add Boomerang to the Home Screen and open from there.
           </div>
         )}
+        </>)}
       </div>
 
       {/* Per-type × per-channel — card-per-type layout works at any width */}
       <div className="v2-settings-block">
-        <div className="v2-form-label">Notification types</div>
-        <div className="v2-settings-row-hint">Each card toggles a notification type per channel. Frequency is the cooldown between repeats.</div>
+        <SectionHeader k="types" label="Notification types" hint="Each card toggles a notification type per channel. Frequency is the cooldown between repeats." />
+        {!isCollapsed('types') && (
         <div className="v2-notif-cards">
           {NOTIF_TYPES.map(t => (
             <div key={t.key} className="v2-notif-card">
               <div className="v2-notif-card-head">
-                <div className="v2-notif-card-label">{t.label}</div>
+                <div className="v2-notif-card-text">
+                  <div className="v2-notif-card-label">{t.label}</div>
+                  {t.desc && <div className="v2-notif-card-hint">{t.desc}</div>}
+                </div>
                 <div className="v2-notif-card-freq">
                   <input
                     className="v2-form-input v2-notif-card-freq-input"
@@ -1384,7 +1415,10 @@ function NotificationsPanel({ settings, update }) {
           {NOTIF_PACKAGE_TYPES.map(t => (
             <div key={t.key} className="v2-notif-card">
               <div className="v2-notif-card-head">
-                <div className="v2-notif-card-label">{t.label}</div>
+                <div className="v2-notif-card-text">
+                  <div className="v2-notif-card-label">{t.label}</div>
+                  {t.desc && <div className="v2-notif-card-hint">{t.desc}</div>}
+                </div>
               </div>
               <div className="v2-notif-card-channels">
                 {[
@@ -1410,8 +1444,10 @@ function NotificationsPanel({ settings, update }) {
             * the background-runner feature is "you can leave it." */}
           <div className="v2-notif-card">
             <div className="v2-notif-card-head">
-              <div className="v2-notif-card-label">Quokka plan ready</div>
-              <div className="v2-notif-card-hint">Fires when Quokka finishes thinking in the background and has a plan ready to review. Web push only.</div>
+              <div className="v2-notif-card-text">
+                <div className="v2-notif-card-label">Quokka plan ready</div>
+                <div className="v2-notif-card-hint">Fires when Quokka finishes thinking in the background and has a plan ready to review. Web push only.</div>
+              </div>
             </div>
             <div className="v2-notif-card-channels">
               <label className={`v2-notif-card-channel${settings.push_notifications_enabled !== true ? ' v2-notif-card-channel-disabled' : ''}`}>
@@ -1425,6 +1461,7 @@ function NotificationsPanel({ settings, update }) {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* High-priority escalation */}
@@ -1526,8 +1563,8 @@ function NotificationsPanel({ settings, update }) {
           not on channel masters, so users with push/email/pushover enabled still
           need to opt into the digest separately. */}
       <div className="v2-settings-block">
-        <div className="v2-form-label">Daily digest</div>
-        <div className="v2-settings-row-hint">Curated daily summary — yesterday recap + streak, today's focus, coming up, carrying, quick wins. Each channel must opt in separately.</div>
+        <SectionHeader k="digest" label="Daily digest" hint="Curated daily summary — yesterday recap + streak, today's focus, coming up, carrying, quick wins. Each channel must opt in separately." />
+        {!isCollapsed('digest') && (<>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">Web push digest</div>
@@ -1573,12 +1610,13 @@ function NotificationsPanel({ settings, update }) {
             onChange={e => update('digest_time', e.target.value)}
           />
         </div>
+        </>)}
       </div>
 
       {/* Test channels — fire a one-off notification per channel to verify config */}
       <div className="v2-settings-block">
-        <div className="v2-form-label">Test channels</div>
-        <div className="v2-settings-row-hint">Send a one-off test notification through each channel to verify it's working. Test buttons obey channel master toggles + Pushover credentials.</div>
+        <SectionHeader k="test" label="Test channels" hint="Send a one-off test notification through each channel to verify it's working. Test buttons obey channel master toggles + Pushover credentials." />
+        {!isCollapsed('test') && (<>
         <div className="v2-notif-tests">
           {[
             { key: 'push', label: 'Test push', enabled: settings.push_notifications_enabled === true,
@@ -1625,6 +1663,7 @@ function NotificationsPanel({ settings, update }) {
             )}
           </div>
         </div>
+        </>)}
       </div>
 
       {/* Notification history — collapsible to keep the panel calm by default */}
@@ -1699,10 +1738,8 @@ function NotificationsPanel({ settings, update }) {
 
       {/* Email deliverability — From override + batch mode */}
       <div className="v2-settings-block">
-        <div className="v2-form-label">Email deliverability</div>
-        <div className="v2-settings-row-hint">
-          Override the From header so emails come from a domain you control with SPF/DKIM/DMARC. The single biggest factor in keeping digests out of spam.
-        </div>
+        <SectionHeader k="email_deliv" label="Email deliverability" hint="Override the From header so emails come from a domain you control with SPF/DKIM/DMARC. The single biggest factor in keeping digests out of spam." />
+        {!isCollapsed('email_deliv') && (<>
         <div className="v2-settings-row" style={{ marginTop: 8 }}>
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">From name</div>
@@ -1738,14 +1775,13 @@ function NotificationsPanel({ settings, update }) {
             disabled={settings.email_notifications_enabled !== true}
           />
         </div>
+        </>)}
       </div>
 
       {/* Weather notifications — master + per-channel toggles */}
       <div className="v2-settings-block">
-        <div className="v2-form-label">Weather notifications</div>
-        <div className="v2-settings-row-hint">
-          Alerts for nice-day windows, bad-weekend warnings, and consecutive-nice-day windows. Requires a weather location in Integrations.
-        </div>
+        <SectionHeader k="weather" label="Weather notifications" hint="Alerts for nice-day windows, bad-weekend warnings, and consecutive-nice-day windows. Requires a weather location in Integrations." />
+        {!isCollapsed('weather') && (<>
         <div className="v2-settings-row" style={{ marginTop: 8 }}>
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">Enable weather notifications</div>
@@ -1776,6 +1812,7 @@ function NotificationsPanel({ settings, update }) {
             disabled={settings.weather_notifications_enabled === false || settings.email_notifications_enabled !== true}
           />
         </div>
+        </>)}
       </div>
 
     </div>

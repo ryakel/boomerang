@@ -722,16 +722,72 @@
   gap: 10px;
 }
 
+/* Collapsible section header for the Notifications panel. The whole row
+ * is a button — click anywhere on the header to fold/unfold. Chevron
+ * rotates 90° via JSX (▾ open, ▸ collapsed) rather than CSS transform
+ * so it works without a redraw flash. */
+.v2-settings-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0 0 8px;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.v2-settings-section-chev {
+  flex: 0 0 auto;
+  color: var(--v2-text-meta);
+  font-size: 14px;
+  line-height: 1.2;
+  margin-top: 2px;
+  transition: color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-settings-section-header:hover .v2-settings-section-chev {
+  color: var(--v2-text);
+}
+
+.v2-settings-section-header-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.v2-settings-section-header-collapsed {
+  margin-bottom: 0;
+}
+
 .v2-notif-card-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.v2-notif-card-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .v2-notif-card-label {
   font: 600 14px/1.2 var(--v2-font-body);
   color: var(--v2-text);
+}
+
+.v2-notif-card-hint {
+  font: 400 12px/1.35 var(--v2-font-body);
+  color: var(--v2-text-meta);
 }
 
 .v2-notif-card-freq {
