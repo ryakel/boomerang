@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(weekstrip): use local timezone, not UTC, for "today" matching [XS]
+  - **Bug.** At 7pm Central on Sunday May 17, the home-stats header correctly said "Sun, May 17" but the WeekStrip highlighted MON 18 as "today" with a 0/3 count.
+  - **Cause.** `ymd()` in `WeekStrip.jsx` was using `date.toISOString().slice(0, 10)` which converts to UTC before slicing. After ~6-7pm Central time, UTC has already rolled to the next day. The home-stats header used `toLocaleDateString` (local TZ) — hence the mismatch.
+  - **Fix.** Rewrote `ymd()` to compose the key from local components (`getFullYear`, `getMonth`, `getDate`). The "today" highlight now matches the calendar date the user actually sees in the header.
+  - **Other UTC-date usages in the codebase** (scoring.js, store.js, api.js, SnoozeModal.jsx) have the same latent bug but lower visibility. Left as-is for now — flag if they cause confusion.
+  - Modified: `src/v2/components/WeekStrip.jsx`, `wiki/Version-History.md`
+
 - fix(ui): home-stats line on light/dark + collapsible pinned projects [S]
   - **Home-stats on light/dark.** The "📅 Sun, May 17 · 🔥 12 days · ✓ 4/3 today" line was still gated on `isTerminal && ...` in AppV2 — my earlier PR #175 to lift it never reached dev (it was opened against `main` and got closed during the alignment-merge cleanup, never re-applied). Now properly unfenced: wrapper class renamed `.v2-terminal-home-stats` → `.v2-home-stats`, base styling in `AppV2.css`, terminal-flavor tweaks (monospace + tighter line-height) scoped under `[data-theme^="terminal"]` in `terminal/init.css`. Date toggle still folds the WeekStrip in all themes.
   - **Pinned-project collapse.** Each pinned project card now has a chevron next to its title — tap to collapse/expand the sub list. Collapsed cards show a tighter meta line: `N active subs · next: Title (due X) · 🔥 sessions`. Expanded view unchanged (full session + budget + last-touched detail). Per-project state persists in `settings.collapsed_pinned_projects` so each pinned project's fold state survives reloads + cross-device sync. Useful when multiple projects are pinned and you only want one expanded at a time.
