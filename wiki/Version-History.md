@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-17
 
+- fix(datefield): date picker not opening on iPhone PWA [XS]
+  - **Bug.** Tapping the Due date field in the EditTaskModal on iPhone PWA (light theme) did nothing — the native picker never opened.
+  - **Cause.** DateField rendered a visible `<button>` trigger plus an off-screen 1×1 `<input type="date">` and called `.showPicker()` on tap. Modern Safari supports `showPicker()` but it can silently fail on iOS PWA in some versions — try/catch swallowed the error, then the fallback `el.focus(); el.click()` on a 1×1 opacity:0 input never opened the native picker either.
+  - **Fix.** Drop the trigger-button + showPicker pattern. Now the real `<input type="date">` is overlaid full-size on top of a styled display span at `opacity: 0` with pointer-events enabled. Tapping the field hits the native input directly — iOS opens the picker the way it always has, no JS required. The display span underneath is `pointer-events: none` so taps pass through. Same bracketed terminal look + the regular border in light/dark.
+  - Modified: `src/v2/components/DateField.jsx`, `src/v2/components/DateField.css`, `wiki/Version-History.md`
+
 - fix(settings): notifications panel cleanup — collapsible sections, descriptions on every type, Quokka card matches the rest [S]
   - **Three asks from the screenshots:**
     1. Collapse the noisy notif sections so the panel isn't a wall of toggles.
