@@ -1,38 +1,27 @@
-import { useRef } from 'react'
 import './DateField.css'
 
-// Date picker field that renders as a bracketed text trigger and opens
-// the native calendar picker on tap. Empty: `[ due date ]`. Filled:
-// `[ YYYY-MM-DD ] × clear`. Same UX in every theme — terminal-flat
-// monospace gets it for free since the trigger is just text + the
-// clear button is bracketed text.
-//
-// We hide the actual <input type="date"> off-screen and call
-// `.showPicker()` on tap. Falls back to focus+click if the browser
-// doesn't support showPicker (older Safari, etc.). Modern browsers
-// (iOS 16.4+, Chrome 99+, Firefox 101+) all support it.
+// Date picker field. The visible trigger reads as bracketed text in
+// terminal and a regular field in light/dark. The actual <input type="date">
+// is overlaid on top of the trigger at opacity:0 with full pointer events
+// — so tapping anywhere on the trigger opens the native picker directly,
+// no JS showPicker() dance required. That dance silently failed on iOS
+// PWA Safari in some versions; overlaying the input bypasses the bug.
 export default function DateField({ value, onChange, min }) {
-  const inputRef = useRef(null)
-
-  const open = () => {
-    const el = inputRef.current
-    if (!el) return
-    if (typeof el.showPicker === 'function') {
-      try { el.showPicker(); return } catch { /* fall through */ }
-    }
-    el.focus()
-    el.click()
-  }
-
   return (
-    <div className="v2-form-date-field">
-      <button
-        type="button"
-        className={`v2-form-date-trigger${value ? ' v2-form-date-trigger-filled' : ''}`}
-        onClick={open}
-      >
-        {value ? value : 'due date'}
-      </button>
+    <div className={`v2-form-date-field${value ? ' v2-form-date-field-filled' : ''}`}>
+      <div className="v2-form-date-stack">
+        <span className="v2-form-date-display" aria-hidden="true">
+          {value ? value : 'due date'}
+        </span>
+        <input
+          type="date"
+          className="v2-form-date-input"
+          value={value || ''}
+          min={min || undefined}
+          onChange={e => onChange(e.target.value)}
+          aria-label={value ? `Due ${value} — tap to change` : 'Pick due date'}
+        />
+      </div>
       {value && (
         <button
           type="button"
@@ -44,16 +33,6 @@ export default function DateField({ value, onChange, min }) {
           × clear
         </button>
       )}
-      <input
-        ref={inputRef}
-        type="date"
-        className="v2-form-date-hidden-input"
-        value={value || ''}
-        min={min || undefined}
-        onChange={e => onChange(e.target.value)}
-        tabIndex={-1}
-        aria-hidden="true"
-      />
     </div>
   )
 }
