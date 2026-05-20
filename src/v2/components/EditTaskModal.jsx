@@ -135,6 +135,13 @@ export default function EditTaskModal({
   const [cadence, setCadence] = useState('weekly')
   const [customDays, setCustomDays] = useState(14)
 
+  // Backdated completion. When the user did the task earlier but forgot to
+  // tick it off, they can edit "Completed on" here so the daily streak and
+  // points credit the right calendar day. The ISO string is the source of
+  // truth (preserves time-of-day across edits); the picker converts to/from
+  // YYYY-MM-DD. Field is only rendered when currentStatus === 'done'.
+  const [completedAtIso, setCompletedAtIso] = useState(task.completed_at || '')
+
   // Checklists — multi-list shape: [{ id, name, items: [{id, text, completed}], hideCompleted }]
   // Migrate old flat task.checklist if present (covered by migration 018 server-side
   // but kept here for localStorage tasks that haven't round-tripped yet).
@@ -180,6 +187,10 @@ export default function EditTaskModal({
     parent_id: parentId || null,
     child_visibility: parentId ? childVisibility : 'backstage',
     blocked_by: parentId ? blockedBy : [],
+    // Only persist completed_at while the task is done. changeStatus()
+    // already clears it on done→active transitions; including it here
+    // when not-done would re-stamp a stale value on every save.
+    ...(currentStatus === 'done' && completedAtIso ? { completed_at: completedAtIso } : {}),
   }), [
     form.title, form.notes, form.selectedTags, form.dueDate,
     form.size, form.energy, form.energyLevel,
@@ -187,6 +198,7 @@ export default function EditTaskModal({
     form.attachments, form.notionResult,
     checklists, comments, weatherHidden, gcalDuration,
     pinnedToToday, nagAllowed, parentId, childVisibility, blockedBy,
+    currentStatus, completedAtIso,
   ])
 
   const lastSavedJson = useRef(null)
@@ -287,6 +299,15 @@ export default function EditTaskModal({
 
   const handleStatusChange = (newStatus) => {
     setCurrentStatus(newStatus)
+    // Stamp a default completed_at when transitioning into done so the
+    // "Completed on" picker shows today out of the gate. Keep the existing
+    // value if the user is just re-confirming done. Clear it on done→active
+    // so a future re-completion doesn't reuse the stale timestamp.
+    if (newStatus === 'done') {
+      if (!completedAtIso) setCompletedAtIso(new Date().toISOString())
+    } else {
+      setCompletedAtIso('')
+    }
     onStatusChange(task.id, newStatus)
   }
 
@@ -371,6 +392,34 @@ export default function EditTaskModal({
           </button>
         </div>
       </div>
+
+      {currentStatus === 'done' && (
+        <div className="v2-form-section">
+          <label className="v2-form-label">Completed on</label>
+          <div className="v2-settings-row-hint" style={{ marginTop: -4, marginBottom: 4 }}>
+            Backdate if you finished this earlier — fixes streak and points credit.
+          </div>
+          <DateField
+            value={completedAtIso ? localYMD(new Date(completedAtIso)) : ''}
+            onChange={(ymd) => {
+              if (!ymd) { setCompletedAtIso(''); return }
+              const [y, m, d] = ymd.split('-').map(Number)
+              const original = completedAtIso ? new Date(completedAtIso) : new Date()
+              const hh = original.getHours()
+              const mm = original.getMinutes()
+              const ss = original.getSeconds()
+              const next = new Date(y, m - 1, d, hh, mm, ss, 0)
+              setCompletedAtIso(next.toISOString())
+            }}
+            max={today}
+            placeholder="pick a date"
+            ariaLabelEmpty="Pick completion date"
+            ariaLabelFilled={(v) => `Completed ${v} — tap to change`}
+            clearLabel="Clear completion date"
+            showClear={false}
+          />
+        </div>
+      )}
 
       <div className="v2-form-section">
         <label className="v2-form-label">Notes</label>

@@ -4,6 +4,21 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-20
+
+- feat(tasks): backdate task completion to fix streak credit [S]
+  - **Ask.** "I did a task and forgot to come back to it to check it off and I didn't get credit for it." Need to mark a task done as of an earlier date so the daily streak and points land on the day the work actually happened.
+  - **Surface.** EditTaskModal (v2) — when `currentStatus === 'done'`, a new "Completed on" section appears directly under the Status row with a date picker. Hint copy: "Backdate if you finished this earlier — fixes streak and points credit." Field defaults to the task's current `completed_at` (or today if the user just flipped status to done in this modal). Max=today; no future dates.
+  - **Flow for the forgot-to-check-off case.** Open the task → tap ✓ Done (status flips, completed_at stamps to now, "Completed on" appears with today's date) → tap the field, pick yesterday → autosave fires after 500ms with `completed_at = yesterday ISO`. Streak (`computeStreak` in `src/store.js`) and daily stats (`computeDailyStats` in `src/scoring.js`) both bucket by `new Date(t.completed_at).toDateString()` — no new code needed, they just see the updated date.
+  - **Routine cadence sync.** Routine-spawned tasks need a second touch: `completeRoutine` appends `new Date().toISOString()` to the routine's `completed_history` at the moment of completion. If the user later backdates the task's `completed_at`, the routine's history entry would drift. New `adjustRoutineHistory(routineId, fromIso, toIso)` on `useRoutines` swaps the matching entry (or falls back to the last entry if exact-ISO match misses, since the task and routine timestamps drift by a few ms even when stamped from the same handler). `AppV2.handleEditModalSave` detects `completed_at` changes on routine-tagged tasks and propagates. Sorts history after the swap so `getNextDueDate`'s "last entry = newest" assumption holds.
+  - **Time-of-day preservation.** ISO is the source of truth in local state; the picker converts YYYY-MM-DD ↔ ISO and preserves the original hours/minutes/seconds across edits (defaults to "now" the first time a task transitions to done). So a 2pm-yesterday completion stays at 2pm yesterday when reformatted, not midnight.
+  - **DateField extension.** Existing `DateField` had a hardcoded "due date" placeholder and "Clear due date" aria label. Extended with `placeholder`, `max`, `ariaLabelEmpty`, `ariaLabelFilled`, `clearLabel`, `showClear` props (all backward-compatible defaults). The completion-date instance disables the clear button via `showClear={false}` — clearing the date would leave the task in done-status with no completion timestamp, which the streak code treats as "not counted at all," and there's no UI affordance to recover from that. Status flip away from done already clears `completed_at` cleanly via `changeStatus`.
+  - **Save semantics.** `savePayload` only includes `completed_at` when `currentStatus === 'done' && completedAtIso`. Avoids re-stamping a stale value when the task is active. `changeStatus` continues to clear `completed_at` on done→active transitions; the modal also resets `completedAtIso` locally so the field re-defaults to today on re-completion.
+  - **Out of scope.** No backdate UI on the TaskCard itself — the user picked "edit modal only" so backdating stays a deliberate, edit-mode-gated action rather than something easy to do by accident on the main list.
+  - Modified: `src/v2/components/EditTaskModal.jsx`, `src/v2/components/DateField.jsx`, `src/hooks/useRoutines.js`, `src/v2/AppV2.jsx`, `wiki/Features.md`, `wiki/Version-History.md`
+
+---
+
 ## 2026-05-17
 
 - fix(datefield): date picker not opening on iPhone PWA [XS]
