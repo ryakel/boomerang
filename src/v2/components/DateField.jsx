@@ -6,29 +6,44 @@ import './DateField.css'
 // — so tapping anywhere on the trigger opens the native picker directly,
 // no JS showPicker() dance required. That dance silently failed on iOS
 // PWA Safari in some versions; overlaying the input bypasses the bug.
-export default function DateField({ value, onChange, min }) {
+export default function DateField({
+  value,
+  onChange,
+  min,
+  max,
+  placeholder = 'due date',
+  ariaLabelEmpty,
+  ariaLabelFilled,
+  clearLabel = 'Clear due date',
+  showClear = true,
+}) {
+  const emptyLabel = ariaLabelEmpty || 'Pick due date'
+  const filledLabel = ariaLabelFilled
+    ? ariaLabelFilled(value)
+    : `Due ${value} — tap to change`
   return (
     <div className={`v2-form-date-field${value ? ' v2-form-date-field-filled' : ''}`}>
       <div className="v2-form-date-stack">
         <span className="v2-form-date-display" aria-hidden="true">
-          {value ? value : 'due date'}
+          {value ? value : placeholder}
         </span>
         <input
           type="date"
           className="v2-form-date-input"
           value={value || ''}
           min={min || undefined}
+          max={max || undefined}
           onChange={e => onChange(e.target.value)}
-          aria-label={value ? `Due ${value} — tap to change` : 'Pick due date'}
+          aria-label={value ? filledLabel : emptyLabel}
         />
       </div>
-      {value && (
+      {value && showClear && (
         <button
           type="button"
           className="v2-form-date-clear"
           onClick={() => onChange('')}
-          title="Clear due date"
-          aria-label="Clear due date"
+          title={clearLabel}
+          aria-label={clearLabel}
         >
           × clear
         </button>

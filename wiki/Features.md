@@ -26,6 +26,7 @@ Modal headers in terminal mode read as commands: `> task --new`, `> snooze`, `> 
 - **Quick add** — type and hit Enter from the bottom bar to instantly create a task
 - **Full add modal** — title, notes, due date, labels, T-shirt size, and Notion link
 - **Edit tasks** — full edit modal with all fields, including the ability to convert a one-off task into a routine
+- **Backdate completion** — "Completed on" date picker appears in the edit modal whenever a task is marked done. Did the task yesterday but forgot to tick it off? Open the task, hit Done, pick the date you actually finished. Daily streak and points re-bucket to the right calendar day, and routine-spawned tasks also sync the parent routine's `completed_history` so cadence stays aligned.
 - **Swipe gestures** — iMessage-style swipe actions on task cards. Swipe right-to-left to reveal Edit and Done buttons. Swipe left-to-right to delete. Clean SVG icons (pencil, checkmark, trash) instead of text labels.
 - **Delete tasks** — delete any task via swipe gesture or from the expanded card actions
 - **Expanded actions** — tap a task to expand it and reveal Done, Snooze, Extend, Edit, Backlog, and Delete buttons
