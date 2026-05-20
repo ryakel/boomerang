@@ -44,6 +44,29 @@ export function useRoutines() {
     ))
   }, [])
 
+  // Backdate-completion follow-through. When the user edits a routine-spawned
+  // task's `completed_at` (e.g. "I actually did this yesterday"), the matching
+  // entry in the routine's completed_history needs to move too so cadence
+  // calculations stay aligned. Replaces the entry at exact-ISO match; falls
+  // back to the most recent entry as a heuristic when the timestamps don't
+  // match exactly (covers the small drift between completeRoutine's stamp
+  // and the task's completed_at). Sorts the history after the swap so
+  // getNextDueDate's "last entry = newest" assumption holds.
+  const adjustRoutineHistory = useCallback((id, fromIso, toIso) => {
+    if (!toIso) return
+    setRoutines(prev => prev.map(r => {
+      if (r.id !== id) return r
+      const history = Array.isArray(r.completed_history) ? r.completed_history : []
+      if (history.length === 0) return r
+      let idx = fromIso ? history.indexOf(fromIso) : -1
+      if (idx === -1) idx = history.length - 1
+      const next = [...history]
+      next[idx] = toIso
+      next.sort()
+      return { ...r, completed_history: next }
+    }))
+  }, [])
+
   const updateRoutine = useCallback((id, updates) => {
     setRoutines(prev => prev.map(r =>
       r.id === id ? { ...r, ...updates } : r
@@ -199,6 +222,7 @@ export function useRoutines() {
     deleteRoutine,
     togglePause,
     completeRoutine,
+    adjustRoutineHistory,
     updateRoutine,
     updateRoutineNotion,
     spawnDueTasks,

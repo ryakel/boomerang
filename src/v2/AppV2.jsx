@@ -150,7 +150,7 @@ export default function AppV2() {
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
-    completeRoutine, spawnDueTasks, spawnNow, logHabit, skipCycle, hydrateRoutines,
+    completeRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -568,6 +568,22 @@ export default function AppV2() {
     setEditTarget(null)
   }, [addRoutine, updateTask])
 
+  // Wrapper around updateTask used by EditTaskModal. When the user backdates
+  // a routine-spawned task's completed_at, sync the matching entry in the
+  // parent routine's completed_history so cadence calculations (next due,
+  // skip counts) don't drift from the visible task data.
+  const handleEditModalSave = useCallback((id, payload) => {
+    const existing = tasks.find(t => t.id === id)
+    updateTask(id, payload)
+    if (
+      existing?.routine_id &&
+      payload.completed_at &&
+      payload.completed_at !== existing.completed_at
+    ) {
+      adjustRoutineHistory(existing.routine_id, existing.completed_at, payload.completed_at)
+    }
+  }, [tasks, updateTask, adjustRoutineHistory])
+
   const handleUncomplete = useCallback((task) => {
     uncompleteTask(task.id)
     setToast({ task, variant: 'reopen' })
@@ -909,7 +925,7 @@ export default function AppV2() {
       {editTarget && (
         <EditTaskModal
           task={editTarget}
-          onSave={updateTask}
+          onSave={handleEditModalSave}
           onClose={() => setEditTarget(null)}
           onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
           onBacklog={handleBacklog}
