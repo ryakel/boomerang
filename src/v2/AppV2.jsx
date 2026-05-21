@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw, Lightbulb } from 'lucide-react'
+import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw, Lightbulb, BookOpen } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import EmptyState from './components/EmptyState'
@@ -67,6 +67,9 @@ export default function AppV2() {
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
+  // One-shot input draft handed to AdviserModal when opened via a
+  // pre-seeded entry point (currently the Knowledge menu item).
+  const [adviserDraftSeed, setAdviserDraftSeed] = useState('')
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   // Terminal-mode 7-day strip visibility. The calendar+date span in the
@@ -981,6 +984,22 @@ export default function AppV2() {
             </button>
           </li>
           <li>
+            <button
+              className="v2-more-row"
+              onClick={() => {
+                setShowMenu(false)
+                // Seed Quokka with a knowledge-base intro so the chat starts
+                // in the right context. User can hit send as-is or refine.
+                setAdviserDraftSeed("What's in my knowledge base?")
+                setShowAdviser(true)
+              }}
+            >
+              <BookOpen size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-knowledge" />
+              <span className="v2-more-row-label" data-terminal-cmd="> knowledge">Knowledge</span>
+              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
+            </button>
+          </li>
+          <li>
             <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowRoutines(true) }}>
               <RotateCw size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-routines" />
               <span className="v2-more-row-label" data-terminal-cmd="> routines">Routines</span>
@@ -1151,8 +1170,9 @@ export default function AppV2() {
       <AdviserModal
         open={showAdviser}
         adviser={adviserState}
-        onClose={() => setShowAdviser(false)}
+        onClose={() => { setShowAdviser(false); setAdviserDraftSeed('') }}
         onOpenEasterEgg={openEasterEgg}
+        draftSeed={adviserDraftSeed}
       />
 
       <TicTacToe

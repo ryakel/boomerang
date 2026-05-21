@@ -255,6 +255,7 @@ function taskToRow(task) {
     child_visibility: task.child_visibility || 'backstage',
     snooze_indefinite: task.snooze_indefinite ? 1 : 0,
     blocked_by_json: JSON.stringify(task.blocked_by || []),
+    knowledge_page_ids_json: JSON.stringify(task.knowledge_page_ids || []),
   }
 }
 
@@ -306,6 +307,7 @@ function rowToTask(row) {
     child_visibility: row.child_visibility || 'backstage',
     snooze_indefinite: !!row.snooze_indefinite,
     blocked_by: safeJsonParse(row.blocked_by_json, []),
+    knowledge_page_ids: safeJsonParse(row.knowledge_page_ids_json, []),
   }
 }
 
@@ -330,8 +332,9 @@ const UPSERT_TASK_SQL = `
     gcal_event_id, gcal_duration, gmail_message_id, gmail_pending, weather_hidden, size_inferred,
     pushover_receipt, follow_ups_json, skipped,
     parent_id, pinned_to_today, nag_allowed, session_count, last_session_at,
-    session_log_json, child_visibility, snooze_indefinite, blocked_by_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    session_log_json, child_visibility, snooze_indefinite, blocked_by_json,
+    knowledge_page_ids_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -357,7 +360,8 @@ const UPSERT_TASK_SQL = `
     nag_allowed=excluded.nag_allowed, session_count=excluded.session_count,
     last_session_at=excluded.last_session_at, session_log_json=excluded.session_log_json,
     child_visibility=excluded.child_visibility, snooze_indefinite=excluded.snooze_indefinite,
-    blocked_by_json=excluded.blocked_by_json`
+    blocked_by_json=excluded.blocked_by_json,
+    knowledge_page_ids_json=excluded.knowledge_page_ids_json`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -372,6 +376,7 @@ function runUpsertTask(task) {
     r.pushover_receipt, r.follow_ups_json, r.skipped,
     r.parent_id, r.pinned_to_today, r.nag_allowed, r.session_count, r.last_session_at,
     r.session_log_json, r.child_visibility, r.snooze_indefinite, r.blocked_by_json,
+    r.knowledge_page_ids_json,
   ])
 }
 
@@ -1634,3 +1639,119 @@ export function getNotificationAnalytics(days = 30) {
   stmt.free()
   return results
 }
+
+// ============================================================
+// Knowledge index — cached Notion knowledge-base metadata
+// ============================================================
+//
+// The full knowledge body lives in Notion. This local index holds just
+// the metadata (title, type, tags, ≤200-char summary) so Quokka can
+// search instantly without round-tripping. Body fetched on demand via
+// the Notion MCP. Refresh loop in knowledgeSync.js keeps it in step.
+
+function knowledgeRowToItem(row) {
+  return {
+    notion_page_id: row.notion_page_id,
+    title: row.title,
+    type: row.type || null,
+    tags: safeJsonParse(row.tags_json, []),
+    summary: row.summary || '',
+    confidence: row.confidence || null,
+    related_task_ids: safeJsonParse(row.related_task_ids_json, []),
+    notion_url: row.notion_url || null,
+    last_edited_time: row.last_edited_time || null,
+    last_synced_at: row.last_synced_at,
+    archived: !!row.archived,
+  }
+}
+
+export function upsertKnowledgeItem(item) {
+  db.run(
+    `INSERT INTO knowledge_index
+       (notion_page_id, title, type, tags_json, summary, confidence,
+        related_task_ids_json, notion_url, last_edited_time, last_synced_at, archived)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(notion_page_id) DO UPDATE SET
+       title=excluded.title, type=excluded.type, tags_json=excluded.tags_json,
+       summary=excluded.summary, confidence=excluded.confidence,
+       related_task_ids_json=excluded.related_task_ids_json,
+       notion_url=excluded.notion_url, last_edited_time=excluded.last_edited_time,
+       last_synced_at=excluded.last_synced_at, archived=excluded.archived`,
+    [
+      item.notion_page_id,
+      item.title || 'Untitled',
+      item.type || null,
+      JSON.stringify(item.tags || []),
+      (item.summary || '').slice(0, 200),
+      item.confidence || null,
+      JSON.stringify(item.related_task_ids || []),
+      item.notion_url || null,
+      item.last_edited_time || null,
+      item.last_synced_at || new Date().toISOString(),
+      item.archived ? 1 : 0,
+    ]
+  )
+  schedulePersist()
+}
+
+export function getKnowledgeItem(notionPageId) {
+  const stmt = db.prepare(`SELECT * FROM knowledge_index WHERE notion_page_id = ?`)
+  stmt.bind([notionPageId])
+  if (!stmt.step()) { stmt.free(); return null }
+  const row = stmt.getAsObject()
+  stmt.free()
+  return knowledgeRowToItem(row)
+}
+
+export function deleteKnowledgeItem(notionPageId) {
+  db.run(`DELETE FROM knowledge_index WHERE notion_page_id = ?`, [notionPageId])
+  schedulePersist()
+}
+
+export function getAllKnowledgeItems({ includeArchived = false } = {}) {
+  const sql = includeArchived
+    ? `SELECT * FROM knowledge_index ORDER BY title COLLATE NOCASE`
+    : `SELECT * FROM knowledge_index WHERE archived = 0 ORDER BY title COLLATE NOCASE`
+  const stmt = db.prepare(sql)
+  const results = []
+  while (stmt.step()) results.push(knowledgeRowToItem(stmt.getAsObject()))
+  stmt.free()
+  return results
+}
+
+// Lightweight keyword search across title + tags + summary. Returns a
+// scored list, highest first. Used by Quokka's search_knowledge tool.
+export function searchKnowledgeItems(query, { limit = 20, type = null } = {}) {
+  const q = (query || '').trim().toLowerCase()
+  const all = getAllKnowledgeItems()
+  if (!q) return type ? all.filter(i => i.type === type).slice(0, limit) : all.slice(0, limit)
+  const terms = q.split(/\s+/).filter(Boolean)
+  const scored = []
+  for (const item of all) {
+    if (type && item.type !== type) continue
+    const hay = [
+      item.title.toLowerCase(),
+      (item.tags || []).join(' ').toLowerCase(),
+      (item.summary || '').toLowerCase(),
+    ].join(' \n ')
+    let score = 0
+    for (const term of terms) {
+      if (item.title.toLowerCase().includes(term)) score += 3
+      if ((item.tags || []).some(t => t.toLowerCase().includes(term))) score += 2
+      if (hay.includes(term)) score += 1
+    }
+    if (score > 0) scored.push({ score, item })
+  }
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, limit).map(s => s.item)
+}
+
+// Replace the entire cache with a fresh snapshot from Notion. Used by the
+// background refresh loop. Items missing from the new snapshot are removed
+// so deletions made directly in Notion propagate locally.
+export function replaceKnowledgeIndex(items) {
+  db.run(`DELETE FROM knowledge_index`)
+  for (const item of items) upsertKnowledgeItem(item)
+  schedulePersist()
+}
+

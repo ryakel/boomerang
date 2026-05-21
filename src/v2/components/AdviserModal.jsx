@@ -167,7 +167,7 @@ function ChatList({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew
 // passing mentions of games.
 const EASTER_EGG_PHRASE = /\b(?:want to|wanna|let'?s|shall we) play (?:a |an )?game\b/i
 
-export default function AdviserModal({ open, adviser, onClose, onAfterCommit, onOpenEasterEgg }) {
+export default function AdviserModal({ open, adviser, onClose, onAfterCommit, onOpenEasterEgg, draftSeed = '' }) {
   const {
     messages, status, lastError,
     send, commit, abort,
@@ -179,6 +179,22 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
   const [showHistory, setShowHistory] = useState(false)
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
+  const lastDraftRef = useRef(null)
+
+  // Drop a one-shot draft into the input when a caller opens Quokka with
+  // a seeded prompt (e.g. the "Knowledge" menu entry). Only fires when
+  // the seed changes, never overwrites mid-typing.
+  useEffect(() => {
+    if (!open || !draftSeed) return
+    if (lastDraftRef.current === draftSeed) return
+    lastDraftRef.current = draftSeed
+    setInput(draftSeed)
+    // Focus + select so the user can either send as-is or refine.
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.setSelectionRange?.(draftSeed.length, draftSeed.length)
+    })
+  }, [open, draftSeed])
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight

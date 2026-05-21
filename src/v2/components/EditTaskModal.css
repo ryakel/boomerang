@@ -1215,3 +1215,71 @@
   background: rgba(var(--v2-text-rgb), 0.06);
   color: var(--v2-text);
 }
+
+/* Linked knowledge — chips matching the existing v2-edit-action chip style
+ * but tinted with the menu's amber knowledge color so they read as
+ * reference-state, not status-state. */
+.v2-edit-knowledge-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.v2-edit-knowledge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-radius-pill);
+  background: var(--v2-surface);
+  color: var(--v2-text);
+  font: 500 12px/1.2 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-edit-knowledge-chip:hover {
+  border-color: #F59E0B;
+  color: #F59E0B;
+}
+.v2-edit-knowledge-chip svg:first-child { color: #F59E0B; }
+.v2-edit-knowledge-chip-add {
+  border-style: dashed;
+  color: var(--v2-text-meta);
+}
+.v2-edit-knowledge-picker {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--v2-surface-elev);
+  border: 1px solid var(--v2-border);
+  border-radius: 8px;
+}
+.v2-edit-knowledge-results {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.v2-edit-knowledge-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--v2-text);
+  font: 500 13px/1.2 var(--v2-font-body);
+  text-align: left;
+  cursor: pointer;
+}
+.v2-edit-knowledge-result:hover {
+  background: rgba(var(--v2-text-rgb), 0.05);
+}
+.v2-edit-knowledge-result-type {
+  color: var(--v2-text-meta);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

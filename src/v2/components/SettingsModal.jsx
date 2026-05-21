@@ -328,6 +328,11 @@ function IntegrationsPanel({
   const [notionSearching, setNotionSearching] = useState(false)
   const [notionSearchError, setNotionSearchError] = useState(null)
   const [notionChildCount, setNotionChildCount] = useState(null)
+  // Knowledge base setup state — separate from sync-parent so the two
+  // Notion features stay independent.
+  const [kbStatus, setKbStatus] = useState(null) // { configured, database_id, database_url, last_sync }
+  const [kbSetupBusy, setKbSetupBusy] = useState(false)
+  const [kbError, setKbError] = useState(null)
   const [trelloBoards, setTrelloBoardsList] = useState([])
   const [trelloLists, setTrelloListsList] = useState([])
   const [trelloListsLoading, setTrelloListsLoading] = useState(false)
@@ -525,6 +530,43 @@ function IntegrationsPanel({
       .catch(() => {})
     return () => { cancelled = true }
   }, [settings.notion_sync_parent_id, statuses.notion?.connected])
+
+  // Load knowledge-base status whenever the Notion connection state flips.
+  useEffect(() => {
+    if (!statuses.notion?.connected) { setKbStatus(null); return }
+    let cancelled = false
+    import('../../api').then(m => m.knowledgeStatus())
+      .then(s => { if (!cancelled) setKbStatus(s) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [statuses.notion?.connected])
+
+  const runKnowledgeSetup = async () => {
+    setKbError(null)
+    setKbSetupBusy(true)
+    try {
+      const api = await import('../../api')
+      const result = await api.knowledgeSetup()
+      const next = await api.knowledgeStatus()
+      setKbStatus(next || result)
+    } catch (e) {
+      setKbError(e?.message || 'Setup failed')
+    } finally {
+      setKbSetupBusy(false)
+    }
+  }
+
+  const runKnowledgeRefresh = async () => {
+    setKbError(null)
+    try {
+      const api = await import('../../api')
+      await api.knowledgeRefresh()
+      const next = await api.knowledgeStatus()
+      setKbStatus(next)
+    } catch (e) {
+      setKbError(e?.message || 'Refresh failed')
+    }
+  }
 
   const runWeatherSearch = async () => {
     const q = weatherQuery.trim()
@@ -786,6 +828,46 @@ function IntegrationsPanel({
                         )}
                       </>
                     )}
+                    <div className="v2-integrations-kb">
+                      <div className="v2-form-label">Knowledge base</div>
+                      <div className="v2-integrations-hint">
+                        Stash long-term reference (where you keep things, decisions you've made,
+                        people, how-tos) as Notion pages Quokka can search. One database in your
+                        Notion workspace, kept in sync automatically.
+                      </div>
+                      {kbStatus?.configured ? (
+                        <>
+                          <div className="v2-integrations-status-line">
+                            ✓ Connected
+                            {kbStatus.database_url && (
+                              <> · <a href={kbStatus.database_url} target="_blank" rel="noreferrer">Open in Notion</a></>
+                            )}
+                            {kbStatus.last_sync && (
+                              <span className="v2-integrations-hint" style={{ display: 'block', marginTop: 4 }}>
+                                Last synced {new Date(kbStatus.last_sync).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <button className="v2-settings-btn" onClick={runKnowledgeRefresh}>
+                            Sync now
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className="v2-settings-btn"
+                          onClick={runKnowledgeSetup}
+                          disabled={kbSetupBusy || !settings.notion_sync_parent_id}
+                        >
+                          {kbSetupBusy ? 'Setting up…' : 'Set up Knowledge Base'}
+                        </button>
+                      )}
+                      {!settings.notion_sync_parent_id && !kbStatus?.configured && (
+                        <div className="v2-integrations-hint">
+                          Pick a parent page above first — the knowledge database is created underneath it.
+                        </div>
+                      )}
+                      {kbError && <div className="v2-integrations-error">{kbError}</div>}
+                    </div>
                   </div>
                 )}
                 {int.inline === 'trello-connect' && (

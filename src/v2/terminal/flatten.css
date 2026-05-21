@@ -403,6 +403,22 @@
   text-shadow: var(--v2-glow);
 }
 
+/* Linked-knowledge chips: same flat treatment as v2-edit-action — no pills,
+ * just bracketed text rows. The picker results inherit terminal styling
+ * from the generic .v2-form-input + button overrides upstream. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-knowledge-chip {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--v2-hairline);
+  padding: 4px 8px;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-edit-knowledge-chip:hover {
+  background: transparent;
+  color: var(--v2-accent);
+  border-color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+
 :root[data-ui="v2"][data-theme^="terminal"] .v2-edit-action-danger {
   color: var(--v2-alert-overdue);
 }

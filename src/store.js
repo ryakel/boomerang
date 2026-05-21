@@ -46,6 +46,13 @@ export const DEFAULT_SETTINGS = {
   notion_sync_parent_id: '',   // parent page whose children become tasks
   notion_sync_parent_title: '', // display name for the sync parent
   notion_last_sync: null,
+  // Knowledge base — Notion database holding long-term reference items
+  // (where things are kept, decisions, how-tos, people). Boomerang
+  // creates the DB on demand; this stores the resulting page id so we
+  // can re-find it next session. See knowledgeSync.js.
+  notion_knowledge_db_id: '',
+  notion_knowledge_db_url: '',
+  notion_knowledge_last_sync: null,
   sort_by: 'age',
   daily_task_goal: 3,
   daily_points_goal: 15,

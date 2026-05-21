@@ -152,6 +152,43 @@ Recurring tasks with configurable cadence:
 - **Routine auto-detection** — when AI analyzes a Notion page and detects recurring patterns (e.g., "change filter every 3 months"), a suggestion banner appears offering to create a routine with the inferred cadence. Dismiss permanently with "x".
 - **Routine support** — routines can also be linked to Notion pages
 
+## Knowledge Base (Notion-backed)
+
+A personal reference store Quokka can search — where things are kept, decisions you've made, how-tos, people. You tell Quokka in plain language ("remember the construction paper is in the closet under the stairs"), and it sticks.
+
+### Setup
+
+1. Connect Notion (MCP recommended) and pick a parent page in Settings → Integrations → Notion (same one used for task sync — Boomerang creates the knowledge database underneath it).
+2. Click **Set up Knowledge Base**. Boomerang auto-creates a Notion database with the right property schema (Name / Type / Tags / Related tasks / Confidence). Done.
+
+### What gets stored
+
+Each item is a Notion page with:
+- **Name** — short searchable title ("Construction paper", "Cat food brand")
+- **Type** — Location, How-to, Decision, or Person
+- **Tags** — freeform, multi-select
+- **Related tasks** — comma-separated Boomerang task IDs the item references
+- **Confidence** — Certain or Fuzzy (Quokka sets Fuzzy when you express uncertainty)
+- **Body** — full content as Notion blocks
+
+### How Quokka uses it
+
+- **Search-first.** When you ask "what brand of cat food do I buy?", Quokka searches the cached index by keyword and answers immediately. Body is fetched from Notion only if needed.
+- **Dedup before create.** When you ask Quokka to remember something, it searches first. If a close match exists, it asks whether to append/update vs create new — duplicates are avoided unless you confirm.
+- **Auto-write.** Adding a new item runs inline during the chat (no plan-confirm). Edits and deletes go through the standard plan-and-apply flow with rollback.
+- **Link to tasks.** Quokka can attach a knowledge item to a task ("link the 'thermostat schedule' note to my furnace-filter task"). Edit-modal chip section shows linked items; tap to unlink.
+
+### Where to find it
+
+- **Quokka** (primary) — natural language asks/tells
+- **⋯ menu → Knowledge** — opens Quokka pre-loaded with "What's in my knowledge base?"
+- **Edit task modal** — Linked knowledge chip section, with a search picker
+- **Settings → Integrations → Notion → Knowledge Base** — Sync now + Open in Notion
+
+### Sync cadence
+
+Background refresh runs every 5 minutes against the Notion database, so deletions and edits made directly in Notion propagate locally without manual action. If you just added something in Notion and need Quokka to see it immediately, tap **Sync now** in Settings or say "refresh the knowledge index" to Quokka.
+
 ## Connections (Edit Modal)
 
 The Edit Task modal has a combined **Connections** section showing both Notion and Trello integration buttons. When a task is linked to an integration, the button turns into a green badge showing the connection status with "Open" (to view in the external app) and "×" (to unlink) actions. This replaces separate integration sections with a unified UI.
