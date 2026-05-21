@@ -614,6 +614,51 @@ export async function notionMCPDisconnect() {
   return res.json()
 }
 
+// --- Knowledge base ---
+
+export async function knowledgeStatus() {
+  try {
+    const res = await fetch('/api/knowledge/status', { headers: getApiHeaders() })
+    if (!res.ok) return { configured: false }
+    return res.json()
+  } catch {
+    return { configured: false }
+  }
+}
+
+export async function knowledgeSetup(parentPageId = null) {
+  const res = await fetch('/api/knowledge/setup', {
+    method: 'POST', headers: { ...getApiHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(parentPageId ? { parent_page_id: parentPageId } : {}),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Knowledge setup failed')
+  return data
+}
+
+export async function knowledgeList({ q = '', type = null, limit = 50 } = {}) {
+  const params = new URLSearchParams()
+  if (q) params.set('q', q)
+  if (type) params.set('type', type)
+  params.set('limit', String(limit))
+  const res = await fetch(`/api/knowledge?${params}`, { headers: getApiHeaders() })
+  if (!res.ok) return { items: [] }
+  return res.json()
+}
+
+export async function knowledgeGet(notionPageId) {
+  const res = await fetch(`/api/knowledge/${notionPageId}`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Not found')
+  return res.json()
+}
+
+export async function knowledgeRefresh() {
+  const res = await fetch('/api/knowledge/refresh', { method: 'POST', headers: getApiHeaders() })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Refresh failed')
+  return data
+}
+
 export async function getKeyStatus() {
   try {
     const res = await fetch('/api/keys/status')

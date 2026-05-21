@@ -81,7 +81,7 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
 - Header icons: Packages + Quokka (AI adviser) always visible in the top-right; overflow "..." menu contains Settings, Projects, Import, Analytics, Activity Log
-- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics). 54 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial.
+- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics, knowledge base). 63 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial.
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
 
 ### Energy/Capacity Tagging System
@@ -683,6 +683,40 @@ Connects to Gmail via OAuth and uses AI to automatically extract tasks and packa
 - Only scans primary inbox (excludes promotions, social, updates, forums)
 - Pending items still surface in the main task list with a yellow border + Keep/Dismiss buttons. Moving them out into a dedicated Suggestions inbox surface is a separate (parked) UX change.
 
+### Knowledge Base (Notion-backed long-term reference)
+Personal knowledge store Quokka can search. Where things are kept, how-tos, decisions and reasoning, people and their context. Lives as a Notion database the user owns; Boomerang keeps a server-side metadata cache for instant search.
+
+**Storage.** New Notion database auto-created on first use under the user's existing `notion_sync_parent_id`. Properties: **Name** (title), **Type** (select: Location / How-to / Decision / Person), **Tags** (multi-select, freeform), **Related tasks** (rich_text, comma-separated task IDs), **Confidence** (select: Certain / Fuzzy). Body is markdown-ish (#, ##, -, - [ ]).
+
+**Local cache.** `knowledge_index` table (migration 030) holds title / type / tags / ≤200-char summary / Notion URL / last-edited timestamp / archived flag. Background refresh every 5 min reconciles deletions made in Notion. Full body fetched on demand. Settings: `notion_knowledge_db_id`, `notion_knowledge_db_url`, `notion_knowledge_last_sync`.
+
+**Task ↔ knowledge links.** `knowledge_page_ids_json` column on tasks (migration 030, JSON array of Notion page IDs). EditTaskModal "Linked knowledge" chip section above Manage. Mirrored on the Notion side via the "Related tasks" property so the relationship is visible from both directions.
+
+**Capture model.** Auto-write — when the user tells Quokka "remember X is in the basement", `create_knowledge` runs inline during the chat turn (no plan-confirm). Edits and deletes go through the standard staged-plan + LIFO compensation flow because those touch pre-existing user data. Quokka is instructed to `search_knowledge` first and ask the user before creating a duplicate.
+
+**Server endpoints (in `server.js`):**
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/knowledge/status` | Config status + last-sync timestamp |
+| `POST /api/knowledge/setup` | Auto-create the Notion database, seed the local index |
+| `GET /api/knowledge?q=&type=&limit=` | Search/filter/list cached items |
+| `GET /api/knowledge/:id` | Cached metadata + on-demand body fetch |
+| `POST /api/knowledge/refresh` | Force re-pull from Notion |
+
+**Quokka tools (9):** `search_knowledge`, `get_knowledge`, `refresh_knowledge_index`, `list_knowledge` (read-only); `create_knowledge`, `update_knowledge`, `delete_knowledge`, `link_knowledge_to_task`, `unlink_knowledge_from_task` (staged with rollback). All gated behind `deps.knowledgeDbConfigured` — error tells the user to run setup before tools fire.
+
+**Entry points.**
+- **Quokka** (primary) — natural language. "What brand of cat food do I buy?", "Remember the Christmas decorations are in the attic crawlspace."
+- **⋯ menu → Knowledge** — opens Quokka with a seeded "What's in my knowledge base?" draft in the input. User can hit send as-is or refine.
+- **EditTaskModal** — Linked knowledge chip section for direct view/unlink + a search picker.
+- **Settings → Integrations → Notion → Knowledge Base** — one-shot setup + Sync now button.
+
+**Known limitations:**
+- Body restore is best-effort on `update_knowledge` rollback — Notion's PATCH-children replaces blocks, so the full pre-update body would be needed for exact restore. Property restores (title/type/tags) work cleanly.
+- External delete final per existing adviser policy — `delete_knowledge` archives in Notion (recoverable from Trash for 30 days); local rollback can only re-insert the cache row.
+- Keyword search only (title/tags/summary). Semantic search across full bodies not wired.
+- 5-minute refresh cadence — if the user adds an item in Notion directly and immediately asks Quokka, they need to tap "Sync now" or have Quokka call `refresh_knowledge_index`.
+
 ### Quokka (AI Adviser)
 Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and Quokka finds related tasks/GCal events/routines and queues the fix. Named after the quokka (a small, perpetually-smiling Australian marsupial). User-facing branding uses "Quokka"; internal code (module names, CSS classes, endpoints under `/api/adviser/`, state vars like `showAdviser`) stays as `adviser`/`Adviser` — renaming plumbing provides no value.
 
@@ -700,7 +734,8 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - `adviserToolsTasks.js` — 21 task + routine tools (incl. 4 Sequences chain editors: `add_follow_up`, `edit_follow_up`, `remove_follow_up`, `reorder_follow_ups`)
 - `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools
 - `adviserToolsMisc.js` — 20 Gmail + packages + weather + settings + analytics tools
-- **Total:** 54 tools; diagnostic list at `GET /api/adviser/tools`
+- `adviserToolsKnowledge.js` — 9 knowledge-base tools (search, get, refresh, list, create, update, delete, link/unlink to tasks)
+- **Total:** 63 tools; diagnostic list at `GET /api/adviser/tools`
 
 **Server endpoints:**
 | Endpoint | Purpose |
@@ -721,6 +756,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Packages (6): list, get, create, update, delete, refresh-all
 - Weather (3): get, refresh, geocode
 - Settings + analytics (4): get/update settings (secrets blocked), get analytics, get analytics history
+- Knowledge base (9): search, get, refresh, list, create, update, delete, link/unlink to tasks (see Knowledge Base section above)
 
 **Rollback compensation:**
 - Local DB creates → delete on rollback

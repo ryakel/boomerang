@@ -130,8 +130,27 @@ CREATE TABLE tasks (
   session_count INTEGER DEFAULT 0,
   last_session_at TEXT,
   session_log_json TEXT DEFAULT '[]',    -- [{timestamp, points}, ...]
-  child_visibility TEXT DEFAULT 'backstage'  -- 'active' | 'backstage'
+  child_visibility TEXT DEFAULT 'backstage',  -- 'active' | 'backstage'
+  blocked_by_json TEXT DEFAULT '[]',     -- migration 029 — dependency chains
+  knowledge_page_ids_json TEXT DEFAULT '[]'  -- migration 030 — linked Notion knowledge items
 );
+
+-- Knowledge base index (migration 030) — cached metadata for the
+-- Notion-backed knowledge database. Full body lives in Notion only.
+CREATE TABLE knowledge_index (
+  notion_page_id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  type TEXT,                       -- Location | How-to | Decision | Person
+  tags_json TEXT DEFAULT '[]',
+  summary TEXT DEFAULT '',         -- ≤200 chars
+  confidence TEXT,                 -- Certain | Fuzzy
+  related_task_ids_json TEXT DEFAULT '[]',
+  notion_url TEXT,
+  last_edited_time TEXT,
+  last_synced_at TEXT NOT NULL,
+  archived INTEGER DEFAULT 0
+);
+-- Indexes on type, title
 
 -- Indexes on status, due_date, energy, created_at, routine_id, completed_at,
 -- parent_id (migration 028), pinned_to_today (migration 028)
@@ -316,10 +335,15 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 | `GET` | `/api/weather` | Get cached forecast + status |
 | `POST` | `/api/weather/refresh` | Force-refresh forecast (respects 30-min freshness unless `{ force: true }`) |
 | `POST` | `/api/weather/geocode` | Geocode a location query via Open-Meteo |
+| `GET` | `/api/knowledge/status` | Knowledge base configuration status |
+| `POST` | `/api/knowledge/setup` | Auto-create the Notion knowledge database |
+| `GET` | `/api/knowledge` | Search/filter/list cached knowledge items (`?q=&type=&limit=`) |
+| `GET` | `/api/knowledge/:id` | Cached metadata + on-demand body fetch |
+| `POST` | `/api/knowledge/refresh` | Force-refresh from Notion |
 
 ## AI Adviser
 
-`adviserTools.js` is the engine. `adviserToolsTasks.js`, `adviserToolsIntegrations.js`, and `adviserToolsMisc.js` register 54+ tools via `registerTool({ name, description, schema, readOnly, preview, execute })`. Includes 5 project tools added 2026-05-17: `pin_project_to_today`, `log_project_session`, `project_set_nag_policy`, `link_task_to_project`, `list_project_children`.
+`adviserTools.js` is the engine. `adviserToolsTasks.js`, `adviserToolsIntegrations.js`, `adviserToolsMisc.js`, and `adviserToolsKnowledge.js` register 60+ tools via `registerTool({ name, description, schema, readOnly, preview, execute })`. Includes 5 project tools added 2026-05-17 (`pin_project_to_today`, `log_project_session`, `project_set_nag_policy`, `link_task_to_project`, `list_project_children`) and 9 knowledge-base tools added 2026-05-21 (`search_knowledge`, `get_knowledge`, `refresh_knowledge_index`, `list_knowledge`, `create_knowledge`, `update_knowledge`, `delete_knowledge`, `link_knowledge_to_task`, `unlink_knowledge_from_task`).
 
 **Staged execution.** During `/api/adviser/chat`, read-only tools run immediately and return data; mutation tools do nothing except return a `preview` string and push a staged step into the session's plan. When the user confirms, `/api/adviser/commit` runs every staged step in order via `commitPlan()`.
 

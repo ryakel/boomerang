@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight, RotateCw } from 'lucide-react'
+import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight, RotateCw, BookOpen } from 'lucide-react'
 import { loadLabels, ENERGY_TYPES, STATUS_META, uuid, localYMD } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
 import { researchTask } from '../../api'
@@ -100,6 +100,15 @@ export default function EditTaskModal({
   // main list when any blocker is incomplete. Cycle prevention happens
   // when computing availableBlockers below.
   const [blockedBy, setBlockedBy] = useState(() => Array.isArray(task.blocked_by) ? task.blocked_by : [])
+  // Linked knowledge — Notion page IDs attached to this task. Search via
+  // the cached index, no live Notion roundtrips. Resolved into title/type
+  // metadata via `knowledgeIndex` below; missing IDs render as a faded
+  // "(unknown)" so removal still works after items were deleted in Notion.
+  const [knowledgeIds, setKnowledgeIds] = useState(() => Array.isArray(task.knowledge_page_ids) ? task.knowledge_page_ids : [])
+  const [knowledgeIndex, setKnowledgeIndex] = useState([])
+  const [knowledgePickerOpen, setKnowledgePickerOpen] = useState(false)
+  const [knowledgeQuery, setKnowledgeQuery] = useState('')
+  const [knowledgeConfigured, setKnowledgeConfigured] = useState(null)
   const [sessionFeedback, setSessionFeedback] = useState(null)
   const [loggingSession, setLoggingSession] = useState(false)
   const availableParents = projects.filter(p => p.id !== task.id)
@@ -187,6 +196,7 @@ export default function EditTaskModal({
     parent_id: parentId || null,
     child_visibility: parentId ? childVisibility : 'backstage',
     blocked_by: parentId ? blockedBy : [],
+    knowledge_page_ids: knowledgeIds,
     // Only persist completed_at while the task is done. changeStatus()
     // already clears it on done→active transitions; including it here
     // when not-done would re-stamp a stale value on every save.
@@ -198,6 +208,7 @@ export default function EditTaskModal({
     form.attachments, form.notionResult,
     checklists, comments, weatherHidden, gcalDuration,
     pinnedToToday, nagAllowed, parentId, childVisibility, blockedBy,
+    knowledgeIds,
     currentStatus, completedAtIso,
   ])
 
@@ -337,6 +348,22 @@ export default function EditTaskModal({
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
   }, [confirmDelete])
+
+  // Pull the knowledge index lazily — only when the user touches the
+  // Linked-knowledge picker, so most edits don't pay the network cost.
+  useEffect(() => {
+    if (!knowledgePickerOpen || knowledgeIndex.length > 0) return
+    let cancelled = false
+    import('../../api').then(async (m) => {
+      const status = await m.knowledgeStatus().catch(() => ({ configured: false }))
+      if (cancelled) return
+      setKnowledgeConfigured(!!status?.configured)
+      if (!status?.configured) return
+      const { items } = await m.knowledgeList({ limit: 200 }).catch(() => ({ items: [] }))
+      if (!cancelled) setKnowledgeIndex(items || [])
+    })
+    return () => { cancelled = true }
+  }, [knowledgePickerOpen, knowledgeIndex.length])
 
   return (
     <ModalShell
@@ -1228,6 +1255,93 @@ export default function EditTaskModal({
           )}
         </div>
       ) : null}
+
+      {/* Linked knowledge — Notion-backed reference items attached to this
+        * task. Renders as chips with an X to unlink. The + chip opens a
+        * lightweight search picker against the cached knowledge index.
+        * Lazy-loaded on first picker open. */}
+      <div className="v2-form-section v2-edit-knowledge">
+        <div className="v2-edit-manage-label">Linked knowledge</div>
+        <div className="v2-edit-knowledge-chips">
+          {knowledgeIds.map(pageId => {
+            const item = knowledgeIndex.find(k => k.notion_page_id === pageId)
+            const label = item?.title || '(unknown)'
+            return (
+              <button
+                key={pageId}
+                type="button"
+                className="v2-edit-knowledge-chip"
+                onClick={() => setKnowledgeIds(prev => prev.filter(id => id !== pageId))}
+                title="Click to unlink"
+              >
+                <BookOpen size={12} strokeWidth={1.75} />
+                <span>{label}</span>
+                <XIcon size={12} strokeWidth={2} />
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            className="v2-edit-knowledge-chip v2-edit-knowledge-chip-add"
+            onClick={() => setKnowledgePickerOpen(o => !o)}
+          >
+            <Plus size={12} strokeWidth={2} />
+            <span>{knowledgePickerOpen ? 'Cancel' : 'Add'}</span>
+          </button>
+        </div>
+        {knowledgePickerOpen && (
+          <div className="v2-edit-knowledge-picker">
+            {knowledgeConfigured === false ? (
+              <div className="v2-integrations-hint">
+                Set up the knowledge base in Settings → Integrations → Notion first.
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  className="v2-form-input"
+                  placeholder="Search knowledge…"
+                  value={knowledgeQuery}
+                  onChange={e => setKnowledgeQuery(e.target.value)}
+                  autoFocus
+                />
+                <ul className="v2-edit-knowledge-results">
+                  {knowledgeIndex
+                    .filter(item => !knowledgeIds.includes(item.notion_page_id))
+                    .filter(item => {
+                      if (!knowledgeQuery.trim()) return true
+                      const q = knowledgeQuery.toLowerCase()
+                      return item.title.toLowerCase().includes(q)
+                        || (item.tags || []).some(t => t.toLowerCase().includes(q))
+                    })
+                    .slice(0, 20)
+                    .map(item => (
+                      <li key={item.notion_page_id}>
+                        <button
+                          type="button"
+                          className="v2-edit-knowledge-result"
+                          onClick={() => {
+                            setKnowledgeIds(prev => [...prev, item.notion_page_id])
+                            setKnowledgeQuery('')
+                            setKnowledgePickerOpen(false)
+                          }}
+                        >
+                          <span className="v2-edit-knowledge-result-title">{item.title}</span>
+                          {item.type && (
+                            <span className="v2-edit-knowledge-result-type">{item.type}</span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  {knowledgeIndex.length === 0 && (
+                    <li className="v2-integrations-hint">No knowledge items yet — ask Quokka to add one.</li>
+                  )}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="v2-form-section v2-edit-manage">
         <div className="v2-edit-manage-label">Manage</div>
