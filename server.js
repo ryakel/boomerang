@@ -38,7 +38,13 @@ import {
 import { registerTaskTools } from './adviserToolsTasks.js'
 import { registerGCalTools, registerNotionTools, registerTrelloTools } from './adviserToolsIntegrations.js'
 import { registerMiscTools } from './adviserToolsMisc.js'
+import { registerKnowledgeTools } from './adviserToolsKnowledge.js'
 import * as notionMCP from './notionMCP.js'
+import {
+  ensureKnowledgeDatabase, refreshKnowledgeIndex, fetchKnowledgeBody,
+  startKnowledgeRefreshLoop, getKnowledgeStatus,
+} from './knowledgeSync.js'
+import { getAllKnowledgeItems, searchKnowledgeItems, getKnowledgeItem } from './db.js'
 import crypto from 'crypto'
 
 // Register adviser tools once at module load
@@ -47,6 +53,7 @@ registerGCalTools()
 registerNotionTools()
 registerTrelloTools()
 registerMiscTools()
+registerKnowledgeTools()
 
 // --- App version ---
 const appVersion = process.env.APP_VERSION || 'dev'
@@ -1432,6 +1439,72 @@ app.get('/api/notion/mcp/tools', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err?.message || 'Failed to list tools' })
   }
+})
+
+// --- Knowledge base (Notion-backed long-term reference store) ---
+// The user owns a Notion database; Boomerang keeps a server-side metadata
+// cache for instant Quokka-driven keyword search. Full body fetched on demand.
+
+app.get('/api/knowledge/status', (_req, res) => {
+  res.json(getKnowledgeStatus({ getData }))
+})
+
+// One-shot setup: creates the Notion database under a parent page (defaults
+// to the user's existing notion_sync_parent_id) and seeds the local index.
+app.post('/api/knowledge/setup', async (req, res) => {
+  const token = await getNotionAccessToken(req)
+  if (!token) return res.status(400).json({ error: 'Notion not connected' })
+  const parentPageId = req.body?.parent_page_id || getData('notion_sync_parent_id') || null
+  if (!parentPageId) {
+    return res.status(400).json({
+      error: 'Set up a Notion sync parent in Settings first, or pass parent_page_id explicitly.',
+    })
+  }
+  try {
+    const result = await ensureKnowledgeDatabase({ token, parentPageId, getData, setData })
+    // Seed the index immediately so the UI doesn't render an empty list.
+    await refreshKnowledgeIndex({ token, getData, setData }).catch(err => {
+      console.warn('[Knowledge] initial refresh failed:', err.message)
+    })
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Knowledge setup failed' })
+  }
+})
+
+app.post('/api/knowledge/refresh', async (req, res) => {
+  const token = await getNotionAccessToken(req)
+  if (!token) return res.status(400).json({ error: 'Notion not connected' })
+  try {
+    const outcome = await refreshKnowledgeIndex({ token, getData, setData })
+    res.json(outcome)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.get('/api/knowledge', (req, res) => {
+  const q = req.query?.q
+  const type = req.query?.type
+  const limit = parseInt(req.query?.limit, 10) || 50
+  const items = q || type
+    ? searchKnowledgeItems(q || '', { limit, type: type || null })
+    : getAllKnowledgeItems().slice(0, limit)
+  res.json({ items })
+})
+
+app.get('/api/knowledge/:id', async (req, res) => {
+  const item = getKnowledgeItem(req.params.id)
+  if (!item) return res.status(404).json({ error: 'Not found in local index' })
+  // Body lives in Notion only — fetch on demand. Skip silently when offline.
+  let body = ''
+  try {
+    const token = await getNotionAccessToken(req)
+    if (token) body = await fetchKnowledgeBody({ token, pageId: req.params.id })
+  } catch (err) {
+    console.warn('[Knowledge] body fetch failed:', err.message)
+  }
+  res.json({ ...item, body })
 })
 
 app.get('/api/gcal/calendars', async (req, res) => {
@@ -2849,6 +2922,13 @@ function adviserDeps(req) {
     notionToken: getLegacyNotionToken(req), // sync fallback; OAuth token populated after via getNotionAccessToken
     trello: getTrelloAuth(req),
     gcalToken: null, // filled in async before tools that need it
+    // Knowledge-base tools (adviserToolsKnowledge.js). The boolean lets the
+    // tool short-circuit with a clear error before hitting Notion when the
+    // user hasn't run the one-shot setup yet. getData/setData are passed
+    // through so refresh_knowledge_index can update the last-sync stamp.
+    knowledgeDbConfigured: !!getData('notion_knowledge_db_id'),
+    kbGetData: getData,
+    kbSetData: setData,
     syncGmail,
     getWeatherCache,
     getWeatherStatus,
@@ -3639,6 +3719,13 @@ initDb(dbPath).then(async () => {
     startWeatherSync()
     startWeeklyPatternReview()
     startPatternDetection()
+
+    // Background knowledge-base index refresh. Bails silently when not configured.
+    startKnowledgeRefreshLoop({
+      resolveToken: () => getNotionAccessToken(null),
+      getData,
+      setData,
+    })
 
     // Daily DB snapshot — runs once on boot then every 24h. Defends against the
     // 2026-05-07 wipe class of bug where a single bad write erases everything.

@@ -4,6 +4,27 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-21
+
+- feat(knowledge): Notion-backed knowledge base + Quokka tools [L]
+  - **Ask.** "I have a list in my head — where construction paper is kept, what cat-food brand I switched to, decisions I've made — that I want Quokka to remember and surface when relevant. Don't make me fill out forms; just let me tell Quokka 'remember that the lampshade is in the basement' and have it stick."
+  - **Storage.** New Notion database holding long-term reference items. Auto-created on first setup under the user's existing `notion_sync_parent_id` so there's zero manual schema work. Properties: Name (title), Type (select: Location / How-to / Decision / Person), Tags (multi-select, freeform), Related tasks (rich_text — comma-separated task IDs), Confidence (select: Certain / Fuzzy). DB id stored as `notion_knowledge_db_id` setting; URL stored as `notion_knowledge_db_url`.
+  - **Cache.** Server-side `knowledge_index` table (migration 030) holds metadata only — title, type, tags, ≤200-char summary, related task IDs, Notion URL, last-edited timestamp. Background refresh loop every 5 min reconciles deletions made directly in Notion. Full body fetched on demand via the same Notion REST endpoint stack the rest of the integrations use (MCP-issued OAuth token doubles as a Bearer token).
+  - **Task ↔ knowledge linking.** New `knowledge_page_ids_json` column on `tasks` (JSON array of Notion page IDs). EditTaskModal gets a "Linked knowledge" chip section above Manage — tap a chip to unlink, + chip opens a search picker against the cached index. Notion mirror: backlinks written to the knowledge item's "Related tasks" property so the relationship is visible from either side.
+  - **Capture model.** Auto-write — when the user tells Quokka "remember X is in the basement", `create_knowledge` runs inline during the chat turn with no plan-confirm step. Edits and deletes go through the existing staged-plan + LIFO compensation flow because those touch existing user data. Quokka is instructed to call `search_knowledge` first and ask before creating a duplicate.
+  - **Quokka tools (9).** `search_knowledge`, `get_knowledge`, `refresh_knowledge_index`, `list_knowledge` (read-only); `create_knowledge`, `update_knowledge`, `delete_knowledge`, `link_knowledge_to_task`, `unlink_knowledge_from_task` (staged with rollback). Adviser deps grow `knowledgeDbConfigured` flag so tools short-circuit with a clear setup-prompt error when missing.
+  - **Server endpoints (5).** `GET /api/knowledge/status` (config + last-sync), `POST /api/knowledge/setup` (auto-create the database), `GET /api/knowledge` (search/filter/list), `GET /api/knowledge/:id` (cached metadata + on-demand body), `POST /api/knowledge/refresh` (force re-pull).
+  - **Settings UI.** Knowledge Base subsection inside the existing Notion integration card. Disabled "Set up Knowledge Base" button when no `notion_sync_parent_id` is configured (with hint); after setup, surfaces ✓ Connected + Open in Notion link + Sync now button.
+  - **Entry point.** New "Knowledge" entry in the overflow ⋯ menu (between Projects and Routines). Tapping it opens Quokka with a seeded "What's in my knowledge base?" draft in the input — user can hit send as-is or refine. Quokka is the primary surface; the menu entry is the discoverability handle.
+  - **Limitations.**
+    - Body restore is best-effort on `update_knowledge` rollback — Notion's PATCH-children API replaces blocks, so we'd need the full pre-update body to restore exactly. Property restores (title/type/tags) work cleanly.
+    - External delete is final per the existing adviser policy — `delete_knowledge` archives in Notion (recoverable from Trash for 30 days) but rollback can only re-insert the local cache row.
+    - Search is keyword-only against title/tags/summary. Semantic search across full bodies isn't wired (would need an embedding step or a Notion-side full-text query).
+    - Background refresh fires every 5 min; if the user adds an item in Notion directly and immediately asks Quokka about it, they'll need to tap "Sync now" or have Quokka call `refresh_knowledge_index`.
+  - Modified: new `knowledgeSync.js`, new `adviserToolsKnowledge.js`, new `migrations/030_knowledge_base.sql`; `server.js`, `db.js`, `Dockerfile`, `src/store.js`, `src/api.js`, `src/v2/AppV2.jsx`, `src/v2/AppV2.css`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/EditTaskModal.css`, `src/v2/components/AdviserModal.jsx`, `CLAUDE.md`, `wiki/Features.md`, `wiki/Architecture.md`, `wiki/Version-History.md`
+
+---
+
 ## 2026-05-20
 
 - feat(tasks): backdate task completion to fix streak credit [S]

@@ -1175,3 +1175,18 @@
 .v2-settings-inline-link:hover {
   text-decoration: underline;
 }
+
+/* Knowledge-base subsection inside the Notion integration card. Sits below
+ * the parent-page chooser; spacing matches v2-integrations-inline rhythm. */
+.v2-integrations-kb {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--v2-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.v2-integrations-status-line {
+  font: 500 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+}
