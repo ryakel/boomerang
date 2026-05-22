@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-22
 
+- feat(ui): Spaces tab attention-badge + useSpaces data layer [S]
+  - **Ask.** Bottom tab bar (just shipped) was missing the "something in here wants your attention" signal. A pinned project drifting past the no-session-in-3-days threshold is the exact case the user needs surfaced without opening Spaces — they committed to caring (pinned it), but haven't touched it. Add a presence-only badge dot on the Spaces tab.
+  - **Data layer.** New `src/v2/hooks/useSpaces.js` derives `{ projects, routines, knowledge, wantsAttention }` from existing useTasks + useRoutines state — no fetches. `projects.stalePinnedCount` counts pinned projects where `last_session_at` is null OR more than 3 days old. `wantsAttention` is a single boolean (today: `stalePinnedCount > 0`) that future signals can OR into without changing the BottomTabs contract.
+  - **Badge render.** New `spacesBadge` prop on BottomTabs. In light/dark: 8px accent-colored dot anchored top-right of the icon pill via `position: absolute` on the tab button (which is now `position: relative`), with a 2px surface ring so it reads cleanly over the active-tab pill background. In terminal: dot is `position: static` and renders as a small accent-color `•` glyph inline after the bracketed label with `--v2-glow` text-shadow, matching the bracketed mono idiom. `aria-label` swaps to "Spaces (attention needed)" when the badge is on.
+  - **Presence, not counts.** Deliberately a dot, not a number. Counter would invite "I have 4 stale projects, that's bad" anxiety; the dot says "hey, peek in here." Per-project breakdown lives inside the SpacesHub when the C-upgrade lands.
+  - **C-upgrade prep.** `useSpaces` already returns the data shape the future preview-card render will consume (`pinnedCount`, `totalCount`, `stalePinnedCount`, `activeCount`, `spawnedTodayCount`, stubbed `knowledge.itemCount`). When SpacesHub graduates from picker rows to rich cards, the data layer doesn't change — only the SpacesHub JSX.
+  - **Verification.** `npm run check:terminal-titles` clean. `npx eslint src/v2/` clean. Production build clean.
+  - Modified: new `src/v2/hooks/useSpaces.js`; `src/v2/AppV2.jsx`, `src/v2/components/BottomTabs.jsx`, `src/v2/components/BottomTabs.css`, `src/v2/terminal/tabs.css`, `wiki/Version-History.md`
+
 - feat(ui): mobile bottom tabs + Spaces hub + SystemMenu — retire the ⋯ More menu [L]
   - **Ask.** The single ⋯ overflow menu had grown to 8 items (Settings, Projects, Knowledge, Routines, Done, Analytics, Suggestions, Activity log) — too long to scan, no grouping, no live information, every destination one extra tap deep. Replace it with a layered navigation pattern sized to each surface's frequency.
   - **Three new surfaces, each frequency-appropriate.**
