@@ -12,6 +12,25 @@
   overflow: hidden;
 }
 
+/* iOS PWA viewport fix (issue #213). After keyboard show/hide on iOS
+ * Safari standalone, `position: fixed; inset: 0` anchors to a stale
+ * layout viewport — the v2-app draws shorter than the visual viewport
+ * and exposes a strip of body bg below the bottom tab bar that only
+ * a hard PWA-kill restores. `100dvh` (dynamic viewport height) tracks
+ * the live visual viewport across all the iOS URL bar / keyboard /
+ * orientation transitions, so the app stays correctly sized.
+ *
+ * Wrapped in @supports so older browsers (pre-iOS 16 Safari) fall back
+ * to the inset:0 anchoring above. Boomerang's PWA targets iOS 16.4+
+ * for Web Push anyway, so dvh is the default path for nearly all
+ * users; the fallback is just defensive. */
+@supports (height: 100dvh) {
+  .v2-app {
+    bottom: auto;
+    height: 100dvh;
+  }
+}
+
 .v2-main {
   flex: 1;
   overflow-y: auto;
