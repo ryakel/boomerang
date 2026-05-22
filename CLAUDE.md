@@ -132,7 +132,7 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 ### Routine Scheduling
 Recurring tasks (routines) support per-routine day-of-week anchoring and on-demand one-off spawns.
 
-**Cadence types:** `daily`, `weekly`, `monthly`, `quarterly`, `annually`, `custom` (every N days).
+**Cadence types:** `daily`, `weekly`, `monthly`, `quarterly`, `annually`, `custom` (every N **days** or N **months** — controlled by `custom_unit`, migration 031).
 
 **Weekday anchor (`schedule_day_of_week`, 0=Sun … 6=Sat):** optional column added in migration 017. When set, `getNextDueDate()` advances by the cadence interval, then snaps forward to the first occurrence of that weekday. Examples:
 - Weekly + Fri → every Friday (after completion, next-due is the following Friday)

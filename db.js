@@ -938,6 +938,7 @@ function routineToRow(routine) {
     title: routine.title || '',
     cadence: routine.cadence || 'weekly',
     custom_days: routine.custom_days ?? null,
+    custom_unit: routine.custom_unit || 'days',
     notes: routine.notes || '',
     high_priority: routine.high_priority ? 1 : 0,
     energy: routine.energy || null,
@@ -964,6 +965,7 @@ function rowToRoutine(row) {
     title: row.title,
     cadence: row.cadence,
     custom_days: row.custom_days ?? null,
+    custom_unit: row.custom_unit || 'days',
     notes: row.notes || '',
     high_priority: !!row.high_priority,
     energy: row.energy || null,
@@ -989,13 +991,14 @@ function rowToRoutine(row) {
 // ============================================================
 
 const UPSERT_ROUTINE_SQL = `
-  INSERT INTO routines (id, title, cadence, custom_days, notes, high_priority,
+  INSERT INTO routines (id, title, cadence, custom_days, custom_unit, notes, high_priority,
     energy, energy_level, notion_page_id, notion_url, created_at, paused,
     tags_json, completed_history_json, end_date, schedule_day_of_week, auto_roll,
     spawn_mode, target_count, target_period, follow_ups_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
+    custom_unit=excluded.custom_unit,
     notes=excluded.notes, high_priority=excluded.high_priority, energy=excluded.energy,
     energy_level=excluded.energy_level, notion_page_id=excluded.notion_page_id,
     notion_url=excluded.notion_url, created_at=excluded.created_at, paused=excluded.paused,
@@ -1008,7 +1011,7 @@ const UPSERT_ROUTINE_SQL = `
 function runUpsertRoutine(routine) {
   const r = routineToRow(routine)
   db.run(UPSERT_ROUTINE_SQL, [
-    r.id, r.title, r.cadence, r.custom_days, r.notes, r.high_priority,
+    r.id, r.title, r.cadence, r.custom_days, r.custom_unit, r.notes, r.high_priority,
     r.energy, r.energy_level, r.notion_page_id, r.notion_url, r.created_at, r.paused,
     r.tags_json, r.completed_history_json, r.end_date, r.schedule_day_of_week,
     r.auto_roll, r.spawn_mode, r.target_count, r.target_period,

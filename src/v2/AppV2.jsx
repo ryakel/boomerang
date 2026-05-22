@@ -608,8 +608,16 @@ export default function AppV2() {
     return logProjectSession(projectId)
   }, [logProjectSession])
 
-  const handleConvertToRoutine = useCallback((taskId, { title, cadence, customDays, tags, notes }) => {
-    const routine = addRoutine(title, cadence, customDays, tags, notes)
+  const handleConvertToRoutine = useCallback((taskId, { title, cadence, customDays, customUnit, tags, notes }) => {
+    // addRoutine signature: (title, cadence, customDays, tags, notes, highPriority,
+    //   endDate, scheduleDayOfWeek, followUps, autoRoll, spawnMode, targetCount,
+    //   targetPeriod, customUnit). Pass undefined for the middle args we don't
+    //   override here so customUnit lands in the right slot.
+    const routine = addRoutine(
+      title, cadence, customDays, tags, notes,
+      undefined, undefined, undefined, undefined, undefined,
+      undefined, undefined, undefined, customUnit
+    )
     updateTask(taskId, { routine_id: routine.id, last_touched: new Date().toISOString() })
     setEditTarget(null)
   }, [addRoutine, updateTask])

@@ -143,6 +143,7 @@ export default function EditTaskModal({
   const [makeRecurring, setMakeRecurring] = useState(false)
   const [cadence, setCadence] = useState('weekly')
   const [customDays, setCustomDays] = useState(14)
+  const [customUnit, setCustomUnit] = useState('days')
 
   // Backdated completion. When the user did the task earlier but forgot to
   // tick it off, they can edit "Completed on" here so the daily streak and
@@ -328,6 +329,7 @@ export default function EditTaskModal({
       title: form.title.trim(),
       cadence,
       customDays: cadence === 'custom' ? Number(customDays) : undefined,
+      customUnit: cadence === 'custom' ? customUnit : undefined,
       tags: form.selectedTags,
       notes: form.notes,
     })
@@ -975,14 +977,26 @@ export default function EditTaskModal({
               ))}
             </select>
             {cadence === 'custom' && (
-              <input
-                className="v2-form-input v2-edit-routine-days"
-                type="number"
-                min="1"
-                value={customDays}
-                onChange={e => setCustomDays(e.target.value)}
-                placeholder="days"
-              />
+              <>
+                <input
+                  className="v2-form-input v2-edit-routine-days"
+                  type="number"
+                  min="1"
+                  value={customDays}
+                  onChange={e => setCustomDays(e.target.value)}
+                  placeholder="N"
+                  aria-label={`Every N ${customUnit}`}
+                />
+                <select
+                  className="v2-form-input v2-edit-routine-unit"
+                  value={customUnit}
+                  onChange={e => setCustomUnit(e.target.value)}
+                  aria-label="Interval unit"
+                >
+                  <option value="days">days</option>
+                  <option value="months">months</option>
+                </select>
+              </>
             )}
             <button className="v2-edit-routine-confirm" onClick={handleConvertToRoutine}>Convert</button>
             <button className="v2-edit-routine-cancel" onClick={() => setMakeRecurring(false)}>Cancel</button>

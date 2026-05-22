@@ -49,7 +49,11 @@
 }
 
 .v2-edit-routine-days {
-  flex: 0 0 80px;
+  flex: 0 0 70px;
+}
+
+.v2-edit-routine-unit {
+  flex: 0 0 92px;
 }
 
 .v2-edit-routine-confirm {
