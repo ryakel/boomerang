@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-22
 
+- fix(viewport): iOS PWA grey gap below BottomTabs after keyboard interaction [XS]
+  - **Bug.** After typing in any modal input (Add task, Adviser, Edit, etc.), closing the keyboard left a grey strip of body-background visible below the bottom tab bar on iOS PWA standalone mode. Force-quitting the PWA was the only way to restore correct layout (issue #213).
+  - **Cause.** `.v2-app { position: fixed; inset: 0 }` anchors to the layout viewport. iOS Safari leaves the layout viewport in a stale state across keyboard show/hide cycles, which makes the v2-app draw shorter than the actual visual viewport.
+  - **Fix.** Use `height: 100dvh` (dynamic viewport height) instead of `inset: 0`'s implicit bottom anchoring. `dvh` tracks the live visual viewport so the app stays correctly sized through every iOS URL-bar / keyboard / orientation transition. Wrapped in `@supports (height: 100dvh)` so older browsers fall back to the inset:0 path. Boomerang targets iOS 16.4+ for Web Push anyway, so dvh is the default path for nearly all users.
+  - Modified: `src/v2/AppV2.css`, `wiki/Version-History.md`
+
+- fix(spaces-badge): grace period for newly-pinned projects [XS]
+  - **Bug.** Spaces tab attention dot fired immediately on any newly-pinned project. `useSpaces` treated `last_session_at = null` as "stale forever," which made the badge a false positive every time a user pinned something — defeating the signal it was supposed to send (issue #212).
+  - **Fix.** Use the most-recent of `last_session_at`, `last_touched`, `created_at` as the staleness reference. `setProjectPinned` already stamps `last_touched`, so a brand-new pin now gets a full 3-day grace window before the dot fires. Projects with no reference timestamps at all (truly unknown state) don't fire either — silence beats a false positive.
+  - Modified: `src/v2/hooks/useSpaces.js`, `wiki/Version-History.md`
+
 - feat(routines): custom cadence supports "every N months" alongside "every N days" [S]
   - **Ask.** Existing custom cadence only supported days. Quarterly + annually are fixed presets; in-between cadences like "every 2 months" / "every 6 months" weren't expressible.
   - **Schema.** Migration 031 adds `custom_unit TEXT DEFAULT 'days'` to the routines table. `custom_days` keeps its name as the interval count (regardless of unit) — kept for backward compat with all callers; renaming would have touched a dozen files. Null/missing `custom_unit` is treated as `'days'` everywhere so pre-migration routines preserve exact behavior.
