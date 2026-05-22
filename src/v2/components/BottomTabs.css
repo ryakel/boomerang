@@ -13,7 +13,6 @@
 }
 
 .v2-bottom-tab {
-  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -41,26 +40,6 @@
   padding: 4px 14px;
   border-radius: var(--v2-radius-pill);
   transition: background var(--v2-dur-quick) var(--v2-ease-standard);
-}
-
-/* Attention badge — small accent-colored dot anchored to the
- * tab button itself (button is position: relative). Floats above the
- * icon's top-right corner. Presence boolean only, no counter.
- * Sourced from useSpaces().wantsAttention. */
-.v2-bottom-tab-badge {
-  position: absolute;
-  /* Center-align horizontally on the icon: icon-wrap is 22px icon + 14px*2
-   * horizontal padding = 50px wide. Right-edge offset from button center
-   * lands the dot ~3px past the icon-wrap's right edge. */
-  top: 6px;
-  left: calc(50% + 16px);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--v2-accent);
-  /* Soft surface ring so the dot reads cleanly over the active-tab
-   * pill background. */
-  box-shadow: 0 0 0 2px var(--v2-bg);
 }
 
 .v2-bottom-tab-icon {

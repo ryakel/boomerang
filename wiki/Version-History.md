@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-22
 
+- chore(spaces-badge): remove the Spaces tab attention dot [XS]
+  - **Ask.** User found the dot more annoying than useful — even with the 3-day grace period, it kept firing on pinned projects that didn't actually need a nudge. Pulling it.
+  - **Removal.** Drop `spacesBadge` prop + badge JSX from BottomTabs. Remove `.v2-bottom-tab-badge` styles from both BottomTabs.css and terminal/tabs.css. Drop `position: relative` from `.v2-bottom-tab` (was only there to anchor the badge). Drop `wantsAttention` + `stalePinnedCount` from useSpaces. Drop the AppV2 useSpaces import + call (no consumer left).
+  - **What stays.** `src/v2/hooks/useSpaces.js` itself remains as the data shape the future SpacesHub preview-card upgrade (C-upgrade) will consume — `pinnedCount`, `totalCount`, `activeCount`, `spawnedTodayCount`, stubbed `knowledge`. The hook is just dormant until a consumer wires it back in.
+  - **Notes for the future.** If the attention signal is ever revisited, probably needs a richer rule than "3-day no-session" — maybe "pinned + no Today-list child + N+ days." Or replace the dot entirely with a one-tap "snooze the nudge" affordance. Either way, requires a UX redesign, not just a threshold tweak.
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/BottomTabs.jsx`, `src/v2/components/BottomTabs.css`, `src/v2/hooks/useSpaces.js`, `src/v2/terminal/tabs.css`, `wiki/Version-History.md`
+
 - fix(viewport): iOS PWA grey gap below BottomTabs after keyboard interaction [XS]
   - **Bug.** After typing in any modal input (Add task, Adviser, Edit, etc.), closing the keyboard left a grey strip of body-background visible below the bottom tab bar on iOS PWA standalone mode. Force-quitting the PWA was the only way to restore correct layout (issue #213).
   - **Cause.** `.v2-app { position: fixed; inset: 0 }` anchors to the layout viewport. iOS Safari leaves the layout viewport in a stale state across keyboard show/hide cycles, which makes the v2-app draw shorter than the actual visual viewport.

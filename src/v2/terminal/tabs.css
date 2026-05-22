@@ -34,25 +34,6 @@
   display: none;
 }
 
-/* Attention badge — terminal renders as a small accent-colored `•`
- * glyph inline after the bracketed label. The standard dot is
- * absolute-positioned over the icon (which doesn't render in terminal),
- * so swap to an inline glyph via the pseudo-element content. */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab-badge {
-  position: static;
-  width: auto;
-  height: auto;
-  background: transparent;
-  box-shadow: none;
-  font: 500 14px/1 var(--v2-font-body);
-  margin-left: 4px;
-}
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab-badge::before {
-  content: "•";
-  color: var(--v2-accent);
-  text-shadow: var(--v2-glow);
-}
-
 :root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab {
   font: 500 13px/1 var(--v2-font-body);
   color: var(--v2-text-meta);

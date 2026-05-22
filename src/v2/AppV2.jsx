@@ -48,7 +48,6 @@ import { useNotionSync } from '../hooks/useNotionSync'
 import { useGCalSync } from '../hooks/useGCalSync'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useTerminalMode } from './hooks/useTerminalMode'
-import { useSpaces } from './hooks/useSpaces'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask } from '../api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, computeRoutineStreak, logActivity, localYMD } from '../store'
 import './AppV2.css'
@@ -190,12 +189,6 @@ export default function AppV2() {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
     completeRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, hydrateRoutines,
   } = useRoutines()
-
-  // Spaces data layer — drives the BottomTabs badge dot today, and
-  // will feed rich preview cards inside SpacesHub on the C-upgrade.
-  // Pure derivation from tasks + routines — no fetches, no extra
-  // state — so it re-renders on the same cadence as the rest of v2.
-  const spaces = useSpaces({ tasks, routines })
 
   // Background work that must keep running even when v2 is the active shell:
   // notifications, AI inference, external (Trello/Notion) outbound sync,
@@ -975,7 +968,6 @@ export default function AppV2() {
       {!isDesktop && (
         <BottomTabs
           activeTab={activeTab}
-          spacesBadge={spaces.wantsAttention}
           onTabChange={(next) => {
             if (next === 'today') {
               setActiveTab('today')

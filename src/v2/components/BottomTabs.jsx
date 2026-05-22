@@ -5,16 +5,9 @@ import './BottomTabs.css'
 // Desktop intentionally skipped — it has the Kanban + side drawer
 // pattern, doesn't need bottom chrome eating screen height.
 //
-// `spacesBadge` is a presence boolean (not a counter) sourced from
-// useSpaces().wantsAttention — a dot if a pinned project has drifted
-// past the stale threshold OR any other future signal worth pinging.
-// Counter would invite "I have 4 stale projects, that's bad" anxiety;
-// a dot is "hey, peek in here."
-//
 // Terminal-theme styling lives in src/v2/terminal/tabs.css — lucide
-// SVGs hide, labels become `[ today ]` bracketed mono, badge renders
-// as a small `•` glyph to the right of the active label.
-export default function BottomTabs({ activeTab, onTabChange, spacesBadge = false }) {
+// SVGs hide, labels become `[ today ]` bracketed mono.
+export default function BottomTabs({ activeTab, onTabChange }) {
   return (
     <nav className="v2-bottom-tabs" role="tablist" aria-label="Primary navigation">
       <button
@@ -33,15 +26,13 @@ export default function BottomTabs({ activeTab, onTabChange, spacesBadge = false
         type="button"
         role="tab"
         aria-selected={activeTab === 'spaces'}
-        aria-label={spacesBadge ? 'Spaces (attention needed)' : 'Spaces'}
-        className={`v2-bottom-tab${activeTab === 'spaces' ? ' is-active' : ''}${spacesBadge ? ' has-badge' : ''}`}
+        className={`v2-bottom-tab${activeTab === 'spaces' ? ' is-active' : ''}`}
         onClick={() => onTabChange('spaces')}
       >
         <span className="v2-bottom-tab-icon-wrap">
           <FolderKanban size={22} strokeWidth={1.75} className="v2-bottom-tab-icon" aria-hidden="true" />
         </span>
         <span className="v2-bottom-tab-label" data-terminal-label="spaces">Spaces</span>
-        {spacesBadge && <span className="v2-bottom-tab-badge" aria-hidden="true" />}
       </button>
     </nav>
   )
