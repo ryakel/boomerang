@@ -2320,8 +2320,8 @@ export default function SettingsModal({
 
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Keep 7-day strip always open</div>
-                <div className="v2-settings-row-hint">In terminal mode, force the strip visible permanently so you don't have to tap the date to expand it.</div>
+                <div className="v2-settings-row-label">Open 7-day strip by default</div>
+                <div className="v2-settings-row-hint">Show the strip expanded when the app loads. Tap the date in the home stats line any time to hide it or re-open it.</div>
               </div>
               <label className="v2-settings-toggle">
                 <input

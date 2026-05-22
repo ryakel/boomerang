@@ -96,9 +96,11 @@ export default function AppV2() {
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   // Terminal-mode 7-day strip visibility. The calendar+date span in the
-  // home stats line acts as the toggle (default closed). The
-  // `week_strip_always_open` setting forces it visible regardless.
-  const [weekStripShown, setWeekStripShown] = useState(false)
+  // home stats line acts as the toggle. Initial state mirrors the
+  // `week_strip_always_open` setting (so users who opt into always-open
+  // get the strip shown on load), but the date tap can always flip it
+  // either way — the setting controls the default, not a forced lock.
+  const [weekStripShown, setWeekStripShown] = useState(() => !!loadSettings().week_strip_always_open)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
   const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
@@ -892,43 +894,35 @@ export default function AppV2() {
           />
         ) : (
           <div className="v2-list">
-            {/* Terminal home header: date + streak + today's progress as a
-              * single segmented line. Originally terminal-only; lifted
-              * to all themes 2026-05-17 because users want the streak +
-              * today's progress glanceable across the board. Date is a
-              * toggle for the WeekStrip below. */}
-            {(() => {
-              const alwaysOpen = !!settingsForRings.week_strip_always_open
-              const open = alwaysOpen || weekStripShown
-              return (
-                <div className="v2-home-stats" aria-hidden="false">
-                  <button
-                    type="button"
-                    className={`v2-thx-date v2-thx-date-toggle${open ? ' v2-thx-date-open' : ''}`}
-                    onClick={() => !alwaysOpen && setWeekStripShown(v => !v)}
-                    aria-expanded={open}
-                    aria-controls="v2-week-strip-days"
-                    aria-label={open ? 'Hide 7-day strip' : 'Show 7-day strip'}
-                    disabled={alwaysOpen}
-                  >
-                    📅 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    {!alwaysOpen && (
-                      <span className="v2-thx-date-chev" aria-hidden="true">{open ? '▴' : '▾'}</span>
-                    )}
-                  </button>
-                  <span className="v2-thx-sep">·</span>
-                  <span className="v2-thx-streak">
-                    🔥 {streak} day{streak === 1 ? '' : 's'}
-                  </span>
-                  <span className="v2-thx-sep">·</span>
-                  <span className="v2-thx-today">
-                    ✓ {dailyStats.tasksToday}/{settingsForRings.daily_task_goal || 3} today
-                  </span>
-                </div>
-              )
-            })()}
-            {(settingsForRings.week_strip_always_open || weekStripShown ||
-              (!isTerminal && settingsForRings.show_week_strip)) && (
+            {/* Home header: date + streak + today's progress on one line.
+              * Lifted to all themes 2026-05-17. The 📅 date is the
+              * always-tappable toggle for the WeekStrip below — works
+              * regardless of the `week_strip_always_open` setting (which
+              * only seeds the initial state). User can hide-on-demand
+              * even when the always-open default is on; next reload
+              * restores the default. */}
+            <div className="v2-home-stats" aria-hidden="false">
+              <button
+                type="button"
+                className={`v2-thx-date v2-thx-date-toggle${weekStripShown ? ' v2-thx-date-open' : ''}`}
+                onClick={() => setWeekStripShown(v => !v)}
+                aria-expanded={weekStripShown}
+                aria-controls="v2-week-strip-days"
+                aria-label={weekStripShown ? 'Hide 7-day strip' : 'Show 7-day strip'}
+              >
+                📅 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                <span className="v2-thx-date-chev" aria-hidden="true">{weekStripShown ? '▴' : '▾'}</span>
+              </button>
+              <span className="v2-thx-sep">·</span>
+              <span className="v2-thx-streak">
+                🔥 {streak} day{streak === 1 ? '' : 's'}
+              </span>
+              <span className="v2-thx-sep">·</span>
+              <span className="v2-thx-today">
+                ✓ {dailyStats.tasksToday}/{settingsForRings.daily_task_goal || 3} today
+              </span>
+            </div>
+            {(weekStripShown || (!isTerminal && settingsForRings.show_week_strip)) && (
               <WeekStrip
                 tasks={tasks}
                 dailyTaskGoal={settingsForRings.daily_task_goal || 3}
