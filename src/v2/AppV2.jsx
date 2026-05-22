@@ -47,7 +47,6 @@ import { useTrelloSync } from '../hooks/useTrelloSync'
 import { useNotionSync } from '../hooks/useNotionSync'
 import { useGCalSync } from '../hooks/useGCalSync'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
-import { useTerminalMode } from './hooks/useTerminalMode'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask } from '../api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, computeRoutineStreak, logActivity, localYMD } from '../store'
 import './AppV2.css'
@@ -95,12 +94,17 @@ export default function AppV2() {
   const [adviserDraftSeed, setAdviserDraftSeed] = useState('')
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
-  // Terminal-mode 7-day strip visibility. The calendar+date span in the
-  // home stats line acts as the toggle. Initial state mirrors the
-  // `week_strip_always_open` setting (so users who opt into always-open
-  // get the strip shown on load), but the date tap can always flip it
-  // either way — the setting controls the default, not a forced lock.
-  const [weekStripShown, setWeekStripShown] = useState(() => !!loadSettings().week_strip_always_open)
+  // 7-day strip visibility — single source of truth. Date tap toggles
+  // it in all themes. Two settings can seed the initial state on load:
+  //   - week_strip_always_open: explicit "open by default" toggle
+  //   - show_week_strip: legacy non-terminal setting (light/dark default
+  //     is true). Either being on means "start with the strip open".
+  const [weekStripShown, setWeekStripShown] = useState(() => {
+    const s = loadSettings()
+    const theme = s.theme || 'dark'
+    const isTerm = typeof theme === 'string' && theme.startsWith('terminal')
+    return !!s.week_strip_always_open || (!isTerm && !!s.show_week_strip)
+  })
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
   const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
@@ -114,7 +118,6 @@ export default function AppV2() {
   // same thread. Server session TTL still governs the staged-plan life.
   const adviserState = useAdviser()
   const isDesktop = useIsDesktop()
-  const isTerminal = useTerminalMode()
   const weather = useWeather()
 
   // Hidden tic-tac-toe Easter egg. Triggered by either: 7-tap the Build
@@ -922,7 +925,7 @@ export default function AppV2() {
                 ✓ {dailyStats.tasksToday}/{settingsForRings.daily_task_goal || 3} today
               </span>
             </div>
-            {(weekStripShown || (!isTerminal && settingsForRings.show_week_strip)) && (
+            {weekStripShown && (
               <WeekStrip
                 tasks={tasks}
                 dailyTaskGoal={settingsForRings.daily_task_goal || 3}
