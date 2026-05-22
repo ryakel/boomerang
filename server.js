@@ -2775,6 +2775,7 @@ app.post('/api/suggestions/:id/accept', (req, res) => {
     title: routineConfig.title || sug.display_title,
     cadence,
     custom_days: routineConfig.custom_days ?? null,
+    custom_unit: routineConfig.custom_unit || 'days',
     notes: routineConfig.notes || '',
     high_priority: !!routineConfig.high_priority,
     energy: routineConfig.energy || null,
