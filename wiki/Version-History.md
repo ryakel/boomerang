@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-22
 
+- fix(weekstrip): date tap actually toggles in light/dark/default themes too [XS]
+  - **Bug.** After the prior PR #220 fix, the date tap worked in terminal but still no-op'd in light/dark. The render condition still had a `(!isTerminal && show_week_strip)` clause that kept the strip visible regardless of `weekStripShown` — light/dark's default is `show_week_strip=true`, so tapping toggled the state but the strip stayed open via the legacy clause.
+  - **Fix.** Make `weekStripShown` the single source of truth across all themes. Seed it from EITHER `week_strip_always_open` OR `(!isTerminal && show_week_strip)` on mount, then let the date tap drive it. Drops the redundant render-condition clause and the now-unused `isTerminal`/`useTerminalMode` ref in AppV2.
+  - Modified: `src/v2/AppV2.jsx`, `wiki/Version-History.md`
+
 - fix(weekstrip): date tap always toggles + "always open" works in all themes [XS]
   - **Bug.** With "Keep 7-day strip always open" turned ON, tapping the 📅 date in the home stats line did nothing — the button was hard-disabled by the setting. Date tap had been a no-op in this state since 2026-05-17 (commit ac164dc), but only surfaced now that the setting was discoverable across all themes (issue #208).
   - **Fix.** Setting now seeds the initial WeekStrip visibility state on app load instead of force-locking it. The date tap is always live — user can hide-on-demand even with always-open ON; next reload restores the default. Drop the `disabled` attribute, drop the `alwaysOpen` ternary on the chevron, drop the JSX IIFE wrapper now that there's no derived state to compute.
