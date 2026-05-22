@@ -1,0 +1,13 @@
+-- Add custom_unit column to routines for "every N months" cadence.
+--
+-- Background: the `custom` cadence value historically meant "every N
+-- days" because `custom_days` was the only interval field. Users now
+-- want "every N months" too (every 2 months, every 6 months) without
+-- adding more named-preset enum values.
+--
+-- Approach: keep `custom_days` as the integer interval count (despite
+-- the name — kept for backward compat with all callers). Add
+-- `custom_unit` as 'days' or 'months'. Existing custom routines
+-- default to 'days' which preserves their behavior exactly. Null
+-- unit is treated as 'days' everywhere in the codebase.
+ALTER TABLE routines ADD COLUMN custom_unit TEXT DEFAULT 'days';

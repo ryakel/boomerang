@@ -61,6 +61,8 @@ function summarizeRoutine(r) {
     id: r.id,
     title: r.title,
     cadence: r.cadence,
+    custom_days: r.custom_days ?? null,
+    custom_unit: r.custom_unit || 'days',
     schedule_day_of_week: r.schedule_day_of_week ?? null,
     tags: r.tags || [],
     paused: !!r.paused,
@@ -730,14 +732,15 @@ export function registerTaskTools() {
   // --- ROUTINES (MUTATION) ---
   registerTool({
     name: 'create_routine',
-    description: 'Create a recurring routine. Cadence: daily|weekly|monthly|quarterly|annually|custom. schedule_day_of_week 0=Sun..6=Sat (ignored for daily).',
+    description: 'Create a recurring routine. Cadence: daily|weekly|monthly|quarterly|annually|custom. For custom, set custom_days as the interval and custom_unit as "days" (default) or "months" — e.g. {cadence:"custom", custom_days:2, custom_unit:"months"} for every-2-months. schedule_day_of_week 0=Sun..6=Sat (ignored for daily).',
     schema: {
       type: 'object',
       properties: {
         title: { type: 'string' },
         notes: { type: 'string' },
         cadence: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'custom'] },
-        custom_interval_days: { type: 'integer' },
+        custom_days: { type: 'integer', description: 'Interval count for custom cadence (e.g. 2 with custom_unit=months means every 2 months)' },
+        custom_unit: { type: 'string', enum: ['days', 'months'], description: 'Unit for custom_days. Default: days.' },
         tags: { type: 'array', items: { type: 'string' } },
         high_priority: { type: 'boolean' },
         end_date: { type: 'string' },
@@ -754,7 +757,11 @@ export function registerTaskTools() {
         title: args.title,
         notes: args.notes || '',
         cadence: args.cadence,
-        custom_interval_days: args.custom_interval_days || null,
+        // Accept the legacy `custom_interval_days` arg name too — earlier
+        // tool schema advertised it and Claude may still favor it in
+        // prior-context-loaded turns. Both names map to the same column.
+        custom_days: args.custom_days ?? args.custom_interval_days ?? null,
+        custom_unit: args.custom_unit || 'days',
         tags: args.tags || [],
         high_priority: !!args.high_priority,
         end_date: args.end_date || null,
@@ -782,7 +789,8 @@ export function registerTaskTools() {
         title: { type: 'string' },
         notes: { type: 'string' },
         cadence: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'custom'] },
-        custom_interval_days: { type: 'integer' },
+        custom_days: { type: 'integer', description: 'Interval count for custom cadence' },
+        custom_unit: { type: 'string', enum: ['days', 'months'], description: 'Unit for custom_days. Default: days.' },
         tags: { type: 'array', items: { type: 'string' } },
         paused: { type: 'boolean' },
         end_date: { type: ['string', 'null'] },
@@ -795,6 +803,13 @@ export function registerTaskTools() {
       const before = getRoutine(args.id)
       if (!before) throw new Error(`Routine not found: ${args.id}`)
       const updates = { ...args, updated_at: new Date().toISOString() }
+      // Translate legacy field name → canonical column name. Schema
+      // now uses custom_days; older agent context may still send the
+      // typo'd custom_interval_days, so map it through.
+      if (updates.custom_interval_days != null && updates.custom_days == null) {
+        updates.custom_days = updates.custom_interval_days
+      }
+      delete updates.custom_interval_days
       delete updates.id
       updateRoutinePartial(args.id, updates)
       return {

@@ -289,6 +289,9 @@ function RoutineForm({ initial, onSave, onCancel }) {
   const [title, setTitle] = useState(initial?.title || '')
   const [cadence, setCadence] = useState(initial?.cadence || 'weekly')
   const [customDays, setCustomDays] = useState(initial?.custom_days || 14)
+  // 'days' | 'months'. Pre-migration custom routines have no unit
+  // saved — default to 'days' which preserves their original behavior.
+  const [customUnit, setCustomUnit] = useState(initial?.custom_unit || 'days')
   const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(
     initial?.schedule_day_of_week == null ? '' : String(initial.schedule_day_of_week)
   )
@@ -356,6 +359,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
     title: title.trim(),
     cadence,
     customDays: cadence === 'custom' ? Number(customDays) : null,
+    customUnit: cadence === 'custom' ? customUnit : null,
     tags: selectedTags,
     notes: notes.trim(),
     highPriority,
@@ -477,14 +481,30 @@ function RoutineForm({ initial, onSave, onCancel }) {
 
           {cadence === 'custom' && (
             <div className="v2-form-section">
-              <label className="v2-form-label">Every N days</label>
-              <input
-                className="v2-form-input"
-                type="number"
-                min="1"
-                value={customDays}
-                onChange={e => setCustomDays(e.target.value)}
-              />
+              <label className="v2-form-label">Every</label>
+              <div className="v2-form-row">
+                <div className="v2-form-field">
+                  <input
+                    className="v2-form-input"
+                    type="number"
+                    min="1"
+                    value={customDays}
+                    onChange={e => setCustomDays(e.target.value)}
+                    aria-label={`Every N ${customUnit}`}
+                  />
+                </div>
+                <div className="v2-form-field">
+                  <select
+                    className="v2-form-input"
+                    value={customUnit}
+                    onChange={e => setCustomUnit(e.target.value)}
+                    aria-label="Interval unit"
+                  >
+                    <option value="days">days</option>
+                    <option value="months">months</option>
+                  </select>
+                </div>
+              </div>
             </div>
           )}
         </>
@@ -686,6 +706,7 @@ export default function RoutinesModal({
         title: data.title,
         cadence: data.cadence,
         custom_days: data.customDays,
+        custom_unit: data.customUnit,
         tags: data.tags,
         notes: data.notes,
         high_priority: data.highPriority,
@@ -704,6 +725,7 @@ export default function RoutinesModal({
         data.endDate, data.scheduleDayOfWeek,
         data.followUps, data.autoRoll,
         data.spawnMode, data.targetCount, data.targetPeriod,
+        data.customUnit,
       )
     }
     setView('list')

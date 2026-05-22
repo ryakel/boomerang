@@ -311,12 +311,13 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
   }
 }
 
-export function createRoutine(title, cadence, customDays = null, tags = [], notes = '') {
+export function createRoutine(title, cadence, customDays = null, tags = [], notes = '', customUnit = 'days') {
   return {
     id: uuid(),
     title,
     cadence, // daily, weekly, monthly, quarterly, annually, custom
-    custom_days: customDays, // for 'custom': number of days between
+    custom_days: customDays, // for 'custom': integer interval (in whatever unit)
+    custom_unit: customUnit, // for 'custom': 'days' (default) or 'months'
     schedule_day_of_week: null, // optional weekday anchor (0=Sun … 6=Sat). When
                                 // set, next-due snaps forward to this weekday.
     tags,
@@ -367,7 +368,17 @@ export function getNextDueDate(routine) {
     case 'monthly': next.setMonth(next.getMonth() + 1); break
     case 'quarterly': next.setMonth(next.getMonth() + 3); break
     case 'annually': next.setFullYear(next.getFullYear() + 1); break
-    case 'custom': next.setDate(next.getDate() + (routine.custom_days || 7)); break
+    case 'custom': {
+      const interval = routine.custom_days || 7
+      // custom_unit is 'days' (default) or 'months'. Missing/null counts
+      // as 'days' so pre-migration routines keep their original behavior.
+      if (routine.custom_unit === 'months') {
+        next.setMonth(next.getMonth() + interval)
+      } else {
+        next.setDate(next.getDate() + interval)
+      }
+      break
+    }
   }
 
   // If a weekday anchor is set, snap forward to the next matching weekday
@@ -395,7 +406,11 @@ export function isRoutineDue(routine) {
 }
 
 export function formatCadence(routine) {
-  if (routine.cadence === 'custom') return `every ${routine.custom_days}d`
+  if (routine.cadence === 'custom') {
+    const n = routine.custom_days
+    const unit = routine.custom_unit === 'months' ? 'mo' : 'd'
+    return `every ${n}${unit}`
+  }
   return routine.cadence
 }
 
@@ -729,7 +744,7 @@ export function computeRoutineStreak(routine) {
   if (history.length === 0) return 0
   if (history.length === 1) return 1
 
-  const tolerance = cadenceIntervalMs(routine.cadence, routine.custom_days) * 1.5
+  const tolerance = cadenceIntervalMs(routine.cadence, routine.custom_days, routine.custom_unit) * 1.5
   let streak = 1
   for (let i = history.length - 1; i > 0; i--) {
     const a = new Date(history[i]).getTime()
@@ -740,7 +755,7 @@ export function computeRoutineStreak(routine) {
   return streak
 }
 
-function cadenceIntervalMs(cadence, customDays) {
+function cadenceIntervalMs(cadence, customDays, customUnit = 'days') {
   const day = 24 * 60 * 60 * 1000
   switch (cadence) {
     case 'daily': return day
@@ -748,7 +763,13 @@ function cadenceIntervalMs(cadence, customDays) {
     case 'monthly': return 30 * day
     case 'quarterly': return 91 * day
     case 'annually': return 365 * day
-    case 'custom': return (customDays || 1) * day
+    case 'custom': {
+      // Streak tolerance only — approximate months as 30 days. Exact
+      // month-length variation (28-31) doesn't matter for the 1.5x
+      // tolerance window used in computeRoutineStreak.
+      const multiplier = customUnit === 'months' ? 30 : 1
+      return (customDays || 1) * multiplier * day
+    }
     default: return day
   }
 }
