@@ -1,0 +1,66 @@
+/* Spaces hub — picker for Projects / Routines / Knowledge. Three
+ * roomy hairline rows with icon + label + subtitle. C-upgrade replaces
+ * each row's render with a richer card carrying live state (session
+ * counts, last-touched timestamps); class structure stays identical so
+ * the swap is JSX-only. */
+
+.v2-spaces-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.v2-spaces-list li + li {
+  border-top: 1px solid var(--v2-hairline);
+}
+
+.v2-spaces-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 4px;
+  border: none;
+  background: transparent;
+  color: var(--v2-text);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-spaces-row:hover {
+  background: rgba(var(--v2-text-rgb), 0.03);
+}
+
+.v2-spaces-row-icon {
+  flex-shrink: 0;
+  color: var(--v2-text-meta);
+}
+
+/* Match the existing v2 destination tints used elsewhere. */
+.v2-spaces-row-icon-projects { color: #A78BFA; }
+.v2-spaces-row-icon-routines { color: #5DBC9B; }
+.v2-spaces-row-icon-knowledge { color: #6B8AFD; }
+
+.v2-spaces-row-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.v2-spaces-row-label {
+  font: 600 15px/1.2 var(--v2-font-body);
+  color: var(--v2-text);
+}
+
+.v2-spaces-row-subtitle {
+  font: 500 12px/1.3 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-spaces-row-chev {
+  color: var(--v2-text-faint);
+  flex-shrink: 0;
+}

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ListChecks, Settings as SettingsIcon, FolderKanban, BarChart3, History, ChevronRight, CheckCircle2, RotateCw, Lightbulb, BookOpen } from 'lucide-react'
+import { ListChecks } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
+import BottomTabs from './components/BottomTabs'
+import SystemMenu from './components/SystemMenu'
+import SpacesHub from './components/SpacesHub'
 import EmptyState from './components/EmptyState'
 import SectionLabel from './components/SectionLabel'
 import TaskCard from './components/TaskCard'
@@ -56,13 +59,33 @@ export default function AppV2() {
   const [showAdd, setShowAdd] = useState(false)
   const [toast, setToast] = useState(null)
   const [showWhatNow, setShowWhatNow] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
+  // Bottom-tab navigation state. 'today' = main task list, 'spaces' =
+  // SpacesHub picker for Projects/Routines/Knowledge. Mobile only —
+  // desktop keeps Kanban + side drawer. Modal-driven sub-destinations
+  // (the existing ProjectsView etc.) reset activeTab to 'today' on
+  // their close so the tab indicator never lies about where the user is.
+  const [activeTab, setActiveTab] = useState('today')
+  // Anchored-popover off the header ⚙ icon. Hosts Settings, Analytics,
+  // Done, Suggestions, Activity log. Replaces the legacy ⋯ More menu
+  // sheet; the ⋯ button is gone and the ⚙ icon takes its slot.
+  const [systemMenuOpen, setSystemMenuOpen] = useState(false)
+  // When the user is on the Spaces tab and every spaces-related surface
+  // (hub + sub-destinations launched from it) has closed, snap the tab
+  // indicator back to 'today'. Safety net so the active-tab pill never
+  // claims "spaces" while the user is actually looking at the Today
+  // list. Effect runs after each render — no race with the close
+  // handlers that fire synchronously.
   const [showSettings, setShowSettings] = useState(false)
   const [showProjects, setShowProjects] = useState(false)
   const [showDone, setShowDone] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showMarkdownImport, setShowMarkdownImport] = useState(false)
   const [updateVersion, setUpdateVersion] = useState(null)
+  // SpacesHub is the destination for the Spaces tab. Opens a picker
+  // for Projects / Routines / Knowledge; tapping a row closes the hub
+  // and launches the existing dedicated modal. C-upgrade replaces the
+  // picker rows with rich preview cards but keeps the contract.
+  const [spacesHubOpen, setSpacesHubOpen] = useState(false)
   const [showRoutines, setShowRoutines] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
@@ -119,6 +142,17 @@ export default function AppV2() {
       return next
     })
   }, [])
+
+  // Safety net for the Spaces tab indicator. The hub launches Projects /
+  // Routines / Adviser (Knowledge) modals, which close independently.
+  // When all of them AND the hub itself are closed, snap activeTab back
+  // to 'today' so the bottom-tab pill never claims 'spaces' over an
+  // empty Today list.
+  useEffect(() => {
+    if (activeTab === 'spaces' && !spacesHubOpen && !showProjects && !showRoutines && !showAdviser) {
+      setActiveTab('today')
+    }
+  }, [activeTab, spacesHubOpen, showProjects, showRoutines, showAdviser])
 
   // Mark the document so v2-namespaced tokens activate. Also apply the saved
   // theme on mount so the rendered UI matches whatever the Settings theme
@@ -371,7 +405,8 @@ export default function AppV2() {
   if (showAdviser) activeModals.push('adviser')
   if (showAnalytics) activeModals.push('analytics')
   if (showSuggestions) activeModals.push('suggestions')
-  if (showMenu) activeModals.push('menu')
+  if (spacesHubOpen) activeModals.push('spaces')
+  if (systemMenuOpen) activeModals.push('systemMenu')
   if (searchOpen) activeModals.push('search')
 
   const closeTopModal = useCallback(() => {
@@ -389,9 +424,10 @@ export default function AppV2() {
     if (showAdviser) { setShowAdviser(false); return }
     if (showAnalytics) { setShowAnalytics(false); return }
     if (showSuggestions) { setShowSuggestions(false); return }
-    if (showMenu) { setShowMenu(false); return }
+    if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
+    if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, showMenu, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -709,7 +745,8 @@ export default function AppV2() {
       <Header
         onOpenAdviser={() => setShowAdviser(true)}
         onOpenPackages={() => setShowPackages(true)}
-        onOpenMenu={() => setShowMenu(true)}
+        onOpenSystemMenu={() => setSystemMenuOpen(o => !o)}
+        systemMenuOpen={systemMenuOpen}
         miniRingsData={miniRingsData}
         onOpenAnalytics={() => setShowAnalytics(true)}
         todayCount={todayCount}
@@ -717,6 +754,15 @@ export default function AppV2() {
         onOpenDone={() => setShowDone(true)}
         syncStatus={syncStatus}
         queueLength={queueLength}
+      />
+      <SystemMenu
+        open={systemMenuOpen}
+        onClose={() => setSystemMenuOpen(false)}
+        onOpenSettings={() => setShowSettings(true)}
+        onOpenAnalytics={() => setShowAnalytics(true)}
+        onOpenDone={() => setShowDone(true)}
+        onOpenSuggestions={() => setShowSuggestions(true)}
+        onOpenActivityLog={() => setShowActivityLog(true)}
       />
       <main className={`v2-main${isDesktop ? ' v2-main-kanban' : ''}`}>
         {(tasks.length > 0 || searchOpen) && (
@@ -908,6 +954,43 @@ export default function AppV2() {
         )}
       </main>
 
+      {/* Bottom tab bar — mobile only. Hidden on desktop (which has
+       * its own Kanban + side-drawer navigation pattern). The strip
+       * itself also has a @media gate as belt-and-suspenders. */}
+      {!isDesktop && (
+        <BottomTabs
+          activeTab={activeTab}
+          onTabChange={(next) => {
+            if (next === 'today') {
+              setActiveTab('today')
+              setSpacesHubOpen(false)
+            } else if (next === 'spaces') {
+              setActiveTab('spaces')
+              setSpacesHubOpen(true)
+            }
+          }}
+        />
+      )}
+
+      {/* Spaces hub — picker for Projects / Routines / Knowledge. Each
+       * row launches the existing dedicated modal and resets activeTab
+       * to 'today' on that sub-modal close, so the tab indicator never
+       * lies about where the user is after the hub itself dismisses. */}
+      <SpacesHub
+        open={spacesHubOpen}
+        onClose={() => {
+          setSpacesHubOpen(false)
+          // X-out of the hub returns to Today.
+          setActiveTab('today')
+        }}
+        onOpenProjects={() => setShowProjects(true)}
+        onOpenRoutines={() => setShowRoutines(true)}
+        onOpenKnowledge={() => {
+          setAdviserDraftSeed("What's in my knowledge base?")
+          setShowAdviser(true)
+        }}
+      />
+
       {snoozeTarget && (
         <SnoozeModal
           task={snoozeTarget}
@@ -964,78 +1047,6 @@ export default function AppV2() {
         onClose={() => setShowWhatNow(false)}
         onComplete={handleComplete}
       />
-
-      {/* More-menu sheet. Each row's icon is tinted to match v1's color hint
-          system so users can recognize destinations at a glance. */}
-      <ModalShell open={showMenu} onClose={() => setShowMenu(false)} title="More" terminalTitle="> menu" width="narrow">
-        <ul className="v2-more-menu">
-          <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowSettings(true) }}>
-              <SettingsIcon size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-settings" />
-              <span className="v2-more-row-label" data-terminal-cmd="> settings">Settings</span>
-              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
-            </button>
-          </li>
-          <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowProjects(true) }}>
-              <FolderKanban size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-projects" />
-              <span className="v2-more-row-label" data-terminal-cmd="> projects">Projects</span>
-              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
-            </button>
-          </li>
-          <li>
-            <button
-              className="v2-more-row"
-              onClick={() => {
-                setShowMenu(false)
-                // Seed Quokka with a knowledge-base intro so the chat starts
-                // in the right context. User can hit send as-is or refine.
-                setAdviserDraftSeed("What's in my knowledge base?")
-                setShowAdviser(true)
-              }}
-            >
-              <BookOpen size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-knowledge" />
-              <span className="v2-more-row-label" data-terminal-cmd="> knowledge">Knowledge</span>
-              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
-            </button>
-          </li>
-          <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowRoutines(true) }}>
-              <RotateCw size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-routines" />
-              <span className="v2-more-row-label" data-terminal-cmd="> routines">Routines</span>
-              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
-            </button>
-          </li>
-          <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowDone(true) }}>
-              <CheckCircle2 size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-done" />
-              <span className="v2-more-row-label" data-terminal-cmd="> done">Done</span>
-              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
-            </button>
-          </li>
-          <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowAnalytics(true) }}>
-              <BarChart3 size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-analytics" />
-              <span className="v2-more-row-label" data-terminal-cmd="> stats">Analytics</span>
-              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
-            </button>
-          </li>
-          <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowSuggestions(true) }}>
-              <Lightbulb size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-suggestions" />
-              <span className="v2-more-row-label" data-terminal-cmd="> suggestions">Suggestions</span>
-              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
-            </button>
-          </li>
-          <li>
-            <button className="v2-more-row" onClick={() => { setShowMenu(false); setShowActivityLog(true) }}>
-              <History size={18} strokeWidth={1.75} className="v2-more-row-icon v2-more-row-icon-activity" />
-              <span className="v2-more-row-label" data-terminal-cmd="> log">Activity log</span>
-              <ChevronRight size={16} strokeWidth={1.75} className="v2-more-row-chev" />
-            </button>
-          </li>
-        </ul>
-      </ModalShell>
 
       <MarkdownImportModal
         open={showMarkdownImport}

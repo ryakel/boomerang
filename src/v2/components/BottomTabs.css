@@ -1,0 +1,66 @@
+/* Bottom tab bar — mobile only. The .v2-app flex column hosts header +
+ * scrollable main + this strip. iOS safe-area inset is respected via
+ * padding-bottom so the home-bar gesture doesn't overlap the labels. */
+
+.v2-bottom-tabs {
+  display: flex;
+  align-items: stretch;
+  background: var(--v2-bg);
+  border-top: 1px solid var(--v2-hairline);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.v2-bottom-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 4px 6px;
+  min-height: 56px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--v2-text-meta);
+  font: 500 11px/1 var(--v2-font-body);
+  transition: color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-bottom-tab:active {
+  opacity: 0.6;
+}
+
+.v2-bottom-tab-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 14px;
+  border-radius: var(--v2-radius-pill);
+  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-bottom-tab-icon {
+  display: block;
+}
+
+.v2-bottom-tab.is-active {
+  color: var(--v2-accent);
+}
+
+.v2-bottom-tab.is-active .v2-bottom-tab-icon-wrap {
+  /* Soft accent-tinted pill behind the icon. Same convention as v2
+   * SuggestionsModal / PackagesModal — hardcoded rgba(255,98,64,x). */
+  background: rgba(255, 98, 64, 0.14);
+}
+
+/* Hide on desktop — the v2 Kanban + side drawer already covers the
+ * navigation surface there. AppV2 also gates render on isDesktop, but
+ * this is a belt-and-suspenders for any future render path. */
+@media (min-width: 769px) {
+  .v2-bottom-tabs {
+    display: none;
+  }
+}

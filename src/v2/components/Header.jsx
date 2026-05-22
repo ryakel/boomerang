@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Package, MoreVertical } from 'lucide-react'
+import { Sparkles, Package, Settings as SettingsIcon } from 'lucide-react'
 import Logo from '../../components/Logo'
 import { MiniRings } from '../../components/Rings'
 import './Header.css'
@@ -22,7 +22,7 @@ function deriveSyncVisualState(syncStatus, queueLength, animState) {
 }
 
 export default function Header({
-  onOpenAdviser, onOpenPackages, onOpenMenu,
+  onOpenAdviser, onOpenPackages, onOpenSystemMenu, systemMenuOpen,
   miniRingsData, onOpenAnalytics,
   todayCount, hasDone, onOpenDone, onOpenLogs,
   syncStatus, queueLength,
@@ -177,8 +177,15 @@ export default function Header({
         <button className="v2-header-icon v2-header-icon-packages" onClick={onOpenPackages} aria-label="Packages">
           <Package size={20} strokeWidth={1.75} />
         </button>
-        <button className="v2-header-icon" onClick={onOpenMenu} aria-label="More">
-          <MoreVertical size={20} strokeWidth={1.75} />
+        <button
+          className="v2-header-icon"
+          onClick={onOpenSystemMenu}
+          aria-label="System menu"
+          aria-haspopup="menu"
+          aria-expanded={!!systemMenuOpen}
+          data-system-menu-anchor
+        >
+          <SettingsIcon size={20} strokeWidth={1.75} />
         </button>
       </nav>
     </header>
