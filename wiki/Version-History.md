@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-22
 
+- fix(weekstrip): date tap always toggles + "always open" works in all themes [XS]
+  - **Bug.** With "Keep 7-day strip always open" turned ON, tapping the 📅 date in the home stats line did nothing — the button was hard-disabled by the setting. Date tap had been a no-op in this state since 2026-05-17 (commit ac164dc), but only surfaced now that the setting was discoverable across all themes (issue #208).
+  - **Fix.** Setting now seeds the initial WeekStrip visibility state on app load instead of force-locking it. The date tap is always live — user can hide-on-demand even with always-open ON; next reload restores the default. Drop the `disabled` attribute, drop the `alwaysOpen` ternary on the chevron, drop the JSX IIFE wrapper now that there's no derived state to compute.
+  - **Description copy.** Settings row renamed "Keep 7-day strip always open" → "Open 7-day strip by default". Hint now reads: "Show the strip expanded when the app loads. Tap the date in the home stats line any time to hide it or re-open it." Drops the terminal-only framing entirely (closes #208 description portion).
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/SettingsModal.jsx`, `wiki/Version-History.md`
+
 - chore(spaces-badge): remove the Spaces tab attention dot [XS]
   - **Ask.** User found the dot more annoying than useful — even with the 3-day grace period, it kept firing on pinned projects that didn't actually need a nudge. Pulling it.
   - **Removal.** Drop `spacesBadge` prop + badge JSX from BottomTabs. Remove `.v2-bottom-tab-badge` styles from both BottomTabs.css and terminal/tabs.css. Drop `position: relative` from `.v2-bottom-tab` (was only there to anchor the badge). Drop `wantsAttention` + `stalePinnedCount` from useSpaces. Drop the AppV2 useSpaces import + call (no consumer left).
