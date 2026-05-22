@@ -4,6 +4,25 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-22
+
+- feat(ui): mobile bottom tabs + Spaces hub + SystemMenu — retire the ⋯ More menu [L]
+  - **Ask.** The single ⋯ overflow menu had grown to 8 items (Settings, Projects, Knowledge, Routines, Done, Analytics, Suggestions, Activity log) — too long to scan, no grouping, no live information, every destination one extra tap deep. Replace it with a layered navigation pattern sized to each surface's frequency.
+  - **Three new surfaces, each frequency-appropriate.**
+    1. **BottomTabs (mobile only).** Persistent bottom strip with `[ Today ]` (default — the task list) and `[ Spaces ]` (opens the SpacesHub picker). Renders only when `!isDesktop` (≤768px) — desktop keeps Kanban + side drawer and never needed the ⋯ menu's discoverability problem. Active-tab indicator is a soft accent pill behind the icon in light/dark; in terminal mode the lucide icon hides and the bracketed mono label glows with accent + `var(--v2-glow)` text-shadow (matching the filter-tabs idiom already in `flatten.css`).
+    2. **SystemMenu (anchored popover off the ⚙ header icon).** Hosts low-frequency system surfaces: Settings, Analytics, Done, Suggestions, Activity log. Reuses the brand-popover's surface treatment (soft border, hairline-tinted rows, drop shadow) so the two header popovers feel like siblings. Click-outside closes; the originating ⚙ button's own onClick toggles open/closed. In terminal mode the lucide icon glyphs go monochrome, the colored chevron disappears, and labels render `> command` form via the existing `data-terminal-cmd` attribute pattern.
+    3. **SpacesHub (modal-sheet picker, opens from the Spaces tab).** Three roomy hairline rows — Projects, Routines, Knowledge — each with icon + label + subtitle. Tapping a row closes the hub and launches the existing dedicated modal (`ProjectsView`, `RoutinesModal`, or a Quokka chat seeded with "What's in my knowledge base?"). No internal sub-tab strip — keeps Tap-to-destination cheap (2 taps from Today) and leaves the structure ready for the C-upgrade (rich preview cards with live session counts / last-touched timestamps) without contract changes.
+  - **Header swap.** `MoreVertical` icon → `Settings` (⚙) glyph. Header prop renamed `onOpenMenu` → `onOpenSystemMenu`; new `systemMenuOpen` prop drives `aria-expanded`. `data-system-menu-anchor` attr on the button lets SystemMenu's outside-click handler ignore the source button (otherwise tap-to-toggle would immediately close).
+  - **Tab indicator safety net.** `activeTab` state ('today' | 'spaces') drives the BottomTabs render. A `useEffect` watches `spacesHubOpen`, `showProjects`, `showRoutines`, `showAdviser`: when activeTab is 'spaces' and all four are false, it snaps back to 'today'. Closing the hub's X also explicitly resets. The indicator never lies about which surface the user is looking at.
+  - **FAB offset.** `FloatingCapture` bottom offset bumped from `max(16px, env(safe-area-inset-bottom))` to `calc(72px + env(safe-area-inset-bottom))` so the speed-dial sits above the new tab bar. Desktop @media (≥769px) override resets the original 16px so the FAB doesn't float in dead space.
+  - **Terminal styling.** New `src/v2/terminal/tabs.css` carries all three components' terminal overrides — bracketed labels with glow on active tab, monochrome `> command` rows in SystemMenu, hidden icons + `>` prompts + `// comment` subtitles + `→` ASCII chevrons in SpacesHub. Imported from `terminal/index.css` alongside the other structural files.
+  - **What's gone.** The legacy `<ModalShell open={showMenu}>...</ModalShell>` block (~70 lines of `v2-more-menu`/`v2-more-row` markup, 8 destinations) is deleted from AppV2.jsx. The `showMenu`/`setShowMenu` state, the `MoreVertical` import, and the destination-icon imports (FolderKanban / BookOpen / RotateCw / CheckCircle2 / BarChart3 / Lightbulb / History / ChevronRight / SettingsIcon) all leave AppV2's import list. The legacy `.v2-more-menu` CSS in AppV2.css is kept for now — multiple v2 modals still reuse `v2-more-row` styling for hairline-list rows.
+  - **Out of scope (deferred to follow-up PRs).** `useSpaces()` data-layer hook + tab-bar badge dots for spaces-fresh activity. Rich preview cards inside SpacesHub (C-upgrade — session counts, last-touched timestamps, knowledge new-item counter). Tab-bar transition animation + reduced-motion handling.
+  - **Verification.** `npm run check:terminal-titles` clean. `npx eslint` clean on every touched file. `npm test` (build + boot smoke test) passes. Browser-side validation deferred to the `:dev` Docker deploy on `boomerang-dev` (port 3002) after merge.
+  - Modified: new `src/v2/components/BottomTabs.{jsx,css}`, new `src/v2/components/SystemMenu.{jsx,css}`, new `src/v2/components/SpacesHub.{jsx,css}`, new `src/v2/terminal/tabs.css`; `src/v2/AppV2.jsx`, `src/v2/components/Header.jsx`, `src/v2/components/FloatingCapture.css`, `src/v2/terminal/index.css`, `CLAUDE.md`, `wiki/Version-History.md`
+
+---
+
 ## 2026-05-21
 
 - feat(knowledge): Notion-backed knowledge base + Quokka tools [L]

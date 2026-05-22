@@ -848,11 +848,21 @@ Each PR is independently mergeable. v2 currently renders the calm header + a rea
 **Reusable v2 primitives** (in `src/v2/components/`):
 - `ModalShell` — sheet/panel wrapper. Props: `open`, `onClose`, `title`, `subtitle?`, `width: 'narrow' | 'wide'`, `children`. Circular-pill X top-right, hairline below title, body padding 24px.
 - `EmptyState` — calm empty/placeholder. Props: `icon` (lucide component), `title`, `body?`, `cta?`, `ctaOnClick?`. Soft circular icon backdrop, ghost CTA.
-- `Header` — calm 4-affordance header. Props: `onOpenAdviser`, `onOpenPackages`, `onOpenMenu`. Logo + wordmark left, three icon buttons right.
+- `Header` — calm 4-affordance header. Props: `onOpenAdviser`, `onOpenPackages`, `onOpenSystemMenu`, `systemMenuOpen`. Logo + wordmark left, three icon buttons right (sparkle / package / ⚙). The legacy `MoreVertical` ⋯ slot was replaced by the ⚙ Settings glyph that toggles the `SystemMenu` popover (2026-05-22).
 - `SectionLabel` — `--type-section` ALL-CAPS label with sparkle bullet + optional count chip.
 - `TaskCard` — v2 list card. Status economy: only overdue + high-pri get a colored left border; stale → inline meta; low-pri → opacity 0.78. Energy as a single chip (lucide icon + N small Zap glyphs in the type color).
+- `BottomTabs` — mobile-only bottom navigation. Two tabs: Today (current task list) and Spaces (opens SpacesHub). Hidden on desktop (≥769px) by both AppV2 render gate AND a CSS @media — desktop keeps Kanban + side drawer.
+- `SystemMenu` — anchored popover off the ⚙ icon. Hosts low-frequency system surfaces: Settings, Analytics, Done, Suggestions, Activity log. Same row treatment as the brand popover so the two header popovers feel like siblings.
+- `SpacesHub` — modal-sheet picker for Projects / Routines / Knowledge. Tapping a row closes the hub and launches the existing dedicated modal. Future C-upgrade swaps the picker rows for live preview cards (session counts, last-edited timestamps) without changing the launcher contract.
 
-These five primitives are the v2 task-surface language. Every subsequent v2 surface uses them — never reach for a one-off chrome.
+The first five primitives are the v2 task-surface language. The last three (added 2026-05-22) are the v2 mobile-navigation language. Every subsequent v2 surface uses them — never reach for a one-off chrome.
+
+**Mobile navigation model (2026-05-22).** The legacy ⋯ More menu (8 items, single sheet) was retired in favor of three separate surfaces, each sized to its frequency:
+1. **BottomTabs (mobile only)** — Today + Spaces. Persistent across the app; one tap to switch contexts.
+2. **SystemMenu (popover off ⚙)** — Settings, Analytics, Done, Suggestions, Activity log. Low-frequency system stuff.
+3. **SpacesHub (modal from Spaces tab)** — Projects, Routines, Knowledge. Each row launches the existing dedicated modal.
+
+The Boomerang wordmark popover (Analytics + Done, top-left) was already in place and remains the brand-zone shortcut. `activeTab` state plus a safety-net `useEffect` snap the tab indicator back to 'today' whenever every spaces-related surface (hub + Projects/Routines/Adviser-from-knowledge) is closed. Desktop is unaffected — Kanban + side drawer was never under the ⋯ menu's discoverability problem.
 
 **Branch model.** v2 work lands on the `dev` branch (auto-builds `:dev` Docker image via `.github/workflows/build-and-publish-dev.yml`, deploys to `boomerang-dev` container on port 3002 via `docker-compose.dev.yml`). Once v2 stabilizes, dev gets merged into main.
 

@@ -49,7 +49,7 @@ Tasks are organized into sections on the main screen:
 - **Snoozed** — tasks with a future snooze date, showing when they'll return
 - **Backlog** — someday/maybe tasks in a collapsible section at the bottom. Move tasks to backlog to keep them out of your active list without losing them.
 - **Pinned projects** — projects you've pinned to today appear at the top of the main list as expanded cards with progress meta and a Log Session button. Sessions count toward your daily points and streak. Pin from the Projects modal or the project's edit modal.
-- **Projects** — long-term work lives here. Accessible via the overflow menu ("..."). Silent by default — no nagging, no stale/overdue pressure. Pin a project to today to surface it on the main list. Add child tasks under a project so completions also count toward project progress. Opt projects into nagging per-project (`Allow nags without a due date`) or just set a due date and the normal escalation rules apply.
+- **Projects** — long-term work lives here. Accessible via the Spaces tab in the bottom bar (mobile) or its v2 sheet (desktop). Silent by default — no nagging, no stale/overdue pressure. Pin a project to today to surface it on the main list. Add child tasks under a project so completions also count toward project progress. Opt projects into nagging per-project (`Allow nags without a due date`) or just set a due date and the normal escalation rules apply.
 
 ## Task Count Display
 
@@ -133,7 +133,7 @@ Recurring tasks with configurable cadence:
 - **Notion integration**: find or create a Notion page from the routine add/edit form. Linked pages appear on routine cards and are inherited by spawned task instances.
 - **Auto-roll** *(shipped — spec in `wiki/Activity-Prompts.md`)*: flag a routine `auto_roll` so missed days bump the existing task's due date instead of stacking duplicates. Use case: medication you can't double up on. When the cadence fires and a non-terminal instance already exists, its `due_date` is set to today (and any past `snoozed_until` is cleared) instead of spawning a new task. Toggle lives at the bottom of the routine form.
 - **Habit mode** *(shipped — spec in `wiki/Activity-Prompts.md`)*: set `spawn_mode: 'habit'` on a routine and it switches from cadence-driven spawning to target-frequency tracking — e.g., `2× / week` or `5× / month`. No automatic task creation; instead the routine card shows period progress (`1/2 this week`) plus a streak chip, with a "+ Log it" button that creates and completes a task in one tap. Behind-pace push notifications fire mid-period (past the 30% elapsed mark) with inline Log it / Not today action buttons — push priority-0 only, never Pushover, because habits are encouragement, not alarms.
-- **Historic suggestions** *(shipped — spec in `wiki/Activity-Prompts.md`)*: a weekly server scan (Sunday 3am local) over 12 months of completed-task history detects recurring patterns (daily / weekly / monthly / quarterly / annually) and surfaces them in a Suggestions inbox accessible from the overflow menu. Each suggestion can be accepted (creates a routine with cadence-aware defaults — daily/weekly → auto-roll, longer → plain auto), snoozed for 14 days, or permanently dismissed. Optional AI clustering pass merges near-duplicates ("mow lawn" / "mow the grass") when an Anthropic key is configured. A weekly `routine_suggestion` push / email summarizes pending suggestions; Quokka can list / dismiss / snooze via natural language.
+- **Historic suggestions** *(shipped — spec in `wiki/Activity-Prompts.md`)*: a weekly server scan (Sunday 3am local) over 12 months of completed-task history detects recurring patterns (daily / weekly / monthly / quarterly / annually) and surfaces them in a Suggestions inbox accessible from the SystemMenu (⚙ icon in the header). Each suggestion can be accepted (creates a routine with cadence-aware defaults — daily/weekly → auto-roll, longer → plain auto), snoozed for 14 days, or permanently dismissed. Optional AI clustering pass merges near-duplicates ("mow lawn" / "mow the grass") when an Anthropic key is configured. A weekly `routine_suggestion` push / email summarizes pending suggestions; Quokka can list / dismiss / snooze via natural language.
 
 ## Notion Integration
 
@@ -440,7 +440,7 @@ Scheduled daily summary notification via email and/or push at a configurable tim
 
 ## Markdown Import
 
-Bulk import tasks from markdown text or files. Accessible from the overflow menu ("...") in the header.
+Bulk import tasks from markdown text or files. Accessible from the Data tab inside Settings (open Settings via the ⚙ icon in the header).
 
 - **Supported formats** — checkboxes (`- [ ] task`), bullet lists (`- task`, `* task`), numbered lists (`1. task`)
 - **Sections** — `## Headings` become group labels in the preview
@@ -544,7 +544,7 @@ Speed bonuses reward fast turnaround:
 
 ## Analytics
 
-Accessible from the overflow menu ("...") in the header, the Analytics screen shows:
+Accessible two ways: the SystemMenu (⚙ icon, top-right) or by tapping the BOOMERANG wordmark and choosing "Open Analytics" in the brand popover. The Analytics screen shows:
 
 - **Activity rings** — full-size daily progress rings (tasks, points, streak)
 - **Stat cards** — current streak, longest streak, best daily points, best daily tasks

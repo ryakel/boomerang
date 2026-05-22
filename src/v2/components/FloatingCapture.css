@@ -8,7 +8,10 @@
 .v2-floating-capture {
   position: fixed;
   right: 16px;
-  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  /* On mobile, the bottom tab bar (~56px tall + safe-area inset) sits
+   * below the FAB. Bump the FAB above it. Desktop has no tab bar so
+   * the @media query below resets to the original 16px offset. */
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -19,6 +22,15 @@
    * keyboard slide-in instead of snapping. Direct style.transform writes
    * inherit this transition. */
   transition: transform 200ms cubic-bezier(.4, 0, .2, 1);
+}
+
+/* Desktop has no bottom tab bar — reset the FAB offset to the original
+ * 16px so it doesn't float in dead space. Matches the bottom-tabs
+ * breakpoint (769px). */
+@media (min-width: 769px) {
+  .v2-floating-capture {
+    bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .v2-floating-capture > * {
