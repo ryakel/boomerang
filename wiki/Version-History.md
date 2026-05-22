@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-22
 
+- fix(spaces-badge): grace period for newly-pinned projects [XS]
+  - **Bug.** Spaces tab attention dot fired immediately on any newly-pinned project. `useSpaces` treated `last_session_at = null` as "stale forever," which made the badge a false positive every time a user pinned something — defeating the signal it was supposed to send (issue #212).
+  - **Fix.** Use the most-recent of `last_session_at`, `last_touched`, `created_at` as the staleness reference. `setProjectPinned` already stamps `last_touched`, so a brand-new pin now gets a full 3-day grace window before the dot fires. Projects with no reference timestamps at all (truly unknown state) don't fire either — silence beats a false positive.
+  - Modified: `src/v2/hooks/useSpaces.js`, `wiki/Version-History.md`
+
 - feat(routines): custom cadence supports "every N months" alongside "every N days" [S]
   - **Ask.** Existing custom cadence only supported days. Quarterly + annually are fixed presets; in-between cadences like "every 2 months" / "every 6 months" weren't expressible.
   - **Schema.** Migration 031 adds `custom_unit TEXT DEFAULT 'days'` to the routines table. `custom_days` keeps its name as the interval count (regardless of unit) — kept for backward compat with all callers; renaming would have touched a dozen files. Null/missing `custom_unit` is treated as `'days'` everywhere so pre-migration routines preserve exact behavior.

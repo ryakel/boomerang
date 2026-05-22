@@ -26,13 +26,24 @@ export function useSpaces({ tasks, routines }) {
     const pinnedProjects = allProjects.filter(t => t.pinned_to_today)
     const activeRoutines = routines.filter(r => !r.paused)
 
-    // Pinned projects with no session activity in STALE_PROJECT_DAYS.
-    // `last_session_at` null counts as stale — a pinned project that has
-    // never been touched needs more attention than one touched yesterday.
+    // Pinned projects whose most-recent attention signal is older than
+    // STALE_PROJECT_DAYS. References checked, in priority order:
+    //   1. last_session_at — most authoritative ("I worked on it")
+    //   2. last_touched — covers the pinning event itself, plus any edit
+    //      (`setProjectPinned` stamps this on the pin flip, so a brand-
+    //      new pin gets a full 3-day grace period before the dot fires)
+    //   3. created_at — final fallback for ancient routines that pre-date
+    //      last_touched
+    // If none exist (truly unknown), don't ping — silence beats a false
+    // positive that discourages pinning.
     const stalePinnedCount = pinnedProjects.filter(p => {
-      if (!p.last_session_at) return true
-      const last = new Date(p.last_session_at).getTime()
-      return Number.isFinite(last) && (now - last) > STALE_THRESHOLD_MS
+      const candidates = [p.last_session_at, p.last_touched, p.created_at]
+        .filter(Boolean)
+        .map(ts => new Date(ts).getTime())
+        .filter(n => Number.isFinite(n))
+      if (candidates.length === 0) return false
+      const mostRecent = Math.max(...candidates)
+      return (now - mostRecent) > STALE_THRESHOLD_MS
     }).length
 
     // Routines that fired today. Not currently a badge signal — the
