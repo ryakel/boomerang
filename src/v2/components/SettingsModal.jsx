@@ -853,9 +853,15 @@ function IntegrationsPanel({
                 )}
                 {int.inline === 'notion-full' && (
                   <div className="v2-integrations-inline">
-                    {/* Connection controls — always visible */}
+                    {/* Error + fallback link — always visible regardless of connection state */}
+                    {notionConnectError && <div className="v2-integrations-warn" style={{ marginBottom: 8 }}>⚠️ {notionConnectError}</div>}
+                    {notionAuthUrl && (
+                      <div className="v2-integrations-hint" style={{ marginBottom: 8 }}>
+                        Popup blocked — <a href={notionAuthUrl} target="_blank" rel="noreferrer">click here to connect</a>
+                      </div>
+                    )}
+                    {/* Not connected — show Connect button */}
                     {!statuses.notion?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
-                    <>
                       <div className="v2-integrations-actions">
                         <button
                           className="v2-settings-btn"
@@ -865,13 +871,6 @@ function IntegrationsPanel({
                           {notionReconnecting ? 'Connecting…' : 'Connect via MCP'}
                         </button>
                       </div>
-                      {notionConnectError && <div className="v2-integrations-error" style={{ marginTop: 8 }}>{notionConnectError}</div>}
-                      {notionAuthUrl && (
-                        <div className="v2-integrations-hint" style={{ marginTop: 8 }}>
-                          Popup blocked — <a href={notionAuthUrl} target="_blank" rel="noreferrer">click here to connect</a>
-                        </div>
-                      )}
-                    </>
                     )}
                     {statuses.notion?.mcpHealth?.needsReauth && (
                       <div className="v2-integrations-warn">

@@ -21,18 +21,6 @@
   overflow: hidden;
 }
 
-/* iOS PWA keyboard fix (issue #213). After keyboard show/hide,
- * `inset: 0` can anchor to a stale layout viewport. `100dvh` tracks
- * the live visual viewport. `bottom: auto` lets height win over the
- * bottom anchor. The body-bg match above hides any sub-pixel gap on
- * cold starts where dvh reports a fractionally short value. */
-@supports (height: 100dvh) {
-  .v2-app {
-    bottom: auto;
-    height: 100dvh;
-  }
-}
-
 .v2-main {
   flex: 1;
   overflow-y: auto;
