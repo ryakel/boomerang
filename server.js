@@ -1539,17 +1539,17 @@ app.post('/api/knowledge/setup', async (req, res) => {
     const tools = notionMCP.getCachedTools()
     const createDbTool = tools.find(t => t.name === 'notion-create-database')
     if (!createDbTool) throw new Error('notion-create-database tool not available')
-    // Log the schema so we know what this tool actually expects
-    console.log('[Knowledge] notion-create-database inputSchema:', JSON.stringify(createDbTool.inputSchema))
 
-    const schema = `Name: title
-Type: select [Location, How-to, Decision, Person]
-Tags: multi_select
-Related tasks: rich_text
-Confidence: select [Certain, Fuzzy]`
+    const schema = `CREATE TABLE (
+  "Name" TITLE,
+  "Type" SELECT('Location':blue, 'How-to':green, 'Decision':purple, 'Person':pink),
+  "Tags" MULTI_SELECT,
+  "Related tasks" RICH_TEXT,
+  "Confidence" SELECT('Certain':green, 'Fuzzy':yellow)
+)`
 
     const result = await notionMCP.callTool('notion-create-database', {
-      parent_page_id: parentPageId,
+      parent: { page_id: parentPageId },
       title: 'Boomerang Knowledge',
       schema,
     })
