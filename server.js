@@ -96,16 +96,15 @@ function getLegacyNotionToken(req) {
 // Preferred: returns the Notion OAuth access token (via MCP) when connected, else falls back to
 // the legacy integration token. Async because token refresh may require a round-trip.
 async function getNotionAccessToken(req) {
-  // MCP-issued token (Stage 2 OAuth via Notion's hosted MCP). Notion issues a standard OAuth
-  // access token through the MCP DCR flow, which is also valid for direct REST API calls —
-  // so every REST endpoint inherits MCP's user-scoped workspace access automatically.
   const mcpTokens = getData('notion_mcp_tokens')
   if (mcpTokens?.access_token) {
+    // If MCP client is connected, trust the stored token — the SDK refreshes
+    // it internally via prepareTokenRequest() and calls saveTokens() on success.
+    // Only check staleness when MCP is NOT connected (can't auto-refresh).
+    if (notionMCP.getStatus().connected) return mcpTokens.access_token
     if (!mcpTokens.expires_in || !mcpTokens.saved_at || (Date.now() < (mcpTokens.saved_at + mcpTokens.expires_in * 1000 - 300000))) {
       return mcpTokens.access_token
     }
-    // Token may be stale; the MCP SDK refreshes on its own cadence via the provider.
-    // Fall through rather than duplicating refresh logic here.
   }
   return getLegacyNotionToken(req)
 }
@@ -639,9 +638,16 @@ async function mcpSearchPages(queryText) {
   if (!notionMCP.getStatus().connected) return null
   try {
     const result = await notionMCP.callTool('search', { query: queryText })
+    if (result?.isError) {
+      const errText = (result.content || []).map(c => c.text || '').join(' ')
+      console.warn('[Notion] MCP search tool error:', errText)
+      return null
+    }
     const raw = result?.content?.[0]?.text
     if (!raw) { console.warn('[Notion] MCP search returned no content'); return null }
-    const content = typeof raw === 'string' ? JSON.parse(raw) : raw
+    let content
+    try { content = typeof raw === 'string' ? JSON.parse(raw) : raw }
+    catch { console.warn('[Notion] MCP search returned non-JSON:', raw.slice(0, 200)); return null }
     const results = content?.results || content?.pages || (Array.isArray(content) ? content : [])
     return results.map(p => ({
       id: p.id,
