@@ -1536,38 +1536,23 @@ app.post('/api/knowledge/setup', async (req, res) => {
     return res.status(400).json({ error: 'Notion not connected. Connect via MCP in Settings.' })
   }
   try {
-    // The MCP tool schema is unknown — try common parameter shapes.
-    // Log the full tool schema on first failure for diagnostics.
     const tools = notionMCP.getCachedTools()
     const createDbTool = tools.find(t => t.name === 'notion-create-database')
     if (!createDbTool) throw new Error('notion-create-database tool not available')
+    // Log the schema so we know what this tool actually expects
+    console.log('[Knowledge] notion-create-database inputSchema:', JSON.stringify(createDbTool.inputSchema))
 
-    // Build the Notion API body as a JSON string for the schema parameter
-    const notionDbBody = {
-      parent: { type: 'page_id', page_id: parentPageId },
-      title: [{ type: 'text', text: { content: 'Boomerang Knowledge' } }],
-      properties: {
-        'Name': { title: {} },
-        'Type': { select: { options: [{ name: 'Location' }, { name: 'How-to' }, { name: 'Decision' }, { name: 'Person' }] } },
-        'Tags': { multi_select: { options: [] } },
-        'Related tasks': { rich_text: {} },
-        'Confidence': { select: { options: [{ name: 'Certain' }, { name: 'Fuzzy' }] } },
-      },
-    }
+    const schema = `Name: title
+Type: select [Location, How-to, Decision, Person]
+Tags: multi_select
+Related tasks: rich_text
+Confidence: select [Certain, Fuzzy]`
 
-    // Try with schema string (most likely based on the error)
-    let result
-    try {
-      result = await notionMCP.callTool('notion-create-database', {
-        parent_page_id: parentPageId,
-        schema: JSON.stringify(notionDbBody),
-      })
-    } catch (e1) {
-      // If that fails, try just the raw Notion API body as args
-      console.warn('[Knowledge] MCP create-database schema attempt failed:', e1?.message)
-      console.log('[Knowledge] Tool inputSchema:', JSON.stringify(createDbTool.inputSchema))
-      result = await notionMCP.callTool('notion-create-database', notionDbBody)
-    }
+    const result = await notionMCP.callTool('notion-create-database', {
+      parent_page_id: parentPageId,
+      title: 'Boomerang Knowledge',
+      schema,
+    })
 
     if (result?.isError) {
       const errText = (result.content || []).map(c => c.text || '').join(' ')
