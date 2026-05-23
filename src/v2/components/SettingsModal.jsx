@@ -175,8 +175,6 @@ const STORAGE_KEY = 'ui_version'
 const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs', 'Legacy']
 
 // All Settings tabs now have v2 implementations.
-const PLACEHOLDER_TABS = new Set()
-const PLACEHOLDER_BODY = {}
 
 // Notification types (excluding high priority which has its own escalation
 // section) + their channel-specific setting key suffixes. Same scheme v1
@@ -201,7 +199,7 @@ const NOTIF_PACKAGE_TYPES = [
   { key: 'package_exception', label: 'Package exception', desc: 'Delivery issue or routing problem reported by carrier.' },
 ]
 
-// Integrations panel — status summary + "Configure in v1" CTAs for the
+// Integrations panel — status summary + inline config for each
 // OAuth-heavy ones. Inline credential entry for simple key-only integrations
 // (Anthropic, 17track) since those are one-field forms.
 // Anthropic key entry + status check. Lives in the AI tab; the
@@ -309,7 +307,7 @@ function AnthropicKeyBlock({ settings, update, embedded = false }) {
 }
 
 function IntegrationsPanel({
-  settings, update, switchToV1, setActiveTab,
+  settings, update, setActiveTab,
   onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
 }) {
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
@@ -717,7 +715,6 @@ function IntegrationsPanel({
       label: '17track (packages)',
       hint: 'Server-side polling for delivery status across most major carriers.',
       connected: envKeys.tracking || !!settings.tracking_api_key,
-      v1Section: 'Integrations → Package Tracking',
       inline: 'api-key',
       keyName: 'tracking_api_key',
       envFlag: envKeys.tracking,
@@ -735,7 +732,6 @@ function IntegrationsPanel({
       label: 'Pushover',
       hint: 'iOS-friendly transport that bypasses Safari throttling. One-time $5 app required.',
       connected: !!statuses.pushover?.configured,
-      v1Section: 'Integrations → Pushover',
       inline: 'pushover',
       appTokenFromEnv: !!statuses.pushover?.app_token_from_env,
     },
@@ -768,7 +764,7 @@ function IntegrationsPanel({
         <div className="v2-form-label">Status</div>
         <div className="v2-settings-row-hint">
           Connect, configure, and disconnect every integration inline. Tokens are shared
-          across v1 and v2 — you only have to connect once.
+          Tokens persist across reloads — you only connect once.
         </div>
         <ul className="v2-integrations-list">
           {integrations.map(int => (
@@ -1291,24 +1287,14 @@ function IntegrationsPanel({
                     {int.sync.busy ? 'Syncing…' : 'Sync now'}
                   </button>
                 )}
-                {!['api-key', 'pushover', 'weather', 'trello-config', 'trello-connect', 'gcal-config', 'gcal-connect', 'gmail-config', 'gmail-connect', 'notion-config', 'anthropic'].includes(int.inline) && (
-                  int.manageInTab ? (
-                    <button
-                      className="v2-settings-btn"
-                      onClick={() => setActiveTab(int.manageInTab)}
-                      title={`Open ${int.manageInTab} tab`}
-                    >
-                      Configure in {int.manageInTab}
-                    </button>
-                  ) : (
-                    <button
-                      className="v2-settings-btn"
-                      onClick={switchToV1}
-                      title={`Open ${int.v1Section} in v1`}
-                    >
-                      {int.connected ? 'Manage in v1' : 'Connect in v1'}
-                    </button>
-                  )
+                {int.manageInTab && (
+                  <button
+                    className="v2-settings-btn"
+                    onClick={() => setActiveTab(int.manageInTab)}
+                    title={`Open ${int.manageInTab} tab`}
+                  >
+                    Configure in {int.manageInTab}
+                  </button>
                 )}
               </div>
             </li>
@@ -1346,7 +1332,7 @@ function NotificationsPanel({ settings, update }) {
   const masters = [
     { key: 'push_notifications_enabled', label: 'Web push', hint: 'Browser-native notifications. Per-device subscription.' },
     { key: 'email_notifications_enabled', label: 'Email', hint: 'Server-side SMTP. Address comes from `email_address` setting or NOTIFICATION_EMAIL env.' },
-    { key: 'pushover_notifications_enabled', label: 'Pushover', hint: 'iOS-friendly transport via the Pushover app. Credentials in v1 → Integrations.' },
+    { key: 'pushover_notifications_enabled', label: 'Pushover', hint: 'iOS-friendly transport via the Pushover app. Credentials in Integrations tab.' },
   ]
 
   // Web push needs a per-device subscribe step (browser permission +
@@ -2187,11 +2173,6 @@ export default function SettingsModal({
     URL.revokeObjectURL(url)
   }
 
-  const switchToV1 = () => {
-    localStorage.setItem(STORAGE_KEY, 'v1')
-    window.location.reload()
-  }
-
   return (
     <ModalShell
       open={open}
@@ -2214,14 +2195,6 @@ export default function SettingsModal({
       </div>
 
       <div className="v2-settings-content">
-        {PLACEHOLDER_TABS.has(activeTab) && (
-          <EmptyState
-            title={`${activeTab} settings`}
-            body={`${PLACEHOLDER_BODY[activeTab]} Use v1 → Settings → ${activeTab} to configure for now.`}
-            cta="Open v1"
-            ctaOnClick={switchToV1}
-          />
-        )}
 
         {activeTab === 'General' && (
           <div className="v2-settings-form">
@@ -2545,7 +2518,6 @@ export default function SettingsModal({
           <IntegrationsPanel
             settings={settings}
             update={update}
-            switchToV1={switchToV1}
             setActiveTab={setActiveTab}
             onTrelloSync={onTrelloSync}
             trelloSyncing={trelloSyncing}
