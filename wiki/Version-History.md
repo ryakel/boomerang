@@ -4,6 +4,21 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-23
+
+- feat(ui): tappable home stats — streak + today detail panels [S]
+  - Streak and today counters in the home stats line are now tappable buttons. Tapping opens an inline detail card below the stats line (same slot as WeekStrip, mutually exclusive).
+  - **Streak detail**: current streak, best streak, best day (tasks + points).
+  - **Today detail**: tasks done / goal, points earned / goal, remaining active count, list of completed tasks.
+  - Each tap closes the other sections (WeekStrip closes when streak/today opens, and vice versa).
+  - Buttons highlight with accent color on hover/active.
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/AppV2.css`
+
+- fix(ios): bottom panel raised on PWA cold start [XS]
+  - **Bug.** On some iOS PWA cold starts, BottomTabs floated above the screen bottom, leaving a gap. The previous 100dvh fix (issue #213) removed `bottom: 0` and relied solely on `height: 100dvh`, which iOS sometimes reports as stale on first render.
+  - **Fix.** Switch from `bottom: auto; height: 100dvh` to `min-height: 100dvh` while keeping `inset: 0` (bottom: 0 stays as anchor). The min-height prevents keyboard-triggered shrinking (the original bug), while the bottom anchor ensures the container always reaches the screen edge on first render.
+  - Modified: `src/v2/AppV2.css`
+
 ## 2026-05-22
 
 - fix(weekstrip): date tap actually toggles in light/dark/default themes too [XS]
