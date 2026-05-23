@@ -1,10 +1,8 @@
-// Notion MCP Proxy — wraps MCP tool calls into clean async functions.
+// Notion MCP Proxy — hybrid MCP + REST approach.
 //
-// Every Notion operation goes through the MCP tools instead of REST.
-// The hosted MCP server at mcp.notion.com returns JSON (the open-source
-// proxy does JSON.stringify(response.data)), but may include enhanced
-// markdown in some responses. We try JSON.parse first, fall back to
-// text parsing.
+// MCP for: search, create database (SQL DDL), create page, update page props, archive.
+// REST for: database query (pagination + filters), block reads (structured JSON),
+//           content updates (delete + append blocks), file uploads.
 //
 // Tool input schemas come from the Notion OpenAPI spec at:
 //   @notionhq/notion-mcp-server/scripts/notion-openapi.json
@@ -12,13 +10,40 @@
 
 import * as notionMCP from './notionMCP.js'
 
+const NOTION_BASE = 'https://api.notion.com/v1'
+
 function ensureConnected() {
   if (!notionMCP.getStatus().connected) {
     throw new Error('Notion MCP not connected. Connect in Settings → Integrations → Notion.')
   }
 }
 
-async function call(toolName, args) {
+function getRestToken() {
+  return process.env.NOTION_INTEGRATION_TOKEN || null
+}
+
+function restHeaders() {
+  const token = getRestToken()
+  if (!token) return null
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Notion-Version': '2022-06-28',
+    'Content-Type': 'application/json',
+  }
+}
+
+async function restJson(url, init, label) {
+  const headers = restHeaders()
+  if (!headers) throw new Error('NOTION_INTEGRATION_TOKEN required for REST operations')
+  const res = await fetch(url, { ...init, headers: { ...headers, ...(init?.headers || {}) } })
+  const text = await res.text()
+  let data = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = { raw: text } }
+  if (!res.ok) throw new Error(`${label} ${res.status}: ${data.message || data.code || text.slice(0, 200)}`)
+  return data
+}
+
+async function callMCP(toolName, args) {
   ensureConnected()
   console.log(`[Notion:MCP] ${toolName}`, JSON.stringify(args).slice(0, 200))
   const result = await notionMCP.callTool(toolName, args)
@@ -35,8 +60,6 @@ function tryParseJSON(text) {
   try { return JSON.parse(text) } catch { return null }
 }
 
-// Extract a Notion page/database ID (32 hex chars) from a notion.so URL
-// and format it as a dashed UUID.
 function extractIdFromUrl(text) {
   const m = text.match(/notion\.so\/(?:[^/]*\/)?([a-f0-9]{32})/)
   if (!m) return null
@@ -66,7 +89,7 @@ function extractPagesFromText(raw) {
   while ((m = urlRegex.exec(raw)) !== null) {
     const h = m[1]
     const ctx = raw.slice(Math.max(0, m.index - 200), m.index + 100)
-    const titleMatch = ctx.match(/title="([^"]*)"/) || ctx.match(/["']([^"'\n]{2,60})["']\s*$/)
+    const titleMatch = ctx.match(/title="([^"]*)"/)
     pages.push({
       id: `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`,
       title: titleMatch?.[1]?.trim() || 'Untitled',
@@ -76,12 +99,12 @@ function extractPagesFromText(raw) {
   return pages
 }
 
-// --- Search ---
+// ============================================================
+// MCP operations — search, create, update props, archive
+// ============================================================
 
-// post-search: { query: string, sort?: object, filter?: object }
-// Response: { results: [{ id, url, properties, last_edited_time }] }
 export async function search(query) {
-  const raw = await call('notion-search', { query })
+  const raw = await callMCP('notion-search', { query })
   const json = tryParseJSON(raw)
   if (json?.results) {
     return json.results.map(p => ({
@@ -91,196 +114,185 @@ export async function search(query) {
       last_edited: p.last_edited_time,
     }))
   }
-  // Fallback: parse notion URLs from text response
   return extractPagesFromText(raw)
 }
 
-// --- Get page ---
-
-// notion-fetch: custom tool, param name assumed { resource_uri }
-// Response: page object or enhanced markdown
-export async function getPage(pageId) {
-  const raw = await call('notion-fetch', { resource_uri: `notion://page/${pageId}` })
-  const json = tryParseJSON(raw)
-  if (json?.id) return {
-    id: json.id,
-    title: extractTitleFromProperties(json.properties),
-    url: json.url,
-    properties: json.properties,
-  }
-  // Fallback for non-JSON responses
-  const url = extractUrlFromText(raw)
-  const titleMatch = raw.match(/title[= ]["']?([^"'\n<]+)/) || raw.match(/^#\s+(.+)/m)
-  return { id: pageId, title: titleMatch?.[1]?.trim() || 'Untitled', url }
-}
-
-// --- Get block children (page content as text) ---
-
-export async function getBlockChildren(blockId) {
-  const raw = await call('notion-fetch', { resource_uri: `notion://block/${blockId}/children` })
-  return { raw, blocks: tryParseJSON(raw)?.results || [] }
-}
-
-// --- Get child pages of a parent ---
-
-export async function getChildPages(parentId) {
-  const raw = await call('notion-fetch', { resource_uri: `notion://block/${parentId}/children` })
-  const json = tryParseJSON(raw)
-  if (json?.results) {
-    return json.results
-      .filter(b => b.type === 'child_page')
-      .map(b => ({ id: b.id, title: b.child_page?.title || 'Untitled' }))
-  }
-  // Parse enhanced markdown for child pages
-  const pages = []
-  const urlRegex = /notion\.so\/(?:[^/]*\/)?([a-f0-9]{32})/g
-  let m
-  while ((m = urlRegex.exec(raw)) !== null) {
-    const h = m[1]
-    const id = `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`
-    if (id !== parentId) {
-      const titleMatch = raw.slice(Math.max(0, m.index - 200), m.index + 100).match(/title="([^"]*)"/)
-      pages.push({ id, title: titleMatch?.[1] || 'Untitled', url: `https://www.notion.so/${h}` })
-    }
-  }
-  return pages
-}
-
-// post-page: { parent: { page_id }, properties: object, children?: string[] }
-// parent.page_id: UUID string (required)
-// properties: Notion API property-value objects (required) — at minimum { title: { title: [...] } }
-// children: array of strings (enhanced markdown lines, NOT block objects)
-// Response: created page object { id, url, properties, ... }
 export async function createPage({ parentId, title, content }) {
-  const properties = {
-    title: { title: [{ text: { content: title } }] }
-  }
   const args = {
     parent: { page_id: parentId },
-    properties,
+    properties: { title: { title: [{ text: { content: title } }] } },
   }
   if (content) args.children = content.split('\n').filter(Boolean)
-  const raw = await call('notion-create-pages', args)
-  // Try JSON first (open-source proxy returns JSON.stringify(response.data))
+  const raw = await callMCP('notion-create-pages', args)
   const json = tryParseJSON(raw)
   if (json?.id) return { id: json.id, url: json.url }
-  // Fallback: extract from text/enhanced markdown
   const id = extractIdFromUrl(raw)
-  const url = extractUrlFromText(raw)
-  if (!id) throw new Error('Could not parse page ID from MCP response: ' + raw.slice(0, 300))
-  return { id, url }
+  if (!id) throw new Error('Could not parse page ID from response: ' + raw.slice(0, 300))
+  return { id, url: extractUrlFromText(raw) }
 }
-
-// --- Create page in a database ---
 
 export async function createPageInDatabase({ databaseId, properties, content }) {
-  // properties can be a Notion API property-values object OR a simple
-  // { Name: 'title', Type: 'Location', ... } map that we convert
   let propsObj = properties
-  if (typeof properties === 'string') {
-    propsObj = textToNotionProperties(properties)
-  } else if (properties && !properties.Name?.title && !properties.title?.title) {
-    propsObj = simpleMapToNotionProperties(properties)
-  }
-  const args = {
-    parent: { database_id: databaseId },
-    properties: propsObj,
-  }
+  if (typeof properties === 'string') propsObj = textToNotionProperties(properties)
+  else if (properties && !properties.Name?.title && !properties.title?.title) propsObj = simpleMapToNotionProperties(properties)
+  const args = { parent: { database_id: databaseId }, properties: propsObj }
   if (content) args.children = content.split('\n').filter(Boolean)
-  const raw = await call('notion-create-pages', args)
+  const raw = await callMCP('notion-create-pages', args)
   const json = tryParseJSON(raw)
   if (json?.id) return { id: json.id, url: json.url }
   const id = extractIdFromUrl(raw)
-  const url = extractUrlFromText(raw)
-  if (!id) throw new Error('Could not parse page ID from MCP response: ' + raw.slice(0, 300))
-  return { id, url }
+  if (!id) throw new Error('Could not parse page ID from response: ' + raw.slice(0, 300))
+  return { id, url: extractUrlFromText(raw) }
 }
 
-// --- Update page ---
-
-export async function updatePage({ pageId, properties, content, archived }) {
+export async function updatePage({ pageId, properties, archived }) {
   const args = { page_id: pageId }
   if (properties) {
-    if (typeof properties === 'string') {
-      args.properties = textToNotionProperties(properties)
-    } else if (properties.Name?.title || properties.title?.title) {
-      args.properties = properties
-    } else {
-      args.properties = simpleMapToNotionProperties(properties)
-    }
+    if (typeof properties === 'string') args.properties = textToNotionProperties(properties)
+    else if (properties.Name?.title || properties.title?.title) args.properties = properties
+    else args.properties = simpleMapToNotionProperties(properties)
   }
   if (archived !== undefined) args.archived = archived
-  // Note: patch-page doesn't support children/content — that requires
-  // separate block append. For now, content updates are best-effort.
-  const raw = await call('notion-update-page', args)
+  const raw = await callMCP('notion-update-page', args)
   return { id: pageId, url: extractUrlFromText(raw), raw }
 }
 
-// --- Archive/restore page ---
+export async function archivePage(pageId) { return updatePage({ pageId, archived: true }) }
+export async function restorePage(pageId) { return updatePage({ pageId, archived: false }) }
 
-export async function archivePage(pageId) {
-  return updatePage({ pageId, archived: true })
-}
-
-export async function restorePage(pageId) {
-  return updatePage({ pageId, archived: false })
-}
-
-// --- Create database ---
-
-// notion-create-database: CUSTOM tool (not in OpenAPI spec)
-// Hosted server accepts { parent: { page_id }, title: string, schema: SQL_DDL_string }
-// Response: may be JSON or enhanced markdown (hosted server differs from open-source)
 export async function createDatabase({ parentPageId, title, schema }) {
-  const raw = await call('notion-create-database', {
-    parent: { page_id: parentPageId },
-    title,
-    schema,
-  })
+  const raw = await callMCP('notion-create-database', { parent: { page_id: parentPageId }, title, schema })
   const json = tryParseJSON(raw)
   if (json?.id) return { id: json.id, url: json.url }
   const id = extractIdFromUrl(raw)
-  const url = extractUrlFromText(raw)
-  if (!id) throw new Error('Could not parse database ID from MCP response: ' + raw.slice(0, 300))
-  return { id, url }
+  if (!id) throw new Error('Could not parse database ID from response: ' + raw.slice(0, 300))
+  return { id, url: extractUrlFromText(raw) }
 }
 
-// --- Fetch database (verify it exists) ---
+export function isConnected() { return notionMCP.getStatus().connected }
+
+// ============================================================
+// REST operations — queries, block reads, content updates
+// REST requires NOTION_INTEGRATION_TOKEN env var.
+// Falls back to MCP when no REST token is available.
+// ============================================================
+
+export async function getPage(pageId) {
+  const headers = restHeaders()
+  if (headers) {
+    try {
+      console.log(`[Notion:REST] GET pages/${pageId}`)
+      const data = await restJson(`${NOTION_BASE}/pages/${pageId}`, {}, 'get page')
+      return { id: data.id, title: extractTitleFromProperties(data.properties), url: data.url, properties: data.properties }
+    } catch (err) { console.warn('[Notion:REST] get page failed:', err.message) }
+  }
+  const raw = await callMCP('notion-fetch', { resource_uri: `notion://page/${pageId}` })
+  const json = tryParseJSON(raw)
+  if (json?.id) return { id: json.id, title: extractTitleFromProperties(json.properties), url: json.url, properties: json.properties }
+  return { id: pageId, title: 'Untitled', url: extractUrlFromText(raw) }
+}
+
+export async function getBlockChildren(blockId) {
+  const headers = restHeaders()
+  if (headers) {
+    try {
+      console.log(`[Notion:REST] GET blocks/${blockId}/children`)
+      const allBlocks = []
+      let cursor = undefined
+      do {
+        const url = `${NOTION_BASE}/blocks/${blockId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`
+        const data = await restJson(url, {}, 'get blocks')
+        allBlocks.push(...(data.results || []))
+        cursor = data.has_more ? data.next_cursor : undefined
+      } while (cursor)
+      const plainText = allBlocks.map(block => {
+        const content = block[block.type]
+        if (!content?.rich_text) return ''
+        const text = content.rich_text.map(rt => rt.plain_text).join('')
+        if (block.type === 'heading_1') return `# ${text}`
+        if (block.type === 'heading_2') return `## ${text}`
+        if (block.type === 'heading_3') return `### ${text}`
+        if (block.type === 'bulleted_list_item') return `- ${text}`
+        if (block.type === 'numbered_list_item') return `1. ${text}`
+        if (block.type === 'to_do') return `[${content.checked ? 'x' : ' '}] ${text}`
+        return text
+      }).filter(Boolean).join('\n')
+      return { raw: plainText, blocks: allBlocks }
+    } catch (err) { console.warn('[Notion:REST] get blocks failed:', err.message) }
+  }
+  const raw = await callMCP('notion-fetch', { resource_uri: `notion://block/${blockId}/children` })
+  return { raw, blocks: tryParseJSON(raw)?.results || [] }
+}
+
+export async function getChildPages(parentId) {
+  const { blocks } = await getBlockChildren(parentId)
+  const childPages = blocks.filter(b => b.type === 'child_page')
+  if (childPages.length > 0) {
+    return childPages.map(b => ({ id: b.id, title: b.child_page?.title || 'Untitled' }))
+  }
+  return extractPagesFromText(JSON.stringify(blocks))
+}
+
+export async function queryDatabase(databaseId) {
+  const headers = restHeaders()
+  if (headers) {
+    try {
+      console.log(`[Notion:REST] POST databases/${databaseId}/query`)
+      const allResults = []
+      let cursor = undefined
+      do {
+        const body = { page_size: 100 }
+        if (cursor) body.start_cursor = cursor
+        const data = await restJson(`${NOTION_BASE}/databases/${databaseId}/query`, {
+          method: 'POST', body: JSON.stringify(body),
+        }, 'query database')
+        allResults.push(...(data.results || []))
+        cursor = data.has_more ? data.next_cursor : undefined
+      } while (cursor)
+      return { raw: JSON.stringify({ results: allResults }), json: { results: allResults } }
+    } catch (err) { console.warn('[Notion:REST] query database failed:', err.message) }
+  }
+  const raw = await callMCP('notion-fetch', { resource_uri: `notion://database/${databaseId}` })
+  return { raw, json: tryParseJSON(raw) }
+}
 
 export async function getDatabase(databaseId) {
-  const raw = await call('notion-fetch', { resource_uri: `notion://database/${databaseId}` })
+  const headers = restHeaders()
+  if (headers) {
+    try {
+      console.log(`[Notion:REST] GET databases/${databaseId}`)
+      const data = await restJson(`${NOTION_BASE}/databases/${databaseId}`, {}, 'get database')
+      return { id: data.id, archived: !!data.archived, url: data.url, raw: JSON.stringify(data) }
+    } catch (err) { console.warn('[Notion:REST] get database failed:', err.message) }
+  }
+  const raw = await callMCP('notion-fetch', { resource_uri: `notion://database/${databaseId}` })
   const json = tryParseJSON(raw)
-  return {
-    id: databaseId,
-    archived: json?.archived || raw.includes('archived'),
-    url: extractUrlFromText(raw),
-    raw,
+  return { id: databaseId, archived: json?.archived || false, url: json?.url || extractUrlFromText(raw), raw }
+}
+
+export async function updatePageContent(pageId, markdownContent) {
+  const headers = restHeaders()
+  if (!headers) {
+    console.warn('[Notion] updatePageContent skipped — no REST token for block operations')
+    return
+  }
+  console.log(`[Notion:REST] update content for page ${pageId}`)
+  const existing = await restJson(`${NOTION_BASE}/blocks/${pageId}/children?page_size=100`, {}, 'fetch blocks')
+  for (const b of existing.results || []) {
+    await fetch(`${NOTION_BASE}/blocks/${b.id}`, { method: 'DELETE', headers }).catch(() => {})
+  }
+  const children = markdownToBlocks(markdownContent || '')
+  if (children.length > 0) {
+    await restJson(`${NOTION_BASE}/blocks/${pageId}/children`, {
+      method: 'PATCH', body: JSON.stringify({ children }),
+    }, 'append blocks')
   }
 }
 
-// --- Query database ---
+// ============================================================
+// Helpers
+// ============================================================
 
-export async function queryDatabase(databaseId) {
-  const raw = await call('notion-fetch', { resource_uri: `notion://database/${databaseId}` })
-  return { raw, json: tryParseJSON(raw) }
-}
-
-// --- Get users (connection check) ---
-
-export async function getUsers() {
-  const raw = await call('notion-get-users', {})
-  return { raw, json: tryParseJSON(raw) }
-}
-
-// --- Check if connected ---
-
-export function isConnected() {
-  return notionMCP.getStatus().connected
-}
-
-// --- Helpers: convert property formats to Notion API objects ---
-
-// Convert "Name: value\nType: Location" text to Notion API properties
 function textToNotionProperties(text) {
   const props = {}
   for (const line of text.split('\n')) {
@@ -289,51 +301,37 @@ function textToNotionProperties(text) {
     const key = line.slice(0, idx).trim()
     const val = line.slice(idx + 1).trim()
     if (!key || !val) continue
-    if (key === 'Name' || key === 'Title') {
-      props[key] = { title: [{ text: { content: val } }] }
-    } else if (['Type', 'Status', 'Confidence'].includes(key)) {
-      props[key] = { select: { name: val } }
-    } else if (key === 'Tags') {
-      props[key] = { multi_select: val.split(',').map(s => ({ name: s.trim() })).filter(s => s.name) }
-    } else {
-      props[key] = { rich_text: [{ text: { content: val } }] }
-    }
+    if (key === 'Name' || key === 'Title') props[key] = { title: [{ text: { content: val } }] }
+    else if (['Type', 'Status', 'Confidence'].includes(key)) props[key] = { select: { name: val } }
+    else if (key === 'Tags') props[key] = { multi_select: val.split(',').map(s => ({ name: s.trim() })).filter(s => s.name) }
+    else props[key] = { rich_text: [{ text: { content: val } }] }
   }
   return props
 }
 
-// Convert { Name: 'title', Type: 'Location' } simple map to Notion API format
 function simpleMapToNotionProperties(map) {
   const props = {}
   for (const [key, val] of Object.entries(map)) {
     if (val === undefined || val === null) continue
-    if (key === 'Name' || key === 'Title') {
-      props[key] = { title: [{ text: { content: String(val) } }] }
-    } else if (['Type', 'Status', 'Confidence'].includes(key)) {
-      props[key] = { select: { name: String(val) } }
-    } else if (key === 'Tags' && Array.isArray(val)) {
-      props[key] = { multi_select: val.map(s => ({ name: String(s) })) }
-    } else if (typeof val === 'string') {
-      props[key] = { rich_text: [{ text: { content: val } }] }
-    }
+    if (key === 'Name' || key === 'Title') props[key] = { title: [{ text: { content: String(val) } }] }
+    else if (['Type', 'Status', 'Confidence'].includes(key)) props[key] = { select: { name: String(val) } }
+    else if (key === 'Tags' && Array.isArray(val)) props[key] = { multi_select: val.map(s => ({ name: String(s) })) }
+    else if (typeof val === 'string') props[key] = { rich_text: [{ text: { content: val } }] }
   }
   return props
 }
 
-// Format Notion API properties to text (for update-page which may take text)
-function formatProperties(props) {
-  if (!props || typeof props !== 'object') return ''
-  const lines = []
-  for (const [key, val] of Object.entries(props)) {
-    if (val?.title) {
-      lines.push(`${key}: ${val.title.map(t => t.text?.content || t.plain_text || '').join('')}`)
-    } else if (val?.select?.name) {
-      lines.push(`${key}: ${val.select.name}`)
-    } else if (val?.multi_select) {
-      lines.push(`${key}: ${val.multi_select.map(s => s.name).join(', ')}`)
-    } else if (val?.rich_text) {
-      lines.push(`${key}: ${val.rich_text.map(t => t.text?.content || t.plain_text || '').join('')}`)
+function markdownToBlocks(text) {
+  if (!text) return []
+  return text.split('\n').map(line => {
+    if (!line.trim()) return { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }
+    if (line.startsWith('# ')) return { object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: line.slice(2) } }] } }
+    if (line.startsWith('## ')) return { object: 'block', type: 'heading_2', heading_2: { rich_text: [{ type: 'text', text: { content: line.slice(3) } }] } }
+    if (line.match(/^- \[[ x]\] /)) {
+      const checked = line[3] === 'x'
+      return { object: 'block', type: 'to_do', to_do: { rich_text: [{ type: 'text', text: { content: line.slice(6) } }], checked } }
     }
-  }
-  return lines.join('\n')
+    if (line.startsWith('- ')) return { object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: [{ type: 'text', text: { content: line.slice(2) } }] } }
+    return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: line } }] } }
+  })
 }

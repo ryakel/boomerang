@@ -623,8 +623,8 @@ app.post('/api/notion/pages', async (req, res) => {
 app.patch('/api/notion/pages/:id', async (req, res) => {
   const { title, content } = req.body
   try {
-    const props = title ? `Name: ${title}` : undefined
-    await notionProxy.updatePage({ pageId: req.params.id, properties: props, content })
+    if (title) await notionProxy.updatePage({ pageId: req.params.id, properties: `Name: ${title}` })
+    if (content) await notionProxy.updatePageContent(req.params.id, content)
     res.json({ ok: true })
   } catch (err) {
     console.error(`[NotionSync] PATCH page ERROR:`, err.message)

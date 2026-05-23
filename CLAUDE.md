@@ -157,28 +157,70 @@ UI lives in `src/components/Routines.jsx` — new "On" dropdown next to Frequenc
 ### Notion Sync (Pull + Ongoing)
 Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks in sync.
 
-**Auth model (2026-04-23):** **MCP is the recommended path.** Boomerang connects to Notion's hosted MCP server (`https://mcp.notion.com/mcp`) via OAuth 2.0 + PKCE + Dynamic Client Registration — no pre-registered Notion integration required, full user-scoped workspace access. Implementation lives in `notionMCP.js` using `@modelcontextprotocol/sdk`. On successful connect, every read-only MCP tool is dynamically bridged into Quokka's registry with a `notion_mcp_` prefix, so Quokka gets the full native Notion tool surface without hardcoded wrappers.
+**Auth model (2026-05-23, Stage 3 complete):** Dual-path. MCP for most operations, REST API for file uploads and block-level writes. MCP connection via OAuth 2.0 + PKCE + DCR to `https://mcp.notion.com/mcp`. REST auth via `NOTION_INTEGRATION_TOKEN` env var (per-page Connection sharing required).
 
-`getNotionAccessToken(req)` in `server.js` resolves a token in this order: (1) MCP-issued OAuth token from `notion_mcp_tokens` — valid as both an MCP credential AND a REST `Authorization: Bearer` token, so every existing `/api/notion/*` REST endpoint inherits user-scoped access automatically; (2) legacy integration token from `NOTION_INTEGRATION_TOKEN` env / `x-notion-token` header (kept for users with that env var set, but no UI path to configure it anymore — per-page Connection sharing still required for it).
+**IMPORTANT: The MCP OAuth token does NOT work as a REST `Authorization: Bearer` token.** The prior CLAUDE.md claim that "MCP token is valid for REST" was wrong — MCP tokens work for MCP protocol calls to `mcp.notion.com` but get 401 from `api.notion.com`. REST calls use the integration token from env.
 
-Migration stages: **Stage 1 (superseded)** — public-integration OAuth endpoints were shipped then ripped out on 2026-04-23 because the Notion Public-integration registration overhead (privacy policy, TOS, support email) is absurd for self-hosted use. MCP with DCR sidesteps the whole thing. **Stage 2 (DONE)** — MCP client + dynamic read-only tool bridge + MCP token shared with REST endpoints via `getNotionAccessToken()`. **Stage 3 (pending)** — migrate `useNotionSync` + `useExternalSync` + the server REST proxy to MCP, delete REST Notion code, and migrate Quokka write tools (create/update page) to MCP with proper compensation.
+**Operation Routing (update this table when changing Notion code):**
+
+| Operation | Path | Why |
+|---|---|---|
+| **Search pages** | MCP `notion-search` | Works, returns JSON results. No REST advantage. |
+| **Create database** | MCP `notion-create-database` | Custom tool with SQL DDL schema format — cleaner than raw API. |
+| **Get page** | MCP `notion-fetch` | Custom tool, convenient resource URI format. |
+| **Get child pages** | MCP `notion-fetch` | Same custom tool with block children URI. |
+| **Create page** | MCP `notion-create-pages` | Maps to `POST /v1/pages`. Properties are Notion API objects, children are string array. |
+| **Create page in DB** | MCP `notion-create-pages` | Same tool, parent is `{ database_id }` instead of `{ page_id }`. |
+| **Update page props** | MCP `notion-update-page` | Maps to `PATCH /v1/pages/{id}`. Properties + archived only — NO children/content support. |
+| **Archive/restore** | MCP `notion-update-page` | `{ page_id, archived: true/false }` |
+| **Query database** | MCP `notion-fetch` | **LIMITATION:** No MCP query tool with filter/sort. `notion-fetch` with database URI may only return schema. May need REST fallback for filtered queries. |
+| **Get block content** | MCP `notion-fetch` | Returns page body. Response format may be enhanced markdown, not structured blocks. |
+| **Update page content** | **NOT AVAILABLE via MCP** | `patch-page` doesn't take children. REST delete-blocks + append-blocks pattern needed. Currently skipped — content updates are best-effort property-only. |
+| **File uploads** | **REST only** | `POST /v1/file_uploads` + send. No MCP equivalent in the 14 available tools. Requires `NOTION_INTEGRATION_TOKEN` env var. |
+| **Append blocks** | **REST only** | `PATCH /v1/blocks/{id}/children`. Used for file attachments. Requires integration token. |
+| **Connection status** | MCP `getStatus()` | No REST call needed — checks `clientConnected` flag. |
+
+**Implementation files:**
+- `notionMCPProxy.js` — wraps MCP tool calls with response parsing. JSON-first, text fallback.
+- `notionMCP.js` — MCP client, OAuth provider, tool cache, auto-reconnect.
+- `knowledgeSync.js` — KB CRUD, all operations via proxy (no `token` param).
+- `adviserToolsKnowledge.js` — Quokka KB tools, delegates to knowledgeSync.
+- `adviserToolsIntegrations.js` — Quokka Notion tools (query, create, update page), via proxy.
+- `server.js` — REST endpoints kept only for file uploads + block append. Everything else routes through proxy.
+
+**MCP tool names → API operations (from OpenAPI spec):**
+| MCP Tool | API Operation | Custom? |
+|---|---|---|
+| `notion-search` | `POST /v1/search` | No |
+| `notion-fetch` | multiple GETs | Yes — bundles page/block/database fetches |
+| `notion-create-pages` | `POST /v1/pages` | No |
+| `notion-update-page` | `PATCH /v1/pages/{id}` | No |
+| `notion-create-database` | `POST /v1/data_sources` | Yes — accepts SQL DDL `schema` param |
+| `notion-update-data-source` | `PATCH /v1/data_sources/{id}` | No |
+| `notion-move-pages` | `POST /v1/pages/{id}/move` | No |
+| `notion-create-comment` | `POST /v1/comments` | No |
+| `notion-get-comments` | `GET /v1/comments` | No |
+| `notion-get-users` | `GET /v1/users` | No |
 
 **Server Endpoints** (in `server.js`):
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/notion/blocks/:id` | Read page content (paginated), returns `{ blocks, plainText }` |
-| `GET /api/notion/children/:id` | List child pages of a parent |
-| `PATCH /api/notion/pages/:id` | Update page title and/or replace content blocks |
-| `POST /api/notion/databases/:id/query` | Query a Notion database. Rows include flattened `properties` (title/rich_text → string, number → number, select/multi_select/status → name(s), date → {start,end}, checkbox → bool, etc.) |
-| `GET /api/notion/oauth/auth-url` | Stage 1 OAuth — generate consent URL (public-integration OAuth, deprecated in favor of MCP) |
-| `GET /api/notion/oauth/callback` | Stage 1 OAuth callback |
-| `GET /api/notion/oauth/status` | Stage 1 OAuth status |
-| `POST /api/notion/oauth/disconnect` | Clear Stage 1 OAuth tokens |
-| `POST /api/notion/mcp/connect` | Stage 2 — start MCP OAuth + DCR flow. Returns `{authUrl}` or `{alreadyAuthorized}` |
-| `GET /api/notion/mcp/callback` | MCP callback — completes the DCR/OAuth handshake via `transport.finishAuth(code)` |
-| `GET /api/notion/mcp/status` | `{connected, hasTokens, toolCount}` |
-| `GET /api/notion/mcp/tools` | Lists MCP tools the server exposes to this client |
-| `POST /api/notion/mcp/disconnect` | Clear MCP tokens + DCR client info |
+| Endpoint | Backend | Purpose |
+|---|---|---|
+| `POST /api/notion/search` | MCP | Search pages |
+| `GET /api/notion/pages/:id` | MCP | Get page by ID |
+| `POST /api/notion/pages` | MCP | Create page |
+| `PATCH /api/notion/pages/:id` | MCP | Update page properties |
+| `GET /api/notion/status` | MCP | Connection status |
+| `GET /api/notion/blocks/:id` | MCP | Read page content |
+| `GET /api/notion/children/:id` | MCP | List child pages |
+| `POST /api/notion/databases/:id/query` | MCP | Query database |
+| `POST /api/notion/file-uploads` | REST | Create file upload (no MCP equivalent) |
+| `POST /api/notion/file-uploads/:id/send` | REST | Send file data (no MCP equivalent) |
+| `POST /api/notion/blocks/:id/children` | REST | Append blocks for file attachments |
+| `POST /api/notion/mcp/connect` | MCP | Start OAuth + DCR flow |
+| `GET /api/notion/mcp/callback` | MCP | OAuth callback |
+| `GET /api/notion/mcp/status` | MCP | MCP health |
+| `GET /api/notion/mcp/tools` | MCP | List tools + inputSchema |
+| `POST /api/notion/mcp/disconnect` | MCP | Clear tokens |
 
 **Pull Sync Flow** (`src/hooks/useNotionSync.js`):
 1. Fetch child pages of configured parent (`notion_sync_parent_id`)
