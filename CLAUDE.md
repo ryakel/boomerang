@@ -180,6 +180,8 @@ Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks 
 | **Append blocks** | **REST only** | `PATCH /v1/blocks/{id}/children`. Used for file attachments. Requires integration token. |
 | **Connection status** | MCP `getStatus()` | No REST call needed — checks `clientConnected` flag. |
 
+**Full architecture, tool schemas, and endpoint reference:** See `wiki/Notion-Integration.md`. **Update that page whenever Notion code changes.**
+
 **Implementation files:**
 - `notionMCPProxy.js` — wraps MCP tool calls with response parsing. JSON-first, text fallback.
 - `notionMCP.js` — MCP client, OAuth provider, tool cache, auto-reconnect.
@@ -187,20 +189,6 @@ Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks 
 - `adviserToolsKnowledge.js` — Quokka KB tools, delegates to knowledgeSync.
 - `adviserToolsIntegrations.js` — Quokka Notion tools (query, create, update page), via proxy.
 - `server.js` — REST endpoints kept only for file uploads + block append. Everything else routes through proxy.
-
-**MCP tool names → API operations (from OpenAPI spec):**
-| MCP Tool | API Operation | Custom? |
-|---|---|---|
-| `notion-search` | `POST /v1/search` | No |
-| `notion-fetch` | multiple GETs | Yes — bundles page/block/database fetches |
-| `notion-create-pages` | `POST /v1/pages` | No |
-| `notion-update-page` | `PATCH /v1/pages/{id}` | No |
-| `notion-create-database` | `POST /v1/data_sources` | Yes — accepts SQL DDL `schema` param |
-| `notion-update-data-source` | `PATCH /v1/data_sources/{id}` | No |
-| `notion-move-pages` | `POST /v1/pages/{id}/move` | No |
-| `notion-create-comment` | `POST /v1/comments` | No |
-| `notion-get-comments` | `GET /v1/comments` | No |
-| `notion-get-users` | `GET /v1/users` | No |
 
 **Server Endpoints** (in `server.js`):
 | Endpoint | Backend | Purpose |
