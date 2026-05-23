@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-23
 
+- chore(ui): purge all v1 references from v2 Settings [S]
+  - Removed broken "Manage in v1" / "Connect in v1" fallback buttons (Notion showed "Open undefined in v1")
+  - Removed `switchToV1` function + prop threading through IntegrationsPanel
+  - Removed dead `PLACEHOLDER_TABS` / `PLACEHOLDER_BODY` code + "Open v1" EmptyState
+  - Removed stale `v1Section` props from tracking + pushover integrations
+  - Fixed Pushover hint "Credentials in v1 → Integrations" → "Credentials in Integrations tab"
+  - Fixed "across v1 and v2" → "Tokens persist across reloads"
+  - Fixed stale comment "Configure in v1 CTAs"
+  - Only v1 reference remaining: the intentional Legacy tab toggle for opting back to v1 UI
+  - Modified: `src/v2/components/SettingsModal.jsx`
+
 - fix(ui): full Notion connect/disconnect/reconnect in v2 Settings + bottom gap [M]
   - **Notion controls.** v2 Settings had NO connect, disconnect, or reconnect buttons for Notion — all of that was v1-only. Now the Notion integration section renders a full lifecycle: "Connect via MCP" when not connected, page search + KB setup + "Disconnect" when connected, and a warning banner with "Reconnect" + "Disconnect" when MCP needs reauth. The `inline` section always renders regardless of connection state.
   - **Bottom gap.** Root cause: body background `var(--bg)` = `#F5F5F7` (v1 light grey) vs v2 app `var(--v2-bg)` = `#FFFFFF`. Any sub-pixel gap between the fixed container and the screen edge exposed the mismatch. Fix: `:root[data-ui="v2"] body { background: var(--v2-bg) }` makes the gap invisible. Reverted `min-height` approach back to `bottom: auto; height: 100dvh` for the keyboard fix.
