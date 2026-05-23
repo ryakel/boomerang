@@ -636,8 +636,11 @@ function parseContentToBlocks(content) {
 
 async function mcpSearchPages(queryText) {
   if (!notionMCP.getStatus().connected) return null
+  const tools = notionMCP.getCachedTools()
+  const searchTool = tools.find(t => /search/i.test(t.name))
+  if (!searchTool) { console.warn('[Notion] No search tool found in MCP tools:', tools.map(t => t.name).join(', ')); return null }
   try {
-    const result = await notionMCP.callTool('search', { query: queryText })
+    const result = await notionMCP.callTool(searchTool.name, { query: queryText })
     if (result?.isError) {
       const errText = (result.content || []).map(c => c.text || '').join(' ')
       console.warn('[Notion] MCP search tool error:', errText)

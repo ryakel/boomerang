@@ -115,9 +115,14 @@ async function ensureClient() {
   try {
     await client.connect(transport)
     clientConnected = true
+    // Force-persist whatever token the SDK used to connect — it may have
+    // refreshed in-memory without calling saveTokens() on our provider.
+    const currentTokens = provider.tokens()
+    if (currentTokens?.access_token) {
+      await provider.saveTokens(currentTokens)
+    }
     return client
   } catch (err) {
-    // UnauthorizedError or network — caller handles
     throw err
   }
 }
@@ -126,6 +131,7 @@ async function refreshToolCache() {
   if (!clientConnected) return []
   const res = await client.listTools()
   toolCache = res.tools || []
+  console.log(`[NotionMCP] ${toolCache.length} tools available: ${toolCache.map(t => t.name).join(', ')}`)
   try { registerMCPToolsInQuokka(toolCache) } catch (e) { console.warn('[NotionMCP] tool registration failed:', e?.message) }
   return toolCache
 }
