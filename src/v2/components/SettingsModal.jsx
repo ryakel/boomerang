@@ -537,6 +537,15 @@ function IntegrationsPanel({
     finally { setNotionReconnecting(false) }
   }
 
+  const disconnectNotionMCP = async () => {
+    try {
+      const api = await import('../../api')
+      await api.notionMCPDisconnect()
+      setStatuses(prev => ({ ...prev, notion: { connected: false } }))
+      clearNotionParent()
+    } catch { /* swallow */ }
+  }
+
   // Auto-load child count for already-configured parent pages on mount.
   useEffect(() => {
     if (!settings.notion_sync_parent_id || !statuses.notion?.connected) return
@@ -669,12 +678,11 @@ function IntegrationsPanel({
       key: 'notion',
       label: 'Notion',
       hint: statuses.notion?.mcpHealth?.needsReauth
-        ? 'MCP connection expired — Quokka and Knowledge Base won\'t work until you reconnect.'
+        ? 'MCP connection expired — reconnect to restore Quokka + Knowledge Base.'
         : 'Pull pages as tasks, sync edits both ways. MCP-based connection (recommended).',
       connected: statuses.notion?.mcpHealth?.needsReauth ? 'warn' : !!statuses.notion?.connected,
-      v1Section: 'Integrations → Notion',
       sync: onNotionSync && settings.notion_sync_parent_id ? { fn: onNotionSync, busy: notionSyncing } : null,
-      inline: statuses.notion?.connected ? 'notion-config' : null,
+      inline: 'notion-full',
     },
     {
       key: 'trello',
@@ -792,112 +800,135 @@ function IntegrationsPanel({
                     <AnthropicKeyBlock settings={settings} update={update} embedded />
                   </div>
                 )}
-                {int.inline === 'notion-config' && (
+                {int.inline === 'notion-full' && (
                   <div className="v2-integrations-inline">
-                    {statuses.notion?.mcpHealth?.needsReauth && (
-                      <div className="v2-integrations-warn">
-                        <span>⚠️ MCP connection expired. Quokka + Knowledge Base won't work until reconnected.</span>
+                    {/* Connection controls — always visible */}
+                    {!statuses.notion?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
+                      <div className="v2-integrations-actions">
                         <button
                           className="v2-settings-btn"
                           onClick={reconnectNotionMCP}
                           disabled={notionReconnecting}
                         >
-                          {notionReconnecting ? 'Reconnecting…' : 'Reconnect'}
+                          {notionReconnecting ? 'Connecting…' : 'Connect via MCP'}
                         </button>
                       </div>
                     )}
-                    {settings.notion_sync_parent_id ? (
-                      <div className="v2-weather-current">
-                        <div className="v2-weather-current-label">
-                          📄 Syncing from <strong>{settings.notion_sync_parent_title || 'Selected page'}</strong>
-                          {notionChildCount != null && (
-                            <span className="v2-integrations-hint" style={{ display: 'block', marginTop: 4 }}>
-                              {notionChildCount} child page{notionChildCount === 1 ? '' : 's'} discovered
-                              {settings.notion_last_sync ? ` · last synced ${new Date(settings.notion_last_sync).toLocaleString()}` : ''}
-                            </span>
-                          )}
-                        </div>
-                        <button className="v2-settings-btn" onClick={clearNotionParent}>Change page</button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="v2-integrations-hint">
-                          Pick a parent Notion page — its child pages get pulled as tasks.
-                        </div>
-                        <div className="v2-weather-search">
-                          <input
-                            type="text"
-                            className="v2-form-input"
-                            placeholder="Search Notion pages…"
-                            value={notionSearchQuery}
-                            onChange={e => setNotionSearchQuery(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runNotionSearch() } }}
-                          />
-                          <button
-                            className="v2-settings-btn"
-                            onClick={runNotionSearch}
-                            disabled={notionSearching || !notionSearchQuery.trim()}
-                          >
-                            {notionSearching ? 'Searching…' : 'Search'}
+                    {statuses.notion?.mcpHealth?.needsReauth && (
+                      <div className="v2-integrations-warn">
+                        <span>⚠️ MCP connection expired. Quokka + Knowledge Base won't work until reconnected.</span>
+                        <div className="v2-integrations-actions">
+                          <button className="v2-settings-btn" onClick={reconnectNotionMCP} disabled={notionReconnecting}>
+                            {notionReconnecting ? 'Reconnecting…' : 'Reconnect'}
+                          </button>
+                          <button className="v2-settings-btn v2-settings-btn-danger" onClick={disconnectNotionMCP}>
+                            Disconnect
                           </button>
                         </div>
-                        {notionSearchError && <div className="v2-integrations-error">{notionSearchError}</div>}
-                        {notionSearchResults && notionSearchResults.length > 0 && (
-                          <ul className="v2-weather-results">
-                            {notionSearchResults.map(page => (
-                              <li key={page.id}>
-                                <button className="v2-weather-result" onClick={() => pickNotionParent(page)}>
-                                  {page.title}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
+                      </div>
+                    )}
+                    {statuses.notion?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
+                      <>
+                        {/* Parent page config */}
+                        {settings.notion_sync_parent_id ? (
+                          <div className="v2-weather-current">
+                            <div className="v2-weather-current-label">
+                              📄 Syncing from <strong>{settings.notion_sync_parent_title || 'Selected page'}</strong>
+                              {notionChildCount != null && (
+                                <span className="v2-integrations-hint" style={{ display: 'block', marginTop: 4 }}>
+                                  {notionChildCount} child page{notionChildCount === 1 ? '' : 's'} discovered
+                                  {settings.notion_last_sync ? ` · last synced ${new Date(settings.notion_last_sync).toLocaleString()}` : ''}
+                                </span>
+                              )}
+                            </div>
+                            <button className="v2-settings-btn" onClick={clearNotionParent}>Change page</button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="v2-integrations-hint">
+                              Pick a parent Notion page — its child pages get pulled as tasks.
+                            </div>
+                            <div className="v2-weather-search">
+                              <input
+                                type="text"
+                                className="v2-form-input"
+                                placeholder="Search Notion pages…"
+                                value={notionSearchQuery}
+                                onChange={e => setNotionSearchQuery(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runNotionSearch() } }}
+                              />
+                              <button
+                                className="v2-settings-btn"
+                                onClick={runNotionSearch}
+                                disabled={notionSearching || !notionSearchQuery.trim()}
+                              >
+                                {notionSearching ? 'Searching…' : 'Search'}
+                              </button>
+                            </div>
+                            {notionSearchError && <div className="v2-integrations-error">{notionSearchError}</div>}
+                            {notionSearchResults && notionSearchResults.length > 0 && (
+                              <ul className="v2-weather-results">
+                                {notionSearchResults.map(page => (
+                                  <li key={page.id}>
+                                    <button className="v2-weather-result" onClick={() => pickNotionParent(page)}>
+                                      {page.title}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            {notionSearchResults && notionSearchResults.length === 0 && (
+                              <div className="v2-integrations-hint">No pages found.</div>
+                            )}
+                          </>
                         )}
-                        {notionSearchResults && notionSearchResults.length === 0 && (
-                          <div className="v2-integrations-hint">No pages found.</div>
-                        )}
+                        {/* Knowledge base */}
+                        <div className="v2-integrations-kb">
+                          <div className="v2-form-label">Knowledge base</div>
+                          <div className="v2-integrations-hint">
+                            Stash long-term reference (where you keep things, decisions you've made,
+                            people, how-tos) as Notion pages Quokka can search. One database in your
+                            Notion workspace, kept in sync automatically.
+                          </div>
+                          {kbStatus?.configured ? (
+                            <>
+                              <div className="v2-integrations-status-line">
+                                ✓ Connected
+                                {kbStatus.database_url && (
+                                  <> · <a href={kbStatus.database_url} target="_blank" rel="noreferrer">Open in Notion</a></>
+                                )}
+                                {kbStatus.last_sync && (
+                                  <span className="v2-integrations-hint" style={{ display: 'block', marginTop: 4 }}>
+                                    Last synced {new Date(kbStatus.last_sync).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                              <button className="v2-settings-btn" onClick={runKnowledgeRefresh}>
+                                Sync now
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="v2-settings-btn"
+                              onClick={runKnowledgeSetup}
+                              disabled={kbSetupBusy || !settings.notion_sync_parent_id}
+                            >
+                              {kbSetupBusy ? 'Setting up…' : 'Set up Knowledge Base'}
+                            </button>
+                          )}
+                          {!settings.notion_sync_parent_id && !kbStatus?.configured && (
+                            <div className="v2-integrations-hint">
+                              Pick a parent page above first — the knowledge database is created underneath it.
+                            </div>
+                          )}
+                          {kbError && <div className="v2-integrations-error">{kbError}</div>}
+                        </div>
+                        {/* Disconnect */}
+                        <button className="v2-settings-btn v2-settings-btn-danger" onClick={disconnectNotionMCP}>
+                          Disconnect Notion
+                        </button>
                       </>
                     )}
-                    <div className="v2-integrations-kb">
-                      <div className="v2-form-label">Knowledge base</div>
-                      <div className="v2-integrations-hint">
-                        Stash long-term reference (where you keep things, decisions you've made,
-                        people, how-tos) as Notion pages Quokka can search. One database in your
-                        Notion workspace, kept in sync automatically.
-                      </div>
-                      {kbStatus?.configured ? (
-                        <>
-                          <div className="v2-integrations-status-line">
-                            ✓ Connected
-                            {kbStatus.database_url && (
-                              <> · <a href={kbStatus.database_url} target="_blank" rel="noreferrer">Open in Notion</a></>
-                            )}
-                            {kbStatus.last_sync && (
-                              <span className="v2-integrations-hint" style={{ display: 'block', marginTop: 4 }}>
-                                Last synced {new Date(kbStatus.last_sync).toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                          <button className="v2-settings-btn" onClick={runKnowledgeRefresh}>
-                            Sync now
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          className="v2-settings-btn"
-                          onClick={runKnowledgeSetup}
-                          disabled={kbSetupBusy || !settings.notion_sync_parent_id}
-                        >
-                          {kbSetupBusy ? 'Setting up…' : 'Set up Knowledge Base'}
-                        </button>
-                      )}
-                      {!settings.notion_sync_parent_id && !kbStatus?.configured && (
-                        <div className="v2-integrations-hint">
-                          Pick a parent page above first — the knowledge database is created underneath it.
-                        </div>
-                      )}
-                      {kbError && <div className="v2-integrations-error">{kbError}</div>}
-                    </div>
                   </div>
                 )}
                 {int.inline === 'trello-connect' && (

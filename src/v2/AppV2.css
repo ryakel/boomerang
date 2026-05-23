@@ -1,6 +1,15 @@
 @import './tokens.css';
 @import './terminal/index.css';
 
+/* Match body bg to v2 app bg so any sub-pixel gap between the fixed
+ * container and the screen edge is invisible. The v1 body uses --bg
+ * (#F5F5F7 light) while v2 uses --v2-bg (#FFFFFF light) — mismatch
+ * showed as a grey strip below BottomTabs on iOS PWA. */
+:root[data-ui="v2"],
+:root[data-ui="v2"] body {
+  background: var(--v2-bg);
+}
+
 .v2-app {
   position: fixed;
   inset: 0;
@@ -12,22 +21,15 @@
   overflow: hidden;
 }
 
-/* iOS PWA viewport fix (issue #213). After keyboard show/hide on iOS
- * Safari standalone, `position: fixed; inset: 0` anchors to a stale
- * layout viewport — the v2-app draws shorter than the visual viewport
- * and exposes body bg below BottomTabs. `min-height: 100dvh` (dynamic
- * viewport height) prevents the container from shrinking after keyboard
- * transitions, while `inset: 0` (specifically bottom: 0) keeps the
- * container anchored to the screen bottom on first render when iOS may
- * report a stale dvh value.
- *
- * Previous approach (bottom: auto + height: 100dvh) dropped the bottom
- * anchor entirely, which caused the container to float short on some
- * iOS PWA cold starts — surfacing as BottomTabs "raised" with a gap
- * underneath. Keeping bottom: 0 + min-height solves both directions. */
+/* iOS PWA keyboard fix (issue #213). After keyboard show/hide,
+ * `inset: 0` can anchor to a stale layout viewport. `100dvh` tracks
+ * the live visual viewport. `bottom: auto` lets height win over the
+ * bottom anchor. The body-bg match above hides any sub-pixel gap on
+ * cold starts where dvh reports a fractionally short value. */
 @supports (height: 100dvh) {
   .v2-app {
-    min-height: 100dvh;
+    bottom: auto;
+    height: 100dvh;
   }
 }
 
