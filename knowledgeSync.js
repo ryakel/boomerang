@@ -162,11 +162,12 @@ export async function updateKnowledgeItem({ pageId, title, type, tags, body, con
   if (confidence !== undefined) props.push(`Confidence: ${confidence || ''}`)
   if (relatedTaskIds !== undefined) props.push(`Related tasks: ${(relatedTaskIds || []).join(', ')}`)
 
-  await notion.updatePage({
-    pageId,
-    properties: props.length > 0 ? props.join('\n') : undefined,
-    content: body !== undefined ? (body || '') : undefined,
-  })
+  if (props.length > 0) {
+    await notion.updatePage({ pageId, properties: props.join('\n') })
+  }
+  if (body !== undefined) {
+    await notion.updatePageContent(pageId, body || '')
+  }
 
   const item = {
     notion_page_id: pageId,
