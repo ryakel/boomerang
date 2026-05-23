@@ -637,7 +637,25 @@ function parseContentToBlocks(content) {
 
 app.post('/api/notion/search', async (req, res) => {
   const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'No Notion token configured. Add one in Settings or set NOTION_INTEGRATION_TOKEN env var.' })
+  if (!token) {
+    // No REST token — try MCP search if connected
+    if (notionMCP.getStatus().connected) {
+      try {
+        const result = await notionMCP.callTool('search', { query: req.body.query || '' })
+        const content = typeof result?.content?.[0]?.text === 'string' ? JSON.parse(result.content[0].text) : result
+        const pages = (content?.results || content?.pages || []).map(p => ({
+          id: p.id,
+          title: p.title || p.properties?.title?.title?.[0]?.plain_text || 'Untitled',
+          url: p.url,
+          last_edited: p.last_edited_time,
+        }))
+        return res.json({ pages })
+      } catch (mcpErr) {
+        console.error('[Notion] MCP search fallback failed:', mcpErr?.message)
+      }
+    }
+    return res.status(400).json({ error: 'No Notion token configured. Connect via MCP in Settings.' })
+  }
   try {
     const response = await fetch(`${NOTION_BASE}/search`, {
       method: 'POST',
@@ -649,12 +667,46 @@ app.post('/api/notion/search', async (req, res) => {
       }),
     })
     const data = await response.json()
+    if (!response.ok) {
+      console.warn('[Notion] REST search failed:', response.status, data?.message || data?.code)
+      // REST failed — fall back to MCP search if available
+      if (notionMCP.getStatus().connected) {
+        try {
+          const result = await notionMCP.callTool('search', { query: req.body.query || '' })
+          const content = typeof result?.content?.[0]?.text === 'string' ? JSON.parse(result.content[0].text) : result
+          const pages = (content?.results || content?.pages || []).map(p => ({
+            id: p.id,
+            title: p.title || p.properties?.title?.title?.[0]?.plain_text || 'Untitled',
+            url: p.url,
+            last_edited: p.last_edited_time,
+          }))
+          return res.json({ pages })
+        } catch (mcpErr) {
+          console.error('[Notion] MCP search fallback failed:', mcpErr?.message)
+        }
+      }
+      return res.json({ pages: [], error: data?.message || 'Search failed' })
+    }
     const pages = (data.results || []).map(page => ({
       id: page.id,
       title: extractTitle(page),
       url: page.url,
       last_edited: page.last_edited_time,
     }))
+    // If REST returned empty but MCP is connected, try MCP as fallback
+    if (pages.length === 0 && notionMCP.getStatus().connected) {
+      try {
+        const result = await notionMCP.callTool('search', { query: req.body.query || '' })
+        const content = typeof result?.content?.[0]?.text === 'string' ? JSON.parse(result.content[0].text) : result
+        const mcpPages = (content?.results || content?.pages || []).map(p => ({
+          id: p.id,
+          title: p.title || p.properties?.title?.title?.[0]?.plain_text || 'Untitled',
+          url: p.url,
+          last_edited: p.last_edited_time,
+        }))
+        if (mcpPages.length > 0) return res.json({ pages: mcpPages })
+      } catch { /* REST result stands */ }
+    }
     res.json({ pages })
   } catch (err) {
     res.status(500).json({ error: err.message })
