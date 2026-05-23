@@ -133,11 +133,15 @@ export async function getChildPages(parentId) {
 // --- Create page under a parent page ---
 
 export async function createPage({ parentId, title, content }) {
-  const raw = await call('notion-create-pages', {
+  const properties = {
+    title: { title: [{ text: { content: title } }] }
+  }
+  const args = {
     parent: { page_id: parentId },
-    properties: `Name: ${title}`,
-    children: content || undefined,
-  })
+    properties,
+  }
+  if (content) args.children = content.split('\n').filter(Boolean)
+  const raw = await call('notion-create-pages', args)
   const id = extractIdFromUrl(raw)
   const url = extractUrlFromText(raw)
   if (!id) throw new Error('Could not parse page ID from MCP response')
@@ -147,24 +151,20 @@ export async function createPage({ parentId, title, content }) {
 // --- Create page in a database ---
 
 export async function createPageInDatabase({ databaseId, properties, content }) {
-  const propsText = typeof properties === 'string' ? properties : formatProperties(properties)
-  // Try with both parent shapes — v2.0.0 prefers data_source_id
-  let raw
-  try {
-    raw = await call('notion-create-pages', {
-      parent: { data_source_id: databaseId },
-      properties: propsText,
-      children: content || undefined,
-    })
-  } catch (e1) {
-    // Fall back to database_id if data_source_id fails
-    console.warn('[Notion:MCP] create-pages with data_source_id failed, trying database_id:', e1?.message?.slice(0, 150))
-    raw = await call('notion-create-pages', {
-      parent: { database_id: databaseId },
-      properties: propsText,
-      children: content || undefined,
-    })
+  // properties can be a Notion API property-values object OR a simple
+  // { Name: 'title', Type: 'Location', ... } map that we convert
+  let propsObj = properties
+  if (typeof properties === 'string') {
+    propsObj = textToNotionProperties(properties)
+  } else if (properties && !properties.Name?.title && !properties.title?.title) {
+    propsObj = simpleMapToNotionProperties(properties)
   }
+  const args = {
+    parent: { database_id: databaseId },
+    properties: propsObj,
+  }
+  if (content) args.children = content.split('\n').filter(Boolean)
+  const raw = await call('notion-create-pages', args)
   const id = extractIdFromUrl(raw)
   const url = extractUrlFromText(raw)
   if (!id) throw new Error('Could not parse page ID from MCP response')
@@ -175,9 +175,18 @@ export async function createPageInDatabase({ databaseId, properties, content }) 
 
 export async function updatePage({ pageId, properties, content, archived }) {
   const args = { page_id: pageId }
-  if (properties) args.properties = typeof properties === 'string' ? properties : formatProperties(properties)
-  if (content !== undefined) args.content = content
+  if (properties) {
+    if (typeof properties === 'string') {
+      args.properties = textToNotionProperties(properties)
+    } else if (properties.Name?.title || properties.title?.title) {
+      args.properties = properties
+    } else {
+      args.properties = simpleMapToNotionProperties(properties)
+    }
+  }
   if (archived !== undefined) args.archived = archived
+  // Note: patch-page doesn't support children/content — that requires
+  // separate block append. For now, content updates are best-effort.
   const raw = await call('notion-update-page', args)
   return { id: pageId, url: extractUrlFromText(raw), raw }
 }
@@ -239,28 +248,61 @@ export function isConnected() {
   return notionMCP.getStatus().connected
 }
 
-// --- Helper: format properties object to text ---
+// --- Helpers: convert property formats to Notion API objects ---
 
+// Convert "Name: value\nType: Location" text to Notion API properties
+function textToNotionProperties(text) {
+  const props = {}
+  for (const line of text.split('\n')) {
+    const idx = line.indexOf(':')
+    if (idx < 0) continue
+    const key = line.slice(0, idx).trim()
+    const val = line.slice(idx + 1).trim()
+    if (!key || !val) continue
+    if (key === 'Name' || key === 'Title') {
+      props[key] = { title: [{ text: { content: val } }] }
+    } else if (['Type', 'Status', 'Confidence'].includes(key)) {
+      props[key] = { select: { name: val } }
+    } else if (key === 'Tags') {
+      props[key] = { multi_select: val.split(',').map(s => ({ name: s.trim() })).filter(s => s.name) }
+    } else {
+      props[key] = { rich_text: [{ text: { content: val } }] }
+    }
+  }
+  return props
+}
+
+// Convert { Name: 'title', Type: 'Location' } simple map to Notion API format
+function simpleMapToNotionProperties(map) {
+  const props = {}
+  for (const [key, val] of Object.entries(map)) {
+    if (val === undefined || val === null) continue
+    if (key === 'Name' || key === 'Title') {
+      props[key] = { title: [{ text: { content: String(val) } }] }
+    } else if (['Type', 'Status', 'Confidence'].includes(key)) {
+      props[key] = { select: { name: String(val) } }
+    } else if (key === 'Tags' && Array.isArray(val)) {
+      props[key] = { multi_select: val.map(s => ({ name: String(s) })) }
+    } else if (typeof val === 'string') {
+      props[key] = { rich_text: [{ text: { content: val } }] }
+    }
+  }
+  return props
+}
+
+// Format Notion API properties to text (for update-page which may take text)
 function formatProperties(props) {
   if (!props || typeof props !== 'object') return ''
   const lines = []
   for (const [key, val] of Object.entries(props)) {
     if (val?.title) {
-      const text = val.title.map(t => t.text?.content || t.plain_text || '').join('')
-      lines.push(`${key}: ${text}`)
+      lines.push(`${key}: ${val.title.map(t => t.text?.content || t.plain_text || '').join('')}`)
     } else if (val?.select?.name) {
       lines.push(`${key}: ${val.select.name}`)
     } else if (val?.multi_select) {
       lines.push(`${key}: ${val.multi_select.map(s => s.name).join(', ')}`)
     } else if (val?.rich_text) {
-      const text = val.rich_text.map(t => t.text?.content || t.plain_text || '').join('')
-      lines.push(`${key}: ${text}`)
-    } else if (val?.checkbox !== undefined) {
-      lines.push(`${key}: ${val.checkbox}`)
-    } else if (val?.number !== undefined) {
-      lines.push(`${key}: ${val.number}`)
-    } else if (val?.date) {
-      lines.push(`${key}: ${val.date.start || ''}`)
+      lines.push(`${key}: ${val.rich_text.map(t => t.text?.content || t.plain_text || '').join('')}`)
     }
   }
   return lines.join('\n')
