@@ -1489,7 +1489,8 @@ app.get('/api/knowledge/status', (_req, res) => {
 app.post('/api/knowledge/setup', async (req, res) => {
   const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not connected' })
-  const parentPageId = req.body?.parent_page_id || getData('notion_sync_parent_id') || null
+  const settings = getData('settings') || {}
+  const parentPageId = req.body?.parent_page_id || settings.notion_sync_parent_id || null
   if (!parentPageId) {
     return res.status(400).json({
       error: 'Set up a Notion sync parent in Settings first, or pass parent_page_id explicitly.',
