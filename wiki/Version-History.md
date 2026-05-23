@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-23
 
+- fix(notion): MCP connect button works on iOS + error feedback [XS]
+  - **Bug.** "Connect via MCP" button did nothing. Two causes: (1) iOS blocks `window.open()` inside async callbacks — by the time the API response arrived, the user gesture had expired. (2) Errors were silently swallowed.
+  - **Fix.** Open a blank popup synchronously on tap, then redirect it after the API responds. Show error text if the call fails. Added `notion-mcp-connected` postMessage handler so the v2 status refreshes when the OAuth popup completes.
+  - Modified: `src/v2/components/SettingsModal.jsx`
+
 - chore(ui): purge all v1 references from v2 Settings [S]
   - Removed broken "Manage in v1" / "Connect in v1" fallback buttons (Notion showed "Open undefined in v1")
   - Removed `switchToV1` function + prop threading through IntegrationsPanel
