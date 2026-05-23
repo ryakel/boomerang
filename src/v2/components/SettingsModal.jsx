@@ -735,7 +735,7 @@ function IntegrationsPanel({
       hint: statuses.notion?.mcpHealth?.needsReauth
         ? 'MCP connection expired — reconnect to restore Quokka + Knowledge Base.'
         : 'Pull pages as tasks, sync edits both ways. MCP-based connection (recommended).',
-      connected: statuses.notion?.mcpHealth?.needsReauth ? 'warn' : !!statuses.notion?.connected,
+      connected: statuses.notion?.mcpHealth?.needsReauth ? 'warn' : !!(statuses.notion?.connected || statuses.notion?.mcpHealth?.connected),
       sync: onNotionSync && settings.notion_sync_parent_id ? { fn: onNotionSync, busy: notionSyncing } : null,
       inline: 'notion-full',
     },
@@ -861,7 +861,7 @@ function IntegrationsPanel({
                       </div>
                     )}
                     {/* Not connected — show Connect button */}
-                    {!statuses.notion?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
+                    {!statuses.notion?.connected && !statuses.notion?.mcpHealth?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
                       <div className="v2-integrations-actions">
                         <button
                           className="v2-settings-btn"
@@ -885,7 +885,7 @@ function IntegrationsPanel({
                         </div>
                       </div>
                     )}
-                    {statuses.notion?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
+                    {(statuses.notion?.connected || statuses.notion?.mcpHealth?.connected) && !statuses.notion?.mcpHealth?.needsReauth && (
                       <>
                         {/* Parent page config */}
                         {settings.notion_sync_parent_id ? (
