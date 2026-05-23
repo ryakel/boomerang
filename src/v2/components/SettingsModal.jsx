@@ -735,7 +735,7 @@ function IntegrationsPanel({
       hint: statuses.notion?.mcpHealth?.needsReauth
         ? 'MCP connection expired — reconnect to restore Quokka + Knowledge Base.'
         : 'Pull pages as tasks, sync edits both ways. MCP-based connection (recommended).',
-      connected: statuses.notion?.mcpHealth?.needsReauth ? 'warn' : !!statuses.notion?.connected,
+      connected: statuses.notion?.mcpHealth?.needsReauth ? 'warn' : !!(statuses.notion?.connected || statuses.notion?.mcpHealth?.connected),
       sync: onNotionSync && settings.notion_sync_parent_id ? { fn: onNotionSync, busy: notionSyncing } : null,
       inline: 'notion-full',
     },
@@ -853,9 +853,15 @@ function IntegrationsPanel({
                 )}
                 {int.inline === 'notion-full' && (
                   <div className="v2-integrations-inline">
-                    {/* Connection controls — always visible */}
-                    {!statuses.notion?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
-                    <>
+                    {/* Error + fallback link — always visible regardless of connection state */}
+                    {notionConnectError && <div className="v2-integrations-warn" style={{ marginBottom: 8 }}>⚠️ {notionConnectError}</div>}
+                    {notionAuthUrl && (
+                      <div className="v2-integrations-hint" style={{ marginBottom: 8 }}>
+                        Popup blocked — <a href={notionAuthUrl} target="_blank" rel="noreferrer">click here to connect</a>
+                      </div>
+                    )}
+                    {/* Not connected — show Connect button */}
+                    {!statuses.notion?.connected && !statuses.notion?.mcpHealth?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
                       <div className="v2-integrations-actions">
                         <button
                           className="v2-settings-btn"
@@ -865,13 +871,6 @@ function IntegrationsPanel({
                           {notionReconnecting ? 'Connecting…' : 'Connect via MCP'}
                         </button>
                       </div>
-                      {notionConnectError && <div className="v2-integrations-error" style={{ marginTop: 8 }}>{notionConnectError}</div>}
-                      {notionAuthUrl && (
-                        <div className="v2-integrations-hint" style={{ marginTop: 8 }}>
-                          Popup blocked — <a href={notionAuthUrl} target="_blank" rel="noreferrer">click here to connect</a>
-                        </div>
-                      )}
-                    </>
                     )}
                     {statuses.notion?.mcpHealth?.needsReauth && (
                       <div className="v2-integrations-warn">
@@ -886,7 +885,7 @@ function IntegrationsPanel({
                         </div>
                       </div>
                     )}
-                    {statuses.notion?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
+                    {(statuses.notion?.connected || statuses.notion?.mcpHealth?.connected) && !statuses.notion?.mcpHealth?.needsReauth && (
                       <>
                         {/* Parent page config */}
                         {settings.notion_sync_parent_id ? (

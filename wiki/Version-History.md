@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-23
 
+- fix(ui): kill 100dvh — pure inset:0 for bottom gap + Notion error always visible [XS]
+  - **Bottom gap.** `bottom: auto; height: 100dvh` was returning a genuinely wrong value on iOS PWA — the gap was 100+ pixels, not sub-pixel. Removed the entire `@supports (height: 100dvh)` block. Pure `position: fixed; inset: 0` + body-bg match. If the keyboard issue (#213) recurs, we'll solve it with JS, not CSS hacks.
+  - **Notion error.** Error text was inside the `!connected && !needsReauth` conditional — if the status was in any other state, errors were invisible. Moved error + fallback-link rendering outside all conditionals so they always show.
+  - Modified: `src/v2/AppV2.css`, `src/v2/components/SettingsModal.jsx`
+
 - feat(ui): port all missing v1 settings to v2 + fix Notion connect popup [L]
   - **Notion connect fix.** Removed about:blank pre-open approach — now opens the popup directly with the auth URL, falls back to a clickable link if popup is blocked. Error text visible inline. Added `notion-mcp-connected` postMessage handler so v2 status refreshes after OAuth.
   - **GCal** (+7 controls): bulk delete events, status filter checkboxes, AI-timed events toggle, fallback time + duration inputs, remove-on-complete toggle, event buffer toggle, pull filter text input, last sync timestamp.
