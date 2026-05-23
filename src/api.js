@@ -443,7 +443,8 @@ export async function notionSearch(query) {
     body: JSON.stringify({ query, limit: 5 }),
   })
   if (!res.ok) throw new Error('Notion search failed')
-  return res.json()
+  const data = await res.json()
+  return data.pages || data
 }
 
 export async function notionCreatePage(title, content, parentPageId) {
