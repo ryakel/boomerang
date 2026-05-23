@@ -128,6 +128,44 @@ export function registerKnowledgeTools() {
     },
     execute: async (args, deps) => {
       ensureKbConfigured(deps)
+
+      // Try MCP create-pages tool first (MCP token doesn't work for REST)
+      if (deps.notionMCP?.connected) {
+        try {
+          const dbId = deps.kbGetData('notion_knowledge_db_id')
+          const bodyMd = args.body || ''
+          const props = [`Name: ${args.title}`]
+          if (args.type) props.push(`Type: ${args.type}`)
+          if (args.tags?.length) props.push(`Tags: ${args.tags.join(', ')}`)
+          if (args.confidence) props.push(`Confidence: ${args.confidence}`)
+          if (args.related_task_ids?.length) props.push(`Related tasks: ${args.related_task_ids.join(', ')}`)
+
+          const result = await deps.notionMCP.callTool('notion-create-pages', {
+            database_id: dbId,
+            properties: props.join('\n'),
+            content: bodyMd,
+          })
+          const raw = result?.content?.[0]?.text || ''
+          const urlMatch = raw.match(/notion\.so\/([a-f0-9]{32})/)
+          if (urlMatch) {
+            const hex = urlMatch[1]
+            const pageId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`
+            const pageUrl = `https://www.notion.so/${hex}`
+            return {
+              result: { notion_page_id: pageId, url: pageUrl, item: { title: args.title, type: args.type } },
+              compensation: async () => {
+                try {
+                  await deps.notionMCP.callTool('notion-update-page', { page_id: pageId, archived: true })
+                } catch (err) { console.warn('[Adviser] knowledge create rollback failed:', err.message) }
+              },
+            }
+          }
+          throw new Error('Could not parse page ID from MCP response')
+        } catch (mcpErr) {
+          console.warn('[Knowledge] MCP create failed, trying REST:', mcpErr?.message)
+        }
+      }
+
       if (!deps.notionToken) throw new Error('Notion not connected')
       const created = await createKnowledgeItem({
         token: deps.notionToken,
