@@ -1192,6 +1192,36 @@
   color: var(--v2-text);
 }
 
+.v2-integrations-sub-settings {
+  padding: 8px 0 4px 12px;
+  border-left: 2px solid var(--v2-hairline);
+  margin: 4px 0 8px;
+}
+
+.v2-integrations-row-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.v2-integrations-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.v2-integrations-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--v2-accent);
+}
+
 /* Inline tab-link styled like an anchor inside a hint paragraph. Used for
  * "configure under Settings → Integrations" pointer in the AI tab. */
 .v2-settings-inline-link {
