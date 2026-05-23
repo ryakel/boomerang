@@ -940,7 +940,9 @@ export default function AppV2() {
                 dailyTaskGoal={settingsForRings.daily_task_goal || 3}
               />
             )}
-            {statsDetail === 'streak' && (
+            {statsDetail === 'streak' && (() => {
+              const bestStreak = Math.max(streak, records.longestStreak)
+              return (
               <div className="v2-stats-detail">
                 <div className="v2-stats-detail-row">
                   <span className="v2-stats-detail-label">Current streak</span>
@@ -948,7 +950,7 @@ export default function AppV2() {
                 </div>
                 <div className="v2-stats-detail-row">
                   <span className="v2-stats-detail-label">Best streak</span>
-                  <span className="v2-stats-detail-value">{records.longestStreak} day{records.longestStreak === 1 ? '' : 's'}</span>
+                  <span className="v2-stats-detail-value">{bestStreak} day{bestStreak === 1 ? '' : 's'}</span>
                 </div>
                 <div className="v2-stats-detail-row">
                   <span className="v2-stats-detail-label">Best day (tasks)</span>
@@ -959,7 +961,8 @@ export default function AppV2() {
                   <span className="v2-stats-detail-value">{records.bestPoints}</span>
                 </div>
               </div>
-            )}
+              )
+            })()}
             {statsDetail === 'today' && (() => {
               const todayStr = new Date().toDateString()
               const doneTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)

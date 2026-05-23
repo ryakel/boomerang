@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-23
 
+- feat(ui): clickable WeekStrip dates + fix best-streak math [S]
+  - **Clickable dates.** Each day cell in the WeekStrip is now a tappable button. Tapping a day opens an inline detail panel below the strip showing tasks completed that day with their point values. Summary line shows total tasks + points. Selected day gets accent highlight. Navigating weeks clears the selection.
+  - **Best-streak fix.** `computeRecords.longestStreak` used a simpler algorithm than `computeStreak` — it only counted raw done-task days, not no-fault days or project sessions. This produced "Best streak: 10" when the current streak was 18. Fixed by using `Math.max(currentStreak, historicalLongest)` so the best streak is always ≥ current.
+  - Modified: `src/v2/components/WeekStrip.jsx`, `src/v2/components/WeekStrip.css`, `src/v2/AppV2.jsx`
+
 - feat(ui): tappable home stats — streak + today detail panels [S]
   - Streak and today counters in the home stats line are now tappable buttons. Tapping opens an inline detail card below the stats line (same slot as WeekStrip, mutually exclusive).
   - **Streak detail**: current streak, best streak, best day (tasks + points).
