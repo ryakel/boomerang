@@ -48,6 +48,16 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* iOS PWA standalone hack: in standalone mode, Safari shifts the
+ * document up by the status bar height (safe-area-inset-top) but
+ * doesn't extend the viewport down to compensate — leaving a white
+ * bar at the bottom. Adding the top inset to min-height fills it. */
+@media (display-mode: standalone) {
+  html {
+    min-height: calc(100% + env(safe-area-inset-top));
+  }
+}
+
 body {
   font-family: var(--font-body);
   font-weight: 400;
