@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-23
 
+- fix(notion): search returns "No pages found" — response shape mismatch [XS]
+  - Server returns `{ pages: [...] }` but client expected a flat array. `Array.isArray({ pages })` → false → empty results. Unwrap `.pages` in `notionSearch()`.
+  - Modified: `src/api.js`
+
 - feat(ui): clickable WeekStrip dates + fix best-streak math [S]
   - **Clickable dates.** Each day cell in the WeekStrip is now a tappable button. Tapping a day opens an inline detail panel below the strip showing tasks completed that day with their point values. Summary line shows total tasks + points. Selected day gets accent highlight. Navigating weeks clears the selection.
   - **Best-streak fix.** `computeRecords.longestStreak` used a simpler algorithm than `computeStreak` — it only counted raw done-task days, not no-fault days or project sessions. This produced "Best streak: 10" when the current streak was 18. Fixed by using `Math.max(currentStreak, historicalLongest)` so the best streak is always ≥ current.
