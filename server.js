@@ -666,9 +666,15 @@ async function mcpSearchPages(queryText) {
 
 app.post('/api/notion/search', async (req, res) => {
   const query = req.body.query || ''
-  const token = await getNotionAccessToken(req)
 
-  // Try REST first if we have a token
+  // MCP connected → use MCP search directly (MCP token doesn't work for REST)
+  if (notionMCP.getStatus().connected) {
+    const mcpResults = await mcpSearchPages(query)
+    if (mcpResults && mcpResults.length > 0) return res.json({ pages: mcpResults })
+  }
+
+  // Fallback: REST with integration token (for users without MCP)
+  const token = await getNotionAccessToken(req)
   if (token) {
     try {
       const response = await fetch(`${NOTION_BASE}/search`, {
@@ -677,23 +683,15 @@ app.post('/api/notion/search', async (req, res) => {
         body: JSON.stringify({ query, filter: { property: 'object', value: 'page' }, page_size: req.body.limit || 5 }),
       })
       const data = await response.json()
-      if (response.ok && (data.results || []).length > 0) {
-        const pages = data.results.map(page => ({
+      if (response.ok) {
+        const pages = (data.results || []).map(page => ({
           id: page.id, title: extractTitle(page), url: page.url, last_edited: page.last_edited_time,
         }))
         return res.json({ pages })
       }
-      if (!response.ok) console.warn('[Notion] REST search failed:', response.status, data?.message || data?.code)
-    } catch (err) {
-      console.warn('[Notion] REST search error:', err?.message)
-    }
+    } catch { /* fall through */ }
   }
 
-  // REST failed or returned empty — try MCP
-  const mcpResults = await mcpSearchPages(query)
-  if (mcpResults && mcpResults.length > 0) return res.json({ pages: mcpResults })
-
-  // Both empty
   res.json({ pages: [] })
 })
 
@@ -875,8 +873,29 @@ app.get('/api/notion/blocks/:id', async (req, res) => {
 
 // Get child pages of a parent page (for sync: discover pages under a parent)
 app.get('/api/notion/children/:id', async (req, res) => {
+  // MCP connected → use MCP directly (MCP token doesn't work for REST)
+  if (notionMCP.getStatus().connected) {
+    try {
+      const result = await notionMCP.callTool('notion-fetch', { resource_uri: `notion://block/${req.params.id}/children` })
+      const raw = result?.content?.[0]?.text
+      if (raw) {
+        let content
+        try { content = JSON.parse(raw) } catch { content = null }
+        if (content) {
+          const blocks = content?.results || content?.children || (Array.isArray(content) ? content : [])
+          const childPages = blocks.filter(b => b.type === 'child_page')
+          const pages = childPages.map(b => ({
+            id: b.id, title: b.child_page?.title || 'Untitled', url: null, last_edited: null,
+          }))
+          return res.json({ pages })
+        }
+      }
+    } catch (mcpErr) {
+      console.warn('[Notion] MCP children fetch failed:', mcpErr?.message)
+    }
+  }
+  // Fallback: REST with integration token (for users without MCP)
   const token = await getNotionAccessToken(req)
-  // Try REST first
   if (token) {
     try {
       let allChildren = []
@@ -905,27 +924,6 @@ app.get('/api/notion/children/:id', async (req, res) => {
       }
     } catch (err) {
       console.warn('[Notion] REST children fetch failed:', err?.message)
-    }
-  }
-  // REST failed or no token — try MCP fetch
-  if (notionMCP.getStatus().connected) {
-    try {
-      const result = await notionMCP.callTool('notion-fetch', { resource_uri: `notion://block/${req.params.id}/children` })
-      const raw = result?.content?.[0]?.text
-      if (raw) {
-        let content
-        try { content = JSON.parse(raw) } catch { content = null }
-        if (content) {
-          const blocks = content?.results || content?.children || (Array.isArray(content) ? content : [])
-          const childPages = blocks.filter(b => b.type === 'child_page')
-          const pages = childPages.map(b => ({
-            id: b.id, title: b.child_page?.title || 'Untitled', url: null, last_edited: null,
-          }))
-          return res.json({ pages })
-        }
-      }
-    } catch (mcpErr) {
-      console.warn('[Notion] MCP children fetch failed:', mcpErr?.message)
     }
   }
   res.json({ pages: [] })
@@ -1489,7 +1487,7 @@ app.post('/api/notion/mcp/disconnect', async (req, res) => {
 app.get('/api/notion/mcp/tools', async (req, res) => {
   try {
     const tools = await notionMCP.listTools()
-    res.json({ tools: tools.map(t => ({ name: t.name, description: t.description })) })
+    res.json({ tools: tools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) })
   } catch (err) {
     res.status(500).json({ error: err?.message || 'Failed to list tools' })
   }
@@ -1514,7 +1512,13 @@ app.post('/api/knowledge/setup', async (req, res) => {
       error: 'Set up a Notion sync parent in Settings first, or pass parent_page_id explicitly.',
     })
   }
-  // Try REST-based setup first
+  // Existing DB? Return it.
+  const existing = getData('notion_knowledge_db_id')
+  if (existing) {
+    return res.json({ database_id: existing, url: getData('notion_knowledge_db_url'), created: false })
+  }
+
+  // Try REST first if we have a working token
   if (token) {
     try {
       const result = await ensureKnowledgeDatabase({ token, parentPageId, getData, setData })
@@ -1523,36 +1527,59 @@ app.post('/api/knowledge/setup', async (req, res) => {
       })
       return res.json(result)
     } catch (err) {
-      console.warn('[Knowledge] REST setup failed:', err.message, '— trying MCP')
+      console.warn('[Knowledge] REST setup failed:', err.message)
     }
   }
-  // REST failed or no token — create via MCP notion-create-database tool
+
+  // MCP path — use notion-create-database tool
   if (!notionMCP.getStatus().connected) {
     return res.status(400).json({ error: 'Notion not connected. Connect via MCP in Settings.' })
   }
   try {
-    const existing = getData('notion_knowledge_db_id')
-    if (existing) {
-      return res.json({ database_id: existing, url: getData('notion_knowledge_db_url'), created: false })
+    // The MCP tool schema is unknown — try common parameter shapes.
+    // Log the full tool schema on first failure for diagnostics.
+    const tools = notionMCP.getCachedTools()
+    const createDbTool = tools.find(t => t.name === 'notion-create-database')
+    if (!createDbTool) throw new Error('notion-create-database tool not available')
+
+    // Build the Notion API body as a JSON string for the schema parameter
+    const notionDbBody = {
+      parent: { type: 'page_id', page_id: parentPageId },
+      title: [{ type: 'text', text: { content: 'Boomerang Knowledge' } }],
+      properties: {
+        'Name': { title: {} },
+        'Type': { select: { options: [{ name: 'Location' }, { name: 'How-to' }, { name: 'Decision' }, { name: 'Person' }] } },
+        'Tags': { multi_select: { options: [] } },
+        'Related tasks': { rich_text: {} },
+        'Confidence': { select: { options: [{ name: 'Certain' }, { name: 'Fuzzy' }] } },
+      },
     }
-    const result = await notionMCP.callTool('notion-create-database', {
-      parent_page_id: parentPageId,
-      title: 'Boomerang Knowledge',
-      properties: [
-        { name: 'Name', type: 'title' },
-        { name: 'Type', type: 'select', options: ['Location', 'How-to', 'Decision', 'Person'] },
-        { name: 'Tags', type: 'multi_select' },
-        { name: 'Related tasks', type: 'rich_text' },
-        { name: 'Confidence', type: 'select', options: ['Certain', 'Fuzzy'] },
-      ],
-    })
+
+    // Try with schema string (most likely based on the error)
+    let result
+    try {
+      result = await notionMCP.callTool('notion-create-database', {
+        parent_page_id: parentPageId,
+        schema: JSON.stringify(notionDbBody),
+      })
+    } catch (e1) {
+      // If that fails, try just the raw Notion API body as args
+      console.warn('[Knowledge] MCP create-database schema attempt failed:', e1?.message)
+      console.log('[Knowledge] Tool inputSchema:', JSON.stringify(createDbTool.inputSchema))
+      result = await notionMCP.callTool('notion-create-database', notionDbBody)
+    }
+
+    if (result?.isError) {
+      const errText = (result.content || []).map(c => c.text || '').join(' ')
+      throw new Error('MCP create-database error: ' + errText)
+    }
     const raw = result?.content?.[0]?.text
     if (!raw) throw new Error('MCP create-database returned no content')
     let content
-    try { content = JSON.parse(raw) } catch { throw new Error('MCP create-database returned non-JSON: ' + (raw || '').slice(0, 200)) }
+    try { content = JSON.parse(raw) } catch { throw new Error('MCP create-database returned non-JSON: ' + (raw || '')) }
     const dbId = content?.id || content?.database_id
     const dbUrl = content?.url
-    if (!dbId) throw new Error('MCP create-database returned no database ID')
+    if (!dbId) throw new Error('MCP create-database returned no database ID. Response: ' + JSON.stringify(content).slice(0, 500))
     setData('notion_knowledge_db_id', dbId)
     setData('notion_knowledge_db_url', dbUrl || null)
     console.log(`[Knowledge] Created Notion database via MCP: ${dbId}`)
