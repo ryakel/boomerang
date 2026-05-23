@@ -15,19 +15,19 @@
 /* iOS PWA viewport fix (issue #213). After keyboard show/hide on iOS
  * Safari standalone, `position: fixed; inset: 0` anchors to a stale
  * layout viewport — the v2-app draws shorter than the visual viewport
- * and exposes a strip of body bg below the bottom tab bar that only
- * a hard PWA-kill restores. `100dvh` (dynamic viewport height) tracks
- * the live visual viewport across all the iOS URL bar / keyboard /
- * orientation transitions, so the app stays correctly sized.
+ * and exposes body bg below BottomTabs. `min-height: 100dvh` (dynamic
+ * viewport height) prevents the container from shrinking after keyboard
+ * transitions, while `inset: 0` (specifically bottom: 0) keeps the
+ * container anchored to the screen bottom on first render when iOS may
+ * report a stale dvh value.
  *
- * Wrapped in @supports so older browsers (pre-iOS 16 Safari) fall back
- * to the inset:0 anchoring above. Boomerang's PWA targets iOS 16.4+
- * for Web Push anyway, so dvh is the default path for nearly all
- * users; the fallback is just defensive. */
+ * Previous approach (bottom: auto + height: 100dvh) dropped the bottom
+ * anchor entirely, which caused the container to float short on some
+ * iOS PWA cold starts — surfacing as BottomTabs "raised" with a gap
+ * underneath. Keeping bottom: 0 + min-height solves both directions. */
 @supports (height: 100dvh) {
   .v2-app {
-    bottom: auto;
-    height: 100dvh;
+    min-height: 100dvh;
   }
 }
 
@@ -71,6 +71,76 @@
   font: 500 13px/1.2 var(--v2-font-body);
   color: var(--v2-text-meta);
   text-align: center;
+}
+
+/* Tappable streak + today buttons — same inline treatment as the date
+ * toggle: stripped button chrome, accent on active/hover. */
+.v2-thx-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-thx-btn:hover,
+.v2-thx-btn:focus-visible {
+  color: var(--v2-accent);
+  outline: none;
+}
+
+.v2-thx-btn-active {
+  color: var(--v2-accent);
+}
+
+/* Inline detail panel — slides below the home stats line for streak
+ * or today progress. Hairline-list aesthetic, centered like stats. */
+.v2-stats-detail {
+  max-width: 320px;
+  margin: 0 auto 8px;
+  padding: 10px 16px;
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-hairline);
+  border-radius: var(--v2-radius-card, 12px);
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text-secondary);
+}
+
+.v2-stats-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.v2-stats-detail-row + .v2-stats-detail-row {
+  border-top: 1px solid var(--v2-hairline);
+}
+
+.v2-stats-detail-label {
+  color: var(--v2-text-meta);
+}
+
+.v2-stats-detail-value {
+  font-weight: 600;
+  color: var(--v2-text);
+}
+
+.v2-stats-detail-done {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--v2-hairline);
+}
+
+.v2-stats-detail-done-item {
+  padding: 3px 0;
+  color: var(--v2-text-meta);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Inline code in body copy (keyboard hints, URL flags, etc.) */
