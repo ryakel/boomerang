@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-23
 
+- feat(ui): port all missing v1 settings to v2 + fix Notion connect popup [L]
+  - **Notion connect fix.** Removed about:blank pre-open approach — now opens the popup directly with the auth URL, falls back to a clickable link if popup is blocked. Error text visible inline. Added `notion-mcp-connected` postMessage handler so v2 status refreshes after OAuth.
+  - **GCal** (+7 controls): bulk delete events, status filter checkboxes, AI-timed events toggle, fallback time + duration inputs, remove-on-complete toggle, event buffer toggle, pull filter text input, last sync timestamp.
+  - **Trello** (+3 controls): multi-list sync checkboxes, status mapping display + re-infer button, last sync timestamp.
+  - **Gmail** (+2 controls): reset & rescan button, last sync timestamp.
+  - **Weather** (+3 controls): enable/disable toggle, refresh now button, per-task tag hint text.
+  - **17track** (+5 controls): dedicated inline section (was generic api-key), test connection button, retention days input, 4 package notification toggles (delivered, exception, signature, auto-task).
+  - **Notifications** (+3 controls): pile-up thresholds (percentage + days), digest style picker (curated vs counts), email recipient address input.
+  - **CSS**: Added `.v2-integrations-sub-settings` (indented subsection), `.v2-integrations-row-compact` (inline input row), `.v2-integrations-check` (checkbox label).
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `wiki/Version-History.md`
+
 - fix(notion): MCP connect button works on iOS + error feedback [XS]
   - **Bug.** "Connect via MCP" button did nothing. Two causes: (1) iOS blocks `window.open()` inside async callbacks — by the time the API response arrived, the user gesture had expired. (2) Errors were silently swallowed.
   - **Fix.** Open a blank popup synchronously on tap, then redirect it after the API responds. Show error text if the call fails. Added `notion-mcp-connected` postMessage handler so the v2 status refreshes when the OAuth popup completes.

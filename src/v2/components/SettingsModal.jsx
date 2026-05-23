@@ -317,6 +317,10 @@ function IntegrationsPanel({
   const [emergencyConfirm, setEmergencyConfirm] = useState(false)
   const [gmailSyncing, setGmailSyncing] = useState(false)
   const [gmailSyncResult, setGmailSyncResult] = useState(null)
+  const [gcalBulkDeleting, setGcalBulkDeleting] = useState(false)
+  const [gcalBulkDeleteResult, setGcalBulkDeleteResult] = useState(null)
+  const [trackingTestResult, setTrackingTestResult] = useState(null)
+  const [gmailResetting, setGmailResetting] = useState(false)
   const [weatherQuery, setWeatherQuery] = useState('')
   const [weatherResults, setWeatherResults] = useState([])
   const [weatherSearching, setWeatherSearching] = useState(false)
@@ -463,6 +467,44 @@ function IntegrationsPanel({
     } catch { /* swallow */ }
   }
 
+  const handleGcalBulkDelete = async () => {
+    setGcalBulkDeleting(true)
+    setGcalBulkDeleteResult(null)
+    try {
+      const api = await import('../../api')
+      const r = await api.gcalBulkDeleteEvents(settings.gcal_calendar_id || 'primary')
+      setGcalBulkDeleteResult(`Deleted ${r.deleted || 0} events, unlinked ${r.unlinked || 0} tasks`)
+    } catch (e) { setGcalBulkDeleteResult(e?.message || 'Failed') }
+    finally { setGcalBulkDeleting(false) }
+  }
+
+  const handleTrackingTest = async () => {
+    setTrackingTestResult(null)
+    try {
+      const api = await import('../../api')
+      const r = await api.testTrackingConnection()
+      setTrackingTestResult(r?.ok ? `Connected — ${r.remaining ?? '?'} queries remaining` : (r?.error || 'Failed'))
+    } catch (e) { setTrackingTestResult(e?.message || 'Failed') }
+  }
+
+  const handleGmailReset = async () => {
+    setGmailResetting(true)
+    try {
+      const api = await import('../../api')
+      await api.gmailReset()
+      await api.gmailSync()
+      setGmailSyncResult('Reset complete — rescanning…')
+    } catch { /* swallow */ }
+    finally { setGmailResetting(false) }
+  }
+
+  const handleWeatherRefresh = async () => {
+    try {
+      const api = await import('../../api')
+      await api.refreshWeather({ force: true })
+    } catch { /* swallow */ }
+  }
+
   // Popup postMessage handlers — refresh status when the OAuth callback page
   // signals success.
   useEffect(() => {
@@ -527,26 +569,24 @@ function IntegrationsPanel({
   }
 
   const [notionConnectError, setNotionConnectError] = useState(null)
+  const [notionAuthUrl, setNotionAuthUrl] = useState(null)
 
   const reconnectNotionMCP = async () => {
     setNotionReconnecting(true)
     setNotionConnectError(null)
-    const popup = window.open('about:blank', 'notion-mcp-auth', 'width=600,height=700')
+    setNotionAuthUrl(null)
     try {
       const api = await import('../../api')
       const result = await api.notionMCPConnect()
       if (result.alreadyAuthorized) {
-        if (popup) popup.close()
         const s = await api.notionStatus()
         setStatuses(prev => ({ ...prev, notion: s }))
       } else if (result.authUrl) {
-        if (popup) { popup.location = result.authUrl } else { window.open(result.authUrl, 'notion-mcp-auth', 'width=600,height=700') }
-      } else {
-        if (popup) popup.close()
+        const popup = window.open(result.authUrl, 'notion-mcp-auth', 'width=600,height=700')
+        if (!popup) setNotionAuthUrl(result.authUrl)
       }
     } catch (e) {
-      if (popup) popup.close()
-      setNotionConnectError(e?.message || 'Connection failed')
+      setNotionConnectError(e?.message || 'Connection failed — check server logs for details')
     } finally {
       setNotionReconnecting(false)
     }
@@ -732,9 +772,7 @@ function IntegrationsPanel({
       label: '17track (packages)',
       hint: 'Server-side polling for delivery status across most major carriers.',
       connected: envKeys.tracking || !!settings.tracking_api_key,
-      inline: 'api-key',
-      keyName: 'tracking_api_key',
-      envFlag: envKeys.tracking,
+      inline: 'tracking',
     },
     {
       key: 'weather',
@@ -828,6 +866,11 @@ function IntegrationsPanel({
                         </button>
                       </div>
                       {notionConnectError && <div className="v2-integrations-error" style={{ marginTop: 8 }}>{notionConnectError}</div>}
+                      {notionAuthUrl && (
+                        <div className="v2-integrations-hint" style={{ marginTop: 8 }}>
+                          Popup blocked — <a href={notionAuthUrl} target="_blank" rel="noreferrer">click here to connect</a>
+                        </div>
+                      )}
                     </>
                     )}
                     {statuses.notion?.mcpHealth?.needsReauth && (
@@ -1107,17 +1150,48 @@ function IntegrationsPanel({
                         {trelloListsLoading ? (
                           <div className="v2-integrations-hint">Loading lists…</div>
                         ) : (
-                          <select
-                            className="v2-form-input"
-                            value={settings.trello_list_id || ''}
-                            onChange={e => update('trello_list_id', e.target.value)}
-                          >
-                            <option value="" disabled>Select a list…</option>
-                            {trelloLists.map(l => (
-                              <option key={l.id} value={l.id}>{l.name}</option>
-                            ))}
-                          </select>
+                          <>
+                            <select
+                              className="v2-form-input"
+                              value={settings.trello_list_id || ''}
+                              onChange={e => update('trello_list_id', e.target.value)}
+                            >
+                              <option value="" disabled>Select a list…</option>
+                              {trelloLists.map(l => (
+                                <option key={l.id} value={l.id}>{l.name}</option>
+                              ))}
+                            </select>
+                            {trelloLists.length > 0 && (
+                              <div className="v2-integrations-sub-settings">
+                                <label className="v2-form-label">Sync from lists</label>
+                                <div className="v2-integrations-hint">Select which lists to pull tasks from during sync.</div>
+                                {trelloLists.map(l => {
+                                  const syncIds = settings.trello_sync_list_ids || [settings.trello_list_id].filter(Boolean)
+                                  return (
+                                    <label key={l.id} className="v2-integrations-check">
+                                      <input type="checkbox" checked={syncIds.includes(l.id)} onChange={e => {
+                                        const cur = settings.trello_sync_list_ids || [settings.trello_list_id].filter(Boolean)
+                                        update('trello_sync_list_ids', e.target.checked ? [...cur, l.id] : cur.filter(id => id !== l.id))
+                                      }} />
+                                      <span>{l.name}</span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            )}
+                            {settings.trello_list_mapping && (
+                              <div className="v2-integrations-sub-settings">
+                                <div className="v2-integrations-hint">Status mapping</div>
+                                {Object.entries(settings.trello_list_mapping).map(([status, listId]) => {
+                                  const list = trelloLists.find(l => l.id === listId)
+                                  return <div key={status} className="v2-integrations-hint">{list?.name || listId} → <strong>{status}</strong></div>
+                                })}
+                                <button className="v2-settings-btn" onClick={() => update('trello_list_mapping', null)}>Re-infer mapping</button>
+                              </div>
+                            )}
+                          </>
                         )}
+                        {settings.trello_last_sync && <div className="v2-integrations-hint">Last sync: {new Date(settings.trello_last_sync).toLocaleString()}</div>}
                       </>
                     )}
                   </div>
@@ -1125,109 +1199,127 @@ function IntegrationsPanel({
                 {int.inline === 'gcal-config' && (
                   <div className="v2-integrations-inline">
                     <div className="v2-integrations-actions" style={{ marginBottom: 8 }}>
-                      <button
-                        type="button"
-                        className="v2-settings-btn v2-settings-btn-danger"
-                        onClick={handleGcalDisconnect}
-                      >
-                        Disconnect
+                      <button type="button" className="v2-settings-btn v2-settings-btn-danger" onClick={handleGcalDisconnect}>Disconnect</button>
+                      <button type="button" className="v2-settings-btn" onClick={handleGcalBulkDelete} disabled={gcalBulkDeleting}>
+                        {gcalBulkDeleting ? 'Deleting…' : 'Remove All Events'}
                       </button>
                     </div>
+                    {gcalBulkDeleteResult && <div className="v2-integrations-hint">{gcalBulkDeleteResult}</div>}
                     <label className="v2-form-label">Calendar</label>
-                    <select
-                      className="v2-form-input"
-                      value={settings.gcal_calendar_id || 'primary'}
-                      onChange={e => update('gcal_calendar_id', e.target.value)}
-                    >
+                    <select className="v2-form-input" value={settings.gcal_calendar_id || 'primary'} onChange={e => update('gcal_calendar_id', e.target.value)}>
                       {gcalCalendars.length === 0 && <option value="primary">Primary</option>}
-                      {gcalCalendars.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.summary}{c.primary ? ' (Primary)' : ''}
-                        </option>
-                      ))}
+                      {gcalCalendars.map(c => <option key={c.id} value={c.id}>{c.summary}{c.primary ? ' (Primary)' : ''}</option>)}
                     </select>
                     <div className="v2-integrations-toggle-row">
                       <span>Push tasks as calendar events</span>
                       <label className="v2-settings-toggle">
-                        <input
-                          type="checkbox"
-                          checked={!!settings.gcal_sync_enabled}
-                          onChange={e => update('gcal_sync_enabled', e.target.checked)}
-                        />
+                        <input type="checkbox" checked={!!settings.gcal_sync_enabled} onChange={e => update('gcal_sync_enabled', e.target.checked)} />
                         <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
                       </label>
                     </div>
+                    {settings.gcal_sync_enabled && (
+                      <div className="v2-integrations-sub-settings">
+                        <div className="v2-integrations-hint">Sync tasks with these statuses:</div>
+                        {['not_started', 'doing', 'waiting', 'open'].map(status => (
+                          <label key={status} className="v2-integrations-check">
+                            <input type="checkbox" checked={(settings.gcal_sync_statuses || []).includes(status)} onChange={e => {
+                              const cur = settings.gcal_sync_statuses || []
+                              update('gcal_sync_statuses', e.target.checked ? [...cur, status] : cur.filter(s => s !== status))
+                            }} />
+                            <span>{status.replace('_', ' ')}</span>
+                          </label>
+                        ))}
+                        <div className="v2-integrations-toggle-row">
+                          <span>AI-timed events (vs all-day)</span>
+                          <label className="v2-settings-toggle">
+                            <input type="checkbox" checked={!!settings.gcal_use_timed_events} onChange={e => update('gcal_use_timed_events', e.target.checked)} />
+                            <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                          </label>
+                        </div>
+                        {settings.gcal_use_timed_events && (
+                          <div className="v2-integrations-row-compact">
+                            <label className="v2-integrations-hint">Fallback time</label>
+                            <input type="time" className="v2-form-input v2-settings-compact-input" value={settings.gcal_default_time || '09:00'} onChange={e => update('gcal_default_time', e.target.value)} />
+                            <label className="v2-integrations-hint">Duration (min)</label>
+                            <input type="number" className="v2-form-input v2-settings-compact-input" min={5} max={480} value={settings.gcal_event_duration || 60} onChange={e => update('gcal_event_duration', parseInt(e.target.value, 10) || 60)} />
+                          </div>
+                        )}
+                        <div className="v2-integrations-toggle-row">
+                          <span>Remove events when tasks completed</span>
+                          <label className="v2-settings-toggle">
+                            <input type="checkbox" checked={settings.gcal_remove_on_complete !== false} onChange={e => update('gcal_remove_on_complete', e.target.checked)} />
+                            <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                          </label>
+                        </div>
+                        <div className="v2-integrations-toggle-row">
+                          <span>15-min buffer around events</span>
+                          <label className="v2-settings-toggle">
+                            <input type="checkbox" checked={!!settings.gcal_event_buffer} onChange={e => update('gcal_event_buffer', e.target.checked)} />
+                            <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
                     <div className="v2-integrations-toggle-row">
                       <span>Pull events as tasks</span>
                       <label className="v2-settings-toggle">
-                        <input
-                          type="checkbox"
-                          checked={!!settings.gcal_pull_enabled}
-                          onChange={e => update('gcal_pull_enabled', e.target.checked)}
-                        />
+                        <input type="checkbox" checked={!!settings.gcal_pull_enabled} onChange={e => update('gcal_pull_enabled', e.target.checked)} />
                         <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
                       </label>
                     </div>
+                    {settings.gcal_pull_enabled && (
+                      <div className="v2-integrations-sub-settings">
+                        <label className="v2-form-label">Filter by title (optional)</label>
+                        <input className="v2-form-input" placeholder="e.g. FAA, IFR Exam…" value={settings.gcal_pull_filter || ''} onChange={e => update('gcal_pull_filter', e.target.value)} />
+                        {settings.gcal_last_sync && <div className="v2-integrations-hint">Last sync: {new Date(settings.gcal_last_sync).toLocaleString()}</div>}
+                      </div>
+                    )}
                   </div>
                 )}
                 {int.inline === 'gmail-config' && (
                   <div className="v2-integrations-inline">
                     <div className="v2-integrations-actions" style={{ marginBottom: 8 }}>
-                      <button
-                        type="button"
-                        className="v2-settings-btn v2-settings-btn-danger"
-                        onClick={handleGmailDisconnect}
-                      >
-                        Disconnect
+                      <button type="button" className="v2-settings-btn v2-settings-btn-danger" onClick={handleGmailDisconnect}>Disconnect</button>
+                      <button type="button" className="v2-settings-btn" onClick={handleGmailReset} disabled={gmailResetting}>
+                        {gmailResetting ? 'Resetting…' : 'Reset & Rescan'}
                       </button>
                     </div>
                     <div className="v2-integrations-toggle-row">
                       <span>Auto-scan inbox for tasks &amp; tracking numbers</span>
                       <label className="v2-settings-toggle">
-                        <input
-                          type="checkbox"
-                          checked={!!settings.gmail_sync_enabled}
-                          onChange={e => update('gmail_sync_enabled', e.target.checked)}
-                        />
+                        <input type="checkbox" checked={!!settings.gmail_sync_enabled} onChange={e => update('gmail_sync_enabled', e.target.checked)} />
                         <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
                       </label>
                     </div>
                     <div className="v2-integrations-toggle-row">
                       <span>Scan window (days back)</span>
-                      <input
-                        className="v2-form-input v2-settings-compact-input"
-                        type="number"
-                        min="1"
-                        max="30"
-                        value={settings.gmail_scan_days || 7}
-                        onChange={e => update('gmail_scan_days', parseInt(e.target.value, 10) || 7)}
-                      />
+                      <input className="v2-form-input v2-settings-compact-input" type="number" min="1" max="30" value={settings.gmail_scan_days || 7} onChange={e => update('gmail_scan_days', parseInt(e.target.value, 10) || 7)} />
                     </div>
+                    {settings.gmail_last_sync && <div className="v2-integrations-hint">Last sync: {new Date(settings.gmail_last_sync).toLocaleString()}</div>}
                   </div>
                 )}
                 {int.inline === 'weather' && (
                   <div className="v2-integrations-inline">
+                    <div className="v2-integrations-toggle-row">
+                      <span>Enable weather features</span>
+                      <label className="v2-settings-toggle">
+                        <input type="checkbox" checked={!!settings.weather_enabled} onChange={e => update('weather_enabled', e.target.checked)} />
+                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                      </label>
+                    </div>
                     {settings.weather_latitude && settings.weather_location_name ? (
                       <div className="v2-weather-current">
                         <div className="v2-weather-current-label">📍 {settings.weather_location_name}</div>
-                        <button className="v2-settings-btn" onClick={clearWeatherLocation}>Change location</button>
+                        <div className="v2-integrations-actions">
+                          <button className="v2-settings-btn" onClick={clearWeatherLocation}>Change location</button>
+                          <button className="v2-settings-btn" onClick={handleWeatherRefresh}>Refresh now</button>
+                        </div>
                       </div>
                     ) : (
                       <>
                         <div className="v2-weather-search">
-                          <input
-                            type="text"
-                            className="v2-form-input"
-                            placeholder="City or zip code…"
-                            value={weatherQuery}
-                            onChange={e => setWeatherQuery(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runWeatherSearch() } }}
-                          />
-                          <button
-                            className="v2-settings-btn"
-                            onClick={runWeatherSearch}
-                            disabled={weatherSearching || !weatherQuery.trim()}
-                          >
+                          <input type="text" className="v2-form-input" placeholder="City or zip code…" value={weatherQuery} onChange={e => setWeatherQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runWeatherSearch() } }} />
+                          <button className="v2-settings-btn" onClick={runWeatherSearch} disabled={weatherSearching || !weatherQuery.trim()}>
                             {weatherSearching ? 'Searching…' : 'Search'}
                           </button>
                         </div>
@@ -1235,16 +1327,61 @@ function IntegrationsPanel({
                         {weatherResults.length > 0 && (
                           <ul className="v2-weather-results">
                             {weatherResults.map((r, i) => (
-                              <li key={i}>
-                                <button className="v2-weather-result" onClick={() => pickWeatherLocation(r)}>
-                                  {r.label}
-                                </button>
-                              </li>
+                              <li key={i}><button className="v2-weather-result" onClick={() => pickWeatherLocation(r)}>{r.label}</button></li>
                             ))}
                           </ul>
                         )}
                       </>
                     )}
+                    <div className="v2-integrations-hint">Per-task: tag a task <code>outside</code> to force-show weather, or <code>inside</code> to collapse it. Otherwise auto-detected from energy + title.</div>
+                  </div>
+                )}
+                {int.inline === 'tracking' && (
+                  <div className="v2-integrations-inline">
+                    {envKeys.tracking ? (
+                      <div className="v2-integrations-hint">Provided via env var.</div>
+                    ) : (
+                      <input type="password" className="v2-form-input" placeholder="17track API key…" value={settings.tracking_api_key || ''} onChange={e => update('tracking_api_key', e.target.value)} />
+                    )}
+                    <div className="v2-integrations-actions">
+                      <button className="v2-settings-btn" onClick={handleTrackingTest}>Test Connection</button>
+                    </div>
+                    {trackingTestResult && <div className="v2-integrations-hint">{trackingTestResult}</div>}
+                    <div className="v2-integrations-toggle-row">
+                      <span>Auto-cleanup after</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <input type="number" className="v2-form-input v2-settings-compact-input" min={1} max={30} value={settings.package_retention_days ?? 3} onChange={e => update('package_retention_days', parseInt(e.target.value, 10) || 3)} />
+                        <span className="v2-integrations-hint">days</span>
+                      </div>
+                    </div>
+                    <div className="v2-integrations-toggle-row">
+                      <span>Notify on delivery</span>
+                      <label className="v2-settings-toggle">
+                        <input type="checkbox" checked={settings.package_notify_delivered !== false} onChange={e => update('package_notify_delivered', e.target.checked)} />
+                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                      </label>
+                    </div>
+                    <div className="v2-integrations-toggle-row">
+                      <span>Notify on delays / exceptions</span>
+                      <label className="v2-settings-toggle">
+                        <input type="checkbox" checked={settings.package_notify_exception !== false} onChange={e => update('package_notify_exception', e.target.checked)} />
+                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                      </label>
+                    </div>
+                    <div className="v2-integrations-toggle-row">
+                      <span>Notify when signature required</span>
+                      <label className="v2-settings-toggle">
+                        <input type="checkbox" checked={settings.package_notify_signature !== false} onChange={e => update('package_notify_signature', e.target.checked)} />
+                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                      </label>
+                    </div>
+                    <div className="v2-integrations-toggle-row">
+                      <span>Auto-create errand task for signature</span>
+                      <label className="v2-settings-toggle">
+                        <input type="checkbox" checked={settings.package_auto_task_signature !== false} onChange={e => update('package_auto_task_signature', e.target.checked)} />
+                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+                      </label>
+                    </div>
                   </div>
                 )}
                 {int.inline === 'pushover' && (
@@ -1658,6 +1795,22 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
+      {/* Pile-up thresholds */}
+      <div className="v2-settings-block">
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Pile-up thresholds</div>
+            <div className="v2-settings-row-hint">Fire a pile-up warning when this percentage of active tasks are older than N days.</div>
+          </div>
+        </div>
+        <div className="v2-integrations-row-compact" style={{ paddingBottom: 8 }}>
+          <input type="number" className="v2-form-input v2-settings-compact-input" min={0} max={100} value={settings.stale_warn_pct ?? 50} onChange={e => update('stale_warn_pct', parseInt(e.target.value, 10) || 0)} />
+          <span className="v2-integrations-hint">% older than</span>
+          <input type="number" className="v2-form-input v2-settings-compact-input" min={1} max={90} value={settings.stale_warn_days ?? 7} onChange={e => update('stale_warn_days', parseInt(e.target.value, 10) || 7)} />
+          <span className="v2-integrations-hint">days</span>
+        </div>
+      </div>
+
       {/* Quiet hours — section header is the toggle row, no redundant sub-toggle */}
       <div className="v2-settings-block">
         <div className="v2-settings-row">
@@ -1752,12 +1905,16 @@ function NotificationsPanel({ settings, update }) {
             <label className="v2-settings-row-label">Delivery time</label>
             <div className="v2-settings-row-hint">Local time on the server. Default 07:00.</div>
           </div>
-          <input
-            type="time"
-            className="v2-form-input v2-settings-time-input"
-            value={settings.digest_time || '07:00'}
-            onChange={e => update('digest_time', e.target.value)}
-          />
+          <input type="time" className="v2-form-input v2-settings-time-input" value={settings.digest_time || '07:00'} onChange={e => update('digest_time', e.target.value)} />
+        </div>
+        <div className="v2-settings-row" style={{ marginTop: 8 }}>
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">Digest style</label>
+          </div>
+          <select className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide" value={settings.digest_style || 'curated'} onChange={e => update('digest_style', e.target.value)}>
+            <option value="curated">Curated</option>
+            <option value="counts">Counts only</option>
+          </select>
         </div>
         </>)}
       </div>
@@ -1885,11 +2042,18 @@ function NotificationsPanel({ settings, update }) {
         </div>
       )}
 
-      {/* Email deliverability — From override + batch mode */}
+      {/* Email deliverability — recipient + From override + batch mode */}
       <div className="v2-settings-block">
-        <SectionHeader k="email_deliv" label="Email deliverability" hint="Override the From header so emails come from a domain you control with SPF/DKIM/DMARC. The single biggest factor in keeping digests out of spam." />
+        <SectionHeader k="email_deliv" label="Email deliverability" hint="Recipient, From header overrides (SPF/DKIM/DMARC), and batch mode." />
         {!isCollapsed('email_deliv') && (<>
         <div className="v2-settings-row" style={{ marginTop: 8 }}>
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Recipient email</div>
+            <div className="v2-settings-row-hint">Where notifications go. Can also be set via NOTIFICATION_EMAIL env var.</div>
+          </div>
+          <input className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide" type="email" placeholder="you@example.com" value={settings.email_address || ''} onChange={e => update('email_address', e.target.value)} />
+        </div>
+        <div className="v2-settings-row">
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">From name</div>
           </div>
