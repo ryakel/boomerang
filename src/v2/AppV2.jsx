@@ -49,6 +49,7 @@ import { useGCalSync } from '../hooks/useGCalSync'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask } from '../api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, computeRoutineStreak, logActivity, localYMD } from '../store'
+import { computeRecords } from '../scoring'
 import './AppV2.css'
 
 export default function AppV2() {
@@ -105,6 +106,8 @@ export default function AppV2() {
     const isTerm = typeof theme === 'string' && theme.startsWith('terminal')
     return !!s.week_strip_always_open || (!isTerm && !!s.show_week_strip)
   })
+  // Which home-stats detail section is expanded: 'streak' | 'today' | null
+  const [statsDetail, setStatsDetail] = useState(null)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
   const [sortBy, setSortBy] = useState(() => loadSettings().sort_by || 'age')
@@ -369,6 +372,7 @@ export default function AppV2() {
   const settingsForRings = loadSettings()
   const dailyStats = computeDailyStats(tasks, settingsForRings)
   const streak = computeStreak(tasks, settingsForRings)
+  const records = useMemo(() => computeRecords(tasks), [tasks])
   // Per-routine streak map → threaded down to TaskCard so routine-spawned
   // tasks can render an inline 🔥N. Recomputed only when `routines` changes.
   const routineStreaks = useMemo(() => {
@@ -897,18 +901,13 @@ export default function AppV2() {
           />
         ) : (
           <div className="v2-list">
-            {/* Home header: date + streak + today's progress on one line.
-              * Lifted to all themes 2026-05-17. The 📅 date is the
-              * always-tappable toggle for the WeekStrip below — works
-              * regardless of the `week_strip_always_open` setting (which
-              * only seeds the initial state). User can hide-on-demand
-              * even when the always-open default is on; next reload
-              * restores the default. */}
+            {/* Home stats line — every segment is tappable.
+              * Date → WeekStrip. Streak → streak detail. Today → daily detail. */}
             <div className="v2-home-stats" aria-hidden="false">
               <button
                 type="button"
                 className={`v2-thx-date v2-thx-date-toggle${weekStripShown ? ' v2-thx-date-open' : ''}`}
-                onClick={() => setWeekStripShown(v => !v)}
+                onClick={() => { setWeekStripShown(v => !v); setStatsDetail(null) }}
                 aria-expanded={weekStripShown}
                 aria-controls="v2-week-strip-days"
                 aria-label={weekStripShown ? 'Hide 7-day strip' : 'Show 7-day strip'}
@@ -917,13 +916,23 @@ export default function AppV2() {
                 <span className="v2-thx-date-chev" aria-hidden="true">{weekStripShown ? '▴' : '▾'}</span>
               </button>
               <span className="v2-thx-sep">·</span>
-              <span className="v2-thx-streak">
+              <button
+                type="button"
+                className={`v2-thx-btn v2-thx-streak${statsDetail === 'streak' ? ' v2-thx-btn-active' : ''}`}
+                onClick={() => { setStatsDetail(v => v === 'streak' ? null : 'streak'); setWeekStripShown(false) }}
+                aria-expanded={statsDetail === 'streak'}
+              >
                 🔥 {streak} day{streak === 1 ? '' : 's'}
-              </span>
+              </button>
               <span className="v2-thx-sep">·</span>
-              <span className="v2-thx-today">
+              <button
+                type="button"
+                className={`v2-thx-btn v2-thx-today${statsDetail === 'today' ? ' v2-thx-btn-active' : ''}`}
+                onClick={() => { setStatsDetail(v => v === 'today' ? null : 'today'); setWeekStripShown(false) }}
+                aria-expanded={statsDetail === 'today'}
+              >
                 ✓ {dailyStats.tasksToday}/{settingsForRings.daily_task_goal || 3} today
-              </span>
+              </button>
             </div>
             {weekStripShown && (
               <WeekStrip
@@ -931,6 +940,56 @@ export default function AppV2() {
                 dailyTaskGoal={settingsForRings.daily_task_goal || 3}
               />
             )}
+            {statsDetail === 'streak' && (
+              <div className="v2-stats-detail">
+                <div className="v2-stats-detail-row">
+                  <span className="v2-stats-detail-label">Current streak</span>
+                  <span className="v2-stats-detail-value">{streak} day{streak === 1 ? '' : 's'}</span>
+                </div>
+                <div className="v2-stats-detail-row">
+                  <span className="v2-stats-detail-label">Best streak</span>
+                  <span className="v2-stats-detail-value">{records.longestStreak} day{records.longestStreak === 1 ? '' : 's'}</span>
+                </div>
+                <div className="v2-stats-detail-row">
+                  <span className="v2-stats-detail-label">Best day (tasks)</span>
+                  <span className="v2-stats-detail-value">{records.bestTasks}</span>
+                </div>
+                <div className="v2-stats-detail-row">
+                  <span className="v2-stats-detail-label">Best day (points)</span>
+                  <span className="v2-stats-detail-value">{records.bestPoints}</span>
+                </div>
+              </div>
+            )}
+            {statsDetail === 'today' && (() => {
+              const todayStr = new Date().toDateString()
+              const doneTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
+              const activeTasks = tasks.filter(t => ['not_started', 'in_progress', 'waiting'].includes(t.status))
+              const taskGoal = settingsForRings.daily_task_goal || 3
+              const pointsGoal = settingsForRings.daily_points_goal || 15
+              return (
+                <div className="v2-stats-detail">
+                  <div className="v2-stats-detail-row">
+                    <span className="v2-stats-detail-label">Tasks done</span>
+                    <span className="v2-stats-detail-value">{dailyStats.tasksToday} / {taskGoal}</span>
+                  </div>
+                  <div className="v2-stats-detail-row">
+                    <span className="v2-stats-detail-label">Points earned</span>
+                    <span className="v2-stats-detail-value">{dailyStats.pointsToday} / {pointsGoal}</span>
+                  </div>
+                  <div className="v2-stats-detail-row">
+                    <span className="v2-stats-detail-label">Remaining active</span>
+                    <span className="v2-stats-detail-value">{activeTasks.length}</span>
+                  </div>
+                  {doneTasks.length > 0 && (
+                    <div className="v2-stats-detail-done">
+                      {doneTasks.map(t => (
+                        <div key={t.id} className="v2-stats-detail-done-item">✓ {t.title}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             <ProjectPinnedSection
               projects={pinnedProjects}
               activeChildren={activeChildrenOfPinned}
