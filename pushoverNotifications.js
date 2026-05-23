@@ -217,6 +217,7 @@ function isOverdue(task) {
 }
 
 function isStale(task, staleDays) {
+  if (task.status === 'project') return false
   if (task.snoozed_until && new Date(task.snoozed_until) > new Date()) return false
   const elapsed = Date.now() - new Date(task.last_touched).getTime()
   return elapsed > (task.staleness_days || staleDays || 2) * 86400000

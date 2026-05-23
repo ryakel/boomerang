@@ -134,9 +134,9 @@ export async function getChildPages(parentId) {
 
 export async function createPage({ parentId, title, content }) {
   const raw = await call('notion-create-pages', {
-    parent_id: parentId,
-    title,
-    content: content || '',
+    parent: { page_id: parentId },
+    properties: `Name: ${title}`,
+    children: content || undefined,
   })
   const id = extractIdFromUrl(raw)
   const url = extractUrlFromText(raw)
@@ -147,11 +147,24 @@ export async function createPage({ parentId, title, content }) {
 // --- Create page in a database ---
 
 export async function createPageInDatabase({ databaseId, properties, content }) {
-  const raw = await call('notion-create-pages', {
-    database_id: databaseId,
-    properties: typeof properties === 'string' ? properties : formatProperties(properties),
-    content: content || '',
-  })
+  const propsText = typeof properties === 'string' ? properties : formatProperties(properties)
+  // Try with both parent shapes — v2.0.0 prefers data_source_id
+  let raw
+  try {
+    raw = await call('notion-create-pages', {
+      parent: { data_source_id: databaseId },
+      properties: propsText,
+      children: content || undefined,
+    })
+  } catch (e1) {
+    // Fall back to database_id if data_source_id fails
+    console.warn('[Notion:MCP] create-pages with data_source_id failed, trying database_id:', e1?.message?.slice(0, 150))
+    raw = await call('notion-create-pages', {
+      parent: { database_id: databaseId },
+      properties: propsText,
+      children: content || undefined,
+    })
+  }
   const id = extractIdFromUrl(raw)
   const url = extractUrlFromText(raw)
   if (!id) throw new Error('Could not parse page ID from MCP response')
