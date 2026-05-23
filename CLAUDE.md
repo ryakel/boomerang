@@ -1,5 +1,12 @@
 # CRITICAL RULES — READ THESE FIRST
 
+## Notion MCP Rules (NON-NEGOTIABLE)
+1. **NEVER write Notion MCP code without referencing the actual OpenAPI spec first.** The spec is in `@notionhq/notion-mcp-server` npm package at `scripts/notion-openapi.json`. Run `npm pack @notionhq/notion-mcp-server && tar xzf notionhq-notion-mcp-server-*.tgz` to extract it. Do NOT guess parameter names, types, or formats.
+2. **The hosted MCP server at mcp.notion.com may have custom tools and response formats beyond the open-source package.** The open-source package is a pure OpenAPI proxy; the hosted server may add custom schemas (e.g., SQL DDL for `notion-create-database`). When in doubt, log the full `inputSchema` from the tool cache before calling.
+3. **Tool input schemas come from the OpenAPI spec.** The converter at `openapi/parser.ts` generates inputSchema from the API's requestBody + parameters. Path params (like `page_id`) become top-level tool params. Complex nested objects get wrapped with `anyOf: [schema, {type: 'string'}]` for double-serialization safety.
+4. **Responses from the hosted server are JSON** (the proxy does `JSON.stringify(response.data)`), but the hosted server may format them differently (enhanced markdown). Always try `JSON.parse` first, fall back to text parsing.
+5. **Test against the actual spec before shipping.** Extract the spec, read the schema for the operation, match parameter names and types exactly. No more guess-ship-fail cycles.
+
 ## Debugging Rules (NON-NEGOTIABLE)
 1. **When the user reports something broken in prod, START by suspecting code I just shipped.** The user's infrastructure is stable and battle-tested. My code is freshly written and statistically the more likely culprit. Read the error/stack trace first, trace it to specific lines I authored in recent PRs, form a code-side hypothesis before asking the user to run docker/nginx/network diagnostics. Don't make the user prove their infra is healthy when the bug is almost always on my side of the line.
 2. **Diagnostic order:** (a) read the actual error message + stack trace, (b) `git log` recent commits and review what I shipped touching the involved code paths, (c) ask the user for a minimal narrowing question (e.g. "what does `/api/health` return?"), and (d) only then ask them to inspect their infra. If I've already arrived at a code-side hypothesis, validate it first — don't lead with "check your nginx logs."

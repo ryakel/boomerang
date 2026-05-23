@@ -1,8 +1,14 @@
 // Notion MCP Proxy — wraps MCP tool calls into clean async functions.
 //
 // Every Notion operation goes through the MCP tools instead of REST.
-// Responses come back as Notion's "enhanced markdown" format; this
-// module parses them into the shapes the rest of the codebase expects.
+// The hosted MCP server at mcp.notion.com returns JSON (the open-source
+// proxy does JSON.stringify(response.data)), but may include enhanced
+// markdown in some responses. We try JSON.parse first, fall back to
+// text parsing.
+//
+// Tool input schemas come from the Notion OpenAPI spec at:
+//   @notionhq/notion-mcp-server/scripts/notion-openapi.json
+// See CLAUDE.md "Notion MCP Rules" — never guess params.
 
 import * as notionMCP from './notionMCP.js'
 
@@ -43,56 +49,66 @@ function extractUrlFromText(text) {
   return m ? m[0] : null
 }
 
+function extractTitleFromProperties(properties) {
+  if (!properties) return null
+  for (const val of Object.values(properties)) {
+    if (val?.type === 'title' && val.title?.length) {
+      return val.title.map(t => t.plain_text || t.text?.content || '').join('')
+    }
+  }
+  return null
+}
+
+function extractPagesFromText(raw) {
+  const pages = []
+  const urlRegex = /notion\.so\/(?:[^/]*\/)?([a-f0-9]{32})/g
+  let m
+  while ((m = urlRegex.exec(raw)) !== null) {
+    const h = m[1]
+    const ctx = raw.slice(Math.max(0, m.index - 200), m.index + 100)
+    const titleMatch = ctx.match(/title="([^"]*)"/) || ctx.match(/["']([^"'\n]{2,60})["']\s*$/)
+    pages.push({
+      id: `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`,
+      title: titleMatch?.[1]?.trim() || 'Untitled',
+      url: `https://www.notion.so/${h}`,
+    })
+  }
+  return pages
+}
+
 // --- Search ---
 
+// post-search: { query: string, sort?: object, filter?: object }
+// Response: { results: [{ id, url, properties, last_edited_time }] }
 export async function search(query) {
   const raw = await call('notion-search', { query })
   const json = tryParseJSON(raw)
   if (json?.results) {
     return json.results.map(p => ({
-      id: p.id, title: p.properties?.title?.title?.[0]?.plain_text || 'Untitled',
-      url: p.url, last_edited: p.last_edited_time,
+      id: p.id,
+      title: extractTitleFromProperties(p.properties) || 'Untitled',
+      url: p.url,
+      last_edited: p.last_edited_time,
     }))
   }
-  // Enhanced markdown — parse page entries
-  const pages = []
-  const pageRegex = /(?:📄|<page)\s*(?:url="[^"]*?([a-f0-9]{32})")?[^>]*>?\s*(?:title="([^"]*)")?/gi
-  let match
-  while ((match = pageRegex.exec(raw)) !== null) {
-    if (match[1]) {
-      const h = match[1]
-      pages.push({
-        id: `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`,
-        title: match[2] || 'Untitled',
-        url: `https://www.notion.so/${h}`,
-      })
-    }
-  }
-  // Fallback: look for any notion URLs with titles
-  if (pages.length === 0) {
-    const lines = raw.split('\n')
-    for (const line of lines) {
-      const urlMatch = line.match(/notion\.so\/(?:[^/]*\/)?([a-f0-9]{32})/)
-      if (urlMatch) {
-        const h = urlMatch[1]
-        const titleMatch = line.match(/title="([^"]*)"/) || line.match(/:\s*(.+?)(?:\s*$|\s*<)/)
-        pages.push({
-          id: `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`,
-          title: titleMatch?.[1]?.trim() || 'Untitled',
-          url: `https://www.notion.so/${h}`,
-        })
-      }
-    }
-  }
-  return pages
+  // Fallback: parse notion URLs from text response
+  return extractPagesFromText(raw)
 }
 
 // --- Get page ---
 
+// notion-fetch: custom tool, param name assumed { resource_uri }
+// Response: page object or enhanced markdown
 export async function getPage(pageId) {
   const raw = await call('notion-fetch', { resource_uri: `notion://page/${pageId}` })
   const json = tryParseJSON(raw)
-  if (json?.id) return { id: json.id, title: json.properties?.title?.title?.[0]?.plain_text, url: json.url }
+  if (json?.id) return {
+    id: json.id,
+    title: extractTitleFromProperties(json.properties),
+    url: json.url,
+    properties: json.properties,
+  }
+  // Fallback for non-JSON responses
   const url = extractUrlFromText(raw)
   const titleMatch = raw.match(/title[= ]["']?([^"'\n<]+)/) || raw.match(/^#\s+(.+)/m)
   return { id: pageId, title: titleMatch?.[1]?.trim() || 'Untitled', url }
@@ -130,8 +146,11 @@ export async function getChildPages(parentId) {
   return pages
 }
 
-// --- Create page under a parent page ---
-
+// post-page: { parent: { page_id }, properties: object, children?: string[] }
+// parent.page_id: UUID string (required)
+// properties: Notion API property-value objects (required) — at minimum { title: { title: [...] } }
+// children: array of strings (enhanced markdown lines, NOT block objects)
+// Response: created page object { id, url, properties, ... }
 export async function createPage({ parentId, title, content }) {
   const properties = {
     title: { title: [{ text: { content: title } }] }
@@ -142,9 +161,13 @@ export async function createPage({ parentId, title, content }) {
   }
   if (content) args.children = content.split('\n').filter(Boolean)
   const raw = await call('notion-create-pages', args)
+  // Try JSON first (open-source proxy returns JSON.stringify(response.data))
+  const json = tryParseJSON(raw)
+  if (json?.id) return { id: json.id, url: json.url }
+  // Fallback: extract from text/enhanced markdown
   const id = extractIdFromUrl(raw)
   const url = extractUrlFromText(raw)
-  if (!id) throw new Error('Could not parse page ID from MCP response')
+  if (!id) throw new Error('Could not parse page ID from MCP response: ' + raw.slice(0, 300))
   return { id, url }
 }
 
@@ -165,9 +188,11 @@ export async function createPageInDatabase({ databaseId, properties, content }) 
   }
   if (content) args.children = content.split('\n').filter(Boolean)
   const raw = await call('notion-create-pages', args)
+  const json = tryParseJSON(raw)
+  if (json?.id) return { id: json.id, url: json.url }
   const id = extractIdFromUrl(raw)
   const url = extractUrlFromText(raw)
-  if (!id) throw new Error('Could not parse page ID from MCP response')
+  if (!id) throw new Error('Could not parse page ID from MCP response: ' + raw.slice(0, 300))
   return { id, url }
 }
 
@@ -203,15 +228,20 @@ export async function restorePage(pageId) {
 
 // --- Create database ---
 
+// notion-create-database: CUSTOM tool (not in OpenAPI spec)
+// Hosted server accepts { parent: { page_id }, title: string, schema: SQL_DDL_string }
+// Response: may be JSON or enhanced markdown (hosted server differs from open-source)
 export async function createDatabase({ parentPageId, title, schema }) {
   const raw = await call('notion-create-database', {
     parent: { page_id: parentPageId },
     title,
     schema,
   })
+  const json = tryParseJSON(raw)
+  if (json?.id) return { id: json.id, url: json.url }
   const id = extractIdFromUrl(raw)
   const url = extractUrlFromText(raw)
-  if (!id) throw new Error('Could not parse database ID from MCP response')
+  if (!id) throw new Error('Could not parse database ID from MCP response: ' + raw.slice(0, 300))
   return { id, url }
 }
 
