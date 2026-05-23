@@ -115,12 +115,6 @@ async function ensureClient() {
   try {
     await client.connect(transport)
     clientConnected = true
-    // Force-persist whatever token the SDK used to connect — it may have
-    // refreshed in-memory without calling saveTokens() on our provider.
-    const currentTokens = provider.tokens()
-    if (currentTokens?.access_token) {
-      await provider.saveTokens(currentTokens)
-    }
     return client
   } catch (err) {
     throw err
@@ -201,6 +195,17 @@ export async function autoReconnect() {
     transport = makeTransport()
     await ensureClient()
     await refreshToolCache()
+    // Force-persist the token AFTER tool calls — the SDK refreshes
+    // during listTools(), not during connect(). Reading provider.tokens()
+    // now should return the refreshed token.
+    const freshTokens = provider.tokens()
+    if (freshTokens?.access_token) {
+      const stored = deps.getData(TOKENS_KEY)
+      if (!stored || stored.access_token !== freshTokens.access_token) {
+        await provider.saveTokens(freshTokens)
+        console.log('[NotionMCP] persisted refreshed token for REST API use')
+      }
+    }
     lastError = null
     if (reconnectTimer) { clearInterval(reconnectTimer); reconnectTimer = null }
     console.log('[NotionMCP] reconnected successfully')
