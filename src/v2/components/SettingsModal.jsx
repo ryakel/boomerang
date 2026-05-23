@@ -473,6 +473,12 @@ function IntegrationsPanel({
           const s = await api.gcalStatus()
           setStatuses(prev => ({ ...prev, gcal: s }))
         } catch { /* swallow */ }
+      } else if (event.data?.type === 'notion-mcp-connected') {
+        try {
+          const api = await import('../../api')
+          const s = await api.notionStatus()
+          setStatuses(prev => ({ ...prev, notion: s }))
+        } catch { /* swallow */ }
       } else if (event.data?.type === 'gmail-connected') {
         try {
           const api = await import('../../api')
@@ -520,19 +526,30 @@ function IntegrationsPanel({
     setNotionChildCount(null)
   }
 
+  const [notionConnectError, setNotionConnectError] = useState(null)
+
   const reconnectNotionMCP = async () => {
     setNotionReconnecting(true)
+    setNotionConnectError(null)
+    const popup = window.open('about:blank', 'notion-mcp-auth', 'width=600,height=700')
     try {
       const api = await import('../../api')
       const result = await api.notionMCPConnect()
       if (result.alreadyAuthorized) {
+        if (popup) popup.close()
         const s = await api.notionStatus()
         setStatuses(prev => ({ ...prev, notion: s }))
       } else if (result.authUrl) {
-        window.open(result.authUrl, 'notion-mcp-auth', 'width=600,height=700')
+        if (popup) { popup.location = result.authUrl } else { window.open(result.authUrl, 'notion-mcp-auth', 'width=600,height=700') }
+      } else {
+        if (popup) popup.close()
       }
-    } catch { /* swallow */ }
-    finally { setNotionReconnecting(false) }
+    } catch (e) {
+      if (popup) popup.close()
+      setNotionConnectError(e?.message || 'Connection failed')
+    } finally {
+      setNotionReconnecting(false)
+    }
   }
 
   const disconnectNotionMCP = async () => {
@@ -800,6 +817,7 @@ function IntegrationsPanel({
                   <div className="v2-integrations-inline">
                     {/* Connection controls — always visible */}
                     {!statuses.notion?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
+                    <>
                       <div className="v2-integrations-actions">
                         <button
                           className="v2-settings-btn"
@@ -809,6 +827,8 @@ function IntegrationsPanel({
                           {notionReconnecting ? 'Connecting…' : 'Connect via MCP'}
                         </button>
                       </div>
+                      {notionConnectError && <div className="v2-integrations-error" style={{ marginTop: 8 }}>{notionConnectError}</div>}
+                    </>
                     )}
                     {statuses.notion?.mcpHealth?.needsReauth && (
                       <div className="v2-integrations-warn">
