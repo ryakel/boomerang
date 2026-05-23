@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-23
 
+- fix(ui): full Notion connect/disconnect/reconnect in v2 Settings + bottom gap [M]
+  - **Notion controls.** v2 Settings had NO connect, disconnect, or reconnect buttons for Notion — all of that was v1-only. Now the Notion integration section renders a full lifecycle: "Connect via MCP" when not connected, page search + KB setup + "Disconnect" when connected, and a warning banner with "Reconnect" + "Disconnect" when MCP needs reauth. The `inline` section always renders regardless of connection state.
+  - **Bottom gap.** Root cause: body background `var(--bg)` = `#F5F5F7` (v1 light grey) vs v2 app `var(--v2-bg)` = `#FFFFFF`. Any sub-pixel gap between the fixed container and the screen edge exposed the mismatch. Fix: `:root[data-ui="v2"] body { background: var(--v2-bg) }` makes the gap invisible. Reverted `min-height` approach back to `bottom: auto; height: 100dvh` for the keyboard fix.
+  - Modified: `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`, `src/v2/AppV2.css`
+
 - fix(notion): MCP auto-reconnect + expired connection UI warning [M]
   - **Root cause.** MCP SDK v1.29 calls `provider.prepareTokenRequest()` for token refresh, but `NotionMCPProvider` didn't implement it. Auto-reconnect always failed.
   - Added `prepareTokenRequest()` returning `grant_type=refresh_token`. 5-min retry loop on failure. Transport reset on reconnect. `needsReauth` + `error` in status. Orange dot + warning banner + Reconnect button in Settings.

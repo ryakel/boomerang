@@ -1109,6 +1109,13 @@
   color: #FFB347;
 }
 
+.v2-integrations-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
 .v2-integrations-status-ok {
   font: 500 12px/1.4 var(--v2-font-body);
   color: var(--v2-energy-errand);
