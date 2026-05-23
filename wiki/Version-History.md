@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-23
 
+- fix(notion): MCP auto-reconnect + expired connection UI warning [M]
+  - **Root cause.** MCP SDK v1.29 calls `provider.prepareTokenRequest()` for token refresh, but `NotionMCPProvider` didn't implement it. Auto-reconnect always failed.
+  - Added `prepareTokenRequest()` returning `grant_type=refresh_token`. 5-min retry loop on failure. Transport reset on reconnect. `needsReauth` + `error` in status. Orange dot + warning banner + Reconnect button in Settings.
+  - Modified: `notionMCP.js`, `server.js`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`
+
 - fix(notion): search returns "No pages found" — response shape mismatch [XS]
   - Server returns `{ pages: [...] }` but client expected a flat array. `Array.isArray({ pages })` → false → empty results. Unwrap `.pages` in `notionSearch()`.
   - Modified: `src/api.js`
