@@ -774,13 +774,11 @@ app.patch('/api/notion/pages/:id', async (req, res) => {
 })
 
 app.get('/api/notion/status', async (req, res) => {
-  // Reports whether *any* Notion auth path resolves to a working token — used by Settings UI
-  // as a quick "is there anything working at all" indicator. MCP connection status has its
-  // own dedicated endpoint at /api/notion/mcp/status.
   const mcpActive = !!getData('notion_mcp_tokens')?.access_token
   const legacyActive = !!getLegacyNotionToken(req)
+  const mcpHealth = notionMCP.getStatus()
   const token = await getNotionAccessToken(req)
-  if (!token) return res.json({ connected: false, auth: null, mcp: false, legacy: false })
+  if (!token) return res.json({ connected: false, auth: null, mcp: false, legacy: false, mcpHealth })
   try {
     const response = await fetch(`${NOTION_BASE}/users/me`, { headers: makeNotionHeaders(token) })
     const data = await response.json()
@@ -790,9 +788,10 @@ app.get('/api/notion/status', async (req, res) => {
       mcp: mcpActive,
       legacy: legacyActive,
       bot: data.name || data.bot?.owner?.user?.name,
+      mcpHealth,
     })
   } catch {
-    res.json({ connected: false, auth: null, mcp: mcpActive, legacy: legacyActive })
+    res.json({ connected: false, auth: null, mcp: mcpActive, legacy: legacyActive, mcpHealth })
   }
 })
 

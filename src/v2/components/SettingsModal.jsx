@@ -327,6 +327,7 @@ function IntegrationsPanel({
   const [notionSearchResults, setNotionSearchResults] = useState(null)
   const [notionSearching, setNotionSearching] = useState(false)
   const [notionSearchError, setNotionSearchError] = useState(null)
+  const [notionReconnecting, setNotionReconnecting] = useState(false)
   const [notionChildCount, setNotionChildCount] = useState(null)
   // Knowledge base setup state — separate from sync-parent so the two
   // Notion features stay independent.
@@ -521,6 +522,21 @@ function IntegrationsPanel({
     setNotionChildCount(null)
   }
 
+  const reconnectNotionMCP = async () => {
+    setNotionReconnecting(true)
+    try {
+      const api = await import('../../api')
+      const result = await api.notionMCPConnect()
+      if (result.alreadyAuthorized) {
+        const s = await api.notionStatus()
+        setStatuses(prev => ({ ...prev, notion: s }))
+      } else if (result.authUrl) {
+        window.open(result.authUrl, 'notion-mcp-auth', 'width=600,height=700')
+      }
+    } catch { /* swallow */ }
+    finally { setNotionReconnecting(false) }
+  }
+
   // Auto-load child count for already-configured parent pages on mount.
   useEffect(() => {
     if (!settings.notion_sync_parent_id || !statuses.notion?.connected) return
@@ -652,8 +668,10 @@ function IntegrationsPanel({
     {
       key: 'notion',
       label: 'Notion',
-      hint: 'Pull pages as tasks, sync edits both ways. MCP-based connection (recommended).',
-      connected: !!statuses.notion?.connected,
+      hint: statuses.notion?.mcpHealth?.needsReauth
+        ? 'MCP connection expired — Quokka and Knowledge Base won\'t work until you reconnect.'
+        : 'Pull pages as tasks, sync edits both ways. MCP-based connection (recommended).',
+      connected: statuses.notion?.mcpHealth?.needsReauth ? 'warn' : !!statuses.notion?.connected,
       v1Section: 'Integrations → Notion',
       sync: onNotionSync && settings.notion_sync_parent_id ? { fn: onNotionSync, busy: notionSyncing } : null,
       inline: statuses.notion?.connected ? 'notion-config' : null,
@@ -747,7 +765,7 @@ function IntegrationsPanel({
         <ul className="v2-integrations-list">
           {integrations.map(int => (
             <li key={int.key} className="v2-integrations-row">
-              <span className={`v2-integrations-dot v2-integrations-dot-${int.connected ? 'connected' : 'unconfigured'}`} />
+              <span className={`v2-integrations-dot v2-integrations-dot-${int.connected === 'warn' ? 'warn' : int.connected ? 'connected' : 'unconfigured'}`} />
               <div className="v2-integrations-meta">
                 <div className="v2-integrations-name">{int.label}</div>
                 {int.sub && <div className="v2-integrations-sub">{int.sub}</div>}
@@ -776,6 +794,18 @@ function IntegrationsPanel({
                 )}
                 {int.inline === 'notion-config' && (
                   <div className="v2-integrations-inline">
+                    {statuses.notion?.mcpHealth?.needsReauth && (
+                      <div className="v2-integrations-warn">
+                        <span>⚠️ MCP connection expired. Quokka + Knowledge Base won't work until reconnected.</span>
+                        <button
+                          className="v2-settings-btn"
+                          onClick={reconnectNotionMCP}
+                          disabled={notionReconnecting}
+                        >
+                          {notionReconnecting ? 'Reconnecting…' : 'Reconnect'}
+                        </button>
+                      </div>
+                    )}
                     {settings.notion_sync_parent_id ? (
                       <div className="v2-weather-current">
                         <div className="v2-weather-current-label">

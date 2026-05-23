@@ -24,6 +24,7 @@ let provider = null
 let transport = null
 let client = null
 let clientConnected = false
+let lastError = null
 let toolCache = null // [{ name, description, inputSchema }, ...]
 
 // --- Provider ---
@@ -78,6 +79,16 @@ class NotionMCPProvider {
 
   async codeVerifier() {
     return deps.getData(PKCE_KEY)?.code_verifier || ''
+  }
+
+  prepareTokenRequest(scope) {
+    const tokens = deps.getData(TOKENS_KEY)
+    if (tokens?.refresh_token) {
+      const params = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token })
+      if (scope) params.set('scope', scope)
+      return params
+    }
+    return null
   }
 
   async invalidateCredentials(scope) {
@@ -174,27 +185,62 @@ export function initNotionMCP(injectedDeps) {
   transport = makeTransport()
 }
 
+let reconnectTimer = null
+
 export async function autoReconnect() {
   if (!deps?.getData(TOKENS_KEY)) return false
   try {
+    clientConnected = false
+    client = new Client({ name: 'boomerang', version: '1.0.0' })
+    transport = makeTransport()
     await ensureClient()
     await refreshToolCache()
+    lastError = null
+    if (reconnectTimer) { clearInterval(reconnectTimer); reconnectTimer = null }
+    console.log('[NotionMCP] reconnected successfully')
     return true
   } catch (err) {
-    console.warn('[NotionMCP] auto-reconnect failed:', err?.message || err)
+    const msg = err?.message || String(err)
+    console.warn('[NotionMCP] auto-reconnect failed:', msg)
+    clientConnected = false
+    lastError = msg
+    scheduleRetry()
     return false
   }
 }
 
+function scheduleRetry() {
+  if (reconnectTimer) return
+  reconnectTimer = setInterval(async () => {
+    if (clientConnected) { clearInterval(reconnectTimer); reconnectTimer = null; return }
+    console.log('[NotionMCP] retrying auto-reconnect…')
+    try {
+      clientConnected = false
+      client = new Client({ name: 'boomerang', version: '1.0.0' })
+      transport = makeTransport()
+      await ensureClient()
+      await refreshToolCache()
+      lastError = null
+      clientConnected = true
+      clearInterval(reconnectTimer)
+      reconnectTimer = null
+      console.log('[NotionMCP] reconnected on retry')
+    } catch (err) {
+      console.warn('[NotionMCP] retry failed:', err?.message || err)
+    }
+  }, 5 * 60 * 1000)
+}
+
 export async function startAuth(redirectBase) {
   provider.setRedirectUrl(`${redirectBase}/api/notion/mcp/callback`)
-  // Reset connection state so a fresh auth attempt runs
   clientConnected = false
+  lastError = null
   transport = makeTransport()
   client = new Client({ name: 'boomerang', version: '1.0.0' })
   try {
     await client.connect(transport)
     clientConnected = true
+    lastError = null
     await refreshToolCache()
     return { alreadyAuthorized: true }
   } catch {
@@ -208,20 +254,23 @@ export async function finishAuth(code) {
   if (!transport) throw new Error('No pending auth flow')
   await transport.finishAuth(code)
   clientConnected = false
+  lastError = null
   client = new Client({ name: 'boomerang', version: '1.0.0' })
   transport = makeTransport()
   await ensureClient()
   await refreshToolCache()
-  // PKCE done, clear transient state
   deps.setData(PKCE_KEY, null)
 }
 
 export function getStatus() {
   const tokens = deps?.getData(TOKENS_KEY)
+  const connected = clientConnected && !!tokens
   return {
-    connected: clientConnected && !!tokens,
+    connected,
     hasTokens: !!tokens,
     toolCount: toolCache?.length || 0,
+    needsReauth: !!tokens && !clientConnected && !!lastError,
+    error: lastError,
   }
 }
 

@@ -1037,6 +1037,11 @@
   background: var(--v2-text-faint);
 }
 
+.v2-integrations-dot-warn {
+  background: #FF9500;
+  box-shadow: 0 0 0 3px rgba(255, 149, 0, 0.15);
+}
+
 .v2-integrations-meta {
   flex: 1;
   min-width: 0;
@@ -1083,6 +1088,25 @@
 .v2-integrations-error {
   font: 400 12px/1.4 var(--v2-font-body);
   color: var(--v2-alert-overdue);
+}
+
+.v2-integrations-warn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: #7a5900;
+  background: rgba(255, 149, 0, 0.10);
+  border: 1px solid rgba(255, 149, 0, 0.25);
+  border-radius: 8px;
+}
+
+[data-theme="dark"] .v2-integrations-warn,
+[data-theme^="terminal"] .v2-integrations-warn {
+  color: #FFB347;
 }
 
 .v2-integrations-status-ok {
