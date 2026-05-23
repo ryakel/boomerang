@@ -3038,7 +3038,8 @@ const adviserAbortMap = new Map() // sessionId -> AbortController
 function adviserDeps(req) {
   return {
     anthropicKey: getAnthropicKey(req),
-    notionToken: getLegacyNotionToken(req), // sync fallback; OAuth token populated after via getNotionAccessToken
+    notionToken: getLegacyNotionToken(req),
+    notionMCP: { connected: notionMCP.getStatus().connected, callTool: notionMCP.callTool },
     trello: getTrelloAuth(req),
     gcalToken: null, // filled in async before tools that need it
     // Knowledge-base tools (adviserToolsKnowledge.js). The boolean lets the
