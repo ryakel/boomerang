@@ -1,26 +1,10 @@
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { localYMD } from '../../store'
+import { calculateTaskPoints } from '../../scoring'
 import './WeekStrip.css'
 
-// 7-day calendar strip rendered above the task list. Each day cell shows
-// day-of-week label + date number + an activity-intensity indicator
-// (dot in light/dark, block in terminal mode) reflecting how many tasks
-// were completed that day relative to `daily_task_goal`. Today's cell
-// also shows the exact `count/goal` inline.
-//
-// Visibility is owned by the parent (AppV2): the calendar date in the
-// home stats line is the show/hide toggle in terminal mode. This
-// component is "dumb display" — when mounted, it renders fully.
-//
-// Week navigation: < prev / next > arrows. State managed locally —
-// defaults to the week containing today; arrows shift by ±7 days.
-
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-// `ymd` is just an alias for `localYMD` — kept as a local for backward
-// compatibility within this file. See store.localYMD for why we DON'T
-// use date.toISOString().slice(0, 10).
 const ymd = localYMD
 
 function startOfWeekSunday(date) {
@@ -32,13 +16,15 @@ function startOfWeekSunday(date) {
 
 export default function WeekStrip({ tasks, dailyTaskGoal }) {
   const [weekOffset, setWeekOffset] = useState(0)
+  const [selectedDate, setSelectedDate] = useState(null)
 
   const completionsByDate = useMemo(() => {
     const map = {}
     for (const t of tasks) {
       if (t.status !== 'done' || !t.completed_at) continue
       const key = ymd(new Date(t.completed_at))
-      map[key] = (map[key] || 0) + 1
+      if (!map[key]) map[key] = []
+      map[key].push(t)
     }
     return map
   }, [tasks])
@@ -52,7 +38,8 @@ export default function WeekStrip({ tasks, dailyTaskGoal }) {
       const d = new Date(start)
       d.setDate(d.getDate() + i)
       const key = ymd(d)
-      const count = completionsByDate[key] || 0
+      const dayTasks = completionsByDate[key] || []
+      const count = dayTasks.length
       const goal = dailyTaskGoal > 0 ? dailyTaskGoal : 3
       let intensity = 0
       if (count > 0 && count < goal) intensity = 1
@@ -84,12 +71,18 @@ export default function WeekStrip({ tasks, dailyTaskGoal }) {
     return `${firstMonth} ${first.getDate()}–${lastMonth} ${last.getDate()}`
   }, [days])
 
+  const selectedTasks = useMemo(() => {
+    if (!selectedDate) return null
+    const dayTasks = completionsByDate[selectedDate] || []
+    return dayTasks.map(t => ({ id: t.id, title: t.title, points: calculateTaskPoints(t) }))
+  }, [selectedDate, completionsByDate])
+
   return (
     <div className="v2-week-strip">
       <div className="v2-week-strip-head">
         <button
           className="v2-week-strip-nav"
-          onClick={() => setWeekOffset(o => o - 1)}
+          onClick={() => { setWeekOffset(o => o - 1); setSelectedDate(null) }}
           aria-label="Previous week"
         >
           <ChevronLeft size={14} strokeWidth={2} />
@@ -99,7 +92,7 @@ export default function WeekStrip({ tasks, dailyTaskGoal }) {
         </span>
         <button
           className="v2-week-strip-nav"
-          onClick={() => setWeekOffset(o => o + 1)}
+          onClick={() => { setWeekOffset(o => o + 1); setSelectedDate(null) }}
           aria-label="Next week"
         >
           <ChevronRight size={14} strokeWidth={2} />
@@ -113,19 +106,46 @@ export default function WeekStrip({ tasks, dailyTaskGoal }) {
               'v2-week-strip-day',
               d.isToday ? 'v2-week-strip-day-today' : '',
               d.isFuture ? 'v2-week-strip-day-future' : '',
+              selectedDate === d.key ? 'v2-week-strip-day-selected' : '',
               `v2-week-strip-day-i${d.intensity}`,
             ].filter(Boolean).join(' ')}
             aria-label={`${d.label} ${d.dayNumber}: ${d.count} task${d.count === 1 ? '' : 's'} completed`}
           >
-            <span className="v2-week-strip-label">{d.label}</span>
-            <span className="v2-week-strip-num">{d.dayNumber}</span>
-            {d.isToday && (
-              <span className="v2-week-strip-count">{d.count}/{d.goal}</span>
-            )}
-            <span className="v2-week-strip-bar" aria-hidden="true" />
+            <button
+              type="button"
+              className="v2-week-strip-day-btn"
+              onClick={() => setSelectedDate(prev => prev === d.key ? null : d.key)}
+              aria-expanded={selectedDate === d.key}
+            >
+              <span className="v2-week-strip-label">{d.label}</span>
+              <span className="v2-week-strip-num">{d.dayNumber}</span>
+              {d.isToday && (
+                <span className="v2-week-strip-count">{d.count}/{d.goal}</span>
+              )}
+              <span className="v2-week-strip-bar" aria-hidden="true" />
+            </button>
           </li>
         ))}
       </ol>
+      {selectedDate && selectedTasks && (
+        <div className="v2-week-strip-detail">
+          {selectedTasks.length === 0 ? (
+            <div className="v2-week-strip-detail-empty">No tasks completed</div>
+          ) : (
+            <>
+              <div className="v2-week-strip-detail-summary">
+                {selectedTasks.length} task{selectedTasks.length === 1 ? '' : 's'} · {selectedTasks.reduce((s, t) => s + t.points, 0)} pts
+              </div>
+              {selectedTasks.map(t => (
+                <div key={t.id} className="v2-week-strip-detail-item">
+                  <span className="v2-week-strip-detail-title">✓ {t.title}</span>
+                  <span className="v2-week-strip-detail-pts">{t.points} pts</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
