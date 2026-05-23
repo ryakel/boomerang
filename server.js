@@ -876,40 +876,59 @@ app.get('/api/notion/blocks/:id', async (req, res) => {
 // Get child pages of a parent page (for sync: discover pages under a parent)
 app.get('/api/notion/children/:id', async (req, res) => {
   const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'Notion not configured' })
-  try {
-    let allChildren = []
-    let cursor = undefined
-    do {
-      const url = `${NOTION_BASE}/blocks/${req.params.id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`
-      const response = await fetch(url, { headers: makeNotionHeaders(token) })
-      const data = await response.json()
-      if (!response.ok) return res.status(response.status).json({ error: data.message || 'Failed to fetch children' })
-      allChildren = allChildren.concat(data.results || [])
-      cursor = data.has_more ? data.next_cursor : null
-    } while (cursor)
+  // Try REST first
+  if (token) {
+    try {
+      let allChildren = []
+      let cursor = undefined
+      do {
+        const url = `${NOTION_BASE}/blocks/${req.params.id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`
+        const response = await fetch(url, { headers: makeNotionHeaders(token) })
+        const data = await response.json()
+        if (!response.ok) break
+        allChildren = allChildren.concat(data.results || [])
+        cursor = data.has_more ? data.next_cursor : null
+      } while (cursor)
 
-    // Filter to child_page blocks and fetch their page details for title/url
-    const childPages = allChildren.filter(b => b.type === 'child_page')
-    const pages = await Promise.all(childPages.map(async (block) => {
-      try {
-        const pageRes = await fetch(`${NOTION_BASE}/pages/${block.id}`, { headers: makeNotionHeaders(token) })
-        const pageData = await pageRes.json()
-        return {
-          id: block.id,
-          title: block.child_page?.title || extractTitle(pageData),
-          url: pageData.url,
-          last_edited: pageData.last_edited_time,
-        }
-      } catch {
-        return { id: block.id, title: block.child_page?.title || 'Untitled', url: null, last_edited: null }
+      if (allChildren.length > 0) {
+        const childPages = allChildren.filter(b => b.type === 'child_page')
+        const pages = await Promise.all(childPages.map(async (block) => {
+          try {
+            const pageRes = await fetch(`${NOTION_BASE}/pages/${block.id}`, { headers: makeNotionHeaders(token) })
+            const pageData = await pageRes.json()
+            return { id: block.id, title: block.child_page?.title || extractTitle(pageData), url: pageData.url, last_edited: pageData.last_edited_time }
+          } catch {
+            return { id: block.id, title: block.child_page?.title || 'Untitled', url: null, last_edited: null }
+          }
+        }))
+        return res.json({ pages })
       }
-    }))
-
-    res.json({ pages })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
+    } catch (err) {
+      console.warn('[Notion] REST children fetch failed:', err?.message)
+    }
   }
+  // REST failed or no token — try MCP fetch
+  if (notionMCP.getStatus().connected) {
+    try {
+      const result = await notionMCP.callTool('notion-fetch', { resource_uri: `notion://block/${req.params.id}/children` })
+      const raw = result?.content?.[0]?.text
+      if (raw) {
+        let content
+        try { content = JSON.parse(raw) } catch { content = null }
+        if (content) {
+          const blocks = content?.results || content?.children || (Array.isArray(content) ? content : [])
+          const childPages = blocks.filter(b => b.type === 'child_page')
+          const pages = childPages.map(b => ({
+            id: b.id, title: b.child_page?.title || 'Untitled', url: null, last_edited: null,
+          }))
+          return res.json({ pages })
+        }
+      }
+    } catch (mcpErr) {
+      console.warn('[Notion] MCP children fetch failed:', mcpErr?.message)
+    }
+  }
+  res.json({ pages: [] })
 })
 
 // Query a Notion database. Returns pages with flattened properties so callers (Quokka,
@@ -1488,7 +1507,6 @@ app.get('/api/knowledge/status', (_req, res) => {
 // to the user's existing notion_sync_parent_id) and seeds the local index.
 app.post('/api/knowledge/setup', async (req, res) => {
   const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'Notion not connected' })
   const settings = getData('settings') || {}
   const parentPageId = req.body?.parent_page_id || settings.notion_sync_parent_id || null
   if (!parentPageId) {
@@ -1496,14 +1514,51 @@ app.post('/api/knowledge/setup', async (req, res) => {
       error: 'Set up a Notion sync parent in Settings first, or pass parent_page_id explicitly.',
     })
   }
+  // Try REST-based setup first
+  if (token) {
+    try {
+      const result = await ensureKnowledgeDatabase({ token, parentPageId, getData, setData })
+      await refreshKnowledgeIndex({ token, getData, setData }).catch(err => {
+        console.warn('[Knowledge] initial refresh failed:', err.message)
+      })
+      return res.json(result)
+    } catch (err) {
+      console.warn('[Knowledge] REST setup failed:', err.message, '— trying MCP')
+    }
+  }
+  // REST failed or no token — create via MCP notion-create-database tool
+  if (!notionMCP.getStatus().connected) {
+    return res.status(400).json({ error: 'Notion not connected. Connect via MCP in Settings.' })
+  }
   try {
-    const result = await ensureKnowledgeDatabase({ token, parentPageId, getData, setData })
-    // Seed the index immediately so the UI doesn't render an empty list.
-    await refreshKnowledgeIndex({ token, getData, setData }).catch(err => {
-      console.warn('[Knowledge] initial refresh failed:', err.message)
+    const existing = getData('notion_knowledge_db_id')
+    if (existing) {
+      return res.json({ database_id: existing, url: getData('notion_knowledge_db_url'), created: false })
+    }
+    const result = await notionMCP.callTool('notion-create-database', {
+      parent_page_id: parentPageId,
+      title: 'Boomerang Knowledge',
+      properties: [
+        { name: 'Name', type: 'title' },
+        { name: 'Type', type: 'select', options: ['Location', 'How-to', 'Decision', 'Person'] },
+        { name: 'Tags', type: 'multi_select' },
+        { name: 'Related tasks', type: 'rich_text' },
+        { name: 'Confidence', type: 'select', options: ['Certain', 'Fuzzy'] },
+      ],
     })
-    res.json(result)
+    const raw = result?.content?.[0]?.text
+    if (!raw) throw new Error('MCP create-database returned no content')
+    let content
+    try { content = JSON.parse(raw) } catch { throw new Error('MCP create-database returned non-JSON: ' + (raw || '').slice(0, 200)) }
+    const dbId = content?.id || content?.database_id
+    const dbUrl = content?.url
+    if (!dbId) throw new Error('MCP create-database returned no database ID')
+    setData('notion_knowledge_db_id', dbId)
+    setData('notion_knowledge_db_url', dbUrl || null)
+    console.log(`[Knowledge] Created Notion database via MCP: ${dbId}`)
+    res.json({ database_id: dbId, url: dbUrl, created: true })
   } catch (err) {
+    console.error('[Knowledge] MCP setup failed:', err?.message)
     res.status(500).json({ error: err.message || 'Knowledge setup failed' })
   }
 })
