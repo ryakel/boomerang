@@ -40,6 +40,7 @@ import { registerGCalTools, registerNotionTools, registerTrelloTools } from './a
 import { registerMiscTools } from './adviserToolsMisc.js'
 import { registerKnowledgeTools } from './adviserToolsKnowledge.js'
 import * as notionMCP from './notionMCP.js'
+import * as notionProxy from './notionMCPProxy.js'
 import {
   ensureKnowledgeDatabase, refreshKnowledgeIndex, fetchKnowledgeBody,
   startKnowledgeRefreshLoop, getKnowledgeStatus,
@@ -66,8 +67,6 @@ let envTrelloToken = process.env.TRELLO_SECRET
 let envGoogleClientId = process.env.GOOGLE_CLIENT_ID
 let envGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET
 let envTrackingApiKey = process.env.TRACKING_API_KEY
-let envUspsClientId = process.env.USPS_CLIENT_ID
-let envUspsClientSecret = process.env.USPS_CLIENT_SECRET
 const envSmtpHost = process.env.SMTP_HOST
 
 if (existsSync('.env')) {
@@ -79,8 +78,6 @@ if (existsSync('.env')) {
   envGoogleClientId = envGoogleClientId || envFile.match(/GOOGLE_CLIENT_ID="?([^"\n]+)"?/)?.[1]
   envGoogleClientSecret = envGoogleClientSecret || envFile.match(/GOOGLE_CLIENT_SECRET="?([^"\n]+)"?/)?.[1]
   envTrackingApiKey = envTrackingApiKey || envFile.match(/TRACKING_API_KEY="?([^"\n]+)"?/)?.[1]
-  envUspsClientId = envUspsClientId || envFile.match(/USPS_CLIENT_ID="?([^"\n]+)"?/)?.[1]
-  envUspsClientSecret = envUspsClientSecret || envFile.match(/USPS_CLIENT_SECRET="?([^"\n]+)"?/)?.[1]
 }
 
 // Helper: resolve API key from request header or env var
@@ -223,7 +220,6 @@ app.get('/api/keys/status', (req, res) => {
     trello: !!(envTrelloKey && envTrelloToken),
     gcal: !!(envGoogleClientId && envGoogleClientSecret),
     tracking: !!getTrackingApiKey(),
-    usps: !!(envUspsClientId && envUspsClientSecret),
     smtp: !!envSmtpHost,
   })
 })
@@ -587,285 +583,65 @@ function makeNotionHeaders(token) {
   }
 }
 
-function richText(str) {
-  // Parse **bold** segments into Notion rich text with annotations
-  const parts = []
-  const re = /\*\*(.+?)\*\*/g
-  let last = 0
-  let m
-  while ((m = re.exec(str)) !== null) {
-    if (m.index > last) parts.push({ type: 'text', text: { content: str.slice(last, m.index) } })
-    parts.push({ type: 'text', text: { content: m[1] }, annotations: { bold: true } })
-    last = re.lastIndex
-  }
-  if (last < str.length) parts.push({ type: 'text', text: { content: str.slice(last) } })
-  return parts.length > 0 ? parts : [{ type: 'text', text: { content: str } }]
-}
 
-function parseContentToBlocks(content) {
-  return content.split('\n').filter(Boolean).map(line => {
-    if (line.match(/^---+$/)) {
-      return { object: 'block', type: 'divider', divider: {} }
-    }
-    if (line.startsWith('### ')) {
-      return { object: 'block', type: 'heading_3', heading_3: { rich_text: richText(line.slice(4)) } }
-    }
-    if (line.startsWith('## ')) {
-      return { object: 'block', type: 'heading_2', heading_2: { rich_text: richText(line.slice(3)) } }
-    }
-    if (line.startsWith('# ')) {
-      return { object: 'block', type: 'heading_1', heading_1: { rich_text: richText(line.slice(2)) } }
-    }
-    if (line.match(/^- \[[ x]\] /)) {
-      const checked = line[3] === 'x'
-      return { object: 'block', type: 'to_do', to_do: { rich_text: richText(line.slice(6)), checked } }
-    }
-    if (line.startsWith('> ')) {
-      return { object: 'block', type: 'callout', callout: { rich_text: richText(line.slice(2)), icon: { type: 'emoji', emoji: '💡' } } }
-    }
-    if (line.match(/^\d+\. /)) {
-      const text = line.replace(/^\d+\. /, '')
-      return { object: 'block', type: 'numbered_list_item', numbered_list_item: { rich_text: richText(text) } }
-    }
-    if (line.startsWith('- ')) {
-      return { object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: richText(line.slice(2)) } }
-    }
-    return { object: 'block', type: 'paragraph', paragraph: { rich_text: richText(line) } }
-  })
-}
-
-async function mcpSearchPages(queryText) {
-  if (!notionMCP.getStatus().connected) return null
-  const tools = notionMCP.getCachedTools()
-  const searchTool = tools.find(t => /search/i.test(t.name))
-  if (!searchTool) { console.warn('[Notion] No search tool found in MCP tools:', tools.map(t => t.name).join(', ')); return null }
-  try {
-    const result = await notionMCP.callTool(searchTool.name, { query: queryText })
-    if (result?.isError) {
-      const errText = (result.content || []).map(c => c.text || '').join(' ')
-      console.warn('[Notion] MCP search tool error:', errText)
-      return null
-    }
-    const raw = result?.content?.[0]?.text
-    if (!raw) { console.warn('[Notion] MCP search returned no content'); return null }
-    let content
-    try { content = typeof raw === 'string' ? JSON.parse(raw) : raw }
-    catch { console.warn('[Notion] MCP search returned non-JSON:', raw.slice(0, 200)); return null }
-    const results = content?.results || content?.pages || (Array.isArray(content) ? content : [])
-    return results.map(p => ({
-      id: p.id,
-      title: p.title || extractTitle(p) || p.properties?.title?.title?.[0]?.plain_text || 'Untitled',
-      url: p.url,
-      last_edited: p.last_edited_time,
-    })).filter(p => p.title !== 'Untitled' || p.id)
-  } catch (err) {
-    console.error('[Notion] MCP search failed:', err?.message)
-    return null
-  }
-}
 
 app.post('/api/notion/search', async (req, res) => {
-  const query = req.body.query || ''
-
-  // MCP connected → use MCP search directly (MCP token doesn't work for REST)
-  if (notionMCP.getStatus().connected) {
-    const mcpResults = await mcpSearchPages(query)
-    if (mcpResults && mcpResults.length > 0) return res.json({ pages: mcpResults })
+  try {
+    const pages = await notionProxy.search(req.body.query || '')
+    res.json({ pages })
+  } catch (err) {
+    console.error('[Notion] search failed:', err?.message)
+    res.json({ pages: [] })
   }
-
-  // Fallback: REST with integration token (for users without MCP)
-  const token = await getNotionAccessToken(req)
-  if (token) {
-    try {
-      const response = await fetch(`${NOTION_BASE}/search`, {
-        method: 'POST',
-        headers: makeNotionHeaders(token),
-        body: JSON.stringify({ query, filter: { property: 'object', value: 'page' }, page_size: req.body.limit || 5 }),
-      })
-      const data = await response.json()
-      if (response.ok) {
-        const pages = (data.results || []).map(page => ({
-          id: page.id, title: extractTitle(page), url: page.url, last_edited: page.last_edited_time,
-        }))
-        return res.json({ pages })
-      }
-    } catch { /* fall through */ }
-  }
-
-  res.json({ pages: [] })
 })
 
 app.get('/api/notion/pages/:id', async (req, res) => {
-  const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
-    const response = await fetch(`${NOTION_BASE}/pages/${req.params.id}`, { headers: makeNotionHeaders(token) })
-    const data = await response.json()
-    res.json({ id: data.id, title: extractTitle(data), url: data.url })
+    const page = await notionProxy.getPage(req.params.id)
+    res.json(page)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
 })
 
 app.post('/api/notion/pages', async (req, res) => {
-  const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
     const { title, content, parentPageId } = req.body
-    const headers = makeNotionHeaders(token)
-    const children = parseContentToBlocks(content || '')
-
-    const body = {
-      properties: { title: { title: [{ text: { content: title } }] } },
-      children,
+    if (!parentPageId) {
+      const pages = await notionProxy.search('')
+      if (!pages.length) return res.status(400).json({ error: 'No accessible Notion pages found.' })
+      const result = await notionProxy.createPage({ parentId: pages[0].id, title, content })
+      return res.json(result)
     }
-
-    if (parentPageId) {
-      body.parent = { page_id: parentPageId }
-    } else {
-      const searchRes = await fetch(`${NOTION_BASE}/search`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ page_size: 1, filter: { property: 'object', value: 'page' } }),
-      })
-      const searchData = await searchRes.json()
-      if (searchData.results?.length > 0) {
-        body.parent = { page_id: searchData.results[0].id }
-      } else {
-        return res.status(400).json({ error: 'No accessible Notion pages found.' })
-      }
-    }
-
-    const response = await fetch(`${NOTION_BASE}/pages`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    })
-    const data = await response.json()
-    if (data.object === 'error') return res.status(400).json({ error: data.message })
-    res.json({ id: data.id, title: extractTitle(data), url: data.url })
+    const result = await notionProxy.createPage({ parentId: parentPageId, title, content })
+    res.json(result)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
 })
 
 app.patch('/api/notion/pages/:id', async (req, res) => {
-  const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'Notion not configured' })
   const { title, content } = req.body
-  const headers = makeNotionHeaders(token)
-  console.log(`[NotionSync] PATCH page ${req.params.id}`, { hasTitle: !!title, hasContent: !!content })
   try {
-    // Update title if provided
-    if (title) {
-      const titleRes = await fetch(`${NOTION_BASE}/pages/${req.params.id}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ properties: { title: { title: [{ text: { content: title } }] } } }),
-      })
-      if (!titleRes.ok) {
-        const err = await titleRes.json()
-        console.log(`[NotionSync] title update FAILED:`, err)
-        return res.status(titleRes.status).json(err)
-      }
-      console.log(`[NotionSync] title updated OK`)
-    }
-
-    // Replace content if provided: delete existing blocks then append new ones
-    if (content) {
-      // Fetch existing blocks to delete
-      const blocksRes = await fetch(`${NOTION_BASE}/blocks/${req.params.id}/children?page_size=100`, { headers })
-      const blocksData = await blocksRes.json()
-      if (blocksRes.ok && blocksData.results) {
-        for (const block of blocksData.results) {
-          await fetch(`${NOTION_BASE}/blocks/${block.id}`, { method: 'DELETE', headers })
-        }
-        console.log(`[NotionSync] deleted ${blocksData.results.length} old blocks`)
-      }
-
-      // Append new blocks
-      const children = parseContentToBlocks(content)
-      if (children.length > 0) {
-        const appendRes = await fetch(`${NOTION_BASE}/blocks/${req.params.id}/children`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify({ children }),
-        })
-        const appendData = await appendRes.json()
-        if (!appendRes.ok) {
-          console.log(`[NotionSync] content append FAILED:`, appendData)
-          return res.status(appendRes.status).json(appendData)
-        }
-        console.log(`[NotionSync] appended ${children.length} new blocks`)
-      }
-    }
-
+    const props = title ? `Name: ${title}` : undefined
+    await notionProxy.updatePage({ pageId: req.params.id, properties: props, content })
     res.json({ ok: true })
   } catch (err) {
-    console.log(`[NotionSync] PATCH page ERROR:`, err.message)
+    console.error(`[NotionSync] PATCH page ERROR:`, err.message)
     res.status(500).json({ error: err.message })
   }
 })
 
 app.get('/api/notion/status', async (req, res) => {
-  const mcpActive = !!getData('notion_mcp_tokens')?.access_token
-  const legacyActive = !!getLegacyNotionToken(req)
   const mcpHealth = notionMCP.getStatus()
-  const token = await getNotionAccessToken(req)
-  if (!token) return res.json({ connected: false, auth: null, mcp: false, legacy: false, mcpHealth })
-  try {
-    const response = await fetch(`${NOTION_BASE}/users/me`, { headers: makeNotionHeaders(token) })
-    const data = await response.json()
-    res.json({
-      connected: response.ok,
-      auth: mcpActive ? 'mcp' : 'legacy',
-      mcp: mcpActive,
-      legacy: legacyActive,
-      bot: data.name || data.bot?.owner?.user?.name,
-      mcpHealth,
-    })
-  } catch {
-    res.json({ connected: false, auth: null, mcp: mcpActive, legacy: legacyActive, mcpHealth })
-  }
+  const connected = mcpHealth.connected
+  res.json({ connected, auth: connected ? 'mcp' : null, mcp: connected, mcpHealth })
 })
 
-// Get all blocks (content) from a Notion page — paginated, returns structured + plaintext
 app.get('/api/notion/blocks/:id', async (req, res) => {
-  const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
-    let allBlocks = []
-    let cursor = undefined
-    // Paginate through all blocks (Notion returns max 100 per request)
-    do {
-      const url = `${NOTION_BASE}/blocks/${req.params.id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`
-      const response = await fetch(url, { headers: makeNotionHeaders(token) })
-      const data = await response.json()
-      if (!response.ok) return res.status(response.status).json({ error: data.message || 'Failed to fetch blocks' })
-      allBlocks = allBlocks.concat(data.results || [])
-      cursor = data.has_more ? data.next_cursor : null
-    } while (cursor)
-
-    // Flatten blocks to plain text for AI consumption
-    const plainText = allBlocks.map(block => {
-      const type = block.type
-      const content = block[type]
-      if (!content) return ''
-      // Extract text from rich_text arrays
-      if (content.rich_text) {
-        const text = content.rich_text.map(rt => rt.plain_text).join('')
-        if (type === 'heading_1') return `# ${text}`
-        if (type === 'heading_2') return `## ${text}`
-        if (type === 'heading_3') return `### ${text}`
-        if (type === 'bulleted_list_item') return `- ${text}`
-        if (type === 'numbered_list_item') return `1. ${text}`
-        if (type === 'to_do') return `[${content.checked ? 'x' : ' '}] ${text}`
-        return text
-      }
-      return ''
-    }).filter(Boolean).join('\n')
-
-    res.json({ blocks: allBlocks, plainText })
+    const { raw, blocks } = await notionProxy.getBlockChildren(req.params.id)
+    res.json({ blocks, plainText: raw })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -873,83 +649,31 @@ app.get('/api/notion/blocks/:id', async (req, res) => {
 
 // Get child pages of a parent page (for sync: discover pages under a parent)
 app.get('/api/notion/children/:id', async (req, res) => {
-  // MCP connected → use MCP directly (MCP token doesn't work for REST)
-  if (notionMCP.getStatus().connected) {
-    try {
-      const result = await notionMCP.callTool('notion-fetch', { resource_uri: `notion://block/${req.params.id}/children` })
-      const raw = result?.content?.[0]?.text
-      if (raw) {
-        let content
-        try { content = JSON.parse(raw) } catch { content = null }
-        if (content) {
-          const blocks = content?.results || content?.children || (Array.isArray(content) ? content : [])
-          const childPages = blocks.filter(b => b.type === 'child_page')
-          const pages = childPages.map(b => ({
-            id: b.id, title: b.child_page?.title || 'Untitled', url: null, last_edited: null,
-          }))
-          return res.json({ pages })
-        }
-      }
-    } catch (mcpErr) {
-      console.warn('[Notion] MCP children fetch failed:', mcpErr?.message)
-    }
+  try {
+    const pages = await notionProxy.getChildPages(req.params.id)
+    res.json({ pages })
+  } catch (err) {
+    console.error('[Notion] children fetch failed:', err?.message)
+    res.json({ pages: [] })
   }
-  // Fallback: REST with integration token (for users without MCP)
-  const token = await getNotionAccessToken(req)
-  if (token) {
-    try {
-      let allChildren = []
-      let cursor = undefined
-      do {
-        const url = `${NOTION_BASE}/blocks/${req.params.id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`
-        const response = await fetch(url, { headers: makeNotionHeaders(token) })
-        const data = await response.json()
-        if (!response.ok) break
-        allChildren = allChildren.concat(data.results || [])
-        cursor = data.has_more ? data.next_cursor : null
-      } while (cursor)
-
-      if (allChildren.length > 0) {
-        const childPages = allChildren.filter(b => b.type === 'child_page')
-        const pages = await Promise.all(childPages.map(async (block) => {
-          try {
-            const pageRes = await fetch(`${NOTION_BASE}/pages/${block.id}`, { headers: makeNotionHeaders(token) })
-            const pageData = await pageRes.json()
-            return { id: block.id, title: block.child_page?.title || extractTitle(pageData), url: pageData.url, last_edited: pageData.last_edited_time }
-          } catch {
-            return { id: block.id, title: block.child_page?.title || 'Untitled', url: null, last_edited: null }
-          }
-        }))
-        return res.json({ pages })
-      }
-    } catch (err) {
-      console.warn('[Notion] REST children fetch failed:', err?.message)
-    }
-  }
-  res.json({ pages: [] })
 })
 
 // Query a Notion database. Returns pages with flattened properties so callers (Quokka,
 // sync hooks) can filter/display rows without re-interpreting Notion's property schema.
 app.post('/api/notion/databases/:id/query', async (req, res) => {
-  const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
-    const response = await fetch(`${NOTION_BASE}/databases/${req.params.id}/query`, {
-      method: 'POST',
-      headers: makeNotionHeaders(token),
-      body: JSON.stringify(req.body || {}),
-    })
-    const data = await response.json()
-    if (!response.ok) return res.status(response.status).json({ error: data.message || 'Database query failed' })
-    const pages = (data.results || []).map(page => ({
-      id: page.id,
-      title: extractTitle(page),
-      url: page.url,
-      last_edited: page.last_edited_time,
-      properties: flattenNotionProperties(page.properties || {}),
-    }))
-    res.json({ pages, has_more: data.has_more, next_cursor: data.next_cursor })
+    const { raw, json } = await notionProxy.queryDatabase(req.params.id)
+    if (json?.results) {
+      const pages = json.results.map(page => ({
+        id: page.id,
+        title: extractTitle(page),
+        url: page.url,
+        last_edited: page.last_edited_time,
+        properties: flattenNotionProperties(page.properties || {}),
+      }))
+      return res.json({ pages, has_more: json.has_more, next_cursor: json.next_cursor })
+    }
+    res.json({ pages: [], raw })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -1028,10 +752,11 @@ function flattenNotionProperties(props) {
   return out
 }
 
-// Notion file upload (requires newer API version)
+// Notion file upload — no MCP equivalent, REST only
 app.post('/api/notion/file-uploads', async (req, res) => {
   const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'Notion not configured' })
+  if (!token) return res.status(400).json({ error: 'Notion not configured (file uploads require REST token)' })
+  console.log('[Notion:REST] file-uploads create')
   try {
     const { filename, content_type } = req.body
     const response = await fetch(`${NOTION_BASE}/file_uploads`, {
@@ -1051,8 +776,9 @@ app.post('/api/notion/file-uploads', async (req, res) => {
   }
 })
 
-// Send file to a Notion file upload
+// Send file data — no MCP equivalent, REST only
 app.post('/api/notion/file-uploads/:id/send', async (req, res) => {
+  console.log('[Notion:REST] file-uploads send')
   const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
@@ -1076,8 +802,9 @@ app.post('/api/notion/file-uploads/:id/send', async (req, res) => {
   }
 })
 
-// Append blocks to a Notion page (used for attaching uploaded files)
+// Append blocks — no MCP equivalent for arbitrary block append, REST only
 app.post('/api/notion/blocks/:id/children', async (req, res) => {
+  console.log('[Notion:REST] blocks/:id/children append')
   const token = await getNotionAccessToken(req)
   if (!token) return res.status(400).json({ error: 'Notion not configured' })
   try {
@@ -1504,97 +1231,26 @@ app.get('/api/knowledge/status', (_req, res) => {
 // One-shot setup: creates the Notion database under a parent page (defaults
 // to the user's existing notion_sync_parent_id) and seeds the local index.
 app.post('/api/knowledge/setup', async (req, res) => {
-  const token = await getNotionAccessToken(req)
   const settings = getData('settings') || {}
   const parentPageId = req.body?.parent_page_id || settings.notion_sync_parent_id || null
   if (!parentPageId) {
-    return res.status(400).json({
-      error: 'Set up a Notion sync parent in Settings first, or pass parent_page_id explicitly.',
-    })
-  }
-  // Existing DB? Return it.
-  const existing = getData('notion_knowledge_db_id')
-  if (existing) {
-    return res.json({ database_id: existing, url: getData('notion_knowledge_db_url'), created: false })
-  }
-
-  // Try REST first if we have a working token
-  if (token) {
-    try {
-      const result = await ensureKnowledgeDatabase({ token, parentPageId, getData, setData })
-      await refreshKnowledgeIndex({ token, getData, setData }).catch(err => {
-        console.warn('[Knowledge] initial refresh failed:', err.message)
-      })
-      return res.json(result)
-    } catch (err) {
-      console.warn('[Knowledge] REST setup failed:', err.message)
-    }
-  }
-
-  // MCP path — use notion-create-database tool
-  if (!notionMCP.getStatus().connected) {
-    return res.status(400).json({ error: 'Notion not connected. Connect via MCP in Settings.' })
+    return res.status(400).json({ error: 'Set up a Notion sync parent in Settings first.' })
   }
   try {
-    const tools = notionMCP.getCachedTools()
-    const createDbTool = tools.find(t => t.name === 'notion-create-database')
-    if (!createDbTool) throw new Error('notion-create-database tool not available')
-
-    const schema = `CREATE TABLE (
-  "Name" TITLE,
-  "Type" SELECT('Location':blue, 'How-to':green, 'Decision':purple, 'Person':pink),
-  "Tags" MULTI_SELECT,
-  "Related tasks" RICH_TEXT,
-  "Confidence" SELECT('Certain':green, 'Fuzzy':yellow)
-)`
-
-    const result = await notionMCP.callTool('notion-create-database', {
-      parent: { page_id: parentPageId },
-      title: 'Boomerang Knowledge',
-      schema,
+    const result = await ensureKnowledgeDatabase({ parentPageId, getData, setData })
+    await refreshKnowledgeIndex({ getData, setData }).catch(err => {
+      console.warn('[Knowledge] initial refresh failed:', err.message)
     })
-
-    if (result?.isError) {
-      const errText = (result.content || []).map(c => c.text || '').join(' ')
-      throw new Error('MCP create-database error: ' + errText)
-    }
-    const raw = result?.content?.[0]?.text
-    if (!raw) throw new Error('MCP create-database returned no content')
-
-    // Response is Notion's enhanced markdown, not JSON. Extract the
-    // database ID from the URL: notion.so/<32-hex-id>
-    let dbId = null
-    let dbUrl = null
-    const dbUrlMatch = raw.match(/notion\.so\/([a-f0-9]{32})/)
-    if (dbUrlMatch) {
-      const hex = dbUrlMatch[1]
-      dbId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`
-      dbUrl = `https://www.notion.so/${hex}`
-    }
-    // Fallback: try JSON parse in case future versions return JSON
-    if (!dbId) {
-      try {
-        const content = JSON.parse(raw)
-        dbId = content?.id || content?.database_id
-        dbUrl = content?.url
-      } catch { /* not JSON, that's expected */ }
-    }
-    if (!dbId) throw new Error('Could not extract database ID from MCP response')
-    setData('notion_knowledge_db_id', dbId)
-    setData('notion_knowledge_db_url', dbUrl || null)
-    console.log(`[Knowledge] Created Notion database via MCP: ${dbId}`)
-    res.json({ database_id: dbId, url: dbUrl, created: true })
+    res.json(result)
   } catch (err) {
-    console.error('[Knowledge] MCP setup failed:', err?.message)
+    console.error('[Knowledge] setup failed:', err?.message)
     res.status(500).json({ error: err.message || 'Knowledge setup failed' })
   }
 })
 
 app.post('/api/knowledge/refresh', async (req, res) => {
-  const token = await getNotionAccessToken(req)
-  if (!token) return res.status(400).json({ error: 'Notion not connected' })
   try {
-    const outcome = await refreshKnowledgeIndex({ token, getData, setData })
+    const outcome = await refreshKnowledgeIndex({ getData, setData })
     res.json(outcome)
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -1614,11 +1270,9 @@ app.get('/api/knowledge', (req, res) => {
 app.get('/api/knowledge/:id', async (req, res) => {
   const item = getKnowledgeItem(req.params.id)
   if (!item) return res.status(404).json({ error: 'Not found in local index' })
-  // Body lives in Notion only — fetch on demand. Skip silently when offline.
   let body = ''
   try {
-    const token = await getNotionAccessToken(req)
-    if (token) body = await fetchKnowledgeBody({ token, pageId: req.params.id })
+    body = await fetchKnowledgeBody({ pageId: req.params.id })
   } catch (err) {
     console.warn('[Knowledge] body fetch failed:', err.message)
   }
@@ -3038,8 +2692,7 @@ const adviserAbortMap = new Map() // sessionId -> AbortController
 function adviserDeps(req) {
   return {
     anthropicKey: getAnthropicKey(req),
-    notionToken: getLegacyNotionToken(req),
-    notionMCP: { connected: notionMCP.getStatus().connected, callTool: notionMCP.callTool },
+    notionConnected: notionMCP.getStatus().connected,
     trello: getTrelloAuth(req),
     gcalToken: null, // filled in async before tools that need it
     // Knowledge-base tools (adviserToolsKnowledge.js). The boolean lets the
@@ -3403,10 +3056,6 @@ app.post('/api/adviser/chat', async (req, res) => {
   // itself doesn't reference req afterwards — it can outlive the request.
   const deps = adviserDeps(req)
   try { deps.gcalToken = await getGCalAccessToken() } catch { /* non-fatal */ }
-  try {
-    const oauth = await getNotionAccessToken(req)
-    if (oauth) deps.notionToken = oauth
-  } catch { /* non-fatal */ }
 
   const abortController = new AbortController()
   adviserAbortMap.set(sessionId, abortController)
@@ -3425,10 +3074,6 @@ app.post('/api/adviser/commit', async (req, res) => {
 
   const deps = adviserDeps(req)
   try { deps.gcalToken = await getGCalAccessToken() } catch { /* non-fatal */ }
-  try {
-    const oauth = await getNotionAccessToken(req)
-    if (oauth) deps.notionToken = oauth
-  } catch { /* non-fatal */ }
 
   const outcome = await commitPlan(sessionId, deps)
   if (outcome.broadcastNeeded) {
@@ -3841,11 +3486,7 @@ initDb(dbPath).then(async () => {
     startPatternDetection()
 
     // Background knowledge-base index refresh. Bails silently when not configured.
-    startKnowledgeRefreshLoop({
-      resolveToken: () => getNotionAccessToken(null),
-      getData,
-      setData,
-    })
+    startKnowledgeRefreshLoop({ getData, setData })
 
     // Daily DB snapshot — runs once on boot then every 24h. Defends against the
     // 2026-05-07 wipe class of bug where a single bad write erases everything.

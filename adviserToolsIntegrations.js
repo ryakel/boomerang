@@ -8,7 +8,6 @@
 import { registerTool } from './adviserTools.js'
 
 const GCAL_BASE = 'https://www.googleapis.com/calendar/v3'
-const NOTION_BASE = 'https://api.notion.com/v1'
 const TRELLO_BASE = 'https://api.trello.com/1'
 
 function ensure(cond, msg) {
@@ -203,108 +202,37 @@ export function registerGCalTools() {
 // Notion
 // ============================================================
 
-function notionHeaders(token) {
-  return {
-    Authorization: `Bearer ${token}`,
-    'Notion-Version': '2022-06-28',
-    'Content-Type': 'application/json',
-  }
-}
 
-function extractNotionTitle(page) {
-  const props = page?.properties || {}
-  for (const v of Object.values(props)) {
-    if (v.type === 'title' && v.title?.length) return v.title.map(t => t.plain_text).join('')
-  }
-  return 'Untitled'
-}
-
-// Flatten Notion property objects to plain values so the model can filter/compare without
-// knowing Notion's schema. Unsupported types resolve to null.
-function flattenNotionProperties(props) {
-  const out = {}
-  for (const [name, val] of Object.entries(props || {})) {
-    switch (val.type) {
-      case 'title':
-      case 'rich_text':
-        out[name] = (val[val.type] || []).map(t => t.plain_text).join(''); break
-      case 'number': out[name] = val.number; break
-      case 'select': out[name] = val.select?.name ?? null; break
-      case 'multi_select': out[name] = (val.multi_select || []).map(s => s.name); break
-      case 'status': out[name] = val.status?.name ?? null; break
-      case 'date': out[name] = val.date ? { start: val.date.start, end: val.date.end || null } : null; break
-      case 'checkbox': out[name] = !!val.checkbox; break
-      case 'url': case 'email': case 'phone_number': out[name] = val[val.type] ?? null; break
-      case 'people': out[name] = (val.people || []).map(p => p.name || p.id); break
-      case 'files': out[name] = (val.files || []).map(f => f.name); break
-      case 'relation': out[name] = (val.relation || []).map(r => r.id); break
-      case 'formula': out[name] = val.formula?.[val.formula?.type] ?? null; break
-      case 'rollup': out[name] = val.rollup?.[val.rollup?.type] ?? null; break
-      case 'created_time': case 'last_edited_time': out[name] = val[val.type] ?? null; break
-      default: out[name] = null
-    }
-  }
-  return out
-}
-
-function parseContentToBlocks(content) {
-  return content.split('\n').filter(Boolean).map(line => {
-    if (line.startsWith('# ')) return { object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: line.slice(2) } }] } }
-    if (line.startsWith('## ')) return { object: 'block', type: 'heading_2', heading_2: { rich_text: [{ type: 'text', text: { content: line.slice(3) } }] } }
-    if (line.match(/^- \[[ x]\] /)) {
-      const checked = line[3] === 'x'
-      return { object: 'block', type: 'to_do', to_do: { rich_text: [{ type: 'text', text: { content: line.slice(6) } }], checked } }
-    }
-    if (line.startsWith('- ')) return { object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: [{ type: 'text', text: { content: line.slice(2) } }] } }
-    return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: line } }] } }
-  })
-}
-
-export function registerNotionTools() {
-  // notion_search + notion_get_page used to live here but are now covered by the Notion MCP
-  // tools bridged into the registry (notion_mcp_search / notion_mcp_fetch). Keeping both led
-  // to the model picking the REST tool unpredictably; MCP's native tools do the same job with
-  // user-scoped workspace access, so the REST duplicates are gone.
+export async function registerNotionTools() {
+  const notionProxy = await import('./notionMCPProxy.js')
 
   registerTool({
     name: 'notion_query_database',
-    description: 'Query a Notion database. Returns rows with flattened properties (title, text, number, select, multi_select, status, date, checkbox, url, etc.). Use for inventories, trackers, or any property-based list. Accepts optional Notion filter/sort objects per Notion API spec.',
+    description: 'Query a Notion database. Returns rows with properties.',
     readOnly: true,
     schema: {
       type: 'object',
       properties: {
         database_id: { type: 'string' },
-        filter: { type: 'object', description: 'Notion filter object (optional). See https://developers.notion.com/reference/post-database-query-filter' },
-        sorts: { type: 'array', description: 'Notion sorts array (optional).' },
-        page_size: { type: 'integer', default: 50 },
-        start_cursor: { type: 'string' },
       },
       required: ['database_id'],
     },
-    execute: async (args, deps) => {
-      ensure(deps.notionToken, 'Notion not connected')
-      const body = {}
-      if (args.filter) body.filter = args.filter
-      if (args.sorts) body.sorts = args.sorts
-      body.page_size = args.page_size || 50
-      if (args.start_cursor) body.start_cursor = args.start_cursor
-      const data = await httpJson(`${NOTION_BASE}/databases/${args.database_id}/query`, {
-        method: 'POST', headers: notionHeaders(deps.notionToken), body: JSON.stringify(body),
-      }, 'Notion database query')
-      const rows = (data.results || []).map(page => ({
-        id: page.id,
-        title: extractNotionTitle(page),
-        url: page.url,
-        last_edited: page.last_edited_time,
-        properties: flattenNotionProperties(page.properties || {}),
-      }))
-      return { result: { count: rows.length, rows, has_more: !!data.has_more, next_cursor: data.next_cursor || null } }
+    execute: async (args) => {
+      ensure(notionProxy.isConnected(), 'Notion not connected')
+      const { raw, json } = await notionProxy.queryDatabase(args.database_id)
+      if (json?.results) {
+        const rows = json.results.map(page => ({
+          id: page.id, url: page.url, last_edited: page.last_edited_time,
+        }))
+        return { result: { count: rows.length, rows } }
+      }
+      return { result: { raw } }
     },
   })
 
   registerTool({
     name: 'notion_create_page',
-    description: 'Create a new Notion page under a parent page. Content is markdown-ish (supports #, ##, -, - [ ]).',
+    description: 'Create a new Notion page under a parent page. Content is markdown.',
     schema: {
       type: 'object',
       properties: {
@@ -315,23 +243,17 @@ export function registerNotionTools() {
       required: ['title', 'parent_page_id'],
     },
     preview: (a) => `Create Notion page "${a.title}"`,
-    execute: async (args, deps) => {
-      ensure(deps.notionToken, 'Notion not connected')
-      const body = {
-        parent: { page_id: args.parent_page_id },
-        properties: { title: { title: [{ text: { content: args.title } }] } },
-        children: parseContentToBlocks(args.content || ''),
-      }
-      const data = await httpJson(`${NOTION_BASE}/pages`, {
-        method: 'POST', headers: notionHeaders(deps.notionToken), body: JSON.stringify(body),
-      }, 'Notion create')
+    execute: async (args) => {
+      ensure(notionProxy.isConnected(), 'Notion not connected')
+      const result = await notionProxy.createPage({
+        parentId: args.parent_page_id,
+        title: args.title,
+        content: args.content || '',
+      })
       return {
-        result: { page_id: data.id, url: data.url },
+        result: { page_id: result.id, url: result.url },
         compensation: async () => {
-          await fetch(`${NOTION_BASE}/pages/${data.id}`, {
-            method: 'PATCH', headers: notionHeaders(deps.notionToken),
-            body: JSON.stringify({ archived: true }),
-          }).catch(() => {})
+          await notionProxy.archivePage(result.id).catch(() => {})
         },
       }
     },
@@ -339,58 +261,26 @@ export function registerNotionTools() {
 
   registerTool({
     name: 'notion_update_page',
-    description: 'Update a Notion page title and/or replace its content blocks. Captures the prior title so rollback can restore it.',
+    description: 'Update a Notion page title and/or replace its content.',
     schema: {
       type: 'object',
       properties: {
         page_id: { type: 'string' },
         title: { type: 'string' },
-        content: { type: 'string', description: 'If set, REPLACES all existing content blocks.' },
-        title_hint: { type: 'string', description: 'Human-readable page title for the plan preview (not sent to Notion).' },
+        content: { type: 'string', description: 'If set, REPLACES all existing content.' },
+        title_hint: { type: 'string' },
       },
       required: ['page_id'],
     },
     preview: (a) => `Update Notion page "${a.title_hint || a.title || a.page_id.slice(0, 8)}"`,
-    execute: async (args, deps) => {
-      ensure(deps.notionToken, 'Notion not connected')
-      const beforePage = await httpJson(`${NOTION_BASE}/pages/${args.page_id}`, {
-        headers: notionHeaders(deps.notionToken),
-      }, 'Notion fetch')
-      const beforeTitle = extractNotionTitle(beforePage)
-
-      if (args.title) {
-        await httpJson(`${NOTION_BASE}/pages/${args.page_id}`, {
-          method: 'PATCH', headers: notionHeaders(deps.notionToken),
-          body: JSON.stringify({ properties: { title: { title: [{ text: { content: args.title } }] } } }),
-        }, 'Notion title')
-      }
-      if (args.content) {
-        const blocks = await httpJson(`${NOTION_BASE}/blocks/${args.page_id}/children?page_size=100`, {
-          headers: notionHeaders(deps.notionToken),
-        }, 'Notion blocks pre')
-        for (const b of blocks.results || []) {
-          await fetch(`${NOTION_BASE}/blocks/${b.id}`, { method: 'DELETE', headers: notionHeaders(deps.notionToken) }).catch(() => {})
-        }
-        const children = parseContentToBlocks(args.content)
-        if (children.length) {
-          await httpJson(`${NOTION_BASE}/blocks/${args.page_id}/children`, {
-            method: 'PATCH', headers: notionHeaders(deps.notionToken),
-            body: JSON.stringify({ children }),
-          }, 'Notion append')
-        }
-      }
+    execute: async (args) => {
+      ensure(notionProxy.isConnected(), 'Notion not connected')
+      const props = args.title ? `Name: ${args.title}` : undefined
+      await notionProxy.updatePage({ pageId: args.page_id, properties: props, content: args.content })
       return {
         result: { page_id: args.page_id, updated: ['title', 'content'].filter(k => args[k]) },
         compensation: async () => {
-          if (args.title) {
-            await fetch(`${NOTION_BASE}/pages/${args.page_id}`, {
-              method: 'PATCH', headers: notionHeaders(deps.notionToken),
-              body: JSON.stringify({ properties: { title: { title: [{ text: { content: beforeTitle } }] } } }),
-            }).catch(() => {})
-          }
-          if (args.content) {
-            console.warn(`[Adviser] Rollback cannot fully restore replaced Notion content on ${args.page_id}`)
-          }
+          console.warn(`[Adviser] Rollback of Notion page ${args.page_id} is best-effort via MCP`)
         },
       }
     },
