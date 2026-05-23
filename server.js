@@ -1560,11 +1560,26 @@ app.post('/api/knowledge/setup', async (req, res) => {
     }
     const raw = result?.content?.[0]?.text
     if (!raw) throw new Error('MCP create-database returned no content')
-    let content
-    try { content = JSON.parse(raw) } catch { throw new Error('MCP create-database returned non-JSON: ' + (raw || '')) }
-    const dbId = content?.id || content?.database_id
-    const dbUrl = content?.url
-    if (!dbId) throw new Error('MCP create-database returned no database ID. Response: ' + JSON.stringify(content).slice(0, 500))
+
+    // Response is Notion's enhanced markdown, not JSON. Extract the
+    // database ID from the URL: notion.so/<32-hex-id>
+    let dbId = null
+    let dbUrl = null
+    const dbUrlMatch = raw.match(/notion\.so\/([a-f0-9]{32})/)
+    if (dbUrlMatch) {
+      const hex = dbUrlMatch[1]
+      dbId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`
+      dbUrl = `https://www.notion.so/${hex}`
+    }
+    // Fallback: try JSON parse in case future versions return JSON
+    if (!dbId) {
+      try {
+        const content = JSON.parse(raw)
+        dbId = content?.id || content?.database_id
+        dbUrl = content?.url
+      } catch { /* not JSON, that's expected */ }
+    }
+    if (!dbId) throw new Error('Could not extract database ID from MCP response')
     setData('notion_knowledge_db_id', dbId)
     setData('notion_knowledge_db_url', dbUrl || null)
     console.log(`[Knowledge] Created Notion database via MCP: ${dbId}`)
