@@ -853,73 +853,54 @@ function IntegrationsPanel({
                 )}
                 {int.inline === 'notion-full' && (
                   <div className="v2-integrations-inline">
-                    {/* Error + fallback link — always visible regardless of connection state */}
                     {notionConnectError && <div className="v2-integrations-warn" style={{ marginBottom: 8 }}>⚠️ {notionConnectError}</div>}
                     {notionAuthUrl && (
                       <div className="v2-integrations-hint" style={{ marginBottom: 8 }}>
                         Popup blocked — <a href={notionAuthUrl} target="_blank" rel="noreferrer">click here to connect</a>
                       </div>
                     )}
-                    {/* Not connected — show Connect button */}
                     {!statuses.notion?.connected && !statuses.notion?.mcpHealth?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
-                      <div className="v2-integrations-actions">
-                        <button
-                          className="v2-settings-btn"
-                          onClick={reconnectNotionMCP}
-                          disabled={notionReconnecting}
-                        >
-                          {notionReconnecting ? 'Connecting…' : 'Connect via MCP'}
-                        </button>
-                      </div>
+                      <button className="v2-settings-btn" onClick={reconnectNotionMCP} disabled={notionReconnecting}>
+                        {notionReconnecting ? 'Connecting…' : 'Connect via MCP'}
+                      </button>
                     )}
                     {statuses.notion?.mcpHealth?.needsReauth && (
-                      <div className="v2-integrations-warn">
-                        <span>⚠️ MCP connection expired. Quokka + Knowledge Base won't work until reconnected.</span>
-                        <div className="v2-integrations-actions">
+                      <>
+                        <div className="v2-integrations-warn" style={{ marginBottom: 8 }}>⚠️ MCP connection expired. Reconnect to restore Quokka + Knowledge Base.</div>
+                        <div className="v2-integrations-actions" style={{ marginBottom: 8 }}>
                           <button className="v2-settings-btn" onClick={reconnectNotionMCP} disabled={notionReconnecting}>
                             {notionReconnecting ? 'Reconnecting…' : 'Reconnect'}
                           </button>
-                          <button className="v2-settings-btn v2-settings-btn-danger" onClick={disconnectNotionMCP}>
-                            Disconnect
-                          </button>
+                          <button className="v2-settings-btn v2-settings-btn-danger" onClick={disconnectNotionMCP}>Disconnect</button>
                         </div>
-                      </div>
+                      </>
                     )}
                     {(statuses.notion?.connected || statuses.notion?.mcpHealth?.connected) && !statuses.notion?.mcpHealth?.needsReauth && (
                       <>
-                        {/* Parent page config */}
+                        <div className="v2-integrations-actions" style={{ marginBottom: 8 }}>
+                          <button className="v2-settings-btn v2-settings-btn-danger" onClick={disconnectNotionMCP}>Disconnect</button>
+                        </div>
                         {settings.notion_sync_parent_id ? (
-                          <div className="v2-weather-current">
-                            <div className="v2-weather-current-label">
-                              📄 Syncing from <strong>{settings.notion_sync_parent_title || 'Selected page'}</strong>
-                              {notionChildCount != null && (
-                                <span className="v2-integrations-hint" style={{ display: 'block', marginTop: 4 }}>
-                                  {notionChildCount} child page{notionChildCount === 1 ? '' : 's'} discovered
-                                  {settings.notion_last_sync ? ` · last synced ${new Date(settings.notion_last_sync).toLocaleString()}` : ''}
-                                </span>
-                              )}
+                          <>
+                            <label className="v2-form-label">Sync parent</label>
+                            <div className="v2-integrations-toggle-row">
+                              <span>📄 {settings.notion_sync_parent_title || 'Selected page'}</span>
+                              <button className="v2-settings-btn" onClick={clearNotionParent}>Change</button>
                             </div>
-                            <button className="v2-settings-btn" onClick={clearNotionParent}>Change page</button>
-                          </div>
+                            {notionChildCount != null && (
+                              <div className="v2-integrations-hint">
+                                {notionChildCount} child page{notionChildCount === 1 ? '' : 's'} discovered
+                                {settings.notion_last_sync ? ` · last synced ${new Date(settings.notion_last_sync).toLocaleString()}` : ''}
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <>
-                            <div className="v2-integrations-hint">
-                              Pick a parent Notion page — its child pages get pulled as tasks.
-                            </div>
+                            <label className="v2-form-label">Sync parent</label>
+                            <div className="v2-integrations-hint" style={{ marginBottom: 4 }}>Pick a parent page — its children become tasks.</div>
                             <div className="v2-weather-search">
-                              <input
-                                type="text"
-                                className="v2-form-input"
-                                placeholder="Search Notion pages…"
-                                value={notionSearchQuery}
-                                onChange={e => setNotionSearchQuery(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runNotionSearch() } }}
-                              />
-                              <button
-                                className="v2-settings-btn"
-                                onClick={runNotionSearch}
-                                disabled={notionSearching || !notionSearchQuery.trim()}
-                              >
+                              <input type="text" className="v2-form-input" placeholder="Search Notion pages…" value={notionSearchQuery} onChange={e => setNotionSearchQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runNotionSearch() } }} />
+                              <button className="v2-settings-btn" onClick={runNotionSearch} disabled={notionSearching || !notionSearchQuery.trim()}>
                                 {notionSearching ? 'Searching…' : 'Search'}
                               </button>
                             </div>
@@ -927,11 +908,7 @@ function IntegrationsPanel({
                             {notionSearchResults && notionSearchResults.length > 0 && (
                               <ul className="v2-weather-results">
                                 {notionSearchResults.map(page => (
-                                  <li key={page.id}>
-                                    <button className="v2-weather-result" onClick={() => pickNotionParent(page)}>
-                                      {page.title}
-                                    </button>
-                                  </li>
+                                  <li key={page.id}><button className="v2-weather-result" onClick={() => pickNotionParent(page)}>{page.title}</button></li>
                                 ))}
                               </ul>
                             )}
@@ -940,51 +917,25 @@ function IntegrationsPanel({
                             )}
                           </>
                         )}
-                        {/* Knowledge base */}
-                        <div className="v2-integrations-kb">
-                          <div className="v2-form-label">Knowledge base</div>
-                          <div className="v2-integrations-hint">
-                            Stash long-term reference (where you keep things, decisions you've made,
-                            people, how-tos) as Notion pages Quokka can search. One database in your
-                            Notion workspace, kept in sync automatically.
+                        <label className="v2-form-label" style={{ marginTop: 12 }}>Knowledge base</label>
+                        {kbStatus?.configured ? (
+                          <div className="v2-integrations-toggle-row">
+                            <span>
+                              ✓ Connected
+                              {kbStatus.database_url && <> · <a href={kbStatus.database_url} target="_blank" rel="noreferrer">Open in Notion</a></>}
+                            </span>
+                            <button className="v2-settings-btn" onClick={runKnowledgeRefresh}>Sync now</button>
                           </div>
-                          {kbStatus?.configured ? (
-                            <>
-                              <div className="v2-integrations-status-line">
-                                ✓ Connected
-                                {kbStatus.database_url && (
-                                  <> · <a href={kbStatus.database_url} target="_blank" rel="noreferrer">Open in Notion</a></>
-                                )}
-                                {kbStatus.last_sync && (
-                                  <span className="v2-integrations-hint" style={{ display: 'block', marginTop: 4 }}>
-                                    Last synced {new Date(kbStatus.last_sync).toLocaleString()}
-                                  </span>
-                                )}
-                              </div>
-                              <button className="v2-settings-btn" onClick={runKnowledgeRefresh}>
-                                Sync now
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              className="v2-settings-btn"
-                              onClick={runKnowledgeSetup}
-                              disabled={kbSetupBusy || !settings.notion_sync_parent_id}
-                            >
-                              {kbSetupBusy ? 'Setting up…' : 'Set up Knowledge Base'}
-                            </button>
-                          )}
-                          {!settings.notion_sync_parent_id && !kbStatus?.configured && (
-                            <div className="v2-integrations-hint">
-                              Pick a parent page above first — the knowledge database is created underneath it.
-                            </div>
-                          )}
-                          {kbError && <div className="v2-integrations-error">{kbError}</div>}
-                        </div>
-                        {/* Disconnect */}
-                        <button className="v2-settings-btn v2-settings-btn-danger" onClick={disconnectNotionMCP}>
-                          Disconnect Notion
-                        </button>
+                        ) : (
+                          <button className="v2-settings-btn" onClick={runKnowledgeSetup} disabled={kbSetupBusy || !settings.notion_sync_parent_id}>
+                            {kbSetupBusy ? 'Setting up…' : 'Set up Knowledge Base'}
+                          </button>
+                        )}
+                        {kbStatus?.last_sync && <div className="v2-integrations-hint">Last synced {new Date(kbStatus.last_sync).toLocaleString()}</div>}
+                        {!settings.notion_sync_parent_id && !kbStatus?.configured && (
+                          <div className="v2-integrations-hint">Pick a sync parent first.</div>
+                        )}
+                        {kbError && <div className="v2-integrations-error">{kbError}</div>}
                       </>
                     )}
                   </div>
