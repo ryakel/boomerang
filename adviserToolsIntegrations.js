@@ -6,6 +6,7 @@
 // - delete → cannot perfectly restore (logs a warning; external deletes are final)
 
 import { registerTool } from './adviserTools.js'
+import * as notionProxy from './notionMCPProxy.js'
 
 const GCAL_BASE = 'https://www.googleapis.com/calendar/v3'
 const TRELLO_BASE = 'https://api.trello.com/1'
@@ -203,8 +204,7 @@ export function registerGCalTools() {
 // ============================================================
 
 
-export async function registerNotionTools() {
-  const notionProxy = await import('./notionMCPProxy.js')
+export function registerNotionTools() {
 
   registerTool({
     name: 'notion_query_database',
