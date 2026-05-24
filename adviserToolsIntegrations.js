@@ -232,21 +232,23 @@ export async function registerNotionTools() {
 
   registerTool({
     name: 'notion_create_page',
-    description: 'Create a new Notion page under a parent page. Content is markdown.',
+    description: 'Create a new Notion page under a parent page. Content is markdown. If parent_page_id is omitted, defaults to the configured Notion sync parent (notion_sync_parent_id).',
     schema: {
       type: 'object',
       properties: {
         title: { type: 'string' },
         content: { type: 'string' },
-        parent_page_id: { type: 'string' },
+        parent_page_id: { type: 'string', description: 'Optional. Defaults to the sync parent page if omitted.' },
       },
-      required: ['title', 'parent_page_id'],
+      required: ['title'],
     },
     preview: (a) => `Create Notion page "${a.title}"`,
-    execute: async (args) => {
+    execute: async (args, deps) => {
       ensure(notionProxy.isConnected(), 'Notion not connected')
+      const parentId = args.parent_page_id || deps.kbGetData?.('settings')?.notion_sync_parent_id
+      if (!parentId) throw new Error('No parent_page_id provided and no sync parent configured in Settings.')
       const result = await notionProxy.createPage({
-        parentId: args.parent_page_id,
+        parentId,
         title: args.title,
         content: args.content || '',
       })

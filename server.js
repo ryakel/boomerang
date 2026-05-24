@@ -607,13 +607,9 @@ app.get('/api/notion/pages/:id', async (req, res) => {
 app.post('/api/notion/pages', async (req, res) => {
   try {
     const { title, content, parentPageId } = req.body
-    if (!parentPageId) {
-      const pages = await notionProxy.search('')
-      if (!pages.length) return res.status(400).json({ error: 'No accessible Notion pages found.' })
-      const result = await notionProxy.createPage({ parentId: pages[0].id, title, content })
-      return res.json(result)
-    }
-    const result = await notionProxy.createPage({ parentId: parentPageId, title, content })
+    const parentId = parentPageId || (getData('settings') || {}).notion_sync_parent_id
+    if (!parentId) return res.status(400).json({ error: 'No parent page specified and no sync parent configured.' })
+    const result = await notionProxy.createPage({ parentId, title, content })
     res.json(result)
   } catch (err) {
     res.status(500).json({ error: err.message })
