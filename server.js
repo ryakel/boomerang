@@ -3030,7 +3030,8 @@ app.post('/api/adviser/chat', async (req, res) => {
   // Always send the session id as the first event (idempotent — if the
   // session was new, no events buffered yet, so this is the only thing).
   // Re-subscribers also benefit: confirms which session they joined.
-  res.write(`event: session\ndata: ${JSON.stringify({ sessionId, runnerState: getSession(sessionId)?.runnerState || 'idle' })}\n\n`)
+  const sess = getSession(sessionId)
+  res.write(`event: session\ndata: ${JSON.stringify({ sessionId, runnerState: sess?.runnerState || 'idle', eventCount: sess?.events?.length || 0 })}\n\n`)
   if (typeof res.flush === 'function') res.flush()
 
   const heartbeat = setInterval(() => {
