@@ -61,7 +61,7 @@ async function verifyRestAccess(databaseId) {
     const res = await fetch(`${NOTION_BASE}/databases/${databaseId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Notion-Version': '2025-09-03',
+        'Notion-Version': '2022-06-28',
       },
     })
     if (res.ok) {
@@ -134,7 +134,7 @@ export async function refreshKnowledgeIndex({ getData, setData }) {
   }
 
   const { raw } = await notion.queryDatabase(dbId)
-  // Parse items from the MCP response — could be JSON or enhanced markdown.
+  console.log('[Knowledge] queryDatabase response type:', typeof raw, 'length:', raw?.length, 'preview:', String(raw).slice(0, 500))
   const items = []
   let json
   try { json = typeof raw === 'string' ? JSON.parse(raw) : raw } catch { json = null }
@@ -157,6 +157,19 @@ export async function refreshKnowledgeIndex({ getData, setData }) {
         archived: false,
       })
     }
+  }
+
+  // Fallback: if JSON parsing found nothing, try to extract pages from
+  // the enhanced markdown response (MCP notion-fetch returns this format).
+  if (items.length === 0 && typeof raw === 'string' && raw.length > 0) {
+    // MCP database fetch lists pages as markdown sections with page IDs.
+    const pageIdRegex = /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{32})/gi
+    const pageIds = [...new Set((raw.match(pageIdRegex) || []).filter(id => id !== dbId))]
+    for (const pid of pageIds) {
+      const item = parseKnowledgeItemFromMarkdown(pid, raw)
+      if (item.title !== 'Untitled') items.push(item)
+    }
+    console.log(`[Knowledge] Parsed ${items.length} items from MCP markdown (${pageIds.length} candidate IDs)`)
   }
 
   replaceKnowledgeIndex(items)
