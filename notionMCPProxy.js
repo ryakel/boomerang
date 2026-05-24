@@ -74,12 +74,35 @@ function extractUrlFromText(text) {
 
 function extractTitleFromProperties(properties) {
   if (!properties) return null
-  for (const val of Object.values(properties)) {
+  for (const [key, val] of Object.entries(properties)) {
+    // Standard Notion API format
     if (val?.type === 'title' && val.title?.length) {
       return val.title.map(t => t.plain_text || t.text?.content || '').join('')
     }
+    // 2025 API may nest differently
+    if (val?.title?.length && Array.isArray(val.title)) {
+      return val.title.map(t => t.plain_text || t.text?.content || '').join('')
+    }
+    // Simple string value for title-type properties
+    if (key.toLowerCase() === 'title' && typeof val === 'string') return val
+    if (key === 'Name' && typeof val === 'string') return val
   }
   return null
+}
+
+function extractTitleFromPage(page) {
+  if (!page) return 'Untitled'
+  // Try properties first
+  const fromProps = extractTitleFromProperties(page.properties)
+  if (fromProps) return fromProps
+  // Direct title field (some API responses)
+  if (page.title) {
+    if (typeof page.title === 'string') return page.title
+    if (Array.isArray(page.title)) return page.title.map(t => t.plain_text || t.text?.content || '').join('')
+  }
+  // child_page block format
+  if (page.child_page?.title) return page.child_page.title
+  return 'Untitled'
 }
 
 function extractPagesFromText(raw) {
@@ -107,9 +130,10 @@ export async function search(query) {
   const raw = await callMCP('notion-search', { query })
   const json = tryParseJSON(raw)
   if (json?.results) {
+    if (json.results[0]) console.log('[Notion:MCP] search result sample keys:', Object.keys(json.results[0]).join(', '))
     return json.results.map(p => ({
       id: p.id,
-      title: extractTitleFromProperties(p.properties) || 'Untitled',
+      title: extractTitleFromPage(p),
       url: p.url,
       last_edited: p.last_edited_time,
     }))
@@ -183,12 +207,12 @@ export async function getPage(pageId) {
     try {
       console.log(`[Notion:REST] GET pages/${pageId}`)
       const data = await restJson(`${NOTION_BASE}/pages/${pageId}`, {}, 'get page')
-      return { id: data.id, title: extractTitleFromProperties(data.properties), url: data.url, properties: data.properties }
+      return { id: data.id, title: extractTitleFromPage(data), url: data.url, properties: data.properties }
     } catch (err) { console.warn('[Notion:REST] get page failed:', err.message) }
   }
   const raw = await callMCP('notion-fetch', { id: pageId })
   const json = tryParseJSON(raw)
-  if (json?.id) return { id: json.id, title: extractTitleFromProperties(json.properties), url: json.url, properties: json.properties }
+  if (json?.id) return { id: json.id, title: extractTitleFromPage(json), url: json.url, properties: json.properties }
   return { id: pageId, title: 'Untitled', url: extractUrlFromText(raw) }
 }
 
