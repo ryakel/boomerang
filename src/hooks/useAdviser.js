@@ -302,15 +302,14 @@ export function useAdviser() {
       chatId,
       onEvent: (event, data) => {
         handler(event, data)
-        // As soon as we receive the session event with a sessionId,
-        // abort the SSE stream and switch to GET polling. iOS kills
-        // ReadableStream connections silently — polling is reliable.
         if (event === 'session' && data.sessionId) {
           const sid = data.sessionId
-          quokkaLog('got sessionId, aborting stream and switching to poll, sid=' + sid)
           if (streamRef.current?.abort) streamRef.current.abort()
           streamRef.current = null
-          let lastIdx = 0
+          // Start from current event count — skip events from prior turns
+          const startFrom = (data.eventCount || 0)
+          quokkaLog('switching to poll, sid=' + sid, 'startFrom=' + startFrom)
+          let lastIdx = startFrom
           const pollForResult = async () => {
             for (let attempt = 0; attempt < 30; attempt++) {
               await new Promise(r => setTimeout(r, 1500))

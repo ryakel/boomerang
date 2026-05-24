@@ -145,7 +145,8 @@ export async function refreshKnowledgeIndex({ getData, setData }) {
         notion_page_id: page.id,
         title: page.properties?.Name?.title?.map(t => t.plain_text).join('') || 'Untitled',
         type: page.properties?.Type?.select?.name || null,
-        tags: (page.properties?.Tags?.multi_select || []).map(t => t.name),
+        tags: (page.properties?.Tags?.rich_text?.map(t => t.plain_text).join('') || '')
+          .split(/[,\s]+/).map(s => s.trim()).filter(Boolean),
         summary: '',
         confidence: page.properties?.Confidence?.select?.name || null,
         related_task_ids: (page.properties?.['Related tasks']?.rich_text?.map(t => t.plain_text).join('') || '')
