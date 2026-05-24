@@ -264,12 +264,14 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
         >
           <History size={14} strokeWidth={1.75} /> {chats.length > 0 ? `${chats.length} chat${chats.length !== 1 ? 's' : ''}` : 'Chats'}
         </button>
-        <button
-          className="v2-adviser-tool-btn v2-adviser-tool-btn-primary"
-          onClick={handleNewChat}
-        >
-          <Plus size={14} strokeWidth={2} /> New chat
-        </button>
+        {!showHistory && (
+          <button
+            className="v2-adviser-tool-btn v2-adviser-tool-btn-primary"
+            onClick={handleNewChat}
+          >
+            <Plus size={14} strokeWidth={2} /> New chat
+          </button>
+        )}
       </div>
 
       {showHistory ? (
