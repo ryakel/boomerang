@@ -676,12 +676,21 @@ app.post('/api/notion/databases/:id/query', async (req, res) => {
 })
 
 function extractTitle(page) {
-  const props = page.properties || {}
-  for (const val of Object.values(props)) {
-    if (val.type === 'title' && val.title?.length > 0) {
-      return val.title.map(t => t.plain_text).join('')
-    }
+  if (page.title) {
+    if (typeof page.title === 'string') return page.title
+    if (Array.isArray(page.title)) return page.title.map(t => t.plain_text || t.text?.content || '').join('')
   }
+  const props = page.properties || {}
+  for (const [key, val] of Object.entries(props)) {
+    if (val?.type === 'title' && val.title?.length > 0) {
+      return val.title.map(t => t.plain_text || '').join('')
+    }
+    if (val?.title?.length && Array.isArray(val.title)) {
+      return val.title.map(t => t.plain_text || '').join('')
+    }
+    if (key === 'Name' && typeof val === 'string') return val
+  }
+  if (page.child_page?.title) return page.child_page.title
   return 'Untitled'
 }
 
@@ -1242,6 +1251,14 @@ app.post('/api/knowledge/setup', async (req, res) => {
     console.error('[Knowledge] setup failed:', err?.message)
     res.status(500).json({ error: err.message || 'Knowledge setup failed' })
   }
+})
+
+app.post('/api/knowledge/reset', (req, res) => {
+  setData('notion_knowledge_db_id', null)
+  setData('notion_knowledge_db_url', null)
+  setData('notion_knowledge_last_sync', null)
+  console.log('[Knowledge] Reset — cleared stored DB ID')
+  res.json({ ok: true })
 })
 
 app.post('/api/knowledge/refresh', async (req, res) => {
