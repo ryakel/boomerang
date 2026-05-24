@@ -3111,12 +3111,22 @@ app.post('/api/adviser/abort', (req, res) => {
   abortSession(sessionId)
   const ctrl = adviserAbortMap.get(sessionId)
   if (ctrl) ctrl.abort()
-  // Abort also drops any queued follow-ups — user is explicitly stopping
-  // the conversation, queued messages would be confusing to resume.
   const session = getSession(sessionId)
   if (session) session.queue = []
   clearSession(sessionId)
   res.json({ ok: true })
+})
+
+// Poll endpoint for when SSE streaming fails (iOS PWA drops SSE connections).
+// Returns the session's buffered events so the client can catch up without SSE.
+app.get('/api/adviser/session/:id/events', (req, res) => {
+  const session = getSession(req.params.id)
+  if (!session) return res.status(404).json({ error: 'Session not found' })
+  res.json({
+    runnerState: session.runnerState || 'idle',
+    events: session.events || [],
+    plan: session.plan || [],
+  })
 })
 
 app.get('/api/adviser/tools', (_req, res) => {
