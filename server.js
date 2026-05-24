@@ -3038,7 +3038,7 @@ app.post('/api/adviser/chat', async (req, res) => {
       res.write(': heartbeat\n\n')
       if (typeof res.flush === 'function') res.flush()
     } catch { /* client gone */ }
-  }, 15000)
+  }, 3000)
 
   req.on('close', () => {
     clearInterval(heartbeat)
