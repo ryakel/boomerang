@@ -61,7 +61,7 @@ async function verifyRestAccess(databaseId) {
     const res = await fetch(`${NOTION_BASE}/databases/${databaseId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Notion-Version': '2022-06-28',
+        'Notion-Version': '2025-09-03',
       },
     })
     if (res.ok) {
