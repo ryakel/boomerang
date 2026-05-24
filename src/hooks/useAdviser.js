@@ -158,6 +158,7 @@ export function useAdviser() {
           ensurePlaceholder()
           break
         case 'message': {
+          quokkaLog('message event, text length=' + (data.text?.length || 0), 'hasPlaceholder=' + !!pendingAssistantRef.current)
           ensurePlaceholder()
           const t = data.text || ''
           if (!pendingAssistantRef.current) break
