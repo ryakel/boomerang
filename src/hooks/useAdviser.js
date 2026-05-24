@@ -285,9 +285,26 @@ export function useAdviser() {
       chatId,
       onEvent: handler,
       onError: (err) => {
-        console.error('[Quokka] stream error', err)
-        setLastError(err.message || String(err))
-        setStatus('error')
+        console.warn('[Quokka] stream error, retrying subscribe-only:', err.message || err)
+        // The server runner continues in the background even when the
+        // SSE stream drops ("Load failed" on iOS). Retry by re-attaching
+        // to the same session with subscribeOnly — the server replays
+        // buffered events so we catch up.
+        setTimeout(() => {
+          if (streamRef.current) return // already reconnected
+          streamRef.current = adviserChat({
+            sessionId,
+            chatId,
+            subscribeOnly: true,
+            onEvent: handler,
+            onError: (retryErr) => {
+              console.error('[Quokka] subscribe-only retry also failed:', retryErr)
+              setLastError(retryErr.message || String(retryErr))
+              setStatus('error')
+            },
+            onDone: () => { streamRef.current = null },
+          })
+        }, 1500)
       },
       onDone: () => {
         streamRef.current = null
