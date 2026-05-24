@@ -186,7 +186,7 @@ export async function getPage(pageId) {
       return { id: data.id, title: extractTitleFromProperties(data.properties), url: data.url, properties: data.properties }
     } catch (err) { console.warn('[Notion:REST] get page failed:', err.message) }
   }
-  const raw = await callMCP('notion-fetch', { resource_uri: `notion://page/${pageId}` })
+  const raw = await callMCP('notion-fetch', { id: pageId })
   const json = tryParseJSON(raw)
   if (json?.id) return { id: json.id, title: extractTitleFromProperties(json.properties), url: json.url, properties: json.properties }
   return { id: pageId, title: 'Untitled', url: extractUrlFromText(raw) }
@@ -220,7 +220,7 @@ export async function getBlockChildren(blockId) {
       return { raw: plainText, blocks: allBlocks }
     } catch (err) { console.warn('[Notion:REST] get blocks failed:', err.message) }
   }
-  const raw = await callMCP('notion-fetch', { resource_uri: `notion://block/${blockId}/children` })
+  const raw = await callMCP('notion-fetch', { id: blockId })
   return { raw, blocks: tryParseJSON(raw)?.results || [] }
 }
 
@@ -252,7 +252,7 @@ export async function queryDatabase(databaseId) {
       return { raw: JSON.stringify({ results: allResults }), json: { results: allResults } }
     } catch (err) { console.warn('[Notion:REST] query database failed:', err.message) }
   }
-  const raw = await callMCP('notion-fetch', { resource_uri: `notion://database/${databaseId}` })
+  const raw = await callMCP('notion-fetch', { id: databaseId })
   return { raw, json: tryParseJSON(raw) }
 }
 
@@ -265,7 +265,7 @@ export async function getDatabase(databaseId) {
       return { id: data.id, archived: !!data.archived, url: data.url, raw: JSON.stringify(data) }
     } catch (err) { console.warn('[Notion:REST] get database failed:', err.message) }
   }
-  const raw = await callMCP('notion-fetch', { resource_uri: `notion://database/${databaseId}` })
+  const raw = await callMCP('notion-fetch', { id: databaseId })
   const json = tryParseJSON(raw)
   return { id: databaseId, archived: json?.archived || false, url: json?.url || extractUrlFromText(raw), raw }
 }

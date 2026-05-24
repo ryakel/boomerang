@@ -50,7 +50,7 @@ Derived from the OpenAPI spec at `@notionhq/notion-mcp-server/scripts/notion-ope
 | MCP Tool | API Operation | Custom? | Notes |
 |---|---|---|---|
 | `notion-search` | `POST /v1/search` | No | `{ query }` param |
-| `notion-fetch` | multiple GETs | **Yes** | Bundles page/block/database fetches via `resource_uri` param |
+| `notion-fetch` | multiple GETs | **Yes** | Bundles page/block/database fetches via `id` param (UUID string) |
 | `notion-create-pages` | `POST /v1/pages` | No | `{ parent, properties, children? }` — properties are Notion API objects |
 | `notion-update-page` | `PATCH /v1/pages/{id}` | No | `{ page_id, properties?, archived? }` — NO children support |
 | `notion-create-database` | `POST /v1/data_sources` | **Yes** | Accepts `{ parent, title, schema }` where schema is SQL DDL |
