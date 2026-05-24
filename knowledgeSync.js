@@ -17,7 +17,7 @@ const KNOWLEDGE_LAST_SYNC_KEY = 'notion_knowledge_last_sync'
 const KB_SCHEMA = `CREATE TABLE (
   "Name" TITLE,
   "Type" SELECT('Location':blue, 'How-to':green, 'Decision':purple, 'Person':pink),
-  "Tags" MULTI_SELECT,
+  "Tags" RICH_TEXT,
   "Related tasks" RICH_TEXT,
   "Confidence" SELECT('Certain':green, 'Fuzzy':yellow)
 )`
@@ -87,6 +87,13 @@ export async function ensureKnowledgeDatabase({ parentPageId, getData, setData }
     try {
       const db = await notion.getDatabase(existing)
       if (db && !db.archived) {
+        if (!getData('knowledge_tags_migrated')) {
+          try {
+            await notion.updateDataSource({ dataSourceId: existing, statements: 'ALTER COLUMN "Tags" SET RICH_TEXT' })
+            setData('knowledge_tags_migrated', true)
+            console.log('[Knowledge] Migrated Tags from MULTI_SELECT to RICH_TEXT')
+          } catch (e) { console.warn('[Knowledge] Tags migration skipped:', e.message) }
+        }
         return { database_id: existing, url: db.url || getData(KNOWLEDGE_DB_URL_KEY), created: false }
       }
     } catch {

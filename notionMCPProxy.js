@@ -174,6 +174,10 @@ export async function createPageInDatabase({ databaseId, properties, content }) 
   return { id, url: extractUrlFromText(raw) }
 }
 
+export async function updateDataSource({ dataSourceId, statements }) {
+  return await callMCP('notion-update-data-source', { data_source_id: dataSourceId, statements })
+}
+
 export async function updatePage({ pageId, properties, archived }) {
   const args = { page_id: pageId }
   if (properties) {
