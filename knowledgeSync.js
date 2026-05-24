@@ -8,6 +8,8 @@ import * as notion from './notionMCPProxy.js'
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
 
+const NOTION_BASE = 'https://api.notion.com/v1'
+
 const KNOWLEDGE_DB_KEY = 'notion_knowledge_db_id'
 const KNOWLEDGE_DB_URL_KEY = 'notion_knowledge_db_url'
 const KNOWLEDGE_LAST_SYNC_KEY = 'notion_knowledge_last_sync'
@@ -45,6 +47,39 @@ function parseKnowledgeItemFromMarkdown(pageId, raw) {
   }
 }
 
+// Verify the REST integration token can access an MCP-created resource.
+// MCP OAuth has full workspace access, but the integration token only
+// sees pages shared via Connections. If the parent page isn't shared,
+// REST operations (query, block reads) will silently fail.
+async function verifyRestAccess(databaseId) {
+  const token = process.env.NOTION_INTEGRATION_TOKEN
+  if (!token) {
+    console.warn('[Knowledge] No NOTION_INTEGRATION_TOKEN — REST operations (query, block reads) will use MCP fallback only')
+    return
+  }
+  try {
+    const res = await fetch(`${NOTION_BASE}/databases/${databaseId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Notion-Version': '2022-06-28',
+      },
+    })
+    if (res.ok) {
+      console.log('[Knowledge] REST access verified — integration token can reach the KB database')
+    } else if (res.status === 404 || res.status === 403) {
+      console.warn(
+        `[Knowledge] WARNING: REST integration token CANNOT access the KB database (${res.status}). ` +
+        'The parent page likely needs to be shared with the integration via Notion → "..." → Connections. ' +
+        'Without this, database queries and block reads will fall back to MCP (no pagination, no structured blocks).'
+      )
+    } else {
+      console.warn(`[Knowledge] REST access check returned ${res.status} — may work, may not`)
+    }
+  } catch (err) {
+    console.warn('[Knowledge] REST access check failed:', err.message)
+  }
+}
+
 // Auto-create the knowledge database under a parent page.
 export async function ensureKnowledgeDatabase({ parentPageId, getData, setData }) {
   const existing = getData(KNOWLEDGE_DB_KEY)
@@ -68,6 +103,12 @@ export async function ensureKnowledgeDatabase({ parentPageId, getData, setData }
   setData(KNOWLEDGE_DB_KEY, result.id)
   setData(KNOWLEDGE_DB_URL_KEY, result.url || null)
   console.log(`[Knowledge] Created Notion database ${result.id}`)
+
+  // Verify REST can access the new database. If it can't, the user
+  // hasn't shared the parent page with the integration — REST-backed
+  // operations (query, block reads) will silently fail.
+  await verifyRestAccess(result.id)
+
   return { database_id: result.id, url: result.url, created: true }
 }
 
@@ -162,11 +203,12 @@ export async function updateKnowledgeItem({ pageId, title, type, tags, body, con
   if (confidence !== undefined) props.push(`Confidence: ${confidence || ''}`)
   if (relatedTaskIds !== undefined) props.push(`Related tasks: ${(relatedTaskIds || []).join(', ')}`)
 
-  await notion.updatePage({
-    pageId,
-    properties: props.length > 0 ? props.join('\n') : undefined,
-    content: body !== undefined ? (body || '') : undefined,
-  })
+  if (props.length > 0) {
+    await notion.updatePage({ pageId, properties: props.join('\n') })
+  }
+  if (body !== undefined) {
+    await notion.updatePageContent(pageId, body || '')
+  }
 
   const item = {
     notion_page_id: pageId,
