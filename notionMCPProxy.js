@@ -142,12 +142,12 @@ export async function search(query) {
 }
 
 export async function createPage({ parentId, title, content }) {
-  const args = {
+  const page = {
     parent: { page_id: parentId },
     properties: { title: { title: [{ text: { content: title } }] } },
   }
-  if (content) args.children = content.split('\n').filter(Boolean)
-  const raw = await callMCP('notion-create-pages', args)
+  if (content) page.children = content.split('\n').filter(Boolean)
+  const raw = await callMCP('notion-create-pages', { pages: [page] })
   const json = tryParseJSON(raw)
   if (json?.id) return { id: json.id, url: json.url }
   const id = extractIdFromUrl(raw)
@@ -159,9 +159,9 @@ export async function createPageInDatabase({ databaseId, properties, content }) 
   let propsObj = properties
   if (typeof properties === 'string') propsObj = textToNotionProperties(properties)
   else if (properties && !properties.Name?.title && !properties.title?.title) propsObj = simpleMapToNotionProperties(properties)
-  const args = { parent: { database_id: databaseId }, properties: propsObj }
-  if (content) args.children = content.split('\n').filter(Boolean)
-  const raw = await callMCP('notion-create-pages', args)
+  const page = { parent: { database_id: databaseId }, properties: propsObj }
+  if (content) page.children = content.split('\n').filter(Boolean)
+  const raw = await callMCP('notion-create-pages', { pages: [page] })
   const json = tryParseJSON(raw)
   if (json?.id) return { id: json.id, url: json.url }
   const id = extractIdFromUrl(raw)
