@@ -261,13 +261,13 @@ export async function queryDatabase(databaseId) {
   const headers = restHeaders()
   if (headers) {
     try {
-      console.log(`[Notion:REST] POST data_sources/${databaseId}/query`)
+      console.log(`[Notion:REST] POST databases/${databaseId}/query`)
       const allResults = []
       let cursor = undefined
       do {
         const body = { page_size: 100 }
         if (cursor) body.start_cursor = cursor
-        const data = await restJson(`${NOTION_BASE}/data_sources/${databaseId}/query`, {
+        const data = await restJson(`${NOTION_BASE}/databases/${databaseId}/query`, {
           method: 'POST', body: JSON.stringify(body),
         }, 'query database')
         allResults.push(...(data.results || []))
@@ -284,8 +284,8 @@ export async function getDatabase(databaseId) {
   const headers = restHeaders()
   if (headers) {
     try {
-      console.log(`[Notion:REST] GET data_sources/${databaseId}`)
-      const data = await restJson(`${NOTION_BASE}/data_sources/${databaseId}`, {}, 'get data source')
+      console.log(`[Notion:REST] GET databases/${databaseId}`)
+      const data = await restJson(`${NOTION_BASE}/databases/${databaseId}`, {}, 'get database')
       return { id: data.id, archived: !!data.archived, url: data.url, raw: JSON.stringify(data) }
     } catch (err) { console.warn('[Notion:REST] get database failed:', err.message) }
   }
