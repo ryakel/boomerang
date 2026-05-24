@@ -965,10 +965,13 @@ export default function AppV2() {
             })()}
             {statsDetail === 'today' && (() => {
               const todayStr = new Date().toDateString()
+              const now = new Date()
+              const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
               const doneTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
               const activeTasks = tasks.filter(t => ['not_started', 'in_progress', 'waiting'].includes(t.status))
               const taskGoal = settingsForRings.daily_task_goal || 3
               const pointsGoal = settingsForRings.daily_points_goal || 15
+              const eggWon = !!settingsForRings.easter_egg_wins?.[todayIso]
               return (
                 <div className="v2-stats-detail">
                   <div className="v2-stats-detail-row">
@@ -983,8 +986,11 @@ export default function AppV2() {
                     <span className="v2-stats-detail-label">Remaining active</span>
                     <span className="v2-stats-detail-value">{activeTasks.length}</span>
                   </div>
-                  {doneTasks.length > 0 && (
+                  {(doneTasks.length > 0 || eggWon) && (
                     <div className="v2-stats-detail-done">
+                      {eggWon && (
+                        <div className="v2-stats-detail-done-item">✓ Daily Bonus</div>
+                      )}
                       {doneTasks.map(t => (
                         <div key={t.id} className="v2-stats-detail-done-item">✓ {t.title}</div>
                       ))}
