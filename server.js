@@ -578,7 +578,7 @@ const NOTION_BASE = 'https://api.notion.com/v1'
 function makeNotionHeaders(token) {
   return {
     'Authorization': `Bearer ${token}`,
-    'Notion-Version': '2022-06-28',
+    'Notion-Version': '2025-09-03',
     'Content-Type': 'application/json',
   }
 }
@@ -759,7 +759,7 @@ app.post('/api/notion/file-uploads', async (req, res) => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Notion-Version': '2022-06-28',
+        'Notion-Version': '2025-09-03',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ filename, content_type }),
@@ -786,7 +786,7 @@ app.post('/api/notion/file-uploads/:id/send', async (req, res) => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Notion-Version': '2022-06-28',
+        'Notion-Version': '2025-09-03',
       },
       body: formData,
     })
