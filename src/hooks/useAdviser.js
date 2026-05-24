@@ -305,8 +305,33 @@ export function useAdviser() {
         quokkaLog('stream error:', err.message || err, 'sessionId=' + (sid || 'null'))
         streamRef.current = null
         if (sid) {
-          quokkaLog('auto-resubscribe in 2s, sessionId=' + sid)
-          setTimeout(() => tryResubscribe(sid), 2000)
+          // iOS kills SSE/ReadableStream connections — resubscribe via SSE
+          // also dies instantly. Use a plain GET to fetch buffered events.
+          quokkaLog('fetching session state via GET, sessionId=' + sid)
+          const pollForResult = async () => {
+            for (let attempt = 0; attempt < 15; attempt++) {
+              await new Promise(r => setTimeout(r, 2000))
+              try {
+                const res = await fetch(`/api/adviser/session/${sid}`)
+                if (!res.ok) break
+                const data = await res.json()
+                quokkaLog('poll attempt', attempt + 1, 'runnerState=' + data.runnerState, 'events=' + (data.events?.length || 0))
+                for (const evt of data.events || []) {
+                  handler(evt.type || 'message', evt.data || evt)
+                }
+                if (data.runnerState !== 'running') {
+                  quokkaLog('poll complete, runnerState=' + data.runnerState)
+                  return
+                }
+              } catch (e) {
+                quokkaLog('poll error:', e.message)
+                break
+              }
+            }
+            setLastError('Could not retrieve response')
+            setStatus('error')
+          }
+          pollForResult()
         } else {
           setLastError(err.message || String(err))
           setStatus('error')
