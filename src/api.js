@@ -1389,11 +1389,26 @@ export function adviserChat({ message, history, sessionId, chatId, subscribeOnly
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      // iOS PWA kills TCP connections silently — reader.read() hangs
+      // forever without resolving or rejecting. The server sends
+      // heartbeats every 15s, so if we get nothing for 20s, assume dead.
+      const READ_TIMEOUT_MS = 20000
       while (true) {
-        const { done, value } = await reader.read()
+        let readResult
+        try {
+          readResult = await Promise.race([
+            reader.read(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Stream read timeout — no data for 20s')), READ_TIMEOUT_MS)
+            ),
+          ])
+        } catch (timeoutErr) {
+          reader.cancel().catch(() => {})
+          throw timeoutErr
+        }
+        const { done, value } = readResult
         if (done) break
         buffer += decoder.decode(value, { stream: true })
-        // Split on double-newline (SSE event boundary)
         let idx
         while ((idx = buffer.indexOf('\n\n')) !== -1) {
           const raw = buffer.slice(0, idx)
