@@ -142,12 +142,11 @@ export async function search(query) {
 }
 
 export async function createPage({ parentId, title, content }) {
-  const page = {
-    parent: { page_id: parentId },
-    properties: { title: { title: [{ text: { content: title } }] } },
+  const args = {
+    parent: { page_id: parentId, type: 'page_id' },
+    pages: [{ properties: { title }, ...(content ? { content } : {}) }],
   }
-  if (content) page.children = content.split('\n').filter(Boolean)
-  const raw = await callMCP('notion-create-pages', { pages: [page] })
+  const raw = await callMCP('notion-create-pages', args)
   const json = tryParseJSON(raw)
   if (json?.id) return { id: json.id, url: json.url }
   const id = extractIdFromUrl(raw)
@@ -156,12 +155,18 @@ export async function createPage({ parentId, title, content }) {
 }
 
 export async function createPageInDatabase({ databaseId, properties, content }) {
+  // Properties must be plain SQLite values (string | number | null).
+  // Convert Notion API objects back to plain values if needed.
   let propsObj = properties
-  if (typeof properties === 'string') propsObj = textToNotionProperties(properties)
-  else if (properties && !properties.Name?.title && !properties.title?.title) propsObj = simpleMapToNotionProperties(properties)
-  const page = { parent: { database_id: databaseId }, properties: propsObj }
-  if (content) page.children = content.split('\n').filter(Boolean)
-  const raw = await callMCP('notion-create-pages', { pages: [page] })
+  if (typeof properties === 'string') propsObj = textToPlainProperties(properties)
+  else if (typeof properties === 'object') propsObj = flattenToPlainValues(properties)
+  const page = { properties: propsObj }
+  if (content) page.content = content
+  const args = {
+    parent: { database_id: databaseId, type: 'database_id' },
+    pages: [page],
+  }
+  const raw = await callMCP('notion-create-pages', args)
   const json = tryParseJSON(raw)
   if (json?.id) return { id: json.id, url: json.url }
   const id = extractIdFromUrl(raw)
@@ -317,7 +322,7 @@ export async function updatePageContent(pageId, markdownContent) {
 // Helpers
 // ============================================================
 
-function textToNotionProperties(text) {
+function textToPlainProperties(text) {
   const props = {}
   for (const line of text.split('\n')) {
     const idx = line.indexOf(':')
@@ -325,22 +330,21 @@ function textToNotionProperties(text) {
     const key = line.slice(0, idx).trim()
     const val = line.slice(idx + 1).trim()
     if (!key || !val) continue
-    if (key === 'Name' || key === 'Title') props[key] = { title: [{ text: { content: val } }] }
-    else if (['Type', 'Status', 'Confidence'].includes(key)) props[key] = { select: { name: val } }
-    else if (key === 'Tags') props[key] = { multi_select: val.split(',').map(s => ({ name: s.trim() })).filter(s => s.name) }
-    else props[key] = { rich_text: [{ text: { content: val } }] }
+    props[key] = val
   }
   return props
 }
 
-function simpleMapToNotionProperties(map) {
+function flattenToPlainValues(map) {
   const props = {}
   for (const [key, val] of Object.entries(map)) {
     if (val === undefined || val === null) continue
-    if (key === 'Name' || key === 'Title') props[key] = { title: [{ text: { content: String(val) } }] }
-    else if (['Type', 'Status', 'Confidence'].includes(key)) props[key] = { select: { name: String(val) } }
-    else if (key === 'Tags' && Array.isArray(val)) props[key] = { multi_select: val.map(s => ({ name: String(s) })) }
-    else if (typeof val === 'string') props[key] = { rich_text: [{ text: { content: val } }] }
+    if (typeof val === 'string' || typeof val === 'number') { props[key] = val; continue }
+    if (val?.title?.[0]?.text?.content) { props[key] = val.title[0].text.content; continue }
+    if (val?.select?.name) { props[key] = val.select.name; continue }
+    if (val?.multi_select) { props[key] = val.multi_select.map(s => s.name).join(', '); continue }
+    if (val?.rich_text?.[0]?.text?.content) { props[key] = val.rich_text[0].text.content; continue }
+    props[key] = String(val)
   }
   return props
 }
