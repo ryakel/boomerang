@@ -1391,8 +1391,8 @@ export function adviserChat({ message, history, sessionId, chatId, subscribeOnly
       let buffer = ''
       // iOS PWA kills TCP connections silently — reader.read() hangs
       // forever without resolving or rejecting. The server sends
-      // heartbeats every 15s, so if we get nothing for 20s, assume dead.
-      const READ_TIMEOUT_MS = 20000
+      // Server heartbeats every 3s. If nothing for 5s, connection is dead.
+      const READ_TIMEOUT_MS = 5000
       while (true) {
         let readResult
         try {
