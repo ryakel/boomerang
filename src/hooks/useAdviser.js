@@ -300,28 +300,65 @@ export function useAdviser() {
       history,
       sessionId,
       chatId,
-      onEvent: handler,
+      onEvent: (event, data) => {
+        handler(event, data)
+        // As soon as we receive the session event with a sessionId,
+        // abort the SSE stream and switch to GET polling. iOS kills
+        // ReadableStream connections silently — polling is reliable.
+        if (event === 'session' && data.sessionId) {
+          const sid = data.sessionId
+          quokkaLog('got sessionId, aborting stream and switching to poll, sid=' + sid)
+          if (streamRef.current?.abort) streamRef.current.abort()
+          streamRef.current = null
+          let lastIdx = 0
+          const pollForResult = async () => {
+            for (let attempt = 0; attempt < 30; attempt++) {
+              await new Promise(r => setTimeout(r, 1500))
+              try {
+                const res = await fetch(`/api/adviser/session/${sid}`)
+                if (!res.ok) break
+                const result = await res.json()
+                const events = result.events || []
+                for (let i = lastIdx; i < events.length; i++) {
+                  handler(events[i].type || 'message', events[i].data || events[i])
+                }
+                lastIdx = events.length
+                if (result.runnerState !== 'running') {
+                  quokkaLog('poll complete, runnerState=' + result.runnerState, 'events=' + events.length)
+                  return
+                }
+              } catch (e) {
+                quokkaLog('poll error:', e.message)
+                break
+              }
+            }
+            setLastError('Could not retrieve response')
+            setStatus('error')
+          }
+          pollForResult()
+        }
+      },
       onError: (err) => {
         const sid = sessionIdRef.current
         quokkaLog('stream error:', err.message || err, 'sessionId=' + (sid || 'null'))
         streamRef.current = null
         if (sid) {
-          // iOS kills SSE/ReadableStream connections — resubscribe via SSE
-          // also dies instantly. Use a plain GET to fetch buffered events.
-          quokkaLog('fetching session state via GET, sessionId=' + sid)
+          quokkaLog('stream died before session event, polling with ref sid=' + sid)
+          let lastIdx = 0
           const pollForResult = async () => {
-            for (let attempt = 0; attempt < 15; attempt++) {
-              await new Promise(r => setTimeout(r, 2000))
+            for (let attempt = 0; attempt < 30; attempt++) {
+              await new Promise(r => setTimeout(r, 1500))
               try {
                 const res = await fetch(`/api/adviser/session/${sid}`)
                 if (!res.ok) break
-                const data = await res.json()
-                quokkaLog('poll attempt', attempt + 1, 'runnerState=' + data.runnerState, 'events=' + (data.events?.length || 0))
-                for (const evt of data.events || []) {
-                  handler(evt.type || 'message', evt.data || evt)
+                const result = await res.json()
+                const events = result.events || []
+                for (let i = lastIdx; i < events.length; i++) {
+                  handler(events[i].type || 'message', events[i].data || events[i])
                 }
-                if (data.runnerState !== 'running') {
-                  quokkaLog('poll complete, runnerState=' + data.runnerState)
+                lastIdx = events.length
+                if (result.runnerState !== 'running') {
+                  quokkaLog('poll complete, runnerState=' + result.runnerState, 'events=' + events.length)
                   return
                 }
               } catch (e) {
