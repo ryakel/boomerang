@@ -285,26 +285,32 @@ export function useAdviser() {
       chatId,
       onEvent: handler,
       onError: (err) => {
-        console.warn('[Quokka] stream error, retrying subscribe-only:', err.message || err)
-        // The server runner continues in the background even when the
-        // SSE stream drops ("Load failed" on iOS). Retry by re-attaching
-        // to the same session with subscribeOnly — the server replays
-        // buffered events so we catch up.
-        setTimeout(() => {
-          if (streamRef.current) return // already reconnected
-          streamRef.current = adviserChat({
-            sessionId,
-            chatId,
-            subscribeOnly: true,
-            onEvent: handler,
-            onError: (retryErr) => {
-              console.error('[Quokka] subscribe-only retry also failed:', retryErr)
-              setLastError(retryErr.message || String(retryErr))
-              setStatus('error')
-            },
-            onDone: () => { streamRef.current = null },
-          })
-        }, 1500)
+        console.warn('[Quokka] stream error, falling back to polling:', err.message || err)
+        // iOS PWA kills SSE connections immediately. The server runner
+        // continues in the background. Poll the session events endpoint
+        // until the runner finishes, then process all buffered events.
+        const pollSessionId = sessionId
+        const pollInterval = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/adviser/session/${pollSessionId}/events`)
+            if (!res.ok) { clearInterval(pollInterval); return }
+            const data = await res.json()
+            // Replay all buffered events through the handler
+            for (const evt of data.events || []) {
+              handler(evt.type || 'message', evt.data || evt)
+            }
+            // If runner is done, stop polling
+            if (data.runnerState === 'idle' || data.runnerState === 'awaiting_confirm' || data.runnerState === 'committed' || data.runnerState === 'errored') {
+              clearInterval(pollInterval)
+              streamRef.current = null
+            }
+          } catch {
+            clearInterval(pollInterval)
+            setLastError('Connection lost')
+            setStatus('error')
+          }
+        }, 2000)
+        streamRef.current = { abort: () => clearInterval(pollInterval) }
       },
       onDone: () => {
         streamRef.current = null
