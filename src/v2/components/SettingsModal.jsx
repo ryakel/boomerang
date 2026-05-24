@@ -919,13 +919,23 @@ function IntegrationsPanel({
                         )}
                         <label className="v2-form-label" style={{ marginTop: 12 }}>Knowledge base</label>
                         {kbStatus?.configured ? (
-                          <div className="v2-integrations-toggle-row">
-                            <span>
-                              ✓ Connected
-                              {kbStatus.database_url && <> · <a href={kbStatus.database_url} target="_blank" rel="noreferrer">Open in Notion</a></>}
-                            </span>
-                            <button className="v2-settings-btn" onClick={runKnowledgeRefresh}>Sync now</button>
-                          </div>
+                          <>
+                            <div className="v2-integrations-toggle-row">
+                              <span>
+                                ✓ Connected
+                                {kbStatus.database_url && <> · <a href={kbStatus.database_url} target="_blank" rel="noreferrer">Open in Notion</a></>}
+                              </span>
+                              <button className="v2-settings-btn" onClick={runKnowledgeRefresh}>Sync now</button>
+                            </div>
+                            <div className="v2-integrations-actions" style={{ marginTop: 4 }}>
+                              <button className="v2-settings-btn v2-settings-btn-danger" onClick={async () => {
+                                try {
+                                  await fetch('/api/knowledge/reset', { method: 'POST' })
+                                  setKbStatus(null)
+                                } catch { /* swallow */ }
+                              }}>Reset KB</button>
+                            </div>
+                          </>
                         ) : (
                           <button className="v2-settings-btn" onClick={runKnowledgeSetup} disabled={kbSetupBusy || !settings.notion_sync_parent_id}>
                             {kbSetupBusy ? 'Setting up…' : 'Set up Knowledge Base'}
