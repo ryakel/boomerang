@@ -3117,17 +3117,6 @@ app.post('/api/adviser/abort', (req, res) => {
   res.json({ ok: true })
 })
 
-// Poll endpoint for when SSE streaming fails (iOS PWA drops SSE connections).
-// Returns the session's buffered events so the client can catch up without SSE.
-app.get('/api/adviser/session/:id/events', (req, res) => {
-  const session = getSession(req.params.id)
-  if (!session) return res.status(404).json({ error: 'Session not found' })
-  res.json({
-    runnerState: session.runnerState || 'idle',
-    events: session.events || [],
-    plan: session.plan || [],
-  })
-})
 
 app.get('/api/adviser/tools', (_req, res) => {
   // Diagnostic: list registered tool names

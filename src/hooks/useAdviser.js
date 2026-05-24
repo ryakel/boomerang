@@ -3,8 +3,19 @@ import {
   adviserChat, adviserCommit, adviserAbort,
   adviserListChats, adviserGetActiveChat, adviserGetChat,
   adviserCreateChat, adviserUpdateChat, adviserDeleteChat,
+
   adviserActivateChat, adviserStarChat, adviserUnstarChat,
 } from '../api'
+
+function quokkaLog(...args) {
+  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+  console.log('[Quokka]', line)
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lines: [`[Quokka] ${line}`] }),
+  }).catch(() => {})
+}
 
 // Quokka now runs as multiple independent chats (replaces the old single-thread model).
 // Each chat has its own messages, sessionId, starred state, createdAt, updatedAt, and an
@@ -125,6 +136,7 @@ export function useAdviser() {
     return (event, data) => {
       switch (event) {
         case 'session':
+          quokkaLog('stream connected, sessionId=' + data.sessionId, 'runnerState=' + (data.runnerState || 'idle'))
           setSessionId(data.sessionId)
           if (data.runnerState) setRunnerState(data.runnerState)
           break
@@ -195,14 +207,16 @@ export function useAdviser() {
           setLastError(data.message || 'Adviser error')
           setStatus('error')
           break
-        case 'done':
+        case 'done': {
+          const hasPlan = pendingAssistantRef.current?.plan?.length > 0
+          quokkaLog('done, hasPlan=' + hasPlan)
           setStatus(prev => {
             if (prev === 'error') return 'error'
-            const hasPlan = pendingAssistantRef.current?.plan?.length > 0
             return hasPlan ? 'awaiting_confirm' : 'idle'
           })
           refreshChatList()
           break
+        }
         case 'push_sent':
           // Informational; no UI side effect needed.
           break
@@ -217,16 +231,15 @@ export function useAdviser() {
   // then live events stream in. If the session is dead (404), no-op.
   const tryResubscribe = useCallback((sid) => {
     if (streamRef.current) return
+    quokkaLog('resubscribe attempt, sessionId=' + sid)
     const handler = makeEventHandler({ expectingNewTurn: false })
     streamRef.current = adviserChat({
       sessionId: sid,
       subscribeOnly: true,
       onEvent: handler,
       onError: (err) => {
-        // 404 here is expected and silent — session expired or never
-        // existed. Other errors get surfaced.
         if (!String(err?.message || '').includes('404')) {
-          console.warn('[Quokka] resubscribe error', err?.message)
+          quokkaLog('resubscribe failed:', err?.message)
         }
         streamRef.current = null
       },
@@ -258,6 +271,7 @@ export function useAdviser() {
     if (streamRef.current) return
 
     const chatId = await ensureActiveChat()
+    quokkaLog('send: message="' + text.trim().slice(0, 50) + '" sessionId=' + (sessionId || 'null'))
     setLastError(null)
 
     // If a server-side runner is busy or has a staged plan, the message
@@ -285,32 +299,15 @@ export function useAdviser() {
       chatId,
       onEvent: handler,
       onError: (err) => {
-        console.warn('[Quokka] stream error, falling back to polling:', err.message || err)
-        // iOS PWA kills SSE connections immediately. The server runner
-        // continues in the background. Poll the session events endpoint
-        // until the runner finishes, then process all buffered events.
-        const pollSessionId = sessionId
-        const pollInterval = setInterval(async () => {
-          try {
-            const res = await fetch(`/api/adviser/session/${pollSessionId}/events`)
-            if (!res.ok) { clearInterval(pollInterval); return }
-            const data = await res.json()
-            // Replay all buffered events through the handler
-            for (const evt of data.events || []) {
-              handler(evt.type || 'message', evt.data || evt)
-            }
-            // If runner is done, stop polling
-            if (data.runnerState === 'idle' || data.runnerState === 'awaiting_confirm' || data.runnerState === 'committed' || data.runnerState === 'errored') {
-              clearInterval(pollInterval)
-              streamRef.current = null
-            }
-          } catch {
-            clearInterval(pollInterval)
-            setLastError('Connection lost')
-            setStatus('error')
-          }
-        }, 2000)
-        streamRef.current = { abort: () => clearInterval(pollInterval) }
+        quokkaLog('stream error:', err.message || err, 'sessionId=' + (sessionId || 'null'))
+        streamRef.current = null
+        if (sessionId) {
+          quokkaLog('auto-resubscribe in 2s, sessionId=' + sessionId)
+          setTimeout(() => tryResubscribe(sessionId), 2000)
+        } else {
+          setLastError(err.message || String(err))
+          setStatus('error')
+        }
       },
       onDone: () => {
         streamRef.current = null
