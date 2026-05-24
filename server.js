@@ -3118,6 +3118,19 @@ app.post('/api/adviser/abort', (req, res) => {
 })
 
 
+// Non-streaming session state fetch. iOS PWA kills SSE/ReadableStream
+// connections, so the client falls back to this after the initial POST
+// stream dies. Returns buffered events + runner state as plain JSON.
+app.get('/api/adviser/session/:id', (req, res) => {
+  const session = getSession(req.params.id)
+  if (!session) return res.status(404).json({ error: 'Session not found' })
+  res.json({
+    runnerState: session.runnerState || 'idle',
+    events: session.events || [],
+    plan: session.plan || [],
+  })
+})
+
 app.get('/api/adviser/tools', (_req, res) => {
   // Diagnostic: list registered tool names
   res.json({ tools: listToolSchemas().map(t => ({ name: t.name, description: t.description })) })
