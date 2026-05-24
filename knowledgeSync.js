@@ -125,6 +125,14 @@ export async function refreshKnowledgeIndex({ getData, setData }) {
   if (!dbId) return { ok: false, error: 'Knowledge database not configured', count: 0 }
   if (!notion.isConnected()) return { ok: false, error: 'Notion not connected', count: 0 }
 
+  if (!getData('knowledge_tags_migrated')) {
+    try {
+      await notion.updateDataSource({ dataSourceId: dbId, statements: 'ALTER COLUMN "Tags" SET RICH_TEXT' })
+      setData('knowledge_tags_migrated', true)
+      console.log('[Knowledge] Migrated Tags from MULTI_SELECT to RICH_TEXT')
+    } catch (e) { console.warn('[Knowledge] Tags migration skipped:', e.message) }
+  }
+
   const { raw } = await notion.queryDatabase(dbId)
   // Parse items from the MCP response — could be JSON or enhanced markdown.
   const items = []
