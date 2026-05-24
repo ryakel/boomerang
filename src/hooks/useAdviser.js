@@ -36,7 +36,9 @@ export function useAdviser() {
   const [chats, setChats] = useState([]) // summaries only: {id,title,starred,createdAt,updatedAt,expiresAt,messageCount,isActive}
   const [activeId, setActiveId] = useState(null)
   const [messages, setMessages] = useState([])
-  const [sessionId, setSessionId] = useState(null)
+  const [sessionId, _setSessionId] = useState(null)
+  const sessionIdRef = useRef(null)
+  const setSessionId = useCallback((id) => { sessionIdRef.current = id; _setSessionId(id) }, [])
   const [status, setStatus] = useState('idle')
   const [lastError, setLastError] = useState(null)
   const [hydrated, setHydrated] = useState(false)
@@ -299,11 +301,12 @@ export function useAdviser() {
       chatId,
       onEvent: handler,
       onError: (err) => {
-        quokkaLog('stream error:', err.message || err, 'sessionId=' + (sessionId || 'null'))
+        const sid = sessionIdRef.current
+        quokkaLog('stream error:', err.message || err, 'sessionId=' + (sid || 'null'))
         streamRef.current = null
-        if (sessionId) {
-          quokkaLog('auto-resubscribe in 2s, sessionId=' + sessionId)
-          setTimeout(() => tryResubscribe(sessionId), 2000)
+        if (sid) {
+          quokkaLog('auto-resubscribe in 2s, sessionId=' + sid)
+          setTimeout(() => tryResubscribe(sid), 2000)
         } else {
           setLastError(err.message || String(err))
           setStatus('error')
