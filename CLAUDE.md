@@ -905,6 +905,10 @@ The Boomerang wordmark popover (Analytics + Done, top-left) was already in place
 
 **User opt-in.** Settings → Beta tab → "Use v2 interface" toggle. The Beta tab is reserved for future opt-in experiments too.
 
+**Legacy toggle (`v1_disabled` setting).** Settings → Legacy tab → "Disable v1" toggle. When ON: (1) App.jsx blocks v1 UI rendering regardless of `?ui=v1` or localStorage, logs the block to Activity Log. (2) Server returns 410 Gone on `GET/PUT/POST /api/data` (legacy bulk sync endpoints), logged to server logs + Activity Log. Per-record APIs (`/api/tasks/:id`, `/api/routines/:id`, etc.) are unaffected, so v2 task/routine CRUD still works — only the bulk sync path breaks. The "Switch to v1" toggle is greyed out while v1 is disabled. Purpose: test what breaks before fully removing v1 code.
+
+**Global error logging.** `window.onerror` + `unhandledrejection` handlers log errors to the Activity Log as `error` entries. React ErrorBoundary render crashes also logged. Activity Log has an "Errors" filter tab. `logSystemError(message, detail)` in store.js is the shared function.
+
 **End state.** After all 8 PRs ship and a 1-2 week opt-in period validates v2, flip the default to `'v2'`, leave v1 reachable via `?ui=v1` for one release, then delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`.
 
 ### Terminal Theme Stress Test (2026-05-10, shipped to main 2026-05-11)

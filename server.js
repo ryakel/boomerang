@@ -258,8 +258,30 @@ app.get('/api/events', (req, res) => {
   })
 })
 
+// --- Legacy v1 endpoint guard ---
+// When v1_disabled setting is true, block legacy bulk data endpoints and log.
+function isV1Disabled() {
+  try {
+    const settings = getData('settings') || {}
+    return !!settings.v1_disabled
+  } catch { return false }
+}
+
+function guardV1Disabled(req, res) {
+  if (!isV1Disabled()) return false
+  const msg = `[Legacy] BLOCKED ${req.method} ${req.path} — v1_disabled is ON`
+  console.warn(msg)
+  res.status(410).json({
+    ok: false,
+    error: 'v1_disabled',
+    message: 'v1 legacy endpoints are disabled. Toggle off in Settings → Legacy to re-enable.',
+  })
+  return true
+}
+
 // --- Data routes ---
 app.get('/api/data', (req, res) => {
+  if (guardV1Disabled(req, res)) return
   const data = getAllData()
   data._version = getVersion()
   res.json(data)
@@ -328,6 +350,7 @@ function handleWeatherSettingsChange(prevSettings, nextSettings) {
 }
 
 app.put('/api/data', (req, res) => {
+  if (guardV1Disabled(req, res)) return
   if (guardStaleClient(req, res)) return
   if (guardBulkBlobOnly(req, res)) return
   const clientId = req.body._clientId
@@ -346,6 +369,7 @@ app.put('/api/data', (req, res) => {
 
 // POST does the same as PUT — needed because navigator.sendBeacon only sends POST
 app.post('/api/data', (req, res) => {
+  if (guardV1Disabled(req, res)) return
   if (guardStaleClient(req, res)) return
   if (guardBulkBlobOnly(req, res)) return
   const clientId = req.body._clientId
