@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- fix(ui): date picker unclickable on desktop Chrome [XS]
+  - **Bug.** Desktop Chrome only opens the date picker via the calendar indicator icon, not the full input area. The overlay trick (opacity:0 input covering the display span) worked on iOS Safari but not Chrome — only the far-right calendar icon was clickable.
+  - **Fix.** Stretched `::-webkit-calendar-picker-indicator` to fill the entire input with `position: absolute; inset: 0; width/height: 100%`.
+  - Modified: `src/v2/components/DateField.css`
+
 - fix(ui): WeekStrip missing Easter egg bonus + desktop layout fixes [S]
   - **Easter egg bug.** WeekStrip day count and detail panel only counted done tasks, not the Easter egg bonus. Stats line "3/3 today" included it but WeekStrip showed "2/3" with no "Daily Bonus" entry. Fixed by passing `easterEggWins` to WeekStrip.
   - **Kanban columns.** Reverted flex-grow back to fixed 260px with horizontal scroll — 7 columns with flex-grow smushed into unreadable mush.
