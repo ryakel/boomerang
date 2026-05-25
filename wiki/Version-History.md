@@ -16,6 +16,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - **Fix.** Added `min-height: 60dvh` to `.v2-modal` so the bottom sheet maintains a stable height regardless of content.
   - Modified: `src/v2/components/ModalShell.css`, `src/v2/components/DoneList.css`
 
+- fix(ui): desktop Kanban columns scroll instead of crush + constrain stats/WeekStrip width [XS]
+  - **Kanban.** Reverted flex-grow columns back to fixed 260px — with 7 columns the grow approach smushed them into unreadable oblivion. Horizontal scroll via `overflow-x: auto` is the correct pattern.
+  - **Stats strip + WeekStrip.** Added `max-width: 600px` + auto margins so they don't span the full widescreen width.
+  - Modified: `src/v2/components/KanbanBoard.css`, `src/v2/AppV2.css`, `src/v2/components/WeekStrip.css`
+
 - fix(routines): "done today" label showing for yesterday's completions [XS]
   - **Bug.** `formatLastDone` compared raw millisecond deltas (`Math.floor(diff / 86400000)`), which doesn't cross calendar day boundaries. A routine completed at 11pm yesterday would show "done today" at 8am the next day because the elapsed time is under 24h.
   - **Fix.** Compare calendar dates (midnight-truncated) instead of raw deltas.
