@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- fix(ui): WeekStrip full-width on desktop + Kanban columns wrap on narrow viewports [XS]
+  - **WeekStrip.** max-width 480px → 900px so it fills the desktop content area instead of looking tiny.
+  - **Kanban wrap.** `flex-wrap: wrap` so columns stack into rows when the viewport can't fit them side-by-side, instead of requiring horizontal scroll.
+  - Modified: `src/v2/components/WeekStrip.css`, `src/v2/components/KanbanBoard.css`
+
 - fix(ui): Kanban columns dynamically resize with viewport [XS]
   - **Bug.** Columns were fixed at 260px — dead space on wide screens, cut off on narrow ones.
   - **Fix.** `flex: 1 0 220px; max-width: 400px` — columns grow to fill available space, cap at 400px, scroll horizontally below 220px each.
