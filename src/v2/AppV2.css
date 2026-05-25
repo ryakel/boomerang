@@ -55,10 +55,20 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 6px 10px;
-  padding: 6px 16px 4px;
+  padding: 14px 0 10px;
   font: 500 13px/1.2 var(--v2-font-body);
   color: var(--v2-text-meta);
+  text-align: center;
+}
+
+@media (min-width: 769px) {
+  .v2-home-stats {
+    justify-content: flex-start;
+    padding: 6px 16px 4px;
+    text-align: left;
+  }
 }
 
 /* Tappable streak + today buttons — same inline treatment as the date
@@ -87,7 +97,7 @@
  * or today progress. Hairline-list aesthetic, centered like stats. */
 .v2-stats-detail {
   max-width: 360px;
-  margin: 0 0 8px 16px;
+  margin: 0 auto 8px;
   padding: 10px 20px;
   background: var(--v2-surface);
   border: 1px solid var(--v2-hairline);
