@@ -789,7 +789,7 @@ export function logActivity(action, task) {
   log.unshift({
     id: uuid(),
     // 'created' | 'completed' | 'deleted' | 'status_changed' | 'edited' |
-    // 'snoozed' | 'priority_changed' | 'reopened' | 'skipped' | 'session_logged'
+    // 'snoozed' | 'priority_changed' | 'reopened' | 'skipped' | 'session_logged' | 'error'
     action,
     task_id: task.id,
     task_title: task.title,
@@ -797,6 +797,20 @@ export function logActivity(action, task) {
     timestamp: new Date().toISOString(),
   })
   // Keep log bounded
+  if (log.length > MAX_ACTIVITY_LOG) log.length = MAX_ACTIVITY_LOG
+  saveActivityLog(log)
+}
+
+export function logSystemError(message, detail) {
+  const log = loadActivityLog()
+  log.unshift({
+    id: uuid(),
+    action: 'error',
+    task_id: null,
+    task_title: message,
+    task_snapshot: detail ? { error: detail } : null,
+    timestamp: new Date().toISOString(),
+  })
   if (log.length > MAX_ACTIVITY_LOG) log.length = MAX_ACTIVITY_LOG
   saveActivityLog(log)
 }

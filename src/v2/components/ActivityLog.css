@@ -86,3 +86,16 @@
   background: rgba(var(--v2-text-rgb), 0.04);
   color: var(--v2-text);
 }
+
+.v2-activity-error-detail {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(232, 68, 58, 0.06);
+  font: 400 11px/1.5 var(--v2-font-mono, monospace);
+  color: var(--v2-text-meta);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+}

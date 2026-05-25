@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { logSystemError } from '../../store'
 import './ErrorBoundary.css'
 
 // Defense in depth — catches render-time errors so a thrown exception in any
@@ -25,6 +26,7 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     this.setState({ errorInfo })
+    try { logSystemError(error?.message || 'Render error', error?.stack || null) } catch { /* */ }
     // Best-effort log to server. Doesn't await; offline-safe.
     try {
       fetch('/api/logs/client-error', {

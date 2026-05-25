@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react'
 import AppV1 from './AppV1.jsx'
 import AppV2 from './v2/AppV2.jsx'
 import ErrorBoundary from './v2/components/ErrorBoundary.jsx'
+import { loadSettings, logSystemError } from './store'
 
 const STORAGE_KEY = 'ui_version'
 
 function readVersion() {
-  // URL escape hatch wins and is sticky: ?ui=v1 / ?ui=v2 sets the flag, then
-  // strips itself from the URL so deep-link params (e.g. ?task=X from
-  // notifications) don't keep re-flipping it on subsequent loads.
   const params = new URLSearchParams(window.location.search)
   const urlFlag = params.get('ui')
   if (urlFlag === 'v1' || urlFlag === 'v2') {
@@ -18,22 +16,47 @@ function readVersion() {
     window.history.replaceState({}, '', `/${search ? `?${search}` : ''}${window.location.hash}`)
     return urlFlag
   }
-  // Default is v2 since the cutover. Only an explicit 'v1' opts out.
-  // Existing users who chose v1 keep their preference; everyone else gets v2.
   return localStorage.getItem(STORAGE_KEY) === 'v1' ? 'v1' : 'v2'
 }
 
+function setupGlobalErrorLogging() {
+  window.addEventListener('error', (event) => {
+    const msg = event.message || 'Unknown error'
+    const detail = [
+      event.filename && `${event.filename}:${event.lineno}:${event.colno}`,
+      event.error?.stack,
+    ].filter(Boolean).join('\n')
+    logSystemError(msg, detail)
+  })
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason
+    const msg = reason?.message || String(reason || 'Unhandled promise rejection')
+    logSystemError(msg, reason?.stack || null)
+  })
+}
+
+let errorLoggingWired = false
+
 export default function App() {
-  const [version] = useState(readVersion)
+  const [version] = useState(() => {
+    const requested = readVersion()
+    const settings = loadSettings()
+    if (settings.v1_disabled && requested === 'v1') {
+      logSystemError('v1 load blocked by Legacy toggle', 'Requested v1 but v1_disabled=true. Falling back to v2.')
+      return 'v2'
+    }
+    return requested
+  })
 
   useEffect(() => {
     document.documentElement.setAttribute('data-ui-version', version)
+    if (!errorLoggingWired) {
+      setupGlobalErrorLogging()
+      errorLoggingWired = true
+    }
   }, [version])
 
-  // Error boundary wraps v2 so a render-time exception (TDZ, undefined
-  // hook return, broken third-party module) shows a recoverable fallback
-  // with the actual error instead of a black screen. v1 stays unwrapped to
-  // keep the legacy escape hatch identical to its historical behavior.
   if (version === 'v2') {
     return (
       <ErrorBoundary>

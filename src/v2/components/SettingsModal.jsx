@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus } from 'lucide-react'
+import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight } from 'lucide-react'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
   loadRoutines, saveRoutines, loadLabels, saveLabels,
@@ -331,6 +331,10 @@ function IntegrationsPanel({
   const [notionSearchError, setNotionSearchError] = useState(null)
   const [notionReconnecting, setNotionReconnecting] = useState(false)
   const [notionChildCount, setNotionChildCount] = useState(null)
+  const [notionDbInput, setNotionDbInput] = useState('')
+  const [notionDbVerifying, setNotionDbVerifying] = useState(false)
+  const [notionDbError, setNotionDbError] = useState(null)
+  const [showNotionTemplate, setShowNotionTemplate] = useState(false)
   // Knowledge base setup state — separate from sync-parent so the two
   // Notion features stay independent.
   const [kbStatus, setKbStatus] = useState(null) // { configured, database_id, database_url, last_sync }
@@ -589,6 +593,31 @@ function IntegrationsPanel({
       setNotionConnectError(e?.message || 'Connection failed — check server logs for details')
     } finally {
       setNotionReconnecting(false)
+    }
+  }
+
+  const handleConnectDatabase = async () => {
+    const input = notionDbInput.trim()
+    if (!input) return
+    setNotionDbVerifying(true)
+    setNotionDbError(null)
+    try {
+      const api = await import('../../api')
+      let dbId = input
+      const urlMatch = input.match(/([a-f0-9]{32})/)
+      if (urlMatch) dbId = urlMatch[1]
+      if (dbId.length === 32 && !dbId.includes('-')) {
+        dbId = `${dbId.slice(0,8)}-${dbId.slice(8,12)}-${dbId.slice(12,16)}-${dbId.slice(16,20)}-${dbId.slice(20)}`
+      }
+      const result = await api.notionQueryDatabase(dbId)
+      const title = result.pages?.[0]?.title ? `Database (${result.pages.length} rows)` : 'Connected database'
+      update('notion_db_id', dbId)
+      update('notion_db_title', title)
+      setNotionDbInput('')
+    } catch (err) {
+      setNotionDbError(err.message || 'Could not connect to database. Check the ID and permissions.')
+    } finally {
+      setNotionDbVerifying(false)
     }
   }
 
@@ -946,6 +975,51 @@ function IntegrationsPanel({
                           <div className="v2-integrations-hint">Pick a sync parent first.</div>
                         )}
                         {kbError && <div className="v2-integrations-error">{kbError}</div>}
+
+                        {/* Database Sync */}
+                        <label className="v2-form-label" style={{ marginTop: 12 }}>Database sync</label>
+                        {settings.notion_db_id ? (
+                          <>
+                            <div className="v2-integrations-toggle-row">
+                              <span>📊 {settings.notion_db_title || 'Connected'}</span>
+                              <button className="v2-settings-btn" onClick={() => { update('notion_db_id', ''); update('notion_db_title', '') }}>Disconnect</button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="v2-integrations-hint" style={{ marginBottom: 4 }}>Paste a Notion database ID or URL to sync its rows as tasks.</div>
+                            <div className="v2-weather-search">
+                              <input type="text" className="v2-form-input" placeholder="Database ID or URL…" value={notionDbInput} onChange={e => { setNotionDbInput(e.target.value); setNotionDbError(null) }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleConnectDatabase() } }} />
+                              <button className="v2-settings-btn" onClick={handleConnectDatabase} disabled={notionDbVerifying || !notionDbInput.trim()}>
+                                {notionDbVerifying ? 'Verifying…' : 'Connect'}
+                              </button>
+                            </div>
+                            {notionDbError && <div className="v2-integrations-error">{notionDbError}</div>}
+                          </>
+                        )}
+
+                        {/* Page Template */}
+                        <button className="v2-integrations-toggle-btn" onClick={() => setShowNotionTemplate(s => !s)} style={{ marginTop: 12 }}>
+                          <ChevronRight size={12} className={showNotionTemplate ? 'v2-chevron-open' : ''} />
+                          Page template
+                        </button>
+                        {showNotionTemplate && (
+                          <div style={{ marginTop: 6 }}>
+                            <div className="v2-integrations-hint" style={{ marginBottom: 4 }}>
+                              Structure for synced Notion pages. Use ## for headings, - [ ] for tasks, &gt; for callouts.
+                            </div>
+                            <textarea
+                              className="v2-form-input"
+                              value={settings.notion_page_template ?? ''}
+                              onChange={e => update('notion_page_template', e.target.value)}
+                              rows={8}
+                              style={{ fontFamily: 'var(--v2-font-mono, monospace)', fontSize: 12 }}
+                            />
+                            <button className="v2-settings-btn" style={{ marginTop: 4 }} onClick={() => update('notion_page_template', null)}>
+                              Reset to default
+                            </button>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -1383,6 +1457,17 @@ function IntegrationsPanel({
                     {pushoverEmer.status === 'error' && pushoverEmer.error && (
                       <div className="v2-integrations-error">{pushoverEmer.error}</div>
                     )}
+                    <label className="v2-form-label" style={{ marginTop: 8 }}>Public app URL (for deep links)</label>
+                    <input
+                      type="text"
+                      className="v2-form-input"
+                      placeholder="https://boomerang.example.com"
+                      value={settings.public_app_url || ''}
+                      onChange={e => update('public_app_url', e.target.value)}
+                    />
+                    <div className="v2-integrations-hint" style={{ marginTop: 4 }}>
+                      When set, notifications include a tappable link to the relevant task. Required for Pushover deep links.
+                    </div>
                     <div className="v2-integrations-hint" style={{ marginTop: 6 }}>
                       Configure which notification types fire over Pushover in the Notifications tab.
                     </div>
@@ -2123,7 +2208,7 @@ function ServerLogsPanel() {
     : logs.filter(l => (FILTER_PATTERNS[filter] || [`[${filter}]`]).some(p => l.msg.includes(p)))
 
   const handleCopy = () => {
-    const text = logs.map(l => `${l.ts} [${l.level}] ${l.msg}`).join('\n')
+    const text = filtered.map(l => `${l.ts} [${l.level}] ${l.msg}`).join('\n')
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -2137,9 +2222,9 @@ function ServerLogsPanel() {
           <RefreshCw size={13} strokeWidth={1.75} className={loading ? 'v2-spinner' : ''} />
           {loading ? 'Loading…' : 'Refresh'}
         </button>
-        <button className="v2-settings-btn" onClick={handleCopy} disabled={logs.length === 0}>
+        <button className="v2-settings-btn" onClick={handleCopy} disabled={filtered.length === 0}>
           <Copy size={13} strokeWidth={1.75} />
-          {copied ? 'Copied' : 'Copy all'}
+          {copied ? 'Copied' : filter === 'all' ? 'Copy all' : `Copy ${filtered.length}`}
         </button>
       </div>
       <div className="v2-settings-logs-filters">
@@ -2677,6 +2762,33 @@ export default function SettingsModal({
         {activeTab === 'Legacy' && (
           <div className="v2-settings-beta">
             <div className="v2-settings-block">
+              <h3 className="v2-settings-heading">Disable v1 interface</h3>
+              <p className="v2-settings-body">
+                Block the v1 UI from loading. Any attempt to load v1 (via <code>?ui=v1</code> or localStorage)
+                will be redirected to v2 and logged in the Activity Log. Use this to test what breaks before
+                fully removing v1.
+              </p>
+              <label className="v2-settings-toggle v2-settings-toggle-inline">
+                <input
+                  type="checkbox"
+                  checked={!!settings.v1_disabled}
+                  onChange={e => {
+                    update('v1_disabled', e.target.checked)
+                  }}
+                />
+                <span className="v2-settings-toggle-track">
+                  <span className="v2-settings-toggle-thumb" />
+                </span>
+                <span className="v2-settings-toggle-label">Disable v1 (block all v1 loads)</span>
+              </label>
+              {settings.v1_disabled && (
+                <p className="v2-settings-hint" style={{ color: 'var(--v2-accent)' }}>
+                  v1 is disabled. Any v1 load attempt will be blocked and logged in the Activity Log.
+                </p>
+              )}
+            </div>
+
+            <div className="v2-settings-block">
               <h3 className="v2-settings-heading">Use the v1 interface</h3>
               <p className="v2-settings-body">
                 v2 is the current interface. v1 is kept around as an escape hatch — toggle below
@@ -2686,6 +2798,7 @@ export default function SettingsModal({
                 <input
                   type="checkbox"
                   defaultChecked={false}
+                  disabled={!!settings.v1_disabled}
                   onChange={e => {
                     if (e.target.checked) {
                       localStorage.setItem(STORAGE_KEY, 'v1')
@@ -2698,9 +2811,16 @@ export default function SettingsModal({
                 </span>
                 <span className="v2-settings-toggle-label">Switch to v1 and reload</span>
               </label>
-              <p className="v2-settings-hint">
-                URL escape hatch: <code>?ui=v1</code> or <code>?ui=v2</code> sets the flag and reloads.
-              </p>
+              {settings.v1_disabled && (
+                <p className="v2-settings-hint" style={{ color: 'var(--v2-alert-overdue)' }}>
+                  Disabled while "Disable v1" is active above.
+                </p>
+              )}
+              {!settings.v1_disabled && (
+                <p className="v2-settings-hint">
+                  URL escape hatch: <code>?ui=v1</code> or <code>?ui=v2</code> sets the flag and reloads.
+                </p>
+              )}
             </div>
           </div>
         )}

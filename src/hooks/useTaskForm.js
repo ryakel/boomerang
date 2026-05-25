@@ -135,6 +135,19 @@ export function useTaskForm(initial = {}) {
     return cl
   }
 
+  const [dateInferring, setDateInferring] = useState(false)
+  const handleInferDate = async (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (!title.trim()) return
+    setDateInferring(true)
+    try {
+      const inferred = await inferDate(title, notes)
+      if (inferred) setDueDate(inferred)
+    } catch { /* ignore */ }
+    finally { setDateInferring(false) }
+  }
+
   const handleInferSize = async (e) => {
     e.stopPropagation()
     e.preventDefault()
@@ -257,6 +270,9 @@ export function useTaskForm(initial = {}) {
     polishing, polishError, handlePolish,
     polishApplied, setPolishApplied,
     suggestedChecklist, consumeSuggestedChecklist,
+
+    // Date inference
+    dateInferring, handleInferDate,
 
     // Size/energy inference
     sizing, handleInferSize,
