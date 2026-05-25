@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- style(ui): left-align stats strip, detail panels, and WeekStrip on desktop [XS]
+  - Stats, streak/today detail, and WeekStrip now start from the left edge instead of floating centered. Reads naturally left-to-right and aligns with the Kanban columns below.
+  - Modified: `src/v2/AppV2.css`, `src/v2/components/WeekStrip.css`
+
 - fix(ui): WeekStrip full-width on desktop + Kanban columns wrap on narrow viewports [XS]
   - **WeekStrip.** max-width 480px → 900px so it fills the desktop content area instead of looking tiny.
   - **Kanban wrap.** `flex-wrap: wrap` so columns stack into rows when the viewport can't fit them side-by-side, instead of requiring horizontal scroll.
