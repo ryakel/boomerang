@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- feat(ui): desktop Kanban responsive columns + stats strip [M]
+  - **Resize bug.** Kanban columns were fixed at 280px (`flex: 0 0 280px`) and never grew or shrank with the viewport. Changed to `flex: 1 1 0` with `min-width: 200px` / `max-width: 360px` so columns fill available space and shrink gracefully.
+  - **Stats strip on desktop.** The date/streak/today-count header + expandable WeekStrip were mobile-only. Lifted them out of the mobile list branch into the shared layout so they render above both Kanban and mobile views. Hidden during search.
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/KanbanBoard.css`
+
 - fix(ui): modal bottom-sheet min-height prevents shrinking during search [XS]
   - **Bug.** On mobile, the Done modal (and any ModalShell) shrank to fit content when search filtered results down to a few items, causing the search bar to jump down the screen.
   - **Fix.** Added `min-height: 60dvh` to `.v2-modal` so the bottom sheet maintains a stable height regardless of content.
