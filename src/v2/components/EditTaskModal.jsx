@@ -587,7 +587,20 @@ export default function EditTaskModal({
       <div className="v2-form-row">
         <div className="v2-form-field">
           <label className="v2-form-label">Due</label>
-          <DateField value={form.dueDate} onChange={form.setDueDate} min={today} />
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <DateField value={form.dueDate} onChange={form.setDueDate} min={today} />
+            {!form.dueDate && (
+              <button
+                className="v2-form-ai-pill v2-form-ai-pill-inline"
+                onClick={form.handleInferDate}
+                disabled={form.dateInferring || !form.title.trim()}
+                title="Ask AI to extract a due date from the title and notes"
+              >
+                {form.dateInferring ? <span className="v2-spinner-tiny" /> : <Sparkles size={12} strokeWidth={1.75} />}
+                {form.dateInferring ? 'Inferring…' : 'Infer'}
+              </button>
+            )}
+          </div>
         </div>
         <div className="v2-form-field">
           <label className="v2-form-label">Priority</label>

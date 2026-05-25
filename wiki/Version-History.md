@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- feat(ui): port remaining v1-only settings + date inference to v2 [M]
+  - **Notion database sync** — database ID/URL input, verify via `notionQueryDatabase`, display connected title, disconnect button. Integrations → Notion → Database sync section.
+  - **Notion page template** — collapsible textarea editor for the markdown template used when syncing pages to Notion. Reset-to-default button.
+  - **Pushover deep-link URL** (`public_app_url`) — text input in the Pushover section for tappable notification links.
+  - **Date inference button** — "Infer" AI pill on the Due date field in EditTaskModal. Calls `inferDate()` to extract a date from the title and notes. Only shows when no date is set. `handleInferDate` + `dateInferring` added to `useTaskForm` hook.
+  - **v1 deprecation status:** All v1-only settings are now available in v2. Deleting v1 code will not lose any configuration surface.
+  - Modified: `src/hooks/useTaskForm.js`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`
+
 - fix(ui): logs copy button copies filtered view, not all logs [XS]
   - **Bug.** "Copy all" in Settings → Logs copied the entire unfiltered log buffer regardless of which filter tab was active.
   - **Fix.** `handleCopy` now uses `filtered` instead of `logs`. Button label shows count when a filter is active (e.g. "Copy 12").

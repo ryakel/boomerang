@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus } from 'lucide-react'
+import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight } from 'lucide-react'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
   loadRoutines, saveRoutines, loadLabels, saveLabels,
@@ -331,6 +331,10 @@ function IntegrationsPanel({
   const [notionSearchError, setNotionSearchError] = useState(null)
   const [notionReconnecting, setNotionReconnecting] = useState(false)
   const [notionChildCount, setNotionChildCount] = useState(null)
+  const [notionDbInput, setNotionDbInput] = useState('')
+  const [notionDbVerifying, setNotionDbVerifying] = useState(false)
+  const [notionDbError, setNotionDbError] = useState(null)
+  const [showNotionTemplate, setShowNotionTemplate] = useState(false)
   // Knowledge base setup state — separate from sync-parent so the two
   // Notion features stay independent.
   const [kbStatus, setKbStatus] = useState(null) // { configured, database_id, database_url, last_sync }
@@ -589,6 +593,31 @@ function IntegrationsPanel({
       setNotionConnectError(e?.message || 'Connection failed — check server logs for details')
     } finally {
       setNotionReconnecting(false)
+    }
+  }
+
+  const handleConnectDatabase = async () => {
+    const input = notionDbInput.trim()
+    if (!input) return
+    setNotionDbVerifying(true)
+    setNotionDbError(null)
+    try {
+      const api = await import('../../api')
+      let dbId = input
+      const urlMatch = input.match(/([a-f0-9]{32})/)
+      if (urlMatch) dbId = urlMatch[1]
+      if (dbId.length === 32 && !dbId.includes('-')) {
+        dbId = `${dbId.slice(0,8)}-${dbId.slice(8,12)}-${dbId.slice(12,16)}-${dbId.slice(16,20)}-${dbId.slice(20)}`
+      }
+      const result = await api.notionQueryDatabase(dbId)
+      const title = result.pages?.[0]?.title ? `Database (${result.pages.length} rows)` : 'Connected database'
+      update('notion_db_id', dbId)
+      update('notion_db_title', title)
+      setNotionDbInput('')
+    } catch (err) {
+      setNotionDbError(err.message || 'Could not connect to database. Check the ID and permissions.')
+    } finally {
+      setNotionDbVerifying(false)
     }
   }
 
@@ -946,6 +975,51 @@ function IntegrationsPanel({
                           <div className="v2-integrations-hint">Pick a sync parent first.</div>
                         )}
                         {kbError && <div className="v2-integrations-error">{kbError}</div>}
+
+                        {/* Database Sync */}
+                        <label className="v2-form-label" style={{ marginTop: 12 }}>Database sync</label>
+                        {settings.notion_db_id ? (
+                          <>
+                            <div className="v2-integrations-toggle-row">
+                              <span>📊 {settings.notion_db_title || 'Connected'}</span>
+                              <button className="v2-settings-btn" onClick={() => { update('notion_db_id', ''); update('notion_db_title', '') }}>Disconnect</button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="v2-integrations-hint" style={{ marginBottom: 4 }}>Paste a Notion database ID or URL to sync its rows as tasks.</div>
+                            <div className="v2-weather-search">
+                              <input type="text" className="v2-form-input" placeholder="Database ID or URL…" value={notionDbInput} onChange={e => { setNotionDbInput(e.target.value); setNotionDbError(null) }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleConnectDatabase() } }} />
+                              <button className="v2-settings-btn" onClick={handleConnectDatabase} disabled={notionDbVerifying || !notionDbInput.trim()}>
+                                {notionDbVerifying ? 'Verifying…' : 'Connect'}
+                              </button>
+                            </div>
+                            {notionDbError && <div className="v2-integrations-error">{notionDbError}</div>}
+                          </>
+                        )}
+
+                        {/* Page Template */}
+                        <button className="v2-integrations-toggle-btn" onClick={() => setShowNotionTemplate(s => !s)} style={{ marginTop: 12 }}>
+                          <ChevronRight size={12} className={showNotionTemplate ? 'v2-chevron-open' : ''} />
+                          Page template
+                        </button>
+                        {showNotionTemplate && (
+                          <div style={{ marginTop: 6 }}>
+                            <div className="v2-integrations-hint" style={{ marginBottom: 4 }}>
+                              Structure for synced Notion pages. Use ## for headings, - [ ] for tasks, &gt; for callouts.
+                            </div>
+                            <textarea
+                              className="v2-form-input"
+                              value={settings.notion_page_template ?? ''}
+                              onChange={e => update('notion_page_template', e.target.value)}
+                              rows={8}
+                              style={{ fontFamily: 'var(--v2-font-mono, monospace)', fontSize: 12 }}
+                            />
+                            <button className="v2-settings-btn" style={{ marginTop: 4 }} onClick={() => update('notion_page_template', null)}>
+                              Reset to default
+                            </button>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -1383,6 +1457,17 @@ function IntegrationsPanel({
                     {pushoverEmer.status === 'error' && pushoverEmer.error && (
                       <div className="v2-integrations-error">{pushoverEmer.error}</div>
                     )}
+                    <label className="v2-form-label" style={{ marginTop: 8 }}>Public app URL (for deep links)</label>
+                    <input
+                      type="text"
+                      className="v2-form-input"
+                      placeholder="https://boomerang.example.com"
+                      value={settings.public_app_url || ''}
+                      onChange={e => update('public_app_url', e.target.value)}
+                    />
+                    <div className="v2-integrations-hint" style={{ marginTop: 4 }}>
+                      When set, notifications include a tappable link to the relevant task. Required for Pushover deep links.
+                    </div>
                     <div className="v2-integrations-hint" style={{ marginTop: 6 }}>
                       Configure which notification types fire over Pushover in the Notifications tab.
                     </div>
