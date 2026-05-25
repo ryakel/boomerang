@@ -63,14 +63,6 @@
   text-align: center;
 }
 
-@media (min-width: 769px) {
-  .v2-home-stats {
-    justify-content: flex-start;
-    padding: 6px 16px 4px;
-    text-align: left;
-  }
-}
-
 /* Tappable streak + today buttons — same inline treatment as the date
  * toggle: stripped button chrome, accent on active/hover. */
 .v2-thx-btn {
@@ -96,9 +88,9 @@
 /* Inline detail panel — slides below the home stats line for streak
  * or today progress. Hairline-list aesthetic, centered like stats. */
 .v2-stats-detail {
-  max-width: 360px;
+  max-width: 320px;
   margin: 0 auto 8px;
-  padding: 10px 20px;
+  padding: 10px 16px;
   background: var(--v2-surface);
   border: 1px solid var(--v2-hairline);
   border-radius: var(--v2-radius-card, 12px);
@@ -110,7 +102,6 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
   padding: 5px 0;
 }
 
