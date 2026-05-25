@@ -14,7 +14,7 @@ function startOfWeekSunday(date) {
   return d
 }
 
-export default function WeekStrip({ tasks, dailyTaskGoal }) {
+export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(null)
 
@@ -39,7 +39,8 @@ export default function WeekStrip({ tasks, dailyTaskGoal }) {
       d.setDate(d.getDate() + i)
       const key = ymd(d)
       const dayTasks = completionsByDate[key] || []
-      const count = dayTasks.length
+      const eggBonus = easterEggWins?.[key] ? 1 : 0
+      const count = dayTasks.length + eggBonus
       const goal = dailyTaskGoal > 0 ? dailyTaskGoal : 3
       let intensity = 0
       if (count > 0 && count < goal) intensity = 1
@@ -74,8 +75,12 @@ export default function WeekStrip({ tasks, dailyTaskGoal }) {
   const selectedTasks = useMemo(() => {
     if (!selectedDate) return null
     const dayTasks = completionsByDate[selectedDate] || []
-    return dayTasks.map(t => ({ id: t.id, title: t.title, points: calculateTaskPoints(t) }))
-  }, [selectedDate, completionsByDate])
+    const items = dayTasks.map(t => ({ id: t.id, title: t.title, points: calculateTaskPoints(t) }))
+    if (easterEggWins?.[selectedDate]) {
+      items.push({ id: '__egg__', title: 'Daily Bonus', points: 1 })
+    }
+    return items
+  }, [selectedDate, completionsByDate, easterEggWins])
 
   return (
     <div className="v2-week-strip">
