@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { saveTasks, saveRoutines, saveSettings, saveLabels, loadSettings, uuid, logSystemError } from '../store'
+import { saveTasks, saveRoutines, saveSettings, saveLabels, loadSettings, uuid } from '../store'
 import { serverCreateTask, serverUpdateTask, serverDeleteTask,
   serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine } from '../api'
 
@@ -109,11 +109,6 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       body: JSON.stringify(payload),
     })
       .then(res => {
-        if (res.status === 410) {
-          logSystemError('PUT /api/data blocked (v1 legacy disabled)', 'Bulk write endpoint returned 410. Settings/labels not synced server-side. Disable the Legacy toggle in Settings to restore.')
-          setSyncStatus('offline')
-          return
-        }
         if (!res.ok) {
           remoteLog('push: server responded', res.status)
           setSyncStatus('offline')
@@ -297,10 +292,6 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     remoteLog(`${reason}: fetching /api/data`)
     return fetch('/api/data')
       .then(res => {
-        if (res.status === 410) {
-          logSystemError('GET /api/data blocked (v1 legacy disabled)', 'Bulk data endpoint returned 410. Per-record APIs still work. Disable the Legacy toggle in Settings to restore.')
-          throw new Error('v1_disabled: GET /api/data blocked')
-        }
         if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
         return res.json()
       })
