@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { localYMD } from '../../store'
 import { calculateTaskPoints } from '../../scoring'
@@ -14,30 +14,9 @@ function startOfWeekSunday(date) {
   return d
 }
 
-const DAY_CELL_MIN = 56
-
 export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins, inline }) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(null)
-  const rowRef = useRef(null)
-  const [maxDays, setMaxDays] = useState(7)
-
-  const measureFit = useCallback(() => {
-    if (!inline || !rowRef.current) { setMaxDays(7); return }
-    const parent = rowRef.current.parentElement
-    if (!parent) return
-    const statsWidth = Array.from(parent.children)
-      .filter(el => el !== rowRef.current && !el.classList.contains('v2-week-strip-inline'))
-      .reduce((w, el) => w + el.offsetWidth, 0)
-    const available = parent.offsetWidth - statsWidth - 40
-    setMaxDays(Math.max(3, Math.min(7, Math.floor(available / DAY_CELL_MIN))))
-  }, [inline])
-
-  useEffect(() => {
-    measureFit()
-    window.addEventListener('resize', measureFit)
-    return () => window.removeEventListener('resize', measureFit)
-  }, [measureFit])
 
   const completionsByDate = useMemo(() => {
     const map = {}
@@ -82,19 +61,9 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins, inline 
     return out
   }, [completionsByDate, weekOffset, dailyTaskGoal])
 
-  const displayDays = useMemo(() => {
-    if (maxDays >= 7) return days
-    const todayIdx = days.findIndex(d => d.isToday)
-    const center = todayIdx >= 0 ? todayIdx : Math.floor(days.length / 2)
-    const half = Math.floor(maxDays / 2)
-    let s = Math.max(0, center - half)
-    if (s + maxDays > days.length) s = Math.max(0, days.length - maxDays)
-    return days.slice(s, s + maxDays)
-  }, [days, maxDays])
-
   const rangeLabel = useMemo(() => {
-    const first = displayDays[0].date
-    const last = displayDays[displayDays.length - 1].date
+    const first = days[0].date
+    const last = days[6].date
     const firstMonth = first.toLocaleString('en', { month: 'short' })
     const lastMonth = last.toLocaleString('en', { month: 'short' })
     if (firstMonth === lastMonth) {
@@ -138,8 +107,8 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins, inline 
   return (
     <div className={`v2-week-strip${inline ? ' v2-week-strip-inline' : ''}`}>
       {!inline && navRow}
-      <ol ref={rowRef} id="v2-week-strip-days" className="v2-week-strip-row">
-        {displayDays.map(d => (
+      <ol id="v2-week-strip-days" className="v2-week-strip-row">
+        {days.map(d => (
           <li
             key={d.key}
             className={[
