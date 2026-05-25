@@ -11,7 +11,8 @@
 }
 
 .v2-kanban-col {
-  flex: 0 0 260px;
+  flex: 1 0 220px;
+  max-width: 400px;
   background: rgba(var(--v2-text-rgb), 0.02);
   border: 1px solid var(--v2-hairline);
   border-radius: 14px;

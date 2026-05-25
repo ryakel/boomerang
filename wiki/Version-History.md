@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- fix(ui): Kanban columns dynamically resize with viewport [XS]
+  - **Bug.** Columns were fixed at 260px — dead space on wide screens, cut off on narrow ones.
+  - **Fix.** `flex: 1 0 220px; max-width: 400px` — columns grow to fill available space, cap at 400px, scroll horizontally below 220px each.
+  - Modified: `src/v2/components/KanbanBoard.css`
+
 - fix(ui): desktop stats strip spacing + detail panel label/value gap [XS]
   - **Stats strip.** Removed max-width constraint and excess padding — no more dead space flanking the centered stats.
   - **Detail panels.** Added 16px gap so "Current streak" and "20 days" don't run together. Widened to 360px.
