@@ -10,9 +10,8 @@
  */
 
 .v2-week-strip {
-  margin: 0 0 12px;
-  padding: 0 16px;
-  max-width: 900px;
+  margin: 0 -8px 16px;
+  padding: 0 8px;
 }
 
 .v2-week-strip-head {
