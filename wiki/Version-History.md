@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- fix(ui): desktop stats strip spacing + detail panel label/value gap [XS]
+  - **Stats strip.** Removed max-width constraint and excess padding — no more dead space flanking the centered stats.
+  - **Detail panels.** Added 16px gap so "Current streak" and "20 days" don't run together. Widened to 360px.
+  - **WeekStrip.** Tightened to 480px max-width with less vertical whitespace.
+  - Modified: `src/v2/AppV2.css`, `src/v2/components/WeekStrip.css`
+
 - fix(ui): date picker unclickable on desktop Chrome [XS]
   - **Bug.** Desktop Chrome only opens the date picker via the calendar indicator icon, not the full input area. The overlay trick (opacity:0 input covering the display span) worked on iOS Safari but not Chrome — only the far-right calendar icon was clickable.
   - **Fix.** Stretched `::-webkit-calendar-picker-indicator` to fill the entire input with `position: absolute; inset: 0; width/height: 100%`.
