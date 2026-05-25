@@ -860,14 +860,15 @@ export default function AppV2() {
               >
                 ✓ {dailyStats.tasksToday}/{settingsForRings.daily_task_goal || 3} today
               </button>
+              {weekStripShown && (
+                <WeekStrip
+                  tasks={tasks}
+                  dailyTaskGoal={settingsForRings.daily_task_goal || 3}
+                  easterEggWins={settingsForRings.easter_egg_wins}
+                  inline={isDesktop}
+                />
+              )}
             </div>
-            {weekStripShown && (
-              <WeekStrip
-                tasks={tasks}
-                dailyTaskGoal={settingsForRings.daily_task_goal || 3}
-                easterEggWins={settingsForRings.easter_egg_wins}
-              />
-            )}
             {statsDetail === 'streak' && (() => {
               const bestStreak = Math.max(streak, records.longestStreak)
               return (

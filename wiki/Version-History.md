@@ -6,6 +6,26 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- feat(ui): WeekStrip nav below stats + breathing room + auto-shrink [S]
+  - **Nav row below.** Date range selector (< May 24-30 >) renders below the stats+days row in inline mode, not above. Always visible when strip is open.
+  - **Breathing room.** Day cell gap 4px → 8px, min-width 48px with 8px padding.
+  - **Auto-shrink.** Measures available width and shows 3-7 days centered on today. ResizeObserver re-measures on viewport change.
+  - Modified: `src/v2/components/WeekStrip.jsx`, `src/v2/components/WeekStrip.css`
+
+- feat(ui): inline WeekStrip in desktop stats bar [S]
+  - **Desktop (≥769px).** WeekStrip day cells render inline after the date/streak/today buttons in the same flex row. Nav arrows and range label hidden — the date button already shows the date. Detail panel wraps below full-width when a day is clicked. `display: contents` on the strip wrapper lets its children participate in the parent flex.
+  - **Mobile (<769px).** Falls back to the existing stacked layout below the stats line — no change.
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/WeekStrip.jsx`, `src/v2/components/WeekStrip.css`
+
+- style(ui): left-align stats strip, detail panels, and WeekStrip on desktop [XS]
+  - Stats, streak/today detail, and WeekStrip now start from the left edge instead of floating centered. Reads naturally left-to-right and aligns with the Kanban columns below.
+  - Modified: `src/v2/AppV2.css`, `src/v2/components/WeekStrip.css`
+
+- fix(ui): WeekStrip full-width on desktop + Kanban columns wrap on narrow viewports [XS]
+  - **WeekStrip.** max-width 480px → 900px so it fills the desktop content area instead of looking tiny.
+  - **Kanban wrap.** `flex-wrap: wrap` so columns stack into rows when the viewport can't fit them side-by-side, instead of requiring horizontal scroll.
+  - Modified: `src/v2/components/WeekStrip.css`, `src/v2/components/KanbanBoard.css`
+
 - fix(ui): Kanban columns dynamically resize with viewport [XS]
   - **Bug.** Columns were fixed at 260px — dead space on wide screens, cut off on narrow ones.
   - **Fix.** `flex: 1 0 220px; max-width: 400px` — columns grow to fill available space, cap at 400px, scroll horizontally below 220px each.
