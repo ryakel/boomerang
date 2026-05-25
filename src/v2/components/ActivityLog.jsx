@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { History } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { History, Search, Sparkles, X } from 'lucide-react'
 import { loadActivityLog, saveActivityLog, uuid } from '../../store'
+import { aiSearchActivity } from '../../api'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import './ActivityLog.css'
@@ -17,7 +18,6 @@ const ACTION_LABELS = {
   priority_changed: 'Priority changed',
 }
 
-// Muted v2 alert/accent palette — ties color to action without shouting.
 const ACTION_TONE = {
   created: 'var(--v2-accent)',
   completed: '#5DBC9B',
@@ -45,10 +45,74 @@ function timeAgo(timestamp) {
 export default function ActivityLog({ open, onRestore, onClose }) {
   const [log, setLog] = useState(loadActivityLog)
   const [filter, setFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [aiMatchedIds, setAiMatchedIds] = useState(null)
+  const [isSearching, setIsSearching] = useState(false)
+  const [isAI, setIsAI] = useState(false)
+  const searchRef = useRef(null)
+  const debounceRef = useRef(null)
 
-  const filteredLog = filter === 'deleted'
+  useEffect(() => {
+    if (open) {
+      setLog(loadActivityLog())
+      setSearchQuery('')
+      setAiMatchedIds(null)
+      setIsAI(false)
+    }
+  }, [open])
+
+  const baseFiltered = filter === 'deleted'
     ? log.filter(e => e.action === 'deleted')
     : log
+
+  // Local filter (instant)
+  const localFiltered = useMemo(() => {
+    if (!searchQuery.trim()) return null
+    const q = searchQuery.toLowerCase()
+    return baseFiltered.filter(e =>
+      (e.task_title || '').toLowerCase().includes(q) ||
+      (ACTION_LABELS[e.action] || '').toLowerCase().includes(q)
+    )
+  }, [searchQuery, baseFiltered])
+
+  // AI search (debounced)
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setAiMatchedIds(null)
+      setIsAI(false)
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const items = baseFiltered.map(e => ({
+          id: e.id,
+          title: `${ACTION_LABELS[e.action] || e.action}: ${e.task_title || '(untitled)'}`,
+        }))
+        const data = await aiSearchActivity(searchQuery, items)
+        if (data.matchedIds) {
+          setAiMatchedIds(new Set(data.matchedIds))
+          setIsAI(data.ai || false)
+        }
+      } catch {
+        // local fallback is already showing
+      } finally {
+        setIsSearching(false)
+      }
+    }, 400)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [searchQuery, baseFiltered])
+
+  const filteredLog = useMemo(() => {
+    if (!searchQuery.trim()) return baseFiltered
+    if (aiMatchedIds) {
+      return baseFiltered.filter(e => aiMatchedIds.has(e.id))
+    }
+    return localFiltered || baseFiltered
+  }, [searchQuery, baseFiltered, aiMatchedIds, localFiltered])
+
+  const isFiltering = searchQuery.trim().length > 0
 
   const handleRestore = (entry) => {
     if (!entry.task_snapshot) return
@@ -68,6 +132,28 @@ export default function ActivityLog({ open, onRestore, onClose }) {
 
   return (
     <ModalShell open={open} onClose={onClose} title="Activity log" terminalTitle="> log" width="wide">
+      {/* Search bar */}
+      <div className="v2-smart-search">
+        <Search size={15} className="v2-smart-search-icon" />
+        <input
+          ref={searchRef}
+          type="text"
+          className="v2-smart-search-input"
+          placeholder="Search activity…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          autoComplete="off"
+          spellCheck="false"
+        />
+        {isSearching && <span className="v2-smart-search-spinner" />}
+        {isAI && !isSearching && <Sparkles size={13} className="v2-smart-search-ai" />}
+        {searchQuery && (
+          <button className="v2-smart-search-clear" onClick={() => { setSearchQuery(''); searchRef.current?.focus() }}>
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
       <div className="v2-activity-toolbar">
         <div className="v2-activity-filters">
           <button
@@ -90,7 +176,18 @@ export default function ActivityLog({ open, onRestore, onClose }) {
         )}
       </div>
 
-      {filteredLog.length === 0 ? (
+      {isFiltering && filteredLog.length > 0 && (
+        <div className="v2-smart-search-count">
+          {filteredLog.length} result{filteredLog.length !== 1 ? 's' : ''}
+          {isAI && ' · AI-assisted'}
+        </div>
+      )}
+
+      {isFiltering && filteredLog.length === 0 ? (
+        <div className="v2-smart-search-empty">
+          No matches for "{searchQuery}"
+        </div>
+      ) : filteredLog.length === 0 ? (
         <EmptyState
           icon={History}
           title="No activity yet"

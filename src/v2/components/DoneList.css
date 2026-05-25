@@ -1,3 +1,91 @@
+/* Shared smart-search bar (used by DoneList + ActivityLog) */
+.v2-smart-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--v2-radius-pill);
+  background: rgba(var(--v2-text-rgb), 0.04);
+  border: 1px solid var(--v2-hairline);
+  margin-bottom: 16px;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-smart-search:focus-within {
+  border-color: var(--v2-accent);
+}
+
+.v2-smart-search-icon {
+  flex: 0 0 auto;
+  color: var(--v2-text-faint);
+}
+
+.v2-smart-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font: 400 14px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+}
+
+.v2-smart-search-input::placeholder {
+  color: var(--v2-text-faint);
+}
+
+.v2-smart-search-ai {
+  flex: 0 0 auto;
+  color: var(--v2-accent);
+}
+
+.v2-smart-search-clear {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(var(--v2-text-rgb), 0.08);
+  color: var(--v2-text-meta);
+  cursor: pointer;
+  padding: 0;
+}
+
+.v2-smart-search-clear:hover {
+  background: rgba(var(--v2-text-rgb), 0.14);
+}
+
+.v2-smart-search-spinner {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--v2-hairline);
+  border-top-color: var(--v2-accent);
+  border-radius: 50%;
+  animation: v2-search-spin 0.6s linear infinite;
+}
+
+@keyframes v2-search-spin {
+  to { transform: rotate(360deg); }
+}
+
+.v2-smart-search-empty {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--v2-text-faint);
+  font: 400 14px/1.4 var(--v2-font-body);
+}
+
+.v2-smart-search-count {
+  font: 400 12px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin-bottom: 12px;
+}
+
+/* DoneList-specific styles */
 .v2-done-loading {
   text-align: center;
   padding: 32px 0;

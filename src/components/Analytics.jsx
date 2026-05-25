@@ -12,32 +12,30 @@ const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL']
 const SIZE_COLORS = { XS: '#60A5FA', S: '#52C97F', M: '#FFB347', L: '#F97316', XL: '#EF4444' }
 
-// Build heat map grid (52 weeks x 7 days, most recent week on the right)
+// Build heat map grid (52 weeks x 7 days, most recent week on the right).
+// Uses UTC throughout so keys match server-side UTC-bucketed day strings.
 function buildHeatMapGrid(dailyData, metric) {
   const dataMap = {}
   for (const d of dailyData) {
     dataMap[d.day] = d
   }
 
-  const today = new Date()
+  const now = new Date()
   const cells = []
-  // Go back 364 days (52 weeks)
-  const start = new Date(today)
-  start.setDate(start.getDate() - 363)
-  // Align to Sunday
-  start.setDate(start.getDate() - start.getDay())
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 363))
+  start.setUTCDate(start.getUTCDate() - start.getUTCDay())
 
-  const end = new Date(today)
-  end.setDate(end.getDate() + (6 - end.getDay())) // extend to Saturday
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  end.setUTCDate(end.getUTCDate() + (6 - end.getUTCDay()))
 
   const d = new Date(start)
   while (d <= end) {
-    const key = localYMD(d)
+    const key = d.toISOString().split('T')[0]
     const data = dataMap[key]
     const value = data ? (metric === 'points' ? data.points : data.tasks) : 0
-    const isFuture = d > today
-    cells.push({ key, value, dow: d.getDay(), isFuture })
-    d.setDate(d.getDate() + 1)
+    const isFuture = d > now
+    cells.push({ key, value, dow: d.getUTCDay(), isFuture })
+    d.setUTCDate(d.getUTCDate() + 1)
   }
 
   // Group into weeks (columns)
@@ -51,7 +49,7 @@ function buildHeatMapGrid(dailyData, metric) {
   let lastMonth = -1
   weeks.forEach((week, wi) => {
     const firstDay = week.find(c => !c.isFuture) || week[0]
-    const m = new Date(firstDay.key).getMonth()
+    const m = new Date(firstDay.key + 'T00:00:00Z').getUTCMonth()
     if (m !== lastMonth) {
       months.push({ index: wi, label: MONTH_LABELS[m] })
       lastMonth = m

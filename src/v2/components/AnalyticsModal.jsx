@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { ENERGY_TYPES, loadLabels, localYMD } from '../../store'
+import { ENERGY_TYPES, loadLabels } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import BalanceRadar from './BalanceRadar'
@@ -18,22 +18,24 @@ const RANGE_OPTIONS = [
   { value: null, label: 'All' },
 ]
 
-// Build heatmap grid (52 weeks × 7 days). Identical algorithm to v1, just
-// rendered with v2 tokens.
+// Build heatmap grid (52 weeks × 7 days). Uses UTC throughout so keys match
+// the server's UTC-bucketed completed_at.split('T')[0] day strings.
 function buildHeatMapGrid(dailyData, metric) {
   const dataMap = {}
   for (const d of (dailyData || [])) dataMap[d.day] = d
-  const today = new Date()
+  const now = new Date()
   const cells = []
-  const start = new Date(today); start.setDate(start.getDate() - 363); start.setDate(start.getDate() - start.getDay())
-  const end = new Date(today); end.setDate(end.getDate() + (6 - end.getDay()))
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 363))
+  start.setUTCDate(start.getUTCDate() - start.getUTCDay())
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  end.setUTCDate(end.getUTCDate() + (6 - end.getUTCDay()))
   const d = new Date(start)
   while (d <= end) {
-    const key = localYMD(d)
+    const key = d.toISOString().split('T')[0]
     const data = dataMap[key]
     const value = data ? (metric === 'points' ? data.points : data.tasks) : 0
-    cells.push({ key, value, dow: d.getDay(), isFuture: d > today })
-    d.setDate(d.getDate() + 1)
+    cells.push({ key, value, dow: d.getUTCDay(), isFuture: d > now })
+    d.setUTCDate(d.getUTCDate() + 1)
   }
   const weeks = []
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
@@ -41,7 +43,7 @@ function buildHeatMapGrid(dailyData, metric) {
   let lastMonth = -1
   weeks.forEach((week, wi) => {
     const firstDay = week.find(c => !c.isFuture) || week[0]
-    const m = new Date(firstDay.key).getMonth()
+    const m = new Date(firstDay.key + 'T00:00:00Z').getUTCMonth()
     if (m !== lastMonth) { months.push({ index: wi, label: MONTH_LABELS[m] }); lastMonth = m }
   })
   const maxVal = Math.max(1, ...cells.map(c => c.value))
