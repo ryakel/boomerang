@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- fix(ui): logs copy button copies filtered view, not all logs [XS]
+  - **Bug.** "Copy all" in Settings → Logs copied the entire unfiltered log buffer regardless of which filter tab was active.
+  - **Fix.** `handleCopy` now uses `filtered` instead of `logs`. Button label shows count when a filter is active (e.g. "Copy 12").
+  - Modified: `src/v2/components/SettingsModal.jsx`
+
 - fix(analytics): 52-week heatmap blank due to UTC/local timezone mismatch [S]
   - **Bug.** The server buckets completed_at dates using UTC (`.split('T')[0]`), but the client's `buildHeatMapGrid` was generating keys via `localYMD()` which uses local timezone. For users west of UTC, evening completions landed in the next UTC day, causing all or most cells to show as empty.
   - **Fix.** Switched `buildHeatMapGrid` to use UTC throughout: `Date.UTC()` construction, `setUTCDate/getUTCDay` iteration, `toISOString().split('T')[0]` keys, `getUTCMonth()` for month labels. Fixed in both v1 (`Analytics.jsx`) and v2 (`AnalyticsModal.jsx`).

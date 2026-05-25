@@ -2123,7 +2123,7 @@ function ServerLogsPanel() {
     : logs.filter(l => (FILTER_PATTERNS[filter] || [`[${filter}]`]).some(p => l.msg.includes(p)))
 
   const handleCopy = () => {
-    const text = logs.map(l => `${l.ts} [${l.level}] ${l.msg}`).join('\n')
+    const text = filtered.map(l => `${l.ts} [${l.level}] ${l.msg}`).join('\n')
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -2137,9 +2137,9 @@ function ServerLogsPanel() {
           <RefreshCw size={13} strokeWidth={1.75} className={loading ? 'v2-spinner' : ''} />
           {loading ? 'Loading…' : 'Refresh'}
         </button>
-        <button className="v2-settings-btn" onClick={handleCopy} disabled={logs.length === 0}>
+        <button className="v2-settings-btn" onClick={handleCopy} disabled={filtered.length === 0}>
           <Copy size={13} strokeWidth={1.75} />
-          {copied ? 'Copied' : 'Copy all'}
+          {copied ? 'Copied' : filter === 'all' ? 'Copy all' : `Copy ${filtered.length}`}
         </button>
       </div>
       <div className="v2-settings-logs-filters">
