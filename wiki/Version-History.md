@@ -4,6 +4,26 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-25
+
+- fix(routines): "done today" label showing for yesterday's completions [XS]
+  - **Bug.** `formatLastDone` compared raw millisecond deltas (`Math.floor(diff / 86400000)`), which doesn't cross calendar day boundaries. A routine completed at 11pm yesterday would show "done today" at 8am the next day because the elapsed time is under 24h.
+  - **Fix.** Compare calendar dates (midnight-truncated) instead of raw deltas.
+  - Modified: `src/v2/components/RoutinesModal.jsx`
+
+- fix(analytics): 52-week heatmap blank due to UTC/local timezone mismatch [S]
+  - **Bug.** The server buckets completed_at dates using UTC (`.split('T')[0]`), but the client's `buildHeatMapGrid` was generating keys via `localYMD()` which uses local timezone. For users west of UTC, evening completions landed in the next UTC day, causing all or most cells to show as empty.
+  - **Fix.** Switched `buildHeatMapGrid` to use UTC throughout: `Date.UTC()` construction, `setUTCDate/getUTCDay` iteration, `toISOString().split('T')[0]` keys, `getUTCMonth()` for month labels. Fixed in both v1 (`Analytics.jsx`) and v2 (`AnalyticsModal.jsx`).
+  - Modified: `src/v2/components/AnalyticsModal.jsx`, `src/components/Analytics.jsx`
+
+- feat(ui): AI-assisted search for Done list and Activity Log [M]
+  - **Feature.** Search bar at the top of both modals with instant local substring filter + debounced AI-powered semantic search (uses Claude Haiku).
+  - **Done list.** Types a query → immediate local filter on loaded tasks → 400ms debounce fires `POST /api/search/ai` which does keyword LIKE search + AI semantic ranking on the last 200 done tasks. Shows result count + "AI-assisted" indicator when AI results arrive.
+  - **Activity Log.** Same search bar → immediate local filter on task_title + action label → AI search sends entry titles to the server for semantic matching. Returns matched entry IDs for filtering.
+  - **Fallback.** If no Anthropic API key is configured, falls back to server-side LIKE search (done) or local substring (activity). The search bar works identically either way.
+  - **Server endpoint.** `POST /api/search/ai` — accepts `{ query, scope, items? }`. For `scope: 'done'`: queries DB + AI ranking. For `scope: 'activity'`: ranks provided items via AI. Uses Haiku for cost efficiency.
+  - Modified: `server.js`, `src/api.js`, `src/v2/components/DoneList.jsx`, `src/v2/components/DoneList.css`, `src/v2/components/ActivityLog.jsx`
+
 ## 2026-05-23
 
 - fix(ui): kill 100dvh — pure inset:0 for bottom gap + Notion error always visible [XS]
