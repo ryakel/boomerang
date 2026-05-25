@@ -16,6 +16,7 @@ const ACTION_LABELS = {
   snoozed: 'Snoozed',
   skipped: 'Skipped',
   priority_changed: 'Priority changed',
+  error: 'Error',
 }
 
 const ACTION_TONE = {
@@ -28,6 +29,7 @@ const ACTION_TONE = {
   snoozed: 'var(--v2-text-faint)',
   skipped: 'var(--v2-text-faint)',
   priority_changed: 'var(--v2-alert-high-pri)',
+  error: '#E8443A',
 }
 
 function timeAgo(timestamp) {
@@ -63,6 +65,8 @@ export default function ActivityLog({ open, onRestore, onClose }) {
 
   const baseFiltered = filter === 'deleted'
     ? log.filter(e => e.action === 'deleted')
+    : filter === 'errors'
+    ? log.filter(e => e.action === 'error')
     : log
 
   // Local filter (instant)
@@ -168,6 +172,12 @@ export default function ActivityLog({ open, onRestore, onClose }) {
           >
             Deleted
           </button>
+          <button
+            className={`v2-form-seg${filter === 'errors' ? ' v2-form-seg-active' : ''}`}
+            onClick={() => setFilter('errors')}
+          >
+            Errors
+          </button>
         </div>
         {log.length > 0 && (
           <button className="v2-activity-clear" onClick={handleClearLog}>
@@ -208,6 +218,9 @@ export default function ActivityLog({ open, onRestore, onClose }) {
                 <span className="v2-activity-time">{timeAgo(entry.timestamp)}</span>
               </div>
               <div className="v2-activity-title">{entry.task_title}</div>
+              {entry.action === 'error' && entry.task_snapshot?.error && (
+                <pre className="v2-activity-error-detail">{entry.task_snapshot.error}</pre>
+              )}
               {entry.action === 'deleted' && entry.task_snapshot && (
                 <button className="v2-activity-restore" onClick={() => handleRestore(entry)}>
                   Restore

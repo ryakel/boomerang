@@ -11,6 +11,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - **Fix.** Switched `buildHeatMapGrid` to use UTC throughout: `Date.UTC()` construction, `setUTCDate/getUTCDay` iteration, `toISOString().split('T')[0]` keys, `getUTCMonth()` for month labels. Fixed in both v1 (`Analytics.jsx`) and v2 (`AnalyticsModal.jsx`).
   - Modified: `src/v2/components/AnalyticsModal.jsx`, `src/components/Analytics.jsx`
 
+- feat(ui): Legacy toggle to disable v1 + global error logging [M]
+  - **Legacy toggle.** New `v1_disabled` setting in Settings → Legacy. When enabled: (1) v1 UI is blocked from rendering — any `?ui=v1` or localStorage flag is overridden, logged to Activity Log. (2) Server-side bulk data endpoints (`GET/PUT/POST /api/data`) return 410 Gone and log to server logs. Per-record APIs (`/api/tasks/:id`, etc.) are unaffected.
+  - **Global error logging.** `window.onerror` and `unhandledrejection` handlers write to the Activity Log as `error` action entries. ErrorBoundary render crashes also logged. New `logSystemError(message, detail)` in store.js.
+  - **Activity Log errors tab.** New "Errors" filter button in Activity Log. Error entries show red "ERROR" badge + expandable detail block with stack trace.
+  - **useServerSync 410 handling.** When bulk endpoints return 410 (v1 disabled), sync logs a descriptive error to the Activity Log instead of silently going offline.
+  - Modified: `src/App.jsx`, `src/store.js`, `src/hooks/useServerSync.js`, `src/v2/components/ErrorBoundary.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/ActivityLog.jsx`, `src/v2/components/ActivityLog.css`, `server.js`
+
 - feat(ui): AI-assisted search for Done list and Activity Log [M]
   - **Feature.** Search bar at the top of both modals with instant local substring filter + debounced AI-powered semantic search (uses Claude Haiku).
   - **Done list.** Types a query → immediate local filter on loaded tasks → 400ms debounce fires `POST /api/search/ai` which does keyword LIKE search + AI semantic ranking on the last 200 done tasks. Shows result count + "AI-assisted" indicator when AI results arrive.
