@@ -1471,6 +1471,10 @@
 }
 
 /* --- Settings subviews ------------------------------------------- */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-integrations-toggle-btn {
+  font-family: var(--v2-font-mono);
+}
+
 :root[data-ui="v2"][data-theme^="terminal"] .v2-integrations-toggle-row,
 :root[data-ui="v2"][data-theme^="terminal"] .v2-notif-test-row,
 :root[data-ui="v2"][data-theme^="terminal"] .v2-settings-log-row,

@@ -1192,6 +1192,26 @@
   color: var(--v2-text);
 }
 
+.v2-integrations-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: 500 13px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  cursor: pointer;
+}
+
+.v2-integrations-toggle-btn:hover {
+  color: var(--v2-text);
+}
+
+.v2-chevron-open {
+  transform: rotate(90deg);
+}
+
 .v2-integrations-sub-settings {
   padding: 8px 0 4px 12px;
   border-left: 2px solid var(--v2-hairline);
