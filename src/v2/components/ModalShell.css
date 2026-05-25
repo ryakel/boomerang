@@ -18,6 +18,7 @@
   background: var(--v2-surface);
   color: var(--v2-text);
   width: 100%;
+  min-height: 60dvh;
   max-height: 92dvh;
   overflow-y: auto;
   border-radius: var(--v2-radius-modal) var(--v2-radius-modal) 0 0;
