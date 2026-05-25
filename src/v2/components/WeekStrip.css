@@ -213,6 +213,47 @@
   font-size: 12px;
 }
 
+/* === Inline mode (desktop: day cells sit in the stats bar flex row) == */
+
+@media (min-width: 769px) {
+  .v2-week-strip-inline {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    display: contents;
+  }
+  .v2-week-strip-inline .v2-week-strip-head {
+    display: none;
+  }
+  .v2-week-strip-inline .v2-week-strip-row {
+    display: flex;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+  }
+  .v2-week-strip-inline .v2-week-strip-day {
+    min-width: 44px;
+    padding: 4px 6px;
+    border-radius: 8px;
+  }
+  .v2-week-strip-inline .v2-week-strip-day-btn {
+    padding: 4px 2px;
+    min-height: 0;
+  }
+  .v2-week-strip-inline .v2-week-strip-detail {
+    flex-basis: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* Below 769px, inline class is ignored — full stacked layout */
+@media (max-width: 768px) {
+  .v2-week-strip-inline {
+    margin: 0 0 12px;
+    padding: 0 16px;
+  }
+}
+
 /* === Terminal mode override =========================================
  * Drop the card chrome — bare row of day cells. Each day's number gets
  * a `*` prefix when it's today. Intensity bar becomes a block character

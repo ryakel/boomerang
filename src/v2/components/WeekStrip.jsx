@@ -14,7 +14,7 @@ function startOfWeekSunday(date) {
   return d
 }
 
-export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
+export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins, inline }) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(null)
 
@@ -83,7 +83,7 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
   }, [selectedDate, completionsByDate, easterEggWins])
 
   return (
-    <div className="v2-week-strip">
+    <div className={`v2-week-strip${inline ? ' v2-week-strip-inline' : ''}`}>
       <div className="v2-week-strip-head">
         <button
           className="v2-week-strip-nav"

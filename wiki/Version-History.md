@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- feat(ui): inline WeekStrip in desktop stats bar [S]
+  - **Desktop (≥769px).** WeekStrip day cells render inline after the date/streak/today buttons in the same flex row. Nav arrows and range label hidden — the date button already shows the date. Detail panel wraps below full-width when a day is clicked. `display: contents` on the strip wrapper lets its children participate in the parent flex.
+  - **Mobile (<769px).** Falls back to the existing stacked layout below the stats line — no change.
+  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/WeekStrip.jsx`, `src/v2/components/WeekStrip.css`
+
 - style(ui): left-align stats strip, detail panels, and WeekStrip on desktop [XS]
   - Stats, streak/today detail, and WeekStrip now start from the left edge instead of floating centered. Reads naturally left-to-right and aligns with the Kanban columns below.
   - Modified: `src/v2/AppV2.css`, `src/v2/components/WeekStrip.css`
