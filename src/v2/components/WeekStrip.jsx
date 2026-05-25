@@ -14,7 +14,7 @@ function startOfWeekSunday(date) {
   return d
 }
 
-export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins, inline }) {
+export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(null)
 
@@ -80,33 +80,29 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins, inline 
       items.push({ id: '__egg__', title: 'Daily Bonus', points: 1 })
     }
     return items
-  }, [selectedDate, completionsByDate, easterEggWins])
-
-  const navRow = (
-    <div className="v2-week-strip-head">
-      <button
-        className="v2-week-strip-nav"
-        onClick={() => { setWeekOffset(o => o - 1); setSelectedDate(null) }}
-        aria-label="Previous week"
-      >
-        <ChevronLeft size={14} strokeWidth={2} />
-      </button>
-      <span className="v2-week-strip-range">
-        <span className="v2-week-strip-range-label">{rangeLabel}</span>
-      </span>
-      <button
-        className="v2-week-strip-nav"
-        onClick={() => { setWeekOffset(o => o + 1); setSelectedDate(null) }}
-        aria-label="Next week"
-      >
-        <ChevronRight size={14} strokeWidth={2} />
-      </button>
-    </div>
-  )
+  }, [selectedDate, completionsByDate])
 
   return (
-    <div className={`v2-week-strip${inline ? ' v2-week-strip-inline' : ''}`}>
-      {!inline && navRow}
+    <div className="v2-week-strip">
+      <div className="v2-week-strip-head">
+        <button
+          className="v2-week-strip-nav"
+          onClick={() => { setWeekOffset(o => o - 1); setSelectedDate(null) }}
+          aria-label="Previous week"
+        >
+          <ChevronLeft size={14} strokeWidth={2} />
+        </button>
+        <span className="v2-week-strip-range">
+          <span className="v2-week-strip-range-label">{rangeLabel}</span>
+        </span>
+        <button
+          className="v2-week-strip-nav"
+          onClick={() => { setWeekOffset(o => o + 1); setSelectedDate(null) }}
+          aria-label="Next week"
+        >
+          <ChevronRight size={14} strokeWidth={2} />
+        </button>
+      </div>
       <ol id="v2-week-strip-days" className="v2-week-strip-row">
         {days.map(d => (
           <li
@@ -155,7 +151,6 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins, inline 
           )}
         </div>
       )}
-      {inline && navRow}
     </div>
   )
 }
