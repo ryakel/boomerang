@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- fix(ui): modal bottom-sheet min-height prevents shrinking during search [XS]
+  - **Bug.** On mobile, the Done modal (and any ModalShell) shrank to fit content when search filtered results down to a few items, causing the search bar to jump down the screen.
+  - **Fix.** Added `min-height: 60dvh` to `.v2-modal` so the bottom sheet maintains a stable height regardless of content.
+  - Modified: `src/v2/components/ModalShell.css`, `src/v2/components/DoneList.css`
+
 - fix(routines): "done today" label showing for yesterday's completions [XS]
   - **Bug.** `formatLastDone` compared raw millisecond deltas (`Math.floor(diff / 86400000)`), which doesn't cross calendar day boundaries. A routine completed at 11pm yesterday would show "done today" at 8am the next day because the elapsed time is under 24h.
   - **Fix.** Compare calendar dates (midnight-truncated) instead of raw deltas.
