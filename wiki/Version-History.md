@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- feat(ui): WeekStrip nav below stats + breathing room + auto-shrink [S]
+  - **Nav row below.** Date range selector (< May 24-30 >) renders below the stats+days row in inline mode, not above. Always visible when strip is open.
+  - **Breathing room.** Day cell gap 4px → 8px, min-width 48px with 8px padding.
+  - **Auto-shrink.** Measures available width and shows 3-7 days centered on today. ResizeObserver re-measures on viewport change.
+  - Modified: `src/v2/components/WeekStrip.jsx`, `src/v2/components/WeekStrip.css`
+
 - feat(ui): inline WeekStrip in desktop stats bar [S]
   - **Desktop (≥769px).** WeekStrip day cells render inline after the date/streak/today buttons in the same flex row. Nav arrows and range label hidden — the date button already shows the date. Detail panel wraps below full-width when a day is clicked. `display: contents` on the strip wrapper lets its children participate in the parent flex.
   - **Mobile (<769px).** Falls back to the existing stacked layout below the stats line — no change.
