@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- fix(ui): date picker unclickable on desktop Chrome [XS]
+  - **Bug.** Desktop Chrome only opens the date picker via the calendar indicator icon, not the full input area. The overlay trick (opacity:0 input covering the display span) worked on iOS Safari but not Chrome — only the far-right calendar icon was clickable.
+  - **Fix.** Stretched `::-webkit-calendar-picker-indicator` to fill the entire input with `position: absolute; inset: 0; width/height: 100%`.
+  - Modified: `src/v2/components/DateField.css`
+
 - fix(ui): WeekStrip missing Easter egg bonus + desktop layout fixes [S]
   - **Easter egg bug.** WeekStrip day count and detail panel only counted done tasks, not the Easter egg bonus. Stats line "3/3 today" included it but WeekStrip showed "2/3" with no "Daily Bonus" entry. Fixed by passing `easterEggWins` to WeekStrip.
   - **Kanban columns.** Reverted flex-grow back to fixed 260px with horizontal scroll — 7 columns with flex-grow smushed into unreadable mush.
@@ -26,10 +31,30 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - **Fix.** Compare calendar dates (midnight-truncated) instead of raw deltas.
   - Modified: `src/v2/components/RoutinesModal.jsx`
 
+- feat(ui): port remaining v1-only settings + date inference to v2 [M]
+  - **Notion database sync** — database ID/URL input, verify via `notionQueryDatabase`, display connected title, disconnect button. Integrations → Notion → Database sync section.
+  - **Notion page template** — collapsible textarea editor for the markdown template used when syncing pages to Notion. Reset-to-default button.
+  - **Pushover deep-link URL** (`public_app_url`) — text input in the Pushover section for tappable notification links.
+  - **Date inference button** — "Infer" AI pill on the Due date field in EditTaskModal. Calls `inferDate()` to extract a date from the title and notes. Only shows when no date is set. `handleInferDate` + `dateInferring` added to `useTaskForm` hook.
+  - **v1 deprecation status:** All v1-only settings are now available in v2. Deleting v1 code will not lose any configuration surface.
+  - Modified: `src/hooks/useTaskForm.js`, `src/v2/components/EditTaskModal.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/SettingsModal.css`
+
+- fix(ui): logs copy button copies filtered view, not all logs [XS]
+  - **Bug.** "Copy all" in Settings → Logs copied the entire unfiltered log buffer regardless of which filter tab was active.
+  - **Fix.** `handleCopy` now uses `filtered` instead of `logs`. Button label shows count when a filter is active (e.g. "Copy 12").
+  - Modified: `src/v2/components/SettingsModal.jsx`
+
 - fix(analytics): 52-week heatmap blank due to UTC/local timezone mismatch [S]
   - **Bug.** The server buckets completed_at dates using UTC (`.split('T')[0]`), but the client's `buildHeatMapGrid` was generating keys via `localYMD()` which uses local timezone. For users west of UTC, evening completions landed in the next UTC day, causing all or most cells to show as empty.
   - **Fix.** Switched `buildHeatMapGrid` to use UTC throughout: `Date.UTC()` construction, `setUTCDate/getUTCDay` iteration, `toISOString().split('T')[0]` keys, `getUTCMonth()` for month labels. Fixed in both v1 (`Analytics.jsx`) and v2 (`AnalyticsModal.jsx`).
   - Modified: `src/v2/components/AnalyticsModal.jsx`, `src/components/Analytics.jsx`
+
+- feat(ui): Legacy toggle to disable v1 + global error logging [M]
+  - **Legacy toggle.** New `v1_disabled` setting in Settings → Legacy. When enabled: (1) v1 UI is blocked from rendering — any `?ui=v1` or localStorage flag is overridden, logged to Activity Log. (2) Server-side bulk data endpoints (`GET/PUT/POST /api/data`) return 410 Gone and log to server logs. Per-record APIs (`/api/tasks/:id`, etc.) are unaffected.
+  - **Global error logging.** `window.onerror` and `unhandledrejection` handlers write to the Activity Log as `error` action entries. ErrorBoundary render crashes also logged. New `logSystemError(message, detail)` in store.js.
+  - **Activity Log errors tab.** New "Errors" filter button in Activity Log. Error entries show red "ERROR" badge + expandable detail block with stack trace.
+  - **useServerSync 410 handling.** When bulk endpoints return 410 (v1 disabled), sync logs a descriptive error to the Activity Log instead of silently going offline.
+  - Modified: `src/App.jsx`, `src/store.js`, `src/hooks/useServerSync.js`, `src/v2/components/ErrorBoundary.jsx`, `src/v2/components/SettingsModal.jsx`, `src/v2/components/ActivityLog.jsx`, `src/v2/components/ActivityLog.css`, `server.js`
 
 - feat(ui): AI-assisted search for Done list and Activity Log [M]
   - **Feature.** Search bar at the top of both modals with instant local substring filter + debounced AI-powered semantic search (uses Claude Haiku).
