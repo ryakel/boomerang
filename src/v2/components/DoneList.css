@@ -9,6 +9,7 @@
   border: 1px solid var(--v2-hairline);
   margin-bottom: 16px;
   transition: border-color var(--v2-dur-quick) var(--v2-ease-standard);
+  flex: 0 0 auto;
 }
 
 .v2-smart-search:focus-within {
