@@ -865,6 +865,7 @@ export default function AppV2() {
               <WeekStrip
                 tasks={tasks}
                 dailyTaskGoal={settingsForRings.daily_task_goal || 3}
+                easterEggWins={settingsForRings.easter_egg_wins}
               />
             )}
             {statsDetail === 'streak' && (() => {
