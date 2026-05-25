@@ -89,7 +89,6 @@
 /* Inline detail panel — slides below the home stats line for streak
  * or today progress. Hairline-list aesthetic, centered like stats. */
 .v2-stats-detail {
-  max-width: 320px;
   margin: 0 auto 8px;
   padding: 10px 16px;
   background: var(--v2-surface);
