@@ -1542,3 +1542,24 @@ export async function restoreFromBackup(backup) {
   }
   return res.json()
 }
+
+// --- AI-assisted search ---
+export async function aiSearchDone(query) {
+  const res = await fetch('/api/search/ai', {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ query, scope: 'done' }),
+  })
+  if (!res.ok) throw new Error(`Search failed: ${res.status}`)
+  return res.json()
+}
+
+export async function aiSearchActivity(query, items) {
+  const res = await fetch('/api/search/ai', {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ query, scope: 'activity', items }),
+  })
+  if (!res.ok) throw new Error(`Search failed: ${res.status}`)
+  return res.json()
+}

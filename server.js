@@ -550,6 +550,90 @@ app.delete('/api/routines/:id', (req, res) => {
   res.json({ ok: true, version: newVersion })
 })
 
+// --- AI-assisted search ---
+app.post('/api/search/ai', async (req, res) => {
+  const { query, scope = 'done', items } = req.body
+  if (!query?.trim()) return res.json({ results: [], ai: false })
+
+  const keyword = query.trim()
+
+  if (scope === 'activity' && Array.isArray(items)) {
+    const q = keyword.toLowerCase()
+    const localHits = items.filter(it =>
+      (it.title || it.task_title || '').toLowerCase().includes(q)
+    ).map(it => it.id)
+
+    const apiKey = getAnthropicKey(req)
+    if (!apiKey) return res.json({ matchedIds: localHits, ai: false })
+
+    try {
+      const taskList = items
+        .map((it, i) => `${i}: ${it.title || it.task_title || '(untitled)'}`)
+        .join('\n')
+      const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 400,
+          system: 'You search an activity log. Given a search query and numbered entries, return a JSON array of entry indices that match semantically. Include partial/related matches. Return ONLY a JSON array of integers.',
+          messages: [{ role: 'user', content: `Query: "${keyword}"\n\nEntries:\n${taskList}` }],
+        }),
+      })
+      const data = await aiRes.json()
+      const indices = JSON.parse(data.content[0].text)
+      const aiIds = indices.map(i => items[i]?.id).filter(Boolean)
+      const merged = [...new Set([...localHits, ...aiIds])]
+      return res.json({ matchedIds: merged, ai: true })
+    } catch (err) {
+      console.error(`[AI Search] activity error: ${err.message}`)
+      return res.json({ matchedIds: localHits, ai: false })
+    }
+  }
+
+  const basicResults = queryTasks({ status: 'done', q: keyword, limit: 50, sort: 'completed_at' })
+
+  const apiKey = getAnthropicKey(req)
+  if (!apiKey) return res.json({ results: basicResults, ai: false })
+
+  try {
+    const pool = queryTasks({ status: 'done', limit: 200, sort: 'completed_at' })
+    const taskList = pool
+      .map((t, i) => `${i}: ${t.title}${t.notes ? ' — ' + t.notes.slice(0, 80) : ''}`)
+      .join('\n')
+    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        system: 'You search a task list. Given a search query and numbered tasks, return a JSON array of task indices that match the query semantically. Include close/related matches, sorted by relevance (best first). Return ONLY a JSON array of integers.',
+        messages: [{ role: 'user', content: `Query: "${keyword}"\n\nTasks:\n${taskList}` }],
+      }),
+    })
+    const data = await aiRes.json()
+    const indices = JSON.parse(data.content[0].text)
+    const aiMatched = indices.map(i => pool[i]).filter(Boolean)
+    const seen = new Set(basicResults.map(r => r.id))
+    const combined = [...basicResults]
+    for (const r of aiMatched) {
+      if (!seen.has(r.id)) { seen.add(r.id); combined.push(r) }
+    }
+    return res.json({ results: combined, ai: true })
+  } catch (err) {
+    console.error(`[AI Search] done error: ${err.message}`)
+    return res.json({ results: basicResults, ai: false })
+  }
+})
+
 // --- Claude API proxy ---
 app.post('/api/messages', async (req, res) => {
   const key = getAnthropicKey(req)
