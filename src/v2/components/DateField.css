@@ -80,9 +80,17 @@
 }
 
 /* Strip default appearance on iOS Safari so the input's space is just
- * a tap target. */
+ * a tap target. On desktop Chrome the picker only opens via the calendar
+ * indicator icon — stretch it to fill the entire input area. */
 .v2-form-date-input::-webkit-date-and-time-value { text-align: left; }
-.v2-form-date-input::-webkit-calendar-picker-indicator { opacity: 0; }
+.v2-form-date-input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
 
 .v2-form-date-clear {
   background: transparent;
