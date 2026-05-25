@@ -58,8 +58,8 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+  gap: 8px;
 }
 
 .v2-week-strip-day {
@@ -222,23 +222,26 @@
     max-width: none;
     display: contents;
   }
-  .v2-week-strip-inline .v2-week-strip-head {
-    display: none;
-  }
   .v2-week-strip-inline .v2-week-strip-row {
     display: flex;
-    gap: 4px;
+    gap: 8px;
     margin: 0;
     padding: 0;
   }
   .v2-week-strip-inline .v2-week-strip-day {
-    min-width: 44px;
-    padding: 4px 6px;
+    min-width: 48px;
+    padding: 4px 8px;
     border-radius: 8px;
   }
   .v2-week-strip-inline .v2-week-strip-day-btn {
     padding: 4px 2px;
     min-height: 0;
+  }
+  .v2-week-strip-inline .v2-week-strip-head {
+    flex-basis: 100%;
+    margin-top: 4px;
+    justify-content: flex-start;
+    gap: 8px;
   }
   .v2-week-strip-inline .v2-week-strip-detail {
     flex-basis: 100%;
