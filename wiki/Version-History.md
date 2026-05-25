@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- fix(routines): "done today" label showing for yesterday's completions [XS]
+  - **Bug.** `formatLastDone` compared raw millisecond deltas (`Math.floor(diff / 86400000)`), which doesn't cross calendar day boundaries. A routine completed at 11pm yesterday would show "done today" at 8am the next day because the elapsed time is under 24h.
+  - **Fix.** Compare calendar dates (midnight-truncated) instead of raw deltas.
+  - Modified: `src/v2/components/RoutinesModal.jsx`
+
 - feat(ui): port remaining v1-only settings + date inference to v2 [M]
   - **Notion database sync** — database ID/URL input, verify via `notionQueryDatabase`, display connected title, disconnect button. Integrations → Notion → Database sync section.
   - **Notion page template** — collapsible textarea editor for the markdown template used when syncing pages to Notion. Reset-to-default button.
