@@ -32,7 +32,10 @@ function formatNextDue(routine) {
 function formatLastDone(routine) {
   if (!routine.completed_history?.length) return 'never done'
   const last = new Date(routine.completed_history[routine.completed_history.length - 1])
-  const days = Math.floor((Date.now() - last.getTime()) / 86400000)
+  const now = new Date()
+  const lastDay = new Date(last.getFullYear(), last.getMonth(), last.getDate())
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const days = Math.round((today - lastDay) / 86400000)
   if (days === 0) return 'done today'
   if (days === 1) return 'done yesterday'
   return `done ${days}d ago`

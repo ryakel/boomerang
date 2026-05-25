@@ -826,83 +826,10 @@ export default function AppV2() {
             ))}
           </div>
         )}
-        {searchOpen ? (
-          <div className="v2-list">
-            {searchResults === null ? (
-              <EmptyState
-                icon={ListChecks}
-                title="Type to search"
-                body="Searches every task — active, done, backlog, or project."
-                terminalCommand="// type a query — searches active, done, backlog, projects"
-              />
-            ) : searchResults.length === 0 ? (
-              <EmptyState
-                icon={ListChecks}
-                title="No matches"
-                body={`Nothing matches "${searchQuery}". Try a different keyword.`}
-                terminalCommand={`// no matches for "${searchQuery}"`}
-              />
-            ) : (
-              <>
-                <SectionLabel count={searchResults.length}>
-                  {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
-                </SectionLabel>
-                {searchResults.map(t => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    expanded={expandedTaskId === t.id}
-                    onToggleExpand={setExpandedTaskId}
-                    onComplete={handleComplete}
-                    onEdit={handleEdit}
-                    onSnooze={handleSnooze}
-                    onSkipAdvance={handleSkipAdvance}
-                    weatherByDate={weather.enabled ? weather.byDate : null}
-                    routineStreaks={routineStreaks}
-                  />
-                ))}
-              </>
-            )}
-          </div>
-        ) : totalActive === 0 && sortedSnoozed.length === 0 && backlogTasks.length === 0 && projectTasks.length === 0 ? (
-          <EmptyState
-            icon={ListChecks}
-            title={activeFilter !== 'all' ? 'No tasks match this filter' : 'Nothing on your plate'}
-            body={activeFilter !== 'all' ? 'Tap All above to clear the filter.' : 'No active tasks right now. Tap the + above to add one.'}
-            cta={activeFilter !== 'all' ? 'Show all' : 'Add task'}
-            ctaOnClick={activeFilter !== 'all' ? () => setActiveFilter('all') : () => setShowAdd(true)}
-            terminalCommand={activeFilter !== 'all'
-              ? '// no matches under this filter — clear it to see everything'
-              : '// no active tasks. that\'s either bold or concerning. press + to add.'}
-          />
-        ) : isDesktop ? (
-          <KanbanBoard
-            doingTasks={sortedDoing}
-            staleTasks={sortedStale}
-            upNextTasks={sortedUpNext}
-            waitingTasks={sortedWaiting}
-            snoozedTasks={sortedSnoozed}
-            backlogTasks={backlogTasks}
-            projectTasks={projectTasks}
-            onAddTask={(title, status) => {
-              const taskId = addTask({ title })
-              if (status !== 'not_started') changeStatus(taskId, status)
-            }}
-            onStatusChange={handleStatusChange}
-            expandedTaskId={expandedTaskId}
-            onToggleExpand={setExpandedTaskId}
-            onComplete={handleComplete}
-            onEdit={handleEdit}
-            onSnooze={handleSnooze}
-            onSkipAdvance={handleSkipAdvance}
-            weatherByDate={weather.enabled ? weather.byDate : null}
-            selectedTaskId={selectedTaskId}
-            routineStreaks={routineStreaks}
-          />
-        ) : (
-          <div className="v2-list">
-            {/* Home stats line — every segment is tappable.
-              * Date → WeekStrip. Streak → streak detail. Today → daily detail. */}
+        {/* Home stats line — renders on both mobile and desktop.
+          * Date → WeekStrip. Streak → streak detail. Today → daily detail. */}
+        {!searchOpen && (totalActive > 0 || sortedSnoozed.length > 0 || backlogTasks.length > 0 || projectTasks.length > 0) && (
+          <>
             <div className="v2-home-stats" aria-hidden="false">
               <button
                 type="button"
@@ -999,6 +926,83 @@ export default function AppV2() {
                 </div>
               )
             })()}
+          </>
+        )}
+        {searchOpen ? (
+          <div className="v2-list">
+            {searchResults === null ? (
+              <EmptyState
+                icon={ListChecks}
+                title="Type to search"
+                body="Searches every task — active, done, backlog, or project."
+                terminalCommand="// type a query — searches active, done, backlog, projects"
+              />
+            ) : searchResults.length === 0 ? (
+              <EmptyState
+                icon={ListChecks}
+                title="No matches"
+                body={`Nothing matches "${searchQuery}". Try a different keyword.`}
+                terminalCommand={`// no matches for "${searchQuery}"`}
+              />
+            ) : (
+              <>
+                <SectionLabel count={searchResults.length}>
+                  {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
+                </SectionLabel>
+                {searchResults.map(t => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    expanded={expandedTaskId === t.id}
+                    onToggleExpand={setExpandedTaskId}
+                    onComplete={handleComplete}
+                    onEdit={handleEdit}
+                    onSnooze={handleSnooze}
+                    onSkipAdvance={handleSkipAdvance}
+                    weatherByDate={weather.enabled ? weather.byDate : null}
+                    routineStreaks={routineStreaks}
+                  />
+                ))}
+              </>
+            )}
+          </div>
+        ) : totalActive === 0 && sortedSnoozed.length === 0 && backlogTasks.length === 0 && projectTasks.length === 0 ? (
+          <EmptyState
+            icon={ListChecks}
+            title={activeFilter !== 'all' ? 'No tasks match this filter' : 'Nothing on your plate'}
+            body={activeFilter !== 'all' ? 'Tap All above to clear the filter.' : 'No active tasks right now. Tap the + above to add one.'}
+            cta={activeFilter !== 'all' ? 'Show all' : 'Add task'}
+            ctaOnClick={activeFilter !== 'all' ? () => setActiveFilter('all') : () => setShowAdd(true)}
+            terminalCommand={activeFilter !== 'all'
+              ? '// no matches under this filter — clear it to see everything'
+              : '// no active tasks. that\'s either bold or concerning. press + to add.'}
+          />
+        ) : isDesktop ? (
+          <KanbanBoard
+            doingTasks={sortedDoing}
+            staleTasks={sortedStale}
+            upNextTasks={sortedUpNext}
+            waitingTasks={sortedWaiting}
+            snoozedTasks={sortedSnoozed}
+            backlogTasks={backlogTasks}
+            projectTasks={projectTasks}
+            onAddTask={(title, status) => {
+              const taskId = addTask({ title })
+              if (status !== 'not_started') changeStatus(taskId, status)
+            }}
+            onStatusChange={handleStatusChange}
+            expandedTaskId={expandedTaskId}
+            onToggleExpand={setExpandedTaskId}
+            onComplete={handleComplete}
+            onEdit={handleEdit}
+            onSnooze={handleSnooze}
+            onSkipAdvance={handleSkipAdvance}
+            weatherByDate={weather.enabled ? weather.byDate : null}
+            selectedTaskId={selectedTaskId}
+            routineStreaks={routineStreaks}
+          />
+        ) : (
+          <div className="v2-list">
             <ProjectPinnedSection
               projects={pinnedProjects}
               activeChildren={activeChildrenOfPinned}
