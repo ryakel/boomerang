@@ -6,10 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-25
 
+- fix(ui): WeekStrip missing Easter egg bonus + desktop layout fixes [S]
+  - **Easter egg bug.** WeekStrip day count and detail panel only counted done tasks, not the Easter egg bonus. Stats line "3/3 today" included it but WeekStrip showed "2/3" with no "Daily Bonus" entry. Fixed by passing `easterEggWins` to WeekStrip.
+  - **Kanban columns.** Reverted flex-grow back to fixed 260px with horizontal scroll — 7 columns with flex-grow smushed into unreadable mush.
+  - **Stats + WeekStrip width.** Constrained to max-width 600px on desktop.
+  - Modified: `src/v2/components/WeekStrip.jsx`, `src/v2/AppV2.jsx`, `src/v2/AppV2.css`, `src/v2/components/WeekStrip.css`, `src/v2/components/KanbanBoard.css`
+
 - feat(ui): desktop Kanban responsive columns + stats strip [M]
-  - **Resize bug.** Kanban columns were fixed at 280px (`flex: 0 0 280px`) and never grew or shrank with the viewport. Changed to `flex: 1 1 0` with `min-width: 200px` / `max-width: 360px` so columns fill available space and shrink gracefully.
   - **Stats strip on desktop.** The date/streak/today-count header + expandable WeekStrip were mobile-only. Lifted them out of the mobile list branch into the shared layout so they render above both Kanban and mobile views. Hidden during search.
-  - Modified: `src/v2/AppV2.jsx`, `src/v2/components/KanbanBoard.css`
+  - Modified: `src/v2/AppV2.jsx`
 
 - fix(ui): modal bottom-sheet min-height prevents shrinking during search [XS]
   - **Bug.** On mobile, the Done modal (and any ModalShell) shrank to fit content when search filtered results down to a few items, causing the search bar to jump down the screen.
