@@ -1047,7 +1047,8 @@ export default function AppV2() {
               setSpacesHubOpen(true)
             }
           }}
-          onAdd={() => setShowAdd(true)}
+          onQuickAdd={(title) => addTask({ title })}
+          onAddLongPress={() => setShowAdd(true)}
           onWhatNow={() => setShowWhatNow(true)}
         />
       )}
