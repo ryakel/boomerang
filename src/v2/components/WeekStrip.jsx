@@ -21,10 +21,15 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
   const completionsByDate = useMemo(() => {
     const map = {}
     for (const t of tasks) {
-      if (t.status !== 'done' || !t.completed_at) continue
-      const key = ymd(new Date(t.completed_at))
-      if (!map[key]) map[key] = []
-      map[key].push(t)
+      if (t.status === 'done' && t.completed_at) {
+        const key = ymd(new Date(t.completed_at))
+        if (!map[key]) map[key] = []
+        map[key].push(t)
+      } else if (t.status === 'waiting' && t.waiting_at) {
+        const key = ymd(new Date(t.waiting_at))
+        if (!map[key]) map[key] = []
+        map[key].push(t)
+      }
     }
     return map
   }, [tasks])

@@ -1,13 +1,7 @@
-import { ListChecks, FolderKanban } from 'lucide-react'
+import { ListChecks, FolderKanban, Plus, Compass } from 'lucide-react'
 import './BottomTabs.css'
 
-// Mobile-only bottom tab bar. Two tabs: Today (default) and Spaces.
-// Desktop intentionally skipped — it has the Kanban + side drawer
-// pattern, doesn't need bottom chrome eating screen height.
-//
-// Terminal-theme styling lives in src/v2/terminal/tabs.css — lucide
-// SVGs hide, labels become `[ today ]` bracketed mono.
-export default function BottomTabs({ activeTab, onTabChange }) {
+export default function BottomTabs({ activeTab, onTabChange, onAdd, onWhatNow }) {
   return (
     <nav className="v2-bottom-tabs" role="tablist" aria-label="Primary navigation">
       <button
@@ -21,6 +15,28 @@ export default function BottomTabs({ activeTab, onTabChange }) {
           <ListChecks size={22} strokeWidth={1.75} className="v2-bottom-tab-icon" aria-hidden="true" />
         </span>
         <span className="v2-bottom-tab-label" data-terminal-label="today">Today</span>
+      </button>
+      <button
+        type="button"
+        className="v2-bottom-tab v2-bottom-tab-action"
+        onClick={onAdd}
+        aria-label="New task"
+      >
+        <span className="v2-bottom-tab-icon-wrap v2-bottom-tab-action-icon">
+          <Plus size={22} strokeWidth={2} className="v2-bottom-tab-icon" aria-hidden="true" />
+        </span>
+        <span className="v2-bottom-tab-label" data-terminal-label="new">New</span>
+      </button>
+      <button
+        type="button"
+        className="v2-bottom-tab v2-bottom-tab-action"
+        onClick={onWhatNow}
+        aria-label="What can I do now?"
+      >
+        <span className="v2-bottom-tab-icon-wrap v2-bottom-tab-action-icon">
+          <Compass size={22} strokeWidth={1.75} className="v2-bottom-tab-icon" aria-hidden="true" />
+        </span>
+        <span className="v2-bottom-tab-label" data-terminal-label="what now">What now</span>
       </button>
       <button
         type="button"

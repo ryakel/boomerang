@@ -122,6 +122,8 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 - An XL⚡⚡⚡ task = 20 × 2.0 × speedMult = up to 80 points
 - This rewards tackling hard tasks — one high-drain task can crush the daily goal
 
+**Waiting = Progress:** Moving a task from not_started or doing to waiting awards +1 task and +1 point for the daily count. Reflects real effort (sent the email, made the call) even though the task isn't done. Tracked via `waiting_at` timestamp (migration 032); cleared when leaving waiting status. Counts toward streak and WeekStrip intensity.
+
 **Nagging Boost:** Avoidance-prone types (confrontation, errand) get more frequent notifications.
 - Avoidance type: interval / 1.3 (30% more frequent)
 - High drain (level 3): additional / 1.2
@@ -888,14 +890,14 @@ Each PR is independently mergeable. v2 currently renders the calm header + a rea
 - `Header` — calm 4-affordance header. Props: `onOpenAdviser`, `onOpenPackages`, `onOpenSystemMenu`, `systemMenuOpen`. Logo + wordmark left, three icon buttons right (sparkle / package / ⚙). The legacy `MoreVertical` ⋯ slot was replaced by the ⚙ Settings glyph that toggles the `SystemMenu` popover (2026-05-22).
 - `SectionLabel` — `--type-section` ALL-CAPS label with sparkle bullet + optional count chip.
 - `TaskCard` — v2 list card. Status economy: only overdue + high-pri get a colored left border; stale → inline meta; low-pri → opacity 0.78. Energy as a single chip (lucide icon + N small Zap glyphs in the type color).
-- `BottomTabs` — mobile-only bottom navigation. Two tabs: Today (current task list) and Spaces (opens SpacesHub). Hidden on desktop (≥769px) by both AppV2 render gate AND a CSS @media — desktop keeps Kanban + side drawer.
+- `BottomTabs` — mobile-only bottom navigation. Four buttons: Today | New | What now | Spaces. Today + Spaces are navigation tabs; New and What now are action triggers (open AddTaskModal and WhatNowModal respectively). Hidden on desktop (≥769px) by both AppV2 render gate AND a CSS @media — desktop keeps Kanban + side drawer + FloatingCapture FABs.
 - `SystemMenu` — anchored popover off the ⚙ icon. Hosts low-frequency system surfaces: Settings, Analytics, Done, Suggestions, Activity log. Same row treatment as the brand popover so the two header popovers feel like siblings.
 - `SpacesHub` — modal-sheet picker for Projects / Routines / Knowledge. Tapping a row closes the hub and launches the existing dedicated modal. Future C-upgrade swaps the picker rows for live preview cards (session counts, last-edited timestamps) without changing the launcher contract.
 
 The first five primitives are the v2 task-surface language. The last three (added 2026-05-22) are the v2 mobile-navigation language. Every subsequent v2 surface uses them — never reach for a one-off chrome.
 
 **Mobile navigation model (2026-05-22).** The legacy ⋯ More menu (8 items, single sheet) was retired in favor of three separate surfaces, each sized to its frequency:
-1. **BottomTabs (mobile only)** — Today + Spaces. Persistent across the app; one tap to switch contexts.
+1. **BottomTabs (mobile only)** — Today | New | What now | Spaces. Persistent across the app; one tap to switch contexts or trigger actions. FloatingCapture (inline quick-add + time-picker FABs) is desktop-only now that these actions live in the bottom bar.
 2. **SystemMenu (popover off ⚙)** — Settings, Analytics, Done, Suggestions, Activity log. Low-frequency system stuff.
 3. **SpacesHub (modal from Spaces tab)** — Projects, Routines, Knowledge. Each row launches the existing dedicated modal.
 

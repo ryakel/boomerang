@@ -1047,6 +1047,8 @@ export default function AppV2() {
               setSpacesHubOpen(true)
             }
           }}
+          onAdd={() => setShowAdd(true)}
+          onWhatNow={() => setShowWhatNow(true)}
         />
       )}
 
@@ -1275,18 +1277,20 @@ export default function AppV2() {
         onClose={() => setShowAnalytics(false)}
       />
 
-      <FloatingCapture
-        onAddTask={(title) => {
-          const id = addTask({ title })
-          if (id) {
-            // Quick-add lands a task with the configured default due-date,
-            // M size, and the size-auto-infer hook will refine energy on
-            // the next render tick. No EditTaskModal opens — the user is
-            // doing rapid-fire capture, not careful curation.
-          }
-        }}
-        onOpenWhatNow={() => setShowWhatNow(true)}
-      />
+      {isDesktop && (
+        <FloatingCapture
+          onAddTask={(title) => {
+            const id = addTask({ title })
+            if (id) {
+              // Quick-add lands a task with the configured default due-date,
+              // M size, and the size-auto-infer hook will refine energy on
+              // the next render tick. No EditTaskModal opens — the user is
+              // doing rapid-fire capture, not careful curation.
+            }
+          }}
+          onOpenWhatNow={() => setShowWhatNow(true)}
+        />
+      )}
 
       <ConfirmDialog
         open={!!chainConfirm}
