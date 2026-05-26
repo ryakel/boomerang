@@ -166,19 +166,16 @@ export function useRoutines() {
           t => t.routine_id === routine.id && !TERMINAL_FOR_ROLL.has(t.status),
         )
         if (activeInstance) {
+          const needsDateBump = activeInstance.due_date !== today
+          const hasStaleSnooze = activeInstance.snoozed_until &&
+            new Date(activeInstance.snoozed_until) <= new Date()
+          if (!needsDateBump && !hasStaleSnooze) return
+
           const updates = {
             due_date: today,
             last_touched: new Date().toISOString(),
           }
-          // Clear snoozed_until only if it's already in the past — a
-          // forward-looking snooze ("don't bother me until 8pm tonight")
-          // is the user's explicit signal and auto-roll shouldn't override
-          // it. Past snoozes are stale and would otherwise leave the
-          // newly-rolled task hidden.
-          if (
-            activeInstance.snoozed_until &&
-            new Date(activeInstance.snoozed_until) <= new Date()
-          ) {
+          if (hasStaleSnooze) {
             updates.snoozed_until = null
           }
           rolled.push({ taskId: activeInstance.id, updates })
