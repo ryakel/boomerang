@@ -32,8 +32,8 @@
 
 /* === Base tab button ================================================= */
 
-/* All buttons always show their color. Active state is distinguished
- * by the filled pill behind the icon. */
+/* All buttons always show their color. No active-state distinction —
+ * Today is always home, the other three are action triggers. */
 .v2-bottom-tab {
   flex: 1;
   display: flex;
@@ -69,11 +69,6 @@
 
 .v2-bottom-tab-icon {
   display: block;
-}
-
-/* Active tab gets a soft-tinted pill behind the icon. */
-.v2-bottom-tab.is-active .v2-bottom-tab-icon-wrap {
-  background: color-mix(in srgb, var(--tab-color) 14%, transparent);
 }
 
 /* === Quick-add input bar ============================================= */
