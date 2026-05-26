@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-26
 
+- fix(sync): break infinite sync loop between multi-client auto-roll routine updates [M]
+  - **Root cause.** Auto-roll routines called `updateTask` with a new `last_touched` timestamp on every hydration, even when `due_date` was already today. Two clients would ping-pong: Client A rolls → SSE → Client B hydrates + re-rolls with new timestamp → SSE → Client A repeats. Version counter incremented ~1/second indefinitely.
+  - **Fix 1 (primary).** `spawnDueTasks` in `useRoutines.js` now checks whether the active instance's `due_date` is already today and has no stale snooze before emitting a roll update. No-op rolls are skipped entirely.
+  - **Fix 2 (defense-in-depth).** `skipNextPush` in `useServerSync.js` replaced with a 2-second `skipPushUntil` suppression window. The old boolean flag was consumed on the first state change after hydration, leaving subsequent state changes (like auto-roll `updateTask`) unprotected.
+  - Modified: `src/hooks/useRoutines.js`, `src/hooks/useServerSync.js`
+
 - feat(scoring): award 1 point for moving tasks to waiting status [S]
   - **Motivation boost.** Moving a task from not_started/doing to waiting (e.g. sent an email, made a call) now counts as +1 task and +1 point in the daily stats. Reflects real work done even when the task isn't fully complete.
   - **New column.** `waiting_at` timestamp (migration 032) records when the task entered waiting status. Cleared when leaving waiting.
