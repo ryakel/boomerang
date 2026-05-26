@@ -68,13 +68,10 @@
   text-shadow: none;
 }
 
-/* All tabs use per-button color + glow in terminal. Active gets bold. */
+/* All tabs use per-button color + glow in terminal. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab .v2-bottom-tab-label {
   color: var(--tab-color);
   text-shadow: 0 0 6px var(--tab-color);
-}
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab.is-active .v2-bottom-tab-label {
-  font-weight: 700;
 }
 
 /* Quick-add input in terminal mode. */

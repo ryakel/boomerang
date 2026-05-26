@@ -4,7 +4,7 @@ import './BottomTabs.css'
 
 const LONG_PRESS_MS = 500
 
-export default function BottomTabs({ activeTab, onTabChange, onQuickAdd, onAddLongPress, onWhatNow }) {
+export default function BottomTabs({ onTabChange, onQuickAdd, onAddLongPress, onWhatNow }) {
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const inputRef = useRef(null)
@@ -101,9 +101,7 @@ export default function BottomTabs({ activeTab, onTabChange, onQuickAdd, onAddLo
       <div className="v2-bottom-tabs-row">
         <button
           type="button"
-          role="tab"
-          aria-selected={activeTab === 'today'}
-          className={`v2-bottom-tab v2-bottom-tab--today${activeTab === 'today' ? ' is-active' : ''}`}
+          className="v2-bottom-tab v2-bottom-tab--today"
           onClick={() => onTabChange('today')}
         >
           <span className="v2-bottom-tab-icon-wrap">
@@ -140,9 +138,7 @@ export default function BottomTabs({ activeTab, onTabChange, onQuickAdd, onAddLo
         </button>
         <button
           type="button"
-          role="tab"
-          aria-selected={activeTab === 'spaces'}
-          className={`v2-bottom-tab v2-bottom-tab--spaces${activeTab === 'spaces' ? ' is-active' : ''}`}
+          className="v2-bottom-tab v2-bottom-tab--spaces"
           onClick={() => onTabChange('spaces')}
         >
           <span className="v2-bottom-tab-icon-wrap">
