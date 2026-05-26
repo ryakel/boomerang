@@ -70,12 +70,14 @@ export function computeDailyStats(tasks, settings = null) {
     points += calculateTaskPoints(t)
   }
 
+  const waitingToday = tasks.filter(t => t.status === 'waiting' && t.waiting_at && new Date(t.waiting_at).toDateString() === todayStr)
+
   const sessions = computeSessionStatsToday(tasks)
   const eggBonus = settings?.easter_egg_wins?.[todayIso] ? 1 : 0
 
   return {
-    tasksToday: todayTasks.length + sessions.count + eggBonus,
-    pointsToday: points + sessions.points + eggBonus,
+    tasksToday: todayTasks.length + waitingToday.length + sessions.count + eggBonus,
+    pointsToday: points + waitingToday.length + sessions.points + eggBonus,
   }
 }
 

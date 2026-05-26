@@ -4,6 +4,29 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-26
+
+- feat(scoring): award 1 point for moving tasks to waiting status [S]
+  - **Motivation boost.** Moving a task from not_started/doing to waiting (e.g. sent an email, made a call) now counts as +1 task and +1 point in the daily stats. Reflects real work done even when the task isn't fully complete.
+  - **New column.** `waiting_at` timestamp (migration 032) records when the task entered waiting status. Cleared when leaving waiting.
+  - **Daily stats.** `computeDailyStats` counts waiting tasks stamped today alongside completions.
+  - **Streak.** `computeStreak` counts waiting transitions as completion days.
+  - **WeekStrip.** Waiting tasks show in the weekly heat strip alongside completions.
+  - Modified: `db.js`, `src/scoring.js`, `src/store.js`, `src/hooks/useTasks.js`, `src/v2/components/WeekStrip.jsx`
+  - Added: `migrations/032_waiting_at.sql`
+
+- feat(ui): move New + What Now buttons to mobile bottom tab bar [S]
+  - **Bottom bar.** Four buttons: Today | New | What now | Spaces. The two action buttons (+ and compass) live alongside the navigation tabs for easy thumb reach.
+  - **FloatingCapture.** Now desktop-only — mobile gets the bottom bar actions instead of floating FABs.
+  - **Terminal theme.** Action tabs styled with accent glow, matching existing bracketed-mono idiom.
+  - Modified: `src/v2/components/BottomTabs.jsx`, `src/v2/components/BottomTabs.css`, `src/v2/AppV2.jsx`, `src/v2/terminal/tabs.css`
+
+- feat(ui): long-press New for full editor + per-button colors on bottom bar [S]
+  - **Long press.** Short tap on New opens inline quick-add input above the tab bar (rapid-fire capture). Long press (500ms) opens the full AddTaskModal. iOS context menu suppressed.
+  - **Quick-add bar.** Input slides up from the tab bar with animated entry. Submit button matches green New color. iOS keyboard occlusion handled via visualViewport API.
+  - **Per-button colors.** Today=blue, New=green, What now=orange, Spaces=purple. Each button's icon pill and active state use its own color. Terminal theme uses per-button glow instead of uniform accent.
+  - Modified: `src/v2/components/BottomTabs.jsx`, `src/v2/components/BottomTabs.css`, `src/v2/AppV2.jsx`, `src/v2/terminal/tabs.css`
+
 ## 2026-05-25
 
 - feat(ui): WeekStrip nav below stats + breathing room + auto-shrink [S]

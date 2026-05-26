@@ -1,17 +1,39 @@
 /* Bottom tab bar — mobile only. The .v2-app flex column hosts header +
  * scrollable main + this strip. iOS safe-area inset is respected via
- * padding-bottom so the home-bar gesture doesn't overlap the labels. */
+ * padding-bottom so the home-bar gesture doesn't overlap the labels.
+ *
+ * Four buttons: Today | New | What now | Spaces.
+ * Today + Spaces are navigation tabs; New + What now are action triggers.
+ * Each button has a distinct color identity. */
 
 .v2-bottom-tabs {
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
   background: var(--v2-bg);
   border-top: 1px solid var(--v2-hairline);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   flex-shrink: 0;
   z-index: 5;
+  /* Smooth the keyboard-occlusion lift. */
+  transition: transform 200ms cubic-bezier(.4, 0, .2, 1);
 }
 
+.v2-bottom-tabs-row {
+  display: flex;
+  align-items: stretch;
+}
+
+/* === Per-button colors =============================================== */
+
+.v2-bottom-tab--today  { --tab-color: #4A9EFF; } /* blue  */
+.v2-bottom-tab--new    { --tab-color: #52C97F; } /* green */
+.v2-bottom-tab--whatnow { --tab-color: #FF6240; } /* orange */
+.v2-bottom-tab--spaces { --tab-color: #A78BFA; } /* purple */
+
+/* === Base tab button ================================================= */
+
+/* All buttons always show their color. No active-state distinction —
+ * Today is always home, the other three are action triggers. */
 .v2-bottom-tab {
   flex: 1;
   display: flex;
@@ -24,13 +46,16 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--v2-text-meta);
+  color: var(--tab-color);
   font: 500 11px/1 var(--v2-font-body);
   transition: color var(--v2-dur-quick) var(--v2-ease-standard);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .v2-bottom-tab:active {
-  opacity: 0.6;
+  opacity: 1;
 }
 
 .v2-bottom-tab-icon-wrap {
@@ -39,26 +64,80 @@
   justify-content: center;
   padding: 4px 14px;
   border-radius: var(--v2-radius-pill);
-  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+  transition: background 150ms var(--v2-ease-standard);
 }
 
 .v2-bottom-tab-icon {
   display: block;
 }
 
-.v2-bottom-tab.is-active {
-  color: var(--v2-accent);
+/* Flash the tinted pill on tap. */
+.v2-bottom-tab:active .v2-bottom-tab-icon-wrap {
+  background: color-mix(in srgb, var(--tab-color) 18%, transparent);
+  opacity: 1;
 }
 
-.v2-bottom-tab.is-active .v2-bottom-tab-icon-wrap {
-  /* Soft accent-tinted pill behind the icon. Same convention as v2
-   * SuggestionsModal / PackagesModal — hardcoded rgba(255,98,64,x). */
-  background: rgba(255, 98, 64, 0.14);
+/* === Quick-add input bar ============================================= */
+
+.v2-bt-quickadd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--v2-hairline);
+  animation: v2-bt-quickadd-in var(--v2-dur-standard, 200ms) var(--v2-ease-emphasis, ease-out);
 }
 
-/* Hide on desktop — the v2 Kanban + side drawer already covers the
- * navigation surface there. AppV2 also gates render on isDesktop, but
- * this is a belt-and-suspenders for any future render path. */
+@keyframes v2-bt-quickadd-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.v2-bt-quickadd-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: var(--v2-radius-pill, 999px);
+  background: var(--v2-surface);
+  color: var(--v2-text);
+  font: 500 15px/1 var(--v2-font-body);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.v2-bt-quickadd-input::placeholder {
+  color: var(--v2-text-meta);
+}
+
+.v2-bt-quickadd-input:focus {
+  border-color: #52C97F;
+}
+
+.v2-bt-quickadd-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: #52C97F;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-bt-quickadd-submit:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* === Desktop hide ==================================================== */
+
 @media (min-width: 769px) {
   .v2-bottom-tabs {
     display: none;

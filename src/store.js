@@ -678,6 +678,9 @@ export function computeStreak(tasks, settings) {
     if (t.status === 'done' && t.completed_at) {
       completionDates.add(new Date(t.completed_at).toDateString())
     }
+    if (t.status === 'waiting' && t.waiting_at) {
+      completionDates.add(new Date(t.waiting_at).toDateString())
+    }
     if (t.status === 'project' && Array.isArray(t.session_log)) {
       for (const entry of t.session_log) {
         if (entry?.timestamp) completionDates.add(new Date(entry.timestamp).toDateString())
