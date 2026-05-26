@@ -68,6 +68,19 @@
   text-shadow: none;
 }
 
+/* Action tabs (New, What now) use the same bracketed mono treatment
+ * but always show accent color (they're not navigation state). */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab-action {
+  color: var(--v2-accent);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab-action .v2-bottom-tab-label {
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab-action .v2-bottom-tab-action-icon {
+  background: transparent;
+}
+
 
 /* === SystemMenu ===================================================== */
 

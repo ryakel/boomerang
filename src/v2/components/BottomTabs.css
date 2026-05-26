@@ -1,6 +1,9 @@
 /* Bottom tab bar — mobile only. The .v2-app flex column hosts header +
  * scrollable main + this strip. iOS safe-area inset is respected via
- * padding-bottom so the home-bar gesture doesn't overlap the labels. */
+ * padding-bottom so the home-bar gesture doesn't overlap the labels.
+ *
+ * Four buttons: Today | New | What now | Spaces.
+ * Today + Spaces are navigation tabs; New + What now are action triggers. */
 
 .v2-bottom-tabs {
   display: flex;
@@ -51,9 +54,17 @@
 }
 
 .v2-bottom-tab.is-active .v2-bottom-tab-icon-wrap {
-  /* Soft accent-tinted pill behind the icon. Same convention as v2
-   * SuggestionsModal / PackagesModal — hardcoded rgba(255,98,64,x). */
   background: rgba(255, 98, 64, 0.14);
+}
+
+/* Action buttons (New, What now) get accent-tinted icon pills to
+ * distinguish them from the navigation tabs visually. */
+.v2-bottom-tab-action-icon {
+  background: rgba(255, 98, 64, 0.10);
+}
+
+.v2-bottom-tab-action {
+  color: var(--v2-accent);
 }
 
 /* Hide on desktop — the v2 Kanban + side drawer already covers the

@@ -197,6 +197,10 @@ export function useTasks() {
         const updates = { status: newStatus, last_touched: new Date().toISOString() }
         if (newStatus === 'done') updates.completed_at = new Date().toISOString()
         if (t.status === 'done' && newStatus !== 'done') updates.completed_at = null
+        if (newStatus === 'waiting' && (t.status === 'not_started' || t.status === 'doing')) {
+          updates.waiting_at = new Date().toISOString()
+        }
+        if (t.status === 'waiting' && newStatus !== 'waiting') updates.waiting_at = null
         return { ...t, ...updates }
       })
     })

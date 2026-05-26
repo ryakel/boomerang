@@ -256,6 +256,7 @@ function taskToRow(task) {
     snooze_indefinite: task.snooze_indefinite ? 1 : 0,
     blocked_by_json: JSON.stringify(task.blocked_by || []),
     knowledge_page_ids_json: JSON.stringify(task.knowledge_page_ids || []),
+    waiting_at: task.waiting_at || null,
   }
 }
 
@@ -308,6 +309,7 @@ function rowToTask(row) {
     snooze_indefinite: !!row.snooze_indefinite,
     blocked_by: safeJsonParse(row.blocked_by_json, []),
     knowledge_page_ids: safeJsonParse(row.knowledge_page_ids_json, []),
+    waiting_at: row.waiting_at || null,
   }
 }
 
