@@ -21,6 +21,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - **Terminal theme.** Action tabs styled with accent glow, matching existing bracketed-mono idiom.
   - Modified: `src/v2/components/BottomTabs.jsx`, `src/v2/components/BottomTabs.css`, `src/v2/AppV2.jsx`, `src/v2/terminal/tabs.css`
 
+- feat(ui): long-press New for full editor + per-button colors on bottom bar [S]
+  - **Long press.** Short tap on New opens inline quick-add input above the tab bar (rapid-fire capture). Long press (500ms) opens the full AddTaskModal. iOS context menu suppressed.
+  - **Quick-add bar.** Input slides up from the tab bar with animated entry. Submit button matches green New color. iOS keyboard occlusion handled via visualViewport API.
+  - **Per-button colors.** Today=blue, New=green, What now=orange, Spaces=purple. Each button's icon pill and active state use its own color. Terminal theme uses per-button glow instead of uniform accent.
+  - Modified: `src/v2/components/BottomTabs.jsx`, `src/v2/components/BottomTabs.css`, `src/v2/AppV2.jsx`, `src/v2/terminal/tabs.css`
+
 ## 2026-05-25
 
 - feat(ui): WeekStrip nav below stats + breathing room + auto-shrink [S]
