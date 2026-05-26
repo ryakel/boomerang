@@ -68,24 +68,12 @@
   text-shadow: none;
 }
 
-/* Action tabs (New, What now) use the per-button color + glow. */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab--new,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab--whatnow {
-  color: var(--tab-color);
-}
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab--new .v2-bottom-tab-label,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab--whatnow .v2-bottom-tab-label {
+/* All tabs use per-button color + glow in terminal. Active gets bold. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab .v2-bottom-tab-label {
   color: var(--tab-color);
   text-shadow: 0 0 6px var(--tab-color);
-}
-
-/* Active nav tabs in terminal also use per-button color. */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab.is-active {
-  color: var(--tab-color);
 }
 :root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab.is-active .v2-bottom-tab-label {
-  color: var(--tab-color);
-  text-shadow: 0 0 6px var(--tab-color);
   font-weight: 700;
 }
 

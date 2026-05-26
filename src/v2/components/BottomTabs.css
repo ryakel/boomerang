@@ -32,6 +32,8 @@
 
 /* === Base tab button ================================================= */
 
+/* All buttons always show their color. Active state is distinguished
+ * by the filled pill behind the icon. */
 .v2-bottom-tab {
   flex: 1;
   display: flex;
@@ -44,7 +46,7 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--v2-text-meta);
+  color: var(--tab-color);
   font: 500 11px/1 var(--v2-font-body);
   transition: color var(--v2-dur-quick) var(--v2-ease-standard);
   -webkit-touch-callout: none;
@@ -69,24 +71,9 @@
   display: block;
 }
 
-/* Active nav tab — uses its own color. */
-.v2-bottom-tab.is-active {
-  color: var(--tab-color);
-}
-
+/* Active tab gets a soft-tinted pill behind the icon. */
 .v2-bottom-tab.is-active .v2-bottom-tab-icon-wrap {
   background: color-mix(in srgb, var(--tab-color) 14%, transparent);
-}
-
-/* Action buttons always show their color (not navigation state). */
-.v2-bottom-tab--new,
-.v2-bottom-tab--whatnow {
-  color: var(--tab-color);
-}
-
-.v2-bottom-tab--new .v2-bottom-tab-icon-wrap,
-.v2-bottom-tab--whatnow .v2-bottom-tab-icon-wrap {
-  background: color-mix(in srgb, var(--tab-color) 10%, transparent);
 }
 
 /* === Quick-add input bar ============================================= */
