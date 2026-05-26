@@ -55,7 +55,7 @@
 }
 
 .v2-bottom-tab:active {
-  opacity: 0.6;
+  opacity: 1;
 }
 
 .v2-bottom-tab-icon-wrap {
@@ -64,11 +64,17 @@
   justify-content: center;
   padding: 4px 14px;
   border-radius: var(--v2-radius-pill);
-  transition: background var(--v2-dur-quick) var(--v2-ease-standard);
+  transition: background 150ms var(--v2-ease-standard);
 }
 
 .v2-bottom-tab-icon {
   display: block;
+}
+
+/* Flash the tinted pill on tap. */
+.v2-bottom-tab:active .v2-bottom-tab-icon-wrap {
+  background: color-mix(in srgb, var(--tab-color) 18%, transparent);
+  opacity: 1;
 }
 
 /* === Quick-add input bar ============================================= */
