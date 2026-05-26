@@ -58,7 +58,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const clientId = useRef(uuid()).current
   const debounceTimer = useRef(null)
   const hydrated = useRef(false)
-  const skipNextPush = useRef(false)
+  const skipPushUntil = useRef(0)
   const latestState = useRef({ tasks, routines })
   const serverVersion = useRef(0)
   const [syncStatus, setSyncStatus] = useState(null) // null | 'saving' | 'saved' | 'offline'
@@ -299,7 +299,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         if (data && Object.keys(data).length > 0) {
           serverVersion.current = data._version || 0
           remoteLog(`${reason}: got v${serverVersion.current}, tasks=${taskSummary(data.tasks)}`)
-          skipNextPush.current = true
+          skipPushUntil.current = Date.now() + 2000
           onHydrate(data)
           if (data.tasks) saveTasks(data.tasks)
           if (data.routines) saveRoutines(data.routines)
@@ -426,8 +426,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   // Debounced per-record push whenever tasks or routines change
   useEffect(() => {
     if (!hydrated.current) return
-    if (skipNextPush.current) {
-      skipNextPush.current = false
+    if (Date.now() < skipPushUntil.current) {
       return
     }
 
