@@ -35,14 +35,15 @@
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab {
-  font: 500 13px/1 var(--v2-font-body);
+  font: 500 12px/1 var(--v2-font-body);
   color: var(--v2-text-meta);
   letter-spacing: 0;
-  padding: 14px 4px;
+  padding: 14px 2px;
   min-height: 48px;
+  white-space: nowrap;
 }
 
-/* Inactive `[ today ]` — brackets faint, label muted. */
+/* `[ today ]` — brackets faint, label colored. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab-label::before {
   content: "[ ";
   color: var(--v2-text-faint);
@@ -50,22 +51,6 @@
 :root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab-label::after {
   content: " ]";
   color: var(--v2-text-faint);
-}
-
-/* Active — accent color on the label content, glow text-shadow, brackets
- * stay faint. Same idiom as section-label `[3]` count brackets. */
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab.is-active {
-  color: var(--v2-accent);
-}
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab.is-active .v2-bottom-tab-label {
-  color: var(--v2-accent);
-  text-shadow: var(--v2-glow);
-  font-weight: 700;
-}
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab.is-active .v2-bottom-tab-label::before,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-bottom-tab.is-active .v2-bottom-tab-label::after {
-  color: var(--v2-text-faint);
-  text-shadow: none;
 }
 
 /* All tabs use per-button color + glow in terminal. */
