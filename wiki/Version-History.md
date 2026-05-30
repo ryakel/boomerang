@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-30
 
+- feat(routines): editable "Last done" date — repair routines that nag after lost history [M]
+  - **Problem.** Routines whose `completed_history` was emptied (e.g. an old DB wipe) fire as "never done" and nag forever — and there was no way to tell the app when a routine was actually last completed. The fixed-schedule change made this visible because such routines compute as overdue.
+  - **Fix.** New **"Last done"** date field in the v2 RoutinesModal edit form. Sets the most-recent completion entry (or appends one where there were none; clearing drops the most-recent), which drives `getNextDueDate` — e.g. set "Change furnace filter" to its real date and it goes quiet until next quarter instead of nagging immediately. Non-destructive: never erases older history. Time pinned to local noon so the date can't drift across timezones.
+  - Quokka `update_routine` gains a `last_done` convenience field ("YYYY-MM-DD" or null) so several can be repaired by voice.
+  - Modified: `src/v2/components/RoutinesModal.jsx` (`ymdLocal`, `lastDone` state, `resolveCompletedHistory`, edit-only field), `adviserToolsTasks.js` (`last_done` → `completed_history` mapping). Not data loss — completion history was always intact in the DB; this restores the ability to correct it.
+
 - feat(routines): intelligent month-scale schedule anchor — "the 18th", "1st Monday", "last Friday" [L]
   - Monthly / quarterly / annually / custom-months routines had no day-of-month picker — they anchored to the routine's *creation day*. Now you can anchor explicitly, three ways:
     - **Day of month** — `schedule_day_of_month` 1–31 ("the 18th"). Clamped to month length (31 → Feb 28/29).

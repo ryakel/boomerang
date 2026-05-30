@@ -130,6 +130,7 @@ Recurring tasks with configurable cadence:
 - **Management**: routines live in their own screen, accessible from the tag bar. Active and paused routines are shown separately.
 - **Auto-spawning**: when a routine is due, a task instance is automatically created in the main task list. Completing the instance logs the completion on the routine and schedules the next occurrence.
 - **Fixed schedule (no drift)**: due dates follow a fixed grid — completing early or late never shifts the series. "Every Monday" stays Monday, "the 18th" stays the 18th, no matter when you actually check it off. A missed cycle shows up as a single overdue task, not a pile.
+- **Editable "Last done" date**: in a routine's edit screen you can set when it was last completed. This drives the next due date — handy for fixing a routine that keeps nagging because its history is wrong or missing. (Quokka can do it too: "mark the furnace filter as last done March 29.")
 - **Intelligent schedule anchor**: the "On" picker adapts to the cadence. Weekly → pick a weekday. Monthly / quarterly / annually → pick **a day of the month** ("the 18th"), **an ordinal weekday** ("1st Monday", "2nd Tuesday", "last Friday"), or leave it on the day the routine was created. The chosen anchor — not the creation date — drives the schedule.
 - **Pause/resume**: routines can be paused without deleting them
 - **Skip this cycle**: fast-forward button on the expanded routine card advances the schedule without spawning a task. For when you're on vacation, sick, or the lawn doesn't need mowing this week.
