@@ -2,6 +2,19 @@ import { useState, useCallback, useEffect } from 'react'
 import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, createTask, localYMD } from '../store'
 import { suggestRoutineDueDate } from '../api'
 
+// Compute an ISO snooze instant for a due-day ('YYYY-MM-DD') + trigger time
+// ('HH:MM', browser-local). Returns null when no trigger time is set or the
+// time is already past — so "don't show before 8pm" surfaces immediately once
+// 8pm has passed. Because every notification engine + the task-list filter
+// honor snoozed_until, this also suppresses nagging before the trigger time.
+function triggerSnooze(dueDateYMD, triggerTime) {
+  if (!triggerTime) return null
+  const [hh, mm] = String(triggerTime).split(':').map(Number)
+  const dt = new Date(`${dueDateYMD}T00:00:00`)
+  dt.setHours(hh || 0, mm || 0, 0, 0)
+  return dt.getTime() > Date.now() ? dt.toISOString() : null
+}
+
 export function useRoutines() {
   const [routines, setRoutines] = useState(loadRoutines)
 
@@ -9,11 +22,12 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days') => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days', triggerTime = null) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes, customUnit)
     if (highPriority) routine.high_priority = true
     if (endDate) routine.end_date = endDate
     if (scheduleDayOfWeek != null) routine.schedule_day_of_week = scheduleDayOfWeek
+    if (triggerTime) routine.trigger_time = triggerTime
     if (Array.isArray(followUps) && followUps.length > 0) routine.follow_ups = followUps
     if (autoRoll) routine.auto_roll = true
     if (spawnMode === 'habit') {
@@ -133,6 +147,7 @@ export function useRoutines() {
     if (Array.isArray(routine.follow_ups) && routine.follow_ups.length > 0) {
       task.follow_ups = routine.follow_ups
     }
+    task.snoozed_until = triggerSnooze(today, routine.trigger_time)
     return task
   }, [routines])
 
@@ -194,7 +209,8 @@ export function useRoutines() {
       }
 
       const nextDue = getNextDueDate(routine)
-      const task = createTask(routine.title, routine.tags, localYMD(nextDue), routine.notes)
+      const dueYMD = localYMD(nextDue)
+      const task = createTask(routine.title, routine.tags, dueYMD, routine.notes)
       task.routine_id = routine.id
       task.notion_page_id = routine.notion_page_id
       task.notion_url = routine.notion_url
@@ -202,6 +218,7 @@ export function useRoutines() {
       if (Array.isArray(routine.follow_ups) && routine.follow_ups.length > 0) {
         task.follow_ups = routine.follow_ups
       }
+      task.snoozed_until = triggerSnooze(dueYMD, routine.trigger_time)
       spawned.push(task)
     })
     return { spawned, rolled }
