@@ -353,6 +353,43 @@
   padding: 4px 8px;
   font: 500 13px/1 var(--v2-font-body);
 }
+.v2-followups-step-mode {
+  width: 96px;
+  height: 32px;
+  padding: 4px 8px;
+  font: 500 13px/1 var(--v2-font-body);
+}
+.v2-followups-step-attime {
+  width: 110px;
+  height: 32px;
+  padding: 4px 8px;
+  font: 500 13px/1 var(--v2-font-body);
+  font-variant-numeric: tabular-nums;
+}
+.v2-followups-step-nextday {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.v2-routine-time-clear {
+  align-self: flex-end;
+  height: 32px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  text-align: left;
+}
+.v2-routine-time-clear:hover {
+  color: var(--v2-text);
+  text-decoration: underline;
+}
 .v2-followups-step-spacer {
   flex: 1;
 }

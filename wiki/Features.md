@@ -124,6 +124,8 @@ Context-aware preset options that show the exact date and time (e.g., "Tomorrow 
 Recurring tasks with configurable cadence:
 
 - **Frequencies**: daily, weekly, monthly, quarterly, annually, or custom (every N days)
+- **Trigger time**: optional "At time" clock time on a routine (e.g. 8:00 PM). Spawned tasks stay hidden — and stay silent (no nags) — until that time of day, then surface. Set it for chores that only make sense at a certain hour ("start dishwasher" after 8pm). Leave blank for any time. Shown on the card next to the cadence (`daily · 8pm`).
+- **Follow-up steps at clock times**: each follow-up step in a sequence can be set to fire at an absolute clock time ("At time") instead of a relative delay — including "next day" for tomorrow-morning steps. Example: start dishwasher at 8pm → pour kiddo milk at 9pm → empty dishwasher at 6am the next morning.
 - **End date**: optional end date to auto-stop a routine (e.g., "study daily until exam day"). After the end date, no new tasks are spawned. Displayed on routine cards as "ends Mon DD".
 - **Management**: routines live in their own screen, accessible from the tag bar. Active and paused routines are shown separately.
 - **Auto-spawning**: when a routine is due, a task instance is automatically created in the main task list. Completing the instance logs the completion on the routine and schedules the next occurrence.

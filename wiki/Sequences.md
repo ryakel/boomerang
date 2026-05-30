@@ -25,6 +25,18 @@ A new `follow_ups` JSON column on both `tasks` and `routines`. Format:
 ]
 ```
 
+Each step is timed by **either** a relative `offset_minutes` (delay after the
+previous step is completed) **or** an absolute clock time `at_time` ('HH:MM' 24h,
+plus optional `at_next_day: true` for "the next morning") — never both. The
+dishwasher chain expressed with clock times:
+
+```json
+[
+  { "id": "uuid", "title": "Pour kiddo milk", "at_time": "21:00" },
+  { "id": "uuid", "title": "Empty the dishwasher", "at_time": "06:00", "at_next_day": true }
+]
+```
+
 Optional fields per step (PR 1 ships with title + offset only; the rest fall back to AI inference):
 
 | Field | Type | Notes |
@@ -61,6 +73,8 @@ When a task transitions to `status='done'` or `'completed'` AND has a non-empty 
 
 **Sub-day vs ≥1-day offsets.** If the offset is < 24h AND the trigger is the same calendar day: `due_date = today`, `snoozed_until = trigger time` so the task is invisible until the cycle is up. If the offset is ≥ 24h: `due_date = future date`, no snooze (it'll naturally appear on its due day).
 
+**Absolute clock-time steps (`at_time` / `at_next_day`, migration 033).** A step may carry `at_time` ('HH:MM' 24h) instead of `offset_minutes`. When present, `spawnNextChainStep` ignores the offset path and schedules the new task at that wall-clock time **today**, or on **the next day** when `at_next_day` is true. It snoozes until that instant (or surfaces immediately if the time already passed) and sets `due_date` to that day. A step is single-mode: `at_time` wins if both fields exist; the editor and Quokka tools clear the other field when you switch modes. Computed in server-local time (same TZ characteristic as the offset path). This is what lets the dishwasher chain read as real clock times — "pour milk at 9pm", "empty dishwasher at 6am next morning" — rather than offsets relative to when each prior step happened to be completed.
+
 ---
 
 ## Routine integration
@@ -93,8 +107,8 @@ Both copy `routine.follow_ups` onto the spawned task. The walk takes over from t
 - **PR 3 — Skip & advance (SHIPPED).** New amber "skip step" button (lucide `SkipForward`) appears on chain-step tasks (any task with `follow_ups.length > 0`) in the expanded card actions row. Tapping marks the task `status='cancelled'`, `skipped=true`, `completed_at=now`, then runs `spawnNextChainStep` so the chain keeps walking despite this step being abandoned. Server endpoint: `POST /api/tasks/:id/skip-advance` (atomic: marks-skipped + spawns-next in one DB pass). Schema: migration 024 adds `skipped INTEGER DEFAULT 0` to `tasks`. Activity log records `'skipped'` action so DoneList / ActivityLog can distinguish from a true cancel in future polish.
 - **PR 4 — AI-mediated edit reconciliation (SHIPPED).** When the user saves an existing routine's `follow_ups` template after editing/adding/removing steps, a `ChainReconcileModal` appears between the form and the persistence layer. Modal lifecycle: `review` (summary of what changed) → user clicks "Ask Quokka" → `loading` → `diffs` (per-suggestion accept/reject toggles) → save with merged chain. "Save without scan" path skips the AI step entirely. Skips brand-new chains (no point reconciling steps you just drafted). Title-only diff trigger — offset/notes/energy edits don't propagate linguistically. Implementation: `aiReconcileChain()` in `src/api.js` (uses the existing `/api/messages` proxy with a focused prompt; conservative-by-default — empty suggestions are fine), `src/v2/components/ChainReconcileModal.jsx` + `.css`, hooked into `RoutineForm`'s `handleSave` via `pendingSave` state in `RoutinesModal.jsx`. Live in-flight chain editing is parked for a future PR — current scope is template-only.
 - **PR 5 — Quokka tools (SHIPPED).** Four atomic tools on routine `follow_ups` arrays, all in `adviserToolsTasks.js`:
-  - `add_follow_up({routine_id, title, offset_minutes, [step_index], [energy_*], [notes]})` — append (or insert) a step. Returns the new `step_id` so subsequent calls can reference it.
-  - `edit_follow_up({routine_id, step_id|step_index, [title, offset_minutes, energy_*, notes]})` — update a single step's fields. `null` for energy_type/level/notes clears that field.
+  - `add_follow_up({routine_id, title, offset_minutes|at_time, [at_next_day], [step_index], [energy_*], [notes]})` — append (or insert) a step. Time it with `offset_minutes` OR `at_time` ('HH:MM', +`at_next_day` for "next morning"). Returns the new `step_id` so subsequent calls can reference it.
+  - `edit_follow_up({routine_id, step_id|step_index, [title, offset_minutes, at_time, at_next_day, energy_*, notes]})` — update a single step's fields. Setting `at_time` switches to clock-time mode (clears `offset_minutes`) and vice-versa; `at_time: null` reverts to offset mode. `null` for energy_type/level/notes clears that field.
   - `remove_follow_up({routine_id, step_id|step_index})` — delete one step.
   - `reorder_follow_ups({routine_id, step_ids[] OR (from_index, to_index)})` — full reorder by id list, or single-step move by indices.
   - All four capture the routine's pre-state and restore it on rollback (LIFO compensation chain — same pattern as existing routine tools).
