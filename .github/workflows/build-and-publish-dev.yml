@@ -117,15 +117,26 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
+      # Retry the transient Tailscale connect once before failing the job.
+      - name: Connect to Tailscale (retry)
+        if: github.event_name != 'pull_request' && steps.tailscale.outcome != 'success'
+        continue-on-error: true
+        id: tailscale_retry
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
       - name: Trigger Portainer redeploy
         if: github.event_name != 'pull_request'
         run: |
-          if [ "${{ steps.tailscale.outcome }}" != "success" ]; then
-            echo "::error::Tailscale connection failed (outcome=${{ steps.tailscale.outcome }}). Portainer auto-deploy skipped — dev image is in GHCR but the running container will not auto-update. Pull the new image manually."
+          if [ "${{ steps.tailscale.outcome }}" != "success" ] && [ "${{ steps.tailscale_retry.outcome }}" != "success" ]; then
+            echo "::error::Tailscale failed on both attempts (transient retry exhausted). Portainer auto-deploy skipped — the dev image IS in GHCR (:dev), the container just didn't auto-update. Re-run this job, or pull the image manually in Portainer."
             exit 1
           fi
           echo "Triggering Portainer webhook (dev)..."
-          HTTP_CODE=$(curl -sS -o /tmp/portainer-response.txt -w "%{http_code}" -X POST "${{ secrets.PORTAINER_DEV_WEBHOOK_URL }}")
+          HTTP_CODE=$(curl -sS --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/portainer-response.txt -w "%{http_code}" -X POST "${{ secrets.PORTAINER_DEV_WEBHOOK_URL }}")
           BODY=$(cat /tmp/portainer-response.txt 2>/dev/null || echo "<empty>")
           echo "Portainer HTTP status: $HTTP_CODE"
           echo "Portainer response body: $BODY"
@@ -135,7 +146,7 @@ jobs:
           fi
 
       - name: Verify deploy
-        if: github.event_name != 'pull_request' && steps.tailscale.outcome == 'success'
+        if: github.event_name != 'pull_request' && (steps.tailscale.outcome == 'success' || steps.tailscale_retry.outcome == 'success')
         env:
           HEALTH_URL: ${{ secrets.HEALTH_CHECK_DEV_URL }}
           EXPECTED: ${{ steps.devver.outputs.version }}
