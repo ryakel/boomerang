@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-30
 
+- fix(routines): interval cadences recur from last completion, not a creation-date grid [M]
+  - **Breaking bug.** "Every 180 days" (and other anchor-less cadences) used a fixed grid pinned to the routine's `created_at`. A routine done 91 days ago read as **due now** instead of due in ~89 days, because the last-done predated the creation anchor and the code fell back to the (past) creation date.
+  - **Fix.** `getNextDueDate` now splits on `hasAnchor`: cadences with an explicit calendar anchor (weekly + weekday, month-scale day-of-month / ordinal weekday / legacy weekday) keep the fixed grid; anchor-less interval cadences (every N days, every N months, weekly/monthly with no specific day) recur as `lastDone + interval` (or `created_at + interval` if never done). Matches the user's model: explicit anchor wins, otherwise it's relative to when you last did it.
+  - Verified against the real routine set (8/8): water jugs no longer due, "every Friday" / daily / weekly-Sat all still correct.
+  - Modified: `src/store.js` (`addCadenceInterval` restored, `hasAnchor` branch).
+
 - feat(routines): editable "Last done" date — repair routines that nag after lost history [M]
   - **Problem.** Routines whose `completed_history` was emptied (e.g. an old DB wipe) fire as "never done" and nag forever — and there was no way to tell the app when a routine was actually last completed. The fixed-schedule change made this visible because such routines compute as overdue.
   - **Fix.** New **"Last done"** date field in the v2 RoutinesModal edit form. Sets the most-recent completion entry (or appends one where there were none; clearing drops the most-recent), which drives `getNextDueDate` — e.g. set "Change furnace filter" to its real date and it goes quiet until next quarter instead of nagging immediately. Non-destructive: never erases older history. Time pinned to local noon so the date can't drift across timezones.
