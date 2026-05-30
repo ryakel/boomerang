@@ -1,0 +1,19 @@
+-- Add trigger_time column to routines for time-of-day "surface-at" control.
+--
+-- Background: routines spawn a task whose due_date is a bare YYYY-MM-DD with
+-- no time component. Users want time-of-day control — e.g. "start dishwasher"
+-- should only appear (and only nag) after 8pm. trigger_time is an optional
+-- 'HH:MM' 24-hour clock time in the user's local timezone.
+--
+-- Semantics: when a routine spawns a task, if trigger_time is set and that
+-- clock time on the due day is still in the future, the spawned task is
+-- snoozed (snoozed_until) until that instant. Because every notification
+-- engine and the task-list filter already honor snoozed_until, this means
+-- "don't show before 8pm" automatically also means "don't nag before 8pm".
+-- A past trigger time surfaces the task immediately. NULL = any time (today's
+-- behavior, unchanged).
+--
+-- Per-follow-up-step clock times live inside the existing follow_ups_json
+-- column (new optional `at_time` / `at_next_day` fields on each step) — no
+-- schema change needed for those.
+ALTER TABLE routines ADD COLUMN trigger_time TEXT;

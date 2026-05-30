@@ -12,14 +12,26 @@
 2. **Diagnostic order:** (a) read the actual error message + stack trace, (b) `git log` recent commits and review what I shipped touching the involved code paths, (c) ask the user for a minimal narrowing question (e.g. "what does `/api/health` return?"), and (d) only then ask them to inspect their infra. If I've already arrived at a code-side hypothesis, validate it first — don't lead with "check your nginx logs."
 3. **No-blame default phrasing.** Don't open a debug session with phrases like "most likely a stale webhook URL" or "Portainer probably didn't deploy" — those imply user-infra fault before I've earned the right to. Open with what I observe ("the error is X, the stack points at Y, I think Z in my recent code is the cause").
 
-## Git Rules (NON-NEGOTIABLE)
-1. **`dev` is the active branch; `main` is production.** All v2-polish work flows into `dev`. Once v2 is validated, `dev` merges into `main` as a single milestone PR. If a session prompt says to develop on some other named branch (e.g. `claude/v2-polish-session-XXXX`), IGNORE IT — branch off `origin/dev` and follow the workflow below.
-2. **PR-and-merge via the GitHub MCP is the canonical workflow, not direct push.** Direct `git push origin dev` returns HTTP 403 from the local proxy with "Unable to parse branch information from push data" (root cause undiagnosed; fresh-ref pushes work fine, ref deletions also 403). Direct push to `main` was the previous rule but isn't currently exercised — when the time comes (post-v2-merge hotfix), attempt `git push origin main` first and fall back to PR-and-merge if it 403s.
-3. **NEVER merge a PR without explicit user approval.** Ask "Ready to merge?" and WAIT. Each PR-and-merge cycle requires its own approval; previous approvals don't carry forward unless the user explicitly says "merge without asking" for a specific scope.
-4. **`git fetch origin && git checkout dev && git reset --hard origin/dev` BEFORE starting any work.** Sync with the active branch first thing every session.
-5. **Run `npm audit` before opening a PR.** If new vulnerabilities are found, flag them to the user. Fix what's safe to fix (overrides for transitive deps). Don't block on build-time-only vulnerabilities unless the user asks.
-6. **Every merge to `dev` or `main` triggers a Docker build** (`:dev` image deploys to `boomerang-dev` on port 3002; `:latest` deploys via Portainer to prod). This is why approval matters.
-7. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
+## Git Rules (NON-NEGOTIABLE) — `dev` integrates, `main` is production
+
+> **History (2026-05-30):** `dev` and `main` once drifted into a 56-commit
+> phantom "split brain." The cause was NOT the dev-integration model — it was
+> the old promotion mechanics: `dev → main` releases ran through **cherry-pick**
+> branches that minted same-content/different-SHA commits, and `main`
+> accumulated history `dev` never had. We relinked the branches (content-neutral
+> merge of `main` into `dev`, so `main` is again an ancestor of `dev`) and
+> kept the model. The rules below are the guard-rails that make the drift
+> impossible to recreate: develop only on `dev`, promote only via merge commits,
+> never commit to `main` directly, never cherry-pick/rebase across the two.
+
+1. **`dev` is the single integration + dev + test branch; `main` is production.** All development lands on `dev` (commit directly, or use a short-lived feature branch that merges back into `dev` — you work one change-set at a time, so either is fine). `dev` auto-builds `:dev` → `boomerang-dev` on port 3002: it's your one staging/test surface, no per-feature build sprawl. `dev` is long-lived and stays ahead of `main` as work accumulates — that is expected and correct.
+2. **`main` only ever receives merge commits from `dev`.** NEVER commit to `main` directly, NEVER branch a feature off `main`, NEVER cherry-pick or rebase between `dev` and `main`. These are the three things that forked the trunk last time. `main` must always remain a clean ancestor-subset of `dev` (`git rev-list --count origin/dev..origin/main` == 0, always).
+3. **`git fetch origin && git checkout dev && git reset --hard origin/dev` before starting any work.** Sync with `dev` first thing every session.
+4. **NEVER merge a PR without explicit user approval.** Ask "Ready to merge?" and WAIT. Each merge needs its own approval; previous approvals don't carry forward unless the user says "merge without asking" for a specific scope.
+5. **Run `npm audit` before opening a PR.** Flag new vulnerabilities; fix what's safe (overrides for transitive deps). Don't block on build-time-only vulnerabilities unless asked.
+6. **Build triggers:** a push to `dev` builds `:dev` → `boomerang-dev:3002`; a push to `main` builds `:latest` → prod via Portainer. This is why merge approval matters.
+7. **Proxy realities:** direct `git push origin dev` returns HTTP 403 from the local proxy ("Unable to parse branch information from push data" — fresh-ref pushes and direct `git push origin main` both work; ref deletions 403). So updates to `dev` go through the fresh-ref → PR → merge path below.
+8. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
    - **Root-level `.js` file imported at runtime** (e.g. `notionMCP.js`, `pushoverNotifications.js`, anything imported by `server.js` or another runtime file): must appear in a Dockerfile `COPY … ./` line in Stage 3. If missing, add it and re-stage. The pre-push smoke test runs `node server.js` against the full repo checkout, so it will NOT catch a missing-from-Dockerfile bug — the container will crash with `ERR_MODULE_NOT_FOUND` only after deploy.
    - **New top-level directory** that must ship to prod: add a `COPY <dir> ./<dir>` line.
    - **New migration** under `migrations/`: already covered by the existing `COPY migrations ./migrations` line — no Dockerfile change needed.
@@ -27,41 +39,35 @@
    - **New `src/*` file**: ships via the Vite bundle into `dist/` — no Dockerfile change needed.
    - **Dev-only files** (`eslint.config.js`, `vite.config.js`, tests, docs): do NOT add to the runtime Dockerfile.
 
-### Workflow: how dev work lands
+### Workflow: develop on `dev`
 
-The proxy bug means direct `git push origin dev` and `git push origin --delete <branch>` both 403. Direct `git push origin main` DOES work (verified 2026-05-17). Workaround loop for dev, fully automated end-to-end with no GitHub-UI clicks:
+Land work on `dev` and it auto-deploys to `boomerang-dev:3002` for testing. Direct `dev` pushes 403, so go through a fresh ref:
 
-1. Branch off `origin/dev` locally → commit
-2. `git push origin <local-branch>:refs/heads/claude/v2-<thing>` (fresh ref, proxy accepts)
-3. `mcp__github__create_pull_request` with `base: "dev"`
-4. Wait for user approval to merge
-5. `mcp__github__merge_pull_request` with `merge_method: "rebase"` (linear history; rebase-merges also auto-delete the source branch on the remote — verified PR #22, 2026-05-09)
-6. `git fetch origin && git reset --hard origin/dev` locally to resync (rebase changes the SHA server-side)
+1. `git fetch origin && git checkout dev && git reset --hard origin/dev`, then commit your work (on `dev` or a short feature branch off `dev`).
+2. `git push origin <local-branch>:refs/heads/claude/<thing>` (fresh ref — the proxy accepts these).
+3. `mcp__github__create_pull_request` with `base: "dev"`.
+4. Wait for user approval.
+5. `mcp__github__merge_pull_request` with `merge_method: "rebase"` — linear history on `dev`. Rebase is safe *into `dev`* because `dev` is the source of truth for its own commits; there's no cross-branch alignment to preserve here (that only matters for `dev → main`, see below).
+6. `git fetch origin && git checkout dev && git reset --hard origin/dev` to resync.
 
-### Workflow: promoting dev → main
+### Workflow: promote `dev → main` (lump-sum prod release)
 
-**Canonical: push dev's tip to a fresh short-lived release branch, PR THAT to main.** **NEVER use `dev` itself as a PR head** — GitHub auto-deletes the head branch on merge (verified the hard way on PR #179, 2026-05-17: `head=dev, base=main, merge_method=rebase` → dev was deleted from the remote). The release-branch indirection is the only reliable workaround.
+When you're happy with one or several accumulated features on `dev`, ship them to prod in one batch.
 
-1. Locally: `git fetch origin && git checkout dev && git reset --hard origin/dev`.
-2. `git push origin dev:refs/heads/claude/release-<thing>` — pushes dev's current tip to a new short-lived ref. The proxy accepts fresh-ref pushes.
-3. `mcp__github__create_pull_request` with `head: 'claude/release-<thing>'`, `base: 'main'`. Title like `release: <feature>`.
-4. Wait for user approval (every promotion is its own approval — previous approvals don't carry forward).
-5. `mcp__github__merge_pull_request` with `merge_method: "merge"` (creates a merge commit on main with dev's tip as a parent — **NEVER use rebase here**, see "Why merge not rebase" below). GitHub deletes `claude/release-<thing>` automatically on merge; `dev` is untouched.
-6. `git fetch origin && git checkout main && git reset --hard origin/main` to resync locally.
+**Use a fresh release branch as the PR head — NEVER `dev` itself** (GitHub auto-deletes the PR head branch on merge; `head=dev` once deleted `dev` from the remote — verified the hard way on PR #179).
 
-After step 5, `dev` and `main` are content-identical at the tip. Verify with `git diff origin/main origin/dev --stat` returning empty output. dev's tip SHA stays reachable from main (as a parent of the merge commit), so future `git log origin/main..origin/dev` returns empty.
+1. `git fetch origin && git checkout dev && git reset --hard origin/dev`.
+2. `git push origin dev:refs/heads/claude/release-<thing>` — pushes `dev`'s current tip to a short-lived ref.
+3. `mcp__github__create_pull_request` with `head: "claude/release-<thing>"`, `base: "main"`. Title `release: <summary>`.
+4. Wait for user approval (every promotion is its own approval).
+5. `mcp__github__merge_pull_request` with **`merge_method: "merge"`** — a merge commit on `main` with `dev`'s tip as a parent. **NEVER `rebase` or `squash` here, and NEVER cherry-pick:** those rewrite SHAs, so `main` would get same-content/different-SHA copies and the trunk forks again. The merge-commit method keeps `main` an exact ancestor-subset of `dev`.
+6. `git fetch origin && git checkout main && git reset --hard origin/main` to resync.
 
-**Why merge not rebase for dev→main (2026-05-17):** rebase-merge rewrites commit SHAs on the target branch. Each promotion would land dev's commit on main under a brand-new SHA — even though the content is identical. `git log origin/main..origin/dev` would show the original commit as "not on main" by SHA, and the NEXT release PR would conflict because git's 3-way merge can't tell that two same-content commits are the same change. Merge-commit method preserves SHAs: main contains dev's tip exactly, as a parent of a merge commit. Histories stay linked. No conflicts on future promotions.
+After step 5, `dev`'s promoted commits are reachable from `main`, so `git rev-list --count origin/dev..origin/main` stays `0`. `dev` keeps moving forward with the next batch; you do NOT reset `dev` back — it legitimately stays ahead of `main` by whatever you haven't promoted yet.
 
-Feature → dev still uses `merge_method: "rebase"` for linear history within dev. The rebase rewrite there is fine because dev is the source of truth for its own commits — no cross-branch alignment to preserve.
+**Drift alarm:** if `git rev-list --count origin/dev..origin/main` is ever > 0, the trunk has forked (someone committed to `main` directly, or a promotion used rebase/cherry-pick). Stop and relink with a content-neutral merge of `main` into `dev` (`git checkout dev && git merge origin/main` → push via fresh-ref PR, `merge_method: "merge"`) before doing anything else.
 
-**If dev gets deleted anyway** (e.g. someone forgot the indirection): recreate it from main with `git push origin refs/remotes/origin/main:refs/heads/dev`. Branches are now realigned and ready for the next feature loop.
-
-**Why cherry-pick branches went away (2026-05-17):** earlier in this codebase's life, dev → main promotions ran through a cherry-pick branch off main. Each cherry-pick produced a new SHA on main even though the content matched dev exactly. After ~10 promotions, the branches accumulated 10 same-content / different-SHA commit pairs and a direct dev → main PR started failing with conflicts because git's 3-way merge couldn't tell the cherry-picked versions and the original dev versions were the same change. A one-time alignment merge resolved it: `git merge -X theirs origin/dev` on main (always take dev's version on conflict) produced an identical-content main with a clean merge commit bridging the histories. Followup commit (`align(adviser-modal-css)`) cleaned up a unique-to-main hunk the `-X theirs` couldn't auto-handle. Going forward: never cherry-pick — direct dev → main PRs only.
-
-**Cherry-picking from main onto dev** (the reverse direction — e.g. main-only hotfixes that need to land on dev) uses the standard feature loop above. Conflicts typically appear in `wiki/Version-History.md` since both branches add entries to the top — keep dev's entries, add main's below.
-
-**Stranded refs** that never had a PR (e.g. the legacy `test-push-probe` diagnostic) cannot be deleted via the proxy or MCP. Ask the user to delete via the GitHub UI when convenient.
+**Stranded refs** that never had a PR cannot be deleted via the proxy or MCP. Ask the user to delete via the GitHub UI when convenient.
 
 ## Commit Convention
 - Format: `<type>(<scope>): <subject> [<size>]`
@@ -143,16 +149,25 @@ Recurring tasks (routines) support per-routine day-of-week anchoring and on-dema
 
 **Cadence types:** `daily`, `weekly`, `monthly`, `quarterly`, `annually`, `custom` (every N **days** or N **months** — controlled by `custom_unit`, migration 031).
 
-**Weekday anchor (`schedule_day_of_week`, 0=Sun … 6=Sat):** optional column added in migration 017. When set, `getNextDueDate()` advances by the cadence interval, then snaps forward to the first occurrence of that weekday. Examples:
-- Weekly + Fri → every Friday (after completion, next-due is the following Friday)
-- Quarterly + Sat → first Saturday on/after the 3-month anchor (may drift up to 6 days — intentional, "air filter on a weekend" is the use case)
-- `daily` cadence ignores the anchor (daily fires every day anyway)
+**Trigger time (`trigger_time`, 'HH:MM' 24h, migration 033):** optional surface-at clock time. When set, tasks spawned by the routine are snoozed (`snoozed_until`) until that clock time on their due day — so they don't surface in the list AND don't nag before it (every notification engine + the list filter already skip snoozed tasks; this is reused, no new suppression code). A past trigger time surfaces immediately. NULL = any time. Applied client-side in `useRoutines.js` (`triggerSnooze()` helper) on both `spawnDueTasks` and `spawnNow`. UI: "At time" input in the RoutinesModal form; shown on cards in the cadence meta (`daily · 8pm`). Use case: "start dishwasher" only after 8pm.
 
-UI lives in `src/components/Routines.jsx` — new "On" dropdown next to Frequency in the add/edit form. "Any day" (default) preserves original behavior. The scheduled weekday appears on routine cards next to the cadence (e.g. "weekly · Fri").
+**Fixed-schedule cadence (`getNextDueDate` in `src/store.js`, 2026-05-30):** Routine due dates form a FIXED GRID, NOT anchored to the last completion. Completing early or late never shifts the series — "every Monday" stays Monday, "the 18th" stays the 18th. `completed_history` only marks which grid slot has been satisfied (the next due is the first grid slot after the slot containing the most recent completion); it never re-bases the grid. Daily is special-cased (fires every calendar day; due today unless already done today → tomorrow). Day-scale cadences (weekly, custom-days) walk a day grid from the creation anchor; **month-scale cadences (monthly/quarterly/annually/custom-months) walk a MONTH grid and resolve each slot's day from the anchor rule below.** A missed cycle surfaces as one overdue task, not a pileup; completing it advances to the current slot. **Behavior change from the old completion-anchored model:** before, completing N days late pushed the next occurrence N days later (drift); now it doesn't.
+
+**Schedule anchor — the explicit schedule wins; creation date is only the fallback:**
+- **`schedule_day_of_week`** (0=Sun … 6=Sat, migration 017). **Weekly:** folded into the grid origin → "every Friday" (completing off-day doesn't move it). **Daily:** ignored.
+- **Month-scale anchor (migration 034)** — three modes, resolved by `resolveMonthDay()` in priority order:
+  1. **`schedule_day_of_month`** (1–31) → a fixed calendar day, "the 18th". Clamped to month length (31 → Feb 28/29).
+  2. **`schedule_week_of_month`** (1,2,3,4 or **-1** = last) **+ `schedule_day_of_week`** → an ordinal weekday: "1st Monday", "every 2nd Tuesday", "last Friday". Works for monthly/quarterly/annually/custom-months (e.g. quarterly + 1st Saturday).
+  3. **neither set** → the routine's creation day-of-month (the "no date set" fallback). A legacy month-scale routine with only `schedule_day_of_week` keeps the old snap-forward behavior.
+  - Computed entirely from the fixed grid, so "1st Monday" / "the 18th" never drift on late completion. If the rule's first slot lands before `created_at` (e.g. created the 20th, rule "the 18th"), the series starts the following month.
+
+UI: the v2 `RoutinesModal` "On" field is cadence-aware — weekly shows the weekday dropdown ("Any day" default); month-scale shows a mode select (Same day created / Day of month… / Weekday…) that reveals a day-of-month picker or an ordinal+weekday pair. `formatScheduleAnchor(routine)` renders the short card label ("Fri", "18th", "1st Mon", "last Fri"). v1 `Routines.jsx` keeps the weekday-only dropdown; editing a month-anchored routine there preserves the anchor (partial-update merge doesn't clobber the new columns). Quokka `create_routine` / `update_routine` expose all three fields.
 
 **Manual "Create Now" trigger:** new `spawnNow(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card shows a "+" button that bypasses the schedule and immediately spawns a one-off task with due date = today. Importantly, it does NOT append to `completed_history` — the cadence clock is unaffected until the task is actually completed. So manually creating a task doesn't shift the normal schedule.
 
 **Follow-up sequences (`follow_ups` JSON column on tasks + routines, migration 023):** Completion-triggered task chains. Each routine can hold an ordered template of `[{id, title, offset_minutes, energy_type?, energy_level?, notes?}]` steps. When a routine spawns a task instance, the template is copied onto the spawned task. As each step is completed, `db.js` `spawnNextChainStep()` walks the chain — spawns the next step with `due_date` derived from `now + offset_minutes` and `follow_ups = task.follow_ups.slice(1)`. Sub-day offsets snooze the new task until its trigger time so it doesn't surface until the cycle is up. Use case: clean floors → auto-clean mop (immediate) → empty tanks (30 min) → put back (2 days). Editor lives on the routine form (RoutinesModal). Full spec + roadmap (delete prompt, skip-and-advance, AI-mediated edit reconciliation, Quokka tools) in `wiki/Sequences.md`.
+
+**Absolute clock times on follow-up steps (migration 033, in `follow_ups_json` — no schema change):** A step can be timed by an absolute clock time instead of a relative offset. When `at_time` ('HH:MM' 24h) is present on a step, `spawnNextChainStep()` schedules the spawned task at that clock time today — or the next day when `at_next_day` is true ("empty dishwasher at 6am next morning") — snoozing until that instant (or surfacing immediately if already past) and setting `due_date` to that day. A step uses EITHER `at_time` (+optional `at_next_day`) OR `offset_minutes`, never both; `at_time` wins. Computed server-side (server TZ), same as the existing sub-day offset path. The step editor exposes an "After prev | At time" mode toggle. Full dishwasher example: start @ 8pm (routine `trigger_time`) → pour milk @ 9pm (`at_time`) → empty @ 6am next morning (`at_time` + `at_next_day`).
 
 **"Skip this cycle" trigger:** `skipCycle(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card has a fast-forward button next to the "+" that stamps `completed_history` with today's timestamp WITHOUT spawning a task — `getNextDueDate()` rolls forward by one cadence interval. Use case: vacation, illness, "the lawn doesn't need mowing this week." Only renders for non-paused routines. Skips count toward the "Nx completed" total — a separate skip log is tracked-as-tech-debt-but-not-built since the personal app doesn't need the analytics distinction.
 

@@ -437,15 +437,30 @@ export function updateTaskPartial(id, updates) {
 function spawnNextChainStep(parentTask) {
   const [step, ...remaining] = parentTask.follow_ups
   if (!step?.title) return
-  const offsetMs = Math.max(0, (step.offset_minutes || 0) * 60000)
-  const triggerAt = Date.now() + offsetMs
-  const triggerDate = new Date(triggerAt)
-  const todayUTC = new Date(); todayUTC.setHours(0, 0, 0, 0)
-  const sameDay = offsetMs < 24 * 60 * 60 * 1000
-    && triggerDate.toDateString() === todayUTC.toDateString()
-  const dueDate = sameDay
-    ? `${todayUTC.getFullYear()}-${String(todayUTC.getMonth() + 1).padStart(2, '0')}-${String(todayUTC.getDate()).padStart(2, '0')}`
-    : `${triggerDate.getFullYear()}-${String(triggerDate.getMonth() + 1).padStart(2, '0')}-${String(triggerDate.getDate()).padStart(2, '0')}`
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  let dueDate, snoozeUntil
+  if (step.at_time) {
+    // Absolute clock-time step: schedule at this 'HH:MM' on today (or the
+    // next day when at_next_day is set — e.g. "empty dishwasher at 6am next
+    // morning"). Snooze until that instant unless it's already past, in which
+    // case the task surfaces immediately. Computed in server-local time; see
+    // the TZ note on routine trigger snooze in src/hooks/useRoutines.js.
+    const [hh, mm] = String(step.at_time).split(':').map(Number)
+    const at = new Date()
+    if (step.at_next_day) at.setDate(at.getDate() + 1)
+    at.setHours(hh || 0, mm || 0, 0, 0)
+    dueDate = ymd(at)
+    snoozeUntil = at.getTime() > Date.now() ? at.toISOString() : null
+  } else {
+    const offsetMs = Math.max(0, (step.offset_minutes || 0) * 60000)
+    const triggerAt = Date.now() + offsetMs
+    const triggerDate = new Date(triggerAt)
+    const todayUTC = new Date(); todayUTC.setHours(0, 0, 0, 0)
+    const sameDay = offsetMs < 24 * 60 * 60 * 1000
+      && triggerDate.toDateString() === todayUTC.toDateString()
+    dueDate = sameDay ? ymd(todayUTC) : ymd(triggerDate)
+    snoozeUntil = offsetMs > 0 && sameDay ? new Date(triggerAt).toISOString() : null
+  }
 
   const newTask = {
     id: crypto.randomUUID(),
@@ -453,7 +468,7 @@ function spawnNextChainStep(parentTask) {
     status: 'not_started',
     notes: step.notes || '',
     due_date: dueDate,
-    snoozed_until: offsetMs > 0 && sameDay ? new Date(triggerAt).toISOString() : null,
+    snoozed_until: snoozeUntil,
     snooze_count: 0,
     staleness_days: 2,
     last_touched: new Date().toISOString(),
@@ -953,6 +968,9 @@ function routineToRow(routine) {
     completed_history_json: JSON.stringify(routine.completed_history || []),
     end_date: routine.end_date || null,
     schedule_day_of_week: routine.schedule_day_of_week ?? null,
+    schedule_day_of_month: routine.schedule_day_of_month ?? null,
+    schedule_week_of_month: routine.schedule_week_of_month ?? null,
+    trigger_time: routine.trigger_time || null,
     auto_roll: routine.auto_roll ? 1 : 0,
     spawn_mode: routine.spawn_mode || 'auto',
     target_count: routine.target_count ?? null,
@@ -980,6 +998,9 @@ function rowToRoutine(row) {
     completed_history: safeJsonParse(row.completed_history_json, []),
     end_date: row.end_date || null,
     schedule_day_of_week: row.schedule_day_of_week ?? null,
+    schedule_day_of_month: row.schedule_day_of_month ?? null,
+    schedule_week_of_month: row.schedule_week_of_month ?? null,
+    trigger_time: row.trigger_time || null,
     auto_roll: !!row.auto_roll,
     spawn_mode: row.spawn_mode || 'auto',
     target_count: row.target_count ?? null,
@@ -995,9 +1016,10 @@ function rowToRoutine(row) {
 const UPSERT_ROUTINE_SQL = `
   INSERT INTO routines (id, title, cadence, custom_days, custom_unit, notes, high_priority,
     energy, energy_level, notion_page_id, notion_url, created_at, paused,
-    tags_json, completed_history_json, end_date, schedule_day_of_week, auto_roll,
+    tags_json, completed_history_json, end_date, schedule_day_of_week,
+    schedule_day_of_month, schedule_week_of_month, trigger_time, auto_roll,
     spawn_mode, target_count, target_period, follow_ups_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
     custom_unit=excluded.custom_unit,
@@ -1006,6 +1028,9 @@ const UPSERT_ROUTINE_SQL = `
     notion_url=excluded.notion_url, created_at=excluded.created_at, paused=excluded.paused,
     tags_json=excluded.tags_json, completed_history_json=excluded.completed_history_json,
     end_date=excluded.end_date, schedule_day_of_week=excluded.schedule_day_of_week,
+    schedule_day_of_month=excluded.schedule_day_of_month,
+    schedule_week_of_month=excluded.schedule_week_of_month,
+    trigger_time=excluded.trigger_time,
     auto_roll=excluded.auto_roll, spawn_mode=excluded.spawn_mode,
     target_count=excluded.target_count, target_period=excluded.target_period,
     follow_ups_json=excluded.follow_ups_json`
@@ -1016,7 +1041,8 @@ function runUpsertRoutine(routine) {
     r.id, r.title, r.cadence, r.custom_days, r.custom_unit, r.notes, r.high_priority,
     r.energy, r.energy_level, r.notion_page_id, r.notion_url, r.created_at, r.paused,
     r.tags_json, r.completed_history_json, r.end_date, r.schedule_day_of_week,
-    r.auto_roll, r.spawn_mode, r.target_count, r.target_period,
+    r.schedule_day_of_month, r.schedule_week_of_month,
+    r.trigger_time, r.auto_roll, r.spawn_mode, r.target_count, r.target_period,
     r.follow_ups_json,
   ])
 }

@@ -64,6 +64,9 @@ function summarizeRoutine(r) {
     custom_days: r.custom_days ?? null,
     custom_unit: r.custom_unit || 'days',
     schedule_day_of_week: r.schedule_day_of_week ?? null,
+    schedule_day_of_month: r.schedule_day_of_month ?? null,
+    schedule_week_of_month: r.schedule_week_of_month ?? null,
+    trigger_time: r.trigger_time || null,
     tags: r.tags || [],
     paused: !!r.paused,
     end_date: r.end_date || null,
@@ -75,7 +78,9 @@ function summarizeRoutine(r) {
           step_index: i,
           step_id: s.id,
           title: s.title,
-          offset_minutes: s.offset_minutes,
+          ...(s.at_time
+            ? { at_time: s.at_time, ...(s.at_next_day ? { at_next_day: true } : {}) }
+            : { offset_minutes: s.offset_minutes }),
           ...(s.energy_type ? { energy_type: s.energy_type } : {}),
           ...(s.energy_level ? { energy_level: s.energy_level } : {}),
           ...(s.notes ? { notes: s.notes } : {}),
@@ -732,7 +737,7 @@ export function registerTaskTools() {
   // --- ROUTINES (MUTATION) ---
   registerTool({
     name: 'create_routine',
-    description: 'Create a recurring routine. Cadence: daily|weekly|monthly|quarterly|annually|custom. For custom, set custom_days as the interval and custom_unit as "days" (default) or "months" — e.g. {cadence:"custom", custom_days:2, custom_unit:"months"} for every-2-months. schedule_day_of_week 0=Sun..6=Sat (ignored for daily).',
+    description: 'Create a recurring routine. Cadence: daily|weekly|monthly|quarterly|annually|custom. For custom, set custom_days as the interval and custom_unit as "days" (default) or "months" — e.g. {cadence:"custom", custom_days:2, custom_unit:"months"} for every-2-months. Due dates follow a FIXED schedule (anchored, not pushed by late completions). schedule_day_of_week 0=Sun..6=Sat — for weekly = "every <weekday>" (ignored for daily). Month-scale cadences (monthly/quarterly/annually/custom-months) anchor the day via EITHER schedule_day_of_month (1..31, "the 18th") OR schedule_week_of_month (1,2,3,4 or -1 for last) + schedule_day_of_week ("1st Monday", "last Friday"); omit both to use the creation day-of-month. trigger_time is an optional "HH:MM" 24h surface-at time — spawned tasks stay hidden (and silent) until that clock time on their due day, e.g. trigger_time:"20:00" for an after-8pm chore.',
     schema: {
       type: 'object',
       properties: {
@@ -744,7 +749,10 @@ export function registerTaskTools() {
         tags: { type: 'array', items: { type: 'string' } },
         high_priority: { type: 'boolean' },
         end_date: { type: 'string' },
-        schedule_day_of_week: { type: 'integer', minimum: 0, maximum: 6 },
+        schedule_day_of_week: { type: 'integer', minimum: 0, maximum: 6, description: 'Weekday 0=Sun..6=Sat. Weekly: "every <weekday>". Month-scale: the weekday for an ordinal anchor (with schedule_week_of_month).' },
+        schedule_day_of_month: { type: 'integer', minimum: 1, maximum: 31, description: 'Month-scale only: fixed calendar day, e.g. 18 for "the 18th". Clamped to month length.' },
+        schedule_week_of_month: { type: 'integer', enum: [1, 2, 3, 4, -1], description: 'Month-scale only: with schedule_day_of_week → ordinal weekday. 1..4 or -1 (last). E.g. {schedule_week_of_month:1, schedule_day_of_week:1} = "1st Monday".' },
+        trigger_time: { type: 'string', description: '"HH:MM" 24h surface-at time. Spawned tasks are hidden/silent until this time on their due day. Omit for any time.' },
       },
       required: ['title', 'cadence'],
     },
@@ -766,6 +774,9 @@ export function registerTaskTools() {
         high_priority: !!args.high_priority,
         end_date: args.end_date || null,
         schedule_day_of_week: args.schedule_day_of_week ?? null,
+        schedule_day_of_month: args.schedule_day_of_month ?? null,
+        schedule_week_of_month: args.schedule_week_of_month ?? null,
+        trigger_time: args.trigger_time || null,
         paused: false,
         completed_history: [],
         created_at: now,
@@ -794,7 +805,10 @@ export function registerTaskTools() {
         tags: { type: 'array', items: { type: 'string' } },
         paused: { type: 'boolean' },
         end_date: { type: ['string', 'null'] },
-        schedule_day_of_week: { type: ['integer', 'null'], minimum: 0, maximum: 6 },
+        schedule_day_of_week: { type: ['integer', 'null'], minimum: 0, maximum: 6, description: 'Weekday 0=Sun..6=Sat. Weekly: "every <weekday>". Month-scale: weekday for an ordinal anchor (with schedule_week_of_month). Null to clear.' },
+        schedule_day_of_month: { type: ['integer', 'null'], minimum: 1, maximum: 31, description: 'Month-scale: fixed calendar day ("the 18th"). Null to clear. Setting this clears any ordinal-weekday anchor.' },
+        schedule_week_of_month: { type: ['integer', 'null'], enum: [1, 2, 3, 4, -1, null], description: 'Month-scale: ordinal week (1..4 or -1 last) paired with schedule_day_of_week. Null to clear.' },
+        trigger_time: { type: ['string', 'null'], description: '"HH:MM" 24h surface-at time, or null to clear. Spawned tasks stay hidden/silent until this time on their due day.' },
       },
       required: ['id'],
     },
@@ -971,7 +985,9 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       step_index: i,
       step_id: s.id,
       title: s.title,
-      offset_minutes: s.offset_minutes,
+      ...(s.at_time
+        ? { at_time: s.at_time, ...(s.at_next_day ? { at_next_day: true } : {}) }
+        : { offset_minutes: s.offset_minutes }),
       ...(s.energy_type ? { energy_type: s.energy_type } : {}),
       ...(s.energy_level ? { energy_level: s.energy_level } : {}),
       ...(s.notes ? { notes: s.notes } : {}),
@@ -980,19 +996,21 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
 
   registerTool({
     name: 'add_follow_up',
-    description: `Append (or insert) a follow-up step to a routine's chain template. Steps fire in order after each previous step is COMPLETED — \`offset_minutes\` is the delay from that completion. Sub-day offsets snooze the spawned task until trigger time so it doesn't surface in the list until the cycle is up.`,
+    description: `Append (or insert) a follow-up step to a routine's chain template. Steps fire in order after each previous step is COMPLETED. Time the step EITHER by \`offset_minutes\` (delay from that completion — sub-day offsets snooze the spawned task until the trigger) OR by an absolute clock time with \`at_time\` ("HH:MM" 24h, optionally \`at_next_day\` for "the next morning"). Provide exactly one timing mode; at_time wins if both are sent.`,
     schema: {
       type: 'object',
       properties: {
         routine_id: { type: 'string' },
         title: { type: 'string', minLength: 1 },
         offset_minutes: { type: 'integer', minimum: 0 },
+        at_time: { type: 'string', description: 'Absolute clock time "HH:MM" 24h. Mutually exclusive with offset_minutes.' },
+        at_next_day: { type: 'boolean', description: 'With at_time: schedule on the day AFTER the step spawns (e.g. "6am next morning").' },
         energy_type: { type: 'string', enum: ENERGY_TYPE_ENUM },
         energy_level: { type: 'integer', minimum: 1, maximum: 3 },
         notes: { type: 'string' },
         step_index: { type: 'integer', minimum: 0, description: '0-based insertion position. Default: append to end.' },
       },
-      required: ['routine_id', 'title', 'offset_minutes'],
+      required: ['routine_id', 'title'],
     },
     preview: (args) => `Add chain step "${args.title}" to routine "${routineLabel(args.routine_id)}"`,
     execute: async (args) => {
@@ -1002,7 +1020,9 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       const newStep = {
         id: stepId,
         title: args.title.trim(),
-        offset_minutes: Math.max(0, args.offset_minutes),
+        ...(args.at_time
+          ? { at_time: args.at_time, ...(args.at_next_day ? { at_next_day: true } : {}) }
+          : { offset_minutes: Math.max(0, args.offset_minutes || 0) }),
         ...(args.energy_type ? { energy_type: args.energy_type } : {}),
         ...(args.energy_level ? { energy_level: args.energy_level } : {}),
         ...(args.notes ? { notes: args.notes.trim() } : {}),
@@ -1031,7 +1051,9 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
         step_id: { type: 'string' },
         step_index: { type: 'integer', minimum: 0 },
         title: { type: 'string', minLength: 1 },
-        offset_minutes: { type: 'integer', minimum: 0 },
+        offset_minutes: { type: 'integer', minimum: 0, description: 'Switches the step to relative-offset mode (clears any at_time).' },
+        at_time: { type: ['string', 'null'], description: 'Absolute clock time "HH:MM" 24h — switches the step to clock-time mode (clears offset_minutes). Pass null to clear and fall back to offset mode.' },
+        at_next_day: { type: 'boolean', description: 'With at_time: schedule on the day after the step spawns.' },
         energy_type: { type: ['string', 'null'], enum: [...ENERGY_TYPE_ENUM, null] },
         energy_level: { type: ['integer', 'null'], minimum: 1, maximum: 3 },
         notes: { type: ['string', 'null'] },
@@ -1055,7 +1077,26 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       const newChain = oldChain.slice()
       const target = { ...newChain[idx] }
       if (typeof args.title === 'string' && args.title.trim()) target.title = args.title.trim()
-      if (Number.isInteger(args.offset_minutes)) target.offset_minutes = Math.max(0, args.offset_minutes)
+      // Timing mode is mutually exclusive: setting at_time clears offset_minutes
+      // and vice-versa. Passing at_time:null reverts to offset mode.
+      if (Object.prototype.hasOwnProperty.call(args, 'at_time')) {
+        if (args.at_time) {
+          target.at_time = args.at_time
+          delete target.offset_minutes
+        } else {
+          delete target.at_time
+          delete target.at_next_day
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(args, 'at_next_day') && target.at_time) {
+        if (args.at_next_day) target.at_next_day = true
+        else delete target.at_next_day
+      }
+      if (Number.isInteger(args.offset_minutes)) {
+        target.offset_minutes = Math.max(0, args.offset_minutes)
+        delete target.at_time
+        delete target.at_next_day
+      }
       if (Object.prototype.hasOwnProperty.call(args, 'energy_type')) {
         if (args.energy_type) target.energy_type = args.energy_type
         else delete target.energy_type

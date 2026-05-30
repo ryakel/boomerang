@@ -124,9 +124,13 @@ Context-aware preset options that show the exact date and time (e.g., "Tomorrow 
 Recurring tasks with configurable cadence:
 
 - **Frequencies**: daily, weekly, monthly, quarterly, annually, or custom (every N days)
+- **Trigger time**: optional "At time" clock time on a routine (e.g. 8:00 PM). Spawned tasks stay hidden — and stay silent (no nags) — until that time of day, then surface. Set it for chores that only make sense at a certain hour ("start dishwasher" after 8pm). Leave blank for any time. Shown on the card next to the cadence (`daily · 8pm`).
+- **Follow-up steps at clock times**: each follow-up step in a sequence can be set to fire at an absolute clock time ("At time") instead of a relative delay — including "next day" for tomorrow-morning steps. Example: start dishwasher at 8pm → pour kiddo milk at 9pm → empty dishwasher at 6am the next morning.
 - **End date**: optional end date to auto-stop a routine (e.g., "study daily until exam day"). After the end date, no new tasks are spawned. Displayed on routine cards as "ends Mon DD".
 - **Management**: routines live in their own screen, accessible from the tag bar. Active and paused routines are shown separately.
 - **Auto-spawning**: when a routine is due, a task instance is automatically created in the main task list. Completing the instance logs the completion on the routine and schedules the next occurrence.
+- **Fixed schedule (no drift)**: due dates follow a fixed grid — completing early or late never shifts the series. "Every Monday" stays Monday, "the 18th" stays the 18th, no matter when you actually check it off. A missed cycle shows up as a single overdue task, not a pile.
+- **Intelligent schedule anchor**: the "On" picker adapts to the cadence. Weekly → pick a weekday. Monthly / quarterly / annually → pick **a day of the month** ("the 18th"), **an ordinal weekday** ("1st Monday", "2nd Tuesday", "last Friday"), or leave it on the day the routine was created. The chosen anchor — not the creation date — drives the schedule.
 - **Pause/resume**: routines can be paused without deleting them
 - **Skip this cycle**: fast-forward button on the expanded routine card advances the schedule without spawning a task. For when you're on vacation, sick, or the lawn doesn't need mowing this week.
 - **Convert from task**: any one-off task can be converted to a routine via the Edit modal. The original task stays active and is linked to the new routine as its first instance — completing it later logs the completion on the routine, and future instances are spawned by cadence.
