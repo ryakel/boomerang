@@ -18,6 +18,14 @@ const DAY_OF_WEEK_OPTIONS = [
   { value: '6', label: 'Sat' },
 ]
 
+// Local YYYY-MM-DD for a Date (used by the "Last done" picker).
+function ymdLocal(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function formatNextDue(routine) {
   const endedOrExpired = routine.end_date && new Date() > new Date(routine.end_date + 'T23:59:59')
   if (routine.paused) return 'paused'
@@ -372,6 +380,14 @@ function RoutineForm({ initial, onSave, onCancel }) {
   const [followUps, setFollowUps] = useState(() =>
     Array.isArray(initial?.follow_ups) ? initial.follow_ups.map(s => ({ ...s })) : []
   )
+  // "Last done" override — lets the user set when the routine was last completed,
+  // which drives getNextDueDate. Essential for repairing routines whose
+  // completed_history was lost (e.g. a DB wipe) and now fire as if never done.
+  // '' = never done. Initialized from the most-recent completion.
+  const initialLastDone = initial?.completed_history?.length
+    ? ymdLocal(new Date(initial.completed_history[initial.completed_history.length - 1]))
+    : ''
+  const [lastDone, setLastDone] = useState(initialLastDone)
   const isHabit = spawnMode === 'habit'
 
   const labels = loadLabels()
@@ -443,6 +459,24 @@ function RoutineForm({ initial, onSave, onCancel }) {
   // Empty / single-step / pure-offset edits skip the gate entirely.
   const [pendingSave, setPendingSave] = useState(null)
 
+  // Build the updated completed_history when the user changed the "Last done"
+  // date. Returns undefined when unchanged (so the save path leaves history
+  // untouched). Sets the most-recent entry to the chosen date (or appends one
+  // if there were none); clearing the field drops the most-recent entry. Time
+  // is pinned to local noon so the date can't drift across timezones.
+  const resolveCompletedHistory = () => {
+    if (lastDone === initialLastDone) return undefined
+    const base = Array.isArray(initial?.completed_history) ? initial.completed_history.slice() : []
+    if (!lastDone) {
+      base.pop()
+      return base
+    }
+    const iso = new Date(`${lastDone}T12:00:00`).toISOString()
+    if (base.length > 0) base[base.length - 1] = iso
+    else base.push(iso)
+    return base
+  }
+
   const buildSavePayload = (followUpsArray) => ({
     title: title.trim(),
     cadence,
@@ -456,6 +490,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
     scheduleDayOfMonth: outDayOfMonth,
     scheduleWeekOfMonth: outWeekOfMonth,
     triggerTime: triggerTime || null,
+    completedHistory: resolveCompletedHistory(),
     followUps: followUpsArray,
     autoRoll: isHabit ? false : autoRoll,
     spawnMode,
@@ -671,6 +706,38 @@ function RoutineForm({ initial, onSave, onCancel }) {
           <div className="v2-form-section-hint">
             Don't show or nag before this time. Leave blank for any time.
           </div>
+
+          {!isNew && (
+            <>
+              <div className="v2-form-row">
+                <div className="v2-form-field">
+                  <label className="v2-form-label">Last done</label>
+                  <input
+                    type="date"
+                    className="v2-form-input"
+                    value={lastDone}
+                    max={today}
+                    onChange={e => setLastDone(e.target.value)}
+                    aria-label="Last completed date"
+                  />
+                </div>
+                <div className="v2-form-field">
+                  {lastDone && (
+                    <button
+                      type="button"
+                      className="v2-routine-time-clear"
+                      onClick={() => setLastDone('')}
+                    >
+                      Clear (never done)
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="v2-form-section-hint">
+                When you last completed this. Sets the next due date — use it to fix a routine that's nagging after lost history.
+              </div>
+            </>
+          )}
 
           {cadence === 'custom' && (
             <div className="v2-form-section">
@@ -895,7 +962,7 @@ export default function RoutinesModal({
 
   const handleSubmitForm = (data) => {
     if (editing) {
-      onUpdate(editing.id, {
+      const updates = {
         title: data.title,
         cadence: data.cadence,
         custom_days: data.customDays,
@@ -913,7 +980,13 @@ export default function RoutinesModal({
         spawn_mode: data.spawnMode,
         target_count: data.targetCount,
         target_period: data.targetPeriod,
-      })
+      }
+      // Only touch completed_history when the "Last done" date was changed
+      // (undefined = leave it alone; never send undefined into the merge).
+      if (data.completedHistory !== undefined) {
+        updates.completed_history = data.completedHistory
+      }
+      onUpdate(editing.id, updates)
     } else {
       onAdd(
         data.title, data.cadence, data.customDays,
