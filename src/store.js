@@ -408,18 +408,39 @@ function resolveMonthDay(year, month, routine, createdDom) {
   return new Date(year, month, Math.min(createdDom, daysInMonth(year, month)))
 }
 
-// Fixed-schedule next-due. A routine's due dates form a FIXED GRID anchored at
-// its creation date (NOT its last completion), so completing early or late
-// never shifts the series — "every Monday" stays Monday, "the 18th" stays the
-// 18th, no matter when you actually check it off. completed_history only tells
-// us which grid slot has already been satisfied; it never re-bases the grid.
-//
-// Day-scale cadences (weekly, custom-days) walk a day grid from the creation
-// anchor. Month-scale cadences (monthly/quarterly/annually/custom-months) walk
-// a MONTH grid and resolve each slot's day-of-month from the anchor rule —
-// "the 18th", "1st Monday", "last Friday" (schedule_day_of_month /
-// schedule_week_of_month + schedule_day_of_week), falling back to the creation
-// day-of-month when no rule is set.
+// Advance `date` by `mult` cadence intervals (used for anchor-less, interval
+// cadences like "every 180 days" / "every N months").
+function addCadenceInterval(date, routine, mult) {
+  const d = new Date(date)
+  switch (routine.cadence) {
+    case 'daily': d.setDate(d.getDate() + mult); break
+    case 'weekly': d.setDate(d.getDate() + 7 * mult); break
+    case 'monthly': d.setMonth(d.getMonth() + mult); break
+    case 'quarterly': d.setMonth(d.getMonth() + 3 * mult); break
+    case 'annually': d.setFullYear(d.getFullYear() + mult); break
+    case 'custom': {
+      const interval = routine.custom_days || 7
+      if (routine.custom_unit === 'months') d.setMonth(d.getMonth() + interval * mult)
+      else d.setDate(d.getDate() + interval * mult)
+      break
+    }
+    default: d.setDate(d.getDate() + 7 * mult)
+  }
+  return d
+}
+
+// Next-due. Two models, chosen by whether the routine has an explicit calendar
+// anchor:
+//   • ANCHORED (weekly + weekday, or month-scale with a day-of-month / ordinal-
+//     weekday / legacy-weekday rule) → a FIXED GRID. Completing early or late
+//     never shifts the series — "every Friday" stays Friday, "the 18th" stays
+//     the 18th.
+//   • ANCHOR-LESS interval cadence (every N days, every N months, or weekly/
+//     monthly with no specific day) → relative to the last completion: next =
+//     lastDone + one interval (or created_at + interval if never done). "Every
+//     180 days" means 180 days after you last did it, not a grid pinned to the
+//     creation date.
+// Daily is special-cased: it fires every calendar day.
 export function getNextDueDate(routine) {
   const now = new Date()
 
@@ -443,6 +464,21 @@ export function getNextDueDate(routine) {
   const monthScale = routine.cadence === 'monthly' || routine.cadence === 'quarterly'
     || routine.cadence === 'annually'
     || (routine.cadence === 'custom' && routine.custom_unit === 'months')
+
+  const lastDone = routine.completed_history.length > 0
+    ? new Date(routine.completed_history[routine.completed_history.length - 1])
+    : null
+
+  // No explicit calendar anchor → interval-relative ("every N after last done").
+  // Month-scale counts a day-of-month / ordinal-week / legacy-weekday rule as an
+  // anchor; weekly counts a weekday. Everything else (custom-days, custom-months
+  // with no rule, weekly/monthly with no day) recurs from the last completion.
+  const hasAnchor = monthScale
+    ? (routine.schedule_day_of_month != null || routine.schedule_week_of_month != null || dow != null)
+    : (routine.cadence === 'weekly' && dow != null)
+  if (!hasAnchor) {
+    return addCadenceInterval(lastDone || createdStart, routine, 1)
+  }
 
   let gridPoint
   if (monthScale) {
@@ -479,10 +515,6 @@ export function getNextDueDate(routine) {
   let k0 = 0
   let g0 = 0
   while (gridPoint(k0).getTime() < createdStart.getTime() && g0 < 12000) { k0++; g0++ }
-
-  const lastDone = routine.completed_history.length > 0
-    ? new Date(routine.completed_history[routine.completed_history.length - 1])
-    : null
 
   // Never completed, or completed before the series even started → series start.
   if (!lastDone || lastDone.getTime() < gridPoint(k0).getTime()) return gridPoint(k0)
