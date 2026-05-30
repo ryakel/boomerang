@@ -809,6 +809,7 @@ export function registerTaskTools() {
         schedule_day_of_month: { type: ['integer', 'null'], minimum: 1, maximum: 31, description: 'Month-scale: fixed calendar day ("the 18th"). Null to clear. Setting this clears any ordinal-weekday anchor.' },
         schedule_week_of_month: { type: ['integer', 'null'], enum: [1, 2, 3, 4, -1, null], description: 'Month-scale: ordinal week (1..4 or -1 last) paired with schedule_day_of_week. Null to clear.' },
         trigger_time: { type: ['string', 'null'], description: '"HH:MM" 24h surface-at time, or null to clear. Spawned tasks stay hidden/silent until this time on their due day.' },
+        last_done: { type: ['string', 'null'], description: 'Set when the routine was last completed, "YYYY-MM-DD" (or null = never done). Drives the next due date — use it to repair a routine that nags as if never done after lost completion history. Sets the most-recent completion entry; does not erase older history.' },
       },
       required: ['id'],
     },
@@ -824,6 +825,21 @@ export function registerTaskTools() {
         updates.custom_days = updates.custom_interval_days
       }
       delete updates.custom_interval_days
+      // last_done is a convenience for setting the most-recent completion. Map
+      // it to completed_history (set last entry, or append; null drops the
+      // most-recent entry). Noon UTC so the date can't drift across timezones.
+      if (updates.last_done !== undefined) {
+        const hist = Array.isArray(before.completed_history) ? before.completed_history.slice() : []
+        if (updates.last_done === null) {
+          hist.pop()
+        } else {
+          const iso = new Date(`${updates.last_done}T12:00:00Z`).toISOString()
+          if (hist.length > 0) hist[hist.length - 1] = iso
+          else hist.push(iso)
+        }
+        updates.completed_history = hist
+        delete updates.last_done
+      }
       delete updates.id
       updateRoutinePartial(args.id, updates)
       return {
