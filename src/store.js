@@ -356,39 +356,88 @@ function snapToWeekday(date, weekday) {
   return next
 }
 
-export function getNextDueDate(routine) {
-  const lastDone = routine.completed_history.length > 0
-    ? new Date(routine.completed_history[routine.completed_history.length - 1])
-    : new Date(routine.created_at)
+function startOfDay(d) {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
 
-  const next = new Date(lastDone)
+// Advance `date` by `mult` whole cadence intervals (mult may be 0).
+function addCadenceInterval(date, routine, mult) {
+  const d = new Date(date)
   switch (routine.cadence) {
-    case 'daily': next.setDate(next.getDate() + 1); break
-    case 'weekly': next.setDate(next.getDate() + 7); break
-    case 'monthly': next.setMonth(next.getMonth() + 1); break
-    case 'quarterly': next.setMonth(next.getMonth() + 3); break
-    case 'annually': next.setFullYear(next.getFullYear() + 1); break
+    case 'daily': d.setDate(d.getDate() + mult); break
+    case 'weekly': d.setDate(d.getDate() + 7 * mult); break
+    case 'monthly': d.setMonth(d.getMonth() + mult); break
+    case 'quarterly': d.setMonth(d.getMonth() + 3 * mult); break
+    case 'annually': d.setFullYear(d.getFullYear() + mult); break
     case 'custom': {
       const interval = routine.custom_days || 7
-      // custom_unit is 'days' (default) or 'months'. Missing/null counts
-      // as 'days' so pre-migration routines keep their original behavior.
-      if (routine.custom_unit === 'months') {
-        next.setMonth(next.getMonth() + interval)
-      } else {
-        next.setDate(next.getDate() + interval)
-      }
+      if (routine.custom_unit === 'months') d.setMonth(d.getMonth() + interval * mult)
+      else d.setDate(d.getDate() + interval * mult)
       break
     }
+    default: d.setDate(d.getDate() + 7 * mult)
+  }
+  return d
+}
+
+// Fixed-schedule next-due. A routine's due dates form a FIXED GRID anchored at
+// its creation date (NOT its last completion), so completing early or late
+// never shifts the series — "every Monday" stays Monday, "the 5th" stays the
+// 5th, no matter when you actually check it off. completed_history only tells
+// us which grid slot has already been satisfied; it never re-bases the grid.
+// schedule_day_of_week pins weekly routines to a weekday and snaps month-scale
+// cadences forward to that weekday (unchanged from before).
+export function getNextDueDate(routine) {
+  const now = new Date()
+
+  // Daily fires every calendar day — just gate on whether today's instance is
+  // already done. No grid math needed (and avoids a huge day-by-day walk).
+  if (routine.cadence === 'daily') {
+    const today = startOfDay(now)
+    const last = routine.completed_history.length > 0
+      ? startOfDay(routine.completed_history[routine.completed_history.length - 1])
+      : null
+    if (last && last.getTime() >= today.getTime()) {
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      return tomorrow
+    }
+    return today
   }
 
-  // If a weekday anchor is set, snap forward to the next matching weekday
-  // (may drift up to 6 days from the cadence interval for non-weekly). 'daily'
-  // is ignored since it fires every day anyway.
   const dow = routine.schedule_day_of_week
-  if (dow != null && routine.cadence !== 'daily') {
-    return snapToWeekday(next, dow)
+  let anchor = startOfDay(routine.created_at)
+  // Weekly: fold the weekday into the grid origin so every slot lands on it.
+  if (dow != null && routine.cadence === 'weekly') anchor = snapToWeekday(anchor, dow)
+  // Month-scale cadences: snap each grid point forward to the weekday (may
+  // drift a few days, matching the prior "air filter on a weekend" behavior).
+  const snapNonWeekly = (d) =>
+    (dow != null && routine.cadence !== 'weekly') ? snapToWeekday(d, dow) : d
+  const gridPoint = (k) => snapNonWeekly(addCadenceInterval(anchor, routine, k))
+
+  const lastDone = routine.completed_history.length > 0
+    ? new Date(routine.completed_history[routine.completed_history.length - 1])
+    : null
+
+  // Never completed: first due is the anchor grid slot.
+  if (!lastDone) return gridPoint(0)
+
+  // A completion before the very first grid slot (e.g. an early ad-hoc spawn)
+  // leaves the anchor slot still pending.
+  if (gridPoint(0).getTime() > lastDone.getTime()) return gridPoint(0)
+
+  // Walk the grid to the slot the last completion satisfied (largest slot
+  // <= lastDone), then return the NEXT slot. Bounded: realistic anchors are
+  // recent, and the guard caps pathological histories.
+  let k = 0
+  let guard = 0
+  while (gridPoint(k + 1).getTime() <= lastDone.getTime() && guard < 12000) {
+    k++
+    guard++
   }
-  return next
+  return gridPoint(k + 1)
 }
 
 export function isRoutineDue(routine) {

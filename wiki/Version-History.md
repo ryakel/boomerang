@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-30
 
+- fix(routines): fixed-schedule cadence — completing off-cycle no longer drifts the series [M]
+  - **Problem.** `getNextDueDate` anchored the next due date off the *last completion timestamp*. Completing a weekly routine 3 days late pushed the next one 3 days late too, and the whole series drifted. Off-cycle completion "fucked everything up."
+  - **Fix.** Due dates now form a FIXED GRID anchored at the routine's `created_at`. The next due is the first grid slot after the slot containing the most recent completion — the grid never re-bases on when you actually check it off. "Every Monday" stays Monday, "the 5th" stays the 5th, regardless of early/late completion. A missed cycle surfaces as a single overdue task (no pileup); completing it snaps you back to the current slot.
+  - **Daily** is special-cased (every calendar day; tomorrow if already done today). **Weekly** folds `schedule_day_of_week` into the grid origin; **month-scale** cadences snap each grid point forward to the weekday (unchanged).
+  - **Behavior change.** Previously a late completion delayed the next occurrence; it no longer does. Anchor is the creation date (no per-routine anchor UI yet — weekly day via the "On" dropdown, monthly day-of-month via the creation day).
+  - Modified: `src/store.js` (`getNextDueDate` rewrite + `startOfDay` / `addCadenceInterval` helpers)
+
 - feat(routines): add trigger times — surface-at clock time + absolute follow-up step times [L]
   - **Routine trigger time.** New optional `trigger_time` ('HH:MM' 24h) on routines. When set, tasks spawned by the routine are snoozed until that clock time on their due day — they don't surface in the list *and* don't nag before it (every notification engine + the list filter already honor `snoozed_until`). A past trigger time surfaces the task immediately. Use case: "start dishwasher" only after 8pm. Empty = any time (unchanged behavior).
   - **Absolute clock times on follow-up steps.** Each follow-up step can now be timed by an absolute clock time (`at_time` 'HH:MM', optional `at_next_day` for "the next morning") instead of the relative `offset_minutes`. A step uses exactly one mode. Completes the dishwasher example: start @ 8pm → pour milk @ 9pm → empty dishwasher @ 6am next morning.
