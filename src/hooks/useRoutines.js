@@ -22,11 +22,13 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days', triggerTime = null) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days', triggerTime = null, scheduleDayOfMonth = null, scheduleWeekOfMonth = null) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes, customUnit)
     if (highPriority) routine.high_priority = true
     if (endDate) routine.end_date = endDate
     if (scheduleDayOfWeek != null) routine.schedule_day_of_week = scheduleDayOfWeek
+    if (scheduleDayOfMonth != null) routine.schedule_day_of_month = scheduleDayOfMonth
+    if (scheduleWeekOfMonth != null) routine.schedule_week_of_month = scheduleWeekOfMonth
     if (triggerTime) routine.trigger_time = triggerTime
     if (Array.isArray(followUps) && followUps.length > 0) routine.follow_ups = followUps
     if (autoRoll) routine.auto_roll = true

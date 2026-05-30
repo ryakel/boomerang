@@ -64,6 +64,8 @@ function summarizeRoutine(r) {
     custom_days: r.custom_days ?? null,
     custom_unit: r.custom_unit || 'days',
     schedule_day_of_week: r.schedule_day_of_week ?? null,
+    schedule_day_of_month: r.schedule_day_of_month ?? null,
+    schedule_week_of_month: r.schedule_week_of_month ?? null,
     trigger_time: r.trigger_time || null,
     tags: r.tags || [],
     paused: !!r.paused,
@@ -735,7 +737,7 @@ export function registerTaskTools() {
   // --- ROUTINES (MUTATION) ---
   registerTool({
     name: 'create_routine',
-    description: 'Create a recurring routine. Cadence: daily|weekly|monthly|quarterly|annually|custom. For custom, set custom_days as the interval and custom_unit as "days" (default) or "months" — e.g. {cadence:"custom", custom_days:2, custom_unit:"months"} for every-2-months. schedule_day_of_week 0=Sun..6=Sat (ignored for daily). trigger_time is an optional "HH:MM" 24h surface-at time — spawned tasks stay hidden (and silent) until that clock time on their due day, e.g. trigger_time:"20:00" for an after-8pm chore.',
+    description: 'Create a recurring routine. Cadence: daily|weekly|monthly|quarterly|annually|custom. For custom, set custom_days as the interval and custom_unit as "days" (default) or "months" — e.g. {cadence:"custom", custom_days:2, custom_unit:"months"} for every-2-months. Due dates follow a FIXED schedule (anchored, not pushed by late completions). schedule_day_of_week 0=Sun..6=Sat — for weekly = "every <weekday>" (ignored for daily). Month-scale cadences (monthly/quarterly/annually/custom-months) anchor the day via EITHER schedule_day_of_month (1..31, "the 18th") OR schedule_week_of_month (1,2,3,4 or -1 for last) + schedule_day_of_week ("1st Monday", "last Friday"); omit both to use the creation day-of-month. trigger_time is an optional "HH:MM" 24h surface-at time — spawned tasks stay hidden (and silent) until that clock time on their due day, e.g. trigger_time:"20:00" for an after-8pm chore.',
     schema: {
       type: 'object',
       properties: {
@@ -747,7 +749,9 @@ export function registerTaskTools() {
         tags: { type: 'array', items: { type: 'string' } },
         high_priority: { type: 'boolean' },
         end_date: { type: 'string' },
-        schedule_day_of_week: { type: 'integer', minimum: 0, maximum: 6 },
+        schedule_day_of_week: { type: 'integer', minimum: 0, maximum: 6, description: 'Weekday 0=Sun..6=Sat. Weekly: "every <weekday>". Month-scale: the weekday for an ordinal anchor (with schedule_week_of_month).' },
+        schedule_day_of_month: { type: 'integer', minimum: 1, maximum: 31, description: 'Month-scale only: fixed calendar day, e.g. 18 for "the 18th". Clamped to month length.' },
+        schedule_week_of_month: { type: 'integer', enum: [1, 2, 3, 4, -1], description: 'Month-scale only: with schedule_day_of_week → ordinal weekday. 1..4 or -1 (last). E.g. {schedule_week_of_month:1, schedule_day_of_week:1} = "1st Monday".' },
         trigger_time: { type: 'string', description: '"HH:MM" 24h surface-at time. Spawned tasks are hidden/silent until this time on their due day. Omit for any time.' },
       },
       required: ['title', 'cadence'],
@@ -770,6 +774,8 @@ export function registerTaskTools() {
         high_priority: !!args.high_priority,
         end_date: args.end_date || null,
         schedule_day_of_week: args.schedule_day_of_week ?? null,
+        schedule_day_of_month: args.schedule_day_of_month ?? null,
+        schedule_week_of_month: args.schedule_week_of_month ?? null,
         trigger_time: args.trigger_time || null,
         paused: false,
         completed_history: [],
@@ -799,7 +805,9 @@ export function registerTaskTools() {
         tags: { type: 'array', items: { type: 'string' } },
         paused: { type: 'boolean' },
         end_date: { type: ['string', 'null'] },
-        schedule_day_of_week: { type: ['integer', 'null'], minimum: 0, maximum: 6 },
+        schedule_day_of_week: { type: ['integer', 'null'], minimum: 0, maximum: 6, description: 'Weekday 0=Sun..6=Sat. Weekly: "every <weekday>". Month-scale: weekday for an ordinal anchor (with schedule_week_of_month). Null to clear.' },
+        schedule_day_of_month: { type: ['integer', 'null'], minimum: 1, maximum: 31, description: 'Month-scale: fixed calendar day ("the 18th"). Null to clear. Setting this clears any ordinal-weekday anchor.' },
+        schedule_week_of_month: { type: ['integer', 'null'], enum: [1, 2, 3, 4, -1, null], description: 'Month-scale: ordinal week (1..4 or -1 last) paired with schedule_day_of_week. Null to clear.' },
         trigger_time: { type: ['string', 'null'], description: '"HH:MM" 24h surface-at time, or null to clear. Spawned tasks stay hidden/silent until this time on their due day.' },
       },
       required: ['id'],
