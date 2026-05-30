@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-30
 
+- ci(deploy): retry transient Tailscale connect so a blip doesn't red-fail the build [S]
+  - The prod/dev publish jobs failed the entire run when the `tailscale/github-action` connect blipped — even though the image had already built and pushed to GHCR. Added a second Tailscale attempt (runs only if the first fails); the Portainer deploy + verify steps now succeed if **either** attempt connected. Hardened the Portainer webhook `curl` with `--retry 3 --retry-delay 2 --retry-all-errors`.
+  - Files: `.github/workflows/build-and-publish.yml`, `.github/workflows/build-and-publish-dev.yml`.
+  - NOTE: the Node 20 action-deprecation warnings (checkout/setup-node/docker/* on Node 20, forced to Node 24 after 2026-06-16) are separate and not addressed here — tracked for a version-bump pass once the action majors are verified Node-24-ready.
+
 - fix(routines): interval cadences recur from last completion, not a creation-date grid [M]
   - **Breaking bug.** "Every 180 days" (and other anchor-less cadences) used a fixed grid pinned to the routine's `created_at`. A routine done 91 days ago read as **due now** instead of due in ~89 days, because the last-done predated the creation anchor and the code fell back to the (past) creation date.
   - **Fix.** `getNextDueDate` now splits on `hasAnchor`: cadences with an explicit calendar anchor (weekly + weekday, month-scale day-of-month / ordinal weekday / legacy weekday) keep the fixed grid; anchor-less interval cadences (every N days, every N months, weekly/monthly with no specific day) recur as `lastDone + interval` (or `created_at + interval` if never done). Matches the user's model: explicit anchor wins, otherwise it's relative to when you last did it.
