@@ -183,6 +183,8 @@ CREATE TABLE packages (
 
 Migrations are in `migrations/NNN_*.sql` (currently through 033) and run automatically on startup, tracked in the `_migrations` table.
 
+`getNextDueDate` (`src/store.js`) computes the next occurrence from a **fixed grid anchored at `created_at`**, not the last completion — so completing a routine early or late never shifts the series (drift fix, 2026-05-30). `completed_history` only marks which grid slot has been satisfied. Daily is special-cased; weekly folds `schedule_day_of_week` into the grid origin; month-scale cadences snap each grid point forward to that weekday.
+
 The `routines` table carries scheduling columns including `cadence`, `custom_days` / `custom_unit` (migration 031), `schedule_day_of_week` (017), `spawn_mode` + habit fields (026), `auto_roll` (025), `follow_ups_json` (023), and `trigger_time` (033). `trigger_time` ('HH:MM' 24h, nullable) is the surface-at clock time: on spawn (`useRoutines.js`) the new task's `snoozed_until` is set to that time on its due day so it stays hidden and silent until then. Per-follow-up-step clock times (`at_time` / `at_next_day`) live inside `follow_ups_json` (no schema change) and are applied in `db.js` `spawnNextChainStep`.
 
 ### Task Data Model — Attachments
