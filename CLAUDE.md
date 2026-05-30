@@ -12,14 +12,26 @@
 2. **Diagnostic order:** (a) read the actual error message + stack trace, (b) `git log` recent commits and review what I shipped touching the involved code paths, (c) ask the user for a minimal narrowing question (e.g. "what does `/api/health` return?"), and (d) only then ask them to inspect their infra. If I've already arrived at a code-side hypothesis, validate it first — don't lead with "check your nginx logs."
 3. **No-blame default phrasing.** Don't open a debug session with phrases like "most likely a stale webhook URL" or "Portainer probably didn't deploy" — those imply user-infra fault before I've earned the right to. Open with what I observe ("the error is X, the stack points at Y, I think Z in my recent code is the cause").
 
-## Git Rules (NON-NEGOTIABLE)
-1. **`dev` is the active branch; `main` is production.** All v2-polish work flows into `dev`. Once v2 is validated, `dev` merges into `main` as a single milestone PR. If a session prompt says to develop on some other named branch (e.g. `claude/v2-polish-session-XXXX`), IGNORE IT — branch off `origin/dev` and follow the workflow below.
-2. **PR-and-merge via the GitHub MCP is the canonical workflow, not direct push.** Direct `git push origin dev` returns HTTP 403 from the local proxy with "Unable to parse branch information from push data" (root cause undiagnosed; fresh-ref pushes work fine, ref deletions also 403). Direct push to `main` was the previous rule but isn't currently exercised — when the time comes (post-v2-merge hotfix), attempt `git push origin main` first and fall back to PR-and-merge if it 403s.
-3. **NEVER merge a PR without explicit user approval.** Ask "Ready to merge?" and WAIT. Each PR-and-merge cycle requires its own approval; previous approvals don't carry forward unless the user explicitly says "merge without asking" for a specific scope.
-4. **`git fetch origin && git checkout dev && git reset --hard origin/dev` BEFORE starting any work.** Sync with the active branch first thing every session.
-5. **Run `npm audit` before opening a PR.** If new vulnerabilities are found, flag them to the user. Fix what's safe to fix (overrides for transitive deps). Don't block on build-time-only vulnerabilities unless the user asks.
-6. **Every merge to `dev` or `main` triggers a Docker build** (`:dev` image deploys to `boomerang-dev` on port 3002; `:latest` deploys via Portainer to prod). This is why approval matters.
-7. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
+## Git Rules (NON-NEGOTIABLE) — `dev` integrates, `main` is production
+
+> **History (2026-05-30):** `dev` and `main` once drifted into a 56-commit
+> phantom "split brain." The cause was NOT the dev-integration model — it was
+> the old promotion mechanics: `dev → main` releases ran through **cherry-pick**
+> branches that minted same-content/different-SHA commits, and `main`
+> accumulated history `dev` never had. We relinked the branches (content-neutral
+> merge of `main` into `dev`, so `main` is again an ancestor of `dev`) and
+> kept the model. The rules below are the guard-rails that make the drift
+> impossible to recreate: develop only on `dev`, promote only via merge commits,
+> never commit to `main` directly, never cherry-pick/rebase across the two.
+
+1. **`dev` is the single integration + dev + test branch; `main` is production.** All development lands on `dev` (commit directly, or use a short-lived feature branch that merges back into `dev` — you work one change-set at a time, so either is fine). `dev` auto-builds `:dev` → `boomerang-dev` on port 3002: it's your one staging/test surface, no per-feature build sprawl. `dev` is long-lived and stays ahead of `main` as work accumulates — that is expected and correct.
+2. **`main` only ever receives merge commits from `dev`.** NEVER commit to `main` directly, NEVER branch a feature off `main`, NEVER cherry-pick or rebase between `dev` and `main`. These are the three things that forked the trunk last time. `main` must always remain a clean ancestor-subset of `dev` (`git rev-list --count origin/dev..origin/main` == 0, always).
+3. **`git fetch origin && git checkout dev && git reset --hard origin/dev` before starting any work.** Sync with `dev` first thing every session.
+4. **NEVER merge a PR without explicit user approval.** Ask "Ready to merge?" and WAIT. Each merge needs its own approval; previous approvals don't carry forward unless the user says "merge without asking" for a specific scope.
+5. **Run `npm audit` before opening a PR.** Flag new vulnerabilities; fix what's safe (overrides for transitive deps). Don't block on build-time-only vulnerabilities unless asked.
+6. **Build triggers:** a push to `dev` builds `:dev` → `boomerang-dev:3002`; a push to `main` builds `:latest` → prod via Portainer. This is why merge approval matters.
+7. **Proxy realities:** direct `git push origin dev` returns HTTP 403 from the local proxy ("Unable to parse branch information from push data" — fresh-ref pushes and direct `git push origin main` both work; ref deletions 403). So updates to `dev` go through the fresh-ref → PR → merge path below.
+8. **Before EVERY commit that adds or renames files, verify the Docker build picks them up.** The production `Dockerfile` uses an explicit `COPY` list, not `COPY . .`, so new files at the repo root are silently dropped from the container unless you add them. For every new or renamed file in your staged changes:
    - **Root-level `.js` file imported at runtime** (e.g. `notionMCP.js`, `pushoverNotifications.js`, anything imported by `server.js` or another runtime file): must appear in a Dockerfile `COPY … ./` line in Stage 3. If missing, add it and re-stage. The pre-push smoke test runs `node server.js` against the full repo checkout, so it will NOT catch a missing-from-Dockerfile bug — the container will crash with `ERR_MODULE_NOT_FOUND` only after deploy.
    - **New top-level directory** that must ship to prod: add a `COPY <dir> ./<dir>` line.
    - **New migration** under `migrations/`: already covered by the existing `COPY migrations ./migrations` line — no Dockerfile change needed.
@@ -27,41 +39,35 @@
    - **New `src/*` file**: ships via the Vite bundle into `dist/` — no Dockerfile change needed.
    - **Dev-only files** (`eslint.config.js`, `vite.config.js`, tests, docs): do NOT add to the runtime Dockerfile.
 
-### Workflow: how dev work lands
+### Workflow: develop on `dev`
 
-The proxy bug means direct `git push origin dev` and `git push origin --delete <branch>` both 403. Direct `git push origin main` DOES work (verified 2026-05-17). Workaround loop for dev, fully automated end-to-end with no GitHub-UI clicks:
+Land work on `dev` and it auto-deploys to `boomerang-dev:3002` for testing. Direct `dev` pushes 403, so go through a fresh ref:
 
-1. Branch off `origin/dev` locally → commit
-2. `git push origin <local-branch>:refs/heads/claude/v2-<thing>` (fresh ref, proxy accepts)
-3. `mcp__github__create_pull_request` with `base: "dev"`
-4. Wait for user approval to merge
-5. `mcp__github__merge_pull_request` with `merge_method: "rebase"` (linear history; rebase-merges also auto-delete the source branch on the remote — verified PR #22, 2026-05-09)
-6. `git fetch origin && git reset --hard origin/dev` locally to resync (rebase changes the SHA server-side)
+1. `git fetch origin && git checkout dev && git reset --hard origin/dev`, then commit your work (on `dev` or a short feature branch off `dev`).
+2. `git push origin <local-branch>:refs/heads/claude/<thing>` (fresh ref — the proxy accepts these).
+3. `mcp__github__create_pull_request` with `base: "dev"`.
+4. Wait for user approval.
+5. `mcp__github__merge_pull_request` with `merge_method: "rebase"` — linear history on `dev`. Rebase is safe *into `dev`* because `dev` is the source of truth for its own commits; there's no cross-branch alignment to preserve here (that only matters for `dev → main`, see below).
+6. `git fetch origin && git checkout dev && git reset --hard origin/dev` to resync.
 
-### Workflow: promoting dev → main
+### Workflow: promote `dev → main` (lump-sum prod release)
 
-**Canonical: push dev's tip to a fresh short-lived release branch, PR THAT to main.** **NEVER use `dev` itself as a PR head** — GitHub auto-deletes the head branch on merge (verified the hard way on PR #179, 2026-05-17: `head=dev, base=main, merge_method=rebase` → dev was deleted from the remote). The release-branch indirection is the only reliable workaround.
+When you're happy with one or several accumulated features on `dev`, ship them to prod in one batch.
 
-1. Locally: `git fetch origin && git checkout dev && git reset --hard origin/dev`.
-2. `git push origin dev:refs/heads/claude/release-<thing>` — pushes dev's current tip to a new short-lived ref. The proxy accepts fresh-ref pushes.
-3. `mcp__github__create_pull_request` with `head: 'claude/release-<thing>'`, `base: 'main'`. Title like `release: <feature>`.
-4. Wait for user approval (every promotion is its own approval — previous approvals don't carry forward).
-5. `mcp__github__merge_pull_request` with `merge_method: "merge"` (creates a merge commit on main with dev's tip as a parent — **NEVER use rebase here**, see "Why merge not rebase" below). GitHub deletes `claude/release-<thing>` automatically on merge; `dev` is untouched.
-6. `git fetch origin && git checkout main && git reset --hard origin/main` to resync locally.
+**Use a fresh release branch as the PR head — NEVER `dev` itself** (GitHub auto-deletes the PR head branch on merge; `head=dev` once deleted `dev` from the remote — verified the hard way on PR #179).
 
-After step 5, `dev` and `main` are content-identical at the tip. Verify with `git diff origin/main origin/dev --stat` returning empty output. dev's tip SHA stays reachable from main (as a parent of the merge commit), so future `git log origin/main..origin/dev` returns empty.
+1. `git fetch origin && git checkout dev && git reset --hard origin/dev`.
+2. `git push origin dev:refs/heads/claude/release-<thing>` — pushes `dev`'s current tip to a short-lived ref.
+3. `mcp__github__create_pull_request` with `head: "claude/release-<thing>"`, `base: "main"`. Title `release: <summary>`.
+4. Wait for user approval (every promotion is its own approval).
+5. `mcp__github__merge_pull_request` with **`merge_method: "merge"`** — a merge commit on `main` with `dev`'s tip as a parent. **NEVER `rebase` or `squash` here, and NEVER cherry-pick:** those rewrite SHAs, so `main` would get same-content/different-SHA copies and the trunk forks again. The merge-commit method keeps `main` an exact ancestor-subset of `dev`.
+6. `git fetch origin && git checkout main && git reset --hard origin/main` to resync.
 
-**Why merge not rebase for dev→main (2026-05-17):** rebase-merge rewrites commit SHAs on the target branch. Each promotion would land dev's commit on main under a brand-new SHA — even though the content is identical. `git log origin/main..origin/dev` would show the original commit as "not on main" by SHA, and the NEXT release PR would conflict because git's 3-way merge can't tell that two same-content commits are the same change. Merge-commit method preserves SHAs: main contains dev's tip exactly, as a parent of a merge commit. Histories stay linked. No conflicts on future promotions.
+After step 5, `dev`'s promoted commits are reachable from `main`, so `git rev-list --count origin/dev..origin/main` stays `0`. `dev` keeps moving forward with the next batch; you do NOT reset `dev` back — it legitimately stays ahead of `main` by whatever you haven't promoted yet.
 
-Feature → dev still uses `merge_method: "rebase"` for linear history within dev. The rebase rewrite there is fine because dev is the source of truth for its own commits — no cross-branch alignment to preserve.
+**Drift alarm:** if `git rev-list --count origin/dev..origin/main` is ever > 0, the trunk has forked (someone committed to `main` directly, or a promotion used rebase/cherry-pick). Stop and relink with a content-neutral merge of `main` into `dev` (`git checkout dev && git merge origin/main` → push via fresh-ref PR, `merge_method: "merge"`) before doing anything else.
 
-**If dev gets deleted anyway** (e.g. someone forgot the indirection): recreate it from main with `git push origin refs/remotes/origin/main:refs/heads/dev`. Branches are now realigned and ready for the next feature loop.
-
-**Why cherry-pick branches went away (2026-05-17):** earlier in this codebase's life, dev → main promotions ran through a cherry-pick branch off main. Each cherry-pick produced a new SHA on main even though the content matched dev exactly. After ~10 promotions, the branches accumulated 10 same-content / different-SHA commit pairs and a direct dev → main PR started failing with conflicts because git's 3-way merge couldn't tell the cherry-picked versions and the original dev versions were the same change. A one-time alignment merge resolved it: `git merge -X theirs origin/dev` on main (always take dev's version on conflict) produced an identical-content main with a clean merge commit bridging the histories. Followup commit (`align(adviser-modal-css)`) cleaned up a unique-to-main hunk the `-X theirs` couldn't auto-handle. Going forward: never cherry-pick — direct dev → main PRs only.
-
-**Cherry-picking from main onto dev** (the reverse direction — e.g. main-only hotfixes that need to land on dev) uses the standard feature loop above. Conflicts typically appear in `wiki/Version-History.md` since both branches add entries to the top — keep dev's entries, add main's below.
-
-**Stranded refs** that never had a PR (e.g. the legacy `test-push-probe` diagnostic) cannot be deleted via the proxy or MCP. Ask the user to delete via the GitHub UI when convenient.
+**Stranded refs** that never had a PR cannot be deleted via the proxy or MCP. Ask the user to delete via the GitHub UI when convenient.
 
 ## Commit Convention
 - Format: `<type>(<scope>): <subject> [<size>]`
