@@ -315,8 +315,14 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
     cadence, // daily, weekly, monthly, quarterly, annually, custom
     custom_days: customDays, // for 'custom': integer interval (in whatever unit)
     custom_unit: customUnit, // for 'custom': 'days' (default) or 'months'
-    schedule_day_of_week: null, // optional weekday anchor (0=Sun … 6=Sat). When
-                                // set, next-due snaps forward to this weekday.
+    schedule_day_of_week: null, // weekday anchor (0=Sun … 6=Sat). For weekly =
+                                // "every <weekday>". For month-scale cadences,
+                                // combined with schedule_week_of_month for an
+                                // ordinal weekday ("1st Mon", "last Fri").
+    schedule_day_of_month: null,  // month-scale: fixed calendar day 1..31
+                                  // ("the 18th"). Clamped to month length.
+    schedule_week_of_month: null, // month-scale: 1,2,3,4 or -1 (last). With
+                                  // schedule_day_of_week → ordinal weekday.
     trigger_time: null,  // optional 'HH:MM' 24h local time. When set, spawned
                          // tasks are snoozed until this clock time on their due
                          // day (don't surface or nag before it). Null = any time.
@@ -362,33 +368,58 @@ function startOfDay(d) {
   return x
 }
 
-// Advance `date` by `mult` whole cadence intervals (mult may be 0).
-function addCadenceInterval(date, routine, mult) {
-  const d = new Date(date)
-  switch (routine.cadence) {
-    case 'daily': d.setDate(d.getDate() + mult); break
-    case 'weekly': d.setDate(d.getDate() + 7 * mult); break
-    case 'monthly': d.setMonth(d.getMonth() + mult); break
-    case 'quarterly': d.setMonth(d.getMonth() + 3 * mult); break
-    case 'annually': d.setFullYear(d.getFullYear() + mult); break
-    case 'custom': {
-      const interval = routine.custom_days || 7
-      if (routine.custom_unit === 'months') d.setMonth(d.getMonth() + interval * mult)
-      else d.setDate(d.getDate() + interval * mult)
-      break
-    }
-    default: d.setDate(d.getDate() + 7 * mult)
+function daysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+// The Nth (n = 1..4) or last (n = -1) occurrence of `weekday` (0=Sun..6=Sat)
+// in the given year/month. Returns a startOfDay Date.
+function nthWeekdayOfMonth(year, month, weekday, n) {
+  if (n === -1) {
+    const last = daysInMonth(year, month)
+    const back = (new Date(year, month, last).getDay() - weekday + 7) % 7
+    return new Date(year, month, last - back)
   }
-  return d
+  const firstDow = new Date(year, month, 1).getDay()
+  const offset = (weekday - firstDow + 7) % 7
+  let day = 1 + offset + (n - 1) * 7
+  if (day > daysInMonth(year, month)) day -= 7 // no Nth occurrence → use prior week
+  return new Date(year, month, day)
+}
+
+// Resolve the scheduled calendar date within a target month for a month-scale
+// routine, per its anchor rule (see migration 034). `createdDom` is the
+// routine's creation day-of-month, used as the fallback anchor.
+function resolveMonthDay(year, month, routine, createdDom) {
+  const dom = routine.schedule_day_of_month
+  const wom = routine.schedule_week_of_month
+  const dow = routine.schedule_day_of_week
+  if (dom != null) {
+    return new Date(year, month, Math.min(Math.max(dom, 1), daysInMonth(year, month)))
+  }
+  if (wom != null && dow != null) {
+    return nthWeekdayOfMonth(year, month, dow, wom)
+  }
+  if (dow != null) {
+    // Legacy: anchor on the creation day-of-month, snapped forward to weekday.
+    const base = new Date(year, month, Math.min(createdDom, daysInMonth(year, month)))
+    return snapToWeekday(base, dow)
+  }
+  return new Date(year, month, Math.min(createdDom, daysInMonth(year, month)))
 }
 
 // Fixed-schedule next-due. A routine's due dates form a FIXED GRID anchored at
 // its creation date (NOT its last completion), so completing early or late
-// never shifts the series — "every Monday" stays Monday, "the 5th" stays the
-// 5th, no matter when you actually check it off. completed_history only tells
+// never shifts the series — "every Monday" stays Monday, "the 18th" stays the
+// 18th, no matter when you actually check it off. completed_history only tells
 // us which grid slot has already been satisfied; it never re-bases the grid.
-// schedule_day_of_week pins weekly routines to a weekday and snaps month-scale
-// cadences forward to that weekday (unchanged from before).
+//
+// Day-scale cadences (weekly, custom-days) walk a day grid from the creation
+// anchor. Month-scale cadences (monthly/quarterly/annually/custom-months) walk
+// a MONTH grid and resolve each slot's day-of-month from the anchor rule —
+// "the 18th", "1st Monday", "last Friday" (schedule_day_of_month /
+// schedule_week_of_month + schedule_day_of_week), falling back to the creation
+// day-of-month when no rule is set.
 export function getNextDueDate(routine) {
   const now = new Date()
 
@@ -407,37 +438,86 @@ export function getNextDueDate(routine) {
     return today
   }
 
+  const createdStart = startOfDay(routine.created_at)
   const dow = routine.schedule_day_of_week
-  let anchor = startOfDay(routine.created_at)
-  // Weekly: fold the weekday into the grid origin so every slot lands on it.
-  if (dow != null && routine.cadence === 'weekly') anchor = snapToWeekday(anchor, dow)
-  // Month-scale cadences: snap each grid point forward to the weekday (may
-  // drift a few days, matching the prior "air filter on a weekend" behavior).
-  const snapNonWeekly = (d) =>
-    (dow != null && routine.cadence !== 'weekly') ? snapToWeekday(d, dow) : d
-  const gridPoint = (k) => snapNonWeekly(addCadenceInterval(anchor, routine, k))
+  const monthScale = routine.cadence === 'monthly' || routine.cadence === 'quarterly'
+    || routine.cadence === 'annually'
+    || (routine.cadence === 'custom' && routine.custom_unit === 'months')
+
+  let gridPoint
+  if (monthScale) {
+    const intervalMonths = routine.cadence === 'monthly' ? 1
+      : routine.cadence === 'quarterly' ? 3
+      : routine.cadence === 'annually' ? 12
+      : (routine.custom_days || 1)
+    const baseY = createdStart.getFullYear()
+    const baseM = createdStart.getMonth()
+    const createdDom = createdStart.getDate()
+    gridPoint = (k) => {
+      const total = baseM + k * intervalMonths
+      const y = baseY + Math.floor(total / 12)
+      const m = ((total % 12) + 12) % 12
+      return resolveMonthDay(y, m, routine, createdDom)
+    }
+  } else {
+    // Day-scale: weekly (fold weekday into the origin) or custom-days.
+    let anchor = createdStart
+    if (routine.cadence === 'weekly' && dow != null) anchor = snapToWeekday(anchor, dow)
+    const stepDays = routine.cadence === 'weekly' ? 7 : (routine.custom_days || 7)
+    // Legacy custom-days weekday snap (exotic combo; weekly is folded above).
+    const snap = (d) => (dow != null && routine.cadence !== 'weekly') ? snapToWeekday(d, dow) : d
+    gridPoint = (k) => {
+      const d = new Date(anchor)
+      d.setDate(d.getDate() + k * stepDays)
+      return snap(d)
+    }
+  }
+
+  // Series start: first grid slot on or after the creation date (a day-of-month
+  // rule can place gridPoint(0) before creation, e.g. created the 20th with the
+  // rule "the 18th" → the series starts next month's 18th).
+  let k0 = 0
+  let g0 = 0
+  while (gridPoint(k0).getTime() < createdStart.getTime() && g0 < 12000) { k0++; g0++ }
 
   const lastDone = routine.completed_history.length > 0
     ? new Date(routine.completed_history[routine.completed_history.length - 1])
     : null
 
-  // Never completed: first due is the anchor grid slot.
-  if (!lastDone) return gridPoint(0)
+  // Never completed, or completed before the series even started → series start.
+  if (!lastDone || lastDone.getTime() < gridPoint(k0).getTime()) return gridPoint(k0)
 
-  // A completion before the very first grid slot (e.g. an early ad-hoc spawn)
-  // leaves the anchor slot still pending.
-  if (gridPoint(0).getTime() > lastDone.getTime()) return gridPoint(0)
-
-  // Walk the grid to the slot the last completion satisfied (largest slot
-  // <= lastDone), then return the NEXT slot. Bounded: realistic anchors are
-  // recent, and the guard caps pathological histories.
-  let k = 0
+  // Walk to the slot the last completion satisfied (largest slot <= lastDone),
+  // then return the NEXT slot. Guard caps pathological histories.
+  let k = k0
   let guard = 0
-  while (gridPoint(k + 1).getTime() <= lastDone.getTime() && guard < 12000) {
-    k++
-    guard++
-  }
+  while (gridPoint(k + 1).getTime() <= lastDone.getTime() && guard < 12000) { k++; guard++ }
   return gridPoint(k + 1)
+}
+
+// Short human label for a routine's schedule anchor, e.g. "Fri", "18th",
+// "1st Mon", "last Fri". Empty string when there's no explicit anchor (or
+// daily). Used in routine card meta in both UIs.
+const SCHED_ORDINALS = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th', '-1': 'last' }
+const SCHED_DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+function ordinalDayOfMonth(n) {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
+export function formatScheduleAnchor(routine) {
+  if (!routine || routine.cadence === 'daily') return ''
+  const monthScale = routine.cadence === 'monthly' || routine.cadence === 'quarterly'
+    || routine.cadence === 'annually'
+    || (routine.cadence === 'custom' && routine.custom_unit === 'months')
+  if (monthScale) {
+    if (routine.schedule_day_of_month != null) return ordinalDayOfMonth(routine.schedule_day_of_month)
+    if (routine.schedule_week_of_month != null && routine.schedule_day_of_week != null) {
+      return `${SCHED_ORDINALS[routine.schedule_week_of_month]} ${SCHED_DAY_SHORT[routine.schedule_day_of_week]}`
+    }
+  }
+  if (routine.schedule_day_of_week != null) return SCHED_DAY_SHORT[routine.schedule_day_of_week]
+  return ''
 }
 
 export function isRoutineDue(routine) {

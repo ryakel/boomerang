@@ -1,0 +1,26 @@
+-- Add month-scale schedule anchor columns to routines.
+--
+-- Background: monthly / quarterly / annually (and custom-months) routines had
+-- no way to say WHICH day of the month they land on — getNextDueDate fell back
+-- to the routine's creation day-of-month. Users want explicit, intelligent
+-- anchoring: "the 18th", "first Monday", "every 2nd Tuesday", "last Friday".
+--
+-- Two new columns express the rule for month-scale cadences:
+--   schedule_day_of_month  INTEGER 1..31 — a fixed calendar day ("the 18th").
+--                          Clamped to the month length (31 → Feb 28/29).
+--   schedule_week_of_month INTEGER 1,2,3,4 or -1 (last) — combined with the
+--                          existing schedule_day_of_week (0=Sun..6=Sat) to mean
+--                          an ordinal weekday: "1st Monday", "last Friday".
+--
+-- Resolution precedence (see resolveMonthDay in src/store.js):
+--   1. schedule_day_of_month set                       → that calendar day
+--   2. schedule_week_of_month + schedule_day_of_week    → Nth/last weekday
+--   3. schedule_day_of_week only (legacy)               → creation day snapped
+--                                                          forward to weekday
+--   4. none                                             → creation day-of-month
+--
+-- Weekly routines keep using schedule_day_of_week alone ("every Friday"); these
+-- two columns are ignored for weekly/daily/custom-days. NULL everywhere keeps
+-- the prior behavior, so existing routines are unaffected.
+ALTER TABLE routines ADD COLUMN schedule_day_of_month INTEGER;
+ALTER TABLE routines ADD COLUMN schedule_week_of_month INTEGER;
