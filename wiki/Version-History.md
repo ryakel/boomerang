@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-30
 
+- ci(deploy): opt into Node 24 for all actions via FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 [XS]
+  - Sets `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` in both workflow `env` blocks so every JS action runs on the runner's Node 24, ahead of GitHub's 2026-06-16 forced cutover — clears the Node 20 deprecation warnings without guessing each action's new major version (a wrong tag would hard-fail the workflow). Reversible by removing the line. Validates on the next dev build before it ever exercises a prod publish.
+
 - ci(deploy): retry transient Tailscale connect so a blip doesn't red-fail the build [S]
   - The prod/dev publish jobs failed the entire run when the `tailscale/github-action` connect blipped — even though the image had already built and pushed to GHCR. Added a second Tailscale attempt (runs only if the first fails); the Portainer deploy + verify steps now succeed if **either** attempt connected. Hardened the Portainer webhook `curl` with `--retry 3 --retry-delay 2 --retry-all-errors`.
   - Files: `.github/workflows/build-and-publish.yml`, `.github/workflows/build-and-publish-dev.yml`.

@@ -34,6 +34,10 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # Opt all JS actions onto the runner's Node 24 ahead of GitHub's 2026-06-16
+  # forced cutover (silences the Node 20 deprecation warnings). Reversible:
+  # remove this line, or set ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   docker:
