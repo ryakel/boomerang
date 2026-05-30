@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-30
+
+- feat(routines): add trigger times — surface-at clock time + absolute follow-up step times [L]
+  - **Routine trigger time.** New optional `trigger_time` ('HH:MM' 24h) on routines. When set, tasks spawned by the routine are snoozed until that clock time on their due day — they don't surface in the list *and* don't nag before it (every notification engine + the list filter already honor `snoozed_until`). A past trigger time surfaces the task immediately. Use case: "start dishwasher" only after 8pm. Empty = any time (unchanged behavior).
+  - **Absolute clock times on follow-up steps.** Each follow-up step can now be timed by an absolute clock time (`at_time` 'HH:MM', optional `at_next_day` for "the next morning") instead of the relative `offset_minutes`. A step uses exactly one mode. Completes the dishwasher example: start @ 8pm → pour milk @ 9pm → empty dishwasher @ 6am next morning.
+  - **Snooze mechanism.** Routine trigger snooze is computed client-side in `useRoutines.js` (browser TZ) on spawn (`spawnDueTasks` + `spawnNow`); follow-up `at_time` snooze is computed server-side in `db.js` `spawnNextChainStep` (server TZ — same characteristic the existing sub-day offset already had).
+  - **UI (v2).** RoutinesModal form gains an "At time" time input (with Clear) below Frequency/On; the follow-up step editor gains an "After prev | At time" mode toggle (time input + "next day" checkbox). Routine cards show the trigger time in the cadence meta (e.g. `daily · 8pm`). v1 Routines.jsx (no follow-up editor, deprecated) is untouched.
+  - **Quokka.** `create_routine` / `update_routine` accept `trigger_time`; `add_follow_up` / `edit_follow_up` accept `at_time` / `at_next_day` (mutually exclusive with `offset_minutes`); `summarizeRoutine` / chain summaries expose the new fields.
+  - Added: `migrations/033_add_routine_trigger_time.sql`
+  - Modified: `db.js`, `src/store.js`, `src/hooks/useRoutines.js`, `src/v2/components/RoutinesModal.jsx`, `src/v2/components/RoutinesModal.css`, `adviserToolsTasks.js`
+
 ## 2026-05-26
 
 - fix(sync): break infinite sync loop between multi-client auto-roll routine updates [M]

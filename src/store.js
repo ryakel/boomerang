@@ -317,6 +317,9 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
     custom_unit: customUnit, // for 'custom': 'days' (default) or 'months'
     schedule_day_of_week: null, // optional weekday anchor (0=Sun … 6=Sat). When
                                 // set, next-due snaps forward to this weekday.
+    trigger_time: null,  // optional 'HH:MM' 24h local time. When set, spawned
+                         // tasks are snoozed until this clock time on their due
+                         // day (don't surface or nag before it). Null = any time.
     tags,
     notes,
     high_priority: false,
