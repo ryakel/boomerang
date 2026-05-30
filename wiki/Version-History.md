@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-30
 
+- feat(routines): intelligent month-scale schedule anchor — "the 18th", "1st Monday", "last Friday" [L]
+  - Monthly / quarterly / annually / custom-months routines had no day-of-month picker — they anchored to the routine's *creation day*. Now you can anchor explicitly, three ways:
+    - **Day of month** — `schedule_day_of_month` 1–31 ("the 18th"). Clamped to month length (31 → Feb 28/29).
+    - **Ordinal weekday** — `schedule_week_of_month` (1/2/3/4/last) + `schedule_day_of_week` → "1st Monday", "every 2nd Tuesday", "last Friday". Works for quarterly/annually too (e.g. quarterly · 1st Saturday).
+    - **Creation day (default)** — no rule set falls back to the creation day-of-month.
+  - Resolved on the fixed grid, so the anchor never drifts on late completion. If the rule's first slot is before `created_at` (created the 20th, rule "the 18th"), the series starts the next month.
+  - Migration 034 adds `schedule_day_of_month` + `schedule_week_of_month` to `routines`. Wired through `db.js` (row mapping + upsert), `src/store.js` (`getNextDueDate` month-grid rework, `resolveMonthDay`, `nthWeekdayOfMonth`, `formatScheduleAnchor`), `useRoutines.addRoutine`, the v2 `RoutinesModal` cadence-aware "On" picker, and Quokka `create_routine` / `update_routine`.
+  - v1 `Routines.jsx` keeps the weekday-only dropdown; editing a month-anchored routine there preserves the anchor (merge-update doesn't clobber the new columns).
+
 - fix(routines): fixed-schedule cadence — completing off-cycle no longer drifts the series [M]
   - **Problem.** `getNextDueDate` anchored the next due date off the *last completion timestamp*. Completing a weekly routine 3 days late pushed the next one 3 days late too, and the whole series drifted. Off-cycle completion "fucked everything up."
   - **Fix.** Due dates now form a FIXED GRID anchored at the routine's `created_at`. The next due is the first grid slot after the slot containing the most recent completion — the grid never re-bases on when you actually check it off. "Every Monday" stays Monday, "the 5th" stays the 5th, regardless of early/late completion. A missed cycle surfaces as a single overdue task (no pileup); completing it snaps you back to the current slot.

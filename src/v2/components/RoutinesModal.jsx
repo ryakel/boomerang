@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check, Flame } from 'lucide-react'
-import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, getNextDueDate, computeHabitStats, localYMD } from '../../store'
+import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, formatScheduleAnchor, getNextDueDate, computeHabitStats, localYMD } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import ChainReconcileModal from './ChainReconcileModal'
@@ -17,8 +17,6 @@ const DAY_OF_WEEK_OPTIONS = [
   { value: '5', label: 'Fri' },
   { value: '6', label: 'Sat' },
 ]
-
-const DAY_OF_WEEK_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function formatNextDue(routine) {
   const endedOrExpired = routine.end_date && new Date() > new Date(routine.end_date + 'T23:59:59')
@@ -58,9 +56,8 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
   const cadenceLabel = isHabit && habitStats
     ? `habit · ${habitStats.target}× / ${routine.target_period}`
     : formatCadence(routine)
-  const dayOfWeek = !isHabit && routine.schedule_day_of_week != null
-    ? ` · ${DAY_OF_WEEK_SHORT[routine.schedule_day_of_week]}`
-    : ''
+  const anchorLabel = !isHabit ? formatScheduleAnchor(routine) : ''
+  const dayOfWeek = anchorLabel ? ` · ${anchorLabel}` : ''
   const triggerLabel = !isHabit && routine.trigger_time
     ? ` · ${formatClock(routine.trigger_time)}`
     : ''
@@ -348,6 +345,19 @@ function RoutineForm({ initial, onSave, onCancel }) {
   const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(
     initial?.schedule_day_of_week == null ? '' : String(initial.schedule_day_of_week)
   )
+  // Month-scale anchor (monthly / quarterly / annually / custom-months):
+  // 'creation' = the routine's creation day-of-month (default fallback),
+  // 'dom' = a fixed calendar day ("the 18th"),
+  // 'dow' = an ordinal weekday ("1st Monday", "last Friday").
+  const [monthMode, setMonthMode] = useState(
+    initial?.schedule_day_of_month != null ? 'dom'
+      : initial?.schedule_week_of_month != null ? 'dow'
+      : 'creation'
+  )
+  const [dayOfMonth, setDayOfMonth] = useState(initial?.schedule_day_of_month || 1)
+  const [weekOfMonth, setWeekOfMonth] = useState(
+    initial?.schedule_week_of_month != null ? String(initial.schedule_week_of_month) : '1'
+  )
   // Optional 'HH:MM' surface-at time. '' = any time. Spawned tasks are snoozed
   // until this clock time on their due day (don't show or nag before it).
   const [triggerTime, setTriggerTime] = useState(initial?.trigger_time || '')
@@ -367,6 +377,28 @@ function RoutineForm({ initial, onSave, onCancel }) {
   const labels = loadLabels()
   const today = localYMD()
   const parsedDay = scheduleDayOfWeek === '' ? null : parseInt(scheduleDayOfWeek, 10)
+  const isMonthScale = cadence === 'monthly' || cadence === 'quarterly'
+    || cadence === 'annually' || (cadence === 'custom' && customUnit === 'months')
+
+  // Resolve the three anchor fields the store/db expect from the current form
+  // mode. Weekly uses the weekday "On" dropdown; month-scale uses monthMode.
+  let outDayOfWeek = parsedDay
+  let outDayOfMonth = null
+  let outWeekOfMonth = null
+  if (isMonthScale) {
+    if (monthMode === 'dom') {
+      outDayOfMonth = Math.min(Math.max(Number(dayOfMonth) || 1, 1), 31)
+      outDayOfWeek = null
+    } else if (monthMode === 'dow') {
+      outWeekOfMonth = Number(weekOfMonth)
+      outDayOfWeek = parsedDay == null ? 1 : parsedDay // need a concrete weekday
+    } else {
+      outDayOfWeek = null // 'creation' fallback
+    }
+  } else if (cadence !== 'weekly') {
+    // daily / custom-days don't use a weekday anchor in the new model.
+    if (cadence === 'daily') outDayOfWeek = null
+  }
 
   const toggleTag = (id) => {
     setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
@@ -420,7 +452,9 @@ function RoutineForm({ initial, onSave, onCancel }) {
     notes: notes.trim(),
     highPriority,
     endDate: endDate || null,
-    scheduleDayOfWeek: parsedDay,
+    scheduleDayOfWeek: outDayOfWeek,
+    scheduleDayOfMonth: outDayOfMonth,
+    scheduleWeekOfMonth: outWeekOfMonth,
     triggerTime: triggerTime || null,
     followUps: followUpsArray,
     autoRoll: isHabit ? false : autoRoll,
@@ -527,18 +561,89 @@ function RoutineForm({ initial, onSave, onCancel }) {
               </select>
             </div>
             <div className="v2-form-field">
-              <label className="v2-form-label">On</label>
-              <select
-                className="v2-form-input"
-                value={scheduleDayOfWeek}
-                onChange={e => setScheduleDayOfWeek(e.target.value)}
-              >
-                {DAY_OF_WEEK_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+              {cadence === 'weekly' && (
+                <>
+                  <label className="v2-form-label">On</label>
+                  <select
+                    className="v2-form-input"
+                    value={scheduleDayOfWeek}
+                    onChange={e => setScheduleDayOfWeek(e.target.value)}
+                  >
+                    {DAY_OF_WEEK_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+              {isMonthScale && (
+                <>
+                  <label className="v2-form-label">On</label>
+                  <select
+                    className="v2-form-input"
+                    value={monthMode}
+                    onChange={e => setMonthMode(e.target.value)}
+                  >
+                    <option value="creation">Same day it was created</option>
+                    <option value="dom">Day of month…</option>
+                    <option value="dow">Weekday…</option>
+                  </select>
+                </>
+              )}
             </div>
           </div>
+
+          {isMonthScale && monthMode === 'dom' && (
+            <div className="v2-form-row">
+              <div className="v2-form-field">
+                <label className="v2-form-label">Day of month</label>
+                <select
+                  className="v2-form-input"
+                  value={String(dayOfMonth)}
+                  onChange={e => setDayOfMonth(Number(e.target.value))}
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="v2-form-field">
+                <div className="v2-form-section-hint">
+                  Months without this day use their last day (e.g. 31 → Feb 28).
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isMonthScale && monthMode === 'dow' && (
+            <div className="v2-form-row">
+              <div className="v2-form-field">
+                <label className="v2-form-label">Which</label>
+                <select
+                  className="v2-form-input"
+                  value={weekOfMonth}
+                  onChange={e => setWeekOfMonth(e.target.value)}
+                >
+                  <option value="1">First</option>
+                  <option value="2">Second</option>
+                  <option value="3">Third</option>
+                  <option value="4">Fourth</option>
+                  <option value="-1">Last</option>
+                </select>
+              </div>
+              <div className="v2-form-field">
+                <label className="v2-form-label">Weekday</label>
+                <select
+                  className="v2-form-input"
+                  value={scheduleDayOfWeek === '' ? '1' : scheduleDayOfWeek}
+                  onChange={e => setScheduleDayOfWeek(e.target.value)}
+                >
+                  {DAY_OF_WEEK_OPTIONS.slice(1).map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="v2-form-row">
             <div className="v2-form-field">
@@ -800,6 +905,8 @@ export default function RoutinesModal({
         high_priority: data.highPriority,
         end_date: data.endDate,
         schedule_day_of_week: data.scheduleDayOfWeek,
+        schedule_day_of_month: data.scheduleDayOfMonth,
+        schedule_week_of_month: data.scheduleWeekOfMonth,
         trigger_time: data.triggerTime,
         follow_ups: data.followUps,
         auto_roll: data.autoRoll,
@@ -815,6 +922,7 @@ export default function RoutinesModal({
         data.followUps, data.autoRoll,
         data.spawnMode, data.targetCount, data.targetPeriod,
         data.customUnit, data.triggerTime,
+        data.scheduleDayOfMonth, data.scheduleWeekOfMonth,
       )
     }
     setView('list')
