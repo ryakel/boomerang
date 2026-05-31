@@ -86,6 +86,17 @@ function summarizeRoutine(r) {
           ...(s.notes ? { notes: s.notes } : {}),
         }))
       : [],
+    // Stacks: members fan out into independent tasks each cycle (vs follow_ups,
+    // a dependent chain). Non-empty ⇒ this routine is a stack.
+    members: Array.isArray(r.members)
+      ? r.members.map(m => ({
+          id: m.id,
+          title: m.title,
+          ...(m.energy_type ? { energy_type: m.energy_type } : {}),
+          ...(m.energy_level ? { energy_level: m.energy_level } : {}),
+          ...(m.notes ? { notes: m.notes } : {}),
+        }))
+      : [],
   }
 }
 
@@ -753,10 +764,24 @@ export function registerTaskTools() {
         schedule_day_of_month: { type: 'integer', minimum: 1, maximum: 31, description: 'Month-scale only: fixed calendar day, e.g. 18 for "the 18th". Clamped to month length.' },
         schedule_week_of_month: { type: 'integer', enum: [1, 2, 3, 4, -1], description: 'Month-scale only: with schedule_day_of_week → ordinal weekday. 1..4 or -1 (last). E.g. {schedule_week_of_month:1, schedule_day_of_week:1} = "1st Monday".' },
         trigger_time: { type: 'string', description: '"HH:MM" 24h surface-at time. Spawned tasks are hidden/silent until this time on their due day. Omit for any time.' },
+        members: {
+          type: 'array',
+          description: 'Stack members — makes this a "stack" routine that spawns one INDEPENDENT task per member each cycle (sharing the cadence + trigger_time). Different from follow_ups (a dependent chain). Each member scores its own points; clearing every member of a cycle pays a 20% bonus. Provide 2+ items, e.g. an "Evening" routine with members "start dishwasher", "take out trash", "refill milk".',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string' },
+              energy_type: { type: 'string', enum: ['desk', 'people', 'errand', 'confrontation', 'creative', 'physical'] },
+              energy_level: { type: 'integer', enum: [1, 2, 3] },
+              notes: { type: 'string' },
+            },
+            required: ['title'],
+          },
+        },
       },
       required: ['title', 'cadence'],
     },
-    preview: (args) => `Create routine: "${args.title}" (${args.cadence})`,
+    preview: (args) => `Create routine: "${args.title}" (${args.cadence})${Array.isArray(args.members) && args.members.length ? ` · ${args.members.length}-item stack` : ''}`,
     execute: async (args) => {
       const id = `rt-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
       const now = new Date().toISOString()
@@ -777,6 +802,15 @@ export function registerTaskTools() {
         schedule_day_of_month: args.schedule_day_of_month ?? null,
         schedule_week_of_month: args.schedule_week_of_month ?? null,
         trigger_time: args.trigger_time || null,
+        members: Array.isArray(args.members)
+          ? args.members.filter(m => m?.title).map(m => ({
+              id: m.id || `m-${crypto.randomBytes(3).toString('hex')}`,
+              title: m.title,
+              ...(m.energy_type ? { energy_type: m.energy_type } : {}),
+              ...(m.energy_level ? { energy_level: m.energy_level } : {}),
+              ...(m.notes ? { notes: m.notes } : {}),
+            }))
+          : [],
         paused: false,
         completed_history: [],
         created_at: now,
@@ -809,6 +843,21 @@ export function registerTaskTools() {
         schedule_day_of_month: { type: ['integer', 'null'], minimum: 1, maximum: 31, description: 'Month-scale: fixed calendar day ("the 18th"). Null to clear. Setting this clears any ordinal-weekday anchor.' },
         schedule_week_of_month: { type: ['integer', 'null'], enum: [1, 2, 3, 4, -1, null], description: 'Month-scale: ordinal week (1..4 or -1 last) paired with schedule_day_of_week. Null to clear.' },
         trigger_time: { type: ['string', 'null'], description: '"HH:MM" 24h surface-at time, or null to clear. Spawned tasks stay hidden/silent until this time on their due day.' },
+        members: {
+          type: 'array',
+          description: 'Replace the stack members (the full array). Non-empty ⇒ this is a "stack" routine spawning one independent task per member each cycle; clearing all members pays a 20% bonus. Pass [] to convert back to an ordinary single-task routine. Edits take effect on the NEXT cycle — already-spawned tasks are untouched.',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              title: { type: 'string' },
+              energy_type: { type: 'string', enum: ['desk', 'people', 'errand', 'confrontation', 'creative', 'physical'] },
+              energy_level: { type: 'integer', enum: [1, 2, 3] },
+              notes: { type: 'string' },
+            },
+            required: ['title'],
+          },
+        },
         last_done: { type: ['string', 'null'], description: 'Set when the routine was last completed, "YYYY-MM-DD" (or null = never done). Drives the next due date — use it to repair a routine that nags as if never done after lost completion history. Sets the most-recent completion entry; does not erase older history.' },
       },
       required: ['id'],
@@ -839,6 +888,16 @@ export function registerTaskTools() {
         }
         updates.completed_history = hist
         delete updates.last_done
+      }
+      // Normalize stack members: keep titled rows, ensure each has an id.
+      if (Array.isArray(updates.members)) {
+        updates.members = updates.members.filter(m => m?.title).map(m => ({
+          id: m.id || `m-${crypto.randomBytes(3).toString('hex')}`,
+          title: m.title,
+          ...(m.energy_type ? { energy_type: m.energy_type } : {}),
+          ...(m.energy_level ? { energy_level: m.energy_level } : {}),
+          ...(m.notes ? { notes: m.notes } : {}),
+        }))
       }
       delete updates.id
       updateRoutinePartial(args.id, updates)

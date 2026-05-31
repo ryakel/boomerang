@@ -58,6 +58,7 @@ const EXEMPT = new Set([
   'v2-pp-title-row',         // layout — title + due-date row inside pinned-project card
   'v2-pv-visibility-row',    // layout — single-button row under a sub card; child .v2-pv-visibility-toggle is covered
   'v2-bottom-tabs-row',      // layout container; children (.v2-bottom-tab) covered
+  'v2-stack-member-edit-row', // layout — input + remove button row in the stack-members editor
 ])
 
 async function walk(dir, ext, out = []) {

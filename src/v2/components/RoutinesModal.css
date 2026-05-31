@@ -414,3 +414,39 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* Stack-member editor rows — a flat list of independent items (no offset /
+ * ordering chrome like follow-ups have). */
+.v2-stack-member-edit-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.v2-stack-member-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.v2-stack-member-edit-row .v2-form-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.v2-stack-member-edit-remove {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--v2-text-meta);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.v2-stack-member-edit-remove:hover {
+  color: var(--v2-text);
+  border-color: var(--v2-text-meta);
+}

@@ -1,0 +1,67 @@
+/* Routine "stacks" on the v2 main list. One routine fans out into several
+ * independent task cards per cycle. Each cycle renders under a header strip
+ * (title · time · progress · pending bonus) with the member cards indented
+ * beneath, mirroring the pinned-projects treatment. */
+
+.v2-stack-block {
+  margin: 0 0 18px;
+}
+
+.v2-stack-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 0 2px 8px;
+}
+
+.v2-stack-title {
+  font: 600 16px/1.3 var(--v2-font-display, var(--v2-font-body));
+  color: var(--v2-text);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.v2-stack-time {
+  font: 500 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-stack-progress {
+  font: 600 12px/1.4 var(--v2-font-mono, var(--v2-font-body));
+  color: var(--v2-text-meta);
+  margin-left: auto;
+}
+
+.v2-stack-bonus {
+  font: 600 11px/1.4 var(--v2-font-body);
+  color: var(--v2-accent, var(--v2-text));
+  padding: 1px 8px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 999px;
+}
+
+.v2-stack-members {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.v2-stack-member {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.v2-stack-member-prefix {
+  flex: 0 0 auto;
+  margin-top: 14px;
+  color: var(--v2-text-meta);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.v2-stack-member-card {
+  flex: 1 1 auto;
+  min-width: 0;
+}

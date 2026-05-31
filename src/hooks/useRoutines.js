@@ -15,6 +15,32 @@ function triggerSnooze(dueDateYMD, triggerTime) {
   return dt.getTime() > Date.now() ? dt.toISOString() : null
 }
 
+// Spawn one independent task per stack member for a single cycle (due day).
+// All members of a cycle share its due_date — that (routine_id, due_date) pair
+// IS the cycle key used for grouped display, the same-day re-spawn guard, and
+// bonus scoping on completion. Energy / notes / tags fall back to the routine's
+// when a member leaves them unset. size_inferred stays false so the background
+// auto-sizer points each card; clearing every member of the cycle pays a 20%
+// bonus (awarded in AppV2.handleComplete). Distinct from follow_ups (a
+// dependent chain) — members are independent and spawn together.
+function spawnStackMembers(routine, dueYMD) {
+  const snooze = triggerSnooze(dueYMD, routine.trigger_time)
+  return routine.members.map(m => {
+    const tags = Array.isArray(m.tags) && m.tags.length ? m.tags : routine.tags
+    const task = createTask(m.title || routine.title, tags, dueYMD, m.notes || routine.notes)
+    task.routine_id = routine.id
+    task.notion_page_id = routine.notion_page_id
+    task.notion_url = routine.notion_url
+    if (routine.high_priority) task.high_priority = true
+    const energy = m.energy_type || routine.energy
+    const energyLevel = m.energy_level ?? routine.energyLevel
+    if (energy) task.energy = energy
+    if (energyLevel) task.energyLevel = energyLevel
+    task.snoozed_until = snooze
+    return task
+  })
+}
+
 export function useRoutines() {
   const [routines, setRoutines] = useState(loadRoutines)
 
@@ -22,7 +48,7 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days', triggerTime = null, scheduleDayOfMonth = null, scheduleWeekOfMonth = null) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days', triggerTime = null, scheduleDayOfMonth = null, scheduleWeekOfMonth = null, members = []) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes, customUnit)
     if (highPriority) routine.high_priority = true
     if (endDate) routine.end_date = endDate
@@ -31,6 +57,7 @@ export function useRoutines() {
     if (scheduleWeekOfMonth != null) routine.schedule_week_of_month = scheduleWeekOfMonth
     if (triggerTime) routine.trigger_time = triggerTime
     if (Array.isArray(followUps) && followUps.length > 0) routine.follow_ups = followUps
+    if (Array.isArray(members) && members.length > 0) routine.members = members
     if (autoRoll) routine.auto_roll = true
     if (spawnMode === 'habit') {
       routine.spawn_mode = 'habit'
@@ -135,10 +162,15 @@ export function useRoutines() {
   // scheduled cadence. Due date is today. Does NOT update completed_history
   // until the task is completed (same as normal scheduled spawn), so the
   // routine's cadence clock is unaffected unless the spawned task is done.
+  // Returns an array of spawned tasks (one element for an ordinary routine, one
+  // per member for a stack). Callers pass the result straight to addSpawnedTasks.
   const spawnNow = useCallback((routineId) => {
     const routine = routines.find(r => r.id === routineId)
-    if (!routine) return null
+    if (!routine) return []
     const today = localYMD()
+    if (Array.isArray(routine.members) && routine.members.length > 0) {
+      return spawnStackMembers(routine, today)
+    }
     const task = createTask(routine.title, routine.tags, today, routine.notes)
     task.routine_id = routine.id
     task.notion_page_id = routine.notion_page_id
@@ -150,7 +182,7 @@ export function useRoutines() {
       task.follow_ups = routine.follow_ups
     }
     task.snoozed_until = triggerSnooze(today, routine.trigger_time)
-    return task
+    return [task]
   }, [routines])
 
   // Spawn tasks for due routines. Returns { spawned, rolled }:
@@ -176,9 +208,12 @@ export function useRoutines() {
     routines.forEach(routine => {
       if (!isRoutineDue(routine)) return
 
-      if (routine.auto_roll) {
+      const isStack = Array.isArray(routine.members) && routine.members.length > 0
+
+      if (routine.auto_roll && !isStack) {
         // Auto-roll path: find a truly-active instance and bump it forward.
-        // If none, fall through to a normal spawn.
+        // If none, fall through to a normal spawn. (Stacks don't auto-roll —
+        // they spawn a fresh set each cycle, see the stack guard below.)
         const activeInstance = existingTasks.find(
           t => t.routine_id === routine.id && !TERMINAL_FOR_ROLL.has(t.status),
         )
@@ -198,7 +233,7 @@ export function useRoutines() {
           rolled.push({ taskId: activeInstance.id, updates })
           return
         }
-      } else {
+      } else if (!isStack) {
         // Legacy path: skip spawn if any non-done instance exists, preserving
         // the original behavior for every routine that hasn't opted into
         // auto-roll. (A separate cleanup PR could revisit whether
@@ -212,6 +247,20 @@ export function useRoutines() {
 
       const nextDue = getNextDueDate(routine)
       const dueYMD = localYMD(nextDue)
+
+      if (isStack) {
+        // Stack guard: don't double-spawn the same cycle, but DO spawn a new
+        // cycle even if a prior cycle still has unfinished members (those stay
+        // on the list as overdue cards — the app's "a missed cycle surfaces as
+        // overdue, not a pileup" philosophy). The cycle key is the due date.
+        const alreadySpawned = existingTasks.some(
+          t => t.routine_id === routine.id && t.due_date === dueYMD,
+        )
+        if (alreadySpawned) return
+        spawnStackMembers(routine, dueYMD).forEach(t => spawned.push(t))
+        return
+      }
+
       const task = createTask(routine.title, routine.tags, dueYMD, routine.notes)
       task.routine_id = routine.id
       task.notion_page_id = routine.notion_page_id

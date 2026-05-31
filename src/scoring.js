@@ -68,6 +68,9 @@ export function computeDailyStats(tasks, settings = null) {
   let points = 0
   for (const t of todayTasks) {
     points += calculateTaskPoints(t)
+    // Stack-clear bonus rides on the task that closed a routine stack cycle.
+    // It's stored once, on a task that's done-today, so it counts exactly once.
+    points += t.stack_bonus || 0
   }
 
   const waitingToday = tasks.filter(t => t.status === 'waiting' && t.waiting_at && new Date(t.waiting_at).toDateString() === todayStr)
@@ -89,7 +92,7 @@ export function computeRecords(tasks) {
       const dayStr = new Date(t.completed_at).toDateString()
       if (!byDay[dayStr]) byDay[dayStr] = { tasks: 0, points: 0 }
       byDay[dayStr].tasks++
-      byDay[dayStr].points += calculateTaskPoints(t)
+      byDay[dayStr].points += calculateTaskPoints(t) + (t.stack_bonus || 0)
     }
   }
 

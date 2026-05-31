@@ -4,6 +4,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-31
+
+- feat(routines): Stacks — one routine that fans out into several independent tasks, with a clear bonus [L]
+  - **What.** A routine can now hold **members**: an "Evening" routine at 8pm spawns *start dishwasher*, *take out trash*, *refill milk* as three separate, independent task cards each cycle (vs `follow_ups`, which is a *dependent* chain). Each member is a real task scoring its own points; clearing **every** member of a cycle pays a **20% bonus** (20% of the cycle's combined member points), stamped on the task that closes the cycle.
+  - **Model.** A routine is a "stack" iff `members` is non-empty. The cycle key is `(routine_id, due_date)` — members of one spawn batch share the due date. The stack re-spawn guard skips only a same-day duplicate, so a daily stack refreshes each day even if a prior cycle has leftovers (those remain as overdue cards — the "missed cycle surfaces as overdue, not a pileup" philosophy). `completed_history` is stamped (cadence + streak advance) only when the **last** member is cleared; partial completion just scores the members individually.
+  - **Display.** Surfaced cycles render grouped in a mobile **StackSection** above the regular sections — header (title · time · `done/total` pip · "+N on clear"), members as indented TaskCards. Members are dropped from the active sections (Doing/Stale/Up next/Waiting) to avoid double-display; they stay in Snoozed pre-trigger (so a trigger-time stack only surfaces at its time). Desktop Kanban shows members in their natural columns (mirrors pinned-project children). The completion toast celebrates the bonus.
+  - **Editor.** RoutinesModal gains an "Items (stack)" section (add/remove rows); the routine card meta shows `· N items`. Quokka `create_routine` / `update_routine` accept a `members` array, and `summarizeRoutine` exposes it.
+  - **Schema.** Migration 035 adds `routines.members_json` + `tasks.stack_bonus`. Wired through `db.js` (row mappers + both UPSERTs), `src/store.js` (`createRoutine`/`createTask` defaults), `src/scoring.js` (`computeDailyStats` + `computeRecords` fold in `stack_bonus`), `src/hooks/useRoutines.js` (`spawnStackMembers`, stack-aware `spawnDueTasks` + `spawnNow` returning an array), `src/v2/AppV2.jsx` (stack grouping + bonus logic in `handleComplete`), new `src/v2/components/StackSection.{jsx,css}`, `src/components/Toast.jsx`, `adviserToolsTasks.js`.
+  - **v1.** `spawnNow` now returns an array; the v1 `onSpawnNow` call site was updated. v1 RoutinesModal doesn't expose the members editor (deprecation path) but merge-updates preserve the field.
+  - **Out of scope (v1):** combining a stack with `auto_roll`, and per-member follow-up chains.
+
+---
+
 ## 2026-05-30
 
 - fix(routines): interval cadences recur from last completion, not a creation-date grid [M]

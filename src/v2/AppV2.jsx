@@ -24,6 +24,7 @@ import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
 import KanbanBoard from './components/KanbanBoard'
 import ProjectPinnedSection from './components/ProjectPinnedSection'
+import StackSection from './components/StackSection'
 import TaskListToolbar from './components/TaskListToolbar'
 import MarkdownImportModal from './components/MarkdownImportModal'
 import WeekStrip from './components/WeekStrip'
@@ -49,7 +50,7 @@ import { useGCalSync } from '../hooks/useGCalSync'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask } from '../api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, computeRoutineStreak, logActivity, localYMD } from '../store'
-import { computeRecords } from '../scoring'
+import { computeRecords, calculateTaskPoints } from '../scoring'
 import './AppV2.css'
 
 export default function AppV2() {
@@ -330,11 +331,58 @@ export default function AppV2() {
   // avoid double-display. On desktop, the Kanban has no pinned-projects
   // section, so the children show in their natural status columns.
   const dropPinnedChildren = (list) => isDesktop ? list : list.filter(t => !isPinnedChild(t))
-  const sortedDoing = sortTasks(dropPinnedChildren(filterTasks(doingTasks)), sortBy)
-  const sortedStale = sortTasks(dropPinnedChildren(filterTasks(staleTasks)), sortBy)
-  const sortedUpNext = sortTasks(dropPinnedChildren(filterTasks(upNextTasks)), sortBy)
-  const sortedWaiting = sortTasks(dropPinnedChildren(filterTasks(waitingTasks)), sortBy)
+  // Stack members render in their own grouped StackSection (mobile), so drop
+  // them from the regular ACTIVE sections to avoid double-display. They stay in
+  // the Snoozed section pre-trigger (consistent with trigger_time semantics —
+  // the group only surfaces once members un-snooze). On desktop the Kanban has
+  // no StackSection, so members show in their natural columns.
+  const stackRoutineIds = new Set(
+    routines.filter(r => Array.isArray(r.members) && r.members.length > 0).map(r => r.id),
+  )
+  const isStackMember = (t) => !!t.routine_id && stackRoutineIds.has(t.routine_id)
+  const dropStackMembers = (list) => isDesktop ? list : list.filter(t => !isStackMember(t))
+  const sortedDoing = sortTasks(dropStackMembers(dropPinnedChildren(filterTasks(doingTasks))), sortBy)
+  const sortedStale = sortTasks(dropStackMembers(dropPinnedChildren(filterTasks(staleTasks))), sortBy)
+  const sortedUpNext = sortTasks(dropStackMembers(dropPinnedChildren(filterTasks(upNextTasks))), sortBy)
+  const sortedWaiting = sortTasks(dropStackMembers(dropPinnedChildren(filterTasks(waitingTasks))), sortBy)
   const sortedSnoozed = sortTasks(dropPinnedChildren(filterTasks(snoozedTasks)), sortBy)
+
+  // Group surfaced stack members into cycles for the grouped display. A cycle
+  // is the (routine_id, due_date) set; it surfaces once at least one member is
+  // un-snoozed. Progress = done/total across the cycle; bonus preview = 20% of
+  // the cycle's combined member points.
+  const stackGroups = (() => {
+    if (isDesktop) return []
+    const now = Date.now()
+    const isSnoozed = (t) => t.snoozed_until && new Date(t.snoozed_until).getTime() > now
+    const byCycle = new Map()
+    for (const t of tasks) {
+      if (!isStackMember(t)) continue
+      if (['backlog', 'project', 'cancelled'].includes(t.status)) continue
+      const key = `${t.routine_id}|${t.due_date || ''}`
+      if (!byCycle.has(key)) {
+        byCycle.set(key, {
+          key,
+          routine: routines.find(r => r.id === t.routine_id),
+          dueDate: t.due_date,
+          tasks: [],
+        })
+      }
+      byCycle.get(key).tasks.push(t)
+    }
+    const groups = []
+    for (const g of byCycle.values()) {
+      const active = g.tasks.filter(t => t.status !== 'done')
+      const surfaced = sortTasks(filterTasks(active.filter(t => !isSnoozed(t))), sortBy)
+      if (surfaced.length === 0) continue
+      const total = g.tasks.length
+      const doneCount = total - active.length
+      const bonusPreview = Math.round(0.2 * g.tasks.reduce((s, t) => s + calculateTaskPoints(t), 0))
+      groups.push({ ...g, surfaced, total, doneCount, bonusPreview })
+    }
+    groups.sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31'))
+    return groups
+  })()
   const backlogTasks = sortTasks(filterTasks(tasks.filter(t => t.status === 'backlog')), sortBy)
   const projectTasks = sortTasks(filterTasks(tasks.filter(t => t.status === 'project')), sortBy === 'age' ? 'name' : sortBy)
 
@@ -447,8 +495,34 @@ export default function AppV2() {
     const task = tasks.find(t => t.id === id)
     completeTask(id)
     setShowWhatNow(false)
-    // Log completion on the parent routine so the cadence clock advances.
-    if (task?.routine_id) completeRoutine(task.routine_id)
+    // Routine completion + stack-clear bonus.
+    let stackBonus = 0
+    if (task?.routine_id) {
+      const routine = routines.find(r => r.id === task.routine_id)
+      const isStack = Array.isArray(routine?.members) && routine.members.length > 0
+      if (!isStack) {
+        // Ordinary routine: advance the cadence clock on every completion.
+        completeRoutine(task.routine_id)
+      } else {
+        // Stack member: the cycle is the (routine_id, due_date) set. Only the
+        // completion that clears the LAST member advances the cadence and pays
+        // the bonus. Each member already scored its own points on completion.
+        const siblings = tasks.filter(
+          t => t.routine_id === task.routine_id && t.due_date === task.due_date,
+        )
+        const allDone = siblings.every(s => s.id === id || s.status === 'done')
+        if (allDone) {
+          // 20% of the cycle's combined member points (treat the just-completed
+          // one as done-now for its speed multiplier).
+          const total = siblings.reduce((sum, s) => sum + calculateTaskPoints(
+            s.id === id ? { ...s, completed_at: new Date().toISOString() } : s,
+          ), 0)
+          stackBonus = Math.round(total * 0.2)
+          if (stackBonus > 0) updateTask(id, { stack_bonus: stackBonus })
+          completeRoutine(task.routine_id)
+        }
+      }
+    }
     // Push completion to Trello so the linked card moves to the done list.
     if (task?.trello_card_id) pushStatusToTrello(task, 'done')
     // Score the next-best candidate for the toast's "Next up" hint.
@@ -495,9 +569,9 @@ export default function AppV2() {
       }
       candidates.sort((a, b) => score(b) - score(a))
       const nextTask = candidates[0] || null
-      setToast({ ...task, completed_at: new Date().toISOString(), nextTask })
+      setToast({ ...task, completed_at: new Date().toISOString(), nextTask, stackBonus })
     }
-  }, [tasks, completeTask, completeRoutine, pushStatusToTrello])
+  }, [tasks, routines, completeTask, completeRoutine, updateTask, pushStatusToTrello])
 
   const handleEdit = useCallback((task) => setEditTarget(task), [])
 
@@ -1023,6 +1097,17 @@ export default function AppV2() {
               collapsedProjects={collapsedPinnedProjects}
               onToggleCollapse={togglePinnedProjectCollapse}
             />
+            <StackSection
+              groups={stackGroups}
+              expandedTaskId={expandedTaskId}
+              onToggleExpand={setExpandedTaskId}
+              onComplete={handleComplete}
+              onEdit={handleEdit}
+              onSnooze={handleSnooze}
+              onSkipAdvance={handleSkipAdvance}
+              weatherByDate={weather.enabled ? weather.byDate : null}
+              routineStreaks={routineStreaks}
+            />
             {renderSection('Doing', sortedDoing, '→')}
             {renderSection('Stale', sortedStale, '~')}
             {renderSection('Up next', sortedUpNext, '+')}
@@ -1222,9 +1307,9 @@ export default function AppV2() {
             !['done', 'completed', 'cancelled'].includes(t.status)
           )
           if (hasActive) return null
-          const task = spawnNow(routineId)
-          if (task) addSpawnedTasks([task])
-          return task
+          const spawned = spawnNow(routineId)
+          if (spawned.length) addSpawnedTasks(spawned)
+          return spawned
         }}
         onLogHabit={(routineId) => {
           const task = logHabit(routineId)
