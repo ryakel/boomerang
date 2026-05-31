@@ -956,8 +956,8 @@ function AppV1() {
           onUpdate={updateRoutine}
           onUpdateNotion={updateRoutineNotion}
           onSpawnNow={(routineId) => {
-            const task = spawnNow(routineId)
-            if (task) addSpawnedTasks([task])
+            const spawned = spawnNow(routineId)
+            if (spawned.length) addSpawnedTasks(spawned)
           }}
           onSkipCycle={skipCycle}
           onClose={() => { setShowRoutines(false); setEditRoutineId(null) }}

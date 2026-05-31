@@ -257,6 +257,7 @@ function taskToRow(task) {
     blocked_by_json: JSON.stringify(task.blocked_by || []),
     knowledge_page_ids_json: JSON.stringify(task.knowledge_page_ids || []),
     waiting_at: task.waiting_at || null,
+    stack_bonus: task.stack_bonus ?? null,
   }
 }
 
@@ -310,6 +311,7 @@ function rowToTask(row) {
     blocked_by: safeJsonParse(row.blocked_by_json, []),
     knowledge_page_ids: safeJsonParse(row.knowledge_page_ids_json, []),
     waiting_at: row.waiting_at || null,
+    stack_bonus: row.stack_bonus ?? null,
   }
 }
 
@@ -335,8 +337,8 @@ const UPSERT_TASK_SQL = `
     pushover_receipt, follow_ups_json, skipped,
     parent_id, pinned_to_today, nag_allowed, session_count, last_session_at,
     session_log_json, child_visibility, snooze_indefinite, blocked_by_json,
-    knowledge_page_ids_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    knowledge_page_ids_json, stack_bonus)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -363,7 +365,8 @@ const UPSERT_TASK_SQL = `
     last_session_at=excluded.last_session_at, session_log_json=excluded.session_log_json,
     child_visibility=excluded.child_visibility, snooze_indefinite=excluded.snooze_indefinite,
     blocked_by_json=excluded.blocked_by_json,
-    knowledge_page_ids_json=excluded.knowledge_page_ids_json`
+    knowledge_page_ids_json=excluded.knowledge_page_ids_json,
+    stack_bonus=excluded.stack_bonus`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -378,7 +381,7 @@ function runUpsertTask(task) {
     r.pushover_receipt, r.follow_ups_json, r.skipped,
     r.parent_id, r.pinned_to_today, r.nag_allowed, r.session_count, r.last_session_at,
     r.session_log_json, r.child_visibility, r.snooze_indefinite, r.blocked_by_json,
-    r.knowledge_page_ids_json,
+    r.knowledge_page_ids_json, r.stack_bonus,
   ])
 }
 
@@ -976,6 +979,7 @@ function routineToRow(routine) {
     target_count: routine.target_count ?? null,
     target_period: routine.target_period || null,
     follow_ups_json: JSON.stringify(routine.follow_ups || []),
+    members_json: JSON.stringify(routine.members || []),
   }
 }
 
@@ -1006,6 +1010,7 @@ function rowToRoutine(row) {
     target_count: row.target_count ?? null,
     target_period: row.target_period || null,
     follow_ups: safeJsonParse(row.follow_ups_json, []),
+    members: safeJsonParse(row.members_json, []),
   }
 }
 
@@ -1018,8 +1023,8 @@ const UPSERT_ROUTINE_SQL = `
     energy, energy_level, notion_page_id, notion_url, created_at, paused,
     tags_json, completed_history_json, end_date, schedule_day_of_week,
     schedule_day_of_month, schedule_week_of_month, trigger_time, auto_roll,
-    spawn_mode, target_count, target_period, follow_ups_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    spawn_mode, target_count, target_period, follow_ups_json, members_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
     custom_unit=excluded.custom_unit,
@@ -1033,7 +1038,7 @@ const UPSERT_ROUTINE_SQL = `
     trigger_time=excluded.trigger_time,
     auto_roll=excluded.auto_roll, spawn_mode=excluded.spawn_mode,
     target_count=excluded.target_count, target_period=excluded.target_period,
-    follow_ups_json=excluded.follow_ups_json`
+    follow_ups_json=excluded.follow_ups_json, members_json=excluded.members_json`
 
 function runUpsertRoutine(routine) {
   const r = routineToRow(routine)
@@ -1043,7 +1048,7 @@ function runUpsertRoutine(routine) {
     r.tags_json, r.completed_history_json, r.end_date, r.schedule_day_of_week,
     r.schedule_day_of_month, r.schedule_week_of_month,
     r.trigger_time, r.auto_roll, r.spawn_mode, r.target_count, r.target_period,
-    r.follow_ups_json,
+    r.follow_ups_json, r.members_json,
   ])
 }
 

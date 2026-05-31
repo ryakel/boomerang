@@ -107,6 +107,11 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
           {message}
         </div>
         <div className="toast-subtitle">{subtitle}</div>
+        {task.stackBonus > 0 && (
+          <div className="toast-subtitle" style={{ marginTop: 4, color: 'var(--accent)', fontWeight: 600 }}>
+            🎉 Stack cleared · +{task.stackBonus} bonus
+          </div>
+        )}
         {nextTask && (
           <div
             className="toast-next-task"

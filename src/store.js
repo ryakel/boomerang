@@ -305,6 +305,8 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     attachments: [],
     checklists: [],      // [{ id, name, items: [{ id, text, completed }], hideCompleted }]
     comments: [],
+    stack_bonus: null,   // bonus points stamped on the task that clears a routine
+                         // "stack" cycle (20% of the cycle's combined member points)
   }
 }
 
@@ -348,6 +350,12 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
     target_count: null,  // habit mode: completions per period (e.g. 2)
     target_period: null, // habit mode: 'week' or 'month'
     gcal_recurring_event_id: null, // Google Calendar recurring event ID
+    members: [],         // routine "stack" members. Non-empty ⇒ this routine
+                         // fans out into one independent task per member each
+                         // cycle (vs follow_ups, which are a dependent chain).
+                         // Shape: [{ id, title, energy_type?, energy_level?,
+                         // notes?, tags? }]. Clearing all members of a cycle
+                         // pays a 20% bonus.
   }
 }
 
