@@ -4,7 +4,28 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-05-31
+
+- feat(routines): Stacks — one routine that fans out into several independent tasks, with a clear bonus [L]
+  - **What.** A routine can now hold **members**: an "Evening" routine at 8pm spawns *start dishwasher*, *take out trash*, *refill milk* as three separate, independent task cards each cycle (vs `follow_ups`, which is a *dependent* chain). Each member is a real task scoring its own points; clearing **every** member of a cycle pays a **20% bonus** (20% of the cycle's combined member points), stamped on the task that closes the cycle.
+  - **Model.** A routine is a "stack" iff `members` is non-empty. The cycle key is `(routine_id, due_date)` — members of one spawn batch share the due date. The stack re-spawn guard skips only a same-day duplicate, so a daily stack refreshes each day even if a prior cycle has leftovers (those remain as overdue cards — the "missed cycle surfaces as overdue, not a pileup" philosophy). `completed_history` is stamped (cadence + streak advance) only when the **last** member is cleared; partial completion just scores the members individually.
+  - **Display.** Surfaced cycles render grouped in a mobile **StackSection** above the regular sections — header (title · time · `done/total` pip · "+N on clear"), members as indented TaskCards. Members are dropped from the active sections (Doing/Stale/Up next/Waiting) to avoid double-display; they stay in Snoozed pre-trigger (so a trigger-time stack only surfaces at its time). Desktop Kanban shows members in their natural columns (mirrors pinned-project children). The completion toast celebrates the bonus.
+  - **Editor.** RoutinesModal gains an "Items (stack)" section (add/remove rows); the routine card meta shows `· N items`. Quokka `create_routine` / `update_routine` accept a `members` array, and `summarizeRoutine` exposes it.
+  - **Schema.** Migration 035 adds `routines.members_json` + `tasks.stack_bonus`. Wired through `db.js` (row mappers + both UPSERTs), `src/store.js` (`createRoutine`/`createTask` defaults), `src/scoring.js` (`computeDailyStats` + `computeRecords` fold in `stack_bonus`), `src/hooks/useRoutines.js` (`spawnStackMembers`, stack-aware `spawnDueTasks` + `spawnNow` returning an array), `src/v2/AppV2.jsx` (stack grouping + bonus logic in `handleComplete`), new `src/v2/components/StackSection.{jsx,css}`, `src/components/Toast.jsx`, `adviserToolsTasks.js`.
+  - **v1.** `spawnNow` now returns an array; the v1 `onSpawnNow` call site was updated. v1 RoutinesModal doesn't expose the members editor (deprecation path) but merge-updates preserve the field.
+  - **Out of scope (v1):** combining a stack with `auto_roll`, and per-member follow-up chains.
+
+---
+
 ## 2026-05-30
+
+- ci(deploy): opt into Node 24 for all actions via FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 [XS]
+  - Sets `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` in both workflow `env` blocks so every JS action runs on the runner's Node 24, ahead of GitHub's 2026-06-16 forced cutover — clears the Node 20 deprecation warnings without guessing each action's new major version (a wrong tag would hard-fail the workflow). Reversible by removing the line. Validates on the next dev build before it ever exercises a prod publish.
+
+- ci(deploy): retry transient Tailscale connect so a blip doesn't red-fail the build [S]
+  - The prod/dev publish jobs failed the entire run when the `tailscale/github-action` connect blipped — even though the image had already built and pushed to GHCR. Added a second Tailscale attempt (runs only if the first fails); the Portainer deploy + verify steps now succeed if **either** attempt connected. Hardened the Portainer webhook `curl` with `--retry 3 --retry-delay 2 --retry-all-errors`.
+  - Files: `.github/workflows/build-and-publish.yml`, `.github/workflows/build-and-publish-dev.yml`.
+  - NOTE: the Node 20 action-deprecation warnings (checkout/setup-node/docker/* on Node 20, forced to Node 24 after 2026-06-16) are separate and not addressed here — tracked for a version-bump pass once the action majors are verified Node-24-ready.
 
 - fix(routines): interval cadences recur from last completion, not a creation-date grid [M]
   - **Breaking bug.** "Every 180 days" (and other anchor-less cadences) used a fixed grid pinned to the routine's `created_at`. A routine done 91 days ago read as **due now** instead of due in ~89 days, because the last-done predated the creation anchor and the code fell back to the (past) creation date.

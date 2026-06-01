@@ -69,6 +69,8 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
   const triggerLabel = !isHabit && routine.trigger_time
     ? ` · ${formatClock(routine.trigger_time)}`
     : ''
+  const memberCount = Array.isArray(routine.members) ? routine.members.length : 0
+  const stackLabel = memberCount > 0 ? ` · ${memberCount} items` : ''
   const completeCount = routine.completed_history?.length || 0
 
   const handleSpawn = () => {
@@ -88,7 +90,7 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
       <button className="v2-routine-summary" onClick={onToggleExpand}>
         <span className="v2-routine-title">{routine.title}</span>
         <span className="v2-routine-cadence">
-          {cadenceLabel}{dayOfWeek}{triggerLabel}
+          {cadenceLabel}{dayOfWeek}{triggerLabel}{stackLabel}
           {isHabit && habitStats && (
             <>
               {' · '}
@@ -380,6 +382,13 @@ function RoutineForm({ initial, onSave, onCancel }) {
   const [followUps, setFollowUps] = useState(() =>
     Array.isArray(initial?.follow_ups) ? initial.follow_ups.map(s => ({ ...s })) : []
   )
+  // Stack members. Non-empty ⇒ this routine fans out into one independent task
+  // per member each cycle (vs follow_ups, a dependent chain). Clearing every
+  // member of a cycle pays a 20% bonus. Shape:
+  // { id, title, energy_type?, energy_level?, notes?, tags? }
+  const [members, setMembers] = useState(() =>
+    Array.isArray(initial?.members) ? initial.members.map(m => ({ ...m })) : []
+  )
   // "Last done" override — lets the user set when the routine was last completed,
   // which drives getNextDueDate. Essential for repairing routines whose
   // completed_history was lost (e.g. a DB wipe) and now fire as if never done.
@@ -450,6 +459,27 @@ function RoutineForm({ initial, onSave, onCancel }) {
     })
   }
 
+  // Stack-member editor helpers (independent items, no offset/ordering meaning).
+  const addMember = () => {
+    setMembers(prev => [...prev, { id: crypto.randomUUID(), title: '' }])
+  }
+  const updateMember = (id, patch) => {
+    setMembers(prev => prev.map(m => m.id === id ? { ...m, ...patch } : m))
+  }
+  const removeMember = (id) => {
+    setMembers(prev => prev.filter(m => m.id !== id))
+  }
+  // Strip empty rows + drop blank optional fields, matching the follow-up clean.
+  const cleanMembers = () => members
+    .filter(m => m.title?.trim())
+    .map(m => ({
+      id: m.id,
+      title: m.title.trim(),
+      ...(m.energy_type ? { energy_type: m.energy_type } : {}),
+      ...(m.energy_level ? { energy_level: m.energy_level } : {}),
+      ...(m.notes?.trim() ? { notes: m.notes.trim() } : {}),
+    }))
+
   // Sequences PR 4. When the user finishes editing the chain and clicks
   // Save, we look for *title* changes against the original (the only kind
   // of edit that propagates linguistically). If we find any AND the chain
@@ -492,6 +522,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
     triggerTime: triggerTime || null,
     completedHistory: resolveCompletedHistory(),
     followUps: followUpsArray,
+    members: cleanMembers(),
     autoRoll: isHabit ? false : autoRoll,
     spawnMode,
     targetCount: isHabit ? Math.max(1, Number(targetCount) || 1) : null,
@@ -860,6 +891,41 @@ function RoutineForm({ initial, onSave, onCancel }) {
         />
       </div>
 
+      {!isHabit && (
+        <div className="v2-form-section">
+          <label className="v2-form-label">Items (stack)</label>
+          <div className="v2-form-section-hint">
+            Add 2+ items and this routine becomes a <strong>stack</strong>: each cycle it spawns one independent task per item, all sharing the cadence and time above. Each item scores its own points; clearing every item in a cycle pays a 20% bonus.
+          </div>
+          {members.length > 0 && (
+            <ol className="v2-stack-member-edit-list">
+              {members.map((m) => (
+                <li key={m.id} className="v2-stack-member-edit-row">
+                  <input
+                    className="v2-form-input"
+                    placeholder="Item title (e.g. start dishwasher)"
+                    value={m.title}
+                    onChange={e => updateMember(m.id, { title: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="v2-stack-member-edit-remove"
+                    onClick={() => removeMember(m.id)}
+                    aria-label="Remove item"
+                    title="Remove item"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+          <button type="button" className="v2-edit-add-pill" onClick={addMember}>
+            + Add item
+          </button>
+        </div>
+      )}
+
       <div className="v2-form-section">
         <label className="v2-form-label">Follow-ups</label>
         <div className="v2-form-section-hint">
@@ -976,6 +1042,7 @@ export default function RoutinesModal({
         schedule_week_of_month: data.scheduleWeekOfMonth,
         trigger_time: data.triggerTime,
         follow_ups: data.followUps,
+        members: data.members,
         auto_roll: data.autoRoll,
         spawn_mode: data.spawnMode,
         target_count: data.targetCount,
@@ -996,6 +1063,7 @@ export default function RoutinesModal({
         data.spawnMode, data.targetCount, data.targetPeriod,
         data.customUnit, data.triggerTime,
         data.scheduleDayOfMonth, data.scheduleWeekOfMonth,
+        data.members,
       )
     }
     setView('list')

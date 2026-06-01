@@ -34,6 +34,10 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # Opt all JS actions onto the runner's Node 24 ahead of GitHub's 2026-06-16
+  # forced cutover (silences the Node 20 deprecation warnings). Reversible:
+  # remove this line, or set ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   docker:
@@ -157,15 +161,28 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
+      # The Tailscale OAuth connect occasionally fails transiently. Retry once
+      # before giving up so a blip doesn't red-fail an otherwise-good build
+      # (the image is already pushed to GHCR by this point).
+      - name: Connect to Tailscale (retry)
+        if: github.ref == 'refs/heads/main' && steps.tailscale.outcome != 'success'
+        continue-on-error: true
+        id: tailscale_retry
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
       - name: Trigger Portainer redeploy
         if: github.ref == 'refs/heads/main'
         run: |
-          if [ "${{ steps.tailscale.outcome }}" != "success" ]; then
-            echo "::error::Tailscale connection failed (outcome=${{ steps.tailscale.outcome }}). Portainer auto-deploy skipped — image is in GHCR but the running container will not auto-update. Pull the new image manually."
+          if [ "${{ steps.tailscale.outcome }}" != "success" ] && [ "${{ steps.tailscale_retry.outcome }}" != "success" ]; then
+            echo "::error::Tailscale failed on both attempts (transient retry exhausted). Portainer auto-deploy skipped — the image IS in GHCR (:latest), the container just didn't auto-update. Re-run this job, or pull the image manually in Portainer."
             exit 1
           fi
           echo "Triggering Portainer webhook..."
-          HTTP_CODE=$(curl -sS -o /tmp/portainer-response.txt -w "%{http_code}" -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}")
+          HTTP_CODE=$(curl -sS --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/portainer-response.txt -w "%{http_code}" -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}")
           BODY=$(cat /tmp/portainer-response.txt 2>/dev/null || echo "<empty>")
           echo "Portainer HTTP status: $HTTP_CODE"
           echo "Portainer response body: $BODY"
@@ -175,7 +192,7 @@ jobs:
           fi
 
       - name: Verify deploy
-        if: github.ref == 'refs/heads/main' && steps.tailscale.outcome == 'success'
+        if: github.ref == 'refs/heads/main' && (steps.tailscale.outcome == 'success' || steps.tailscale_retry.outcome == 'success')
         env:
           HEALTH_URL: ${{ secrets.HEALTH_CHECK_URL }}
           EXPECTED: ${{ steps.tag_version.outputs.new_tag }}
