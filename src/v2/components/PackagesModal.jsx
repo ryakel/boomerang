@@ -174,11 +174,8 @@ export default function PackagesModal({
     if (!tracking) return
     setAdding(true)
     try {
-      await onAdd({
-        tracking_number: tracking,
-        label: labelInput.trim() || null,
-        carrier: detectedCarrier?.carrier || 'other',
-      })
+      // addPackage takes positional args (trackingNumber, label, carrier) — same as v1.
+      await onAdd(tracking, labelInput.trim() || null, detectedCarrier?.code || 'other')
       setTrackingInput('')
       setLabelInput('')
       setShowAddForm(false)
@@ -229,8 +226,8 @@ export default function PackagesModal({
           />
           {detectedCarrier && (
             <div className="v2-package-detected">
-              <CarrierLogo carrier={detectedCarrier.carrier} size={18} />
-              <span>Detected: <strong>{detectedCarrier.label}</strong></span>
+              <CarrierLogo carrier={detectedCarrier.code} size={18} />
+              <span>Detected: <strong>{detectedCarrier.name}</strong></span>
             </div>
           )}
           <button

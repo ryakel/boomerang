@@ -4,6 +4,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-01
+
+- fix(packages): v2 Packages modal — Track button + carrier detection both broken [S]
+  - **Symptom.** In the v2 Packages modal, adding a tracking number did nothing ("Track doesn't work") and the "Detected:" line rendered blank even for an obvious UPS `1Z…` number.
+  - **Cause.** Two property/signature mismatches in `src/v2/components/PackagesModal.jsx` (v1 was unaffected):
+    1. `handleAdd` called `onAdd({ tracking_number, label, carrier })` with a single object, but `addPackage`/`createPackage` are **positional** `(trackingNumber, label, carrier)` — so the object itself was sent as the tracking number and the create request was malformed.
+    2. The detection result from `detectCarrier()` is shaped `{ code, name, icon, trackUrl }`, but the modal read `.carrier` / `.label` (undefined) → blank "Detected:" label and carrier always fell back to `'other'`.
+  - **Fix.** Call `onAdd(tracking, label || null, detectedCarrier?.code || 'other')` positionally; render `detectedCarrier.code` (CarrierLogo) and `detectedCarrier.name` (label).
+  - File: `src/v2/components/PackagesModal.jsx`.
+
+---
+
 ## 2026-05-31
 
 - feat(routines): Stacks — one routine that fans out into several independent tasks, with a clear bonus [L]
