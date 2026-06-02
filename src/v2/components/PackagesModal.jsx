@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Package as PackageIcon, RefreshCw, Trash2 } from 'lucide-react'
+import { Plus, Package as PackageIcon, RefreshCw, Trash2, ExternalLink } from 'lucide-react'
 import CarrierLogo from '../../components/CarrierLogo'
-import { detectCarrier } from '../../utils/carrierDetect'
+import { detectCarrier, getTrackingUrl } from '../../utils/carrierDetect'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import './PackagesModal.css'
@@ -42,6 +42,7 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
 
   const meta = STATUS_META[pkg.status] || STATUS_META.pending
   const events = pkg.events || []
+  const trackUrl = getTrackingUrl(pkg.carrier, pkg.tracking_number)
 
   const handleRefresh = async (e) => {
     e.stopPropagation()
@@ -114,6 +115,17 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
               <RefreshCw size={14} strokeWidth={1.75} className={refreshing ? 'v2-package-spin' : ''} />
               {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
+            {trackUrl && (
+              <a
+                className="v2-package-action"
+                href={trackUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(trackUrl, '_blank', 'noopener,noreferrer') }}
+              >
+                <ExternalLink size={14} strokeWidth={1.75} /> Carrier site
+              </a>
+            )}
             {!confirmDelete ? (
               <button
                 className="v2-package-action v2-package-action-danger"

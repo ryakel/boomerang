@@ -228,6 +228,7 @@
   border: 1px solid var(--v2-hairline);
   font: 500 12px/1 var(--v2-font-body);
   cursor: pointer;
+  text-decoration: none;
   transition: background var(--v2-dur-quick) var(--v2-ease-standard),
               color var(--v2-dur-quick) var(--v2-ease-standard);
 }
