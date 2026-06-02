@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-01
 
+- fix(ui): tic-tac-toe easter egg follows the active theme instead of forcing terminal chrome [XS]
+  - The hidden tic-tac-toe egg (7-tap the EditTaskModal title) hardcoded the terminal `>`/`//`/`[ ]` voice in its JSX, so a Light/Dark user saw terminal punctuation on a sans-serif card. Now gated on `useTerminalMode()`: terminal themes keep `> tic-tac-toe` / `// tie game` / `[ play again ]` `[ close ]`; other themes render `Tic-tac-toe` / `Tie game` / `Play again` `Close`. Colors/fonts already keyed off `--v2-*` vars, so no color change was needed. CSS comment updated; the terminal-button identity rule is preserved so `check:terminal-buttons` still passes.
+  - Files: `src/v2/components/TicTacToe.{jsx,css}`.
+
 - feat(packages): v2 Packages modal — "Carrier site" link to the provider's tracking page [XS]
   - The v2 Packages modal never exposed a link out to the carrier's own tracking page (v1's `PackageCard`/`PackageDetailModal` both had one via `getTrackingUrl()`). Added a "Carrier site" action in the expanded package row that opens the provider page (UPS/FedEx/USPS/DHL/Amazon/OnTrac/LaserShip) in a new tab. Only renders when `getTrackingUrl()` resolves a URL for the package's carrier.
   - Files: `src/v2/components/PackagesModal.{jsx,css}` (import `getTrackingUrl` + `ExternalLink`, compute `trackUrl` per row, `text-decoration: none` so the anchor matches the other pill actions).
