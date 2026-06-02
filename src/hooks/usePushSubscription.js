@@ -25,7 +25,30 @@ export function usePushSubscription() {
       setSupported(true)
       try {
         const reg = await navigator.serviceWorker.ready
-        const existing = await reg.pushManager.getSubscription()
+        let existing = await reg.pushManager.getSubscription()
+        // Self-heal: the subscription is owned by the SW *registration*, so it
+        // dies whenever the SW is unregistered — which the version-update
+        // handler does on every deploy (AppV2 onNewVersion), the ErrorBoundary
+        // does on a render crash, and iOS Safari does on its own whim. If the
+        // user previously granted permission but the subscription is gone,
+        // silently re-create it (no prompt — permission is already 'granted')
+        // and re-register it server-side. Without this, web push silently dies
+        // after every release until the user manually re-enables it.
+        if (!existing && Notification.permission === 'granted') {
+          try {
+            const vapidKey = await getVapidPublicKey()
+            if (vapidKey) {
+              existing = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(vapidKey),
+              })
+              await subscribePush(existing)
+              console.log('[Push] Re-subscribed after a lost subscription (deploy/SW reset/iOS eviction)')
+            }
+          } catch (healErr) {
+            console.warn('[Push] Auto-resubscribe failed; user can re-enable in Settings:', healErr?.message)
+          }
+        }
         setSubscription(existing)
       } catch { /* SW not ready yet */ }
       setLoading(false)
