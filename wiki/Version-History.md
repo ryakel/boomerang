@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-01
 
+- feat(packages): v2 Packages modal — "Carrier site" link to the provider's tracking page [XS]
+  - The v2 Packages modal never exposed a link out to the carrier's own tracking page (v1's `PackageCard`/`PackageDetailModal` both had one via `getTrackingUrl()`). Added a "Carrier site" action in the expanded package row that opens the provider page (UPS/FedEx/USPS/DHL/Amazon/OnTrac/LaserShip) in a new tab. Only renders when `getTrackingUrl()` resolves a URL for the package's carrier.
+  - Files: `src/v2/components/PackagesModal.{jsx,css}` (import `getTrackingUrl` + `ExternalLink`, compute `trackUrl` per row, `text-decoration: none` so the anchor matches the other pill actions).
+
 - fix(packages): v2 Packages modal — Track button + carrier detection both broken [S]
   - **Symptom.** In the v2 Packages modal, adding a tracking number did nothing ("Track doesn't work") and the "Detected:" line rendered blank even for an obvious UPS `1Z…` number.
   - **Cause.** Two property/signature mismatches in `src/v2/components/PackagesModal.jsx` (v1 was unaffected):
