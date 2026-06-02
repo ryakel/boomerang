@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, localYMD } from '../../store'
+import { useTerminalMode } from '../hooks/useTerminalMode'
 import './TicTacToe.css'
 
 // Hidden engagement game. Triggered by 7-tapping the EditTaskModal
@@ -69,6 +70,7 @@ function stampWin() {
 }
 
 export default function TicTacToe({ open, onClose, onPointEarned }) {
+  const isTerminal = useTerminalMode()
   const [board, setBoard] = useState(Array(9).fill(null))
   const [turn, setTurn] = useState('X') // X = player, O = AI
   const [outcome, setOutcome] = useState(null) // null | 'win' | 'lose' | 'tie'
@@ -140,23 +142,28 @@ export default function TicTacToe({ open, onClose, onPointEarned }) {
 
   if (!open) return null
 
-  const statusLine = (() => {
+  const statusBase = (() => {
     if (outcome === 'win') {
-      if (pointEarned) return '// you win! +1 point'
+      if (pointEarned) return 'you win! +1 point'
       return alreadyWonToday()
-        ? '// you win! (already claimed today)'
-        : '// you win!'
+        ? 'you win! (already claimed today)'
+        : 'you win!'
     }
-    if (outcome === 'lose') return '// you lose'
-    if (outcome === 'tie') return '// tie game'
-    return turn === 'X' ? '// your turn' : '// thinking…'
+    if (outcome === 'lose') return 'you lose'
+    if (outcome === 'tie') return 'tie game'
+    return turn === 'X' ? 'your turn' : 'thinking…'
   })()
+  // Terminal themes keep the `// comment` voice; other themes get a plain
+  // capitalized status line so the egg follows the active theme.
+  const statusLine = isTerminal
+    ? `// ${statusBase}`
+    : statusBase.charAt(0).toUpperCase() + statusBase.slice(1)
 
   return (
     <div className="v2-ttt-overlay" onClick={onClose}>
       <div className="v2-ttt-modal" onClick={e => e.stopPropagation()}>
         <div className="v2-ttt-header">
-          <span className="v2-ttt-title">&gt; tic-tac-toe</span>
+          <span className="v2-ttt-title">{isTerminal ? '> tic-tac-toe' : 'Tic-tac-toe'}</span>
           <button className="v2-ttt-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="v2-ttt-status">{statusLine}</div>
@@ -176,9 +183,9 @@ export default function TicTacToe({ open, onClose, onPointEarned }) {
         </div>
         <div className="v2-ttt-actions">
           {outcome && (
-            <button type="button" className="v2-ttt-btn" onClick={playAgain}>[ play again ]</button>
+            <button type="button" className="v2-ttt-btn" onClick={playAgain}>{isTerminal ? '[ play again ]' : 'Play again'}</button>
           )}
-          <button type="button" className="v2-ttt-btn v2-ttt-btn-close" onClick={onClose}>[ close ]</button>
+          <button type="button" className="v2-ttt-btn v2-ttt-btn-close" onClick={onClose}>{isTerminal ? '[ close ]' : 'Close'}</button>
         </div>
       </div>
     </div>

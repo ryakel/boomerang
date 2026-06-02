@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-01
 
+- fix(notifications): self-heal web-push subscription after a deploy/SW reset [S]
+  - **Symptom.** Native (web push) notifications silently died on essentially every new release.
+  - **Cause.** A push subscription is owned by the service-worker *registration*. The version-update handler (`AppV2` `onNewVersion`) calls `r.unregister()` on every detected version to bust stale shell caches — which destroys the registration and its push subscription. `usePushSubscription` only *read* the subscription on load and never re-created it, so push stayed dead until the user manually re-enabled it in Settings. (The `ErrorBoundary` crash path and iOS Safari's own eviction hit the same gap.)
+  - **Fix.** On load, if `Notification.permission === 'granted'` but `getSubscription()` is null, silently re-subscribe (no prompt — permission's already granted) and re-register server-side. Recovers from the deploy unregister, the crash-path unregister, and iOS's independent evictions. The cache-busting `unregister()` is deliberately left as-is per the historical white-screen fix it was added for.
+  - File: `src/hooks/usePushSubscription.js`.
+
+- fix(ui): tic-tac-toe easter egg follows the active theme instead of forcing terminal chrome [XS]
+  - The hidden tic-tac-toe egg (7-tap the EditTaskModal title) hardcoded the terminal `>`/`//`/`[ ]` voice in its JSX, so a Light/Dark user saw terminal punctuation on a sans-serif card. Now gated on `useTerminalMode()`: terminal themes keep `> tic-tac-toe` / `// tie game` / `[ play again ]` `[ close ]`; other themes render `Tic-tac-toe` / `Tie game` / `Play again` `Close`. Colors/fonts already keyed off `--v2-*` vars, so no color change was needed. CSS comment updated; the terminal-button identity rule is preserved so `check:terminal-buttons` still passes.
+  - Files: `src/v2/components/TicTacToe.{jsx,css}`.
+
 - feat(packages): v2 Packages modal — "Carrier site" link to the provider's tracking page [XS]
   - The v2 Packages modal never exposed a link out to the carrier's own tracking page (v1's `PackageCard`/`PackageDetailModal` both had one via `getTrackingUrl()`). Added a "Carrier site" action in the expanded package row that opens the provider page (UPS/FedEx/USPS/DHL/Amazon/OnTrac/LaserShip) in a new tab. Only renders when `getTrackingUrl()` resolves a URL for the package's carrier.
   - Files: `src/v2/components/PackagesModal.{jsx,css}` (import `getTrackingUrl` + `ExternalLink`, compute `trackUrl` per row, `text-decoration: none` so the anchor matches the other pill actions).
