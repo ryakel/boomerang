@@ -123,6 +123,12 @@
   margin-top: 2px;
 }
 
+.v2-package-summary-eta {
+  font: 500 12px/1.3 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin-top: 3px;
+}
+
 .v2-package-status {
   flex: 0 0 auto;
   font: 600 10px/1 var(--v2-font-body);
