@@ -64,7 +64,7 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
       })
     }
     return out
-  }, [completionsByDate, weekOffset, dailyTaskGoal])
+  }, [completionsByDate, weekOffset, dailyTaskGoal, easterEggWins])
 
   const rangeLabel = useMemo(() => {
     const first = days[0].date
@@ -85,7 +85,7 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
       items.push({ id: '__egg__', title: 'Daily Bonus', points: 1 })
     }
     return items
-  }, [selectedDate, completionsByDate])
+  }, [selectedDate, completionsByDate, easterEggWins])
 
   return (
     <div className="v2-week-strip">

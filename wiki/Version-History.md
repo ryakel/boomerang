@@ -4,6 +4,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-04
+
+- fix(ui): WeekStrip actually updates when you win tic-tac-toe [XS]
+  - **Root cause.** The two `useMemo` blocks in `WeekStrip.jsx` referenced `easterEggWins` in their bodies but didn't list it as a dependency. So when the easter-egg win prop changed, the memo kept the stale `easterEggWins` closure and the day count stayed unchanged. The earlier "fix" just passed the prop down; the memo never noticed it had changed. AppV2's stats line worked because it doesn't memoize, which is why "3/3 today" looked right while the WeekStrip still showed "2/3".
+  - **Fix.** Add `easterEggWins` to both dependency arrays. The lint rule was already flagging this on every push.
+  - Modified: `src/v2/components/WeekStrip.jsx`
+
 ## 2026-06-01
 
 - feat(packages): v2 Packages modal — "Carrier site" link to the provider's tracking page [XS]
