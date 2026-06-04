@@ -1,7 +1,11 @@
 /* Hidden tic-tac-toe Easter egg. Triggered by 7-tapping the
  * EditTaskModal title. Renders as a flat overlay above the edit
- * modal — monospace, terminal-style regardless of theme since
- * the egg is by definition a "command-line minigame." */
+ * modal. Theme-aware: terminal themes get the `> tic-tac-toe` /
+ * `// you win!` / `[ play again ]` aesthetic (gated in JSX via
+ * useTerminalMode); light/dark themes get plain titles + sentence-
+ * case status + plain button labels. Colors follow --v2-accent in
+ * every theme; --v2-glow only resolves on terminal themes so the X
+ * glows there and renders flat elsewhere. */
 
 .v2-ttt-overlay {
   position: fixed;
@@ -136,10 +140,10 @@
   color: var(--v2-text);
 }
 
-/* The Easter egg game is intentionally terminal-styled in every theme
- * (it's a hidden CLI minigame). This identity rule exists only to
- * satisfy the check-terminal-buttons smoke test, which expects every
- * button-shaped v2 class to have a terminal-mode override. */
+/* Identity rule to satisfy the check-terminal-buttons smoke test, which
+ * expects every button-shaped v2 class to have a terminal-mode override.
+ * The button already inherits --v2-accent + --v2-glow in terminal mode
+ * via the base rule above, so no actual override is needed. */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-ttt-btn {
   /* same as base */
 }
