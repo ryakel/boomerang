@@ -82,6 +82,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-05-26
 
+- feat(packages): show ETA on the package row without expanding [XS]
+  - **Glanceability.** Each package card now shows `ETA <date>` (or `Delivered <Nd ago>` once delivered) directly under the tracking number, so you don't have to tap into the row to see when it's coming.
+  - Modified: `src/v2/components/PackagesModal.jsx`, `src/v2/components/PackagesModal.css`
+
 - fix(sync): break infinite sync loop between multi-client auto-roll routine updates [M]
   - **Root cause.** Auto-roll routines called `updateTask` with a new `last_touched` timestamp on every hydration, even when `due_date` was already today. Two clients would ping-pong: Client A rolls → SSE → Client B hydrates + re-rolls with new timestamp → SSE → Client A repeats. Version counter incremented ~1/second indefinitely.
   - **Fix 1 (primary).** `spawnDueTasks` in `useRoutines.js` now checks whether the active instance's `due_date` is already today and has no stale snooze before emitting a roll update. No-op rolls are skipped entirely.

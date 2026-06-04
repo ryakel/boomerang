@@ -43,6 +43,9 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
   const meta = STATUS_META[pkg.status] || STATUS_META.pending
   const events = pkg.events || []
   const trackUrl = getTrackingUrl(pkg.carrier, pkg.tracking_number)
+  const summaryEta = pkg.status === 'delivered'
+    ? (pkg.delivered_at ? `Delivered ${timeAgo(pkg.delivered_at)}` : null)
+    : (pkg.eta ? `ETA ${formatEta(pkg.eta)}` : null)
 
   const handleRefresh = async (e) => {
     e.stopPropagation()
@@ -62,6 +65,9 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
           <div className="v2-package-label">{pkg.label || pkg.tracking_number}</div>
           {pkg.label && (
             <div className="v2-package-tracking">{pkg.tracking_number}</div>
+          )}
+          {summaryEta && (
+            <div className="v2-package-summary-eta">{summaryEta}</div>
           )}
         </div>
         <span className={`v2-package-status v2-package-status-${meta.tone}`}>{meta.label}</span>
