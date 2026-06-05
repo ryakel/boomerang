@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-05
 
+- feat(ui): Loggd Profile/Dashboard screen (year grid + stat pills + habit heatmaps) [M]
+  - **Phase 3b.** New `ProfileModal` (`src/v2/components/ProfileModal.{jsx,css}`) — the Loggd "see your year" hero surface. Opened from the ⚙ SystemMenu via a new "Dashboard" row. Sections: colorful **stat pills** (day streak / points today / done today / best streak / lifetime done, each carrying a Loggd category accent), a big **53-week activity contribution grid** with a Tasks/Points toggle (reuses `GET /api/analytics/history?days=365`), and **per-habit heatmaps** for every routine with completion history. All data is already computed by AppV2 (`dailyStats`, `streak`, `records`) or fetched from the existing analytics endpoint — no new server work.
+  - Extracted `heatmapUtils.js` (`routineHeatColor`, `historyByDay`) shared by RoutinesModal + ProfileModal so the per-routine palette and day-bucketing can't drift.
+  - Wired into AppV2: `showProfile` state, SystemMenu `onOpenProfile`, modal-stack + Escape handling + version-check effect.
+  - Files: `src/v2/components/{ProfileModal.jsx,ProfileModal.css,heatmapUtils.js}` (new), `src/v2/components/{SystemMenu,RoutinesModal}.jsx`, `src/v2/AppV2.jsx`, `CLAUDE.md`.
+
 - feat(ui): Loggd structural layer + reusable contribution heatmap on routine cards [M]
   - **Phase 2 — structural restyle.** Added `src/v2/loggd/structure.css` (gated entirely on `[data-theme^="loggd"]`, so Standard themes are untouched): soft card elevation + a per-energy **category accent stripe** (drove a `data-energy` attr onto `.v2-card`, painted as an inset shadow so alert border-lefts still win), accent-fill active toolbar pills, larger colorful FABs with white what-now glyph (black-on-purple was unreadable), heavier section labels, deepened modal sheet shadow. Split the Loggd dir into `palette.css` + `structure.css` behind a new `index.css` aggregator.
   - **Phase 3a — heatmaps.** New theme-agnostic `ContributionHeatmap` component (`src/v2/components/ContributionHeatmap.{jsx,css}`) — GitHub-style grid keyed by local date, intensity via `color-mix`, consumes `--lg-heat-*` tokens with Standard-theme fallbacks. Wired into the v2 RoutinesModal: expanded routine cards now show an 18-week per-habit contribution grid built from `completed_history`, colored by a stable hash of the routine id (cycles the Loggd category palette — like the loggd.life habit cards).
