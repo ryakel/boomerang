@@ -450,3 +450,13 @@
   color: var(--v2-text);
   border-color: var(--v2-text-meta);
 }
+
+/* Per-routine contribution heatmap in the expanded detail (Loggd habit-grid
+ * look). Horizontal scroll guards against overflow on narrow sheets. */
+.v2-routine-heatmap {
+  margin: 4px 0 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.v2-routine-heatmap::-webkit-scrollbar { display: none; }

@@ -5,7 +5,35 @@ import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import ChainReconcileModal from './ChainReconcileModal'
 import SectionLabel from './SectionLabel'
+import ContributionHeatmap from './ContributionHeatmap'
 import './RoutinesModal.css'
+
+// Per-routine heatmap accent — cycle the Loggd category palette by a stable
+// hash of the routine id so each habit reads as its own color (like the
+// loggd.life habit cards). Falls back to --v2-accent in Standard themes.
+const HEATMAP_COLORS = [
+  'var(--lg-blue, var(--v2-accent))',
+  'var(--lg-purple, var(--v2-accent))',
+  'var(--lg-green, var(--v2-accent))',
+  'var(--lg-orange, var(--v2-accent))',
+  'var(--lg-pink, var(--v2-accent))',
+]
+function routineColor(id) {
+  let h = 0
+  for (let i = 0; i < String(id).length; i++) h = (h * 31 + String(id).charCodeAt(i)) >>> 0
+  return HEATMAP_COLORS[h % HEATMAP_COLORS.length]
+}
+// Bucket a routine's completed_history timestamps into { 'YYYY-MM-DD': count }.
+function historyByDay(history) {
+  const map = {}
+  for (const ts of (history || [])) {
+    const d = new Date(ts)
+    if (isNaN(d)) continue
+    const key = localYMD(d)
+    map[key] = (map[key] || 0) + 1
+  }
+  return map
+}
 
 const DAY_OF_WEEK_OPTIONS = [
   { value: '', label: 'Any day' },
@@ -72,6 +100,8 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
   const memberCount = Array.isArray(routine.members) ? routine.members.length : 0
   const stackLabel = memberCount > 0 ? ` · ${memberCount} items` : ''
   const completeCount = routine.completed_history?.length || 0
+  const heatColor = routineColor(routine.id)
+  const heatValues = historyByDay(routine.completed_history)
 
   const handleSpawn = () => {
     if (hasActiveTask) return  // button is disabled in this state, but defensive
@@ -128,6 +158,18 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
               </>
             )}
           </div>
+          {completeCount > 0 && (
+            <div className="v2-routine-heatmap">
+              <ContributionHeatmap
+                valueByDay={heatValues}
+                color={heatColor}
+                weeks={18}
+                cellSize={10}
+                gap={2}
+                unitLabel="done"
+              />
+            </div>
+          )}
           {routine.notes && (
             <div className="v2-routine-notes">{routine.notes}</div>
           )}

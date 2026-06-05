@@ -1,0 +1,13 @@
+/* Loggd design language — entry point.
+ *
+ * palette.css   — token overrides (--v2-* re-skin + --lg-* structural tokens)
+ *                 for loggd-dark / loggd-light. Every token-consuming
+ *                 component re-skins from this alone.
+ * structure.css — [data-theme^="loggd"] structural overrides (card elevation +
+ *                 category stripe, pill controls, FABs, modal elevation).
+ *
+ * Wired into AppV2 via `@import './loggd/index.css'`. Phase 3 heatmap +
+ * profile CSS joins this directory and gets imported here. */
+
+@import './palette.css';
+@import './structure.css';
