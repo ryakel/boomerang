@@ -989,12 +989,16 @@ mode change?" is one directory grep.
    (picker). Update all three when adding/removing a theme value.
 
 **Build order (re-skin + heatmaps):**
-1. ✅ Terminal teardown + Loggd token layer + 4-theme picker (this commit)
-2. ⬜ Core primitive restyle (Header, TaskCard, segmented controls, ModalShell,
-   FAB, BottomTabs) to the Loggd look; strip inert `terminalTitle`/
-   `data-terminal-*` props as each file is touched
-3. ⬜ Heatmaps — routines as habit-heatmap cards + a Profile/Dashboard screen
-   (big activity grid + colorful stat pills), reusing the analytics/streak data
+1. ✅ Terminal teardown + Loggd token layer + 4-theme picker
+2. ✅ Loggd structural layer (`src/v2/loggd/structure.css`, gated on
+   `[data-theme^="loggd"]`): card elevation + per-energy category accent
+   stripe (`data-energy` on `.v2-card`), accent-fill pill controls, larger
+   colorful FABs, modal elevation. Header restyle + stripping the inert
+   `terminalTitle`/`data-terminal-*` props is still outstanding.
+3. 🔶 Heatmaps — reusable `ContributionHeatmap` (theme-agnostic, consumes
+   `--lg-heat-*` with Standard fallbacks). ✅ Routine cards render a per-habit
+   contribution grid (color cycled by routine-id hash). ⬜ Profile/Dashboard
+   screen (big year grid + colorful stat pills) reusing analytics/streak data.
 4. ⬜ TestFlight prep — Capacitor iOS wrap + documented archive/upload steps
 
 ## Additional Notes

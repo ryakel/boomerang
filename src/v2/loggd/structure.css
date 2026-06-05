@@ -1,0 +1,81 @@
+/* Loggd structural layer — gated entirely on [data-theme^="loggd"] so the
+ * Standard (Wheneri) themes are never touched. The palette.css token override
+ * already re-skins colors; this file adds the Loggd dashboard STRUCTURE:
+ * elevated rounded cards with a category-accent stripe, accent-filled pill
+ * controls, larger colorful FABs, and softened modal elevation.
+ *
+ * Heatmaps + the Profile/Dashboard surface land in a later phase (Phase 3)
+ * and will join this directory. */
+
+/* ── Cards: soft elevation + per-energy category accent stripe ──────────
+ * The swipe wrapper has overflow:hidden, so an outset shadow on the inner
+ * .v2-card gets clipped — the visible elevation rides on the wrapper. The
+ * inner card keeps the inset accent stripe (inset shadows aren't clipped)
+ * and an outset shadow as the fallback for unwrapped cards (Kanban). */
+[data-theme^="loggd"] .v2-card-swipe-wrap {
+  box-shadow: var(--lg-shadow);
+}
+[data-theme^="loggd"] .v2-card {
+  border-color: var(--lg-border-strong);
+  box-shadow: var(--lg-shadow);
+}
+
+/* Per-energy stripe color, applied as an inset shadow on the left edge.
+ * Alert cards (overdue / high-pri) keep their colored border-left instead. */
+[data-theme^="loggd"] .v2-card[data-energy="desk"]          { --lg-stripe: var(--v2-energy-desk); }
+[data-theme^="loggd"] .v2-card[data-energy="people"]        { --lg-stripe: var(--v2-energy-people); }
+[data-theme^="loggd"] .v2-card[data-energy="errand"]        { --lg-stripe: var(--v2-energy-errand); }
+[data-theme^="loggd"] .v2-card[data-energy="confrontation"] { --lg-stripe: var(--v2-energy-confrontation); }
+[data-theme^="loggd"] .v2-card[data-energy="creative"]      { --lg-stripe: var(--v2-energy-creative); }
+[data-theme^="loggd"] .v2-card[data-energy="physical"]      { --lg-stripe: var(--v2-energy-physical); }
+
+[data-theme^="loggd"] .v2-card[data-energy]:not([data-energy=""]):not(.v2-card-overdue):not(.v2-card-high-pri) {
+  box-shadow: var(--lg-shadow), inset 3px 0 0 var(--lg-stripe);
+}
+
+/* Alert stripes read a touch heavier against the navy canvas. */
+[data-theme^="loggd"] .v2-card-overdue  { border-left-width: 3px; }
+[data-theme^="loggd"] .v2-card-high-pri { border-left-width: 3px; }
+
+/* ── Toolbar pills: active pill = accent fill (Loggd segmented look) ───── */
+[data-theme^="loggd"] .v2-toolbar-pill-active,
+[data-theme^="loggd"] .v2-toolbar-pill-active:hover {
+  background: var(--v2-accent);
+  border-color: var(--v2-accent);
+  color: var(--v2-accent-contrast, #fff);
+}
+
+/* ── Section labels: brighter, slightly heavier heading on the navy ───── */
+[data-theme^="loggd"] .v2-section-label {
+  color: var(--v2-text-meta);
+  font-weight: 700;
+}
+[data-theme^="loggd"] .v2-section-label-bullet {
+  font-size: 11px;
+}
+
+/* ── FABs: larger circles, stronger elevation, white glyph on accent ──── */
+[data-theme^="loggd"] .v2-fc-button {
+  width: 56px;
+  height: 56px;
+  box-shadow: var(--lg-shadow);
+  border-color: var(--lg-border-strong);
+}
+/* What-now FAB uses --v2-accent (purple in Loggd); the Standard themes set
+ * a black glyph for orange-on-orange contrast, which reads poorly on purple.
+ * Flip it to white. */
+[data-theme^="loggd"] .v2-fc-button-whatnow,
+[data-theme^="loggd"] .v2-fc-button-whatnow:hover:not(:disabled),
+[data-theme^="loggd"] .v2-fc-button-anchor.v2-fc-button-whatnow {
+  color: var(--v2-accent-contrast, #fff);
+}
+
+/* ── Modal: deepen the sheet elevation against the navy ───────────────── */
+[data-theme^="loggd"] .v2-modal {
+  box-shadow: 0 -10px 44px rgba(0, 0, 0, 0.40);
+}
+@media (min-width: 768px) {
+  [data-theme^="loggd"] .v2-modal {
+    box-shadow: -18px 0 48px rgba(0, 0, 0, 0.38);
+  }
+}

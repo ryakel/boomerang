@@ -156,6 +156,7 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
       )}
     <div
       data-task-id={task.id}
+      data-energy={task.energy || ''}
       className={[
         'v2-card',
         tone ? `v2-card-${tone}` : '',

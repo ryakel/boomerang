@@ -58,7 +58,7 @@
 /* Loggd palettes (loggd-dark / loggd-light) live in src/v2/loggd/palette.css.
  * They override these same --v2-* tokens — exactly how the built-in dark
  * theme does — plus add --lg-* structural tokens for the heatmap / stat-pill
- * / profile surfaces. Wired into AppV2 via `@import './loggd/palette.css'`.
+ * / profile surfaces. Wired into AppV2 via `@import './loggd/index.css'`.
  *
  * Why a separate file family instead of inlining here? Because Loggd is its
  * own design language — "what does Loggd mode change?" is one file grep, and
