@@ -995,10 +995,13 @@ mode change?" is one directory grep.
    stripe (`data-energy` on `.v2-card`), accent-fill pill controls, larger
    colorful FABs, modal elevation. Header restyle + stripping the inert
    `terminalTitle`/`data-terminal-*` props is still outstanding.
-3. 🔶 Heatmaps — reusable `ContributionHeatmap` (theme-agnostic, consumes
-   `--lg-heat-*` with Standard fallbacks). ✅ Routine cards render a per-habit
-   contribution grid (color cycled by routine-id hash). ⬜ Profile/Dashboard
-   screen (big year grid + colorful stat pills) reusing analytics/streak data.
+3. ✅ Heatmaps — reusable `ContributionHeatmap` (theme-agnostic, consumes
+   `--lg-heat-*` with Standard fallbacks; helpers in `heatmapUtils.js`).
+   Routine cards render a per-habit contribution grid (color cycled by
+   routine-id hash). **Profile/Dashboard** (`ProfileModal`, opened from the
+   ⚙ SystemMenu → "Dashboard"): colorful stat pills (streak / points today /
+   done today / best streak / lifetime done) + a 53-week activity year grid
+   (tasks/points toggle, reuses `/api/analytics/history`) + per-habit grids.
 4. ⬜ TestFlight prep — Capacitor iOS wrap + documented archive/upload steps
 
 ## Additional Notes

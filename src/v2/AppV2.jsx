@@ -22,6 +22,7 @@ import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
+import ProfileModal from './components/ProfileModal'
 import KanbanBoard from './components/KanbanBoard'
 import ProjectPinnedSection from './components/ProjectPinnedSection'
 import StackSection from './components/StackSection'
@@ -95,6 +96,7 @@ export default function AppV2() {
   // pre-seeded entry point (currently the Knowledge menu item).
   const [adviserDraftSeed, setAdviserDraftSeed] = useState('')
   const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   // 7-day strip visibility — single source of truth. Date tap toggles
   // it in all themes. Two settings can seed the initial state on load:
@@ -262,10 +264,10 @@ export default function AppV2() {
   // Check app version whenever a view/modal opens — same cadence v1 uses.
   // Catches stale clients without waiting for the next SSE/sync round-trip.
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || editTarget || showAdd || showWhatNow || showMarkdownImport) {
+    if (showSettings || showDone || showAnalytics || showProfile || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || editTarget || showAdd || showWhatNow || showMarkdownImport) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showProfile, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
 
   // Deep-link handler. Notifications come in as `/?task=<id>` (task tap),
   // `/?routine=<id>` (habit nudge tap, PR 2 — currently no-op without
@@ -461,6 +463,7 @@ export default function AppV2() {
   if (showPackages) activeModals.push('packages')
   if (showAdviser) activeModals.push('adviser')
   if (showAnalytics) activeModals.push('analytics')
+  if (showProfile) activeModals.push('profile')
   if (showSuggestions) activeModals.push('suggestions')
   if (spacesHubOpen) activeModals.push('spaces')
   if (systemMenuOpen) activeModals.push('systemMenu')
@@ -480,11 +483,12 @@ export default function AppV2() {
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
     if (showAnalytics) { setShowAnalytics(false); return }
+    if (showProfile) { setShowProfile(false); return }
     if (showSuggestions) { setShowSuggestions(false); return }
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
     if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showProfile, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -851,6 +855,7 @@ export default function AppV2() {
         onClose={() => setSystemMenuOpen(false)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenAnalytics={() => setShowAnalytics(true)}
+        onOpenProfile={() => setShowProfile(true)}
         onOpenDone={() => setShowDone(true)}
         onOpenSuggestions={() => setShowSuggestions(true)}
         onOpenActivityLog={() => setShowActivityLog(true)}
@@ -1361,6 +1366,16 @@ export default function AppV2() {
       <AnalyticsModal
         open={showAnalytics}
         onClose={() => setShowAnalytics(false)}
+      />
+
+      <ProfileModal
+        open={showProfile}
+        onClose={() => setShowProfile(false)}
+        tasks={tasks}
+        routines={routines}
+        dailyStats={dailyStats}
+        streak={streak}
+        records={records}
       />
 
       {isDesktop && (

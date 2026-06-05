@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Settings as SettingsIcon, BarChart3, History, CheckCircle2, Lightbulb, ChevronRight } from 'lucide-react'
+import { Settings as SettingsIcon, BarChart3, History, CheckCircle2, Lightbulb, LayoutDashboard, ChevronRight } from 'lucide-react'
 import './SystemMenu.css'
 
 // Anchored popover off the header ⚙ icon. Hosts the low-frequency
@@ -13,7 +13,7 @@ import './SystemMenu.css'
 // would force the system-menu wiring to pass through Header props.
 export default function SystemMenu({
   open, onClose,
-  onOpenSettings, onOpenAnalytics, onOpenDone, onOpenSuggestions, onOpenActivityLog,
+  onOpenSettings, onOpenAnalytics, onOpenProfile, onOpenDone, onOpenSuggestions, onOpenActivityLog,
   hasSuggestions = false,
 }) {
   const panelRef = useRef(null)
@@ -50,6 +50,13 @@ export default function SystemMenu({
       terminalCmd: '> settings',
       onClick: onOpenSettings,
       tint: 'settings',
+    },
+    {
+      key: 'profile',
+      icon: LayoutDashboard,
+      label: 'Dashboard',
+      onClick: onOpenProfile,
+      tint: 'analytics',
     },
     {
       key: 'analytics',
