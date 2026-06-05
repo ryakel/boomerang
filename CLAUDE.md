@@ -937,39 +937,65 @@ The Boomerang wordmark popover (Analytics + Done, top-left) was already in place
 
 **End state.** After all 8 PRs ship and a 1-2 week opt-in period validates v2, flip the default to `'v2'`, leave v1 reachable via `?ui=v1` for one release, then delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`.
 
-### Terminal Theme Stress Test (2026-05-10, shipped to main 2026-05-11)
+### Terminal Theme — RETIRED (2026-06-05)
 
-**Working hypothesis: terminal may become the default forever.** PR A–H shipped a four-palette family — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) — with terminal-specific structural overrides (ASCII flourishes, monospace stack, bracket toggles, `> verb` modal headers, `// manage` section, density signals on TaskCard, no-button-chrome on settings controls, WeekStrip toggle from home stats date). The user shipped v0.11.0 to `main` on 2026-05-11 with terminal as their daily driver; the 30-day decision criterion (terminal-forever vs. didn't-stick) starts clocking from there. Light/dark stay maintained as defensive baseline.
+The Terminal palette family (Terminal Dark / Terminal Light, the GitHub-palette
+monospace+ASCII stress test from 2026-05-10) **did not stick** and was torn out
+on 2026-06-05 in favor of the **Loggd** design language (below). The teardown:
+deleted `src/v2/terminal/`, the `useTerminalMode` hook, and the
+`check-terminal-*.js` CI smoke tests; stripped the terminal branch from
+ModalShell / EmptyState / ConfirmDialog / TaskCard / Project & Stack sections /
+TicTacToe; and removed the Terminal options from the theme picker. The
+`terminalTitle` / `terminalCommand` props are now inert no-ops at their
+remaining call sites (ModalShell ignores them) and get cleaned up as each modal
+is restyled. The density signals on TaskCard (`[X/Y]` checklist counter, `🔥N`
+streak, one-line notes preview) **graduated to all themes** — they suit the
+Loggd dashboard density and are styled in `TaskCard.css`. A migration shim in
+`loadSettings()` (and the index.html pre-paint script) maps any saved
+`terminal-dark`/legacy `terminal` → `loggd-dark` and `terminal-light` →
+`loggd-light`.
 
-**The convention while we stress-test:**
+### Loggd Theme (2026-06-05) — deep-navy dashboard design language
 
-1. **Don't widen JSX divergence for new features.** The existing theme-aware plumbing — `terminalTitle` on ModalShell + ConfirmDialog, `terminalCommand` on EmptyState, `data-terminal-cmd` attr on `.v2-edit-action-label` spans, `useTerminalMode` hook — is enough. Don't introduce new patterns. New features go terminal-first OR theme-agnostic; they should not branch on theme.
+A new palette family modeled on [loggd.life](https://loggd.life): a deep-navy
+canvas with slightly-lighter card surfaces, hairline borders + soft elevation,
+GitHub-style contribution heatmaps as the signature visual, per-category color
+accents (blue / purple / green / orange / pink), heavy grotesk (Inter) titles,
+pill segmented controls, colorful FABs, and semantic action buttons
+(orange = primary, green = complete, yellow = pause, red = delete).
 
-2. **CSS overrides are still cheap.** Adding selectors gated on `[data-theme^="terminal"]` is free (gating cleanly, no leakage). Use those for visual flourishes without thinking about it.
+**Theme model (4 palettes, family × mode).** The Settings → General picker is a
+**family** toggle (Standard / Loggd) × a **mode** toggle (Light / Dark), yielding
+`light`, `dark`, `loggd-light`, `loggd-dark`. Standard is the calm
+Wheneri-flavored baseline (kept maintained). `loggd-dark` is the new flagship
+look and where migrated terminal users land.
 
-3. **New ModalShell call sites must include `terminalTitle`.** Smoke test in `scripts/check-terminal-titles.js` runs in CI / pre-push to catch silent drift. Run via `npm run check:terminal-titles`.
+**How it's wired.** Loggd themes **override the shared `--v2-*` tokens** (exactly
+how the built-in dark theme does) so every token-consuming component re-skins
+with zero per-component changes. Loggd-specific structural tokens are namespaced
+`--lg-*` (card elevation, category accents, semantic action colors, heatmap
+cells) and consumed by the heatmap / stat-pill / profile surfaces. All of it
+lives in **`src/v2/loggd/palette.css`**, imported by `AppV2.css`. Adding Loggd
+structural CSS later joins the same `src/v2/loggd/` directory — "what does Loggd
+mode change?" is one directory grep.
 
-4. **Density signals on TaskCard are currently terminal-only by user preference (PR G, 2026-05-10).** They ship in markup always, hidden by CSS in non-terminal themes. **Graduate criteria:** if usage validates that the user wants `[X/Y]` counter, `🔥N` streak, and one-line notes preview in their daily flow, drop the `[data-theme^="terminal"]` gate in `terminal/cards.css` and let any theme show them. Do NOT add a fourth terminal-only TaskCard signal without revisiting this.
+**Conventions.**
+1. New surfaces are theme-agnostic — they consume `--v2-*` / `--lg-*` tokens and
+   render correctly in all four palettes. Don't branch components on theme.
+2. CSS flourishes gated on `[data-theme^="loggd"]` are cheap and leak-free — use
+   them for Loggd-only structural touches (heatmaps, stat pills) without churn.
+3. Theme-color meta + pre-paint map live in three places that must stay in sync:
+   `index.html` (pre-paint), `AppV2.jsx` (mount effect), `SettingsModal.jsx`
+   (picker). Update all three when adding/removing a theme value.
 
-5. **Decision criterion for "terminal forever."** If the user is still in `theme: 'terminal-dark'` (or `'terminal-light'`) after ~30 days of daily use, terminal becomes the default for new installs and Light/Dark deprecation timeline starts. Until then, all four palettes stay live and equal in the picker.
-
-6. **What "terminal forever" means structurally:**
-   - Light + Dark palettes get marked deprecated in tokens.css (kept compiling for 1-2 releases)
-   - Picker collapses from 4 options to "Theme: Terminal Dark / Terminal Light"
-   - `[data-theme^="terminal"]` selectors lose their guard (terminal IS v2)
-   - Density signals graduate to always-on
-   - `useTerminalMode` hook + `terminalTitle`/`terminalCommand` props get unified — modal titles use the `> verb` form unconditionally, no fallback
-   - `src/v2/terminal/` directory contents merge into the regular component CSS
-
-7. **What "terminal didn't stick" means structurally:**
-   - `rm -rf src/v2/terminal/`
-   - Drop `'terminal-dark'`/`'terminal-light'` from picker, leaving Light + Dark
-   - Remove `terminalTitle` / `terminalCommand` props from ModalShell + EmptyState
-   - Delete `useTerminalMode` hook
-   - Reset density signals (delete from TaskCard JSX)
-   - Migration shim in `loadSettings()` flips `terminal-*` → `dark`
-
-The whole thing was designed so either pivot is cheap. Don't make it expensive by piling on more terminal-only features without revisiting whether they should be terminal-only.
+**Build order (re-skin + heatmaps):**
+1. ✅ Terminal teardown + Loggd token layer + 4-theme picker (this commit)
+2. ⬜ Core primitive restyle (Header, TaskCard, segmented controls, ModalShell,
+   FAB, BottomTabs) to the Loggd look; strip inert `terminalTitle`/
+   `data-terminal-*` props as each file is touched
+3. ⬜ Heatmaps — routines as habit-heatmap cards + a Profile/Dashboard screen
+   (big activity grid + colorful stat pills), reusing the analytics/streak data
+4. ⬜ TestFlight prep — Capacitor iOS wrap + documented archive/upload steps
 
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.

@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-05
+
+- refactor(ui): retire terminal theme + add Loggd palette family (light + dark) [L]
+  - **Terminal didn't stick.** Tore out the Terminal Dark / Terminal Light palette family (the 2026-05-10 GitHub-palette monospace+ASCII stress test) and replaced it with the **Loggd** design language modeled on [loggd.life](https://loggd.life) — deep-navy canvas, hairline cards + soft elevation, per-category color accents, heavy Inter titles, pill segmented controls, colorful semantic action buttons, and (coming next) GitHub-style contribution heatmaps.
+  - **Teardown.** Deleted `src/v2/terminal/`, `src/v2/hooks/useTerminalMode.js`, and the `scripts/check-terminal-{titles,buttons}.js` CI smoke tests (+ their `package.json` scripts and pre-push hook steps). Stripped the terminal branch from `ModalShell`, `EmptyState`, `ConfirmDialog`, `TaskCard` (swipe always-on now), `ProjectPinnedSection`, `StackSection`, `TicTacToe`. The `terminalTitle`/`terminalCommand` props are now inert no-ops at remaining call sites (cleaned up per-modal in the next phase).
+  - **Theme model.** Settings → General keeps the **family × mode** picker but the family toggle is now **Standard / Loggd**, yielding `light`, `dark`, `loggd-light`, `loggd-dark`. Old Light/Dark stay; Loggd Dark is the new flagship. Migration (runtime `loadSettings()` + index.html pre-paint): `terminal-dark`/legacy `terminal` → `loggd-dark`, `terminal-light` → `loggd-light`.
+  - **Tokens.** Loggd themes override the shared `--v2-*` tokens (zero per-component change) plus add `--lg-*` structural tokens (card elevation, category accents, semantic action colors, heatmap cells). All in `src/v2/loggd/palette.css`, imported by `AppV2.css`. Density signals on TaskCard (`[X/Y]` counter, `🔥N` streak, notes preview) graduated to all themes with base styles in `TaskCard.css`.
+  - **Fonts.** Added Inter (display); removed the terminal-only JetBrains Mono load; bumped DM Sans to include 700.
+  - Files: `src/v2/loggd/palette.css` (new), `src/v2/AppV2.css`, `src/v2/AppV2.jsx`, `src/v2/tokens.css`, `index.html`, `src/store.js`, `src/v2/components/{SettingsModal,ModalShell,EmptyState,ConfirmDialog,TaskCard,TaskCard.css,ProjectPinnedSection,StackSection,TicTacToe}.jsx`, `package.json`, `.githooks/pre-push`, `CLAUDE.md`.
+
 ## 2026-06-04
 
 - fix(ui): tic-tac-toe text/labels actually follow the active theme [XS]

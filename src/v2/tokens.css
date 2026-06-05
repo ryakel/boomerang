@@ -55,12 +55,11 @@
   --v2-hairline: rgba(255, 255, 255, 0.08);
 }
 
-/* Terminal theme palettes live in src/v2/terminal/palette-*.css — one
- * file per sub-variant (terminal-dark = GitHub Dark, terminal-light =
- * GitHub Light). Structural ASCII flourishes shared across variants
- * live in src/v2/terminal/{wordmark,sections,cards}.css. The whole
- * directory is wired into AppV2 via `@import './terminal/index.css'`.
+/* Loggd palettes (loggd-dark / loggd-light) live in src/v2/loggd/palette.css.
+ * They override these same --v2-* tokens — exactly how the built-in dark
+ * theme does — plus add --lg-* structural tokens for the heatmap / stat-pill
+ * / profile surfaces. Wired into AppV2 via `@import './loggd/palette.css'`.
  *
- * Why a separate file family instead of inlining here? Because Terminal
- * is its own design language — adding a new sub-palette is one drop-in
- * file, and "what does terminal mode change?" is one directory grep. */
+ * Why a separate file family instead of inlining here? Because Loggd is its
+ * own design language — "what does Loggd mode change?" is one file grep, and
+ * later structural CSS (heatmaps, pills) joins the same src/v2/loggd/ dir. */

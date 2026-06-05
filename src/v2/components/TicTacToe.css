@@ -1,11 +1,7 @@
 /* Hidden tic-tac-toe Easter egg. Triggered by 7-tapping the
  * EditTaskModal title. Renders as a flat overlay above the edit
- * modal. Theme-aware: terminal themes get the `> tic-tac-toe` /
- * `// you win!` / `[ play again ]` aesthetic (gated in JSX via
- * useTerminalMode); light/dark themes get plain titles + sentence-
- * case status + plain button labels. Colors follow --v2-accent in
- * every theme; --v2-glow only resolves on terminal themes so the X
- * glows there and renders flat elsewhere. */
+ * modal. Plain titles + sentence-case status + plain button labels;
+ * colors follow --v2-accent in every theme. */
 
 .v2-ttt-overlay {
   position: fixed;

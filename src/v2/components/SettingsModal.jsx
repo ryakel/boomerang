@@ -2431,17 +2431,17 @@ export default function SettingsModal({
               const themeColors = {
                 light: '#FFFFFF',
                 dark: '#0B0B0F',
-                'terminal-light': '#FFFFFF',
-                'terminal-dark': '#0D1117',
+                'loggd-light': '#F4F6FB',
+                'loggd-dark': '#0E1322',
               }
               const currentTheme = settings.theme || 'light'
-              const isTerminal = currentTheme.startsWith('terminal')
-              const isDark = currentTheme === 'dark' || currentTheme === 'terminal-dark'
-              const family = isTerminal ? 'terminal' : 'standard'
+              const isLoggd = currentTheme.startsWith('loggd')
+              const isDark = currentTheme === 'dark' || currentTheme === 'loggd-dark'
+              const family = isLoggd ? 'loggd' : 'standard'
               const mode = isDark ? 'dark' : 'light'
               const setTheme = (nextFamily, nextMode) => {
-                const value = nextFamily === 'terminal'
-                  ? (nextMode === 'dark' ? 'terminal-dark' : 'terminal-light')
+                const value = nextFamily === 'loggd'
+                  ? (nextMode === 'dark' ? 'loggd-dark' : 'loggd-light')
                   : (nextMode === 'dark' ? 'dark' : 'light')
                 update('theme', value)
                 document.documentElement.setAttribute('data-theme', value)
@@ -2453,12 +2453,12 @@ export default function SettingsModal({
                   <div className="v2-settings-row v2-settings-row-stacked">
                     <div className="v2-settings-row-text">
                       <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Terminal is monospace + ASCII flourishes — init-style on a GitHub palette.</div>
+                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Loggd is the deep-navy dashboard look — contribution heatmaps, stat pills, colorful accents.</div>
                     </div>
                     <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
                       {[
                         { value: 'standard', label: 'Standard' },
-                        { value: 'terminal', label: 'Terminal' },
+                        { value: 'loggd', label: 'Loggd' },
                       ].map(opt => (
                         <button
                           key={opt.value}

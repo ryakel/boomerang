@@ -1,5 +1,5 @@
 @import './tokens.css';
-@import './terminal/index.css';
+@import './loggd/palette.css';
 
 /* Match body bg to v2 app bg so any sub-pixel gap between the fixed
  * container and the screen edge is invisible. The v1 body uses --bg
