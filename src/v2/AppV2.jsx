@@ -175,8 +175,8 @@ export default function AppV2() {
     const themeColors = {
       light: '#FFFFFF',
       dark: '#0B0B0F',
-      'terminal-dark': '#0D1117',
-      'terminal-light': '#FFFFFF',
+      'loggd-dark': '#0E1322',
+      'loggd-light': '#F4F6FB',
     }
     if (themeColors[theme]) {
       document.documentElement.setAttribute('data-theme', theme)

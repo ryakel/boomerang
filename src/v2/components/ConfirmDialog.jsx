@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { useTerminalMode } from '../hooks/useTerminalMode'
 import './ConfirmDialog.css'
 
 // Generic confirm-dialog primitive for v2. Two-button modal — destructive
@@ -15,16 +14,13 @@ import './ConfirmDialog.css'
 export default function ConfirmDialog({
   open,
   title,
-  terminalTitle,
   body,
   confirmLabel = 'Confirm',
-  terminalConfirmLabel,
   cancelLabel = 'Cancel',
   tone = 'danger',
   onConfirm,
   onCancel,
 }) {
-  const terminal = useTerminalMode()
   // Escape closes; Enter doesn't auto-confirm because the destructive action
   // shouldn't be one keystroke away.
   useEffect(() => {
@@ -39,7 +35,7 @@ export default function ConfirmDialog({
   return (
     <div className="v2-confirm-overlay" onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="v2-confirm-title">
       <div className="v2-confirm" onClick={e => e.stopPropagation()}>
-        <h3 id="v2-confirm-title" className="v2-confirm-title">{terminal && terminalTitle ? terminalTitle : title}</h3>
+        <h3 id="v2-confirm-title" className="v2-confirm-title">{title}</h3>
         {body && <p className="v2-confirm-body">{body}</p>}
         <div className="v2-confirm-actions">
           <button type="button" className="v2-confirm-btn v2-confirm-btn-cancel" onClick={onCancel}>
@@ -51,7 +47,7 @@ export default function ConfirmDialog({
             onClick={onConfirm}
             autoFocus
           >
-            {terminal && terminalConfirmLabel ? terminalConfirmLabel : confirmLabel}
+            {confirmLabel}
           </button>
         </div>
       </div>

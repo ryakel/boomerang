@@ -5,7 +5,6 @@ import {
   formatSnoozeLabel, formatDueDate, daysOld, ENERGY_TYPES,
 } from '../../store'
 import WeatherBadge from './WeatherBadge'
-import { useTerminalMode } from '../hooks/useTerminalMode'
 import './TaskCard.css'
 
 const ENERGY_ICONS = { Monitor, Users, MapPin, Palette, Dumbbell }
@@ -18,7 +17,6 @@ const SWIPE_OPEN_OFFSET = -160   // resting position when actions are revealed; 
 const SWIPE_VERT_CANCEL = 12     // px of vertical movement that cancels the swipe
 
 function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze, onSkipAdvance, weatherByDate, selected, routineStreaks }) {
-  const isTerminal = useTerminalMode()
   // Track a brief "completing" window so the checkbox can stay `[✓]` and
   // the row can fade out while still visible — without this the card
   // unmounts on the next render after onComplete and the user never sees
@@ -66,13 +64,14 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
 
   // Routine streak — only renders for routine-spawned tasks. The map is
   // computed once at AppV2 level and threaded down; missing key is fine
-  // (one-off tasks). Currently CSS-gated to terminal mode; the markup
-  // ships in every theme so flipping the gate later is a one-line change.
+  // (one-off tasks). These density signals (streak, checklist counter,
+  // notes preview) graduated to all themes with the Loggd refresh — they
+  // suit the dashboard density and are styled in TaskCard.css.
   const routineStreak = task.routine_id && routineStreaks ? routineStreaks[task.routine_id] : 0
 
   // First-line notes preview for the collapsed card. Trimmed + first
   // newline cut so a multi-line notes string renders as a single sentence.
-  // CSS clamps to one line and hides this outside terminal mode.
+  // CSS clamps it to one line.
   const notesPreview = task.notes
     ? task.notes.replace(/\s+/g, ' ').trim().slice(0, 140)
     : ''
@@ -89,16 +88,11 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
   }, [])
 
   const handleTouchStart = useCallback((e) => {
-    // Terminal mode replaces the swipe-action gesture with a tappable
-    // `[ ]` checkbox + expanded action row. Bail early to keep the
-    // gesture from stealing taps that should expand or check off.
-    if (isTerminal) return
     const t = e.touches[0]
     touchStart.current = { x: t.clientX, y: t.clientY, startX: swipeX }
-  }, [swipeX, isTerminal])
+  }, [swipeX])
 
   const handleTouchMove = useCallback((e) => {
-    if (isTerminal) return
     if (!touchStart.current) return
     const t = e.touches[0]
     const dx = t.clientX - touchStart.current.x
@@ -115,7 +109,7 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
       // close it but never go past 0.
       setSwipeX(Math.max(-160, Math.min(0, next)))
     }
-  }, [swiping, isTerminal])
+  }, [swiping])
 
   const handleTouchEnd = useCallback(() => {
     if (!touchStart.current) { setSwiping(false); return }

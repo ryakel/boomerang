@@ -3,7 +3,6 @@ import { Pin, Plus, Activity, Edit3, ChevronDown, ChevronRight } from 'lucide-re
 import SectionLabel from './SectionLabel'
 import TaskCard from './TaskCard'
 import { computeProjectBudget, computeProjectSessionPoints, PROJECT_SESSION_CAP } from '../../scoring'
-import { useTerminalMode } from '../hooks/useTerminalMode'
 import { formatDueDate } from '../../store'
 import './ProjectPinnedSection.css'
 
@@ -42,7 +41,6 @@ function ProjectPinnedSection({
   collapsedProjects = {},
   onToggleCollapse,
 }) {
-  const isTerminal = useTerminalMode()
   const [logging, setLogging] = useState(null) // project id mid-tap
   const [feedback, setFeedback] = useState(null) // { id, text }
 
@@ -70,7 +68,7 @@ function ProjectPinnedSection({
 
   return (
     <>
-      <SectionLabel count={projects.length} sigil={isTerminal ? '*' : '★'}>
+      <SectionLabel count={projects.length} sigil="★">
         Pinned projects
       </SectionLabel>
       {projects.map(project => {

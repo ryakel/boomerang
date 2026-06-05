@@ -117,6 +117,33 @@
   color: var(--v2-text-faint);
 }
 
+/* Density signals — inline checklist counter + routine streak on the title
+ * row, plus a one-line notes preview below it. Graduated to all themes with
+ * the Loggd refresh (they suit the dashboard density). */
+.v2-card-checklist-inline {
+  margin-left: 6px;
+  font: 600 12px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.v2-card-routine-streak {
+  margin-left: 6px;
+  font: 600 12px/1 var(--v2-font-body);
+  color: var(--v2-alert-high-pri);
+  white-space: nowrap;
+}
+
+.v2-card-notes-preview {
+  margin-top: 4px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .v2-card-energy {
   flex: 0 0 auto;
   display: inline-flex;

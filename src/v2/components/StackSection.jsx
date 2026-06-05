@@ -1,7 +1,6 @@
 import { memo } from 'react'
 import SectionLabel from './SectionLabel'
 import TaskCard from './TaskCard'
-import { useTerminalMode } from '../hooks/useTerminalMode'
 import './StackSection.css'
 
 // Format 'HH:MM' 24h → compact 12h ('20:00' → '8pm', '08:30' → '8:30am').
@@ -31,12 +30,11 @@ function StackSection({
   weatherByDate,
   routineStreaks,
 }) {
-  const isTerminal = useTerminalMode()
   if (!groups || groups.length === 0) return null
 
   return (
     <>
-      <SectionLabel count={groups.length} sigil={isTerminal ? '#' : '▦'}>
+      <SectionLabel count={groups.length} sigil="▦">
         Stacks
       </SectionLabel>
       {groups.map(g => {
