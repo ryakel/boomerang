@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- fix(ui): Wallaby Home — readable date when today is the selected day [XS]
+  - In the Home week strip, when **today was also the selected day** the date number rendered green-on-purple (the `is-today` green-text rule overrode the `is-selected` white-text rule by source order) — unreadable. Added a higher-specificity `.is-selected.is-today` rule keeping the number white. Found during a full headless QA sweep of every Wallaby surface (no other defects: no crashes/React errors; desktop correctly falls back to Kanban).
+
 - feat(ui): Wallaby reskin polish — Home daily-summary card + Profile Records [S]
   - **Home "Daily summary" card** (`HomeView`, today only): a backward-looking recap below Today's Pulse — `N tasks · M habits done today` headline, a day-streak chip, and a **mini 14-week activity heatmap** (reuses `ContributionHeatmap`, fed by `/api/analytics/history?days=98` so it survives task retention). Deep-work hours stay omitted until the Timer lands. `streak` now threads `WallabyShell → HomeView`.
   - **Profile "Records" section** (`ProfileView`): a 3-card strip between the stat pills and the Activity year-grid — **Best day** (tasks), **Best points**, **Longest streak** — all from the `records` prop (`computeRecords`), no new data.

@@ -122,6 +122,9 @@
   color: var(--wb-text);
 }
 .wb-home-weekday-cell.is-today .wb-home-week-date { color: var(--wb-action-complete); }
+/* When today is also the selected day, the purple selection wins — keep the
+   number white for contrast (the is-today green-on-purple was unreadable). */
+.wb-home-weekday-cell.is-selected.is-today .wb-home-week-date { color: #fff; }
 .wb-home-week-dot {
   width: 5px;
   height: 5px;
