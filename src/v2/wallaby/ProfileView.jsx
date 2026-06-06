@@ -77,6 +77,26 @@ export default function ProfileView({
       </div>
 
       <section className="wb-profile-section">
+        <h2 className="wb-profile-section-title">Records</h2>
+        <div className="wb-profile-records">
+          {[
+            { icon: CheckCircle2, label: 'Best day', value: records?.bestTasks ?? 0, unit: 'tasks', color: 'var(--wb-cat-green)' },
+            { icon: Zap, label: 'Best points', value: records?.bestPoints ?? 0, unit: 'pts', color: 'var(--wb-cat-purple)' },
+            { icon: Trophy, label: 'Longest streak', value: bestStreak, unit: 'days', color: 'var(--wb-cat-blue)' },
+          ].map(r => {
+            const Icon = r.icon
+            return (
+              <div key={r.label} className="wb-profile-record" style={{ '--rec': r.color }}>
+                <span className="wb-profile-record-icon"><Icon size={15} strokeWidth={2.25} /></span>
+                <span className="wb-profile-record-value">{r.value}<em>{r.unit}</em></span>
+                <span className="wb-profile-record-label">{r.label}</span>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="wb-profile-section">
         <div className="wb-profile-section-head">
           <h2 className="wb-profile-section-title">Activity</h2>
           <div className="wb-seg">

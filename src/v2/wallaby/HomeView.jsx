@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  Check, Flame, ChevronRight, ChevronLeft,
+  Check, Flame, ChevronRight, ChevronLeft, CheckCircle2, Repeat2,
   Monitor, Users, MapPin, Palette, Dumbbell, Repeat,
 } from 'lucide-react'
+import ContributionHeatmap from './ContributionHeatmap'
 import { WALLABY_COLORS, historyByDay, currentStreak, localYMD } from './heatmapUtils'
 import './HomeView.css'
 
@@ -15,13 +16,26 @@ const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 // what's due/carrying; past days show what you did. "Checking" toggles the
 // selected day's completion.
 export default function HomeView({
-  routines = [], tasks = [], labels = [],
+  routines = [], tasks = [], labels = [], streak = 0,
   onToggleHabit, onCompleteTask, onOpenTask, onOpenProfile,
 }) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayKey = localYMD(today)
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedKey, setSelectedKey] = useState(todayKey)
+
+  // Mini activity heatmap for the daily-summary card — the server-aggregated
+  // completion history survives task retention/cleanup, so it's the right
+  // source for "your last few weeks" (a local tasks scan would miss old ones).
+  const [summaryByDay, setSummaryByDay] = useState(null)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/analytics/history?days=98')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (alive && d?.daily) { const m = {}; for (const x of d.daily) m[x.day] = x.tasks; setSummaryByDay(m) } })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
 
   const habits = useMemo(() => routines.filter(r => !r.paused), [routines])
@@ -123,6 +137,27 @@ export default function HomeView({
             <span className="wb-pulse-dot" />
             <span>{tasksForDay.length} task{tasksForDay.length === 1 ? '' : 's'} for today</span>
           </div>
+        </div>
+      )}
+
+      {/* Daily summary — backward-looking recap (today only): what you did plus a
+          mini activity heatmap. Deep-work hours are intentionally omitted until
+          the Timer feature lands. */}
+      {isToday && (
+        <div className="wb-summary">
+          <div className="wb-summary-head">
+            <div className="wb-summary-line">
+              <span className="wb-summary-stat"><CheckCircle2 size={15} strokeWidth={2.5} /> {tasksDone} task{tasksDone === 1 ? '' : 's'}</span>
+              <span className="wb-summary-stat"><Repeat2 size={15} strokeWidth={2.5} /> {habitsDone} habit{habitsDone === 1 ? '' : 's'}</span>
+              <span className="wb-summary-sub">done today</span>
+            </div>
+            {streak > 0 && <span className="wb-summary-streak"><Flame size={14} strokeWidth={2.5} /> {streak} day{streak === 1 ? '' : 's'}</span>}
+          </div>
+          {summaryByDay && (
+            <div className="wb-summary-heat">
+              <ContributionHeatmap valueByDay={summaryByDay} color="var(--wb-action-complete)" weeks={14} cellSize={11} gap={3} radius={3} />
+            </div>
+          )}
         </div>
       )}
 

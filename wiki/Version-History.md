@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby reskin polish — Home daily-summary card + Profile Records [S]
+  - **Home "Daily summary" card** (`HomeView`, today only): a backward-looking recap below Today's Pulse — `N tasks · M habits done today` headline, a day-streak chip, and a **mini 14-week activity heatmap** (reuses `ContributionHeatmap`, fed by `/api/analytics/history?days=98` so it survives task retention). Deep-work hours stay omitted until the Timer lands. `streak` now threads `WallabyShell → HomeView`.
+  - **Profile "Records" section** (`ProfileView`): a 3-card strip between the stat pills and the Activity year-grid — **Best day** (tasks), **Best points**, **Longest streak** — all from the `records` prop (`computeRecords`), no new data.
+  - Both are Wallaby-scoped components, additive, reuse existing primitives/data. Verified headless (wallaby-dark, 390px): summary card + records strip render with real seeded data.
+
 - feat(dev): dev-only "Reseed dev database" button (Settings → Data) [S]
   - One-tap reseed without touching a terminal: **Settings → Data → "Reseed dev database"** wipes the DB and reloads fresh seed fixtures (tasks rebased to today + ~250 days of synthesized routine history), then reloads the app. Confirm dialog first; no undo.
   - **Hard-gated to dev, two layers:** `server.js` computes `isDevEnv` (true only when `APP_VERSION` is `dev` or `dev-<sha>` — prod images build `v1.x.x` git tags) and (1) exposes `isDev` on `GET /api/health` so the button only renders on the dev build, and (2) makes `POST /api/dev/seed` return **403** outside dev. So even a stale client pointed at prod can't wipe it.

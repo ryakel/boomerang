@@ -68,7 +68,7 @@ export default function WallabyShell({
   } else if (tab === 'home') {
     surface = (
       <HomeView
-        routines={routines} tasks={tasks} labels={labels}
+        routines={routines} tasks={tasks} labels={labels} streak={streak}
         onToggleHabit={onToggleHabit} onCompleteTask={onCompleteTask} onOpenTask={onOpenTask}
       />
     )
