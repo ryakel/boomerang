@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- docs(wallaby): capture loggd reference assets + full feature catalog [S]
+  - loggd.life blocks automated fetch, so durably committed the reference into `wiki/wallaby-reference/` (6 clean app-export PDFs + 16 downscaled screenshots, ~3.5MB, indexed by README). Expanded `wiki/Wallaby-Ideas.md` with the complete Help-Center feature catalog (Notes, Focus Timer modes, Vision's 6 exercises, Goals Life Areas + auto goal-tags, habit scheduling types, XP/12-tiers/badges/feature-unlocks, Community, 3-level privacy, Free/Pro). Added the **all-skins principle**: net-new features are theme-agnostic (shared app layer, every skin) — and that boundary is the reskin→fork line.
+
 - feat(ui): Wallaby top header + notifications center [M]
   - **What.** Persistent Wallaby top app bar (`WallabyHeader`): brand wordmark + 🔔 bell (unread badge) + avatar, above every shell surface. Bell → `NotificationsView` — a loggd-style notifications center that reads Boomerang's **existing** `GET /api/notifications/log`: All/Unread tabs, grouped Today/Yesterday/Earlier, type-colored icons (overdue/stale/pileup/package/weather/quokka), channel + time-ago, unread dots, optimistic Mark-all-read. Avatar → Profile.
   - **Wiring.** `WallabyShell` fetches the log once for the badge + center; header offsets the surface (`--wb-header-h`). Home's redundant date-hero avatar removed (header owns it).
