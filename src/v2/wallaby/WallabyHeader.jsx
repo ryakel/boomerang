@@ -50,12 +50,12 @@ export default function WallabyHeader({
   return (
     <header className="wb-header">
       <div className="wb-header-brand">
+        <Logo size={24} />
         <span className="v2-header-wordmark wb-header-wordmark" data-sync-state={syncVisualState}>
           {WORDMARK_LETTERS.map((ch, i) => (
             <span key={i} className="v2-header-wordmark-letter" style={{ '--letter-index': i }}>{ch}</span>
           ))}
         </span>
-        <Logo size={24} />
       </div>
       <div className="wb-header-actions">
         {onOpenAdviser && (
