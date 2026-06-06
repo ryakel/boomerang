@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby Goals surface (projects as goals) [M]
+  - **What.** Fourth Wallaby surface (loggd `IMG_1572`): `src/v2/wallaby/GoalsView.{jsx,css}`. A goals list (project cards with category chip + gradient progress bar + sessions/steps meta) and a goal **detail** with a big metric card (steps-complete or sessions-logged, progress bar, budget), a "Why this matters" notes block, and the full **semantic action button** set — orange *Log session* / slate *Edit goal* / green *Complete* / yellow *Set aside* / red *Delete* (two-tap confirm).
+  - **Mapping.** Boomerang projects → goals. Progress prefers child-step completion (`done/total` of `parent_id` children), falling back to `session_count` toward the 10-session cap. Budget via `computeProjectBudget`. Category chips from `tags` → labels; target from `due_date` (else "Ongoing").
+  - **Wiring.** Reachable via **Spaces → Goals** (`onOpenGoals` overlay + escape-stack entry in `AppV2`). Log session → `logProjectSession`; Complete → `handleComplete`; Edit → `EditTaskModal`; Set aside → `updateTask({status:'backlog'})`; Delete → `deleteTask`.
+  - **Verification.** Driven through the real app against a created project (Spaces → Goals → detail shows `1/3 steps`, sessions, notes, and the semantic buttons).
+
 - feat(ui): Wallaby Profile/dashboard surface + heatmap fit-to-width [M]
   - **What.** Third Wallaby surface (loggd `IMG_1574`): `src/v2/wallaby/ProfileView.{jsx,css}`. Gradient avatar + "Your year" header with contribution count, a horizontally-scrollable row of **colorful stat pills** (day streak / points today / done today / best streak / lifetime done), an **Activity year-grid** (53-week contribution heatmap, Tasks/Points toggle, fed by `/api/analytics/history?days=365`), and per-habit grids below.
   - **Heatmap fix.** `ContributionHeatmap` now fits its container width (cells size purely by `width:100% + aspect-ratio`, fixed `height` dropped) and month labels position by `index/weeks %` — so the full 53-week year fits without horizontal scroll and labels stay aligned at any week count. Improves the Habits heatmaps too.

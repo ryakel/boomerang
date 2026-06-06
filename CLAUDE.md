@@ -1018,13 +1018,20 @@ tokens even if reached from a non-Wallaby theme.
   best streak / lifetime), an Activity 53-week year-grid (Tasks/Points toggle,
   from `/api/analytics/history`), and per-habit grids. Stat values passed from
   AppV2; year history fetched internally.
+- `GoalsView.{jsx,css}` — the **Goals** screen (projects as goals). List of goal
+  cards + a detail with a metric card (child-step `done/total` or
+  `session_count`, progress bar, `computeProjectBudget`), a "Why this matters"
+  notes block, and semantic action buttons (orange Log session / slate Edit /
+  green Complete / yellow Set aside / red Delete, two-tap confirm).
 
 **How the surfaces are reached (interim).** Each mounts as a full-screen overlay
 (`.v2-habits-overlay` in `AppV2.css`) via the **Spaces hub**: Dashboard
 (`onOpenProfile`/`showProfile`), Habits (`onOpenHabits`/`showHabits`), Tasks
-(`onOpenTasks`/`showTasks`), each with a back button and an escape-stack entry in
-`AppV2`. Tasks checkbox → `handleComplete`; subtask toggle →
-`updateTask({ checklists })`; row → `EditTaskModal`. The full remap promotes
+(`onOpenTasks`/`showTasks`), Goals (`onOpenGoals`/`showGoals`), each with a back
+button and an escape-stack entry in `AppV2`. Tasks checkbox → `handleComplete`;
+subtask toggle → `updateTask({ checklists })`; row → `EditTaskModal`. Goals: Log
+session → `logProjectSession`, Complete → `handleComplete`, Set aside →
+`updateTask({status:'backlog'})`, Delete → `deleteTask`. The full remap promotes
 these to top-level **bottom-nav tabs** (Home/Habits/Tasks/Goals/Profile) — not
 yet built.
 
@@ -1034,8 +1041,8 @@ screenshot verification. NOT imported by `index.html`, so it never ships to
 prod or affects the running app. Verified via a headless-Chromium (puppeteer)
 screenshot loop — render before claiming a surface works.
 
-**Remaining surfaces (not built):** 5-tab bottom nav, Goals (project detail
-with metric + semantic buttons), Home dashboard.
+**Remaining surfaces (not built):** 5-tab bottom nav (Home/Habits/Tasks/Goals/
+Profile) to retire the interim Spaces entries, and a Home dashboard.
 
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.

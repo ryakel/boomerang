@@ -8,6 +8,7 @@ import './v2/wallaby/palette.css'
 import HabitsView from './v2/wallaby/HabitsView'
 import TasksView from './v2/wallaby/TasksView'
 import ProfileView from './v2/wallaby/ProfileView'
+import GoalsView from './v2/wallaby/GoalsView'
 
 document.documentElement.setAttribute('data-ui', 'v2')
 document.documentElement.setAttribute('data-theme', new URLSearchParams(location.search).get('theme') || 'wallaby-dark')
@@ -66,6 +67,35 @@ if (surface === 'tasks') {
       lifetimeDone={(window.__WALLABY_TASKS__ || []).filter(t => t.status === 'done').length || 142}
       routines={data}
       dailyHistory={window.__WALLABY_HISTORY__ || null}
+    />,
+  )
+} else if (surface === 'goals') {
+  const labels = [
+    { id: 'lf', name: 'finance', color: '#41C083' },
+    { id: 'lh', name: 'home', color: '#F0973E' },
+  ]
+  const projects = [
+    { id: 'g1', title: 'Pay off mortgage', status: 'project', tags: ['lf'], due_date: '2026-09-09', notes: "I don't want to be stressed.", session_count: 4 },
+    { id: 'g2', title: 'Renovate the kitchen', status: 'project', tags: ['lh'], notes: 'Make the space we actually want to cook in.', session_count: 2 },
+    { id: 'g3', title: 'Learn Spanish', status: 'project', tags: [], session_count: 7, notes: 'So I can talk with abuela.' },
+  ]
+  const goalTasks = [
+    { id: 'c1', parent_id: 'g2', status: 'done', title: 'Demo old cabinets' },
+    { id: 'c2', parent_id: 'g2', status: 'done', title: 'Pick countertops' },
+    { id: 'c3', parent_id: 'g2', status: 'not_started', title: 'Install backsplash' },
+    { id: 'c4', parent_id: 'g2', status: 'not_started', title: 'Paint walls' },
+  ]
+  root.render(
+    <GoalsView
+      projects={projects}
+      tasks={goalTasks}
+      labels={labels}
+      onLogSession={() => {}}
+      onComplete={() => {}}
+      onEdit={() => {}}
+      onSetAside={() => {}}
+      onDelete={() => {}}
+      onAdd={() => {}}
     />,
   )
 } else {
