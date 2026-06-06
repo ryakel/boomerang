@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- fix(ui): Wallaby full-screen modals use a back arrow, not a dismiss X [S]
+  - Full-screen Wallaby pages (Packages/Analytics/Settings/Edit/Add/Snooze/…) showed the ModalShell dismiss **X** (top-right). But they're pages you navigate *into* (Packages/Analytics/Settings from More), so the consistent affordance is a **back arrow** (top-left), matching the drill-down views (Profile/Goals/Notifications). (User: "Packages has this x instead of the back arrow.") `ModalShell` now swaps `X → ArrowLeft` when `useWallabyMode() && !useIsDesktop()` (new `useWallabyMode` hook mirrors `useTerminalMode`; button gets class `v2-modal-back`); `modals.css` positions it top-left styled like `.wb-back` and drops the title below it. Non-Wallaby/desktop keep the X. Quokka still has no affordance (tab). Verified headless: Packages/Edit → back arrow top-left (x=16, aria=Back); Quokka → hidden.
+
 - fix(ui): Wallaby — no close X on Quokka (it's a nav tab, not an overlay) [XS]
   - Quokka is the shell's *surface* for the Quokka nav tab, but it still showed the ModalShell close X top-right — a vestigial overlay affordance (you leave a tab via the bottom nav, not an X). Hid it via `[data-theme^="wallaby"] .wb-shell .v2-modal-close { display: none }` in `modals.css`. The full-screen **overlay** modals (Edit/Add/Settings/Packages/Analytics/…) keep their X — they cover the nav, so the X is their only way back. Verified headless: Quokka close = `display:none`, Edit modal close = `display:flex`.
 

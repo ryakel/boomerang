@@ -1063,14 +1063,17 @@ DOM nesting:
   WallabyNav too. This is deliberate — the old version pinned the overlay
   *between* header and nav (`bottom: 64px`), but the nav is content-sized, so a
   clickable strip of the Home surface showed through below the overlay and the
-  header/nav stayed interactive behind the "page" (taps leaked through; you had
-  to use the X). Full-screen takeover means nothing behind is reachable; the
-  modal's own close X returns you.
+  header/nav stayed interactive behind the "page" (taps leaked through). Full-screen
+  takeover means nothing behind is reachable. The dismiss control is a **back
+  arrow** (top-left, like the drill-down views) — `ModalShell` swaps the X for a
+  lucide `ArrowLeft` when `useWallabyMode() && !useIsDesktop()` (class
+  `v2-modal-back`), styled in `modals.css` to match `.wb-back`. (User: "Packages
+  has this x instead of the back arrow.")
 - **Quokka** (`.wb-shell .v2-modal-overlay`) is rendered as the shell's active
   *surface* for the Quokka nav tab, so it keeps the header + nav visible and sits
-  in the band between them (you leave it via the nav, like any tab). Its close X
-  is hidden (`.wb-shell .v2-modal-close { display:none }`) — a tab isn't an
-  overlay you dismiss. The full-screen overlay modals keep their X (only way back).
+  in the band between them (you leave it via the nav, like any tab). Its dismiss
+  control is hidden (`.wb-shell .v2-modal-close { display:none }`) — a tab isn't
+  an overlay you dismiss. The full-screen overlay modals keep their back arrow.
 Both strip the animation/rounded-card chrome and fill the page.
 Tapping a task → `EditTaskModal`, checkbox → `handleComplete`, subtask →
 `updateTask({checklists})`, Home check → toggle `completed_history` today, Goals

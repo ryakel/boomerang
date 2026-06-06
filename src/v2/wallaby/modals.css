@@ -10,9 +10,11 @@
  *     reachable — fixes taps "leaking" to the Home rows / nav / header behind a
  *     page (the old band stopped at a hardcoded 64px nav height, but the nav is
  *     content-sized, leaving a clickable strip of Home showing through). The
- *     modal's own close X is how you return. (User: "stuff that used to be
- *     drawers still hijack the screen so clicking on items in the home row does
- *     things behind it … I have to click close in the upper right.")
+ *     dismiss control is a BACK ARROW (top-left, like the drill-down views —
+ *     ModalShell swaps the X→ArrowLeft in Wallaby mobile), since these are
+ *     full-screen pages you navigate back from. (User: "stuff that used to be
+ *     drawers still hijack the screen … I have to click close in the upper
+ *     right" + "Packages has this x instead of the back arrow.")
  *
  *  2. QUOKKA — rendered as the shell's active SURFACE for the Quokka nav tab,
  *     so its `.v2-modal-overlay` lives INSIDE `.wb-shell`. It keeps the header +
@@ -39,12 +41,23 @@
     box-shadow: none;
     animation: none;
   }
-  /* The page now starts at the very top of the screen, so the header row needs
-   * the notch/status-bar inset (the close X + autosave slot ride along). */
+  /* The page starts at the very top of the screen. The dismiss control is a
+   * back arrow (top-LEFT, like the drill-down views), so the title drops below
+   * it; the autosave slot still rides top-right. All pick up the notch inset. */
   [data-theme^="wallaby"] .v2-modal-header {
-    padding: calc(34px + env(safe-area-inset-top)) 20px 16px;
+    padding: calc(60px + env(safe-area-inset-top)) 20px 16px;
   }
-  [data-theme^="wallaby"] .v2-modal-close { top: calc(14px + env(safe-area-inset-top)); }
+  [data-theme^="wallaby"] .v2-modal-back {
+    top: calc(14px + env(safe-area-inset-top));
+    left: 16px;
+    right: auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--wb-card);
+    border: 1px solid var(--wb-hairline);
+    color: var(--wb-text);
+  }
   [data-theme^="wallaby"] .v2-modal-header-slot { top: calc(22px + env(safe-area-inset-top)); }
   [data-theme^="wallaby"] .v2-modal-title { font-size: 26px; }
   /* Give the body bottom safe-area room so the last controls clear the home bar. */
