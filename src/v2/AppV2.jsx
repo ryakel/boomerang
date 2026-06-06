@@ -1177,8 +1177,9 @@ export default function AppV2() {
           onToggleHabit={(routine) => {
             const today = localYMD(new Date())
             const hist = Array.isArray(routine.completed_history) ? routine.completed_history : []
-            if (hist.some(ts => localYMD(ts) === today)) {
-              updateRoutine(routine.id, { completed_history: hist.filter(ts => localYMD(ts) !== today) })
+            const isToday = (ts) => localYMD(new Date(ts)) === today
+            if (hist.some(isToday)) {
+              updateRoutine(routine.id, { completed_history: hist.filter(ts => !isToday(ts)) })
             } else {
               completeRoutine(routine.id)
             }
@@ -1192,6 +1193,8 @@ export default function AppV2() {
           }}
           onOpenTask={(task) => setEditTarget(task)}
           onAddTask={() => setShowAdd(true)}
+          onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
+          onDeleteTask={(task) => deleteTask(task.id)}
           onAddHabit={() => setShowRoutines(true)}
           onEditHabit={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onArchiveHabit={(r) => togglePause(r.id)}

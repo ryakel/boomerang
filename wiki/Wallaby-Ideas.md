@@ -35,7 +35,7 @@ Bottom nav (loggd): **Home · Habits · Tasks · Timer · More**.
 |---|---|---|
 | Habits — Single/Month/Year heatmap cards | ✅ | per-habit color, streak/count badges, per-card month labels |
 | Habit detail + month calendar | ✅ | tap a card → Streak/Best/Total + completion calendar + Archive/Delete/Edit (`IMG_1586`) |
-| Tasks — list | ✅ (partial) | ⬜ add **Done** tab (Upcoming/Backlog/Done w/ counts); ⬜ TODAY/TOMORROW grouping w/ icons; ⬜ per-task checkbox color (priority? label? — ❓); ⬜ notes subtitle line |
+| Tasks — list | ✅ | Upcoming/Backlog/**Done** tabs w/ counts; Overdue/Today/Tomorrow/Upcoming/Anytime grouping w/ icons; semi-random per-task checkbox colors; notes subtitle; **tap → action sheet** (reschedule/edit/delete, focus="soon") |
 | Goals (projects) — list + detail | ✅ | metric, progress, semantic buttons |
 | Profile / dashboard | ✅ (partial) | ⬜ add **Level / XP / achievements** row (🅿️ those are new features); ❓ Public Profile sub-tab |
 | Home — daily agenda | ✅ (basic) | ⬜ enrich toward **Today's Pulse** (below) |

@@ -5,12 +5,14 @@
   left: 0;
   right: 0;
   z-index: 46;
-  height: var(--wb-header-h, 52px);
+  box-sizing: border-box;
+  /* Total height = bar + the notch/status-bar inset, with the inset as TOP
+   * padding so the brand/bell sit BELOW the status bar in PWA standalone. */
+  height: calc(var(--wb-header-h, 52px) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 16px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px calc(0px + env(safe-area-inset-top));
-  padding-top: env(safe-area-inset-top);
   background: color-mix(in srgb, var(--wb-card) 92%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);

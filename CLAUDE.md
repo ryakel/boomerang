@@ -1065,10 +1065,15 @@ net-new features like Timer / Vision / Daily mood / gamification / notifications
 center / habit templates) lives in **`wiki/Wallaby-Ideas.md`** — keep it current
 as the reskin proceeds and new reference comes in.
 
-**Reskin still to do:** **Tasks** — 3rd "Done"
-tab + TODAY/TOMORROW grouping + semi-random per-task checkbox colors (not tied to
-priority/label) + task tap → quick action sheet (reschedule/focus/edit/delete);
-tabbed **Settings** + **Analytics** reskin; richer **Today's Pulse** Home.
+**Reskin still to do:** tabbed **Settings** + **Analytics** reskin; richer
+**Today's Pulse** Home (pulse/summary/today's-tasks — mood/vision parts are
+deferred features). (Tasks Done-tab + grouping + checkbox colors + action sheet:
+done.)
+
+**Wallaby gotcha:** `store.localYMD(d)` requires a **Date** (`d.getFullYear()`),
+NOT an ISO string — wrap completion timestamps in `new Date(ts)`. The Wallaby
+`heatmapUtils.localYMD` handles strings; don't mix them up. (This silently broke
+the Home habit check — the throw aborted the handler.)
 **Deferred net-new features (after reskin):** Timer, Vision (eulogy/bucket list),
 Daily mood-journal, XP/levels/achievements, notifications gamification.
 
