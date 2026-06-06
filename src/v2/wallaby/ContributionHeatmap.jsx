@@ -65,7 +65,7 @@ export default function ContributionHeatmap({
             <span
               key={i}
               className="wb-heat-month"
-              style={{ left: `calc(${m.index} * (var(--wb-cell) + var(--wb-gap)))` }}
+              style={{ left: `${(m.index / weeks) * 100}%` }}
             >{m.label}</span>
           ))}
         </div>
