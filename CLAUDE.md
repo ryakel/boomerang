@@ -1009,12 +1009,18 @@ tokens even if reached from a non-Wallaby theme.
   non-paused) as habit cards: color icon tile + title + streak/count badges +
   the grid. Single (full heatmap) / Week (7 day-cells + date stepper) / Month
   (calendar grid). Distinct per-habit color by list index. Purple FAB.
+- `TasksView.{jsx,css}` — the **Tasks** screen. Segmented Upcoming/Backlog,
+  tasks grouped (Overdue/Today/Upcoming/Anytime), pink square checkboxes
+  (orange for high-pri), label chips from `tags`, nested checklist items as
+  circular sub-checkboxes, search filter, green FAB.
 
-**How Habits is reached (interim).** Mounted as a full-screen overlay
-(`.v2-habits-overlay` in `AppV2.css`) via **Spaces → Habits** (`onOpenHabits`
-row in `SpacesHub`, `showHabits` state + escape-stack entry in `AppV2`). The
-full remap promotes it to a top-level **bottom-nav tab** (Home/Habits/Tasks/
-Goals/Profile) — not yet built.
+**How the surfaces are reached (interim).** Each mounts as a full-screen overlay
+(`.v2-habits-overlay` in `AppV2.css`) via the **Spaces hub**: Habits
+(`onOpenHabits`/`showHabits`) and Tasks (`onOpenTasks`/`showTasks`), each with a
+back button and an escape-stack entry in `AppV2`. Tasks checkbox →
+`handleComplete`; subtask toggle → `updateTask({ checklists })`; row →
+`EditTaskModal`. The full remap promotes these to top-level **bottom-nav tabs**
+(Home/Habits/Tasks/Goals/Profile) — not yet built.
 
 **Dev-only render harness.** `wallaby-preview.html` + `src/wallaby-preview.jsx`
 mount `HabitsView` in isolation (mock or API-injected routines) for
@@ -1022,9 +1028,8 @@ screenshot verification. NOT imported by `index.html`, so it never ships to
 prod or affects the running app. Verified via a headless-Chromium (puppeteer)
 screenshot loop — render before claiming a surface works.
 
-**Remaining surfaces (not built):** 5-tab bottom nav, Tasks (segmented
-Upcoming/Backlog, pink checkboxes, nested subtasks, green FAB), Goals (project
-detail with metric + semantic buttons), Profile (avatar + stat pills + activity
+**Remaining surfaces (not built):** 5-tab bottom nav, Goals (project detail
+with metric + semantic buttons), Profile (avatar + stat pills + activity
 year-grid), Home dashboard.
 
 ## Additional Notes

@@ -6,6 +6,7 @@ import './index.css'
 import './v2/tokens.css'
 import './v2/wallaby/palette.css'
 import HabitsView from './v2/wallaby/HabitsView'
+import TasksView from './v2/wallaby/TasksView'
 
 document.documentElement.setAttribute('data-ui', 'v2')
 document.documentElement.setAttribute('data-theme', new URLSearchParams(location.search).get('theme') || 'wallaby-dark')
@@ -42,6 +43,19 @@ const data = window.__WALLABY_ROUTINES__ && window.__WALLABY_ROUTINES__.length
   ? window.__WALLABY_ROUTINES__
   : routines
 
-createRoot(document.getElementById('root')).render(
-  <HabitsView routines={data} onAdd={() => {}} />,
-)
+const surface = new URLSearchParams(location.search).get('surface') || 'habits'
+const root = createRoot(document.getElementById('root'))
+
+if (surface === 'tasks') {
+  root.render(
+    <TasksView
+      tasks={window.__WALLABY_TASKS__ || []}
+      labels={window.__WALLABY_LABELS__ || []}
+      onToggleComplete={() => {}}
+      onToggleItem={() => {}}
+      onAdd={() => {}}
+    />,
+  )
+} else {
+  root.render(<HabitsView routines={data} onAdd={() => {}} />)
+}
