@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby Home → "Today's Pulse" (per-day content) [M]
+  - Makes the clickable calendar meaningful — the whole Home now reflects the **selected day** (loggd today-page, `d35f6ec0`/`bd6d7aa6`). New: a **Today's Pulse** card (today only — streak-at-risk · "N habits left (x/y done)" · "N tasks for today"), a **Tasks card** (the day's tasks: due/carrying on today, due-or-completed on past days, with checkbox/reopen, overdue + label chips, and an `n/m done` progress bar), and the **Habits card** (the day's completion + per-habit streak). Selecting a different day swaps the tasks + habit states + counts; past days drop the pulse card.
+  - `HomeView` now takes `tasks`/`labels` + `onCompleteTask`/`onOpenTask` (threaded via `WallabyShell`). Reskin — existing data only; mood/vision/deep-work/year-grid parts stay deferred. Public-Profile sub-tab intentionally omitted (per user).
+
 - feat(ui): Wallaby Settings visual reskin (notifications "fire") [S]
   - `src/v2/wallaby/settings.css` (imported via AppV2.css, gated `[data-theme^="wallaby"]`): visual-only reskin of the existing SettingsModal — **every Boomerang setting + tab preserved**. Tabs → single scrollable row with a green underline on the active tab; `.v2-settings-block`s → grouped navy cards; toggles → loggd **green** when on; segmented controls → green active; inputs/buttons → navy surfaces. **Notifications** get the standout treatment: a CHANNELS card + per-type cards on the elevated surface with Push/Email/Pushover toggle tiles. Standard/Terminal untouched.
 
