@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby Tasks refinements + QA pass (header overlap, home check) [M]
+  - **Tasks** (loggd `IMG_1581` + `task-action-sheet`): 3rd **Done** tab (Upcoming/Backlog/Done with counts); **TODAY/TOMORROW** grouping with section icons (Overdue/Today/Tomorrow/Upcoming/Anytime); **semi-random per-task checkbox colors** (cycled by id hash — not priority/label, per direction); notes subtitle line; **task tap → action sheet** (Reschedule Today/Tomorrow/Next week/No date · Edit · Delete · Focus-timer "Soon"). Reschedule → `updateTask({due_date})`, Delete → `deleteTask`.
+  - **QA — bugs found + fixed:**
+    - **Home habit check did nothing** (felt unclickable): the toggle handler called `store.localYMD(isoString)` but that helper needs a `Date` → `getFullYear is not a function` threw and aborted silently. Wrapped in `new Date(ts)`. Toggle now logs/clears today's completion + advances the streak.
+    - **Header overlapped the status bar in PWA standalone:** the header set `env(safe-area-inset-top)` as *bottom* padding and didn't add it to its height. Now `height = bar + inset`, `padding-top: inset` (box-border) so brand/bell sit below the notch.
+  - Interaction sweep (headless): 12/12 surfaces/affordances pass (nav tabs, habit check, Tasks grouping/colors/Done/action-sheet, habit-card→detail, bell→notifications, avatar→profile, More→Goals).
+
 - docs(wallaby): capture loggd reference assets + full feature catalog [S]
   - loggd.life blocks automated fetch, so durably committed the reference into `wiki/wallaby-reference/` (6 clean app-export PDFs + 16 downscaled screenshots, ~3.5MB, indexed by README). Expanded `wiki/Wallaby-Ideas.md` with the complete Help-Center feature catalog (Notes, Focus Timer modes, Vision's 6 exercises, Goals Life Areas + auto goal-tags, habit scheduling types, XP/12-tiers/badges/feature-unlocks, Community, 3-level privacy, Free/Pro). Added the **all-skins principle**: net-new features are theme-agnostic (shared app layer, every skin) — and that boundary is the reskin→fork line.
 

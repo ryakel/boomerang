@@ -18,6 +18,7 @@ export default function WallabyShell({
   tasks = [], routines = [], projects = [], labels = [],
   dailyStats = {}, streak = 0, records = {}, lifetimeDone = 0,
   onToggleHabit, onCompleteTask, onToggleItem, onOpenTask, onAddTask, onAddHabit,
+  onRescheduleTask, onDeleteTask,
   onEditHabit, onArchiveHabit, onDeleteHabit,
   onLogSession, onCompleteProject, onEditProject, onSetAsideProject, onDeleteProject,
   onOpenSettings,
@@ -79,6 +80,7 @@ export default function WallabyShell({
         tasks={tasks} labels={labels}
         onToggleComplete={onCompleteTask} onToggleItem={onToggleItem}
         onOpenTask={onOpenTask} onAdd={onAddTask}
+        onReschedule={onRescheduleTask} onDelete={onDeleteTask}
       />
     )
   } else if (tab === 'timer') {
