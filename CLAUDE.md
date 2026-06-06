@@ -1007,8 +1007,12 @@ tokens even if reached from a non-Wallaby theme.
   `currentStreak`, `weekStart`/`addDays`/`fmtMonthDay`.
 - `HabitsView.{jsx,css}` — the **Habits** screen. Routines (filtered to
   non-paused) as habit cards: color icon tile + title + streak/count badges +
-  the grid. Single (full heatmap) / Week (7 day-cells + date stepper) / Month
-  (calendar grid). Distinct per-habit color by list index. Purple FAB.
+  the grid. Range tabs **Single** (rolling heatmap + month labels) / **Month**
+  (calendar) / **Year** (53-week heatmap). Tapping a card opens the **habit
+  detail** (loggd `IMG_1586`): Streak/Best/Total stat cards, a month completion
+  calendar (stepper + N-done/%), Edit (→ routine editor) / Archive (→
+  `togglePause`) / Delete (→ `deleteRoutine`). Distinct per-habit color by list
+  index. Purple FAB.
 - `TasksView.{jsx,css}` — the **Tasks** screen. Segmented Upcoming/Backlog,
   tasks grouped (Overdue/Today/Upcoming/Anytime), pink square checkboxes
   (orange for high-pri), label chips from `tags`, nested checklist items as
@@ -1056,12 +1060,14 @@ net-new features like Timer / Vision / Daily mood / gamification / notifications
 center / habit templates) lives in **`wiki/Wallaby-Ideas.md`** — keep it current
 as the reskin proceeds and new reference comes in.
 
-**Reskin still to do:** habit detail + month-calendar view (tap a Habits card →
-stats + completion calendar + archive/delete, loggd `IMG_1586`), per-card month
-labels + clickable heatmaps on the Habits single view, Tasks 3rd "Done" tab +
-TODAY/TOMORROW grouping, an optional persistent Wallaby top header (brand + bell
-+ avatar). **Deferred net-new features (after reskin):** Timer, Vision
-(eulogy/bucket list), Daily mood-journal, XP/levels/achievements.
+**Reskin still to do:** persistent Wallaby **top header** (brand + 🔔 bell +
+avatar) with the bell opening a **notifications center** that reads Boomerang's
+existing notification log (`GET /api/notifications/log`); **Tasks** — 3rd "Done"
+tab + TODAY/TOMORROW grouping + semi-random per-task checkbox colors (not tied to
+priority/label) + task tap → quick action sheet (reschedule/focus/edit/delete);
+tabbed **Settings** + **Analytics** reskin; richer **Today's Pulse** Home.
+**Deferred net-new features (after reskin):** Timer, Vision (eulogy/bucket list),
+Daily mood-journal, XP/levels/achievements, notifications gamification.
 
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.

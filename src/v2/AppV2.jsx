@@ -1193,6 +1193,9 @@ export default function AppV2() {
           onOpenTask={(task) => setEditTarget(task)}
           onAddTask={() => setShowAdd(true)}
           onAddHabit={() => setShowRoutines(true)}
+          onEditHabit={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
+          onArchiveHabit={(r) => togglePause(r.id)}
+          onDeleteHabit={(r) => deleteRoutine(r.id)}
           onLogSession={(p) => logProjectSession(p.id)}
           onCompleteProject={(p) => handleComplete(p.id)}
           onEditProject={(p) => setEditTarget(p)}

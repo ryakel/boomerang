@@ -16,6 +16,7 @@ export default function WallabyShell({
   tasks = [], routines = [], projects = [], labels = [],
   dailyStats = {}, streak = 0, records = {}, lifetimeDone = 0,
   onToggleHabit, onCompleteTask, onToggleItem, onOpenTask, onAddTask, onAddHabit,
+  onEditHabit, onArchiveHabit, onDeleteHabit,
   onLogSession, onCompleteProject, onEditProject, onSetAsideProject, onDeleteProject,
   onOpenSettings,
 }) {
@@ -43,7 +44,15 @@ export default function WallabyShell({
   } else if (tab === 'home') {
     surface = <HomeView routines={routines} onToggleHabit={onToggleHabit} onOpenProfile={() => setSub('profile')} />
   } else if (tab === 'habits') {
-    surface = <HabitsView routines={routines} onAdd={onAddHabit} />
+    surface = (
+      <HabitsView
+        routines={routines}
+        onAdd={onAddHabit}
+        onEditHabit={onEditHabit}
+        onArchiveHabit={onArchiveHabit}
+        onDeleteHabit={onDeleteHabit}
+      />
+    )
   } else if (tab === 'tasks') {
     surface = (
       <TasksView

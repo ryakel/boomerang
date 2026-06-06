@@ -46,6 +46,19 @@ export function currentStreak(valueByDay) {
   return streak
 }
 
+// Longest run of consecutive logged days anywhere in the history.
+export function longestStreak(valueByDay) {
+  const days = Object.keys(valueByDay).filter(k => valueByDay[k]).sort()
+  if (days.length === 0) return 0
+  let best = 1, run = 1
+  for (let i = 1; i < days.length; i++) {
+    const prev = new Date(days[i - 1]); prev.setDate(prev.getDate() + 1)
+    if (localYMD(prev) === days[i]) { run++; best = Math.max(best, run) }
+    else run = 1
+  }
+  return best
+}
+
 // Monday-anchored start of the week containing `ref` (+ weekOffset weeks).
 export function weekStart(ref, weekOffset = 0) {
   const d = new Date(ref)

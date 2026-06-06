@@ -107,6 +107,8 @@
   padding: 14px 15px 16px;
   box-shadow: var(--wb-shadow);
 }
+.wb-card-tappable { cursor: pointer; transition: border-color 140ms ease; }
+.wb-card-tappable:hover { border-color: var(--wb-hairline-strong); }
 .wb-card-head {
   display: flex;
   align-items: center;
@@ -232,3 +234,93 @@
 }
 .wb-fab-habits { background: var(--wb-fab-habits); }
 .wb-fab-tasks { background: var(--wb-fab-tasks); }
+
+/* ── Habit detail + month calendar (loggd IMG_1586) ──────────────────────── */
+.wb-hd-title { font-size: 22px; margin-right: auto; }
+.wb-hd-body { display: flex; flex-direction: column; gap: 16px; }
+.wb-hd-id { display: flex; align-items: center; gap: 10px; }
+.wb-hd-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; flex: 0 0 auto; }
+.wb-hd-cadence { font-size: 13px; font-weight: 700; }
+.wb-hd-desc { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--wb-text); }
+
+.wb-hd-stats {
+  display: flex;
+  gap: 10px;
+}
+.wb-hd-stat {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 14px;
+  box-shadow: var(--wb-shadow);
+}
+.wb-hd-stat-v {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--v2-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.wb-hd-stat-l { font-size: 11.5px; font-weight: 600; color: var(--wb-text-meta); }
+
+.wb-hd-today {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-start;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--wb-card-2);
+  color: var(--wb-text-meta);
+}
+.wb-hd-today.is-done { background: color-mix(in srgb, var(--wb-action-complete) 22%, transparent); color: var(--wb-action-complete); }
+
+.wb-hd-cal {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: var(--wb-shadow);
+}
+.wb-hd-cal .wb-stepper { background: transparent; border: none; padding: 0 0 12px; }
+.wb-hd-cal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--wb-text-meta);
+}
+.wb-hd-cal-pct { font-weight: 800; }
+
+.wb-hd-actions { display: flex; flex-direction: column; gap: 10px; }
+
+/* Shared semantic buttons (mirrors GoalsView so the detail styles standalone) */
+.wb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: none;
+  border-radius: 13px;
+  padding: 13px 16px;
+  font: 700 14px/1 var(--v2-font-body);
+  color: #fff;
+  cursor: pointer;
+}
+.wb-btn-secondary { background: var(--wb-action-secondary); color: var(--wb-text); }
+.wb-btn-delete { background: transparent; color: var(--wb-action-delete); }
+.wb-btn-delete-solid { background: var(--wb-action-delete); }
+.wb-btn-ghost { background: var(--wb-card-2); color: var(--wb-text); }
+.wb-goal-confirm { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--wb-text); }
+.wb-goal-confirm > span { flex: 1 1 auto; }
+.wb-goal-confirm .wb-btn { padding: 10px 14px; }
