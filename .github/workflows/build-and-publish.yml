@@ -109,6 +109,14 @@ jobs:
       - name: Set up Docker Buildx
         if: github.event_name != 'pull_request'
         uses: docker/setup-buildx-action@v3
+        with:
+          # Route docker.io pulls through Google's mirror of Docker Hub official
+          # images (node:22-alpine, etc.) — registry-1.docker.io intermittently
+          # times out from GitHub runners on the base-image pull. mirror.gcr.io
+          # is far more reliable; falls back to docker.io if it lacks an image.
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
