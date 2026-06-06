@@ -1209,6 +1209,7 @@ export default function AppV2() {
           onOpenSettings={() => setShowSettings(true)}
           onOpenAdviser={() => setShowAdviser(true)}
           onOpenPackages={() => setShowPackages(true)}
+          onOpenAnalytics={() => setShowAnalytics(true)}
           syncStatus={syncStatus}
           queueLength={queueLength}
         />

@@ -40,7 +40,7 @@ Bottom nav (loggd): **Home · Habits · Tasks · Timer · More**.
 | Profile / dashboard | ✅ (partial) | ⬜ adopt the rich loggd profile layout (avatar/level/XP/bio/year-grid/per-metric grids) **minus public/share** (user: "like this without the public part"); Level/XP/badges = 🅿️ gamification |
 | Home — daily agenda | ✅ (basic) | ⬜ enrich toward **Today's Pulse** (below) |
 | Settings (visual reskin) | ✅ | Account / Notifications / Preferences / Privacy / API; per-type Push/Email toggles (Boomerang already has the data) |
-| Analytics — "Your productivity insights" | ⬜ / 🅿️ | Tabbed **Overview / Habits / Tasks / Goals / Focus**. Weekly **points** total + ‹week› nav, 🔥current/🏆best streak, stat cards (Habits checks, Tasks completed, Focus time, Check-ins), **Points Breakdown by activity type**, weekly **mood bar-chart** + **reflections** recap. Reskin-able: points/streak/habit+task counts (Boomerang has these). Deferred: focus-time, check-ins, mood, badge points (tied to new features). Reached via More/Profile. |
+| Analytics (visual reskin) | ✅ (reskin) / 🅿️ | Tabbed **Overview / Habits / Tasks / Goals / Focus**. Weekly **points** total + ‹week› nav, 🔥current/🏆best streak, stat cards (Habits checks, Tasks completed, Focus time, Check-ins), **Points Breakdown by activity type**, weekly **mood bar-chart** + **reflections** recap. Reskin-able: points/streak/habit+task counts (Boomerang has these). Deferred: focus-time, check-ins, mood, badge points (tied to new features). Reached via More/Profile. |
 
 ### Home "Today's Pulse" (richer Home — PDF 1)
 The real Home is a scrolling daily dashboard. Reskin-able parts (existing data):

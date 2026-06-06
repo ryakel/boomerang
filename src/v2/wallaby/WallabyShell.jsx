@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Timer, Package, BookOpen, Smile, Settings, FolderKanban, User, ChevronRight, ArrowLeft } from 'lucide-react'
+import { Timer, Package, BookOpen, Smile, Settings, BarChart3, FolderKanban, User, ChevronRight, ArrowLeft } from 'lucide-react'
 import HomeView from './HomeView'
 import HabitsView from './HabitsView'
 import TasksView from './TasksView'
@@ -21,7 +21,7 @@ export default function WallabyShell({
   onRescheduleTask, onDeleteTask,
   onEditHabit, onArchiveHabit, onDeleteHabit,
   onLogSession, onCompleteProject, onEditProject, onSetAsideProject, onDeleteProject,
-  onOpenSettings, onOpenAdviser, onOpenPackages,
+  onOpenSettings, onOpenAdviser, onOpenPackages, onOpenAnalytics,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('home')
@@ -96,6 +96,7 @@ export default function WallabyShell({
       <MoreMenu
         onOpenProfile={() => setSub('profile')}
         onOpenGoals={() => setSub('goals')}
+        onOpenAnalytics={onOpenAnalytics}
         onOpenTimer={() => setSub('timer')}
         onOpenPackages={onOpenPackages}
         onOpenSettings={onOpenSettings}
@@ -122,10 +123,11 @@ export default function WallabyShell({
   )
 }
 
-function MoreMenu({ onOpenProfile, onOpenGoals, onOpenTimer, onOpenPackages, onOpenSettings }) {
+function MoreMenu({ onOpenProfile, onOpenGoals, onOpenAnalytics, onOpenTimer, onOpenPackages, onOpenSettings }) {
   const rows = [
     { key: 'profile', icon: User, label: 'Profile', sub: 'Stats + your activity year', onClick: onOpenProfile },
     { key: 'goals', icon: FolderKanban, label: 'Goals', sub: 'Projects · progress + sessions', onClick: onOpenGoals },
+    { key: 'analytics', icon: BarChart3, label: 'Analytics', sub: 'Productivity insights', onClick: onOpenAnalytics },
     { key: 'packages', icon: Package, label: 'Packages', sub: 'Track deliveries', onClick: onOpenPackages },
     { key: 'timer', icon: Timer, label: 'Timer', sub: 'Focus sessions', onClick: onOpenTimer },
     { key: 'vision', icon: BookOpen, label: 'Vision', sub: 'Coming soon', soon: true },
