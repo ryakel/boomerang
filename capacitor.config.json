@@ -1,0 +1,14 @@
+{
+  "appId": "com.ryakel.boomerang",
+  "appName": "Boomerang",
+  "webDir": "dist",
+  "server": {
+    "url": "https://CHANGE-ME-TO-YOUR-PROD-DOMAIN",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#0E1322",
+    "limitsNavigationsToAppBoundDomains": false
+  }
+}

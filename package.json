@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "test": "sh scripts/smoke-test.sh",
     "prepare": "git config core.hooksPath .githooks || true",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ios:sync": "vite build && cap sync ios",
+    "ios:open": "cap open ios"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -31,6 +33,9 @@
     "serialize-javascript": "^7.0.5"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "@eslint/js": "^9.25.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",

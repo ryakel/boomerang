@@ -38,3 +38,12 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Capacitor / iOS — the native project (ios/) is generated on a Mac via
+# `npx cap add ios` and committed, but these synced/build artifacts are not.
+ios/App/Pods/
+ios/App/App/public/
+ios/App/Podfile.lock
+ios/.gradle/
+DerivedData/
+*.xcuserstate
