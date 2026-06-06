@@ -1,12 +1,12 @@
-import { Home, Activity, ListTodo, Timer, Menu } from 'lucide-react'
+import { Home, Activity, ListTodo, Menu } from 'lucide-react'
 import './WallabyNav.css'
 
-// Wallaby bottom nav (loggd IA): Home · Habits · Tasks · Timer · More.
+// Wallaby bottom nav: Home · Habits · Tasks · More. (Timer + Packages live in
+// the More menu; Quokka lives in the top header.)
 const TABS = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'habits', label: 'Habits', icon: Activity },
   { id: 'tasks', label: 'Tasks', icon: ListTodo },
-  { id: 'timer', label: 'Timer', icon: Timer },
   { id: 'more', label: 'More', icon: Menu },
 ]
 

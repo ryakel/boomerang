@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Timer, BookOpen, Smile, Settings, FolderKanban, User, ChevronRight } from 'lucide-react'
+import { Timer, Package, BookOpen, Smile, Settings, FolderKanban, User, ChevronRight, ArrowLeft } from 'lucide-react'
 import HomeView from './HomeView'
 import HabitsView from './HabitsView'
 import TasksView from './TasksView'
@@ -21,7 +21,8 @@ export default function WallabyShell({
   onRescheduleTask, onDeleteTask,
   onEditHabit, onArchiveHabit, onDeleteHabit,
   onLogSession, onCompleteProject, onEditProject, onSetAsideProject, onDeleteProject,
-  onOpenSettings,
+  onOpenSettings, onOpenAdviser, onOpenPackages,
+  syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('home')
   const [sub, setSub] = useState(null) // 'profile' | 'goals' | 'notifications' | null
@@ -83,10 +84,18 @@ export default function WallabyShell({
         onReschedule={onRescheduleTask} onDelete={onDeleteTask}
       />
     )
-  } else if (tab === 'timer') {
-    surface = <Placeholder icon={<Timer size={34} strokeWidth={1.75} />} title="Timer" body="Focus timer is coming after the reskin." />
+  } else if (sub === 'timer') {
+    surface = <Placeholder icon={<Timer size={34} strokeWidth={1.75} />} title="Timer" body="Focus timer is coming after the reskin." onClose={() => setSub(null)} />
   } else {
-    surface = <MoreMenu onOpenProfile={() => setSub('profile')} onOpenGoals={() => setSub('goals')} onOpenSettings={onOpenSettings} />
+    surface = (
+      <MoreMenu
+        onOpenProfile={() => setSub('profile')}
+        onOpenGoals={() => setSub('goals')}
+        onOpenTimer={() => setSub('timer')}
+        onOpenPackages={onOpenPackages}
+        onOpenSettings={onOpenSettings}
+      />
+    )
   }
 
   return (
@@ -95,6 +104,9 @@ export default function WallabyShell({
         unread={unread}
         onBell={() => setSub('notifications')}
         onAvatar={() => setSub('profile')}
+        onOpenAdviser={onOpenAdviser}
+        syncStatus={syncStatus}
+        queueLength={queueLength}
       />
       <div className="wb-shell-surface">{surface}</div>
       <WallabyNav
@@ -105,10 +117,12 @@ export default function WallabyShell({
   )
 }
 
-function MoreMenu({ onOpenProfile, onOpenGoals, onOpenSettings }) {
+function MoreMenu({ onOpenProfile, onOpenGoals, onOpenTimer, onOpenPackages, onOpenSettings }) {
   const rows = [
     { key: 'profile', icon: User, label: 'Profile', sub: 'Stats + your activity year', onClick: onOpenProfile },
     { key: 'goals', icon: FolderKanban, label: 'Goals', sub: 'Projects · progress + sessions', onClick: onOpenGoals },
+    { key: 'packages', icon: Package, label: 'Packages', sub: 'Track deliveries', onClick: onOpenPackages },
+    { key: 'timer', icon: Timer, label: 'Timer', sub: 'Focus sessions', onClick: onOpenTimer },
     { key: 'vision', icon: BookOpen, label: 'Vision', sub: 'Coming soon', soon: true },
     { key: 'daily', icon: Smile, label: 'Daily check-in', sub: 'Coming soon', soon: true },
     { key: 'settings', icon: Settings, label: 'Settings', sub: 'App configuration', onClick: onOpenSettings },
@@ -140,9 +154,12 @@ function MoreMenu({ onOpenProfile, onOpenGoals, onOpenSettings }) {
   )
 }
 
-function Placeholder({ icon, title, body }) {
+function Placeholder({ icon, title, body, onClose }) {
   return (
     <div className="wb-placeholder">
+      {onClose && (
+        <button className="wb-back wb-placeholder-back" onClick={onClose} aria-label="Back"><ArrowLeft size={20} strokeWidth={2.25} /></button>
+      )}
       <span className="wb-placeholder-icon">{icon}</span>
       <h2 className="wb-placeholder-title">{title}</h2>
       <p className="wb-placeholder-body">{body}</p>

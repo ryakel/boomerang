@@ -22,17 +22,17 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+/* Bouncing wordmark reuses the global .v2-header-wordmark classes (Header.css);
+ * just size it for the Wallaby bar. Logo sits to the RIGHT of the text. */
+.wb-header-wordmark.v2-header-wordmark {
+  display: inline-flex;
   font-family: var(--v2-font-display);
   font-size: 17px;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
   color: var(--wb-text);
-}
-.wb-header-mark {
-  width: 16px;
-  height: 16px;
-  border-radius: 5px;
-  background: var(--wb-action-complete);
 }
 .wb-header-actions { display: flex; align-items: center; gap: 10px; }
 .wb-header-btn {
