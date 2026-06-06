@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Quokka is its own page; nav swap; idle icon [S]
+  - Quokka moved to the **center** nav slot (Home · Habits · **Quokka** · Tasks · More) and is now **its own page** instead of a pop-up: selecting the tab renders the adviser inline in the shell surface (`.wb-quokka-page` strips the ModalShell chrome; the surface stops above the nav so the composer clears it). Its icon is muted when idle and green when active **like every other tab** (dropped the always-purple). `WallabyShell` takes `adviser`/`onOpenEasterEgg`; the AppV2 adviser modal stays for non-Wallaby.
+
+- chore(dev): seed covers all timelines (rebased to today + rich habit history) [S]
+  - The static `seed-data.json` was frozen at Jan–Apr, so recent views (heatmaps, Today's Pulse, Analytics 7d/30d) rendered empty. `seed.js` `makeSeedCurrent()` now, at seed time: (1) **rebases every task date** so the latest completion lands today (overdue stays overdue, upcoming stays upcoming); (2) **synthesizes rich cadence-based routine history** spanning ~250 days up to today (daily habit → ~188 entries Sep→today; weekly → ~24). So dev data covers all timeframes. Dev-only; benefits every skin.
+
 - feat(ui): Wallaby Analytics visual reskin + reachable from More [S]
   - `src/v2/wallaby/analytics.css` (Wallaby-gated, via AppV2.css): visual reskin of the existing AnalyticsModal — sections → navy cards, the summary "big number" → its own card with a **green** hero value, range/metric toggles → green active, chart fills (daily bars / DOW / breakdown) → Wallaby purple. All of Boomerang's analytics preserved (daily, by-day-of-week, balance radar, by-tag, by-energy, heatmap). Added **More → Analytics** (`onOpenAnalytics` → existing `showAnalytics`). Standard/Terminal untouched.
 

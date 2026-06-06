@@ -8,6 +8,7 @@ import GoalsView from './GoalsView'
 import NotificationsView from './NotificationsView'
 import WallabyNav from './WallabyNav'
 import WallabyHeader from './WallabyHeader'
+import AdviserModal from '../components/AdviserModal'
 import './WallabyShell.css'
 
 // Wallaby shell — the loggd IA. Full-screen container shown in Wallaby mode on
@@ -21,7 +22,8 @@ export default function WallabyShell({
   onRescheduleTask, onDeleteTask,
   onEditHabit, onArchiveHabit, onDeleteHabit,
   onLogSession, onCompleteProject, onEditProject, onSetAsideProject, onDeleteProject,
-  onOpenSettings, onOpenAdviser, onOpenPackages, onOpenAnalytics,
+  onOpenSettings, onOpenPackages, onOpenAnalytics,
+  adviser, onAdviserAfterCommit, onOpenEasterEgg,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('home')
@@ -80,6 +82,19 @@ export default function WallabyShell({
         onDeleteHabit={onDeleteHabit}
       />
     )
+  } else if (tab === 'quokka') {
+    surface = (
+      <div className="wb-quokka-page">
+        <AdviserModal
+          open
+          adviser={adviser}
+          onClose={() => setTab('home')}
+          onAfterCommit={onAdviserAfterCommit}
+          onOpenEasterEgg={onOpenEasterEgg}
+          draftSeed=""
+        />
+      </div>
+    )
   } else if (tab === 'tasks') {
     surface = (
       <TasksView
@@ -113,11 +128,10 @@ export default function WallabyShell({
         syncStatus={syncStatus}
         queueLength={queueLength}
       />
-      <div className="wb-shell-surface">{surface}</div>
+      <div className={`wb-shell-surface${!sub && tab === 'quokka' ? ' wb-shell-surface-stop-at-nav' : ''}`}>{surface}</div>
       <WallabyNav
         active={sub ? '' : tab}
         onChange={(t) => { setSub(null); setTab(t) }}
-        onQuokka={onOpenAdviser}
       />
     </div>
   )
