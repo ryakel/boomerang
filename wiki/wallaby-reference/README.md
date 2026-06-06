@@ -24,6 +24,11 @@ any session — pair with `../Wallaby-Ideas.md` (the feature catalog).
 | `settings-preferences.pdf` | Settings → Preferences (theme, sound, nav visibility, profile privacy) |
 | `settings-api.pdf` | Settings → API (tokens, webhooks, dev docs) |
 | `settings-privacy.jpg` | Settings → Privacy (data export, legal) |
+| `vision.pdf` | Vision board (full): Eulogy / Bucket List / Mission / Definition of Success (6 life areas) / Odyssey Plan / Future Calendar |
+| `notes.pdf` | Notes — Notion-like nested-page tree + writing-activity heatmap |
+| `timer-full.pdf` | Focus Timer (full): activity heatmap, sessions, streak, distributions, focus patterns, CSV export |
+| `timer-compact.pdf` | Focus Timer (compact view) |
+| `badges.pdf` | Badges / achievements grid |
 
 ## Screenshots
 | File | Surface |
