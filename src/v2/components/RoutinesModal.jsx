@@ -5,8 +5,6 @@ import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import ChainReconcileModal from './ChainReconcileModal'
 import SectionLabel from './SectionLabel'
-import ContributionHeatmap from './ContributionHeatmap'
-import { routineHeatColor, historyByDay } from './heatmapUtils'
 import './RoutinesModal.css'
 
 const DAY_OF_WEEK_OPTIONS = [
@@ -74,8 +72,6 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
   const memberCount = Array.isArray(routine.members) ? routine.members.length : 0
   const stackLabel = memberCount > 0 ? ` · ${memberCount} items` : ''
   const completeCount = routine.completed_history?.length || 0
-  const heatColor = routineHeatColor(routine.id)
-  const heatValues = historyByDay(routine.completed_history)
 
   const handleSpawn = () => {
     if (hasActiveTask) return  // button is disabled in this state, but defensive
@@ -132,18 +128,6 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
               </>
             )}
           </div>
-          {completeCount > 0 && (
-            <div className="v2-routine-heatmap">
-              <ContributionHeatmap
-                valueByDay={heatValues}
-                color={heatColor}
-                weeks={18}
-                cellSize={10}
-                gap={2}
-                unitLabel="done"
-              />
-            </div>
-          )}
           {routine.notes && (
             <div className="v2-routine-notes">{routine.notes}</div>
           )}
@@ -1091,6 +1075,7 @@ export default function RoutinesModal({
       open={open}
       onClose={onClose}
       title={view === 'form' ? (editing ? 'Edit routine' : 'New routine') : 'Routines'}
+      terminalTitle={view === 'form' ? (editing ? '$ routine --edit' : '$ routine --new') : '$ routines'}
       subtitle={view === 'list' && routines.length > 0
         ? `${active.length} active${paused.length ? ` · ${paused.length} paused` : ''}`
         : undefined}
@@ -1111,6 +1096,7 @@ export default function RoutinesModal({
               body="Recurring tasks like dentist visits, plant watering, oil changes. Create one to start tracking the rhythm."
               cta="New routine"
               ctaOnClick={() => { setEditing(null); setView('form') }}
+              terminalCommand="// no routines yet. recurring tasks live here — dentist, oil change, water plants."
             />
           ) : (
             <>

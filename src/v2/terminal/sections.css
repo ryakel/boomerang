@@ -1,0 +1,90 @@
+/* Terminal — Section labels, empty states, brand popover.
+ *
+ * Section labels go from "✦ DOING                3" to
+ * "> DOING               [3]" — chevron prompt + bracketed count, reads
+ * as listing rows in a CLI output. Empty-state icon backdrop squares
+ * off to match the boxy 4px radii. Brand popover sync-row icon gets
+ * bracketed for status-line vibes.
+ */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-bullet {
+  font-size: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-bullet::before {
+  content: ">";
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-count::before {
+  content: "[";
+  color: var(--v2-text-faint);
+  margin-right: 1px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-count::after {
+  content: "]";
+  color: var(--v2-text-faint);
+  margin-left: 1px;
+}
+
+/* Empty states — squared-off icon backdrop. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-empty-icon {
+  border-radius: var(--v2-radius-card);
+}
+
+/* Collapse-toggle chevron on section labels. The button itself gets
+ * its baseline reset; the chevron swaps from SVG-ish to ASCII matching
+ * the rest of the terminal idiom. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-toggle {
+  background: transparent;
+  border: none;
+  width: 100%;
+  padding-left: 0;
+  text-align: left;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-chev {
+  color: var(--v2-text-faint);
+  font-size: 11px;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-section-label-toggle:hover .v2-section-label-chev {
+  color: var(--v2-accent);
+}
+
+/* Brand popover sync row — bracket the status dot. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-sync .v2-header-popover-row-icon::before {
+  content: "[";
+  color: var(--v2-text-faint);
+  margin-right: 2px;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-sync .v2-header-popover-row-icon::after {
+  content: "]";
+  color: var(--v2-text-faint);
+  margin-left: 2px;
+}
+
+/* Brand popover stats row — drop the colored ring SVG, render `[◎]` as
+ * a flat ASCII bullseye matching the rest of the terminal idiom. The
+ * `.v2-header-popover-rings` button still routes to Analytics. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-rings .mini-rings svg {
+  display: none;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-rings .mini-rings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-family: var(--v2-font-body);
+  font-size: 16px;
+  color: var(--v2-accent);
+  text-shadow: var(--v2-glow);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-header-popover-rings .mini-rings::before {
+  content: "◎";
+}

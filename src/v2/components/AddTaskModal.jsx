@@ -48,6 +48,7 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
       open={open}
       onClose={onClose}
       title={createAsProject ? 'New project' : parentProject ? `New sub in ${parentProject.title}` : 'New task'}
+      terminalTitle={createAsProject ? '> project --new' : parentProject ? `> task --new --parent="${parentProject.title}"` : '> task --new'}
       width="narrow"
     >
       {parentProject && (

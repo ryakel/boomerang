@@ -257,15 +257,12 @@ export function loadSettings() {
   }
   // Remove legacy notif_frequency field
   delete saved.notif_frequency
-  // Theme migration (2026-06-05): the terminal palette family was retired in
-  // favor of the Loggd design language. Any saved terminal-* value (incl. the
-  // pre-2026-05 legacy 'terminal' alias for terminal-dark) maps onto the
-  // matching Loggd sub-variant; saved back so the next read short-circuits.
-  if (saved.theme === 'terminal' || saved.theme === 'terminal-dark') {
-    saved.theme = 'loggd-dark'
-    save(SETTINGS_KEY, saved)
-  } else if (saved.theme === 'terminal-light') {
-    saved.theme = 'loggd-light'
+  // Theme palette family migration (2026-05-10): the original 'terminal'
+  // theme value is now the GitHub Dark sub-palette. terminal-light joined
+  // as a peer. Old value silently upgrades to terminal-dark; saved back so
+  // the next read short-circuits.
+  if (saved.theme === 'terminal') {
+    saved.theme = 'terminal-dark'
     save(SETTINGS_KEY, saved)
   }
   return { ...DEFAULT_SETTINGS, ...saved }
