@@ -28,6 +28,12 @@
           s.theme = 'terminal-dark'
           try { localStorage.setItem('boom_settings_v1', JSON.stringify(s)) } catch(_) {}
         }
+        // Terminal mode turned off (2026-06-06): migrate to Wallaby pre-paint so
+        // current terminal users don't flash the terminal palette on first load.
+        if (s && (s.theme === 'terminal-dark' || s.theme === 'terminal-light')) {
+          s.theme = s.theme === 'terminal-light' ? 'wallaby-light' : 'wallaby-dark'
+          try { localStorage.setItem('boom_settings_v1', JSON.stringify(s)) } catch(_) {}
+        }
         var themeColors = {
           light: '#FFFFFF',
           dark: '#0B0B0F',
