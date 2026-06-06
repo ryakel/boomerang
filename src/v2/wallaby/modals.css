@@ -59,7 +59,10 @@
     background: transparent;
   }
   [data-theme^="wallaby"] .wb-shell .v2-modal-header { padding: 22px 20px 16px; }
-  [data-theme^="wallaby"] .wb-shell .v2-modal-close { top: 16px; }
+  /* No close X on Quokka — it's a nav tab, you leave it via the bottom nav (not
+   * an overlay you dismiss). The X is only for the full-screen overlay modals
+   * that cover the nav. */
+  [data-theme^="wallaby"] .wb-shell .v2-modal-close { display: none; }
   [data-theme^="wallaby"] .wb-shell .v2-modal-header-slot { top: 24px; }
   [data-theme^="wallaby"] .wb-shell .v2-modal-body { padding-bottom: 16px; }
 
