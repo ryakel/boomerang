@@ -1207,6 +1207,10 @@ export default function AppV2() {
           onSetAsideProject={(p) => updateTask(p.id, { status: 'backlog' })}
           onDeleteProject={(p) => deleteTask(p.id)}
           onOpenSettings={() => setShowSettings(true)}
+          onOpenAdviser={() => setShowAdviser(true)}
+          onOpenPackages={() => setShowPackages(true)}
+          syncStatus={syncStatus}
+          queueLength={queueLength}
         />
       )}
 

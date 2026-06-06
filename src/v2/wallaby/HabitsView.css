@@ -220,7 +220,8 @@
 .wb-fab {
   position: fixed;
   right: 18px;
-  bottom: 92px;
+  /* Sit clear above the bottom nav (~64px) + the home-indicator inset. */
+  bottom: calc(80px + env(safe-area-inset-bottom));
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -230,7 +231,8 @@
   color: #fff;
   cursor: pointer;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-  z-index: 20;
+  /* Above the nav (z-45) so it never gets clipped by it. */
+  z-index: 47;
 }
 .wb-fab-habits { background: var(--wb-fab-habits); }
 .wb-fab-tasks { background: var(--wb-fab-tasks); }

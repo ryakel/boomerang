@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- fix(ui): Wallaby header rebrand + nav/menu placement + font + FAB [S]
+  - **Header**: real Boomerang branding back — the bouncing `BOOMERANG` wordmark (reuses the global `.v2-header-wordmark` + sync-bounce, wired to `syncStatus`/`queueLength`) with the **`Logo` to the right of the text**. Header actions: **Quokka** (Sparkles) + bell + avatar.
+  - **Placement per user**: **Quokka stays in the top header**; **Timer + Packages moved into the More menu** (Packages → the real PackagesModal; Timer → "coming soon" placeholder). Bottom nav is now **Home · Habits · Tasks · More** (Timer removed).
+  - **Font**: dropped Wallaby's Inter override — inherits the v2 typography (Syne display / DM Sans body) per preference.
+  - **FAB fix**: the Habits/Tasks `+` FAB had `z-index:20` (below the nav's `z-45`) so the nav clipped it; raised to `z-47` and `bottom: calc(80px + safe-area)` so it floats clear.
+  - Note: **"Habits" is a display label for routines** — no data change; same `routines`/`completed_history`. Standard/Terminal still say "Routines."
+
 - feat(ui): Wallaby Home calendar is interactive [S]
   - The Home date hero + week strip were inert. Now: tap a **day** to select it (purple highlight); the habit rows reflect that day's completion and the check **toggles/backfills** that day (`onToggleHabit(routine, ymd)` → adds/removes a local-noon `completed_history` entry). **Week navigation** via ‹ › chevrons (future days disabled). Tapping the date hero (or the "Today" pill that appears off-today) jumps back to today. Streak-at-risk banner only shows when today is selected.
 

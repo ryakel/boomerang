@@ -1034,15 +1034,19 @@ tokens even if reached from a non-Wallaby theme.
   + Sunday-anchored week strip (activity dots), a streak-at-risk banner, and
   today's habits (non-paused routines) as checkable rows; the per-habit-colored
   check toggles today's entry in `completed_history`.
-- `WallabyHeader.{jsx,css}` — persistent top app bar (brand + 🔔 bell + avatar)
-  above every shell surface. Bell → notifications center; avatar → Profile.
+- `WallabyHeader.{jsx,css}` — persistent top app bar: the bouncing `BOOMERANG`
+  wordmark (reuses global `.v2-header-wordmark`, sync-bounce wired to
+  `syncStatus`) + `Logo` to its right; then **Quokka** (Sparkles) + 🔔 bell +
+  avatar. Bell → notifications center; avatar → Profile. (Routines display as
+  "Habits" — label only, no data rename.)
 - `NotificationsView.{jsx,css}` — notifications center reading the existing
   `GET /api/notifications/log` (All/Unread, grouped Today/Yesterday/Earlier,
   type-colored icons, optimistic mark-all-read). Reskin — no new data.
-- `WallabyNav.{jsx,css}` + `WallabyShell.{jsx,css}` — the loggd IA. A fixed 5-tab
-  bottom nav (**Home · Habits · Tasks · Timer · More**) + the top header, over
-  the active surface. Timer is a deferred-feature placeholder; **More** routes to
-  Profile + Goals and shows Coming-soon rows for Vision + Daily check-in.
+- `WallabyNav.{jsx,css}` + `WallabyShell.{jsx,css}` — the loggd IA. A fixed 4-tab
+  bottom nav (**Home · Habits · Tasks · More**) + the top header, over the active
+  surface. **More** routes to Profile · Goals · **Packages** (real modal) ·
+  **Timer** (coming-soon) · Vision (soon) · Daily (soon) · Settings. (Quokka is
+  in the top header; Packages/Timer moved out of nav into More per user.)
 
 **How the surfaces are reached (Wallaby mode).** `AppV2` renders `<WallabyShell>`
 (`position:fixed`, z-40 — covers the standard header + list) when

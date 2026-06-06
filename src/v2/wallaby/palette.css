@@ -46,9 +46,8 @@
 
 /* ── Wallaby dark (flagship) ─────────────────────────────────────────────── */
 :root[data-ui="v2"][data-theme="wallaby-dark"] {
-  /* Clean grotesk over Syne for the dashboard register */
-  --v2-font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --v2-font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Fonts inherit the v2 defaults (Syne display / DM Sans body) — Wallaby
+   * keeps the standard v2 typography per user preference. */
 
   /* Canvas + surfaces (navy) */
   --v2-bg: #0E1322;
@@ -96,9 +95,6 @@
 
 /* ── Wallaby light ───────────────────────────────────────────────────────── */
 :root[data-ui="v2"][data-theme="wallaby-light"] {
-  --v2-font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --v2-font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-
   --v2-bg: #F4F6FB;
   --v2-surface: #FFFFFF;
   --v2-text: #18203A;

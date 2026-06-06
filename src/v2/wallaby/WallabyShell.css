@@ -63,7 +63,9 @@
 .wb-more-chev { color: var(--wb-text-meta); flex: 0 0 auto; }
 
 /* ── Deferred-feature placeholder ────────────────────────────────────────── */
+.wb-placeholder-back { position: absolute; top: 16px; left: 16px; }
 .wb-placeholder {
+  position: relative;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
