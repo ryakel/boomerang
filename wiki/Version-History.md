@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- ci: route Docker base-image pulls through mirror.gcr.io (fix flaky builds) [XS]
+  - The Docker build kept failing on `node:22-alpine` pulls from `registry-1.docker.io` (`i/o timeout` / `DeadlineExceeded`) — a recurring GitHub-runner ↔ Docker Hub connectivity flake (3× in one session), unrelated to app code. Fix: `setup-buildx-action` now sets a buildkitd registry **mirror** (`docker.io → mirror.gcr.io`, Google's reliable mirror of Docker Hub official images). Falls back to docker.io if the mirror lacks an image. Applied to **both** the dev and prod workflows; the dev one also now runs buildx on **PR builds** (previously non-PR only, so PR builds pulled straight from Hub).
+
 - fix(ui): Wallaby Quokka — Chats + New chat as top icon buttons [XS]
   - The Chats / New-chat controls sat in a full-width band below the title, eating vertical space. In Wallaby they're now compact **icon buttons pinned to the title row** (top-right), matching the Tasks header: **Chats → search magnifier** (`wb-icon-btn`, the same icon Tasks uses), **New chat → purple `+`** (`wb-icon-btn-accent`). (User: "Put chats and new chats at the top with the same search icon from tasks.") `AdviserModal` swaps to icon buttons via `useWallabyMode()`; `modals.css` absolute-positions the toolbar top-right (it lives in the non-scrolling flex body, containing block `.v2-modal`, so it pins cleanly). Non-Wallaby keeps the labeled pills. Tapping the magnifier still opens the chat history list.
 
