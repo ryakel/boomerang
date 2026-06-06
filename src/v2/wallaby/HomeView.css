@@ -217,3 +217,105 @@
   transition: transform 120ms ease;
 }
 .wb-home-check:active { transform: scale(0.92); }
+
+/* ── Today's Pulse card ──────────────────────────────────────────────────── */
+.wb-pulse {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 16px;
+  padding: 14px 15px;
+  box-shadow: var(--wb-shadow);
+  margin-bottom: 16px;
+}
+.wb-pulse-title {
+  font-family: var(--v2-font-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wb-text-meta);
+  margin-bottom: 11px;
+}
+.wb-pulse-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--wb-text);
+  margin-bottom: 7px;
+}
+.wb-pulse-row:last-child { margin-bottom: 0; }
+.wb-pulse-row em { font-style: normal; color: var(--wb-text-meta); font-weight: 600; }
+.wb-pulse-risk { background: color-mix(in srgb, var(--wb-action-delete) 18%, transparent); color: var(--wb-action-primary); }
+.wb-pulse-habits { background: color-mix(in srgb, var(--wb-cat-purple) 16%, transparent); }
+.wb-pulse-tasks { background: var(--wb-card-2); }
+.wb-pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wb-cat-purple); flex: 0 0 auto; }
+.wb-pulse-tasks .wb-pulse-dot { background: var(--wb-cat-blue); }
+
+/* ── Section cards (Tasks / Habits) ──────────────────────────────────────── */
+.wb-home-card {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 16px;
+  padding: 14px 15px;
+  box-shadow: var(--wb-shadow);
+  margin-bottom: 14px;
+}
+.wb-home-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.wb-home-card-title { margin: 0; font-family: var(--v2-font-display); font-size: 17px; font-weight: 700; }
+.wb-home-card-count { font-size: 12.5px; font-weight: 700; color: var(--wb-text-meta); }
+.wb-home-empty-sm { color: var(--wb-text-meta); font-size: 13.5px; margin: 4px 0; }
+
+.wb-home-progress { height: 6px; border-radius: 999px; background: var(--wb-card-2); overflow: hidden; margin-bottom: 12px; }
+.wb-home-progress-fill { height: 100%; border-radius: 999px; background: var(--wb-action-complete); transition: width 240ms ease; }
+
+/* ── Task rows on Home ───────────────────────────────────────────────────── */
+.wb-home-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.wb-home-task { display: flex; align-items: flex-start; gap: 11px; padding: 6px 0; }
+.wb-home-taskcheck {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 6px;
+  border: 2px solid var(--wb-hairline-strong);
+  background: transparent;
+  cursor: pointer;
+}
+.wb-home-taskcheck.is-done { background: var(--wb-action-complete); border-color: var(--wb-action-complete); }
+.wb-home-task-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; background: none; border: none; padding: 0; text-align: left; cursor: pointer; }
+.wb-home-task-title { font-size: 14.5px; font-weight: 550; color: var(--wb-text); line-height: 1.3; }
+.wb-home-task-title.is-done { text-decoration: line-through; color: var(--wb-text-meta); }
+.wb-home-task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.wb-home-task-overdue { font-size: 11.5px; font-weight: 700; color: var(--wb-action-delete); }
+.wb-home-task-tag {
+  font-size: 11px; font-weight: 600;
+  color: var(--tag, var(--wb-text-meta));
+  background: color-mix(in srgb, var(--tag, #888) 18%, transparent);
+  border-radius: 999px; padding: 2px 9px;
+}
+
+/* Habit rows inside the card — icon tile + title + streak + check on one line */
+.wb-home-card .wb-home-habits { gap: 4px; }
+.wb-home-card .wb-home-habit {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 7px 0;
+  gap: 11px;
+}
+.wb-home-habit-icon { background: var(--wb-card-2); }
+.wb-home-card .wb-home-habit-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 600; }
+.wb-home-card .wb-home-habit.is-done .wb-home-habit-title { text-decoration: line-through; color: var(--wb-text-meta); }
+.wb-home-habit-streak { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: #F0973E; flex: 0 0 auto; }
+.wb-home-card .wb-home-check { width: 30px; height: 30px; }

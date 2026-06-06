@@ -64,7 +64,12 @@ export default function WallabyShell({
   } else if (sub === 'notifications') {
     surface = <NotificationsView entries={notifEntries} onMarkAllRead={markAllRead} onClose={() => setSub(null)} />
   } else if (tab === 'home') {
-    surface = <HomeView routines={routines} onToggleHabit={onToggleHabit} />
+    surface = (
+      <HomeView
+        routines={routines} tasks={tasks} labels={labels}
+        onToggleHabit={onToggleHabit} onCompleteTask={onCompleteTask} onOpenTask={onOpenTask}
+      />
+    )
   } else if (tab === 'habits') {
     surface = (
       <HabitsView
