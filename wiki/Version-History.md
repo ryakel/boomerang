@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby Settings visual reskin (notifications "fire") [S]
+  - `src/v2/wallaby/settings.css` (imported via AppV2.css, gated `[data-theme^="wallaby"]`): visual-only reskin of the existing SettingsModal — **every Boomerang setting + tab preserved**. Tabs → single scrollable row with a green underline on the active tab; `.v2-settings-block`s → grouped navy cards; toggles → loggd **green** when on; segmented controls → green active; inputs/buttons → navy surfaces. **Notifications** get the standout treatment: a CHANNELS card + per-type cards on the elevated surface with Push/Email/Pushover toggle tiles. Standard/Terminal untouched.
+
 - fix(ui): Wallaby header rebrand + nav/menu placement + font + FAB [S]
   - **Header**: real Boomerang branding back — the bouncing `BOOMERANG` wordmark (reuses the global `.v2-header-wordmark` + sync-bounce, wired to `syncStatus`/`queueLength`) with the **`Logo` to the right of the text**. Header actions: **Quokka** (Sparkles) + bell + avatar.
   - **Placement per user**: **Quokka stays in the top header**; **Timer + Packages moved into the More menu** (Packages → the real PackagesModal; Timer → "coming soon" placeholder). Bottom nav is now **Home · Habits · Tasks · More** (Timer removed).

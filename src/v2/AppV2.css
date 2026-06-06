@@ -1,6 +1,7 @@
 @import './tokens.css';
 @import './terminal/index.css';
 @import './wallaby/palette.css';
+@import './wallaby/settings.css';
 
 /* Wallaby "Habits" surface mounts as a full-screen overlay above the app. */
 .v2-habits-overlay {
