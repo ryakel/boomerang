@@ -19,34 +19,6 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
-/* Quokka renders as a full page (the adviser chat). Stop the surface above the
- * nav so the composer never hides behind it, and let the page fill exactly. */
-.wb-shell-surface-stop-at-nav {
-  bottom: calc(var(--wb-nav-h) + env(safe-area-inset-bottom));
-  overflow: hidden;
-}
-.wb-quokka-page { position: absolute; inset: 0; }
-/* Strip the modal chrome so the adviser sits as an inline page. */
-.wb-quokka-page .v2-modal-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: transparent;
-  display: block;
-  padding: 0;
-}
-.wb-quokka-page .v2-modal {
-  position: absolute;
-  inset: 0;
-  max-width: none;
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
-  border: none;
-  box-shadow: none;
-  animation: none;
-}
-.wb-quokka-page .v2-modal-close { display: none; }
 
 /* ── More menu ───────────────────────────────────────────────────────────── */
 .wb-more {

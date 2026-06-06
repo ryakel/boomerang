@@ -83,17 +83,17 @@ export default function WallabyShell({
       />
     )
   } else if (tab === 'quokka') {
+    // Rendered via the global Wallaby modal-page treatment (modals.css), so it
+    // sits as a page between header and nav like every other surface.
     surface = (
-      <div className="wb-quokka-page">
-        <AdviserModal
-          open
-          adviser={adviser}
-          onClose={() => setTab('home')}
-          onAfterCommit={onAdviserAfterCommit}
-          onOpenEasterEgg={onOpenEasterEgg}
-          draftSeed=""
-        />
-      </div>
+      <AdviserModal
+        open
+        adviser={adviser}
+        onClose={() => setTab('home')}
+        onAfterCommit={onAdviserAfterCommit}
+        onOpenEasterEgg={onOpenEasterEgg}
+        draftSeed=""
+      />
     )
   } else if (tab === 'tasks') {
     surface = (
@@ -128,7 +128,7 @@ export default function WallabyShell({
         syncStatus={syncStatus}
         queueLength={queueLength}
       />
-      <div className={`wb-shell-surface${!sub && tab === 'quokka' ? ' wb-shell-surface-stop-at-nav' : ''}`}>{surface}</div>
+      <div className="wb-shell-surface">{surface}</div>
       <WallabyNav
         active={sub ? '' : tab}
         onChange={(t) => { setSub(null); setTab(t) }}
