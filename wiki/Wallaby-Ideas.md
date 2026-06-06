@@ -29,6 +29,7 @@ Bottom nav (loggd): **Home · Habits · Tasks · Timer · More**.
 | Habit detail + month calendar | ⬜ | loggd `IMG_1586`: tap a habit → stats (🔥Streak / Best / Total) + completion calendar + Archive/Delete. Reskin of routine detail. |
 | Habits single-view month labels + tap→calendar | ⬜ | per-card month labels; heatmap is the tap target |
 | Settings (tabbed) | ⬜ | Account / Notifications / Preferences / Privacy / API; per-type Push/Email toggles (Boomerang already has the data) |
+| Analytics — "Your productivity insights" | ⬜ / 🅿️ | Tabbed **Overview / Habits / Tasks / Goals / Focus**. Weekly **points** total + ‹week› nav, 🔥current/🏆best streak, stat cards (Habits checks, Tasks completed, Focus time, Check-ins), **Points Breakdown by activity type**, weekly **mood bar-chart** + **reflections** recap. Reskin-able: points/streak/habit+task counts (Boomerang has these). Deferred: focus-time, check-ins, mood, badge points (tied to new features). Reached via More/Profile. |
 
 ### Home "Today's Pulse" (richer Home — PDF 1)
 The real Home is a scrolling daily dashboard. Reskin-able parts (existing data):
@@ -49,6 +50,9 @@ The real Home is a scrolling daily dashboard. Reskin-able parts (existing data):
 - 🅿️ Streak milestones + "streak at risk" protection
 - 🅿️ Goal progress % nudges ("25% Progress!")
 - 🅿️ Leaderboard ("#1 on the weekly leaderboard")
+- 🅿️ **Unified points economy** — points earned across activity types (badges / habits / focus / check-ins / vision / tasks / goals) with a weekly Points Breakdown (Analytics). Boomerang has a points concept but not this cross-activity economy.
+- 🅿️ **Focus-time tracking** (hours/week, feeds Home summary + Analytics) — paired with the Timer feature.
+- 🅿️ **Daily check-ins streak** + weekly **mood chart** + reflections recap (Analytics) — paired with the Daily mood-journal.
 
 **New surfaces / features:**
 - 🅿️ **Timer** — focus timer (deep-work sessions feed Home summary)
