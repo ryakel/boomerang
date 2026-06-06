@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Timer, BookOpen, Smile, Settings, FolderKanban, User, ChevronRight } from 'lucide-react'
 import HomeView from './HomeView'
 import HabitsView from './HabitsView'
 import TasksView from './TasksView'
 import ProfileView from './ProfileView'
 import GoalsView from './GoalsView'
+import NotificationsView from './NotificationsView'
 import WallabyNav from './WallabyNav'
+import WallabyHeader from './WallabyHeader'
 import './WallabyShell.css'
 
 // Wallaby shell — the loggd IA. Full-screen container shown in Wallaby mode on
@@ -21,7 +23,23 @@ export default function WallabyShell({
   onOpenSettings,
 }) {
   const [tab, setTab] = useState('home')
-  const [sub, setSub] = useState(null) // 'profile' | 'goals' | null
+  const [sub, setSub] = useState(null) // 'profile' | 'goals' | 'notifications' | null
+
+  // Notifications center reads the existing notification_log (reskin — no new
+  // data). Mark-all-read is optimistic client-side for now; reliable read
+  // persistence is part of the backend notifications fix.
+  const [notifEntries, setNotifEntries] = useState([])
+  useEffect(() => {
+    fetch('/api/notifications/log?limit=200')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.entries) setNotifEntries(d.entries) })
+      .catch(() => {})
+  }, [])
+  const unread = notifEntries.filter(e => !e.tapped_at).length
+  const markAllRead = () => {
+    const now = new Date().toISOString()
+    setNotifEntries(prev => prev.map(e => e.tapped_at ? e : { ...e, tapped_at: now }))
+  }
 
   let surface
   if (sub === 'profile') {
@@ -41,8 +59,10 @@ export default function WallabyShell({
         onClose={() => setSub(null)}
       />
     )
+  } else if (sub === 'notifications') {
+    surface = <NotificationsView entries={notifEntries} onMarkAllRead={markAllRead} onClose={() => setSub(null)} />
   } else if (tab === 'home') {
-    surface = <HomeView routines={routines} onToggleHabit={onToggleHabit} onOpenProfile={() => setSub('profile')} />
+    surface = <HomeView routines={routines} onToggleHabit={onToggleHabit} />
   } else if (tab === 'habits') {
     surface = (
       <HabitsView
@@ -69,6 +89,11 @@ export default function WallabyShell({
 
   return (
     <div className="wb-shell">
+      <WallabyHeader
+        unread={unread}
+        onBell={() => setSub('notifications')}
+        onAvatar={() => setSub('profile')}
+      />
       <div className="wb-shell-surface">{surface}</div>
       <WallabyNav
         active={sub ? '' : tab}

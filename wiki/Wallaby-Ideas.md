@@ -14,7 +14,8 @@ delete — strike through or mark `DROPPED` instead.
 Bottom nav (loggd): **Home · Habits · Tasks · Timer · More**.
 - ✅ Bottom-nav shell (`WallabyShell`/`WallabyNav`), Wallaby-mode only, mobile.
 - More → Profile, Goals, Settings + Coming-soon (Vision, Daily).
-- ❓ Persistent top app header (brand wordmark + notifications bell + avatar) above each surface — loggd has one; not yet built.
+- ✅ Persistent top app header (`WallabyHeader`: brand + 🔔 bell + avatar) above each surface; bell → notifications center, avatar → Profile.
+- ✅ Notifications center (`NotificationsView`) — reads existing `/api/notifications/log`, All/Unread, grouped, type icons, optimistic mark-all-read. (🅿️ reliable read-state persistence + delivery-bug fix = backend follow-up.)
 - 🅿️ Desktop layout for Wallaby (currently desktop keeps Kanban + drawer).
 
 ## 2. Surfaces — reskin status

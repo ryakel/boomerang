@@ -1,6 +1,7 @@
 /* Wallaby shell — full-screen container with a fixed bottom nav. Surfaces
  * already carry 120px bottom padding so their content clears the nav. */
 .wb-shell {
+  --wb-header-h: 52px;
   position: fixed;
   inset: 0;
   z-index: 40;
@@ -8,7 +9,10 @@
 }
 .wb-shell-surface {
   position: absolute;
-  inset: 0;
+  top: calc(var(--wb-header-h) + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  bottom: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }

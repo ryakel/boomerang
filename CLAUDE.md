@@ -1032,10 +1032,15 @@ tokens even if reached from a non-Wallaby theme.
   + Sunday-anchored week strip (activity dots), a streak-at-risk banner, and
   today's habits (non-paused routines) as checkable rows; the per-habit-colored
   check toggles today's entry in `completed_history`.
+- `WallabyHeader.{jsx,css}` — persistent top app bar (brand + 🔔 bell + avatar)
+  above every shell surface. Bell → notifications center; avatar → Profile.
+- `NotificationsView.{jsx,css}` — notifications center reading the existing
+  `GET /api/notifications/log` (All/Unread, grouped Today/Yesterday/Earlier,
+  type-colored icons, optimistic mark-all-read). Reskin — no new data.
 - `WallabyNav.{jsx,css}` + `WallabyShell.{jsx,css}` — the loggd IA. A fixed 5-tab
-  bottom nav (**Home · Habits · Tasks · Timer · More**) over the active surface.
-  Timer is a deferred-feature placeholder; **More** routes to Profile + Goals and
-  shows Coming-soon rows for Vision + Daily check-in.
+  bottom nav (**Home · Habits · Tasks · Timer · More**) + the top header, over
+  the active surface. Timer is a deferred-feature placeholder; **More** routes to
+  Profile + Goals and shows Coming-soon rows for Vision + Daily check-in.
 
 **How the surfaces are reached (Wallaby mode).** `AppV2` renders `<WallabyShell>`
 (`position:fixed`, z-40 — covers the standard header + list) when
@@ -1060,9 +1065,7 @@ net-new features like Timer / Vision / Daily mood / gamification / notifications
 center / habit templates) lives in **`wiki/Wallaby-Ideas.md`** — keep it current
 as the reskin proceeds and new reference comes in.
 
-**Reskin still to do:** persistent Wallaby **top header** (brand + 🔔 bell +
-avatar) with the bell opening a **notifications center** that reads Boomerang's
-existing notification log (`GET /api/notifications/log`); **Tasks** — 3rd "Done"
+**Reskin still to do:** **Tasks** — 3rd "Done"
 tab + TODAY/TOMORROW grouping + semi-random per-task checkbox colors (not tied to
 priority/label) + task tap → quick action sheet (reschedule/focus/edit/delete);
 tabbed **Settings** + **Analytics** reskin; richer **Today's Pulse** Home.
