@@ -1024,16 +1024,26 @@ tokens even if reached from a non-Wallaby theme.
   notes block, and semantic action buttons (orange Log session / slate Edit /
   green Complete / yellow Set aside / red Delete, two-tap confirm).
 
-**How the surfaces are reached (interim).** Each mounts as a full-screen overlay
-(`.v2-habits-overlay` in `AppV2.css`) via the **Spaces hub**: Dashboard
-(`onOpenProfile`/`showProfile`), Habits (`onOpenHabits`/`showHabits`), Tasks
-(`onOpenTasks`/`showTasks`), Goals (`onOpenGoals`/`showGoals`), each with a back
-button and an escape-stack entry in `AppV2`. Tasks checkbox → `handleComplete`;
-subtask toggle → `updateTask({ checklists })`; row → `EditTaskModal`. Goals: Log
-session → `logProjectSession`, Complete → `handleComplete`, Set aside →
-`updateTask({status:'backlog'})`, Delete → `deleteTask`. The full remap promotes
-these to top-level **bottom-nav tabs** (Home/Habits/Tasks/Goals/Profile) — not
-yet built.
+- `HomeView.{jsx,css}` — the **Home** daily agenda (loggd `IMG_1582`). Date hero
+  + Sunday-anchored week strip (activity dots), a streak-at-risk banner, and
+  today's habits (non-paused routines) as checkable rows; the per-habit-colored
+  check toggles today's entry in `completed_history`.
+- `WallabyNav.{jsx,css}` + `WallabyShell.{jsx,css}` — the loggd IA. A fixed 5-tab
+  bottom nav (**Home · Habits · Tasks · Timer · More**) over the active surface.
+  Timer is a deferred-feature placeholder; **More** routes to Profile + Goals and
+  shows Coming-soon rows for Vision + Daily check-in.
+
+**How the surfaces are reached (Wallaby mode).** `AppV2` renders `<WallabyShell>`
+(`position:fixed`, z-40 — covers the standard header + list) when
+`isWallaby && !isDesktop`, and skips the standard `BottomTabs`. The shell owns
+tab state (Home/Habits/Tasks/Timer/More) and a `sub` state for Profile/Goals
+opened from More. Shared modals (Edit/Add/Settings, z-100) still open above the
+shell — tapping a task → `EditTaskModal`, checkbox → `handleComplete`, subtask →
+`updateTask({checklists})`, Home check → toggle `completed_history` today, Goals
+Log session → `logProjectSession` etc. Desktop keeps Kanban + drawer. The old
+`.v2-habits-overlay` Spaces entries (`showHabits`/`showTasks`/`showProfile`/
+`showGoals`) remain wired but are unreachable in Wallaby (the shell covers the
+Spaces hub) — kept as a fallback until the shell fully subsumes them.
 
 **Dev-only render harness.** `wallaby-preview.html` + `src/wallaby-preview.jsx`
 mount `HabitsView` in isolation (mock or API-injected routines) for
@@ -1041,8 +1051,12 @@ screenshot verification. NOT imported by `index.html`, so it never ships to
 prod or affects the running app. Verified via a headless-Chromium (puppeteer)
 screenshot loop — render before claiming a surface works.
 
-**Remaining surfaces (not built):** 5-tab bottom nav (Home/Habits/Tasks/Goals/
-Profile) to retire the interim Spaces entries, and a Home dashboard.
+**Reskin still to do:** habit detail + month-calendar view (tap a Habits card →
+stats + completion calendar + archive/delete, loggd `IMG_1586`), per-card month
+labels + clickable heatmaps on the Habits single view, Tasks 3rd "Done" tab +
+TODAY/TOMORROW grouping, an optional persistent Wallaby top header (brand + bell
++ avatar). **Deferred net-new features (after reskin):** Timer, Vision
+(eulogy/bucket list), Daily mood-journal, XP/levels/achievements.
 
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.

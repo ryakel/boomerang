@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby bottom-nav shell + Home daily agenda [L]
+  - **What.** The loggd IA. `WallabyShell` + `WallabyNav` give Wallaby mode a 5-tab bottom nav — **Home · Habits · Tasks · Timer · More** — over the active surface. New `HomeView` (loggd `IMG_1582`): date hero + week strip, streak-at-risk banner, today's habits as checkable rows (per-habit color check toggles today's `completed_history`). **More** routes to Profile + Goals and shows deferred-feature placeholders (Timer, Vision, Daily check-in) — those features land after the reskin per scope.
+  - **Integration.** `AppV2` renders `<WallabyShell>` (z-40, covers header/list) when `isWallaby && !isDesktop`, and skips the standard `BottomTabs`. Shared modals (Edit/Add/Settings, z-100) still open above the shell. Habits/Tasks/Profile/Goals are now reached as nav tabs / More entries rather than the interim Spaces rows.
+  - **Scope.** Reskin-only: net-new features (Timer logic, Vision, Daily mood-journal, XP/levels/achievements) are deferred — placeholders for now.
+  - **Verification.** Driven through the real app in wallaby-dark: Home renders the daily agenda + week strip, all 5 tabs switch, More lists Profile/Goals/Settings + Coming-soon Vision/Daily.
+
 - feat(ui): Wallaby Goals surface (projects as goals) [M]
   - **What.** Fourth Wallaby surface (loggd `IMG_1572`): `src/v2/wallaby/GoalsView.{jsx,css}`. A goals list (project cards with category chip + gradient progress bar + sessions/steps meta) and a goal **detail** with a big metric card (steps-complete or sessions-logged, progress bar, budget), a "Why this matters" notes block, and the full **semantic action button** set — orange *Log session* / slate *Edit goal* / green *Complete* / yellow *Set aside* / red *Delete* (two-tap confirm).
   - **Mapping.** Boomerang projects → goals. Progress prefers child-step completion (`done/total` of `parent_id` children), falling back to `session_count` toward the 10-session cap. Budget via `computeProjectBudget`. Category chips from `tags` → labels; target from `due_date` (else "Ongoing").

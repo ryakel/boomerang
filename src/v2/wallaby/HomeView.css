@@ -1,0 +1,175 @@
+/* Wallaby "Home" — daily agenda. Date hero + week strip, streak-at-risk
+ * banner, today's habits as checkable rows. */
+
+.wb-home {
+  min-height: 100vh;
+  background: var(--wb-bg);
+  color: var(--wb-text);
+  padding: 16px 16px 120px;
+  font-family: var(--v2-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Date hero + week strip ──────────────────────────────────────────────── */
+.wb-home-head {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--wb-shadow);
+  margin-bottom: 16px;
+}
+.wb-home-date {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 16px;
+}
+.wb-home-daycircle {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--wb-action-complete);
+  color: #fff;
+  font-family: var(--v2-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.wb-home-datetext { display: flex; flex-direction: column; flex: 1 1 auto; }
+.wb-home-weekday {
+  font-family: var(--v2-font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.wb-home-month { font-size: 13px; color: var(--wb-text-meta); }
+.wb-home-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, var(--wb-cat-green), var(--wb-cat-blue));
+  cursor: pointer;
+}
+
+.wb-home-week {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+.wb-home-weekday-cell {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 0;
+  border-radius: 12px;
+}
+.wb-home-weekday-cell.is-today { background: color-mix(in srgb, var(--wb-action-complete) 18%, transparent); }
+.wb-home-week-dow { font-size: 11px; font-weight: 600; color: var(--wb-text-meta); }
+.wb-home-week-date {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wb-text);
+}
+.wb-home-weekday-cell.is-today .wb-home-week-date { color: var(--wb-action-complete); }
+.wb-home-week-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+.wb-home-week-dot.is-active { background: var(--wb-cat-purple); }
+
+/* ── Streak-at-risk banner ───────────────────────────────────────────────── */
+.wb-home-risk {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  margin-bottom: 18px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--wb-action-delete) 30%, transparent), color-mix(in srgb, var(--wb-cat-purple) 22%, transparent));
+  border: 1px solid color-mix(in srgb, var(--wb-action-delete) 30%, transparent);
+}
+.wb-home-risk-icon { color: var(--wb-action-primary); flex: 0 0 auto; }
+.wb-home-risk-text { flex: 1 1 auto; font-size: 13.5px; font-weight: 600; }
+.wb-home-risk-chev { color: var(--wb-text-meta); flex: 0 0 auto; }
+
+/* ── Habits list ─────────────────────────────────────────────────────────── */
+.wb-home-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 2px 10px;
+  font-family: var(--v2-font-display);
+  font-size: 17px;
+  font-weight: 700;
+}
+.wb-home-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--wb-text-meta);
+  background: var(--wb-card-2);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.wb-home-habits { display: flex; flex-direction: column; gap: 9px; }
+.wb-home-empty { color: var(--wb-text-meta); text-align: center; padding: 30px 0; }
+.wb-home-habit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 14px;
+  padding: 13px 14px;
+  box-shadow: var(--wb-shadow);
+}
+.wb-home-habit-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--wb-card-2);
+  flex: 0 0 auto;
+}
+.wb-home-habit-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wb-home-habit-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wb-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-home-habit.is-done .wb-home-habit-title {
+  text-decoration: line-through;
+  color: var(--wb-text-meta);
+}
+.wb-home-habit-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--wb-text-meta);
+}
+.wb-home-check {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 2px solid var(--wb-hairline-strong);
+  background: transparent;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.wb-home-check:active { transform: scale(0.92); }

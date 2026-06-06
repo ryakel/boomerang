@@ -22,6 +22,7 @@ import HabitsView from './wallaby/HabitsView'
 import TasksView from './wallaby/TasksView'
 import ProfileView from './wallaby/ProfileView'
 import GoalsView from './wallaby/GoalsView'
+import WallabyShell from './wallaby/WallabyShell'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -436,6 +437,9 @@ export default function AppV2() {
   const dailyStats = computeDailyStats(tasks, settingsForRings)
   const streak = computeStreak(tasks, settingsForRings)
   const records = useMemo(() => computeRecords(tasks), [tasks])
+  // Wallaby presents the full loggd IA (bottom-nav shell) on mobile. Desktop
+  // keeps the Kanban + drawer for now.
+  const isWallaby = (settingsForRings.theme || '').startsWith('wallaby')
   // Per-routine streak map → threaded down to TaskCard so routine-spawned
   // tasks can render an inline 🔥N. Recomputed only when `routines` changes.
   const routineStreaks = useMemo(() => {
@@ -1139,7 +1143,7 @@ export default function AppV2() {
       {/* Bottom tab bar — mobile only. Hidden on desktop (which has
        * its own Kanban + side-drawer navigation pattern). The strip
        * itself also has a @media gate as belt-and-suspenders. */}
-      {!isDesktop && (
+      {!isDesktop && !isWallaby && (
         <BottomTabs
           activeTab={activeTab}
           onTabChange={(next) => {
@@ -1154,6 +1158,47 @@ export default function AppV2() {
           onQuickAdd={(title) => addTask({ title })}
           onAddLongPress={() => setShowAdd(true)}
           onWhatNow={() => setShowWhatNow(true)}
+        />
+      )}
+
+      {/* Wallaby shell — the loggd IA (Home/Habits/Tasks/Timer/More) on mobile.
+        * Covers the standard list + header (z below the shared modals, which
+        * still open above it). Replaces BottomTabs in Wallaby mode. */}
+      {isWallaby && !isDesktop && (
+        <WallabyShell
+          tasks={tasks}
+          routines={routines}
+          projects={projectTasks}
+          labels={labels}
+          dailyStats={dailyStats}
+          streak={streak}
+          records={records}
+          lifetimeDone={tasks.filter(t => t.status === 'done').length}
+          onToggleHabit={(routine) => {
+            const today = localYMD(new Date())
+            const hist = Array.isArray(routine.completed_history) ? routine.completed_history : []
+            if (hist.some(ts => localYMD(ts) === today)) {
+              updateRoutine(routine.id, { completed_history: hist.filter(ts => localYMD(ts) !== today) })
+            } else {
+              completeRoutine(routine.id)
+            }
+          }}
+          onCompleteTask={(task) => handleComplete(task.id)}
+          onToggleItem={(task, clId, itemId) => {
+            const checklists = (task.checklists || []).map(cl =>
+              cl.id !== clId ? cl : { ...cl, items: (cl.items || []).map(it => it.id === itemId ? { ...it, completed: !it.completed } : it) },
+            )
+            updateTask(task.id, { checklists })
+          }}
+          onOpenTask={(task) => setEditTarget(task)}
+          onAddTask={() => setShowAdd(true)}
+          onAddHabit={() => setShowRoutines(true)}
+          onLogSession={(p) => logProjectSession(p.id)}
+          onCompleteProject={(p) => handleComplete(p.id)}
+          onEditProject={(p) => setEditTarget(p)}
+          onSetAsideProject={(p) => updateTask(p.id, { status: 'backlog' })}
+          onDeleteProject={(p) => deleteTask(p.id)}
+          onOpenSettings={() => setShowSettings(true)}
         />
       )}
 

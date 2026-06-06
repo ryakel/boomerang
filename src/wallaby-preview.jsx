@@ -9,6 +9,7 @@ import HabitsView from './v2/wallaby/HabitsView'
 import TasksView from './v2/wallaby/TasksView'
 import ProfileView from './v2/wallaby/ProfileView'
 import GoalsView from './v2/wallaby/GoalsView'
+import HomeView from './v2/wallaby/HomeView'
 
 document.documentElement.setAttribute('data-ui', 'v2')
 document.documentElement.setAttribute('data-theme', new URLSearchParams(location.search).get('theme') || 'wallaby-dark')
@@ -98,6 +99,8 @@ if (surface === 'tasks') {
       onAdd={() => {}}
     />,
   )
+} else if (surface === 'home') {
+  root.render(<HomeView routines={data} onToggleHabit={() => {}} onOpenProfile={() => {}} />)
 } else {
   root.render(<HabitsView routines={data} onAdd={() => {}} />)
 }
