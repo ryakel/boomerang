@@ -56,6 +56,8 @@ When you're happy with one or several accumulated features on `dev`, ship them t
 
 **Use a fresh release branch as the PR head — NEVER `dev` itself** (GitHub auto-deletes the PR head branch on merge; `head=dev` once deleted `dev` from the remote — verified the hard way on PR #179).
 
+> ⚠️ **Before promoting: delete the Wallaby reference assets.** `wiki/wallaby-reference/` holds external loggd.life reference images/PDFs for the reskin — they must NOT ship to prod. `git rm -r wiki/wallaby-reference` (commit to `dev` via the normal fresh-ref PR) BEFORE cutting the release branch. (Per user, 2026-06-06.)
+
 1. `git fetch origin && git checkout dev && git reset --hard origin/dev`.
 2. `git push origin dev:refs/heads/claude/release-<thing>` — pushes `dev`'s current tip to a short-lived ref.
 3. `mcp__github__create_pull_request` with `head: "claude/release-<thing>"`, `base: "main"`. Title `release: <summary>`.
