@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- fix(ui): Wallaby Quokka — Chats + New chat as top icon buttons [XS]
+  - The Chats / New-chat controls sat in a full-width band below the title, eating vertical space. In Wallaby they're now compact **icon buttons pinned to the title row** (top-right), matching the Tasks header: **Chats → search magnifier** (`wb-icon-btn`, the same icon Tasks uses), **New chat → purple `+`** (`wb-icon-btn-accent`). (User: "Put chats and new chats at the top with the same search icon from tasks.") `AdviserModal` swaps to icon buttons via `useWallabyMode()`; `modals.css` absolute-positions the toolbar top-right (it lives in the non-scrolling flex body, containing block `.v2-modal`, so it pins cleanly). Non-Wallaby keeps the labeled pills. Tapping the magnifier still opens the chat history list.
+
 - fix(ui): Wallaby full-screen modals use a back arrow, not a dismiss X [S]
   - Full-screen Wallaby pages (Packages/Analytics/Settings/Edit/Add/Snooze/…) showed the ModalShell dismiss **X** (top-right). But they're pages you navigate *into* (Packages/Analytics/Settings from More), so the consistent affordance is a **back arrow** (top-left), matching the drill-down views (Profile/Goals/Notifications). (User: "Packages has this x instead of the back arrow.") `ModalShell` now swaps `X → ArrowLeft` when `useWallabyMode() && !useIsDesktop()` (new `useWallabyMode` hook mirrors `useTerminalMode`; button gets class `v2-modal-back`); `modals.css` positions it top-left styled like `.wb-back` and drops the title below it. Non-Wallaby/desktop keep the X. Quokka still has no affordance (tab). Verified headless: Packages/Edit → back arrow top-left (x=16, aria=Back); Quokka → hidden.
 

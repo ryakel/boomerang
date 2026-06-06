@@ -79,6 +79,26 @@
   [data-theme^="wallaby"] .wb-shell .v2-modal-header-slot { top: 24px; }
   [data-theme^="wallaby"] .wb-shell .v2-modal-body { padding-bottom: 16px; }
 
+  /* Quokka: pull Chats + New-chat up into the title row as icon buttons (like
+   * the Tasks header), pinned top-right. The toolbar lives in the flex body
+   * (which is overflow:hidden, not the scroller), and its containing block is
+   * `.v2-modal`, so absolute-positioning it here doesn't scroll or get clipped. */
+  [data-theme^="wallaby"] .wb-shell .v2-adviser-toolbar {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    z-index: 3;
+    margin: 0;
+    padding: 0;
+    border: none;
+    gap: 8px;
+  }
+  [data-theme^="wallaby"] .wb-shell .v2-adviser-toolbar .wb-icon-btn-accent {
+    background: var(--wb-cat-purple);
+    border-color: var(--wb-cat-purple);
+    color: #fff;
+  }
+
   /* Quokka/adviser toolbar: spread chats / new-chat across the page width. */
   [data-theme^="wallaby"] .v2-adviser-toolbar { justify-content: space-between; }
 }
