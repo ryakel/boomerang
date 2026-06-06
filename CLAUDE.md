@@ -1088,6 +1088,12 @@ net-new features like Timer / Vision / Daily mood / gamification / notifications
 center / habit templates) lives in **`wiki/Wallaby-Ideas.md`** — keep it current
 as the reskin proceeds and new reference comes in.
 
+**Verifying UI changes in a session** (build a server + headless-screenshot it):
+see **`wiki/Local-Verification-Harness.md`** — the reproducible runbook (matching
+`APP_VERSION` build, seeded background server, theme injection via localStorage,
+puppeteer `domcontentloaded` + in-page clicks, `elementFromPoint` layering
+diagnostics) with every trap spelled out. Render before claiming a surface works.
+
 **Reskin still to do:** tabbed **Analytics** restructure (Overview/Habits/Tasks
 tabs) — but it's mostly gated behind deferred features (focus-time/mood) and
 would touch the *shared* AnalyticsModal, so it's parked. (Done: Tasks
