@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby habit detail + month calendar; Habits Single/Month/Year [M]
+  - **What.** Tapping a Habits card opens the **habit detail** (loggd `IMG_1586`): icon + cadence, description, **Streak / Best / Total** stat cards, a "logged today" pill, a **month calendar** of completions (‹›  stepper + "N days completed / X%"), and **Archive / Delete** (two-tap). Edit (pencil) opens the routine editor.
+  - Habits range tabs are now **Single / Month / Year** (per direction): Single = rolling heatmap **with per-card month labels**, Month = calendar grid, Year = full 53-week heatmap. Cards are tappable. Added `longestStreak` to `heatmapUtils`.
+  - **Wiring.** `HabitsView` manages list↔detail internally; detail actions thread through `WallabyShell` → `AppV2`: Edit → routine editor (`setEditRoutineId`+`setShowRoutines`), Archive → `togglePause`, Delete → `deleteRoutine`. **Reskin only** — reads `completed_history`, no new data.
+  - **Verification.** Rendered via the harness: detail (Streak/Best/Total + month calendar), Single with month labels, Year heatmap.
+
 - feat(ui): Wallaby bottom-nav shell + Home daily agenda [L]
   - **What.** The loggd IA. `WallabyShell` + `WallabyNav` give Wallaby mode a 5-tab bottom nav — **Home · Habits · Tasks · Timer · More** — over the active surface. New `HomeView` (loggd `IMG_1582`): date hero + week strip, streak-at-risk banner, today's habits as checkable rows (per-habit color check toggles today's `completed_history`). **More** routes to Profile + Goals and shows deferred-feature placeholders (Timer, Vision, Daily check-in) — those features land after the reskin per scope.
   - **Integration.** `AppV2` renders `<WallabyShell>` (z-40, covers header/list) when `isWallaby && !isDesktop`, and skips the standard `BottomTabs`. Shared modals (Edit/Add/Settings, z-100) still open above the shell. Habits/Tasks/Profile/Goals are now reached as nav tabs / More entries rather than the interim Spaces rows.

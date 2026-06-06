@@ -21,13 +21,12 @@ Bottom nav (loggd): **Home · Habits · Tasks · Timer · More**.
 
 | Surface | Status | Notes |
 |---|---|---|
-| Habits — Single/Week/Month heatmap cards | ✅ | per-habit color, streak/count badges |
+| Habits — Single/Month/Year heatmap cards | ✅ | per-habit color, streak/count badges, per-card month labels |
+| Habit detail + month calendar | ✅ | tap a card → Streak/Best/Total + completion calendar + Archive/Delete/Edit (`IMG_1586`) |
 | Tasks — list | ✅ (partial) | ⬜ add **Done** tab (Upcoming/Backlog/Done w/ counts); ⬜ TODAY/TOMORROW grouping w/ icons; ⬜ per-task checkbox color (priority? label? — ❓); ⬜ notes subtitle line |
 | Goals (projects) — list + detail | ✅ | metric, progress, semantic buttons |
 | Profile / dashboard | ✅ (partial) | ⬜ add **Level / XP / achievements** row (🅿️ those are new features); ❓ Public Profile sub-tab |
 | Home — daily agenda | ✅ (basic) | ⬜ enrich toward **Today's Pulse** (below) |
-| Habit detail + month calendar | ⬜ | loggd `IMG_1586`: tap a habit → stats (🔥Streak / Best / Total) + completion calendar + Archive/Delete. Reskin of routine detail. |
-| Habits single-view month labels + tap→calendar | ⬜ | per-card month labels; heatmap is the tap target |
 | Settings (tabbed) | ⬜ | Account / Notifications / Preferences / Privacy / API; per-type Push/Email toggles (Boomerang already has the data) |
 | Analytics — "Your productivity insights" | ⬜ / 🅿️ | Tabbed **Overview / Habits / Tasks / Goals / Focus**. Weekly **points** total + ‹week› nav, 🔥current/🏆best streak, stat cards (Habits checks, Tasks completed, Focus time, Check-ins), **Points Breakdown by activity type**, weekly **mood bar-chart** + **reflections** recap. Reskin-able: points/streak/habit+task counts (Boomerang has these). Deferred: focus-time, check-ins, mood, badge points (tied to new features). Reached via More/Profile. |
 
