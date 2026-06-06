@@ -1013,14 +1013,20 @@ tokens even if reached from a non-Wallaby theme.
   tasks grouped (Overdue/Today/Upcoming/Anytime), pink square checkboxes
   (orange for high-pri), label chips from `tags`, nested checklist items as
   circular sub-checkboxes, search filter, green FAB.
+- `ProfileView.{jsx,css}` — the **Profile/Dashboard** screen. Gradient avatar +
+  "Your year" header, scrollable colorful stat pills (streak / points / done /
+  best streak / lifetime), an Activity 53-week year-grid (Tasks/Points toggle,
+  from `/api/analytics/history`), and per-habit grids. Stat values passed from
+  AppV2; year history fetched internally.
 
 **How the surfaces are reached (interim).** Each mounts as a full-screen overlay
-(`.v2-habits-overlay` in `AppV2.css`) via the **Spaces hub**: Habits
-(`onOpenHabits`/`showHabits`) and Tasks (`onOpenTasks`/`showTasks`), each with a
-back button and an escape-stack entry in `AppV2`. Tasks checkbox →
-`handleComplete`; subtask toggle → `updateTask({ checklists })`; row →
-`EditTaskModal`. The full remap promotes these to top-level **bottom-nav tabs**
-(Home/Habits/Tasks/Goals/Profile) — not yet built.
+(`.v2-habits-overlay` in `AppV2.css`) via the **Spaces hub**: Dashboard
+(`onOpenProfile`/`showProfile`), Habits (`onOpenHabits`/`showHabits`), Tasks
+(`onOpenTasks`/`showTasks`), each with a back button and an escape-stack entry in
+`AppV2`. Tasks checkbox → `handleComplete`; subtask toggle →
+`updateTask({ checklists })`; row → `EditTaskModal`. The full remap promotes
+these to top-level **bottom-nav tabs** (Home/Habits/Tasks/Goals/Profile) — not
+yet built.
 
 **Dev-only render harness.** `wallaby-preview.html` + `src/wallaby-preview.jsx`
 mount `HabitsView` in isolation (mock or API-injected routines) for
@@ -1029,8 +1035,7 @@ prod or affects the running app. Verified via a headless-Chromium (puppeteer)
 screenshot loop — render before claiming a surface works.
 
 **Remaining surfaces (not built):** 5-tab bottom nav, Goals (project detail
-with metric + semantic buttons), Profile (avatar + stat pills + activity
-year-grid), Home dashboard.
+with metric + semantic buttons), Home dashboard.
 
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.

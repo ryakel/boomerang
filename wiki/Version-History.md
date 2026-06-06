@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby Profile/dashboard surface + heatmap fit-to-width [M]
+  - **What.** Third Wallaby surface (loggd `IMG_1574`): `src/v2/wallaby/ProfileView.{jsx,css}`. Gradient avatar + "Your year" header with contribution count, a horizontally-scrollable row of **colorful stat pills** (day streak / points today / done today / best streak / lifetime done), an **Activity year-grid** (53-week contribution heatmap, Tasks/Points toggle, fed by `/api/analytics/history?days=365`), and per-habit grids below.
+  - **Heatmap fix.** `ContributionHeatmap` now fits its container width (cells size purely by `width:100% + aspect-ratio`, fixed `height` dropped) and month labels position by `index/weeks %` — so the full 53-week year fits without horizontal scroll and labels stay aligned at any week count. Improves the Habits heatmaps too.
+  - **Wiring.** Reachable via **Spaces → Dashboard** (`onOpenProfile` row in `SpacesHub`, `showProfile` overlay + escape-stack entry in `AppV2`). Stat values come from AppV2 (`dailyStats`, `streak`, `records`, `lifetimeDone`, `routines`); the year history is fetched inside `ProfileView`.
+  - **Verification.** Driven through the real app (Spaces → Dashboard in wallaby-dark renders live stats + the year-grid + per-habit grids).
+
 - feat(ui): Wallaby Tasks surface, wired into the app [M]
   - **What.** Second Wallaby surface (loggd `IMG_1575`): `src/v2/wallaby/TasksView.{jsx,css}`. Segmented **Upcoming / Backlog**, tasks grouped (Overdue / Today / Upcoming / Anytime), **pink square checkboxes** (orange for high-priority), colored label chips resolved from `tags` → labels, overdue/today due meta, **nested checklist items** as circular sub-checkboxes (completed = filled green + strikethrough), search filter, green FAB.
   - **Wiring.** Reachable via **Spaces → Tasks** (`onOpenTasks` row in `SpacesHub`, `showTasks` overlay + escape-stack entry in `AppV2`). Checkbox → `handleComplete`; subtask toggle → `updateTask({ checklists })`; row tap → `EditTaskModal`; FAB → AddTaskModal. Fed by live `tasks` + `labels`.

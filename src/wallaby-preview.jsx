@@ -7,6 +7,7 @@ import './v2/tokens.css'
 import './v2/wallaby/palette.css'
 import HabitsView from './v2/wallaby/HabitsView'
 import TasksView from './v2/wallaby/TasksView'
+import ProfileView from './v2/wallaby/ProfileView'
 
 document.documentElement.setAttribute('data-ui', 'v2')
 document.documentElement.setAttribute('data-theme', new URLSearchParams(location.search).get('theme') || 'wallaby-dark')
@@ -54,6 +55,17 @@ if (surface === 'tasks') {
       onToggleComplete={() => {}}
       onToggleItem={() => {}}
       onAdd={() => {}}
+    />,
+  )
+} else if (surface === 'profile') {
+  root.render(
+    <ProfileView
+      dailyStats={{ pointsToday: 14, tasksToday: 3 }}
+      streak={6}
+      records={{ longestStreak: 21, bestTasks: 9, bestPoints: 64 }}
+      lifetimeDone={(window.__WALLABY_TASKS__ || []).filter(t => t.status === 'done').length || 142}
+      routines={data}
+      dailyHistory={window.__WALLABY_HISTORY__ || null}
     />,
   )
 } else {

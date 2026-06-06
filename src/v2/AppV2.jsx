@@ -20,6 +20,7 @@ import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
 import HabitsView from './wallaby/HabitsView'
 import TasksView from './wallaby/TasksView'
+import ProfileView from './wallaby/ProfileView'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -95,6 +96,8 @@ export default function AppV2() {
   const [showHabits, setShowHabits] = useState(false)
   // Wallaby Tasks surface — loggd-style task list (segmented + subtasks).
   const [showTasks, setShowTasks] = useState(false)
+  // Wallaby Profile/dashboard — stat pills + activity year-grid + habit grids.
+  const [showProfile, setShowProfile] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
@@ -487,6 +490,7 @@ export default function AppV2() {
     if (showActivityLog) { setShowActivityLog(false); return }
     if (showHabits) { setShowHabits(false); return }
     if (showTasks) { setShowTasks(false); return }
+    if (showProfile) { setShowProfile(false); return }
     if (showRoutines) { setShowRoutines(false); return }
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
@@ -495,7 +499,7 @@ export default function AppV2() {
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
     if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showHabits, showTasks, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showHabits, showTasks, showProfile, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -1164,6 +1168,7 @@ export default function AppV2() {
         onOpenRoutines={() => setShowRoutines(true)}
         onOpenHabits={() => setShowHabits(true)}
         onOpenTasks={() => setShowTasks(true)}
+        onOpenProfile={() => setShowProfile(true)}
         onOpenKnowledge={() => {
           setAdviserDraftSeed("What's in my knowledge base?")
           setShowAdviser(true)
@@ -1193,6 +1198,18 @@ export default function AppV2() {
             onOpenTask={(task) => { setShowTasks(false); setEditTarget(task) }}
             onAdd={() => { setShowTasks(false); setShowAdd(true) }}
             onClose={() => setShowTasks(false)}
+          />
+        </div>
+      )}
+      {showProfile && (
+        <div className="v2-habits-overlay">
+          <ProfileView
+            dailyStats={dailyStats}
+            streak={streak}
+            records={records}
+            lifetimeDone={tasks.filter(t => t.status === 'done').length}
+            routines={routines}
+            onClose={() => setShowProfile(false)}
           />
         </div>
       )}
