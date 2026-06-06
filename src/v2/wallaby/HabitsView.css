@@ -15,9 +15,21 @@
 .wb-habits-titlerow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
 }
+.wb-back {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card);
+  color: var(--wb-text);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.wb-habits-title { margin-right: auto; }
 .wb-habits-title {
   margin: 0;
   font-family: var(--v2-font-display);

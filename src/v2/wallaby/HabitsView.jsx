@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  Plus, Flame, ChevronLeft, ChevronRight,
+  Plus, Flame, ChevronLeft, ChevronRight, ArrowLeft,
   Monitor, Users, MapPin, Palette, Dumbbell, Repeat,
 } from 'lucide-react'
 import ContributionHeatmap from './ContributionHeatmap'
@@ -22,7 +22,7 @@ const MODES = [
 // cards. Each routine gets a stable per-habit color and a GitHub contribution
 // grid built from its completed_history. Three views: Single (full heatmap),
 // Week (7 day-cells with a date stepper), Month (calendar grid).
-export default function HabitsView({ routines = [], onAdd }) {
+export default function HabitsView({ routines = [], onAdd, onClose }) {
   const [mode, setMode] = useState('single')
   const [weekOffset, setWeekOffset] = useState(0)
   const [monthOffset, setMonthOffset] = useState(0)
@@ -41,6 +41,11 @@ export default function HabitsView({ routines = [], onAdd }) {
     <div className="wb-habits">
       <header className="wb-habits-head">
         <div className="wb-habits-titlerow">
+          {onClose && (
+            <button className="wb-back" onClick={onClose} aria-label="Back">
+              <ArrowLeft size={20} strokeWidth={2.25} />
+            </button>
+          )}
           <h1 className="wb-habits-title">Habits</h1>
           <div className="wb-seg" role="tablist" aria-label="Heatmap range">
             {MODES.map(m => (
