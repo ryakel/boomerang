@@ -25,16 +25,30 @@
 }
 [data-theme^="wallaby"] .v2-analytics-summary-num { color: var(--wb-action-complete); }
 
-/* Range / metric toggles → green active */
+/* Range / metric toggles → clean contained segmented controls, green active */
+[data-theme^="wallaby"] .v2-analytics-range,
+[data-theme^="wallaby"] .v2-analytics-metric {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--wb-card-2);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 999px;
+  padding: 3px;
+}
+[data-theme^="wallaby"] .v2-analytics-range-btn,
+[data-theme^="wallaby"] .v2-analytics-metric-btn {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 7px 13px;
+  color: var(--wb-text-meta);
+  font-weight: 700;
+}
 [data-theme^="wallaby"] .v2-analytics-range-btn-active,
 [data-theme^="wallaby"] .v2-analytics-metric-btn-active {
   background: var(--wb-action-complete);
   color: #fff;
-}
-[data-theme^="wallaby"] .v2-analytics-range-btn,
-[data-theme^="wallaby"] .v2-analytics-metric-btn {
-  background: var(--wb-card-2);
-  border-color: var(--wb-hairline);
+  border: none;
 }
 
 /* Chart fills pick up the Wallaby accent (purple) over the v2 orange */

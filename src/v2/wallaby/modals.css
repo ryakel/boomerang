@@ -1,0 +1,39 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * Wallaby modals → full PAGES (no slide-up sheets). Gated to mobile + Wallaby.
+ * Every ModalShell (Packages, Settings, Analytics, Edit, Add, Quokka, …)
+ * renders as a solid full page that sits between the persistent top header and
+ * the bottom nav, so the app never feels like a stack of slide-up menus.
+ * (User: "the wallaby theme shouldn't have the slide up menus. Everything
+ * should have its own page.")
+ * ════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+  [data-theme^="wallaby"] .v2-modal-overlay {
+    top: calc(52px + env(safe-area-inset-top));   /* below the WallabyHeader */
+    bottom: calc(64px + env(safe-area-inset-bottom)); /* above the WallabyNav */
+    left: 0;
+    right: 0;
+    background: var(--wb-bg);
+    align-items: stretch;
+    justify-content: stretch;
+    animation: none;
+  }
+  [data-theme^="wallaby"] .v2-modal {
+    min-height: 0;
+    max-height: none;
+    height: 100%;
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+  }
+  [data-theme^="wallaby"] .v2-modal-header {
+    padding: 22px 20px 16px;
+  }
+  [data-theme^="wallaby"] .v2-modal-title { font-size: 26px; }
+
+  /* Quokka/adviser toolbar: spread chats / new-chat across the page width
+   * instead of floating both to the right with a big empty gutter. */
+  [data-theme^="wallaby"] .v2-adviser-toolbar { justify-content: space-between; }
+}

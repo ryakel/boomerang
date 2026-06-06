@@ -3,6 +3,7 @@
 @import './wallaby/palette.css';
 @import './wallaby/settings.css';
 @import './wallaby/analytics.css';
+@import './wallaby/modals.css';
 
 /* Wallaby "Habits" surface mounts as a full-screen overlay above the app. */
 .v2-habits-overlay {

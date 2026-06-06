@@ -1054,8 +1054,14 @@ tokens even if reached from a non-Wallaby theme.
 (`position:fixed`, z-40 — covers the standard header + list) when
 `isWallaby && !isDesktop`, and skips the standard `BottomTabs`. The shell owns
 tab state (Home/Habits/Tasks/Timer/More) and a `sub` state for Profile/Goals
-opened from More. Shared modals (Edit/Add/Settings, z-100) still open above the
-shell — tapping a task → `EditTaskModal`, checkbox → `handleComplete`, subtask →
+opened from More. Shared modals (Edit/Add/Settings/Analytics/Packages/Quokka,
+z-100) open above the shell, and on mobile in Wallaby they render as **full
+pages** (no slide-up sheet): `src/v2/wallaby/modals.css` pins every
+`.v2-modal-overlay` between the WallabyHeader (top: 52px + inset) and WallabyNav
+(bottom: 64px + inset), strips the animation/rounded-card chrome, and fills the
+page — so the app never feels like a stack of slide-up menus. Quokka is one such
+page (the `quokka` tab renders `AdviserModal` and lets this treatment size it).
+Tapping a task → `EditTaskModal`, checkbox → `handleComplete`, subtask →
 `updateTask({checklists})`, Home check → toggle `completed_history` today, Goals
 Log session → `logProjectSession` etc. Desktop keeps Kanban + drawer. The old
 `.v2-habits-overlay` Spaces entries (`showHabits`/`showTasks`/`showProfile`/

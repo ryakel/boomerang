@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby — all modals render as full pages, not slide-up sheets [S]
+  - New `src/v2/wallaby/modals.css` (mobile + `[data-theme^="wallaby"]` gated, imported via `AppV2.css`): **every** ModalShell surface (Packages, Settings, Analytics, Edit, Add, Quokka, …) now renders as a solid full **page** that sits between the persistent WallabyHeader (top: 52px + inset) and WallabyNav (bottom: 64px + inset) — no slide-up sheet, no animation, no rounded card chrome. (User: "the wallaby theme shouldn't have the slide up menus. Everything should have its own page.") The Quokka branch in `WallabyShell` now relies on this global treatment instead of the bespoke `.wb-quokka-page` chrome-stripping (removed) — the header/nav splits that looked strange are gone because the surface no longer double-stacks an inline page inside a stop-at-nav surface.
+  - **Analytics buttons fix:** the range (7d/30d/90d) and metric toggles were loose pill buttons; reskinned to **contained segmented controls** (rounded track on `--wb-card-2`, green active fill) in `analytics.css`.
+
 - feat(ui): Quokka is its own page; nav swap; idle icon [S]
   - Quokka moved to the **center** nav slot (Home · Habits · **Quokka** · Tasks · More) and is now **its own page** instead of a pop-up: selecting the tab renders the adviser inline in the shell surface (`.wb-quokka-page` strips the ModalShell chrome; the surface stops above the nav so the composer clears it). Its icon is muted when idle and green when active **like every other tab** (dropped the always-purple). `WallabyShell` takes `adviser`/`onOpenEasterEgg`; the AppV2 adviser modal stays for non-Wallaby.
 
