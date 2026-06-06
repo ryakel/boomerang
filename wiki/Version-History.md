@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby Tasks surface, wired into the app [M]
+  - **What.** Second Wallaby surface (loggd `IMG_1575`): `src/v2/wallaby/TasksView.{jsx,css}`. Segmented **Upcoming / Backlog**, tasks grouped (Overdue / Today / Upcoming / Anytime), **pink square checkboxes** (orange for high-priority), colored label chips resolved from `tags` → labels, overdue/today due meta, **nested checklist items** as circular sub-checkboxes (completed = filled green + strikethrough), search filter, green FAB.
+  - **Wiring.** Reachable via **Spaces → Tasks** (`onOpenTasks` row in `SpacesHub`, `showTasks` overlay + escape-stack entry in `AppV2`). Checkbox → `handleComplete`; subtask toggle → `updateTask({ checklists })`; row tap → `EditTaskModal`; FAB → AddTaskModal. Fed by live `tasks` + `labels`.
+  - **Verification.** Screenshot-driven through the real app (Spaces → Tasks in wallaby-dark renders 42 live tasks with correct grouping, chips, and nested checklist toggles). New file under `src/`, ships via Vite bundle — no Dockerfile change.
+
 - feat(ui): Wallaby design language — Habits surface, wired into the app [L]
   - **What.** First surface of a full IA remap toward the loggd.life reference: a deep-navy, heatmap-first dashboard language named **Wallaby**. Adds the theme + the **Habits** screen (Boomerang routines rendered as loggd-style habit cards), selectable via Settings → General → Theme → **Wallaby**, reachable via **Spaces → Habits**.
   - **Integration.** `wallaby-dark` / `wallaby-light` registered in the three theme sync points (`index.html` pre-paint, `AppV2.jsx` mount effect, `SettingsModal` picker — now a Standard/Terminal/**Wallaby** family toggle). `palette.css` imported via `AppV2.css`. `HabitsView` mounts as a full-screen overlay (`.v2-habits-overlay`, back button) fed by live `useRoutines` routines; new `onOpenHabits` row in `SpacesHub`; `showHabits` added to the escape stack. Base `--wb-*` defaults defined for every v2 theme so the surface always resolves its tokens.

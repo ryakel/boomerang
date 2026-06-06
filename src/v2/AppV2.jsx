@@ -19,6 +19,7 @@ import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
 import HabitsView from './wallaby/HabitsView'
+import TasksView from './wallaby/TasksView'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -92,6 +93,8 @@ export default function AppV2() {
   // Wallaby Habits surface — routines rendered as loggd-style heatmap cards.
   // Reachable from the Spaces hub; full-screen overlay above the app.
   const [showHabits, setShowHabits] = useState(false)
+  // Wallaby Tasks surface — loggd-style task list (segmented + subtasks).
+  const [showTasks, setShowTasks] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
@@ -483,6 +486,7 @@ export default function AppV2() {
     if (showDone) { setShowDone(false); return }
     if (showActivityLog) { setShowActivityLog(false); return }
     if (showHabits) { setShowHabits(false); return }
+    if (showTasks) { setShowTasks(false); return }
     if (showRoutines) { setShowRoutines(false); return }
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
@@ -491,7 +495,7 @@ export default function AppV2() {
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
     if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showHabits, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showHabits, showTasks, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -1159,6 +1163,7 @@ export default function AppV2() {
         onOpenProjects={() => setShowProjects(true)}
         onOpenRoutines={() => setShowRoutines(true)}
         onOpenHabits={() => setShowHabits(true)}
+        onOpenTasks={() => setShowTasks(true)}
         onOpenKnowledge={() => {
           setAdviserDraftSeed("What's in my knowledge base?")
           setShowAdviser(true)
@@ -1170,6 +1175,24 @@ export default function AppV2() {
             routines={routines}
             onAdd={() => { setShowHabits(false); setShowRoutines(true) }}
             onClose={() => setShowHabits(false)}
+          />
+        </div>
+      )}
+      {showTasks && (
+        <div className="v2-habits-overlay">
+          <TasksView
+            tasks={tasks}
+            labels={labels}
+            onToggleComplete={(task) => handleComplete(task.id)}
+            onToggleItem={(task, clId, itemId) => {
+              const checklists = (task.checklists || []).map(cl =>
+                cl.id !== clId ? cl : { ...cl, items: (cl.items || []).map(it => it.id === itemId ? { ...it, completed: !it.completed } : it) },
+              )
+              updateTask(task.id, { checklists })
+            }}
+            onOpenTask={(task) => { setShowTasks(false); setEditTarget(task) }}
+            onAdd={() => { setShowTasks(false); setShowAdd(true) }}
+            onClose={() => setShowTasks(false)}
           />
         </div>
       )}
