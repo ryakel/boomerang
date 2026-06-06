@@ -1,0 +1,96 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * Wallaby Settings reskin — visual only, gated on [data-theme^="wallaby"].
+ * The SettingsModal already consumes --v2-* tokens (so it's navy in Wallaby);
+ * this layers the loggd card/toggle/tab aesthetic on top WITHOUT touching the
+ * markup. Every Boomerang setting is preserved. Notifications get the loggd
+ * "card per type, green toggles" treatment.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Tabs → underline style, single scrollable row ───────────────────────── */
+[data-theme^="wallaby"] .v2-settings-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 2px;
+  border-bottom-color: var(--wb-hairline);
+  scrollbar-width: none;
+}
+[data-theme^="wallaby"] .v2-settings-tabs::-webkit-scrollbar { display: none; }
+[data-theme^="wallaby"] .v2-settings-tab {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px 10px;
+  font-weight: 700;
+}
+[data-theme^="wallaby"] .v2-settings-tab-active,
+[data-theme^="wallaby"] .v2-settings-tab.v2-settings-tab-active {
+  background: transparent;
+  color: var(--wb-text);
+  border: none;
+  border-bottom: 2px solid var(--wb-action-complete);
+}
+
+/* ── Blocks → grouped navy cards ─────────────────────────────────────────── */
+[data-theme^="wallaby"] .v2-settings-block {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--wb-shadow);
+}
+[data-theme^="wallaby"] .v2-settings-block + .v2-settings-block { padding-top: 16px; }
+[data-theme^="wallaby"] .v2-settings-block:last-child { padding-bottom: 16px; }
+
+/* ── Toggles → loggd green ───────────────────────────────────────────────── */
+[data-theme^="wallaby"] .v2-settings-toggle input:checked + .v2-settings-toggle-track {
+  background: var(--wb-action-complete);
+}
+
+/* ── Segmented controls → green active ───────────────────────────────────── */
+[data-theme^="wallaby"] .v2-settings-segment-btn-active {
+  background: var(--wb-action-complete);
+  color: #fff;
+}
+
+/* ── Inputs / buttons → navy surfaces ────────────────────────────────────── */
+[data-theme^="wallaby"] .v2-form-input,
+[data-theme^="wallaby"] .v2-settings-compact-input {
+  background: var(--wb-card-2);
+  border-color: var(--wb-hairline);
+}
+[data-theme^="wallaby"] .v2-settings-btn {
+  background: var(--wb-card-2);
+  border-color: var(--wb-hairline);
+}
+
+/* ── Notifications: the "fire" treatment ─────────────────────────────────── */
+/* Cards sit inside a block-card, so use the elevated surface for contrast and
+ * lay the three channels out as clean toggle tiles. */
+[data-theme^="wallaby"] .v2-notif-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+[data-theme^="wallaby"] .v2-notif-card {
+  background: var(--wb-card-2);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 14px;
+  padding: 14px;
+}
+[data-theme^="wallaby"] .v2-notif-card-label {
+  font-weight: 700;
+  color: var(--wb-text);
+}
+[data-theme^="wallaby"] .v2-notif-card-channel {
+  background: var(--wb-card-3);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 11px;
+  padding: 10px 4px;
+}
+[data-theme^="wallaby"] .v2-notif-card-channel:hover { background: var(--wb-card); }
+[data-theme^="wallaby"] .v2-notif-card-freq-input {
+  background: var(--wb-card-3);
+  border-color: var(--wb-hairline);
+}

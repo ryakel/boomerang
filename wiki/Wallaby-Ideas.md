@@ -39,7 +39,7 @@ Bottom nav (loggd): **Home · Habits · Tasks · Timer · More**.
 | Goals (projects) — list + detail | ✅ | metric, progress, semantic buttons |
 | Profile / dashboard | ✅ (partial) | ⬜ add **Level / XP / achievements** row (🅿️ those are new features); ❓ Public Profile sub-tab |
 | Home — daily agenda | ✅ (basic) | ⬜ enrich toward **Today's Pulse** (below) |
-| Settings (tabbed) | ⬜ | Account / Notifications / Preferences / Privacy / API; per-type Push/Email toggles (Boomerang already has the data) |
+| Settings (visual reskin) | ✅ | Account / Notifications / Preferences / Privacy / API; per-type Push/Email toggles (Boomerang already has the data) |
 | Analytics — "Your productivity insights" | ⬜ / 🅿️ | Tabbed **Overview / Habits / Tasks / Goals / Focus**. Weekly **points** total + ‹week› nav, 🔥current/🏆best streak, stat cards (Habits checks, Tasks completed, Focus time, Check-ins), **Points Breakdown by activity type**, weekly **mood bar-chart** + **reflections** recap. Reskin-able: points/streak/habit+task counts (Boomerang has these). Deferred: focus-time, check-ins, mood, badge points (tied to new features). Reached via More/Profile. |
 
 ### Home "Today's Pulse" (richer Home — PDF 1)
