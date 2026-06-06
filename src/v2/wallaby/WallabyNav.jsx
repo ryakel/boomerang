@@ -3,12 +3,13 @@ import './WallabyNav.css'
 
 // Wallaby bottom nav: Home · Habits · Quokka · Tasks · More. Quokka is its own
 // page (the adviser). (Timer + Packages live in the More menu.)
+// Each tab lights up its own color when active (not a single shared accent).
 const TABS = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'habits', label: 'Habits', icon: Activity },
-  { id: 'quokka', label: 'Quokka', icon: Sparkles },
-  { id: 'tasks', label: 'Tasks', icon: ListTodo },
-  { id: 'more', label: 'More', icon: Menu },
+  { id: 'home', label: 'Home', icon: Home, color: 'var(--wb-cat-blue)' },
+  { id: 'habits', label: 'Habits', icon: Activity, color: 'var(--wb-cat-green)' },
+  { id: 'quokka', label: 'Quokka', icon: Sparkles, color: 'var(--wb-cat-purple)' },
+  { id: 'tasks', label: 'Tasks', icon: ListTodo, color: 'var(--wb-cat-orange)' },
+  { id: 'more', label: 'More', icon: Menu, color: 'var(--wb-cat-pink)' },
 ]
 
 export default function WallabyNav({ active, onChange }) {
@@ -23,6 +24,7 @@ export default function WallabyNav({ active, onChange }) {
             role="tab"
             aria-selected={on}
             className={`wb-nav-tab${on ? ' is-active' : ''}`}
+            style={{ '--nav-color': t.color }}
             onClick={() => onChange(t.id)}
           >
             <Icon size={22} strokeWidth={on ? 2.4 : 1.9} className="wb-nav-icon" />

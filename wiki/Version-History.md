@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby nav per-tab active colors + More cleanup + Analytics segments [S]
+  - **Bottom nav** — each tab lights up its **own** color when active instead of a single shared green: Home blue, Habits green, Quokka purple, Tasks orange, More pink (`--nav-color` inline var per tab → `.wb-nav-tab.is-active`). (User: "each of the buttons on the bottom menu to be a different color when highlighted.")
+  - **More menu** — Timer / Vision / Daily check-in rows **removed entirely** (deferred features, no "coming soon" placeholders). More now lists Profile / Goals / Analytics / Packages / Settings. Dropped the dead `Placeholder` component + `sub==='timer'` branch + unused icon imports.
+  - **Analytics selectors** — the range (7d/30d/90d/1y/All) and metric (Tasks/Points, Balance Tags/Energy) toggles were small left-floating pills with dead space; reskinned to **full-width segmented controls matching the Tasks header** (`.wb-tasks .wb-seg`: contained pill track, subtle card-3 active fill). (User: "selectors at the top look awkward" + "use the way tasks does this for analytics.")
+
 - ci: route Docker base-image pulls through mirror.gcr.io (fix flaky builds) [XS]
   - The Docker build kept failing on `node:22-alpine` pulls from `registry-1.docker.io` (`i/o timeout` / `DeadlineExceeded`) — a recurring GitHub-runner ↔ Docker Hub connectivity flake (3× in one session), unrelated to app code. Fix: `setup-buildx-action` now sets a buildkitd registry **mirror** (`docker.io → mirror.gcr.io`, Google's reliable mirror of Docker Hub official images). Falls back to docker.io if the mirror lacks an image. Applied to **both** the dev and prod workflows; the dev one also now runs buildx on **PR builds** (previously non-PR only, so PR builds pulled straight from Hub).
 
