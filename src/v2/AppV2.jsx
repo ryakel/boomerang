@@ -1184,7 +1184,7 @@ export default function AppV2() {
               completeRoutine(routine.id)
             }
           }}
-          onCompleteTask={(task) => handleComplete(task.id)}
+          onCompleteTask={(task) => task.status === 'done' ? uncompleteTask(task.id) : handleComplete(task.id)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
               cl.id !== clId ? cl : { ...cl, items: (cl.items || []).map(it => it.id === itemId ? { ...it, completed: !it.completed } : it) },

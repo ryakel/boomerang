@@ -11,6 +11,7 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - **QA — bugs found + fixed:**
     - **Home habit check did nothing** (felt unclickable): the toggle handler called `store.localYMD(isoString)` but that helper needs a `Date` → `getFullYear is not a function` threw and aborted silently. Wrapped in `new Date(ts)`. Toggle now logs/clears today's completion + advances the streak.
     - **Header overlapped the status bar in PWA standalone:** the header set `env(safe-area-inset-top)` as *bottom* padding and didn't add it to its height. Now `height = bar + inset`, `padding-top: inset` (box-border) so brand/bell sit below the notch.
+    - **Done-tab checkbox re-completed instead of reopening:** wired the Tasks checkbox to be status-aware — `task.status === 'done' ? uncompleteTask : handleComplete`. Clicking a completed task now reopens it.
   - Interaction sweep (headless): 12/12 surfaces/affordances pass (nav tabs, habit check, Tasks grouping/colors/Done/action-sheet, habit-card→detail, bell→notifications, avatar→profile, More→Goals).
 
 - docs(wallaby): capture loggd reference assets + full feature catalog [S]
