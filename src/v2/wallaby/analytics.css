@@ -1,0 +1,49 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * Wallaby Analytics reskin — visual only, gated on [data-theme^="wallaby"].
+ * Cards Boomerang's existing analytics sections + greens the accents, without
+ * touching the markup or the rich charts (daily bars / DOW / breakdown / heatmap).
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* Sections → grouped navy cards */
+[data-theme^="wallaby"] .v2-analytics-section {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--wb-shadow);
+}
+
+/* Summary "big number" band → its own card + green hero number */
+[data-theme^="wallaby"] .v2-analytics-summary {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 16px;
+  padding: 16px;
+  margin: 4px 0 12px;
+  box-shadow: var(--wb-shadow);
+}
+[data-theme^="wallaby"] .v2-analytics-summary-num { color: var(--wb-action-complete); }
+
+/* Range / metric toggles → green active */
+[data-theme^="wallaby"] .v2-analytics-range-btn-active,
+[data-theme^="wallaby"] .v2-analytics-metric-btn-active {
+  background: var(--wb-action-complete);
+  color: #fff;
+}
+[data-theme^="wallaby"] .v2-analytics-range-btn,
+[data-theme^="wallaby"] .v2-analytics-metric-btn {
+  background: var(--wb-card-2);
+  border-color: var(--wb-hairline);
+}
+
+/* Chart fills pick up the Wallaby accent (purple) over the v2 orange */
+[data-theme^="wallaby"] .v2-analytics-daily-bar,
+[data-theme^="wallaby"] .v2-analytics-bd-fill,
+[data-theme^="wallaby"] .v2-analytics-dow-fill {
+  background: var(--wb-cat-purple);
+}
+[data-theme^="wallaby"] .v2-analytics-bd-track,
+[data-theme^="wallaby"] .v2-analytics-dow-track {
+  background: var(--wb-card-2);
+}

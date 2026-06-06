@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby Analytics visual reskin + reachable from More [S]
+  - `src/v2/wallaby/analytics.css` (Wallaby-gated, via AppV2.css): visual reskin of the existing AnalyticsModal — sections → navy cards, the summary "big number" → its own card with a **green** hero value, range/metric toggles → green active, chart fills (daily bars / DOW / breakdown) → Wallaby purple. All of Boomerang's analytics preserved (daily, by-day-of-week, balance radar, by-tag, by-energy, heatmap). Added **More → Analytics** (`onOpenAnalytics` → existing `showAnalytics`). Standard/Terminal untouched.
+
 - feat(ui): Wallaby Home → "Today's Pulse" (per-day content) [M]
   - Makes the clickable calendar meaningful — the whole Home now reflects the **selected day** (loggd today-page, `d35f6ec0`/`bd6d7aa6`). New: a **Today's Pulse** card (today only — streak-at-risk · "N habits left (x/y done)" · "N tasks for today"), a **Tasks card** (the day's tasks: due/carrying on today, due-or-completed on past days, with checkbox/reopen, overdue + label chips, and an `n/m done` progress bar), and the **Habits card** (the day's completion + per-habit streak). Selecting a different day swaps the tasks + habit states + counts; past days drop the pulse card.
   - `HomeView` now takes `tasks`/`labels` + `onCompleteTask`/`onOpenTask` (threaded via `WallabyShell`). Reskin — existing data only; mood/vision/deep-work/year-grid parts stay deferred. Public-Profile sub-tab intentionally omitted (per user).
