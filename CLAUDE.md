@@ -1051,6 +1051,11 @@ screenshot verification. NOT imported by `index.html`, so it never ships to
 prod or affects the running app. Verified via a headless-Chromium (puppeteer)
 screenshot loop — render before claiming a surface works.
 
+**Running backlog of every observed loggd feature** (reskin status + deferred
+net-new features like Timer / Vision / Daily mood / gamification / notifications
+center / habit templates) lives in **`wiki/Wallaby-Ideas.md`** — keep it current
+as the reskin proceeds and new reference comes in.
+
 **Reskin still to do:** habit detail + month-calendar view (tap a Habits card →
 stats + completion calendar + archive/delete, loggd `IMG_1586`), per-card month
 labels + clickable heatmaps on the Habits single view, Tasks 3rd "Done" tab +
