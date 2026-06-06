@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-05
 
+- feat(ui): Loggd full-dashboard layer — stat band, category tiles, semantic actions [M]
+  - The Phase-2 structural touches read as a navy recolor, not a reskin. Wired the dashboard character into the surfaces you actually look at, all Loggd-gated (Standard untouched): a home **stat band** of 4 colorful tiles (streak / points / done / date) with big grotesk numbers, driving the same `statsDetail` state as the calm line it replaces; **filled category tiles** for the card energy chip (colored square + white glyph from the per-energy `--lg-stripe`); **semantic action buttons** (green Done / yellow Snooze / orange Save / red Delete); a **contained segmented toolbar**; heavier card titles. The rich `--lg-action-*` / category tokens defined in Phase 1 were previously only consumed by heatmaps.
+  - Files: `src/v2/AppV2.jsx` (band markup + lucide imports), `src/v2/components/TaskCard.jsx` (snooze class), `src/v2/loggd/structure.css` (the dashboard layer), `CLAUDE.md`.
+
 - chore(ui): strip inert terminal props + Loggd header icon pills [S]
   - Removed every now-inert `terminalTitle` / `terminalCommand` / `terminalCmd` / `data-terminal-cmd` / `data-terminal-label` prop+attr from all v2 call sites (ModalShell/EmptyState/ConfirmDialog stopped reading them in the teardown — they were dead strings). 20 files touched, no behavior change. Added a Loggd-gated header touch: contained surface-pill icon buttons so the header glyphs read as buttons against the navy canvas. Dead `[data-theme^="terminal"]` CSS blocks remain inert (no theme matches) and get swept per-file later.
   - Files: 20 v2 components + `src/v2/AppV2.jsx`, `src/v2/loggd/structure.css`, `CLAUDE.md`.

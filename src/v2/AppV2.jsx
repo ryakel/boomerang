@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ListChecks } from 'lucide-react'
+import { ListChecks, Flame, Zap, CheckCircle2, CalendarDays } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import BottomTabs from './components/BottomTabs'
@@ -909,6 +909,53 @@ export default function AppV2() {
           * Date → WeekStrip. Streak → streak detail. Today → daily detail. */}
         {!searchOpen && (totalActive > 0 || sortedSnoozed.length > 0 || backlogTasks.length > 0 || projectTasks.length > 0) && (
           <>
+            {/* Loggd dashboard stat band — rendered in markup for every theme
+              * but shown only in Loggd (CSS-gated); the calm .v2-home-stats
+              * line takes over in Standard. Drives the SAME statsDetail /
+              * weekStrip state, so the detail panels below work in both. */}
+            <div className="v2-loggd-band" role="group" aria-label="Today at a glance">
+              <button
+                type="button"
+                className={`v2-loggd-stat v2-loggd-stat-streak${statsDetail === 'streak' ? ' is-active' : ''}`}
+                onClick={() => { setStatsDetail(v => v === 'streak' ? null : 'streak'); setWeekStripShown(false) }}
+                aria-expanded={statsDetail === 'streak'}
+              >
+                <Flame size={18} strokeWidth={2} className="v2-loggd-stat-icon" />
+                <span className="v2-loggd-stat-value">{streak}</span>
+                <span className="v2-loggd-stat-label">streak</span>
+              </button>
+              <button
+                type="button"
+                className={`v2-loggd-stat v2-loggd-stat-points${statsDetail === 'today' ? ' is-active' : ''}`}
+                onClick={() => { setStatsDetail(v => v === 'today' ? null : 'today'); setWeekStripShown(false) }}
+                aria-expanded={statsDetail === 'today'}
+              >
+                <Zap size={18} strokeWidth={2} className="v2-loggd-stat-icon" />
+                <span className="v2-loggd-stat-value">{dailyStats.pointsToday}</span>
+                <span className="v2-loggd-stat-label">points</span>
+              </button>
+              <button
+                type="button"
+                className={`v2-loggd-stat v2-loggd-stat-done${statsDetail === 'today' ? ' is-active' : ''}`}
+                onClick={() => { setStatsDetail(v => v === 'today' ? null : 'today'); setWeekStripShown(false) }}
+                aria-expanded={statsDetail === 'today'}
+              >
+                <CheckCircle2 size={18} strokeWidth={2} className="v2-loggd-stat-icon" />
+                <span className="v2-loggd-stat-value">{dailyStats.tasksToday}</span>
+                <span className="v2-loggd-stat-label">done</span>
+              </button>
+              <button
+                type="button"
+                className={`v2-loggd-stat v2-loggd-stat-date${weekStripShown ? ' is-active' : ''}`}
+                onClick={() => { setWeekStripShown(v => !v); setStatsDetail(null) }}
+                aria-expanded={weekStripShown}
+                aria-controls="v2-week-strip-days"
+              >
+                <CalendarDays size={18} strokeWidth={2} className="v2-loggd-stat-icon" />
+                <span className="v2-loggd-stat-value">{new Date().getDate()}</span>
+                <span className="v2-loggd-stat-label">{new Date().toLocaleDateString('en-US', { weekday: 'short' })}</span>
+              </button>
+            </div>
             <div className="v2-home-stats" aria-hidden="false">
               <button
                 type="button"

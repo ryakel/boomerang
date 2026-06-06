@@ -998,6 +998,24 @@ mode change?" is one directory grep.
    stripped from all call sites. (Dead `[data-theme^="terminal"]` CSS blocks
    in component CSS are inert — no theme matches them — and get swept per-file
    as each component's CSS is next touched.)
+   - **Full-dashboard layer (2026-06-06):** the structural touches above were
+     too timid — Loggd read as a navy recolor of the calm Wheneri list. The
+     dashboard character is now wired into the surfaces you actually look at,
+     all still Loggd-gated in `structure.css` (Standard untouched):
+     (a) a **home stat band** — 4 colorful stat tiles (streak / points / done
+     / date) with big grotesk numbers at the top of the main list. The band
+     markup lives in `AppV2.jsx` for every theme but is `display:none` outside
+     Loggd, where it replaces the calm `.v2-home-stats` inline line; both drive
+     the same `statsDetail`/`weekStrip` state so the expandable detail panels
+     work in both. (b) **filled category tiles** — the card energy chip becomes
+     a colored rounded square with a white glyph (fill = the per-energy
+     `--lg-stripe` color, inline lucide color attrs overridden). (c) **semantic
+     action buttons** — green Done (`--lg-action-complete`), yellow Snooze
+     (new `.v2-card-action-snooze` class), orange Save (`--lg-action-primary`),
+     red Delete/confirm (`--lg-action-delete`). (d) **contained segmented
+     toolbar** (`.v2-toolbar-pills` gets a card-surface container) + heavier
+     card titles. The rich `--lg-*` action/category tokens were defined in
+     Phase 1 but only consumed by heatmaps until this layer.
 3. ✅ Heatmaps — reusable `ContributionHeatmap` (theme-agnostic, consumes
    `--lg-heat-*` with Standard fallbacks; helpers in `heatmapUtils.js`).
    Routine cards render a per-habit contribution grid (color cycled by
