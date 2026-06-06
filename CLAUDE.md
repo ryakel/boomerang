@@ -1068,7 +1068,9 @@ DOM nesting:
   modal's own close X returns you.
 - **Quokka** (`.wb-shell .v2-modal-overlay`) is rendered as the shell's active
   *surface* for the Quokka nav tab, so it keeps the header + nav visible and sits
-  in the band between them (you leave it via the nav, like any tab).
+  in the band between them (you leave it via the nav, like any tab). Its close X
+  is hidden (`.wb-shell .v2-modal-close { display:none }`) — a tab isn't an
+  overlay you dismiss. The full-screen overlay modals keep their X (only way back).
 Both strip the animation/rounded-card chrome and fill the page.
 Tapping a task → `EditTaskModal`, checkbox → `handleComplete`, subtask →
 `updateTask({checklists})`, Home check → toggle `completed_history` today, Goals

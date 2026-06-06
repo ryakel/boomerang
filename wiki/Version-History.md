@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- fix(ui): Wallaby — no close X on Quokka (it's a nav tab, not an overlay) [XS]
+  - Quokka is the shell's *surface* for the Quokka nav tab, but it still showed the ModalShell close X top-right — a vestigial overlay affordance (you leave a tab via the bottom nav, not an X). Hid it via `[data-theme^="wallaby"] .wb-shell .v2-modal-close { display: none }` in `modals.css`. The full-screen **overlay** modals (Edit/Add/Settings/Packages/Analytics/…) keep their X — they cover the nav, so the X is their only way back. Verified headless: Quokka close = `display:none`, Edit modal close = `display:flex`.
+
 - docs: add Local-Verification-Harness runbook (build + headless-screenshot in-session) [S]
   - `wiki/Local-Verification-Harness.md` documents the reproducible workflow for spinning up a real server inside a session and driving it headlessly: matching-`APP_VERSION` build (or the version-mismatch update overlay blocks all clicks), seeded background server, theme injection via `localStorage` (full settings blob + far-future `boom_last_modified`), puppeteer run from repo root with `domcontentloaded` (SSE never idles) + in-page `.click()` (fixed elements mis-fire on `elementHandle.click`), `elementFromPoint` layering diagnostics, and a Gotchas table (each entry cost a debugging loop). Linked from CLAUDE.md.
 
