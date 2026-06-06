@@ -18,6 +18,7 @@ import ProjectsView from './components/ProjectsView'
 import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
+import HabitsView from './wallaby/HabitsView'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -88,6 +89,9 @@ export default function AppV2() {
   // picker rows with rich preview cards but keeps the contract.
   const [spacesHubOpen, setSpacesHubOpen] = useState(false)
   const [showRoutines, setShowRoutines] = useState(false)
+  // Wallaby Habits surface — routines rendered as loggd-style heatmap cards.
+  // Reachable from the Spaces hub; full-screen overlay above the app.
+  const [showHabits, setShowHabits] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
@@ -177,6 +181,8 @@ export default function AppV2() {
       dark: '#0B0B0F',
       'terminal-dark': '#0D1117',
       'terminal-light': '#FFFFFF',
+      'wallaby-dark': '#0E1322',
+      'wallaby-light': '#F4F6FB',
     }
     if (themeColors[theme]) {
       document.documentElement.setAttribute('data-theme', theme)
@@ -476,6 +482,7 @@ export default function AppV2() {
     if (showProjects) { setShowProjects(false); return }
     if (showDone) { setShowDone(false); return }
     if (showActivityLog) { setShowActivityLog(false); return }
+    if (showHabits) { setShowHabits(false); return }
     if (showRoutines) { setShowRoutines(false); return }
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
@@ -484,7 +491,7 @@ export default function AppV2() {
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
     if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showHabits, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -1151,11 +1158,21 @@ export default function AppV2() {
         }}
         onOpenProjects={() => setShowProjects(true)}
         onOpenRoutines={() => setShowRoutines(true)}
+        onOpenHabits={() => setShowHabits(true)}
         onOpenKnowledge={() => {
           setAdviserDraftSeed("What's in my knowledge base?")
           setShowAdviser(true)
         }}
       />
+      {showHabits && (
+        <div className="v2-habits-overlay">
+          <HabitsView
+            routines={routines}
+            onAdd={() => { setShowHabits(false); setShowRoutines(true) }}
+            onClose={() => setShowHabits(false)}
+          />
+        </div>
+      )}
 
       {snoozeTarget && (
         <SnoozeModal

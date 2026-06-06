@@ -6,11 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
-- feat(ui): Wallaby design language — Habits surface (WIP, not yet wired into app) [L]
-  - **What.** First surface of a full IA remap toward the loggd.life reference: a deep-navy, heatmap-first dashboard language named **Wallaby**. This commit adds the theme + the **Habits** screen (Boomerang routines rendered as loggd-style habit cards).
+- feat(ui): Wallaby design language — Habits surface, wired into the app [L]
+  - **What.** First surface of a full IA remap toward the loggd.life reference: a deep-navy, heatmap-first dashboard language named **Wallaby**. Adds the theme + the **Habits** screen (Boomerang routines rendered as loggd-style habit cards), selectable via Settings → General → Theme → **Wallaby**, reachable via **Spaces → Habits**.
+  - **Integration.** `wallaby-dark` / `wallaby-light` registered in the three theme sync points (`index.html` pre-paint, `AppV2.jsx` mount effect, `SettingsModal` picker — now a Standard/Terminal/**Wallaby** family toggle). `palette.css` imported via `AppV2.css`. `HabitsView` mounts as a full-screen overlay (`.v2-habits-overlay`, back button) fed by live `useRoutines` routines; new `onOpenHabits` row in `SpacesHub`; `showHabits` added to the escape stack. Base `--wb-*` defaults defined for every v2 theme so the surface always resolves its tokens.
   - **New `src/v2/wallaby/`.** `palette.css` — two palettes (`wallaby-dark` flagship + `wallaby-light`) that override the shared `--v2-*` tokens and add structural `--wb-*` tokens (card surfaces, per-habit category accents blue/purple/green/orange/pink, heatmap cells, semantic action colors orange=primary/green=complete/yellow=pause/red=delete/slate=secondary, colorful FABs). `ContributionHeatmap.{jsx,css}` — GitHub-style grid (weeks × 7 days, local-time bucketing, per-color intensity). `heatmapUtils.js` — day bucketing, per-habit color cycling, streak, week/month helpers. `HabitsView.{jsx,css}` — the screen: heavy grotesk "Habits" title, Single/Week/Month segmented control, week + month date steppers, habit cards (color icon tile + title + streak/count badges + the grid), purple FAB. Each habit gets a distinct color by list index.
   - **Verification.** Rendered in isolation via `wallaby-preview.html` + `src/wallaby-preview.jsx` (dev-only harness, mock routine data) and screenshot-checked against IMG_1573 (Single) / IMG_1577 (Week). Not imported by `index.html`, so it does not affect the running app or ship to prod.
-  - **Status.** WIP pushed to a feature branch for preservation; not merged to `dev`. Next: 5-tab bottom nav (Home/Habits/Tasks/Goals/Profile) wiring HabitsView to live routines, then Tasks/Goals/Profile/Home surfaces.
+  - **Verification.** Built + screenshot-driven through the real app (Spaces → Habits in wallaby-dark renders the live seeded routines, paused ones filtered, weekly-cadence routines showing as single clean rows). Shipped to `dev` so it can be exercised against real routine data on `boomerang-dev:3002`.
+  - **Next.** Full IA remap continues: 5-tab bottom nav (Home/Habits/Tasks/Goals/Profile) promoting Habits from the Spaces hub to a top-level tab, then Tasks/Goals/Profile/Home surfaces.
 
 ## 2026-06-04
 

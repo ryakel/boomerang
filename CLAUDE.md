@@ -971,6 +971,62 @@ The Boomerang wordmark popover (Analytics + Done, top-left) was already in place
 
 The whole thing was designed so either pivot is cheap. Don't make it expensive by piling on more terminal-only features without revisiting whether they should be terminal-only.
 
+### Wallaby Theme + IA Remap (2026-06-06, in progress)
+
+A deep-navy, **heatmap-first dashboard** design language modeled on
+[loggd.life](https://loggd.life) (reference screenshots: per-color habit
+contribution grids, segmented Single/Week/Month controls, semantic action
+buttons, colorful FABs, a profile year-grid). This is a **full IA remap** in
+progress — Boomerang's surfaces are being rebuilt to match the loggd structure,
+not just re-skinned. Concept mapping: **routines → habits**, **projects →
+goals**, tasks → tasks, plus a **profile/dashboard**. (Named Wallaby — another
+Australian marsupial, sibling to the Quokka adviser. The earlier "Loggd"-named
+attempt was torn out and reset; do not reintroduce that name.)
+
+**Theme model (4 palettes).** Settings → General → Theme is a **family** toggle
+(Standard / Terminal / **Wallaby**) × a Light/Dark mode → `wallaby-dark`
+(flagship) and `wallaby-light`. Like the built-in dark theme, Wallaby OVERRIDES
+the shared `--v2-*` tokens; Wallaby-specific structural tokens are namespaced
+`--wb-*`. All of it lives in **`src/v2/wallaby/`**.
+
+**Theme registration — three sync points (keep in lockstep):** `index.html`
+(pre-paint map), `AppV2.jsx` (mount effect map), `SettingsModal.jsx` (picker +
+`setTheme`). A base `:root[data-ui="v2"]` block in `palette.css` defines `--wb-*`
+defaults for *every* v2 theme so the Wallaby surfaces always resolve their
+tokens even if reached from a non-Wallaby theme.
+
+**`src/v2/wallaby/`:**
+- `palette.css` — base `--wb-*` defaults + `wallaby-dark` / `wallaby-light`
+  (card surfaces, per-habit accents blue/purple/green/orange/pink, heatmap
+  cells, semantic action colors orange=primary/green=complete/yellow=pause/
+  red=delete/slate=secondary, FAB colors). Imported via `AppV2.css`.
+- `ContributionHeatmap.{jsx,css}` — GitHub-style grid (weeks × 7 days,
+  local-time bucketing, per-color intensity). Theme-agnostic; sizes off inline
+  `--wb-cell`/`--wb-gap` props.
+- `heatmapUtils.js` — `historyByDay`, `WALLABY_COLORS`/color cycling,
+  `currentStreak`, `weekStart`/`addDays`/`fmtMonthDay`.
+- `HabitsView.{jsx,css}` — the **Habits** screen. Routines (filtered to
+  non-paused) as habit cards: color icon tile + title + streak/count badges +
+  the grid. Single (full heatmap) / Week (7 day-cells + date stepper) / Month
+  (calendar grid). Distinct per-habit color by list index. Purple FAB.
+
+**How Habits is reached (interim).** Mounted as a full-screen overlay
+(`.v2-habits-overlay` in `AppV2.css`) via **Spaces → Habits** (`onOpenHabits`
+row in `SpacesHub`, `showHabits` state + escape-stack entry in `AppV2`). The
+full remap promotes it to a top-level **bottom-nav tab** (Home/Habits/Tasks/
+Goals/Profile) — not yet built.
+
+**Dev-only render harness.** `wallaby-preview.html` + `src/wallaby-preview.jsx`
+mount `HabitsView` in isolation (mock or API-injected routines) for
+screenshot verification. NOT imported by `index.html`, so it never ships to
+prod or affects the running app. Verified via a headless-Chromium (puppeteer)
+screenshot loop — render before claiming a surface works.
+
+**Remaining surfaces (not built):** 5-tab bottom nav, Tasks (segmented
+Upcoming/Backlog, pink checkboxes, nested subtasks, green FAB), Goals (project
+detail with metric + semantic buttons), Profile (avatar + stat pills + activity
+year-grid), Home dashboard.
+
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
 

@@ -1,4 +1,4 @@
-import { FolderKanban, RotateCw, BookOpen, ChevronRight } from 'lucide-react'
+import { FolderKanban, RotateCw, BookOpen, Activity, ChevronRight } from 'lucide-react'
 import ModalShell from './ModalShell'
 import './SpacesHub.css'
 
@@ -13,9 +13,18 @@ import './SpacesHub.css'
 // the same hub a richer data shape.
 export default function SpacesHub({
   open, onClose,
-  onOpenProjects, onOpenRoutines, onOpenKnowledge,
+  onOpenProjects, onOpenRoutines, onOpenHabits, onOpenKnowledge,
 }) {
   const rows = [
+    {
+      key: 'habits',
+      icon: Activity,
+      tint: 'routines',
+      label: 'Habits',
+      subtitle: 'Routines as contribution heatmaps',
+      terminalCmd: '> habits',
+      onClick: onOpenHabits,
+    },
     {
       key: 'projects',
       icon: FolderKanban,

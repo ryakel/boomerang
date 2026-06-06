@@ -13,6 +13,37 @@
  * stat pills / semantic buttons.
  * ════════════════════════════════════════════════════════════════════════ */
 
+/* ── Base --wb-* defaults ────────────────────────────────────────────────────
+ * Defined for EVERY v2 theme so the Wallaby surfaces (Habits heatmaps) always
+ * resolve their structural tokens — even if reached from a non-Wallaby theme,
+ * the surface renders in the intended navy rather than unstyled. The
+ * wallaby-dark / wallaby-light blocks below override where they differ. */
+:root[data-ui="v2"] {
+  --wb-bg: #0E1322;
+  --wb-card: #161C2D;
+  --wb-card-2: #1E2638;
+  --wb-card-3: #232C42;
+  --wb-hairline: rgba(255, 255, 255, 0.08);
+  --wb-hairline-strong: rgba(255, 255, 255, 0.14);
+  --wb-text: #EAEEF7;
+  --wb-text-meta: rgba(234, 238, 247, 0.56);
+  --wb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.28);
+  --wb-cat-blue: #4F8DF5;
+  --wb-cat-purple: #8C7CF0;
+  --wb-cat-green: #41C083;
+  --wb-cat-orange: #F0973E;
+  --wb-cat-pink: #EA6C9D;
+  --wb-heat-empty: #1B2235;
+  --wb-heat-border: rgba(255, 255, 255, 0.03);
+  --wb-action-primary: #F0853A;
+  --wb-action-complete: #34C27E;
+  --wb-action-pause: #E6B43E;
+  --wb-action-delete: #E5564B;
+  --wb-action-secondary: #2A3348;
+  --wb-fab-habits: #7C5CF0;
+  --wb-fab-tasks: #34C27E;
+}
+
 /* ── Wallaby dark (flagship) ─────────────────────────────────────────────── */
 :root[data-ui="v2"][data-theme="wallaby-dark"] {
   /* Clean grotesk over Syne for the dashboard register */

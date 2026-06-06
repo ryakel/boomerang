@@ -36,6 +36,12 @@ const routines = [
   { id: 'reading', title: 'Read 20 pages', energy: 'creative', completed_history: gen(23, 0.5) },
 ]
 
+// When the screenshot harness injects real routine rows from the dev API
+// (window.__WALLABY_ROUTINES__), render those; otherwise fall back to mock.
+const data = window.__WALLABY_ROUTINES__ && window.__WALLABY_ROUTINES__.length
+  ? window.__WALLABY_ROUTINES__
+  : routines
+
 createRoot(document.getElementById('root')).render(
-  <HabitsView routines={routines} onAdd={() => {}} />,
+  <HabitsView routines={data} onAdd={() => {}} />,
 )

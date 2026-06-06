@@ -2433,16 +2433,21 @@ export default function SettingsModal({
                 dark: '#0B0B0F',
                 'terminal-light': '#FFFFFF',
                 'terminal-dark': '#0D1117',
+                'wallaby-light': '#F4F6FB',
+                'wallaby-dark': '#0E1322',
               }
               const currentTheme = settings.theme || 'light'
               const isTerminal = currentTheme.startsWith('terminal')
-              const isDark = currentTheme === 'dark' || currentTheme === 'terminal-dark'
-              const family = isTerminal ? 'terminal' : 'standard'
+              const isWallaby = currentTheme.startsWith('wallaby')
+              const isDark = currentTheme === 'dark' || currentTheme === 'terminal-dark' || currentTheme === 'wallaby-dark'
+              const family = isTerminal ? 'terminal' : isWallaby ? 'wallaby' : 'standard'
               const mode = isDark ? 'dark' : 'light'
               const setTheme = (nextFamily, nextMode) => {
                 const value = nextFamily === 'terminal'
                   ? (nextMode === 'dark' ? 'terminal-dark' : 'terminal-light')
-                  : (nextMode === 'dark' ? 'dark' : 'light')
+                  : nextFamily === 'wallaby'
+                    ? (nextMode === 'dark' ? 'wallaby-dark' : 'wallaby-light')
+                    : (nextMode === 'dark' ? 'dark' : 'light')
                 update('theme', value)
                 document.documentElement.setAttribute('data-theme', value)
                 const meta = document.querySelector('meta[name="theme-color"]')
@@ -2453,12 +2458,13 @@ export default function SettingsModal({
                   <div className="v2-settings-row v2-settings-row-stacked">
                     <div className="v2-settings-row-text">
                       <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Terminal is monospace + ASCII flourishes — init-style on a GitHub palette.</div>
+                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Terminal is monospace + ASCII flourishes. Wallaby is a deep-navy, heatmap-first dashboard.</div>
                     </div>
                     <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
                       {[
                         { value: 'standard', label: 'Standard' },
                         { value: 'terminal', label: 'Terminal' },
+                        { value: 'wallaby', label: 'Wallaby' },
                       ].map(opt => (
                         <button
                           key={opt.value}
