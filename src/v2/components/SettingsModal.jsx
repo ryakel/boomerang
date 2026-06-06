@@ -2497,12 +2497,11 @@ export default function SettingsModal({
                   <div className="v2-settings-row v2-settings-row-stacked">
                     <div className="v2-settings-row-text">
                       <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Terminal is monospace + ASCII flourishes. Wallaby is a deep-navy, heatmap-first dashboard.</div>
+                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Wallaby is a deep-navy, heatmap-first dashboard.</div>
                     </div>
                     <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
                       {[
                         { value: 'standard', label: 'Standard' },
-                        { value: 'terminal', label: 'Terminal' },
                         { value: 'wallaby', label: 'Wallaby' },
                       ].map(opt => (
                         <button

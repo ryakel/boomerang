@@ -941,6 +941,17 @@ The Boomerang wordmark popover (Analytics + Done, top-left) was already in place
 
 ### Terminal Theme Stress Test (2026-05-10, shipped to main 2026-05-11)
 
+> **STATUS — turned OFF, not ripped out (2026-06-06).** Wallaby became the daily
+> driver, so Terminal was removed from the Settings theme picker (only Standard /
+> Wallaby remain) and existing terminal users are migrated **terminal-dark →
+> wallaby-dark, terminal-light → wallaby-light** at three points: `loadSettings()`
+> (store.js), the `index.html` pre-paint script, and (via `loadSettings`) the
+> AppV2 mount effect. **All terminal code/CSS/components stay in place** (`src/v2/terminal/`,
+> `useTerminalMode`, `terminalTitle`/`terminalCommand` props, the
+> `check:terminal-titles` smoke test) — this is fully reversible: re-add the
+> `{ value: 'terminal', label: 'Terminal' }` picker option and drop the two
+> migration shims to bring it back. The "didn't stick" rip-out (below) is NOT done.
+
 **Working hypothesis: terminal may become the default forever.** PR A–H shipped a four-palette family — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) — with terminal-specific structural overrides (ASCII flourishes, monospace stack, bracket toggles, `> verb` modal headers, `// manage` section, density signals on TaskCard, no-button-chrome on settings controls, WeekStrip toggle from home stats date). The user shipped v0.11.0 to `main` on 2026-05-11 with terminal as their daily driver; the 30-day decision criterion (terminal-forever vs. didn't-stick) starts clocking from there. Light/dark stay maintained as defensive baseline.
 
 **The convention while we stress-test:**

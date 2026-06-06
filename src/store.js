@@ -265,6 +265,13 @@ export function loadSettings() {
     saved.theme = 'terminal-dark'
     save(SETTINGS_KEY, saved)
   }
+  // Terminal mode turned OFF (2026-06-06): removed from the picker and migrated
+  // to Wallaby (the daily driver). Terminal CSS/components are kept in place
+  // (not ripped out), so this is reversible — only the stored preference flips.
+  if (saved.theme === 'terminal-dark' || saved.theme === 'terminal-light') {
+    saved.theme = saved.theme === 'terminal-light' ? 'wallaby-light' : 'wallaby-dark'
+    save(SETTINGS_KEY, saved)
+  }
   return { ...DEFAULT_SETTINGS, ...saved }
 }
 export function saveSettings(settings) { save(SETTINGS_KEY, settings); touchModified() }

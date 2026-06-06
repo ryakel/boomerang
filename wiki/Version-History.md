@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- chore(ui): turn OFF Terminal theme (not ripped out) [S]
+  - Wallaby is the daily driver, so Terminal is removed from the Settings theme picker (only **Standard / Wallaby** remain). Existing terminal users migrate **terminal-dark → wallaby-dark, terminal-light → wallaby-light** at three points: `loadSettings()` (store.js), the `index.html` pre-paint script (no first-frame flash), and the AppV2 mount effect (via `loadSettings`). **All terminal code stays in place** — `src/v2/terminal/`, `useTerminalMode`, `terminalTitle`/`terminalCommand` props, `check:terminal-titles` — so it's reversible (re-add the picker option + drop the two shims). The full "didn't stick" rip-out is NOT done. Verified headless: `terminal-dark` in storage → renders `wallaby-dark` (+ WallabyShell); picker shows only Standard/Wallaby.
+
 - feat(ui): Wallaby nav per-tab active colors + More cleanup + Analytics segments [S]
   - **Bottom nav** — each tab lights up its **own** color when active instead of a single shared green: Home blue, Habits green, Quokka purple, Tasks orange, More pink (`--nav-color` inline var per tab → `.wb-nav-tab.is-active`). (User: "each of the buttons on the bottom menu to be a different color when highlighted.")
   - **More menu** — Timer / Vision / Daily check-in rows **removed entirely** (deferred features, no "coming soon" placeholders). More now lists Profile / Goals / Analytics / Packages / Settings. Dropped the dead `Placeholder` component + `sub==='timer'` branch + unused icon imports.
