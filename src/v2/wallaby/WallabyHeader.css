@@ -1,0 +1,71 @@
+/* Wallaby top app bar — fixed, above the surface, below the shared modals. */
+.wb-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 46;
+  height: var(--wb-header-h, 52px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px calc(0px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  background: color-mix(in srgb, var(--wb-card) 92%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--wb-hairline);
+}
+.wb-header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--v2-font-display);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--wb-text);
+}
+.wb-header-mark {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: var(--wb-action-complete);
+}
+.wb-header-actions { display: flex; align-items: center; gap: 10px; }
+.wb-header-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--wb-text-meta);
+  cursor: pointer;
+}
+.wb-header-btn:hover { color: var(--wb-text); }
+.wb-header-badge {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--wb-action-delete);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+.wb-header-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--wb-cat-green), var(--wb-cat-blue));
+}

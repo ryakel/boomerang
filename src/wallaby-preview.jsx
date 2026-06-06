@@ -10,6 +10,7 @@ import TasksView from './v2/wallaby/TasksView'
 import ProfileView from './v2/wallaby/ProfileView'
 import GoalsView from './v2/wallaby/GoalsView'
 import HomeView from './v2/wallaby/HomeView'
+import NotificationsView from './v2/wallaby/NotificationsView'
 
 document.documentElement.setAttribute('data-ui', 'v2')
 document.documentElement.setAttribute('data-theme', new URLSearchParams(location.search).get('theme') || 'wallaby-dark')
@@ -101,6 +102,15 @@ if (surface === 'tasks') {
   )
 } else if (surface === 'home') {
   root.render(<HomeView routines={data} onToggleHabit={() => {}} onOpenProfile={() => {}} />)
+} else if (surface === 'notifications') {
+  const now = Date.now()
+  const entries = [
+    { id: 'n1', type: 'overdue', title: 'Code review for PR #142', body: '1 day overdue — still on your list.', channel: 'push', sent_at: new Date(now - 2 * 3600e3).toISOString() },
+    { id: 'n2', type: 'stale', title: 'Clean out fridge', body: "Carrying for 6 days — want to knock it out?", channel: 'push', sent_at: new Date(now - 5 * 3600e3).toISOString() },
+    { id: 'n3', type: 'package_delivered', title: 'Package delivered', body: 'Your order was delivered.', channel: 'pushover', sent_at: new Date(now - 26 * 3600e3).toISOString(), tapped_at: new Date(now - 25 * 3600e3).toISOString() },
+    { id: 'n4', type: 'nudge', title: 'Morning review', body: 'Plan the day — 3 tasks waiting.', channel: 'email', sent_at: new Date(now - 50 * 3600e3).toISOString(), tapped_at: new Date(now - 49 * 3600e3).toISOString() },
+  ]
+  root.render(<NotificationsView entries={entries} onMarkAllRead={() => {}} onClose={() => {}} />)
 } else {
   root.render(<HabitsView routines={data} onAdd={() => {}} />)
 }

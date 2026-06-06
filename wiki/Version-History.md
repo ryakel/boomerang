@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby top header + notifications center [M]
+  - **What.** Persistent Wallaby top app bar (`WallabyHeader`): brand wordmark + 🔔 bell (unread badge) + avatar, above every shell surface. Bell → `NotificationsView` — a loggd-style notifications center that reads Boomerang's **existing** `GET /api/notifications/log`: All/Unread tabs, grouped Today/Yesterday/Earlier, type-colored icons (overdue/stale/pileup/package/weather/quokka), channel + time-ago, unread dots, optimistic Mark-all-read. Avatar → Profile.
+  - **Wiring.** `WallabyShell` fetches the log once for the badge + center; header offsets the surface (`--wb-header-h`). Home's redundant date-hero avatar removed (header owns it).
+  - **Scope.** Reskin — reads the existing log; no new data. (Reliable read-state persistence + the underlying notification-delivery bug are backend follow-ups, flagged separately.)
+  - **Verification.** Real app: header brand/bell/avatar over Home; center renders grouped real-typed entries with the right icons.
+
 - feat(ui): Wallaby habit detail + month calendar; Habits Single/Month/Year [M]
   - **What.** Tapping a Habits card opens the **habit detail** (loggd `IMG_1586`): icon + cadence, description, **Streak / Best / Total** stat cards, a "logged today" pill, a **month calendar** of completions (‹›  stepper + "N days completed / X%"), and **Archive / Delete** (two-tap). Edit (pencil) opens the routine editor.
   - Habits range tabs are now **Single / Month / Year** (per direction): Single = rolling heatmap **with per-card month labels**, Month = calendar grid, Year = full 53-week heatmap. Cards are tappable. Added `longestStreak` to `heatmapUtils`.
