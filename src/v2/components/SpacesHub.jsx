@@ -22,7 +22,6 @@ export default function SpacesHub({
       tint: 'projects',
       label: 'Projects',
       subtitle: 'Long-term work · pin to surface in Today',
-      terminalCmd: '> projects',
       onClick: onOpenProjects,
     },
     {
@@ -31,7 +30,6 @@ export default function SpacesHub({
       tint: 'routines',
       label: 'Routines',
       subtitle: 'Recurring tasks · cadence + spawn-now',
-      terminalCmd: '> routines',
       onClick: onOpenRoutines,
     },
     {
@@ -40,7 +38,6 @@ export default function SpacesHub({
       tint: 'knowledge',
       label: 'Knowledge',
       subtitle: 'Notion-backed reference · ask Quokka',
-      terminalCmd: '> knowledge',
       onClick: onOpenKnowledge,
     },
   ]
@@ -50,7 +47,6 @@ export default function SpacesHub({
       open={open}
       onClose={onClose}
       title="Spaces"
-      terminalTitle="> spaces"
       subtitle="Long-term work, recurring tasks, and reference"
       width="narrow"
     >
@@ -66,7 +62,7 @@ export default function SpacesHub({
               >
                 <Icon size={22} strokeWidth={1.75} className={`v2-spaces-row-icon v2-spaces-row-icon-${r.tint}`} />
                 <span className="v2-spaces-row-text">
-                  <span className="v2-spaces-row-label" data-terminal-cmd={r.terminalCmd}>{r.label}</span>
+                  <span className="v2-spaces-row-label">{r.label}</span>
                   <span className="v2-spaces-row-subtitle">{r.subtitle}</span>
                 </span>
                 <ChevronRight size={18} strokeWidth={1.75} className="v2-spaces-row-chev" />

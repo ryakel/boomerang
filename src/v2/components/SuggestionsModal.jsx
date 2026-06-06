@@ -179,7 +179,6 @@ export default function SuggestionsModal({ open, onClose, onAccepted }) {
       open={open}
       onClose={onClose}
       title="Routine suggestions"
-      terminalTitle="$ suggestions"
       subtitle={suggestions.length === 0
         ? (loading ? 'Loading…' : undefined)
         : `${suggestions.length} waiting`}

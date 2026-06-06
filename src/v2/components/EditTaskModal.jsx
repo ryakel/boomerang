@@ -372,7 +372,6 @@ export default function EditTaskModal({
       open={!!task}
       onClose={onClose}
       title={isProject ? 'Edit project' : isSub ? 'Edit sub' : 'Edit task'}
-      terminalTitle={isProject ? '> project --edit' : isSub ? '> sub --edit' : '> task --edit'}
       width="narrow"
       headerSlot={<AutosaveIndicator saved={justSaved} />}
     >
@@ -1378,7 +1377,7 @@ export default function EditTaskModal({
             onClick={() => { onBacklog(task.id, true); onClose() }}
             title="Move to backlog"
           >
-            <Archive size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="> archive">Backlog</span>
+            <Archive size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label">Backlog</span>
           </button>
           {/* Hide "Move to projects" button when this task IS a project —
             * it'd be a no-op. Same for sub-tasks: moving a sub to project
@@ -1391,7 +1390,7 @@ export default function EditTaskModal({
               onClick={() => { onProject(task.id, true); onClose() }}
               title="Move to projects"
             >
-              <FolderKanban size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="> move-to-projects">Projects</span>
+              <FolderKanban size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label">Projects</span>
             </button>
           )}
           {!task.routine_id && !makeRecurring && (
@@ -1400,7 +1399,7 @@ export default function EditTaskModal({
               onClick={() => setMakeRecurring(true)}
               title="Convert this task into a recurring routine"
             >
-              <RotateCw size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="> make-recurring">Make recurring</span>
+              <RotateCw size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label">Make recurring</span>
             </button>
           )}
           {!confirmDelete ? (
@@ -1409,7 +1408,7 @@ export default function EditTaskModal({
               onClick={() => setConfirmDelete(true)}
               title={isProject ? 'Delete project (subs become orphans)' : isSub ? 'Delete sub' : 'Delete task'}
             >
-              <Trash2 size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label" data-terminal-cmd="> delete --confirm">Delete</span>
+              <Trash2 size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label">Delete</span>
             </button>
           ) : (
             <div className="v2-edit-confirm-delete">

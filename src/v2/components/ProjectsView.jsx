@@ -39,7 +39,6 @@ export default function ProjectsView({
       open={open}
       onClose={onClose}
       title="Projects"
-      terminalTitle="> projects"
       subtitle={projectTasks.length > 0
         ? `${projectTasks.length} project${projectTasks.length !== 1 ? 's' : ''} · no nagging unless you opt in`
         : undefined}
@@ -53,7 +52,7 @@ export default function ProjectsView({
             onClick={onCreateProject}
           >
             <Plus size={14} strokeWidth={1.75} />
-            <span data-terminal-cmd="> project --new">New project</span>
+            <span>New project</span>
           </button>
         </div>
       )}
@@ -62,7 +61,6 @@ export default function ProjectsView({
           icon={FolderKanban}
           title="No projects yet"
           body={`Start a long-haul project to track the work without nagging yourself. Add subs for the concrete steps, pin to today when you want to chip away.`}
-          terminalCommand="// no projects yet — tap '+ new project' above"
           cta={onCreateProject ? 'New project' : undefined}
           ctaOnClick={onCreateProject}
         />

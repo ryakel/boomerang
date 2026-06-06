@@ -993,8 +993,11 @@ mode change?" is one directory grep.
 2. ✅ Loggd structural layer (`src/v2/loggd/structure.css`, gated on
    `[data-theme^="loggd"]`): card elevation + per-energy category accent
    stripe (`data-energy` on `.v2-card`), accent-fill pill controls, larger
-   colorful FABs, modal elevation. Header restyle + stripping the inert
-   `terminalTitle`/`data-terminal-*` props is still outstanding.
+   colorful FABs, modal elevation, contained header icon pills. The inert
+   `terminalTitle`/`terminalCommand`/`data-terminal-*` props have been
+   stripped from all call sites. (Dead `[data-theme^="terminal"]` CSS blocks
+   in component CSS are inert — no theme matches them — and get swept per-file
+   as each component's CSS is next touched.)
 3. ✅ Heatmaps — reusable `ContributionHeatmap` (theme-agnostic, consumes
    `--lg-heat-*` with Standard fallbacks; helpers in `heatmapUtils.js`).
    Routine cards render a per-habit contribution grid (color cycled by

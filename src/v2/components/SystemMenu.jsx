@@ -47,7 +47,6 @@ export default function SystemMenu({
       key: 'settings',
       icon: SettingsIcon,
       label: 'Settings',
-      terminalCmd: '> settings',
       onClick: onOpenSettings,
       tint: 'settings',
     },
@@ -62,7 +61,6 @@ export default function SystemMenu({
       key: 'analytics',
       icon: BarChart3,
       label: 'Analytics',
-      terminalCmd: '> stats',
       onClick: onOpenAnalytics,
       tint: 'analytics',
     },
@@ -70,7 +68,6 @@ export default function SystemMenu({
       key: 'done',
       icon: CheckCircle2,
       label: 'Done',
-      terminalCmd: '> done',
       onClick: onOpenDone,
       tint: 'done',
     },
@@ -78,7 +75,6 @@ export default function SystemMenu({
       key: 'suggestions',
       icon: Lightbulb,
       label: 'Suggestions',
-      terminalCmd: '> suggestions',
       onClick: onOpenSuggestions,
       tint: 'suggestions',
       badge: hasSuggestions,
@@ -87,7 +83,6 @@ export default function SystemMenu({
       key: 'activity',
       icon: History,
       label: 'Activity log',
-      terminalCmd: '> log',
       onClick: onOpenActivityLog,
       tint: 'activity',
     },
@@ -107,7 +102,7 @@ export default function SystemMenu({
                 onClick={() => { onClose(); r.onClick?.() }}
               >
                 <Icon size={18} strokeWidth={1.75} className={`v2-system-menu-icon v2-system-menu-icon-${r.tint}`} />
-                <span className="v2-system-menu-label" data-terminal-cmd={r.terminalCmd}>{r.label}</span>
+                <span className="v2-system-menu-label">{r.label}</span>
                 {r.badge && <span className="v2-system-menu-badge" aria-label="New" />}
                 <ChevronRight size={16} strokeWidth={1.75} className="v2-system-menu-chev" />
               </button>

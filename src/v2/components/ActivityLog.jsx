@@ -135,7 +135,7 @@ export default function ActivityLog({ open, onRestore, onClose }) {
   }
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Activity log" terminalTitle="> log" width="wide">
+    <ModalShell open={open} onClose={onClose} title="Activity log" width="wide">
       {/* Search bar */}
       <div className="v2-smart-search">
         <Search size={15} className="v2-smart-search-icon" />
@@ -202,7 +202,6 @@ export default function ActivityLog({ open, onRestore, onClose }) {
           icon={History}
           title="No activity yet"
           body="Creates, edits, completions, snoozes, status changes, and deletes show up here as you work."
-          terminalCommand="// log empty — creates, edits, completions, snoozes, status changes, and deletes will appear here"
         />
       ) : (
         <ul className="v2-activity-list">
