@@ -1042,11 +1042,13 @@ tokens even if reached from a non-Wallaby theme.
 - `NotificationsView.{jsx,css}` — notifications center reading the existing
   `GET /api/notifications/log` (All/Unread, grouped Today/Yesterday/Earlier,
   type-colored icons, optimistic mark-all-read). Reskin — no new data.
-- `WallabyNav.{jsx,css}` + `WallabyShell.{jsx,css}` — the loggd IA. A fixed 4-tab
-  bottom nav (**Home · Habits · Tasks · More**) + the top header, over the active
-  surface. **More** routes to Profile · Goals · **Packages** (real modal) ·
-  **Timer** (coming-soon) · Vision (soon) · Daily (soon) · Settings. (Quokka is
-  in the top header; Packages/Timer moved out of nav into More per user.)
+- `WallabyNav.{jsx,css}` + `WallabyShell.{jsx,css}` — the loggd IA. A fixed 5-tab
+  bottom nav (**Home · Habits · Quokka · Tasks · More**) + the top header, over
+  the active surface. **Quokka** is its own page (the adviser rendered inline via
+  `.wb-quokka-page`, which strips the ModalShell chrome; the surface stops above
+  the nav). **More** routes to Profile · Goals · Analytics · **Packages** (real
+  modal) · **Timer** (coming-soon) · Vision (soon) · Daily (soon) · Settings.
+  (Header carries brand + bell + avatar only; tab icons color only when active.)
 
 **How the surfaces are reached (Wallaby mode).** `AppV2` renders `<WallabyShell>`
 (`position:fixed`, z-40 — covers the standard header + list) when
