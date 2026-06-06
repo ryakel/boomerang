@@ -1,4 +1,4 @@
-import { FolderKanban, RotateCw, BookOpen, Activity, ListTodo, LayoutDashboard, ChevronRight } from 'lucide-react'
+import { FolderKanban, RotateCw, BookOpen, Activity, ListTodo, LayoutDashboard, Target, ChevronRight } from 'lucide-react'
 import ModalShell from './ModalShell'
 import './SpacesHub.css'
 
@@ -13,7 +13,7 @@ import './SpacesHub.css'
 // the same hub a richer data shape.
 export default function SpacesHub({
   open, onClose,
-  onOpenProjects, onOpenRoutines, onOpenHabits, onOpenTasks, onOpenProfile, onOpenKnowledge,
+  onOpenProjects, onOpenRoutines, onOpenHabits, onOpenTasks, onOpenProfile, onOpenGoals, onOpenKnowledge,
 }) {
   const rows = [
     {
@@ -42,6 +42,15 @@ export default function SpacesHub({
       subtitle: 'Upcoming + backlog · subtasks',
       terminalCmd: '> tasks',
       onClick: onOpenTasks,
+    },
+    {
+      key: 'goals',
+      icon: Target,
+      tint: 'projects',
+      label: 'Goals',
+      subtitle: 'Projects · progress + sessions',
+      terminalCmd: '> goals',
+      onClick: onOpenGoals,
     },
     {
       key: 'projects',

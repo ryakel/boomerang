@@ -21,6 +21,7 @@ import RoutinesModal from './components/RoutinesModal'
 import HabitsView from './wallaby/HabitsView'
 import TasksView from './wallaby/TasksView'
 import ProfileView from './wallaby/ProfileView'
+import GoalsView from './wallaby/GoalsView'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -98,6 +99,8 @@ export default function AppV2() {
   const [showTasks, setShowTasks] = useState(false)
   // Wallaby Profile/dashboard — stat pills + activity year-grid + habit grids.
   const [showProfile, setShowProfile] = useState(false)
+  // Wallaby Goals surface — projects as loggd-style goals (list + detail).
+  const [showGoals, setShowGoals] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
@@ -491,6 +494,7 @@ export default function AppV2() {
     if (showHabits) { setShowHabits(false); return }
     if (showTasks) { setShowTasks(false); return }
     if (showProfile) { setShowProfile(false); return }
+    if (showGoals) { setShowGoals(false); return }
     if (showRoutines) { setShowRoutines(false); return }
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
@@ -499,7 +503,7 @@ export default function AppV2() {
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
     if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showHabits, showTasks, showProfile, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showHabits, showTasks, showProfile, showGoals, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -1169,6 +1173,7 @@ export default function AppV2() {
         onOpenHabits={() => setShowHabits(true)}
         onOpenTasks={() => setShowTasks(true)}
         onOpenProfile={() => setShowProfile(true)}
+        onOpenGoals={() => setShowGoals(true)}
         onOpenKnowledge={() => {
           setAdviserDraftSeed("What's in my knowledge base?")
           setShowAdviser(true)
@@ -1210,6 +1215,22 @@ export default function AppV2() {
             lifetimeDone={tasks.filter(t => t.status === 'done').length}
             routines={routines}
             onClose={() => setShowProfile(false)}
+          />
+        </div>
+      )}
+      {showGoals && (
+        <div className="v2-habits-overlay">
+          <GoalsView
+            projects={projectTasks}
+            tasks={tasks}
+            labels={labels}
+            onLogSession={(p) => logProjectSession(p.id)}
+            onComplete={(p) => handleComplete(p.id)}
+            onEdit={(p) => { setShowGoals(false); setEditTarget(p) }}
+            onSetAside={(p) => updateTask(p.id, { status: 'backlog' })}
+            onDelete={(p) => deleteTask(p.id)}
+            onAdd={() => { setShowGoals(false); setShowAdd(true) }}
+            onClose={() => setShowGoals(false)}
           />
         </div>
       )}
