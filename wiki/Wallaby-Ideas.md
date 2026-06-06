@@ -48,6 +48,7 @@ The real Home is a scrolling daily dashboard. Reskin-able parts (existing data):
 - ⬜ **Daily summary** card: "You put in Xh deep work, finished N tasks…" + mini activity heatmap + day-streak
 - ⬜ **Tasks today** section (n/m done, Manage/Hide)
 - ✅ **Habits today** section (checkable rows)
+- ✅ **Interactive date/week strip** — select a day (backfill that day), page weeks, jump to today
 - 🅿️ **Reflection + Today's Mood** (new — mood journal)
 - 🅿️ **Vision Whisper** (new — mission/vision)
 - ❓ Week/Month toggle on the Home week strip

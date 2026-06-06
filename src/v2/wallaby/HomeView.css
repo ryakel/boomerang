@@ -19,11 +19,18 @@
   box-shadow: var(--wb-shadow);
   margin-bottom: 16px;
 }
+.wb-home-head { position: relative; }
 .wb-home-date {
   display: flex;
   align-items: center;
   gap: 13px;
   margin-bottom: 16px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
 }
 .wb-home-daycircle {
   display: grid;
@@ -38,6 +45,16 @@
   font-weight: 800;
   flex: 0 0 auto;
 }
+.wb-home-daycircle.is-other { background: var(--wb-cat-purple); }
+.wb-home-todaypill {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--wb-action-complete);
+  background: color-mix(in srgb, var(--wb-action-complete) 18%, transparent);
+  border-radius: 999px;
+  padding: 4px 10px;
+  flex: 0 0 auto;
+}
 .wb-home-datetext { display: flex; flex-direction: column; flex: 1 1 auto; }
 .wb-home-weekday {
   font-family: var(--v2-font-display);
@@ -47,30 +64,57 @@
 }
 .wb-home-month { font-size: 13px; color: var(--wb-text-meta); }
 .wb-home-avatar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
   width: 38px;
   height: 38px;
   border-radius: 50%;
   border: none;
-  flex: 0 0 auto;
   background: linear-gradient(135deg, var(--wb-cat-green), var(--wb-cat-blue));
   cursor: pointer;
 }
 
+.wb-home-weekrow { display: flex; align-items: center; gap: 4px; }
+.wb-home-weeknav {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  color: var(--wb-text-meta);
+  cursor: pointer;
+  border-radius: 8px;
+}
+.wb-home-weeknav:disabled { opacity: 0.3; cursor: default; }
 .wb-home-week {
   display: flex;
   justify-content: space-between;
   gap: 4px;
+  flex: 1 1 auto;
 }
 .wb-home-weekday-cell {
   flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
   padding: 6px 0;
   border-radius: 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
 }
 .wb-home-weekday-cell.is-today { background: color-mix(in srgb, var(--wb-action-complete) 18%, transparent); }
+.wb-home-weekday-cell.is-selected {
+  background: var(--wb-cat-purple);
+}
+.wb-home-weekday-cell.is-selected .wb-home-week-date,
+.wb-home-weekday-cell.is-selected .wb-home-week-dow { color: #fff; }
+.wb-home-weekday-cell.is-future { opacity: 0.32; cursor: default; }
 .wb-home-week-dow { font-size: 11px; font-weight: 600; color: var(--wb-text-meta); }
 .wb-home-week-date {
   font-size: 14px;

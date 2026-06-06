@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(ui): Wallaby Home calendar is interactive [S]
+  - The Home date hero + week strip were inert. Now: tap a **day** to select it (purple highlight); the habit rows reflect that day's completion and the check **toggles/backfills** that day (`onToggleHabit(routine, ymd)` → adds/removes a local-noon `completed_history` entry). **Week navigation** via ‹ › chevrons (future days disabled). Tapping the date hero (or the "Today" pill that appears off-today) jumps back to today. Streak-at-risk banner only shows when today is selected.
+
 - feat(ui): Wallaby Tasks refinements + QA pass (header overlap, home check) [M]
   - **Tasks** (loggd `IMG_1581` + `task-action-sheet`): 3rd **Done** tab (Upcoming/Backlog/Done with counts); **TODAY/TOMORROW** grouping with section icons (Overdue/Today/Tomorrow/Upcoming/Anytime); **semi-random per-task checkbox colors** (cycled by id hash — not priority/label, per direction); notes subtitle line; **task tap → action sheet** (Reschedule Today/Tomorrow/Next week/No date · Edit · Delete · Focus-timer "Soon"). Reschedule → `updateTask({due_date})`, Delete → `deleteTask`.
   - **QA — bugs found + fixed:**

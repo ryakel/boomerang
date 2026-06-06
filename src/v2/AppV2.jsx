@@ -1174,14 +1174,16 @@ export default function AppV2() {
           streak={streak}
           records={records}
           lifetimeDone={tasks.filter(t => t.status === 'done').length}
-          onToggleHabit={(routine) => {
-            const today = localYMD(new Date())
+          onToggleHabit={(routine, ymd) => {
+            const day = ymd || localYMD(new Date())
             const hist = Array.isArray(routine.completed_history) ? routine.completed_history : []
-            const isToday = (ts) => localYMD(new Date(ts)) === today
-            if (hist.some(isToday)) {
-              updateRoutine(routine.id, { completed_history: hist.filter(ts => !isToday(ts)) })
+            const onDay = (ts) => localYMD(new Date(ts)) === day
+            if (hist.some(onDay)) {
+              updateRoutine(routine.id, { completed_history: hist.filter(ts => !onDay(ts)) })
             } else {
-              completeRoutine(routine.id)
+              // Pin to local noon of the chosen day so it buckets correctly
+              // regardless of timezone (backfilling a past day, or today).
+              updateRoutine(routine.id, { completed_history: [...hist, `${day}T12:00:00.000Z`] })
             }
           }}
           onCompleteTask={(task) => task.status === 'done' ? uncompleteTask(task.id) : handleComplete(task.id)}
