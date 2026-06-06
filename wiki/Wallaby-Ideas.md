@@ -37,15 +37,15 @@ Bottom nav (loggd): **Home · Habits · Tasks · Timer · More**.
 | Habit detail + month calendar | ✅ | tap a card → Streak/Best/Total + completion calendar + Archive/Delete/Edit (`IMG_1586`) |
 | Tasks — list | ✅ | Upcoming/Backlog/**Done** tabs w/ counts; Overdue/Today/Tomorrow/Upcoming/Anytime grouping w/ icons; semi-random per-task checkbox colors; notes subtitle; **tap → action sheet** (reschedule/edit/delete, focus="soon") |
 | Goals (projects) — list + detail | ✅ | metric, progress, semantic buttons |
-| Profile / dashboard | ✅ (partial) | ⬜ adopt the rich loggd profile layout (avatar/level/XP/bio/year-grid/per-metric grids) **minus public/share** (user: "like this without the public part"); Level/XP/badges = 🅿️ gamification |
-| Home — daily agenda | ✅ (basic) | ⬜ enrich toward **Today's Pulse** (below) |
+| Profile / dashboard | ✅ | avatar/bio/year-grid (Tasks/Points)/per-habit grids + **Records strip** (Best day / Best points / Longest streak, from `computeRecords`). Level/XP/badges = 🅿️ gamification; public/share intentionally omitted |
+| Home — daily agenda | ✅ | Pulse + **Daily-summary card** (N tasks·M habits done + day-streak + mini 14-week heatmap) + per-day tasks/habits + interactive date strip. Mood/vision parts = 🅿️ |
 | Settings (visual reskin) | ✅ | Account / Notifications / Preferences / Privacy / API; per-type Push/Email toggles (Boomerang already has the data) |
 | Analytics (visual reskin) | ✅ (reskin) / 🅿️ | Tabbed **Overview / Habits / Tasks / Goals / Focus**. Weekly **points** total + ‹week› nav, 🔥current/🏆best streak, stat cards (Habits checks, Tasks completed, Focus time, Check-ins), **Points Breakdown by activity type**, weekly **mood bar-chart** + **reflections** recap. Reskin-able: points/streak/habit+task counts (Boomerang has these). Deferred: focus-time, check-ins, mood, badge points (tied to new features). Reached via More/Profile. |
 
 ### Home "Today's Pulse" (richer Home — PDF 1)
 The real Home is a scrolling daily dashboard. Reskin-able parts (existing data):
 - ✅ **Pulse** card (today): "X habits left (n/m done)", "n tasks for today", streak-at-risk
-- ⬜ **Daily summary** card: "You put in Xh deep work, finished N tasks…" + mini activity heatmap + day-streak
+- ✅ **Daily summary** card: "N tasks · M habits done today" + mini 14-week activity heatmap + day-streak chip (deep-work hours deferred with Timer)
 - ✅ **Tasks card** for the selected day (n/m done + progress bar)
 - ✅ **Habits today** section (checkable rows)
 - ✅ **Interactive date/week strip** — select a day (backfill that day), page weeks, jump to today
