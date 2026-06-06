@@ -2407,7 +2407,6 @@ export default function SettingsModal({
       open={open}
       onClose={onClose}
       title="Settings"
-      terminalTitle="> settings"
       width="wide"
       headerSlot={<AutosaveIndicator saved={justSaved} />}
     >

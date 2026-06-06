@@ -107,7 +107,7 @@ export default function BottomTabs({ onTabChange, onQuickAdd, onAddLongPress, on
           <span className="v2-bottom-tab-icon-wrap">
             <ListChecks size={22} strokeWidth={1.75} className="v2-bottom-tab-icon" aria-hidden="true" />
           </span>
-          <span className="v2-bottom-tab-label" data-terminal-label="today">Today</span>
+          <span className="v2-bottom-tab-label">Today</span>
         </button>
         <button
           type="button"
@@ -123,7 +123,7 @@ export default function BottomTabs({ onTabChange, onQuickAdd, onAddLongPress, on
           <span className="v2-bottom-tab-icon-wrap">
             <Plus size={22} strokeWidth={2} className="v2-bottom-tab-icon" aria-hidden="true" />
           </span>
-          <span className="v2-bottom-tab-label" data-terminal-label="new">New</span>
+          <span className="v2-bottom-tab-label">New</span>
         </button>
         <button
           type="button"
@@ -134,7 +134,7 @@ export default function BottomTabs({ onTabChange, onQuickAdd, onAddLongPress, on
           <span className="v2-bottom-tab-icon-wrap">
             <Compass size={22} strokeWidth={1.75} className="v2-bottom-tab-icon" aria-hidden="true" />
           </span>
-          <span className="v2-bottom-tab-label" data-terminal-label="what now">What now</span>
+          <span className="v2-bottom-tab-label">What now</span>
         </button>
         <button
           type="button"
@@ -144,7 +144,7 @@ export default function BottomTabs({ onTabChange, onQuickAdd, onAddLongPress, on
           <span className="v2-bottom-tab-icon-wrap">
             <FolderKanban size={22} strokeWidth={1.75} className="v2-bottom-tab-icon" aria-hidden="true" />
           </span>
-          <span className="v2-bottom-tab-label" data-terminal-label="spaces">Spaces</span>
+          <span className="v2-bottom-tab-label">Spaces</span>
         </button>
       </div>
     </nav>

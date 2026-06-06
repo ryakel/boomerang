@@ -33,7 +33,6 @@ export default function ReframeModal({ task, onReframe, onClose }) {
       open={!!task}
       onClose={onClose}
       title="This one keeps coming back"
-      terminalTitle="> reframe"
       subtitle={`"${task.title}" has been snoozed ${task.snooze_count} times. What's actually in the way?`}
     >
       {!results ? (

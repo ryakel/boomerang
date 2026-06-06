@@ -54,7 +54,6 @@ export default function SnoozeModal({ task, onSnooze, onUnsnooze, onClose }) {
       open={!!task}
       onClose={onClose}
       title={task.title}
-      terminalTitle="> snooze"
       subtitle="When should this come back?"
     >
       {task.snoozed_until && onUnsnooze && (

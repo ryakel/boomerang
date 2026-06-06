@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-05
 
+- chore(ui): strip inert terminal props + Loggd header icon pills [S]
+  - Removed every now-inert `terminalTitle` / `terminalCommand` / `terminalCmd` / `data-terminal-cmd` / `data-terminal-label` prop+attr from all v2 call sites (ModalShell/EmptyState/ConfirmDialog stopped reading them in the teardown — they were dead strings). 20 files touched, no behavior change. Added a Loggd-gated header touch: contained surface-pill icon buttons so the header glyphs read as buttons against the navy canvas. Dead `[data-theme^="terminal"]` CSS blocks remain inert (no theme matches) and get swept per-file later.
+  - Files: 20 v2 components + `src/v2/AppV2.jsx`, `src/v2/loggd/structure.css`, `CLAUDE.md`.
+
 - feat(ui): Loggd Profile/Dashboard screen (year grid + stat pills + habit heatmaps) [M]
   - **Phase 3b.** New `ProfileModal` (`src/v2/components/ProfileModal.{jsx,css}`) — the Loggd "see your year" hero surface. Opened from the ⚙ SystemMenu via a new "Dashboard" row. Sections: colorful **stat pills** (day streak / points today / done today / best streak / lifetime done, each carrying a Loggd category accent), a big **53-week activity contribution grid** with a Tasks/Points toggle (reuses `GET /api/analytics/history?days=365`), and **per-habit heatmaps** for every routine with completion history. All data is already computed by AppV2 (`dailyStats`, `streak`, `records`) or fetched from the existing analytics endpoint — no new server work.
   - Extracted `heatmapUtils.js` (`routineHeatColor`, `historyByDay`) shared by RoutinesModal + ProfileModal so the per-routine palette and day-bucketing can't drift.

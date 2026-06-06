@@ -79,3 +79,13 @@
     box-shadow: -18px 0 48px rgba(0, 0, 0, 0.38);
   }
 }
+
+/* ── Header: contained surface pills for the icon buttons so they read as
+ * buttons against the navy canvas (Loggd's contained-icon style). ─────── */
+[data-theme^="loggd"] .v2-header-icon {
+  background: var(--lg-card-2, var(--v2-surface));
+  border: 1px solid var(--v2-hairline);
+}
+[data-theme^="loggd"] .v2-header-icon:hover {
+  border-color: var(--lg-border-strong);
+}
