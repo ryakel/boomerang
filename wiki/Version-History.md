@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-06
 
+- feat(dev): dev-only "Reseed dev database" button (Settings → Data) [S]
+  - One-tap reseed without touching a terminal: **Settings → Data → "Reseed dev database"** wipes the DB and reloads fresh seed fixtures (tasks rebased to today + ~250 days of synthesized routine history), then reloads the app. Confirm dialog first; no undo.
+  - **Hard-gated to dev, two layers:** `server.js` computes `isDevEnv` (true only when `APP_VERSION` is `dev` or `dev-<sha>` — prod images build `v1.x.x` git tags) and (1) exposes `isDev` on `GET /api/health` so the button only renders on the dev build, and (2) makes `POST /api/dev/seed` return **403** outside dev. So even a stale client pointed at prod can't wipe it.
+
 - feat(ui): Wallaby — all modals render as full pages, not slide-up sheets [S]
   - New `src/v2/wallaby/modals.css` (mobile + `[data-theme^="wallaby"]` gated, imported via `AppV2.css`): **every** ModalShell surface (Packages, Settings, Analytics, Edit, Add, Quokka, …) now renders as a solid full **page** that sits between the persistent WallabyHeader (top: 52px + inset) and WallabyNav (bottom: 64px + inset) — no slide-up sheet, no animation, no rounded card chrome. (User: "the wallaby theme shouldn't have the slide up menus. Everything should have its own page.") The Quokka branch in `WallabyShell` now relies on this global treatment instead of the bespoke `.wb-quokka-page` chrome-stripping (removed) — the header/nav splits that looked strange are gone because the surface no longer double-stacks an inline page inside a stop-at-nav surface.
   - **Analytics buttons fix:** the range (7d/30d/90d) and metric toggles were loose pill buttons; reskinned to **contained segmented controls** (rounded track on `--wb-card-2`, green active fill) in `analytics.css`.

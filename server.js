@@ -58,6 +58,10 @@ registerKnowledgeTools()
 
 // --- App version ---
 const appVersion = process.env.APP_VERSION || 'dev'
+// Dev environment signal: prod images are built `APP_VERSION=v1.x.x` (git tag),
+// the dev image is built `APP_VERSION=dev-<sha>`, and a bare local run is 'dev'.
+// Used to gate the dev-only reseed (button + endpoint) so it can never touch prod.
+const isDevEnv = appVersion === 'dev' || appVersion.startsWith('dev-')
 
 // --- Environment (fallback keys — user can override via UI) ---
 let envApiKey = process.env.ANTHROPIC_API_KEY
@@ -181,7 +185,7 @@ app.use(express.json({ limit: '2mb' }))
 
 // --- Health check ---
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', appVersion })
+  res.json({ status: 'ok', appVersion, isDev: isDevEnv })
 })
 
 // --- Server logs endpoint ---
@@ -3538,7 +3542,13 @@ app.post('/api/adviser/chats/:id/unstar', (req, res) => {
 })
 
 // --- Dev seed endpoint ---
+// Destructive: clearAllData() then reloads seed fixtures. Hard-gated to the dev
+// environment so it can never wipe a production database, even if a stale client
+// somehow renders the button against prod.
 app.post('/api/dev/seed', async (req, res) => {
+  if (!isDevEnv) {
+    return res.status(403).json({ error: 'Reseed is only available in the dev environment.' })
+  }
   try {
     await seedDatabase()
     res.json({ ok: true, message: 'Database seeded' })
