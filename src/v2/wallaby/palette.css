@@ -1,0 +1,107 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * Wallaby theme — deep-navy, heatmap-first dashboard design language.
+ * Modeled on the loggd.life reference: navy canvas, slightly-lighter card
+ * surfaces, GitHub contribution heatmaps as the signature visual, per-habit
+ * color accents (blue/purple/green/orange/pink), heavy grotesk titles, pill
+ * segmented controls, colorful FABs, and semantic action buttons
+ * (orange=primary, green=complete, yellow=pause, red=delete, slate=secondary).
+ *
+ * Two palettes: wallaby-dark (flagship) and wallaby-light. Like the built-in
+ * dark theme, Wallaby OVERRIDES the shared --v2-* tokens so every existing
+ * token-consuming component re-skins for free. Wallaby-specific STRUCTURAL
+ * tokens are namespaced --wb-* and consumed by the heatmap / habit cards /
+ * stat pills / semantic buttons.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Wallaby dark (flagship) ─────────────────────────────────────────────── */
+:root[data-ui="v2"][data-theme="wallaby-dark"] {
+  /* Clean grotesk over Syne for the dashboard register */
+  --v2-font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --v2-font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Canvas + surfaces (navy) */
+  --v2-bg: #0E1322;
+  --v2-surface: #161C2D;
+  --v2-text: #EAEEF7;
+  --v2-text-rgb: 234, 238, 247;
+  --v2-text-meta: rgba(234, 238, 247, 0.56);
+  --v2-text-faint: rgba(234, 238, 247, 0.34);
+  --v2-hairline: rgba(255, 255, 255, 0.07);
+  --v2-accent: #7C5CF0;
+
+  /* Wallaby structural tokens */
+  --wb-bg: #0E1322;
+  --wb-card: #161C2D;
+  --wb-card-2: #1E2638;          /* elevated: segmented track, stat pills */
+  --wb-card-3: #232C42;          /* hover / pressed */
+  --wb-hairline: rgba(255, 255, 255, 0.08);
+  --wb-hairline-strong: rgba(255, 255, 255, 0.14);
+  --wb-text: #EAEEF7;
+  --wb-text-meta: rgba(234, 238, 247, 0.56);
+  --wb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.28);
+
+  /* Per-category / per-habit accents */
+  --wb-cat-blue: #4F8DF5;
+  --wb-cat-purple: #8C7CF0;
+  --wb-cat-green: #41C083;
+  --wb-cat-orange: #F0973E;
+  --wb-cat-pink: #EA6C9D;
+
+  /* Heatmap */
+  --wb-heat-empty: #1B2235;      /* cell at value 0 */
+  --wb-heat-border: rgba(255, 255, 255, 0.03);
+
+  /* Semantic action colors */
+  --wb-action-primary: #F0853A;   /* orange — Update / primary CTA */
+  --wb-action-complete: #34C27E;  /* green — Complete / Done */
+  --wb-action-pause: #E6B43E;     /* yellow — Pause */
+  --wb-action-delete: #E5564B;    /* red — Delete */
+  --wb-action-secondary: #2A3348; /* slate — Edit / secondary */
+
+  /* FABs */
+  --wb-fab-habits: #7C5CF0;       /* purple */
+  --wb-fab-tasks: #34C27E;        /* green */
+}
+
+/* ── Wallaby light ───────────────────────────────────────────────────────── */
+:root[data-ui="v2"][data-theme="wallaby-light"] {
+  --v2-font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --v2-font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --v2-bg: #F4F6FB;
+  --v2-surface: #FFFFFF;
+  --v2-text: #18203A;
+  --v2-text-rgb: 24, 32, 58;
+  --v2-text-meta: rgba(24, 32, 58, 0.58);
+  --v2-text-faint: rgba(24, 32, 58, 0.34);
+  --v2-hairline: rgba(24, 32, 58, 0.10);
+  --v2-accent: #7C5CF0;
+
+  --wb-bg: #F4F6FB;
+  --wb-card: #FFFFFF;
+  --wb-card-2: #EEF1F8;
+  --wb-card-3: #E4E9F4;
+  --wb-hairline: rgba(24, 32, 58, 0.10);
+  --wb-hairline-strong: rgba(24, 32, 58, 0.18);
+  --wb-text: #18203A;
+  --wb-text-meta: rgba(24, 32, 58, 0.58);
+  --wb-shadow: 0 1px 2px rgba(24, 32, 58, 0.06), 0 8px 24px rgba(24, 32, 58, 0.08);
+
+  --wb-cat-blue: #3B7BE8;
+  --wb-cat-purple: #7C5CF0;
+  --wb-cat-green: #2BA56B;
+  --wb-cat-orange: #E07E26;
+  --wb-cat-pink: #DB5690;
+
+  --wb-heat-empty: #E7EBF4;
+  --wb-heat-border: rgba(24, 32, 58, 0.04);
+
+  --wb-action-primary: #E97A2C;
+  --wb-action-complete: #2BA56B;
+  --wb-action-pause: #D9A21F;
+  --wb-action-delete: #DC4A40;
+  --wb-action-secondary: #DDE3F0;
+
+  --wb-fab-habits: #7C5CF0;
+  --wb-fab-tasks: #2BA56B;
+}
