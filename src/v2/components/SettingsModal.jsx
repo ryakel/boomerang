@@ -2276,6 +2276,10 @@ export default function SettingsModal({
   // the debounced flush fires; back to false after 2s.
   const [justSaved, setJustSaved] = useState(false)
   const justSavedTimer = useRef(null)
+  // Dev-only reseed: only the dev environment exposes the button. The server
+  // also hard-gates POST /api/dev/seed to dev, so this is just visibility.
+  const [isDev, setIsDev] = useState(false)
+  const [reseeding, setReseeding] = useState(false)
   // Easter egg trigger — 7 taps on the Build row within a rolling 2s
   // window opens the hidden tic-tac-toe game. Android-build-number
   // metaphor. Undocumented in user-facing copy.
@@ -2297,6 +2301,41 @@ export default function SettingsModal({
   useEffect(() => {
     if (open) setSettings(loadSettings())
   }, [open])
+
+  // Detect the dev environment (gates the reseed button). /api/health returns
+  // isDev:true only when APP_VERSION is 'dev' or 'dev-<sha>'.
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    fetch('/api/health')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (alive && d) setIsDev(!!d.isDev) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [open])
+
+  const handleReseed = () => {
+    setConfirmDialog({
+      title: 'Reseed dev database',
+      message: 'This WIPES the dev database and reloads fresh seed data (tasks rebased to today + synthesized routine history). Dev only — there is no undo. Continue?',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        setReseeding(true)
+        try {
+          const res = await fetch('/api/dev/seed', { method: 'POST' })
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}))
+            throw new Error(body.error || `Reseed failed (${res.status})`)
+          }
+          // Fresh data — full reload so every view rehydrates from the seeded DB.
+          window.location.reload()
+        } catch (err) {
+          setReseeding(false)
+          setConfirmDialog({ title: 'Reseed failed', message: err.message, onConfirm: () => setConfirmDialog(null) })
+        }
+      },
+    })
+  }
 
   // Cleanup the saved-flash timer on unmount.
   useEffect(() => () => {
@@ -2717,6 +2756,16 @@ export default function SettingsModal({
                 <Upload size={13} strokeWidth={1.75} /> Import from markdown
               </button>
             </div>
+
+            {isDev && (
+              <div className="v2-settings-block">
+                <div className="v2-form-label">Developer · dev only</div>
+                <div className="v2-settings-row-hint">Wipe this dev database and reload fresh seed data (tasks rebased to today, ~250 days of routine history). Only shown on the dev build; the server blocks it everywhere else.</div>
+                <button className="v2-settings-btn" onClick={handleReseed} disabled={reseeding}>
+                  <RefreshCw size={13} strokeWidth={1.75} /> {reseeding ? 'Reseeding…' : 'Reseed dev database'}
+                </button>
+              </div>
+            )}
 
             <div className="v2-settings-danger">
               <div className="v2-form-label">Danger zone</div>

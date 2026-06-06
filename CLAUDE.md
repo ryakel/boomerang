@@ -887,7 +887,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Version check on every view/modal navigation via `/api/health`
 - Docker multi-stage build with QEMU-safe arm64 support
 - `sharp` as devDependency for icon generation
-- Dev seed system: `SEED_DB=1` populates DB with realistic ADHD test data at startup (Claude API or static fallback)
+- Dev seed system: `SEED_DB=1` populates DB with realistic ADHD test data at startup (Claude API or static fallback). On-demand reseed via `POST /api/dev/seed` (wipes + reloads). Both the endpoint and the **Settings → Data → "Reseed dev database"** button are hard-gated to the dev environment — `isDevEnv` in `server.js` is true only when `APP_VERSION` is `dev` or `dev-<sha>` (prod builds use `v1.x.x` git tags), exposed to the client via `isDev` on `/api/health`. The endpoint 403s and the button is hidden anywhere else, so prod can't be wiped by it.
 
 ### UI v2 (Opt-in Maturity Refresh, 2026-05-03)
 Boomerang ships with two UIs that share the same underlying app (server, hooks, store, contexts, API).
