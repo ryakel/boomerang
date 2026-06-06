@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Sparkles, Send, StopCircle, CheckCircle2, XCircle, Loader2,
-  History, Trash2, Plus, Star, AlertCircle,
+  History, Trash2, Plus, Star, AlertCircle, Search,
 } from 'lucide-react'
 import { renderMarkdown } from '../../utils/renderMarkdown'
+import { useWallabyMode } from '../hooks/useWallabyMode'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import TypingSuggestions from './TypingSuggestions'
@@ -177,6 +178,7 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
   } = adviser
   const [input, setInput] = useState('')
   const [showHistory, setShowHistory] = useState(false)
+  const wallaby = useWallabyMode()
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
   const lastDraftRef = useRef(null)
@@ -257,19 +259,24 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
   return (
     <ModalShell open={open} onClose={onClose} title="Quokka" terminalTitle="> quokka" width="wide" flexBody>
       <div className="v2-adviser-toolbar">
+        {/* In Wallaby, these sit at the top of the page as icon buttons matching
+         * the Tasks header (search-style chip). Elsewhere they're labeled pills. */}
         <button
-          className="v2-adviser-tool-btn"
+          className={wallaby ? `wb-icon-btn${showHistory ? ' is-active' : ''}` : 'v2-adviser-tool-btn'}
           onClick={() => setShowHistory(v => !v)}
-          aria-label="Chat history"
+          aria-label="Chats"
         >
-          <History size={14} strokeWidth={1.75} /> {chats.length > 0 ? `${chats.length} chat${chats.length !== 1 ? 's' : ''}` : 'Chats'}
+          {wallaby
+            ? <Search size={18} strokeWidth={2} />
+            : <><History size={14} strokeWidth={1.75} /> {chats.length > 0 ? `${chats.length} chat${chats.length !== 1 ? 's' : ''}` : 'Chats'}</>}
         </button>
         {!showHistory && (
           <button
-            className="v2-adviser-tool-btn v2-adviser-tool-btn-primary"
+            className={wallaby ? 'wb-icon-btn wb-icon-btn-accent' : 'v2-adviser-tool-btn v2-adviser-tool-btn-primary'}
             onClick={handleNewChat}
+            aria-label="New chat"
           >
-            <Plus size={14} strokeWidth={2} /> New chat
+            {wallaby ? <Plus size={18} strokeWidth={2.5} /> : <><Plus size={14} strokeWidth={2} /> New chat</>}
           </button>
         )}
       </div>
