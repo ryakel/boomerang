@@ -275,7 +275,7 @@ function TaskCard({ task, expanded, onToggleExpand, onComplete, onEdit, onSnooze
               </button>
             )}
             <button
-              className="v2-card-action"
+              className="v2-card-action v2-card-action-snooze"
               onClick={() => onSnooze(task)}
               aria-label="Snooze"
             >

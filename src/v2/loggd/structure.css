@@ -89,3 +89,121 @@
 [data-theme^="loggd"] .v2-header-icon:hover {
   border-color: var(--lg-border-strong);
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Full-dashboard layer — the moves that make Loggd read as a dashboard, not
+ * a navy recolor of the calm list. All Loggd-gated; Standard is untouched.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Home stat band: colorful stat tiles (streak / points / done / date) ──
+ * The band is in the markup for every theme but hidden by default; Loggd
+ * shows it and hides the calm inline `.v2-home-stats` line. Both drive the
+ * same statsDetail state, so the expandable detail panels still work. */
+.v2-loggd-band { display: none; }
+
+[data-theme^="loggd"] .v2-home-stats { display: none; }
+
+[data-theme^="loggd"] .v2-loggd-band {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 2px 0 16px;
+}
+[data-theme^="loggd"] .v2-loggd-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 13px 14px;
+  background: var(--lg-card-2);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 14px;
+  box-shadow: var(--lg-shadow);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  transition: border-color var(--v2-dur-quick) var(--v2-ease-standard),
+              transform var(--v2-dur-quick) var(--v2-ease-standard);
+}
+[data-theme^="loggd"] .v2-loggd-stat:hover { transform: translateY(-1px); }
+[data-theme^="loggd"] .v2-loggd-stat.is-active { border-color: var(--stat-color, var(--v2-accent)); }
+[data-theme^="loggd"] .v2-loggd-stat-icon { color: var(--stat-color, var(--v2-accent)); }
+[data-theme^="loggd"] .v2-loggd-stat-value {
+  font: 800 24px/1 var(--v2-font-display);
+  color: var(--v2-text);
+  letter-spacing: -0.02em;
+}
+[data-theme^="loggd"] .v2-loggd-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--v2-text-meta);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-theme^="loggd"] .v2-loggd-stat-streak { --stat-color: var(--lg-orange); }
+[data-theme^="loggd"] .v2-loggd-stat-points { --stat-color: var(--lg-purple); }
+[data-theme^="loggd"] .v2-loggd-stat-done   { --stat-color: var(--lg-green); }
+[data-theme^="loggd"] .v2-loggd-stat-date   { --stat-color: var(--lg-blue); }
+
+@media (max-width: 520px) {
+  [data-theme^="loggd"] .v2-loggd-band { gap: 7px; }
+  [data-theme^="loggd"] .v2-loggd-stat { padding: 10px; border-radius: 12px; }
+  [data-theme^="loggd"] .v2-loggd-stat-value { font-size: 20px; }
+}
+
+/* ── Cards: energy chip → filled colored category tile (white glyph). The
+ * per-energy color rides on --lg-stripe (set in the card-stripe block above);
+ * reuse it as the tile fill. Inline lucide color attrs are overridden. ──── */
+[data-theme^="loggd"] .v2-card-energy {
+  flex-direction: column;
+  gap: 3px;
+  align-self: center;
+  padding: 7px;
+  border-radius: 10px;
+  background: var(--lg-stripe, var(--lg-card-2));
+}
+[data-theme^="loggd"] .v2-card-energy > svg { color: #fff !important; }
+[data-theme^="loggd"] .v2-card-energy-bolts svg {
+  color: rgba(255, 255, 255, 0.92) !important;
+  fill: rgba(255, 255, 255, 0.92) !important;
+}
+
+/* Heavier card titles — dashboard weight, not airy list weight. */
+[data-theme^="loggd"] .v2-card-title { font-weight: 650; }
+
+/* ── Semantic action buttons (green done / yellow snooze / orange save /
+ * red delete) — the Loggd goal-detail button language. ─────────────────── */
+[data-theme^="loggd"] .v2-card-action-primary {
+  background: var(--lg-action-complete);
+  border-color: var(--lg-action-complete);
+  color: #fff;
+}
+[data-theme^="loggd"] .v2-card-action-snooze {
+  color: var(--lg-action-pause);
+  border-color: color-mix(in srgb, var(--lg-action-pause) 55%, transparent);
+}
+[data-theme^="loggd"] .v2-edit-action-primary {
+  background: var(--lg-action-primary);
+  border-color: var(--lg-action-primary);
+  color: #fff;
+}
+[data-theme^="loggd"] .v2-edit-action-danger {
+  color: var(--lg-action-delete);
+  border-color: color-mix(in srgb, var(--lg-action-delete) 55%, transparent);
+}
+[data-theme^="loggd"] .v2-edit-action-confirm-yes {
+  background: var(--lg-action-delete);
+  border-color: var(--lg-action-delete);
+  color: #fff;
+}
+
+/* ── Filter toolbar → contained segmented control (active pill = accent
+ * fill, already set in the toolbar-pill block above). ──────────────────── */
+[data-theme^="loggd"] .v2-toolbar-pills {
+  background: var(--lg-card-2);
+  border: 1px solid var(--v2-hairline);
+  border-radius: var(--v2-radius-pill);
+  padding: 4px;
+}
