@@ -4,35 +4,6 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
-## 2026-06-05
-
-- feat(ui): Loggd full-dashboard layer — stat band, category tiles, semantic actions [M]
-  - The Phase-2 structural touches read as a navy recolor, not a reskin. Wired the dashboard character into the surfaces you actually look at, all Loggd-gated (Standard untouched): a home **stat band** of 4 colorful tiles (streak / points / done / date) with big grotesk numbers, driving the same `statsDetail` state as the calm line it replaces; **filled category tiles** for the card energy chip (colored square + white glyph from the per-energy `--lg-stripe`); **semantic action buttons** (green Done / yellow Snooze / orange Save / red Delete); a **contained segmented toolbar**; heavier card titles. The rich `--lg-action-*` / category tokens defined in Phase 1 were previously only consumed by heatmaps.
-  - Files: `src/v2/AppV2.jsx` (band markup + lucide imports), `src/v2/components/TaskCard.jsx` (snooze class), `src/v2/loggd/structure.css` (the dashboard layer), `CLAUDE.md`.
-
-- chore(ui): strip inert terminal props + Loggd header icon pills [S]
-  - Removed every now-inert `terminalTitle` / `terminalCommand` / `terminalCmd` / `data-terminal-cmd` / `data-terminal-label` prop+attr from all v2 call sites (ModalShell/EmptyState/ConfirmDialog stopped reading them in the teardown — they were dead strings). 20 files touched, no behavior change. Added a Loggd-gated header touch: contained surface-pill icon buttons so the header glyphs read as buttons against the navy canvas. Dead `[data-theme^="terminal"]` CSS blocks remain inert (no theme matches) and get swept per-file later.
-  - Files: 20 v2 components + `src/v2/AppV2.jsx`, `src/v2/loggd/structure.css`, `CLAUDE.md`.
-
-- feat(ui): Loggd Profile/Dashboard screen (year grid + stat pills + habit heatmaps) [M]
-  - **Phase 3b.** New `ProfileModal` (`src/v2/components/ProfileModal.{jsx,css}`) — the Loggd "see your year" hero surface. Opened from the ⚙ SystemMenu via a new "Dashboard" row. Sections: colorful **stat pills** (day streak / points today / done today / best streak / lifetime done, each carrying a Loggd category accent), a big **53-week activity contribution grid** with a Tasks/Points toggle (reuses `GET /api/analytics/history?days=365`), and **per-habit heatmaps** for every routine with completion history. All data is already computed by AppV2 (`dailyStats`, `streak`, `records`) or fetched from the existing analytics endpoint — no new server work.
-  - Extracted `heatmapUtils.js` (`routineHeatColor`, `historyByDay`) shared by RoutinesModal + ProfileModal so the per-routine palette and day-bucketing can't drift.
-  - Wired into AppV2: `showProfile` state, SystemMenu `onOpenProfile`, modal-stack + Escape handling + version-check effect.
-  - Files: `src/v2/components/{ProfileModal.jsx,ProfileModal.css,heatmapUtils.js}` (new), `src/v2/components/{SystemMenu,RoutinesModal}.jsx`, `src/v2/AppV2.jsx`, `CLAUDE.md`.
-
-- feat(ui): Loggd structural layer + reusable contribution heatmap on routine cards [M]
-  - **Phase 2 — structural restyle.** Added `src/v2/loggd/structure.css` (gated entirely on `[data-theme^="loggd"]`, so Standard themes are untouched): soft card elevation + a per-energy **category accent stripe** (drove a `data-energy` attr onto `.v2-card`, painted as an inset shadow so alert border-lefts still win), accent-fill active toolbar pills, larger colorful FABs with white what-now glyph (black-on-purple was unreadable), heavier section labels, deepened modal sheet shadow. Split the Loggd dir into `palette.css` + `structure.css` behind a new `index.css` aggregator.
-  - **Phase 3a — heatmaps.** New theme-agnostic `ContributionHeatmap` component (`src/v2/components/ContributionHeatmap.{jsx,css}`) — GitHub-style grid keyed by local date, intensity via `color-mix`, consumes `--lg-heat-*` tokens with Standard-theme fallbacks. Wired into the v2 RoutinesModal: expanded routine cards now show an 18-week per-habit contribution grid built from `completed_history`, colored by a stable hash of the routine id (cycles the Loggd category palette — like the loggd.life habit cards).
-  - Files: `src/v2/loggd/{index,structure}.css` (new), `src/v2/loggd/palette.css` (renamed import path), `src/v2/AppV2.css`, `src/v2/tokens.css`, `src/v2/components/ContributionHeatmap.{jsx,css}` (new), `src/v2/components/{TaskCard.jsx,RoutinesModal.jsx,RoutinesModal.css}`, `CLAUDE.md`.
-
-- refactor(ui): retire terminal theme + add Loggd palette family (light + dark) [L]
-  - **Terminal didn't stick.** Tore out the Terminal Dark / Terminal Light palette family (the 2026-05-10 GitHub-palette monospace+ASCII stress test) and replaced it with the **Loggd** design language modeled on [loggd.life](https://loggd.life) — deep-navy canvas, hairline cards + soft elevation, per-category color accents, heavy Inter titles, pill segmented controls, colorful semantic action buttons, and (coming next) GitHub-style contribution heatmaps.
-  - **Teardown.** Deleted `src/v2/terminal/`, `src/v2/hooks/useTerminalMode.js`, and the `scripts/check-terminal-{titles,buttons}.js` CI smoke tests (+ their `package.json` scripts and pre-push hook steps). Stripped the terminal branch from `ModalShell`, `EmptyState`, `ConfirmDialog`, `TaskCard` (swipe always-on now), `ProjectPinnedSection`, `StackSection`, `TicTacToe`. The `terminalTitle`/`terminalCommand` props are now inert no-ops at remaining call sites (cleaned up per-modal in the next phase).
-  - **Theme model.** Settings → General keeps the **family × mode** picker but the family toggle is now **Standard / Loggd**, yielding `light`, `dark`, `loggd-light`, `loggd-dark`. Old Light/Dark stay; Loggd Dark is the new flagship. Migration (runtime `loadSettings()` + index.html pre-paint): `terminal-dark`/legacy `terminal` → `loggd-dark`, `terminal-light` → `loggd-light`.
-  - **Tokens.** Loggd themes override the shared `--v2-*` tokens (zero per-component change) plus add `--lg-*` structural tokens (card elevation, category accents, semantic action colors, heatmap cells). All in `src/v2/loggd/palette.css`, imported by `AppV2.css`. Density signals on TaskCard (`[X/Y]` counter, `🔥N` streak, notes preview) graduated to all themes with base styles in `TaskCard.css`.
-  - **Fonts.** Added Inter (display); removed the terminal-only JetBrains Mono load; bumped DM Sans to include 700.
-  - Files: `src/v2/loggd/palette.css` (new), `src/v2/AppV2.css`, `src/v2/AppV2.jsx`, `src/v2/tokens.css`, `index.html`, `src/store.js`, `src/v2/components/{SettingsModal,ModalShell,EmptyState,ConfirmDialog,TaskCard,TaskCard.css,ProjectPinnedSection,StackSection,TicTacToe}.jsx`, `package.json`, `.githooks/pre-push`, `CLAUDE.md`.
-
 ## 2026-06-04
 
 - fix(ui): tic-tac-toe text/labels actually follow the active theme [XS]

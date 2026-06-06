@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ListChecks, Flame, Zap, CheckCircle2, CalendarDays } from 'lucide-react'
+import { ListChecks } from 'lucide-react'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import BottomTabs from './components/BottomTabs'
@@ -22,7 +22,6 @@ import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
-import ProfileModal from './components/ProfileModal'
 import KanbanBoard from './components/KanbanBoard'
 import ProjectPinnedSection from './components/ProjectPinnedSection'
 import StackSection from './components/StackSection'
@@ -96,7 +95,6 @@ export default function AppV2() {
   // pre-seeded entry point (currently the Knowledge menu item).
   const [adviserDraftSeed, setAdviserDraftSeed] = useState('')
   const [showAnalytics, setShowAnalytics] = useState(false)
-  const [showProfile, setShowProfile] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   // 7-day strip visibility — single source of truth. Date tap toggles
   // it in all themes. Two settings can seed the initial state on load:
@@ -177,8 +175,8 @@ export default function AppV2() {
     const themeColors = {
       light: '#FFFFFF',
       dark: '#0B0B0F',
-      'loggd-dark': '#0E1322',
-      'loggd-light': '#F4F6FB',
+      'terminal-dark': '#0D1117',
+      'terminal-light': '#FFFFFF',
     }
     if (themeColors[theme]) {
       document.documentElement.setAttribute('data-theme', theme)
@@ -264,10 +262,10 @@ export default function AppV2() {
   // Check app version whenever a view/modal opens — same cadence v1 uses.
   // Catches stale clients without waiting for the next SSE/sync round-trip.
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showProfile || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || editTarget || showAdd || showWhatNow || showMarkdownImport) {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || editTarget || showAdd || showWhatNow || showMarkdownImport) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showProfile, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
 
   // Deep-link handler. Notifications come in as `/?task=<id>` (task tap),
   // `/?routine=<id>` (habit nudge tap, PR 2 — currently no-op without
@@ -463,7 +461,6 @@ export default function AppV2() {
   if (showPackages) activeModals.push('packages')
   if (showAdviser) activeModals.push('adviser')
   if (showAnalytics) activeModals.push('analytics')
-  if (showProfile) activeModals.push('profile')
   if (showSuggestions) activeModals.push('suggestions')
   if (spacesHubOpen) activeModals.push('spaces')
   if (systemMenuOpen) activeModals.push('systemMenu')
@@ -483,12 +480,11 @@ export default function AppV2() {
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
     if (showAnalytics) { setShowAnalytics(false); return }
-    if (showProfile) { setShowProfile(false); return }
     if (showSuggestions) { setShowSuggestions(false); return }
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
     if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showProfile, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -855,7 +851,6 @@ export default function AppV2() {
         onClose={() => setSystemMenuOpen(false)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenAnalytics={() => setShowAnalytics(true)}
-        onOpenProfile={() => setShowProfile(true)}
         onOpenDone={() => setShowDone(true)}
         onOpenSuggestions={() => setShowSuggestions(true)}
         onOpenActivityLog={() => setShowActivityLog(true)}
@@ -909,53 +904,6 @@ export default function AppV2() {
           * Date → WeekStrip. Streak → streak detail. Today → daily detail. */}
         {!searchOpen && (totalActive > 0 || sortedSnoozed.length > 0 || backlogTasks.length > 0 || projectTasks.length > 0) && (
           <>
-            {/* Loggd dashboard stat band — rendered in markup for every theme
-              * but shown only in Loggd (CSS-gated); the calm .v2-home-stats
-              * line takes over in Standard. Drives the SAME statsDetail /
-              * weekStrip state, so the detail panels below work in both. */}
-            <div className="v2-loggd-band" role="group" aria-label="Today at a glance">
-              <button
-                type="button"
-                className={`v2-loggd-stat v2-loggd-stat-streak${statsDetail === 'streak' ? ' is-active' : ''}`}
-                onClick={() => { setStatsDetail(v => v === 'streak' ? null : 'streak'); setWeekStripShown(false) }}
-                aria-expanded={statsDetail === 'streak'}
-              >
-                <Flame size={18} strokeWidth={2} className="v2-loggd-stat-icon" />
-                <span className="v2-loggd-stat-value">{streak}</span>
-                <span className="v2-loggd-stat-label">streak</span>
-              </button>
-              <button
-                type="button"
-                className={`v2-loggd-stat v2-loggd-stat-points${statsDetail === 'today' ? ' is-active' : ''}`}
-                onClick={() => { setStatsDetail(v => v === 'today' ? null : 'today'); setWeekStripShown(false) }}
-                aria-expanded={statsDetail === 'today'}
-              >
-                <Zap size={18} strokeWidth={2} className="v2-loggd-stat-icon" />
-                <span className="v2-loggd-stat-value">{dailyStats.pointsToday}</span>
-                <span className="v2-loggd-stat-label">points</span>
-              </button>
-              <button
-                type="button"
-                className={`v2-loggd-stat v2-loggd-stat-done${statsDetail === 'today' ? ' is-active' : ''}`}
-                onClick={() => { setStatsDetail(v => v === 'today' ? null : 'today'); setWeekStripShown(false) }}
-                aria-expanded={statsDetail === 'today'}
-              >
-                <CheckCircle2 size={18} strokeWidth={2} className="v2-loggd-stat-icon" />
-                <span className="v2-loggd-stat-value">{dailyStats.tasksToday}</span>
-                <span className="v2-loggd-stat-label">done</span>
-              </button>
-              <button
-                type="button"
-                className={`v2-loggd-stat v2-loggd-stat-date${weekStripShown ? ' is-active' : ''}`}
-                onClick={() => { setWeekStripShown(v => !v); setStatsDetail(null) }}
-                aria-expanded={weekStripShown}
-                aria-controls="v2-week-strip-days"
-              >
-                <CalendarDays size={18} strokeWidth={2} className="v2-loggd-stat-icon" />
-                <span className="v2-loggd-stat-value">{new Date().getDate()}</span>
-                <span className="v2-loggd-stat-label">{new Date().toLocaleDateString('en-US', { weekday: 'short' })}</span>
-              </button>
-            </div>
             <div className="v2-home-stats" aria-hidden="false">
               <button
                 type="button"
@@ -1062,12 +1010,14 @@ export default function AppV2() {
                 icon={ListChecks}
                 title="Type to search"
                 body="Searches every task — active, done, backlog, or project."
+                terminalCommand="// type a query — searches active, done, backlog, projects"
               />
             ) : searchResults.length === 0 ? (
               <EmptyState
                 icon={ListChecks}
                 title="No matches"
                 body={`Nothing matches "${searchQuery}". Try a different keyword.`}
+                terminalCommand={`// no matches for "${searchQuery}"`}
               />
             ) : (
               <>
@@ -1098,6 +1048,9 @@ export default function AppV2() {
             body={activeFilter !== 'all' ? 'Tap All above to clear the filter.' : 'No active tasks right now. Tap the + above to add one.'}
             cta={activeFilter !== 'all' ? 'Show all' : 'Add task'}
             ctaOnClick={activeFilter !== 'all' ? () => setActiveFilter('all') : () => setShowAdd(true)}
+            terminalCommand={activeFilter !== 'all'
+              ? '// no matches under this filter — clear it to see everything'
+              : '// no active tasks. that\'s either bold or concerning. press + to add.'}
           />
         ) : isDesktop ? (
           <KanbanBoard
@@ -1269,7 +1222,7 @@ export default function AppV2() {
         }}
       />
 
-      <ModalShell open={showHelp} onClose={() => setShowHelp(false)} title="Keyboard shortcuts" width="narrow">
+      <ModalShell open={showHelp} onClose={() => setShowHelp(false)} title="Keyboard shortcuts" terminalTitle="> help --keys" width="narrow">
         <ul className="v2-shortcut-list">
           {[
             { keys: ['n'], desc: 'New task' },
@@ -1408,16 +1361,6 @@ export default function AppV2() {
       <AnalyticsModal
         open={showAnalytics}
         onClose={() => setShowAnalytics(false)}
-      />
-
-      <ProfileModal
-        open={showProfile}
-        onClose={() => setShowProfile(false)}
-        tasks={tasks}
-        routines={routines}
-        dailyStats={dailyStats}
-        streak={streak}
-        records={records}
       />
 
       {isDesktop && (

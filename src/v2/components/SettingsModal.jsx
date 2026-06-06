@@ -2407,6 +2407,7 @@ export default function SettingsModal({
       open={open}
       onClose={onClose}
       title="Settings"
+      terminalTitle="> settings"
       width="wide"
       headerSlot={<AutosaveIndicator saved={justSaved} />}
     >
@@ -2430,17 +2431,17 @@ export default function SettingsModal({
               const themeColors = {
                 light: '#FFFFFF',
                 dark: '#0B0B0F',
-                'loggd-light': '#F4F6FB',
-                'loggd-dark': '#0E1322',
+                'terminal-light': '#FFFFFF',
+                'terminal-dark': '#0D1117',
               }
               const currentTheme = settings.theme || 'light'
-              const isLoggd = currentTheme.startsWith('loggd')
-              const isDark = currentTheme === 'dark' || currentTheme === 'loggd-dark'
-              const family = isLoggd ? 'loggd' : 'standard'
+              const isTerminal = currentTheme.startsWith('terminal')
+              const isDark = currentTheme === 'dark' || currentTheme === 'terminal-dark'
+              const family = isTerminal ? 'terminal' : 'standard'
               const mode = isDark ? 'dark' : 'light'
               const setTheme = (nextFamily, nextMode) => {
-                const value = nextFamily === 'loggd'
-                  ? (nextMode === 'dark' ? 'loggd-dark' : 'loggd-light')
+                const value = nextFamily === 'terminal'
+                  ? (nextMode === 'dark' ? 'terminal-dark' : 'terminal-light')
                   : (nextMode === 'dark' ? 'dark' : 'light')
                 update('theme', value)
                 document.documentElement.setAttribute('data-theme', value)
@@ -2452,12 +2453,12 @@ export default function SettingsModal({
                   <div className="v2-settings-row v2-settings-row-stacked">
                     <div className="v2-settings-row-text">
                       <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Loggd is the deep-navy dashboard look — contribution heatmaps, stat pills, colorful accents.</div>
+                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Terminal is monospace + ASCII flourishes — init-style on a GitHub palette.</div>
                     </div>
                     <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
                       {[
                         { value: 'standard', label: 'Standard' },
-                        { value: 'loggd', label: 'Loggd' },
+                        { value: 'terminal', label: 'Terminal' },
                       ].map(opt => (
                         <button
                           key={opt.value}

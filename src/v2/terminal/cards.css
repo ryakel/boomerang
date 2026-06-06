@@ -1,0 +1,140 @@
+/* Terminal — Task cards + cross-modal action buttons.
+ *
+ * Cards already pick up the terminal palette + boxy 4px radii via
+ * tokens. Layered ASCII flourishes here:
+ *   - "[ ] " checkbox prefix on each task title (the universal terminal
+ *     "TODO" affordance — reads as a row in `task-list output`)
+ *   - "[ done ]" bracket wrapping on the primary action button
+ *   - Soft cyan glow on the primary button (terminal-dark only — the
+ *     glow falls back to `none` in terminal-light)
+ */
+
+/* The `[ ]` / `[!]` / `[*]` title prefix is rendered by the
+ * `.v2-card-checkbox` <span role="button"> element (see TaskCard.jsx)
+ * so the user can tap it to complete the task. Title text itself no
+ * longer carries a ::before; checkbox CSS lives in flatten.css /
+ * init.css next to the rest of the checkbox styling.
+ *
+ * Left intentionally empty — the structural prefix moved to a real
+ * interactive element. */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary {
+  box-shadow: var(--v2-glow);
+  font-weight: 700;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::before {
+  content: "[ ";
+  margin-right: 2px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-primary::after {
+  content: " ]";
+  margin-left: 2px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* Skip-advance keeps its amber color but gets the same boxy radius +
+ * subtle outline-glow so it reads as a peer command, not a stranger. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-action-skip {
+  border-color: var(--v2-alert-high-pri);
+  background: rgba(255, 184, 77, 0.06);
+}
+
+/* === Card density (PR G, terminal-only) ============================
+ * Three small additions to the collapsed task card that lift the data
+ * density of the daily list to match init.habits. All three are
+ * gated on terminal mode by user preference (2026-05-10) — extending
+ * to light/dark later is a 1-line change (drop the data-theme prefix
+ * scope) once usage validates.
+ *
+ *   1. [X/Y] checklist counter inline after the title
+ *   2. 🔥N routine-streak indicator inline after the title (or after
+ *      the counter if both present)
+ *   3. One-line clamped notes preview as a sub-row under the title
+ *
+ * Markup for all three ships in every theme; CSS hides them outside
+ * terminal mode via display:none.
+ */
+
+.v2-card-checklist-inline,
+.v2-card-routine-streak,
+.v2-card-notes-preview {
+  display: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-checklist-inline {
+  display: inline;
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  margin-left: 8px;
+  letter-spacing: 0;
+  /* Pulled toward the title baseline; superscript-ish without actually
+   * shrinking. The title sits at the same line, the counter floats next
+   * to it. */
+  vertical-align: baseline;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-routine-streak {
+  display: inline;
+  font: 500 12px/1 var(--v2-font-body);
+  color: var(--v2-alert-high-pri);
+  margin-left: 8px;
+  letter-spacing: 0;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-notes-preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  letter-spacing: 0;
+  /* Comment-ish prefix so the line reads as inline notes attached to
+   * the task, not a stray paragraph. */
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-notes-preview::before {
+  content: "// ";
+  color: var(--v2-text-faint);
+}
+
+/* The meta separator `·` becomes a more terminal-y `|` — pipe/output
+ * separator. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-meta-sep {
+  font-size: 0;
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-card-meta-sep::before {
+  content: "|";
+  font-size: 12px;
+  color: var(--v2-text-faint);
+}
+
+/* Buttons across modals (ConfirmDialog, ChainReconcileModal) — same
+ * bracket treatment for the primary action so destructive confirm
+ * dialogs and Quokka apply-suggestions buttons read as a single visual
+ * language with the in-card primary. Cancel/secondary stays bare. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-danger::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-btn-primary::before {
+  content: "[ ";
+  margin-right: 2px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-confirm-btn-danger::after,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-btn-primary::after {
+  content: " ]";
+  margin-left: 2px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-reconcile-btn-primary {
+  box-shadow: var(--v2-glow);
+}

@@ -1,0 +1,102 @@
+/* Terminal — Control language overrides.
+ *
+ * iOS-style toggles in Settings get rewritten as `[off] [on]` bracket
+ * pairs in terminal mode. Pure CSS, no JSX changes needed — the
+ * existing `<label>.v2-settings-toggle > <input> + <track> > <thumb>`
+ * structure becomes:
+ *   - track: flex container holding two pseudo-element labels
+ *   - ::before renders `[off]`, ::after renders `[on]`
+ *   - Whichever matches the input's checked state gets the accent
+ *     color; the other reads as faded text
+ *   - thumb is hidden
+ *
+ * Clicking anywhere on the label still toggles the input (because the
+ * <label> wraps the whole row in the markup), so the affordance works
+ * exactly like the iOS slider — you just see brackets instead of a
+ * pill. Light + dark themes are untouched.
+ */
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle-track {
+  width: auto;
+  height: auto;
+  background: transparent !important;
+  border: none;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  font: 500 12px/1 var(--v2-font-body);
+  letter-spacing: 0;
+  transition: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle-thumb {
+  display: none;
+}
+
+/* Default (unchecked) — `[off]` is the active selection. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle-track::before {
+  content: "[off]";
+  color: var(--v2-accent);
+  font-weight: 700;
+  text-shadow: var(--v2-glow);
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle-track::after {
+  content: "[on]";
+  color: var(--v2-text-faint);
+  font-weight: 500;
+}
+
+/* Checked — `[on]` becomes the active selection, `[off]` fades. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle input:checked + .v2-settings-toggle-track::before {
+  color: var(--v2-text-faint);
+  font-weight: 500;
+  text-shadow: none;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle input:checked + .v2-settings-toggle-track::after {
+  color: var(--v2-accent);
+  font-weight: 700;
+  text-shadow: var(--v2-glow);
+}
+
+/* Disabled state — both labels read as faint, no glow. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle-disabled .v2-settings-toggle-track::before,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-settings-toggle-disabled .v2-settings-toggle-track::after {
+  color: var(--v2-text-faint);
+  font-weight: 500;
+  text-shadow: none;
+}
+
+/* Empty-state terminal-comment renderer.
+ *
+ * `EmptyState` accepts an optional `terminalCommand` prop — when in
+ * terminal mode, that single-string short-circuits the icon + title +
+ * body tree to render as `// no results — try X` style commentary. */
+
+.v2-empty-terminal {
+  padding: 32px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.v2-empty-terminal-line {
+  margin: 0;
+  font: 500 13px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+/* `$` prefix in modal titles + brand-popover — color-key the prompt
+ * separator so the verb stands out from the dollar sign. Targets just
+ * the modal title so menu items / inline copy that incidentally start
+ * with `$` aren't affected. */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-modal-title {
+  font-feature-settings: "ss02" 1;
+  letter-spacing: 0;
+}
