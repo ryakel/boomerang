@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Bell } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import Logo from '../../components/Logo'
 import './WallabyHeader.css'
 
@@ -17,7 +17,7 @@ function deriveSyncVisualState(syncStatus, queueLength, animState) {
 // Wallaby persistent top app bar: bouncing BOOMERANG wordmark + logo (to the
 // right of the text), then Quokka · Packages · notifications bell · avatar.
 export default function WallabyHeader({
-  unread = 0, onBell, onAvatar, onOpenAdviser,
+  unread = 0, onBell, onAvatar,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const SAVING_MIN_HOLD = 1300
@@ -58,9 +58,6 @@ export default function WallabyHeader({
         </span>
       </div>
       <div className="wb-header-actions">
-        {onOpenAdviser && (
-          <button className="wb-header-btn" onClick={onOpenAdviser} aria-label="Quokka"><Sparkles size={20} strokeWidth={1.9} /></button>
-        )}
         <button className="wb-header-btn" onClick={onBell} aria-label="Notifications">
           <Bell size={20} strokeWidth={1.9} />
           {unread > 0 && <span className="wb-header-badge">{unread > 99 ? '99+' : unread}</span>}

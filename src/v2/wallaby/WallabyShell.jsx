@@ -104,7 +104,6 @@ export default function WallabyShell({
         unread={unread}
         onBell={() => setSub('notifications')}
         onAvatar={() => setSub('profile')}
-        onOpenAdviser={onOpenAdviser}
         syncStatus={syncStatus}
         queueLength={queueLength}
       />
@@ -112,6 +111,7 @@ export default function WallabyShell({
       <WallabyNav
         active={sub ? '' : tab}
         onChange={(t) => { setSub(null); setTab(t) }}
+        onQuokka={onOpenAdviser}
       />
     </div>
   )

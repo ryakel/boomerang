@@ -26,5 +26,6 @@
   transition: color 140ms ease;
 }
 .wb-nav-tab.is-active { color: var(--wb-action-complete); }
+.wb-nav-tab-action { color: var(--wb-cat-purple); }
 .wb-nav-icon { display: block; }
 .wb-nav-label { font-size: 10.5px; font-weight: 600; }
