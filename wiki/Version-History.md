@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-07
 
+- fix(ui): Wallaby — zero pills (de-pill every surface) [S]
+  - Per user "Wallaby should have zero pills": swept all `border-radius: 999px` → `10px` rounded squares across every Wallaby surface — segmented controls (Tasks Upcoming/Backlog/Done, Habits Single/Month/Year, Profile Tasks/Points, Analytics Overview/Tasks/Habits + range/metric), tags/label chips, counts/badges (streak chip, section counts, habit counts, "Soon"/"Today" badges, header notification badge), goal chips. Progress bars softened to 4px (clearly non-pill). **True circles preserved** (avatars, the date circle, week dots, round checkboxes at 50%). Combined with the earlier editor de-pill, Wallaby now has no pill-shaped controls. (Shared modals like Snooze/WhatNow keep their own v2 styling — sweep on request.)
+
 - fix(ui): Wallaby editors use rounded-square controls, not iOS pills [XS]
   - The task editors' config controls were fully-rounded **pills** (999px) while the rest of Wallaby's cards/buttons (and the editors' own More-options/Delete buttons) are rounded **squares** (10–18px) — inconsistent. De-pilled both: the chip quick-editor (`.wb-edit-chip` / `-opt` / `-tag` → 11px) and the full editor's controls (`forms.css`: `.v2-form-seg` / `-energy-pill` / `-label-pill` / `-ai-pill` / misc edit chips → 10–11px). Now matches the Wallaby button/card language. (User: "More options still has the rounded pill look … so does the edit menu itself … doesn't the rest use rounded squares?")
 

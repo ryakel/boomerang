@@ -28,7 +28,7 @@
   font-weight: 600;
   color: var(--tag, var(--wb-text-meta));
   background: color-mix(in srgb, var(--tag, #888) 18%, transparent);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 4px 11px;
 }
 .wb-goal-chip-soft {
@@ -72,14 +72,14 @@
 /* ── Progress bar ────────────────────────────────────────────────────────── */
 .wb-progress {
   height: 8px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: var(--wb-card-2);
   overflow: hidden;
 }
 .wb-progress-big { height: 12px; }
 .wb-progress-fill {
   height: 100%;
-  border-radius: 999px;
+  border-radius: 4px;
   background: linear-gradient(90deg, var(--wb-action-primary), var(--wb-cat-pink));
   transition: width 240ms ease;
 }

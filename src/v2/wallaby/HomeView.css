@@ -51,7 +51,7 @@
   font-weight: 700;
   color: var(--wb-action-complete);
   background: color-mix(in srgb, var(--wb-action-complete) 18%, transparent);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 4px 10px;
   flex: 0 0 auto;
 }
@@ -163,7 +163,7 @@
   font-weight: 700;
   color: var(--wb-text-meta);
   background: var(--wb-card-2);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 1px 8px;
 }
 .wb-home-habits { display: flex; flex-direction: column; gap: 9px; }
@@ -299,7 +299,7 @@
   font-weight: 800;
   color: var(--wb-action-primary);
   background: color-mix(in srgb, var(--wb-action-primary) 16%, transparent);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 4px 10px;
 }
 .wb-summary-heat { overflow: hidden; }
@@ -323,8 +323,8 @@
 .wb-home-card-count { font-size: 12.5px; font-weight: 700; color: var(--wb-text-meta); }
 .wb-home-empty-sm { color: var(--wb-text-meta); font-size: 13.5px; margin: 4px 0; }
 
-.wb-home-progress { height: 6px; border-radius: 999px; background: var(--wb-card-2); overflow: hidden; margin-bottom: 12px; }
-.wb-home-progress-fill { height: 100%; border-radius: 999px; background: var(--wb-action-complete); transition: width 240ms ease; }
+.wb-home-progress { height: 6px; border-radius: 4px; background: var(--wb-card-2); overflow: hidden; margin-bottom: 12px; }
+.wb-home-progress-fill { height: 100%; border-radius: 4px; background: var(--wb-action-complete); transition: width 240ms ease; }
 
 /* ── Task rows on Home ───────────────────────────────────────────────────── */
 .wb-home-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -351,7 +351,7 @@
   font-size: 11px; font-weight: 600;
   color: var(--tag, var(--wb-text-meta));
   background: color-mix(in srgb, var(--tag, #888) 18%, transparent);
-  border-radius: 999px; padding: 2px 9px;
+  border-radius: 10px; padding: 2px 9px;
 }
 
 /* Habit rows inside the card — icon tile + title + streak + check on one line */
