@@ -1,0 +1,153 @@
+/* Wallaby task editor — loggd-style chip language. Renders inside ModalShell,
+ * so the full-screen page + back arrow come from modals.css. */
+
+.wb-edit-title {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--wb-text);
+  font-family: var(--v2-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  padding: 4px 0;
+  margin-bottom: 6px;
+}
+.wb-edit-title:focus { outline: none; }
+.wb-edit-title::placeholder { color: var(--wb-text-meta); }
+
+.wb-edit-notes {
+  width: 100%;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card);
+  color: var(--wb-text);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: 400 14px/1.5 var(--v2-font-body);
+  resize: vertical;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+.wb-edit-notes:focus { outline: none; border-color: var(--wb-cat-purple); }
+.wb-edit-notes::placeholder { color: var(--wb-text-meta); }
+
+/* ── Subtasks ──────────────────────────────────────────────────────────────── */
+.wb-edit-subs { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
+.wb-edit-sub { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+.wb-edit-sub-check {
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--wb-hairline-strong);
+  background: transparent;
+  cursor: pointer;
+}
+.wb-edit-sub-check.is-done { background: var(--wb-action-complete); border-color: var(--wb-action-complete); }
+.wb-edit-sub-text { flex: 1 1 auto; font-size: 14px; color: var(--wb-text); }
+.wb-edit-sub-text.is-done { text-decoration: line-through; color: var(--wb-text-meta); }
+.wb-edit-sub-del { flex: 0 0 auto; border: none; background: none; color: var(--wb-text-meta); cursor: pointer; padding: 2px; opacity: 0.6; }
+.wb-edit-sub-del:hover { opacity: 1; color: var(--wb-action-delete); }
+.wb-edit-sub-add { gap: 8px; }
+.wb-edit-sub-addicon { color: var(--wb-text-meta); flex: 0 0 auto; }
+.wb-edit-sub-input { flex: 1 1 auto; border: none; background: transparent; color: var(--wb-text); font-size: 14px; padding: 4px 0; }
+.wb-edit-sub-input:focus { outline: none; }
+.wb-edit-sub-input::placeholder { color: var(--wb-text-meta); }
+
+/* ── Config chips ──────────────────────────────────────────────────────────── */
+.wb-edit-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.wb-edit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card);
+  color: var(--wb-text);
+  cursor: pointer;
+  font: 600 13px/1 var(--v2-font-body);
+}
+.wb-edit-chip.is-open { border-color: var(--wb-cat-purple); box-shadow: 0 0 0 1px var(--wb-cat-purple); }
+.wb-edit-chip-key { color: var(--wb-text-meta); font-weight: 600; }
+.wb-edit-chip-val { font-weight: 700; }
+.wb-edit-chip-caret { color: var(--wb-text-meta); }
+.wb-edit-chip-high .wb-edit-chip-val { color: var(--wb-action-primary); }
+.wb-edit-chip-done .wb-edit-chip-val { color: var(--wb-action-complete); }
+
+/* ── Inline pickers ────────────────────────────────────────────────────────── */
+.wb-edit-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--wb-card-2);
+  border: 1px solid var(--wb-hairline);
+}
+.wb-edit-picker-block { flex-direction: column; align-items: stretch; }
+.wb-edit-picker-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.wb-edit-picker-wrap { gap: 7px; }
+
+.wb-edit-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card);
+  color: var(--wb-text);
+  cursor: pointer;
+  font: 600 13px/1 var(--v2-font-body);
+}
+.wb-edit-opt.is-active {
+  background: var(--wb-action-complete);
+  border-color: var(--wb-action-complete);
+  color: #fff;
+}
+.wb-edit-opt-energy.is-active {
+  background: color-mix(in srgb, var(--ec, var(--wb-cat-blue)) 22%, transparent);
+  border-color: var(--ec, var(--wb-cat-blue));
+  color: var(--wb-text);
+}
+.wb-edit-opt-auto { color: var(--wb-cat-purple); }
+
+.wb-edit-tag {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tag, #888) 45%, transparent);
+  background: transparent;
+  color: var(--tag, var(--wb-text));
+  cursor: pointer;
+  font: 600 12.5px/1 var(--v2-font-body);
+}
+.wb-edit-tag.is-active {
+  background: color-mix(in srgb, var(--tag, #888) 22%, transparent);
+  color: #fff;
+}
+.wb-edit-empty { color: var(--wb-text-meta); font-size: 13px; }
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+.wb-edit-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--wb-hairline);
+}
+.wb-edit-more, .wb-edit-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card);
+  cursor: pointer;
+  font: 700 13px/1 var(--v2-font-body);
+}
+.wb-edit-more { color: var(--wb-text); }
+.wb-edit-delete { color: var(--wb-action-delete); border-color: color-mix(in srgb, var(--wb-action-delete) 40%, transparent); }
