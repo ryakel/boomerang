@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-07
 
+- chore(release): delete `wiki/wallaby-reference/` ahead of prod promotion [XS]
+  - Removed the 9.9 MB of external loggd reference PDFs/screenshots (+ the 2026-06-07 feature-request shots) — they must not ship to prod, per the dev→main ritual. Recoverable from git history. Doc links updated to note the removal.
+
 - fix(ui): Wallaby — de-pill the shared modals too (Snooze/WhatNow/Confirm/…) [S]
   - New `src/v2/wallaby/shared.css` (via `AppV2.css`) Wallaby-gates the **shared** v2 components reachable from Wallaby. Most of their pill controls use the `--v2-radius-pill` token, so it's redefined `999px → 10px` for `:root[data-ui="v2"][data-theme^="wallaby"]` — de-pilling Snooze, WhatNow, Reframe, ConfirmDialog, Suggestions, Packages, Settings (segmented + buttons), Adviser, etc. in one shot. **Toggle switches are protected** (`.v2-settings-toggle-track` restored to a pill track — a switch isn't a "pill"). Literal-`999px` stragglers handled too: `.v2-stack-bonus` / `.v2-form-date-preview` → 10px; indicator bars (`.v2-analytics-dow/-bd-track/-fill`, `.v2-badge-progress`, `.v2-edit-checklist-progress`) → 4px. Verified: token = 10px in Wallaby, toggle track = 999px, Settings segmented controls render as rounded squares.
 
