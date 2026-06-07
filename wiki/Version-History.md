@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-07
 
+- feat(analytics): tabbed AnalyticsModal — Overview / Tasks / Habits (all skins) [M]
+  - The single long-scroll AnalyticsModal is now organized into three tabs (shared component, all skins): **Overview** (summary + daily completions + 52-week heatmap + Achievements), **Tasks** (by day of week + Balance radar + by tag/energy/size + adaptive-throttle decisions), and a new **Habits** tab — per-routine completion (count, current streak 🔥, last-done, bar relative to the busiest) derived from `routine.completed_history`, no new endpoint. Range + metric controls stay above the tabs. Implemented by gating existing sections on the active tab (no reorder), so it's low-risk. Base tab styling in `AnalyticsModal.css`; Wallaby override → green segmented control. Focus/mood tabs intentionally omitted (deferred features). Verified headless: tab switching shows the right sections; Habits shows 7 routines with full names.
+
 - feat(ui): swipe-to-reveal actions on Wallaby task rows [S]
   - Brings the Wallaby `TasksView` rows to parity with the v2 TaskCard: swipe a row left to reveal **Done/Reopen** (green) + **Delete** (red). Extracted the v2 TaskCard's gesture into a shared `src/hooks/useSwipeActions.js` (offset/threshold/vertical-cancel, returns `{x, open, swiping, close, handlers}`) and wired it into the Wallaby `TaskRow` (actions panel behind, row slides on `translateX`). Tapping the row still opens the action sheet; an open swipe closes on body tap. Verified headless (touch-emulated): drag-left settles at `translateX(-132)` with Done/Delete revealed. (Standard skin already had swipe via the v2 TaskCard.)
 
