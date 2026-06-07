@@ -40,6 +40,7 @@ Bottom nav (loggd): **Home · Habits · Tasks · Timer · More**.
 | Profile / dashboard | ✅ | avatar/bio/year-grid (Tasks/Points)/per-habit grids + **Records strip** (Best day / Best points / Longest streak, from `computeRecords`). Level/XP/badges = 🅿️ gamification; public/share intentionally omitted |
 | Home — daily agenda | ✅ | Pulse + **Daily-summary card** (N tasks·M habits done + day-streak + mini 14-week heatmap) + per-day tasks/habits + interactive date strip. Mood/vision parts = 🅿️ |
 | Settings (visual reskin) | ✅ | Account / Notifications / Preferences / Privacy / API; per-type Push/Email toggles (Boomerang already has the data) |
+| Analytics — tabbed (Overview/Tasks/Habits) | ✅ (2026-06-07) | shared AnalyticsModal split into Overview / Tasks / Habits tabs (new per-habit completion view). Focus/Goals/mood tabs deferred (gated by Timer/mood features). |
 | Analytics (visual reskin) | ✅ (reskin) / 🅿️ | Tabbed **Overview / Habits / Tasks / Goals / Focus**. Weekly **points** total + ‹week› nav, 🔥current/🏆best streak, stat cards (Habits checks, Tasks completed, Focus time, Check-ins), **Points Breakdown by activity type**, weekly **mood bar-chart** + **reflections** recap. Reskin-able: points/streak/habit+task counts (Boomerang has these). Deferred: focus-time, check-ins, mood, badge points (tied to new features). Reached via More/Profile. |
 
 ### Home "Today's Pulse" (richer Home — PDF 1)

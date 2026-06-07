@@ -57,6 +57,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
   const labelMap = useMemo(() => Object.fromEntries(labels.map(l => [l.id, l])), [labels])
   const [range, setRange] = useState(30)
   const [metric, setMetric] = useState('tasks')
+  const [tab, setTab] = useState('overview') // overview | tasks | habits
   const [history, setHistory] = useState(null)
   const [heatMapData, setHeatMapData] = useState(null)
   const [heatMapMetric, setHeatMapMetric] = useState('tasks')
@@ -203,8 +204,25 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
             <span className="v2-analytics-summary-label">{metric === 'tasks' ? 'tasks' : 'points'} · last {range || 'all'} {range ? 'days' : 'time'}</span>
           </div>
 
+          {/* Section tabs */}
+          <div className="v2-analytics-tabs" role="tablist" aria-label="Analytics sections">
+            {[
+              { id: 'overview', label: 'Overview' },
+              { id: 'tasks', label: 'Tasks' },
+              { id: 'habits', label: 'Habits' },
+            ].map(t => (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={tab === t.id}
+                className={`v2-analytics-tab${tab === t.id ? ' v2-analytics-tab-active' : ''}`}
+                onClick={() => setTab(t.id)}
+              >{t.label}</button>
+            ))}
+          </div>
+
           {/* Daily chart */}
-          {history.daily?.length > 0 && (
+          {tab === 'overview' && history.daily?.length > 0 && (
             <section className="v2-analytics-section">
               <h3 className="v2-analytics-heading">Daily completions</h3>
               <div className="v2-analytics-daily-chart">
@@ -222,7 +240,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
           )}
 
           {/* Day-of-week pattern */}
-          {history.byDayOfWeek && (
+          {tab === 'tasks' && history.byDayOfWeek && (
             <section className="v2-analytics-section">
               <h3 className="v2-analytics-heading">By day of week</h3>
               <div className="v2-analytics-dow">
@@ -244,6 +262,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
           )}
 
           {/* Balance radar */}
+          {tab === 'tasks' && (
           <section className="v2-analytics-section">
             <div className="v2-analytics-section-head">
               <h3 className="v2-analytics-heading">Balance</h3>
@@ -269,9 +288,10 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
             </p>
             <BalanceRadar spokes={radarSpokes} size={300} />
           </section>
+          )}
 
           {/* Tag breakdown */}
-          {Object.keys(history.byTag || {}).length > 0 && (
+          {tab === 'tasks' && Object.keys(history.byTag || {}).length > 0 && (
             <section className="v2-analytics-section">
               <h3 className="v2-analytics-heading">By tag</h3>
               <ul className="v2-analytics-bd">
@@ -298,7 +318,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
           )}
 
           {/* Energy breakdown */}
-          {Object.keys(history.byEnergy || {}).length > 0 && (
+          {tab === 'tasks' && Object.keys(history.byEnergy || {}).length > 0 && (
             <section className="v2-analytics-section">
               <h3 className="v2-analytics-heading">By energy type</h3>
               <ul className="v2-analytics-bd">
@@ -325,7 +345,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
           )}
 
           {/* Size breakdown */}
-          {Object.keys(history.bySize || {}).length > 0 && (
+          {tab === 'tasks' && Object.keys(history.bySize || {}).length > 0 && (
             <section className="v2-analytics-section">
               <h3 className="v2-analytics-heading">By size</h3>
               <ul className="v2-analytics-bd">
@@ -349,7 +369,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
           )}
 
           {/* 52-week heatmap */}
-          {heatMap.weeks.length > 0 && (
+          {tab === 'overview' && heatMap.weeks.length > 0 && (
             <section className="v2-analytics-section">
               <div className="v2-analytics-section-head">
                 <h3 className="v2-analytics-heading">52-week pattern</h3>
@@ -399,14 +419,18 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
             </section>
           )}
 
+          {tab === 'overview' && (
           <section className="v2-analytics-section">
             <div className="v2-analytics-section-head">
               <h2 className="v2-analytics-section-title">Achievements</h2>
             </div>
             <BadgesGrid badges={badges} />
           </section>
+          )}
 
-          {throttleDecisions.filter(d => !d.feedback).length > 0 && (
+          {tab === 'habits' && <HabitsAnalytics routines={routines} />}
+
+          {tab === 'tasks' && throttleDecisions.filter(d => !d.feedback).length > 0 && (
             <section className="v2-analytics-section">
               <div className="v2-analytics-section-head">
                 <h2 className="v2-analytics-section-title">Adaptive throttle decisions</h2>
@@ -445,5 +469,63 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
         </>
       )}
     </ModalShell>
+  )
+}
+
+// Habits tab — per-routine completion summary from data we already have
+// (routine.completed_history). No new endpoint. Theme-agnostic.
+function habitStreak(history) {
+  const days = new Set((history || []).map(ts => {
+    const d = new Date(ts)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }))
+  const cur = new Date(); cur.setHours(0, 0, 0, 0)
+  const key = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  if (!days.has(key(cur))) cur.setDate(cur.getDate() - 1) // today optional
+  let n = 0
+  while (days.has(key(cur))) { n++; cur.setDate(cur.getDate() - 1) }
+  return n
+}
+
+function HabitsAnalytics({ routines = [] }) {
+  const rows = routines
+    .map(r => ({
+      id: r.id,
+      title: r.title,
+      total: (r.completed_history?.length || 0),
+      last: (r.completed_history || []).slice().sort().pop() || null,
+      streak: habitStreak(r.completed_history),
+    }))
+    .filter(r => r.total > 0)
+    .sort((a, b) => b.total - a.total)
+
+  if (rows.length === 0) {
+    return (
+      <section className="v2-analytics-section">
+        <p className="v2-analytics-section-sub">No habit completions yet — check a routine off to start tracking.</p>
+      </section>
+    )
+  }
+  const max = Math.max(...rows.map(r => r.total))
+  const ago = (ts) => {
+    if (!ts) return '—'
+    const days = Math.floor((Date.now() - new Date(ts)) / 86400000)
+    return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days}d ago`
+  }
+  return (
+    <section className="v2-analytics-section">
+      <h3 className="v2-analytics-heading">By habit</h3>
+      <ul className="v2-analytics-bd v2-analytics-bd-habits">
+        {rows.map(r => (
+          <li key={r.id} className="v2-analytics-bd-row">
+            <span className="v2-analytics-bd-label">{r.title}</span>
+            <div className="v2-analytics-bd-track">
+              <div className="v2-analytics-bd-fill" style={{ width: `${(r.total / max) * 100}%` }} />
+            </div>
+            <span className="v2-analytics-bd-value">{r.total}×{r.streak > 1 ? ` · 🔥${r.streak}` : ''} · {ago(r.last)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
