@@ -13,6 +13,8 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  min-width: 0;   /* shrink within narrow grid cells (DUE/PRIORITY 2-col row) */
+  max-width: 100%;
 }
 
 .v2-form-date-stack {
@@ -25,7 +27,7 @@
 }
 
 .v2-form-date-text {
-  flex: 1 1 auto;
+  flex: 1 1 0;          /* basis 0 so the input's intrinsic width doesn't push the cell wide */
   min-width: 0;
   min-height: 44px;
   padding: 12px 14px;
