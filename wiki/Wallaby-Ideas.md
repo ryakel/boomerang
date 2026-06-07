@@ -70,7 +70,7 @@ The real Home is a scrolling daily dashboard. Reskin-able parts (existing data):
 - 🅿️ **Timer** — focus timer, full + compact (`timer-full.pdf`/`timer-compact.pdf`): activity heatmap, session log (Pomodoro/Tracking), streak, time distribution by task/goal/habit/tag, focus patterns, CSV export. Feeds Home summary + Analytics focus-time.
 - 🅿️ **Vision** — full board (`vision.pdf`): Eulogy / Bucket List / Mission / Definition of Success (6 life areas) / **Odyssey Plan** (3 paths) / **Future Calendar** (ideal Tuesday/Sunday); per-section Public/Private.
 - 🅿️ **Notes** — Notion-like nested-page tree + writing heatmap (`notes.pdf`). **User: should INTERFACE WITH their Notion** — Boomerang already has a Notion-backed Knowledge base; build Notes *on* that (one Notion source of truth), don't fork a second store.
-- 🅿️ **Badges / achievements** (`badges.pdf`). **User: award LOCALLY (self-gamification) from existing analytics — no leaderboards/social needed.** Derive from streak/completion/points data already computed; skip competitive parts.
+- ✅ **Badges / achievements** (`badges.pdf`) — DONE (2026-06-07). 12 self-derived badges (bronze/silver/gold) from existing analytics, no new schema. `src/badges.js` + shared `BadgesGrid`, surfaced in AnalyticsModal (all skins) + Wallaby Profile. Deferred: persisted "seen" + earn-celebration toast; XP/levels economy (the bigger gamification fork).
 - 🅿️ **Daily check-in** — rainbow mood slider (1–10) + reflection journal — `IMG_1580`
 - 🅿️ **Notifications center** (bell) — grouped feed, All/Unread, mark-all-read — `PDF 3`
 - 🅿️ **Weekly review / Week in Review** — recap of streaks, XP, check-ins, % habits

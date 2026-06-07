@@ -1,0 +1,71 @@
+/* Shared achievements grid — theme-agnostic, uses v2 tokens (Wallaby overrides
+ * --v2-* so it inherits the right palette automatically). */
+.v2-badges-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.v2-badges-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--v2-text-meta);
+}
+.v2-badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+.v2-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 3px;
+  padding: 14px 10px 12px;
+  border-radius: 14px;
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-hairline);
+  opacity: 0.55;
+  filter: grayscale(0.7);
+}
+.v2-badge.is-earned {
+  opacity: 1;
+  filter: none;
+}
+.v2-badge-bronze.is-earned { border-color: color-mix(in srgb, #C58A4A 60%, transparent); background: color-mix(in srgb, #C58A4A 12%, var(--v2-surface)); }
+.v2-badge-silver.is-earned { border-color: color-mix(in srgb, #9FB0C3 60%, transparent); background: color-mix(in srgb, #9FB0C3 12%, var(--v2-surface)); }
+.v2-badge-gold.is-earned   { border-color: color-mix(in srgb, #E8B23A 65%, transparent); background: color-mix(in srgb, #E8B23A 14%, var(--v2-surface)); }
+.v2-badge-emoji { font-size: 26px; line-height: 1; }
+.v2-badge-name { font-size: 12.5px; font-weight: 700; color: var(--v2-text); }
+.v2-badge-desc { font-size: 10.5px; color: var(--v2-text-meta); line-height: 1.25; }
+.v2-badge-earned-tag {
+  margin-top: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--v2-accent);
+}
+.v2-badge-progress {
+  position: relative;
+  margin-top: 6px;
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--v2-hairline);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.v2-badge-progress-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: color-mix(in srgb, var(--v2-accent) 45%, transparent);
+}
+.v2-badge-progress-label {
+  position: relative;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--v2-text-meta);
+}

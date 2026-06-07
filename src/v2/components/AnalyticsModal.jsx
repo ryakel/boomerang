@@ -3,6 +3,8 @@ import { ENERGY_TYPES, loadLabels } from '../../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import BalanceRadar from './BalanceRadar'
+import BadgesGrid from './BadgesGrid'
+import { computeBadges } from '../../badges'
 import { BarChart3 } from 'lucide-react'
 import './AnalyticsModal.css'
 
@@ -50,7 +52,7 @@ function buildHeatMapGrid(dailyData, metric) {
   return { weeks, months, maxVal }
 }
 
-export default function AnalyticsModal({ open, onClose }) {
+export default function AnalyticsModal({ open, onClose, tasks = [], routines = [], records = {}, streak = 0 }) {
   const labels = useMemo(() => loadLabels(), [])
   const labelMap = useMemo(() => Object.fromEntries(labels.map(l => [l.id, l])), [labels])
   const [range, setRange] = useState(30)
@@ -102,6 +104,12 @@ export default function AnalyticsModal({ open, onClose }) {
   }, [open])
 
   const heatMap = useMemo(() => buildHeatMapGrid(heatMapData, heatMapMetric), [heatMapData, heatMapMetric])
+
+  // Local achievements — derived from data we already have (no new schema).
+  const badges = useMemo(() => computeBadges({
+    lifetimeDone: tasks.filter(t => t.status === 'done').length,
+    routines, records, streak, history: heatMapData || [],
+  }), [tasks, routines, records, streak, heatMapData])
 
   // Radar spokes derived from history.
   const radarSpokes = useMemo(() => {
@@ -390,6 +398,13 @@ export default function AnalyticsModal({ open, onClose }) {
               </div>
             </section>
           )}
+
+          <section className="v2-analytics-section">
+            <div className="v2-analytics-section-head">
+              <h2 className="v2-analytics-section-title">Achievements</h2>
+            </div>
+            <BadgesGrid badges={badges} />
+          </section>
 
           {throttleDecisions.filter(d => !d.feedback).length > 0 && (
             <section className="v2-analytics-section">

@@ -1498,6 +1498,10 @@ export default function AppV2() {
       <AnalyticsModal
         open={showAnalytics}
         onClose={() => setShowAnalytics(false)}
+        tasks={tasks}
+        routines={routines}
+        records={records}
+        streak={streak}
       />
 
       {isDesktop && (
