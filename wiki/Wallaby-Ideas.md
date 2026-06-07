@@ -7,9 +7,9 @@ delete — strike through or mark `DROPPED` instead.
 
 **Legend:** ✅ done · 🔧 in progress · ⬜ reskin todo · 🅿️ deferred (new feature) · ❓ needs decision
 
-**Reference assets:** clean copies of every loggd reference live in
-[`wallaby-reference/`](./wallaby-reference/) (PDFs + screenshots) — loggd.life
-blocks automated fetch, so that folder is the source of truth.
+**Reference assets:** the `wallaby-reference/` folder of loggd PDFs/screenshots
+was **deleted at the 2026-06-07 prod promotion** (external assets must not ship).
+Recover from git history (`git log -- wiki/wallaby-reference`) if needed.
 
 > **Cross-cutting principle (2026-06-06):** the deferred net-new features are
 > **theme-agnostic** — when built they live in the **shared app layer** and work
@@ -22,7 +22,7 @@ blocks automated fetch, so that folder is the source of truth.
 
 ## Review pass 2026-06-07 (open — paused, do NOT lose)
 
-Reference shots: [`wallaby-reference/feature-requests-2026-06-07/`](./wallaby-reference/feature-requests-2026-06-07/).
+Reference shots: `wallaby-reference/feature-requests-2026-06-07/` (deleted at the prod promotion — see git history).
 
 1. ✅ **Edit-task modal redesign — DONE (2026-06-07).** New `src/v2/wallaby/WallabyEditTask.{jsx,css}` — loggd chip language: large title + "Add details or notes…" + "+ Add subtask…" + config **chips with carets** (Status · Due · Priority · Energy[+drain] · Size · Tags) that expand inline pickers, "More options" + Delete footer. Reuses `useTaskForm` + the same partial-save autosave contract (no clobber). Rendered by `AppV2` for regular tasks in Wallaby mobile (`useWallabyEditor`); projects/subs and **More options** fall back to the full `EditTaskModal` (which still owns gcal/knowledge/project-link/follow-ups/attachments/research/weather/wake-me). Verified: chips, energy picker, autosave persistence.
 2. ⬜ **Streaks in Today's Pulse — NEW, easy.** loggd ("04") shows "🔥 Read 20 pages streak at risk! (**9 days**)" — the at-risk row names the habit AND shows the streak length. Extend the existing `atRisk` row in `HomeView` to include each habit's current streak count (already computed via `currentStreak(byDay)`), and lead with the longest at-risk streak.
