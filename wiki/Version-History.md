@@ -4,6 +4,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-07
+
+- feat: local Badges / Achievements (self-derived, all skins) [M]
+  - 12 achievements computed entirely from data the app already tracks — **no new schema/endpoints**: lifetime done, best/longest streak (`computeStreak`/`computeRecords`), best-day tasks/points, top habit completion count, total points + longest active-day run (from `/api/analytics/history`). Badges: First Step, Getting Going (10), Century (100), 500 Club, Week Warrior (7-streak), Fortnight (14), Monthly Master (30), Consistent (active 7 days straight), Big Day (10/day), Point Storm (100 pts/day), Habit Former (habit ×30), Point Collector (1,000 pts). Bronze/silver/gold tiers.
+  - Shared, theme-agnostic: `src/badges.js` (`computeBadges`) + `src/v2/components/BadgesGrid.{jsx,css}` (earned in tier color, locked dimmed with a progress bar, "N/12 earned"). Surfaced in the shared **AnalyticsModal** (all skins — fed `tasks`/`routines`/`records`/`streak` from AppV2) and the Wallaby **Profile** (new Achievements section). Verified headless: 3/12 earned render correctly from seed.
+  - Out of scope (deferred, keeps it no-fork): persisted "seen" set + earn-celebration toast.
+
 ## 2026-06-06
 
 - chore(ui): turn OFF Terminal theme (not ripped out) [S]

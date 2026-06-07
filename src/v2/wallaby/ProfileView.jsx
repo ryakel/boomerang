@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Flame, Zap, CheckCircle2, Trophy, Star, TrendingUp } from 'lucide-react'
 import ContributionHeatmap from './ContributionHeatmap'
+import BadgesGrid from '../components/BadgesGrid'
+import { computeBadges } from '../../badges'
 import { WALLABY_COLORS, historyByDay } from './heatmapUtils'
 import './ProfileView.css'
 
@@ -48,6 +50,11 @@ export default function ProfileView({
     { icon: Star, label: 'Lifetime done', value: lifetimeDone, color: 'var(--wb-cat-pink)' },
   ]
 
+  const badges = useMemo(
+    () => computeBadges({ lifetimeDone, routines, records, streak, history: history || [] }),
+    [lifetimeDone, routines, records, streak, history],
+  )
+
   const habits = (routines || []).filter(r => (r.completed_history?.length || 0) > 0)
 
   return (
@@ -94,6 +101,11 @@ export default function ProfileView({
             )
           })}
         </div>
+      </section>
+
+      <section className="wb-profile-section">
+        <h2 className="wb-profile-section-title">Achievements</h2>
+        <BadgesGrid badges={badges} />
       </section>
 
       <section className="wb-profile-section">
