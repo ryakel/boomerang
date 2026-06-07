@@ -1,57 +1,26 @@
-import { FolderKanban, RotateCw, BookOpen, Activity, ListTodo, LayoutDashboard, Target, ChevronRight } from 'lucide-react'
+import { FolderKanban, RotateCw, BookOpen, ChevronRight } from 'lucide-react'
 import ModalShell from './ModalShell'
 import './SpacesHub.css'
 
-// Spaces tab destination. Hub of the three "not-today" surfaces:
-// Projects, Routines, Knowledge. Each row is a tappable launcher that
-// opens the existing dedicated modal — we don't embed the modals
-// inline. Reason: ProjectsView and RoutinesModal both ship their own
-// ModalShell, and refactoring them to render bodyless is more risk
-// than reward for D. C-upgrade replaces this row list with rich
+// Spaces tab destination (Standard / non-Wallaby UI). Hub of the three
+// "not-today" surfaces: Projects, Routines, Knowledge. Each row is a
+// tappable launcher that opens the existing dedicated modal — we don't
+// embed the modals inline. Reason: ProjectsView and RoutinesModal both
+// ship their own ModalShell, and refactoring them to render bodyless is
+// more risk than reward for D. C-upgrade replaces this row list with rich
 // preview cards (live session counts, last-edited timestamps, etc.)
 // without changing the launcher contract — `useSpaces()` will feed
 // the same hub a richer data shape.
+//
+// The Wallaby-native surfaces (Dashboard/Habits/Tasks/Goals) live in the
+// WallabyShell, NOT here — they're reached via the Wallaby bottom nav. They
+// used to be listed here as a fallback, but that leaked Wallaby views into the
+// Standard theme's hub, so they were removed (the Wallaby gate must hold).
 export default function SpacesHub({
   open, onClose,
-  onOpenProjects, onOpenRoutines, onOpenHabits, onOpenTasks, onOpenProfile, onOpenGoals, onOpenKnowledge,
+  onOpenProjects, onOpenRoutines, onOpenKnowledge,
 }) {
   const rows = [
-    {
-      key: 'dashboard',
-      icon: LayoutDashboard,
-      tint: 'projects',
-      label: 'Dashboard',
-      subtitle: 'Stats + your activity year',
-      terminalCmd: '> dashboard',
-      onClick: onOpenProfile,
-    },
-    {
-      key: 'habits',
-      icon: Activity,
-      tint: 'routines',
-      label: 'Habits',
-      subtitle: 'Routines as contribution heatmaps',
-      terminalCmd: '> habits',
-      onClick: onOpenHabits,
-    },
-    {
-      key: 'tasks',
-      icon: ListTodo,
-      tint: 'projects',
-      label: 'Tasks',
-      subtitle: 'Upcoming + backlog · subtasks',
-      terminalCmd: '> tasks',
-      onClick: onOpenTasks,
-    },
-    {
-      key: 'goals',
-      icon: Target,
-      tint: 'projects',
-      label: 'Goals',
-      subtitle: 'Projects · progress + sessions',
-      terminalCmd: '> goals',
-      onClick: onOpenGoals,
-    },
     {
       key: 'projects',
       icon: FolderKanban,

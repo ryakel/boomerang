@@ -1238,10 +1238,6 @@ export default function AppV2() {
         }}
         onOpenProjects={() => setShowProjects(true)}
         onOpenRoutines={() => setShowRoutines(true)}
-        onOpenHabits={() => setShowHabits(true)}
-        onOpenTasks={() => setShowTasks(true)}
-        onOpenProfile={() => setShowProfile(true)}
-        onOpenGoals={() => setShowGoals(true)}
         onOpenKnowledge={() => {
           setAdviserDraftSeed("What's in my knowledge base?")
           setShowAdviser(true)

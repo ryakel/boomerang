@@ -4,6 +4,7 @@ import {
   Inbox, CheckCircle2, Archive, Pencil, Trash2, Timer, X, Calendar,
 } from 'lucide-react'
 import { localYMD } from './heatmapUtils'
+import { isSnoozed } from '../../store'
 import { useSwipeActions } from '../../hooks/useSwipeActions'
 import './TasksView.css'
 
@@ -34,7 +35,9 @@ export default function TasksView({
   }, [labels])
 
   const counts = useMemo(() => ({
-    upcoming: tasks.filter(t => ACTIVE.includes(t.status) && !t.gmail_pending && !t.parent_id).length,
+    // Upcoming excludes snoozed tasks (routine spawns waiting on a trigger time,
+    // "set aside" tasks) — they aren't actionable yet.
+    upcoming: tasks.filter(t => ACTIVE.includes(t.status) && !t.gmail_pending && !t.parent_id && !isSnoozed(t)).length,
     backlog: tasks.filter(t => t.status === 'backlog' && !t.gmail_pending && !t.parent_id).length,
     done: tasks.filter(t => t.status === 'done').length,
   }), [tasks])
@@ -45,7 +48,7 @@ export default function TasksView({
       if (t.gmail_pending || t.parent_id) return false
       if (tab === 'done') { if (t.status !== 'done') return false }
       else if (tab === 'backlog') { if (t.status !== 'backlog') return false }
-      else if (!ACTIVE.includes(t.status)) return false
+      else if (!ACTIVE.includes(t.status) || isSnoozed(t)) return false
       if (q && !t.title.toLowerCase().includes(q)) return false
       return true
     })
