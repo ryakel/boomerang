@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-07
 
+- feat(ui): swipe-to-reveal actions on Wallaby task rows [S]
+  - Brings the Wallaby `TasksView` rows to parity with the v2 TaskCard: swipe a row left to reveal **Done/Reopen** (green) + **Delete** (red). Extracted the v2 TaskCard's gesture into a shared `src/hooks/useSwipeActions.js` (offset/threshold/vertical-cancel, returns `{x, open, swiping, close, handlers}`) and wired it into the Wallaby `TaskRow` (actions panel behind, row slides on `translateX`). Tapping the row still opens the action sheet; an open swipe closes on body tap. Verified headless (touch-emulated): drag-left settles at `translateX(-132)` with Done/Delete revealed. (Standard skin already had swipe via the v2 TaskCard.)
+
 - feat(tasks): natural-language due dates in the shared DateField (all skins) [M]
   - The due-date field now accepts typed natural language — "tomorrow", "next tue", "in 3 days", "fri", "next week", "6/9", or a raw `YYYY-MM-DD` — parsed locally by `src/utils/parseNaturalDate.js` (pure, dependency-free, **no AI/network**). A live "→ 2026-06-19" preview shows while typing; Enter/blur commits (unparseable input reverts). A calendar button still opens the native date picker (overlaid `<input type=date>` at opacity:0 for reliable iOS-PWA tap). `DateField` rewritten (text input + cal button); the parsed-preview wraps to its own line so the control stays usable in the half-width DUE column. Used by Add + Edit task modals → works in every skin. Verified headless: parser unit-checked (today/tomorrow/in N/weekday/next-weekday/M-D/ISO), and in-modal typing "next fri" → preview + commit to the ISO date.
 

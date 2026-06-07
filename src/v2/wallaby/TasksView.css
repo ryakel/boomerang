@@ -102,12 +102,43 @@
   padding: 1px 7px;
 }
 
+/* Swipe-to-reveal wrapper: actions sit behind, the .wb-task slides left. */
+.wb-task-swipe {
+  position: relative;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.wb-task-swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+}
+.wb-task-swipe-act {
+  width: 66px;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.wb-task-swipe-done { background: var(--wb-action-complete); }
+.wb-task-swipe-del { background: var(--wb-action-delete); }
+
 .wb-task {
+  position: relative;
+  z-index: 1;
   background: var(--wb-card);
   border: 1px solid var(--wb-hairline);
   border-radius: 14px;
   padding: 13px 14px;
-  margin-bottom: 8px;
+  transition: transform 200ms ease;
+  will-change: transform;
 }
 .wb-task-main {
   display: flex;

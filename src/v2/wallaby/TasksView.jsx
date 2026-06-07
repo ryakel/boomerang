@@ -4,6 +4,7 @@ import {
   Inbox, CheckCircle2, Archive, Pencil, Trash2, Timer, X, Calendar,
 } from 'lucide-react'
 import { localYMD } from './heatmapUtils'
+import { useSwipeActions } from '../../hooks/useSwipeActions'
 import './TasksView.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -109,6 +110,7 @@ export default function TasksView({
                   done={tab === 'done'}
                   onToggleComplete={onToggleComplete}
                   onToggleItem={onToggleItem}
+                  onDelete={onDelete}
                   onOpen={() => setSheetTask(task)}
                 />
               ))}
@@ -133,15 +135,37 @@ export default function TasksView({
   )
 }
 
-function TaskRow({ task, labelsById, done, onToggleComplete, onToggleItem, onOpen }) {
+function TaskRow({ task, labelsById, done, onToggleComplete, onToggleItem, onDelete, onOpen }) {
   const items = (Array.isArray(task.checklists) ? task.checklists : []).flatMap(cl =>
     (cl.items || []).map(it => ({ ...it, clId: cl.id })))
   const due = dueMeta(task.due_date)
   const tagChips = (task.tags || []).map(id => labelsById[id]).filter(Boolean)
   const color = taskColor(task.id)
+  // Swipe-left reveals quick actions (parity with the v2 TaskCard).
+  const swipe = useSwipeActions({ openOffset: -132 })
+  const handleBody = () => { if (swipe.swiping) return; if (swipe.open) { swipe.close(); return } onOpen?.() }
 
   return (
-    <div className="wb-task">
+    <div className="wb-task-swipe">
+      <div className="wb-task-swipe-actions">
+        <button
+          className="wb-task-swipe-act wb-task-swipe-done"
+          onClick={() => { onToggleComplete?.(task); swipe.close() }}
+        >
+          <Check size={16} strokeWidth={2.5} />{done ? 'Reopen' : 'Done'}
+        </button>
+        <button
+          className="wb-task-swipe-act wb-task-swipe-del"
+          onClick={() => { onDelete?.(task); swipe.close() }}
+        >
+          <Trash2 size={16} strokeWidth={2} />Delete
+        </button>
+      </div>
+      <div
+        className="wb-task"
+        style={{ transform: swipe.x !== 0 ? `translateX(${swipe.x}px)` : undefined }}
+        {...swipe.handlers}
+      >
       <div className="wb-task-main">
         <button
           className={`wb-check${done ? ' is-done' : ''}`}
@@ -149,7 +173,7 @@ function TaskRow({ task, labelsById, done, onToggleComplete, onToggleItem, onOpe
           onClick={() => onToggleComplete?.(task)}
           aria-label={done ? 'Reopen task' : 'Complete task'}
         >{done && <Check size={14} strokeWidth={3} color="#fff" />}</button>
-        <button className="wb-task-body" onClick={onOpen}>
+        <button className="wb-task-body" onClick={handleBody}>
           <span className={`wb-task-title${done ? ' is-done' : ''}`}>{task.title}</span>
           {task.notes && !done && <span className="wb-task-sub">{task.notes.replace(/\s+/g, ' ').trim().slice(0, 80)}</span>}
           {(tagChips.length > 0 || due) && !done && (
@@ -174,6 +198,7 @@ function TaskRow({ task, labelsById, done, onToggleComplete, onToggleItem, onOpe
           ))}
         </ul>
       )}
+      </div>
     </div>
   )
 }
