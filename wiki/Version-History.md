@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-07
 
+- fix(ui): Wallaby — de-pill the shared modals too (Snooze/WhatNow/Confirm/…) [S]
+  - New `src/v2/wallaby/shared.css` (via `AppV2.css`) Wallaby-gates the **shared** v2 components reachable from Wallaby. Most of their pill controls use the `--v2-radius-pill` token, so it's redefined `999px → 10px` for `:root[data-ui="v2"][data-theme^="wallaby"]` — de-pilling Snooze, WhatNow, Reframe, ConfirmDialog, Suggestions, Packages, Settings (segmented + buttons), Adviser, etc. in one shot. **Toggle switches are protected** (`.v2-settings-toggle-track` restored to a pill track — a switch isn't a "pill"). Literal-`999px` stragglers handled too: `.v2-stack-bonus` / `.v2-form-date-preview` → 10px; indicator bars (`.v2-analytics-dow/-bd-track/-fill`, `.v2-badge-progress`, `.v2-edit-checklist-progress`) → 4px. Verified: token = 10px in Wallaby, toggle track = 999px, Settings segmented controls render as rounded squares.
+
 - fix(ui): Wallaby — zero pills (de-pill every surface) [S]
   - Per user "Wallaby should have zero pills": swept all `border-radius: 999px` → `10px` rounded squares across every Wallaby surface — segmented controls (Tasks Upcoming/Backlog/Done, Habits Single/Month/Year, Profile Tasks/Points, Analytics Overview/Tasks/Habits + range/metric), tags/label chips, counts/badges (streak chip, section counts, habit counts, "Soon"/"Today" badges, header notification badge), goal chips. Progress bars softened to 4px (clearly non-pill). **True circles preserved** (avatars, the date circle, week dots, round checkboxes at 50%). Combined with the earlier editor de-pill, Wallaby now has no pill-shaped controls. (Shared modals like Snooze/WhatNow keep their own v2 styling — sweep on request.)
 
