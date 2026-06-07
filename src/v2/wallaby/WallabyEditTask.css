@@ -61,7 +61,7 @@
   align-items: center;
   gap: 7px;
   padding: 9px 12px;
-  border-radius: 999px;
+  border-radius: 11px;
   border: 1px solid var(--wb-hairline);
   background: var(--wb-card);
   color: var(--wb-text);
@@ -95,7 +95,7 @@
   align-items: center;
   gap: 5px;
   padding: 8px 13px;
-  border-radius: 999px;
+  border-radius: 11px;
   border: 1px solid var(--wb-hairline);
   background: var(--wb-card);
   color: var(--wb-text);
@@ -116,7 +116,7 @@
 
 .wb-edit-tag {
   padding: 7px 12px;
-  border-radius: 999px;
+  border-radius: 11px;
   border: 1px solid color-mix(in srgb, var(--tag, #888) 45%, transparent);
   background: transparent;
   color: var(--tag, var(--wb-text));
