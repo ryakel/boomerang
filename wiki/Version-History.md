@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-07
 
+- feat(ui): Wallaby task editor in loggd chip language (`WallabyEditTask`) [L]
+  - Review-pass req #1. The Wallaby Edit-task surface no longer uses rows of v2 white segmented pills — new `src/v2/wallaby/WallabyEditTask.{jsx,css}` rethinks it in loggd's language: large title, "Add details or notes…" textarea, "+ Add subtask…", and the core config as **chips with dropdown carets** — Status · Due · Priority · Energy (+drain) · Size · Tags — each expanding an inline picker. Footer: **More options** (→ full editor) + Delete.
+  - Reuses `useTaskForm` and the **same partial-save autosave contract** as `EditTaskModal` (updateTask merges, so advanced fields it doesn't manage are preserved); status changes route through `onStatusChange` (completion/chain-break/trello intact). `AppV2` renders it for regular tasks in Wallaby mobile via `useWallabyEditor`; **projects/subs and "More options" fall back to the full `EditTaskModal`** (still owns gcal duration, knowledge links, project link, follow-ups, attachments, research, weather, wake-me). Standard/Terminal/desktop unchanged.
+  - Verified headless: chips render with live values; energy picker shows types + drain; editing notes + picking energy **persists to the server** (partial merge — no clobber).
+
 - feat(ui): Wallaby header avatar → growth arrow + streak day-count in Pulse [S]
   - **Header avatar** (`WallabyHeader`): the plain gradient dot now holds an **up-and-right arrow** (`TrendingUp`) — it opens Profile/"Your year", so a growth arrow fits (no real users). (Review-pass req #3.)
   - **Today's Pulse streak-at-risk** (`HomeView`): the row now names the habit AND shows the streak length, loggd-style — "🔥 **take meds** streak at risk (4 days)" — leading with the longest at-risk streak (`+N more` when several). Uses the already-computed `currentStreak`. (Review-pass req #2.) Verified headless.

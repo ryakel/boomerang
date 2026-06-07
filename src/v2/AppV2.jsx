@@ -23,6 +23,7 @@ import TasksView from './wallaby/TasksView'
 import ProfileView from './wallaby/ProfileView'
 import GoalsView from './wallaby/GoalsView'
 import WallabyShell from './wallaby/WallabyShell'
+import WallabyEditTask from './wallaby/WallabyEditTask'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -62,6 +63,10 @@ export default function AppV2() {
   const [snoozeTarget, setSnoozeTarget] = useState(null)
   const [reframeTarget, setReframeTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
+  // Wallaby gets a chip-language quick editor; "More options" flips to the full
+  // EditTaskModal for advanced config. Reset whenever the edit target clears.
+  const [editFull, setEditFull] = useState(false)
+  useEffect(() => { if (!editTarget) setEditFull(false) }, [editTarget])
   const [showAdd, setShowAdd] = useState(false)
   const [toast, setToast] = useState(null)
   const [showWhatNow, setShowWhatNow] = useState(false)
@@ -440,6 +445,10 @@ export default function AppV2() {
   // Wallaby presents the full loggd IA (bottom-nav shell) on mobile. Desktop
   // keeps the Kanban + drawer for now.
   const isWallaby = (settingsForRings.theme || '').startsWith('wallaby')
+  // Use the Wallaby chip-language quick editor for regular tasks on mobile;
+  // projects/subs and "More options" fall through to the full EditTaskModal.
+  const useWallabyEditor = !!editTarget && isWallaby && !isDesktop && !editFull
+    && editTarget.status !== 'project' && !editTarget.parent_id
   // Per-routine streak map → threaded down to TaskCard so routine-spawned
   // tasks can render an inline 🔥N. Recomputed only when `routines` changes.
   const routineStreaks = useMemo(() => {
@@ -1311,7 +1320,18 @@ export default function AppV2() {
         createAsProject={createAsProject}
       />
 
-      {editTarget && (
+      {editTarget && useWallabyEditor && (
+        <WallabyEditTask
+          task={editTarget}
+          onSave={handleEditModalSave}
+          onClose={() => setEditTarget(null)}
+          onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
+          onStatusChange={handleStatusChange}
+          onOpenFull={() => setEditFull(true)}
+        />
+      )}
+
+      {editTarget && !useWallabyEditor && (
         <EditTaskModal
           task={editTarget}
           onSave={handleEditModalSave}
