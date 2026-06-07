@@ -1,16 +1,11 @@
-/* DateField — a real <input type="date"> overlaid invisibly on top of
- * a visible display span. Tapping the field opens the native picker
- * directly (no showPicker() JS call needed — that silently failed in
- * iOS PWA Safari for some users). Two visual modes via theme:
+/* DateField — a natural-language text input + a calendar button.
  *
- *   light/dark — display reads like a regular form input
- *   terminal   — display reads as bracketed text
- *
- * Architecture:
- *   .v2-form-date-stack — relative-positioned wrapper
- *     .v2-form-date-display — what the user sees (text + optional bracket)
- *     .v2-form-date-input   — real date input, position:absolute, inset:0,
- *                              opacity:0, full pointer events
+ *   .v2-form-date-stack — flex row: text input (grows) · parsed preview · cal
+ *     .v2-form-date-text    — visible text box (type "tomorrow", "next tue", …)
+ *     .v2-form-date-preview — small chip showing the parsed → YYYY-MM-DD
+ *     .v2-form-date-cal     — calendar button; the real <input type="date"> is
+ *                             overlaid on it at opacity:0 so the native picker
+ *                             opens on tap (reliable on iOS PWA Safari).
  */
 
 .v2-form-date-field {
@@ -22,16 +17,16 @@
 
 .v2-form-date-stack {
   position: relative;
-  flex: 1 1 auto;
+  flex: 1 1 100%;        /* own row — text input + calendar use the full width */
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* Visible read-out — styled to look like a regular input in light/dark
- * and bracketed text in terminal. Pointer-events: none so taps fall
- * through to the input layered above. */
-.v2-form-date-display {
-  display: block;
-  width: 100%;
+.v2-form-date-text {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 44px;
   padding: 12px 14px;
   border-radius: 10px;
@@ -39,50 +34,59 @@
   background: var(--v2-bg);
   color: var(--v2-text);
   font: 400 14px/1.4 var(--v2-font-body);
-  pointer-events: none;
   box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.v2-form-date-text:focus {
+  border-color: var(--v2-accent);
+  outline: none;
+}
+.v2-form-date-text::placeholder { color: var(--v2-text-meta); }
+
+.v2-form-date-preview {
+  flex: 0 0 auto;
+  font: 600 12px/1 var(--v2-font-body);
+  color: var(--v2-accent);
+  background: color-mix(in srgb, var(--v2-accent) 14%, transparent);
+  padding: 6px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
-.v2-form-date-field:not(.v2-form-date-field-filled) .v2-form-date-display {
+.v2-form-date-cal {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
   color: var(--v2-text-meta);
+  cursor: pointer;
 }
+.v2-form-date-cal:hover { color: var(--v2-text); }
 
-/* The real date input — invisible but tappable, covers the display.
- * Native picker opens on tap. Min-height matches the display so iOS
- * Safari hit-tests find it reliably. */
+/* The real date input — invisible but tappable, covers just the calendar
+ * button. Native picker opens on tap. */
 .v2-form-date-input {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  min-height: 44px;
-  padding: 12px 14px;
   margin: 0;
+  padding: 0;
   border: 0;
-  border-radius: 10px;
   background: transparent;
   color: transparent;
-  font: 400 14px/1.4 var(--v2-font-body);
   cursor: pointer;
   opacity: 0;
   -webkit-appearance: none;
   appearance: none;
-  /* iOS doesn't honor color: transparent on type="date" — use a wash
-   * via -webkit-text-fill-color in case any future style leaks. Also
-   * opacity:0 above means it's all invisible regardless. */
   -webkit-text-fill-color: transparent;
 }
-
-.v2-form-date-input:focus-visible + .v2-form-date-display,
-.v2-form-date-stack:focus-within .v2-form-date-display {
-  border-color: var(--v2-accent);
-  outline: 2px solid transparent; /* keep our own focus ring */
-}
-
-/* Strip default appearance on iOS Safari so the input's space is just
- * a tap target. On desktop Chrome the picker only opens via the calendar
- * indicator icon — stretch it to fill the entire input area. */
-.v2-form-date-input::-webkit-date-and-time-value { text-align: left; }
 .v2-form-date-input::-webkit-calendar-picker-indicator {
   opacity: 0;
   position: absolute;
@@ -101,62 +105,20 @@
   padding: 4px 6px;
   text-transform: lowercase;
 }
+.v2-form-date-clear:hover { color: var(--v2-alert-overdue); }
 
-.v2-form-date-clear:hover {
-  color: var(--v2-alert-overdue);
-}
-
-/* === Terminal mode ================================================= */
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-field {
-  gap: 10px;
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-display {
+/* === Terminal mode (theme retained though picker is off) ============ */
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-text {
   background: transparent !important;
   border: none !important;
   border-radius: 0 !important;
-  color: var(--v2-text-meta) !important;
   padding: 4px 0 !important;
   min-height: 32px !important;
-  font: 500 13px/1 var(--v2-font-body);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-display::before {
-  content: "[ ";
-  color: var(--v2-text-faint);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-display::after {
-  content: " ]";
-  color: var(--v2-text-faint);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-field-filled .v2-form-date-display {
-  color: var(--v2-accent) !important;
-  text-shadow: var(--v2-glow);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-field-filled .v2-form-date-display::before,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-field-filled .v2-form-date-display::after {
-  color: var(--v2-accent);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-input:hover + .v2-form-date-display {
   color: var(--v2-text) !important;
-  text-shadow: 0 0 6px rgba(194, 209, 197, 0.3);
 }
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-clear {
-  color: var(--v2-text-faint) !important;
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-cal {
+  background: transparent !important;
+  border: 1px solid var(--v2-text-faint) !important;
 }
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-clear:hover {
-  color: var(--v2-alert-overdue) !important;
-  text-shadow: 0 0 6px rgba(248, 81, 73, 0.4);
-}
-
-:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-input {
-  min-height: 32px !important;
-  padding: 4px 0 !important;
-}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-clear { color: var(--v2-text-faint) !important; }
+:root[data-ui="v2"][data-theme^="terminal"] .v2-form-date-clear:hover { color: var(--v2-alert-overdue) !important; }
