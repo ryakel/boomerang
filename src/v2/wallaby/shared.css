@@ -1,0 +1,34 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * Wallaby de-pill for SHARED v2 components (modals reached from Wallaby:
+ * Snooze, WhatNow, Reframe, Confirm, Suggestions, Packages, Settings, Done,
+ * Activity, Routines, Adviser, …). Most of their pill controls use the
+ * --v2-radius-pill token, so redefining it for Wallaby de-pills them all at
+ * once → rounded squares, matching the Wallaby surfaces.
+ * (User: "Wallaby should have zero pills … wallaby gate those controls.")
+ * ════════════════════════════════════════════════════════════════════════ */
+
+:root[data-ui="v2"][data-theme^="wallaby"] {
+  --v2-radius-pill: 10px;
+}
+
+/* Toggle switches keep a pill track — a switch with a square track + round
+ * thumb reads as broken, and a switch isn't a "pill" control. */
+:root[data-ui="v2"][data-theme^="wallaby"] .v2-settings-toggle-track {
+  border-radius: 999px;
+}
+
+/* Literal-999px badges/chips (the token override can't reach these) → squares. */
+:root[data-ui="v2"][data-theme^="wallaby"] .v2-stack-bonus,
+:root[data-ui="v2"][data-theme^="wallaby"] .v2-form-date-preview {
+  border-radius: 10px !important;
+}
+
+/* Literal-999px progress/indicator BARS → small radius (clearly not pills). */
+:root[data-ui="v2"][data-theme^="wallaby"] .v2-analytics-dow-track,
+:root[data-ui="v2"][data-theme^="wallaby"] .v2-analytics-dow-fill,
+:root[data-ui="v2"][data-theme^="wallaby"] .v2-analytics-bd-track,
+:root[data-ui="v2"][data-theme^="wallaby"] .v2-analytics-bd-fill,
+:root[data-ui="v2"][data-theme^="wallaby"] .v2-badge-progress,
+:root[data-ui="v2"][data-theme^="wallaby"] .v2-edit-checklist-progress {
+  border-radius: 4px !important;
+}

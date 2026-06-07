@@ -1,0 +1,97 @@
+/* Wallaby shell — full-screen container with a fixed bottom nav. Surfaces
+ * already carry 120px bottom padding so their content clears the nav. */
+.wb-shell {
+  --wb-header-h: 52px;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--wb-bg);
+}
+.wb-shell {
+  --wb-nav-h: 64px;
+}
+.wb-shell-surface {
+  position: absolute;
+  top: calc(var(--wb-header-h) + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── More menu ───────────────────────────────────────────────────────────── */
+.wb-more {
+  min-height: 100vh;
+  padding: 16px 16px 120px;
+  color: var(--wb-text);
+  font-family: var(--v2-font-body);
+}
+.wb-more-title {
+  margin: 4px 0 16px;
+  font-family: var(--v2-font-display);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.wb-more-list { display: flex; flex-direction: column; gap: 9px; }
+.wb-more-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 14px;
+  padding: 14px 15px;
+  box-shadow: var(--wb-shadow);
+  cursor: pointer;
+  color: var(--wb-text);
+}
+.wb-more-row.is-soon { opacity: 0.5; cursor: default; }
+.wb-more-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--wb-card-2);
+  color: var(--wb-cat-purple);
+  flex: 0 0 auto;
+}
+.wb-more-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wb-more-label { font-size: 15px; font-weight: 650; }
+.wb-more-sub { font-size: 12.5px; color: var(--wb-text-meta); }
+.wb-more-chev { color: var(--wb-text-meta); flex: 0 0 auto; }
+
+/* ── Deferred-feature placeholder ────────────────────────────────────────── */
+.wb-placeholder-back { position: absolute; top: 16px; left: 16px; }
+.wb-placeholder {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 32px 120px;
+  color: var(--wb-text);
+}
+.wb-placeholder-icon {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--wb-card-2);
+  color: var(--wb-cat-purple);
+  margin-bottom: 18px;
+}
+.wb-placeholder-title {
+  margin: 0 0 8px;
+  font-family: var(--v2-font-display);
+  font-size: 22px;
+  font-weight: 800;
+}
+.wb-placeholder-body { margin: 0; font-size: 14px; color: var(--wb-text-meta); max-width: 260px; }

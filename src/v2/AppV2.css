@@ -1,5 +1,21 @@
 @import './tokens.css';
 @import './terminal/index.css';
+@import './wallaby/palette.css';
+@import './wallaby/settings.css';
+@import './wallaby/analytics.css';
+@import './wallaby/modals.css';
+@import './wallaby/forms.css';
+@import './wallaby/shared.css';
+
+/* Wallaby "Habits" surface mounts as a full-screen overlay above the app. */
+.v2-habits-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--wb-bg, var(--v2-bg));
+}
 
 /* Match body bg to v2 app bg so any sub-pixel gap between the fixed
  * container and the screen edge is invisible. The v1 body uses --bg

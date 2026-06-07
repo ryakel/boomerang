@@ -1,0 +1,30 @@
+/* Wallaby bottom nav — fixed 5-tab bar. */
+.wb-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  display: flex;
+  background: color-mix(in srgb, var(--wb-card) 92%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--wb-hairline);
+  padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+}
+.wb-nav-tab {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--wb-text-meta);
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.wb-nav-tab.is-active { color: var(--nav-color, var(--wb-action-complete)); }
+.wb-nav-icon { display: block; }
+.wb-nav-label { font-size: 10.5px; font-weight: 600; }

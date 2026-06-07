@@ -2276,6 +2276,10 @@ export default function SettingsModal({
   // the debounced flush fires; back to false after 2s.
   const [justSaved, setJustSaved] = useState(false)
   const justSavedTimer = useRef(null)
+  // Dev-only reseed: only the dev environment exposes the button. The server
+  // also hard-gates POST /api/dev/seed to dev, so this is just visibility.
+  const [isDev, setIsDev] = useState(false)
+  const [reseeding, setReseeding] = useState(false)
   // Easter egg trigger — 7 taps on the Build row within a rolling 2s
   // window opens the hidden tic-tac-toe game. Android-build-number
   // metaphor. Undocumented in user-facing copy.
@@ -2297,6 +2301,41 @@ export default function SettingsModal({
   useEffect(() => {
     if (open) setSettings(loadSettings())
   }, [open])
+
+  // Detect the dev environment (gates the reseed button). /api/health returns
+  // isDev:true only when APP_VERSION is 'dev' or 'dev-<sha>'.
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    fetch('/api/health')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (alive && d) setIsDev(!!d.isDev) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [open])
+
+  const handleReseed = () => {
+    setConfirmDialog({
+      title: 'Reseed dev database',
+      message: 'This WIPES the dev database and reloads fresh seed data (tasks rebased to today + synthesized routine history). Dev only — there is no undo. Continue?',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        setReseeding(true)
+        try {
+          const res = await fetch('/api/dev/seed', { method: 'POST' })
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}))
+            throw new Error(body.error || `Reseed failed (${res.status})`)
+          }
+          // Fresh data — full reload so every view rehydrates from the seeded DB.
+          window.location.reload()
+        } catch (err) {
+          setReseeding(false)
+          setConfirmDialog({ title: 'Reseed failed', message: err.message, onConfirm: () => setConfirmDialog(null) })
+        }
+      },
+    })
+  }
 
   // Cleanup the saved-flash timer on unmount.
   useEffect(() => () => {
@@ -2433,16 +2472,21 @@ export default function SettingsModal({
                 dark: '#0B0B0F',
                 'terminal-light': '#FFFFFF',
                 'terminal-dark': '#0D1117',
+                'wallaby-light': '#F4F6FB',
+                'wallaby-dark': '#0E1322',
               }
               const currentTheme = settings.theme || 'light'
               const isTerminal = currentTheme.startsWith('terminal')
-              const isDark = currentTheme === 'dark' || currentTheme === 'terminal-dark'
-              const family = isTerminal ? 'terminal' : 'standard'
+              const isWallaby = currentTheme.startsWith('wallaby')
+              const isDark = currentTheme === 'dark' || currentTheme === 'terminal-dark' || currentTheme === 'wallaby-dark'
+              const family = isTerminal ? 'terminal' : isWallaby ? 'wallaby' : 'standard'
               const mode = isDark ? 'dark' : 'light'
               const setTheme = (nextFamily, nextMode) => {
                 const value = nextFamily === 'terminal'
                   ? (nextMode === 'dark' ? 'terminal-dark' : 'terminal-light')
-                  : (nextMode === 'dark' ? 'dark' : 'light')
+                  : nextFamily === 'wallaby'
+                    ? (nextMode === 'dark' ? 'wallaby-dark' : 'wallaby-light')
+                    : (nextMode === 'dark' ? 'dark' : 'light')
                 update('theme', value)
                 document.documentElement.setAttribute('data-theme', value)
                 const meta = document.querySelector('meta[name="theme-color"]')
@@ -2453,12 +2497,12 @@ export default function SettingsModal({
                   <div className="v2-settings-row v2-settings-row-stacked">
                     <div className="v2-settings-row-text">
                       <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Terminal is monospace + ASCII flourishes — init-style on a GitHub palette.</div>
+                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Wallaby is a deep-navy, heatmap-first dashboard.</div>
                     </div>
                     <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
                       {[
                         { value: 'standard', label: 'Standard' },
-                        { value: 'terminal', label: 'Terminal' },
+                        { value: 'wallaby', label: 'Wallaby' },
                       ].map(opt => (
                         <button
                           key={opt.value}
@@ -2711,6 +2755,16 @@ export default function SettingsModal({
                 <Upload size={13} strokeWidth={1.75} /> Import from markdown
               </button>
             </div>
+
+            {isDev && (
+              <div className="v2-settings-block">
+                <div className="v2-form-label">Developer · dev only</div>
+                <div className="v2-settings-row-hint">Wipe this dev database and reload fresh seed data (tasks rebased to today, ~250 days of routine history). Only shown on the dev build; the server blocks it everywhere else.</div>
+                <button className="v2-settings-btn" onClick={handleReseed} disabled={reseeding}>
+                  <RefreshCw size={13} strokeWidth={1.75} /> {reseeding ? 'Reseeding…' : 'Reseed dev database'}
+                </button>
+              </div>
+            )}
 
             <div className="v2-settings-danger">
               <div className="v2-form-label">Danger zone</div>

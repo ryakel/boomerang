@@ -1346,13 +1346,25 @@
 
 /* --- Analytics modal ---------------------------------------------- */
 :root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-range-btn,
-:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-metric-btn {
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-metric-btn,
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-tab {
   background: transparent !important;
   border: none !important;
   border-radius: 0 !important;
   color: var(--v2-text-meta) !important;
   text-transform: lowercase;
   padding: 6px 10px !important;
+}
+
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-tabs {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+:root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-tab-active {
+  color: var(--v2-accent) !important;
+  text-shadow: var(--v2-glow);
 }
 
 :root[data-ui="v2"][data-theme^="terminal"] .v2-analytics-range-btn::before {

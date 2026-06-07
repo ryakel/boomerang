@@ -18,6 +18,12 @@ import ProjectsView from './components/ProjectsView'
 import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
+import HabitsView from './wallaby/HabitsView'
+import TasksView from './wallaby/TasksView'
+import ProfileView from './wallaby/ProfileView'
+import GoalsView from './wallaby/GoalsView'
+import WallabyShell from './wallaby/WallabyShell'
+import WallabyEditTask from './wallaby/WallabyEditTask'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -57,6 +63,10 @@ export default function AppV2() {
   const [snoozeTarget, setSnoozeTarget] = useState(null)
   const [reframeTarget, setReframeTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
+  // Wallaby gets a chip-language quick editor; "More options" flips to the full
+  // EditTaskModal for advanced config. Reset whenever the edit target clears.
+  const [editFull, setEditFull] = useState(false)
+  useEffect(() => { if (!editTarget) setEditFull(false) }, [editTarget])
   const [showAdd, setShowAdd] = useState(false)
   const [toast, setToast] = useState(null)
   const [showWhatNow, setShowWhatNow] = useState(false)
@@ -88,6 +98,15 @@ export default function AppV2() {
   // picker rows with rich preview cards but keeps the contract.
   const [spacesHubOpen, setSpacesHubOpen] = useState(false)
   const [showRoutines, setShowRoutines] = useState(false)
+  // Wallaby Habits surface — routines rendered as loggd-style heatmap cards.
+  // Reachable from the Spaces hub; full-screen overlay above the app.
+  const [showHabits, setShowHabits] = useState(false)
+  // Wallaby Tasks surface — loggd-style task list (segmented + subtasks).
+  const [showTasks, setShowTasks] = useState(false)
+  // Wallaby Profile/dashboard — stat pills + activity year-grid + habit grids.
+  const [showProfile, setShowProfile] = useState(false)
+  // Wallaby Goals surface — projects as loggd-style goals (list + detail).
+  const [showGoals, setShowGoals] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
@@ -177,6 +196,8 @@ export default function AppV2() {
       dark: '#0B0B0F',
       'terminal-dark': '#0D1117',
       'terminal-light': '#FFFFFF',
+      'wallaby-dark': '#0E1322',
+      'wallaby-light': '#F4F6FB',
     }
     if (themeColors[theme]) {
       document.documentElement.setAttribute('data-theme', theme)
@@ -421,6 +442,13 @@ export default function AppV2() {
   const dailyStats = computeDailyStats(tasks, settingsForRings)
   const streak = computeStreak(tasks, settingsForRings)
   const records = useMemo(() => computeRecords(tasks), [tasks])
+  // Wallaby presents the full loggd IA (bottom-nav shell) on mobile. Desktop
+  // keeps the Kanban + drawer for now.
+  const isWallaby = (settingsForRings.theme || '').startsWith('wallaby')
+  // Use the Wallaby chip-language quick editor for regular tasks on mobile;
+  // projects/subs and "More options" fall through to the full EditTaskModal.
+  const useWallabyEditor = !!editTarget && isWallaby && !isDesktop && !editFull
+    && editTarget.status !== 'project' && !editTarget.parent_id
   // Per-routine streak map → threaded down to TaskCard so routine-spawned
   // tasks can render an inline 🔥N. Recomputed only when `routines` changes.
   const routineStreaks = useMemo(() => {
@@ -476,6 +504,10 @@ export default function AppV2() {
     if (showProjects) { setShowProjects(false); return }
     if (showDone) { setShowDone(false); return }
     if (showActivityLog) { setShowActivityLog(false); return }
+    if (showHabits) { setShowHabits(false); return }
+    if (showTasks) { setShowTasks(false); return }
+    if (showProfile) { setShowProfile(false); return }
+    if (showGoals) { setShowGoals(false); return }
     if (showRoutines) { setShowRoutines(false); return }
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
@@ -484,7 +516,7 @@ export default function AppV2() {
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
     if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showHabits, showTasks, showProfile, showGoals, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -1120,7 +1152,7 @@ export default function AppV2() {
       {/* Bottom tab bar — mobile only. Hidden on desktop (which has
        * its own Kanban + side-drawer navigation pattern). The strip
        * itself also has a @media gate as belt-and-suspenders. */}
-      {!isDesktop && (
+      {!isDesktop && !isWallaby && (
         <BottomTabs
           activeTab={activeTab}
           onTabChange={(next) => {
@@ -1138,6 +1170,61 @@ export default function AppV2() {
         />
       )}
 
+      {/* Wallaby shell — the loggd IA (Home/Habits/Tasks/Timer/More) on mobile.
+        * Covers the standard list + header (z below the shared modals, which
+        * still open above it). Replaces BottomTabs in Wallaby mode. */}
+      {isWallaby && !isDesktop && (
+        <WallabyShell
+          tasks={tasks}
+          routines={routines}
+          projects={projectTasks}
+          labels={labels}
+          dailyStats={dailyStats}
+          streak={streak}
+          records={records}
+          lifetimeDone={tasks.filter(t => t.status === 'done').length}
+          onToggleHabit={(routine, ymd) => {
+            const day = ymd || localYMD(new Date())
+            const hist = Array.isArray(routine.completed_history) ? routine.completed_history : []
+            const onDay = (ts) => localYMD(new Date(ts)) === day
+            if (hist.some(onDay)) {
+              updateRoutine(routine.id, { completed_history: hist.filter(ts => !onDay(ts)) })
+            } else {
+              // Pin to local noon of the chosen day so it buckets correctly
+              // regardless of timezone (backfilling a past day, or today).
+              updateRoutine(routine.id, { completed_history: [...hist, `${day}T12:00:00.000Z`] })
+            }
+          }}
+          onCompleteTask={(task) => task.status === 'done' ? uncompleteTask(task.id) : handleComplete(task.id)}
+          onToggleItem={(task, clId, itemId) => {
+            const checklists = (task.checklists || []).map(cl =>
+              cl.id !== clId ? cl : { ...cl, items: (cl.items || []).map(it => it.id === itemId ? { ...it, completed: !it.completed } : it) },
+            )
+            updateTask(task.id, { checklists })
+          }}
+          onOpenTask={(task) => setEditTarget(task)}
+          onAddTask={() => setShowAdd(true)}
+          onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
+          onDeleteTask={(task) => deleteTask(task.id)}
+          onAddHabit={() => setShowRoutines(true)}
+          onEditHabit={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
+          onArchiveHabit={(r) => togglePause(r.id)}
+          onDeleteHabit={(r) => deleteRoutine(r.id)}
+          onLogSession={(p) => logProjectSession(p.id)}
+          onCompleteProject={(p) => handleComplete(p.id)}
+          onEditProject={(p) => setEditTarget(p)}
+          onSetAsideProject={(p) => updateTask(p.id, { status: 'backlog' })}
+          onDeleteProject={(p) => deleteTask(p.id)}
+          onOpenSettings={() => setShowSettings(true)}
+          onOpenPackages={() => setShowPackages(true)}
+          onOpenAnalytics={() => setShowAnalytics(true)}
+          adviser={adviserState}
+          onOpenEasterEgg={openEasterEgg}
+          syncStatus={syncStatus}
+          queueLength={queueLength}
+        />
+      )}
+
       {/* Spaces hub — picker for Projects / Routines / Knowledge. Each
        * row launches the existing dedicated modal and resets activeTab
        * to 'today' on that sub-modal close, so the tab indicator never
@@ -1151,11 +1238,70 @@ export default function AppV2() {
         }}
         onOpenProjects={() => setShowProjects(true)}
         onOpenRoutines={() => setShowRoutines(true)}
+        onOpenHabits={() => setShowHabits(true)}
+        onOpenTasks={() => setShowTasks(true)}
+        onOpenProfile={() => setShowProfile(true)}
+        onOpenGoals={() => setShowGoals(true)}
         onOpenKnowledge={() => {
           setAdviserDraftSeed("What's in my knowledge base?")
           setShowAdviser(true)
         }}
       />
+      {showHabits && (
+        <div className="v2-habits-overlay">
+          <HabitsView
+            routines={routines}
+            onAdd={() => { setShowHabits(false); setShowRoutines(true) }}
+            onClose={() => setShowHabits(false)}
+          />
+        </div>
+      )}
+      {showTasks && (
+        <div className="v2-habits-overlay">
+          <TasksView
+            tasks={tasks}
+            labels={labels}
+            onToggleComplete={(task) => handleComplete(task.id)}
+            onToggleItem={(task, clId, itemId) => {
+              const checklists = (task.checklists || []).map(cl =>
+                cl.id !== clId ? cl : { ...cl, items: (cl.items || []).map(it => it.id === itemId ? { ...it, completed: !it.completed } : it) },
+              )
+              updateTask(task.id, { checklists })
+            }}
+            onOpenTask={(task) => { setShowTasks(false); setEditTarget(task) }}
+            onAdd={() => { setShowTasks(false); setShowAdd(true) }}
+            onClose={() => setShowTasks(false)}
+          />
+        </div>
+      )}
+      {showProfile && (
+        <div className="v2-habits-overlay">
+          <ProfileView
+            dailyStats={dailyStats}
+            streak={streak}
+            records={records}
+            lifetimeDone={tasks.filter(t => t.status === 'done').length}
+            routines={routines}
+            onClose={() => setShowProfile(false)}
+          />
+        </div>
+      )}
+      {showGoals && (
+        <div className="v2-habits-overlay">
+          <GoalsView
+            projects={projectTasks}
+            tasks={tasks}
+            labels={labels}
+            onLogSession={(p) => logProjectSession(p.id)}
+            onComplete={(p) => handleComplete(p.id)}
+            onEdit={(p) => { setShowGoals(false); setEditTarget(p) }}
+            onSetAside={(p) => updateTask(p.id, { status: 'backlog' })}
+            onDelete={(p) => deleteTask(p.id)}
+            onAdd={() => { setShowGoals(false); setShowAdd(true) }}
+            onClose={() => setShowGoals(false)}
+          />
+        </div>
+      )}
 
       {snoozeTarget && (
         <SnoozeModal
@@ -1174,7 +1320,18 @@ export default function AppV2() {
         createAsProject={createAsProject}
       />
 
-      {editTarget && (
+      {editTarget && useWallabyEditor && (
+        <WallabyEditTask
+          task={editTarget}
+          onSave={handleEditModalSave}
+          onClose={() => setEditTarget(null)}
+          onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
+          onStatusChange={handleStatusChange}
+          onOpenFull={() => setEditFull(true)}
+        />
+      )}
+
+      {editTarget && !useWallabyEditor && (
         <EditTaskModal
           task={editTarget}
           onSave={handleEditModalSave}
@@ -1361,6 +1518,10 @@ export default function AppV2() {
       <AnalyticsModal
         open={showAnalytics}
         onClose={() => setShowAnalytics(false)}
+        tasks={tasks}
+        routines={routines}
+        records={records}
+        streak={streak}
       />
 
       {isDesktop && (
