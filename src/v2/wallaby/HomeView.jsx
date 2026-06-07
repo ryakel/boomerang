@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import ContributionHeatmap from './ContributionHeatmap'
 import { WALLABY_COLORS, historyByDay, currentStreak, localYMD } from './heatmapUtils'
+import { isSnoozed } from '../../store'
 import './HomeView.css'
 
 const ENERGY_ICONS = { desk: Monitor, people: Users, errand: MapPin, creative: Palette, physical: Dumbbell }
@@ -77,6 +78,9 @@ export default function HomeView({
       const dueKey = t.due_date ? String(t.due_date).slice(0, 10) : null
       const doneKey = (t.status === 'done' && t.completed_at) ? localYMD(new Date(t.completed_at)) : null
       if (doneKey === selectedKey) return true
+      // Snoozed tasks (incl. routine spawns waiting on their trigger time, and
+      // "set aside" tasks) aren't actionable yet — keep them out of the day list.
+      if (isSnoozed(t)) return false
       if (ACTIVE.includes(t.status)) return isToday ? (dueKey ? dueKey <= todayKey : false) : dueKey === selectedKey
       return false
     }).sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0))

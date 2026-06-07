@@ -1,11 +1,15 @@
 /* Wallaby notifications center — reads the existing notification_log. */
 .wb-notifs {
-  min-height: 100vh;
+  /* Fill the scroll surface exactly (it already sits below the 52px header), not
+   * the full viewport — `100vh` overflowed the container by the header height,
+   * so even an empty notifications list scrolled ~52px of dead space. */
+  min-height: 100%;
   background: var(--wb-bg);
   color: var(--wb-text);
   padding: 16px 16px 120px;
   font-family: var(--v2-font-body);
   -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
 }
 .wb-notifs-title { font-size: 24px; margin-right: auto; }
 .wb-notifs-markall {
