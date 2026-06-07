@@ -253,6 +253,8 @@
 .wb-pulse-row:last-child { margin-bottom: 0; }
 .wb-pulse-row em { font-style: normal; color: var(--wb-text-meta); font-weight: 600; }
 .wb-pulse-risk { background: color-mix(in srgb, var(--wb-action-delete) 18%, transparent); color: var(--wb-action-primary); }
+.wb-pulse-risk em { color: inherit; opacity: 0.85; }
+.wb-pulse-risk strong { font-weight: 800; }
 .wb-pulse-habits { background: color-mix(in srgb, var(--wb-cat-purple) 16%, transparent); }
 .wb-pulse-tasks { background: var(--wb-card-2); }
 .wb-pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wb-cat-purple); flex: 0 0 auto; }
