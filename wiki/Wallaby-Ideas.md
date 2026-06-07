@@ -20,6 +20,16 @@ blocks automated fetch, so that folder is the source of truth.
 
 ---
 
+## Review pass 2026-06-07 (open — paused, do NOT lose)
+
+Reference shots: [`wallaby-reference/feature-requests-2026-06-07/`](./wallaby-reference/feature-requests-2026-06-07/).
+
+1. 🔧 **Edit-task modal redesign — REAL WORK.** The Wallaby `EditTaskModal` ("01-edit-modal-boomerang-current") still uses rows of v2 **white** segmented pills — "doesn't fit the Wallaby design language at all." Rethink it in loggd's language ("02-edit-sheet-loggd"): compact pill **chips with dropdown carets** for the common config (status · due · priority · energy · size), inline title + notes + `+ add subtask`, × cancel / ↑ submit. Keep ALL of Boomerang's richer config (checklists, research, energy drain, project link, knowledge links, gcal, etc.) — just present it in the chip language. loggd's `⋯` action sheet ("03") is already mirrored by Boomerang's `TaskActionSheet`.
+2. ⬜ **Streaks in Today's Pulse — NEW, easy.** loggd ("04") shows "🔥 Read 20 pages streak at risk! (**9 days**)" — the at-risk row names the habit AND shows the streak length. Extend the existing `atRisk` row in `HomeView` to include each habit's current streak count (already computed via `currentStreak(byDay)`), and lead with the longest at-risk streak.
+3. ⬜ **Header avatar → ↗ arrow — easy.** The plain gradient avatar dot ("05") "looks stupid" — no real users. Put an **up-and-to-the-right arrow** graphic inside the circle (`ArrowUpRight`/`TrendingUp`); it opens Profile/"Your year", so a growth arrow fits. `.wb-header-avatar` in `WallabyHeader`.
+
+---
+
 ## 1. Information architecture
 
 Bottom nav (loggd): **Home · Habits · Tasks · Timer · More**.

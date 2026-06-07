@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-07
 
+- docs: capture 2026-06-07 review-pass feature requests + reference [XS]
+  - Saved 5 reference shots to `wiki/wallaby-reference/feature-requests-2026-06-07/` and recorded three paused requests in `wiki/Wallaby-Ideas.md` so they're not lost: (1) **Edit-task modal redesign** into loggd's pill-chip language (real work); (2) **streak-with-day-count** in Today's Pulse (new, easy); (3) **header avatar → ↗ arrow** (easy). No code changes — paused per user.
+
 - feat(analytics): tabbed AnalyticsModal — Overview / Tasks / Habits (all skins) [M]
   - The single long-scroll AnalyticsModal is now organized into three tabs (shared component, all skins): **Overview** (summary + daily completions + 52-week heatmap + Achievements), **Tasks** (by day of week + Balance radar + by tag/energy/size + adaptive-throttle decisions), and a new **Habits** tab — per-routine completion (count, current streak 🔥, last-done, bar relative to the busiest) derived from `routine.completed_history`, no new endpoint. Range + metric controls stay above the tabs. Implemented by gating existing sections on the active tab (no reorder), so it's low-risk. Base tab styling in `AnalyticsModal.css`; Wallaby override → green segmented control. Focus/mood tabs intentionally omitted (deferred features). Verified headless: tab switching shows the right sections; Habits shows 7 routines with full names.
 
