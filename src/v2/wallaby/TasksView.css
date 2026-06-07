@@ -45,7 +45,7 @@
   width: 100%;
   background: var(--wb-card-2);
   border: 1px solid var(--wb-hairline);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 3px;
   gap: 2px;
 }
@@ -57,7 +57,7 @@
   color: var(--wb-text-meta);
   font: 600 13px/1 var(--v2-font-body);
   padding: 9px 13px;
-  border-radius: 999px;
+  border-radius: 10px;
   cursor: pointer;
 }
 .wb-tasks .wb-seg-btn.is-active {
@@ -98,7 +98,7 @@
   font-weight: 700;
   color: var(--wb-text-meta);
   background: var(--wb-card-2);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 1px 7px;
 }
 
@@ -197,7 +197,7 @@
   font-weight: 600;
   color: var(--tag, var(--wb-text-meta));
   background: color-mix(in srgb, var(--tag, #888) 18%, transparent);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 2px 9px;
 }
 
@@ -353,6 +353,6 @@
   font-size: 11px;
   font-weight: 700;
   background: var(--wb-card-2);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 2px 8px;
 }

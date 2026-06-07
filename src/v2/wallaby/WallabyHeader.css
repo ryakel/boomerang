@@ -55,7 +55,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--wb-action-delete);
   color: #fff;
   font-size: 10px;

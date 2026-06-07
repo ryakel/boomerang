@@ -146,7 +146,7 @@
   display: inline-flex;
   background: var(--wb-card-2);
   border: 1px solid var(--wb-hairline);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 3px;
   gap: 2px;
 }
@@ -157,7 +157,7 @@
   color: var(--wb-text-meta);
   font: 600 12px/1 var(--v2-font-body);
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
   cursor: pointer;
 }
 .wb-profile .wb-seg-btn.is-active {
@@ -185,6 +185,6 @@
   font-weight: 700;
   color: var(--wb-text-meta);
   background: var(--wb-card-2);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 2px 8px;
 }
