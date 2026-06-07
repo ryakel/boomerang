@@ -30,6 +30,7 @@
   background: var(--wb-card);
   border-color: var(--wb-hairline);
   color: var(--wb-text-meta);
+  border-radius: 11px;
 }
 [data-theme^="wallaby"] .v2-form-seg-active {
   background: var(--wb-action-complete) !important;
@@ -42,6 +43,7 @@
   background: var(--wb-card);
   border-color: var(--wb-hairline);
   color: var(--wb-text);
+  border-radius: 11px;
 }
 [data-theme^="wallaby"] .v2-form-energy-pill-active {
   background: color-mix(in srgb, var(--wb-cat-purple) 22%, transparent) !important;
@@ -54,12 +56,14 @@
   background: var(--wb-card);
   border-color: var(--wb-hairline);
   color: var(--wb-text);
+  border-radius: 11px;
 }
 
 /* AI helper pills (Auto / Research / Infer) — purple-tinted chip. */
 [data-theme^="wallaby"] .v2-form-ai-pill {
   background: var(--wb-card-2);
   color: var(--wb-cat-purple);
+  border-radius: 10px;
 }
 
 /* Misc edit chips/pills that should read as Wallaby cards. */
@@ -70,6 +74,7 @@
   background: var(--wb-card);
   border-color: var(--wb-hairline);
   color: var(--wb-text);
+  border-radius: 11px;
 }
 
 /* Primary action buttons inside the editor → green; danger → red. */
