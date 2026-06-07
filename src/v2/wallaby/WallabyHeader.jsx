@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell } from 'lucide-react'
+import { Bell, TrendingUp } from 'lucide-react'
 import Logo from '../../components/Logo'
 import './WallabyHeader.css'
 
@@ -62,7 +62,9 @@ export default function WallabyHeader({
           <Bell size={20} strokeWidth={1.9} />
           {unread > 0 && <span className="wb-header-badge">{unread > 99 ? '99+' : unread}</span>}
         </button>
-        <button className="wb-header-avatar" onClick={onAvatar} aria-label="Profile" />
+        <button className="wb-header-avatar" onClick={onAvatar} aria-label="Profile">
+          <TrendingUp size={17} strokeWidth={2.5} color="#fff" />
+        </button>
       </div>
     </header>
   )

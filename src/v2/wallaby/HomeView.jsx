@@ -44,8 +44,11 @@ export default function HomeView({
     return { routine: r, color: WALLABY_COLORS[i % WALLABY_COLORS.length], byDay, streak: currentStreak(byDay) }
   }), [habits])
 
-  // Streak at risk: a live streak not yet logged TODAY.
-  const atRisk = enriched.filter(h => !h.byDay[todayKey] && h.streak > 0)
+  // Streak at risk: a live streak not yet logged TODAY. Longest first, so the
+  // Pulse leads with the streak you most don't want to drop.
+  const atRisk = enriched
+    .filter(h => !h.byDay[todayKey] && h.streak > 0)
+    .sort((a, b) => b.streak - a.streak)
 
   // Week strip (Sunday-anchored), paged by weekOffset.
   const weekStart = new Date(today)
@@ -126,7 +129,10 @@ export default function HomeView({
           {atRisk.length > 0 && (
             <div className="wb-pulse-row wb-pulse-risk">
               <Flame size={16} strokeWidth={2.25} />
-              <span>{atRisk.length === 1 ? `${atRisk[0].routine.title} streak at risk` : `${atRisk.length} streaks at risk`}</span>
+              <span>
+                <strong>{atRisk[0].routine.title}</strong> streak at risk
+                {' '}<em>({atRisk[0].streak} day{atRisk[0].streak === 1 ? '' : 's'}{atRisk.length > 1 ? ` · +${atRisk.length - 1} more` : ''})</em>
+              </span>
             </div>
           )}
           <div className="wb-pulse-row wb-pulse-habits">

@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-07
 
+- feat(ui): Wallaby header avatar → growth arrow + streak day-count in Pulse [S]
+  - **Header avatar** (`WallabyHeader`): the plain gradient dot now holds an **up-and-right arrow** (`TrendingUp`) — it opens Profile/"Your year", so a growth arrow fits (no real users). (Review-pass req #3.)
+  - **Today's Pulse streak-at-risk** (`HomeView`): the row now names the habit AND shows the streak length, loggd-style — "🔥 **take meds** streak at risk (4 days)" — leading with the longest at-risk streak (`+N more` when several). Uses the already-computed `currentStreak`. (Review-pass req #2.) Verified headless.
+
 - docs: capture 2026-06-07 review-pass feature requests + reference [XS]
   - Saved 5 reference shots to `wiki/wallaby-reference/feature-requests-2026-06-07/` and recorded three paused requests in `wiki/Wallaby-Ideas.md` so they're not lost: (1) **Edit-task modal redesign** into loggd's pill-chip language (real work); (2) **streak-with-day-count** in Today's Pulse (new, easy); (3) **header avatar → ↗ arrow** (easy). No code changes — paused per user.
 
