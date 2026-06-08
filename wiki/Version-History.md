@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-07
 
+- fix(ui): Wallaby — three post-promotion bug fixes (snooze leak / notif scroll / Spaces gate) [S]
+  - **Routine spawns showing before their trigger time** (Home + Tasks): the Wallaby `HomeView` daily list and `TasksView` Upcoming list filtered on active status but never excluded snoozed tasks — so routine-spawned tasks waiting on a `trigger_time` (snoozed until, e.g., 8pm) and "set aside" tasks surfaced hours early. Both now exclude `isSnoozed(task)` (shared `store.js` helper), matching the standard v2 list, which keeps snoozed tasks out of the active sections. Verified headless: a task due today but snoozed +3h is absent from Home and from the Upcoming count.
+  - **Weird scrolling in Notifications**: `.wb-notifs` used `min-height: 100vh`, but the surface scroll container already sits below the 52px header — so the content was 52px taller than its container and even an empty notifications list scrolled ~52px of dead space. Changed to `min-height: 100%` (fills the surface exactly) + `overflow-wrap: anywhere` (defensive against long bodies). Verified: scrollHeight now equals clientHeight (no phantom scroll).
+  - **Wallaby gate not holding in the Standard Spaces hub**: `SpacesHub` listed the four Wallaby-native surfaces (Dashboard/Habits/Tasks/Goals) as launcher rows. They're unreachable in Wallaby (the shell covers the hub) and conceptually wrong in Standard, so they leaked Wallaby views into the Standard theme. Removed those four rows (+ now-unused icon imports and `onOpen*` props at the `AppV2` callsite); the hub is back to Projects / Routines / Knowledge. The dead `.v2-habits-overlay` blocks remain as documented unreachable fallback. Verified: Standard hub renders exactly `[Projects, Routines, Knowledge]`.
+
 - chore(release): delete `wiki/wallaby-reference/` ahead of prod promotion [XS]
   - Removed the 9.9 MB of external loggd reference PDFs/screenshots (+ the 2026-06-07 feature-request shots) — they must not ship to prod, per the dev→main ritual. Recoverable from git history. Doc links updated to note the removal.
 

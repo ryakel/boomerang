@@ -1090,8 +1090,12 @@ Tapping a task → `EditTaskModal`, checkbox → `handleComplete`, subtask →
 `updateTask({checklists})`, Home check → toggle `completed_history` today, Goals
 Log session → `logProjectSession` etc. Desktop keeps Kanban + drawer. The old
 `.v2-habits-overlay` Spaces entries (`showHabits`/`showTasks`/`showProfile`/
-`showGoals`) remain wired but are unreachable in Wallaby (the shell covers the
-Spaces hub) — kept as a fallback until the shell fully subsumes them.
+`showGoals`) remain wired but are now fully unreachable — the shell covers the
+Spaces hub in Wallaby, and the four Wallaby-native launcher rows
+(Dashboard/Habits/Tasks/Goals) were removed from `SpacesHub` (2026-06-07) because
+they leaked Wallaby surfaces into the **Standard** theme's hub. The Standard hub
+is back to Projects / Routines / Knowledge; the dead overlay blocks are kept as a
+fallback until the shell fully subsumes them.
 
 **Dev-only render harness.** `wallaby-preview.html` + `src/wallaby-preview.jsx`
 mount `HabitsView` in isolation (mock or API-injected routines) for
