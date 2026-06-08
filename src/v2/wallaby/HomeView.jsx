@@ -18,7 +18,7 @@ const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 // selected day's completion.
 export default function HomeView({
   routines = [], tasks = [], labels = [], streak = 0,
-  onToggleHabit, onCompleteTask, onOpenTask, onOpenProfile,
+  onToggleHabit, onSpawnStackToday, onCompleteTask, onOpenTask, onOpenProfile,
 }) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayKey = localYMD(today)
@@ -222,6 +222,64 @@ export default function HomeView({
         <div className="wb-home-habits">
           {enriched.map(({ routine, color, byDay, streak }) => {
             const Icon = ENERGY_ICONS[routine.energy] || Repeat
+            const isStack = Array.isArray(routine.members) && routine.members.length > 0
+
+            // Stacks fan out into one independent task per member each cycle, so
+            // they surface as a group of checkable member rows (not a single
+            // toggle). Each member's check routes through the real task path
+            // (onCompleteTask), which handles the 20%-on-clear bonus + the lone
+            // history stamp on last-member clear.
+            if (isStack) {
+              const memberTasks = tasks.filter(t => t.routine_id === routine.id
+                && String(t.due_date).slice(0, 10) === selectedKey)
+              if (memberTasks.length === 0) {
+                // Cycle not spawned for this day yet — offer to start it (today
+                // only; past days have no cycle to create).
+                const canSpawn = !isFutureSel && selectedKey === todayKey
+                return (
+                  <div key={routine.id} className="wb-home-habit wb-home-stack-start">
+                    <span className="wb-home-habit-icon" style={{ background: color }}><Icon size={16} strokeWidth={2} color="#fff" /></span>
+                    <span className="wb-home-habit-title">{routine.title} <em className="wb-home-stack-count">· {routine.members.length} items</em></span>
+                    <button
+                      className="wb-home-check"
+                      style={{ borderColor: color }}
+                      onClick={() => canSpawn && onSpawnStackToday?.(routine.id)}
+                      disabled={!canSpawn}
+                      aria-label="Start stack"
+                    />
+                  </div>
+                )
+              }
+              const memberDone = memberTasks.filter(t => t.status === 'done').length
+              return (
+                <div key={routine.id} className="wb-home-stack-block">
+                  <div className="wb-home-stack-head">
+                    <span className="wb-home-habit-icon" style={{ background: color }}><Icon size={14} strokeWidth={2} color="#fff" /></span>
+                    <span className="wb-home-stack-title">{routine.title}</span>
+                    <span className="wb-home-stack-progress">{memberDone}/{memberTasks.length}</span>
+                  </div>
+                  {memberTasks.map(t => {
+                    const mdone = t.status === 'done'
+                    return (
+                      <div key={t.id} className={`wb-home-habit wb-home-stack-member${mdone ? ' is-done' : ''}`}>
+                        <span className="wb-home-stack-prefix" aria-hidden="true">▸</span>
+                        <span className="wb-home-habit-title">{t.title}</span>
+                        <button
+                          className={`wb-home-check${mdone ? ' is-done' : ''}`}
+                          style={mdone ? { background: color, borderColor: color } : { borderColor: color }}
+                          onClick={() => !isFutureSel && onCompleteTask?.(t)}
+                          disabled={isFutureSel}
+                          aria-label={mdone ? 'Mark not done' : 'Mark done'}
+                        >
+                          {mdone && <Check size={18} strokeWidth={3} color="#fff" />}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            }
+
             const doneSel = !!byDay[selectedKey]
             return (
               <div key={routine.id} className={`wb-home-habit${doneSel ? ' is-done' : ''}`}>

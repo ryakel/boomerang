@@ -18,7 +18,7 @@ import './WallabyShell.css'
 export default function WallabyShell({
   tasks = [], routines = [], projects = [], labels = [],
   dailyStats = {}, streak = 0, records = {}, lifetimeDone = 0,
-  onToggleHabit, onCompleteTask, onToggleItem, onOpenTask, onAddTask, onAddHabit,
+  onToggleHabit, onSpawnStackToday, onCompleteTask, onToggleItem, onOpenTask, onAddTask, onAddHabit,
   onRescheduleTask, onDeleteTask,
   onEditHabit, onArchiveHabit, onDeleteHabit,
   onLogSession, onCompleteProject, onEditProject, onSetAsideProject, onDeleteProject,
@@ -69,7 +69,7 @@ export default function WallabyShell({
     surface = (
       <HomeView
         routines={routines} tasks={tasks} labels={labels} streak={streak}
-        onToggleHabit={onToggleHabit} onCompleteTask={onCompleteTask} onOpenTask={onOpenTask}
+        onToggleHabit={onToggleHabit} onSpawnStackToday={onSpawnStackToday} onCompleteTask={onCompleteTask} onOpenTask={onOpenTask}
       />
     )
   } else if (tab === 'habits') {

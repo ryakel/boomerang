@@ -217,7 +217,7 @@ export default function AppV2() {
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
-    completeRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, hydrateRoutines,
+    completeRoutine, uncompleteRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -750,7 +750,23 @@ export default function AppV2() {
     uncompleteTask(task.id)
     setToast({ task, variant: 'reopen' })
     if (task?.trello_card_id) pushStatusToTrello(task, 'not_started')
-  }, [uncompleteTask, pushStatusToTrello])
+    // Reopening a routine-spawned task must also drop its completed_history
+    // stamp, or the Wallaby grids/streaks keep counting the day as done
+    // (phantom). Mirror the stamp logic: ordinary routines stamp on every
+    // completion (always remove); stacks stamp only on the last-member clear,
+    // so remove only if this task's cycle was fully cleared.
+    if (task?.routine_id) {
+      const routine = routines.find(r => r.id === task.routine_id)
+      const day = localYMD(new Date(task.completed_at || task.due_date || Date.now()))
+      const isStack = Array.isArray(routine?.members) && routine.members.length > 0
+      if (!isStack) {
+        uncompleteRoutine(task.routine_id, day)
+      } else {
+        const siblings = tasks.filter(t => t.routine_id === task.routine_id && t.due_date === task.due_date)
+        if (siblings.every(s => s.status === 'done')) uncompleteRoutine(task.routine_id, day)
+      }
+    }
+  }, [uncompleteTask, pushStatusToTrello, routines, tasks, uncompleteRoutine])
 
   // Archive the Trello card on delete so the next inbound sync doesn't
   // re-import the task. Mirrors v1 handleDelete. Also gated on chain-break
@@ -1184,18 +1200,58 @@ export default function AppV2() {
           records={records}
           lifetimeDone={tasks.filter(t => t.status === 'done').length}
           onToggleHabit={(routine, ymd) => {
+            // Single shortcut into the canonical completion path. The old
+            // version raw-wrote completed_history here, which DOUBLED the record
+            // whenever the same routine was also completed via its surfaced task
+            // (completeRoutine already stamps history). Route through the real
+            // task instead so history is stamped exactly once per completion.
             const day = ymd || localYMD(new Date())
+            const today = localYMD(new Date())
             const hist = Array.isArray(routine.completed_history) ? routine.completed_history : []
             const onDay = (ts) => localYMD(new Date(ts)) === day
-            if (hist.some(onDay)) {
-              updateRoutine(routine.id, { completed_history: hist.filter(ts => !onDay(ts)) })
-            } else {
-              // Pin to local noon of the chosen day so it buckets correctly
-              // regardless of timezone (backfilling a past day, or today).
-              updateRoutine(routine.id, { completed_history: [...hist, `${day}T12:00:00.000Z`] })
+
+            // Past day: pure history backfill/repair. No task exists to
+            // complete, so a direct completed_history toggle is the only (and
+            // correct) record — pinned to local noon to bucket regardless of TZ.
+            if (day < today) {
+              if (hist.some(onDay)) updateRoutine(routine.id, { completed_history: hist.filter(ts => !onDay(ts)) })
+              else updateRoutine(routine.id, { completed_history: [...hist, `${day}T12:00:00.000Z`] })
+              return
             }
+
+            // Habit-mode (target frequency): each completion is a logged
+            // done-task; logHabit stamps history once. Un-log removes today's
+            // most-recent log and its stamp.
+            if (routine.spawn_mode === 'habit') {
+              const logs = tasks.filter(t => t.routine_id === routine.id && t.status === 'done'
+                && localYMD(new Date(t.completed_at || `${day}T12:00:00.000Z`)) === day)
+              if (logs.length) {
+                deleteTask(logs[logs.length - 1].id)
+                uncompleteRoutine(routine.id, day)
+              } else {
+                const t = logHabit(routine.id)
+                if (t) addSpawnedTasks([t])
+              }
+              return
+            }
+
+            // Auto (cadence) routine, today. Complete/reopen the real surfaced
+            // task so completeRoutine is the lone history writer. If none was
+            // surfaced, stamp directly (single source — nothing to double with).
+            const todays = tasks.filter(t => t.routine_id === routine.id
+              && String(t.due_date).slice(0, 10) === day)
+            const doneTask = todays.find(t => t.status === 'done')
+            if (doneTask) { handleUncomplete(doneTask); return }
+            const openTask = todays.find(t => t.status !== 'done')
+            if (openTask) { handleComplete(openTask.id); return }
+            completeRoutine(routine.id)
           }}
-          onCompleteTask={(task) => task.status === 'done' ? uncompleteTask(task.id) : handleComplete(task.id)}
+          onSpawnStackToday={(routineId) => {
+            const spawned = spawnNow(routineId)
+            if (spawned && spawned.length) addSpawnedTasks(spawned)
+            return spawned
+          }}
+          onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
               cl.id !== clId ? cl : { ...cl, items: (cl.items || []).map(it => it.id === itemId ? { ...it, completed: !it.completed } : it) },
