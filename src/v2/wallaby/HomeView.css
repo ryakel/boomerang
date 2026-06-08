@@ -221,6 +221,43 @@
 }
 .wb-home-check:active { transform: scale(0.92); }
 
+/* Stacks: a routine that fans out into independent member tasks each cycle.
+   Rendered as a labelled group of checkable member rows. */
+.wb-home-stack-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 2px;
+}
+.wb-home-stack-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+}
+.wb-home-stack-head .wb-home-habit-icon { width: 28px; height: 28px; border-radius: 8px; }
+.wb-home-stack-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--wb-text-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-home-stack-progress {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wb-text-meta);
+}
+.wb-home-stack-member { margin-left: 14px; }
+.wb-home-stack-prefix { flex: 0 0 auto; color: var(--wb-text-meta); font-size: 12px; }
+.wb-home-stack-count { font-style: normal; font-weight: 500; color: var(--wb-text-meta); }
+
 /* ── Today's Pulse card ──────────────────────────────────────────────────── */
 .wb-pulse {
   background: var(--wb-card);
