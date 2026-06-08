@@ -4,6 +4,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-08
+
+- chore(deps): override `hono` to `^4.12.23` to clear 4 moderate advisories [XS]
+  - Dependabot flagged 4 moderate `hono` advisories (IPv6 deny-rule bypass GHSA-xrhx-7g5j-rcj5, Set-Cookie injection GHSA-3hrh-pfw6-9m5x, JWT non-Bearer scheme GHSA-f577-qrjj-4474, `app.mount()` percent-encoded routing GHSA-2gcr-mfcq-wcc3). `hono` is a transitive dep only — pulled by `@modelcontextprotocol/sdk` (`^4.11.4`) and the `@hono/node-server` peer (`^4`); it's not imported anywhere in Boomerang's own code. Added a `hono: "^4.12.23"` entry to the existing `overrides` block, bumping the locked version `4.12.18 → 4.12.23` (latest 4.x). Both dependents accept `^4`, so no breaking change. `npm audit` now reports **0 vulnerabilities**; smoke test passes (server boots, MCP SDK loads, JS bundle builds clean).
+
+---
+
 ## 2026-06-07
 
 - fix(ui): Wallaby — three post-promotion bug fixes (snooze leak / notif scroll / Spaces gate) [S]
