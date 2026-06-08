@@ -1138,8 +1138,10 @@ is `uncompleteRoutine(id, ymd)` (removes one same-day entry), called from
 `handleUncomplete`. The Wallaby Home checkbox (`onToggleHabit`) is a *shortcut into
 these paths*, NOT a raw writer for today — it completes/reopens the real task so
 `completeRoutine` stays the lone stamp (the old raw write doubled the day whenever
-the task was also completed normally). It only writes `completed_history` directly
-for **past days** (backfill — no task exists). **Stacks** stamp history only on
+the task was also completed normally). It writes `completed_history` directly only
+when no concrete task applies — **past days** (backfill) or **today with nothing
+surfaced** — and that direct write is a *toggle* (check adds, re-tap removes), not
+an append. **Stacks** stamp history only on
 the last-member clear; their Home rows go through `onCompleteTask`, and reopen
 removes the stamp only when the full cycle is being un-cleared. Don't reintroduce a
 second writer for today.

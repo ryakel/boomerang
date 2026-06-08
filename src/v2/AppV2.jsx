@@ -1209,20 +1209,20 @@ export default function AppV2() {
             const today = localYMD(new Date())
             const hist = Array.isArray(routine.completed_history) ? routine.completed_history : []
             const onDay = (ts) => localYMD(new Date(ts)) === day
-
-            // Past day: pure history backfill/repair. No task exists to
-            // complete, so a direct completed_history toggle is the only (and
-            // correct) record — pinned to local noon to bucket regardless of TZ.
-            if (day < today) {
+            // Direct toggle of the day's history stamp — the record of last
+            // resort when no concrete task applies (past-day backfill/repair, or
+            // a routine with nothing surfaced for the day). Pinned to local noon
+            // so it buckets regardless of timezone.
+            const rawToggle = () => {
               if (hist.some(onDay)) updateRoutine(routine.id, { completed_history: hist.filter(ts => !onDay(ts)) })
               else updateRoutine(routine.id, { completed_history: [...hist, `${day}T12:00:00.000Z`] })
-              return
             }
 
-            // Habit-mode (target frequency): each completion is a logged
+            // Habit-mode (target frequency), today: each completion is a logged
             // done-task; logHabit stamps history once. Un-log removes today's
-            // most-recent log and its stamp.
-            if (routine.spawn_mode === 'habit') {
+            // most-recent log and its stamp. (Past days fall through to rawToggle
+            // — logHabit can only log "now".)
+            if (routine.spawn_mode === 'habit' && day === today) {
               const logs = tasks.filter(t => t.routine_id === routine.id && t.status === 'done'
                 && localYMD(new Date(t.completed_at || `${day}T12:00:00.000Z`)) === day)
               if (logs.length) {
@@ -1235,16 +1235,20 @@ export default function AppV2() {
               return
             }
 
-            // Auto (cadence) routine, today. Complete/reopen the real surfaced
-            // task so completeRoutine is the lone history writer. If none was
-            // surfaced, stamp directly (single source — nothing to double with).
-            const todays = tasks.filter(t => t.routine_id === routine.id
-              && String(t.due_date).slice(0, 10) === day)
-            const doneTask = todays.find(t => t.status === 'done')
-            if (doneTask) { handleUncomplete(doneTask); return }
-            const openTask = todays.find(t => t.status !== 'done')
-            if (openTask) { handleComplete(openTask.id); return }
-            completeRoutine(routine.id)
+            // Auto (cadence) routine, today: complete/reopen the real surfaced
+            // task so completeRoutine is the lone history writer — never a second
+            // raw write on top of a task completion (the doubling bug).
+            if (day === today && routine.spawn_mode !== 'habit') {
+              const todays = tasks.filter(t => t.routine_id === routine.id
+                && String(t.due_date || '').slice(0, 10) === day)
+              const doneTask = todays.find(t => t.status === 'done')
+              if (doneTask) { handleUncomplete(doneTask); return }
+              const openTask = todays.find(t => t.status !== 'done')
+              if (openTask) { handleComplete(openTask.id); return }
+            }
+
+            // Past day, or today with nothing surfaced → toggle the stamp directly.
+            rawToggle()
           }}
           onSpawnStackToday={(routineId) => {
             const spawned = spawnNow(routineId)
