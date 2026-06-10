@@ -3,6 +3,14 @@
  * documentElement; the dark-mode variant keys off the existing data-theme attr. */
 
 :root[data-ui="v2"] {
+  /* Energy-type accents — THE single source for energy colors app-wide
+   * (store.ENERGY_TYPES references these via var()). Standard palette uses
+   * the original hues; wallaby/kept palettes override per theme. */
+  --energy-desk: #60A5FA;
+  --energy-people: #A78BFA;
+  --energy-errand: #34D399;
+  --energy-creative: #F472B6;
+  --energy-physical: #FBBF24;
   /* Typography — Syne for display (existing font), DM Sans for body */
   --v2-font-display: 'Syne', system-ui, sans-serif;
   --v2-font-body: 'DM Sans', system-ui, sans-serif;

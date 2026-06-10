@@ -1,5 +1,6 @@
 @import './tokens.css';
 @import './wallaby/palette.css';
+@import './kept/palette.css';
 @import './wallaby/settings.css';
 @import './wallaby/analytics.css';
 @import './wallaby/modals.css';

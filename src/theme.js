@@ -7,6 +7,8 @@ export const THEME_COLORS = {
   dark: '#0B0B0F',
   'wallaby-dark': '#0E1322',
   'wallaby-light': '#F4F6FB',
+  'kept-dark': '#101713',
+  'kept-light': '#F7F4EC',
 }
 
 // Apply a theme to the document (data-theme attribute + theme-color meta).

@@ -171,12 +171,16 @@ function isActiveTask(task) {
 const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }
 
 // Energy/capacity types — what kind of effort a task demands
+// Colors resolve through the --energy-* CSS tokens (tokens.css defines the
+// standard values; wallaby/kept palettes override) so every theme tunes the
+// energy accents in ONE place. Consumers pass these straight to inline
+// style/SVG color attributes — CSS vars are valid there.
 const ENERGY_TYPES = [
-  { id: 'desk', label: 'Desk', icon: 'Monitor', color: '#60A5FA' },
-  { id: 'people', label: 'People', icon: 'Users', color: '#A78BFA' },
-  { id: 'errand', label: 'Errand', icon: 'MapPin', color: '#34D399' },
-  { id: 'creative', label: 'Creative', icon: 'Palette', color: '#F472B6' },
-  { id: 'physical', label: 'Physical', icon: 'Dumbbell', color: '#FBBF24' },
+  { id: 'desk', label: 'Desk', icon: 'Monitor', color: 'var(--energy-desk)' },
+  { id: 'people', label: 'People', icon: 'Users', color: 'var(--energy-people)' },
+  { id: 'errand', label: 'Errand', icon: 'MapPin', color: 'var(--energy-errand)' },
+  { id: 'creative', label: 'Creative', icon: 'Palette', color: 'var(--energy-creative)' },
+  { id: 'physical', label: 'Physical', icon: 'Dumbbell', color: 'var(--energy-physical)' },
 ]
 
 // Energy types that get more aggressive nagging (ADHD avoidance-prone)

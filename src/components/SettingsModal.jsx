@@ -2467,14 +2467,13 @@ export default function SettingsModal({
           <div className="v2-settings-form">
             {(() => {
               const currentTheme = settings.theme || 'light'
-              const isWallaby = currentTheme.startsWith('wallaby')
-              const isDark = currentTheme === 'dark' || currentTheme === 'wallaby-dark'
-              const family = isWallaby ? 'wallaby' : 'standard'
-              const mode = isDark ? 'dark' : 'light'
+              const family = currentTheme.startsWith('wallaby') ? 'wallaby'
+                : currentTheme.startsWith('kept') ? 'kept' : 'standard'
+              const mode = currentTheme.endsWith('dark') ? 'dark' : 'light'
               const setTheme = (nextFamily, nextMode) => {
-                const value = nextFamily === 'wallaby'
-                  ? (nextMode === 'dark' ? 'wallaby-dark' : 'wallaby-light')
-                  : (nextMode === 'dark' ? 'dark' : 'light')
+                const value = nextFamily === 'standard'
+                  ? (nextMode === 'dark' ? 'dark' : 'light')
+                  : `${nextFamily}-${nextMode}`
                 update('theme', value)
                 applyTheme(value)
               }
@@ -2483,12 +2482,13 @@ export default function SettingsModal({
                   <div className="v2-settings-row v2-settings-row-stacked">
                     <div className="v2-settings-row-text">
                       <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm Wheneri-flavored UI. Wallaby is a deep-navy, heatmap-first dashboard.</div>
+                      <div className="v2-settings-row-hint">Standard is the calm hairline UI. Wallaby is the navy heatmap dashboard. Kept is the new Boomerang language — green-ink + gold, arcs not grids (in progress).</div>
                     </div>
                     <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
                       {[
                         { value: 'standard', label: 'Standard' },
                         { value: 'wallaby', label: 'Wallaby' },
+                        { value: 'kept', label: 'Kept' },
                       ].map(opt => (
                         <button
                           key={opt.value}
