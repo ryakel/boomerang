@@ -329,27 +329,56 @@ every habit tracker; every *expression* of them above is original.
 
 ---
 
-## 12 · Migration plan (Wallaby → Kept)
+## 12 · Migration plan (Wallaby → Kept) — the rebuild IS the cleanup
 
-Same playbook that built Wallaby — parallel theme family, surface by surface,
-fully reversible until cutover:
+Same reversible playbook that built Wallaby (parallel theme family, surface by
+surface), but every phase retires technical debt. Kept must not become a THIRD
+design language stacked on Wallaby + dormant Terminal — the end state is **one**
+language and a structurally cleaner codebase.
 
-- **K1 — Brand + tokens.** New mark/wordmark/icons; `src/v2/kept/palette.css`
+- **K0 — Demolition (before any Kept code).** Execute the documented Terminal
+  "didn't stick" teardown: `rm -rf src/v2/terminal/`, delete `useTerminalMode`,
+  strip `terminalTitle`/`terminalCommand` props from every ModalShell/
+  EmptyState/ConfirmDialog call site, drop both `check:terminal-*` CI scripts,
+  keep only the `terminal-*` → theme migration shim in `loadSettings()`.
+  Flatten `src/v2/` → `src/` (the deferred directory rename — `v2` is
+  meaningless now that v1 is gone). Purge stale settings keys
+  (`v1_disabled`, legacy `show_week_strip`) and consolidate the theme
+  pre-paint/mount/picker maps into one shared module. Net: the bundle drops to
+  exactly two languages (Standard + Wallaby) before Kept adds its own.
+- **K1 — Brand + tokens.** New mark/wordmark/icons; `src/kept/palette.css`
   (`--bm-*`, `kept-dark`/`kept-light` + system-follow); Fraunces in
-  `index.html`; theme registration at the three sync points (index.html
-  pre-paint, AppV2 mount, Settings picker).
+  `index.html`. **Cleanup baked in:** energy-type colors move into the token
+  layer (feather mapping) with ONE source of truth — retiring the four
+  duplicate energy color/icon definitions (`store.ENERGY_TYPES`, TaskCard,
+  HomeView/HabitsView, WallabyEditTask).
 - **K2 — Viz components.** `FlightTrail`, `MonthDots`, `DensityRibbon`,
-  `DayArc` (port the prototype generators to React; share with desktop).
-- **K3 — Mobile shell.** KeptNav (4+Throw), header, Today (Day Arc + rows +
-  loops), quick-capture sheet.
+  `DayArc` — built once, consumed identically by mobile and desktop. **Cleanup
+  baked in:** one canonical date module (merging the two `localYMD`s +
+  `parseLocalDate` into a single `src/dates.js` with the date-only-string
+  contract documented), since every viz component depends on it.
+- **K3 — Mobile shell.** KeptNav (4+Throw), header, Today, quick-capture
+  sheet. **Cleanup baked in:** the AppV2 god-file split — KeptShell owns
+  navigation/surface state, each surface container owns its own handlers and
+  modal state; AppV2 shrinks to data-wiring + the shared-hook layer instead of
+  ~40 useStates and every handler in one 1,600-line file.
 - **K4 — Mobile surfaces.** Loops/detail, Tasks + action sheet, More, Arcs,
-  Flight log; editors restyled.
-- **K5 — Desktop command center.** Sidebar, work surface (List default, Kanban
-  as Board mode), Today rail, detail panel, ⌘K throw.
-- **K6 — Shared modals + cutover.** Settings/Analytics/Packages/Quokka in
-  Kept; default new installs to system-follow Kept; Wallaby demoted to a
-  legacy theme for one release, then removed (its own "didn't stick" teardown,
-  already documented in CLAUDE.md, is the template).
+  Flight log; editors. **Rule: no reskin-by-override.** Kept surfaces are
+  built Kept-first against `--bm-*` tokens; there will be NO
+  `[data-theme^="kept"]` override stylesheets layered on shared components
+  (the Wallaby `forms/settings/analytics/modals.css` override pattern — with
+  its `!important`s and import-order traps — dies with Wallaby).
+- **K5 — Desktop command center.** Sidebar, work surface (List default,
+  Kanban as Board mode), Today rail, detail panel, ⌘K throw. SettingsModal
+  gets split into per-tab panel files as it's restyled (the other god file).
+- **K6 — Cutover + Wallaby teardown.** Default new installs to system-follow
+  Kept; Wallaby demoted for one release, then `src/wallaby/` + every
+  `[data-theme^="wallaby"]` override file is deleted (same teardown discipline
+  as Terminal in K0). End state: ONE design language (Kept), Standard kept
+  only as a minimal fallback or removed too — decided at cutover.
+- **Throughout:** unit tests land with the pieces that keep regressing —
+  the date module (K2) and scoring get real test coverage as they're touched,
+  not after.
 
 Each phase is an independently mergeable PR with screenshot verification in
 both palettes (the Local-Verification-Harness runbook applies unchanged).
