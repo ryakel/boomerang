@@ -1165,8 +1165,14 @@ canonical date module WITH unit tests in `npm test`; FlightTrail / MonthDots /
 DensityRibbon / DayArc in `src/kept/`) + K3 (KeptShell mobile IA — Today with
 Day Arc hero, Loops with trail cards, Tasks + action sheet, More, ThrowSheet;
 `useMobilePages` + `:is()`-gated modals.css serve both shells; shared
-`toggleHabitDay` handler) are MERGED. Kept on mobile is fully navigable.
-Remaining: K5 desktop command center, K6 cutover + Wallaby teardown.
+`toggleHabitDay` handler) + K5-v1 (KeptDesktop command center: sidebar +
+⌘K Throw + shared Kept views; Today rail / Board / Timeline modes are the
+K5 continuation) + K6 cutover (NEW installs default to Kept system-follow;
+existing themes untouched) are MERGED. **Kept is now the default experience
+for new installs on both mobile and desktop.** Remaining: K5 continuation
+(Today rail, Board/Timeline, detail panel), K4 polish (Arcs/Flight log as
+Kept-native surfaces), and the K6 completion — Wallaby teardown once the
+user confirms Kept as the daily driver.
 
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.

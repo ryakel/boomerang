@@ -20,6 +20,7 @@ import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
 import WallabyShell from './wallaby/WallabyShell'
 import KeptShell from './kept/KeptShell'
+import KeptDesktop from './kept/KeptDesktop'
 import WallabyEditTask from './wallaby/WallabyEditTask'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
@@ -1272,6 +1273,36 @@ export default function AppV2() {
         />
       )}
 
+      {/* Kept desktop command center (K5 v1) — sidebar + work surface over
+        * the shared Kept views; cmd-K Throw. Covers the standard layout the
+        * same way the mobile shells do; modals open above it. */}
+      {isKept && isDesktop && (
+        <KeptDesktop
+          tasks={tasks}
+          routines={routines}
+          labels={labels}
+          dailyStats={dailyStats}
+          pointsGoal={settingsForRings.daily_points_goal || 15}
+          streak={streak}
+          onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
+          onOpenTask={(task) => setEditTarget(task)}
+          onToggleHabit={toggleHabitDay}
+          onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
+          onDeleteTask={(task) => handleDelete(task.id)}
+          onThrow={({ title, dueDate }) => handleAddTask({ title, dueDate })}
+          onOpenFullAdd={() => setShowAdd(true)}
+          onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
+          onAddLoop={() => setShowRoutines(true)}
+          onOpenQuokka={() => setShowAdviser(true)}
+          onOpenSettings={() => setShowSettings(true)}
+          onOpenPackages={() => setShowPackages(true)}
+          onOpenAnalytics={() => setShowAnalytics(true)}
+          onOpenProjects={() => setShowProjects(true)}
+          onOpenDone={() => setShowDone(true)}
+          onOpenActivity={() => setShowActivityLog(true)}
+        />
+      )}
+
       {/* Spaces hub — picker for Projects / Routines / Knowledge. Each
        * row launches the existing dedicated modal and resets activeTab
        * to 'today' on that sub-modal close, so the tab indicator never
@@ -1510,7 +1541,7 @@ export default function AppV2() {
         streak={streak}
       />
 
-      {isDesktop && (
+      {isDesktop && !isKept && (
         <FloatingCapture
           onAddTask={(title) => {
             const id = addTask({ title })
