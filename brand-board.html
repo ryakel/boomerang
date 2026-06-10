@@ -1,0 +1,211 @@
+<!doctype html>
+<!-- Boomerang full-rebrand exploration board — dev-only, never shipped.
+     Three directions, each: app icon · mark · wordmark · palette · UI strip. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&family=Sora:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+<title>Boomerang — brand directions</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 34px; background: #0A0908; color: #EEE; font-family: 'DM Sans', sans-serif; display: flex; gap: 26px; }
+  .dir { flex: 1 1 0; border-radius: 24px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); }
+  .dir-head { padding: 18px 22px 14px; }
+  .dir-kicker { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; opacity: .55; }
+  .dir-name { font-size: 21px; font-weight: 800; font-family: Sora; margin-top: 3px; }
+  .dir-sub { font-size: 12.5px; opacity: .6; margin-top: 5px; line-height: 1.45; }
+  .stage { display: flex; align-items: center; gap: 22px; padding: 18px 22px; }
+  .appicon { width: 86px; height: 86px; border-radius: 22px; display: grid; place-items: center; flex: 0 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  .markbig { flex: 1 1 auto; display: grid; place-items: center; }
+  .word { padding: 4px 22px 18px; }
+  .swatches { display: flex; gap: 10px; padding: 4px 22px 18px; }
+  .sw { flex: 1 1 0; border-radius: 12px; height: 52px; position: relative; border: 1px solid rgba(255,255,255,.1); }
+  .sw span { position: absolute; left: 8px; bottom: 6px; font-size: 9px; font-weight: 700; letter-spacing: .04em; opacity: .85; }
+  .strip { padding: 16px 22px 22px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid rgba(255,255,255,.07); }
+  .strip-row { display: flex; align-items: center; gap: 10px; }
+  .btn { border-radius: 12px; padding: 11px 16px; font-size: 13px; font-weight: 700; border: none; font-family: 'DM Sans'; }
+  .task { display: flex; align-items: center; gap: 11px; font-size: 13.5px; font-weight: 550; }
+  .trail { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<!-- ════════ DIRECTION 1 — RETURN (double-o loop) ════════ -->
+<div class="dir" style="background:#1A140E; color:#F5EDE2">
+  <div class="dir-head">
+    <div class="dir-kicker">Direction 1</div>
+    <div class="dir-name" style="font-family:Syne">Return</div>
+    <div class="dir-sub">The "oo" of boomerang becomes the mark: a task leaves one ring and arcs back to the other. Warm ink + ember. Evolution with a fully new glyph.</div>
+  </div>
+  <div class="stage">
+    <div class="appicon" style="background:linear-gradient(150deg,#F26640,#D8431F)">
+      <svg width="56" height="56" viewBox="0 0 100 100" fill="none">
+        <circle cx="30" cy="62" r="13" stroke="#FFF6F0" stroke-width="9"/>
+        <circle cx="70" cy="62" r="13" stroke="#FFF6F0" stroke-width="9" opacity=".55"/>
+        <path d="M 70 45 C 68 22, 36 20, 30 45" stroke="#FFF6F0" stroke-width="9" stroke-linecap="round"/>
+        <path d="M 30 45 l -7 -10 M 30 45 l 12 -4" stroke="#FFF6F0" stroke-width="8" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="markbig">
+      <svg width="150" height="120" viewBox="0 0 100 100" fill="none">
+        <circle cx="30" cy="62" r="13" stroke="#F26640" stroke-width="9"/>
+        <circle cx="70" cy="62" r="13" stroke="#F26640" stroke-width="9" opacity=".5"/>
+        <path d="M 70 45 C 68 22, 36 20, 30 45" stroke="#F26640" stroke-width="9" stroke-linecap="round"/>
+        <path d="M 30 45 l -7 -10 M 30 45 l 12 -4" stroke="#F26640" stroke-width="8" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+  <div class="word">
+    <svg width="100%" height="46" viewBox="0 0 300 46">
+      <text x="0" y="33" font-family="Syne" font-weight="800" font-size="30" letter-spacing="0.5" fill="#F5EDE2">b</text>
+      <circle cx="34" cy="23" r="9" stroke="#F26640" stroke-width="5.5" fill="none"/>
+      <circle cx="58" cy="23" r="9" stroke="#F26640" stroke-width="5.5" fill="none" opacity=".5"/>
+      <path d="M 58 11 C 56 -1, 38 -1, 34 10" stroke="#F26640" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <text x="72" y="33" font-family="Syne" font-weight="800" font-size="30" letter-spacing="0.5" fill="#F5EDE2">merang</text>
+    </svg>
+  </div>
+  <div class="swatches">
+    <div class="sw" style="background:#F26640"><span style="color:#fff">EMBER</span></div>
+    <div class="sw" style="background:#18130E"><span>INK</span></div>
+    <div class="sw" style="background:#F5EDE2"><span style="color:#333">BONE</span></div>
+    <div class="sw" style="background:#62B98B"><span style="color:#fff">EUCALYPT</span></div>
+    <div class="sw" style="background:#A186E0"><span style="color:#fff">DUSK</span></div>
+  </div>
+  <div class="strip">
+    <div class="strip-row">
+      <button class="btn" style="background:#F26640;color:#FFF6F0">Catch it</button>
+      <button class="btn" style="background:rgba(242,102,64,.15);color:#F26640">Log session</button>
+      <button class="btn" style="background:transparent;color:#F5EDE2;border:1px solid rgba(255,236,214,.18)">Edit</button>
+    </div>
+    <div class="task">
+      <svg width="22" height="22"><circle cx="11" cy="11" r="9" stroke="#F26640" stroke-width="2.2" fill="none"/></svg>
+      deal with the insurance claim
+      <svg class="trail" width="120" height="22">
+        <g>
+          <circle cx="8" cy="14" r="3" fill="#62B98B"/><circle cx="22" cy="14" r="3" fill="#62B98B"/><circle cx="36" cy="14" r="3" fill="#62B98B"/>
+          <circle cx="50" cy="14" r="3" fill="rgba(255,236,214,.14)"/>
+          <circle cx="64" cy="14" r="3" fill="#62B98B"/><circle cx="78" cy="14" r="3" fill="#62B98B"/>
+          <circle cx="92" cy="14" r="3" fill="rgba(255,236,214,.14)"/><circle cx="106" cy="14" r="3" fill="#62B98B"/>
+          <path d="M 8 9 Q 22 1 36 9" stroke="#62B98B" stroke-width="1.6" fill="none"/>
+          <path d="M 64 9 Q 71 3 78 9" stroke="#62B98B" stroke-width="1.6" fill="none"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ DIRECTION 2 — ORBIT ════════ -->
+<div class="dir" style="background:#13111E; color:#EFEDF7">
+  <div class="dir-head">
+    <div class="dir-kicker">Direction 2</div>
+    <div class="dir-name" style="font-family:Sora">Orbit</div>
+    <div class="dir-sub">The task is a comet: it swings out and gravity brings it home. Tilted open orbit + comet dot. Cosmic plum ink, solar-amber hero, iris support. Cooler, more "tech".</div>
+  </div>
+  <div class="stage">
+    <div class="appicon" style="background:linear-gradient(150deg,#221C3A,#13111E);border:1px solid rgba(255,255,255,.1)">
+      <svg width="58" height="58" viewBox="0 0 100 100" fill="none">
+        <ellipse cx="50" cy="50" rx="34" ry="20" transform="rotate(-24 50 50)" stroke="#8E7CF5" stroke-width="7" stroke-linecap="round" stroke-dasharray="86 22"/>
+        <circle cx="76" cy="33" r="10" fill="#FFB54A"/>
+      </svg>
+    </div>
+    <div class="markbig">
+      <svg width="160" height="120" viewBox="0 0 100 100" fill="none">
+        <ellipse cx="50" cy="50" rx="36" ry="21" transform="rotate(-24 50 50)" stroke="#8E7CF5" stroke-width="7" stroke-linecap="round" stroke-dasharray="92 22"/>
+        <circle cx="78" cy="32" r="10" fill="#FFB54A"/>
+        <circle cx="50" cy="50" r="5" fill="#EFEDF7" opacity=".9"/>
+      </svg>
+    </div>
+  </div>
+  <div class="word">
+    <div style="font-family:Sora;font-weight:800;font-size:27px;letter-spacing:-.01em">
+      bo<span style="position:relative;display:inline-block">o<svg width="22" height="12" viewBox="0 0 22 12" style="position:absolute;left:-1px;top:-8px"><path d="M 2 10 C 5 2, 17 2, 20 10" stroke="#FFB54A" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="20" cy="10" r="2.6" fill="#FFB54A"/></svg></span>merang
+    </div>
+  </div>
+  <div class="swatches">
+    <div class="sw" style="background:#FFB54A"><span style="color:#3A2A08">SOLAR</span></div>
+    <div class="sw" style="background:#8E7CF5"><span style="color:#fff">IRIS</span></div>
+    <div class="sw" style="background:#13111E"><span>VOID</span></div>
+    <div class="sw" style="background:#EFEDF7"><span style="color:#333">STARLIGHT</span></div>
+    <div class="sw" style="background:#4FD6B0"><span style="color:#0B3328">AURORA</span></div>
+  </div>
+  <div class="strip">
+    <div class="strip-row">
+      <button class="btn" style="background:#FFB54A;color:#2A1E06">Catch it</button>
+      <button class="btn" style="background:rgba(142,124,245,.18);color:#ADA0F8">Log session</button>
+      <button class="btn" style="background:transparent;color:#EFEDF7;border:1px solid rgba(255,255,255,.16)">Edit</button>
+    </div>
+    <div class="task">
+      <svg width="22" height="22"><circle cx="11" cy="11" r="9" stroke="#FFB54A" stroke-width="2.2" fill="none"/></svg>
+      deal with the insurance claim
+      <svg class="trail" width="120" height="22">
+        <circle cx="8" cy="14" r="3" fill="#4FD6B0"/><circle cx="22" cy="14" r="3" fill="#4FD6B0"/><circle cx="36" cy="14" r="3" fill="#4FD6B0"/>
+        <circle cx="50" cy="14" r="3" fill="rgba(255,255,255,.12)"/>
+        <circle cx="64" cy="14" r="3" fill="#4FD6B0"/><circle cx="78" cy="14" r="3" fill="#4FD6B0"/>
+        <circle cx="92" cy="14" r="3" fill="rgba(255,255,255,.12)"/><circle cx="106" cy="14" r="3" fill="#4FD6B0"/>
+        <path d="M 8 9 Q 22 1 36 9" stroke="#4FD6B0" stroke-width="1.6" fill="none"/>
+        <path d="M 64 9 Q 71 3 78 9" stroke="#4FD6B0" stroke-width="1.6" fill="none"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ DIRECTION 3 — KEPT (the caught arc) ════════ -->
+<div class="dir" style="background:#101713; color:#EFF3EC">
+  <div class="dir-head">
+    <div class="dir-kicker">Direction 3</div>
+    <div class="dir-name" style="font-family:Fraunces">Kept</div>
+    <div class="dir-sub">An arc that lands in an open hand-curve: thrown, returned, <i>kept</i>. Eucalypt night-green ink, gold-ochre hero, serif-flavored display. Calm, earthy, the least "app-looking".</div>
+  </div>
+  <div class="stage">
+    <div class="appicon" style="background:linear-gradient(155deg,#15211B,#0E1511);border:1px solid rgba(255,255,255,.1)">
+      <svg width="56" height="56" viewBox="0 0 100 100" fill="none">
+        <path d="M 22 52 C 30 18, 70 18, 78 52" stroke="#E3A93C" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="78" cy="52" r="7.5" fill="#E3A93C"/>
+        <path d="M 30 70 C 42 82, 58 82, 70 70" stroke="#EFF3EC" stroke-width="8" stroke-linecap="round" opacity=".85"/>
+      </svg>
+    </div>
+    <div class="markbig">
+      <svg width="150" height="120" viewBox="0 0 100 100" fill="none">
+        <path d="M 22 52 C 30 18, 70 18, 78 52" stroke="#E3A93C" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="78" cy="52" r="7.5" fill="#E3A93C"/>
+        <path d="M 30 70 C 42 82, 58 82, 70 70" stroke="#EFF3EC" stroke-width="8" stroke-linecap="round" opacity=".85"/>
+      </svg>
+    </div>
+  </div>
+  <div class="word">
+    <div style="font-family:Fraunces;font-weight:700;font-size:29px;letter-spacing:.01em">
+      boomerang<span style="color:#E3A93C">.</span>
+    </div>
+  </div>
+  <div class="swatches">
+    <div class="sw" style="background:#E3A93C"><span style="color:#332406">OCHRE</span></div>
+    <div class="sw" style="background:#101713"><span>NIGHTGUM</span></div>
+    <div class="sw" style="background:#EFF3EC"><span style="color:#333">LINEN</span></div>
+    <div class="sw" style="background:#D96C4A"><span style="color:#fff">CLAY</span></div>
+    <div class="sw" style="background:#6FA6C9"><span style="color:#fff">BILLABONG</span></div>
+  </div>
+  <div class="strip">
+    <div class="strip-row">
+      <button class="btn" style="background:#E3A93C;color:#2A1E06">Catch it</button>
+      <button class="btn" style="background:rgba(227,169,60,.16);color:#E3A93C">Log session</button>
+      <button class="btn" style="background:transparent;color:#EFF3EC;border:1px solid rgba(255,255,255,.16)">Edit</button>
+    </div>
+    <div class="task">
+      <svg width="22" height="22"><circle cx="11" cy="11" r="9" stroke="#E3A93C" stroke-width="2.2" fill="none"/></svg>
+      deal with the insurance claim
+      <svg class="trail" width="120" height="22">
+        <circle cx="8" cy="14" r="3" fill="#6FA6C9"/><circle cx="22" cy="14" r="3" fill="#6FA6C9"/><circle cx="36" cy="14" r="3" fill="#6FA6C9"/>
+        <circle cx="50" cy="14" r="3" fill="rgba(255,255,255,.12)"/>
+        <circle cx="64" cy="14" r="3" fill="#6FA6C9"/><circle cx="78" cy="14" r="3" fill="#6FA6C9"/>
+        <circle cx="92" cy="14" r="3" fill="rgba(255,255,255,.12)"/><circle cx="106" cy="14" r="3" fill="#6FA6C9"/>
+        <path d="M 8 9 Q 22 1 36 9" stroke="#6FA6C9" stroke-width="1.6" fill="none"/>
+        <path d="M 64 9 Q 71 3 78 9" stroke="#6FA6C9" stroke-width="1.6" fill="none"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1171,6 +1171,23 @@ second writer for today.
 **Deferred net-new features (after reskin):** Timer, Vision (eulogy/bucket list),
 Daily mood-journal, XP/levels/achievements, notifications gamification.
 
+### Kept — the public-facing design language (2026-06-10, approved direction)
+
+Wallaby is too visually close to its loggd.life inspiration to take public.
+**Kept** is the original replacement: full rebrand (arc-into-catch mark,
+`boomerang.` Fraunces wordmark, gold-ochre on green-ink "Nightgum"/"Linen"
+palettes), arcs-not-grids data viz (Flight Trail with streak arcs, Month Dots,
+Density Ribbon, Day Arc gauge — NO contribution heatmaps), 4-tab + center-Throw
+mobile IA with Quokka in the header, and a desktop "command center" (sidebar +
+work surface + Today rail, ⌘K throw, Kanban demoted to a Board view-mode).
+Naming is hybrid: plain nouns for nav (plus Loops = routines, Arcs = projects,
+Flight log = profile), metaphor in moments ("Caught it.", "↩ returns Tue",
+"↻ N-day rally"). Full spec: **`wiki/Kept-Design-Language.md`** (tokens
+`--bm-*`, components, motion, a11y, the loggd-distinction table, and the K1–K6
+migration plan). Prototypes: `kept-preview.html` (mobile), `kept-desktop.html`
+(desktop), `brand-board.html` (the 3-direction exploration) — dev-only render
+harnesses, never shipped. Wallaby remains the daily driver until Kept lands.
+
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
 
