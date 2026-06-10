@@ -39,12 +39,12 @@
   gap: 0.01em;   /* matches letter-spacing for the per-letter spans */
   color: var(--bm-text);
 }
-.bm-header-mark i { color: var(--bm-gold); font-style: normal; }
+.bm-header-mark i { color: var(--bm-ember); font-style: normal; }
 /* The gold period (the caught dot) keeps its color through the idle/degraded
  * sync states — boosted specificity to outrank Header.css's state rules; the
  * bounce/flash ANIMATIONS still apply on top (animations win the cascade). */
 .bm-header-mark.v2-header-wordmark[data-sync-state] .v2-header-wordmark-letter:last-child {
-  color: var(--bm-gold);
+  color: var(--bm-ember);
 }
 .bm-header-actions { margin-left: auto; display: flex; gap: 8px; }
 .bm-header-btn {
@@ -56,12 +56,12 @@
   color: var(--bm-text-meta);
   cursor: pointer;
 }
-.bm-header-quokka { color: var(--bm-gold); border-color: transparent; background: var(--bm-gold-soft); }
+.bm-header-quokka { color: var(--bm-ember); border-color: transparent; background: var(--bm-ember-soft); }
 .bm-header-avatar { color: var(--bm-text); }
 .bm-header-dot {
   position: absolute; top: 3px; right: 4px;
   width: 7px; height: 7px; border-radius: 50%;
-  background: var(--bm-gold);
+  background: var(--bm-ember);
 }
 
 /* ── Bottom nav + Throw ──────────────────────────────────────────────────── */
@@ -86,18 +86,18 @@
   cursor: pointer;
   transition: color 140ms ease;
 }
-.bm-nav-tab.is-active { color: var(--bm-gold); }
+.bm-nav-tab.is-active { color: var(--bm-ember); }
 .bm-nav-label { font-family: var(--v2-font-body); }
 .bm-nav-dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; }
-.bm-nav-tab.is-active .bm-nav-dot { background: var(--bm-gold); }
+.bm-nav-tab.is-active .bm-nav-dot { background: var(--bm-ember); }
 .bm-throw-slot { flex: 0 0 64px; position: relative; height: 52px; }
 .bm-throw {
   position: absolute; left: 50%; top: -22px; transform: translateX(-50%);
   width: 56px; height: 56px; border-radius: 50%;
   border: none; display: grid; place-items: center;
-  background: var(--bm-gold);
-  color: var(--bm-on-gold);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--bm-gold) 40%, transparent);
+  background: var(--bm-ember);
+  color: var(--bm-on-ember);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--bm-ember) 40%, transparent);
   cursor: pointer;
   transition: transform 160ms cubic-bezier(0.3, 1.4, 0.4, 1);
 }
@@ -127,7 +127,7 @@
 }
 .bm-sec-tick {
   width: 14px; height: 7px;
-  border: 1.5px solid var(--bm-gold); border-bottom: none;
+  border: 1.5px solid var(--bm-ember); border-bottom: none;
   border-radius: 14px 14px 0 0;
 }
 .bm-sec-n { color: var(--bm-text-faint); }
@@ -158,7 +158,7 @@
   color: var(--bm-text-meta);
   border-bottom: 2px solid transparent;
 }
-.bm-seg-btn.is-active { color: var(--bm-text); border-bottom-color: var(--bm-gold); }
+.bm-seg-btn.is-active { color: var(--bm-text); border-bottom-color: var(--bm-ember); }
 
 /* Hairline task rows */
 .bm-rows { display: flex; flex-direction: column; }
@@ -172,14 +172,14 @@
   flex: 0 0 auto;
   width: 22px; height: 22px; margin-top: 1px;
   border-radius: 50%;
-  border: 2px solid var(--bm-gold);
+  border: 2px solid var(--bm-ember);
   background: transparent;
   display: grid; place-items: center;
   cursor: pointer;
-  color: var(--bm-on-gold);
+  color: var(--bm-on-ember);
 }
 .bm-chk.is-muted { border-color: var(--bm-hairline-strong); }
-.bm-chk.is-done { background: var(--bm-gold); border-color: var(--bm-gold); }
+.bm-chk.is-done { background: var(--bm-ember); border-color: var(--bm-ember); }
 .bm-row-body {
   flex: 1 1 auto; min-width: 0;
   display: flex; flex-direction: column; gap: 3px;
@@ -193,7 +193,7 @@
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   font-size: 12px; color: var(--bm-text-meta);
 }
-.bm-due-hot { color: var(--bm-gold); font-weight: 650; }
+.bm-due-hot { color: var(--bm-ember); font-weight: 650; }
 .bm-due-over { color: var(--bm-danger); font-weight: 650; }
 .bm-tagdot { display: inline-flex; align-items: center; gap: 5px; }
 .bm-tagdot i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--tag, var(--bm-text-faint)); }
@@ -213,9 +213,9 @@
   flex: 0 0 auto;
   width: 34px; height: 34px; border-radius: 50%;
   display: grid; place-items: center;
-  border: 2px solid var(--loop, var(--bm-gold));
-  color: var(--loop, var(--bm-gold));
-  background: color-mix(in srgb, var(--loop, var(--bm-gold)) 12%, transparent);
+  border: 2px solid var(--loop, var(--bm-ember));
+  color: var(--loop, var(--bm-ember));
+  background: color-mix(in srgb, var(--loop, var(--bm-ember)) 12%, transparent);
 }
 .bm-loop-body { flex: 1 1 auto; min-width: 0; background: none; border: none; padding: 0; text-align: left; cursor: pointer; color: inherit; }
 .bm-loop-title { font-size: 14.5px; font-weight: 600; color: var(--bm-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -224,13 +224,13 @@
 .bm-loop-chk {
   flex: 0 0 auto;
   width: 28px; height: 28px; border-radius: 50%;
-  border: 2px solid var(--loop, var(--bm-gold));
+  border: 2px solid var(--loop, var(--bm-ember));
   background: transparent;
   display: grid; place-items: center;
   cursor: pointer;
-  color: var(--bm-on-gold);
+  color: var(--bm-on-ember);
 }
-.bm-loop-chk.is-done { background: var(--loop, var(--bm-gold)); }
+.bm-loop-chk.is-done { background: var(--loop, var(--bm-ember)); }
 .bm-loop-trail { flex: 0 0 auto; }
 
 /* Buttons */
@@ -242,8 +242,8 @@
   font-family: var(--v2-font-body);
   cursor: pointer;
 }
-.bm-btn-fill { background: var(--bm-gold); color: var(--bm-on-gold); }
-.bm-btn-tonal { background: var(--bm-gold-soft); color: var(--bm-gold); }
+.bm-btn-fill { background: var(--bm-ember); color: var(--bm-on-ember); }
+.bm-btn-tonal { background: var(--bm-ember-soft); color: var(--bm-ember); }
 .bm-btn-ghost { background: transparent; color: var(--bm-text); border: 1px solid var(--bm-hairline-strong); }
 .bm-btn-danger { background: transparent; color: var(--bm-danger); }
 
@@ -292,7 +292,7 @@
   font-size: 13px; font-weight: 600;
   cursor: pointer;
 }
-.bm-pick.is-on { border-color: var(--bm-gold); background: var(--bm-gold-soft); color: var(--bm-gold); }
+.bm-pick.is-on { border-color: var(--bm-ember); background: var(--bm-ember-soft); color: var(--bm-ember); }
 .bm-throw-input {
   width: 100%;
   box-sizing: border-box;
@@ -304,7 +304,7 @@
   padding: 12px 14px;
   margin-bottom: 12px;
 }
-.bm-throw-input:focus { outline: none; border-color: var(--bm-gold); }
+.bm-throw-input:focus { outline: none; border-color: var(--bm-ember); }
 .bm-throw-actions { display: flex; gap: 9px; }
 .bm-throw-actions .bm-btn-fill { flex: 1 1 auto; }
 
@@ -326,8 +326,8 @@
 .bm-more-icon {
   width: 36px; height: 36px; border-radius: 50%;
   display: grid; place-items: center;
-  background: var(--bm-gold-soft);
-  color: var(--bm-gold);
+  background: var(--bm-ember-soft);
+  color: var(--bm-ember);
   flex: 0 0 auto;
 }
 .bm-more-label { font-size: 15px; font-weight: 650; }
@@ -368,8 +368,8 @@
   font-family: var(--v2-font-body);
   cursor: pointer;
 }
-.bm-row-swipe-catch { background: var(--bm-gold); color: var(--bm-on-gold); }
-.bm-row-swipe-del { background: var(--bm-danger); color: var(--bm-on-gold); }
+.bm-row-swipe-catch { background: var(--bm-ember); color: var(--bm-on-ember); }
+.bm-row-swipe-del { background: var(--bm-danger); color: var(--bm-on-ember); }
 .bm-row-swipe-body {
   position: relative; z-index: 1;
   background: var(--bm-bg);

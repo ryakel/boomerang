@@ -6,7 +6,7 @@ import './viz.css'
 // round day-dots (2 weeks per row); consecutive done-days are bridged by a
 // low ARC stroke, so streaks literally read as flights. `mini` renders a
 // single trailing-14-day row for list rows.
-export default function FlightTrail({ valueByDay = {}, color = 'var(--bm-gold)', weeks = 10, mini = false }) {
+export default function FlightTrail({ valueByDay = {}, color = 'var(--bm-ember)', weeks = 10, mini = false }) {
   const { rows, COLS, max } = useMemo(() => {
     const COLS = 14
     const nRows = mini ? 1 : Math.ceil(weeks / 2)

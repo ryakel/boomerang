@@ -7,12 +7,12 @@ export default function Logo({ size = 28 }) {
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
       <path
         d="M 22 52 C 30 18, 70 18, 78 52"
-        stroke="#E3A93C"
+        stroke="#F26640"
         strokeWidth="11"
         strokeLinecap="round"
         fill="none"
       />
-      <circle cx="78" cy="52" r="8" fill="#E3A93C" />
+      <circle cx="78" cy="52" r="8" fill="#F26640" />
       <path
         d="M 30 70 C 42 82, 58 82, 70 70"
         stroke="var(--v2-text, #1F2A22)"

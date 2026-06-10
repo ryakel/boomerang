@@ -77,35 +77,43 @@ via currentColor/tokens), `favicon.svg`, `icon-180/192/512.png`,
 
 ## 3 · Color tokens (`--bm-*`)
 
+> **Palette revision (2026-06-10, "Smoke + Ember"):** the original Nightgum
+> green-ink + gold-ochre direction read *earthy* in daily use. The committed
+> palette keeps the Kept geometry and one-hero rule but moves to a warm-neutral
+> **Smoke** canvas with the brand's original **ember orange** as the hero;
+> gold survives as the warm companion accent (rally chips, the ochre feather).
+
 Two first-class palettes; the app **follows the system setting** by default
 (manual override stays in Settings). Both ship fully QA'd — neither is "the
 alternate."
 
-| Token | Nightgum (dark) | Linen (light) | Role |
+| Token | Smoke (dark) | Linen (light) | Role |
 |---|---|---|---|
-| `--bm-bg` | `#101713` | `#F7F4EC` | canvas |
-| `--bm-card` | `#18211B` | `#FFFFFF` | module cards |
-| `--bm-card-2` | `#202B23` | `#EEEADF` | elevated / pressed |
-| `--bm-hairline` | `rgba(238,243,236,.09)` | `rgba(31,42,34,.10)` | dividers |
-| `--bm-hairline-strong` | `rgba(238,243,236,.17)` | `rgba(31,42,34,.20)` | outlines |
-| `--bm-text` | `#EFF3EC` | `#1F2A22` | primary ink |
+| `--bm-bg` | `#16140F` | `#F8F4ED` | canvas (warm neutral, de-greened) |
+| `--bm-card` | `#1F1C16` | `#FFFFFF` | module cards |
+| `--bm-card-2` | `#29251E` | `#EFE9DE` | elevated / pressed |
+| `--bm-hairline` | `rgba(243,238,229,.09)` | `rgba(38,32,26,.10)` | dividers |
+| `--bm-hairline-strong` | `rgba(243,238,229,.17)` | `rgba(38,32,26,.20)` | outlines |
+| `--bm-text` | `#F3EEE5` | `#26201A` | primary ink |
 | `--bm-text-meta` | 56% ink | 58% ink | secondary |
 | `--bm-text-faint` | 34% ink | 34% ink | tertiary |
-| `--bm-gold` | `#E3A93C` | `#B8841C` | THE accent |
-| `--bm-gold-soft` | gold @ 15% | gold @ 13% | tonal fills |
-| `--bm-on-gold` | `#2A2106` | `#FFFBEF` | fg on gold fills |
-| `--bm-danger` | `#D96C4A` | `#BA4B2C` | destructive (text-level) |
+| `--bm-ember` | `#F26640` | `#D9512B` | THE hero (brand orange) |
+| `--bm-ember-soft` | ember @ 14% | ember @ 12% | tonal fills |
+| `--bm-on-ember` | `#2A1206` | `#FFF6EF` | fg on ember fills |
+| `--bm-gold` | `#E8B04B` | `#B8841C` | warm companion: rally chips, ochre feather |
+| `--bm-gold-soft` | gold @ 14% | gold @ 13% | rally chip fills |
+| `--bm-danger` | `#E0455C` | `#C7384E` | destructive (crimson — never collides with ember) |
 | `--bm-trail-empty` | ink @ 10% | ink @ 11% | unfilled day-dots |
-| `--bm-scrim` | `rgba(5,9,7,.6)` | `rgba(31,42,34,.35)` | sheet backdrops |
+| `--bm-scrim` | `rgba(8,6,3,.6)` | `rgba(38,32,26,.35)` | sheet backdrops |
 | `--bm-shadow` / `--bm-shadow-pop` | palette-aware | palette-aware | elevation |
 
 **Feathers** — per-loop/per-tag identity colors, warm-earth family. Assigned by
 stable full-list index (the Wallaby `routineColors` rule carries over), user-
 overridable per loop:
 
-| Feather | Nightgum | Linen |
+| Feather | Smoke | Linen |
 |---|---|---|
-| Ochre | `#E3A93C` | `#B8841C` |
+| Ochre | `#E8B04B` | `#B8841C` |
 | Clay | `#D96C4A` | `#C24E2D` |
 | Eucalypt | `#62B98B` | `#3D9A6B` |
 | Billabong | `#6FA6C9` | `#41799C` |
@@ -118,8 +126,8 @@ in `store.ENERGY_TYPES` at implementation time.
 
 **Hard rules.** No raw hex in component CSS/JSX — every color goes through a
 `--bm-*` token (the lesson from the Wallaby `--wb-on-action` cleanup is a
-day-one rule here). Gold fills always pair with `--bm-on-gold` (dark ink on
-gold in Nightgum — a deliberately un-loggd move; loggd puts white on
+day-one rule here). Ember fills always pair with `--bm-on-ember` (dark ink on
+ember in Smoke — a deliberately un-loggd move; loggd puts white on
 everything). Danger is text/outline-level only; no big red fills.
 
 ---

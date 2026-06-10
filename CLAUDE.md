@@ -1146,8 +1146,9 @@ Daily mood-journal, XP/levels/achievements, notifications gamification.
 
 Wallaby is too visually close to its loggd.life inspiration to take public.
 **Kept** is the original replacement: full rebrand (arc-into-catch mark,
-`boomerang.` Fraunces wordmark, gold-ochre on green-ink "Nightgum"/"Linen"
-palettes), arcs-not-grids data viz (Flight Trail with streak arcs, Month Dots,
+`boomerang.` Fraunces wordmark, ember-orange hero on warm-neutral "Smoke"/"Linen"
+palettes — revised 2026-06-10 from the original green-ink+gold after it read
+too earthy; gold survives as the rally/feather accent), arcs-not-grids data viz (Flight Trail with streak arcs, Month Dots,
 Density Ribbon, Day Arc gauge — NO contribution heatmaps), 4-tab + center-Throw
 mobile IA with Quokka in the header, and a desktop "command center" (sidebar +
 work surface + Today rail, ⌘K throw, Kanban demoted to a Board view-mode).
