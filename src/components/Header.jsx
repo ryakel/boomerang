@@ -1,25 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Sparkles, Package, Settings as SettingsIcon } from 'lucide-react'
 import Logo from './Logo'
 import { MiniRings } from './Rings'
+import { useSyncBounce } from '../hooks/useSyncBounce'
 import './Header.css'
 
 const WORDMARK_LETTERS = 'BOOMERANG'.split('')
-
-// Sync-state derivation. Maps useServerSync's syncStatus + the local
-// `animState` (saving / just-synced / idle, with minimum hold enforcement)
-// + queue length into the visual states the wordmark reflects. Permanent
-// states (offline / degraded) fade ambient stress into the brand instead
-// of using a separate icon. animState wins over instantaneous syncStatus
-// for the saving / just-synced phases so a fast sync still gets a full
-// wave + flash.
-function deriveSyncVisualState(syncStatus, queueLength, animState) {
-  if (syncStatus === 'offline') return 'offline'
-  if (animState === 'saving') return 'saving'
-  if (animState === 'just-synced') return 'just-synced'
-  if (queueLength > 0) return 'degraded'
-  return 'idle'
-}
 
 export default function Header({
   onOpenAdviser, onOpenPackages, onOpenSystemMenu, systemMenuOpen,
@@ -34,67 +20,7 @@ export default function Header({
   const popoverRef = useRef(null)
   const brandRef = useRef(null)
 
-  // Just-synced pulse — flashes green for ~700ms after a save completes,
-  // then decays. Ambient by design: if everything's working you see the
-  // flash once and forget about it.
-  //
-  // We also enforce a minimum saving-hold (1300ms) so a fast sync doesn't
-  // strand the bounce on the B before the wave reaches the G. The wave
-  // takes ~1140ms to traverse all nine letters at 60ms stagger; rounding
-  // up to 1300 gives margin without feeling sluggish. If saving completes
-  // mid-wave, the green flash queues to fire after the hold expires.
-  const SAVING_MIN_HOLD = 1300
-  const FLASH_MS = 700
-  const [animState, setAnimState] = useState('idle')
-  const allowFlashRef = useRef(false)
-  const timerRef = useRef(null)
-
-  useEffect(() => {
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [])
-
-  useEffect(() => {
-    if (syncStatus === 'saving') {
-      // Start (or restart) the wave. Clear any pending flash.
-      allowFlashRef.current = false
-      setAnimState('saving')
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null
-        if (allowFlashRef.current) {
-          setAnimState('just-synced')
-          timerRef.current = setTimeout(() => {
-            timerRef.current = null
-            setAnimState('idle')
-          }, FLASH_MS)
-        } else {
-          setAnimState('idle')
-        }
-      }, SAVING_MIN_HOLD)
-    } else if (syncStatus === 'synced' && animState === 'saving') {
-      // Saving completed mid-wave — queue the green flash for when the hold
-      // timer fires. Don't transition yet; wave finishes first.
-      allowFlashRef.current = true
-    }
-  }, [syncStatus, animState])
-
-  // Click outside closes the brand popover.
-  useEffect(() => {
-    if (!popoverOpen) return
-    const onClick = (e) => {
-      if (popoverRef.current?.contains(e.target)) return
-      if (brandRef.current?.contains(e.target)) return
-      setPopoverOpen(false)
-    }
-    document.addEventListener('mousedown', onClick)
-    document.addEventListener('touchstart', onClick)
-    return () => {
-      document.removeEventListener('mousedown', onClick)
-      document.removeEventListener('touchstart', onClick)
-    }
-  }, [popoverOpen])
-
-  const syncVisualState = deriveSyncVisualState(syncStatus, queueLength, animState)
+  const syncVisualState = useSyncBounce(syncStatus, queueLength)
   const syncLabel =
     syncVisualState === 'offline' ? `Offline${queueLength ? ` · ${queueLength} pending` : ''}` :
     syncVisualState === 'degraded' ? `Working through ${queueLength} pending change${queueLength === 1 ? '' : 's'}` :

@@ -4,6 +4,7 @@ import {
   Sparkles, Plus, CheckCircle2, ScrollText,
 } from 'lucide-react'
 import Logo from '../components/Logo'
+import { useSyncBounce } from '../hooks/useSyncBounce'
 import TodayView from './TodayView'
 import TasksViewKept from './TasksViewKept'
 import LoopsView from './LoopsView'
@@ -21,8 +22,10 @@ export default function KeptDesktop({
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity,
+  syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
+  const syncVisualState = useSyncBounce(syncStatus, queueLength)
   const [throwOpen, setThrowOpen] = useState(false)
 
   useEffect(() => {
@@ -75,7 +78,11 @@ export default function KeptDesktop({
       <aside className="bm-side">
         <div className="bm-side-brand">
           <Logo size={22} />
-          <span className="bm-header-mark">boomerang<i>.</i></span>
+          <span className="v2-header-wordmark bm-header-mark" data-sync-state={syncVisualState}>
+            {'boomerang.'.split('').map((ch, i) => (
+              <span key={i} className="v2-header-wordmark-letter" style={{ '--letter-index': i }}>{ch}</span>
+            ))}
+          </span>
         </div>
         <button className="bm-side-throw" onClick={() => setThrowOpen(true)}>
           <Plus size={15} strokeWidth={2.4} /> Throw a task <kbd>⌘K</kbd>

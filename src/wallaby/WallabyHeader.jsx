@@ -1,18 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
 import { Bell, TrendingUp } from 'lucide-react'
 import Logo from '../components/Logo'
+import { useSyncBounce } from '../hooks/useSyncBounce'
 import './WallabyHeader.css'
 
 const WORDMARK_LETTERS = 'BOOMERANG'.split('')
-
-// Mirrors Header.jsx so the wordmark bounces on save the same way.
-function deriveSyncVisualState(syncStatus, queueLength, animState) {
-  if (syncStatus === 'offline') return 'offline'
-  if (animState === 'saving') return 'saving'
-  if (animState === 'just-synced') return 'just-synced'
-  if (queueLength > 0) return 'degraded'
-  return 'idle'
-}
 
 // Wallaby persistent top app bar: bouncing BOOMERANG wordmark + logo (to the
 // right of the text), then Quokka · Packages · notifications bell · avatar.
@@ -20,32 +11,7 @@ export default function WallabyHeader({
   unread = 0, onBell, onAvatar,
   syncStatus = 'synced', queueLength = 0,
 }) {
-  const SAVING_MIN_HOLD = 1300
-  const FLASH_MS = 700
-  const [animState, setAnimState] = useState('idle')
-  const allowFlashRef = useRef(false)
-  const timerRef = useRef(null)
-
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
-
-  useEffect(() => {
-    if (syncStatus === 'saving') {
-      allowFlashRef.current = false
-      setAnimState('saving')
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null
-        if (allowFlashRef.current) {
-          setAnimState('just-synced')
-          timerRef.current = setTimeout(() => { timerRef.current = null; setAnimState('idle') }, FLASH_MS)
-        } else { setAnimState('idle') }
-      }, SAVING_MIN_HOLD)
-    } else if (syncStatus === 'synced' && animState === 'saving') {
-      allowFlashRef.current = true
-    }
-  }, [syncStatus, animState])
-
-  const syncVisualState = deriveSyncVisualState(syncStatus, queueLength, animState)
+  const syncVisualState = useSyncBounce(syncStatus, queueLength)
 
   return (
     <header className="wb-header">
