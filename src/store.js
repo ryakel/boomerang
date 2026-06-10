@@ -1,3 +1,4 @@
+import { localYMD, parseLocalDate } from './dates'
 // crypto.randomUUID is unavailable over plain HTTP (non-secure context)
 export const uuid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -225,12 +226,9 @@ function touchModified() {
 // first — for a user in Central time, after ~6pm CST that flips the key to
 // the next calendar day and causes subtle off-by-one bugs across the UI.
 // Pass no argument to get today's local key.
-export function localYMD(d = new Date()) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+// Delegates to the canonical date module (src/dates.js) — kept as a
+// re-export so the dozens of existing `from './store'` imports keep working.
+export { localYMD, parseLocalDate }
 
 export function getLocalModified() {
   return parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10)

@@ -19,28 +19,11 @@ export function routineColors(routines) {
   return m
 }
 
-// Date-only strings ('YYYY-MM-DD') must be treated as LOCAL dates. Naive
-// `new Date('YYYY-MM-DD')` parses as UTC midnight, which lands on the
-// PREVIOUS local day anywhere west of UTC — that bug made a task due today
-// read as overdue. Anything else (Date, full ISO timestamp) parses normally.
-const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
-
-export function parseLocalDate(d) {
-  if (typeof d === 'string' && YMD_RE.test(d)) {
-    const [y, m, day] = d.split('-').map(Number)
-    return new Date(y, m - 1, day)
-  }
-  const x = new Date(d)
-  return Number.isNaN(x.getTime()) ? null : x
-}
-
-export function localYMD(d) {
-  // A date-only string already IS a local day key.
-  if (typeof d === 'string' && YMD_RE.test(d)) return d
-  const x = parseLocalDate(d)
-  if (!x) return null
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
-}
+// Date helpers come from the canonical module — see src/dates.js for the
+// date-only-string contract (local days, never bare new Date()).
+import { parseLocalDate, localYMD, addDays, weekStartMonday } from '../dates'
+export { parseLocalDate, localYMD, addDays }
+export const weekStart = weekStartMonday
 
 // completed_history (array of ISO timestamps) → { 'YYYY-MM-DD': count }
 export function historyByDay(history) {
@@ -81,22 +64,4 @@ export function longestStreak(valueByDay) {
   return best
 }
 
-// Monday-anchored start of the week containing `ref` (+ weekOffset weeks).
-export function weekStart(ref, weekOffset = 0) {
-  const d = new Date(ref)
-  d.setHours(0, 0, 0, 0)
-  const dow = (d.getDay() + 6) % 7 // 0 = Monday
-  d.setDate(d.getDate() - dow + weekOffset * 7)
-  return d
-}
-
-export function addDays(d, n) {
-  const x = new Date(d)
-  x.setDate(x.getDate() + n)
-  return x
-}
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-export function fmtMonthDay(d) {
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}`
-}
+export { fmtMonthDay } from '../dates'
