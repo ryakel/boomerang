@@ -1,0 +1,589 @@
+<!doctype html>
+<!-- KEPT design-language prototype (brand direction 3) — dev-only render harness, never shipped.
+     Three phone frames: Today / Loops detail / component inventory.
+     ?mode=light renders the Daylight palette. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+<title>Kept — Boomerang design language</title>
+<style>
+  /* ════════ RETURN tokens ════════ */
+  :root {
+    /* Dusk (dark) — warm ink, never navy */
+    --bm-bg: #101713;
+    --bm-card: #18211B;
+    --bm-card-2: #202B23;
+    --bm-hairline: rgba(238, 243, 236, 0.09);
+    --bm-hairline-strong: rgba(238, 243, 236, 0.17);
+    --bm-text: #EFF3EC;
+    --bm-text-meta: rgba(239, 243, 236, 0.56);
+    --bm-text-faint: rgba(239, 243, 236, 0.34);
+    --bm-ember: #E3A93C;          /* the one hero accent (logo) */
+    --bm-ember-soft: rgba(227, 169, 60, 0.15);
+    --bm-on-ember: #2A2106;
+    --bm-danger: #D96C4A;          /* crimson, text-level only */
+    /* feathers — per-loop identity (warm, dusk-leaning family) */
+    --bm-f-ochre: #E3A93C;
+    --bm-f-eucalypt: #62B98B;
+    --bm-f-river: #6FA6C9;
+    --bm-f-dusk: #9D87D6;
+    --bm-f-galah: #C77C9E;
+    --bm-f-ember: #D96C4A;
+    --bm-trail-empty: rgba(238, 243, 236, 0.10);
+    --bm-shadow: 0 1px 2px rgba(0,0,0,.45), 0 10px 28px rgba(0,0,0,.30);
+    --bm-scrim: rgba(5, 9, 7, 0.6);
+  }
+  .light {
+    /* Daylight — warm paper */
+    --bm-bg: #F7F4EC;
+    --bm-card: #FFFFFF;
+    --bm-card-2: #EEEADF;
+    --bm-hairline: rgba(31, 42, 34, 0.10);
+    --bm-hairline-strong: rgba(31, 42, 34, 0.20);
+    --bm-text: #1F2A22;
+    --bm-text-meta: rgba(31, 42, 34, 0.58);
+    --bm-text-faint: rgba(31, 42, 34, 0.34);
+    --bm-ember: #B8841C;
+    --bm-ember-soft: rgba(184, 132, 28, 0.13);
+    --bm-on-ember: #FFFBEF;
+    --bm-danger: #BA4B2C;
+    --bm-f-ochre: #B8841C;
+    --bm-f-eucalypt: #3D9A6B;
+    --bm-f-river: #41799C;
+    --bm-f-dusk: #7E61C7;
+    --bm-f-galah: #B25579;
+    --bm-f-ember: #C24E2D;
+    --bm-trail-empty: rgba(31, 42, 34, 0.11);
+    --bm-shadow: 0 1px 2px rgba(31,42,34,.06), 0 10px 28px rgba(31,42,34,.10);
+    --bm-scrim: rgba(31, 42, 34, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px;
+    background: #080C09;
+    display: flex; gap: 28px; align-items: flex-start;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+  body.light { background: #D5D2C4; }
+
+  .phone {
+    width: 390px; flex: 0 0 390px; height: 880px;
+    background: var(--bm-bg); color: var(--bm-text);
+    border-radius: 28px; overflow: hidden;
+    position: relative; display: flex; flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+  .frame-label {
+    position: absolute; top: -22px; left: 4px; font-size: 12px; color: #998;
+  }
+  .screen { flex: 1 1 auto; overflow: hidden; padding: 14px 16px 90px; }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .hd { display: flex; align-items: center; gap: 10px; padding: 10px 2px 14px; }
+  .hd-logo { flex: 0 0 auto; }
+  .hd-mark { font-family: Fraunces, serif; font-weight: 700; font-size: 18px; letter-spacing: .01em; }
+  .hd-spacer { flex: 1 1 auto; }
+  .hd-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center; border: 1px solid var(--bm-hairline);
+    background: transparent; color: var(--bm-text-meta); position: relative;
+  }
+  .hd-btn.quokka { color: var(--bm-ember); border-color: var(--bm-ember-soft); background: var(--bm-ember-soft); }
+  .hd-dot { position: absolute; top: 3px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--bm-ember); }
+
+  /* ── Day Arc hero ───────────────────────────────────── */
+  .hero {
+    background: var(--bm-card);
+    border: 1px solid var(--bm-hairline);
+    border-radius: 26px 16px 16px 16px;   /* wing corner */
+    box-shadow: var(--bm-shadow);
+    padding: 16px 16px 6px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+  .hero-date { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; text-align: left; }
+  .hero-day { font-family: Fraunces, serif; font-weight: 800; font-size: 21px; letter-spacing: -.01em; }
+  .hero-sub { font-size: 12.5px; color: var(--bm-text-meta); }
+  .hero-streak {
+    margin-left: auto; font-size: 12px; font-weight: 700; color: var(--bm-ember);
+    background: var(--bm-ember-soft); padding: 4px 10px; border-radius: 10px;
+  }
+  .arc-wrap { position: relative; width: 230px; margin: 4px auto 0; }
+  .arc-center { position: absolute; inset: auto 0 8px 0; }
+  .arc-num { font-family: Fraunces, serif; font-weight: 800; font-size: 34px; line-height: 1; }
+  .arc-cap { font-size: 11.5px; color: var(--bm-text-meta); margin-top: 3px; }
+  .hero-meta { display: flex; justify-content: center; gap: 18px; padding: 10px 0 10px; font-size: 12px; color: var(--bm-text-meta); }
+  .hero-meta b { color: var(--bm-text); font-weight: 700; }
+
+  /* ── Section labels ─────────────────────────────────── */
+  .sec {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--bm-text-meta); margin: 18px 2px 6px;
+  }
+  .sec .n { color: var(--bm-text-faint); font-weight: 700; }
+  .sec .arc-tick { width: 14px; height: 7px; border: 1.5px solid var(--bm-ember); border-bottom: none; border-radius: 14px 14px 0 0; }
+
+  /* ── Task rows (hairline list) ──────────────────────── */
+  .rows { display: flex; flex-direction: column; }
+  .row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 2px; border-bottom: 1px solid var(--bm-hairline);
+  }
+  .row:last-child { border-bottom: none; }
+  .chk {
+    flex: 0 0 auto; width: 22px; height: 22px; margin-top: 1px;
+    border-radius: 50%; border: 2px solid var(--bm-ember);
+    display: grid; place-items: center; background: transparent;
+  }
+  .chk.muted { border-color: var(--bm-hairline-strong); }
+  .chk.done { background: var(--bm-ember); border-color: var(--bm-ember); }
+  .chk.done svg { display: block; }
+  .row-body { flex: 1 1 auto; min-width: 0; }
+  .row-title { font-size: 15px; font-weight: 550; line-height: 1.3; }
+  .row-title.done { color: var(--bm-text-meta); text-decoration: line-through; }
+  .row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 3px; font-size: 12px; color: var(--bm-text-meta); }
+  .due-hot { color: var(--bm-ember); font-weight: 650; }
+  .tagdot { display: inline-flex; align-items: center; gap: 5px; }
+  .tagdot i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .return-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 650; color: var(--bm-text-meta);
+    border: 1px dashed var(--bm-hairline-strong); border-radius: 10px; padding: 2px 9px;
+  }
+
+  /* ── Loop rows w/ mini trail ────────────────────────── */
+  .loop {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 2px; border-bottom: 1px solid var(--bm-hairline);
+  }
+  .loop:last-child { border-bottom: none; }
+  .loop-ring {
+    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center;
+    border: 2px solid var(--loop, var(--bm-ember));
+    color: var(--loop, var(--bm-ember));
+    background: color-mix(in srgb, var(--loop, var(--bm-ember)) 12%, transparent);
+  }
+  .loop-body { flex: 1 1 auto; min-width: 0; }
+  .loop-title { font-size: 14.5px; font-weight: 600; }
+  .loop-sub { font-size: 11.5px; color: var(--bm-text-meta); margin-top: 1px; }
+  .loop-trail { flex: 0 0 auto; }
+  .loop-chk { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--loop); display: grid; place-items: center; }
+  .loop-chk.done { background: var(--loop); }
+
+  /* ── Bottom nav: 4 + center Throw ───────────────────── */
+  .nav {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: flex-end;
+    background: color-mix(in srgb, var(--bm-card) 94%, transparent);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--bm-hairline);
+    padding: 8px 6px 14px;
+  }
+  .nav-tab { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--bm-text-faint); font-size: 10.5px; font-weight: 600; padding-top: 4px; }
+  .nav-tab.on { color: var(--bm-ember); }
+  .nav-tab.on::after { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--bm-ember); margin-top: 1px; }
+  .nav-tab:not(.on)::after { content: ""; width: 4px; height: 4px; margin-top: 1px; }
+  .throw {
+    flex: 0 0 64px; height: 56px; margin: 0 2px; position: relative; top: -18px;
+  }
+  .throw-btn {
+    width: 56px; height: 56px; margin: 0 auto; border-radius: 50%;
+    background: var(--bm-ember); color: var(--bm-on-ember);
+    display: grid; place-items: center;
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--bm-ember) 45%, transparent);
+  }
+
+  /* ── Frame 2: Loops detail ──────────────────────────── */
+  .title-row { display: flex; align-items: center; gap: 12px; margin: 4px 2px 14px; }
+  .back { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--bm-hairline); display: grid; place-items: center; color: var(--bm-text); }
+  .h1 { font-family: Fraunces, serif; font-weight: 800; font-size: 26px; letter-spacing: -.02em; margin: 0; }
+  .seg { display: inline-flex; gap: 2px; border-bottom: 1px solid var(--bm-hairline); margin: 0 2px 14px; width: calc(100% - 4px); }
+  .seg-btn { padding: 8px 14px 10px; font-size: 13px; font-weight: 650; color: var(--bm-text-meta); border-bottom: 2px solid transparent; }
+  .seg-btn.on { color: var(--bm-text); border-bottom-color: var(--bm-ember); }
+  .card {
+    background: var(--bm-card); border: 1px solid var(--bm-hairline);
+    border-radius: 16px; box-shadow: var(--bm-shadow);
+    padding: 14px 15px; margin-bottom: 12px;
+  }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .card-title { font-family: Fraunces, serif; font-size: 15px; font-weight: 700; flex: 1 1 auto; }
+  .stat-inline { font-size: 11.5px; font-weight: 700; color: var(--bm-text-meta); display: inline-flex; gap: 4px; align-items: center; }
+  .stat-inline.hot { color: var(--bm-ember); }
+  .ribbon-months { display: flex; justify-content: space-between; font-size: 9.5px; color: var(--bm-text-faint); padding: 4px 2px 0; }
+
+  /* ── Frame 3: components ────────────────────────────── */
+  .comp-label { font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--bm-text-faint); margin: 16px 2px 8px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 13px; padding: 13px 18px; font-size: 14px; font-weight: 700; border: none; }
+  .btn-fill { background: var(--bm-ember); color: var(--bm-on-ember); }
+  .btn-ghost { background: transparent; color: var(--bm-text); border: 1px solid var(--bm-hairline-strong); }
+  .btn-tonal { background: var(--bm-ember-soft); color: var(--bm-ember); }
+  .btn-danger { background: transparent; color: var(--bm-danger); }
+  .btn-row { display: flex; gap: 9px; flex-wrap: wrap; }
+  .sheet {
+    background: var(--bm-card); border: 1px solid var(--bm-hairline);
+    border-radius: 22px 22px 0 0; padding: 10px 16px 16px; box-shadow: var(--bm-shadow);
+  }
+  .grabber { width: 36px; height: 4px; border-radius: 4px; background: var(--bm-hairline-strong); margin: 0 auto 12px; }
+  .sheet-title { font-family: Fraunces, serif; font-weight: 800; font-size: 17px; margin-bottom: 10px; }
+  .sheet-row { display: flex; align-items: center; gap: 11px; padding: 12px 2px; font-size: 14.5px; font-weight: 600; border-bottom: 1px solid var(--bm-hairline); }
+  .sheet-row:last-child { border-bottom: none; }
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pick { padding: 9px 14px; border-radius: 11px; border: 1px solid var(--bm-hairline-strong); font-size: 13px; font-weight: 600; color: var(--bm-text); background: transparent; }
+  .pick.on { border-color: var(--bm-ember); background: var(--bm-ember-soft); color: var(--bm-ember); }
+  svg { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ════════ FRAME A — Today ════════ -->
+<div class="phone"><div class="frame-label">A · Today</div>
+  <div class="screen">
+    <div class="hd">
+      <svg class="hd-logo" width="24" height="24" viewBox="0 0 100 100" fill="none"><path d="M 22 52 C 30 18, 70 18, 78 52" stroke="var(--bm-ember)" stroke-width="11" stroke-linecap="round"/><circle cx="78" cy="52" r="8" fill="var(--bm-ember)"/><path d="M 30 70 C 42 82, 58 82, 70 70" stroke="var(--bm-text)" stroke-width="10" stroke-linecap="round" opacity=".85"/></svg>
+      <span class="hd-mark">boomerang<i style="color:var(--bm-ember);font-style:normal">.</i></span>
+      <span class="hd-spacer"></span>
+      <button class="hd-btn quokka"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.9 2.6 11.4 6a2 2 0 0 0 1 1l3.4 1.5a1 1 0 0 1 0 1.8L12.4 12a2 2 0 0 0-1 1l-1.5 3.4a1 1 0 0 1-1.8 0L6.6 13a2 2 0 0 0-1-1L2.2 10.4a1 1 0 0 1 0-1.8L5.6 7a2 2 0 0 0 1-1l1.5-3.4a1 1 0 0 1 1.8 0Z"/><path d="M18 14.5 18.9 16.6 21 17.5 18.9 18.4 18 20.5 17.1 18.4 15 17.5 17.1 16.6Z"/></svg></button>
+      <button class="hd-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="hd-dot"></span></button>
+      <button class="hd-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 21c1.5-4 12.5-4 14 0"/></svg></button>
+    </div>
+
+    <!-- Day Arc hero -->
+    <div class="hero">
+      <div class="hero-date">
+        <span class="hero-day">Wednesday</span>
+        <span class="hero-sub">June 10</span>
+        <span class="hero-streak">↻ 6-day rally</span>
+      </div>
+      <div class="arc-wrap" id="dayArc"></div>
+      <div class="hero-meta"><span><b>3</b> catches</span><span><b>2</b> loops closed</span><span><b>9</b> pts to goal</span></div>
+    </div>
+
+    <!-- Tasks -->
+    <div class="sec"><span class="arc-tick"></span> Today <span class="n">4</span></div>
+    <div class="rows">
+      <div class="row">
+        <div class="chk done"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--bm-on-ember)" stroke-width="3.4"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <div class="row-body"><div class="row-title done">call the dentist about that weird bill</div></div>
+      </div>
+      <div class="row">
+        <div class="chk"></div>
+        <div class="row-body">
+          <div class="row-title">deal with the insurance claim</div>
+          <div class="row-meta"><span class="due-hot">7d overdue</span><span class="tagdot"><i style="background:var(--bm-f-river)"></i>finance</span><span class="tagdot"><i style="background:var(--bm-f-ochre)"></i>phone-call</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="chk"></div>
+        <div class="row-body">
+          <div class="row-title">return amazon package by the door</div>
+          <div class="row-meta"><span>today</span><span class="tagdot"><i style="background:var(--bm-f-eucalypt)"></i>errands</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="chk muted"></div>
+        <div class="row-body">
+          <div class="row-title" style="color:var(--bm-text-meta)">draft the trip packing list</div>
+          <div class="row-meta"><span class="return-chip">↩ returns Sat</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loops -->
+    <div class="sec"><span class="arc-tick"></span> Loops <span class="n">3/5</span></div>
+    <div class="rows">
+      <div class="loop" style="--loop:var(--bm-f-eucalypt)">
+        <div class="loop-ring"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+        <div class="loop-body"><div class="loop-title">take meds</div><div class="loop-sub">daily · ↻ 12</div></div>
+        <svg class="loop-trail" data-trail data-color="var(--bm-f-eucalypt)" data-days="1,1,1,0,1,1,1,1,1,1,1,1,1,1"></svg>
+        <div class="loop-chk done" ><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10241A" stroke-width="3.2"><path d="M20 6 9 17l-5-5"/></svg></div>
+      </div>
+      <div class="loop" style="--loop:var(--bm-f-dusk)">
+        <div class="loop-ring"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+        <div class="loop-body"><div class="loop-title">clean kitchen</div><div class="loop-sub">daily · ↻ 4</div></div>
+        <svg class="loop-trail" data-trail data-color="var(--bm-f-dusk)" data-days="1,0,1,1,0,0,1,1,1,0,1,1,1,1"></svg>
+        <div class="loop-chk"></div>
+      </div>
+      <div class="loop" style="--loop:var(--bm-f-river)">
+        <div class="loop-ring"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+        <div class="loop-body"><div class="loop-title">review weekly tasks</div><div class="loop-sub">weekly · Fri</div></div>
+        <svg class="loop-trail" data-trail data-color="var(--bm-f-river)" data-days="0,0,0,0,1,0,0,0,0,0,0,1,0,0"></svg>
+        <div class="loop-chk"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <div class="nav">
+    <div class="nav-tab on"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Today</div>
+    <div class="nav-tab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>Loops</div>
+    <div class="throw"><div class="throw-btn"><svg width="27" height="27" viewBox="0 0 100 100" fill="none"><path d="M 22 52 C 30 18, 70 18, 78 52" stroke="currentColor" stroke-width="11" stroke-linecap="round"/><circle cx="78" cy="52" r="8" fill="currentColor"/><path d="M 30 70 C 42 82, 58 82, 70 70" stroke="currentColor" stroke-width="10" stroke-linecap="round" opacity=".6"/></svg></div></div>
+    <div class="nav-tab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h13M3 12h13M3 18h9"/><path d="m19 14 2 2 4-4" transform="translate(-3 0)"/></svg>Tasks</div>
+    <div class="nav-tab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</div>
+  </div>
+</div>
+
+<!-- ════════ FRAME B — Loop detail ════════ -->
+<div class="phone"><div class="frame-label">B · Loops</div>
+  <div class="screen">
+    <div class="title-row">
+      <div class="back"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m12 19-7-7 7-7M5 12h14"/></svg></div>
+      <h1 class="h1">Loops</h1>
+    </div>
+    <div class="seg">
+      <div class="seg-btn on">Trail</div>
+      <div class="seg-btn">Month</div>
+      <div class="seg-btn">Year</div>
+    </div>
+
+    <!-- Flight Trail card -->
+    <div class="card" style="--loop:var(--bm-f-eucalypt)">
+      <div class="card-head">
+        <div class="loop-ring" style="width:28px;height:28px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+        <span class="card-title">take meds</span>
+        <span class="stat-inline hot">↻ 12</span>
+        <span class="stat-inline">87×</span>
+      </div>
+      <svg data-bigtrail data-color="var(--bm-f-eucalypt)" data-seed="7"></svg>
+    </div>
+
+    <!-- Month dots card -->
+    <div class="card" style="--loop:var(--bm-f-dusk)">
+      <div class="card-head">
+        <div class="loop-ring" style="width:28px;height:28px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+        <span class="card-title">clean kitchen</span>
+        <span class="stat-inline hot">↻ 4</span>
+        <span class="stat-inline">61×</span>
+      </div>
+      <svg data-month data-color="var(--bm-f-dusk)"></svg>
+    </div>
+
+    <!-- Density ribbon (year) card -->
+    <div class="card" style="--loop:var(--bm-f-river)">
+      <div class="card-head">
+        <div class="loop-ring" style="width:28px;height:28px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+        <span class="card-title">review weekly tasks · year</span>
+        <span class="stat-inline">52×</span>
+      </div>
+      <svg data-ribbon data-color="var(--bm-f-river)"></svg>
+      <div class="ribbon-months"><span>JUL</span><span>SEP</span><span>NOV</span><span>JAN</span><span>MAR</span><span>MAY</span></div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-tab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Today</div>
+    <div class="nav-tab on"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>Loops</div>
+    <div class="throw"><div class="throw-btn"><svg width="27" height="27" viewBox="0 0 100 100" fill="none"><path d="M 22 52 C 30 18, 70 18, 78 52" stroke="currentColor" stroke-width="11" stroke-linecap="round"/><circle cx="78" cy="52" r="8" fill="currentColor"/><path d="M 30 70 C 42 82, 58 82, 70 70" stroke="currentColor" stroke-width="10" stroke-linecap="round" opacity=".6"/></svg></div></div>
+    <div class="nav-tab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h13M3 12h13M3 18h9"/></svg>Tasks</div>
+    <div class="nav-tab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</div>
+  </div>
+</div>
+
+<!-- ════════ FRAME C — Components ════════ -->
+<div class="phone"><div class="frame-label">C · Components</div>
+  <div class="screen">
+    <div class="title-row"><h1 class="h1">Components</h1></div>
+
+    <div class="comp-label">Buttons — one accent, ghosts for the rest</div>
+    <div class="btn-row">
+      <button class="btn btn-fill">Catch it</button>
+      <button class="btn btn-tonal">Log session</button>
+      <button class="btn btn-ghost">Edit</button>
+      <button class="btn btn-danger">Delete</button>
+    </div>
+
+    <div class="comp-label">Value picker — outline + ember tint</div>
+    <div class="chip-row">
+      <button class="pick">XS</button>
+      <button class="pick on">S</button>
+      <button class="pick">M</button>
+      <button class="pick">L</button>
+      <button class="pick">XL</button>
+    </div>
+
+    <div class="comp-label">Feathers — per-loop identity</div>
+    <div class="chip-row" id="feathers"></div>
+
+    <div class="comp-label">Energy (outline chips, feather hues)</div>
+    <div class="chip-row">
+      <button class="pick" style="border-color:var(--bm-f-river);color:var(--bm-f-river)">Desk</button>
+      <button class="pick" style="border-color:var(--bm-f-dusk);color:var(--bm-f-dusk)">People</button>
+      <button class="pick on" style="border-color:var(--bm-f-eucalypt);color:var(--bm-f-eucalypt);background:color-mix(in srgb,var(--bm-f-eucalypt) 14%,transparent)">Errand ⚡⚡</button>
+      <button class="pick" style="border-color:var(--bm-f-galah);color:var(--bm-f-galah)">Creative</button>
+      <button class="pick" style="border-color:var(--bm-f-ochre);color:var(--bm-f-ochre)">Physical</button>
+    </div>
+
+    <div class="comp-label">Action sheet</div>
+    <div class="sheet">
+      <div class="grabber"></div>
+      <div class="sheet-title">deal with the insurance claim</div>
+      <div class="chip-row" style="margin-bottom:6px">
+        <button class="pick">Today</button>
+        <button class="pick">Tomorrow</button>
+        <button class="pick">Weekend</button>
+        <button class="pick">↩ No date</button>
+      </div>
+      <div class="sheet-row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Edit task</div>
+      <div class="sheet-row" style="color:var(--bm-text-meta)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg> Throw it back — returns Mon</div>
+      <div class="sheet-row" style="color:var(--bm-danger)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg> Delete</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  if (new URLSearchParams(location.search).get('mode') === 'light') document.body.classList.add('light')
+
+  // ── Day Arc gauge (semicircle, 21/30 pts) ───────────────────────────────
+  ;(function () {
+    const W = 230, H = 128, cx = W/2, cy = H - 6, r = 96
+    const pct = 21/30
+    const arc = (a0, a1, rr) => {
+      const p = a => [cx + rr * Math.cos(Math.PI * (1 - a)), cy - rr * Math.sin(Math.PI * (1 - a))]
+      const [x0, y0] = p(a0), [x1, y1] = p(a1)
+      return `M ${x0} ${y0} A ${rr} ${rr} 0 0 1 ${x1} ${y1}`
+    }
+    let ticks = ''
+    for (let i = 1; i < 10; i++) {
+      const a = i / 10, x = cx + (r) * Math.cos(Math.PI * (1 - a)), y = cy - (r) * Math.sin(Math.PI * (1 - a))
+      const x2 = cx + (r - 7) * Math.cos(Math.PI * (1 - a)), y2 = cy - (r - 7) * Math.sin(Math.PI * (1 - a))
+      ticks += `<line x1="${x}" y1="${y}" x2="${x2}" y2="${y2}" stroke="var(--bm-hairline-strong)" stroke-width="1.5"/>`
+    }
+    const tip = [cx + r * Math.cos(Math.PI * (1 - pct)), cy - r * Math.sin(Math.PI * (1 - pct))]
+    document.getElementById('dayArc').innerHTML = `
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+        <path d="${arc(0, 1, r)}" stroke="var(--bm-trail-empty)" stroke-width="11" stroke-linecap="round" fill="none"/>
+        ${ticks}
+        <path d="${arc(0, pct, r)}" stroke="var(--bm-ember)" stroke-width="11" stroke-linecap="round" fill="none"/>
+        <circle cx="${tip[0]}" cy="${tip[1]}" r="8" fill="var(--bm-ember)"/>
+        <circle cx="${tip[0]}" cy="${tip[1]}" r="3.2" fill="var(--bm-on-ember)"/>
+      </svg>
+      <div class="arc-center"><div class="arc-num">21<span style="font-size:16px;color:var(--bm-text-meta)"> / 30</span></div><div class="arc-cap">points today</div></div>`
+  })()
+
+  // ── Mini flight trail: 14 day-dots + streak arcs ────────────────────────
+  document.querySelectorAll('[data-trail]').forEach(svg => {
+    const days = svg.dataset.days.split(',').map(Number)
+    const color = svg.dataset.color
+    const step = 9, r = 2.6, W = days.length * step, H = 26, y = 17
+    let out = ''
+    days.forEach((v, i) => {
+      const x = i * step + step / 2
+      out += `<circle cx="${x}" cy="${y}" r="${r}" fill="${v ? color : 'var(--bm-trail-empty)'}"/>`
+    })
+    let i = 0
+    while (i < days.length) {
+      if (days[i]) {
+        let j = i; while (j + 1 < days.length && days[j + 1]) j++
+        if (j > i) {
+          const x0 = i * step + step / 2, x1 = j * step + step / 2
+          const lift = Math.min(11, 4 + (j - i) * 1.6)
+          out += `<path d="M ${x0} ${y - 4} Q ${(x0 + x1) / 2} ${y - 4 - lift} ${x1} ${y - 4}" stroke="${color}" stroke-width="1.6" fill="none" opacity="0.85"/>`
+        }
+        i = j + 1
+      } else i++
+    }
+    svg.setAttribute('width', W); svg.setAttribute('height', H)
+    svg.innerHTML = out
+  })
+
+  // ── Big flight trail: ~10 weeks, rows of 14 days, arcs bridge streaks ───
+  document.querySelectorAll('[data-bigtrail]').forEach(svg => {
+    const color = svg.dataset.color
+    let seed = +svg.dataset.seed
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+    const rows = 5, cols = 14, step = 23, rstep = 30, r = 4
+    const W = cols * step, H = rows * rstep + 6
+    let out = ''
+    for (let rI = 0; rI < rows; rI++) {
+      const y = rI * rstep + 22
+      const days = Array.from({ length: cols }, () => rnd() > 0.32 ? 1 : 0)
+      days.forEach((v, i) => {
+        const x = i * step + step / 2
+        out += `<circle cx="${x}" cy="${y}" r="${r}" fill="${v ? color : 'var(--bm-trail-empty)'}"${v ? ` opacity="${0.6 + rnd() * 0.4}"` : ''}/>`
+      })
+      let i = 0
+      while (i < cols) {
+        if (days[i]) {
+          let j = i; while (j + 1 < cols && days[j + 1]) j++
+          if (j > i) {
+            const x0 = i * step + step / 2, x1 = j * step + step / 2
+            const lift = Math.min(13, 5 + (j - i) * 1.7)
+            out += `<path d="M ${x0} ${y - 6} Q ${(x0 + x1) / 2} ${y - 6 - lift} ${x1} ${y - 6}" stroke="${color}" stroke-width="1.8" fill="none" opacity="0.8"/>`
+          }
+          i = j + 1
+        } else i++
+      }
+    }
+    svg.setAttribute('width', W); svg.setAttribute('height', H)
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`)
+    svg.style.width = '100%'
+    svg.innerHTML = out
+  })
+
+  // ── Month dots: circle calendar + weekday-run arcs ──────────────────────
+  document.querySelectorAll('[data-month]').forEach(svg => {
+    const color = svg.dataset.color
+    const done = new Set([2,3,4,7,8,9,10,11,14,16,17,21,22,23,24,28,29])
+    const cols = 7, step = 32, rstep = 30, r = 7.5
+    const rows = 5, W = cols * step, H = rows * rstep + 14
+    let out = ''
+    const DOW = ['M','T','W','T','F','S','S']
+    DOW.forEach((d, i) => { out += `<text x="${i * step + step / 2}" y="9" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--bm-text-faint)" font-family="DM Sans">${d}</text>` })
+    for (let d = 1; d <= 30; d++) {
+      const i = (d - 1) % 7, rI = Math.floor((d - 1) / 7)
+      const x = i * step + step / 2, y = rI * rstep + 26
+      const v = done.has(d)
+      out += `<circle cx="${x}" cy="${y}" r="${r}" fill="${v ? color : 'transparent'}" stroke="${v ? color : 'var(--bm-hairline-strong)'}" stroke-width="1.4"/>`
+      out += `<text x="${x}" y="${y + 3}" text-anchor="middle" font-size="8.5" font-weight="650" fill="${v ? '#10241A' : 'var(--bm-text-meta)'}" font-family="DM Sans">${d}</text>`
+      if (v && done.has(d + 1) && i < 6) {
+        const x1 = (i + 1) * step + step / 2
+        out += `<path d="M ${x + 4} ${y - 8} Q ${(x + x1) / 2} ${y - 16} ${x1 - 4} ${y - 8}" stroke="${color}" stroke-width="1.6" fill="none" opacity="0.75"/>`
+      }
+    }
+    svg.setAttribute('width', W); svg.setAttribute('height', H)
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`)
+    svg.style.width = '100%'
+    svg.innerHTML = out
+  })
+
+  // ── Density ribbon: smooth area curve of weekly counts ──────────────────
+  document.querySelectorAll('[data-ribbon]').forEach(svg => {
+    const color = svg.dataset.color
+    const W = 320, H = 64
+    let seed = 12
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+    const pts = Array.from({ length: 26 }, (_, i) => 0.25 + 0.7 * Math.abs(Math.sin(i * 0.55)) * rnd() + 0.15 * rnd())
+    const x = i => (i / (pts.length - 1)) * W
+    const y = v => H - 8 - v * (H - 18)
+    let d = `M 0 ${y(pts[0])}`
+    for (let i = 1; i < pts.length; i++) {
+      const xm = (x(i - 1) + x(i)) / 2
+      d += ` C ${xm} ${y(pts[i - 1])}, ${xm} ${y(pts[i])}, ${x(i)} ${y(pts[i])}`
+    }
+    const gid = 'g' + Math.random().toString(36).slice(2, 7)
+    svg.setAttribute('width', W); svg.setAttribute('height', H)
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`)
+    svg.style.width = '100%'
+    svg.innerHTML = `
+      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${color}" stop-opacity="0.45"/>
+        <stop offset="1" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="${d} L ${W} ${H} L 0 ${H} Z" fill="url(#${gid})"/>
+      <path d="${d}" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round"/>`
+  })
+
+  // ── Feather swatches ─────────────────────────────────────────────────────
+  ;(function () {
+    const f = [['Ochre','--bm-f-ochre'],['Clay','--bm-f-ember'],['Eucalypt','--bm-f-eucalypt'],['Billabong','--bm-f-river'],['Ironbark','--bm-f-dusk'],['Heath','--bm-f-galah']]
+    document.getElementById('feathers').innerHTML = f.map(([n, v]) =>
+      `<span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:650;color:var(--bm-text-meta)">
+        <span style="width:22px;height:22px;border-radius:50%;background:var(${v});display:inline-block"></span>${n}</span>`).join('')
+  })()
+</script>
+</body>
+</html>

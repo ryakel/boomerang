@@ -1,0 +1,309 @@
+<!doctype html>
+<!-- KEPT desktop "command center" mock — dev-only, never shipped.
+     Three-zone layout: sidebar nav · work surface · Today rail.
+     ?mode=light renders Linen. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+<title>Kept — desktop command center</title>
+<style>
+  :root {
+    --bm-bg: #101713; --bm-card: #18211B; --bm-card-2: #202B23;
+    --bm-hairline: rgba(238,243,236,.09); --bm-hairline-strong: rgba(238,243,236,.17);
+    --bm-text: #EFF3EC; --bm-text-meta: rgba(239,243,236,.56); --bm-text-faint: rgba(239,243,236,.34);
+    --bm-gold: #E3A93C; --bm-gold-soft: rgba(227,169,60,.14); --bm-on-gold: #2A2106;
+    --bm-danger: #D96C4A;
+    --bm-f-ochre: #E3A93C; --bm-f-clay: #D96C4A; --bm-f-eucalypt: #62B98B;
+    --bm-f-billabong: #6FA6C9; --bm-f-ironbark: #9D87D6; --bm-f-heath: #C77C9E;
+    --bm-trail-empty: rgba(238,243,236,.10);
+    --bm-shadow: 0 1px 2px rgba(0,0,0,.45), 0 10px 28px rgba(0,0,0,.30);
+  }
+  .light {
+    --bm-bg: #F7F4EC; --bm-card: #FFFFFF; --bm-card-2: #EEEADF;
+    --bm-hairline: rgba(31,42,34,.10); --bm-hairline-strong: rgba(31,42,34,.20);
+    --bm-text: #1F2A22; --bm-text-meta: rgba(31,42,34,.58); --bm-text-faint: rgba(31,42,34,.34);
+    --bm-gold: #B8841C; --bm-gold-soft: rgba(184,132,28,.13); --bm-on-gold: #FFFBEF;
+    --bm-danger: #BA4B2C;
+    --bm-f-ochre: #B8841C; --bm-f-clay: #C24E2D; --bm-f-eucalypt: #3D9A6B;
+    --bm-f-billabong: #41799C; --bm-f-ironbark: #7E61C7; --bm-f-heath: #B25579;
+    --bm-trail-empty: rgba(31,42,34,.11);
+    --bm-shadow: 0 1px 2px rgba(31,42,34,.06), 0 10px 28px rgba(31,42,34,.10);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #080C09; padding: 24px; font-family: 'DM Sans', system-ui, sans-serif; }
+  body.light { background: #D5D2C4; }
+  .app {
+    width: 1440px; height: 880px; margin: 0 auto;
+    background: var(--bm-bg); color: var(--bm-text);
+    border-radius: 18px; overflow: hidden; display: flex;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Sidebar ────────────────────────────────────────── */
+  .side {
+    flex: 0 0 224px; border-right: 1px solid var(--bm-hairline);
+    display: flex; flex-direction: column; padding: 18px 12px 14px;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 2px 10px 18px; }
+  .brand-mark { font-family: Fraunces, serif; font-weight: 700; font-size: 18px; }
+  .brand-mark i { color: var(--bm-gold); font-style: normal; }
+  .throw-pill {
+    display: flex; align-items: center; gap: 9px; justify-content: center;
+    background: var(--bm-gold); color: var(--bm-on-gold);
+    border-radius: 12px; padding: 11px 12px; font-weight: 700; font-size: 13.5px;
+    margin: 0 4px 16px; box-shadow: 0 6px 18px color-mix(in srgb, var(--bm-gold) 30%, transparent);
+  }
+  .throw-pill kbd { font-family: inherit; font-size: 10.5px; opacity: .65; border: 1px solid color-mix(in srgb, var(--bm-on-gold) 35%, transparent); border-radius: 5px; padding: 1px 5px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 10px; border-radius: 10px; font-size: 13.5px; font-weight: 600;
+    color: var(--bm-text-meta); margin-bottom: 1px;
+  }
+  .nav-item.on { color: var(--bm-text); background: var(--bm-card-2); }
+  .nav-item.on svg { color: var(--bm-gold); }
+  .nav-item .n { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--bm-text-faint); }
+  .side-sec { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--bm-text-faint); padding: 16px 10px 6px; }
+  .side-spacer { flex: 1 1 auto; }
+  .quokka-card {
+    margin: 0 4px; border: 1px solid var(--bm-hairline); border-radius: 13px; padding: 11px 12px;
+    display: flex; gap: 10px; align-items: center; background: var(--bm-card);
+  }
+  .quokka-card b { font-size: 12.5px; display: block; }
+  .quokka-card span { font-size: 11px; color: var(--bm-text-meta); }
+
+  /* ── Work surface ───────────────────────────────────── */
+  .main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .main-head { display: flex; align-items: center; gap: 14px; padding: 18px 24px 0; }
+  .h1 { font-family: Fraunces, serif; font-weight: 700; font-size: 26px; margin: 0; }
+  .h1-sub { font-size: 12.5px; color: var(--bm-text-meta); margin-top: 3px; }
+  .search {
+    margin-left: auto; display: flex; align-items: center; gap: 8px;
+    border: 1px solid var(--bm-hairline); border-radius: 11px; padding: 8px 12px;
+    color: var(--bm-text-faint); font-size: 13px; width: 240px;
+  }
+  .search kbd { margin-left: auto; font-size: 10.5px; border: 1px solid var(--bm-hairline-strong); border-radius: 5px; padding: 1px 5px; }
+  .viewseg { display: inline-flex; gap: 2px; border-bottom: 1px solid transparent; }
+  .viewseg .vs { padding: 8px 12px 9px; font-size: 12.5px; font-weight: 650; color: var(--bm-text-meta); border-bottom: 2px solid transparent; }
+  .viewseg .vs.on { color: var(--bm-text); border-bottom-color: var(--bm-gold); }
+  .cols { flex: 1 1 auto; display: flex; min-height: 0; }
+  .list { flex: 1 1 auto; min-width: 0; padding: 8px 24px 24px; overflow: hidden; }
+  .sec {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--bm-text-meta); margin: 18px 2px 4px;
+  }
+  .sec .arc-tick { width: 14px; height: 7px; border: 1.5px solid var(--bm-gold); border-bottom: none; border-radius: 14px 14px 0 0; }
+  .sec .n { color: var(--bm-text-faint); }
+  .row {
+    display: flex; align-items: center; gap: 13px;
+    padding: 11px 10px; border-bottom: 1px solid var(--bm-hairline); border-radius: 10px;
+  }
+  .row.sel { background: var(--bm-card-2); border-bottom-color: transparent; outline: 1px solid var(--bm-hairline-strong); }
+  .chk { flex: 0 0 auto; width: 21px; height: 21px; border-radius: 50%; border: 2px solid var(--bm-gold); display: grid; place-items: center; }
+  .chk.muted { border-color: var(--bm-hairline-strong); }
+  .chk.done { background: var(--bm-gold); }
+  .row-title { font-size: 14.5px; font-weight: 550; }
+  .row-title.done { color: var(--bm-text-meta); text-decoration: line-through; }
+  .row-meta { display: flex; gap: 10px; align-items: center; margin-left: auto; font-size: 12px; color: var(--bm-text-meta); flex: 0 0 auto; }
+  .due-hot { color: var(--bm-gold); font-weight: 650; }
+  .due-over { color: var(--bm-danger); font-weight: 650; }
+  .tagdot { display: inline-flex; align-items: center; gap: 5px; }
+  .tagdot i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .kbd-hints { padding: 10px 24px; border-top: 1px solid var(--bm-hairline); display: flex; gap: 18px; font-size: 11.5px; color: var(--bm-text-faint); }
+  .kbd-hints kbd { border: 1px solid var(--bm-hairline-strong); border-radius: 5px; padding: 0 5px; font-family: inherit; }
+
+  /* ── Today rail ─────────────────────────────────────── */
+  .rail { flex: 0 0 308px; border-left: 1px solid var(--bm-hairline); padding: 18px 18px; overflow: hidden; }
+  .card {
+    background: var(--bm-card); border: 1px solid var(--bm-hairline);
+    border-radius: 22px 14px 14px 14px; box-shadow: var(--bm-shadow);
+    padding: 14px 15px; margin-bottom: 14px;
+  }
+  .card.flat { border-radius: 14px; }
+  .card-title { font-family: Fraunces, serif; font-weight: 700; font-size: 14.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .rally { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--bm-gold); background: var(--bm-gold-soft); border-radius: 9px; padding: 3px 8px; }
+  .arc-wrap { position: relative; width: 100%; }
+  .arc-center { position: absolute; inset: auto 0 4px 0; text-align: center; }
+  .arc-num { font-family: Fraunces, serif; font-weight: 700; font-size: 28px; line-height: 1; }
+  .arc-cap { font-size: 10.5px; color: var(--bm-text-meta); margin-top: 2px; }
+  .arc-meta { display: flex; justify-content: center; gap: 14px; font-size: 11px; color: var(--bm-text-meta); padding-top: 8px; }
+  .arc-meta b { color: var(--bm-text); }
+  .loop { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--bm-hairline); }
+  .loop:last-child { border-bottom: none; padding-bottom: 2px; }
+  .loop-ring { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--loop); color: var(--loop); display: grid; place-items: center; background: color-mix(in srgb, var(--loop) 12%, transparent); }
+  .loop-title { font-size: 12.5px; font-weight: 600; flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .loop-chk { flex: 0 0 auto; width: 21px; height: 21px; border-radius: 50%; border: 2px solid var(--loop); display: grid; place-items: center; }
+  .loop-chk.done { background: var(--loop); }
+  .risk { display: flex; gap: 9px; align-items: center; font-size: 12px; font-weight: 600; background: var(--bm-gold-soft); border-radius: 11px; padding: 9px 11px; color: var(--bm-text); }
+  .risk b { color: var(--bm-gold); }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="side">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 100 100" fill="none"><path d="M 22 52 C 30 18, 70 18, 78 52" stroke="var(--bm-gold)" stroke-width="11" stroke-linecap="round"/><circle cx="78" cy="52" r="8" fill="var(--bm-gold)"/><path d="M 30 70 C 42 82, 58 82, 70 70" stroke="var(--bm-text)" stroke-width="10" stroke-linecap="round" opacity=".85"/></svg>
+      <span class="brand-mark">boomerang<i>.</i></span>
+    </div>
+    <div class="throw-pill">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+      Throw a task <kbd>⌘K</kbd>
+    </div>
+    <div class="nav-item on"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Today<span class="n">9</span></div>
+    <div class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h13M3 12h13M3 18h9"/></svg>Tasks<span class="n">37</span></div>
+    <div class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>Loops<span class="n">5</span></div>
+    <div class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20 C 6 6, 18 6, 22 20"/><circle cx="22" cy="20" r="2" fill="currentColor" stroke="none"/></svg>Arcs<span class="n">3</span></div>
+    <div class="side-sec">Review</div>
+    <div class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 15 4-6 4 3 5-8"/></svg>Flight log</div>
+    <div class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 11v5M12 8v8M16 13v3"/></svg>Analytics</div>
+    <div class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>Packages</div>
+    <div class="side-spacer"></div>
+    <div class="quokka-card">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--bm-gold)" stroke-width="2"><path d="M9.9 2.6 11.4 6a2 2 0 0 0 1 1l3.4 1.5a1 1 0 0 1 0 1.8L12.4 12a2 2 0 0 0-1 1l-1.5 3.4a1 1 0 0 1-1.8 0L6.6 13a2 2 0 0 0-1-1L2.2 10.4a1 1 0 0 1 0-1.8L5.6 7a2 2 0 0 0 1-1l1.5-3.4a1 1 0 0 1 1.8 0Z"/></svg>
+      <div><b>Quokka</b><span>“rescheduled my exam — fix things”</span></div>
+    </div>
+    <div class="nav-item" style="margin-top:10px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>Settings</div>
+  </div>
+
+  <!-- Work surface -->
+  <div class="main">
+    <div class="main-head">
+      <div>
+        <h1 class="h1">Today</h1>
+        <div class="h1-sub">Wednesday, June 10 · 4 due · 7 overdue carrying</div>
+      </div>
+      <div class="viewseg">
+        <span class="vs on">List</span><span class="vs">Board</span><span class="vs">Timeline</span>
+      </div>
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Search everything <kbd>/</kbd>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="list">
+        <div class="sec"><span class="arc-tick"></span> Overdue <span class="n">3</span></div>
+        <div class="row">
+          <div class="chk"></div>
+          <span class="row-title">deal with the insurance claim from the fender bender</span>
+          <span class="row-meta"><span class="due-over">7d</span><span class="tagdot"><i style="background:var(--bm-f-billabong)"></i>finance</span><span class="tagdot"><i style="background:var(--bm-f-ochre)"></i>phone-call</span></span>
+        </div>
+        <div class="row sel">
+          <div class="chk"></div>
+          <span class="row-title">call the dentist about that weird bill</span>
+          <span class="row-meta"><span class="due-over">11d</span><span class="tagdot"><i style="background:var(--bm-f-heath)"></i>health</span><span style="font-size:10.5px;border:1px solid var(--bm-hairline-strong);border-radius:5px;padding:0 5px">E edit</span></span>
+        </div>
+        <div class="row">
+          <div class="chk"></div>
+          <span class="row-title">figure out why the water bill is so high</span>
+          <span class="row-meta"><span class="due-over">4d</span><span class="tagdot"><i style="background:var(--bm-f-billabong)"></i>finance</span></span>
+        </div>
+
+        <div class="sec"><span class="arc-tick"></span> Today <span class="n">4</span></div>
+        <div class="row">
+          <div class="chk done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--bm-on-gold)" stroke-width="3.4"><path d="M20 6 9 17l-5-5"/></svg></div>
+          <span class="row-title done">schedule annual physical</span>
+        </div>
+        <div class="row">
+          <div class="chk"></div>
+          <span class="row-title">return amazon package by the door</span>
+          <span class="row-meta"><span class="due-hot">today</span><span class="tagdot"><i style="background:var(--bm-f-eucalypt)"></i>errands</span></span>
+        </div>
+        <div class="row">
+          <div class="chk"></div>
+          <span class="row-title">get oil change scheduled</span>
+          <span class="row-meta"><span class="due-hot">today</span></span>
+        </div>
+        <div class="row">
+          <div class="chk muted"></div>
+          <span class="row-title" style="color:var(--bm-text-meta)">draft the trip packing list</span>
+          <span class="row-meta"><span style="border:1px dashed var(--bm-hairline-strong);border-radius:9px;padding:1px 8px;font-size:11px">↩ returns Sat</span></span>
+        </div>
+
+        <div class="sec"><span class="arc-tick"></span> Up next <span class="n">2</span></div>
+        <div class="row">
+          <div class="chk"></div>
+          <span class="row-title">renew passport before the trip</span>
+          <span class="row-meta"><span>Fri</span><span class="tagdot"><i style="background:var(--bm-f-ironbark)"></i>travel</span></span>
+        </div>
+        <div class="row" style="border-bottom:none">
+          <div class="chk"></div>
+          <span class="row-title">prep notes for the team retro</span>
+          <span class="row-meta"><span>Mon</span><span class="tagdot"><i style="background:var(--bm-f-clay)"></i>work</span></span>
+        </div>
+      </div>
+
+      <!-- Today rail -->
+      <div class="rail">
+        <div class="card">
+          <div class="card-title">Day arc <span class="rally">↻ 6-day rally</span></div>
+          <div class="arc-wrap" id="dayArc"></div>
+          <div class="arc-meta"><span><b>3</b> catches</span><span><b>2</b> loops</span><span><b>9</b> pts left</span></div>
+        </div>
+        <div class="card flat">
+          <div class="card-title">Loops today <span style="margin-left:auto;font-size:11px;color:var(--bm-text-faint);font-family:'DM Sans'">3/5</span></div>
+          <div class="loop" style="--loop:var(--bm-f-eucalypt)">
+            <div class="loop-ring"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+            <span class="loop-title">take meds</span>
+            <div class="loop-chk done"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10241A" stroke-width="3.6"><path d="M20 6 9 17l-5-5"/></svg></div>
+          </div>
+          <div class="loop" style="--loop:var(--bm-f-ironbark)">
+            <div class="loop-ring"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+            <span class="loop-title">clean kitchen</span>
+            <div class="loop-chk"></div>
+          </div>
+          <div class="loop" style="--loop:var(--bm-f-billabong)">
+            <div class="loop-ring"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+            <span class="loop-title">review weekly tasks</span>
+            <div class="loop-chk"></div>
+          </div>
+        </div>
+        <div class="risk">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--bm-gold)" stroke-width="2.2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          <span><b>clean kitchen</b> rally at risk — 4 days</span>
+        </div>
+      </div>
+    </div>
+    <div class="kbd-hints">
+      <span><kbd>⌘K</kbd> throw</span><span><kbd>J</kbd><kbd>K</kbd> move</span><span><kbd>X</kbd> catch</span><span><kbd>S</kbd> throw back</span><span><kbd>E</kbd> edit</span><span><kbd>Q</kbd> quokka</span><span><kbd>?</kbd> help</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  if (new URLSearchParams(location.search).get('mode') === 'light') document.body.classList.add('light')
+  // Day Arc gauge (rail-sized)
+  ;(function () {
+    const W = 250, H = 118, cx = W/2, cy = H - 4, r = 88, pct = 21/30
+    const arc = (a0, a1) => {
+      const p = a => [cx + r * Math.cos(Math.PI * (1 - a)), cy - r * Math.sin(Math.PI * (1 - a))]
+      const [x0, y0] = p(a0), [x1, y1] = p(a1)
+      return `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`
+    }
+    let ticks = ''
+    for (let i = 1; i < 10; i++) {
+      const a = i / 10
+      const x = cx + r * Math.cos(Math.PI * (1 - a)), y = cy - r * Math.sin(Math.PI * (1 - a))
+      const x2 = cx + (r - 7) * Math.cos(Math.PI * (1 - a)), y2 = cy - (r - 7) * Math.sin(Math.PI * (1 - a))
+      ticks += `<line x1="${x}" y1="${y}" x2="${x2}" y2="${y2}" stroke="var(--bm-hairline-strong)" stroke-width="1.5"/>`
+    }
+    const tip = [cx + r * Math.cos(Math.PI * (1 - pct)), cy - r * Math.sin(Math.PI * (1 - pct))]
+    document.getElementById('dayArc').innerHTML = `
+      <svg width="100%" viewBox="0 0 ${W} ${H}">
+        <path d="${arc(0, 1)}" stroke="var(--bm-trail-empty)" stroke-width="10" stroke-linecap="round" fill="none"/>
+        ${ticks}
+        <path d="${arc(0, pct)}" stroke="var(--bm-gold)" stroke-width="10" stroke-linecap="round" fill="none"/>
+        <circle cx="${tip[0]}" cy="${tip[1]}" r="7" fill="var(--bm-gold)"/>
+        <circle cx="${tip[0]}" cy="${tip[1]}" r="2.8" fill="var(--bm-on-gold)"/>
+      </svg>
+      <div class="arc-center"><div class="arc-num">21<span style="font-size:14px;color:var(--bm-text-meta)"> / 30</span></div><div class="arc-cap">points today</div></div>`
+  })()
+</script>
+</body>
+</html>
