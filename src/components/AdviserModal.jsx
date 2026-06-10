@@ -4,7 +4,7 @@ import {
   History, Trash2, Plus, Star, AlertCircle, Search,
 } from 'lucide-react'
 import { renderMarkdown } from '../utils/renderMarkdown'
-import { useWallabyMode } from '../hooks/useWallabyMode'
+import { useMobilePages } from '../hooks/useMobilePages'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import TypingSuggestions from './TypingSuggestions'
@@ -178,7 +178,7 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
   } = adviser
   const [input, setInput] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  const wallaby = useWallabyMode()
+  const wallaby = useMobilePages()
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
   const lastDraftRef = useRef(null)

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { X, ArrowLeft } from 'lucide-react'
-import { useWallabyMode } from '../hooks/useWallabyMode'
+import { useMobilePages } from '../hooks/useMobilePages'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import './ModalShell.css'
 
@@ -9,7 +9,7 @@ export default function ModalShell({ open, onClose, title, subtitle, headerSlot,
   // is a back arrow (top-left) — consistent with the drill-down views — not a
   // dismiss X. Desktop/other themes keep the X. (Call both hooks unconditionally
   // — never short-circuit a hook call.)
-  const wallaby = useWallabyMode()
+  const wallaby = useMobilePages()
   const isDesktop = useIsDesktop()
   const backNav = wallaby && !isDesktop
   useEffect(() => {

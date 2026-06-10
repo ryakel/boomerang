@@ -1158,11 +1158,15 @@ Flight log = profile), metaphor in moments ("Caught it.", "↩ returns Tue",
 migration plan). Prototypes: `kept-preview.html` (mobile), `kept-desktop.html`
 (desktop), `brand-board.html` (the 3-direction exploration) — dev-only render
 harnesses, never shipped. Wallaby remains the daily driver until Kept lands.
-**Progress:** K0 (demolition) + K1 (brand assets app-wide, `src/kept/palette.css`
-with the `--bm-*` tokens, kept-dark/kept-light registered in theme.js + the
-Settings family picker, Fraunces display font, `--energy-*` single-source
-tokens) are MERGED. Kept themes currently render the standard layout in the
-Kept palette; the KeptShell IA arrives with K3.
+**Progress:** K0 (demolition: terminal teardown, src/v2 flattening, theme.js) +
+K1 (brand assets app-wide, `src/kept/palette.css` `--bm-*` tokens, theme
+registration, Fraunces, `--energy-*` single-source) + K2 (`src/dates.js`
+canonical date module WITH unit tests in `npm test`; FlightTrail / MonthDots /
+DensityRibbon / DayArc in `src/kept/`) + K3 (KeptShell mobile IA — Today with
+Day Arc hero, Loops with trail cards, Tasks + action sheet, More, ThrowSheet;
+`useMobilePages` + `:is()`-gated modals.css serve both shells; shared
+`toggleHabitDay` handler) are MERGED. Kept on mobile is fully navigable.
+Remaining: K5 desktop command center, K6 cutover + Wallaby teardown.
 
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
