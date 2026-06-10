@@ -432,10 +432,17 @@ export default function AppV2() {
   // Wallaby presents the full loggd IA (bottom-nav shell) on mobile. Desktop
   // keeps the Kanban + drawer for now.
   const isWallaby = (settingsForRings.theme || '').startsWith('wallaby')
+  // editTarget is the snapshot captured when the editor opened. Resolve the
+  // LIVE task for the editor modals so the Wallaby chip-editor → "More
+  // options" handoff doesn't show (and autosave back) values the chip editor
+  // already changed — the full editor seeds its form from the task prop at
+  // mount. Falls back to the snapshot for tasks not in local state (e.g.
+  // server search results).
+  const liveEditTarget = editTarget ? (tasks.find(t => t.id === editTarget.id) || editTarget) : null
   // Use the Wallaby chip-language quick editor for regular tasks on mobile;
   // projects/subs and "More options" fall through to the full EditTaskModal.
-  const useWallabyEditor = !!editTarget && isWallaby && !isDesktop && !editFull
-    && editTarget.status !== 'project' && !editTarget.parent_id
+  const useWallabyEditor = !!liveEditTarget && isWallaby && !isDesktop && !editFull
+    && liveEditTarget.status !== 'project' && !liveEditTarget.parent_id
   // Per-routine streak map → threaded down to TaskCard so routine-spawned
   // tasks can render an inline 🔥N. Recomputed only when `routines` changes.
   const routineStreaks = useMemo(() => {
@@ -1306,7 +1313,7 @@ export default function AppV2() {
 
       {editTarget && useWallabyEditor && (
         <WallabyEditTask
-          task={editTarget}
+          task={liveEditTarget}
           onSave={handleEditModalSave}
           onClose={() => setEditTarget(null)}
           onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
@@ -1317,7 +1324,7 @@ export default function AppV2() {
 
       {editTarget && !useWallabyEditor && (
         <EditTaskModal
-          task={editTarget}
+          task={liveEditTarget}
           onSave={handleEditModalSave}
           onClose={() => setEditTarget(null)}
           onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
@@ -1327,9 +1334,9 @@ export default function AppV2() {
           onConvertToRoutine={handleConvertToRoutine}
           weather={weather}
           projects={tasks.filter(t => t.status === 'project')}
-          childTasks={tasks.filter(t => t.parent_id === editTarget.id)}
-          siblingSubs={editTarget.parent_id
-            ? tasks.filter(t => t.parent_id === editTarget.parent_id && t.id !== editTarget.id)
+          childTasks={tasks.filter(t => t.parent_id === liveEditTarget.id)}
+          siblingSubs={liveEditTarget.parent_id
+            ? tasks.filter(t => t.parent_id === liveEditTarget.parent_id && t.id !== liveEditTarget.id)
             : []}
           onLogSession={handleLogSession}
           onAddChild={(project) => {

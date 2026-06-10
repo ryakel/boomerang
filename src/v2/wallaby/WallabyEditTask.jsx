@@ -37,7 +37,9 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
   const form = useTaskForm({
     title: task.title, notes: task.notes, tags: task.tags || [],
     dueDate: task.due_date || '', size: task.size, size_inferred: task.size_inferred,
-    energy: task.energy, energyLevel: task.energy_level,
+    // Client task objects carry camelCase energyLevel (db.js maps the
+    // energy_level column on read); the snake_case fallback covers raw rows.
+    energy: task.energy, energyLevel: task.energyLevel ?? task.energy_level,
     highPriority: task.high_priority, lowPriority: task.low_priority,
   })
   const [status, setStatus] = useState(task.status)
@@ -82,6 +84,17 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
   }, [savePayload, onSave, task.id])
   useEffect(() => () => { if (justSavedTimer.current) clearTimeout(justSavedTimer.current) }, [])
 
+  // The debounce timer is cancelled on unmount, so an edit made <500ms before
+  // leaving (back arrow or "More options") would silently drop. Flush it.
+  const flushSave = () => {
+    const json = JSON.stringify(savePayload)
+    if (lastSavedJson.current !== null && lastSavedJson.current !== json && savePayload.title) {
+      lastSavedJson.current = json
+      onSave(task.id, savePayload)
+    }
+  }
+  const handleClose = () => { flushSave(); onClose?.() }
+
   // ── status (separate path — handles completion / chain-breaks / trello) ─────
   const pickStatus = (s) => {
     setOpenChip(null)
@@ -89,7 +102,7 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
     setStatus(s)
     onStatusChange(task.id, s)
     // done + the chain-breaking moves take the task out of the active list.
-    if (['done', 'cancelled', 'backlog', 'project'].includes(s)) onClose?.()
+    if (['done', 'cancelled', 'backlog', 'project'].includes(s)) handleClose()
   }
 
   // ── subtasks (single default checklist) ─────────────────────────────────────
@@ -129,7 +142,7 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
   return (
     <ModalShell
       open
-      onClose={onClose}
+      onClose={handleClose}
       title="Edit task"
       terminalTitle="> task --edit"
       width="narrow"
@@ -248,7 +261,7 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
 
       {/* Footer */}
       <div className="wb-edit-footer">
-        <button className="wb-edit-more" onClick={onOpenFull}>
+        <button className="wb-edit-more" onClick={() => { flushSave(); onOpenFull() }}>
           <Sliders size={15} strokeWidth={2} /> More options
         </button>
         <button className="wb-edit-delete" onClick={() => { onDelete?.(task.id) }}>

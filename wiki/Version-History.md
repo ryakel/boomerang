@@ -13,6 +13,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Transitive `hono` advisory (GHSA-2gcr-mfcq-wcc3, via @modelcontextprotocol/sdk) resolved via `npm audit fix` → 0 vulnerabilities.
   - Verified headless (wallaby-dark + wallaby-light): Home, Habits + detail, Tasks + action sheet, Goals, Analytics, Settings, Notifications, Quokka. Build + lint + terminal-title/button smoke tests pass.
 
+- fix(ui): wallaby edit-modal verification pass — three editor bugs [S]
+  - `WallabyEditTask` initialized drain from `task.energy_level`, but client task objects carry camelCase `energyLevel` (db.js maps the column on read) — the chip editor always opened existing tasks with no drain, and its next autosave wrote `energyLevel: null`, silently wiping the task's drain level.
+  - Stale editor handoff: AppV2 passed the `editTarget` *snapshot* (captured when the editor opened) to the modals, so flipping chip editor → "More options" seeded the full editor with pre-edit values — and its autosave could write them back. The modals now receive the LIVE task (`tasks.find(id)`, falling back to the snapshot for server search results).
+  - Debounce loss: the chip editor's 500ms autosave timer was cancelled on unmount, dropping an edit made just before back/"More options"/status-close. A `flushSave()` now runs on every exit path.
+  - Verified headless end-to-end: pick energy+drain in the chip editor and immediately open "More options" inside the debounce window → full editor shows the new values; wallaby-light chip editor + full editor + AddTaskModal render correctly (full-page, back arrow, readable active tag chips).
+
 ---
 
 ## 2026-06-08
