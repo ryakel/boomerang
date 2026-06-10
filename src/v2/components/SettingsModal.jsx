@@ -170,9 +170,8 @@ function LabelsPanel() {
   )
 }
 
-const STORAGE_KEY = 'ui_version'
 
-const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs', 'Legacy']
+const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs']
 
 // All Settings tabs now have v2 implementations.
 
@@ -2813,71 +2812,6 @@ export default function SettingsModal({
 
         {activeTab === 'Logs' && <ServerLogsPanel />}
 
-        {activeTab === 'Legacy' && (
-          <div className="v2-settings-beta">
-            <div className="v2-settings-block">
-              <h3 className="v2-settings-heading">Disable v1 interface</h3>
-              <p className="v2-settings-body">
-                Block the v1 UI from loading. Any attempt to load v1 (via <code>?ui=v1</code> or localStorage)
-                will be redirected to v2 and logged in the Activity Log. Use this to test what breaks before
-                fully removing v1.
-              </p>
-              <label className="v2-settings-toggle v2-settings-toggle-inline">
-                <input
-                  type="checkbox"
-                  checked={!!settings.v1_disabled}
-                  onChange={e => {
-                    update('v1_disabled', e.target.checked)
-                  }}
-                />
-                <span className="v2-settings-toggle-track">
-                  <span className="v2-settings-toggle-thumb" />
-                </span>
-                <span className="v2-settings-toggle-label">Disable v1 (block all v1 loads)</span>
-              </label>
-              {settings.v1_disabled && (
-                <p className="v2-settings-hint" style={{ color: 'var(--v2-accent)' }}>
-                  v1 is disabled. Any v1 load attempt will be blocked and logged in the Activity Log.
-                </p>
-              )}
-            </div>
-
-            <div className="v2-settings-block">
-              <h3 className="v2-settings-heading">Use the v1 interface</h3>
-              <p className="v2-settings-body">
-                v2 is the current interface. v1 is kept around as an escape hatch — toggle below
-                if something in v2 isn't working for you, then let me know what.
-              </p>
-              <label className="v2-settings-toggle v2-settings-toggle-inline">
-                <input
-                  type="checkbox"
-                  defaultChecked={false}
-                  disabled={!!settings.v1_disabled}
-                  onChange={e => {
-                    if (e.target.checked) {
-                      localStorage.setItem(STORAGE_KEY, 'v1')
-                      window.location.reload()
-                    }
-                  }}
-                />
-                <span className="v2-settings-toggle-track">
-                  <span className="v2-settings-toggle-thumb" />
-                </span>
-                <span className="v2-settings-toggle-label">Switch to v1 and reload</span>
-              </label>
-              {settings.v1_disabled && (
-                <p className="v2-settings-hint" style={{ color: 'var(--v2-alert-overdue)' }}>
-                  Disabled while "Disable v1" is active above.
-                </p>
-              )}
-              {!settings.v1_disabled && (
-                <p className="v2-settings-hint">
-                  URL escape hatch: <code>?ui=v1</code> or <code>?ui=v2</code> sets the flag and reloads.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {confirmDialog && (

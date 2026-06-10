@@ -3,7 +3,7 @@ import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Pape
 import { loadLabels, ENERGY_TYPES, STATUS_META, uuid, localYMD } from '../../store'
 import { useTaskForm } from '../../hooks/useTaskForm'
 import { researchTask } from '../../api'
-import WeatherSection, { resolveWeatherVisibility } from '../../components/WeatherSection'
+import WeatherSection, { resolveWeatherVisibility } from './WeatherSection'
 import ModalShell from './ModalShell'
 import AutosaveIndicator from './AutosaveIndicator'
 import DateField from './DateField'

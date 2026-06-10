@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import './WeatherSection.css'
 
 const WMO_ICON = {
   0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',

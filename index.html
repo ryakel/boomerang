@@ -14,13 +14,13 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
     <title>Boomerang</title>
     <script>
-      // Apply saved UI version + theme before first paint so v2 tokens (and the
-      // chosen light/dark/terminal variant) are in scope before React mounts.
+      // Apply the theme before first paint so v2 tokens (and the chosen
+      // light/dark/wallaby variant) are in scope before React mounts.
       // Critical for the ErrorBoundary fallback: if AppV2 throws on first
       // render, the boundary still renders with the right tokens applied.
+      // (v1 was removed 2026-06-10 — v2 is unconditional.)
       try {
-        var v = localStorage.getItem('ui_version')
-        if (v !== 'v1') document.documentElement.setAttribute('data-ui', 'v2')
+        document.documentElement.setAttribute('data-ui', 'v2')
         var s = JSON.parse(localStorage.getItem('boom_settings_v1'))
         // Migrate legacy 'terminal' to 'terminal-dark' before pre-paint so
         // the right palette tokens are scoped from the very first frame.
