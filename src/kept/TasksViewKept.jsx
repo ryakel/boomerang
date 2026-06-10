@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Check, Search, Pencil, Trash2, Calendar, X } from 'lucide-react'
 import { localYMD, parseLocalDate, addDays } from '../dates'
 import { isSnoozed } from '../store'
+import RowSwipe from './RowSwipe'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -71,24 +72,26 @@ export default function TasksViewKept({ tasks = [], labels = [], onToggleComplet
               const due = dueMeta(t.due_date)
               const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
               return (
-                <div key={t.id} className="bm-row">
-                  <button
-                    className={`bm-chk${done ? ' is-done' : ''}`}
-                    onClick={() => onToggleComplete?.(t)}
-                    aria-label={done ? 'Reopen' : 'Catch it'}
-                  >{done && <Check size={13} strokeWidth={3.4} />}</button>
-                  <button className="bm-row-body" onClick={() => setSheetTask(t)}>
-                    <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                    {!done && (due || chips.length > 0) && (
-                      <span className="bm-row-meta">
-                        {due && <span className={due.tone === 'over' ? 'bm-due-over' : due.tone === 'hot' ? 'bm-due-hot' : undefined}>{due.label}</span>}
-                        {chips.slice(0, 3).map(l => (
-                          <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
-                        ))}
-                      </span>
-                    )}
-                  </button>
-                </div>
+                <RowSwipe key={t.id} done={done} onCatch={() => onToggleComplete?.(t)} onDelete={() => onDelete?.(t)}>
+                  <div className="bm-row">
+                    <button
+                      className={`bm-chk${done ? ' is-done' : ''}`}
+                      onClick={() => onToggleComplete?.(t)}
+                      aria-label={done ? 'Reopen' : 'Catch it'}
+                    >{done && <Check size={13} strokeWidth={3.4} />}</button>
+                    <button className="bm-row-body" onClick={() => setSheetTask(t)}>
+                      <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
+                      {!done && (due || chips.length > 0) && (
+                        <span className="bm-row-meta">
+                          {due && <span className={due.tone === 'over' ? 'bm-due-over' : due.tone === 'hot' ? 'bm-due-hot' : undefined}>{due.label}</span>}
+                          {chips.slice(0, 3).map(l => (
+                            <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
+                          ))}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </RowSwipe>
               )
             })}
           </div>

@@ -351,3 +351,28 @@
   font-size: 12px; color: var(--bm-text-meta);
 }
 .bm-hero-meta b { color: var(--bm-text); font-weight: 700; }
+
+/* Swipe-to-reveal on hairline rows */
+.bm-row-swipe { position: relative; overflow: hidden; }
+.bm-row-swipe-actions {
+  position: absolute;
+  inset: 0 0 1px auto;   /* keep the hairline visible below */
+  display: flex;
+}
+.bm-row-swipe-act {
+  width: 66px;
+  border: none;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 3px;
+  font-size: 11px; font-weight: 700;
+  font-family: var(--v2-font-body);
+  cursor: pointer;
+}
+.bm-row-swipe-catch { background: var(--bm-gold); color: var(--bm-on-gold); }
+.bm-row-swipe-del { background: var(--bm-danger); color: var(--bm-on-gold); }
+.bm-row-swipe-body {
+  position: relative; z-index: 1;
+  background: var(--bm-bg);
+  transition: transform 200ms ease;
+  will-change: transform;
+}

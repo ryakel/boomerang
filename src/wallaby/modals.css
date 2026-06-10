@@ -49,6 +49,11 @@
     padding: calc(60px + env(safe-area-inset-top)) 20px 16px;
   }
   :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-back {
+    /* .v2-modal is the page SCROLLER — absolute positioning rode along with
+     * the content, so the back button scrolled off-screen on long pages.
+     * The page covers the viewport, so fixed = pinned top-left. */
+    position: fixed;
+    z-index: 5;
     top: calc(14px + env(safe-area-inset-top));
     left: 16px;
     right: auto;
@@ -59,7 +64,7 @@
     border: 1px solid var(--wb-hairline);
     color: var(--wb-text);
   }
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-header-slot { top: calc(22px + env(safe-area-inset-top)); }
+  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-header-slot { position: fixed; z-index: 5; top: calc(22px + env(safe-area-inset-top)); }
   :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-title { font-size: 26px; }
   /* Give the body bottom safe-area room so the last controls clear the home bar. */
   :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }

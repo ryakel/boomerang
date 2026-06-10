@@ -6,6 +6,7 @@ import { localYMD } from '../dates'
 import { historyByDay, currentStreak } from '../wallaby/heatmapUtils'
 import { isSnoozed, formatSnoozeLabel } from '../store'
 import { routineFeathers } from './feathers'
+import RowSwipe from './RowSwipe'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -16,7 +17,7 @@ const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 export default function TodayView({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
-  onCompleteTask, onOpenTask, onToggleHabit,
+  onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
 }) {
   const todayKey = localYMD()
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
@@ -68,24 +69,26 @@ export default function TodayView({
           const overdue = !done && t.due_date && String(t.due_date).slice(0, 10) < todayKey
           const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
           return (
-            <div key={t.id} className="bm-row">
-              <button
-                className={`bm-chk${done ? ' is-done' : ''}`}
-                onClick={() => onCompleteTask?.(t)}
-                aria-label={done ? 'Reopen' : 'Catch it'}
-              >{done && <Check size={13} strokeWidth={3.4} />}</button>
-              <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
-                <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                {!done && (overdue || chips.length > 0) && (
-                  <span className="bm-row-meta">
-                    {overdue && <span className="bm-due-over">overdue</span>}
-                    {chips.slice(0, 3).map(l => (
-                      <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
-                    ))}
-                  </span>
-                )}
-              </button>
-            </div>
+            <RowSwipe key={t.id} done={done} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
+              <div className="bm-row">
+                <button
+                  className={`bm-chk${done ? ' is-done' : ''}`}
+                  onClick={() => onCompleteTask?.(t)}
+                  aria-label={done ? 'Reopen' : 'Catch it'}
+                >{done && <Check size={13} strokeWidth={3.4} />}</button>
+                <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
+                  <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
+                  {!done && (overdue || chips.length > 0) && (
+                    <span className="bm-row-meta">
+                      {overdue && <span className="bm-due-over">overdue</span>}
+                      {chips.slice(0, 3).map(l => (
+                        <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
+                      ))}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </RowSwipe>
           )
         })}
         {returningSoon.map(t => (
@@ -106,12 +109,12 @@ export default function TodayView({
             {loops.map(({ r, color, byDay, rally, doneToday }) => (
               <div key={r.id} className="bm-loop" style={{ '--loop': color }}>
                 <span className="bm-loop-ring"><Repeat2 size={15} strokeWidth={2.2} /></span>
-                <div className="bm-loop-body">
+                <button className="bm-loop-body" onClick={() => onEditLoop?.(r)} aria-label={`Edit ${r.title}`}>
                   <div className="bm-loop-title">{r.title}</div>
                   <div className="bm-loop-sub">
                     {r.cadence || 'routine'}{rally > 0 && <> · <span className="bm-loop-rally">↻ {rally}</span></>}
                   </div>
-                </div>
+                </button>
                 <span className="bm-loop-trail"><FlightTrail valueByDay={byDay} color={color} mini /></span>
                 <button
                   className={`bm-loop-chk${doneToday ? ' is-done' : ''}`}

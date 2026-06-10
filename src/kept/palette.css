@@ -56,6 +56,39 @@
   --energy-errand: var(--bm-f-eucalypt);
   --energy-creative: var(--bm-f-heath);
   --energy-physical: var(--bm-f-clay);
+  /* ── Wallaby-token bridge ─────────────────────────────────────────────
+   * Components built against --wb-* (the chip task editor, the shared
+   * forms/settings/analytics override layers) resolve to the Kept palette
+   * inside kept themes. This bridge dies with Wallaby at the K6 teardown,
+   * when those components are re-tokened to --bm-* directly. */
+  --wb-bg: var(--bm-bg);
+  --wb-card: var(--bm-card);
+  --wb-card-2: var(--bm-card-2);
+  --wb-card-3: var(--bm-card-2);
+  --wb-hairline: var(--bm-hairline);
+  --wb-hairline-strong: var(--bm-hairline-strong);
+  --wb-text: var(--bm-text);
+  --wb-text-meta: var(--bm-text-meta);
+  --wb-shadow: var(--bm-shadow);
+  --wb-shadow-pop: var(--bm-shadow-pop);
+  --wb-shadow-press: var(--bm-shadow-press);
+  --wb-scrim: var(--bm-scrim);
+  --wb-heat-empty: var(--bm-trail-empty);
+  --wb-heat-border: transparent;
+  --wb-cat-blue: var(--bm-f-billabong);
+  --wb-cat-purple: var(--bm-f-ironbark);
+  --wb-cat-green: var(--bm-f-eucalypt);
+  --wb-cat-orange: var(--bm-f-ochre);
+  --wb-cat-pink: var(--bm-f-heath);
+  --wb-action-primary: var(--bm-gold);
+  --wb-action-complete: var(--bm-gold);
+  --wb-action-pause: var(--bm-gold-soft);
+  --wb-action-delete: var(--bm-danger);
+  --wb-action-secondary: var(--bm-card-2);
+  --wb-on-action: var(--bm-on-gold);
+  --wb-on-pause: var(--bm-gold);
+  --wb-fab-habits: var(--bm-gold);
+  --wb-fab-tasks: var(--bm-gold);
 }
 
 /* ── Kept light — "Linen" ──────────────────────────────────────────────── */
@@ -100,4 +133,37 @@
   --energy-errand: var(--bm-f-eucalypt);
   --energy-creative: var(--bm-f-heath);
   --energy-physical: var(--bm-f-clay);
+  /* ── Wallaby-token bridge ─────────────────────────────────────────────
+   * Components built against --wb-* (the chip task editor, the shared
+   * forms/settings/analytics override layers) resolve to the Kept palette
+   * inside kept themes. This bridge dies with Wallaby at the K6 teardown,
+   * when those components are re-tokened to --bm-* directly. */
+  --wb-bg: var(--bm-bg);
+  --wb-card: var(--bm-card);
+  --wb-card-2: var(--bm-card-2);
+  --wb-card-3: var(--bm-card-2);
+  --wb-hairline: var(--bm-hairline);
+  --wb-hairline-strong: var(--bm-hairline-strong);
+  --wb-text: var(--bm-text);
+  --wb-text-meta: var(--bm-text-meta);
+  --wb-shadow: var(--bm-shadow);
+  --wb-shadow-pop: var(--bm-shadow-pop);
+  --wb-shadow-press: var(--bm-shadow-press);
+  --wb-scrim: var(--bm-scrim);
+  --wb-heat-empty: var(--bm-trail-empty);
+  --wb-heat-border: transparent;
+  --wb-cat-blue: var(--bm-f-billabong);
+  --wb-cat-purple: var(--bm-f-ironbark);
+  --wb-cat-green: var(--bm-f-eucalypt);
+  --wb-cat-orange: var(--bm-f-ochre);
+  --wb-cat-pink: var(--bm-f-heath);
+  --wb-action-primary: var(--bm-gold);
+  --wb-action-complete: var(--bm-gold);
+  --wb-action-pause: var(--bm-gold-soft);
+  --wb-action-delete: var(--bm-danger);
+  --wb-action-secondary: var(--bm-card-2);
+  --wb-on-action: var(--bm-on-gold);
+  --wb-on-pause: var(--bm-gold);
+  --wb-fab-habits: var(--bm-gold);
+  --wb-fab-tasks: var(--bm-gold);
 }

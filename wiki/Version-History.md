@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-10
 
+- fix(ui): Kept tire-kicking round 1 — editors, swipe, clickable loops, pinned back button [M]
+  - **Editors now speak Kept.** A `--wb-*` → `--bm-*` token bridge inside the kept theme blocks means every wallaby-built component resolves to the Kept palette, and the forms/settings/analytics override layers are `:is()`-extended to kept — so the chip task editor (now enabled for kept themes, it was wallaby-gated), the full EditTaskModal's form controls, AddTaskModal, and the Settings/Analytics internals all render gold-on-Nightgum instead of raw v2. The bridge is explicitly temporary: it dies at the K6 Wallaby teardown when those components re-token to `--bm-*` directly.
+  - **Swipe is back:** new `RowSwipe` wrapper (shared `useSwipeActions` gesture) on Today + Tasks rows — swipe left reveals Catch (gold) / Delete.
+  - **Loops are tappable:** loop rows on Today and loop-card titles on Loops open the loop editor (previously only the pencil icon was interactive).
+  - **Back button pinned:** the full-page modal back arrow (and the autosave chip) were absolutely positioned inside `.v2-modal` — the page SCROLLER — so they scrolled off-screen on long pages. Now `position: fixed`.
+  - Verified live: chip editor opens in Kept palette from the task action sheet; loop tap opens "Edit loop"; back arrow at top after an 800px scroll; swipe wrappers on every row.
+
 - fix(ui): Kept — shared-modal titles follow the Kept naming layer [S]
   - The More menu said Arcs / Caught / Loops but the modals opened as "Projects" / "Done" / "Routines". `ProjectsView`, `DoneList`, and `RoutinesModal` now take a `title` override (+ `noun` on RoutinesModal so the form reads "New loop"/"Edit loop"); AppV2 passes the Kept names when a kept theme is active. Standard + Wallaby keep their existing titles. Verified live: all three open under their menu names.
 
