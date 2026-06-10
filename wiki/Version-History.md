@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-10
 
+- feat(ui): Kept K2 — canonical date module + the four signature viz components [L]
+  - **`src/dates.js`** is now THE date module: `parseLocalDate` / `localYMD` (date-only strings are LOCAL days — the documented contract behind three past timezone-bug incidents), `addDays`, `weekStartMonday`, `fmtMonthDay`. `store.js` and `wallaby/heatmapUtils.js` delegate to it (re-exports keep every existing import working). **First real unit tests:** `scripts/dates.test.mjs` (node:test) covers the UTC-midnight trap, passthrough, month/leap boundaries, streak chaining, week anchoring — wired into `npm test` ahead of the smoke test.
+  - **`src/kept/` viz components** (spec §5, shared mobile+desktop): `FlightTrail` (rows of 14 round day-dots, consecutive done-days bridged by literal streak ARCS; `mini` variant for list rows), `MonthDots` (numbered circle calendar + arcs), `DensityRibbon` (weekly totals as a smooth gradient area curve — the year view that replaces contribution grids), `DayArc` (semicircular gold gauge with tenth-ticks + tip dot). All colors via `--bm-*` tokens / feather props; intensity-scaled opacity; `<title>`/aria labels.
+  - Dev harness `kept-viz-preview.html` + `src/kept-viz-preview.jsx` (vite-dev only, never shipped) — all four screenshot-verified in kept-dark and kept-light with deterministic mock history.
+
 - feat(ui): Kept K1 — brand assets + palettes + theme registration + energy single-source [L]
   - **New brand shipped:** Kept arc-into-catch mark replaces the V-swoosh everywhere — `Logo.jsx` (gold arc + ink-aware catch curve via `--v2-text`), `favicon.svg`, `icon-192/512.svg`, regenerated `icon-192/512.png` + `apple-touch-icon.png` (sharp, Nightgum-gradient tile).
   - **`src/kept/palette.css`:** full `--bm-*` token set (Nightgum defaults for every theme + `kept-dark`/`kept-light` blocks overriding `--v2-*`), gold hero, feathers, scrim/shadows. Kept themes also swap `--v2-font-display` to Fraunces (loaded in index.html, replacing the orphaned JetBrains Mono terminal font).
