@@ -20,7 +20,7 @@ function daysOnList(task) {
   ))
 }
 
-export default function DoneList({ open, onClose, onUncomplete }) {
+export default function DoneList({ open, onClose, onUncomplete, title = 'Done' }) {
   const [doneTasks, setDoneTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
@@ -143,7 +143,7 @@ export default function DoneList({ open, onClose, onUncomplete }) {
   )
 
   return (
-    <ModalShell open={open} onClose={onClose} title="Done" width="wide">
+    <ModalShell open={open} onClose={onClose} title={title} width="wide">
       {/* Search bar */}
       <div className="v2-smart-search">
         <Search size={15} className="v2-smart-search-icon" />
