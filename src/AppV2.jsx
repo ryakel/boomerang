@@ -1447,6 +1447,7 @@ export default function AppV2() {
       />
       <ProjectsView
         open={showProjects}
+        title={isKept ? 'Arcs' : 'Projects'}
         tasks={tasks}
         onClose={() => setShowProjects(false)}
         onComplete={handleComplete}
@@ -1460,6 +1461,7 @@ export default function AppV2() {
       />
       <DoneList
         open={showDone}
+        title={isKept ? 'Caught' : 'Done'}
         onClose={() => setShowDone(false)}
         onUncomplete={handleUncomplete}
       />
@@ -1470,6 +1472,8 @@ export default function AppV2() {
       />
       <RoutinesModal
         open={showRoutines}
+        title={isKept ? 'Loops' : 'Routines'}
+        noun={isKept ? 'loop' : 'routine'}
         routines={routines}
         tasks={tasks}
         onAdd={addRoutine}

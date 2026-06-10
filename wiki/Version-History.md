@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-10
 
+- fix(ui): Kept — shared-modal titles follow the Kept naming layer [S]
+  - The More menu said Arcs / Caught / Loops but the modals opened as "Projects" / "Done" / "Routines". `ProjectsView`, `DoneList`, and `RoutinesModal` now take a `title` override (+ `noun` on RoutinesModal so the form reads "New loop"/"Edit loop"); AppV2 passes the Kept names when a kept theme is active. Standard + Wallaby keep their existing titles. Verified live: all three open under their menu names.
+
 - feat(ui): Kept — bouncing wordmark + shared sync-bounce hook [S]
   - The save-wave is back on the brand: the Kept `boomerang.` wordmark (mobile header + desktop sidebar) renders per-letter spans driven by the same sync states as the standard header — letters bounce while saving, flash green on sync, dim on degraded/offline. The gold period rides the wave (boosted-specificity rule keeps it gold through the state colors; animations still apply on top).
   - **Dedupe:** the hold/flash state machine existed as identical copies in `Header.jsx` and `WallabyHeader.jsx` (a third was about to land) — extracted to `src/hooks/useSyncBounce.js`; all three headers now consume it. `syncStatus`/`queueLength` threaded into KeptShell + KeptDesktop.

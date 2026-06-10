@@ -19,6 +19,7 @@ import './ProjectsView.css'
 export default function ProjectsView({
   open, tasks, onClose, onComplete, onEdit, onSnooze, weatherByDate, 
   onTogglePin, onAddChild, onSetChildVisibility, onCreateProject,
+  title = 'Projects',
 }) {
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [expandedProjectId, setExpandedProjectId] = useState(null)
@@ -38,7 +39,7 @@ export default function ProjectsView({
     <ModalShell
       open={open}
       onClose={onClose}
-      title="Projects"
+      title={title}
       subtitle={projectTasks.length > 0
         ? `${projectTasks.length} project${projectTasks.length !== 1 ? 's' : ''} · no nagging unless you opt in`
         : undefined}

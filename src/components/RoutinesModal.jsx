@@ -996,6 +996,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
 export default function RoutinesModal({
   open, routines, tasks = [], onAdd, onDelete, onTogglePause, onUpdate, onSpawnNow, onLogHabit, onSkipCycle, onClose,
   editRoutineId, onClearEditRoutineId, activeRoutineIds,
+  title = 'Routines', noun = 'routine',
 }) {
   const [view, setView] = useState('list')  // 'list' | 'form'
   const [editing, setEditing] = useState(null)  // routine being edited; null = new
@@ -1074,7 +1075,7 @@ export default function RoutinesModal({
     <ModalShell
       open={open}
       onClose={onClose}
-      title={view === 'form' ? (editing ? 'Edit routine' : 'New routine') : 'Routines'}
+      title={view === 'form' ? (editing ? `Edit ${noun}` : `New ${noun}`) : title}
       subtitle={view === 'list' && routines.length > 0
         ? `${active.length} active${paused.length ? ` · ${paused.length} paused` : ''}`
         : undefined}
