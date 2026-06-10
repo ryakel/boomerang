@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import ContributionHeatmap from './ContributionHeatmap'
 import {
-  WALLABY_COLORS, historyByDay, currentStreak, longestStreak, localYMD,
+  routineColors, historyByDay, currentStreak, longestStreak, localYMD,
 } from './heatmapUtils'
 import './HabitsView.css'
 
@@ -30,7 +30,9 @@ export default function HabitsView({
   const [selectedId, setSelectedId] = useState(null)
 
   const habits = useMemo(() => routines.filter(r => !r.paused), [routines])
-  const colorOf = (r) => WALLABY_COLORS[Math.max(0, habits.findIndex(h => h.id === r.id)) % WALLABY_COLORS.length]
+  // Shared color identity — same rule as HomeView/ProfileView (full-list index).
+  const colorById = useMemo(() => routineColors(routines), [routines])
+  const colorOf = (r) => colorById[r.id]
 
   const monthRef = useMemo(() => {
     const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + monthOffset); d.setHours(0, 0, 0, 0)
@@ -124,7 +126,7 @@ function HabitCard({ routine, color, mode, monthRef, onOpen }) {
     <article className="wb-card wb-card-tappable" style={{ '--habit': color }} onClick={onOpen}>
       <div className="wb-card-head">
         <span className="wb-card-icon" style={{ background: color }}>
-          <Icon size={16} strokeWidth={2} color="#fff" />
+          <Icon size={16} strokeWidth={2} color="var(--wb-on-action)" />
         </span>
         <span className="wb-card-title">{routine.title}</span>
         <span className="wb-card-stats">
@@ -224,7 +226,7 @@ function HabitDetail({ routine, color, onBack, onEdit, onArchive, onDelete }) {
 
       <div className="wb-hd-body">
         <div className="wb-hd-id">
-          <span className="wb-hd-icon" style={{ background: color }}><Icon size={18} strokeWidth={2} color="#fff" /></span>
+          <span className="wb-hd-icon" style={{ background: color }}><Icon size={18} strokeWidth={2} color="var(--wb-on-action)" /></span>
           <span className="wb-hd-cadence" style={{ color }}>{cadence}</span>
         </div>
         {routine.notes && <p className="wb-hd-desc">{routine.notes}</p>}
@@ -257,7 +259,7 @@ function HabitDetail({ routine, color, onBack, onEdit, onArchive, onDelete }) {
             <button className="wb-btn wb-btn-secondary" onClick={() => onArchive(routine)}><Archive size={15} strokeWidth={2} /> Archive</button>
           )}
           {confirmDelete ? (
-            <div className="wb-goal-confirm">
+            <div className="wb-confirm">
               <span>Delete this habit?</span>
               <button className="wb-btn wb-btn-delete-solid" onClick={() => onDelete?.(routine)}>Delete</button>
               <button className="wb-btn wb-btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>

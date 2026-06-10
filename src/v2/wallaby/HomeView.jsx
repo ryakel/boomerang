@@ -4,7 +4,7 @@ import {
   Monitor, Users, MapPin, Palette, Dumbbell, Repeat,
 } from 'lucide-react'
 import ContributionHeatmap from './ContributionHeatmap'
-import { WALLABY_COLORS, historyByDay, currentStreak, localYMD } from './heatmapUtils'
+import { routineColors, historyByDay, currentStreak, localYMD } from './heatmapUtils'
 import { isSnoozed } from '../../store'
 import './HomeView.css'
 
@@ -40,10 +40,14 @@ export default function HomeView({
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
 
   const habits = useMemo(() => routines.filter(r => !r.paused), [routines])
-  const enriched = useMemo(() => habits.map((r, i) => {
+  // Color identity comes from the FULL routines list (routineColors), so a
+  // habit keeps the same color on Home / Habits / Profile and isn't reshuffled
+  // when another routine is paused.
+  const colorById = useMemo(() => routineColors(routines), [routines])
+  const enriched = useMemo(() => habits.map((r) => {
     const byDay = historyByDay(r.completed_history)
-    return { routine: r, color: WALLABY_COLORS[i % WALLABY_COLORS.length], byDay, streak: currentStreak(byDay) }
-  }), [habits])
+    return { routine: r, color: colorById[r.id], byDay, streak: currentStreak(byDay) }
+  }), [habits, colorById])
 
   // Streak at risk: a live streak not yet logged TODAY. Longest first, so the
   // Pulse leads with the streak you most don't want to drop.
@@ -195,7 +199,7 @@ export default function HomeView({
                       className={`wb-home-taskcheck${done ? ' is-done' : ''}`}
                       onClick={() => onCompleteTask?.(t)}
                       aria-label={done ? 'Reopen' : 'Complete'}
-                    >{done && <Check size={13} strokeWidth={3} color="#fff" />}</button>
+                    >{done && <Check size={13} strokeWidth={3} color="var(--wb-on-action)" />}</button>
                     <button className="wb-home-task-body" onClick={() => onOpenTask?.(t)}>
                       <span className={`wb-home-task-title${done ? ' is-done' : ''}`}>{t.title}</span>
                       {(overdue || chips.length > 0) && (
@@ -238,7 +242,7 @@ export default function HomeView({
                 const canSpawn = !isFutureSel && selectedKey === todayKey
                 return (
                   <div key={routine.id} className="wb-home-habit wb-home-stack-start">
-                    <span className="wb-home-habit-icon" style={{ background: color }}><Icon size={16} strokeWidth={2} color="#fff" /></span>
+                    <span className="wb-home-habit-icon" style={{ background: color }}><Icon size={16} strokeWidth={2} color="var(--wb-on-action)" /></span>
                     <span className="wb-home-habit-title">{routine.title} <em className="wb-home-stack-count">· {routine.members.length} items</em></span>
                     <button
                       className="wb-home-check"
@@ -254,7 +258,7 @@ export default function HomeView({
               return (
                 <div key={routine.id} className="wb-home-stack-block">
                   <div className="wb-home-stack-head">
-                    <span className="wb-home-habit-icon" style={{ background: color }}><Icon size={14} strokeWidth={2} color="#fff" /></span>
+                    <span className="wb-home-habit-icon" style={{ background: color }}><Icon size={14} strokeWidth={2} color="var(--wb-on-action)" /></span>
                     <span className="wb-home-stack-title">{routine.title}</span>
                     <span className="wb-home-stack-progress">{memberDone}/{memberTasks.length}</span>
                   </div>
@@ -271,7 +275,7 @@ export default function HomeView({
                           disabled={isFutureSel}
                           aria-label={mdone ? 'Mark not done' : 'Mark done'}
                         >
-                          {mdone && <Check size={18} strokeWidth={3} color="#fff" />}
+                          {mdone && <Check size={18} strokeWidth={3} color="var(--wb-on-action)" />}
                         </button>
                       </div>
                     )
@@ -283,7 +287,7 @@ export default function HomeView({
             const doneSel = !!byDay[selectedKey]
             return (
               <div key={routine.id} className={`wb-home-habit${doneSel ? ' is-done' : ''}`}>
-                <span className="wb-home-habit-icon" style={{ background: color }}><Icon size={16} strokeWidth={2} color="#fff" /></span>
+                <span className="wb-home-habit-icon" style={{ background: color }}><Icon size={16} strokeWidth={2} color="var(--wb-on-action)" /></span>
                 <span className="wb-home-habit-title">{routine.title}</span>
                 {streak > 0 && <span className="wb-home-habit-streak"><Flame size={12} strokeWidth={2.25} /> {streak}</span>}
                 <button
@@ -293,7 +297,7 @@ export default function HomeView({
                   disabled={isFutureSel}
                   aria-label={doneSel ? 'Mark not done' : 'Mark done'}
                 >
-                  {doneSel && <Check size={18} strokeWidth={3} color="#fff" />}
+                  {doneSel && <Check size={18} strokeWidth={3} color="var(--wb-on-action)" />}
                 </button>
               </div>
             )

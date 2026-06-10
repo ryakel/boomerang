@@ -57,7 +57,7 @@
   padding: 0 4px;
   border-radius: 10px;
   background: var(--wb-action-delete);
-  color: #fff;
+  color: var(--wb-on-action);
   font-size: 10px;
   font-weight: 800;
   line-height: 16px;

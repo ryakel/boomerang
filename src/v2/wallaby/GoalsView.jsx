@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ArrowLeft, Plus, Pencil, Check, Pause, Trash2, ChevronRight, Flame } from 'lucide-react'
+import { parseLocalDate } from './heatmapUtils'
 import { computeProjectBudget } from '../../scoring'
 import './GoalsView.css'
 
@@ -76,8 +77,10 @@ function GoalDetail({ project, tasks, labelsById, onBack, onLogSession, onComple
   const prog = progressFor(project, tasks)
   const budget = computeProjectBudget(project, tasks)
   const cats = (project.tags || []).map(id => labelsById[id]).filter(Boolean)
+  // parseLocalDate — a date-only due_date is a local day; naive new Date()
+  // would display the previous day west of UTC.
   const target = project.due_date
-    ? new Date(project.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    ? parseLocalDate(project.due_date)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : null
 
   return (
@@ -126,7 +129,7 @@ function GoalDetail({ project, tasks, labelsById, onBack, onLogSession, onComple
             </button>
           </div>
           {confirmDelete ? (
-            <div className="wb-goal-confirm">
+            <div className="wb-confirm">
               <span>Delete this goal?</span>
               <button className="wb-btn wb-btn-delete-solid" onClick={() => onDelete?.(project)}>Delete</button>
               <button className="wb-btn wb-btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>

@@ -35,7 +35,7 @@
 [data-theme^="wallaby"] .v2-form-seg-active {
   background: var(--wb-action-complete) !important;
   border-color: var(--wb-action-complete) !important;
-  color: #fff !important;
+  color: var(--wb-on-action) !important;
 }
 
 /* Energy type pills — navy card; active = purple tint (matches chip editor). */
@@ -81,7 +81,7 @@
 [data-theme^="wallaby"] .v2-edit-action-primary {
   background: var(--wb-action-complete);
   border-color: var(--wb-action-complete);
-  color: #fff;
+  color: var(--wb-on-action);
 }
 [data-theme^="wallaby"] .v2-edit-action-danger {
   color: var(--wb-action-delete);

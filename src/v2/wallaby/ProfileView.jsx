@@ -3,7 +3,7 @@ import { ArrowLeft, Flame, Zap, CheckCircle2, Trophy, Star, TrendingUp } from 'l
 import ContributionHeatmap from './ContributionHeatmap'
 import BadgesGrid from '../components/BadgesGrid'
 import { computeBadges } from '../../badges'
-import { WALLABY_COLORS, historyByDay } from './heatmapUtils'
+import { routineColors, historyByDay } from './heatmapUtils'
 import './ProfileView.css'
 
 // Wallaby "Profile" / dashboard surface (loggd IMG_1574): avatar + stat pills +
@@ -56,6 +56,7 @@ export default function ProfileView({
   )
 
   const habits = (routines || []).filter(r => (r.completed_history?.length || 0) > 0)
+  const colorById = routineColors(routines || [])
 
   return (
     <div className="wb-profile">
@@ -65,7 +66,7 @@ export default function ProfileView({
             <ArrowLeft size={20} strokeWidth={2.25} />
           </button>
         )}
-        <div className="wb-profile-avatar"><TrendingUp size={30} strokeWidth={2.25} color="#fff" /></div>
+        <div className="wb-profile-avatar"><TrendingUp size={30} strokeWidth={2.25} color="var(--wb-on-action)" /></div>
         <h1 className="wb-profile-name">Your year</h1>
         <p className="wb-profile-bio">{totalContrib} contributions · {activeDays} active day{activeDays === 1 ? '' : 's'}</p>
       </header>
@@ -129,7 +130,7 @@ export default function ProfileView({
       {habits.length > 0 && (
         <section className="wb-profile-section">
           <h2 className="wb-profile-section-title">Habits</h2>
-          {habits.map((r, i) => (
+          {habits.map(r => (
             <div key={r.id} className="wb-profile-card wb-profile-habit">
               <div className="wb-profile-habit-head">
                 <span className="wb-profile-habit-title">{r.title}</span>
@@ -137,7 +138,7 @@ export default function ProfileView({
               </div>
               <ContributionHeatmap
                 valueByDay={historyByDay(r.completed_history)}
-                color={WALLABY_COLORS[i % WALLABY_COLORS.length]}
+                color={colorById[r.id]}
                 weeks={30}
                 cellSize={9}
                 gap={2}

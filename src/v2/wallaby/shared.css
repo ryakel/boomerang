@@ -32,3 +32,145 @@
 :root[data-ui="v2"][data-theme^="wallaby"] .v2-edit-checklist-progress {
   border-radius: 4px !important;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Wallaby PRIMITIVES — the single definition of the controls every Wallaby
+ * surface shares. Defined once here (imported via AppV2.css) so two views can
+ * never drift apart again; per-view stylesheets may only add SCOPED layout
+ * overrides (e.g. `.wb-tasks .wb-seg { width: 100% }`), never restyle these.
+ *
+ * Active-state convention (keep this consistent everywhere):
+ *   - VIEW/RANGE TABS (Single/Month/Year, Upcoming/Backlog/Done, All/Unread,
+ *     Overview/Tasks/Habits, 7d/30d/…)  → slate fill: var(--wb-card-3).
+ *   - VALUE-PICK SEGMENTS in forms/settings (Status, Size, Light/Dark, …)
+ *     → green fill: var(--wb-action-complete) (see forms.css / settings.css).
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* Back button — square icon tile, top-left of every drill-down view. */
+.wb-back {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card);
+  color: var(--wb-text);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+/* Segmented control (view/range tabs). */
+.wb-seg {
+  display: inline-flex;
+  background: var(--wb-card-2);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.wb-seg-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--wb-text-meta);
+  font: 600 12.5px/1 var(--v2-font-body);
+  padding: 7px 13px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+.wb-seg-btn.is-active {
+  background: var(--wb-card-3);
+  color: var(--wb-text);
+  box-shadow: var(--wb-shadow-press);
+}
+.wb-seg-count {
+  margin-left: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  opacity: 0.8;
+}
+
+/* Date stepper (week / month pagers). */
+.wb-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 12px;
+  padding: 6px 8px;
+}
+.wb-stepper-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--wb-text);
+}
+.wb-stepper-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: var(--wb-card-2);
+  color: var(--wb-text);
+  cursor: pointer;
+}
+.wb-stepper-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* FAB — one per creating surface (purple = habits/goals, green = tasks). */
+.wb-fab {
+  position: fixed;
+  right: 18px;
+  /* Sit clear above the bottom nav (~64px) + the home-indicator inset. */
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  display: grid;
+  place-items: center;
+  color: var(--wb-on-action);
+  cursor: pointer;
+  box-shadow: var(--wb-shadow-pop);
+  /* Above the nav (z-45) so it never gets clipped by it. */
+  z-index: 47;
+}
+.wb-fab-habits { background: var(--wb-fab-habits); }
+.wb-fab-tasks { background: var(--wb-fab-tasks); }
+
+/* Semantic action buttons (orange=primary, green=complete, yellow=pause,
+ * red=delete, slate=secondary). */
+.wb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: none;
+  border-radius: 13px;
+  padding: 14px 16px;
+  font: 700 14.5px/1 var(--v2-font-body);
+  color: var(--wb-on-action);
+  cursor: pointer;
+}
+.wb-btn-primary { background: var(--wb-action-primary); }
+.wb-btn-secondary { background: var(--wb-action-secondary); color: var(--wb-text); }
+.wb-btn-complete { background: var(--wb-action-complete); }
+.wb-btn-pause { background: var(--wb-action-pause); color: var(--wb-on-pause); }
+.wb-btn-delete { background: transparent; color: var(--wb-action-delete); }
+.wb-btn-delete-solid { background: var(--wb-action-delete); }
+.wb-btn-ghost { background: var(--wb-card-2); color: var(--wb-text); }
+
+/* Two-tap delete confirmation row. */
+.wb-confirm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--wb-text);
+}
+.wb-confirm > span { flex: 1 1 auto; }
+.wb-confirm .wb-btn { padding: 10px 14px; }

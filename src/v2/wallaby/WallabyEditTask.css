@@ -105,7 +105,7 @@
 .wb-edit-opt.is-active {
   background: var(--wb-action-complete);
   border-color: var(--wb-action-complete);
-  color: #fff;
+  color: var(--wb-on-action);
 }
 .wb-edit-opt-energy.is-active {
   background: color-mix(in srgb, var(--ec, var(--wb-cat-blue)) 22%, transparent);
@@ -124,8 +124,10 @@
   font: 600 12.5px/1 var(--v2-font-body);
 }
 .wb-edit-tag.is-active {
+  /* Tinted fill + the tag's own color for text — matches the label chips on
+   * TaskRows / GoalCards (white text was unreadable in wallaby-light). */
   background: color-mix(in srgb, var(--tag, #888) 22%, transparent);
-  color: #fff;
+  color: var(--tag, var(--wb-text));
 }
 .wb-edit-empty { color: var(--wb-text-meta); font-size: 13px; }
 
@@ -142,12 +144,14 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 11px 16px;
-  border-radius: 12px;
+  /* Match the shared .wb-btn scale so the footer reads like every other
+   * Wallaby action row. */
+  padding: 13px 16px;
+  border-radius: 13px;
   border: 1px solid var(--wb-hairline);
   background: var(--wb-card);
   cursor: pointer;
-  font: 700 13px/1 var(--v2-font-body);
+  font: 700 14px/1 var(--v2-font-body);
 }
 .wb-edit-more { color: var(--wb-text); }
 .wb-edit-delete { color: var(--wb-action-delete); border-color: color-mix(in srgb, var(--wb-action-delete) 40%, transparent); }

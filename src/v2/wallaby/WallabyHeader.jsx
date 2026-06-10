@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bell, TrendingUp } from 'lucide-react'
-import Logo from '../../components/Logo'
+import Logo from '../components/Logo'
 import './WallabyHeader.css'
 
 const WORDMARK_LETTERS = 'BOOMERANG'.split('')
@@ -63,7 +63,7 @@ export default function WallabyHeader({
           {unread > 0 && <span className="wb-header-badge">{unread > 99 ? '99+' : unread}</span>}
         </button>
         <button className="wb-header-avatar" onClick={onAvatar} aria-label="Profile">
-          <TrendingUp size={17} strokeWidth={2.5} color="#fff" />
+          <TrendingUp size={17} strokeWidth={2.5} color="var(--wb-on-action)" />
         </button>
       </div>
     </header>

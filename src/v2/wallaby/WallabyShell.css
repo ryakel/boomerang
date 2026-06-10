@@ -65,33 +65,3 @@
 .wb-more-sub { font-size: 12.5px; color: var(--wb-text-meta); }
 .wb-more-chev { color: var(--wb-text-meta); flex: 0 0 auto; }
 
-/* ── Deferred-feature placeholder ────────────────────────────────────────── */
-.wb-placeholder-back { position: absolute; top: 16px; left: 16px; }
-.wb-placeholder {
-  position: relative;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 40px 32px 120px;
-  color: var(--wb-text);
-}
-.wb-placeholder-icon {
-  display: grid;
-  place-items: center;
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  background: var(--wb-card-2);
-  color: var(--wb-cat-purple);
-  margin-bottom: 18px;
-}
-.wb-placeholder-title {
-  margin: 0 0 8px;
-  font-family: var(--v2-font-display);
-  font-size: 22px;
-  font-weight: 800;
-}
-.wb-placeholder-body { margin: 0; font-size: 14px; color: var(--wb-text-meta); max-width: 260px; }

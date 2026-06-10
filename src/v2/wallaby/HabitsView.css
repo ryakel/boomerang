@@ -17,19 +17,8 @@
   align-items: center;
   gap: 12px;
 }
-.wb-back {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  border: 1px solid var(--wb-hairline);
-  background: var(--wb-card);
-  color: var(--wb-text);
-  cursor: pointer;
-  flex: 0 0 auto;
-}
-.wb-habits-title { margin-right: auto; }
+/* .wb-back / .wb-seg / .wb-stepper / .wb-fab / .wb-btn are Wallaby primitives —
+ * single definitions live in shared.css. */
 .wb-habits-title {
   margin: 0;
   font-family: var(--v2-font-display);
@@ -37,62 +26,8 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--wb-text);
+  margin-right: auto;
 }
-
-/* Segmented pill control */
-.wb-seg {
-  display: inline-flex;
-  background: var(--wb-card-2);
-  border: 1px solid var(--wb-hairline);
-  border-radius: 10px;
-  padding: 3px;
-  gap: 2px;
-}
-.wb-seg-btn {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--wb-text-meta);
-  font: 600 12.5px/1 var(--v2-font-body);
-  padding: 7px 13px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 140ms ease, color 140ms ease;
-}
-.wb-seg-btn.is-active {
-  background: var(--wb-card-3);
-  color: var(--wb-text);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-}
-
-/* Date stepper (week / month) */
-.wb-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 14px;
-  background: var(--wb-card);
-  border: 1px solid var(--wb-hairline);
-  border-radius: 12px;
-  padding: 6px 8px;
-}
-.wb-stepper-label {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--wb-text);
-}
-.wb-stepper-btn {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: none;
-  background: var(--wb-card-2);
-  color: var(--wb-text);
-  cursor: pointer;
-}
-.wb-stepper-btn:disabled { opacity: 0.35; cursor: default; }
 
 /* ── Habit cards ─────────────────────────────────────────────────────────── */
 .wb-habits-list {
@@ -151,7 +86,7 @@
   background: var(--wb-card-2);
   color: var(--wb-text-meta);
 }
-.wb-stat-streak { color: #F0973E; }
+.wb-stat-streak { color: var(--wb-cat-orange); }
 
 /* Single-view heatmap body */
 .wb-card-body { width: 100%; }
@@ -186,7 +121,7 @@
   font-size: 13px;
   font-weight: 700;
 }
-.wb-week-cell.is-done { color: #fff; }
+.wb-week-cell.is-done { color: var(--wb-on-action); }
 .wb-week-day.is-today .wb-week-cell { border-color: var(--habit); }
 
 /* Month view — calendar grid */
@@ -213,29 +148,8 @@
   font-size: 11px;
   font-weight: 600;
 }
-.wb-month-cell.is-done { color: #fff; }
+.wb-month-cell.is-done { color: var(--wb-on-action); }
 .wb-month-cell-blank { background: transparent; border-color: transparent; }
-
-/* ── FAB ─────────────────────────────────────────────────────────────────── */
-.wb-fab {
-  position: fixed;
-  right: 18px;
-  /* Sit clear above the bottom nav (~64px) + the home-indicator inset. */
-  bottom: calc(80px + env(safe-area-inset-bottom));
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: none;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-  /* Above the nav (z-45) so it never gets clipped by it. */
-  z-index: 47;
-}
-.wb-fab-habits { background: var(--wb-fab-habits); }
-.wb-fab-tasks { background: var(--wb-fab-tasks); }
 
 /* ── Habit detail + month calendar (loggd IMG_1586) ──────────────────────── */
 .wb-hd-title { font-size: 22px; margin-right: auto; }
@@ -305,24 +219,3 @@
 .wb-hd-cal-pct { font-weight: 800; }
 
 .wb-hd-actions { display: flex; flex-direction: column; gap: 10px; }
-
-/* Shared semantic buttons (mirrors GoalsView so the detail styles standalone) */
-.wb-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: none;
-  border-radius: 13px;
-  padding: 13px 16px;
-  font: 700 14px/1 var(--v2-font-body);
-  color: #fff;
-  cursor: pointer;
-}
-.wb-btn-secondary { background: var(--wb-action-secondary); color: var(--wb-text); }
-.wb-btn-delete { background: transparent; color: var(--wb-action-delete); }
-.wb-btn-delete-solid { background: var(--wb-action-delete); }
-.wb-btn-ghost { background: var(--wb-card-2); color: var(--wb-text); }
-.wb-goal-confirm { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--wb-text); }
-.wb-goal-confirm > span { flex: 1 1 auto; }
-.wb-goal-confirm .wb-btn { padding: 10px 14px; }

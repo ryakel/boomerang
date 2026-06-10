@@ -55,10 +55,12 @@
 [data-theme^="wallaby"] .v2-analytics-metric-btn-active {
   background: var(--wb-card-3);
   color: var(--wb-text);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--wb-shadow-press);
 }
 
-/* Section tabs → contained segmented control, green active (matches Tasks). */
+/* Section tabs → contained segmented control. View tabs take the slate
+ * (card-3) active fill like every other Wallaby view/range tab — green is
+ * reserved for form value-pick segments (see shared.css convention). */
 [data-theme^="wallaby"] .v2-analytics-tabs {
   background: var(--wb-card-2);
   border: 1px solid var(--wb-hairline);
@@ -73,8 +75,9 @@
   color: var(--wb-text-meta);
 }
 [data-theme^="wallaby"] .v2-analytics-tab-active {
-  background: var(--wb-action-complete);
-  color: #fff;
+  background: var(--wb-card-3);
+  color: var(--wb-text);
+  box-shadow: var(--wb-shadow-press);
   border: none;
 }
 

@@ -28,7 +28,7 @@
   height: 72px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--wb-cat-purple), var(--wb-cat-blue));
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--wb-shadow-pop);
   margin-bottom: 12px;
 }
 .wb-profile-name {
@@ -75,7 +75,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  color: #fff;
+  color: var(--wb-on-action);
   background: var(--pill, var(--v2-accent));
   margin-bottom: 2px;
 }

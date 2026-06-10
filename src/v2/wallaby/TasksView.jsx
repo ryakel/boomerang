@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react'
 import {
-  ArrowLeft, Search, Plus, Check, Sun, ArrowRight, AlertCircle, CalendarDays,
-  Inbox, CheckCircle2, Archive, Pencil, Trash2, Timer, X, Calendar,
+  Search, Plus, Check, Sun, ArrowRight, AlertCircle, CalendarDays,
+  Inbox, CheckCircle2, Pencil, Trash2, Timer, X, Calendar,
 } from 'lucide-react'
-import { localYMD } from './heatmapUtils'
+import { localYMD, parseLocalDate } from './heatmapUtils'
 import { isSnoozed } from '../../store'
 import { useSwipeActions } from '../../hooks/useSwipeActions'
 import './TasksView.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
+// Per-task checkbox color cycle — the --wb-cat-* palette plus the pause
+// yellow (palette.css); pink-first per the loggd reference.
 const CHECK_COLORS = ['#EA6C9D', '#F0973E', '#E6B43E', '#4F8DF5', '#41C083', '#8C7CF0']
 function taskColor(id) {
   const s = String(id ?? '')
@@ -175,7 +177,7 @@ function TaskRow({ task, labelsById, done, onToggleComplete, onToggleItem, onDel
           style={done ? { background: color, borderColor: color } : { borderColor: color }}
           onClick={() => onToggleComplete?.(task)}
           aria-label={done ? 'Reopen task' : 'Complete task'}
-        >{done && <Check size={14} strokeWidth={3} color="#fff" />}</button>
+        >{done && <Check size={14} strokeWidth={3} color="var(--wb-on-action)" />}</button>
         <button className="wb-task-body" onClick={handleBody}>
           <span className={`wb-task-title${done ? ' is-done' : ''}`}>{task.title}</span>
           {task.notes && !done && <span className="wb-task-sub">{task.notes.replace(/\s+/g, ' ').trim().slice(0, 80)}</span>}
@@ -249,7 +251,9 @@ function dueMeta(due) {
   const d = localYMD(due)
   if (!d) return null
   const t = new Date(); t.setHours(0, 0, 0, 0)
-  const dd = new Date(due); dd.setHours(0, 0, 0, 0)
+  // parseLocalDate: date-only strings are LOCAL days (naive new Date() reads
+  // them as UTC midnight → off-by-one west of UTC).
+  const dd = parseLocalDate(due); dd.setHours(0, 0, 0, 0)
   const diff = Math.round((dd - t) / 86400000)
   if (d < today) return { label: `${Math.abs(diff)}d overdue`, tone: 'overdue' }
   if (diff === 0) return { label: 'Today', tone: 'today' }
