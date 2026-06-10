@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import AppV2 from './v2/AppV2.jsx'
-import ErrorBoundary from './v2/components/ErrorBoundary.jsx'
+import AppV2 from './AppV2.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { logSystemError } from './store'
 
 // The legacy v1 UI was removed (2026-06-10) — v2 is the only interface.

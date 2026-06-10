@@ -178,7 +178,7 @@ UI: the v2 `RoutinesModal` "On" field is cadence-aware — weekly shows the week
 
 **Absolute clock times on follow-up steps (migration 033, in `follow_ups_json` — no schema change):** A step can be timed by an absolute clock time instead of a relative offset. When `at_time` ('HH:MM' 24h) is present on a step, `spawnNextChainStep()` schedules the spawned task at that clock time today — or the next day when `at_next_day` is true ("empty dishwasher at 6am next morning") — snoozing until that instant (or surfacing immediately if already past) and setting `due_date` to that day. A step uses EITHER `at_time` (+optional `at_next_day`) OR `offset_minutes`, never both; `at_time` wins. Computed server-side (server TZ), same as the existing sub-day offset path. The step editor exposes an "After prev | At time" mode toggle. Full dishwasher example: start @ 8pm (routine `trigger_time`) → pour milk @ 9pm (`at_time`) → empty @ 6am next morning (`at_time` + `at_next_day`).
 
-**Stacks — one routine, many independent tasks, a clear bonus (`members_json` on routines + `stack_bonus` on tasks, migration 035):** A routine with a non-empty `members` array is a "stack." Each cycle it fans out into one INDEPENDENT task per member (e.g. an "Evening" routine at 8pm → *start dishwasher* + *take out trash* + *refill milk* as three separate cards) — distinct from `follow_ups`, which is a *dependent* chain. Member shape: `[{id, title, energy_type?, energy_level?, notes?, tags?}]`; energy/notes/tags fall back to the routine's. Each member scores its own points normally; clearing **every** member of a cycle pays a **20% bonus** (20% of the cycle's combined member points), stamped on the closing task's `stack_bonus` column and summed by `computeDailyStats`/`computeRecords` in `src/scoring.js` (counted once). The **cycle key is `(routine_id, due_date)`** — all members of a spawn batch share the due date. Spawn fan-out: `spawnStackMembers()` in `src/hooks/useRoutines.js`; `spawnDueTasks`/`spawnNow` are stack-aware (and `spawnNow` now returns an array). The stack re-spawn guard skips only a same-day duplicate, so a daily stack refreshes each day even with leftovers from a prior cycle (those linger as overdue cards). `completed_history` is stamped (cadence + streak advance) ONLY when the last member is cleared — see `handleComplete` in `src/v2/AppV2.jsx`, which detects "last member" via siblings sharing `(routine_id, due_date)` and computes the bonus. **Display:** surfaced cycles render grouped in `src/v2/components/StackSection.{jsx,css}` (mobile) above the regular sections — header `title · time · done/total · "+N on clear"`, members as indented TaskCards. Members are dropped from the active sections (Doing/Stale/Up next/Waiting) but kept in Snoozed pre-trigger, so a trigger-time stack only surfaces at its clock time. Desktop Kanban shows members in their natural columns (mirrors pinned-project children). The completion toast celebrates the bonus. **Editor:** RoutinesModal "Items (stack)" section; card meta shows `· N items`. **Quokka:** `create_routine`/`update_routine` accept `members`; `summarizeRoutine` exposes it. Out of scope (v1): stack + `auto_roll` combined, and per-member follow-up chains.
+**Stacks — one routine, many independent tasks, a clear bonus (`members_json` on routines + `stack_bonus` on tasks, migration 035):** A routine with a non-empty `members` array is a "stack." Each cycle it fans out into one INDEPENDENT task per member (e.g. an "Evening" routine at 8pm → *start dishwasher* + *take out trash* + *refill milk* as three separate cards) — distinct from `follow_ups`, which is a *dependent* chain. Member shape: `[{id, title, energy_type?, energy_level?, notes?, tags?}]`; energy/notes/tags fall back to the routine's. Each member scores its own points normally; clearing **every** member of a cycle pays a **20% bonus** (20% of the cycle's combined member points), stamped on the closing task's `stack_bonus` column and summed by `computeDailyStats`/`computeRecords` in `src/scoring.js` (counted once). The **cycle key is `(routine_id, due_date)`** — all members of a spawn batch share the due date. Spawn fan-out: `spawnStackMembers()` in `src/hooks/useRoutines.js`; `spawnDueTasks`/`spawnNow` are stack-aware (and `spawnNow` now returns an array). The stack re-spawn guard skips only a same-day duplicate, so a daily stack refreshes each day even with leftovers from a prior cycle (those linger as overdue cards). `completed_history` is stamped (cadence + streak advance) ONLY when the last member is cleared — see `handleComplete` in `src/AppV2.jsx`, which detects "last member" via siblings sharing `(routine_id, due_date)` and computes the bonus. **Display:** surfaced cycles render grouped in `src/components/StackSection.{jsx,css}` (mobile) above the regular sections — header `title · time · done/total · "+N on clear"`, members as indented TaskCards. Members are dropped from the active sections (Doing/Stale/Up next/Waiting) but kept in Snoozed pre-trigger, so a trigger-time stack only surfaces at its clock time. Desktop Kanban shows members in their natural columns (mirrors pinned-project children). The completion toast celebrates the bonus. **Editor:** RoutinesModal "Items (stack)" section; card meta shows `· N items`. **Quokka:** `create_routine`/`update_routine` accept `members`; `summarizeRoutine` exposes it. Out of scope (v1): stack + `auto_roll` combined, and per-member follow-up chains.
 
 **"Skip this cycle" trigger:** `skipCycle(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card has a fast-forward button next to the "+" that stamps `completed_history` with today's timestamp WITHOUT spawning a task — `getNextDueDate()` rolls forward by one cadence interval. Use case: vacation, illness, "the lawn doesn't need mowing this week." Only renders for non-paused routines. Skips count toward the "Nx completed" total — a separate skip log is tracked-as-tech-debt-but-not-built since the personal app doesn't need the analytics distinction.
 
@@ -689,7 +689,7 @@ Long-term work lives as `status: 'project'` tasks. Originally a fully calm "safe
 
 **Quokka tools (5 new):** `pin_project_to_today`, `log_project_session`, `project_set_nag_policy`, `link_task_to_project`, `list_project_children`. All follow the existing capture-and-restore compensation pattern. `summarizeTask()` now exposes the new project fields so Quokka can read state before acting.
 
-**Implementation:** `src/v2/components/ProjectPinnedSection.{jsx,css}` (pinned card + indented children), `src/v2/components/ProjectsView.{jsx,css}` (drill-down), `src/v2/components/EditTaskModal.{jsx,css}` (Project + Project-link sections), `src/v2/components/SnoozeModal.{jsx,css}` ("set aside" + bring-back), `src/hooks/useTasks.js` (state + actions), `src/scoring.js` (budget + session-points helpers + streak counting), `src/store.js` (`computeStreak` extension + `formatSnoozeLabel` sentinel), `db.js` (`isNotifiable`, `logProjectSession`, `computeProjectBudget`, `getChildTasks`), `adviserToolsTasks.js` (5 new tools).
+**Implementation:** `src/components/ProjectPinnedSection.{jsx,css}` (pinned card + indented children), `src/components/ProjectsView.{jsx,css}` (drill-down), `src/components/EditTaskModal.{jsx,css}` (Project + Project-link sections), `src/components/SnoozeModal.{jsx,css}` ("set aside" + bring-back), `src/hooks/useTasks.js` (state + actions), `src/scoring.js` (budget + session-points helpers + streak counting), `src/store.js` (`computeStreak` extension + `formatSnoozeLabel` sentinel), `db.js` (`isNotifiable`, `logProjectSession`, `computeProjectBudget`, `getChildTasks`), `adviserToolsTasks.js` (5 new tools).
 
 **Known limitations:**
 - Desktop Kanban doesn't render the dedicated pinned-project card with session controls — it still uses generic TaskCard. Log session + Add child have to be done from the EditTaskModal or the mobile/main view. Tracked as future polish.
@@ -892,9 +892,9 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 ### UI v2 (2026-05-03; sole UI since the v1 purge, 2026-06-10)
 v2 is the only interface. The legacy v1 UI (`src/AppV1.jsx` + `src/components/`, ~18k lines) was deleted on 2026-06-10 after a month as an unused escape hatch.
 
-**Routing.** `src/App.jsx` renders `AppV2` (in `src/v2/AppV2.jsx`) unconditionally inside the ErrorBoundary. The old `localStorage.ui_version` flag and `?ui=` URL escape hatch are ignored; `data-ui-version="v2"` is still mirrored on the documentElement. Shared components that v2 used from the old v1 tree (`Logo`, `Rings`, `CarrierLogo`, `WeatherSection`) were moved into `src/v2/components/`; the `.weather-*` styles WeatherSection needs were extracted into `src/v2/components/WeatherSection.css` (they used to ride along in v1's TaskCard.css). The `src/v2/components/` → `src/components/` rename from the original end-state plan is deferred — pure churn, no behavior.
+**Routing.** `src/App.jsx` renders `AppV2` (in `src/AppV2.jsx`) unconditionally inside the ErrorBoundary. The old `localStorage.ui_version` flag and `?ui=` URL escape hatch are ignored; `data-ui-version="v2"` is still mirrored on the documentElement. Shared components that v2 used from the old v1 tree (`Logo`, `Rings`, `CarrierLogo`, `WeatherSection`) were moved into `src/components/`; the `.weather-*` styles WeatherSection needs were extracted into `src/components/WeatherSection.css` (they used to ride along in v1's TaskCard.css). The `src/components/` → `src/components/` rename from the original end-state plan is deferred — pure churn, no behavior.
 
-**Tokens.** v2 design tokens live at `src/v2/tokens.css`, all namespaced `--v2-*` so they cannot leak into v1. Activated by `data-ui="v2"` (set by AppV2 on mount). Dark variant keys off the existing `data-theme="dark"` attribute.
+**Tokens.** v2 design tokens live at `src/tokens.css`, all namespaced `--v2-*` so they cannot leak into v1. Activated by `data-ui="v2"` (set by AppV2 on mount). Dark variant keys off the existing `data-theme="dark"` attribute.
 
 **Visual north stars** (from Wheneri): heavy display titles + generous whitespace, hairline-list aesthetic over stacked-card chrome, single circular-pill X close in the same top-right slot on every modal. v1 stays exactly as-is.
 
@@ -910,7 +910,7 @@ v2 is the only interface. The legacy v1 UI (`src/AppV1.jsx` + `src/components/`,
 
 Each PR is independently mergeable. v2 currently renders the calm header + a real task list (Doing / Stale / Up next / Waiting / Snoozed) wired to the shared `useTasks` / `useRoutines` / `useNotifications` / `useServerSync` / `useExternalSync` / `useSizeAutoInfer` hooks. Tap-to-expand works; Done completes (via shared `completeTask`); Snooze + Edit + every header icon open ModalShell placeholders that point users back to v1 for that surface. Routine-completion logging, Trello status push, search, sort, tag filters, backlog, projects, swipe gestures, weather badges, packages, drag-and-drop, and the inbound syncs port in PRs 4–8.
 
-**Reusable v2 primitives** (in `src/v2/components/`):
+**Reusable v2 primitives** (in `src/components/`):
 - `ModalShell` — sheet/panel wrapper. Props: `open`, `onClose`, `title`, `subtitle?`, `width: 'narrow' | 'wide'`, `children`. Circular-pill X top-right, hairline below title, body padding 24px.
 - `EmptyState` — calm empty/placeholder. Props: `icon` (lucide component), `title`, `body?`, `cta?`, `ctaOnClick?`. Soft circular icon backdrop, ghost CTA.
 - `Header` — calm 4-affordance header. Props: `onOpenAdviser`, `onOpenPackages`, `onOpenSystemMenu`, `systemMenuOpen`. Logo + wordmark left, three icon buttons right (sparkle / package / ⚙). The legacy `MoreVertical` ⋯ slot was replaced by the ⚙ Settings glyph that toggles the `SystemMenu` popover (2026-05-22).
@@ -935,52 +935,22 @@ The Boomerang wordmark popover (Analytics + Done, top-left) was already in place
 
 **Global error logging.** `window.onerror` + `unhandledrejection` handlers log errors to the Activity Log as `error` entries. React ErrorBoundary render crashes also logged. Activity Log has an "Errors" filter tab. `logSystemError(message, detail)` in store.js is the shared function.
 
-**End state — reached 2026-06-10.** v1 deleted (`src/AppV1.jsx`, all of the old `src/components/`, `src/App.css`); only the directory rename (`src/v2/components/` → `src/components/`) remains deferred.
+**End state — reached 2026-06-10.** v1 deleted (`src/AppV1.jsx`, all of the old `src/components/`, `src/App.css`); the `src/v2/` → `src/` flattening landed with Kept K0 (2026-06-10).
 
-### Terminal Theme Stress Test (2026-05-10, shipped to main 2026-05-11)
+### Terminal Theme (REMOVED 2026-06-10, Kept K0)
 
-> **STATUS — turned OFF, not ripped out (2026-06-06).** Wallaby became the daily
-> driver, so Terminal was removed from the Settings theme picker (only Standard /
-> Wallaby remain) and existing terminal users are migrated **terminal-dark →
-> wallaby-dark, terminal-light → wallaby-light** at three points: `loadSettings()`
-> (store.js), the `index.html` pre-paint script, and (via `loadSettings`) the
-> AppV2 mount effect. **All terminal code/CSS/components stay in place** (`src/v2/terminal/`,
-> `useTerminalMode`, `terminalTitle`/`terminalCommand` props, the
-> `check:terminal-titles` smoke test) — this is fully reversible: re-add the
-> `{ value: 'terminal', label: 'Terminal' }` picker option and drop the two
-> migration shims to bring it back. The "didn't stick" rip-out (below) is NOT done.
-
-**Working hypothesis: terminal may become the default forever.** PR A–H shipped a four-palette family — Light, Dark, Terminal Dark (GitHub Dark), Terminal Light (GitHub Light) — with terminal-specific structural overrides (ASCII flourishes, monospace stack, bracket toggles, `> verb` modal headers, `// manage` section, density signals on TaskCard, no-button-chrome on settings controls, WeekStrip toggle from home stats date). The user shipped v0.11.0 to `main` on 2026-05-11 with terminal as their daily driver; the 30-day decision criterion (terminal-forever vs. didn't-stick) starts clocking from there. Light/dark stay maintained as defensive baseline.
-
-**The convention while we stress-test:**
-
-1. **Don't widen JSX divergence for new features.** The existing theme-aware plumbing — `terminalTitle` on ModalShell + ConfirmDialog, `terminalCommand` on EmptyState, `data-terminal-cmd` attr on `.v2-edit-action-label` spans, `useTerminalMode` hook — is enough. Don't introduce new patterns. New features go terminal-first OR theme-agnostic; they should not branch on theme.
-
-2. **CSS overrides are still cheap.** Adding selectors gated on `[data-theme^="terminal"]` is free (gating cleanly, no leakage). Use those for visual flourishes without thinking about it.
-
-3. **New ModalShell call sites must include `terminalTitle`.** Smoke test in `scripts/check-terminal-titles.js` runs in CI / pre-push to catch silent drift. Run via `npm run check:terminal-titles`.
-
-4. **Density signals on TaskCard are currently terminal-only by user preference (PR G, 2026-05-10).** They ship in markup always, hidden by CSS in non-terminal themes. **Graduate criteria:** if usage validates that the user wants `[X/Y]` counter, `🔥N` streak, and one-line notes preview in their daily flow, drop the `[data-theme^="terminal"]` gate in `terminal/cards.css` and let any theme show them. Do NOT add a fourth terminal-only TaskCard signal without revisiting this.
-
-5. **Decision criterion for "terminal forever."** If the user is still in `theme: 'terminal-dark'` (or `'terminal-light'`) after ~30 days of daily use, terminal becomes the default for new installs and Light/Dark deprecation timeline starts. Until then, all four palettes stay live and equal in the picker.
-
-6. **What "terminal forever" means structurally:**
-   - Light + Dark palettes get marked deprecated in tokens.css (kept compiling for 1-2 releases)
-   - Picker collapses from 4 options to "Theme: Terminal Dark / Terminal Light"
-   - `[data-theme^="terminal"]` selectors lose their guard (terminal IS v2)
-   - Density signals graduate to always-on
-   - `useTerminalMode` hook + `terminalTitle`/`terminalCommand` props get unified — modal titles use the `> verb` form unconditionally, no fallback
-   - `src/v2/terminal/` directory contents merge into the regular component CSS
-
-7. **What "terminal didn't stick" means structurally:**
-   - `rm -rf src/v2/terminal/`
-   - Drop `'terminal-dark'`/`'terminal-light'` from picker, leaving Light + Dark
-   - Remove `terminalTitle` / `terminalCommand` props from ModalShell + EmptyState
-   - Delete `useTerminalMode` hook
-   - Reset density signals (delete from TaskCard JSX)
-   - Migration shim in `loadSettings()` flips `terminal-*` → `dark`
-
-The whole thing was designed so either pivot is cheap. Don't make it expensive by piling on more terminal-only features without revisiting whether they should be terminal-only.
+The terminal theme experiment (GitHub Dark/Light palettes, `> verb` modal
+titles, ASCII flourishes, density signals) was fully torn out in the Kept K0
+demolition: `src/terminal/` (formerly `src/terminal/`) deleted,
+`useTerminalMode` deleted, `terminalTitle`/`terminalCommand`/
+`terminalConfirmLabel` props stripped from ModalShell/EmptyState/ConfirmDialog
+and every call site, the terminal-only TaskCard density signals (checkbox,
+`[X/Y]` counter, 🔥N streak, notes preview) removed from markup, both
+`check:terminal-*` smoke scripts dropped, and all `[data-theme^="terminal"]`
+CSS purged. The ONLY survivors are the theme migration shims (`loadSettings()`
+in store.js + the index.html pre-paint script) that silently upgrade stored
+`terminal`/`terminal-dark`/`terminal-light` values to wallaby equivalents —
+keep those until prod data can't contain terminal values anymore.
 
 ### Wallaby Theme + IA Remap (2026-06-06, in progress)
 
@@ -998,15 +968,16 @@ attempt was torn out and reset; do not reintroduce that name.)
 (Standard / Terminal / **Wallaby**) × a Light/Dark mode → `wallaby-dark`
 (flagship) and `wallaby-light`. Like the built-in dark theme, Wallaby OVERRIDES
 the shared `--v2-*` tokens; Wallaby-specific structural tokens are namespaced
-`--wb-*`. All of it lives in **`src/v2/wallaby/`**.
+`--wb-*`. All of it lives in **`src/wallaby/`**.
 
-**Theme registration — three sync points (keep in lockstep):** `index.html`
-(pre-paint map), `AppV2.jsx` (mount effect map), `SettingsModal.jsx` (picker +
-`setTheme`). A base `:root[data-ui="v2"]` block in `palette.css` defines `--wb-*`
+**Theme registration — two sync points (keep in lockstep):** `index.html`
+(pre-paint map — can't import modules) and **`src/theme.js`** (`THEME_COLORS`
++ `applyTheme()`, consumed by the AppV2 mount effect and the Settings picker;
+consolidated in Kept K0). A base `:root[data-ui="v2"]` block in `palette.css` defines `--wb-*`
 defaults for *every* v2 theme so the Wallaby surfaces always resolve their
 tokens even if reached from a non-Wallaby theme.
 
-**`src/v2/wallaby/`:**
+**`src/wallaby/`:**
 - `palette.css` — base `--wb-*` defaults + `wallaby-dark` / `wallaby-light`
   (card surfaces, per-habit accents blue/purple/green/orange/pink, heatmap
   cells, semantic action colors orange=primary/green=complete/yellow=pause/
@@ -1068,7 +1039,7 @@ tokens even if reached from a non-Wallaby theme.
 `isWallaby && !isDesktop`, and skips the standard `BottomTabs`. The shell owns
 tab state (Home/Habits/Tasks/Timer/More) and a `sub` state for Profile/Goals
 opened from More. Shared modals render as **full pages** (no slide-up sheet) on
-mobile in Wallaby, via `src/v2/wallaby/modals.css`, which handles two cases by
+mobile in Wallaby, via `src/wallaby/modals.css`, which handles two cases by
 DOM nesting:
 - **Overlay modals opened on top of the shell** (Edit/Add/Settings/Analytics/
   Packages/Snooze/… — rendered by `AppV2` as siblings of `.wb-shell`, z-100) get

@@ -3,14 +3,14 @@
 // screenshot harness WITHOUT touching AppV2. Dev-only; not shipped.
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import './v2/tokens.css'
-import './v2/wallaby/palette.css'
-import HabitsView from './v2/wallaby/HabitsView'
-import TasksView from './v2/wallaby/TasksView'
-import ProfileView from './v2/wallaby/ProfileView'
-import GoalsView from './v2/wallaby/GoalsView'
-import HomeView from './v2/wallaby/HomeView'
-import NotificationsView from './v2/wallaby/NotificationsView'
+import './tokens.css'
+import './wallaby/palette.css'
+import HabitsView from './wallaby/HabitsView'
+import TasksView from './wallaby/TasksView'
+import ProfileView from './wallaby/ProfileView'
+import GoalsView from './wallaby/GoalsView'
+import HomeView from './wallaby/HomeView'
+import NotificationsView from './wallaby/NotificationsView'
 
 document.documentElement.setAttribute('data-ui', 'v2')
 document.documentElement.setAttribute('data-theme', new URLSearchParams(location.search).get('theme') || 'wallaby-dark')

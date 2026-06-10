@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-10
 
+- chore(ui): Kept K0 — demolition (terminal teardown + src/v2 flattening + theme registry) [XL]
+  - **Terminal theme fully removed** (the documented "didn't stick" teardown): `src/v2/terminal/` (11 CSS files), `useTerminalMode`, the `terminalTitle`/`terminalCommand`/`terminalConfirmLabel` props on ModalShell/EmptyState/ConfirmDialog and ~20 call-site files, the terminal-only TaskCard density signals (tappable `[ ]` checkbox + its completing-fade machinery, `[X/Y]` inline counter, 🔥N routine-streak badge + its `routineStreaks` threading through 6 components, notes preview), `data-terminal-*` attributes, every `[data-theme^="terminal"]` CSS block in component stylesheets, and both `check:terminal-*` smoke scripts. The theme migration shims (store.js + index.html pre-paint) survive so stored terminal values keep upgrading to wallaby.
+  - **`src/v2/` flattened into `src/`** — the post-v1 tree had `src/v2/` as a meaningless layer. `src/v2/components/` → `src/components/`, `src/v2/wallaby/` → `src/wallaby/`, `src/v2/hooks/*` merged into `src/hooks/`, `AppV2.{jsx,css}` + `tokens.css` to `src/`. All import paths rewritten (including dynamic `import('../../api')` calls vite couldn't resolve); the eslint `no-use-before-define` override now covers all of `src/` (one legitimate-at-runtime forward reference in `useAdviser` annotated).
+  - **Theme registry consolidated:** new `src/theme.js` (`THEME_COLORS` + `applyTheme()`) replaces the duplicated theme→color maps in AppV2 and SettingsModal — sync points down from three to two (index.html pre-paint can't import).
+  - First phase of the Kept migration (`wiki/Kept-Design-Language.md` §12): the bundle now carries exactly two design languages (Standard + Wallaby) before Kept adds its own.
+
 - docs(ui): Kept — public-facing design language + full rebrand direction [L]
   - Wallaby is too close to its loggd.life inspiration to ship publicly. **Kept** captures the spirit (history-first glanceability, warm dashboard energy, semantic clarity) but rebuilds every expression from the boomerang metaphor: throw / return / catch / kept.
   - **Brand (full rebrand, direction 3 of 3 explored):** arc-into-catch mark, `boomerang.` Fraunces wordmark with gold period, gold-ochre hero on green-ink canvases (Nightgum dark / Linen light, system-follow default). Exploration board in `brand-board.html`.
