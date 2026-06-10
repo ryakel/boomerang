@@ -19,6 +19,7 @@ import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import RoutinesModal from './components/RoutinesModal'
 import WallabyShell from './wallaby/WallabyShell'
+import KeptShell from './kept/KeptShell'
 import WallabyEditTask from './wallaby/WallabyEditTask'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
@@ -418,6 +419,9 @@ export default function AppV2() {
   // Wallaby presents the full loggd IA (bottom-nav shell) on mobile. Desktop
   // keeps the Kanban + drawer for now.
   const isWallaby = (settingsForRings.theme || '').startsWith('wallaby')
+  // Kept presents the Boomerang IA (KeptShell: Today/Loops/Throw/Tasks/More)
+  // on mobile. Desktop keeps the standard layout until K5's command center.
+  const isKept = (settingsForRings.theme || '').startsWith('kept')
   // editTarget is the snapshot captured when the editor opened. Resolve the
   // LIVE task for the editor modals so the Wallaby chip-editor → "More
   // options" handoff doesn't show (and autosave back) values the chip editor
@@ -733,6 +737,51 @@ export default function AppV2() {
       }
     }
   }, [uncompleteTask, pushStatusToTrello, routines, tasks, uncompleteRoutine])
+
+  // Single shortcut into the canonical routine-completion path, shared by the
+  // Wallaby and Kept shells. Routes through the real surfaced task so
+  // completeRoutine stays the lone completed_history writer (the doubling
+  // bug); raw-toggles the stamp only when no concrete task applies (past-day
+  // backfill, or today with nothing surfaced).
+  const toggleHabitDay = (routine, ymd) => {
+    const day = ymd || localYMD(new Date())
+    const today = localYMD(new Date())
+    const hist = Array.isArray(routine.completed_history) ? routine.completed_history : []
+    const onDay = (ts) => localYMD(new Date(ts)) === day
+    const rawToggle = () => {
+      if (hist.some(onDay)) updateRoutine(routine.id, { completed_history: hist.filter(ts => !onDay(ts)) })
+      else updateRoutine(routine.id, { completed_history: [...hist, `${day}T12:00:00.000Z`] })
+    }
+
+    // Habit-mode (target frequency), today: each completion is a logged
+    // done-task; logHabit stamps history once. Un-log removes today's most-
+    // recent log and its stamp. (Past days fall through to rawToggle.)
+    if (routine.spawn_mode === 'habit' && day === today) {
+      const logs = tasks.filter(t => t.routine_id === routine.id && t.status === 'done'
+        && localYMD(new Date(t.completed_at || `${day}T12:00:00.000Z`)) === day)
+      if (logs.length) {
+        deleteTask(logs[logs.length - 1].id)
+        uncompleteRoutine(routine.id, day)
+      } else {
+        const t = logHabit(routine.id)
+        if (t) addSpawnedTasks([t])
+      }
+      return
+    }
+
+    // Auto (cadence) routine, today: complete/reopen the real surfaced task.
+    if (day === today && routine.spawn_mode !== 'habit') {
+      const todays = tasks.filter(t => t.routine_id === routine.id
+        && String(t.due_date || '').slice(0, 10) === day)
+      const doneTask = todays.find(t => t.status === 'done')
+      if (doneTask) { handleUncomplete(doneTask); return }
+      const openTask = todays.find(t => t.status !== 'done')
+      if (openTask) { handleComplete(openTask.id); return }
+    }
+
+    rawToggle()
+  }
+
 
   // Archive the Trello card on delete so the next inbound sync doesn't
   // re-import the task. Mirrors v1 handleDelete. Also gated on chain-break
@@ -1124,7 +1173,7 @@ export default function AppV2() {
       {/* Bottom tab bar — mobile only. Hidden on desktop (which has
        * its own Kanban + side-drawer navigation pattern). The strip
        * itself also has a @media gate as belt-and-suspenders. */}
-      {!isDesktop && !isWallaby && (
+      {!isDesktop && !isWallaby && !isKept && (
         <BottomTabs
           activeTab={activeTab}
           onTabChange={(next) => {
@@ -1155,57 +1204,7 @@ export default function AppV2() {
           streak={streak}
           records={records}
           lifetimeDone={tasks.filter(t => t.status === 'done').length}
-          onToggleHabit={(routine, ymd) => {
-            // Single shortcut into the canonical completion path. The old
-            // version raw-wrote completed_history here, which DOUBLED the record
-            // whenever the same routine was also completed via its surfaced task
-            // (completeRoutine already stamps history). Route through the real
-            // task instead so history is stamped exactly once per completion.
-            const day = ymd || localYMD(new Date())
-            const today = localYMD(new Date())
-            const hist = Array.isArray(routine.completed_history) ? routine.completed_history : []
-            const onDay = (ts) => localYMD(new Date(ts)) === day
-            // Direct toggle of the day's history stamp — the record of last
-            // resort when no concrete task applies (past-day backfill/repair, or
-            // a routine with nothing surfaced for the day). Pinned to local noon
-            // so it buckets regardless of timezone.
-            const rawToggle = () => {
-              if (hist.some(onDay)) updateRoutine(routine.id, { completed_history: hist.filter(ts => !onDay(ts)) })
-              else updateRoutine(routine.id, { completed_history: [...hist, `${day}T12:00:00.000Z`] })
-            }
-
-            // Habit-mode (target frequency), today: each completion is a logged
-            // done-task; logHabit stamps history once. Un-log removes today's
-            // most-recent log and its stamp. (Past days fall through to rawToggle
-            // — logHabit can only log "now".)
-            if (routine.spawn_mode === 'habit' && day === today) {
-              const logs = tasks.filter(t => t.routine_id === routine.id && t.status === 'done'
-                && localYMD(new Date(t.completed_at || `${day}T12:00:00.000Z`)) === day)
-              if (logs.length) {
-                deleteTask(logs[logs.length - 1].id)
-                uncompleteRoutine(routine.id, day)
-              } else {
-                const t = logHabit(routine.id)
-                if (t) addSpawnedTasks([t])
-              }
-              return
-            }
-
-            // Auto (cadence) routine, today: complete/reopen the real surfaced
-            // task so completeRoutine is the lone history writer — never a second
-            // raw write on top of a task completion (the doubling bug).
-            if (day === today && routine.spawn_mode !== 'habit') {
-              const todays = tasks.filter(t => t.routine_id === routine.id
-                && String(t.due_date || '').slice(0, 10) === day)
-              const doneTask = todays.find(t => t.status === 'done')
-              if (doneTask) { handleUncomplete(doneTask); return }
-              const openTask = todays.find(t => t.status !== 'done')
-              if (openTask) { handleComplete(openTask.id); return }
-            }
-
-            // Past day, or today with nothing surfaced → toggle the stamp directly.
-            rawToggle()
-          }}
+          onToggleHabit={toggleHabitDay}
           onSpawnStackToday={(routineId) => {
             const spawned = spawnNow(routineId)
             if (spawned && spawned.length) addSpawnedTasks(spawned)
@@ -1239,6 +1238,37 @@ export default function AppV2() {
           onOpenEasterEgg={openEasterEgg}
           syncStatus={syncStatus}
           queueLength={queueLength}
+        />
+      )}
+
+      {/* Kept shell — the Boomerang IA (Today/Loops/Throw/Tasks/More) on
+        * mobile. Shares every handler with the Wallaby shell; Quokka lives in
+        * the Kept header. Desktop keeps the standard layout until K5. */}
+      {isKept && !isDesktop && (
+        <KeptShell
+          tasks={tasks}
+          routines={routines}
+          labels={labels}
+          dailyStats={dailyStats}
+          pointsGoal={settingsForRings.daily_points_goal || 15}
+          streak={streak}
+          onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
+          onOpenTask={(task) => setEditTarget(task)}
+          onToggleHabit={toggleHabitDay}
+          onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
+          onDeleteTask={(task) => handleDelete(task.id)}
+          onThrow={({ title, dueDate }) => handleAddTask({ title, dueDate })}
+          onOpenFullAdd={() => setShowAdd(true)}
+          onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
+          onAddLoop={() => setShowRoutines(true)}
+          onOpenQuokka={() => setShowAdviser(true)}
+          onOpenSettings={() => setShowSettings(true)}
+          onOpenPackages={() => setShowPackages(true)}
+          onOpenAnalytics={() => setShowAnalytics(true)}
+          onOpenProjects={() => setShowProjects(true)}
+          onOpenDone={() => setShowDone(true)}
+          onOpenActivity={() => setShowActivityLog(true)}
+          onOpenSuggestions={() => setShowSuggestions(true)}
         />
       )}
 
