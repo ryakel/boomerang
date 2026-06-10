@@ -48,10 +48,11 @@
   background: var(--wb-action-complete);
 }
 
-/* ── Segmented controls → green active ───────────────────────────────────── */
+/* ── Segmented controls → green active (form value-picks, per the shared.css
+ * convention: view tabs are slate, value segments are green). ──────────── */
 [data-theme^="wallaby"] .v2-settings-segment-btn-active {
   background: var(--wb-action-complete);
-  color: #fff;
+  color: var(--wb-on-action);
 }
 
 /* ── Inputs / buttons → navy surfaces ────────────────────────────────────── */

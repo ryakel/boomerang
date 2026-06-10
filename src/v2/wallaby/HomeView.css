@@ -39,7 +39,7 @@
   height: 48px;
   border-radius: 50%;
   background: var(--wb-action-complete);
-  color: #fff;
+  color: var(--wb-on-action);
   font-family: var(--v2-font-display);
   font-size: 22px;
   font-weight: 800;
@@ -113,7 +113,7 @@
   background: var(--wb-cat-purple);
 }
 .wb-home-weekday-cell.is-selected .wb-home-week-date,
-.wb-home-weekday-cell.is-selected .wb-home-week-dow { color: #fff; }
+.wb-home-weekday-cell.is-selected .wb-home-week-dow { color: var(--wb-on-action); }
 .wb-home-weekday-cell.is-future { opacity: 0.32; cursor: default; }
 .wb-home-week-dow { font-size: 11px; font-weight: 600; color: var(--wb-text-meta); }
 .wb-home-week-date {
@@ -124,7 +124,7 @@
 .wb-home-weekday-cell.is-today .wb-home-week-date { color: var(--wb-action-complete); }
 /* When today is also the selected day, the purple selection wins — keep the
    number white for contrast (the is-today green-on-purple was unreadable). */
-.wb-home-weekday-cell.is-selected.is-today .wb-home-week-date { color: #fff; }
+.wb-home-weekday-cell.is-selected.is-today .wb-home-week-date { color: var(--wb-on-action); }
 .wb-home-week-dot {
   width: 5px;
   height: 5px;
@@ -200,13 +200,7 @@
   text-decoration: line-through;
   color: var(--wb-text-meta);
 }
-.wb-home-habit-streak {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--wb-text-meta);
-}
+/* .wb-home-habit-streak is defined once below (orange flame treatment). */
 .wb-home-check {
   flex: 0 0 auto;
   display: grid;
@@ -403,5 +397,5 @@
 .wb-home-habit-icon { background: var(--wb-card-2); }
 .wb-home-card .wb-home-habit-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 600; }
 .wb-home-card .wb-home-habit.is-done .wb-home-habit-title { text-decoration: line-through; color: var(--wb-text-meta); }
-.wb-home-habit-streak { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: #F0973E; flex: 0 0 auto; }
+.wb-home-habit-streak { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: var(--wb-cat-orange); flex: 0 0 auto; }
 .wb-home-card .wb-home-check { width: 30px; height: 30px; }

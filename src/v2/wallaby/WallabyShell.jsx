@@ -12,18 +12,18 @@ import AdviserModal from '../components/AdviserModal'
 import './WallabyShell.css'
 
 // Wallaby shell — the loggd IA. Full-screen container shown in Wallaby mode on
-// mobile: a bottom nav (Home/Habits/Tasks/Timer/More) over the active surface.
-// "More" opens secondary surfaces (Profile, Goals) and deferred-feature
-// placeholders (Timer, Vision, Daily) — those features land after the reskin.
+// mobile: a bottom nav (Home/Habits/Quokka/Tasks/More) over the active surface.
+// "More" opens the secondary surfaces (Profile, Goals, Analytics, Packages,
+// Settings); deferred features (Timer, Vision, Daily) stay hidden until built.
 export default function WallabyShell({
   tasks = [], routines = [], projects = [], labels = [],
   dailyStats = {}, streak = 0, records = {}, lifetimeDone = 0,
-  onToggleHabit, onSpawnStackToday, onCompleteTask, onToggleItem, onOpenTask, onAddTask, onAddHabit,
+  onToggleHabit, onSpawnStackToday, onCompleteTask, onToggleItem, onOpenTask, onAddTask, onAddGoal, onAddHabit,
   onRescheduleTask, onDeleteTask,
   onEditHabit, onArchiveHabit, onDeleteHabit,
   onLogSession, onCompleteProject, onEditProject, onSetAsideProject, onDeleteProject,
   onOpenSettings, onOpenPackages, onOpenAnalytics,
-  adviser, onAdviserAfterCommit, onOpenEasterEgg,
+  adviser, onOpenEasterEgg,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('home')
@@ -59,7 +59,7 @@ export default function WallabyShell({
       <GoalsView
         projects={projects} tasks={tasks} labels={labels}
         onLogSession={onLogSession} onComplete={onCompleteProject} onEdit={onEditProject}
-        onSetAside={onSetAsideProject} onDelete={onDeleteProject} onAdd={onAddTask}
+        onSetAside={onSetAsideProject} onDelete={onDeleteProject} onAdd={onAddGoal}
         onClose={() => setSub(null)}
       />
     )
@@ -90,7 +90,6 @@ export default function WallabyShell({
         open
         adviser={adviser}
         onClose={() => setTab('home')}
-        onAfterCommit={onAdviserAfterCommit}
         onOpenEasterEgg={onOpenEasterEgg}
         draftSeed=""
       />

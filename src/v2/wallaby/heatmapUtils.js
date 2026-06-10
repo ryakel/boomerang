@@ -3,20 +3,42 @@
 // place. All bucketing is LOCAL time (not UTC) so "today" lines up with what
 // the user sees on their device.
 
+// Per-habit accent cycle. Mirrors the --wb-cat-* tokens in palette.css (dark
+// values) — keep the two lists in sync when tuning the palette.
 export const WALLABY_COLORS = ['#4F8DF5', '#8C7CF0', '#41C083', '#F0973E', '#EA6C9D']
 
-// Deterministic per-habit color from an id. Stable across reloads so a routine
-// keeps the same color (matches the loggd per-habit color identity).
-export function habitColor(id) {
-  const s = String(id ?? '')
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return WALLABY_COLORS[h % WALLABY_COLORS.length]
+// One color-identity rule for every Wallaby surface (Home, Habits, Profile):
+// a routine's color comes from its index in the FULL routines list, so the
+// same habit renders the same color everywhere — and pausing/unpausing a
+// different routine doesn't shuffle anyone else's color.
+export function routineColors(routines) {
+  const m = {}
+  for (let i = 0; i < (routines?.length || 0); i++) {
+    m[routines[i].id] = WALLABY_COLORS[i % WALLABY_COLORS.length]
+  }
+  return m
+}
+
+// Date-only strings ('YYYY-MM-DD') must be treated as LOCAL dates. Naive
+// `new Date('YYYY-MM-DD')` parses as UTC midnight, which lands on the
+// PREVIOUS local day anywhere west of UTC — that bug made a task due today
+// read as overdue. Anything else (Date, full ISO timestamp) parses normally.
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export function parseLocalDate(d) {
+  if (typeof d === 'string' && YMD_RE.test(d)) {
+    const [y, m, day] = d.split('-').map(Number)
+    return new Date(y, m - 1, day)
+  }
+  const x = new Date(d)
+  return Number.isNaN(x.getTime()) ? null : x
 }
 
 export function localYMD(d) {
-  const x = new Date(d)
-  if (Number.isNaN(x.getTime())) return null
+  // A date-only string already IS a local day key.
+  if (typeof d === 'string' && YMD_RE.test(d)) return d
+  const x = parseLocalDate(d)
+  if (!x) return null
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
 }
 
@@ -52,7 +74,7 @@ export function longestStreak(valueByDay) {
   if (days.length === 0) return 0
   let best = 1, run = 1
   for (let i = 1; i < days.length; i++) {
-    const prev = new Date(days[i - 1]); prev.setDate(prev.getDate() + 1)
+    const prev = parseLocalDate(days[i - 1]); prev.setDate(prev.getDate() + 1)
     if (localYMD(prev) === days[i]) { run++; best = Math.max(best, run) }
     else run = 1
   }

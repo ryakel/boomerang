@@ -17,12 +17,14 @@ const STATUSES = [
   { id: 'done', label: 'Done' },
 ]
 const SIZES = ['XS', 'S', 'M', 'L', 'XL']
+// Energy accents map onto the Wallaby category palette (palette.css) so they
+// re-tune for wallaby-light instead of hardcoding Tailwind-ish hexes.
 const ENERGY = [
-  { id: 'desk', label: 'Desk', Icon: Monitor, color: '#60A5FA' },
-  { id: 'people', label: 'People', Icon: Users, color: '#A78BFA' },
-  { id: 'errand', label: 'Errand', Icon: MapPin, color: '#34D399' },
-  { id: 'creative', label: 'Creative', Icon: Palette, color: '#F472B6' },
-  { id: 'physical', label: 'Physical', Icon: Dumbbell, color: '#FBBF24' },
+  { id: 'desk', label: 'Desk', Icon: Monitor, color: 'var(--wb-cat-blue)' },
+  { id: 'people', label: 'People', Icon: Users, color: 'var(--wb-cat-purple)' },
+  { id: 'errand', label: 'Errand', Icon: MapPin, color: 'var(--wb-cat-green)' },
+  { id: 'creative', label: 'Creative', Icon: Palette, color: 'var(--wb-cat-pink)' },
+  { id: 'physical', label: 'Physical', Icon: Dumbbell, color: 'var(--wb-cat-orange)' },
 ]
 const DRAIN = [{ v: 1, label: 'Low' }, { v: 2, label: 'Medium' }, { v: 3, label: 'High' }]
 
@@ -153,7 +155,7 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
         {subItems.map(it => (
           <div key={it.id} className="wb-edit-sub">
             <button className={`wb-edit-sub-check${it.completed ? ' is-done' : ''}`} onClick={() => toggleSub(it.clId, it.id)} aria-label={it.completed ? 'Uncheck' : 'Check'}>
-              {it.completed && <Check size={12} strokeWidth={3} color="#fff" />}
+              {it.completed && <Check size={12} strokeWidth={3} color="var(--wb-on-action)" />}
             </button>
             <span className={`wb-edit-sub-text${it.completed ? ' is-done' : ''}`}>{it.text}</span>
             <button className="wb-edit-sub-del" onClick={() => removeSub(it.clId, it.id)} aria-label="Remove"><Trash2 size={13} strokeWidth={2} /></button>

@@ -133,38 +133,7 @@
 }
 .wb-goal-why-text { margin: 0; font-size: 15px; line-height: 1.45; color: var(--wb-text); }
 
-/* ── Semantic action buttons ─────────────────────────────────────────────── */
+/* ── Semantic action buttons — primitives in shared.css ──────────────────── */
 .wb-goal-actions { display: flex; flex-direction: column; gap: 10px; }
 .wb-goal-actions-row { display: flex; gap: 10px; }
 .wb-goal-actions-row .wb-btn { flex: 1 1 0; }
-.wb-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: none;
-  border-radius: 13px;
-  padding: 14px 16px;
-  font: 700 14.5px/1 var(--v2-font-body);
-  color: #fff;
-  cursor: pointer;
-}
-.wb-btn-primary { background: var(--wb-action-primary); }
-.wb-btn-secondary { background: var(--wb-action-secondary); color: var(--wb-text); }
-.wb-btn-complete { background: var(--wb-action-complete); }
-.wb-btn-pause { background: var(--wb-action-pause); color: #1a1206; }
-.wb-btn-delete {
-  background: transparent;
-  color: var(--wb-action-delete);
-}
-.wb-btn-delete-solid { background: var(--wb-action-delete); }
-.wb-btn-ghost { background: var(--wb-card-2); color: var(--wb-text); }
-.wb-goal-confirm {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  color: var(--wb-text);
-}
-.wb-goal-confirm > span { flex: 1 1 auto; }
-.wb-goal-confirm .wb-btn { padding: 10px 14px; }

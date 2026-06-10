@@ -39,31 +39,15 @@
 }
 .wb-icon-btn.is-active { color: var(--wb-text); border-color: var(--wb-hairline-strong); }
 
-/* Segmented control — full width on Tasks */
+/* Segmented control — base styles in shared.css; full width on Tasks. */
 .wb-tasks .wb-seg {
   display: flex;
   width: 100%;
-  background: var(--wb-card-2);
-  border: 1px solid var(--wb-hairline);
-  border-radius: 10px;
-  padding: 3px;
-  gap: 2px;
 }
 .wb-tasks .wb-seg-btn {
   flex: 1 1 0;
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--wb-text-meta);
-  font: 600 13px/1 var(--v2-font-body);
+  font-size: 13px;
   padding: 9px 13px;
-  border-radius: 10px;
-  cursor: pointer;
-}
-.wb-tasks .wb-seg-btn.is-active {
-  background: var(--wb-card-3);
-  color: var(--wb-text);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .wb-tasks-search {
@@ -122,7 +106,7 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  color: #fff;
+  color: var(--wb-on-action);
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
@@ -224,7 +208,7 @@
   border-radius: 50%;
   border: 1.5px solid var(--wb-hairline-strong);
   background: transparent;
-  color: #fff;
+  color: var(--wb-on-action);
   cursor: pointer;
 }
 .wb-subcheck.is-done {
@@ -264,7 +248,7 @@
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--wb-scrim);
   display: flex;
   align-items: flex-end;
   animation: wb-fade 160ms ease;
@@ -277,7 +261,7 @@
   border-top-right-radius: 22px;
   border-top: 1px solid var(--wb-hairline);
   padding: 22px 18px calc(26px + env(safe-area-inset-bottom));
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--wb-shadow-pop);
   animation: wb-slideup 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 @keyframes wb-fade { from { opacity: 0 } to { opacity: 1 } }

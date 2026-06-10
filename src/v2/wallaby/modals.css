@@ -96,7 +96,7 @@
   [data-theme^="wallaby"] .wb-shell .v2-adviser-toolbar .wb-icon-btn-accent {
     background: var(--wb-cat-purple);
     border-color: var(--wb-cat-purple);
-    color: #fff;
+    color: var(--wb-on-action);
   }
 
   /* Quokka/adviser toolbar: spread chats / new-chat across the page width. */
