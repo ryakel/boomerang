@@ -1,0 +1,111 @@
+/* DateField — a natural-language text input + a calendar button.
+ *
+ *   .v2-form-date-stack — flex row: text input (grows) · parsed preview · cal
+ *     .v2-form-date-text    — visible text box (type "tomorrow", "next tue", …)
+ *     .v2-form-date-preview — small chip showing the parsed → YYYY-MM-DD
+ *     .v2-form-date-cal     — calendar button; the real <input type="date"> is
+ *                             overlaid on it at opacity:0 so the native picker
+ *                             opens on tap (reliable on iOS PWA Safari).
+ */
+
+.v2-form-date-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;   /* shrink within narrow grid cells (DUE/PRIORITY 2-col row) */
+  max-width: 100%;
+}
+
+.v2-form-date-stack {
+  position: relative;
+  flex: 1 1 100%;        /* own row — text input + calendar use the full width */
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.v2-form-date-text {
+  flex: 1 1 0;          /* basis 0 so the input's intrinsic width doesn't push the cell wide */
+  min-width: 0;
+  min-height: 44px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 14px/1.4 var(--v2-font-body);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.v2-form-date-text:focus {
+  border-color: var(--v2-accent);
+  outline: none;
+}
+.v2-form-date-text::placeholder { color: var(--v2-text-meta); }
+
+.v2-form-date-preview {
+  flex: 0 0 auto;
+  font: 600 12px/1 var(--v2-font-body);
+  color: var(--v2-accent);
+  background: color-mix(in srgb, var(--v2-accent) 14%, transparent);
+  padding: 6px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.v2-form-date-cal {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text-meta);
+  cursor: pointer;
+}
+.v2-form-date-cal:hover { color: var(--v2-text); }
+
+/* The real date input — invisible but tappable, covers just the calendar
+ * button. Native picker opens on tap. */
+.v2-form-date-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  opacity: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-text-fill-color: transparent;
+}
+.v2-form-date-input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.v2-form-date-clear {
+  background: transparent;
+  border: none;
+  color: var(--v2-text-meta);
+  font: 500 12px/1 var(--v2-font-body);
+  cursor: pointer;
+  padding: 4px 6px;
+  text-transform: lowercase;
+}
+.v2-form-date-clear:hover { color: var(--v2-alert-overdue); }
+

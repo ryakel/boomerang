@@ -341,8 +341,8 @@ language and a structurally cleaner codebase.
   strip `terminalTitle`/`terminalCommand` props from every ModalShell/
   EmptyState/ConfirmDialog call site, drop both `check:terminal-*` CI scripts,
   keep only the `terminal-*` → theme migration shim in `loadSettings()`.
-  Flatten `src/v2/` → `src/` (the deferred directory rename — `v2` is
-  meaningless now that v1 is gone). Purge stale settings keys
+  Flatten `src/v2/` → `src/` (done — `v2` was
+  meaningless once v1 was gone). Purge stale settings keys
   (`v1_disabled`, legacy `show_week_strip`) and consolidate the theme
   pre-paint/mount/picker maps into one shared module. Net: the bundle drops to
   exactly two languages (Standard + Wallaby) before Kept adds its own.
