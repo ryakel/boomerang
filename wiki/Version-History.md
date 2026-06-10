@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-10
 
+- feat(ui): Kept palette revision — "Smoke + Ember" replaces Nightgum + Ochre [M]
+  - The green-ink + gold direction read *earthy* in daily use. From a 4-direction live exploration (same Today screen re-skinned via token injection) the user picked a blend of "Warm Ink + Ember" and "Graphite + Gold": **Smoke** — a warm-neutral de-greened canvas (`#16140F` dark / `#F8F4ED` light) — with the brand's original **ember orange** (`#F26640`/`#D9512B`) as THE hero, and **gold demoted to the warm companion accent** (`--bm-gold`, rally chips + the ochre feather). Danger shifts to crimson so it can't collide with the ember hero.
+  - Token rename to match reality: `--bm-gold*` → `--bm-ember*` across all Kept components; new real `--bm-gold`/`--bm-gold-soft` for the rally accents. wb-bridge remapped (pause → gold-soft).
+  - Brand re-inked: the arc-into-catch mark goes ember (Logo.jsx, favicon, regenerated PWA icons on the smoke tile); browser-chrome colors updated in theme.js + pre-paint. Spec §3 rewritten with the new tables and the revision note.
+  - Verified live in both modes; zero page errors; lint 0; tests + build + smoke pass.
+
 - fix(ui): Kept tire-kicking round 1 — editors, swipe, clickable loops, pinned back button [M]
   - **Editors now speak Kept.** A `--wb-*` → `--bm-*` token bridge inside the kept theme blocks means every wallaby-built component resolves to the Kept palette, and the forms/settings/analytics override layers are `:is()`-extended to kept — so the chip task editor (now enabled for kept themes, it was wallaby-gated), the full EditTaskModal's form controls, AddTaskModal, and the Settings/Analytics internals all render gold-on-Nightgum instead of raw v2. The bridge is explicitly temporary: it dies at the K6 Wallaby teardown when those components re-token to `--bm-*` directly.
   - **Swipe is back:** new `RowSwipe` wrapper (shared `useSwipeActions` gesture) on Today + Tasks rows — swipe left reveals Catch (gold) / Delete.

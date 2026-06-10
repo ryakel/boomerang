@@ -6,7 +6,7 @@ import './viz.css'
 // days filled with the loop's feather, adjacent done-days bridged by arcs.
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
-export default function MonthDots({ monthRef = new Date(), valueByDay = {}, color = 'var(--bm-gold)' }) {
+export default function MonthDots({ monthRef = new Date(), valueByDay = {}, color = 'var(--bm-ember)' }) {
   const cells = useMemo(() => {
     const first = new Date(monthRef.getFullYear(), monthRef.getMonth(), 1)
     const startPad = (first.getDay() + 6) % 7
@@ -36,7 +36,7 @@ export default function MonthDots({ monthRef = new Date(), valueByDay = {}, colo
         fill={c.done ? color : 'transparent'}
         stroke={c.done ? color : 'var(--bm-hairline-strong)'} strokeWidth="1.4" />,
       <text key={`t${c.key}`} x={x} y={y + 3} textAnchor="middle" fontSize="8.5"
-        fontWeight="650" fill={c.done ? 'var(--bm-on-gold)' : 'var(--bm-text-meta)'} fontFamily="inherit">{c.d}</text>,
+        fontWeight="650" fill={c.done ? 'var(--bm-on-ember)' : 'var(--bm-text-meta)'} fontFamily="inherit">{c.d}</text>,
     )
     const next = cells[idx + 1]
     if (c.done && next && next.done && i < 6) {

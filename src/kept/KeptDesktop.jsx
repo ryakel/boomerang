@@ -107,7 +107,7 @@ export default function KeptDesktop({
         })}
         <div className="bm-side-spacer" />
         <button className="bm-side-quokka" onClick={onOpenQuokka}>
-          <Sparkles size={18} strokeWidth={2} style={{ color: 'var(--bm-gold)', flex: '0 0 auto' }} />
+          <Sparkles size={18} strokeWidth={2} style={{ color: 'var(--bm-ember)', flex: '0 0 auto' }} />
           <span><b>Quokka</b><span>ask anything, change anything</span></span>
         </button>
         <button className="bm-side-item" onClick={onOpenSettings}>

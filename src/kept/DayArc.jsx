@@ -26,9 +26,9 @@ export default function DayArc({ value = 0, goal = 1, caption = 'points today' }
       <svg viewBox={`0 0 ${W} ${H}`}>
         <path d={arc(0, 1)} stroke="var(--bm-trail-empty)" strokeWidth="10" strokeLinecap="round" fill="none" />
         {ticks}
-        {pct > 0 && <path d={arc(0, pct)} stroke="var(--bm-gold)" strokeWidth="10" strokeLinecap="round" fill="none" />}
-        <circle cx={tip[0]} cy={tip[1]} r="7" fill="var(--bm-gold)" />
-        <circle cx={tip[0]} cy={tip[1]} r="2.8" fill="var(--bm-on-gold)" />
+        {pct > 0 && <path d={arc(0, pct)} stroke="var(--bm-ember)" strokeWidth="10" strokeLinecap="round" fill="none" />}
+        <circle cx={tip[0]} cy={tip[1]} r="7" fill="var(--bm-ember)" />
+        <circle cx={tip[0]} cy={tip[1]} r="2.8" fill="var(--bm-on-ember)" />
       </svg>
       <div className="bm-dayarc-center">
         <div className="bm-dayarc-num">{value}<span className="bm-dayarc-goal"> / {goal}</span></div>

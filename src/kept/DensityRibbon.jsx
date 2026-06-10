@@ -4,7 +4,7 @@ import './viz.css'
 
 // Density Ribbon — the Kept year view (spec §5.3): weekly totals as a smooth
 // gradient-filled area curve. Replaces the 53-week contribution grid.
-export default function DensityRibbon({ valueByDay = {}, color = 'var(--bm-gold)', weeks = 52 }) {
+export default function DensityRibbon({ valueByDay = {}, color = 'var(--bm-ember)', weeks = 52 }) {
   const gid = useId()
   const { path, area, labels } = useMemo(() => {
     const end = weekStartMonday(new Date())
