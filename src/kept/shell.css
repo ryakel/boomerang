@@ -34,13 +34,18 @@
 }
 .bm-header-brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .bm-header-mark {
-  font-family: var(--v2-font-display);
-  font-weight: 700;
-  font-size: 18px;
+  font: 700 18px/1 var(--v2-font-display);
   letter-spacing: 0.01em;
+  gap: 0.01em;   /* matches letter-spacing for the per-letter spans */
   color: var(--bm-text);
 }
 .bm-header-mark i { color: var(--bm-gold); font-style: normal; }
+/* The gold period (the caught dot) keeps its color through the idle/degraded
+ * sync states — boosted specificity to outrank Header.css's state rules; the
+ * bounce/flash ANIMATIONS still apply on top (animations win the cascade). */
+.bm-header-mark.v2-header-wordmark[data-sync-state] .v2-header-wordmark-letter:last-child {
+  color: var(--bm-gold);
+}
 .bm-header-actions { margin-left: auto; display: flex; gap: 8px; }
 .bm-header-btn {
   position: relative;

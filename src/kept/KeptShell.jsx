@@ -19,6 +19,7 @@ export default function KeptShell({
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
+  syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
   const [throwOpen, setThrowOpen] = useState(false)
@@ -59,6 +60,8 @@ export default function KeptShell({
         onQuokka={onOpenQuokka}
         onBell={onOpenActivity}
         onAvatar={onOpenAnalytics}
+        syncStatus={syncStatus}
+        queueLength={queueLength}
       />
       <div className="bm-shell-surface">{surface}</div>
       <KeptNav active={tab} onChange={setTab} onThrow={() => setThrowOpen(true)} />

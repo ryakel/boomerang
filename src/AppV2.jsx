@@ -1270,6 +1270,8 @@ export default function AppV2() {
           onOpenDone={() => setShowDone(true)}
           onOpenActivity={() => setShowActivityLog(true)}
           onOpenSuggestions={() => setShowSuggestions(true)}
+          syncStatus={syncStatus}
+          queueLength={queueLength}
         />
       )}
 
@@ -1300,6 +1302,8 @@ export default function AppV2() {
           onOpenProjects={() => setShowProjects(true)}
           onOpenDone={() => setShowDone(true)}
           onOpenActivity={() => setShowActivityLog(true)}
+          syncStatus={syncStatus}
+          queueLength={queueLength}
         />
       )}
 

@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-10
 
+- feat(ui): Kept — bouncing wordmark + shared sync-bounce hook [S]
+  - The save-wave is back on the brand: the Kept `boomerang.` wordmark (mobile header + desktop sidebar) renders per-letter spans driven by the same sync states as the standard header — letters bounce while saving, flash green on sync, dim on degraded/offline. The gold period rides the wave (boosted-specificity rule keeps it gold through the state colors; animations still apply on top).
+  - **Dedupe:** the hold/flash state machine existed as identical copies in `Header.jsx` and `WallabyHeader.jsx` (a third was about to land) — extracted to `src/hooks/useSyncBounce.js`; all three headers now consume it. `syncStatus`/`queueLength` threaded into KeptShell + KeptDesktop.
+  - Verified live: header captured mid-wave in `saving` state; idle → saving → idle cycle confirmed on a real task completion.
+
 - feat(ui): Kept K5(v1) + K6 cutover — desktop command center + new-install default [L]
   - **KeptDesktop** (`src/kept/KeptDesktop.jsx` + `desktop.css`): the command-center layout for kept themes on desktop — persistent sidebar (brand, gold **"Throw a task ⌘K"** pill, Today/Tasks/Loops nav, Review section routing to Arcs/Caught/Analytics/Packages/Activity, Quokka card, Settings) over a centered work surface rendering the shared Kept views. **⌘K** opens the Throw sheet (centered dialog treatment on desktop). FloatingCapture FABs gated out of kept desktop. K5 continuation (Today rail, Board/Timeline view modes, detail panel) tracked in the spec.
   - **K6 cutover (new installs):** an unset theme now defaults to **Kept following the system color scheme** (`kept-dark`/`kept-light` via `prefers-color-scheme`, persisted on first load). Existing users keep their stored theme — nothing migrates. Wallaby remains in the picker; its teardown is the K6 completion step once Kept is accepted as the daily driver.
