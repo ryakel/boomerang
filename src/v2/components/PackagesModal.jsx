@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, Package as PackageIcon, RefreshCw, Trash2, ExternalLink } from 'lucide-react'
-import CarrierLogo from '../../components/CarrierLogo'
+import CarrierLogo from './CarrierLogo'
 import { detectCarrier, getTrackingUrl } from '../../utils/carrierDetect'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'

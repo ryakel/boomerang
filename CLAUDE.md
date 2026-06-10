@@ -889,10 +889,10 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - `sharp` as devDependency for icon generation
 - Dev seed system: `SEED_DB=1` populates DB with realistic ADHD test data at startup (Claude API or static fallback). On-demand reseed via `POST /api/dev/seed` (wipes + reloads). Both the endpoint and the **Settings → Data → "Reseed dev database"** button are hard-gated to the dev environment — `isDevEnv` in `server.js` is true only when `APP_VERSION` is `dev` or `dev-<sha>` (prod builds use `v1.x.x` git tags), exposed to the client via `isDev` on `/api/health`. The endpoint 403s and the button is hidden anywhere else, so prod can't be wiped by it.
 
-### UI v2 (Opt-in Maturity Refresh, 2026-05-03)
-Boomerang ships with two UIs that share the same underlying app (server, hooks, store, contexts, API).
+### UI v2 (2026-05-03; sole UI since the v1 purge, 2026-06-10)
+v2 is the only interface. The legacy v1 UI (`src/AppV1.jsx` + `src/components/`, ~18k lines) was deleted on 2026-06-10 after a month as an unused escape hatch.
 
-**Routing.** `src/App.jsx` is a thin router that reads `localStorage.ui_version` and renders either `AppV1` (legacy, in `src/AppV1.jsx`) or `AppV2` (in `src/v2/AppV2.jsx`). **Default is `'v2'` since the cutover (PR6, 2026-05-03).** Only an explicit `'v1'` opts out — existing users who set v1 keep their preference. URL escape hatch: `?ui=v2` and `?ui=v1` set the flag, then strip themselves from the URL so deep-link params (`?task=X`) don't keep flipping it. `data-ui-version` is mirrored on the documentElement.
+**Routing.** `src/App.jsx` renders `AppV2` (in `src/v2/AppV2.jsx`) unconditionally inside the ErrorBoundary. The old `localStorage.ui_version` flag and `?ui=` URL escape hatch are ignored; `data-ui-version="v2"` is still mirrored on the documentElement. Shared components that v2 used from the old v1 tree (`Logo`, `Rings`, `CarrierLogo`, `WeatherSection`) were moved into `src/v2/components/`; the `.weather-*` styles WeatherSection needs were extracted into `src/v2/components/WeatherSection.css` (they used to ride along in v1's TaskCard.css). The `src/v2/components/` → `src/components/` rename from the original end-state plan is deferred — pure churn, no behavior.
 
 **Tokens.** v2 design tokens live at `src/v2/tokens.css`, all namespaced `--v2-*` so they cannot leak into v1. Activated by `data-ui="v2"` (set by AppV2 on mount). Dark variant keys off the existing `data-theme="dark"` attribute.
 
@@ -931,13 +931,11 @@ The Boomerang wordmark popover (Analytics + Done, top-left) was already in place
 
 **Branch model.** v2 work lands on the `dev` branch (auto-builds `:dev` Docker image via `.github/workflows/build-and-publish-dev.yml`, deploys to `boomerang-dev` container on port 3002 via `docker-compose.dev.yml`). Once v2 stabilizes, dev gets merged into main.
 
-**User opt-in.** Settings → Beta tab → "Use v2 interface" toggle. The Beta tab is reserved for future opt-in experiments too.
-
-**Legacy toggle (`v1_disabled` setting).** Settings → Legacy tab → "Disable v1" toggle. When ON: App.jsx blocks v1 UI rendering regardless of `?ui=v1` or localStorage, logs the block to Activity Log. The "Switch to v1" toggle is greyed out while v1 is disabled. All v1-only settings (Notion DB sync, page template, Pushover deep-link URL) have been ported to v2 — deleting v1 code will not lose any configuration surface. Purpose: test what breaks before fully removing v1 code.
+**Legacy plumbing (removed 2026-06-10).** The Settings → Legacy tab, the `v1_disabled` setting, and the `ui_version` localStorage flag are gone along with v1 itself. A stale `v1_disabled` key in stored settings is harmless (nothing reads it).
 
 **Global error logging.** `window.onerror` + `unhandledrejection` handlers log errors to the Activity Log as `error` entries. React ErrorBoundary render crashes also logged. Activity Log has an "Errors" filter tab. `logSystemError(message, detail)` in store.js is the shared function.
 
-**End state.** After all 8 PRs ship and a 1-2 week opt-in period validates v2, flip the default to `'v2'`, leave v1 reachable via `?ui=v1` for one release, then delete `src/AppV1.jsx` + `src/components/` and rename `src/v2/components/` → `src/components/`.
+**End state — reached 2026-06-10.** v1 deleted (`src/AppV1.jsx`, all of the old `src/components/`, `src/App.css`); only the directory rename (`src/v2/components/` → `src/components/`) remains deferred.
 
 ### Terminal Theme Stress Test (2026-05-10, shipped to main 2026-05-11)
 
@@ -1016,8 +1014,12 @@ tokens even if reached from a non-Wallaby theme.
 - `ContributionHeatmap.{jsx,css}` — GitHub-style grid (weeks × 7 days,
   local-time bucketing, per-color intensity). Theme-agnostic; sizes off inline
   `--wb-cell`/`--wb-gap` props.
-- `heatmapUtils.js` — `historyByDay`, `WALLABY_COLORS`/color cycling,
-  `currentStreak`, `weekStart`/`addDays`/`fmtMonthDay`.
+- `heatmapUtils.js` — `historyByDay`, `WALLABY_COLORS` + `routineColors()`
+  (the ONE color-identity rule: a routine's accent = its index in the FULL
+  routines list, used by Home/Habits/Profile so a habit keeps its color on
+  every surface and pausing another routine doesn't reshuffle anyone),
+  `currentStreak`/`longestStreak`, `parseLocalDate` + `localYMD` (date-only
+  strings are LOCAL days — see gotcha below), `weekStart`/`addDays`/`fmtMonthDay`.
 - `HabitsView.{jsx,css}` — the **Habits** screen. Routines (filtered to
   non-paused) as habit cards: color icon tile + title + streak/count badges +
   the grid. Range tabs **Single** (rolling heatmap + month labels) / **Month**
@@ -1122,10 +1124,31 @@ visual reskin; full-page modals; **Home daily-summary card** + **Profile Records
 strip**. The remaining Home "Today's Pulse" gaps — daily mood / vision whisper —
 are deferred net-new features, not reskin.)
 
-**Wallaby gotcha:** `store.localYMD(d)` requires a **Date** (`d.getFullYear()`),
-NOT an ISO string — wrap completion timestamps in `new Date(ts)`. The Wallaby
-`heatmapUtils.localYMD` handles strings; don't mix them up. (This silently broke
-the Home habit check — the throw aborted the handler.)
+**Wallaby gotchas (dates):**
+- `store.localYMD(d)` requires a **Date** (`d.getFullYear()`), NOT an ISO
+  string — wrap completion timestamps in `new Date(ts)`. The Wallaby
+  `heatmapUtils.localYMD` handles strings; don't mix them up. (This silently
+  broke the Home habit check — the throw aborted the handler.)
+- **Never `new Date('YYYY-MM-DD')` on a date-only string** (e.g. `due_date`) —
+  it parses as UTC midnight, which is the PREVIOUS local day anywhere west of
+  UTC (a task due today bucketed as overdue). Use `heatmapUtils.parseLocalDate`
+  (local-midnight for date-only strings, normal parse otherwise); Wallaby's
+  `localYMD` also returns date-only strings as-is. Fixed 2026-06-10 in
+  TasksView grouping/dueMeta, GoalsView target date, and `longestStreak`.
+
+**Wallaby design-coherence conventions (2026-06-10):** shared control
+primitives (`.wb-back`, `.wb-seg`, `.wb-stepper`, `.wb-fab`, the `.wb-btn`
+semantic family, `.wb-confirm`) are defined ONCE in `shared.css` — per-view
+stylesheets may add scoped layout overrides (`.wb-tasks .wb-seg { width: 100% }`)
+but never restyle them (two views had drifted `.wb-btn` definitions whose
+winner depended on CSS import order). Active-state rule: **view/range tabs**
+(Single/Month/Year, Upcoming/Backlog/Done, All/Unread, Analytics tabs) use the
+slate `--wb-card-3` fill; **form value-pick segments** (Status/Size/Theme/Mode
+in forms.css + settings.css) use the green `--wb-action-complete` fill. New
+tokens: `--wb-on-action` (fg on saturated fills — no raw `#fff` in wallaby
+CSS/JSX), `--wb-on-pause`, `--wb-scrim`, `--wb-shadow-pop`, `--wb-shadow-press`
+(all palette-aware so wallaby-light renders correctly). Energy accents in
+`WallabyEditTask` map to `--wb-cat-*` tokens.
 
 **Routine completion = one history stamp per path (2026-06-08).** The Wallaby
 grids/streaks (`HomeView`/`HabitsView`/`ProfileView`) read `routine.completed_history`;

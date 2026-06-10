@@ -70,13 +70,12 @@ await page.evaluate(async () => {
   const d = await fetch('/api/data').then(r => r.json())
   localStorage.setItem('boom_settings_v1', JSON.stringify({ ...(d.settings || {}), theme: 'wallaby-dark' }))
   localStorage.setItem('boom_last_modified', String(Date.now() + 1e7)) // local newer than server
-  localStorage.setItem('ui_version', 'v2')
 })
 await page.goto('http://localhost:3001', { waitUntil: 'domcontentloaded' }) // reload with settings applied
 ```
 
-Keys (from `src/store.js`): `boom_settings_v1`, `boom_last_modified`,
-`ui_version`. Themes: `wallaby-dark` / `wallaby-light` / `terminal-dark` /
+Keys (from `src/store.js`): `boom_settings_v1`, `boom_last_modified`.
+Themes: `wallaby-dark` / `wallaby-light` / `terminal-dark` /
 `terminal-light` / `dark` / (default light). Verify it took with
 `document.documentElement.getAttribute('data-theme')`.
 

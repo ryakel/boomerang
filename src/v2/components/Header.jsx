@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Package, Settings as SettingsIcon } from 'lucide-react'
-import Logo from '../../components/Logo'
-import { MiniRings } from '../../components/Rings'
+import Logo from './Logo'
+import { MiniRings } from './Rings'
 import './Header.css'
 
 const WORDMARK_LETTERS = 'BOOMERANG'.split('')

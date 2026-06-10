@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-10
+
+- refactor(ui): wallaby design-language coherence pass + v2 date bugfixes + v1 purge [XL]
+  - **Wallaby coherence.** Shared control primitives (`.wb-back`, `.wb-seg`, `.wb-stepper`, `.wb-fab`, the `.wb-btn` semantic family, `.wb-confirm`) consolidated into `src/v2/wallaby/shared.css` — `.wb-btn` had two drifted definitions (GoalsView vs HabitsView) whose winner depended on CSS import order. Active-state convention codified: view/range tabs → slate `--wb-card-3` fill; form value-pick segments → green. The Analytics Overview/Tasks/Habits tabs (the one green outlier) now match every other view tab. New palette tokens `--wb-on-action`, `--wb-on-pause`, `--wb-scrim`, `--wb-shadow-pop`, `--wb-shadow-press` replace every raw `#fff` / `rgba(0,0,0,…)` in wallaby CSS+JSX so wallaby-light renders correctly (task-sheet scrim, FAB/sheet shadows, pause-button text, active tag-chip text in the chip editor). Energy accents in WallabyEditTask map to `--wb-cat-*` instead of hardcoded Tailwind hexes; streak flames use `--wb-cat-orange`. One color-identity rule: `routineColors()` in heatmapUtils assigns a habit's accent from its index in the FULL routines list, shared by Home/Habits/Profile (previously Profile indexed a differently-filtered list, so the same habit could render different colors per surface — and pausing one routine reshuffled the others). WallabyEditTask footer buttons match the `.wb-btn` scale.
+  - **v2 bug fixes.** Date-only strings (`due_date`) were parsed with naive `new Date('YYYY-MM-DD')` → UTC midnight → previous local day west of UTC: a task due today grouped as Overdue in the Wallaby Tasks view, GoalsView target dates displayed a day early, and `longestStreak` broke chains. New `parseLocalDate` in heatmapUtils + `localYMD` returning date-only strings as-is fix all call sites. The Wallaby Goals "+" FAB now creates a project (status `'project'` via the createAsProject path) instead of a plain task that never appeared in Goals. Dead code removed: the four unreachable `showHabits/showTasks/showProfile/showGoals` overlay blocks in AppV2 (+ `.v2-habits-overlay` CSS), the unused `onAdviserAfterCommit` threading in WallabyShell, the unused `habitColor()` hash helper, and the `.wb-placeholder` CSS for the retired "coming soon" rows.
+  - **v1 purge.** Deleted `src/AppV1.jsx`, the entire legacy `src/components/` (21 v1-only components + CSS, ~18k lines), and `src/App.css`. Shared components v2 imported from the v1 tree (`Logo`, `Rings`(+css), `CarrierLogo`, `WeatherSection`) moved to `src/v2/components/`; the `.weather-*` styles WeatherSection depends on were extracted from v1's TaskCard.css into `src/v2/components/WeatherSection.css` (v2 had been inheriting them through the v1 bundle graph). `src/App.jsx` is no longer a router — it always renders AppV2; the `ui_version` flag + `?ui=` escape hatch are ignored; the Settings → Legacy tab and `v1_disabled` setting are gone; index.html pre-paint sets `data-ui="v2"` unconditionally.
+  - Transitive `hono` advisory (GHSA-2gcr-mfcq-wcc3, via @modelcontextprotocol/sdk) resolved via `npm audit fix` → 0 vulnerabilities.
+  - Verified headless (wallaby-dark + wallaby-light): Home, Habits + detail, Tasks + action sheet, Goals, Analytics, Settings, Notifications, Quokka. Build + lint + terminal-title/button smoke tests pass.
+
+---
+
 ## 2026-06-08
 
 - fix(routines): Wallaby — one history stamp per completion (kill the doubling) [M]
