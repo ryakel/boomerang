@@ -430,9 +430,10 @@ export default function AppV2() {
   // mount. Falls back to the snapshot for tasks not in local state (e.g.
   // server search results).
   const liveEditTarget = editTarget ? (tasks.find(t => t.id === editTarget.id) || editTarget) : null
-  // Use the Wallaby chip-language quick editor for regular tasks on mobile;
+  // Use the chip-language quick editor for regular tasks on mobile (Wallaby
+  // AND Kept — the editor's --wb-* tokens bridge to the Kept palette);
   // projects/subs and "More options" fall through to the full EditTaskModal.
-  const useWallabyEditor = !!liveEditTarget && isWallaby && !isDesktop && !editFull
+  const useWallabyEditor = !!liveEditTarget && (isWallaby || isKept) && !isDesktop && !editFull
     && liveEditTarget.status !== 'project' && !liveEditTarget.parent_id
   // Flat ordered list for desktop keyboard nav (j/k). Mirrors the visual order:
   // doing → stale → up next → waiting → snoozed → backlog → projects.

@@ -50,6 +50,7 @@ export default function KeptShell({
         tasks={tasks} routines={routines} labels={labels}
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
+        onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
       />
     )
   }

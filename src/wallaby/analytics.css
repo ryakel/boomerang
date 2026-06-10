@@ -1,11 +1,11 @@
 /* ════════════════════════════════════════════════════════════════════════
- * Wallaby Analytics reskin — visual only, gated on [data-theme^="wallaby"].
+ * Wallaby Analytics reskin — visual only, gated on :is([data-theme^="wallaby"], [data-theme^="kept"]).
  * Cards Boomerang's existing analytics sections + greens the accents, without
  * touching the markup or the rich charts (daily bars / DOW / breakdown / heatmap).
  * ════════════════════════════════════════════════════════════════════════ */
 
 /* Sections → grouped navy cards */
-[data-theme^="wallaby"] .v2-analytics-section {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-section {
   background: var(--wb-card);
   border: 1px solid var(--wb-hairline);
   border-radius: 16px;
@@ -15,7 +15,7 @@
 }
 
 /* Summary "big number" band → its own card + green hero number */
-[data-theme^="wallaby"] .v2-analytics-summary {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-summary {
   background: var(--wb-card);
   border: 1px solid var(--wb-hairline);
   border-radius: 16px;
@@ -23,14 +23,14 @@
   margin: 4px 0 12px;
   box-shadow: var(--wb-shadow);
 }
-[data-theme^="wallaby"] .v2-analytics-summary-num { color: var(--wb-action-complete); }
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-summary-num { color: var(--wb-action-complete); }
 
 /* Range / metric toggles → full-width segmented controls, matching the Tasks
  * header (`.wb-tasks .wb-seg`): contained pill track, subtle card-3 active fill.
  * (User: selectors looked awkward as small left-floating pills → "use the way
  * tasks does this for analytics.") */
-[data-theme^="wallaby"] .v2-analytics-range,
-[data-theme^="wallaby"] .v2-analytics-metric {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-range,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-metric {
   display: flex;
   width: 100%;
   gap: 2px;
@@ -40,8 +40,8 @@
   padding: 3px;
   margin: 0 0 10px;
 }
-[data-theme^="wallaby"] .v2-analytics-range-btn,
-[data-theme^="wallaby"] .v2-analytics-metric-btn {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-range-btn,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-metric-btn {
   flex: 1 1 0;
   border: none;
   background: transparent;
@@ -51,8 +51,8 @@
   font: 600 13px/1 var(--v2-font-body);
   cursor: pointer;
 }
-[data-theme^="wallaby"] .v2-analytics-range-btn-active,
-[data-theme^="wallaby"] .v2-analytics-metric-btn-active {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-range-btn-active,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-metric-btn-active {
   background: var(--wb-card-3);
   color: var(--wb-text);
   box-shadow: var(--wb-shadow-press);
@@ -61,20 +61,20 @@
 /* Section tabs → contained segmented control. View tabs take the slate
  * (card-3) active fill like every other Wallaby view/range tab — green is
  * reserved for form value-pick segments (see shared.css convention). */
-[data-theme^="wallaby"] .v2-analytics-tabs {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-tabs {
   background: var(--wb-card-2);
   border: 1px solid var(--wb-hairline);
   border-radius: 10px;
   padding: 3px;
   gap: 2px;
 }
-[data-theme^="wallaby"] .v2-analytics-tab {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-tab {
   border: none;
   background: transparent;
   border-radius: 10px;
   color: var(--wb-text-meta);
 }
-[data-theme^="wallaby"] .v2-analytics-tab-active {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-tab-active {
   background: var(--wb-card-3);
   color: var(--wb-text);
   box-shadow: var(--wb-shadow-press);
@@ -82,12 +82,12 @@
 }
 
 /* Chart fills pick up the Wallaby accent (purple) over the v2 orange */
-[data-theme^="wallaby"] .v2-analytics-daily-bar,
-[data-theme^="wallaby"] .v2-analytics-bd-fill,
-[data-theme^="wallaby"] .v2-analytics-dow-fill {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-daily-bar,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-bd-fill,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-dow-fill {
   background: var(--wb-cat-purple);
 }
-[data-theme^="wallaby"] .v2-analytics-bd-track,
-[data-theme^="wallaby"] .v2-analytics-dow-track {
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-bd-track,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-analytics-dow-track {
   background: var(--wb-card-2);
 }
