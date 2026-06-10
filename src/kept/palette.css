@@ -1,0 +1,103 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * Kept — the Boomerang design language (wiki/Kept-Design-Language.md).
+ * Green-ink canvases (Nightgum dark / Linen light), ONE gold-ochre hero
+ * accent, six "feather" identity colors. Like Wallaby, the kept-* themes
+ * OVERRIDE the shared --v2-* tokens so every token-consuming component
+ * re-skins; Kept-specific structural tokens are namespaced --bm-*.
+ *
+ * HARD RULE: no raw hex in Kept component CSS/JSX — everything goes
+ * through a token here.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Base --bm-* defaults (every v2 theme) ─────────────────────────────────
+ * Defined for EVERY theme so Kept components always resolve their tokens
+ * even if reached from a non-Kept theme. Nightgum values are the defaults. */
+:root[data-ui="v2"] {
+  --bm-bg: #101713;
+  --bm-card: #18211B;
+  --bm-card-2: #202B23;
+  --bm-hairline: rgba(238, 243, 236, 0.09);
+  --bm-hairline-strong: rgba(238, 243, 236, 0.17);
+  --bm-text: #EFF3EC;
+  --bm-text-meta: rgba(239, 243, 236, 0.56);
+  --bm-text-faint: rgba(239, 243, 236, 0.34);
+  --bm-gold: #E3A93C;
+  --bm-gold-soft: rgba(227, 169, 60, 0.15);
+  --bm-on-gold: #2A2106;
+  --bm-danger: #D96C4A;
+  --bm-f-ochre: #E3A93C;
+  --bm-f-clay: #D96C4A;
+  --bm-f-eucalypt: #62B98B;
+  --bm-f-billabong: #6FA6C9;
+  --bm-f-ironbark: #9D87D6;
+  --bm-f-heath: #C77C9E;
+  --bm-trail-empty: rgba(238, 243, 236, 0.10);
+  --bm-scrim: rgba(5, 9, 7, 0.6);
+  --bm-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 10px 28px rgba(0, 0, 0, 0.30);
+  --bm-shadow-pop: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --bm-shadow-press: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Kept dark — "Nightgum" ────────────────────────────────────────────── */
+:root[data-ui="v2"][data-theme="kept-dark"] {
+  --v2-font-display: 'Fraunces', Georgia, serif;
+
+  --v2-bg: #101713;
+  --v2-surface: #18211B;
+  --v2-text: #EFF3EC;
+  --v2-text-rgb: 239, 243, 236;
+  --v2-text-meta: rgba(239, 243, 236, 0.56);
+  --v2-text-faint: rgba(239, 243, 236, 0.34);
+  --v2-hairline: rgba(238, 243, 236, 0.09);
+  --v2-accent: #E3A93C;
+
+  --energy-desk: var(--bm-f-billabong);
+  --energy-people: var(--bm-f-ironbark);
+  --energy-errand: var(--bm-f-eucalypt);
+  --energy-creative: var(--bm-f-heath);
+  --energy-physical: var(--bm-f-clay);
+}
+
+/* ── Kept light — "Linen" ──────────────────────────────────────────────── */
+:root[data-ui="v2"][data-theme="kept-light"] {
+  --v2-font-display: 'Fraunces', Georgia, serif;
+
+  --v2-bg: #F7F4EC;
+  --v2-surface: #FFFFFF;
+  --v2-text: #1F2A22;
+  --v2-text-rgb: 31, 42, 34;
+  --v2-text-meta: rgba(31, 42, 34, 0.58);
+  --v2-text-faint: rgba(31, 42, 34, 0.34);
+  --v2-hairline: rgba(31, 42, 34, 0.10);
+  --v2-accent: #B8841C;
+
+  --bm-bg: #F7F4EC;
+  --bm-card: #FFFFFF;
+  --bm-card-2: #EEEADF;
+  --bm-hairline: rgba(31, 42, 34, 0.10);
+  --bm-hairline-strong: rgba(31, 42, 34, 0.20);
+  --bm-text: #1F2A22;
+  --bm-text-meta: rgba(31, 42, 34, 0.58);
+  --bm-text-faint: rgba(31, 42, 34, 0.34);
+  --bm-gold: #B8841C;
+  --bm-gold-soft: rgba(184, 132, 28, 0.13);
+  --bm-on-gold: #FFFBEF;
+  --bm-danger: #BA4B2C;
+  --bm-f-ochre: #B8841C;
+  --bm-f-clay: #C24E2D;
+  --bm-f-eucalypt: #3D9A6B;
+  --bm-f-billabong: #41799C;
+  --bm-f-ironbark: #7E61C7;
+  --bm-f-heath: #B25579;
+  --bm-trail-empty: rgba(31, 42, 34, 0.11);
+  --bm-scrim: rgba(31, 42, 34, 0.35);
+  --bm-shadow: 0 1px 2px rgba(31, 42, 34, 0.06), 0 10px 28px rgba(31, 42, 34, 0.10);
+  --bm-shadow-pop: 0 8px 22px rgba(31, 42, 34, 0.18);
+  --bm-shadow-press: 0 1px 2px rgba(31, 42, 34, 0.10);
+
+  --energy-desk: var(--bm-f-billabong);
+  --energy-people: var(--bm-f-ironbark);
+  --energy-errand: var(--bm-f-eucalypt);
+  --energy-creative: var(--bm-f-heath);
+  --energy-physical: var(--bm-f-clay);
+}

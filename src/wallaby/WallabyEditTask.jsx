@@ -17,14 +17,14 @@ const STATUSES = [
   { id: 'done', label: 'Done' },
 ]
 const SIZES = ['XS', 'S', 'M', 'L', 'XL']
-// Energy accents map onto the Wallaby category palette (palette.css) so they
-// re-tune for wallaby-light instead of hardcoding Tailwind-ish hexes.
+// Energy accents resolve via the shared --energy-* tokens (single source —
+// tokens.css standard values, per-theme overrides in wallaby/kept palettes).
 const ENERGY = [
-  { id: 'desk', label: 'Desk', Icon: Monitor, color: 'var(--wb-cat-blue)' },
-  { id: 'people', label: 'People', Icon: Users, color: 'var(--wb-cat-purple)' },
-  { id: 'errand', label: 'Errand', Icon: MapPin, color: 'var(--wb-cat-green)' },
-  { id: 'creative', label: 'Creative', Icon: Palette, color: 'var(--wb-cat-pink)' },
-  { id: 'physical', label: 'Physical', Icon: Dumbbell, color: 'var(--wb-cat-orange)' },
+  { id: 'desk', label: 'Desk', Icon: Monitor, color: 'var(--energy-desk)' },
+  { id: 'people', label: 'People', Icon: Users, color: 'var(--energy-people)' },
+  { id: 'errand', label: 'Errand', Icon: MapPin, color: 'var(--energy-errand)' },
+  { id: 'creative', label: 'Creative', Icon: Palette, color: 'var(--energy-creative)' },
+  { id: 'physical', label: 'Physical', Icon: Dumbbell, color: 'var(--energy-physical)' },
 ]
 const DRAIN = [{ v: 1, label: 'Low' }, { v: 2, label: 'Medium' }, { v: 3, label: 'High' }]
 
