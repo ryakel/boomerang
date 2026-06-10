@@ -273,6 +273,16 @@ export function loadSettings() {
     saved.theme = saved.theme === 'terminal-light' ? 'wallaby-light' : 'wallaby-dark'
     save(SETTINGS_KEY, saved)
   }
+
+  // Kept cutover (K6, 2026-06-10): NEW installs default to Kept, following
+  // the system color scheme at first load. Existing users keep whatever
+  // theme they had — only an unset theme gets the default.
+  if (!saved.theme) {
+    const prefersDark = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches
+    saved.theme = prefersDark ? 'kept-dark' : 'kept-light'
+    save(SETTINGS_KEY, saved)
+  }
   return { ...DEFAULT_SETTINGS, ...saved }
 }
 export function saveSettings(settings) { save(SETTINGS_KEY, settings); touchModified() }

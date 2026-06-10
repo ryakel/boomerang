@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-10
 
+- feat(ui): Kept K5(v1) + K6 cutover — desktop command center + new-install default [L]
+  - **KeptDesktop** (`src/kept/KeptDesktop.jsx` + `desktop.css`): the command-center layout for kept themes on desktop — persistent sidebar (brand, gold **"Throw a task ⌘K"** pill, Today/Tasks/Loops nav, Review section routing to Arcs/Caught/Analytics/Packages/Activity, Quokka card, Settings) over a centered work surface rendering the shared Kept views. **⌘K** opens the Throw sheet (centered dialog treatment on desktop). FloatingCapture FABs gated out of kept desktop. K5 continuation (Today rail, Board/Timeline view modes, detail panel) tracked in the spec.
+  - **K6 cutover (new installs):** an unset theme now defaults to **Kept following the system color scheme** (`kept-dark`/`kept-light` via `prefers-color-scheme`, persisted on first load). Existing users keep their stored theme — nothing migrates. Wallaby remains in the picker; its teardown is the K6 completion step once Kept is accepted as the daily driver.
+  - Verified headless: fresh install lands on kept-light (headless prefers light); desktop Today/Tasks/Loops navigation, ⌘K throw dialog, matched-version hero data. The transient "3650-day rally" seen during verification was the pre-existing computeStreak iteration guard surfacing on an EMPTY task list (blocked hydration) — not a Kept regression.
+
 - feat(ui): Kept K3 — the KeptShell mobile IA (Today / Loops / Throw / Tasks / More) [XL]
   - **KeptShell** renders for kept themes on mobile: `KeptHeader` (mark + `boomerang.` wordmark, gold Quokka button — Quokka is one tap from every screen, not a nav tab — bell, avatar), `KeptNav` (Today · Loops · **Throw** · Tasks · More; one gold accent, active dot), and the **ThrowSheet** (title + Today/Tomorrow/Weekend/No-date chips; "More options" hands off to the full AddTaskModal).
   - **TodayView:** wing-corner Day Arc hero (points vs goal, catches / loops / pts-left meta, `↻ rally` chip) + today's tasks as hairline rows (gold circle checks, dot-tags, `↩ returns` chips for snoozed) + Loops rows with mini Flight Trails and feather checks.
