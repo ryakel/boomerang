@@ -997,6 +997,7 @@ export default function RoutinesModal({
   open, routines, tasks = [], onAdd, onDelete, onTogglePause, onUpdate, onSpawnNow, onLogHabit, onSkipCycle, onClose,
   editRoutineId, onClearEditRoutineId, activeRoutineIds,
   title = 'Routines', noun = 'routine',
+  openToForm = false, onConsumeOpenToForm,
 }) {
   const [view, setView] = useState('list')  // 'list' | 'form'
   const [editing, setEditing] = useState(null)  // routine being edited; null = new
@@ -1010,6 +1011,17 @@ export default function RoutinesModal({
       setExpandedId(null)
     }
   }, [open])
+
+  // "New loop" entry points jump straight to the blank form — landing on
+  // the list and asking for a second "+ New" tap made no sense (prod
+  // report 2026-06-11: New loop -> Loop List -> New routine).
+  useEffect(() => {
+    if (open && openToForm) {
+      setEditing(null)
+      setView('form')
+      onConsumeOpenToForm?.()
+    }
+  }, [open, openToForm, onConsumeOpenToForm])
 
   // Open directly into edit form when AppV2 supplies an editRoutineId — same
   // pattern v1 uses (e.g. EditTaskModal → "Open routine" jumps the user here).
@@ -1092,9 +1104,9 @@ export default function RoutinesModal({
           {routines.length === 0 ? (
             <EmptyState
               icon={RotateCw}
-              title="No routines yet"
+              title={`No ${noun}s yet`}
               body="Recurring tasks like dentist visits, plant watering, oil changes. Create one to start tracking the rhythm."
-              cta="New routine"
+              cta={`New ${noun}`}
               ctaOnClick={() => { setEditing(null); setView('form') }}
             />
           ) : (
@@ -1149,7 +1161,7 @@ export default function RoutinesModal({
                 className="v2-routine-new-btn"
                 onClick={() => { setEditing(null); setView('form') }}
               >
-                <Plus size={16} strokeWidth={2} /> New routine
+                <Plus size={16} strokeWidth={2} /> New {noun}
               </button>
             </>
           )}

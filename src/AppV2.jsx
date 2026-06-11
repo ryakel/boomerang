@@ -97,6 +97,9 @@ export default function AppV2() {
   // picker rows with rich preview cards but keeps the contract.
   const [spacesHubOpen, setSpacesHubOpen] = useState(false)
   const [showRoutines, setShowRoutines] = useState(false)
+  // "New loop" entry points open RoutinesModal directly in the blank form
+  // (list-first made the flow New loop -> list -> New routine).
+  const [routinesOpenToForm, setRoutinesOpenToForm] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
@@ -1328,7 +1331,7 @@ export default function AppV2() {
           onThrow={({ title, dueDate }) => handleAddTask({ title, dueDate })}
           onOpenFullAdd={() => setShowAdd(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
-          onAddLoop={() => setShowRoutines(true)}
+          onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onOpenQuokka={() => setShowAdviser(true)}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPackages={() => setShowPackages(true)}
@@ -1378,7 +1381,7 @@ export default function AppV2() {
           onThrow={({ title, dueDate }) => handleAddTask({ title, dueDate })}
           onOpenFullAdd={() => setShowAdd(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
-          onAddLoop={() => setShowRoutines(true)}
+          onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onOpenQuokka={() => setShowAdviser(true)}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPackages={() => setShowPackages(true)}
@@ -1557,6 +1560,8 @@ export default function AppV2() {
       />
       <RoutinesModal
         open={showRoutines}
+        openToForm={routinesOpenToForm}
+        onConsumeOpenToForm={() => setRoutinesOpenToForm(false)}
         title={isKept ? 'Loops' : 'Routines'}
         noun={isKept ? 'loop' : 'routine'}
         routines={routines}
