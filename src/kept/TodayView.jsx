@@ -17,23 +17,30 @@ const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 export default function TodayView({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
-  onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
+  onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop, onSpawnStackToday,
 }) {
   const todayKey = localYMD()
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
 
+  const stackRoutineIds = useMemo(() => new Set(
+    routines.filter(r => Array.isArray(r.members) && r.members.length > 0).map(r => r.id),
+  ), [routines])
+
   const dayTasks = useMemo(() => tasks.filter(t => {
     if (t.parent_id || t.gmail_pending) return false
+    // Stack members render grouped under their stack in the Loops section.
+    if (t.routine_id && stackRoutineIds.has(t.routine_id)) return false
     const doneToday = t.status === 'done' && t.completed_at && localYMD(new Date(t.completed_at)) === todayKey
     if (doneToday) return true
     if (!ACTIVE.includes(t.status)) return false
     if (isSnoozed(t)) return false
     return t.due_date ? String(t.due_date).slice(0, 10) <= todayKey : false
-  }).sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0)), [tasks, todayKey])
+  }).sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0)), [tasks, todayKey, stackRoutineIds])
 
   const returningSoon = useMemo(() => tasks.filter(t =>
-    ACTIVE.includes(t.status) && !t.parent_id && !t.gmail_pending && isSnoozed(t) && !t.snooze_indefinite,
-  ).slice(0, 3), [tasks])
+    ACTIVE.includes(t.status) && !t.parent_id && !t.gmail_pending && isSnoozed(t) && !t.snooze_indefinite
+    && !(t.routine_id && stackRoutineIds.has(t.routine_id)),
+  ).slice(0, 3), [tasks, stackRoutineIds])
 
   // Only loops that are actually DUE today (per the cadence engine — weekly/
   // monthly/quarterly stay hidden until their day), already done today (so a
@@ -46,14 +53,28 @@ export default function TodayView({
       const byDay = historyByDay(r.completed_history)
       const next = getNextDueDate(r)
       const dueKey = next ? localYMD(next) : null
+      const isStack = Array.isArray(r.members) && r.members.length > 0
+      // A stack's live cycle = its member tasks due today or carried over
+      // (leftover members linger as the open cycle until cleared).
+      const cycleTasks = isStack
+        ? tasks.filter(t => t.routine_id === r.id
+            && String(t.due_date || '').slice(0, 10) <= todayKey
+            && !['cancelled', 'backlog', 'project'].includes(t.status))
+        : []
+      // Pre-trigger (trigger_time) members are snoozed — the stack shows as a
+      // single "returns tonight" row until they surface, per the trigger-time
+      // contract (don't show scheduled work before its clock time).
+      const memberTasks = cycleTasks.filter(t => t.status === 'done' || !isSnoozed(t))
+      const snoozedUntil = cycleTasks.find(t => t.status !== 'done' && isSnoozed(t))?.snoozed_until || null
+      const allSnoozed = isStack && memberTasks.length === 0 && !!snoozedUntil
       return {
-        r, color: feathers[r.id], byDay,
+        r, color: feathers[r.id], byDay, isStack, memberTasks, allSnoozed, snoozedUntil,
         rally: currentStreak(byDay),
         doneToday: !!byDay[todayKey],
         dueToday: !!dueKey && dueKey <= todayKey,
       }
-    }).filter(l => l.dueToday || l.doneToday)
-  }, [routines, todayKey])
+    }).filter(l => l.dueToday || l.doneToday || l.memberTasks.length > 0 || l.allSnoozed)
+  }, [routines, tasks, todayKey])
   const loopsDone = loops.filter(l => l.doneToday).length
   const catches = dailyStats.tasksToday ?? 0
 
@@ -118,7 +139,61 @@ export default function TodayView({
         <>
           <div className="bm-sec"><span className="bm-sec-tick" /> Loops <span className="bm-sec-n">{loopsDone}/{loops.length}</span></div>
           <div className="bm-rows">
-            {loops.map(({ r, color, byDay, rally, doneToday }) => (
+            {loops.map(({ r, color, byDay, rally, doneToday, isStack, memberTasks, allSnoozed, snoozedUntil }) => {
+              if (isStack) {
+                // Stack: independent member tasks per cycle. Checks route
+                // through the REAL task path (onCompleteTask) so the 20%
+                // clear-bonus and the lone last-member history stamp hold.
+                if (memberTasks.length === 0) {
+                  return (
+                    <div key={r.id} className="bm-loop" style={{ '--loop': color }}>
+                      <span className="bm-loop-ring"><Repeat2 size={15} strokeWidth={2.2} /></span>
+                      <button className="bm-loop-body" onClick={() => onEditLoop?.(r)}>
+                        <div className="bm-loop-title">{r.title} <em className="bm-stack-count">· {r.members.length} items</em></div>
+                        <div className="bm-loop-sub">
+                          {doneToday ? 'cycle cleared today'
+                            : allSnoozed ? <span className="bm-return-chip">↩ returns {formatSnoozeLabel(snoozedUntil)}</span>
+                            : 'stack'}
+                        </div>
+                      </button>
+                      {doneToday ? (
+                        <span className="bm-loop-chk is-done" style={{ '--loop': color }} aria-hidden="true"><Check size={15} strokeWidth={3.2} /></span>
+                      ) : allSnoozed ? (
+                        <span className="bm-chk is-muted" aria-hidden="true" />
+                      ) : (
+                        <button className="bm-btn bm-btn-tonal bm-stack-start" onClick={() => onSpawnStackToday?.(r.id)}>Start</button>
+                      )}
+                    </div>
+                  )
+                }
+                const done = memberTasks.filter(t => t.status === 'done').length
+                return (
+                  <div key={r.id} className="bm-stack" style={{ '--loop': color }}>
+                    <div className="bm-stack-head">
+                      <span className="bm-loop-ring" style={{ width: 26, height: 26 }}><Repeat2 size={13} strokeWidth={2.2} /></span>
+                      <button className="bm-stack-title" onClick={() => onEditLoop?.(r)}>{r.title}</button>
+                      <span className="bm-stack-progress">{done}/{memberTasks.length}</span>
+                    </div>
+                    {memberTasks.map(t => {
+                      const mdone = t.status === 'done'
+                      return (
+                        <div key={t.id} className="bm-stack-member">
+                          <button
+                            className={`bm-chk${mdone ? ' is-done' : ''}`}
+                            style={mdone ? { background: color, borderColor: color } : { borderColor: color }}
+                            onClick={() => onCompleteTask?.(t)}
+                            aria-label={mdone ? 'Reopen' : 'Catch it'}
+                          >{mdone && <Check size={13} strokeWidth={3.4} color="var(--bm-on-ember)" />}</button>
+                          <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
+                            <span className={`bm-row-title${mdone ? ' is-done' : ''}`}>{t.title}</span>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              }
+              return (
               <div key={r.id} className="bm-loop" style={{ '--loop': color }}>
                 <span className="bm-loop-ring"><Repeat2 size={15} strokeWidth={2.2} /></span>
                 <button className="bm-loop-body" onClick={() => onEditLoop?.(r)} aria-label={`Edit ${r.title}`}>
@@ -134,7 +209,8 @@ export default function TodayView({
                   aria-label={doneToday ? 'Mark not done' : 'Mark done'}
                 >{doneToday && <Check size={15} strokeWidth={3.2} />}</button>
               </div>
-            ))}
+              )
+            })}
           </div>
         </>
       )}

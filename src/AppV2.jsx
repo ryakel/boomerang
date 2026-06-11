@@ -1256,6 +1256,11 @@ export default function AppV2() {
           streak={streak}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
           onOpenTask={(task) => setEditTarget(task)}
+          onSpawnStackToday={(routineId) => {
+            const spawned = spawnNow(routineId)
+            if (spawned && spawned.length) addSpawnedTasks(spawned)
+            return spawned
+          }}
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
@@ -1289,6 +1294,11 @@ export default function AppV2() {
           streak={streak}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
           onOpenTask={(task) => setEditTarget(task)}
+          onSpawnStackToday={(routineId) => {
+            const spawned = spawnNow(routineId)
+            if (spawned && spawned.length) addSpawnedTasks(spawned)
+            return spawned
+          }}
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
