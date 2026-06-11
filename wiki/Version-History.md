@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): Kept Today — main-page contract restores (divergence audit, round 1) [M]
+  - From the divergence audit: five places Kept's Today silently dropped v2 main-list behavior.
+  - **Habit-mode loops always visible** — the cadence filter ran target-frequency loops through `getNextDueDate` (which doesn't model them), hiding them after any log; habit-mode is "log any day", so they're now always due.
+  - **Pinned Arcs return to the main page** — pinned projects (title · session count · gold Log-session button) with their active children as catchable rows, above the Today section.
+  - **Gmail-pending visibility** — a gold banner ("N imported items to review") on Today opens Suggestions; Suggestions also added to the desktop sidebar.
+  - **Signal restores** — `Nd on list` staleness meta (isStale), `doing`/`waiting` status tags, and a high-priority marker (ember halo on the check + HIGH tag).
+  - Verified live on seeded data: all five render and behave; zero page errors; lint 0; tests + build + smoke pass.
+
 - fix(ui): lock text-size-adjust — landscape rotation no longer inflates text permanently [XS]
   - Prod report: rotate to landscape and back → row titles and meta stuck at boosted sizes (everything except SVG text). iOS Safari's font boosting inflates text on rotation and, with `text-size-adjust` unlocked, keeps the inflated sizes back in portrait. `html { -webkit-text-size-adjust: 100% }` in index.css renders authored sizes in every orientation. (Not reproducible in headless Chromium — the standard documented remedy, applies to all themes.)
 
