@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- feat(ui): Activity log refresh — day groups + action icon chips (design wave 2/4) [S]
+  - The flat 200-row stream is now grouped under sticky day headers (Today / Yesterday / Tue, Jun 9) with a tinted icon chip per action type (created/completed/reopened/deleted/status/edited/snoozed/skipped/priority/error), title-first row hierarchy, and the Restore pill right-aligned on the row. Search, All/Deleted/Errors filters, and AI search unchanged.
+  - Styled on `--v2-*` tokens so the Kept palette flows through without override CSS (per the K4 no-reskin-by-override rule); Standard and Wallaby inherit the same cleanup.
+  - Verified live in Kept: three day groups, 10 icon chips, restore pill functional.
+
 - feat(ui): cadence-aware loop charts — cycle chips replace the day-grid (design wave 1/4) [M]
   - The Loops "Trail" tab now fits the visualization to the loop's own cadence (§13a; prod report: the dot grids were "really hard to interpret for as much real estate as they eat"):
     - **Daily loops** → a compact 4-week mini Flight Trail (single row).
