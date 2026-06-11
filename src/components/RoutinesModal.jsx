@@ -344,6 +344,23 @@ function FollowUpStepRow({ step, index, isFirst, isLast, onChange, onRemove, onM
   )
 }
 
+// Hairline disclosure row — the Kept editor language (design doc §13b):
+// the 2-3 decisions you actually make stay visible; everything else expands
+// in place. Collapsed rows show a summary of what's set inside.
+function FormDisclosure({ label, summary, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className={`v2-form-disclosure${open ? ' is-open' : ''}`}>
+      <button type="button" className="v2-form-disclosure-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span className="v2-form-disclosure-label">{label}</span>
+        {summary && !open && <span className="v2-form-disclosure-sum">{summary}</span>}
+        <ChevronDown size={15} strokeWidth={2} className="v2-form-disclosure-chev" />
+      </button>
+      {open && <div className="v2-form-disclosure-body">{children}</div>}
+    </div>
+  )
+}
+
 function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
   const isNew = !initial
   const [title, setTitle] = useState(initial?.title || '')
@@ -577,6 +594,16 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
     setPendingSave(null)
   }
 
+  // Disclosure summaries — what's set inside, visible while collapsed.
+  const schedSummaryBits = []
+  if (!isHabit && endDate) schedSummaryBits.push(`ends ${endDate}`)
+  if (highPriority) schedSummaryBits.push('high priority')
+  if (!isHabit && autoRoll) schedSummaryBits.push('auto-roll')
+  if (!isHabit && !isNew && lastDone) schedSummaryBits.push(`last done ${lastDone}`)
+  const extrasSummaryBits = []
+  if (selectedTags.length) extrasSummaryBits.push(`${selectedTags.length} label${selectedTags.length === 1 ? '' : 's'}`)
+  if (notes.trim()) extrasSummaryBits.push('notes')
+
   return (
     <div className="v2-routine-form">
       <button type="button" className="v2-routine-back" onClick={onCancel}>← Back to {noun}s</button>
@@ -589,10 +616,6 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
       />
 
       <div className="v2-form-section">
-        <label className="v2-form-label">Mode</label>
-        <div className="v2-form-section-hint">
-          <strong>Auto</strong> spawns a task on a cadence (daily, weekly, etc.). <strong>Habit</strong> tracks a target frequency (e.g. 2× / week) without locking it to specific days — you log proactively or get a gentle behind-pace nudge.
-        </div>
         <div className="v2-form-segmented v2-form-mode-segmented">
           <button
             type="button"
@@ -608,6 +631,11 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
           >
             Habit (target frequency)
           </button>
+        </div>
+        <div className="v2-form-section-hint">
+          {isHabit
+            ? 'Tracks a target frequency (e.g. 2× / week) without locking it to specific days — log proactively or get a gentle behind-pace nudge.'
+            : 'Spawns a task on a cadence (daily, weekly, etc.) and nags like any task.'}
         </div>
       </div>
 
@@ -711,65 +739,6 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
             </div>
           )}
 
-          <div className="v2-form-row">
-            <div className="v2-form-field">
-              <label className="v2-form-label">At time</label>
-              <input
-                type="time"
-                className="v2-form-input"
-                value={triggerTime}
-                onChange={e => setTriggerTime(e.target.value)}
-                aria-label="Surface at time"
-              />
-            </div>
-            <div className="v2-form-field">
-              {triggerTime && (
-                <button
-                  type="button"
-                  className="v2-routine-time-clear"
-                  onClick={() => setTriggerTime('')}
-                >
-                  Clear time
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="v2-form-section-hint">
-            Don't show or nag before this time. Leave blank for any time.
-          </div>
-
-          {!isNew && (
-            <>
-              <div className="v2-form-row">
-                <div className="v2-form-field">
-                  <label className="v2-form-label">Last done</label>
-                  <input
-                    type="date"
-                    className="v2-form-input"
-                    value={lastDone}
-                    max={today}
-                    onChange={e => setLastDone(e.target.value)}
-                    aria-label="Last completed date"
-                  />
-                </div>
-                <div className="v2-form-field">
-                  {lastDone && (
-                    <button
-                      type="button"
-                      className="v2-routine-time-clear"
-                      onClick={() => setLastDone('')}
-                    >
-                      Clear (never done)
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="v2-form-section-hint">
-                When you last completed this. Sets the next due date — use it to fix a routine that's nagging after lost history.
-              </div>
-            </>
-          )}
-
           {cadence === 'custom' && (
             <div className="v2-form-section">
               <label className="v2-form-label">Every</label>
@@ -798,6 +767,33 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
               </div>
             </div>
           )}
+
+          <div className="v2-form-row">
+            <div className="v2-form-field">
+              <label className="v2-form-label">At time</label>
+              <input
+                type="time"
+                className="v2-form-input"
+                value={triggerTime}
+                onChange={e => setTriggerTime(e.target.value)}
+                aria-label="Surface at time"
+              />
+            </div>
+            <div className="v2-form-field">
+              {triggerTime && (
+                <button
+                  type="button"
+                  className="v2-routine-time-clear"
+                  onClick={() => setTriggerTime('')}
+                >
+                  Clear time
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="v2-form-section-hint">
+            Don't show or nag before this time. Leave blank for any time.
+          </div>
         </>
       )}
 
@@ -828,19 +824,36 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
         </div>
       )}
 
-      {!isHabit && (
-        <div className="v2-form-row">
-          <div className="v2-form-field">
-            <label className="v2-form-label">End date (optional)</label>
-            <input
-              className="v2-form-input"
-              type="date"
-              min={today}
-              value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-            />
+      <FormDisclosure
+        label="More options"
+        summary={schedSummaryBits.join(' · ') || undefined}
+        defaultOpen={false}
+      >
+        {!isHabit && (
+          <div className="v2-form-row">
+            <div className="v2-form-field">
+              <label className="v2-form-label">End date (optional)</label>
+              <input
+                className="v2-form-input"
+                type="date"
+                min={today}
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+              />
+            </div>
+            <div className="v2-form-field">
+              <label className="v2-form-label">Priority</label>
+              <button
+                className={`v2-form-pri-toggle v2-form-pri-${highPriority ? 'high' : 'normal'}`}
+                onClick={() => setHighPriority(!highPriority)}
+              >
+                {highPriority ? '! High' : 'Normal'}
+              </button>
+            </div>
           </div>
-          <div className="v2-form-field">
+        )}
+        {isHabit && (
+          <div className="v2-form-section">
             <label className="v2-form-label">Priority</label>
             <button
               className={`v2-form-pri-toggle v2-form-pri-${highPriority ? 'high' : 'normal'}`}
@@ -849,53 +862,64 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
               {highPriority ? '! High' : 'Normal'}
             </button>
           </div>
-        </div>
-      )}
-
-      {isHabit && (
-        <div className="v2-form-section">
-          <label className="v2-form-label">Priority</label>
-          <button
-            className={`v2-form-pri-toggle v2-form-pri-${highPriority ? 'high' : 'normal'}`}
-            onClick={() => setHighPriority(!highPriority)}
-          >
-            {highPriority ? '! High' : 'Normal'}
-          </button>
-        </div>
-      )}
-
-      {!isHabit && (
-        <div className="v2-form-section">
-          <label className="v2-form-label">Auto-roll</label>
-          <div className="v2-form-section-hint">
-            If a previous task is still active when the next one is due, roll its date forward instead of stacking a duplicate. Useful for medication or anything you can't double up on.
+        )}
+        {!isHabit && (
+          <div className="v2-form-section">
+            <label className="v2-form-label">Auto-roll</label>
+            <div className="v2-form-section-hint">
+              If a previous task is still active when the next one is due, roll its date forward instead of stacking a duplicate. Useful for medication or anything you can't double up on.
+            </div>
+            <button
+              type="button"
+              className={`v2-form-toggle v2-form-toggle-${autoRoll ? 'on' : 'off'}`}
+              onClick={() => setAutoRoll(!autoRoll)}
+              aria-pressed={autoRoll}
+            >
+              {autoRoll ? 'On' : 'Off'}
+            </button>
           </div>
-          <button
-            type="button"
-            className={`v2-form-toggle v2-form-toggle-${autoRoll ? 'on' : 'off'}`}
-            onClick={() => setAutoRoll(!autoRoll)}
-            aria-pressed={autoRoll}
-          >
-            {autoRoll ? 'On' : 'Off'}
-          </button>
-        </div>
-      )}
-
-      <div className="v2-form-section">
-        <label className="v2-form-label">Notes</label>
-        <textarea
-          className="v2-form-textarea"
-          placeholder="Anything to remember…"
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-        />
-      </div>
+        )}
+        {!isHabit && !isNew && (
+          <>
+            <div className="v2-form-row">
+              <div className="v2-form-field">
+                <label className="v2-form-label">Last done</label>
+                <input
+                  type="date"
+                  className="v2-form-input"
+                  value={lastDone}
+                  max={today}
+                  onChange={e => setLastDone(e.target.value)}
+                  aria-label="Last completed date"
+                />
+              </div>
+              <div className="v2-form-field">
+                {lastDone && (
+                  <button
+                    type="button"
+                    className="v2-routine-time-clear"
+                    onClick={() => setLastDone('')}
+                  >
+                    Clear (never done)
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="v2-form-section-hint">
+              When you last completed this. Sets the next due date — use it to fix a routine that's nagging after lost history.
+            </div>
+          </>
+        )}
+      </FormDisclosure>
 
       {!isHabit && (
-        <div className="v2-form-section">
-          <label className="v2-form-label">Items (stack)</label>
+        <FormDisclosure
+          label="Stack items"
+          summary={members.length > 0 ? `${members.length} item${members.length === 1 ? '' : 's'}` : undefined}
+          defaultOpen={members.length > 0}
+        >
           <div className="v2-form-section-hint">
-            Add 2+ items and this routine becomes a <strong>stack</strong>: each cycle it spawns one independent task per item, all sharing the cadence and time above. Each item scores its own points; clearing every item in a cycle pays a 20% bonus.
+            Add 2+ items and this {noun} becomes a <strong>stack</strong>: each cycle it spawns one independent task per item, all sharing the cadence and time above. Each item scores its own points; clearing every item in a cycle pays a 20% bonus.
           </div>
           {members.length > 0 && (
             <ol className="v2-stack-member-edit-list">
@@ -923,11 +947,14 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
           <button type="button" className="v2-edit-add-pill" onClick={addMember}>
             + Add item
           </button>
-        </div>
+        </FormDisclosure>
       )}
 
-      <div className="v2-form-section">
-        <label className="v2-form-label">Follow-ups</label>
+      <FormDisclosure
+        label="Follow-ups"
+        summary={followUps.length > 0 ? `${followUps.length} step${followUps.length === 1 ? '' : 's'}` : undefined}
+        defaultOpen={followUps.length > 0}
+      >
         <div className="v2-form-section-hint">
           Steps that auto-spawn when each previous one is completed. Offset is the delay between completion and the next step appearing.
         </div>
@@ -951,35 +978,50 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
         <button type="button" className="v2-edit-add-pill" onClick={addStep}>
           + Add step
         </button>
-      </div>
+      </FormDisclosure>
 
-      {labels.length > 0 && (
-        <div className="v2-form-section">
-          <label className="v2-form-label">Labels</label>
-          <div className="v2-form-label-grid">
-            {labels.map(lbl => {
-              const active = selectedTags.includes(lbl.id)
-              return (
-                <button
-                  key={lbl.id}
-                  className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
-                  onClick={() => toggleTag(lbl.id)}
-                  style={active ? { background: lbl.color, borderColor: lbl.color, color: '#fff' } : undefined}
-                >
-                  {lbl.name}
-                </button>
-              )
-            })}
+      <FormDisclosure
+        label="Labels & notes"
+        summary={extrasSummaryBits.join(' · ') || undefined}
+        defaultOpen={false}
+      >
+        {labels.length > 0 && (
+          <div className="v2-form-section">
+            <label className="v2-form-label">Labels</label>
+            <div className="v2-form-label-grid">
+              {labels.map(lbl => {
+                const active = selectedTags.includes(lbl.id)
+                return (
+                  <button
+                    key={lbl.id}
+                    className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
+                    onClick={() => toggleTag(lbl.id)}
+                    style={active ? { background: lbl.color, borderColor: lbl.color, color: '#fff' } : undefined}
+                  >
+                    {lbl.name}
+                  </button>
+                )
+              })}
+            </div>
           </div>
+        )}
+        <div className="v2-form-section">
+          <label className="v2-form-label">Notes</label>
+          <textarea
+            className="v2-form-textarea"
+            placeholder="Anything to remember…"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+          />
         </div>
-      )}
+      </FormDisclosure>
 
       <button
         className="v2-form-submit"
         disabled={!title.trim()}
         onClick={handleSave}
       >
-        {isNew ? 'Create routine' : 'Save changes'}
+        {isNew ? `Create ${noun}` : 'Save changes'}
       </button>
       <ChainReconcileModal
         open={!!pendingSave}
