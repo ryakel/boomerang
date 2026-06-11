@@ -390,3 +390,63 @@ language and a structurally cleaner codebase.
 
 Each phase is an independently mergeable PR with screenshot verification in
 both palettes (the Local-Verification-Harness runbook applies unchanged).
+
+## 13 · Feedback backlog (2026-06-11 prod tire-kicking round)
+
+Captured from live use; these are the next design lifts, in priority order.
+
+### 13a · Cadence-aware loop trails (replace the dot grids on Loops cards)
+The full FlightTrail dot grid (6×13 dots + streak arcs) eats a card's worth
+of space and reads as noise for anything that isn't a multi-step daily loop —
+a weekly loop shows ~95% empty dots and the arcs almost never connect.
+Direction: **the visualization unit should be the loop's own cadence cycle,
+not the calendar day.**
+- Daily loops → keep a trail but compact: a single 14–21 day row (the `mini`
+  FlightTrail), not a grid.
+- Weekly/monthly/quarterly/annual + custom-interval loops → a row of the
+  last 8–12 **cycle chips**: each chip = one cadence window, filled (caught),
+  hollow (missed), half (skipped via skip-cycle). Plus a "next due" caption.
+- Habit-mode (target frequency) → progress ring or `n/target` bar for the
+  current window, with cycle chips for past windows.
+- The Single/Month/Year range tabs stay for the drill-down detail; the card
+  face gets the compact cadence-fit visual only.
+
+### 13b · Kept-native editors (kill the reskinned v2 forms)
+The Edit-loop / Edit-task full-page forms are the v2 modals with Kept paint —
+dense ALL-CAPS field stacks that read foreign next to the Kept surfaces.
+Direction: **progressive disclosure, Kept type-scale.**
+- Top: name field as a large Fraunces headline input.
+- The 2–3 high-frequency decisions as chip rows (cadence, day, time) —
+  tap-to-pick, not select boxes.
+- Everything else (anchors, auto-roll, end date, follow-up chains, stack
+  members, nag policy) behind hairline disclosure rows that expand in place.
+- Same skeleton for task editor: title, when (date/snooze), energy chips;
+  notes/checklist/links/integrations under disclosures.
+- Per K4 rule: built Kept-first against `--bm-*` tokens, no override CSS.
+
+### 13c · Achievements expansion (future feature; user: "be really creative")
+10/12 earned already — the wall needs depth and wit. Candidate directions
+(ADHD-honest, anti-perfectionist; metaphor-aligned with the brand):
+- **Recovery class** (the signature set): *Phoenix* — start a new rally after
+  losing a 14+ day one; *It Comes Back* — complete a task 30+ days old;
+  *Clean Sweep* — clear every overdue task in a day; *Back From Orbit* —
+  return after 7+ days away and catch 3 the same day.
+- **Honesty class:** *Strategic Retreat* — set-aside 5 tasks (knowing your
+  limits is a skill); *Editor* — delete 10 tasks you were never going to do;
+  *Reframed* — use the reframe flow 5 times.
+- **Time-of-day / pattern class:** *Dawn Patrol* — 3 catches before 8am;
+  *Night Shift* — clear a loop after 10pm; *Weekend Warrior* — 10-catch
+  weekend; *Speedrun* — 5 catches within an hour of waking (first catch).
+- **Energy class:** *Dragon Slayer* — catch a ⚡⚡⚡ confrontation task;
+  *Balanced Diet* — catch every energy type in one week; *Heavy Lifting* —
+  3 L/XL tasks in a day.
+- **Loop class:** *Perfect Week* — every due loop caught for 7 days;
+  *Stack Champion* — 10 stack clear-bonuses; *Long Haul* — keep a
+  quarterly+ loop alive for a year.
+- **Meta class:** *Quokka Whisperer* — 25 applied Quokka plans; *Archivist* —
+  10 knowledge entries; *Weatherproof* — catch an outdoor task on a
+  best-day recommendation.
+- Mechanics notes: tiered (bronze/silver/gold) where counts scale; hidden
+  achievements that reveal on earn (the fun ones); all derived values must
+  follow the Derived-Stat Durability Rules (persist earn-time provenance,
+  never recompute from deletable rows — see CLAUDE.md).

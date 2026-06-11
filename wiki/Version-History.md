@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): Kept hero tap target + frosted pinned-control underlay [S]
+  - **The whole Day Arc + stats block now toggles the daily breakdown** (prod report: "Still can't click on the hero bar"). The previous tap target was only the skinny catches/loops/pts row — and the harness verification used a JS `.click()`, which bypasses hit-testing and hid how small the real target was. Re-verified with real synthetic touch taps on the arc itself.
+  - **Claude-style frosted underlay behind the pinned back button** (prod report: "it keeps overlapping shit — things need to fade behind it in a way that shows it's intentional"): the full-page modal top strip is now a backdrop-blur band (translucent page tint + feathered mask) instead of a hard gradient, so scrolled content visibly dissolves behind the control. Header padding bumped 60→72px so titles clear the button at rest. Scoped away from the in-shell Quokka surface (no frost band over the app header).
+  - Stale Settings copy fixed: Kept description now says Smoke/Linen + ember, not the abandoned green-ink palette.
+  - Design feedback captured in `wiki/Kept-Design-Language.md` §13: cadence-aware loop trails (dot grids don't fit non-daily loops), Kept-native editors (reskinned v2 forms feel foreign), achievements expansion ideas.
+
 - fix(ui): Kept loop crediting + tap-the-stats breakdown + suggestions scan transparency [M]
   - **Cleared stacks credit as closed loops** (prod report: clearing Bedtime's last member flipped the hero from "2/3 loops" to "2/2" — the finished loop fell out of both counts). A stack whose cycle cleared today now stays counted and renders as a checked receipt row (title · cadence · rally · done-check) until midnight, matching how plain done loops behave. Check is display-only; un-clearing goes through reopening the member task.
   - **Tap the hero stats for a daily breakdown** (prod request): the catches/loops/pts-left row on Today now toggles an inline week strip (Sunday-anchored, activity-intensity bars, prev/next week chevrons) + the selected day's caught tasks with per-task points and the Daily Bonus egg — v2 WeekStrip parity in the Kept skin, defaulting to today. New `src/kept/WeekBreakdown.jsx` + `bm-week-*` styles.

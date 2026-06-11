@@ -131,16 +131,18 @@ export default function TodayView({
           <span className="bm-hero-sub">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span>
           {streak > 0 && <span className="bm-rally-chip">↻ {streak}-day rally</span>}
         </div>
-        <DayArc value={dailyStats.pointsToday ?? 0} goal={pointsGoal} />
         <button
-          className="bm-hero-meta"
+          className="bm-hero-tap"
           onClick={() => setShowBreakdown(v => !v)}
           aria-expanded={showBreakdown}
           aria-label="Show daily breakdown"
         >
-          <span><b>{catches}</b> {catches === 1 ? 'catch' : 'catches'}</span>
-          <span><b>{loopsDone}/{loops.length}</b> loops</span>
-          <span><b>{Math.max(0, pointsGoal - (dailyStats.pointsToday ?? 0))}</b> pts left</span>
+          <DayArc value={dailyStats.pointsToday ?? 0} goal={pointsGoal} />
+          <div className="bm-hero-meta">
+            <span><b>{catches}</b> {catches === 1 ? 'catch' : 'catches'}</span>
+            <span><b>{loopsDone}/{loops.length}</b> loops</span>
+            <span><b>{Math.max(0, pointsGoal - (dailyStats.pointsToday ?? 0))}</b> pts left</span>
+          </div>
         </button>
         {showBreakdown && <WeekBreakdown tasks={tasks} />}
         <button className="bm-btn bm-btn-tonal bm-whatnow" onClick={onWhatNow}>
