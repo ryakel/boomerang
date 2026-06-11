@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): Kept Today — stack support (grouped member rows, Start affordance) [M]
+  - Stacks were rendered as a single-toggle loop row on Kept's Today — tapping the check would have caught one arbitrary member per tap. Stacks now fan out properly: a grouped block (stack head + `done/total` progress + indented member rows with feather checks) when the cycle is spawned; a **Start** button when due but not yet spawned; a "cycle cleared today" state after the last member. Member checks route through the REAL task path (`onCompleteTask`) so the 20% clear-bonus and the lone last-member `completed_history` stamp hold — verified end-to-end: 3-member stack spawned, members grouped (not duplicated in the plain Tasks rows), full clear produced exactly ONE history stamp + the bonus toast.
+  - `onSpawnStackToday` threaded into KeptShell + KeptDesktop; stack members excluded from Today's plain task rows.
+
 - fix(ui): Kept Today — only cadence-due loops; modal-top fade strip [S]
   - **Prod bug:** Today listed EVERY non-paused loop daily (loggd's all-habits-are-daily assumption carried into TodayView) — weekly/monthly/quarterly routines like "Mow · weekly · Fri" surfaced days early. The loops list now filters through `getNextDueDate`: a loop shows only when cadence-due today (or overdue), or already done today so a checked loop doesn't vanish. The full library stays on the Loops tab. Verified with a Friday-anchored weekly loop completed last Friday: hidden from Today, present in Loops.
   - **Edit-modal title collision:** with the back button pinned (previous fix), scrolled content slid UNDER it — the "Edit loop" title read "it loop" mid-scroll. A fixed gradient strip (page bg → transparent, click-through) now fades content out under the pinned controls.
