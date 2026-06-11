@@ -16,7 +16,7 @@ export default function KeptShell({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
-  onLogSession, gmailPendingCount = 0,
+  onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
@@ -32,8 +32,9 @@ export default function KeptShell({
     surface = (
       <TasksViewKept
         tasks={tasks} labels={labels}
-        onToggleComplete={onCompleteTask} onOpenTask={onOpenTask}
-        onDelete={onDeleteTask} onReschedule={onRescheduleTask}
+        routines={routines}
+        onToggleComplete={onCompleteTask} onToggleItem={onToggleItem} onOpenTask={onOpenTask}
+        onDelete={onDeleteTask} onReschedule={onRescheduleTask} onUnsnooze={onUnsnooze}
       />
     )
   } else if (tab === 'more') {
@@ -52,8 +53,8 @@ export default function KeptShell({
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
-        onLogSession={onLogSession} gmailPendingCount={gmailPendingCount}
-        onOpenSuggestions={onOpenSuggestions}
+        onLogSession={onLogSession} onGmailKeep={onGmailKeep} onGmailDismiss={onGmailDismiss}
+        onWhatNow={onWhatNow}
       />
     )
   }

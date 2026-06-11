@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): Kept audit round 2 — real Gmail review, What Now, subtasks, Snoozed tab, label filters [L]
+  - **Gmail review actually works now** (prod report: "imported items isn't doing shit"): the banner routed to SuggestionsModal — the *routine-pattern* surface — and deeper, the Keep/Dismiss buttons died with v1's TaskCard and were never ported to v2 at all. Today now has a **Review** section: pending rows with **Keep** (approves via `/api/gmail/approve`, task joins the list optimistically) and **Dismiss** (deletes). The More/sidebar row is relabeled "Routine suggestions" to match what it actually opens.
+  - **What Now is reachable again**: a Compass button under the Day Arc (mobile) + a sidebar row (desktop) open the existing WhatNowModal.
+  - **Checklist subtasks render inline** on Tasks rows (gold circle sub-checks, toggle via the canonical checklist update) — Wallaby parity restored.
+  - **Snoozed tab** on Tasks: returns chips + a **Now** bring-back button (unsnoozeTask).
+  - **Label filter chips** on the Tasks tab (All + labels, dot-styled, horizontal scroll); **stack members excluded** from Upcoming/Backlog/Snoozed (they live in their Today folder; still in Done as records).
+  - All verified live end-to-end on seeded data; lint 0; tests + build + smoke pass.
+
 - fix(ui): Kept Today — caught tasks leave the list + collapsible sections [S]
   - **Caught tasks no longer linger struck-through** on Today (the last day-planner-recap carryover): completion removes the row immediately, v2's contract — the toast's Undo covers regret, Caught keeps the record.
   - **Sections collapse into their titles**: Arcs / Today / Anytime / Loops on Today and every group on the Tasks tab get a chevron toggle (new shared `Section` component + `useCollapsedSections`), persisted in `settings.kept_collapsed` — the same cross-device mechanism as v2's `collapsed_sections`.

@@ -52,7 +52,7 @@ import { useTrelloSync } from './hooks/useTrelloSync'
 import { useNotionSync } from './hooks/useNotionSync'
 import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
-import { inferSize, trelloUpdateCard, serverSkipAdvanceTask } from './api'
+import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss } from './api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD } from './store'
 import { computeRecords, calculateTaskPoints } from './scoring'
 import { applyTheme } from './theme'
@@ -1255,8 +1255,23 @@ export default function AppV2() {
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
+          onGmailKeep={async (t) => {
+            updateTask(t.id, { gmail_pending: false })
+            try { await gmailApprove(t.id) } catch { /* refetch reverts */ }
+          }}
+          onGmailDismiss={async (t) => {
+            deleteTask(t.id)
+            try { await gmailDismiss(t.id) } catch { /* refetch reverts */ }
+          }}
+          onWhatNow={() => setShowWhatNow(true)}
+          onToggleItem={(task, clId, itemId) => {
+            const checklists = (task.checklists || []).map(cl =>
+              cl.id !== clId ? cl : { ...cl, items: (cl.items || []).map(it => it.id === itemId ? { ...it, completed: !it.completed } : it) },
+            )
+            updateTask(task.id, { checklists })
+          }}
+          onUnsnooze={(t) => unsnoozeTask(t.id)}
           onLogSession={(p) => handleLogSession(p.id)}
-          gmailPendingCount={tasks.filter(t => t.gmail_pending).length}
           onOpenTask={(task) => setEditTarget(task)}
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
@@ -1290,8 +1305,23 @@ export default function AppV2() {
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
+          onGmailKeep={async (t) => {
+            updateTask(t.id, { gmail_pending: false })
+            try { await gmailApprove(t.id) } catch { /* refetch reverts */ }
+          }}
+          onGmailDismiss={async (t) => {
+            deleteTask(t.id)
+            try { await gmailDismiss(t.id) } catch { /* refetch reverts */ }
+          }}
+          onWhatNow={() => setShowWhatNow(true)}
+          onToggleItem={(task, clId, itemId) => {
+            const checklists = (task.checklists || []).map(cl =>
+              cl.id !== clId ? cl : { ...cl, items: (cl.items || []).map(it => it.id === itemId ? { ...it, completed: !it.completed } : it) },
+            )
+            updateTask(task.id, { checklists })
+          }}
+          onUnsnooze={(t) => unsnoozeTask(t.id)}
           onLogSession={(p) => handleLogSession(p.id)}
-          gmailPendingCount={tasks.filter(t => t.gmail_pending).length}
           onOpenTask={(task) => setEditTarget(task)}
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
