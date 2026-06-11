@@ -310,9 +310,17 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
             // hydration that lands within ~300ms of a theme pick can overwrite
             // the just-saved local theme with stale server data and the
             // preference appears to revert on refresh.
-            const localTheme = (loadSettings() || {}).theme
+            const localSettings = loadSettings() || {}
             const merged = { ...data.settings }
-            if (localTheme) merged.theme = localTheme
+            if (localSettings.theme) merged.theme = localSettings.theme
+            // streak_anchor is backward-only: if the local copy is EARLIER
+            // than the server's (e.g. the server blob was clobbered by a
+            // whole-blob settings flush from another device), keep the
+            // earlier one — it represents real provenance.
+            if (localSettings.streak_anchor &&
+                (!merged.streak_anchor || localSettings.streak_anchor < merged.streak_anchor)) {
+              merged.streak_anchor = localSettings.streak_anchor
+            }
             saveSettings(merged)
           }
           if (data.labels) saveLabels(data.labels)
