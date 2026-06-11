@@ -4,7 +4,7 @@ import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD } from '../dates'
 import { historyByDay, currentStreak } from '../wallaby/heatmapUtils'
-import { isSnoozed, formatSnoozeLabel } from '../store'
+import { isSnoozed, formatSnoozeLabel, getNextDueDate } from '../store'
 import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
 import './shell.css'
@@ -35,12 +35,24 @@ export default function TodayView({
     ACTIVE.includes(t.status) && !t.parent_id && !t.gmail_pending && isSnoozed(t) && !t.snooze_indefinite,
   ).slice(0, 3), [tasks])
 
+  // Only loops that are actually DUE today (per the cadence engine — weekly/
+  // monthly/quarterly stay hidden until their day), already done today (so a
+  // checked loop doesn't vanish), or overdue from an earlier cycle. The full
+  // library lives on the Loops tab. (Prod bug: every non-paused loop was
+  // listed daily — loggd's all-habits-are-daily assumption.)
   const loops = useMemo(() => {
     const feathers = routineFeathers(routines)
     return routines.filter(r => !r.paused).map(r => {
       const byDay = historyByDay(r.completed_history)
-      return { r, color: feathers[r.id], byDay, rally: currentStreak(byDay), doneToday: !!byDay[todayKey] }
-    })
+      const next = getNextDueDate(r)
+      const dueKey = next ? localYMD(next) : null
+      return {
+        r, color: feathers[r.id], byDay,
+        rally: currentStreak(byDay),
+        doneToday: !!byDay[todayKey],
+        dueToday: !!dueKey && dueKey <= todayKey,
+      }
+    }).filter(l => l.dueToday || l.doneToday)
   }, [routines, todayKey])
   const loopsDone = loops.filter(l => l.doneToday).length
   const catches = dailyStats.tasksToday ?? 0
