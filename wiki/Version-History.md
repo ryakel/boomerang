@@ -7,6 +7,7 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 ## 2026-06-11
 
 - fix(ui): New loop goes straight to the form + Suggestions button on Loops [S]
+  - Follow-up: icon swapped to the single four-point `Sparkle` (the universal AI glyph) — `Sparkles` is Quokka's mark.
   - **Flow fix** (prod report: "New loop → Loop List → New routine makes no sense"): the "New loop" button now opens the editor directly in the blank form (`openToForm` prop on RoutinesModal, consumed on open) — no list detour, no second tap. The list's own buttons also respect the Kept noun now ("+ New loop", not "+ New routine").
   - **Loop suggestions live on the Loops page**: gold Sparkles "Suggestions" button in the title row (deliberately not the Quokka ember treatment — it's the pattern scanner, not the adviser), with an ember dot badge when the weekly scan has pending finds (`GET /api/suggestions` count). The "Loop suggestions" row is removed from the mobile More menu; desktop sidebar and Standard theme unchanged.
   - Verified live: Loops header shows the badged button → opens "Loop suggestions"; "New loop" lands on the form; More menu reads Arcs · Analytics · Caught · Packages · Activity log · Settings.
