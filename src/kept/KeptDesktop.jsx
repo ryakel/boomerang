@@ -50,7 +50,7 @@ export default function KeptDesktop({
     { label: 'Caught', icon: CheckCircle2, onClick: onOpenDone },
     { label: 'Analytics', icon: BarChart3, onClick: onOpenAnalytics },
     { label: 'Packages', icon: Package, onClick: onOpenPackages },
-    { label: 'Routine suggestions', icon: Inbox, onClick: onOpenSuggestions },
+    { label: 'Loop suggestions', icon: Inbox, onClick: onOpenSuggestions },
     { label: 'Activity log', icon: ScrollText, onClick: onOpenActivity },
   ]
 

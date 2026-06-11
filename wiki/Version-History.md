@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): hero follows breakdown date selection + Loop suggestions rename + nav swap [S]
+  - **The hero now follows the breakdown's selected day** (prod report: "slider and counts should change with the date selection"): selection state lifted from `WeekBreakdown` into `TodayView`; picking a non-today day swaps the headline date, the Day Arc (value + "points that day" caption), and the meta row to that day's numbers — catches/points computed identically to the breakdown's item list so the arc total always matches the itemization; loops shown as a plain done-count (historical due-ness isn't reconstructable). Reverts to live today-stats when today is selected or the breakdown closes.
+  - **"Routine suggestions" → "Loop suggestions"** everywhere Kept-facing (More row, desktop sidebar row, modal title via a `title` prop — Standard theme keeps "Routine suggestions").
+  - **Bottom nav swap**: Today · Tasks · [Throw] · Loops · More (Tasks promoted next to Today per user preference).
+  - Achievements expansion + cadence-aware charts confirmed into the next design wave alongside the Kept-native editors (design doc §13).
+
 - feat(ui): completion toasts — push-style top banner + fresh no-repeat message pools [S]
   - **Top banner** (prod request: the bottom pill "sits in the way"): the toast now slides down from the top edge like an iOS push banner — tap anywhere to dismiss, auto-dismisses after 4s (8s with a Next-up suggestion), Undo and Next-up unchanged. z-index above the shell header and pinned modal controls.
   - **Fresh messages** (prod report: "I get the same like 6 every time… really tired of 'That's barely procrastination'"): root cause — routine/stack tasks completed same-day fall back to the 5-message static quick pool (AI prefetch only backfills on app load, so spawn-and-complete-today always went static). Pools expanded to 12–18 messages per variant (brand-voiced: "Caught it mid-air.", "The boomerang came back. You caught it.", "Released from the haunted backlog."), the offending line culled, and a **shuffle-bag picker** (last ~14 shown per variant persisted in `boom_toast_recent_v1`) guarantees no repeats until a pool is exhausted.

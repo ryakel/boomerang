@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react'
 import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass } from 'lucide-react'
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
-import { localYMD } from '../dates'
+import { localYMD, parseLocalDate } from '../dates'
 import { historyByDay, currentStreak } from '../wallaby/heatmapUtils'
-import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate } from '../store'
+import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate, loadSettings } from '../store'
+import { calculateTaskPoints } from '../scoring'
 import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
@@ -25,6 +26,9 @@ export default function TodayView({
   const todayKey = localYMD()
   const [collapsed, toggleSection] = useCollapsedSections()
   const [showBreakdown, setShowBreakdown] = useState(false)
+  // Breakdown day selection lives here so the hero arc + counts follow it
+  // (prod report: "slider and counts should change with the date selection").
+  const [breakdownDay, setBreakdownDay] = useState(null)
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
 
   const stackRoutineIds = useMemo(() => new Set(
@@ -123,28 +127,72 @@ export default function TodayView({
   }, [tasks, pinnedArcs])
   const catches = dailyStats.tasksToday ?? 0
 
+  // Stats for a non-today breakdown selection — the hero swaps to that
+  // day's numbers. Catches/points computed the same way the breakdown's
+  // item list is, so the arc total always matches the itemization. Loops
+  // shown as a plain done-count (historical due-ness isn't reconstructable).
+  const selStats = useMemo(() => {
+    if (!showBreakdown || !breakdownDay || breakdownDay === todayKey) return null
+    let pts = 0, n = 0
+    for (const t of tasks) {
+      const ts = t.status === 'done' && t.completed_at ? t.completed_at
+        : t.status === 'waiting' && t.waiting_at ? t.waiting_at
+        : null
+      if (!ts || localYMD(new Date(ts)) !== breakdownDay) continue
+      n++; pts += calculateTaskPoints(t)
+    }
+    if ((loadSettings().easter_egg_wins || {})[breakdownDay]) { n++; pts += 1 }
+    let loopsDone = 0
+    for (const r2 of routines) {
+      if (historyByDay(r2.completed_history)[breakdownDay]) loopsDone++
+    }
+    const d = parseLocalDate(breakdownDay)
+    return { pts, n, loopsDone, date: d }
+  }, [showBreakdown, breakdownDay, todayKey, tasks, routines])
+
   return (
     <div className="bm-surface">
       <div className="bm-card bm-card-hero">
         <div className="bm-hero-date">
-          <span className="bm-hero-day">{new Date().toLocaleDateString('en-US', { weekday: 'long' })}</span>
-          <span className="bm-hero-sub">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span>
+          <span className="bm-hero-day">{(selStats ? selStats.date : new Date()).toLocaleDateString('en-US', { weekday: 'long' })}</span>
+          <span className="bm-hero-sub">{(selStats ? selStats.date : new Date()).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span>
           {streak > 0 && <span className="bm-rally-chip">↻ {streak}-day rally</span>}
         </div>
         <button
           className="bm-hero-tap"
-          onClick={() => setShowBreakdown(v => !v)}
+          onClick={() => {
+            setShowBreakdown(v => {
+              setBreakdownDay(v ? null : todayKey)
+              return !v
+            })
+          }}
           aria-expanded={showBreakdown}
           aria-label="Show daily breakdown"
         >
-          <DayArc value={dailyStats.pointsToday ?? 0} goal={pointsGoal} />
+          <DayArc
+            value={selStats ? selStats.pts : (dailyStats.pointsToday ?? 0)}
+            goal={pointsGoal}
+            caption={selStats ? 'points that day' : 'points today'}
+          />
           <div className="bm-hero-meta">
-            <span><b>{catches}</b> {catches === 1 ? 'catch' : 'catches'}</span>
-            <span><b>{loopsDone}/{loops.length}</b> loops</span>
-            <span><b>{Math.max(0, pointsGoal - (dailyStats.pointsToday ?? 0))}</b> pts left</span>
+            {selStats ? (
+              <>
+                <span><b>{selStats.n}</b> {selStats.n === 1 ? 'catch' : 'catches'}</span>
+                <span><b>{selStats.loopsDone}</b> {selStats.loopsDone === 1 ? 'loop' : 'loops'}</span>
+                <span><b>{selStats.pts}</b> pts</span>
+              </>
+            ) : (
+              <>
+                <span><b>{catches}</b> {catches === 1 ? 'catch' : 'catches'}</span>
+                <span><b>{loopsDone}/{loops.length}</b> loops</span>
+                <span><b>{Math.max(0, pointsGoal - (dailyStats.pointsToday ?? 0))}</b> pts left</span>
+              </>
+            )}
           </div>
         </button>
-        {showBreakdown && <WeekBreakdown tasks={tasks} />}
+        {showBreakdown && (
+          <WeekBreakdown tasks={tasks} selected={breakdownDay} onSelect={setBreakdownDay} />
+        )}
         <button className="bm-btn bm-btn-tonal bm-whatnow" onClick={onWhatNow}>
           <Compass size={15} strokeWidth={2.1} /> What now?
         </button>
