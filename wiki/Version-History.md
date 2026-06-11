@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): Kept stacks are folders — v2-parity display (open members only, no history, no chrome rows) [M]
+  - Prod report: the Bedtime folder rendered "36/36" — every done member from every past cycle, struck through. The `due <= today` member filter dragged in all history, and the waiting/cleared stack rows added chrome v2 never had. **Reverted to the v2 StackSection model:** a stack is an organizational folder — grouped by cycle `(routine, due_date)`, rendered ONLY while a cycle has open un-snoozed members, showing ONLY those open members (done ones drop out; the `done/total` header carries progress). Nothing pre-trigger, nothing after clear — no waiting row, no Start button, no cleared receipt (dead `onSpawnStackToday` threading removed from the Kept shells).
+  - Verified against the exact report scenario (2 fully-done past cycles + live cycle + a pre-trigger stack): zero historical ghosts, pre-trigger stack fully hidden, folder vanishes with its last member, exactly one new history stamp.
+
 - fix(ui): Kept Today — trigger-time stacks stay "returns tonight" until their clock time [S]
   - Prod screenshots (the "Bedtime" stack, trigger 8pm-ish) showed snoozed stack members leaking into Today as individual "↩ returns tonight" rows hours early. Pre-trigger, a stack now renders as ONE row — `Bedtime · 3 items · ↩ returns tonight` with a muted check, no Start button — per the trigger-time contract. Members surface grouped only once un-snoozed; `returningSoon` excludes stack members (the stack row represents them). Verified with a 23:45-trigger stack: single returns row, zero member leakage, no premature grouped block.
 
