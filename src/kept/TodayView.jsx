@@ -17,7 +17,7 @@ const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 export default function TodayView({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
-  onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop, onSpawnStackToday,
+  onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
 }) {
   const todayKey = localYMD()
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
@@ -54,26 +54,37 @@ export default function TodayView({
       const next = getNextDueDate(r)
       const dueKey = next ? localYMD(next) : null
       const isStack = Array.isArray(r.members) && r.members.length > 0
-      // A stack's live cycle = its member tasks due today or carried over
-      // (leftover members linger as the open cycle until cleared).
-      const cycleTasks = isStack
-        ? tasks.filter(t => t.routine_id === r.id
-            && String(t.due_date || '').slice(0, 10) <= todayKey
-            && !['cancelled', 'backlog', 'project'].includes(t.status))
-        : []
-      // Pre-trigger (trigger_time) members are snoozed — the stack shows as a
-      // single "returns tonight" row until they surface, per the trigger-time
-      // contract (don't show scheduled work before its clock time).
-      const memberTasks = cycleTasks.filter(t => t.status === 'done' || !isSnoozed(t))
-      const snoozedUntil = cycleTasks.find(t => t.status !== 'done' && isSnoozed(t))?.snoozed_until || null
-      const allSnoozed = isStack && memberTasks.length === 0 && !!snoozedUntil
+      // v2-parity stack model: the stack is a FOLDER. Group this routine's
+      // member tasks into cycles by due_date; a cycle is shown only while it
+      // has open, un-snoozed members. Done members drop out of the display
+      // (the done/total header carries the progress); pre-trigger (snoozed)
+      // cycles show NOTHING; fully-cleared cycles disappear.
+      let cycles = []
+      if (isStack) {
+        const byCycle = new Map()
+        for (const t of tasks) {
+          if (t.routine_id !== r.id) continue
+          if (['cancelled', 'backlog', 'project'].includes(t.status)) continue
+          const dueKey2 = String(t.due_date || '').slice(0, 10)
+          if (!dueKey2 || dueKey2 > todayKey) continue
+          if (!byCycle.has(dueKey2)) byCycle.set(dueKey2, { due: dueKey2, open: [], total: 0, done: 0 })
+          const c = byCycle.get(dueKey2)
+          c.total++
+          if (t.status === 'done') c.done++
+          else if (!isSnoozed(t)) c.open.push(t)
+        }
+        cycles = [...byCycle.values()].filter(c => c.open.length > 0)
+          .sort((a, b) => a.due.localeCompare(b.due))
+      }
       return {
-        r, color: feathers[r.id], byDay, isStack, memberTasks, allSnoozed, snoozedUntil,
+        r, color: feathers[r.id], byDay, isStack, cycles,
         rally: currentStreak(byDay),
         doneToday: !!byDay[todayKey],
         dueToday: !!dueKey && dueKey <= todayKey,
       }
-    }).filter(l => l.dueToday || l.doneToday || l.memberTasks.length > 0 || l.allSnoozed)
+    // Plain loops: due/done today. Stacks: ONLY while a cycle is surfaced —
+    // no waiting row, no cleared receipt (v2 behavior).
+    }).filter(l => (l.isStack ? l.cycles.length > 0 : (l.dueToday || l.doneToday)))
   }, [routines, tasks, todayKey])
   const loopsDone = loops.filter(l => l.doneToday).length
   const catches = dailyStats.tasksToday ?? 0
@@ -139,59 +150,34 @@ export default function TodayView({
         <>
           <div className="bm-sec"><span className="bm-sec-tick" /> Loops <span className="bm-sec-n">{loopsDone}/{loops.length}</span></div>
           <div className="bm-rows">
-            {loops.map(({ r, color, byDay, rally, doneToday, isStack, memberTasks, allSnoozed, snoozedUntil }) => {
+            {loops.map(({ r, color, byDay, rally, doneToday, isStack, cycles }) => {
               if (isStack) {
-                // Stack: independent member tasks per cycle. Checks route
-                // through the REAL task path (onCompleteTask) so the 20%
-                // clear-bonus and the lone last-member history stamp hold.
-                if (memberTasks.length === 0) {
-                  return (
-                    <div key={r.id} className="bm-loop" style={{ '--loop': color }}>
-                      <span className="bm-loop-ring"><Repeat2 size={15} strokeWidth={2.2} /></span>
-                      <button className="bm-loop-body" onClick={() => onEditLoop?.(r)}>
-                        <div className="bm-loop-title">{r.title} <em className="bm-stack-count">· {r.members.length} items</em></div>
-                        <div className="bm-loop-sub">
-                          {doneToday ? 'cycle cleared today'
-                            : allSnoozed ? <span className="bm-return-chip">↩ returns {formatSnoozeLabel(snoozedUntil)}</span>
-                            : 'stack'}
-                        </div>
-                      </button>
-                      {doneToday ? (
-                        <span className="bm-loop-chk is-done" style={{ '--loop': color }} aria-hidden="true"><Check size={15} strokeWidth={3.2} /></span>
-                      ) : allSnoozed ? (
-                        <span className="bm-chk is-muted" aria-hidden="true" />
-                      ) : (
-                        <button className="bm-btn bm-btn-tonal bm-stack-start" onClick={() => onSpawnStackToday?.(r.id)}>Start</button>
-                      )}
-                    </div>
-                  )
-                }
-                const done = memberTasks.filter(t => t.status === 'done').length
-                return (
-                  <div key={r.id} className="bm-stack" style={{ '--loop': color }}>
+                // Folder per surfaced cycle: header (name · done/total) over
+                // the OPEN members. Checks ride the real task path so the
+                // clear bonus + single history stamp hold; the folder
+                // disappears with its last member.
+                return cycles.map(c => (
+                  <div key={`${r.id}|${c.due}`} className="bm-stack" style={{ '--loop': color }}>
                     <div className="bm-stack-head">
                       <span className="bm-loop-ring" style={{ width: 26, height: 26 }}><Repeat2 size={13} strokeWidth={2.2} /></span>
                       <button className="bm-stack-title" onClick={() => onEditLoop?.(r)}>{r.title}</button>
-                      <span className="bm-stack-progress">{done}/{memberTasks.length}</span>
+                      <span className="bm-stack-progress">{c.done}/{c.total}</span>
                     </div>
-                    {memberTasks.map(t => {
-                      const mdone = t.status === 'done'
-                      return (
-                        <div key={t.id} className="bm-stack-member">
-                          <button
-                            className={`bm-chk${mdone ? ' is-done' : ''}`}
-                            style={mdone ? { background: color, borderColor: color } : { borderColor: color }}
-                            onClick={() => onCompleteTask?.(t)}
-                            aria-label={mdone ? 'Reopen' : 'Catch it'}
-                          >{mdone && <Check size={13} strokeWidth={3.4} color="var(--bm-on-ember)" />}</button>
-                          <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
-                            <span className={`bm-row-title${mdone ? ' is-done' : ''}`}>{t.title}</span>
-                          </button>
-                        </div>
-                      )
-                    })}
+                    {c.open.map(t => (
+                      <div key={t.id} className="bm-stack-member">
+                        <button
+                          className="bm-chk"
+                          style={{ borderColor: color }}
+                          onClick={() => onCompleteTask?.(t)}
+                          aria-label="Catch it"
+                        />
+                        <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
+                          <span className="bm-row-title">{t.title}</span>
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                )
+                ))
               }
               return (
               <div key={r.id} className="bm-loop" style={{ '--loop': color }}>
