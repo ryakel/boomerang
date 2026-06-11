@@ -854,6 +854,10 @@ export function computeStreak(tasks, settings) {
 
   const freeDays = new Set(settings.free_days || [])
   const easterEggWins = settings.easter_egg_wins || {}
+  // Durable provenance for completion days whose task rows were deleted —
+  // stamped server-side by deleteTask (see db.js). Without this, deleting
+  // a done task retroactively turned its day into a fault day.
+  const provenanceDays = new Set(settings.completion_days || [])
 
   // Count consecutive days with at least 1 completion (or a free day),
   // working backward from today. Empty-task days (no completions AND no
@@ -905,7 +909,7 @@ export function computeStreak(tasks, settings) {
     return !hadActiveTasksOnDay(tasks, d)
   }
   const hasCompletionOn = (d) => (
-    completionDates.has(d.toDateString()) || !!easterEggWins[localYMD(d)]
+    completionDates.has(d.toDateString()) || !!easterEggWins[localYMD(d)] || provenanceDays.has(localYMD(d))
   )
 
   let streak = 0

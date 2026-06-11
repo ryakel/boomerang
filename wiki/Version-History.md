@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(streak): completion-day provenance survives task deletion — round 3, the actual prod mechanism [M]
+  - Final diagnosis of the 36→27 incident (from the user's real analytics + easter-egg data): the dismissed Gmail import carried the ONLY completion evidence for 2026-05-14. Deleting it turned that day into a **fault day** (active tasks, no completion) and `computeStreak`'s walk broke there — the anchor/floor fixes from rounds 1–2 were real but orthogonal; no floor can carry a walk through a fault day.
+  - `db.js deleteTask()` now stamps the dying task's completion day (done `completed_at` / waiting `waiting_at`, bucketed in the user's timezone via `Intl.DateTimeFormat`) into `settings.completion_days` — compact append-only 'YYYY-MM-DD' provenance. `computeStreak` credits those days as completions.
+  - The server-side guard grew into `mergeDurableStreakSettings()`: anchor backward-only + **union** merges for `completion_days`, `free_days`, and `easter_egg_wins` on every bulk settings push, so no stale device blob can drop streak evidence. Quokka's `setData()` path still bypasses it for deliberate corrections.
+  - User repair for the already-lost day: `free_days: ["2026-05-14"]` via Quokka (confirmed restored, rally 49 with the 2026-04-23 anchor).
+  - Verified in the harness on the incident shape: baseline rally 33 → delete the day's only completion → provenance stamped, rally 33 live and after reload (28 without the fix); hostile anchor-less blob push → guard restored the entry.
+
 - fix(streak): server-side backward-only guard for streak_anchor — round 2, the anchor now actually survives [M]
   - Round 1 shipped the anchor but it died in prod within seconds, two ways: (a) the client seeding effect ran against localStorage-cached tasks BEFORE server hydration, so a device that hadn't hydrated the (Quokka-set) repair anchor seeded its own later date and `flushSync()`ed it over the server's; (b) even with that gated, any live page whose localStorage lacked the anchor erased it via the `pagehide` sendBeacon whole-blob settings push — reproduced exactly in the harness ("hydrate merge: server=undefined").
   - Fixes, all three layers: **server** `mergeStreakAnchorBackwardOnly()` on bulk PUT/POST `/api/data` keeps the earlier of (stored, incoming) — the load-bearing fix, since the blob path is last-writer-wins; **client effect** now waits for server hydration (`serverHydratedRef`) before seeding; **client hydration merge** keeps an earlier local anchor over a later server one. Quokka `update_settings` uses `setData()` directly and bypasses the guard, so deliberate repairs/corrections always stick.
