@@ -314,19 +314,41 @@ function guardBulkBlobOnly(req, res) {
   return true
 }
 
-// streak_anchor is backward-only provenance for the streak floor. The bulk
-// settings path is whole-blob last-writer-wins, so a client whose localStorage
-// predates the anchor (stale device, pagehide beacon, pre-anchor bundle) would
-// silently drop it or move it forward on its next push. Never allow that from
-// the sync path — keep the earlier of (stored, incoming). Deliberate edits
-// (Quokka update_settings) use setData() directly and can still override.
-function mergeStreakAnchorBackwardOnly(prevSettings, nextSettings) {
+// Streak evidence lives in the settings blob, and the bulk settings path is
+// whole-blob last-writer-wins — a client whose localStorage predates a value
+// (stale device, pagehide beacon, pre-feature bundle) silently drops it on
+// its next push. Guard every streak-evidence key server-side:
+// - streak_anchor: backward-only (keep the earlier of stored/incoming)
+// - completion_days / free_days: union (entries can be added, never dropped)
+// - easter_egg_wins: union of day keys
+// Deliberate edits (Quokka update_settings) use setData() directly and
+// bypass this guard, so intentional removals/corrections remain possible.
+function mergeDurableStreakSettings(prevSettings, nextSettings) {
   if (!nextSettings) return
-  const prev = prevSettings?.streak_anchor
-  const next = nextSettings.streak_anchor
-  if (prev && (!next || prev < next)) {
-    nextSettings.streak_anchor = prev
-    console.log(`[SYNC] streak_anchor guard: kept ${prev} (incoming blob had ${next || 'none'})`)
+  const prevAnchor = prevSettings?.streak_anchor
+  const nextAnchor = nextSettings.streak_anchor
+  if (prevAnchor && (!nextAnchor || prevAnchor < nextAnchor)) {
+    nextSettings.streak_anchor = prevAnchor
+    console.log(`[SYNC] streak_anchor guard: kept ${prevAnchor} (incoming blob had ${nextAnchor || 'none'})`)
+  }
+  for (const key of ['completion_days', 'free_days']) {
+    const prev = Array.isArray(prevSettings?.[key]) ? prevSettings[key] : []
+    if (prev.length === 0) continue
+    const next = Array.isArray(nextSettings[key]) ? nextSettings[key] : []
+    const merged = [...new Set([...next, ...prev])].sort()
+    if (merged.length !== next.length) {
+      nextSettings[key] = merged
+      console.log(`[SYNC] ${key} guard: restored ${merged.length - next.length} entries dropped by incoming blob`)
+    }
+  }
+  const prevEggs = prevSettings?.easter_egg_wins
+  if (prevEggs && Object.keys(prevEggs).length > 0) {
+    const nextEggs = nextSettings.easter_egg_wins || {}
+    const missing = Object.keys(prevEggs).filter(k => !(k in nextEggs))
+    if (missing.length > 0) {
+      nextSettings.easter_egg_wins = { ...prevEggs, ...nextEggs }
+      console.log(`[SYNC] easter_egg_wins guard: restored ${missing.length} day(s) dropped by incoming blob`)
+    }
   }
 }
 
@@ -355,7 +377,7 @@ app.put('/api/data', (req, res) => {
   delete body._clientId
   delete body._version
   const prevSettings = getData('settings')
-  mergeStreakAnchorBackwardOnly(prevSettings, body.settings)
+  mergeDurableStreakSettings(prevSettings, body.settings)
   const newVersion = setAllData(body)
   if (body.settings) {
     resetTransporter()
@@ -374,7 +396,7 @@ app.post('/api/data', (req, res) => {
   delete body._clientId
   delete body._version
   const prevSettings = getData('settings')
-  mergeStreakAnchorBackwardOnly(prevSettings, body.settings)
+  mergeDurableStreakSettings(prevSettings, body.settings)
   const newVersion = setAllData(body)
   if (body.settings) {
     resetTransporter()

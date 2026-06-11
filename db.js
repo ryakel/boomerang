@@ -567,12 +567,45 @@ export function getAllTasks() {
   return results
 }
 
+// Deleting a task destroys the evidence that its completion day "counted"
+// toward the streak — the 2026-06-10 incident: dismissing an old import
+// removed the only completion on May 14 and retroactively cut a 36-day
+// rally to 27. Stamp the day into settings.completion_days (a compact,
+// append-only 'YYYY-MM-DD' list) before the row dies so computeStreak can
+// still credit it. Days are bucketed in the USER's timezone (computeStreak
+// buckets locally on the client); fall back to server-local if the setting
+// is absent or invalid. See Derived-Stat Durability Rules in CLAUDE.md.
+function ymdInUserTimezone(iso, timeZone) {
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return null
+  const opts = { year: 'numeric', month: '2-digit', day: '2-digit' }
+  try {
+    return new Intl.DateTimeFormat('en-CA', { ...opts, timeZone: timeZone || undefined }).format(d)
+  } catch {
+    return new Intl.DateTimeFormat('en-CA', opts).format(d)
+  }
+}
+
+function stampCompletionProvenance(task) {
+  const ts = task.status === 'done' ? task.completed_at
+    : task.status === 'waiting' ? task.waiting_at
+    : null
+  if (!ts) return
+  const settings = getData('settings') || {}
+  const day = ymdInUserTimezone(ts, settings.user_timezone)
+  if (!day) return
+  const days = Array.isArray(settings.completion_days) ? settings.completion_days : []
+  if (days.includes(day)) return
+  setData('settings', { ...settings, completion_days: [...days, day].sort() })
+}
+
 export function deleteTask(id) {
   // Cancel any outstanding Pushover Emergency receipt before removing the task.
   const existing = getTask(id)
   if (existing && existing.pushover_receipt) {
     triggerEmergencyCancel(id, existing.pushover_receipt)
   }
+  if (existing) stampCompletionProvenance(existing)
   db.run('DELETE FROM tasks WHERE id = ?', [id])
   schedulePersist()
 }
