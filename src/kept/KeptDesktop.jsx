@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Home, ListTodo, Repeat2, FolderKanban, BarChart3, Package, Settings,
-  Sparkles, Plus, CheckCircle2, ScrollText,
+  Sparkles, Plus, CheckCircle2, ScrollText, Inbox,
 } from 'lucide-react'
 import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
@@ -19,9 +19,10 @@ export default function KeptDesktop({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
+  onLogSession, gmailPendingCount = 0,
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
-  onOpenProjects, onOpenDone, onOpenActivity,
+  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
@@ -49,6 +50,7 @@ export default function KeptDesktop({
     { label: 'Caught', icon: CheckCircle2, onClick: onOpenDone },
     { label: 'Analytics', icon: BarChart3, onClick: onOpenAnalytics },
     { label: 'Packages', icon: Package, onClick: onOpenPackages },
+    { label: 'Suggestions', icon: Inbox, onClick: onOpenSuggestions },
     { label: 'Activity log', icon: ScrollText, onClick: onOpenActivity },
   ]
 
@@ -70,6 +72,8 @@ export default function KeptDesktop({
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
+        onLogSession={onLogSession} gmailPendingCount={gmailPendingCount}
+        onOpenSuggestions={onOpenSuggestions}
       />
     )
   }

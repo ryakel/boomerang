@@ -16,6 +16,7 @@ export default function KeptShell({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
+  onLogSession, gmailPendingCount = 0,
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
@@ -51,6 +52,8 @@ export default function KeptShell({
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
+        onLogSession={onLogSession} gmailPendingCount={gmailPendingCount}
+        onOpenSuggestions={onOpenSuggestions}
       />
     )
   }
