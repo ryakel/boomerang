@@ -314,6 +314,22 @@ function guardBulkBlobOnly(req, res) {
   return true
 }
 
+// streak_anchor is backward-only provenance for the streak floor. The bulk
+// settings path is whole-blob last-writer-wins, so a client whose localStorage
+// predates the anchor (stale device, pagehide beacon, pre-anchor bundle) would
+// silently drop it or move it forward on its next push. Never allow that from
+// the sync path — keep the earlier of (stored, incoming). Deliberate edits
+// (Quokka update_settings) use setData() directly and can still override.
+function mergeStreakAnchorBackwardOnly(prevSettings, nextSettings) {
+  if (!nextSettings) return
+  const prev = prevSettings?.streak_anchor
+  const next = nextSettings.streak_anchor
+  if (prev && (!next || prev < next)) {
+    nextSettings.streak_anchor = prev
+    console.log(`[SYNC] streak_anchor guard: kept ${prev} (incoming blob had ${next || 'none'})`)
+  }
+}
+
 function handleWeatherSettingsChange(prevSettings, nextSettings) {
   if (!nextSettings) return
   const prevLat = prevSettings?.weather_latitude
@@ -339,6 +355,7 @@ app.put('/api/data', (req, res) => {
   delete body._clientId
   delete body._version
   const prevSettings = getData('settings')
+  mergeStreakAnchorBackwardOnly(prevSettings, body.settings)
   const newVersion = setAllData(body)
   if (body.settings) {
     resetTransporter()
@@ -357,6 +374,7 @@ app.post('/api/data', (req, res) => {
   delete body._clientId
   delete body._version
   const prevSettings = getData('settings')
+  mergeStreakAnchorBackwardOnly(prevSettings, body.settings)
   const newVersion = setAllData(body)
   if (body.settings) {
     resetTransporter()
