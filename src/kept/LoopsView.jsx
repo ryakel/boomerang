@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Repeat2, Pencil, Sparkles } from 'lucide-react'
+import { Repeat2, Pencil, Sparkle } from 'lucide-react'
 import FlightTrail from './FlightTrail'
 import MonthDots from './MonthDots'
 import DensityRibbon from './DensityRibbon'
@@ -41,7 +41,7 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
       <div className="bm-title-row">
         <h1 className="bm-h1">Loops</h1>
         <button className="bm-btn bm-suggest-btn" onClick={onOpenSuggestions}>
-          <Sparkles size={14} strokeWidth={2.1} /> Suggestions
+          <Sparkle size={14} strokeWidth={2.1} /> Suggestions
           {suggestionCount > 0 && <span className="bm-suggest-dot" aria-label={`${suggestionCount} pending`} />}
         </button>
         <button className="bm-btn bm-btn-tonal" style={{ padding: '9px 14px' }} onClick={onAddLoop}>New loop</button>
