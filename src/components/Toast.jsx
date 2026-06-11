@@ -7,7 +7,20 @@ const MESSAGES_QUICK = [
   'Blink and you missed it.',
   'Any% completion.',
   "Didn't even break a sweat.",
-  'That barely counts as procrastinating.',
+  'Caught it mid-air.',
+  'Same-day service.',
+  'In and out. Surgical.',
+  'The list never saw you coming.',
+  'Thrown and caught in one motion.',
+  'Past-you would be jealous.',
+  'Zero dust collected.',
+  'Done before the doubt showed up.',
+  'That one never touched the ground.',
+  'Efficiency? In this economy?',
+  'No notes. Flawless.',
+  'Today-you carried.',
+  'Fresh off the list, already done.',
+  'Didn’t even get a chance to nag you.',
 ]
 
 const MESSAGES_NORMAL = [
@@ -17,15 +30,38 @@ const MESSAGES_NORMAL = [
   'That task never stood a chance.',
   'One less thing haunting you.',
   'Off the list, out of your brain.',
+  'Right on schedule. Who even are you?',
+  'The boomerang came back. You caught it.',
+  'Filed under: handled.',
+  'Your future self says thanks.',
+  'Momentum looks good on you.',
+  'Quietly competent. Love that.',
+  'Another loop closed.',
+  'Brain RAM: freed.',
+  'It’s done. It’s actually done.',
+  'Cross it off with feeling.',
+  'One throw, one catch.',
+  'The list shrinks. The legend grows.',
 ]
 
 const MESSAGES_LONG = [
   'The prodigal task returns... completed.',
-  'It only took you forever.',
   'Archaeologists found this task.',
   'That one aged like fine wine.',
   'Better late than literally never.',
   'The prophecy is fulfilled.',
+  'Long flight. Stuck the landing.',
+  'It waited. You delivered.',
+  'Carbon dating says: finally.',
+  'The siege is over.',
+  'Released from the haunted backlog.',
+  'Some boomerangs take the scenic route.',
+  'You outlasted it.',
+  'Closure. Actual closure.',
+  'The long game pays out.',
+  'Vintage task, fresh finish.',
+  'It thought you forgot. You didn’t.',
+  'Persistence: 1, entropy: 0.',
 ]
 
 const MESSAGES_REOPEN = [
@@ -33,11 +69,32 @@ const MESSAGES_REOPEN = [
   'Plot twist.',
   'The sequel nobody asked for.',
   'Back from the dead.',
-  'You thought you were done? Cute.',
   'Round two. Fight!',
+  'It boomeranged.',
+  'Encore performance.',
+  'False summit.',
+  'The director’s cut.',
+  'It had other plans.',
+  'Re-throw incoming.',
+  'Back in the air.',
 ]
 
-function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)] }
+// Shuffle-bag picker: remembers the last ~14 shown per variant in
+// localStorage and only repeats once the pool is exhausted (prod report:
+// "I get the same like 6 every time").
+const RECENT_KEY = 'boom_toast_recent_v1'
+function pickFresh(variant, arr) {
+  let recent = {}
+  try { recent = JSON.parse(localStorage.getItem(RECENT_KEY)) || {} } catch { /* fresh bag */ }
+  const seen = Array.isArray(recent[variant]) ? recent[variant] : []
+  const unseen = arr.filter(m => !seen.includes(m))
+  const pool = unseen.length > 0 ? unseen : arr
+  const pick = pool[Math.floor(Math.random() * pool.length)]
+  const cap = Math.min(arr.length - 1, 14)
+  recent[variant] = [...seen.filter(m => m !== pick), pick].slice(-cap)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)) } catch { /* best effort */ }
+  return pick
+}
 
 function getVariantKey(daysOnList, isReopen) {
   if (isReopen) return 'reopen'
@@ -47,10 +104,10 @@ function getVariantKey(daysOnList, isReopen) {
 }
 
 function getStaticMessage(daysOnList, isReopen) {
-  if (isReopen) return pickRandom(MESSAGES_REOPEN)
-  if (daysOnList === 0) return pickRandom(MESSAGES_QUICK)
-  if (daysOnList <= 3) return pickRandom(MESSAGES_NORMAL)
-  return pickRandom(MESSAGES_LONG)
+  if (isReopen) return pickFresh('reopen', MESSAGES_REOPEN)
+  if (daysOnList === 0) return pickFresh('quick', MESSAGES_QUICK)
+  if (daysOnList <= 3) return pickFresh('normal', MESSAGES_NORMAL)
+  return pickFresh('long', MESSAGES_LONG)
 }
 
 function getStaticSubtitle(daysOnList, todayCount, isReopen, taskTitle) {

@@ -1,12 +1,15 @@
-/* v2 Toast — pill-shaped, off-white background, hairline border, slides up
- * with --v2-ease-emphasis. Reads as a calm confirmation rather than a banner. */
+/* v2 Toast — push-notification-style TOP banner (prod request 2026-06-11:
+ * the bottom pill sat in the way of the list and the bottom nav). Slides
+ * down from the top edge like an iOS banner; tap anywhere to dismiss,
+ * auto-dismisses after a few seconds. Undo + Next-up ride along. */
 
 .v2-toast {
   position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%) translateY(0);
-  z-index: 90;
+  left: 12px;
+  right: 12px;
+  top: calc(10px + env(safe-area-inset-top));
+  margin: 0 auto;
+  z-index: 120; /* above pinned modal controls + shell header */
   background: var(--v2-text);
   color: var(--v2-bg);
   border-radius: 18px;
@@ -14,16 +17,15 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 280px;
-  max-width: min(92vw, 420px);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  max-width: 480px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.32);
   cursor: pointer;
   animation: v2-toast-in var(--v2-dur-emphasis) var(--v2-ease-emphasis);
 }
 
 @keyframes v2-toast-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from { opacity: 0; transform: translateY(-24px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .v2-toast-reopen {
