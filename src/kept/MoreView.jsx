@@ -1,15 +1,16 @@
-import { ChevronRight, BarChart3, Package, Settings, FolderKanban, CheckCircle2, ScrollText, Inbox } from 'lucide-react'
+import { ChevronRight, BarChart3, Package, Settings, FolderKanban, CheckCircle2, ScrollText } from 'lucide-react'
 import './shell.css'
 
 // Kept "More" — the low-frequency surfaces. Arcs (projects) routes to the
 // existing ProjectsView; Flight log (profile) arrives with K5's dashboard.
-export default function MoreView({ onOpenProjects, onOpenAnalytics, onOpenPackages, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenSettings }) {
+// Loop suggestions moved to a Sparkles button on the Loops surface
+// (2026-06-11) — suggestions are about loops, they live with loops.
+export default function MoreView({ onOpenProjects, onOpenAnalytics, onOpenPackages, onOpenDone, onOpenActivity, onOpenSettings }) {
   const rows = [
     { icon: FolderKanban, label: 'Arcs', sub: 'Long-term projects · sessions + steps', onClick: onOpenProjects },
     { icon: BarChart3, label: 'Analytics', sub: 'Productivity insights', onClick: onOpenAnalytics },
     { icon: CheckCircle2, label: 'Caught', sub: 'Everything you finished', onClick: onOpenDone },
     { icon: Package, label: 'Packages', sub: 'Track deliveries', onClick: onOpenPackages },
-    { icon: Inbox, label: 'Loop suggestions', sub: 'Recurring patterns spotted in your tasks', onClick: onOpenSuggestions },
     { icon: ScrollText, label: 'Activity log', sub: 'Every change, restorable', onClick: onOpenActivity },
     { icon: Settings, label: 'Settings', sub: 'App configuration', onClick: onOpenSettings },
   ]

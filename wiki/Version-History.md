@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): New loop goes straight to the form + Suggestions button on Loops [S]
+  - **Flow fix** (prod report: "New loop → Loop List → New routine makes no sense"): the "New loop" button now opens the editor directly in the blank form (`openToForm` prop on RoutinesModal, consumed on open) — no list detour, no second tap. The list's own buttons also respect the Kept noun now ("+ New loop", not "+ New routine").
+  - **Loop suggestions live on the Loops page**: gold Sparkles "Suggestions" button in the title row (deliberately not the Quokka ember treatment — it's the pattern scanner, not the adviser), with an ember dot badge when the weekly scan has pending finds (`GET /api/suggestions` count). The "Loop suggestions" row is removed from the mobile More menu; desktop sidebar and Standard theme unchanged.
+  - Verified live: Loops header shows the badged button → opens "Loop suggestions"; "New loop" lands on the form; More menu reads Arcs · Analytics · Caught · Packages · Activity log · Settings.
+
 - feat(ui): Kept pull-to-refresh + toast swipe-up dismiss [S]
   - **Pull-down-to-refresh on the Kept mobile shell** (the dropped ask, recovered by auditing the transcript — it predated a context compaction and fell out of the working notes): dragging down from the top of any tab surface (Today/Tasks/Loops/More) reveals a boomerang-arc spinner; releasing past the threshold runs a full server refetch (`useServerSync.refetch` → the same hydration path SSE uses) and holds the spinner until it resolves. `overscroll-behavior-y: contain` keeps the browser's own rubber-band out of the way. New `src/kept/PullToRefresh.jsx`.
   - **Toast swipe-up dismiss**: the top banner now follows the finger upward and flicks away past 36px — a real push-notification gesture to go with tap-dismiss. (Honest accounting from the user's audit: the earlier toast round changed position, animation, dismissal, and copy — the visual shell itself is still the adaptive dark pill; a Kept-native banner restyle rides with the editor redesign wave.)

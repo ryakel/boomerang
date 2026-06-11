@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Repeat2, Pencil } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Repeat2, Pencil, Sparkles } from 'lucide-react'
 import FlightTrail from './FlightTrail'
 import MonthDots from './MonthDots'
 import DensityRibbon from './DensityRibbon'
@@ -15,8 +15,19 @@ const RANGES = [
 
 // Kept "Loops" — one card per loop carrying its Flight Trail / Month Dots /
 // Density Ribbon (spec §6). Edit routes to the existing routine editor.
-export default function LoopsView({ routines = [], onEditLoop, onAddLoop }) {
+export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpenSuggestions }) {
   const [range, setRange] = useState('trail')
+  // Pending pattern-scan suggestions — drives the dot badge on the
+  // Suggestions button so a passive Sunday-scan find still waves at you.
+  const [suggestionCount, setSuggestionCount] = useState(0)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/suggestions')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (alive && d) setSuggestionCount(d.count || 0) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
   const loops = useMemo(() => {
     const feathers = routineFeathers(routines)
     return routines.filter(r => !r.paused).map(r => {
@@ -29,7 +40,11 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop }) {
     <div className="bm-surface">
       <div className="bm-title-row">
         <h1 className="bm-h1">Loops</h1>
-        <button className="bm-btn bm-btn-tonal" style={{ marginLeft: 'auto', padding: '9px 14px' }} onClick={onAddLoop}>New loop</button>
+        <button className="bm-btn bm-suggest-btn" onClick={onOpenSuggestions}>
+          <Sparkles size={14} strokeWidth={2.1} /> Suggestions
+          {suggestionCount > 0 && <span className="bm-suggest-dot" aria-label={`${suggestionCount} pending`} />}
+        </button>
+        <button className="bm-btn bm-btn-tonal" style={{ padding: '9px 14px' }} onClick={onAddLoop}>New loop</button>
       </div>
       <div className="bm-seg" role="tablist" aria-label="History range">
         {RANGES.map(m => (
