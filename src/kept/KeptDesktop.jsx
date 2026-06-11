@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Home, ListTodo, Repeat2, FolderKanban, BarChart3, Package, Settings,
-  Sparkles, Plus, CheckCircle2, ScrollText, Inbox,
+  Sparkles, Plus, CheckCircle2, ScrollText, Inbox, Compass,
 } from 'lucide-react'
 import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
@@ -19,7 +19,7 @@ export default function KeptDesktop({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
-  onLogSession, gmailPendingCount = 0,
+  onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
@@ -50,7 +50,7 @@ export default function KeptDesktop({
     { label: 'Caught', icon: CheckCircle2, onClick: onOpenDone },
     { label: 'Analytics', icon: BarChart3, onClick: onOpenAnalytics },
     { label: 'Packages', icon: Package, onClick: onOpenPackages },
-    { label: 'Suggestions', icon: Inbox, onClick: onOpenSuggestions },
+    { label: 'Routine suggestions', icon: Inbox, onClick: onOpenSuggestions },
     { label: 'Activity log', icon: ScrollText, onClick: onOpenActivity },
   ]
 
@@ -59,8 +59,9 @@ export default function KeptDesktop({
     surface = (
       <TasksViewKept
         tasks={tasks} labels={labels}
-        onToggleComplete={onCompleteTask} onOpenTask={onOpenTask}
-        onDelete={onDeleteTask} onReschedule={onRescheduleTask}
+        routines={routines}
+        onToggleComplete={onCompleteTask} onToggleItem={onToggleItem} onOpenTask={onOpenTask}
+        onDelete={onDeleteTask} onReschedule={onRescheduleTask} onUnsnooze={onUnsnooze}
       />
     )
   } else if (tab === 'loops') {
@@ -72,8 +73,8 @@ export default function KeptDesktop({
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
-        onLogSession={onLogSession} gmailPendingCount={gmailPendingCount}
-        onOpenSuggestions={onOpenSuggestions}
+        onLogSession={onLogSession} onGmailKeep={onGmailKeep} onGmailDismiss={onGmailDismiss}
+        onWhatNow={onWhatNow}
       />
     )
   }
@@ -91,6 +92,9 @@ export default function KeptDesktop({
         </div>
         <button className="bm-side-throw" onClick={() => setThrowOpen(true)}>
           <Plus size={15} strokeWidth={2.4} /> Throw a task <kbd>⌘K</kbd>
+        </button>
+        <button className="bm-side-item" onClick={onWhatNow}>
+          <Compass size={17} strokeWidth={2} /> What now?
         </button>
         {navMain.map(t => {
           const Icon = t.icon

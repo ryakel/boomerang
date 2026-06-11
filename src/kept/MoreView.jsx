@@ -9,7 +9,7 @@ export default function MoreView({ onOpenProjects, onOpenAnalytics, onOpenPackag
     { icon: BarChart3, label: 'Analytics', sub: 'Productivity insights', onClick: onOpenAnalytics },
     { icon: CheckCircle2, label: 'Caught', sub: 'Everything you finished', onClick: onOpenDone },
     { icon: Package, label: 'Packages', sub: 'Track deliveries', onClick: onOpenPackages },
-    { icon: Inbox, label: 'Suggestions', sub: 'Gmail-imported items to review', onClick: onOpenSuggestions },
+    { icon: Inbox, label: 'Routine suggestions', sub: 'Recurring patterns spotted in your tasks', onClick: onOpenSuggestions },
     { icon: ScrollText, label: 'Activity log', sub: 'Every change, restorable', onClick: onOpenActivity },
     { icon: Settings, label: 'Settings', sub: 'App configuration', onClick: onOpenSettings },
   ]

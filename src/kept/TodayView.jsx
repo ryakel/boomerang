@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Check, Repeat2, Flame, FolderKanban, Inbox, ChevronRight } from 'lucide-react'
+import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass } from 'lucide-react'
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD } from '../dates'
@@ -19,7 +19,7 @@ export default function TodayView({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
-  onLogSession, onOpenSuggestions, gmailPendingCount = 0,
+  onLogSession, onGmailKeep, onGmailDismiss, onWhatNow,
 }) {
   const todayKey = localYMD()
   const [collapsed, toggleSection] = useCollapsedSections()
@@ -103,6 +103,10 @@ export default function TodayView({
   }, [routines, tasks, todayKey])
   const loopsDone = loops.filter(l => l.doneToday).length
 
+  // Gmail-imported items awaiting review (Keep / Dismiss) — restores the
+  // v1-era inline review that died in the purge (v2 never ported it).
+  const gmailPending = useMemo(() => tasks.filter(t => t.gmail_pending), [tasks])
+
   // Pinned Arcs (projects) — v2's main list led with these; restore them.
   const pinnedArcs = useMemo(() => tasks.filter(t => t.status === 'project' && t.pinned_to_today), [tasks])
   const arcChildren = useMemo(() => {
@@ -129,14 +133,31 @@ export default function TodayView({
           <span><b>{loopsDone}/{loops.length}</b> loops</span>
           <span><b>{Math.max(0, pointsGoal - (dailyStats.pointsToday ?? 0))}</b> pts left</span>
         </div>
+        <button className="bm-btn bm-btn-tonal bm-whatnow" onClick={onWhatNow}>
+          <Compass size={15} strokeWidth={2.1} /> What now?
+        </button>
       </div>
 
-      {gmailPendingCount > 0 && (
-        <button className="bm-gmail-banner" onClick={onOpenSuggestions}>
-          <Inbox size={15} strokeWidth={2} />
-          <span><b>{gmailPendingCount}</b> imported item{gmailPendingCount === 1 ? '' : 's'} to review</span>
-          <ChevronRight size={15} strokeWidth={2} className="bm-more-chev" />
-        </button>
+      {gmailPending.length > 0 && (
+        <Section id="review" label="Review" count={gmailPending.length} collapsed={!!collapsed.review} onToggle={toggleSection}>
+          <div className="bm-rows">
+            {gmailPending.map(t => (
+              <div key={t.id} className="bm-row bm-review-row">
+                <span className="bm-review-icon"><Inbox size={14} strokeWidth={2} /></span>
+                <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
+                  <span className="bm-row-title">{t.title}</span>
+                  <span className="bm-row-meta"><span>from Gmail</span></span>
+                </button>
+                <button className="bm-btn bm-btn-tonal bm-review-keep" onClick={() => onGmailKeep?.(t)}>
+                  <Check size={13} strokeWidth={2.6} /> Keep
+                </button>
+                <button className="bm-review-dismiss" onClick={() => onGmailDismiss?.(t)} aria-label="Dismiss">
+                  <X size={15} strokeWidth={2.2} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </Section>
       )}
 
       {pinnedArcs.length > 0 && (

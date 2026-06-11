@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Check, Search, Pencil, Trash2, Calendar, X } from 'lucide-react'
+import { Check, Search, Pencil, Trash2, X, Undo2 } from 'lucide-react'
 import { localYMD, parseLocalDate, addDays } from '../dates'
-import { isSnoozed } from '../store'
+import { isSnoozed, formatSnoozeLabel } from '../store'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
 import './shell.css'
@@ -9,31 +9,41 @@ import './shell.css'
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 const TABS = [
   { id: 'upcoming', label: 'Upcoming' },
+  { id: 'snoozed', label: 'Snoozed' },
   { id: 'backlog', label: 'Backlog' },
   { id: 'done', label: 'Done' },
 ]
 
 // Kept "Tasks" — grouped hairline rows, gold circle checks, dot-tags, and the
 // action sheet with reschedule chips ("throw it back") (spec §6).
-export default function TasksViewKept({ tasks = [], labels = [], onToggleComplete, onOpenTask, onDelete, onReschedule }) {
+export default function TasksViewKept({ tasks = [], labels = [], routines = [], onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze }) {
   const [tab, setTab] = useState('upcoming')
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [sheetTask, setSheetTask] = useState(null)
   const [collapsed, toggleSection] = useCollapsedSections()
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
+  const [labelFilter, setLabelFilter] = useState('all')
+  // Stack members live in their Today folder (v2 dropped them from the main
+  // sections too); they stay visible in Done as records.
+  const stackIds = useMemo(() => new Set(
+    routines.filter(r => Array.isArray(r.members) && r.members.length > 0).map(r => r.id),
+  ), [routines])
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return tasks.filter(t => {
       if (t.gmail_pending || t.parent_id) return false
+      if (tab !== 'done' && t.routine_id && stackIds.has(t.routine_id)) return false
       if (tab === 'done') { if (t.status !== 'done') return false }
       else if (tab === 'backlog') { if (t.status !== 'backlog') return false }
+      else if (tab === 'snoozed') { if (!ACTIVE.includes(t.status) || !isSnoozed(t)) return false }
       else if (!ACTIVE.includes(t.status) || isSnoozed(t)) return false
+      if (labelFilter !== 'all' && !(t.tags || []).includes(labelFilter)) return false
       if (q && !t.title.toLowerCase().includes(q)) return false
       return true
     })
-  }, [tasks, tab, query])
+  }, [tasks, tab, query, labelFilter, stackIds])
 
   const sections = useMemo(() => groupTasks(visible, tab), [visible, tab])
 
@@ -54,6 +64,17 @@ export default function TasksViewKept({ tasks = [], labels = [], onToggleComplet
             onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
+      {labels.length > 0 && tab !== 'done' && (
+        <div className="bm-filter-row">
+          <button className={`bm-pick bm-pick-sm${labelFilter === 'all' ? ' is-on' : ''}`} onClick={() => setLabelFilter('all')}>All</button>
+          {labels.map(l => (
+            <button key={l.id} className={`bm-pick bm-pick-sm${labelFilter === l.id ? ' is-on' : ''}`} style={{ '--tag': l.color }} onClick={() => setLabelFilter(labelFilter === l.id ? 'all' : l.id)}>
+              <i className="bm-filter-dot" /> {l.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {searchOpen && (
         <input
           className="bm-throw-input"
@@ -73,25 +94,49 @@ export default function TasksViewKept({ tasks = [], labels = [], onToggleComplet
               const done = t.status === 'done'
               const due = dueMeta(t.due_date)
               const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
+              const subItems = tab === 'snoozed' || done ? [] : (Array.isArray(t.checklists) ? t.checklists : [])
+                .flatMap(cl => (cl.items || []).map(it => ({ ...it, clId: cl.id })))
               return (
                 <RowSwipe key={t.id} done={done} onCatch={() => onToggleComplete?.(t)} onDelete={() => onDelete?.(t)}>
                   <div className="bm-row">
                     <button
-                      className={`bm-chk${done ? ' is-done' : ''}`}
+                      className={`bm-chk${done ? ' is-done' : ''}${t.high_priority ? ' is-hi' : ''}`}
                       onClick={() => onToggleComplete?.(t)}
                       aria-label={done ? 'Reopen' : 'Catch it'}
                     >{done && <Check size={13} strokeWidth={3.4} />}</button>
-                    <button className="bm-row-body" onClick={() => setSheetTask(t)}>
-                      <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                      {!done && (due || chips.length > 0) && (
-                        <span className="bm-row-meta">
-                          {due && <span className={due.tone === 'over' ? 'bm-due-over' : due.tone === 'hot' ? 'bm-due-hot' : undefined}>{due.label}</span>}
-                          {chips.slice(0, 3).map(l => (
-                            <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
+                    <div className="bm-row-stack">
+                      <button className="bm-row-body" onClick={() => setSheetTask(t)}>
+                        <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
+                        {!done && (due || chips.length > 0 || tab === 'snoozed') && (
+                          <span className="bm-row-meta">
+                            {tab === 'snoozed' && <span className="bm-return-chip">↩ returns {formatSnoozeLabel(t.snoozed_until)}</span>}
+                            {due && <span className={due.tone === 'over' ? 'bm-due-over' : due.tone === 'hot' ? 'bm-due-hot' : undefined}>{due.label}</span>}
+                            {chips.slice(0, 3).map(l => (
+                              <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
+                            ))}
+                          </span>
+                        )}
+                      </button>
+                      {subItems.length > 0 && (
+                        <ul className="bm-subtasks">
+                          {subItems.map(it => (
+                            <li key={it.id} className="bm-subtask">
+                              <button
+                                className={`bm-subcheck${it.completed ? ' is-done' : ''}`}
+                                onClick={() => onToggleItem?.(t, it.clId, it.id)}
+                                aria-label={it.completed ? 'Uncheck' : 'Check'}
+                              >{it.completed && <Check size={10} strokeWidth={3} />}</button>
+                              <span className={`bm-subtask-text${it.completed ? ' is-done' : ''}`}>{it.text}</span>
+                            </li>
                           ))}
-                        </span>
+                        </ul>
                       )}
-                    </button>
+                    </div>
+                    {tab === 'snoozed' && (
+                      <button className="bm-btn bm-btn-tonal bm-bringback" onClick={() => onUnsnooze?.(t)}>
+                        <Undo2 size={13} strokeWidth={2.2} /> Now
+                      </button>
+                    )}
                   </div>
                 </RowSwipe>
               )
@@ -154,6 +199,10 @@ function groupTasks(list, tab) {
   }
   if (tab === 'backlog') {
     return list.length ? [{ key: 'backlog', label: 'Backlog', items: list }] : []
+  }
+  if (tab === 'snoozed') {
+    const sorted = [...list].sort((a, b) => (a.snoozed_until || '').localeCompare(b.snoozed_until || ''))
+    return sorted.length ? [{ key: 'snoozed', label: 'Returning', items: sorted }] : []
   }
   const today = localYMD()
   const tmr = localYMD(addDays(new Date(), 1))
