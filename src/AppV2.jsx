@@ -1591,6 +1591,7 @@ export default function AppV2() {
 
       <SuggestionsModal
         open={showSuggestions}
+        title={isKept ? 'Loop suggestions' : 'Routine suggestions'}
         onClose={() => setShowSuggestions(false)}
         onAccepted={() => {
           // Routine was just created server-side — refresh the local routines

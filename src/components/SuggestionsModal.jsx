@@ -88,7 +88,7 @@ function SuggestionCard({ suggestion, onAccept, onSnooze, onDismiss, busy }) {
   )
 }
 
-export default function SuggestionsModal({ open, onClose, onAccepted }) {
+export default function SuggestionsModal({ open, onClose, onAccepted, title = 'Routine suggestions' }) {
   const [suggestions, setSuggestions] = useState([])
   const [loading, setLoading] = useState(false)
   const [busyId, setBusyId] = useState(null)
@@ -183,7 +183,7 @@ export default function SuggestionsModal({ open, onClose, onAccepted }) {
     <ModalShell
       open={open}
       onClose={onClose}
-      title="Routine suggestions"
+      title={title}
       subtitle={suggestions.length === 0
         ? (loading ? 'Loading…' : undefined)
         : `${suggestions.length} waiting`}
