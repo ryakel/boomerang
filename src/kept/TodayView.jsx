@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass } from 'lucide-react'
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
@@ -8,6 +8,7 @@ import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate } from '../store'
 import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
+import WeekBreakdown from './WeekBreakdown'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -23,6 +24,7 @@ export default function TodayView({
 }) {
   const todayKey = localYMD()
   const [collapsed, toggleSection] = useCollapsedSections()
+  const [showBreakdown, setShowBreakdown] = useState(false)
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
 
   const stackRoutineIds = useMemo(() => new Set(
@@ -97,9 +99,11 @@ export default function TodayView({
         // cadence engine doesn't model them, so they're always "due".
         dueToday: r.spawn_mode === 'habit' || (!!dueKey && dueKey <= todayKey),
       }
-    // Plain loops: due/done today. Stacks: ONLY while a cycle is surfaced —
-    // no waiting row, no cleared receipt (v2 behavior).
-    }).filter(l => (l.isStack ? l.cycles.length > 0 : (l.dueToday || l.doneToday)))
+    // Plain loops: due/done today. Stacks: while a cycle is surfaced, OR
+    // cleared today — a finished stack stays counted + visible as a checked
+    // receipt until midnight (prod report: clearing Bedtime's last member
+    // flipped the hero from 2/3 loops to 2/2 instead of crediting 3/3).
+    }).filter(l => (l.isStack ? (l.cycles.length > 0 || l.doneToday) : (l.dueToday || l.doneToday)))
   }, [routines, tasks, todayKey])
   const loopsDone = loops.filter(l => l.doneToday).length
 
@@ -128,11 +132,17 @@ export default function TodayView({
           {streak > 0 && <span className="bm-rally-chip">↻ {streak}-day rally</span>}
         </div>
         <DayArc value={dailyStats.pointsToday ?? 0} goal={pointsGoal} />
-        <div className="bm-hero-meta">
+        <button
+          className="bm-hero-meta"
+          onClick={() => setShowBreakdown(v => !v)}
+          aria-expanded={showBreakdown}
+          aria-label="Show daily breakdown"
+        >
           <span><b>{catches}</b> {catches === 1 ? 'catch' : 'catches'}</span>
           <span><b>{loopsDone}/{loops.length}</b> loops</span>
           <span><b>{Math.max(0, pointsGoal - (dailyStats.pointsToday ?? 0))}</b> pts left</span>
-        </div>
+        </button>
+        {showBreakdown && <WeekBreakdown tasks={tasks} />}
         <button className="bm-btn bm-btn-tonal bm-whatnow" onClick={onWhatNow}>
           <Compass size={15} strokeWidth={2.1} /> What now?
         </button>
@@ -268,6 +278,24 @@ export default function TodayView({
         <Section id="loops" label="Loops" count={`${loopsDone}/${loops.length}`} collapsed={!!collapsed.loops} onToggle={toggleSection}>
           <div className="bm-rows">
             {loops.map(({ r, color, byDay, rally, doneToday, isStack, cycles }) => {
+              if (isStack && cycles.length === 0 && doneToday) {
+                // Cleared-today receipt: the folder is done, keep the loop
+                // visible + credited until midnight. Check is display-only —
+                // un-clearing goes through reopening the member task.
+                return (
+                  <div key={r.id} className="bm-loop" style={{ '--loop': color }}>
+                    <span className="bm-loop-ring"><Repeat2 size={15} strokeWidth={2.2} /></span>
+                    <button className="bm-loop-body" onClick={() => onEditLoop?.(r)} aria-label={`Edit ${r.title}`}>
+                      <div className="bm-loop-title">{r.title}</div>
+                      <div className="bm-loop-sub">
+                        {r.cadence || 'routine'}{rally > 0 && <> · <span className="bm-loop-rally">↻ {rally}</span></>}
+                      </div>
+                    </button>
+                    <span className="bm-loop-trail"><FlightTrail valueByDay={byDay} color={color} mini /></span>
+                    <span className="bm-loop-chk is-done" aria-label="Cleared today"><Check size={15} strokeWidth={3.2} /></span>
+                  </div>
+                )
+              }
               if (isStack) {
                 // Folder per surfaced cycle: header (name · done/total) over
                 // the OPEN members. Checks ride the real task path so the

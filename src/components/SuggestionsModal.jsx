@@ -93,6 +93,7 @@ export default function SuggestionsModal({ open, onClose, onAccepted }) {
   const [loading, setLoading] = useState(false)
   const [busyId, setBusyId] = useState(null)
   const [recentAcceptTitle, setRecentAcceptTitle] = useState(null)
+  const [scanResult, setScanResult] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -167,7 +168,11 @@ export default function SuggestionsModal({ open, onClose, onAccepted }) {
   const handleScan = async () => {
     setLoading(true)
     try {
-      await fetch('/api/suggestions/scan', { method: 'POST' })
+      // Surface what the scan actually saw — a silent empty result is
+      // indistinguishable from a broken scanner (prod report 2026-06-11).
+      const res = await fetch('/api/suggestions/scan', { method: 'POST' })
+      const data = await res.json().catch(() => null)
+      setScanResult(res.ok && data?.ok ? data : { error: data?.error || `scan failed (${res.status})` })
       await load()
     } finally {
       setLoading(false)
@@ -193,9 +198,13 @@ export default function SuggestionsModal({ open, onClose, onAccepted }) {
       {suggestions.length === 0 ? (
         <EmptyState
           icon={Sparkles}
-          title="No suggestions right now"
-          body="Boomerang scans your completed task history weekly (Sundays at 3am) and surfaces patterns that look routine-shaped. Once you've completed a recurring task a few times, it'll show up here."
-          cta="Run scan now"
+          title={scanResult ? 'Scan complete — nothing routine-shaped yet' : 'No suggestions right now'}
+          body={scanResult
+            ? (scanResult.error
+              ? `The scan hit an error: ${scanResult.error}`
+              : `Scanned ${scanResult.scanned} completed task${scanResult.scanned === 1 ? '' : 's'} and found ${scanResult.candidates} repeating candidate${scanResult.candidates === 1 ? '' : 's'}; ${scanResult.surfaced} cleared the confidence bar. Tasks spawned by your existing loops are skipped on purpose — only ad-hoc repeats count, and a pattern needs 3+ completions at a steady rhythm before it surfaces.`)
+            : 'Boomerang scans your completed task history weekly (Sundays at 3am) and surfaces patterns that look routine-shaped. Once you\'ve completed a recurring task a few times, it\'ll show up here.'}
+          cta={loading ? 'Scanning…' : 'Run scan now'}
           ctaOnClick={handleScan}
         />
       ) : (
