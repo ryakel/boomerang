@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { History, Search, Sparkles, X } from 'lucide-react'
-import { loadActivityLog, saveActivityLog, uuid } from '../store'
+import {
+  History, Search, Sparkles, X, Plus, Check, RotateCcw, Trash2,
+  ArrowRightLeft, Pencil, Clock3, FastForward, Flag, AlertTriangle,
+} from 'lucide-react'
+import { loadActivityLog, saveActivityLog, uuid, localYMD } from '../store'
 import { aiSearchActivity } from '../api'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
@@ -17,6 +20,19 @@ const ACTION_LABELS = {
   skipped: 'Skipped',
   priority_changed: 'Priority changed',
   error: 'Error',
+}
+
+const ACTION_ICONS = {
+  created: Plus,
+  completed: Check,
+  reopened: RotateCcw,
+  deleted: Trash2,
+  status_changed: ArrowRightLeft,
+  edited: Pencil,
+  snoozed: Clock3,
+  skipped: FastForward,
+  priority_changed: Flag,
+  error: AlertTriangle,
 }
 
 const ACTION_TONE = {
@@ -42,6 +58,15 @@ function timeAgo(timestamp) {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d ago`
   return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function dayLabel(ymd) {
+  const today = localYMD(new Date())
+  if (ymd === today) return 'Today'
+  const y = new Date(); y.setDate(y.getDate() - 1)
+  if (ymd === localYMD(y)) return 'Yesterday'
+  const [yy, mm, dd] = ymd.split('-').map(Number)
+  return new Date(yy, mm - 1, dd).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 export default function ActivityLog({ open, onRestore, onClose }) {
@@ -205,28 +230,49 @@ export default function ActivityLog({ open, onRestore, onClose }) {
         />
       ) : (
         <ul className="v2-activity-list">
-          {filteredLog.map(entry => (
-            <li key={entry.id} className="v2-activity-row">
-              <div className="v2-activity-meta-row">
-                <span
-                  className="v2-activity-action"
-                  style={{ color: ACTION_TONE[entry.action] || 'var(--v2-text-meta)' }}
-                >
-                  {ACTION_LABELS[entry.action] || entry.action}
-                </span>
-                <span className="v2-activity-time">{timeAgo(entry.timestamp)}</span>
-              </div>
-              <div className="v2-activity-title">{entry.task_title}</div>
-              {entry.action === 'error' && entry.task_snapshot?.error && (
-                <pre className="v2-activity-error-detail">{entry.task_snapshot.error}</pre>
-              )}
-              {entry.action === 'deleted' && entry.task_snapshot && (
-                <button className="v2-activity-restore" onClick={() => handleRestore(entry)}>
-                  Restore
-                </button>
-              )}
-            </li>
-          ))}
+          {(() => {
+            // Group under day headers — a flat 200-row stream was unscannable.
+            const groups = []
+            for (const entry of filteredLog) {
+              const key = localYMD(new Date(entry.timestamp))
+              const g = groups[groups.length - 1]
+              if (g && g.key === key) g.entries.push(entry)
+              else groups.push({ key, entries: [entry] })
+            }
+            return groups.map(g => (
+              <li key={g.key} className="v2-activity-group">
+                <div className="v2-activity-day">{dayLabel(g.key)}</div>
+                {g.entries.map(entry => {
+                  const Icon = ACTION_ICONS[entry.action] || History
+                  const tone = ACTION_TONE[entry.action] || 'var(--v2-text-meta)'
+                  return (
+                    <div key={entry.id} className="v2-activity-row">
+                      <span className="v2-activity-icon" style={{ '--tone': tone }}>
+                        <Icon size={13} strokeWidth={2.2} />
+                      </span>
+                      <div className="v2-activity-body">
+                        <div className="v2-activity-title">{entry.task_title || '(untitled)'}</div>
+                        <div className="v2-activity-meta-row">
+                          <span className="v2-activity-action" style={{ color: tone }}>
+                            {ACTION_LABELS[entry.action] || entry.action}
+                          </span>
+                          <span className="v2-activity-time">{timeAgo(entry.timestamp)}</span>
+                        </div>
+                        {entry.action === 'error' && entry.task_snapshot?.error && (
+                          <pre className="v2-activity-error-detail">{entry.task_snapshot.error}</pre>
+                        )}
+                      </div>
+                      {entry.action === 'deleted' && entry.task_snapshot && (
+                        <button className="v2-activity-restore" onClick={() => handleRestore(entry)}>
+                          Restore
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </li>
+            ))
+          })()}
         </ul>
       )}
     </ModalShell>
