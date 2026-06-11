@@ -34,8 +34,24 @@
   padding: 0;
 }
 
+.v2-activity-group { list-style: none; }
+
+.v2-activity-day {
+  position: sticky;
+  top: 0;
+  padding: 10px 4px 6px;
+  font: 700 11px/1 var(--v2-font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--v2-text-meta);
+  background: var(--v2-bg);
+}
+
 .v2-activity-row {
-  padding: 14px 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 4px;
   border-bottom: 1px solid var(--v2-hairline);
 }
 
@@ -43,12 +59,28 @@
   border-bottom: none;
 }
 
+.v2-activity-icon {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--tone, var(--v2-text-meta));
+  background: color-mix(in srgb, var(--tone, var(--v2-text-meta)) 14%, transparent);
+}
+
+.v2-activity-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .v2-activity-meta-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 4px;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .v2-activity-action {
@@ -69,7 +101,8 @@
 }
 
 .v2-activity-restore {
-  margin-top: 8px;
+  flex: 0 0 auto;
+  margin-top: 2px;
   height: 28px;
   padding: 0 12px;
   border-radius: var(--v2-radius-pill);
