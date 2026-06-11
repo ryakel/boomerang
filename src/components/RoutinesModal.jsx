@@ -344,7 +344,7 @@ function FollowUpStepRow({ step, index, isFirst, isLast, onChange, onRemove, onM
   )
 }
 
-function RoutineForm({ initial, onSave, onCancel }) {
+function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
   const isNew = !initial
   const [title, setTitle] = useState(initial?.title || '')
   const [cadence, setCadence] = useState(initial?.cadence || 'weekly')
@@ -579,7 +579,7 @@ function RoutineForm({ initial, onSave, onCancel }) {
 
   return (
     <div className="v2-routine-form">
-      <button type="button" className="v2-routine-back" onClick={onCancel}>← Back to routines</button>
+      <button type="button" className="v2-routine-back" onClick={onCancel}>← Back to {noun}s</button>
 
       <input
         className="v2-form-input v2-form-title"
@@ -1095,6 +1095,7 @@ export default function RoutinesModal({
     >
       {view === 'form' ? (
         <RoutineForm
+          noun={noun}
           initial={editing}
           onSave={handleSubmitForm}
           onCancel={() => { setView('list'); setEditing(null) }}
