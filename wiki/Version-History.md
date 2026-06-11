@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(streak): server-side backward-only guard for streak_anchor — round 2, the anchor now actually survives [M]
+  - Round 1 shipped the anchor but it died in prod within seconds, two ways: (a) the client seeding effect ran against localStorage-cached tasks BEFORE server hydration, so a device that hadn't hydrated the (Quokka-set) repair anchor seeded its own later date and `flushSync()`ed it over the server's; (b) even with that gated, any live page whose localStorage lacked the anchor erased it via the `pagehide` sendBeacon whole-blob settings push — reproduced exactly in the harness ("hydrate merge: server=undefined").
+  - Fixes, all three layers: **server** `mergeStreakAnchorBackwardOnly()` on bulk PUT/POST `/api/data` keeps the earlier of (stored, incoming) — the load-bearing fix, since the blob path is last-writer-wins; **client effect** now waits for server hydration (`serverHydratedRef`) before seeding; **client hydration merge** keeps an earlier local anchor over a later server one. Quokka `update_settings` uses `setData()` directly and bypasses the guard, so deliberate repairs/corrections always stick.
+  - Also corrected round 1's wrong claim: `/api/analytics/history` aggregates `status='done'` rows from the same tasks table — it is NOT an independent survivor and can't reconstruct deleted pending imports. New "Derived-Stat Durability Rules" section in CLAUDE.md captures the whole lesson.
+  - Verified in the harness against the hostile shape: server anchor 2026-05-06, live client stripped of it + unload beacon crossfire → server log shows the guard catching the push, anchor intact on both ends, rally restored 27 → 36.
+
 - fix(streak): persistent backward-only streak anchor — deleting old records can't shorten the rally [S]
   - Prod incident: a 36-day rally dropped to 27 after dismissing old Gmail imports. Root cause: `computeStreak`'s history floor = the creation date of the OLDEST SURVIVING task, recomputed live — deleting your earliest record moved the floor forward and retroactively cut the streak. The bonus/egg math was untouched and innocent.
   - Fix: `settings.streak_anchor` ('YYYY-MM-DD', only ever moves backward) now bounds the floor. AppV2 maintains it once per load from the oldest task AND the earliest active day in `/api/analytics/history` (which survives deletion/cleanup) — so affected users' floors restore to their true history start on next load, and no future delete/dismiss can shrink a rally.

@@ -233,7 +233,9 @@ export default function AppV2() {
   // server snapshot shouldn't overwrite a fresh local pick). Don't call
   // `saveSettings(data.settings)` here — it'd bypass that guard. We only
   // mirror downstream React state that depends on server-side settings.
+  const serverHydratedRef = useRef(false)
   const hydrateFromServer = useCallback((data) => {
+    serverHydratedRef.current = true
     if (data.tasks) hydrateTasks(data.tasks)
     if (data.routines) hydrateRoutines(data.routines)
     if (data.settings) {
@@ -300,11 +302,19 @@ export default function AppV2() {
   // Streak-anchor maintenance: persist the earliest-known activity date so
   // the streak floor can never move FORWARD when old records are deleted
   // (dismissing old Gmail imports shortened a 36-day rally to 27). Seeds
-  // from the oldest task AND the server's analytics history — the latter
-  // survives task deletion/cleanup. Only ever writes a smaller date.
+  // from the oldest task + earliest active analytics day. Only ever writes
+  // a smaller date.
+  //
+  // MUST wait for server hydration: tasks fill from localStorage before the
+  // server GET resolves, so without the gate this ran against a local
+  // settings blob that didn't have the server's anchor yet, wrote its own
+  // LATER date, and flushSync() clobbered the server's earlier anchor
+  // (incident: a Quokka-set repair anchor was overwritten on next app load).
+  // Post-hydration, loadSettings() reflects the server-merged blob and the
+  // backward-only check actually protects.
   const anchorCheckedRef = useRef(false)
   useEffect(() => {
-    if (anchorCheckedRef.current || tasks.length === 0) return
+    if (anchorCheckedRef.current || !serverHydratedRef.current || tasks.length === 0) return
     anchorCheckedRef.current = true
     ;(async () => {
       let earliest = null
