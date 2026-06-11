@@ -3,6 +3,7 @@ import { Check, Search, Pencil, Trash2, Calendar, X } from 'lucide-react'
 import { localYMD, parseLocalDate, addDays } from '../dates'
 import { isSnoozed } from '../store'
 import RowSwipe from './RowSwipe'
+import Section, { useCollapsedSections } from './Section'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -19,6 +20,7 @@ export default function TasksViewKept({ tasks = [], labels = [], onToggleComplet
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [sheetTask, setSheetTask] = useState(null)
+  const [collapsed, toggleSection] = useCollapsedSections()
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
 
   const visible = useMemo(() => {
@@ -65,7 +67,7 @@ export default function TasksViewKept({ tasks = [], labels = [], onToggleComplet
       {sections.length === 0 && <p className="bm-empty">Nothing here.</p>}
       {sections.map(sec => (
         <div key={sec.key}>
-          <div className="bm-sec"><span className="bm-sec-tick" /> {sec.label} <span className="bm-sec-n">{sec.items.length}</span></div>
+          <Section id={`tasks-${sec.key}`} label={sec.label} count={sec.items.length} collapsed={!!collapsed[`tasks-${sec.key}`]} onToggle={toggleSection}>
           <div className="bm-rows">
             {sec.items.map(t => {
               const done = t.status === 'done'
@@ -95,6 +97,7 @@ export default function TasksViewKept({ tasks = [], labels = [], onToggleComplet
               )
             })}
           </div>
+          </Section>
         </div>
       ))}
 
