@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- feat(ui): completion toasts — push-style top banner + fresh no-repeat message pools [S]
+  - **Top banner** (prod request: the bottom pill "sits in the way"): the toast now slides down from the top edge like an iOS push banner — tap anywhere to dismiss, auto-dismisses after 4s (8s with a Next-up suggestion), Undo and Next-up unchanged. z-index above the shell header and pinned modal controls.
+  - **Fresh messages** (prod report: "I get the same like 6 every time… really tired of 'That's barely procrastination'"): root cause — routine/stack tasks completed same-day fall back to the 5-message static quick pool (AI prefetch only backfills on app load, so spawn-and-complete-today always went static). Pools expanded to 12–18 messages per variant (brand-voiced: "Caught it mid-air.", "The boomerang came back. You caught it.", "Released from the haunted backlog."), the offending line culled, and a **shuffle-bag picker** (last ~14 shown per variant persisted in `boom_toast_recent_v1`) guarantees no repeats until a pool is exhausted.
+  - Verified live: catch → banner at top with a new message + Undo; tap dismisses; recent-bag persists.
+
 - fix(ui): Kept hero tap target + frosted pinned-control underlay [S]
   - **The whole Day Arc + stats block now toggles the daily breakdown** (prod report: "Still can't click on the hero bar"). The previous tap target was only the skinny catches/loops/pts row — and the harness verification used a JS `.click()`, which bypasses hit-testing and hid how small the real target was. Re-verified with real synthetic touch taps on the arc itself.
   - **Claude-style frosted underlay behind the pinned back button** (prod report: "it keeps overlapping shit — things need to fade behind it in a way that shows it's intentional"): the full-page modal top strip is now a backdrop-blur band (translucent page tint + feathered mask) instead of a hard gradient, so scrolled content visibly dissolves behind the control. Header padding bumped 60→72px so titles clear the button at rest. Scoped away from the in-shell Quokka surface (no frost band over the app header).
