@@ -394,3 +394,30 @@
 .bm-stack-member { display: flex; align-items: center; gap: 12px; padding: 7px 0 7px 14px; }
 .bm-stack-count { font-style: normal; font-weight: 500; color: var(--bm-text-meta); }
 .bm-stack-start { padding: 8px 16px; flex: 0 0 auto; }
+
+/* Main-page contract restores */
+.bm-gmail-banner {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%;
+  background: var(--bm-gold-soft);
+  border: none; border-radius: 12px;
+  padding: 11px 13px; margin-bottom: 14px;
+  font-size: 13px; font-weight: 600;
+  color: var(--bm-text); cursor: pointer; text-align: left;
+}
+.bm-gmail-banner svg:first-child { color: var(--bm-gold); flex: 0 0 auto; }
+.bm-gmail-banner b { color: var(--bm-gold); }
+.bm-arc { padding: 9px 0 6px; border-bottom: 1px solid var(--bm-hairline); }
+.bm-arc:last-child { border-bottom: none; }
+.bm-arc-head { display: flex; align-items: center; gap: 11px; }
+.bm-arc-icon {
+  flex: 0 0 auto;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--bm-gold-soft); color: var(--bm-gold);
+}
+.bm-arc-log { padding: 8px 13px; font-size: 12.5px; flex: 0 0 auto; }
+.bm-chk.is-hi { box-shadow: 0 0 0 3px var(--bm-ember-soft); }
+.bm-tag-hi { font-size: 11px; font-weight: 750; color: var(--bm-ember); text-transform: uppercase; letter-spacing: 0.04em; }
+.bm-tag-status { font-size: 11.5px; font-weight: 650; color: var(--bm-gold); }
+.bm-tag-stale { font-size: 11.5px; color: var(--bm-text-meta); }

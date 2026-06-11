@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { Check, Repeat2 } from 'lucide-react'
+import { Check, Repeat2, Flame, FolderKanban, Inbox, ChevronRight } from 'lucide-react'
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD } from '../dates'
 import { historyByDay, currentStreak } from '../wallaby/heatmapUtils'
-import { isSnoozed, formatSnoozeLabel, getNextDueDate } from '../store'
+import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate } from '../store'
 import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
 import './shell.css'
@@ -18,6 +18,7 @@ export default function TodayView({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
+  onLogSession, onOpenSuggestions, gmailPendingCount = 0,
 }) {
   const todayKey = localYMD()
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
@@ -90,13 +91,26 @@ export default function TodayView({
         r, color: feathers[r.id], byDay, isStack, cycles,
         rally: currentStreak(byDay),
         doneToday: !!byDay[todayKey],
-        dueToday: !!dueKey && dueKey <= todayKey,
+        // Habit-mode (target frequency) loops are loggable ANY day — the
+        // cadence engine doesn't model them, so they're always "due".
+        dueToday: r.spawn_mode === 'habit' || (!!dueKey && dueKey <= todayKey),
       }
     // Plain loops: due/done today. Stacks: ONLY while a cycle is surfaced —
     // no waiting row, no cleared receipt (v2 behavior).
     }).filter(l => (l.isStack ? l.cycles.length > 0 : (l.dueToday || l.doneToday)))
   }, [routines, tasks, todayKey])
   const loopsDone = loops.filter(l => l.doneToday).length
+
+  // Pinned Arcs (projects) — v2's main list led with these; restore them.
+  const pinnedArcs = useMemo(() => tasks.filter(t => t.status === 'project' && t.pinned_to_today), [tasks])
+  const arcChildren = useMemo(() => {
+    const m = {}
+    for (const p2 of pinnedArcs) {
+      m[p2.id] = tasks.filter(t => t.parent_id === p2.id && t.child_visibility === 'active'
+        && ACTIVE.includes(t.status) && !isSnoozed(t))
+    }
+    return m
+  }, [tasks, pinnedArcs])
   const catches = dailyStats.tasksToday ?? 0
 
   return (
@@ -115,6 +129,44 @@ export default function TodayView({
         </div>
       </div>
 
+      {gmailPendingCount > 0 && (
+        <button className="bm-gmail-banner" onClick={onOpenSuggestions}>
+          <Inbox size={15} strokeWidth={2} />
+          <span><b>{gmailPendingCount}</b> imported item{gmailPendingCount === 1 ? '' : 's'} to review</span>
+          <ChevronRight size={15} strokeWidth={2} className="bm-more-chev" />
+        </button>
+      )}
+
+      {pinnedArcs.length > 0 && (
+        <>
+          <div className="bm-sec"><span className="bm-sec-tick" /> Arcs <span className="bm-sec-n">{pinnedArcs.length}</span></div>
+          <div className="bm-rows">
+            {pinnedArcs.map(p2 => (
+              <div key={p2.id} className="bm-arc">
+                <div className="bm-arc-head">
+                  <span className="bm-arc-icon"><FolderKanban size={14} strokeWidth={2} /></span>
+                  <button className="bm-row-body" onClick={() => onOpenTask?.(p2)}>
+                    <span className="bm-row-title">{p2.title}</span>
+                    <span className="bm-row-meta">
+                      <span><Flame size={11} strokeWidth={2.25} style={{ verticalAlign: '-1px' }} /> {p2.session_count || 0} sessions</span>
+                    </span>
+                  </button>
+                  <button className="bm-btn bm-btn-tonal bm-arc-log" onClick={() => onLogSession?.(p2)}>Log session</button>
+                </div>
+                {(arcChildren[p2.id] || []).map(c => (
+                  <div key={c.id} className="bm-stack-member">
+                    <button className="bm-chk" style={{ borderColor: 'var(--bm-gold)' }} onClick={() => onCompleteTask?.(c)} aria-label="Catch it" />
+                    <button className="bm-row-body" onClick={() => onOpenTask?.(c)}>
+                      <span className="bm-row-title">{c.title}</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="bm-sec"><span className="bm-sec-tick" /> Today <span className="bm-sec-n">{dayTasks.length}</span></div>
       <div className="bm-rows">
         {dayTasks.length === 0 && <p className="bm-empty">Nothing due — enjoy it.</p>}
@@ -122,19 +174,25 @@ export default function TodayView({
           const done = t.status === 'done'
           const overdue = !done && t.due_date && String(t.due_date).slice(0, 10) < todayKey
           const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
+          const stale = !done && isStale(t)
+          const ageDays = stale ? Math.floor((Date.now() - new Date(t.created_at).getTime()) / 86400000) : 0
+          const statusTag = t.status === 'doing' ? 'doing' : t.status === 'waiting' ? 'waiting' : null
           return (
             <RowSwipe key={t.id} done={done} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
               <div className="bm-row">
                 <button
-                  className={`bm-chk${done ? ' is-done' : ''}`}
+                  className={`bm-chk${done ? ' is-done' : ''}${t.high_priority ? ' is-hi' : ''}`}
                   onClick={() => onCompleteTask?.(t)}
                   aria-label={done ? 'Reopen' : 'Catch it'}
                 >{done && <Check size={13} strokeWidth={3.4} />}</button>
                 <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                   <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                  {!done && (overdue || chips.length > 0) && (
+                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0) && (
                     <span className="bm-row-meta">
+                      {t.high_priority && <span className="bm-tag-hi">high</span>}
+                      {statusTag && <span className="bm-tag-status">{statusTag}</span>}
                       {overdue && <span className="bm-due-over">overdue</span>}
+                      {stale && <span className="bm-tag-stale">{ageDays}d on list</span>}
                       {chips.slice(0, 3).map(l => (
                         <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
                       ))}

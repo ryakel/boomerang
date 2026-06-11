@@ -1255,6 +1255,8 @@ export default function AppV2() {
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
+          onLogSession={(p) => handleLogSession(p.id)}
+          gmailPendingCount={tasks.filter(t => t.gmail_pending).length}
           onOpenTask={(task) => setEditTarget(task)}
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
@@ -1288,6 +1290,8 @@ export default function AppV2() {
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
+          onLogSession={(p) => handleLogSession(p.id)}
+          gmailPendingCount={tasks.filter(t => t.gmail_pending).length}
           onOpenTask={(task) => setEditTarget(task)}
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
@@ -1303,6 +1307,7 @@ export default function AppV2() {
           onOpenProjects={() => setShowProjects(true)}
           onOpenDone={() => setShowDone(true)}
           onOpenActivity={() => setShowActivityLog(true)}
+          onOpenSuggestions={() => setShowSuggestions(true)}
           syncStatus={syncStatus}
           queueLength={queueLength}
         />
