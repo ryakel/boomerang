@@ -57,7 +57,7 @@ export default [
   // after all consts are defined) and v1 is being deleted in the end-state
   // cleanup anyway.
   {
-    files: ['src/v2/**/*.{js,jsx}'],
+    files: ['src/**/*.{js,jsx}'],
     rules: {
       'no-use-before-define': ['error', { functions: false, classes: false, variables: true }],
     },

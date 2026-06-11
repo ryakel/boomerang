@@ -1,0 +1,401 @@
+/* Wallaby "Home" — daily agenda. Date hero + week strip, streak-at-risk
+ * banner, today's habits as checkable rows. */
+
+.wb-home {
+  min-height: 100vh;
+  background: var(--wb-bg);
+  color: var(--wb-text);
+  padding: 16px 16px 120px;
+  font-family: var(--v2-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Date hero + week strip ──────────────────────────────────────────────── */
+.wb-home-head {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--wb-shadow);
+  margin-bottom: 16px;
+}
+.wb-home-head { position: relative; }
+.wb-home-date {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 16px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.wb-home-daycircle {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--wb-action-complete);
+  color: var(--wb-on-action);
+  font-family: var(--v2-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.wb-home-daycircle.is-other { background: var(--wb-cat-purple); }
+.wb-home-todaypill {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--wb-action-complete);
+  background: color-mix(in srgb, var(--wb-action-complete) 18%, transparent);
+  border-radius: 10px;
+  padding: 4px 10px;
+  flex: 0 0 auto;
+}
+.wb-home-datetext { display: flex; flex-direction: column; flex: 1 1 auto; }
+.wb-home-weekday {
+  font-family: var(--v2-font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.wb-home-month { font-size: 13px; color: var(--wb-text-meta); }
+.wb-home-avatar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, var(--wb-cat-green), var(--wb-cat-blue));
+  cursor: pointer;
+}
+
+.wb-home-weekrow { display: flex; align-items: center; gap: 4px; }
+.wb-home-weeknav {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  color: var(--wb-text-meta);
+  cursor: pointer;
+  border-radius: 8px;
+}
+.wb-home-weeknav:disabled { opacity: 0.3; cursor: default; }
+.wb-home-week {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  flex: 1 1 auto;
+}
+.wb-home-weekday-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 0;
+  border-radius: 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.wb-home-weekday-cell.is-today { background: color-mix(in srgb, var(--wb-action-complete) 18%, transparent); }
+.wb-home-weekday-cell.is-selected {
+  background: var(--wb-cat-purple);
+}
+.wb-home-weekday-cell.is-selected .wb-home-week-date,
+.wb-home-weekday-cell.is-selected .wb-home-week-dow { color: var(--wb-on-action); }
+.wb-home-weekday-cell.is-future { opacity: 0.32; cursor: default; }
+.wb-home-week-dow { font-size: 11px; font-weight: 600; color: var(--wb-text-meta); }
+.wb-home-week-date {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wb-text);
+}
+.wb-home-weekday-cell.is-today .wb-home-week-date { color: var(--wb-action-complete); }
+/* When today is also the selected day, the purple selection wins — keep the
+   number white for contrast (the is-today green-on-purple was unreadable). */
+.wb-home-weekday-cell.is-selected.is-today .wb-home-week-date { color: var(--wb-on-action); }
+.wb-home-week-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+.wb-home-week-dot.is-active { background: var(--wb-cat-purple); }
+
+/* ── Streak-at-risk banner ───────────────────────────────────────────────── */
+.wb-home-risk {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  margin-bottom: 18px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--wb-action-delete) 30%, transparent), color-mix(in srgb, var(--wb-cat-purple) 22%, transparent));
+  border: 1px solid color-mix(in srgb, var(--wb-action-delete) 30%, transparent);
+}
+.wb-home-risk-icon { color: var(--wb-action-primary); flex: 0 0 auto; }
+.wb-home-risk-text { flex: 1 1 auto; font-size: 13.5px; font-weight: 600; }
+.wb-home-risk-chev { color: var(--wb-text-meta); flex: 0 0 auto; }
+
+/* ── Habits list ─────────────────────────────────────────────────────────── */
+.wb-home-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 2px 10px;
+  font-family: var(--v2-font-display);
+  font-size: 17px;
+  font-weight: 700;
+}
+.wb-home-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--wb-text-meta);
+  background: var(--wb-card-2);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+.wb-home-habits { display: flex; flex-direction: column; gap: 9px; }
+.wb-home-empty { color: var(--wb-text-meta); text-align: center; padding: 30px 0; }
+.wb-home-habit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 14px;
+  padding: 13px 14px;
+  box-shadow: var(--wb-shadow);
+}
+.wb-home-habit-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--wb-card-2);
+  flex: 0 0 auto;
+}
+.wb-home-habit-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wb-home-habit-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wb-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-home-habit.is-done .wb-home-habit-title {
+  text-decoration: line-through;
+  color: var(--wb-text-meta);
+}
+/* .wb-home-habit-streak is defined once below (orange flame treatment). */
+.wb-home-check {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 2px solid var(--wb-hairline-strong);
+  background: transparent;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.wb-home-check:active { transform: scale(0.92); }
+
+/* Stacks: a routine that fans out into independent member tasks each cycle.
+   Rendered as a labelled group of checkable member rows. */
+.wb-home-stack-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 2px;
+}
+.wb-home-stack-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+}
+.wb-home-stack-head .wb-home-habit-icon { width: 28px; height: 28px; border-radius: 8px; }
+.wb-home-stack-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--wb-text-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-home-stack-progress {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wb-text-meta);
+}
+.wb-home-stack-member { margin-left: 14px; }
+.wb-home-stack-prefix { flex: 0 0 auto; color: var(--wb-text-meta); font-size: 12px; }
+.wb-home-stack-count { font-style: normal; font-weight: 500; color: var(--wb-text-meta); }
+
+/* ── Today's Pulse card ──────────────────────────────────────────────────── */
+.wb-pulse {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 16px;
+  padding: 14px 15px;
+  box-shadow: var(--wb-shadow);
+  margin-bottom: 16px;
+}
+.wb-pulse-title {
+  font-family: var(--v2-font-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wb-text-meta);
+  margin-bottom: 11px;
+}
+.wb-pulse-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--wb-text);
+  margin-bottom: 7px;
+}
+.wb-pulse-row:last-child { margin-bottom: 0; }
+.wb-pulse-row em { font-style: normal; color: var(--wb-text-meta); font-weight: 600; }
+.wb-pulse-risk { background: color-mix(in srgb, var(--wb-action-delete) 18%, transparent); color: var(--wb-action-primary); }
+.wb-pulse-risk em { color: inherit; opacity: 0.85; }
+.wb-pulse-risk strong { font-weight: 800; }
+.wb-pulse-habits { background: color-mix(in srgb, var(--wb-cat-purple) 16%, transparent); }
+.wb-pulse-tasks { background: var(--wb-card-2); }
+.wb-pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wb-cat-purple); flex: 0 0 auto; }
+.wb-pulse-tasks .wb-pulse-dot { background: var(--wb-cat-blue); }
+
+/* ── Daily summary card (recap + mini heatmap) ───────────────────────────── */
+.wb-summary {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 16px;
+  padding: 14px 15px;
+  box-shadow: var(--wb-shadow);
+  margin-bottom: 16px;
+}
+.wb-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 13px;
+}
+.wb-summary-line { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-width: 0; }
+.wb-summary-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--v2-font-display);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--wb-text);
+}
+.wb-summary-stat svg { color: var(--wb-action-complete); }
+.wb-summary-line .wb-summary-stat:nth-child(2) svg { color: var(--wb-cat-purple); }
+.wb-summary-sub { font-size: 12.5px; font-weight: 600; color: var(--wb-text-meta); }
+.wb-summary-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--wb-action-primary);
+  background: color-mix(in srgb, var(--wb-action-primary) 16%, transparent);
+  border-radius: 10px;
+  padding: 4px 10px;
+}
+.wb-summary-heat { overflow: hidden; }
+
+/* ── Section cards (Tasks / Habits) ──────────────────────────────────────── */
+.wb-home-card {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 16px;
+  padding: 14px 15px;
+  box-shadow: var(--wb-shadow);
+  margin-bottom: 14px;
+}
+.wb-home-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.wb-home-card-title { margin: 0; font-family: var(--v2-font-display); font-size: 17px; font-weight: 700; }
+.wb-home-card-count { font-size: 12.5px; font-weight: 700; color: var(--wb-text-meta); }
+.wb-home-empty-sm { color: var(--wb-text-meta); font-size: 13.5px; margin: 4px 0; }
+
+.wb-home-progress { height: 6px; border-radius: 4px; background: var(--wb-card-2); overflow: hidden; margin-bottom: 12px; }
+.wb-home-progress-fill { height: 100%; border-radius: 4px; background: var(--wb-action-complete); transition: width 240ms ease; }
+
+/* ── Task rows on Home ───────────────────────────────────────────────────── */
+.wb-home-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.wb-home-task { display: flex; align-items: flex-start; gap: 11px; padding: 6px 0; }
+.wb-home-taskcheck {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 6px;
+  border: 2px solid var(--wb-hairline-strong);
+  background: transparent;
+  cursor: pointer;
+}
+.wb-home-taskcheck.is-done { background: var(--wb-action-complete); border-color: var(--wb-action-complete); }
+.wb-home-task-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; background: none; border: none; padding: 0; text-align: left; cursor: pointer; }
+.wb-home-task-title { font-size: 14.5px; font-weight: 550; color: var(--wb-text); line-height: 1.3; }
+.wb-home-task-title.is-done { text-decoration: line-through; color: var(--wb-text-meta); }
+.wb-home-task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.wb-home-task-overdue { font-size: 11.5px; font-weight: 700; color: var(--wb-action-delete); }
+.wb-home-task-tag {
+  font-size: 11px; font-weight: 600;
+  color: var(--tag, var(--wb-text-meta));
+  background: color-mix(in srgb, var(--tag, #888) 18%, transparent);
+  border-radius: 10px; padding: 2px 9px;
+}
+
+/* Habit rows inside the card — icon tile + title + streak + check on one line */
+.wb-home-card .wb-home-habits { gap: 4px; }
+.wb-home-card .wb-home-habit {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 7px 0;
+  gap: 11px;
+}
+.wb-home-habit-icon { background: var(--wb-card-2); }
+.wb-home-card .wb-home-habit-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 600; }
+.wb-home-card .wb-home-habit.is-done .wb-home-habit-title { text-decoration: line-through; color: var(--wb-text-meta); }
+.wb-home-habit-streak { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: var(--wb-cat-orange); flex: 0 0 auto; }
+.wb-home-card .wb-home-check { width: 30px; height: 30px; }

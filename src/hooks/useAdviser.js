@@ -82,6 +82,9 @@ export function useAdviser() {
           // idle. If alive, the buffered events replay through the
           // event handler below — the user sees "still working" state.
           if (chat.sessionId) {
+            // Runs post-mount inside an async callback — the const is
+            // defined by then (legitimate-at-runtime forward reference).
+            // eslint-disable-next-line no-use-before-define
             tryResubscribe(chat.sessionId)
           }
         }

@@ -1,0 +1,34 @@
+/* Kept signature data-viz (wiki/Kept-Design-Language.md §5).
+ * Arcs, not grids: FlightTrail / MonthDots / DensityRibbon / DayArc.
+ * All colors via --bm-* tokens or the feather `color` prop. */
+
+.bm-trail { width: 100%; }
+.bm-trail svg { display: block; width: 100%; height: auto; }
+
+.bm-month { width: 100%; }
+.bm-month svg { display: block; width: 100%; height: auto; }
+
+.bm-ribbon { width: 100%; }
+.bm-ribbon svg { display: block; width: 100%; height: auto; }
+.bm-ribbon-months {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--bm-text-faint);
+  padding: 4px 2px 0;
+}
+
+.bm-dayarc { position: relative; width: 100%; }
+.bm-dayarc svg { display: block; width: 100%; height: auto; }
+.bm-dayarc-center { position: absolute; inset: auto 0 4px 0; text-align: center; }
+.bm-dayarc-num {
+  font-family: var(--v2-font-display);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--bm-text);
+}
+.bm-dayarc-goal { font-size: 14px; color: var(--bm-text-meta); }
+.bm-dayarc-cap { font-size: 10.5px; color: var(--bm-text-meta); margin-top: 2px; }

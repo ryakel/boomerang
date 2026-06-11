@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import './ReframeModal.css'
 import { reframeTask } from '../api'
+import ModalShell from './ModalShell'
+import './ReframeModal.css'
 
 export default function ReframeModal({ task, onReframe, onClose }) {
   const [blocker, setBlocker] = useState('')
@@ -28,46 +29,45 @@ export default function ReframeModal({ task, onReframe, onClose }) {
   }
 
   return (
-    <div className="sheet-overlay" onClick={onClose}>
-      <div className="sheet" onClick={e => e.stopPropagation()}>
-        <div className="sheet-handle" />
-        <div className="sheet-title">This one keeps coming back.</div>
-        <div className="sheet-subtitle">
-          "{task.title}" has been snoozed {task.snooze_count} times. What's actually in the way?
-        </div>
-
-        {!results ? (
-          <>
-            <textarea
-              className="reframe-input"
-              placeholder="What's blocking you?"
-              value={blocker}
-              onChange={e => setBlocker(e.target.value)}
-            />
-            {error && (
-              <div style={{ color: 'var(--accent)', fontSize: 13, marginBottom: 12 }}>{error}</div>
-            )}
-            <button
-              className="submit-btn"
-              disabled={!blocker.trim() || loading}
-              onClick={handleSubmit}
-            >
-              {loading ? <><span className="spinner" /> Reframing...</> : 'Reframe It'}
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="reframe-results">
-              {results.map((title, i) => (
-                <div key={i} className="reframe-task">{title}</div>
-              ))}
-            </div>
-            <button className="submit-btn" onClick={handleConfirm}>
-              Looks good
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+    <ModalShell
+      open={!!task}
+      onClose={onClose}
+      title="This one keeps coming back"
+      subtitle={`"${task.title}" has been snoozed ${task.snooze_count} times. What's actually in the way?`}
+    >
+      {!results ? (
+        <>
+          <textarea
+            className="v2-reframe-input"
+            placeholder="What's blocking you? Be specific."
+            value={blocker}
+            onChange={e => setBlocker(e.target.value)}
+            autoFocus
+          />
+          {error && <div className="v2-reframe-error">{error}</div>}
+          <button
+            className="v2-form-submit"
+            disabled={!blocker.trim() || loading}
+            onClick={handleSubmit}
+          >
+            {loading ? <><span className="v2-spinner" /> Reframing…</> : 'Reframe it'}
+          </button>
+        </>
+      ) : (
+        <>
+          <ul className="v2-reframe-results">
+            {results.map((title, i) => (
+              <li key={i} className="v2-reframe-result-row">
+                <span className="v2-reframe-result-bullet">→</span>
+                <span>{title}</span>
+              </li>
+            ))}
+          </ul>
+          <button className="v2-form-submit" onClick={handleConfirm}>
+            Looks good
+          </button>
+        </>
+      )}
+    </ModalShell>
   )
 }

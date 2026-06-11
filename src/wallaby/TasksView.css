@@ -1,0 +1,342 @@
+/* Wallaby "Tasks" surface. Pink square checkboxes, nested checklist sub-rows,
+ * colored label chips, green FAB. Shares the navy canvas + segmented control
+ * language with HabitsView. */
+
+.wb-tasks {
+  min-height: 100vh;
+  background: var(--wb-bg);
+  color: var(--wb-text);
+  padding: 16px 16px 120px;
+  font-family: var(--v2-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wb-tasks-head { margin-bottom: 14px; }
+.wb-tasks-titlerow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.wb-tasks-title {
+  margin: 0 auto 0 0;
+  font-family: var(--v2-font-display);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.wb-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card);
+  color: var(--wb-text-meta);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.wb-icon-btn.is-active { color: var(--wb-text); border-color: var(--wb-hairline-strong); }
+
+/* Segmented control — base styles in shared.css; full width on Tasks. */
+.wb-tasks .wb-seg {
+  display: flex;
+  width: 100%;
+}
+.wb-tasks .wb-seg-btn {
+  flex: 1 1 0;
+  font-size: 13px;
+  padding: 9px 13px;
+}
+
+.wb-tasks-search {
+  width: 100%;
+  margin-top: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card);
+  color: var(--wb-text);
+  font-size: 14px;
+}
+.wb-tasks-search::placeholder { color: var(--wb-text-meta); }
+
+/* ── List ────────────────────────────────────────────────────────────────── */
+.wb-tasks-empty { color: var(--wb-text-meta); text-align: center; padding: 40px 0; }
+
+.wb-tasks-section { margin-bottom: 18px; }
+.wb-tasks-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wb-text-meta);
+}
+.wb-tasks-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--wb-text-meta);
+  background: var(--wb-card-2);
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+
+/* Swipe-to-reveal wrapper: actions sit behind, the .wb-task slides left. */
+.wb-task-swipe {
+  position: relative;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.wb-task-swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+}
+.wb-task-swipe-act {
+  width: 66px;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--wb-on-action);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.wb-task-swipe-done { background: var(--wb-action-complete); }
+.wb-task-swipe-del { background: var(--wb-action-delete); }
+
+.wb-task {
+  position: relative;
+  z-index: 1;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-hairline);
+  border-radius: 14px;
+  padding: 13px 14px;
+  transition: transform 200ms ease;
+  will-change: transform;
+}
+.wb-task-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Pink square checkbox */
+.wb-check {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 6px;
+  border: 2px solid var(--wb-cat-pink);
+  background: transparent;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.wb-check:hover { background: color-mix(in srgb, var(--wb-cat-pink) 22%, transparent); }
+.wb-check-hi { border-color: var(--wb-action-primary); }
+
+.wb-task-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.wb-task-title {
+  font-size: 15px;
+  font-weight: 550;
+  color: var(--wb-text);
+  line-height: 1.3;
+}
+.wb-task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.wb-task-due {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wb-text-meta);
+}
+.wb-task-due-overdue { color: var(--wb-action-delete); }
+.wb-task-due-today { color: var(--wb-action-primary); }
+.wb-task-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tag, var(--wb-text-meta));
+  background: color-mix(in srgb, var(--tag, #888) 18%, transparent);
+  border-radius: 10px;
+  padding: 2px 9px;
+}
+
+/* Nested checklist sub-rows */
+.wb-subtasks {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0 0 0 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.wb-subtask {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.wb-subcheck {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--wb-hairline-strong);
+  background: transparent;
+  color: var(--wb-on-action);
+  cursor: pointer;
+}
+.wb-subcheck.is-done {
+  background: var(--wb-action-complete);
+  border-color: var(--wb-action-complete);
+}
+.wb-subtask-text {
+  font-size: 13.5px;
+  color: var(--wb-text-meta);
+}
+.wb-subtask-text.is-done {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* ── Tasks refinements: section icons, counts, notes sub, done state ─────── */
+.wb-tasks-section-label { display: flex; align-items: center; gap: 6px; }
+.wb-tasks-section-icon { color: var(--wb-text-meta); }
+.wb-seg-count {
+  margin-left: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  opacity: 0.8;
+}
+.wb-check { display: grid; place-items: center; }
+.wb-task-sub {
+  font-size: 12.5px;
+  color: var(--wb-text-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-task-title.is-done { text-decoration: line-through; color: var(--wb-text-meta); }
+
+/* ── Task action sheet ───────────────────────────────────────────────────── */
+.wb-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: var(--wb-scrim);
+  display: flex;
+  align-items: flex-end;
+  animation: wb-fade 160ms ease;
+}
+.wb-sheet {
+  position: relative;
+  width: 100%;
+  background: var(--wb-card);
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+  border-top: 1px solid var(--wb-hairline);
+  padding: 22px 18px calc(26px + env(safe-area-inset-bottom));
+  box-shadow: var(--wb-shadow-pop);
+  animation: wb-slideup 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes wb-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes wb-slideup { from { transform: translateY(100%) } to { transform: translateY(0) } }
+.wb-sheet-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--wb-card-2);
+  color: var(--wb-text-meta);
+  cursor: pointer;
+}
+.wb-sheet-title {
+  margin: 0 36px 8px 0;
+  font-family: var(--v2-font-display);
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--wb-text);
+}
+.wb-sheet-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.wb-sheet-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wb-text-meta);
+  margin-bottom: 9px;
+}
+.wb-sheet-resched { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.wb-sheet-chip {
+  flex: 1 1 calc(50% - 4px);
+  padding: 11px;
+  border-radius: 11px;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card-2);
+  color: var(--wb-text);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.wb-sheet-chip:hover { border-color: var(--wb-hairline-strong); }
+.wb-sheet-actions { display: flex; flex-direction: column; gap: 2px; }
+.wb-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 6px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  color: var(--wb-text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.wb-sheet-row:hover { background: var(--wb-card-2); }
+.wb-sheet-row-danger { color: var(--wb-action-delete); }
+.wb-sheet-row.is-soon { color: var(--wb-text-meta); cursor: default; }
+.wb-sheet-row.is-soon:hover { background: none; }
+.wb-sheet-soon {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--wb-card-2);
+  border-radius: 10px;
+  padding: 2px 8px;
+}

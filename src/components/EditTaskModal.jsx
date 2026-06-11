@@ -1,1294 +1,1442 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import './EditTaskModal.css'
-import { loadLabels, loadSettings, loadRoutines, formatCadence, RECURRENCE_OPTIONS, ACTIVE_STATUSES, STATUS_META, ENERGY_TYPES, uuid, localYMD } from '../store'
-import { polishNotes, researchTask, inferDate, inferSize, suggestNotionLink, generateNotionContent, notionCreatePage, notionUploadFile, trelloCreateCard, trelloCreateChecklist, trelloAddCheckItem, trelloUploadAttachment, trelloBoardLists, extractAttachmentText } from '../api'
-import { Sparkles, Search, ChevronRight, ChevronDown, Trash2, Plus, Sun } from 'lucide-react'
-import EnergyIcon from './EnergyIcon'
-import { useIsDesktop } from '../hooks/useIsDesktop'
-import { useTaskActions } from '../contexts/TaskActionsContext'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight, RotateCw, BookOpen } from 'lucide-react'
+import { loadLabels, ENERGY_TYPES, STATUS_META, uuid, localYMD } from '../store'
+import { useTaskForm } from '../hooks/useTaskForm'
+import { researchTask } from '../api'
 import WeatherSection, { resolveWeatherVisibility } from './WeatherSection'
-import { processAttachment } from '../utils/imageCompress'
+import ModalShell from './ModalShell'
+import AutosaveIndicator from './AutosaveIndicator'
+import DateField from './DateField'
+import './AddTaskModal.css' // shared form-control styles
+import './EditTaskModal.css'
 
-function formatFileSize(bytes) {
-  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
-  return `${Math.round(bytes / 1024)} KB`
-}
+const ENERGY_LEVEL_LABELS = [
+  { lvl: 1, label: 'Low' },
+  { lvl: 2, label: 'Medium' },
+  { lvl: 3, label: 'High' },
+]
 
-const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB
+const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL']
 
-export default function EditTaskModal({ task, onSave, onConvertToRoutine, onClose, onDelete, onBacklog, onProject, onStatusChange, onOpenRoutine }) {
-  const isDesktop = useIsDesktop()
-  const { weather } = useTaskActions() || {}
-  const [forecastDrawerOpen, setForecastDrawerOpen] = useState(false)
-  const [title, setTitle] = useState(task.title)
-  const [notes, setNotes] = useState(task.notes || '')
-  const [selectedTags, setSelectedTags] = useState(task.tags || [])
-  const [dueDate, setDueDate] = useState(task.due_date || '')
-  const [polishing, setPolishing] = useState(false)
+// Status options shown as segmented buttons. Mirrors v1's STATUS_CYCLE +
+// the explicit Done/Backlog/Projects affordances. We collapse "open" to
+// "not_started" since that's how STATUS_META keys it.
+const STATUS_OPTIONS = ['not_started', 'doing', 'waiting']
+
+const CADENCE_OPTIONS = ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'custom']
+
+export default function EditTaskModal({
+  task, onSave, onClose, onDelete, onBacklog, onProject, onStatusChange,
+  onConvertToRoutine, weather,
+  projects = [],
+  childTasks = [],
+  siblingSubs = [],
+  onLogSession, onAddChild, onOpenTask,
+}) {
+  const form = useTaskForm({
+    title: task.title,
+    notes: task.notes || '',
+    tags: task.tags || [],
+    dueDate: task.due_date || '',
+    size: task.size || null,
+    energy: task.energy || null,
+    energyLevel: task.energyLevel || null,
+    highPriority: task.high_priority || false,
+    lowPriority: task.low_priority || false,
+    sizeInferred: !!task.size_inferred,
+    attachments: task.attachments || [],
+    notion: task.notion_page_id ? { id: task.notion_page_id, url: task.notion_url } : null,
+  })
+
+  // Research state — inline because only EditTaskModal supports it; not worth
+  // promoting into useTaskForm since AddTaskModal doesn't use it.
   const [showResearch, setShowResearch] = useState(false)
   const [researchPrompt, setResearchPrompt] = useState('')
   const [researching, setResearching] = useState(false)
-  const [notionState, setNotionState] = useState(null)
-  const [notionCreating, setNotionCreating] = useState(false)
-  const [notionResult, setNotionResult] = useState(
-    task.notion_page_id ? { id: task.notion_page_id, url: task.notion_url } : null
-  )
-  const [size, setSize] = useState(task.size || null)
-  // Track whether size has been settled (auto-inferred or user-picked). Once
-  // true, the background useSizeAutoInfer hook won't override. We init from
-  // the task's flag so tasks that were already inferred stay that way.
-  const [sizeInferred, setSizeInferred] = useState(!!task.size_inferred)
-  // Any setSize call originating from the user or from AI inference marks
-  // the size as settled. We wrap setSize in this helper so every site that
-  // changes size also marks the flag.
-  // Special case: if the user deselects a size (click selected pill to clear),
-  // we fall back to 'M' and unset the inferred flag so the background
-  // auto-sizer hook can try again.
-  const markSizeSet = (newSize) => {
-    if (newSize == null) {
-      setSize('M')
-      setSizeInferred(false)
-    } else {
-      setSize(newSize)
-      setSizeInferred(true)
+  const [researchError, setResearchError] = useState(null)
+
+  const runResearch = async () => {
+    const prompt = researchPrompt.trim()
+    if (!prompt && !form.attachments.length) return
+    setResearching(true)
+    setResearchError(null)
+    try {
+      const result = await researchTask(form.title || 'Untitled task', form.notes, prompt, form.attachments)
+      if (result?.notes) form.setNotes(result.notes)
+      setResearchPrompt('')
+      setShowResearch(false)
+    } catch (e) {
+      setResearchError(e?.message || 'Research failed')
+    } finally {
+      setResearching(false)
     }
   }
-  const [energy, setEnergy] = useState(task.energy || null)
-  const [energyLevel, setEnergyLevel] = useState(task.energyLevel || null)
-  const [sizing, setSizing] = useState(false)
+
+  // Comments — task-local thread of dated notes. Same shape v1 uses.
+  const [comments, setComments] = useState(task.comments || [])
+  const [newComment, setNewComment] = useState('')
+  const [showComments, setShowComments] = useState(comments.length > 0)
+
+  // Per-task weather + GCal-duration overrides.
+  const [weatherHidden, setWeatherHidden] = useState(!!task.weather_hidden)
+  const [forecastDrawerOpen, setForecastDrawerOpen] = useState(false)
+  const [gcalDuration, setGcalDuration] = useState(task.gcal_duration || '')
+
+  // Project + parent-child state.
+  // - For projects: pinned_to_today + nag_allowed are project-level toggles.
+  // - For child tasks: parent_id + child_visibility ('active' surfaces under
+  //   pinned parent on main list; 'backstage' is only visible in the
+  //   project drill-down).
+  // All four feed into savePayload below so the existing autosave loop
+  // persists them without extra plumbing.
+  const isProject = task.status === 'project'
+  const parentProject = task.parent_id ? projects.find(p => p.id === task.parent_id) : null
+  const isSub = !!parentProject
+  const [pinnedToToday, setPinnedToToday] = useState(!!task.pinned_to_today)
+  const [nagAllowed, setNagAllowed] = useState(!!task.nag_allowed)
+  const [parentId, setParentId] = useState(task.parent_id || '')
+  const [childVisibility, setChildVisibility] = useState(task.child_visibility || 'backstage')
+  // blocked_by — array of sibling sub IDs this sub waits on. Hidden from
+  // main list when any blocker is incomplete. Cycle prevention happens
+  // when computing availableBlockers below.
+  const [blockedBy, setBlockedBy] = useState(() => Array.isArray(task.blocked_by) ? task.blocked_by : [])
+  // Linked knowledge — Notion page IDs attached to this task. Search via
+  // the cached index, no live Notion roundtrips. Resolved into title/type
+  // metadata via `knowledgeIndex` below; missing IDs render as a faded
+  // "(unknown)" so removal still works after items were deleted in Notion.
+  const [knowledgeIds, setKnowledgeIds] = useState(() => Array.isArray(task.knowledge_page_ids) ? task.knowledge_page_ids : [])
+  const [knowledgeIndex, setKnowledgeIndex] = useState([])
+  const [knowledgePickerOpen, setKnowledgePickerOpen] = useState(false)
+  const [knowledgeQuery, setKnowledgeQuery] = useState('')
+  const [knowledgeConfigured, setKnowledgeConfigured] = useState(null)
+  const [sessionFeedback, setSessionFeedback] = useState(null)
+  const [loggingSession, setLoggingSession] = useState(false)
+  const availableParents = projects.filter(p => p.id !== task.id)
+  const handleLogSessionClick = async () => {
+    if (!onLogSession || loggingSession) return
+    setLoggingSession(true)
+    try {
+      const result = await onLogSession(task.id)
+      setSessionFeedback({ ok: true, text: `+${result.points} pts logged · ${result.sessionCount}/${result.sessionCap} sessions` })
+    } catch (err) {
+      if (err.code === 'SESSION_CAP_REACHED') {
+        setSessionFeedback({ ok: false, text: `Cap reached — complete a sub or the project to log more.` })
+      } else {
+        setSessionFeedback({ ok: false, text: 'Failed to log session.' })
+      }
+    } finally {
+      setLoggingSession(false)
+      setTimeout(() => setSessionFeedback(null), 4000)
+    }
+  }
+
+  const addComment = () => {
+    const text = newComment.trim()
+    if (!text) return
+    setComments(prev => [...prev, { id: uuid(), text, created_at: new Date().toISOString() }])
+    setNewComment('')
+  }
+  const removeComment = (id) => setComments(prev => prev.filter(c => c.id !== id))
+
+  const [currentStatus, setCurrentStatus] = useState(task.status === 'open' ? 'not_started' : task.status)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [makeRecurring, setMakeRecurring] = useState(false)
   const [cadence, setCadence] = useState('weekly')
   const [customDays, setCustomDays] = useState(14)
-  const [attachments, setAttachments] = useState(task.attachments || [])
-  const [attachError, setAttachError] = useState(null)
-  const [extracting, setExtracting] = useState(false)
-  const [checklists, setChecklists] = useState(() => task.checklists || [])
+  const [customUnit, setCustomUnit] = useState('days')
+
+  // Backdated completion. When the user did the task earlier but forgot to
+  // tick it off, they can edit "Completed on" here so the daily streak and
+  // points credit the right calendar day. The ISO string is the source of
+  // truth (preserves time-of-day across edits); the picker converts to/from
+  // YYYY-MM-DD. Field is only rendered when currentStatus === 'done'.
+  const [completedAtIso, setCompletedAtIso] = useState(task.completed_at || '')
+
+  // Checklists — multi-list shape: [{ id, name, items: [{id, text, completed}], hideCompleted }]
+  // Migrate old flat task.checklist if present (covered by migration 018 server-side
+  // but kept here for localStorage tasks that haven't round-tripped yet).
+  const [checklists, setChecklists] = useState(() => {
+    if (task.checklists?.length) return task.checklists
+    if (task.checklist?.length) return [{ id: uuid(), name: 'Checklist', items: task.checklist, hideCompleted: false }]
+    return []
+  })
   const [newCheckItems, setNewCheckItems] = useState({}) // { checklistId: string }
   const [confirmDeleteChecklist, setConfirmDeleteChecklist] = useState(null)
-  // Collapsible sections — expand if content exists
-  const [expandedSections, setExpandedSections] = useState(() => {
-    const s = new Set()
-    if (task.checklists?.length) s.add('checklists')
-    if (task.comments?.length) s.add('comments')
-    if (task.attachments?.length) s.add('attachments')
-    return s
-  })
-  const toggleSection = (key) => setExpandedSections(prev => {
-    const next = new Set(prev)
-    next.has(key) ? next.delete(key) : next.add(key)
-    return next
-  })
-  const dragRef = useRef(null) // { checklistId, itemId }
-  const [dragOver, setDragOver] = useState(null) // { checklistId, itemId }
 
-  const handleDragStart = (checklistId, itemId) => {
-    dragRef.current = { checklistId, itemId }
-  }
+  const labels = loadLabels()
+  const today = localYMD()
 
-  const handleDragOver = (e, checklistId, itemId) => {
-    e.preventDefault()
-    setDragOver({ checklistId, itemId })
-  }
+  // v2 autosaves every field change with a 500ms debounce, mirroring v1
+  // behavior the user expects. The Save button is kept as an explicit
+  // flush-and-close affordance — useful when the modal is dismissed via
+  // route change or in case the autosave debounce hasn't fired yet.
+  //
+  // Payload is JSON-serialized + ref-compared so reference churn on
+  // array/object state (e.g. selectedTags) doesn't fire spurious saves.
+  // `last_touched` is omitted here — useTasks.updateTask stamps it.
+  const savePayload = useMemo(() => ({
+    title: form.title.trim(),
+    notes: form.notes,
+    tags: form.selectedTags,
+    due_date: form.dueDate || null,
+    size: form.size,
+    energy: form.energy,
+    energyLevel: form.energyLevel,
+    high_priority: form.highPriority,
+    low_priority: form.lowPriority,
+    size_inferred: !!form.size,
+    checklists,
+    attachments: form.attachments,
+    comments,
+    notion_page_id: form.notionResult?.id || null,
+    notion_url: form.notionResult?.url || null,
+    weather_hidden: weatherHidden,
+    gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
+    pinned_to_today: pinnedToToday,
+    nag_allowed: nagAllowed,
+    parent_id: parentId || null,
+    child_visibility: parentId ? childVisibility : 'backstage',
+    blocked_by: parentId ? blockedBy : [],
+    knowledge_page_ids: knowledgeIds,
+    // Only persist completed_at while the task is done. changeStatus()
+    // already clears it on done→active transitions; including it here
+    // when not-done would re-stamp a stale value on every save.
+    ...(currentStatus === 'done' && completedAtIso ? { completed_at: completedAtIso } : {}),
+  }), [
+    form.title, form.notes, form.selectedTags, form.dueDate,
+    form.size, form.energy, form.energyLevel,
+    form.highPriority, form.lowPriority,
+    form.attachments, form.notionResult,
+    checklists, comments, weatherHidden, gcalDuration,
+    pinnedToToday, nagAllowed, parentId, childVisibility, blockedBy,
+    knowledgeIds,
+    currentStatus, completedAtIso,
+  ])
 
-  const handleDragEnd = () => {
-    if (!dragRef.current || !dragOver) {
-      dragRef.current = null
-      setDragOver(null)
+  const lastSavedJson = useRef(null)
+  const savePayloadRef = useRef(savePayload)
+  savePayloadRef.current = savePayload
+  // Drives the "✓ Saved" flash in the AutosaveIndicator. Flips true
+  // when an autosave fires, back to false after 2s.
+  const [justSaved, setJustSaved] = useState(false)
+  const justSavedTimer = useRef(null)
+
+  useEffect(() => {
+    const json = JSON.stringify(savePayload)
+    // First render: capture the loaded-task baseline so we don't fire
+    // a redundant save immediately on open.
+    if (lastSavedJson.current === null) {
+      lastSavedJson.current = json
       return
     }
-    const src = dragRef.current
-    const dst = dragOver
-    dragRef.current = null
-    setDragOver(null)
+    if (lastSavedJson.current === json) return
+    if (!savePayload.title) return // empty-title guard
+    const t = setTimeout(() => {
+      lastSavedJson.current = json
+      onSave(task.id, savePayload)
+      setJustSaved(true)
+      if (justSavedTimer.current) clearTimeout(justSavedTimer.current)
+      justSavedTimer.current = setTimeout(() => setJustSaved(false), 2000)
+    }, 500)
+    return () => clearTimeout(t)
+  }, [savePayload, onSave, task.id])
 
-    if (src.checklistId === dst.checklistId && src.itemId === dst.itemId) return
-
-    setChecklists(prev => {
-      const next = prev.map(c => ({ ...c, items: [...c.items] }))
-      const srcList = next.find(c => c.id === src.checklistId)
-      const dstList = next.find(c => c.id === dst.checklistId)
-      if (!srcList || !dstList) return prev
-
-      const srcIdx = srcList.items.findIndex(i => i.id === src.itemId)
-      if (srcIdx === -1) return prev
-      const [item] = srcList.items.splice(srcIdx, 1)
-
-      const dstIdx = dstList.items.findIndex(i => i.id === dst.itemId)
-      if (dstIdx === -1) {
-        dstList.items.push(item)
-      } else {
-        dstList.items.splice(dstIdx, 0, item)
-      }
-      return next
-    })
-  }
-
-  const handleDropOnList = (e, checklistId) => {
-    e.preventDefault()
-    if (!dragRef.current) return
-    const src = dragRef.current
-    dragRef.current = null
-    setDragOver(null)
-
-    if (src.checklistId === checklistId) return
-
-    setChecklists(prev => {
-      const next = prev.map(c => ({ ...c, items: [...c.items] }))
-      const srcList = next.find(c => c.id === src.checklistId)
-      const dstList = next.find(c => c.id === checklistId)
-      if (!srcList || !dstList) return prev
-
-      const srcIdx = srcList.items.findIndex(i => i.id === src.itemId)
-      if (srcIdx === -1) return prev
-      const [item] = srcList.items.splice(srcIdx, 1)
-      dstList.items.push(item)
-      return next
-    })
-  }
-  const [comments, setComments] = useState(task.comments || [])
-  const [newComment, setNewComment] = useState('')
-  const [trelloResult, setTrelloResult] = useState(
-    task.trello_card_id ? { id: task.trello_card_id, url: task.trello_card_url } : null
-  )
-  const [highPriority, setHighPriority] = useState(task.high_priority || false)
-  const [lowPriority, setLowPriority] = useState(task.low_priority || false)
-  const [gcalDuration, setGcalDuration] = useState(task.gcal_duration || '')
-  const [weatherHidden, setWeatherHidden] = useState(!!task.weather_hidden)
-  const cyclePriority = () => {
-    if (!highPriority && !lowPriority) { setHighPriority(true); setLowPriority(false) }
-    else if (highPriority) { setHighPriority(false); setLowPriority(true) }
-    else { setHighPriority(false); setLowPriority(false) }
-  }
-  const priorityLabel = highPriority ? '! High' : lowPriority ? '↓ Low' : 'Normal'
-  const priorityClass = highPriority ? ' active' : lowPriority ? ' low' : ''
-  const [currentStatus, setCurrentStatus] = useState(task.status === 'open' ? 'not_started' : task.status)
-  const [trelloPushing, setTrelloPushing] = useState(false)
-  const [trelloLists, setTrelloLists] = useState([])
-  const [trelloConfigured] = useState(() => {
-    const s = loadSettings()
-    return !!(s.trello_board_id || s.trello_list_mapping)
-  })
-  const [trelloPushListId, setTrelloPushListId] = useState(() => {
-    const s = loadSettings()
-    const status = (task.status === 'backlog' || task.status === 'project') ? 'not_started' : (task.status || 'not_started')
-    const mappedList = s.trello_list_mapping?.[status]
-    return mappedList || s.trello_list_id || ''
-  })
-  const [justSaved, setJustSaved] = useState(false)
-  const savedTimer = useRef(null)
-  const autoSaveTimer = useRef(null)
-  const initialRender = useRef(true)
-  const inputRef = useRef(null)
-  const fileInputRef = useRef(null)
-  const labels = loadLabels()
-
-  const flashSaved = useCallback(() => {
-    setJustSaved(true)
-    clearTimeout(savedTimer.current)
-    savedTimer.current = setTimeout(() => setJustSaved(false), 2000)
+  // Clean up the saved-flash timer on unmount.
+  useEffect(() => () => {
+    if (justSavedTimer.current) clearTimeout(justSavedTimer.current)
   }, [])
 
-  // Auto-save on any field change (debounced 1s)
+  // Flush any pending edits on unmount. Without this, closing the modal
+  // (X button, route change) within the 500ms debounce window would
+  // strand the user's last few edits.
   useEffect(() => {
-    // Skip the initial render — don't save on mount
-    if (initialRender.current) {
-      initialRender.current = false
-      return
+    return () => {
+      const json = JSON.stringify(savePayloadRef.current)
+      if (lastSavedJson.current === json) return
+      if (!savePayloadRef.current.title) return
+      onSave(task.id, savePayloadRef.current)
     }
-    if (!title.trim() || makeRecurring) return
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-    clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(() => {
-      onSave(task.id, {
-        title: title.trim(),
-        notes: notes.trim(),
-        tags: selectedTags,
-        due_date: dueDate || null,
-        size: size || null,
-        energy: energy || null,
-        energyLevel: energyLevel || null,
-        high_priority: highPriority,
-        low_priority: lowPriority,
-        notion_page_id: notionResult?.id || null,
-        notion_url: notionResult?.url || null,
-        trello_card_id: trelloResult?.id || null,
-        trello_card_url: trelloResult?.url || null,
-        attachments,
-        checklists,
-        comments,
-        gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
-        weather_hidden: weatherHidden,
-        size_inferred: sizeInferred,
-      })
-      flashSaved()
-    }, 1000)
-
-    return () => clearTimeout(autoSaveTimer.current)
-  }, [title, notes, selectedTags, dueDate, size, energy, energyLevel, highPriority, lowPriority, notionResult, trelloResult, attachments, checklists, comments, gcalDuration, weatherHidden, sizeInferred]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    inputRef.current?.focus()
-    const s = loadSettings()
-    if (s.trello_board_id) {
-      trelloBoardLists(s.trello_board_id).then(lists => {
-        setTrelloLists(lists)
-        // If no list selected yet, default to the first one
-        if (!trelloPushListId && lists.length > 0) {
-          setTrelloPushListId(lists[0].id)
-        }
-      }).catch(() => {})
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const toggleTag = (id) => {
-    setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
-  }
-
-  const saveChanges = () => {
-    if (!title.trim()) return
-    if (makeRecurring) {
-      onConvertToRoutine(task.id, {
-        title: title.trim(),
-        cadence,
-        customDays: cadence === 'custom' ? customDays : null,
-        tags: selectedTags,
-        notes: notes.trim(),
-      })
-    } else {
-      onSave(task.id, {
-        title: title.trim(),
-        notes: notes.trim(),
-        tags: selectedTags,
-        due_date: dueDate || null,
-        size: size || null,
-        energy: energy || null,
-        energyLevel: energyLevel || null,
-        high_priority: highPriority,
-        low_priority: lowPriority,
-        notion_page_id: notionResult?.id || null,
-        notion_url: notionResult?.url || null,
-        trello_card_id: trelloResult?.id || null,
-        trello_card_url: trelloResult?.url || null,
-        attachments,
-        checklists,
-        comments,
-        gcal_duration: gcalDuration ? parseInt(gcalDuration, 10) : null,
-      })
-    }
-  }
-
-  const handleSubmit = () => {
-    saveChanges()
+  const handleSave = () => {
+    if (!form.title.trim()) return
+    lastSavedJson.current = JSON.stringify(savePayload)
+    onSave(task.id, savePayload)
     onClose()
   }
 
-  const handleNotionSearch = async () => {
-    if (!title.trim()) return
-    setNotionState('searching')
-    try {
-      const result = await suggestNotionLink(title, notes)
-      setNotionState(result)
-    } catch (err) {
-      setNotionState({ action: 'error', reason: err.message })
-    }
+  // Checklist mutators — kept inline for clarity. Drag-drop reorder is the
+  // notable omission vs v1; can be added in a follow-up if it gets missed.
+  const addChecklist = () => {
+    setChecklists(prev => [...prev, { id: uuid(), name: 'Checklist', items: [], hideCompleted: false }])
+  }
+  const renameChecklist = (clId, name) => {
+    setChecklists(prev => prev.map(c => (c.id === clId ? { ...c, name } : c)))
+  }
+  const removeChecklist = (clId) => {
+    setChecklists(prev => prev.filter(c => c.id !== clId))
+    setConfirmDeleteChecklist(null)
+  }
+  const toggleHideCompleted = (clId) => {
+    setChecklists(prev => prev.map(c => (c.id === clId ? { ...c, hideCompleted: !c.hideCompleted } : c)))
+  }
+  const toggleItem = (clId, itemId) => {
+    setChecklists(prev => prev.map(c => (
+      c.id === clId
+        ? { ...c, items: c.items.map(i => (i.id === itemId ? { ...i, completed: !i.completed } : i)) }
+        : c
+    )))
+  }
+  const renameItem = (clId, itemId, text) => {
+    setChecklists(prev => prev.map(c => (
+      c.id === clId
+        ? { ...c, items: c.items.map(i => (i.id === itemId ? { ...i, text } : i)) }
+        : c
+    )))
+  }
+  const removeItem = (clId, itemId) => {
+    setChecklists(prev => prev.map(c => (
+      c.id === clId ? { ...c, items: c.items.filter(i => i.id !== itemId) } : c
+    )))
+  }
+  const addItem = (clId) => {
+    const text = (newCheckItems[clId] || '').trim()
+    if (!text) return
+    setChecklists(prev => prev.map(c => (
+      c.id === clId ? { ...c, items: [...c.items, { id: uuid(), text, completed: false }] } : c
+    )))
+    setNewCheckItems(prev => ({ ...prev, [clId]: '' }))
   }
 
-  const handleNotionCreate = async () => {
-    setNotionCreating(true)
-    try {
-      const settings = loadSettings()
-      const routine = task.routine_id ? loadRoutines().find(r => r.id === task.routine_id) : null
-      const tagNames = selectedTags.map(id => labels.find(l => l.id === id)?.name || id)
-      const energyType = energy ? ENERGY_TYPES.find(t => t.id === energy)?.label : undefined
-      const metadata = {
-        tags: tagNames,
-        lastUpdated: task.last_touched ? new Date(task.last_touched).toLocaleDateString() : new Date().toLocaleDateString(),
-        lastPerformed: task.completed_at ? new Date(task.completed_at).toLocaleDateString() : undefined,
-        frequency: routine ? formatCadence(routine) : undefined,
-        dueDate: dueDate || undefined,
-        size: size || undefined,
-        energy: energyType || undefined,
-        energyLevel: energyLevel || undefined,
-        priority: highPriority ? 'High' : undefined,
-        status: task.status || undefined,
-      }
-
-      // Build enriched notes with checklists and attachment references
-      let enrichedNotes = notes.trim()
-      if (checklists.length > 0) {
-        const clText = checklists.map(cl => {
-          const header = `## ${cl.name || 'Checklist'}`
-          const items = cl.items.map(i => `- [${i.completed ? 'x' : ' '}] ${i.text}`).join('\n')
-          return `${header}\n${items}`
-        }).join('\n\n')
-        enrichedNotes = enrichedNotes ? `${enrichedNotes}\n\n${clText}` : clText
-      }
-      const content = await generateNotionContent(title, enrichedNotes, !!task.routine_id, metadata)
-      const page = await notionCreatePage(title, content, settings.notion_parent_page_id || null)
-
-      // Upload attachments to the Notion page
-      for (const att of attachments) {
-        try {
-          await notionUploadFile(page.id, att.name, att.type, att.data)
-        } catch { /* continue with remaining attachments */ }
-      }
-
-      setNotionResult(page)
-      setNotionState(null)
-
-      // Persist Notion link immediately for ongoing sync
-      onSave(task.id, {
-        notion_page_id: page.id,
-        notion_url: page.url,
-      })
-    } catch (err) {
-      setNotionState({ action: 'error', reason: err.message })
-    } finally {
-      setNotionCreating(false)
-    }
-  }
-
-  const handleNotionLink = (page) => {
-    setNotionResult({ id: page.id, url: page.url })
-    setNotionState(null)
-  }
-
-  const handleTrelloPush = async () => {
-    if (!title.trim() || !trelloPushListId) return
-    setTrelloPushing(true)
-    try {
-      // Create card with notes only (checklists go as native Trello checklists)
-      const card = await trelloCreateCard(title.trim(), notes.trim(), trelloPushListId)
-
-      // Create native Trello checklists and store IDs for ongoing sync
-      const updatedChecklists = [...checklists]
-      for (let ci = 0; ci < updatedChecklists.length; ci++) {
-        const cl = updatedChecklists[ci]
-        if (!cl.items.length) continue
-        const trelloCl = await trelloCreateChecklist(card.id, cl.name || 'Checklist')
-        const updatedItems = [...cl.items]
-        for (let ii = 0; ii < updatedItems.length; ii++) {
-          const trelloItem = await trelloAddCheckItem(trelloCl.id, updatedItems[ii].text, updatedItems[ii].completed)
-          updatedItems[ii] = { ...updatedItems[ii], trello_check_item_id: trelloItem.id }
-        }
-        updatedChecklists[ci] = { ...cl, trello_checklist_id: trelloCl.id, items: updatedItems }
-      }
-      setChecklists(updatedChecklists)
-
-      // Upload attachments
-      for (const att of attachments) {
-        await trelloUploadAttachment(card.id, att.name, att.type, att.data)
-      }
-
-      setTrelloResult({ id: card.id, url: card.url })
-
-      // Enable ongoing sync and persist card ID + checklist IDs together
-      onSave(task.id, {
-        trello_card_id: card.id,
-        trello_card_url: card.url,
-        trello_sync_enabled: true,
-        checklists: updatedChecklists,
-      })
-    } catch { /* ignore */ }
-    finally { setTrelloPushing(false) }
-  }
-
-  const handlePolish = async (e) => {
-    e.stopPropagation()
-    e.preventDefault()
-    if (!notes.trim()) return
-    setPolishing(true)
-    try {
-      const availableLabels = labels
-      const result = await polishNotes(title || 'Untitled task', notes, availableLabels)
-      const newTitle = result.title || title
-      const newNotes = result.notes || notes
-      setTitle(newTitle)
-      setNotes(newNotes)
-
-      // Apply suggested labels (case-insensitive name match against existing labels).
-      if (Array.isArray(result.suggestedLabels) && result.suggestedLabels.length > 0) {
-        const normalize = name => String(name).trim().toLowerCase()
-        const byName = new Map(availableLabels.map(l => [normalize(l.name), l]))
-        const newTags = new Set(selectedTags)
-        for (const sl of result.suggestedLabels) {
-          const match = byName.get(normalize(sl))
-          if (match) newTags.add(match.id)
-        }
-        setSelectedTags(Array.from(newTags))
-      }
-
-      // Auto-apply suggested checklist when the task has none yet.
-      if (result.suggestedChecklist && Array.isArray(result.suggestedChecklist.items) && result.suggestedChecklist.items.length >= 2 && checklists.length === 0) {
-        setChecklists([{
-          id: uuid(),
-          name: result.suggestedChecklist.name || 'Checklist',
-          items: result.suggestedChecklist.items.map(it => ({ id: uuid(), text: it.text || '', completed: false })),
-          hideCompleted: false,
-        }])
-      }
-
-      const [inferredDate, inferred] = await Promise.all([
-        !dueDate ? inferDate(newTitle, newNotes).catch(() => null) : Promise.resolve(null),
-        !size ? inferSize(newTitle, newNotes) : Promise.resolve({ size: null, energy: null, energyLevel: null }),
-      ])
-      if (inferredDate) setDueDate(inferredDate)
-      if (inferred.size) markSizeSet(inferred.size)
-      if (inferred.energy) setEnergy(inferred.energy)
-      if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
-    } catch { /* ignore */ }
-    finally { setPolishing(false) }
-  }
-
-  const runResearch = async (prompt, fileAttachments) => {
-    setResearching(true)
-    try {
-      const result = await researchTask(title || 'Untitled task', notes, prompt, fileAttachments || attachments)
-      if (result.notes) {
-        const separator = notes.trim() ? '\n\n' : ''
-        setNotes(prev => (prev.trim() ? prev.trim() + separator : '') + result.notes)
-      }
-      return true
-    } catch { return false }
-    finally { setResearching(false) }
-  }
-
-  const handleResearch = async (e) => {
-    e.stopPropagation()
-    e.preventDefault()
-    if (!researchPrompt.trim()) return
-    const ok = await runResearch(researchPrompt.trim())
-    if (ok) {
-      setResearchPrompt('')
-      setShowResearch(false)
-    }
-  }
-
-  const handleInferSize = async (e) => {
-    e.stopPropagation()
-    e.preventDefault()
-    if (!title.trim()) return
-    setSizing(true)
-    try {
-      const inferred = await inferSize(title, notes)
-      if (inferred.size) markSizeSet(inferred.size)
-      if (inferred.energy) setEnergy(inferred.energy)
-      if (inferred.energyLevel) setEnergyLevel(inferred.energyLevel)
-    } catch { /* ignore */ }
-    finally { setSizing(false) }
-  }
-
-  const handleFileSelect = async (e) => {
-    const files = Array.from(e.target.files)
-    e.target.value = ''
-    if (!files.length) return
-    setAttachError(null)
-    try {
-      const processed = await Promise.all(files.map(processAttachment))
-      const results = processed.map(p => ({ id: uuid(), ...p }))
-      const currentTotal = attachments.reduce((sum, a) => sum + a.size, 0)
-      const newTotal = currentTotal + results.reduce((sum, r) => sum + r.size, 0)
-      if (newTotal > MAX_TOTAL_SIZE) {
-        setAttachError(`Total attachments exceed 5 MB limit (${formatFileSize(newTotal)})`)
-        return
-      }
-      const newAttachments = [...attachments, ...results]
-      setAttachments(newAttachments)
-      const names = results.map(r => r.name).join(', ')
-      runResearch(`Analyze the attached file(s) (${names}) and provide relevant notes for this task.`, newAttachments)
-    } catch (err) {
-      setAttachError(err.message || 'Failed to attach file')
-    }
-  }
-
-  const removeAttachment = (id) => {
-    setAttachments(prev => prev.filter(a => a.id !== id))
-    setAttachError(null)
-  }
-
-  const handleExtractText = async () => {
-    if (!attachments.length || extracting) return
-    setAttachError(null)
-    setExtracting(true)
-    try {
-      const text = await extractAttachmentText(attachments)
-      if (text) {
-        setNotes(prev => prev.trim() ? `${prev.trim()}\n\n${text}` : text)
-      }
-    } catch (err) {
-      setAttachError(err.message || 'Failed to extract text')
-    } finally {
-      setExtracting(false)
-    }
-  }
-
-  const today = localYMD()
-  const isAlreadyRoutine = !!task.routine_id
-  const parentRoutine = isAlreadyRoutine ? loadRoutines().find(r => r.id === task.routine_id) : null
-
-  const handleClose = () => {
-    clearTimeout(autoSaveTimer.current)
-    if (title.trim() && !makeRecurring) {
-      saveChanges()
-      flashSaved()
-      setTimeout(onClose, 300)
+  const handleStatusChange = (newStatus) => {
+    setCurrentStatus(newStatus)
+    // Stamp a default completed_at when transitioning into done so the
+    // "Completed on" picker shows today out of the gate. Keep the existing
+    // value if the user is just re-confirming done. Clear it on done→active
+    // so a future re-completion doesn't reuse the stale timestamp.
+    if (newStatus === 'done') {
+      if (!completedAtIso) setCompletedAtIso(new Date().toISOString())
     } else {
-      onClose()
+      setCompletedAtIso('')
     }
+    onStatusChange(task.id, newStatus)
   }
 
-  // Pull-to-close on the handle bar
-  const sheetRef = useRef(null)
-  const handleRef = useRef(null)
-  const pullRef = useRef({ startY: 0, active: false })
+  const handleConvertToRoutine = () => {
+    if (!form.title.trim()) return
+    onConvertToRoutine(task.id, {
+      title: form.title.trim(),
+      cadence,
+      customDays: cadence === 'custom' ? Number(customDays) : undefined,
+      customUnit: cadence === 'custom' ? customUnit : undefined,
+      tags: form.selectedTags,
+      notes: form.notes,
+    })
+  }
+
+  const priorityState = form.highPriority ? 'high' : form.lowPriority ? 'low' : 'normal'
+  const cyclePriority = () => {
+    if (priorityState === 'normal') { form.setHighPriority(true); form.setLowPriority(false) }
+    else if (priorityState === 'high') { form.setHighPriority(false); form.setLowPriority(true) }
+    else { form.setHighPriority(false); form.setLowPriority(false) }
+  }
+  const priorityLabel = priorityState === 'high' ? '! High' : priorityState === 'low' ? '↓ Low' : 'Normal'
+
+  // Esc on confirm-delete view rolls back to normal view rather than closing.
   useEffect(() => {
-    const handle = handleRef.current
-    const sheet = sheetRef.current
-    if (!handle || !sheet) return
-    const onStart = (e) => { pullRef.current = { startY: e.touches[0].clientY, active: true } }
-    const onMove = (e) => {
-      if (!pullRef.current.active) return
-      const dy = (e.touches[0].clientY - pullRef.current.startY) * 0.6
-      if (dy > 0) {
-        e.preventDefault()
-        sheet.style.transform = `translateY(${dy}px)`
-        sheet.style.transition = 'none'
-        sheet.style.opacity = String(Math.max(0.5, 1 - dy / 300))
-      }
-    }
-    const onEnd = () => {
-      if (!pullRef.current.active) return
-      const dy = parseFloat(sheet.style.transform?.replace(/[^0-9.]/g, '')) || 0
-      if (dy > 60) { handleClose() }
-      else { sheet.style.transition = 'transform 0.2s, opacity 0.2s'; sheet.style.transform = ''; sheet.style.opacity = '' }
-      pullRef.current.active = false
-    }
-    handle.addEventListener('touchstart', onStart, { passive: true })
-    handle.addEventListener('touchmove', onMove, { passive: false })
-    handle.addEventListener('touchend', onEnd, { passive: true })
-    return () => {
-      handle.removeEventListener('touchstart', onStart)
-      handle.removeEventListener('touchmove', onMove)
-      handle.removeEventListener('touchend', onEnd)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!confirmDelete) return
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setConfirmDelete(false) } }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [confirmDelete])
+
+  // Pull the knowledge index lazily — only when the user touches the
+  // Linked-knowledge picker, so most edits don't pay the network cost.
+  useEffect(() => {
+    if (!knowledgePickerOpen || knowledgeIndex.length > 0) return
+    let cancelled = false
+    import('../api').then(async (m) => {
+      const status = await m.knowledgeStatus().catch(() => ({ configured: false }))
+      if (cancelled) return
+      setKnowledgeConfigured(!!status?.configured)
+      if (!status?.configured) return
+      const { items } = await m.knowledgeList({ limit: 200 }).catch(() => ({ items: [] }))
+      if (!cancelled) setKnowledgeIndex(items || [])
+    })
+    return () => { cancelled = true }
+  }, [knowledgePickerOpen, knowledgeIndex.length])
 
   return (
-    <div className={`sheet-overlay${isDesktop ? ' sheet-overlay-drawer' : ''}`} onClick={handleClose}>
-      <div className={`sheet${isDesktop ? ' sheet-drawer' : ''}`} ref={sheetRef} onClick={e => e.stopPropagation()}>
-        {!isDesktop && <button ref={handleRef} className="sheet-handle" onClick={handleClose} />}
-        <button className="modal-close-btn" onClick={handleClose} aria-label="Close">✕</button>
-        <span className={`autosave-pill autosave-pill-floating ${justSaved ? 'autosave-pill-saved' : ''}`}>
-          {justSaved ? '✓ Saved' : 'Auto Save'}
-        </span>
-        <div className="sheet-title">Edit Task</div>
-        {isAlreadyRoutine && (
-          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-dim)', marginBottom: 8, marginTop: -8 }}>
-            Part of routine: {onOpenRoutine ? (
-              <button onClick={() => onOpenRoutine(task.routine_id)} style={{ color: '#A78BFA', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0 }}>
-                {parentRoutine?.title || 'Unknown'} →
-              </button>
-            ) : (
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{parentRoutine?.title || 'Unknown'}</span>
+    <ModalShell
+      open={!!task}
+      onClose={onClose}
+      title={isProject ? 'Edit project' : isSub ? 'Edit sub' : 'Edit task'}
+      width="narrow"
+      headerSlot={<AutosaveIndicator saved={justSaved} />}
+    >
+      {/* "Sub of <project>" banner — surfaces parent project at the top of
+        * the modal when this task is a child. Tap to open the parent's
+        * edit modal (replaces this one). Without this banner, the parent
+        * link is buried mid-modal in the "Project link" section and hard
+        * to spot. */}
+      {parentProject && onOpenTask && (
+        <button
+          type="button"
+          className="v2-edit-parent-banner"
+          onClick={() => onOpenTask(parentProject)}
+        >
+          <FolderKanban size={14} strokeWidth={1.75} />
+          <span className="v2-edit-parent-banner-label">Sub of</span>
+          <span className="v2-edit-parent-banner-title">{parentProject.title}</span>
+          <ChevronRight size={14} strokeWidth={1.75} className="v2-edit-parent-banner-arrow" />
+        </button>
+      )}
+      <input
+        className="v2-form-input v2-form-title"
+        placeholder={isProject ? 'What\'s the project?' : isSub ? 'What\'s the sub?' : 'What needs doing?'}
+        value={form.title}
+        onChange={e => form.setTitle(e.target.value)}
+      />
+
+      <div className="v2-form-section">
+        <label className="v2-form-label">Status</label>
+        <div className="v2-form-segmented v2-edit-status-row">
+          {STATUS_OPTIONS.map(s => (
+            <button
+              key={s}
+              className={`v2-form-seg${currentStatus === s ? ' v2-form-seg-active' : ''}`}
+              onClick={() => handleStatusChange(s)}
+            >
+              {STATUS_META[s]?.label || s}
+            </button>
+          ))}
+          <button
+            className={`v2-form-seg v2-edit-status-done${currentStatus === 'done' ? ' v2-form-seg-active' : ''}`}
+            onClick={() => handleStatusChange('done')}
+            title="Mark complete"
+          >
+            ✓ Done
+          </button>
+        </div>
+      </div>
+
+      {currentStatus === 'done' && (
+        <div className="v2-form-section">
+          <label className="v2-form-label">Completed on</label>
+          <div className="v2-settings-row-hint" style={{ marginTop: -4, marginBottom: 4 }}>
+            Backdate if you finished this earlier — fixes streak and points credit.
+          </div>
+          <DateField
+            value={completedAtIso ? localYMD(new Date(completedAtIso)) : ''}
+            onChange={(ymd) => {
+              if (!ymd) { setCompletedAtIso(''); return }
+              const [y, m, d] = ymd.split('-').map(Number)
+              const original = completedAtIso ? new Date(completedAtIso) : new Date()
+              const hh = original.getHours()
+              const mm = original.getMinutes()
+              const ss = original.getSeconds()
+              const next = new Date(y, m - 1, d, hh, mm, ss, 0)
+              setCompletedAtIso(next.toISOString())
+            }}
+            max={today}
+            placeholder="pick a date"
+            ariaLabelEmpty="Pick completion date"
+            ariaLabelFilled={(v) => `Completed ${v} — tap to change`}
+            clearLabel="Clear completion date"
+            showClear={false}
+          />
+        </div>
+      )}
+
+      <div className="v2-form-section">
+        <label className="v2-form-label">Notes</label>
+        <textarea
+          className="v2-form-textarea"
+          placeholder="Brain dump here…"
+          value={form.notes}
+          onChange={e => form.setNotes(e.target.value)}
+        />
+        <div className="v2-edit-notes-toolbar">
+          {form.notes.trim() && (
+            <button className="v2-form-ai-pill v2-form-ai-pill-inline" onClick={form.handlePolish} disabled={form.polishing}>
+              {form.polishing ? <span className="v2-spinner" /> : <Sparkles size={12} strokeWidth={1.75} />}
+              {form.polishing ? 'Polishing…' : 'Polish'}
+            </button>
+          )}
+          <button
+            className="v2-form-ai-pill v2-form-ai-pill-inline"
+            onClick={(e) => { e.preventDefault(); setShowResearch(s => !s) }}
+            disabled={researching}
+            title="Ask the AI to research and append findings to notes"
+          >
+            {researching ? <span className="v2-spinner" /> : <Search size={12} strokeWidth={1.75} />}
+            {researching ? 'Researching…' : 'Research'}
+          </button>
+        </div>
+        {form.polishError && <div className="v2-form-error">{form.polishError}</div>}
+        {form.polishApplied && (form.polishApplied.addedLabels.length > 0 || form.suggestedChecklist) && (
+          <div className="v2-edit-polish-applied">
+            {form.polishApplied.addedLabels.length > 0 && (
+              <span>
+                Polish added label{form.polishApplied.addedLabels.length === 1 ? '' : 's'}: {form.polishApplied.addedLabels.join(', ')}.
+              </span>
+            )}
+            {form.suggestedChecklist && (
+              <span className="v2-edit-polish-checklist">
+                Checklist suggested: <strong>{form.suggestedChecklist.name}</strong> ({form.suggestedChecklist.items.length} items)
+                <button
+                  type="button"
+                  className="v2-edit-polish-apply"
+                  onClick={() => {
+                    const cl = form.consumeSuggestedChecklist()
+                    if (cl) setChecklists(prev => [...prev, {
+                      id: uuid(),
+                      name: cl.name || 'Checklist',
+                      items: (cl.items || []).map(it => ({ id: uuid(), text: it.text || '', completed: false })),
+                      hideCompleted: false,
+                    }])
+                  }}
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  className="v2-edit-polish-dismiss"
+                  onClick={() => form.consumeSuggestedChecklist()}
+                  aria-label="Dismiss suggestion"
+                >
+                  ✕
+                </button>
+              </span>
             )}
           </div>
         )}
+        {researchError && <div className="v2-form-error">{researchError}</div>}
+        {showResearch && (
+          <div className="v2-edit-research-row">
+            <input
+              className="v2-form-input"
+              placeholder="What do you need to know?"
+              value={researchPrompt}
+              onChange={e => setResearchPrompt(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runResearch() } }}
+              autoFocus
+            />
+            <button
+              className="v2-edit-research-go"
+              onClick={runResearch}
+              disabled={researching || (!researchPrompt.trim() && !form.attachments.length)}
+            >
+              {researching ? '…' : 'Go'}
+            </button>
+          </div>
+        )}
+      </div>
 
-        <input
-          ref={inputRef}
-          className="add-input"
-          placeholder="Task title"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-        />
+      {(() => {
+        const forecast = weather?.status?.cache?.forecast
+        const weatherReady = !!(weather?.enabled && forecast?.days?.length)
+        if (!weatherReady) return null
+        const liveTask = { ...task, title: form.title, energy: form.energy, tags: form.selectedTags, weather_hidden: weatherHidden }
+        const visibility = resolveWeatherVisibility({ task: liveTask, labels, weatherEnabled: true })
+        if (visibility === 'hidden') return null
+        const hideToggle = (
+          <label className="v2-edit-weather-hide">
+            <input
+              type="checkbox"
+              checked={weatherHidden}
+              onChange={e => setWeatherHidden(e.target.checked)}
+            />
+            <span>Hide weather on this card</span>
+          </label>
+        )
+        if (visibility === 'visible') {
+          return (
+            <div className="v2-form-section v2-edit-weather">
+              <label className="v2-form-label">7-day forecast</label>
+              <WeatherSection forecast={forecast} dueDate={form.dueDate || null} />
+              {hideToggle}
+            </div>
+          )
+        }
+        // 'drawer' — collapsed by default, expand to reveal
+        return (
+          <div className="v2-form-section v2-edit-weather">
+            <button
+              type="button"
+              className="v2-edit-weather-drawer"
+              onClick={() => setForecastDrawerOpen(o => !o)}
+              aria-expanded={forecastDrawerOpen}
+            >
+              {forecastDrawerOpen ? <ChevronDown size={14} strokeWidth={1.75} /> : <ChevronRight size={14} strokeWidth={1.75} />}
+              <Sun size={14} strokeWidth={1.75} />
+              <span>7-day forecast</span>
+            </button>
+            {forecastDrawerOpen && (
+              <div className="v2-edit-weather-drawer-body">
+                <WeatherSection forecast={forecast} dueDate={form.dueDate || null} />
+                {hideToggle}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
-        {onStatusChange && currentStatus !== 'backlog' && (
+      <div className="v2-form-row">
+        <div className="v2-form-field">
+          <label className="v2-form-label">Due</label>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <DateField value={form.dueDate} onChange={form.setDueDate} min={today} />
+            {!form.dueDate && (
+              <button
+                className="v2-form-ai-pill v2-form-ai-pill-inline"
+                onClick={form.handleInferDate}
+                disabled={form.dateInferring || !form.title.trim()}
+                title="Ask AI to extract a due date from the title and notes"
+              >
+                {form.dateInferring ? <span className="v2-spinner-tiny" /> : <Sparkles size={12} strokeWidth={1.75} />}
+                {form.dateInferring ? 'Inferring…' : 'Infer'}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="v2-form-field">
+          <label className="v2-form-label">Priority</label>
+          <button
+            className={`v2-form-pri-toggle v2-form-pri-${priorityState}`}
+            onClick={cyclePriority}
+          >
+            {priorityLabel}
+          </button>
+        </div>
+      </div>
+
+      {form.dueDate && (
+        <div className="v2-form-section">
+          <label className="v2-form-label" htmlFor="v2-gcal-duration">GCal duration override (min)</label>
+          <div className="v2-settings-row-hint" style={{ marginTop: -4, marginBottom: 4 }}>
+            Default uses size mapping (XS=15, S=30, M=60, L=120, XL=240). Leave blank for default.
+          </div>
+          <input
+            id="v2-gcal-duration"
+            className="v2-form-input v2-edit-duration-input"
+            type="number"
+            min="5"
+            max="480"
+            step="5"
+            placeholder={form.size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[form.size] || 'auto' : 'auto'}
+            value={gcalDuration}
+            onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
+          />
+        </div>
+      )}
+
+      <div className="v2-form-section">
+        <label className="v2-form-label">Size</label>
+        <div className="v2-form-segmented">
+          {SIZE_OPTIONS.map(s => (
+            <button
+              key={s}
+              className={`v2-form-seg${form.size === s ? ' v2-form-seg-active' : ''}`}
+              onClick={() => form.setSize(form.size === s ? null : s)}
+            >
+              {s}
+            </button>
+          ))}
+          <button
+            className="v2-form-ai-pill v2-form-ai-pill-inline"
+            onClick={form.handleInferSize}
+            disabled={form.sizing || !form.title.trim()}
+          >
+            {form.sizing ? <span className="v2-spinner" /> : <Sparkles size={12} strokeWidth={1.75} />}
+            {form.sizing ? 'Sizing…' : 'Auto'}
+          </button>
+        </div>
+      </div>
+
+      <div className="v2-form-section">
+        <label className="v2-form-label">Energy type</label>
+        <div className="v2-form-energy-grid">
+          {ENERGY_TYPES.map(et => {
+            const selected = form.energy === et.id
+            return (
+              <button
+                key={et.id}
+                className={`v2-form-energy-pill${selected ? ' v2-form-energy-pill-active' : ''}`}
+                onClick={() => form.setEnergy(form.energy === et.id ? null : et.id)}
+                style={selected ? { borderColor: et.color, color: et.color } : undefined}
+              >
+                {et.label}
+              </button>
+            )
+          })}
+        </div>
+        {form.energy && (
           <>
-            <div className="settings-label" style={{ marginBottom: 6 }}>Status</div>
-            <div className="status-selector">
-              {[...ACTIVE_STATUSES, 'done'].map(s => (
+            <label className="v2-form-label" style={{ marginTop: 14 }}>Energy drain</label>
+            <div className="v2-form-segmented">
+              {ENERGY_LEVEL_LABELS.map(({ lvl, label }) => (
                 <button
-                  key={s}
-                  className={`status-btn${currentStatus === s ? ' active' : ''}`}
-                  style={{ '--status-color': STATUS_META[s].color }}
-                  onClick={() => {
-                    setCurrentStatus(s)
-                    onStatusChange(task.id, s)
-                  }}
+                  key={lvl}
+                  className={`v2-form-seg${form.energyLevel === lvl ? ' v2-form-seg-active' : ''}`}
+                  onClick={() => form.setEnergyLevel(form.energyLevel === lvl ? null : lvl)}
                 >
-                  {STATUS_META[s].label}
+                  {label}
                 </button>
               ))}
             </div>
           </>
         )}
+      </div>
 
-        {(() => {
-          const forecast = weather?.status?.cache?.forecast
-          const weatherReady = !!(weather?.enabled && forecast?.days?.length)
-          if (!weatherReady) return null
-          const liveTask = { ...task, title, energy, tags: selectedTags, weather_hidden: weatherHidden }
-          const visibility = resolveWeatherVisibility({
-            task: liveTask,
-            labels,
-            weatherEnabled: true,
-          })
-          if (visibility === 'hidden') return null
-          const hideCheckbox = (
-            <label className="notif-check" style={{ marginTop: 6 }}>
-              <input
-                type="checkbox"
-                checked={weatherHidden}
-                onChange={e => setWeatherHidden(e.target.checked)}
-              />
-              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Hide weather on this card</span>
-            </label>
-          )
-          if (visibility === 'visible') {
-            return (
-              <div style={{ marginTop: 16, marginBottom: 12 }}>
-                <div className="settings-label" style={{ marginBottom: 6 }}>7-day forecast</div>
-                <WeatherSection forecast={forecast} dueDate={dueDate || null} />
-                {hideCheckbox}
-              </div>
-            )
-          }
-          // Drawer: collapsed by default, click to reveal
-          return (
-            <div style={{ marginTop: 16, marginBottom: 12 }}>
-              <button
-                className="weather-drawer-toggle"
-                type="button"
-                onClick={() => setForecastDrawerOpen(o => !o)}
-                aria-expanded={forecastDrawerOpen}
-              >
-                {forecastDrawerOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <Sun size={14} />
-                <span>7-day forecast</span>
-              </button>
-              {forecastDrawerOpen && (
-                <div style={{ marginTop: 6 }}>
-                  <WeatherSection forecast={forecast} dueDate={dueDate || null} />
-                  {hideCheckbox}
-                </div>
-              )}
-            </div>
-          )
-        })()}
-
-        <div className="settings-label" style={{ marginBottom: 6 }}>Notes</div>
-        <div className="notes-wrapper">
-          <textarea
-            className="notes-input"
-            placeholder="Notes..."
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-          />
-          <div className="notes-actions">
-            {notes.trim() && (
-              <button className={`polish-btn${polishing ? ' loading' : ''}`} onClick={handlePolish} disabled={polishing}>
-                <Sparkles size={14} /> Polish
-              </button>
-            )}
-            <button
-              className={`polish-btn research-btn${researching ? ' loading' : ''}`}
-              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowResearch(!showResearch) }}
-              disabled={researching}
-            >
-              <Search size={14} /> Research
-            </button>
-          </div>
-          {showResearch && (
-            <div className="research-prompt-row">
-              <input
-                className="research-prompt-input"
-                placeholder="What do you need to know?"
-                value={researchPrompt}
-                onChange={e => setResearchPrompt(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleResearch(e) }}
-                autoFocus
-              />
-              <button
-                className="research-go-btn"
-                onClick={handleResearch}
-                disabled={!researchPrompt.trim() || researching}
-              >
-                Go
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Scheduling: Due date + Duration + Priority */}
-        {!makeRecurring && (
-          <div className="scheduling-row">
-            <div className="scheduling-field scheduling-due">
-              <div className="settings-label">Due</div>
-              <input
-                type="date"
-                value={dueDate}
-                min={today}
-                onChange={e => setDueDate(e.target.value)}
-              />
-            </div>
-            {dueDate && (
-              <div className="scheduling-field scheduling-dur">
-                <div className="settings-label">Dur (min)</div>
-                <input
-                  className="dur-input"
-                  type="number"
-                  min="5"
-                  max="480"
-                  step="5"
-                  placeholder={size ? { XS: '15', S: '30', M: '60', L: '120', XL: '240' }[size] || 'auto' : 'auto'}
-                  value={gcalDuration}
-                  onChange={e => setGcalDuration(e.target.value ? parseInt(e.target.value, 10) : '')}
-                />
-              </div>
-            )}
-            <div className="scheduling-field scheduling-pri">
-              <div className="settings-label">Pri</div>
-              <button
-                className={`priority-toggle${priorityClass}`}
-                onClick={cyclePriority}
-              >
-                {priorityLabel}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Labels */}
-        <div className="settings-label" style={{ marginBottom: 4 }}>Labels</div>
-        <select
-          className="routine-select"
-          value=""
-          onChange={e => { if (e.target.value) toggleTag(e.target.value) }}
-          style={{ marginBottom: selectedTags.length > 0 ? 6 : 12 }}
-        >
-          <option value="">Add label...</option>
-          {labels.filter(l => !selectedTags.includes(l.id)).map(label => (
-            <option key={label.id} value={label.id}>{label.name}</option>
-          ))}
-        </select>
-        {selectedTags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-            {selectedTags.map(id => {
-              const label = labels.find(l => l.id === id)
-              if (!label) return null
-              return (
-                <button key={id} className="routine-label-pill" style={{ background: label.color }} onClick={() => toggleTag(id)}>
-                  {label.name} <span style={{ marginLeft: 4, opacity: 0.7 }}>✕</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Wake-me-up-for-this — quiet-hours bypass via the configured label */}
-        {(() => {
-          const bypassLabelId = (loadSettings().quiet_hours_bypass_label || 'wake-me').toLowerCase()
-          const isWakeMe = selectedTags.some(id => String(id).toLowerCase() === bypassLabelId)
-          return (
-            <label className="notif-check" style={{ marginBottom: 16 }}>
-              <input
-                type="checkbox"
-                checked={isWakeMe}
-                onChange={e => {
-                  if (e.target.checked && !isWakeMe) toggleTag(bypassLabelId)
-                  else if (!e.target.checked && isWakeMe) toggleTag(bypassLabelId)
-                }}
-              />
-              <span style={{ fontSize: 13 }}>
-                Wake me up for this
-                <span style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
-                  Allow this task's high-priority notifications to fire during quiet hours.
-                </span>
-              </span>
-            </label>
-          )
-        })()}
-
-        {/* Categorization group */}
-        <div className="form-group">
-          <div className="settings-label" style={{ marginBottom: 4 }}>Size</div>
-          <div className="size-selector">
-            {['XS', 'S', 'M', 'L', 'XL'].map(s => (
-              <button
-                key={s}
-                className={`size-select-btn size-${s.toLowerCase()}${size === s ? ' selected' : ''}`}
-                onClick={() => markSizeSet(size === s ? null : s)}
-              >
-                {s}
-              </button>
-            ))}
-            <button className="polish-btn" onClick={handleInferSize} disabled={sizing || !title.trim()} style={{ marginTop: 0, marginLeft: 8 }}>
-              {sizing ? <span className="spinner" /> : <Sparkles size={14} />} {sizing ? 'Sizing...' : 'Auto'}
-            </button>
-          </div>
-
-          <div className="settings-label" style={{ marginBottom: 4 }}>Energy Type</div>
-          <div className="energy-selector">
-            {ENERGY_TYPES.map(et => (
-              <button
-                key={et.id}
-                className={`energy-select-btn energy-type-btn${energy === et.id ? ' selected' : ''}`}
-                onClick={() => setEnergy(energy === et.id ? null : et.id)}
-                title={et.label}
-              >
-                <EnergyIcon icon={et.icon} color={et.color} size={18} />
-                <span className="energy-type-label">{et.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {energy && (
-            <>
-              <div className="settings-label" style={{ marginBottom: 4 }}>Energy Drain</div>
-              <div className="energy-selector" style={{ marginBottom: 0 }}>
-                {[
-                  { lvl: 1, label: 'Low', dotClass: 'dot-1' },
-                  { lvl: 2, label: 'Med', dotClass: 'dot-2' },
-                  { lvl: 3, label: 'High', dotClass: 'dot-3' },
-                ].map(({ lvl, label, dotClass }) => (
-                  <button
-                    key={lvl}
-                    className={`energy-select-btn energy-level-btn${energyLevel === lvl ? ' selected' : ''}`}
-                    onClick={() => setEnergyLevel(energyLevel === lvl ? null : lvl)}
-                  >
-                    <span className={`energy-dot ${dotClass} active`} style={{ display: 'inline-block', marginRight: 4 }} /> {label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Attachments — collapsible */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          style={{ display: 'none' }}
-          onChange={handleFileSelect}
-        />
-        <div className="section-header" onClick={() => { if (attachments.length > 0 || expandedSections.has('attachments')) toggleSection('attachments'); else { fileInputRef.current?.click(); } }}>
-          <span className="settings-label">Attachments</span>
-          <div className="section-header-right">
-            {attachments.length > 0 && <span className="section-badge">{attachments.length}</span>}
-            {attachments.length > 0 ? (
-              <ChevronRight size={14} className={`section-chevron${expandedSections.has('attachments') ? ' expanded' : ''}`} />
-            ) : (
-              <button className="checklist-add-list-btn" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}>
-                <Plus size={12} /> Add
-              </button>
-            )}
-          </div>
-        </div>
-        {expandedSections.has('attachments') && (
-          <>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <button className="attach-btn" onClick={() => fileInputRef.current?.click()}>
-                + Attach files
-              </button>
-              {attachments.length > 0 && (
-                <button className="attach-btn" onClick={handleExtractText} disabled={extracting}>
-                  {extracting ? <><span className="spinner" /> Extracting...</> : <><Sparkles size={12} /> Extract text</>}
-                </button>
-              )}
-            </div>
-            {attachError && (
-              <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{attachError}</div>
-            )}
-            {attachments.length > 0 && (
-              <div className="attachment-list">
-                {attachments.map(a => (
-                  <div key={a.id} className="attachment-item">
-                    <span className="attachment-name">{a.name}</span>
-                    <span className="attachment-size">{formatFileSize(a.size)}</span>
-                    <button className="attachment-remove" onClick={() => removeAttachment(a.id)}>x</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Checklists — collapsible */}
-        <div className="section-header" onClick={() => { if (checklists.length > 0) toggleSection('checklists') }}>
-          <span className="settings-label">Checklists</span>
-          <div className="section-header-right">
-            {checklists.reduce((sum, cl) => sum + cl.items.length, 0) > 0 && (
-              <span className="section-badge">
-                {checklists.reduce((sum, cl) => sum + cl.items.filter(i => i.completed).length, 0)}/{checklists.reduce((sum, cl) => sum + cl.items.length, 0)}
+      {/* Checklists — multi-list. Empty state shows just the "+ Add checklist"
+          pill below; CHECKLISTS label only renders when at least one exists. */}
+      <div className={`v2-form-section${checklists.length === 0 ? ' v2-form-section-compact' : ''}`}>
+        {checklists.length > 0 && (
+          <div className="v2-edit-checklist-head">
+            <label className="v2-form-label">Checklists</label>
+            {checklists.reduce((n, c) => n + c.items.length, 0) > 0 && (
+              <span className="v2-edit-checklist-summary">
+                {checklists.reduce((n, c) => n + c.items.filter(i => i.completed).length, 0)}/{checklists.reduce((n, c) => n + c.items.length, 0)} done
               </span>
             )}
-            <button
-              className="checklist-add-list-btn"
-              onClick={(e) => {
-                e.stopPropagation()
-                setChecklists(prev => [...prev, { id: uuid(), name: 'Checklist', items: [], hideCompleted: false }])
-                setExpandedSections(prev => new Set(prev).add('checklists'))
-              }}
-            >
-              <Plus size={12} /> Add
-            </button>
-            {checklists.length > 0 && (
-              <ChevronRight size={14} className={`section-chevron${expandedSections.has('checklists') ? ' expanded' : ''}`} />
-            )}
           </div>
-        </div>
-
-        {expandedSections.has('checklists') && checklists.map((cl) => {
+        )}
+        {checklists.map(cl => {
           const completed = cl.items.filter(i => i.completed).length
           const total = cl.items.length
           const pct = total ? Math.round((completed / total) * 100) : 0
-          const visibleItems = cl.hideCompleted ? cl.items.filter(i => !i.completed) : cl.items
-          const hiddenCount = cl.hideCompleted ? cl.items.filter(i => i.completed).length : 0
-
+          const visible = cl.hideCompleted ? cl.items.filter(i => !i.completed) : cl.items
+          const hidden = cl.hideCompleted ? cl.items.filter(i => i.completed).length : 0
           return (
-            <div key={cl.id} className="checklist-group">
-              <div className="checklist-group-header">
+            <div key={cl.id} className="v2-edit-checklist">
+              <div className="v2-edit-checklist-header">
                 <input
-                  className="checklist-name-input"
+                  className="v2-edit-checklist-name"
                   value={cl.name}
-                  onChange={e => {
-                    setChecklists(prev => prev.map(c =>
-                      c.id === cl.id ? { ...c, name: e.target.value } : c
-                    ))
-                  }}
+                  onChange={e => renameChecklist(cl.id, e.target.value)}
                 />
-                <div className="checklist-header-actions">
-                  {total > 0 && completed > 0 && (
-                    <button
-                      className="checklist-hide-toggle"
-                      onClick={() => {
-                        setChecklists(prev => prev.map(c =>
-                          c.id === cl.id ? { ...c, hideCompleted: !c.hideCompleted } : c
-                        ))
-                      }}
-                    >
-                      {cl.hideCompleted ? 'Show completed' : 'Hide completed'}
-                    </button>
-                  )}
-                  {confirmDeleteChecklist === cl.id ? (
-                    <span className="checklist-confirm-delete">
-                      Delete?
-                      <button onClick={() => {
-                        setChecklists(prev => prev.filter(c => c.id !== cl.id))
-                        setConfirmDeleteChecklist(null)
-                      }}>Yes</button>
-                      <button onClick={() => setConfirmDeleteChecklist(null)}>No</button>
-                    </span>
-                  ) : (
-                    <button
-                      className="checklist-delete-list"
-                      onClick={() => setConfirmDeleteChecklist(cl.id)}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
+                {total > 0 && completed > 0 && (
+                  <button
+                    type="button"
+                    className="v2-edit-checklist-toggle"
+                    onClick={() => toggleHideCompleted(cl.id)}
+                  >
+                    {cl.hideCompleted ? 'Show completed' : 'Hide completed'}
+                  </button>
+                )}
+                {confirmDeleteChecklist === cl.id ? (
+                  <span className="v2-edit-checklist-confirm">
+                    Delete?
+                    <button type="button" onClick={() => removeChecklist(cl.id)}>Yes</button>
+                    <button type="button" onClick={() => setConfirmDeleteChecklist(null)}>No</button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="v2-edit-checklist-delete"
+                    onClick={() => setConfirmDeleteChecklist(cl.id)}
+                    aria-label="Delete checklist"
+                  >
+                    <Trash2 size={13} strokeWidth={1.75} />
+                  </button>
+                )}
               </div>
-
               {total > 0 && (
-                <div className="checklist-progress-bar-wrap">
-                  <div className="checklist-progress-bar">
-                    <div className="checklist-progress-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="checklist-progress-text">{completed}/{total}</span>
+                <div className="v2-edit-checklist-progress">
+                  <div className="v2-edit-checklist-progress-fill" style={{ width: `${pct}%` }} />
                 </div>
               )}
-
-              <div className="checklist-edit-section" onDragOver={e => e.preventDefault()} onDrop={e => handleDropOnList(e, cl.id)}>
-                {visibleItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`checklist-edit-item${dragOver?.checklistId === cl.id && dragOver?.itemId === item.id ? ' drag-over' : ''}`}
-                    draggable
-                    onDragStart={() => handleDragStart(cl.id, item.id)}
-                    onDragOver={e => handleDragOver(e, cl.id, item.id)}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <span className="checklist-drag-handle">⠿</span>
+              <ul className="v2-edit-checklist-items">
+                {visible.map(item => (
+                  <li key={item.id} className="v2-edit-checklist-item">
                     <input
                       type="checkbox"
-                      className="checklist-checkbox"
+                      className="v2-edit-checklist-check"
                       checked={item.completed}
-                      onChange={() => {
-                        setChecklists(prev => prev.map(c =>
-                          c.id === cl.id ? { ...c, items: c.items.map(i =>
-                            i.id === item.id ? { ...i, completed: !i.completed } : i
-                          )} : c
-                        ))
-                      }}
+                      onChange={() => toggleItem(cl.id, item.id)}
                     />
                     <input
-                      className="checklist-edit-input"
+                      className={`v2-edit-checklist-text${item.completed ? ' v2-edit-checklist-text-done' : ''}`}
                       value={item.text}
-                      onChange={e => {
-                        setChecklists(prev => prev.map(c =>
-                          c.id === cl.id ? { ...c, items: c.items.map(i =>
-                            i.id === item.id ? { ...i, text: e.target.value } : i
-                          )} : c
-                        ))
-                      }}
+                      onChange={e => renameItem(cl.id, item.id, e.target.value)}
                     />
-                    <button className="checklist-delete" onClick={() => {
-                      setChecklists(prev => prev.map(c =>
-                        c.id === cl.id ? { ...c, items: c.items.filter(i => i.id !== item.id) } : c
-                      ))
-                    }}>x</button>
-                  </div>
+                    <button
+                      type="button"
+                      className="v2-edit-checklist-item-remove"
+                      onClick={() => removeItem(cl.id, item.id)}
+                      aria-label="Remove item"
+                    >
+                      <XIcon size={12} strokeWidth={2} />
+                    </button>
+                  </li>
                 ))}
-                {hiddenCount > 0 && (
-                  <div className="checklist-hidden-count">{hiddenCount} completed item{hiddenCount > 1 ? 's' : ''} hidden</div>
-                )}
-                <div className="checklist-add-row">
-                  <input
-                    className="checklist-add-input"
-                    placeholder="Add item..."
-                    value={newCheckItems[cl.id] || ''}
-                    onChange={e => setNewCheckItems(prev => ({ ...prev, [cl.id]: e.target.value }))}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && (newCheckItems[cl.id] || '').trim()) {
-                        setChecklists(prev => prev.map(c =>
-                          c.id === cl.id ? { ...c, items: [...c.items, { id: uuid(), text: newCheckItems[cl.id].trim(), completed: false }] } : c
-                        ))
-                        setNewCheckItems(prev => ({ ...prev, [cl.id]: '' }))
-                      }
-                    }}
-                  />
-                  <button
-                    className="checklist-add-btn"
-                    disabled={!(newCheckItems[cl.id] || '').trim()}
-                    onClick={() => {
-                      if ((newCheckItems[cl.id] || '').trim()) {
-                        setChecklists(prev => prev.map(c =>
-                          c.id === cl.id ? { ...c, items: [...c.items, { id: uuid(), text: newCheckItems[cl.id].trim(), completed: false }] } : c
-                        ))
-                        setNewCheckItems(prev => ({ ...prev, [cl.id]: '' }))
-                      }
-                    }}
-                  >+</button>
-                </div>
+              </ul>
+              {hidden > 0 && (
+                <div className="v2-edit-checklist-hidden">{hidden} completed item{hidden > 1 ? 's' : ''} hidden</div>
+              )}
+              <div className="v2-edit-checklist-add">
+                <input
+                  className="v2-edit-checklist-add-input"
+                  placeholder="Add item…"
+                  value={newCheckItems[cl.id] || ''}
+                  onChange={e => setNewCheckItems(prev => ({ ...prev, [cl.id]: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItem(cl.id) } }}
+                />
               </div>
             </div>
           )
         })}
+        <button type="button" className="v2-edit-checklist-new" onClick={addChecklist}>
+          <Plus size={13} strokeWidth={2} /> {checklists.length === 0 ? 'Add checklist' : 'Add another checklist'}
+        </button>
+      </div>
 
-        {/* Comments — collapsible */}
-        <div className="section-header" onClick={() => { if (comments.length > 0) toggleSection('comments'); else setExpandedSections(prev => new Set(prev).add('comments')) }}>
-          <span className="settings-label">Comments</span>
-          <div className="section-header-right">
-            {comments.length > 0 && <span className="section-badge">{comments.length}</span>}
-            {comments.length > 0 ? (
-              <ChevronRight size={14} className={`section-chevron${expandedSections.has('comments') ? ' expanded' : ''}`} />
-            ) : (
-              <button className="checklist-add-list-btn" onClick={(e) => { e.stopPropagation(); setExpandedSections(prev => new Set(prev).add('comments')) }}>
-                <Plus size={12} /> Add
-              </button>
-            )}
-          </div>
-        </div>
-        {expandedSections.has('comments') && (
-          <div className="comments-section">
-            {comments.length > 0 && comments.map(c => (
-              <div key={c.id} className="comment-item">
-                <div className="comment-text">{c.text}</div>
-                <div className="comment-time">{new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
-              </div>
-            ))}
-            <div className="comment-input-row">
-              <input
-                className="comment-input"
-                placeholder="Add a comment..."
-                value={newComment}
-                onChange={e => setNewComment(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && newComment.trim()) {
-                    setComments(prev => [...prev, { id: uuid(), text: newComment.trim(), created_at: new Date().toISOString() }])
-                    setNewComment('')
-                  }
-                }}
-              />
-              <button
-                className="comment-add-btn"
-                disabled={!newComment.trim()}
-                onClick={() => {
-                  if (newComment.trim()) {
-                    setComments(prev => [...prev, { id: uuid(), text: newComment.trim(), created_at: new Date().toISOString() }])
-                    setNewComment('')
-                  }
-                }}
-              >Add</button>
-            </div>
+      {/* Attachments — file uploads with optional AI text extraction. The
+          ATTACHMENTS label only renders when there's content; empty state is
+          a lone "+ Attach files" pill in the affordance strip below. */}
+      <div className={`v2-form-section${form.attachments.length === 0 ? ' v2-form-section-compact' : ''}`}>
+        {form.attachments.length > 0 && (
+          <div className="v2-edit-attach-head">
+            <label className="v2-form-label">Attachments</label>
+            <span className="v2-edit-attach-summary">
+              {form.attachments.length} · {form.formatFileSize(form.attachments.reduce((n, a) => n + a.size, 0))}
+            </span>
           </div>
         )}
-
-        {/* Recurring toggle */}
-        {!isAlreadyRoutine && (
-          <div style={{ marginTop: 4 }}>
-            <label className="notif-check">
-              <input
-                type="checkbox"
-                checked={makeRecurring}
-                onChange={e => setMakeRecurring(e.target.checked)}
-              />
-              <span>Make this recurring</span>
-            </label>
-            {makeRecurring && (
-              <div style={{ marginTop: 8 }}>
-                <div className="settings-label" style={{ marginBottom: 6 }}>Frequency</div>
-                <div className="notif-freq-row" style={{ flexWrap: 'wrap' }}>
-                  {RECURRENCE_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      className={`notif-freq ${cadence === opt.value ? 'notif-freq-active' : ''}`}
-                      onClick={() => setCadence(opt.value)}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                {cadence === 'custom' && (
-                  <div style={{ marginTop: 8 }}>
-                    <div className="settings-label" style={{ marginBottom: 4 }}>Every how many days?</div>
-                    <input
-                      className="settings-input"
-                      type="number"
-                      min="1"
-                      max="365"
-                      value={customDays}
-                      onChange={e => setCustomDays(parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Connections */}
-        <div className="settings-label" style={{ marginBottom: 8, marginTop: 4 }}>Connections</div>
-
-        {/* Notion in-progress states */}
-        {!notionResult && notionState === 'searching' && (
-          <div className="notion-searching" style={{ marginBottom: 8 }}><span className="spinner" /> Searching Notion...</div>
-        )}
-        {!notionResult && notionState?.action === 'error' && (
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{notionState.reason}</div>
-            <button className="ci-upload-btn" onClick={handleNotionSearch}>Retry</button>
-          </div>
-        )}
-        {!notionResult && notionState && notionState !== 'searching' && notionState.action !== 'error' && (
-          <div className="notion-suggestions" style={{ marginBottom: 8 }}>
-            {notionState.pages?.length > 0 && (
-              <>
-                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>{notionState.reason}</div>
-                {notionState.pages.map(page => (
-                  <button key={page.id} className="notion-page-btn" onClick={() => handleNotionLink(page)}>
-                    {page.title}
-                  </button>
-                ))}
-              </>
-            )}
+        <input
+          ref={form.fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,.pdf,.txt,.md,.csv,.json"
+          hidden
+          onChange={form.handleFileSelect}
+        />
+        <div className="v2-edit-attach-actions">
+          <button
+            type="button"
+            className={form.attachments.length > 0 ? 'v2-form-ai-pill v2-form-ai-pill-inline' : 'v2-edit-add-pill'}
+            onClick={() => form.fileInputRef.current?.click()}
+          >
+            <Paperclip size={12} strokeWidth={1.75} /> Attach files
+          </button>
+          {form.attachments.length > 0 && (
             <button
-              className="ci-upload-btn"
-              onClick={handleNotionCreate}
-              disabled={notionCreating}
-              style={{ marginTop: 8 }}
+              type="button"
+              className="v2-form-ai-pill v2-form-ai-pill-inline"
+              onClick={form.handleExtractText}
+              disabled={form.extracting}
+              title="Run AI text extraction on attachments and append to notes"
             >
-              {notionCreating ? <><span className="spinner" /> Creating...</> : '+ Create new Notion page'}
-            </button>
-          </div>
-        )}
-
-        {/* Trello list picker (when not yet linked) */}
-        {!trelloResult && trelloLists.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Trello list</span>
-            <select
-              className="add-input"
-              style={{ fontSize: 13, flex: 1 }}
-              value={trelloPushListId}
-              onChange={e => setTrelloPushListId(e.target.value)}
-            >
-              <option value="" disabled>Select list...</option>
-              {trelloLists.map(l => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Connection buttons — linked items become open links */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {notionResult ? (
-            <div className="connection-linked-btn">
-              <a href={notionResult.url} target="_blank" rel="noopener" className="connection-link">Notion ↗</a>
-              <button className="connection-unlink" onClick={() => setNotionResult(null)} title="Unlink">✕</button>
-            </div>
-          ) : !notionState && (
-            <button className="ci-upload-btn" onClick={handleNotionSearch} disabled={!title.trim()}>
-              Notion
+              {form.extracting ? <span className="v2-spinner" /> : <FileText size={12} strokeWidth={1.75} />}
+              {form.extracting ? 'Extracting…' : 'Extract text'}
             </button>
           )}
-          {trelloResult ? (
-            <div className="connection-linked-btn">
-              <a href={trelloResult.url} target="_blank" rel="noopener" className="connection-link">Trello ↗</a>
-              <button className="connection-unlink" onClick={() => setTrelloResult(null)} title="Unlink">✕</button>
+        </div>
+        {form.attachError && <div className="v2-form-error">{form.attachError}</div>}
+        {form.attachments.length > 0 && (
+          <ul className="v2-edit-attach-list">
+            {form.attachments.map(a => (
+              <li key={a.id} className="v2-edit-attach-item">
+                <span className="v2-edit-attach-name">{a.name}</span>
+                <span className="v2-edit-attach-size">{form.formatFileSize(a.size)}</span>
+                <button
+                  type="button"
+                  className="v2-edit-attach-remove"
+                  onClick={() => form.removeAttachment(a.id)}
+                  aria-label={`Remove ${a.name}`}
+                >
+                  <XIcon size={13} strokeWidth={2} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Connections — Notion link/create. Lives next to Checklists +
+          Attachments because it's the third "linking content" affordance.
+          CONNECTIONS label only when something is linked or in-flight; empty
+          state is just the "Notion" pill. */}
+      <div className={`v2-form-section${!form.notionResult && !form.notionState ? ' v2-form-section-compact' : ''}`}>
+        {(form.notionResult || form.notionState) && (
+          <div className="v2-edit-attach-head">
+            <label className="v2-form-label">Connections</label>
+          </div>
+        )}
+        <div className="v2-edit-connections">
+          {form.notionResult ? (
+            <div className="v2-edit-connection-pill v2-edit-connection-linked">
+              <a href={form.notionResult.url} target="_blank" rel="noopener noreferrer">Notion ↗</a>
+              <button
+                type="button"
+                className="v2-edit-connection-unlink"
+                onClick={() => form.setNotionResult(null)}
+                aria-label="Unlink Notion page"
+              >
+                <XIcon size={11} strokeWidth={2} />
+              </button>
             </div>
-          ) : trelloConfigured ? (
+          ) : !form.notionState ? (
             <button
-              className="ci-upload-btn"
-              onClick={handleTrelloPush}
-              disabled={trelloPushing || !title.trim() || !trelloPushListId}
+              type="button"
+              className="v2-edit-add-pill"
+              onClick={form.handleNotionSearch}
+              disabled={!form.title.trim()}
+              title="Search Notion for matching pages, or create a new one"
             >
-              {trelloPushing ? <><span className="spinner" /> Pushing...</> : 'Trello'}
+              <Search size={12} strokeWidth={1.75} /> Notion
             </button>
           ) : null}
         </div>
+        {form.notionState === 'searching' && (
+          <div className="v2-edit-notion-status">
+            <span className="v2-spinner" /> Searching Notion…
+          </div>
+        )}
+        {form.notionState?.action === 'error' && (
+          <div className="v2-form-error">
+            {form.notionState.reason}
+            <button
+              type="button"
+              className="v2-form-ai-pill v2-form-ai-pill-static"
+              onClick={form.handleNotionSearch}
+              style={{ marginLeft: 8 }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {form.notionState && form.notionState !== 'searching' && form.notionState.action !== 'error' && (
+          <div className="v2-edit-notion-suggestions">
+            {form.notionState.pages?.length > 0 && (
+              <>
+                <div className="v2-edit-notion-reason">{form.notionState.reason}</div>
+                <ul className="v2-edit-notion-list">
+                  {form.notionState.pages.map(page => (
+                    <li key={page.id}>
+                      <button
+                        type="button"
+                        className="v2-edit-notion-page"
+                        onClick={() => form.handleNotionLink(page)}
+                      >
+                        {page.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <div className="v2-edit-notion-actions">
+              <button
+                type="button"
+                className="v2-form-ai-pill v2-form-ai-pill-static"
+                onClick={form.handleNotionCreate}
+                disabled={form.notionCreating}
+              >
+                {form.notionCreating ? <span className="v2-spinner" /> : <Plus size={12} strokeWidth={2} />}
+                {form.notionCreating ? 'Creating…' : 'Create new Notion page'}
+              </button>
+              <button
+                type="button"
+                className="v2-edit-notion-cancel"
+                onClick={() => form.setNotionState(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
-        {makeRecurring && (
-          <button className="submit-btn" disabled={!title.trim()} onClick={handleSubmit} style={{ marginTop: 16 }}>
-            Convert to Routine
+      {labels.length > 0 && (
+        <div className="v2-form-section">
+          <label className="v2-form-label">Labels</label>
+          <div className="v2-form-label-grid">
+            {labels.map(lbl => {
+              const active = form.selectedTags.includes(lbl.id)
+              return (
+                <button
+                  key={lbl.id}
+                  type="button"
+                  className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
+                  onClick={() => form.toggleTag(lbl.id)}
+                  style={{ '--label-color': lbl.color }}
+                  title={lbl.name}
+                >
+                  {lbl.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Routine-conversion picker — only visible while the user is actively
+          converting. Trigger lives as a small pill in the bottom action row. */}
+      {!task.routine_id && makeRecurring && (
+        <div className="v2-form-section">
+          <label className="v2-form-label">Cadence</label>
+          <div className="v2-edit-routine-row">
+            <select
+              className="v2-form-input v2-edit-routine-select"
+              value={cadence}
+              onChange={e => setCadence(e.target.value)}
+            >
+              {CADENCE_OPTIONS.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {cadence === 'custom' && (
+              <>
+                <input
+                  className="v2-form-input v2-edit-routine-days"
+                  type="number"
+                  min="1"
+                  value={customDays}
+                  onChange={e => setCustomDays(e.target.value)}
+                  placeholder="N"
+                  aria-label={`Every N ${customUnit}`}
+                />
+                <select
+                  className="v2-form-input v2-edit-routine-unit"
+                  value={customUnit}
+                  onChange={e => setCustomUnit(e.target.value)}
+                  aria-label="Interval unit"
+                >
+                  <option value="days">days</option>
+                  <option value="months">months</option>
+                </select>
+              </>
+            )}
+            <button className="v2-edit-routine-confirm" onClick={handleConvertToRoutine}>Convert</button>
+            <button className="v2-edit-routine-cancel" onClick={() => setMakeRecurring(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Comments — task-local thread. COMMENTS label only when content
+          OR explicitly opened; otherwise just the "+ Add" pill. */}
+      <div className={`v2-form-section${comments.length === 0 && !showComments ? ' v2-form-section-compact' : ''}`}>
+        {(comments.length > 0 || showComments) && (
+          <div className="v2-edit-attach-head">
+            <label className="v2-form-label">Comments</label>
+            {comments.length > 0 && (
+              <span className="v2-edit-attach-summary">{comments.length}</span>
+            )}
+          </div>
+        )}
+        {!showComments && (
+          <button type="button" className="v2-edit-add-pill" onClick={() => setShowComments(true)}>
+            <Plus size={12} strokeWidth={2} /> Add comment
           </button>
         )}
-
-        {(onDelete || onBacklog || onProject) && (
-          <div className="modal-danger-zone">
-            {onProject && (
-              task.status !== 'project' ? (
-                <button className="danger-btn secondary" style={{ borderColor: '#A78BFA', color: '#A78BFA' }} onClick={() => { onProject(task.id, true); onClose() }}>
-                  Move to Projects
-                </button>
-              ) : (
-                <button className="danger-btn secondary" onClick={() => { onProject(task.id, false); onClose() }}>
-                  Activate
-                </button>
-              )
+        {showComments && (
+          <>
+            {comments.length > 0 && (
+              <ul className="v2-edit-comment-list">
+                {comments.map(c => (
+                  <li key={c.id} className="v2-edit-comment-item">
+                    <div className="v2-edit-comment-text">{c.text}</div>
+                    <div className="v2-edit-comment-meta">
+                      <span className="v2-edit-comment-time">
+                        {new Date(c.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        {' · '}
+                        {new Date(c.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                      <button
+                        type="button"
+                        className="v2-edit-comment-remove"
+                        onClick={() => removeComment(c.id)}
+                        aria-label="Remove comment"
+                      >
+                        <XIcon size={11} strokeWidth={2} />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
-            {onBacklog && task.status !== 'project' && (
-              task.status !== 'backlog' ? (
-                <button className="danger-btn secondary" onClick={() => { onBacklog(task.id, true); onClose() }}>
-                  Move to Backlog
-                </button>
-              ) : (
-                <button className="danger-btn secondary" onClick={() => { onBacklog(task.id, false); onClose() }}>
-                  Activate
-                </button>
-              )
-            )}
-            {onDelete && (
-              <button className="danger-btn delete" onClick={() => { onDelete(task.id); onClose() }}>
-                Delete Task
+            <div className="v2-edit-comment-input-row">
+              <input
+                className="v2-form-input"
+                placeholder="Add a comment…"
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addComment() } }}
+              />
+              <button
+                className="v2-edit-research-go"
+                disabled={!newComment.trim()}
+                onClick={addComment}
+              >
+                Add
               </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Project-only controls: pinning, nag toggle, session log, add child.
+        * For a non-project task, render the "Parent project" picker instead
+        * so the user can link / unlink the task to a project. */}
+      {isProject ? (
+        <div className="v2-form-section v2-edit-project-controls">
+          <div className="v2-edit-manage-label">Project</div>
+          <div className="v2-edit-project-toggles">
+            <label className="v2-edit-toggle-row">
+              <input
+                type="checkbox"
+                checked={pinnedToToday}
+                onChange={e => setPinnedToToday(e.target.checked)}
+              />
+              <span className="v2-edit-toggle-label">
+                Pin to today
+                <span className="v2-edit-toggle-meta">Surfaces this project on the main list</span>
+              </span>
+            </label>
+            <label className="v2-edit-toggle-row">
+              <input
+                type="checkbox"
+                checked={nagAllowed}
+                onChange={e => setNagAllowed(e.target.checked)}
+                disabled={!!form.dueDate}
+              />
+              <span className="v2-edit-toggle-label">
+                Allow nags without a due date
+                <span className="v2-edit-toggle-meta">
+                  {form.dueDate
+                    ? 'Due date set — escalation runs anyway, this toggle is ignored.'
+                    : 'Off by default. Turn on if you want gentle reminders even with no deadline.'}
+                </span>
+              </span>
+            </label>
+          </div>
+          <div className="v2-edit-project-sessions">
+            <div className="v2-edit-project-sessions-meta">
+              {(task.session_count || 0) > 0
+                ? `🔥 ${task.session_count} session${task.session_count === 1 ? '' : 's'} logged${task.last_session_at ? ` · last ${new Date(task.last_session_at).toLocaleDateString()}` : ''}`
+                : 'No sessions logged yet. Tap below when you chip away at this.'}
+            </div>
+            <div className="v2-edit-project-actions">
+              <button
+                type="button"
+                className="v2-edit-action v2-edit-action-primary"
+                disabled={loggingSession || (task.session_count || 0) >= 10}
+                onClick={handleLogSessionClick}
+                title={(task.session_count || 0) >= 10 ? 'Session cap reached' : 'Log a session — gives points + bumps the streak'}
+              >
+                {loggingSession ? 'Logging…' : ((task.session_count || 0) >= 10 ? 'Cap reached' : '+ Log session')}
+              </button>
+              {onAddChild && (
+                <button
+                  type="button"
+                  className="v2-edit-action"
+                  onClick={() => onAddChild(task)}
+                  title="Add a sub-task under this project"
+                >
+                  + Add sub
+                </button>
+              )}
+            </div>
+            {sessionFeedback && (
+              <div className={`v2-edit-session-feedback v2-edit-session-feedback-${sessionFeedback.ok ? 'ok' : 'warn'}`}>
+                {sessionFeedback.text}
+              </div>
+            )}
+          </div>
+          {/* Subs list — surfaces the child tasks attached to this project
+            * so the user can see and edit them without leaving the modal.
+            * Sorted by due date ascending (no-due last). Empty state when
+            * the project has no subs yet — nudges the user toward Add sub. */}
+          {childTasks.length > 0 ? (
+            <div className="v2-edit-subs">
+              <div className="v2-edit-subs-label">
+                Subs <span className="v2-edit-subs-count">({childTasks.length})</span>
+              </div>
+              <ul className="v2-edit-subs-list">
+                {[...childTasks].sort((a, b) => {
+                  const ad = a.due_date || '9999-12-31'
+                  const bd = b.due_date || '9999-12-31'
+                  return ad.localeCompare(bd)
+                }).map(sub => (
+                  <li key={sub.id} className="v2-edit-sub-row">
+                    <button
+                      type="button"
+                      className="v2-edit-sub-main"
+                      onClick={() => onOpenTask && onOpenTask(sub)}
+                      title={sub.notes ? sub.notes.slice(0, 200) : sub.title}
+                    >
+                      <span className={`v2-edit-sub-dot v2-edit-sub-dot-${sub.status === 'done' ? 'done' : 'active'}`} aria-hidden="true" />
+                      <span className={`v2-edit-sub-title${sub.status === 'done' ? ' v2-edit-sub-title-done' : ''}`}>
+                        {sub.title}
+                      </span>
+                      {sub.due_date && <span className="v2-edit-sub-due">due {sub.due_date.slice(5)}</span>}
+                      {sub.child_visibility !== 'active' && (
+                        <span className="v2-edit-sub-backstage" title="Hidden from main list">backstage</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className="v2-edit-subs-empty">
+              No subs yet. Tap <strong>+ Add sub</strong> above to break the project into concrete steps.
+            </div>
+          )}
+        </div>
+      ) : availableParents.length > 0 ? (
+        <div className="v2-form-section v2-edit-project-controls">
+          <div className="v2-edit-manage-label">Project link</div>
+          <select
+            className="v2-edit-parent-select"
+            value={parentId}
+            onChange={e => setParentId(e.target.value)}
+          >
+            <option value="">— No parent project —</option>
+            {availableParents.map(p => (
+              <option key={p.id} value={p.id}>{p.title}</option>
+            ))}
+          </select>
+          {parentId && (
+            <label className="v2-edit-toggle-row v2-edit-toggle-row-compact">
+              <input
+                type="checkbox"
+                checked={childVisibility === 'active'}
+                onChange={e => setChildVisibility(e.target.checked ? 'active' : 'backstage')}
+              />
+              <span className="v2-edit-toggle-label">
+                Show in main list when the parent project is pinned
+                <span className="v2-edit-toggle-meta">Off = visible only inside the Projects modal.</span>
+              </span>
+            </label>
+          )}
+          {/* Blocked-by chips. Renders sibling subs of the same parent
+            * project as togglable chips. Each chip is a potential blocker.
+            * Tap to add/remove. Subs that would create a cycle are filtered
+            * out at compute time. Done subs render with a checkmark but
+            * stay tappable (the user might be tracking history). */}
+          {parentId && siblingSubs.length > 0 && (
+            <div className="v2-edit-blockers">
+              <div className="v2-edit-blockers-label">Waits on</div>
+              {(() => {
+                // Build a transitive-blockers map so we can detect cycles.
+                // A candidate X is excluded if X (transitively) blocks on
+                // the current task — adding X as a blocker would close the
+                // loop. Trust the data: blocked_by arrays are authoritative.
+                const blockerMap = new Map(
+                  siblingSubs.map(s => [s.id, Array.isArray(s.blocked_by) ? s.blocked_by : []])
+                )
+                blockerMap.set(task.id, blockedBy) // include self in the graph
+                const wouldCycle = (candidateId) => {
+                  // BFS from candidateId following blocked_by edges.
+                  // If we reach task.id, candidate is downstream of task → cycle.
+                  const seen = new Set()
+                  const stack = [candidateId]
+                  while (stack.length) {
+                    const cur = stack.pop()
+                    if (cur === task.id) return true
+                    if (seen.has(cur)) continue
+                    seen.add(cur)
+                    const ups = blockerMap.get(cur) || []
+                    for (const u of ups) stack.push(u)
+                  }
+                  return false
+                }
+                const candidates = siblingSubs.filter(s => !wouldCycle(s.id))
+                return (
+                  <div className="v2-edit-blockers-list">
+                    {candidates.map(s => {
+                      const selected = blockedBy.includes(s.id)
+                      const isDone = s.status === 'done'
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={`v2-edit-blocker-chip${selected ? ' v2-edit-blocker-chip-on' : ''}${isDone ? ' v2-edit-blocker-chip-done' : ''}`}
+                          onClick={() => {
+                            setBlockedBy(prev => selected
+                              ? prev.filter(id => id !== s.id)
+                              : [...prev, s.id]
+                            )
+                          }}
+                          title={isDone ? `${s.title} (done — no longer blocking)` : s.title}
+                        >
+                          {selected && <span className="v2-edit-blocker-check">{isDone ? '✓' : '⏸'}</span>}
+                          {s.title}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+              <div className="v2-edit-blockers-hint">
+                {blockedBy.length > 0
+                  ? `Hidden from the main list until ${blockedBy.length === 1 ? 'this blocker is' : 'these blockers are'} done. Visible in the Projects drill-down with a "⏸ waits on" indicator.`
+                  : 'Tap a sibling sub to mark it as a blocker. This sub will only appear in the main list when all blockers are done.'}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Linked knowledge — Notion-backed reference items attached to this
+        * task. Renders as chips with an X to unlink. The + chip opens a
+        * lightweight search picker against the cached knowledge index.
+        * Lazy-loaded on first picker open. */}
+      <div className="v2-form-section v2-edit-knowledge">
+        <div className="v2-edit-manage-label">Linked knowledge</div>
+        <div className="v2-edit-knowledge-chips">
+          {knowledgeIds.map(pageId => {
+            const item = knowledgeIndex.find(k => k.notion_page_id === pageId)
+            const label = item?.title || '(unknown)'
+            return (
+              <button
+                key={pageId}
+                type="button"
+                className="v2-edit-knowledge-chip"
+                onClick={() => setKnowledgeIds(prev => prev.filter(id => id !== pageId))}
+                title="Click to unlink"
+              >
+                <BookOpen size={12} strokeWidth={1.75} />
+                <span>{label}</span>
+                <XIcon size={12} strokeWidth={2} />
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            className="v2-edit-knowledge-chip v2-edit-knowledge-chip-add"
+            onClick={() => setKnowledgePickerOpen(o => !o)}
+          >
+            <Plus size={12} strokeWidth={2} />
+            <span>{knowledgePickerOpen ? 'Cancel' : 'Add'}</span>
+          </button>
+        </div>
+        {knowledgePickerOpen && (
+          <div className="v2-edit-knowledge-picker">
+            {knowledgeConfigured === false ? (
+              <div className="v2-integrations-hint">
+                Set up the knowledge base in Settings → Integrations → Notion first.
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  className="v2-form-input"
+                  placeholder="Search knowledge…"
+                  value={knowledgeQuery}
+                  onChange={e => setKnowledgeQuery(e.target.value)}
+                  autoFocus
+                />
+                <ul className="v2-edit-knowledge-results">
+                  {knowledgeIndex
+                    .filter(item => !knowledgeIds.includes(item.notion_page_id))
+                    .filter(item => {
+                      if (!knowledgeQuery.trim()) return true
+                      const q = knowledgeQuery.toLowerCase()
+                      return item.title.toLowerCase().includes(q)
+                        || (item.tags || []).some(t => t.toLowerCase().includes(q))
+                    })
+                    .slice(0, 20)
+                    .map(item => (
+                      <li key={item.notion_page_id}>
+                        <button
+                          type="button"
+                          className="v2-edit-knowledge-result"
+                          onClick={() => {
+                            setKnowledgeIds(prev => [...prev, item.notion_page_id])
+                            setKnowledgeQuery('')
+                            setKnowledgePickerOpen(false)
+                          }}
+                        >
+                          <span className="v2-edit-knowledge-result-title">{item.title}</span>
+                          {item.type && (
+                            <span className="v2-edit-knowledge-result-type">{item.type}</span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  {knowledgeIndex.length === 0 && (
+                    <li className="v2-integrations-hint">No knowledge items yet — ask Quokka to add one.</li>
+                  )}
+                </ul>
+              </>
             )}
           </div>
         )}
       </div>
-    </div>
+
+      <div className="v2-form-section v2-edit-manage">
+        <div className="v2-edit-manage-label">Manage</div>
+        <div className="v2-edit-actions-row">
+          <button
+            className="v2-edit-action"
+            onClick={() => { onBacklog(task.id, true); onClose() }}
+            title="Move to backlog"
+          >
+            <Archive size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label">Backlog</span>
+          </button>
+          {/* Hide "Move to projects" button when this task IS a project —
+            * it'd be a no-op. Same for sub-tasks: moving a sub to project
+            * status would orphan it from its parent (status changes); keep
+            * the affordance for sub-tasks since the user might want to
+            * promote one to its own project. */}
+          {!isProject && (
+            <button
+              className="v2-edit-action"
+              onClick={() => { onProject(task.id, true); onClose() }}
+              title="Move to projects"
+            >
+              <FolderKanban size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label">Projects</span>
+            </button>
+          )}
+          {!task.routine_id && !makeRecurring && (
+            <button
+              className="v2-edit-action"
+              onClick={() => setMakeRecurring(true)}
+              title="Convert this task into a recurring routine"
+            >
+              <RotateCw size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label">Make recurring</span>
+            </button>
+          )}
+          {!confirmDelete ? (
+            <button
+              className="v2-edit-action v2-edit-action-danger"
+              onClick={() => setConfirmDelete(true)}
+              title={isProject ? 'Delete project (subs become orphans)' : isSub ? 'Delete sub' : 'Delete task'}
+            >
+              <Trash2 size={14} strokeWidth={1.75} /> <span className="v2-edit-action-label">Delete</span>
+            </button>
+          ) : (
+            <div className="v2-edit-confirm-delete">
+              <span className="v2-edit-confirm-label">Delete?</span>
+              <button
+                className="v2-edit-action v2-edit-action-confirm-yes"
+                onClick={() => { onDelete(task.id); onClose() }}
+              >
+                Yes
+              </button>
+              <button
+                className="v2-edit-action"
+                onClick={() => setConfirmDelete(false)}
+              >
+                No
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <button
+        className="v2-form-submit"
+        disabled={!form.title.trim()}
+        onClick={handleSave}
+      >
+        Close
+      </button>
+    </ModalShell>
   )
 }

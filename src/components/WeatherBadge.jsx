@@ -1,5 +1,6 @@
 import { memo } from 'react'
 
+// Open-Meteo WMO weather code → emoji + human label. Same mapping v1 uses.
 const WMO_ICON = {
   0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
   45: '🌫️', 48: '🌫️',
@@ -33,9 +34,9 @@ export default memo(function WeatherBadge({ day }) {
   const high = day.temp_max != null ? `${Math.round(day.temp_max)}°` : null
   const title = `${label}${high ? `, ${high}` : ''}${day.precipitation_prob_max != null ? ` · ${day.precipitation_prob_max}% precip` : ''}`
   return (
-    <span className="weather-badge" title={title} aria-label={title}>
-      <span className="weather-badge-icon">{icon}</span>
-      {high && <span className="weather-badge-temp">{high}</span>}
+    <span className="v2-weather-badge" title={title} aria-label={title}>
+      <span className="v2-weather-icon">{icon}</span>
+      {high && <span className="v2-weather-temp">{high}</span>}
     </span>
   )
 })

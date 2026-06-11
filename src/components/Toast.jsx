@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react'
-import './Toast.css'
 import { computeTaskPoints } from '../store'
+import './Toast.css'
 
 const MESSAGES_QUICK = [
   'Speed run!',
   'Blink and you missed it.',
   'Any% completion.',
-  'Didn\'t even break a sweat.',
+  "Didn't even break a sweat.",
   'That barely counts as procrastinating.',
 ]
 
@@ -29,7 +29,7 @@ const MESSAGES_LONG = [
 ]
 
 const MESSAGES_REOPEN = [
-  'Surprise! It\'s back.',
+  "Surprise! It's back.",
   'Plot twist.',
   'The sequel nobody asked for.',
   'Back from the dead.',
@@ -37,9 +37,7 @@ const MESSAGES_REOPEN = [
   'Round two. Fight!',
 ]
 
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)] }
 
 function getVariantKey(daysOnList, isReopen) {
   if (isReopen) return 'reopen'
@@ -70,12 +68,11 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
     (Date.now() - new Date(task.created_at).getTime()) / 86400000
   )
 
-  // All values frozen on mount — zero state, zero re-renders
+  // Freeze message values on mount so re-renders don't shuffle the copy.
   const frozen = useRef(null)
   if (!frozen.current) {
     const variantKey = getVariantKey(daysOnList, isReopen)
     const ai = task.toast_messages?.[variantKey]
-
     const message = ai?.message || getStaticMessage(daysOnList, isReopen)
     const pts = isReopen ? 0 : computeTaskPoints(task)
     const aiSub = ai?.subtitle
@@ -83,7 +80,6 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
     const subtitle = aiSub
       ? `${aiSub}${pts ? ` · +${pts} pts` : ''}`
       : `${staticSub}${pts ? ` · +${pts} pts` : ''}`
-
     frozen.current = { message, subtitle }
   }
 
@@ -91,46 +87,35 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
   onDoneRef.current = onDone
 
   useEffect(() => {
-    // Stay on screen longer when a next-task suggestion is offered so the
-    // user has time to consider it without feeling rushed.
     const timeout = nextTask ? 8000 : 4000
-    const timer = setTimeout(() => onDoneRef.current(), timeout)
+    const timer = setTimeout(() => onDoneRef.current?.(), timeout)
     return () => clearTimeout(timer)
   }, [nextTask])
 
   const { message, subtitle } = frozen.current
 
   return (
-    <div className={`toast ${isReopen ? 'toast-reopen' : ''}`} onClick={onDone}>
-      <div className="toast-content">
-        <div className="toast-message" style={isReopen ? { color: 'var(--accent)' } : undefined}>
-          {message}
-        </div>
-        <div className="toast-subtitle">{subtitle}</div>
-        {task.stackBonus > 0 && (
-          <div className="toast-subtitle" style={{ marginTop: 4, color: 'var(--accent)', fontWeight: 600 }}>
-            🎉 Stack cleared · +{task.stackBonus} bonus
-          </div>
-        )}
+    <div className={`v2-toast${isReopen ? ' v2-toast-reopen' : ''}`} onClick={onDone}>
+      <div className="v2-toast-content">
+        <div className="v2-toast-message">{message}</div>
+        <div className="v2-toast-subtitle">{subtitle}</div>
         {nextTask && (
-          <div
-            className="toast-next-task"
-            style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.15)', fontSize: 12 }}
-            onClick={(e) => { e.stopPropagation(); onNextTaskClick?.(nextTask) }}
+          <button
+            type="button"
+            className="v2-toast-next"
+            onClick={e => { e.stopPropagation(); onNextTaskClick?.(nextTask) }}
           >
-            <span style={{ opacity: 0.75 }}>Next up: </span>
-            <strong style={{ textDecoration: 'underline' }}>{nextTask.title}</strong>
-            {nextTask.size && <span style={{ marginLeft: 6, opacity: 0.6 }}>({nextTask.size})</span>}
-          </div>
+            <span className="v2-toast-next-label">Next up</span>
+            <span className="v2-toast-next-title">{nextTask.title}</span>
+            {nextTask.size && <span className="v2-toast-next-size">{nextTask.size}</span>}
+          </button>
         )}
       </div>
       {onUndo && variant === 'complete' && (
         <button
-          className="toast-undo"
-          onClick={(e) => {
-            e.stopPropagation()
-            onUndo()
-          }}
+          type="button"
+          className="v2-toast-undo"
+          onClick={e => { e.stopPropagation(); onUndo() }}
         >
           Undo
         </button>

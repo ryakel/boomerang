@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import './SnoozeModal.css'
 import { getSnoozeOptions, getSnoozeOptionsShort, localYMD } from '../store'
+import ModalShell from './ModalShell'
+import './SnoozeModal.css'
 
-export default function SnoozeModal({ task, onSnooze, onClose }) {
+export default function SnoozeModal({ task, onSnooze, onUnsnooze, onClose }) {
   const [showCustom, setShowCustom] = useState(false)
   const defaultDate = () => { const d = new Date(); d.setDate(d.getDate() + 7); return localYMD(d) }
   const [customDate, setCustomDate] = useState(defaultDate)
@@ -10,13 +11,13 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
 
   const options = task.high_priority ? getSnoozeOptionsShort() : getSnoozeOptions()
 
+  // Filter past-due options if the task has a due date — snoozing past the
+  // due date defeats the purpose. Mirrors v1 logic.
   let filteredOptions = options
   if (task.due_date) {
     const [y, m, d] = task.due_date.split('-').map(Number)
     const dueEnd = new Date(y, m - 1, d, 23, 59, 59, 999)
     filteredOptions = options.filter(opt => opt.date <= dueEnd)
-
-    // Add "Due Date" fallback if we removed options and due date is in the future
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const dueMidnight = new Date(y, m - 1, d)
@@ -40,86 +41,100 @@ export default function SnoozeModal({ task, onSnooze, onClose }) {
     onClose()
   }
 
-  // Min date for custom picker = tomorrow
   const minDate = new Date()
   minDate.setDate(minDate.getDate() + 1)
   const minDateStr = localYMD(minDate)
 
+  const customLabel = customDate
+    ? `${new Date(customDate + 'T' + customTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} ${new Date('2000-01-01T' + customTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
+    : '...'
+
   return (
-    <div className="sheet-overlay" onClick={onClose}>
-      <div className="sheet" onClick={e => e.stopPropagation()}>
-        <div className="sheet-handle" />
-        <div className="sheet-title">{task.title}</div>
-        <div className="sheet-subtitle">When should this come back?</div>
-
-        {filteredOptions.length === 0 && !showCustom ? (
-          <p className="snooze-empty-msg">This task is due today or overdue — snoozing is not available.</p>
-        ) : (
-          <div className="snooze-options">
-            {filteredOptions.map(opt => (
-              <button
-                key={opt.label}
-                className="snooze-option"
-                onClick={() => {
-                  onSnooze(task.id, opt.date)
-                  onClose()
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {showCustom ? (
-          <div className="snooze-custom">
-            <div className="snooze-custom-row">
-              <input
-                className="routine-select"
-                type="date"
-                value={customDate}
-                min={minDateStr}
-                onChange={e => setCustomDate(e.target.value)}
-                style={{ marginBottom: 0 }}
-              />
-              <input
-                className="routine-select"
-                type="time"
-                value={customTime}
-                onChange={e => setCustomTime(e.target.value)}
-                style={{ marginBottom: 0 }}
-              />
-            </div>
-            <button
-              className="snooze-option snooze-custom-confirm"
-              disabled={!customDate}
-              onClick={handleCustomSnooze}
-            >
-              Snooze until {customDate
-                ? new Date(customDate + 'T' + customTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' ' + new Date('2000-01-01T' + customTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-                : '...'}
-            </button>
-          </div>
-        ) : (
-          <button
-            className="snooze-option snooze-custom-toggle"
-            onClick={() => setShowCustom(true)}
-          >
-            Pick a date...
-          </button>
-        )}
-
+    <ModalShell
+      open={!!task}
+      onClose={onClose}
+      title={task.title}
+      subtitle="When should this come back?"
+    >
+      {task.snoozed_until && onUnsnooze && (
         <button
-          className="snooze-option snooze-indefinite"
-          onClick={() => {
-            const farFuture = new Date(2099, 11, 31)
-            onSnooze(task.id, farFuture, { indefinite: true })
-            onClose()
-          }}
+          className="v2-snooze-unsnooze"
+          onClick={() => { onUnsnooze(task.id); onClose() }}
         >
-          Later — set aside (no resurface)
+          ↺ Bring back now
+          <span className="v2-snooze-unsnooze-meta">
+            {task.snooze_indefinite ? 'Currently set aside indefinitely' : 'Currently snoozed'}
+          </span>
         </button>
-      </div>
-    </div>
+      )}
+      {filteredOptions.length === 0 && !showCustom ? (
+        <p className="v2-snooze-empty">This task is due today or overdue — snoozing isn't available.</p>
+      ) : (
+        <ul className="v2-snooze-list">
+          {filteredOptions.map(opt => {
+            const [primary, ...rest] = opt.label.split(' · ')
+            const meta = rest.join(' · ')
+            return (
+              <li key={opt.label}>
+                <button
+                  className="v2-snooze-row"
+                  onClick={() => { onSnooze(task.id, opt.date); onClose() }}
+                >
+                  <span className="v2-snooze-row-label">{primary}</span>
+                  {meta && <span className="v2-snooze-row-meta">{meta}</span>}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {showCustom ? (
+        <div className="v2-snooze-custom">
+          <div className="v2-snooze-custom-row">
+            <input
+              className="v2-snooze-input"
+              type="date"
+              value={customDate}
+              min={minDateStr}
+              onChange={e => setCustomDate(e.target.value)}
+            />
+            <input
+              className="v2-snooze-input"
+              type="time"
+              value={customTime}
+              onChange={e => setCustomTime(e.target.value)}
+            />
+          </div>
+          <button
+            className="v2-snooze-confirm"
+            disabled={!customDate}
+            onClick={handleCustomSnooze}
+          >
+            Snooze until {customLabel}
+          </button>
+        </div>
+      ) : (
+        <button className="v2-snooze-custom-toggle" onClick={() => setShowCustom(true)}>
+          Pick a date…
+        </button>
+      )}
+
+      {/* "Later, fuck off" — indefinite snooze. Stays in the Snoozed
+        * section but never auto-resurfaces. User can unsnooze manually
+        * when ready. Visible on every task; bypasses the due-date filter
+        * since there's no specific resurface time to clamp. */}
+      <button
+        className="v2-snooze-indefinite"
+        onClick={() => {
+          const farFuture = new Date(2099, 11, 31)
+          onSnooze(task.id, farFuture, { indefinite: true })
+          onClose()
+        }}
+      >
+        Later — set aside
+        <span className="v2-snooze-indefinite-meta">Hide indefinitely, no resurface timer</span>
+      </button>
+    </ModalShell>
   )
 }

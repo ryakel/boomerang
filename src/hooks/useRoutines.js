@@ -140,6 +140,13 @@ export function useRoutines() {
   // returned task lands on the list with status='done' and counts toward the
   // current period total. Use case: "I just did a workout, log it." The
   // routine itself has no cadence so there's no schedule to update.
+  //
+  // It ALSO stamps completed_history once per log — that array is the single
+  // source the Wallaby habit grids/streaks read, so a habit-mode log that
+  // skipped it left the grids empty (the only thing populating them was the
+  // Home checkbox's raw write — see onToggleHabit). Born-done tasks never route
+  // through handleComplete, so this stamp here is the lone writer for this path
+  // (no double).
   const logHabit = useCallback((routineId) => {
     const routine = routines.find(r => r.id === routineId)
     if (!routine || routine.spawn_mode !== 'habit') return null
@@ -154,8 +161,33 @@ export function useRoutines() {
     task.last_touched = now
     if (routine.energy) task.energy = routine.energy
     if (routine.energyLevel) task.energyLevel = routine.energyLevel
+    setRoutines(prev => prev.map(r => r.id === routineId
+      ? { ...r, completed_history: [...(r.completed_history || []), now] }
+      : r))
     return task
   }, [routines])
+
+  // Remove a single completed_history entry that buckets to a given local day.
+  // The reopen counterpart to completeRoutine/logHabit: when a routine-spawned
+  // task is un-completed, its history stamp has to come back off or the Wallaby
+  // grids keep showing the day as done (phantom). Removes the most-recent match
+  // only, so multiple same-day completions (habit-mode "2 workouts today") drop
+  // one at a time.
+  const uncompleteRoutine = useCallback((id, ymd) => {
+    if (!ymd) return
+    setRoutines(prev => prev.map(r => {
+      if (r.id !== id) return r
+      const hist = Array.isArray(r.completed_history) ? r.completed_history : []
+      let idx = -1
+      for (let i = hist.length - 1; i >= 0; i--) {
+        if (localYMD(new Date(hist[i])) === ymd) { idx = i; break }
+      }
+      if (idx === -1) return r
+      const next = [...hist]
+      next.splice(idx, 1)
+      return { ...r, completed_history: next }
+    }))
+  }, [])
 
   // Spawn a one-off task from a routine right now, bypassing the schedule.
   // Useful when the user wants to do the routine ad-hoc outside of its
@@ -287,6 +319,7 @@ export function useRoutines() {
     deleteRoutine,
     togglePause,
     completeRoutine,
+    uncompleteRoutine,
     adjustRoutineHistory,
     updateRoutine,
     updateRoutineNotion,

@@ -1,3 +1,4 @@
+import { localYMD, parseLocalDate } from './dates'
 // crypto.randomUUID is unavailable over plain HTTP (non-secure context)
 export const uuid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -171,12 +172,16 @@ function isActiveTask(task) {
 const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }
 
 // Energy/capacity types — what kind of effort a task demands
+// Colors resolve through the --energy-* CSS tokens (tokens.css defines the
+// standard values; wallaby/kept palettes override) so every theme tunes the
+// energy accents in ONE place. Consumers pass these straight to inline
+// style/SVG color attributes — CSS vars are valid there.
 const ENERGY_TYPES = [
-  { id: 'desk', label: 'Desk', icon: 'Monitor', color: '#60A5FA' },
-  { id: 'people', label: 'People', icon: 'Users', color: '#A78BFA' },
-  { id: 'errand', label: 'Errand', icon: 'MapPin', color: '#34D399' },
-  { id: 'creative', label: 'Creative', icon: 'Palette', color: '#F472B6' },
-  { id: 'physical', label: 'Physical', icon: 'Dumbbell', color: '#FBBF24' },
+  { id: 'desk', label: 'Desk', icon: 'Monitor', color: 'var(--energy-desk)' },
+  { id: 'people', label: 'People', icon: 'Users', color: 'var(--energy-people)' },
+  { id: 'errand', label: 'Errand', icon: 'MapPin', color: 'var(--energy-errand)' },
+  { id: 'creative', label: 'Creative', icon: 'Palette', color: 'var(--energy-creative)' },
+  { id: 'physical', label: 'Physical', icon: 'Dumbbell', color: 'var(--energy-physical)' },
 ]
 
 // Energy types that get more aggressive nagging (ADHD avoidance-prone)
@@ -221,12 +226,9 @@ function touchModified() {
 // first — for a user in Central time, after ~6pm CST that flips the key to
 // the next calendar day and causes subtle off-by-one bugs across the UI.
 // Pass no argument to get today's local key.
-export function localYMD(d = new Date()) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+// Delegates to the canonical date module (src/dates.js) — kept as a
+// re-export so the dozens of existing `from './store'` imports keep working.
+export { localYMD, parseLocalDate }
 
 export function getLocalModified() {
   return parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10)
@@ -257,9 +259,8 @@ export function loadSettings() {
   }
   // Remove legacy notif_frequency field
   delete saved.notif_frequency
-  // Theme palette family migration (2026-05-10): the original 'terminal'
-  // theme value is now the GitHub Dark sub-palette. terminal-light joined
-  // as a peer. Old value silently upgrades to terminal-dark; saved back so
+  // Theme migration shims. Terminal was removed (2026-06-10) — old values
+  // upgrade silently: 'terminal' -> 'terminal-dark' -> wallaby-*. Saved back so
   // the next read short-circuits.
   if (saved.theme === 'terminal') {
     saved.theme = 'terminal-dark'
@@ -270,6 +271,16 @@ export function loadSettings() {
   // (not ripped out), so this is reversible — only the stored preference flips.
   if (saved.theme === 'terminal-dark' || saved.theme === 'terminal-light') {
     saved.theme = saved.theme === 'terminal-light' ? 'wallaby-light' : 'wallaby-dark'
+    save(SETTINGS_KEY, saved)
+  }
+
+  // Kept cutover (K6, 2026-06-10): NEW installs default to Kept, following
+  // the system color scheme at first load. Existing users keep whatever
+  // theme they had — only an unset theme gets the default.
+  if (!saved.theme) {
+    const prefersDark = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches
+    saved.theme = prefersDark ? 'kept-dark' : 'kept-light'
     save(SETTINGS_KEY, saved)
   }
   return { ...DEFAULT_SETTINGS, ...saved }

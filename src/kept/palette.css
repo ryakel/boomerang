@@ -1,0 +1,174 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * Kept — the Boomerang design language (wiki/Kept-Design-Language.md).
+ * Warm-neutral canvases (Smoke dark / Linen light), ONE ember hero accent
+ * (the brand orange) with gold as the warm rally/feather companion, six
+ * "feather" identity colors. Like Wallaby, the kept-* themes
+ * OVERRIDE the shared --v2-* tokens so every token-consuming component
+ * re-skins; Kept-specific structural tokens are namespaced --bm-*.
+ *
+ * HARD RULE: no raw hex in Kept component CSS/JSX — everything goes
+ * through a token here.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Base --bm-* defaults (every v2 theme) ─────────────────────────────────
+ * Defined for EVERY theme so Kept components always resolve their tokens
+ * even if reached from a non-Kept theme. Nightgum values are the defaults. */
+:root[data-ui="v2"] {
+  --bm-bg: #16140F;
+  --bm-card: #1F1C16;
+  --bm-card-2: #29251E;
+  --bm-hairline: rgba(243, 238, 229, 0.09);
+  --bm-hairline-strong: rgba(243, 238, 229, 0.17);
+  --bm-text: #F3EEE5;
+  --bm-text-meta: rgba(243, 238, 229, 0.56);
+  --bm-text-faint: rgba(243, 238, 229, 0.34);
+  --bm-ember: #F26640;
+  --bm-gold: #E8B04B;          /* warm companion: rally chips, ochre feather */
+  --bm-ember-soft: rgba(242, 102, 64, 0.14);
+  --bm-gold-soft: rgba(232, 176, 75, 0.14);
+  --bm-on-ember: #2A1206;
+  --bm-danger: #E0455C;     /* crimson — never collides with the ember hero */
+  --bm-f-ochre: #E8B04B;
+  --bm-f-clay: #D96C4A;
+  --bm-f-eucalypt: #62B98B;
+  --bm-f-billabong: #6FA6C9;
+  --bm-f-ironbark: #9D87D6;
+  --bm-f-heath: #C77C9E;
+  --bm-trail-empty: rgba(243, 238, 229, 0.10);
+  --bm-scrim: rgba(8, 6, 3, 0.6);
+  --bm-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 10px 28px rgba(0, 0, 0, 0.30);
+  --bm-shadow-pop: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --bm-shadow-press: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Kept dark — "Nightgum" ────────────────────────────────────────────── */
+:root[data-ui="v2"][data-theme="kept-dark"] {
+  --v2-font-display: 'Fraunces', Georgia, serif;
+
+  --v2-bg: #16140F;
+  --v2-surface: #1F1C16;
+  --v2-text: #F3EEE5;
+  --v2-text-rgb: 243, 238, 229;
+  --v2-text-meta: rgba(243, 238, 229, 0.56);
+  --v2-text-faint: rgba(243, 238, 229, 0.34);
+  --v2-hairline: rgba(243, 238, 229, 0.09);
+  --v2-accent: #F26640;
+
+  --energy-desk: var(--bm-f-billabong);
+  --energy-people: var(--bm-f-ironbark);
+  --energy-errand: var(--bm-f-eucalypt);
+  --energy-creative: var(--bm-f-heath);
+  --energy-physical: var(--bm-f-clay);
+  /* ── Wallaby-token bridge ─────────────────────────────────────────────
+   * Components built against --wb-* (the chip task editor, the shared
+   * forms/settings/analytics override layers) resolve to the Kept palette
+   * inside kept themes. This bridge dies with Wallaby at the K6 teardown,
+   * when those components are re-tokened to --bm-* directly. */
+  --wb-bg: var(--bm-bg);
+  --wb-card: var(--bm-card);
+  --wb-card-2: var(--bm-card-2);
+  --wb-card-3: var(--bm-card-2);
+  --wb-hairline: var(--bm-hairline);
+  --wb-hairline-strong: var(--bm-hairline-strong);
+  --wb-text: var(--bm-text);
+  --wb-text-meta: var(--bm-text-meta);
+  --wb-shadow: var(--bm-shadow);
+  --wb-shadow-pop: var(--bm-shadow-pop);
+  --wb-shadow-press: var(--bm-shadow-press);
+  --wb-scrim: var(--bm-scrim);
+  --wb-heat-empty: var(--bm-trail-empty);
+  --wb-heat-border: transparent;
+  --wb-cat-blue: var(--bm-f-billabong);
+  --wb-cat-purple: var(--bm-f-ironbark);
+  --wb-cat-green: var(--bm-f-eucalypt);
+  --wb-cat-orange: var(--bm-f-ochre);
+  --wb-cat-pink: var(--bm-f-heath);
+  --wb-action-primary: var(--bm-ember);
+  --wb-action-complete: var(--bm-ember);
+  --wb-action-pause: var(--bm-gold-soft);
+  --wb-action-delete: var(--bm-danger);
+  --wb-action-secondary: var(--bm-card-2);
+  --wb-on-action: var(--bm-on-ember);
+  --wb-on-pause: var(--bm-gold);
+  --wb-fab-habits: var(--bm-ember);
+  --wb-fab-tasks: var(--bm-ember);
+}
+
+/* ── Kept light — "Linen" ──────────────────────────────────────────────── */
+:root[data-ui="v2"][data-theme="kept-light"] {
+  --v2-font-display: 'Fraunces', Georgia, serif;
+
+  --v2-bg: #F8F4ED;
+  --v2-surface: #FFFFFF;
+  --v2-text: #26201A;
+  --v2-text-rgb: 38, 32, 26;
+  --v2-text-meta: rgba(38, 32, 26, 0.58);
+  --v2-text-faint: rgba(38, 32, 26, 0.34);
+  --v2-hairline: rgba(38, 32, 26, 0.10);
+  --v2-accent: #D9512B;
+
+  --bm-bg: #F8F4ED;
+  --bm-card: #FFFFFF;
+  --bm-card-2: #EFE9DE;
+  --bm-hairline: rgba(38, 32, 26, 0.10);
+  --bm-hairline-strong: rgba(38, 32, 26, 0.20);
+  --bm-text: #26201A;
+  --bm-text-meta: rgba(38, 32, 26, 0.58);
+  --bm-text-faint: rgba(38, 32, 26, 0.34);
+  --bm-ember: #D9512B;
+  --bm-gold: #B8841C;
+  --bm-ember-soft: rgba(217, 81, 43, 0.12);
+  --bm-gold-soft: rgba(184, 132, 28, 0.13);
+  --bm-on-ember: #FFF6EF;
+  --bm-danger: #C7384E;
+  --bm-f-ochre: #B8841C;
+  --bm-f-clay: #C24E2D;
+  --bm-f-eucalypt: #3D9A6B;
+  --bm-f-billabong: #41799C;
+  --bm-f-ironbark: #7E61C7;
+  --bm-f-heath: #B25579;
+  --bm-trail-empty: rgba(38, 32, 26, 0.11);
+  --bm-scrim: rgba(38, 32, 26, 0.35);
+  --bm-shadow: 0 1px 2px rgba(38, 32, 26, 0.06), 0 10px 28px rgba(38, 32, 26, 0.10);
+  --bm-shadow-pop: 0 8px 22px rgba(38, 32, 26, 0.18);
+  --bm-shadow-press: 0 1px 2px rgba(38, 32, 26, 0.10);
+
+  --energy-desk: var(--bm-f-billabong);
+  --energy-people: var(--bm-f-ironbark);
+  --energy-errand: var(--bm-f-eucalypt);
+  --energy-creative: var(--bm-f-heath);
+  --energy-physical: var(--bm-f-clay);
+  /* ── Wallaby-token bridge ─────────────────────────────────────────────
+   * Components built against --wb-* (the chip task editor, the shared
+   * forms/settings/analytics override layers) resolve to the Kept palette
+   * inside kept themes. This bridge dies with Wallaby at the K6 teardown,
+   * when those components are re-tokened to --bm-* directly. */
+  --wb-bg: var(--bm-bg);
+  --wb-card: var(--bm-card);
+  --wb-card-2: var(--bm-card-2);
+  --wb-card-3: var(--bm-card-2);
+  --wb-hairline: var(--bm-hairline);
+  --wb-hairline-strong: var(--bm-hairline-strong);
+  --wb-text: var(--bm-text);
+  --wb-text-meta: var(--bm-text-meta);
+  --wb-shadow: var(--bm-shadow);
+  --wb-shadow-pop: var(--bm-shadow-pop);
+  --wb-shadow-press: var(--bm-shadow-press);
+  --wb-scrim: var(--bm-scrim);
+  --wb-heat-empty: var(--bm-trail-empty);
+  --wb-heat-border: transparent;
+  --wb-cat-blue: var(--bm-f-billabong);
+  --wb-cat-purple: var(--bm-f-ironbark);
+  --wb-cat-green: var(--bm-f-eucalypt);
+  --wb-cat-orange: var(--bm-f-ochre);
+  --wb-cat-pink: var(--bm-f-heath);
+  --wb-action-primary: var(--bm-ember);
+  --wb-action-complete: var(--bm-ember);
+  --wb-action-pause: var(--bm-gold-soft);
+  --wb-action-delete: var(--bm-danger);
+  --wb-action-secondary: var(--bm-card-2);
+  --wb-on-action: var(--bm-on-ember);
+  --wb-on-pause: var(--bm-gold);
+  --wb-fab-habits: var(--bm-ember);
+  --wb-fab-tasks: var(--bm-ember);
+}

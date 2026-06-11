@@ -1,0 +1,94 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * Wallaby re-skin of the shared v2 task-form controls (Add + Edit task modals).
+ * The full EditTaskModal (reached via the chip editor's "More options", and
+ * used for projects/subs) inherits Wallaby's --v2-* tokens for surfaces but its
+ * ACTIVE states were still --v2-text (white pills) and it never matched the
+ * Wallaby chip language. This brings every control into line with the chip
+ * editor: navy card pills, green/colored active, card-surface inputs.
+ * Gated to wallaby; mobile + desktop (the controls are the same).
+ * (User: "More options IS the old editor… barely even reskinned.")
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* Inputs / textareas / selects → card surface (was the page bg). */
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-input,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-textarea,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-pri-toggle,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-duration-input,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-checklist-add-input,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-comment-input-row input {
+  background: var(--wb-card);
+  border-color: var(--wb-hairline);
+}
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-input:focus,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-textarea:focus,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-duration-input:focus {
+  border-color: var(--wb-cat-purple);
+}
+
+/* Segmented pills — Status, Size, Energy drain. Navy card, GREEN active. */
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-seg {
+  background: var(--wb-card);
+  border-color: var(--wb-hairline);
+  color: var(--wb-text-meta);
+  border-radius: 11px;
+}
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-seg-active {
+  background: var(--wb-action-complete) !important;
+  border-color: var(--wb-action-complete) !important;
+  color: var(--wb-on-action) !important;
+}
+
+/* Energy type pills — navy card; active = purple tint (matches chip editor). */
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-energy-pill {
+  background: var(--wb-card);
+  border-color: var(--wb-hairline);
+  color: var(--wb-text);
+  border-radius: 11px;
+}
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-energy-pill-active {
+  background: color-mix(in srgb, var(--wb-cat-purple) 22%, transparent) !important;
+  border-color: var(--wb-cat-purple) !important;
+  color: var(--wb-text) !important;
+}
+
+/* Label / tag pills — navy card; active keeps the label color. */
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-label-pill {
+  background: var(--wb-card);
+  border-color: var(--wb-hairline);
+  color: var(--wb-text);
+  border-radius: 11px;
+}
+
+/* AI helper pills (Auto / Research / Infer) — purple-tinted chip. */
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-form-ai-pill {
+  background: var(--wb-card-2);
+  color: var(--wb-cat-purple);
+  border-radius: 10px;
+}
+
+/* Misc edit chips/pills that should read as Wallaby cards. */
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-add-pill,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-connection-pill,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-knowledge-chip,
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-blocker-chip {
+  background: var(--wb-card);
+  border-color: var(--wb-hairline);
+  color: var(--wb-text);
+  border-radius: 11px;
+}
+
+/* Primary action buttons inside the editor → green; danger → red. */
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-action-primary {
+  background: var(--wb-action-complete);
+  border-color: var(--wb-action-complete);
+  color: var(--wb-on-action);
+}
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-action-danger {
+  color: var(--wb-action-delete);
+  border-color: color-mix(in srgb, var(--wb-action-delete) 40%, transparent);
+}
+
+/* Checklist progress fill → green. */
+:is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-edit-checklist-progress-fill {
+  background: var(--wb-action-complete);
+}
