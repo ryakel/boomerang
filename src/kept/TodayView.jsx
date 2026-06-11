@@ -37,6 +37,16 @@ export default function TodayView({
     return t.due_date ? String(t.due_date).slice(0, 10) <= todayKey : false
   }).sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0)), [tasks, todayKey, stackRoutineIds])
 
+  // Undated active tasks — the main page must show them (v2's Up next did).
+  // Future-DATED tasks stay off Today until their day; undated means
+  // "anytime", and anytime includes today.
+  const anytimeTasks = useMemo(() => tasks.filter(t => {
+    if (t.parent_id || t.gmail_pending || t.due_date) return false
+    if (t.routine_id && stackRoutineIds.has(t.routine_id)) return false
+    if (!ACTIVE.includes(t.status)) return false
+    return !isSnoozed(t)
+  }), [tasks, stackRoutineIds])
+
   const returningSoon = useMemo(() => tasks.filter(t =>
     ACTIVE.includes(t.status) && !t.parent_id && !t.gmail_pending && isSnoozed(t) && !t.snooze_indefinite
     && !(t.routine_id && stackRoutineIds.has(t.routine_id)),
@@ -145,6 +155,34 @@ export default function TodayView({
           </div>
         ))}
       </div>
+
+      {anytimeTasks.length > 0 && (
+        <>
+          <div className="bm-sec"><span className="bm-sec-tick" /> Anytime <span className="bm-sec-n">{anytimeTasks.length}</span></div>
+          <div className="bm-rows">
+            {anytimeTasks.map(t => {
+              const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
+              return (
+                <RowSwipe key={t.id} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
+                  <div className="bm-row">
+                    <button className="bm-chk" onClick={() => onCompleteTask?.(t)} aria-label="Catch it" />
+                    <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
+                      <span className="bm-row-title">{t.title}</span>
+                      {chips.length > 0 && (
+                        <span className="bm-row-meta">
+                          {chips.slice(0, 3).map(l => (
+                            <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
+                          ))}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </RowSwipe>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       {loops.length > 0 && (
         <>

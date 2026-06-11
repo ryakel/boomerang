@@ -4,6 +4,15 @@
   padding: 0;
 }
 
+/* iOS Safari font boosting: on rotation to landscape Safari auto-inflates
+ * text, and without text-size-adjust locked it KEEPS the inflated sizes
+ * after rotating back to portrait (prod report: row titles stuck huge).
+ * 100% = render exactly the authored sizes in every orientation. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 :root {
   --bg: #0B0B0F;
   --surface: #141418;
