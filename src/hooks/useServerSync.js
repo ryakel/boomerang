@@ -495,7 +495,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
 
   const queueLength = loadQueue().length
 
-  return { flush, checkVersion, syncStatus, queueLength }
+  return { flush, checkVersion, syncStatus, queueLength, refetch: () => fetchAndHydrate('pull-refresh') }
 }
 
 // Bulk PUT carries settings + labels only. Tasks and routines have their own

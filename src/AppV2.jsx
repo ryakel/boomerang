@@ -247,7 +247,7 @@ export default function AppV2() {
     }
   }, [hydrateTasks, hydrateRoutines])
 
-  const { flush: flushSync, checkVersion, syncStatus, queueLength } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
+  const { flush: flushSync, checkVersion, syncStatus, queueLength, refetch: refetchFromServer } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
     setUpdateVersion(newVersion)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
@@ -1302,6 +1302,7 @@ export default function AppV2() {
           dailyStats={dailyStats}
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}
+          onRefresh={refetchFromServer}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
           onGmailKeep={async (t) => {
             updateTask(t.id, { gmail_pending: false })

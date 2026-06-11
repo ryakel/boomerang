@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { computeTaskPoints } from '../store'
 import './Toast.css'
 
@@ -149,10 +149,33 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
     return () => clearTimeout(timer)
   }, [nextTask])
 
+  // Swipe-up to dismiss — the banner follows the finger and flicks away
+  // past the threshold, like a real push notification.
+  const [dragY, setDragY] = useState(0)
+  const dragStart = useRef(null)
+  const onTouchStart = (e) => { dragStart.current = e.touches[0].clientY }
+  const onTouchMove = (e) => {
+    if (dragStart.current == null) return
+    const dy = e.touches[0].clientY - dragStart.current
+    if (dy < 0) setDragY(dy)
+  }
+  const onTouchEnd = () => {
+    dragStart.current = null
+    if (dragY < -36) onDoneRef.current?.()
+    else setDragY(0)
+  }
+
   const { message, subtitle } = frozen.current
 
   return (
-    <div className={`v2-toast${isReopen ? ' v2-toast-reopen' : ''}`} onClick={onDone}>
+    <div
+      className={`v2-toast${isReopen ? ' v2-toast-reopen' : ''}`}
+      onClick={onDone}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={dragY ? { transform: `translateY(${dragY}px)`, opacity: Math.max(0.3, 1 + dragY / 120), transition: 'none' } : undefined}
+    >
       <div className="v2-toast-content">
         <div className="v2-toast-message">{message}</div>
         <div className="v2-toast-subtitle">{subtitle}</div>

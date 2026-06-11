@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- feat(ui): Kept pull-to-refresh + toast swipe-up dismiss [S]
+  - **Pull-down-to-refresh on the Kept mobile shell** (the dropped ask, recovered by auditing the transcript — it predated a context compaction and fell out of the working notes): dragging down from the top of any tab surface (Today/Tasks/Loops/More) reveals a boomerang-arc spinner; releasing past the threshold runs a full server refetch (`useServerSync.refetch` → the same hydration path SSE uses) and holds the spinner until it resolves. `overscroll-behavior-y: contain` keeps the browser's own rubber-band out of the way. New `src/kept/PullToRefresh.jsx`.
+  - **Toast swipe-up dismiss**: the top banner now follows the finger upward and flicks away past 36px — a real push-notification gesture to go with tap-dismiss. (Honest accounting from the user's audit: the earlier toast round changed position, animation, dismissal, and copy — the visual shell itself is still the adaptive dark pill; a Kept-native banner restyle rides with the editor redesign wave.)
+  - Verified live: drag → spinner at 96px + `/api/data` refetch fired on release; catch → toast at top → swipe up → dismissed.
+
 - fix(ui): hero follows breakdown date selection + Loop suggestions rename + nav swap [S]
   - **The hero now follows the breakdown's selected day** (prod report: "slider and counts should change with the date selection"): selection state lifted from `WeekBreakdown` into `TodayView`; picking a non-today day swaps the headline date, the Day Arc (value + "points that day" caption), and the meta row to that day's numbers — catches/points computed identically to the breakdown's item list so the arc total always matches the itemization; loops shown as a plain done-count (historical due-ness isn't reconstructable). Reverts to live today-stats when today is selected or the breakdown closes.
   - **"Routine suggestions" → "Loop suggestions"** everywhere Kept-facing (More row, desktop sidebar row, modal title via a `title` prop — Standard theme keeps "Routine suggestions").
