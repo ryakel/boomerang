@@ -46,19 +46,30 @@
    * back arrow (top-LEFT, like the drill-down views), so the title drops below
    * it; the autosave slot still rides top-right. All pick up the notch inset. */
   :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-header {
-    padding: calc(60px + env(safe-area-inset-top)) 20px 16px;
+    padding: calc(72px + env(safe-area-inset-top)) 20px 16px;
   }
-  /* Pinned-control underlay: scrolled content fades out under the top strip
+  /* Pinned-control underlay: scrolled content frosts out under the top strip
    * instead of colliding with the fixed back button (the "it loop" clipped-
-   * title report). Gradient from the page bg; clicks pass through. */
+   * title report, then the "back button keeps overlapping shit" report).
+   * Backdrop blur + translucent page tint + feathered mask — content visibly
+   * dissolves behind the control, reading as intentional. Clicks pass through. */
   :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal::before {
     content: "";
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: calc(64px + env(safe-area-inset-top));
-    background: linear-gradient(to bottom, var(--v2-bg) 55%, transparent);
+    height: calc(76px + env(safe-area-inset-top));
+    background: color-mix(in srgb, var(--v2-bg) 62%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.05);
+    backdrop-filter: blur(14px) saturate(1.05);
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent);
+    mask-image: linear-gradient(to bottom, black 60%, transparent);
     z-index: 4;
     pointer-events: none;
+  }
+  /* The Quokka tab surface keeps the app header + nav — no pinned back
+   * control there, so no frosting band over the header. */
+  :is([data-theme^="wallaby"], [data-theme^="kept"]) :is(.wb-shell, .bm-shell) .v2-modal::before {
+    display: none;
   }
   :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-back {
     /* .v2-modal is the page SCROLLER — absolute positioning rode along with

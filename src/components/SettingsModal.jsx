@@ -2482,7 +2482,7 @@ export default function SettingsModal({
                   <div className="v2-settings-row v2-settings-row-stacked">
                     <div className="v2-settings-row-text">
                       <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm hairline UI. Wallaby is the navy heatmap dashboard. Kept is the new Boomerang language — green-ink + gold, arcs not grids (in progress).</div>
+                      <div className="v2-settings-row-hint">Standard is the calm hairline UI. Wallaby is the navy heatmap dashboard. Kept is the new Boomerang language — warm Smoke/Linen canvases with ember + gold, arcs not grids.</div>
                     </div>
                     <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
                       {[
