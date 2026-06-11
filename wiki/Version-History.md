@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): lock text-size-adjust — landscape rotation no longer inflates text permanently [XS]
+  - Prod report: rotate to landscape and back → row titles and meta stuck at boosted sizes (everything except SVG text). iOS Safari's font boosting inflates text on rotation and, with `text-size-adjust` unlocked, keeps the inflated sizes back in portrait. `html { -webkit-text-size-adjust: 100% }` in index.css renders authored sizes in every orientation. (Not reproducible in headless Chromium — the standard documented remedy, applies to all themes.)
+
 - fix(ui): Kept Today — undated tasks get an Anytime section (new throws were invisible) [S]
   - Prod report ("new tasks not hitting the main page" — with three duplicate throws as evidence): the Throw sheet defaults to *No date*, and Kept's Today only showed tasks with `due_date <= today` — Wallaby Home's day-planner filter carried into what is actually the main page, so undated tasks never appeared there (v2's Up next always showed them). Today now renders an **Anytime** section (overdue/today rows first, then undated active tasks, same row anatomy + swipe). Future-DATED tasks still stay off Today until their day, per the scheduled-work rule. Verified: a thrown no-date task appears under Anytime immediately.
 
