@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): Kept Today — caught tasks leave the list + collapsible sections [S]
+  - **Caught tasks no longer linger struck-through** on Today (the last day-planner-recap carryover): completion removes the row immediately, v2's contract — the toast's Undo covers regret, Caught keeps the record.
+  - **Sections collapse into their titles**: Arcs / Today / Anytime / Loops on Today and every group on the Tasks tab get a chevron toggle (new shared `Section` component + `useCollapsedSections`), persisted in `settings.kept_collapsed` — the same cross-device mechanism as v2's `collapsed_sections`.
+  - Verified live: catch → row leaves with zero strikethroughs; collapse → rows hidden, aria-expanded + persisted state correct.
+
 - fix(ui): Kept Today — main-page contract restores (divergence audit, round 1) [M]
   - From the divergence audit: five places Kept's Today silently dropped v2 main-list behavior.
   - **Habit-mode loops always visible** — the cadence filter ran target-frequency loops through `getNextDueDate` (which doesn't model them), hiding them after any log; habit-mode is "log any day", so they're now always due.

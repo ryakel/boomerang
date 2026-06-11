@@ -421,3 +421,17 @@
 .bm-tag-hi { font-size: 11px; font-weight: 750; color: var(--bm-ember); text-transform: uppercase; letter-spacing: 0.04em; }
 .bm-tag-status { font-size: 11.5px; font-weight: 650; color: var(--bm-gold); }
 .bm-tag-stale { font-size: 11.5px; color: var(--bm-text-meta); }
+
+/* Collapsible section headers */
+.bm-sec-toggle {
+  width: 100%;
+  background: none; border: none;
+  cursor: pointer; text-align: left;
+  padding: 0;
+}
+.bm-sec-chev {
+  margin-left: auto;
+  color: var(--bm-text-faint);
+  transition: transform 160ms ease;
+}
+.bm-sec-chev.is-collapsed { transform: rotate(-90deg); }

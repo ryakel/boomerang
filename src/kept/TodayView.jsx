@@ -7,6 +7,7 @@ import { historyByDay, currentStreak } from '../wallaby/heatmapUtils'
 import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate } from '../store'
 import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
+import Section, { useCollapsedSections } from './Section'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -21,6 +22,7 @@ export default function TodayView({
   onLogSession, onOpenSuggestions, gmailPendingCount = 0,
 }) {
   const todayKey = localYMD()
+  const [collapsed, toggleSection] = useCollapsedSections()
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
 
   const stackRoutineIds = useMemo(() => new Set(
@@ -31,12 +33,12 @@ export default function TodayView({
     if (t.parent_id || t.gmail_pending) return false
     // Stack members render grouped under their stack in the Loops section.
     if (t.routine_id && stackRoutineIds.has(t.routine_id)) return false
-    const doneToday = t.status === 'done' && t.completed_at && localYMD(new Date(t.completed_at)) === todayKey
-    if (doneToday) return true
+    // Caught tasks leave the list immediately (v2 contract — the toast's
+    // Undo covers regret; Caught keeps the record). No done strikethroughs.
     if (!ACTIVE.includes(t.status)) return false
     if (isSnoozed(t)) return false
     return t.due_date ? String(t.due_date).slice(0, 10) <= todayKey : false
-  }).sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0)), [tasks, todayKey, stackRoutineIds])
+  }), [tasks, todayKey, stackRoutineIds])
 
   // Undated active tasks — the main page must show them (v2's Up next did).
   // Future-DATED tasks stay off Today until their day; undated means
@@ -138,8 +140,7 @@ export default function TodayView({
       )}
 
       {pinnedArcs.length > 0 && (
-        <>
-          <div className="bm-sec"><span className="bm-sec-tick" /> Arcs <span className="bm-sec-n">{pinnedArcs.length}</span></div>
+        <Section id="arcs" label="Arcs" count={pinnedArcs.length} collapsed={!!collapsed.arcs} onToggle={toggleSection}>
           <div className="bm-rows">
             {pinnedArcs.map(p2 => (
               <div key={p2.id} className="bm-arc">
@@ -164,14 +165,14 @@ export default function TodayView({
               </div>
             ))}
           </div>
-        </>
+        </Section>
       )}
 
-      <div className="bm-sec"><span className="bm-sec-tick" /> Today <span className="bm-sec-n">{dayTasks.length}</span></div>
+      <Section id="today" label="Today" count={dayTasks.length} collapsed={!!collapsed.today} onToggle={toggleSection}>
       <div className="bm-rows">
         {dayTasks.length === 0 && <p className="bm-empty">Nothing due — enjoy it.</p>}
         {dayTasks.map(t => {
-          const done = t.status === 'done'
+          const done = false
           const overdue = !done && t.due_date && String(t.due_date).slice(0, 10) < todayKey
           const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
           const stale = !done && isStale(t)
@@ -213,10 +214,10 @@ export default function TodayView({
           </div>
         ))}
       </div>
+      </Section>
 
       {anytimeTasks.length > 0 && (
-        <>
-          <div className="bm-sec"><span className="bm-sec-tick" /> Anytime <span className="bm-sec-n">{anytimeTasks.length}</span></div>
+        <Section id="anytime" label="Anytime" count={anytimeTasks.length} collapsed={!!collapsed.anytime} onToggle={toggleSection}>
           <div className="bm-rows">
             {anytimeTasks.map(t => {
               const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
@@ -239,12 +240,11 @@ export default function TodayView({
               )
             })}
           </div>
-        </>
+        </Section>
       )}
 
       {loops.length > 0 && (
-        <>
-          <div className="bm-sec"><span className="bm-sec-tick" /> Loops <span className="bm-sec-n">{loopsDone}/{loops.length}</span></div>
+        <Section id="loops" label="Loops" count={`${loopsDone}/${loops.length}`} collapsed={!!collapsed.loops} onToggle={toggleSection}>
           <div className="bm-rows">
             {loops.map(({ r, color, byDay, rally, doneToday, isStack, cycles }) => {
               if (isStack) {
@@ -294,7 +294,7 @@ export default function TodayView({
               )
             })}
           </div>
-        </>
+        </Section>
       )}
     </div>
   )
