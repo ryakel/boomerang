@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(streak): persistent backward-only streak anchor — deleting old records can't shorten the rally [S]
+  - Prod incident: a 36-day rally dropped to 27 after dismissing old Gmail imports. Root cause: `computeStreak`'s history floor = the creation date of the OLDEST SURVIVING task, recomputed live — deleting your earliest record moved the floor forward and retroactively cut the streak. The bonus/egg math was untouched and innocent.
+  - Fix: `settings.streak_anchor` ('YYYY-MM-DD', only ever moves backward) now bounds the floor. AppV2 maintains it once per load from the oldest task AND the earliest active day in `/api/analytics/history` (which survives deletion/cleanup) — so affected users' floors restore to their true history start on next load, and no future delete/dismiss can shrink a rally.
+  - Verified against the exact incident shape: seeded a 36-day-old import as the oldest record, anchor persisted (from analytics, even earlier), dismissed the import → rally unchanged.
+
 - fix(ui): Kept audit round 2 — real Gmail review, What Now, subtasks, Snoozed tab, label filters [L]
   - **Gmail review actually works now** (prod report: "imported items isn't doing shit"): the banner routed to SuggestionsModal — the *routine-pattern* surface — and deeper, the Keep/Dismiss buttons died with v1's TaskCard and were never ported to v2 at all. Today now has a **Review** section: pending rows with **Keep** (approves via `/api/gmail/approve`, task joins the list optimistically) and **Dismiss** (deletes). The More/sidebar row is relabeled "Routine suggestions" to match what it actually opens.
   - **What Now is reachable again**: a Compass button under the Day Arc (mobile) + a sidebar row (desktop) open the existing WhatNowModal.

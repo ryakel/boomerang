@@ -297,6 +297,44 @@ export default function AppV2() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Streak-anchor maintenance: persist the earliest-known activity date so
+  // the streak floor can never move FORWARD when old records are deleted
+  // (dismissing old Gmail imports shortened a 36-day rally to 27). Seeds
+  // from the oldest task AND the server's analytics history — the latter
+  // survives task deletion/cleanup. Only ever writes a smaller date.
+  const anchorCheckedRef = useRef(false)
+  useEffect(() => {
+    if (anchorCheckedRef.current || tasks.length === 0) return
+    anchorCheckedRef.current = true
+    ;(async () => {
+      let earliest = null
+      for (const t of tasks) {
+        if (!t.created_at) continue
+        const d = new Date(t.created_at)
+        if (Number.isFinite(d.getTime()) && (!earliest || d < earliest)) earliest = d
+      }
+      try {
+        const res = await fetch('/api/analytics/history?days=365')
+        if (res.ok) {
+          const hist = await res.json()
+          const first = (hist?.daily || []).find(x => (x.tasks || 0) > 0 || (x.points || 0) > 0)
+          if (first?.day) {
+            const d = new Date(`${first.day}T12:00:00`)
+            if (!earliest || d < earliest) earliest = d
+          }
+        }
+      } catch { /* tasks-only seed is fine */ }
+      if (!earliest) return
+      const ymd = localYMD(earliest)
+      const cur = loadSettings()
+      if (!cur.streak_anchor || ymd < cur.streak_anchor) {
+        saveSettings({ ...cur, streak_anchor: ymd })
+        flushSync()
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks])
+
   // Spawn due routine tasks on load + when routines change. Auto-roll routines
   // bump an existing active instance forward instead of spawning a duplicate
   // — see useRoutines.spawnDueTasks + wiki/Activity-Prompts.md.
