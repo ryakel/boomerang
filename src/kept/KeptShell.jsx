@@ -15,7 +15,7 @@ import './shell.css'
 export default function KeptShell({
   tasks = [], routines = [], labels = [],
   dailyStats = {}, pointsGoal = 15, streak = 0,
-  onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
+  onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask, onSpawnStackToday,
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
@@ -50,7 +50,7 @@ export default function KeptShell({
         tasks={tasks} routines={routines} labels={labels}
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
-        onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
+        onDeleteTask={onDeleteTask} onEditLoop={onEditLoop} onSpawnStackToday={onSpawnStackToday}
       />
     )
   }
