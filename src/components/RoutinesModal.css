@@ -450,3 +450,46 @@
   color: var(--v2-text);
   border-color: var(--v2-text-meta);
 }
+
+/* Progressive-disclosure rows (design doc §13b) — the advanced fields live
+ * behind hairline rows that expand in place; collapsed rows summarize what's
+ * set inside. */
+.v2-form-disclosure {
+  border-top: 1px solid var(--v2-hairline);
+  margin-top: 4px;
+}
+.v2-form-disclosure:last-of-type { border-bottom: 1px solid var(--v2-hairline); }
+.v2-form-disclosure-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--v2-text);
+  font: 600 13.5px/1 var(--v2-font-body);
+  text-align: left;
+}
+.v2-form-disclosure-label { flex: 0 0 auto; }
+.v2-form-disclosure-sum {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--v2-text-meta);
+}
+.v2-form-disclosure-chev {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--v2-text-faint);
+  transition: transform 160ms ease;
+}
+.v2-form-disclosure-sum + .v2-form-disclosure-chev { margin-left: 0; }
+.v2-form-disclosure.is-open .v2-form-disclosure-chev { transform: rotate(180deg); }
+.v2-form-disclosure-body { padding: 2px 0 16px; }
