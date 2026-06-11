@@ -551,3 +551,17 @@
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--bm-ember);
 }
+
+/* Cycle chips — one per cadence window (CycleChips.jsx, §13a) */
+.bm-cycles { padding: 2px 0 1px; }
+.bm-cycle-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.bm-cycle-chip {
+  width: 18px; height: 18px;
+  border-radius: 6px;
+  border: 1.5px solid var(--bm-hairline-strong);
+  background: transparent;
+}
+.bm-cycle-chip.is-partial { background: color-mix(in srgb, var(--loop, var(--bm-ember)) 35%, transparent); border-color: transparent; }
+.bm-cycle-chip.is-caught { background: var(--loop, var(--bm-ember)); border-color: transparent; }
+.bm-cycle-chip.is-current { box-shadow: 0 0 0 2px color-mix(in srgb, var(--loop, var(--bm-ember)) 45%, transparent); }
+.bm-cycle-cap { margin-top: 7px; font-size: 11.5px; color: var(--bm-text-meta); font-weight: 600; }
