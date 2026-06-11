@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Repeat2, Pencil, Sparkle } from 'lucide-react'
-import FlightTrail from './FlightTrail'
 import MonthDots from './MonthDots'
 import DensityRibbon from './DensityRibbon'
 import CycleChips from './CycleChips'
@@ -71,10 +70,11 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
             </button>
           </div>
           {range === 'trail' && (() => {
-            // Cadence-fit visuals (§13a): the day-grid only made sense for
-            // multi-step dailies. Dailies get a compact 4-week mini trail;
-            // habit loops get target-aware cycle chips; everything else gets
-            // one chip per cadence window.
+            // Cadence-fit visuals (§13a): ONE language for every card —
+            // cycle chips. Dailies get one chip per day, habit loops get
+            // target-aware chips, everything else one chip per cadence
+            // window. (The daily mini-trail exception made the page speak
+            // two visual languages at once — prod report 2026-06-11.)
             if (r.spawn_mode === 'habit' && r.target_count) {
               const wins = habitWindows(r, 12)
               const cur = wins[wins.length - 1]
@@ -85,22 +85,21 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
                 <CycleChips
                   windows={wins}
                   target={r.target_count}
-                  caption={`this ${periodWord} ${cur?.hits ?? 0}/${r.target_count} · target met ${met} of last ${past.length} ${periodWord}s`}
+                  caption={`this ${periodWord} ${cur?.hits ?? 0}/${r.target_count} · target met ${met} of last ${past.length} ${periodWord}${past.length === 1 ? '' : 's'}`}
                 />
               )
-            }
-            if (r.cadence === 'daily') {
-              return <FlightTrail valueByDay={byDay} color={color} weeks={4} mini />
             }
             const wins = cycleWindows(r, 12)
             const past = wins.filter(w => !w.current)
             const caught = past.filter(w => w.caught).length
             const cur = wins[wins.length - 1]
+            const unit = cycleUnitLabel(r, past.length === 1)
+            const nowWord = r.cadence === 'daily' ? 'today' : 'this one'
             return (
               <CycleChips
                 windows={wins}
                 caption={past.length > 0
-                  ? `caught ${caught} of last ${past.length} ${cycleUnitLabel(r)}${cur?.caught ? ' · this one ✓' : ''}`
+                  ? `caught ${caught} of last ${past.length} ${unit}${cur?.caught ? ` · ${nowWord} ✓` : ''}`
                   : 'first cycle in flight'}
               />
             )

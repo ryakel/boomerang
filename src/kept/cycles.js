@@ -24,7 +24,14 @@ export function cycleWindows(routine, count = 12) {
   const stamps = (routine.completed_history || [])
     .map(ts => new Date(ts))
     .filter(d => Number.isFinite(d.getTime()))
-  const created = routine.created_at ? new Date(routine.created_at) : null
+  // Anchor: creation date, falling back to the oldest history stamp for
+  // legacy rows without created_at — otherwise the series collapses to a
+  // single "first cycle" window despite months of history.
+  let created = routine.created_at ? new Date(routine.created_at) : null
+  if ((!created || !Number.isFinite(created.getTime())) && stamps.length > 0) {
+    created = new Date(Math.min(...stamps.map(d => d.getTime())))
+  }
+  if (created && !Number.isFinite(created.getTime())) created = null
   const today = new Date(); today.setHours(0, 0, 0, 0)
 
   const stepDays = cadence === 'daily' ? 1
@@ -94,18 +101,20 @@ export function habitWindows(routine, count = 12, weekStartsOn = 1) {
   return windows
 }
 
-export function cycleUnitLabel(routine) {
+export function cycleUnitLabel(routine, singular = false) {
   const c = routine.cadence
-  if (c === 'daily') return 'days'
-  if (c === 'weekly') return 'weeks'
-  if (c === 'monthly') return 'months'
-  if (c === 'quarterly') return 'quarters'
-  if (c === 'annually') return 'years'
+  const plural = (w) => (singular ? w : `${w}s`)
+  if (c === 'daily') return plural('day')
+  if (c === 'weekly') return plural('week')
+  if (c === 'monthly') return plural('month')
+  if (c === 'quarterly') return plural('quarter')
+  if (c === 'annually') return plural('year')
   if (c === 'custom') {
     const n = Math.max(1, routine.custom_days || (routine.custom_unit === 'months' ? 1 : 7))
-    return routine.custom_unit === 'months'
-      ? (n === 1 ? 'months' : `${n}-month cycles`)
-      : `${n}-day cycles`
+    if (routine.custom_unit === 'months') {
+      return n === 1 ? plural('month') : `${n}-month ${plural('cycle')}`
+    }
+    return `${n}-day ${plural('cycle')}`
   }
-  return 'cycles'
+  return plural('cycle')
 }

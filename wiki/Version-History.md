@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): Loops page speaks one visual language — dailies join the cycle chips [S]
+  - Prod report: "Why in the world are there two entirely different design strategies on the loops page?" — the daily mini-trail exception from wave 1 put dot-rows next to chunky chips on the same surface. Dailies now render cycle chips like everything else (one chip per day, "caught 8 of last 11 days · today ✓"); the FlightTrail leaves the Loops cards entirely.
+  - Also: caption pluralization fixed ("caught 1 of last 1 months" → singular units), and the window anchor falls back to the oldest history stamp for legacy loops without created_at.
+
 - feat(ui): loop editor — progressive disclosure (design wave 3/4, part 1) [M]
   - The "reskinned v2 form" complaint (§13b): the loop editor now shows only the decisions you actually make — title, mode, frequency/day, time (or target count for habits) — with everything else behind hairline disclosure rows that expand in place: **More options** (end date, priority, auto-roll, last-done repair), **Stack items**, **Follow-ups**, **Labels & notes**. Collapsed rows summarize their contents ("last done 2026-06-11", "3 items"); rows with content open by default when editing. Submit says "Create loop" in Kept.
   - New `FormDisclosure` primitive in RoutinesModal + `v2-form-disclosure-*` styles on shared tokens — all themes inherit, no override CSS, zero logic changes (every field/handler preserved verbatim).
