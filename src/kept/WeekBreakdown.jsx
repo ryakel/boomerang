@@ -15,12 +15,11 @@ function weekStartSunday(date) {
 
 // Tap-the-hero-stats breakdown (parity with v2's WeekStrip detail): a
 // Sunday-anchored week of day chips with activity intensity, and the
-// selected day's caught tasks with per-task points. Defaults to today —
-// one tap on the stats answers "what did I actually do today?".
-export default function WeekBreakdown({ tasks = [] }) {
+// selected day's caught tasks with per-task points. Selection is OWNED BY
+// THE PARENT (TodayView) so the hero arc + counts can follow it.
+export default function WeekBreakdown({ tasks = [], selected, onSelect }) {
   const todayKey = localYMD()
   const [offset, setOffset] = useState(0)
-  const [selected, setSelected] = useState(todayKey)
   const settings = loadSettings()
   const eggs = settings.easter_egg_wins || {}
   const goal = settings.daily_task_goal > 0 ? settings.daily_task_goal : 3
@@ -101,7 +100,7 @@ export default function WeekBreakdown({ tasks = [] }) {
               selected === d.key ? 'is-selected' : '',
               `i${d.intensity}`,
             ].filter(Boolean).join(' ')}
-            onClick={() => setSelected(prev => (prev === d.key ? null : d.key))}
+            onClick={() => onSelect?.(selected === d.key ? null : d.key)}
             aria-expanded={selected === d.key}
             aria-label={`${d.label} ${d.dayNumber}: ${d.count} ${d.count === 1 ? 'catch' : 'catches'}`}
           >

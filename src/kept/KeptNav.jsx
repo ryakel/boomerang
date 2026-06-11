@@ -1,14 +1,16 @@
 import { Home, Repeat2, ListTodo, MoreHorizontal } from 'lucide-react'
 import './shell.css'
 
-// Kept bottom nav: Today · Loops · [Throw] · Tasks · More (spec §6).
+// Kept bottom nav: Today · Tasks · [Throw] · Loops · More (spec §6; Tasks
+// and Loops swapped 2026-06-11 per user preference — Tasks is the higher-
+// frequency destination, it sits next to Today).
 // One accent — active tabs go gold with a dot, never per-tab colors.
 const LEFT = [
   { id: 'today', label: 'Today', icon: Home },
-  { id: 'loops', label: 'Loops', icon: Repeat2 },
+  { id: 'tasks', label: 'Tasks', icon: ListTodo },
 ]
 const RIGHT = [
-  { id: 'tasks', label: 'Tasks', icon: ListTodo },
+  { id: 'loops', label: 'Loops', icon: Repeat2 },
   { id: 'more', label: 'More', icon: MoreHorizontal },
 ]
 
