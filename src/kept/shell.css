@@ -535,3 +535,19 @@
 }
 .bm-ptr.is-refreshing .bm-ptr-mark { animation: bm-ptr-spin 0.9s linear infinite; }
 @keyframes bm-ptr-spin { to { transform: rotate(360deg); } }
+
+/* Loops "Suggestions" button — gold AI accent, deliberately NOT the Quokka
+   ember treatment (it's the pattern scanner, not the adviser). */
+.bm-suggest-btn {
+  position: relative;
+  margin-left: auto;
+  padding: 9px 12px;
+  background: var(--bm-gold-soft);
+  color: var(--bm-gold);
+  font-size: 12.5px;
+}
+.bm-suggest-dot {
+  position: absolute; top: 4px; right: 5px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--bm-ember);
+}

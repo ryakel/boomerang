@@ -29,7 +29,7 @@ export default function KeptShell({
 
   let surface
   if (tab === 'loops') {
-    surface = <LoopsView routines={routines} onEditLoop={onEditLoop} onAddLoop={onAddLoop} />
+    surface = <LoopsView routines={routines} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onOpenSuggestions={onOpenSuggestions} />
   } else if (tab === 'tasks') {
     surface = (
       <TasksViewKept
@@ -44,7 +44,7 @@ export default function KeptShell({
       <MoreView
         onOpenProjects={onOpenProjects} onOpenAnalytics={onOpenAnalytics}
         onOpenPackages={onOpenPackages} onOpenDone={onOpenDone}
-        onOpenActivity={onOpenActivity} onOpenSuggestions={onOpenSuggestions}
+        onOpenActivity={onOpenActivity}
         onOpenSettings={onOpenSettings}
       />
     )
