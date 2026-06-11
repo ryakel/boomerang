@@ -48,6 +48,18 @@
   :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-header {
     padding: calc(60px + env(safe-area-inset-top)) 20px 16px;
   }
+  /* Pinned-control underlay: scrolled content fades out under the top strip
+   * instead of colliding with the fixed back button (the "it loop" clipped-
+   * title report). Gradient from the page bg; clicks pass through. */
+  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: calc(64px + env(safe-area-inset-top));
+    background: linear-gradient(to bottom, var(--v2-bg) 55%, transparent);
+    z-index: 4;
+    pointer-events: none;
+  }
   :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-back {
     /* .v2-modal is the page SCROLLER — absolute positioning rode along with
      * the content, so the back button scrolled off-screen on long pages.

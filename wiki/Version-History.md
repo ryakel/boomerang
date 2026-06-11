@@ -4,7 +4,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
-## 2026-06-10
+## 2026-06-11
+
+- fix(ui): Kept Today — only cadence-due loops; modal-top fade strip [S]
+  - **Prod bug:** Today listed EVERY non-paused loop daily (loggd's all-habits-are-daily assumption carried into TodayView) — weekly/monthly/quarterly routines like "Mow · weekly · Fri" surfaced days early. The loops list now filters through `getNextDueDate`: a loop shows only when cadence-due today (or overdue), or already done today so a checked loop doesn't vanish. The full library stays on the Loops tab. Verified with a Friday-anchored weekly loop completed last Friday: hidden from Today, present in Loops.
+  - **Edit-modal title collision:** with the back button pinned (previous fix), scrolled content slid UNDER it — the "Edit loop" title read "it loop" mid-scroll. A fixed gradient strip (page bg → transparent, click-through) now fades content out under the pinned controls.
 
 - feat(ui): Kept palette revision — "Smoke + Ember" replaces Nightgum + Ochre [M]
   - The green-ink + gold direction read *earthy* in daily use. From a 4-direction live exploration (same Today screen re-skinned via token injection) the user picked a blend of "Warm Ink + Ember" and "Graphite + Gold": **Smoke** — a warm-neutral de-greened canvas (`#16140F` dark / `#F8F4ED` light) — with the brand's original **ember orange** (`#F26640`/`#D9512B`) as THE hero, and **gold demoted to the warm companion accent** (`--bm-gold`, rally chips + the ochre feather). Danger shifts to crimson so it can't collide with the ember hero.
