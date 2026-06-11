@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- fix(ui): Kept Today — undated tasks get an Anytime section (new throws were invisible) [S]
+  - Prod report ("new tasks not hitting the main page" — with three duplicate throws as evidence): the Throw sheet defaults to *No date*, and Kept's Today only showed tasks with `due_date <= today` — Wallaby Home's day-planner filter carried into what is actually the main page, so undated tasks never appeared there (v2's Up next always showed them). Today now renders an **Anytime** section (overdue/today rows first, then undated active tasks, same row anatomy + swipe). Future-DATED tasks still stay off Today until their day, per the scheduled-work rule. Verified: a thrown no-date task appears under Anytime immediately.
+
 - fix(ui): Kept stacks are folders — v2-parity display (open members only, no history, no chrome rows) [M]
   - Prod report: the Bedtime folder rendered "36/36" — every done member from every past cycle, struck through. The `due <= today` member filter dragged in all history, and the waiting/cleared stack rows added chrome v2 never had. **Reverted to the v2 StackSection model:** a stack is an organizational folder — grouped by cycle `(routine, due_date)`, rendered ONLY while a cycle has open un-snoozed members, showing ONLY those open members (done ones drop out; the `done/total` header carries progress). Nothing pre-trigger, nothing after clear — no waiting row, no Start button, no cleared receipt (dead `onSpawnStackToday` threading removed from the Kept shells).
   - Verified against the exact report scenario (2 fully-done past cycles + live cycle + a pre-trigger stack): zero historical ghosts, pre-trigger stack fully hidden, folder vanishes with its last member, exactly one new history stamp.
