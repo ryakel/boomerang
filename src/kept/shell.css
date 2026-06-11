@@ -16,6 +16,7 @@
   top: calc(var(--bm-header-h) + env(safe-area-inset-top));
   left: 0; right: 0; bottom: 0;
   overflow-y: auto;
+  overscroll-behavior-y: contain; /* our pull-to-refresh, not the browser's rubber-band */
   -webkit-overflow-scrolling: touch;
 }
 .bm-surface { min-height: 100%; padding: 14px 16px 130px; }
@@ -524,3 +525,13 @@
 .bm-subtask-text { font-size: 13px; color: var(--bm-text-meta); }
 .bm-subtask-text.is-done { text-decoration: line-through; opacity: 0.6; }
 .bm-bringback { padding: 8px 11px; font-size: 12px; flex: 0 0 auto; gap: 4px; }
+
+/* Pull-to-refresh indicator (PullToRefresh.jsx) */
+.bm-ptr {
+  display: grid; place-items: center;
+  height: 0; overflow: hidden;
+  color: var(--bm-ember);
+  transition: height 160ms ease-out;
+}
+.bm-ptr.is-refreshing .bm-ptr-mark { animation: bm-ptr-spin 0.9s linear infinite; }
+@keyframes bm-ptr-spin { to { transform: rotate(360deg); } }

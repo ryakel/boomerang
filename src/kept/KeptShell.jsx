@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import KeptHeader from './KeptHeader'
 import KeptNav from './KeptNav'
+import PullToRefresh from './PullToRefresh'
 import TodayView from './TodayView'
 import LoopsView from './LoopsView'
 import TasksViewKept from './TasksViewKept'
@@ -20,6 +21,7 @@ export default function KeptShell({
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
+  onRefresh,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
@@ -68,7 +70,7 @@ export default function KeptShell({
         syncStatus={syncStatus}
         queueLength={queueLength}
       />
-      <div className="bm-shell-surface">{surface}</div>
+      <PullToRefresh onRefresh={onRefresh}>{surface}</PullToRefresh>
       <KeptNav active={tab} onChange={setTab} onThrow={() => setThrowOpen(true)} />
       <ThrowSheet
         open={throwOpen}
