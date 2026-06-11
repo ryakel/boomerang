@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- feat(ui): cadence-aware loop charts — cycle chips replace the day-grid (design wave 1/4) [M]
+  - The Loops "Trail" tab now fits the visualization to the loop's own cadence (§13a; prod report: the dot grids were "really hard to interpret for as much real estate as they eat"):
+    - **Daily loops** → a compact 4-week mini Flight Trail (single row).
+    - **Habit loops** → 12 target-aware cycle chips (filled = target met, faded = partial, hollow = nothing) + "this week 2/3 · target met N of last M weeks".
+    - **Everything else** (weekly/monthly/quarterly/annually/custom) → one chip per cadence window, anchored at the loop's creation date, with "caught N of last M <units> · this one ✓".
+  - New `src/kept/cycles.js` (window math: day-stepped + month-stepped + habit periods) and `src/kept/CycleChips.jsx`; Month/Year drill-down tabs unchanged. Cards drop to a third of their height.
+  - Also: the loop editor's escape hatch says "← Back to loops" in Kept (noun threaded into RoutineForm — last hardcoded "routines" string).
+  - Verified live across all four shapes (daily mini-trail; habit 3×/week with met/partial/missed weeks; weekly with gaps; monthly) — chip counts and captions match the seeded history exactly.
+
 - fix(ui): New loop goes straight to the form + Suggestions button on Loops [S]
   - Follow-up: icon swapped to the single four-point `Sparkle` (the universal AI glyph) — `Sparkles` is Quokka's mark.
   - **Flow fix** (prod report: "New loop → Loop List → New routine makes no sense"): the "New loop" button now opens the editor directly in the blank form (`openToForm` prop on RoutinesModal, consumed on open) — no list detour, no second tap. The list's own buttons also respect the Kept noun now ("+ New loop", not "+ New routine").

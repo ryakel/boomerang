@@ -3,6 +3,8 @@ import { Repeat2, Pencil, Sparkle } from 'lucide-react'
 import FlightTrail from './FlightTrail'
 import MonthDots from './MonthDots'
 import DensityRibbon from './DensityRibbon'
+import CycleChips from './CycleChips'
+import { cycleWindows, habitWindows, cycleUnitLabel } from './cycles'
 import { historyByDay, currentStreak } from '../wallaby/heatmapUtils'
 import { routineFeathers } from './feathers'
 import './shell.css'
@@ -68,7 +70,41 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
               <Pencil size={13} strokeWidth={2} />
             </button>
           </div>
-          {range === 'trail' && <FlightTrail valueByDay={byDay} color={color} />}
+          {range === 'trail' && (() => {
+            // Cadence-fit visuals (§13a): the day-grid only made sense for
+            // multi-step dailies. Dailies get a compact 4-week mini trail;
+            // habit loops get target-aware cycle chips; everything else gets
+            // one chip per cadence window.
+            if (r.spawn_mode === 'habit' && r.target_count) {
+              const wins = habitWindows(r, 12)
+              const cur = wins[wins.length - 1]
+              const past = wins.filter(w => !w.current)
+              const met = past.filter(w => w.hits >= r.target_count).length
+              const periodWord = r.target_period === 'month' ? 'month' : 'week'
+              return (
+                <CycleChips
+                  windows={wins}
+                  target={r.target_count}
+                  caption={`this ${periodWord} ${cur?.hits ?? 0}/${r.target_count} · target met ${met} of last ${past.length} ${periodWord}s`}
+                />
+              )
+            }
+            if (r.cadence === 'daily') {
+              return <FlightTrail valueByDay={byDay} color={color} weeks={4} mini />
+            }
+            const wins = cycleWindows(r, 12)
+            const past = wins.filter(w => !w.current)
+            const caught = past.filter(w => w.caught).length
+            const cur = wins[wins.length - 1]
+            return (
+              <CycleChips
+                windows={wins}
+                caption={past.length > 0
+                  ? `caught ${caught} of last ${past.length} ${cycleUnitLabel(r)}${cur?.caught ? ' · this one ✓' : ''}`
+                  : 'first cycle in flight'}
+              />
+            )
+          })()}
           {range === 'month' && <MonthDots valueByDay={byDay} color={color} />}
           {range === 'year' && <DensityRibbon valueByDay={byDay} color={color} />}
         </div>
