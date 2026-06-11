@@ -38,8 +38,9 @@ export default function TodayView({
   }).sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0)), [tasks, todayKey, stackRoutineIds])
 
   const returningSoon = useMemo(() => tasks.filter(t =>
-    ACTIVE.includes(t.status) && !t.parent_id && !t.gmail_pending && isSnoozed(t) && !t.snooze_indefinite,
-  ).slice(0, 3), [tasks])
+    ACTIVE.includes(t.status) && !t.parent_id && !t.gmail_pending && isSnoozed(t) && !t.snooze_indefinite
+    && !(t.routine_id && stackRoutineIds.has(t.routine_id)),
+  ).slice(0, 3), [tasks, stackRoutineIds])
 
   // Only loops that are actually DUE today (per the cadence engine — weekly/
   // monthly/quarterly stay hidden until their day), already done today (so a
@@ -55,18 +56,24 @@ export default function TodayView({
       const isStack = Array.isArray(r.members) && r.members.length > 0
       // A stack's live cycle = its member tasks due today or carried over
       // (leftover members linger as the open cycle until cleared).
-      const memberTasks = isStack
+      const cycleTasks = isStack
         ? tasks.filter(t => t.routine_id === r.id
             && String(t.due_date || '').slice(0, 10) <= todayKey
             && !['cancelled', 'backlog', 'project'].includes(t.status))
         : []
+      // Pre-trigger (trigger_time) members are snoozed — the stack shows as a
+      // single "returns tonight" row until they surface, per the trigger-time
+      // contract (don't show scheduled work before its clock time).
+      const memberTasks = cycleTasks.filter(t => t.status === 'done' || !isSnoozed(t))
+      const snoozedUntil = cycleTasks.find(t => t.status !== 'done' && isSnoozed(t))?.snoozed_until || null
+      const allSnoozed = isStack && memberTasks.length === 0 && !!snoozedUntil
       return {
-        r, color: feathers[r.id], byDay, isStack, memberTasks,
+        r, color: feathers[r.id], byDay, isStack, memberTasks, allSnoozed, snoozedUntil,
         rally: currentStreak(byDay),
         doneToday: !!byDay[todayKey],
         dueToday: !!dueKey && dueKey <= todayKey,
       }
-    }).filter(l => l.dueToday || l.doneToday || l.memberTasks.length > 0)
+    }).filter(l => l.dueToday || l.doneToday || l.memberTasks.length > 0 || l.allSnoozed)
   }, [routines, tasks, todayKey])
   const loopsDone = loops.filter(l => l.doneToday).length
   const catches = dailyStats.tasksToday ?? 0
@@ -132,7 +139,7 @@ export default function TodayView({
         <>
           <div className="bm-sec"><span className="bm-sec-tick" /> Loops <span className="bm-sec-n">{loopsDone}/{loops.length}</span></div>
           <div className="bm-rows">
-            {loops.map(({ r, color, byDay, rally, doneToday, isStack, memberTasks }) => {
+            {loops.map(({ r, color, byDay, rally, doneToday, isStack, memberTasks, allSnoozed, snoozedUntil }) => {
               if (isStack) {
                 // Stack: independent member tasks per cycle. Checks route
                 // through the REAL task path (onCompleteTask) so the 20%
@@ -143,10 +150,16 @@ export default function TodayView({
                       <span className="bm-loop-ring"><Repeat2 size={15} strokeWidth={2.2} /></span>
                       <button className="bm-loop-body" onClick={() => onEditLoop?.(r)}>
                         <div className="bm-loop-title">{r.title} <em className="bm-stack-count">· {r.members.length} items</em></div>
-                        <div className="bm-loop-sub">{doneToday ? 'cycle cleared today' : 'stack'}</div>
+                        <div className="bm-loop-sub">
+                          {doneToday ? 'cycle cleared today'
+                            : allSnoozed ? <span className="bm-return-chip">↩ returns {formatSnoozeLabel(snoozedUntil)}</span>
+                            : 'stack'}
+                        </div>
                       </button>
                       {doneToday ? (
                         <span className="bm-loop-chk is-done" style={{ '--loop': color }} aria-hidden="true"><Check size={15} strokeWidth={3.2} /></span>
+                      ) : allSnoozed ? (
+                        <span className="bm-chk is-muted" aria-hidden="true" />
                       ) : (
                         <button className="bm-btn bm-btn-tonal bm-stack-start" onClick={() => onSpawnStackToday?.(r.id)}>Start</button>
                       )}
