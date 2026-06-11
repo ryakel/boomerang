@@ -886,8 +886,16 @@ export function computeStreak(tasks, settings) {
   // nothing meaningful before then. Without this floor, no-fault empty
   // days (which all pre-history days qualify as) would walk back
   // indefinitely until JS Date underflowed and `.toISOString()` threw.
-  const floor = earliest
-    ? new Date(earliest.getFullYear(), earliest.getMonth(), earliest.getDate())
+  //
+  // The floor honors `settings.streak_anchor` (a 'YYYY-MM-DD' that only
+  // ever moves BACKWARD, maintained in AppV2 from tasks + the server's
+  // analytics history): deriving the floor purely from live tasks meant
+  // deleting your oldest record — e.g. dismissing an old Gmail import —
+  // retroactively shortened the streak (prod incident: 36 → 27).
+  const anchorDate = settings.streak_anchor ? parseLocalDate(settings.streak_anchor) : null
+  const floorBasis = anchorDate && (!earliest || anchorDate < earliest) ? anchorDate : earliest
+  const floor = floorBasis
+    ? new Date(floorBasis.getFullYear(), floorBasis.getMonth(), floorBasis.getDate())
     : null
 
   const isNoFaultDay = (d) => {
