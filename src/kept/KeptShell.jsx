@@ -20,7 +20,7 @@ export default function KeptShell({
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
-  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenNotifications,
+  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenNotifications, onOpenFlightLog,
   onRefresh,
   syncStatus = 'synced', queueLength = 0,
 }) {
@@ -66,7 +66,7 @@ export default function KeptShell({
       <KeptHeader
         onQuokka={onOpenQuokka}
         onBell={onOpenNotifications || onOpenActivity}
-        onAvatar={onOpenAnalytics}
+        onAvatar={onOpenFlightLog || onOpenAnalytics}
         syncStatus={syncStatus}
         queueLength={queueLength}
       />
