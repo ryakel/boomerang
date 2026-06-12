@@ -20,10 +20,9 @@ import ActivityLog from './components/ActivityLog'
 import NotificationsModal from './components/NotificationsModal'
 import FlightLog from './kept/FlightLog'
 import RoutinesModal from './components/RoutinesModal'
-import WallabyShell from './wallaby/WallabyShell'
 import KeptShell from './kept/KeptShell'
 import KeptDesktop from './kept/KeptDesktop'
-import WallabyEditTask from './wallaby/WallabyEditTask'
+import QuickEditTask from './kept/QuickEditTask'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -64,7 +63,7 @@ export default function AppV2() {
   const [snoozeTarget, setSnoozeTarget] = useState(null)
   const [reframeTarget, setReframeTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
-  // Wallaby gets a chip-language quick editor; "More options" flips to the full
+  // Kept gets a chip-language quick editor; "More options" flips to the full
   // EditTaskModal for advanced config. Reset whenever the edit target clears.
   const [editFull, setEditFull] = useState(false)
   useEffect(() => { if (!editTarget) setEditFull(false) }, [editTarget])
@@ -472,23 +471,22 @@ export default function AppV2() {
   const dailyStats = computeDailyStats(tasks, settingsForRings)
   const streak = computeStreak(tasks, settingsForRings)
   const records = useMemo(() => computeRecords(tasks), [tasks])
-  // Wallaby presents the full loggd IA (bottom-nav shell) on mobile. Desktop
+  // Kept presents the Boomerang IA (bottom-nav shell) on mobile. Desktop
   // keeps the Kanban + drawer for now.
-  const isWallaby = (settingsForRings.theme || '').startsWith('wallaby')
   // Kept presents the Boomerang IA (KeptShell: Today/Loops/Throw/Tasks/More)
   // on mobile. Desktop keeps the standard layout until K5's command center.
   const isKept = (settingsForRings.theme || '').startsWith('kept')
   // editTarget is the snapshot captured when the editor opened. Resolve the
-  // LIVE task for the editor modals so the Wallaby chip-editor → "More
+  // LIVE task for the editor modals so the quick-editor → "More
   // options" handoff doesn't show (and autosave back) values the chip editor
   // already changed — the full editor seeds its form from the task prop at
   // mount. Falls back to the snapshot for tasks not in local state (e.g.
   // server search results).
   const liveEditTarget = editTarget ? (tasks.find(t => t.id === editTarget.id) || editTarget) : null
-  // Use the chip-language quick editor for regular tasks on mobile (Wallaby
+  // Use the chip-language quick editor for regular tasks on mobile (Kept
   // AND Kept — the editor's --wb-* tokens bridge to the Kept palette);
   // projects/subs and "More options" fall through to the full EditTaskModal.
-  const useWallabyEditor = !!liveEditTarget && (isWallaby || isKept) && !isDesktop && !editFull
+  const useQuickEditor = !!liveEditTarget && isKept && !isDesktop && !editFull
     && liveEditTarget.status !== 'project' && !liveEditTarget.parent_id
   // Flat ordered list for desktop keyboard nav (j/k). Mirrors the visual order:
   // doing → stale → up next → waiting → snoozed → backlog → projects.
@@ -782,7 +780,7 @@ export default function AppV2() {
     setToast({ task, variant: 'reopen' })
     if (task?.trello_card_id) pushStatusToTrello(task, 'not_started')
     // Reopening a routine-spawned task must also drop its completed_history
-    // stamp, or the Wallaby grids/streaks keep counting the day as done
+    // stamp, or the Kept grids/streaks keep counting the day as done
     // (phantom). Mirror the stamp logic: ordinary routines stamp on every
     // completion (always remove); stacks stamp only on the last-member clear,
     // so remove only if this task's cycle was fully cleared.
@@ -800,7 +798,7 @@ export default function AppV2() {
   }, [uncompleteTask, pushStatusToTrello, routines, tasks, uncompleteRoutine])
 
   // Single shortcut into the canonical routine-completion path, shared by the
-  // Wallaby and Kept shells. Routes through the real surfaced task so
+  // the Kept shells. Routes through the real surfaced task so
   // completeRoutine stays the lone completed_history writer (the doubling
   // bug); raw-toggles the stamp only when no concrete task applies (past-day
   // backfill, or today with nothing surfaced).
@@ -1234,7 +1232,7 @@ export default function AppV2() {
       {/* Bottom tab bar — mobile only. Hidden on desktop (which has
        * its own Kanban + side-drawer navigation pattern). The strip
        * itself also has a @media gate as belt-and-suspenders. */}
-      {!isDesktop && !isWallaby && !isKept && (
+      {!isDesktop && !isKept && (
         <BottomTabs
           activeTab={activeTab}
           onTabChange={(next) => {
@@ -1252,58 +1250,8 @@ export default function AppV2() {
         />
       )}
 
-      {/* Wallaby shell — the loggd IA (Home/Habits/Tasks/Timer/More) on mobile.
-        * Covers the standard list + header (z below the shared modals, which
-        * still open above it). Replaces BottomTabs in Wallaby mode. */}
-      {isWallaby && !isDesktop && (
-        <WallabyShell
-          tasks={tasks}
-          routines={routines}
-          projects={projectTasks}
-          labels={labels}
-          dailyStats={dailyStats}
-          streak={streak}
-          records={records}
-          lifetimeDone={tasks.filter(t => t.status === 'done').length}
-          onToggleHabit={toggleHabitDay}
-          onSpawnStackToday={(routineId) => {
-            const spawned = spawnNow(routineId)
-            if (spawned && spawned.length) addSpawnedTasks(spawned)
-            return spawned
-          }}
-          onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
-          onToggleItem={(task, clId, itemId) => {
-            const checklists = (task.checklists || []).map(cl =>
-              cl.id !== clId ? cl : { ...cl, items: (cl.items || []).map(it => it.id === itemId ? { ...it, completed: !it.completed } : it) },
-            )
-            updateTask(task.id, { checklists })
-          }}
-          onOpenTask={(task) => setEditTarget(task)}
-          onAddTask={() => setShowAdd(true)}
-          onAddGoal={() => { setCreateAsProject(true); setShowAdd(true) }}
-          onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
-          onDeleteTask={(task) => deleteTask(task.id)}
-          onAddHabit={() => setShowRoutines(true)}
-          onEditHabit={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
-          onArchiveHabit={(r) => togglePause(r.id)}
-          onDeleteHabit={(r) => deleteRoutine(r.id)}
-          onLogSession={(p) => logProjectSession(p.id)}
-          onCompleteProject={(p) => handleComplete(p.id)}
-          onEditProject={(p) => setEditTarget(p)}
-          onSetAsideProject={(p) => updateTask(p.id, { status: 'backlog' })}
-          onDeleteProject={(p) => deleteTask(p.id)}
-          onOpenSettings={() => setShowSettings(true)}
-          onOpenPackages={() => setShowPackages(true)}
-          onOpenAnalytics={() => setShowAnalytics(true)}
-          adviser={adviserState}
-          onOpenEasterEgg={openEasterEgg}
-          syncStatus={syncStatus}
-          queueLength={queueLength}
-        />
-      )}
-
       {/* Kept shell — the Boomerang IA (Today/Loops/Throw/Tasks/More) on
-        * mobile. Shares every handler with the Wallaby shell; Quokka lives in
+        * mobile; Quokka lives in
         * the Kept header. Desktop keeps the standard layout until K5. */}
       {isKept && !isDesktop && (
         <KeptShell
@@ -1443,8 +1391,8 @@ export default function AppV2() {
         createAsProject={createAsProject}
       />
 
-      {editTarget && useWallabyEditor && (
-        <WallabyEditTask
+      {editTarget && useQuickEditor && (
+        <QuickEditTask
           task={liveEditTarget}
           onSave={handleEditModalSave}
           onClose={() => setEditTarget(null)}
@@ -1454,7 +1402,7 @@ export default function AppV2() {
         />
       )}
 
-      {editTarget && !useWallabyEditor && (
+      {editTarget && !useQuickEditor && (
         <EditTaskModal
           task={liveEditTarget}
           onSave={handleEditModalSave}

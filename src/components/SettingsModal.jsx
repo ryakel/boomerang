@@ -2467,8 +2467,7 @@ export default function SettingsModal({
           <div className="v2-settings-form">
             {(() => {
               const currentTheme = settings.theme || 'light'
-              const family = currentTheme.startsWith('wallaby') ? 'wallaby'
-                : currentTheme.startsWith('kept') ? 'kept' : 'standard'
+              const family = currentTheme.startsWith('kept') ? 'kept' : 'standard'
               const mode = currentTheme.endsWith('dark') ? 'dark' : 'light'
               const setTheme = (nextFamily, nextMode) => {
                 const value = nextFamily === 'standard'
@@ -2482,12 +2481,11 @@ export default function SettingsModal({
                   <div className="v2-settings-row v2-settings-row-stacked">
                     <div className="v2-settings-row-text">
                       <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm hairline UI. Wallaby is the navy heatmap dashboard. Kept is the new Boomerang language — warm Smoke/Linen canvases with ember + gold, arcs not grids.</div>
+                      <div className="v2-settings-row-hint">Standard is the calm hairline UI. Kept is the Boomerang language — warm Smoke/Linen canvases with ember + gold, arcs not grids.</div>
                     </div>
                     <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
                       {[
                         { value: 'standard', label: 'Standard' },
-                        { value: 'wallaby', label: 'Wallaby' },
                         { value: 'kept', label: 'Kept' },
                       ].map(opt => (
                         <button

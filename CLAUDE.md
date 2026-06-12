@@ -961,195 +961,28 @@ in store.js + the index.html pre-paint script) that silently upgrade stored
 `terminal`/`terminal-dark`/`terminal-light` values to wallaby equivalents —
 keep those until prod data can't contain terminal values anymore.
 
-### Wallaby Theme + IA Remap (2026-06-06, in progress)
+### Wallaby Theme + IA Remap (REMOVED 2026-06-12, K6 teardown)
 
-A deep-navy, **heatmap-first dashboard** design language modeled on
-[loggd.life](https://loggd.life) (reference screenshots: per-color habit
-contribution grids, segmented Single/Week/Month controls, semantic action
-buttons, colorful FABs, a profile year-grid). This is a **full IA remap** in
-progress — Boomerang's surfaces are being rebuilt to match the loggd structure,
-not just re-skinned. Concept mapping: **routines → habits**, **projects →
-goals**, tasks → tasks, plus a **profile/dashboard**. (Named Wallaby — another
-Australian marsupial, sibling to the Quokka adviser. The earlier "Loggd"-named
-attempt was torn out and reset; do not reintroduce that name.)
+Wallaby (the loggd.life-inspired navy heatmap dashboard) was fully torn out
+in the K6 demolition: `src/wallaby/` deleted (shell, Home/Habits/Tasks/
+Profile/Goals/Notifications views, nav, header, ContributionHeatmap,
+shared.css de-pill overrides, wallaby palette blocks), the Wallaby family
+removed from the theme picker / theme.js / index.html pre-paint, and every
+`[data-theme^="wallaby"]` gate stripped. **Survivors relocated to
+`src/kept/`** (they were load-bearing for Kept):
+- `heatmapUtils.js` (historyByDay/currentStreak/etc.)
+- `WallabyEditTask` → **`src/kept/QuickEditTask.{jsx,css}`** — the Kept
+  mobile quick editor (still wb-classed; bm-first rebuild is future polish)
+- `modals.css` / `forms.css` / `settings.css` / `analytics.css` — the
+  full-page-modal + form/settings/analytics override sheets, gates narrowed
+  to `[data-theme^="kept"]`
+- `wb-compat.css` — the base `--wb-*` token defaults + the Quokka toolbar
+  `.wb-icon-btn` rules, kept so wb-token components resolve in every theme
+  (dies when QuickEditTask is rebuilt bm-first)
 
-**Theme model (4 palettes).** Settings → General → Theme is a **family** toggle
-(Standard / Terminal / **Wallaby**) × a Light/Dark mode → `wallaby-dark`
-(flagship) and `wallaby-light`. Like the built-in dark theme, Wallaby OVERRIDES
-the shared `--v2-*` tokens; Wallaby-specific structural tokens are namespaced
-`--wb-*`. All of it lives in **`src/wallaby/`**.
-
-**Theme registration — two sync points (keep in lockstep):** `index.html`
-(pre-paint map — can't import modules) and **`src/theme.js`** (`THEME_COLORS`
-+ `applyTheme()`, consumed by the AppV2 mount effect and the Settings picker;
-consolidated in Kept K0). A base `:root[data-ui="v2"]` block in `palette.css` defines `--wb-*`
-defaults for *every* v2 theme so the Wallaby surfaces always resolve their
-tokens even if reached from a non-Wallaby theme.
-
-**`src/wallaby/`:**
-- `palette.css` — base `--wb-*` defaults + `wallaby-dark` / `wallaby-light`
-  (card surfaces, per-habit accents blue/purple/green/orange/pink, heatmap
-  cells, semantic action colors orange=primary/green=complete/yellow=pause/
-  red=delete/slate=secondary, FAB colors). Imported via `AppV2.css`.
-- `ContributionHeatmap.{jsx,css}` — GitHub-style grid (weeks × 7 days,
-  local-time bucketing, per-color intensity). Theme-agnostic; sizes off inline
-  `--wb-cell`/`--wb-gap` props.
-- `heatmapUtils.js` — `historyByDay`, `WALLABY_COLORS` + `routineColors()`
-  (the ONE color-identity rule: a routine's accent = its index in the FULL
-  routines list, used by Home/Habits/Profile so a habit keeps its color on
-  every surface and pausing another routine doesn't reshuffle anyone),
-  `currentStreak`/`longestStreak`, `parseLocalDate` + `localYMD` (date-only
-  strings are LOCAL days — see gotcha below), `weekStart`/`addDays`/`fmtMonthDay`.
-- `HabitsView.{jsx,css}` — the **Habits** screen. Routines (filtered to
-  non-paused) as habit cards: color icon tile + title + streak/count badges +
-  the grid. Range tabs **Single** (rolling heatmap + month labels) / **Month**
-  (calendar) / **Year** (53-week heatmap). Tapping a card opens the **habit
-  detail** (loggd `IMG_1586`): Streak/Best/Total stat cards, a month completion
-  calendar (stepper + N-done/%), Edit (→ routine editor) / Archive (→
-  `togglePause`) / Delete (→ `deleteRoutine`). Distinct per-habit color by list
-  index. Purple FAB.
-- `TasksView.{jsx,css}` — the **Tasks** screen. Segmented Upcoming/Backlog,
-  tasks grouped (Overdue/Today/Upcoming/Anytime), pink square checkboxes
-  (orange for high-pri), label chips from `tags`, nested checklist items as
-  circular sub-checkboxes, search filter, green FAB.
-- `ProfileView.{jsx,css}` — the **Profile/Dashboard** screen. Gradient avatar +
-  "Your year" header, scrollable colorful stat pills (streak / points / done /
-  best streak / lifetime), an Activity 53-week year-grid (Tasks/Points toggle,
-  from `/api/analytics/history`), and per-habit grids. Stat values passed from
-  AppV2; year history fetched internally.
-- `GoalsView.{jsx,css}` — the **Goals** screen (projects as goals). List of goal
-  cards + a detail with a metric card (child-step `done/total` or
-  `session_count`, progress bar, `computeProjectBudget`), a "Why this matters"
-  notes block, and semantic action buttons (orange Log session / slate Edit /
-  green Complete / yellow Set aside / red Delete, two-tap confirm).
-
-- `HomeView.{jsx,css}` — the **Home** daily agenda (loggd `IMG_1582`). Date hero
-  + Sunday-anchored week strip (activity dots), a streak-at-risk banner, and
-  today's habits (non-paused routines) as checkable rows; the per-habit-colored
-  check toggles today's entry in `completed_history`.
-- `WallabyHeader.{jsx,css}` — persistent top app bar: the bouncing `BOOMERANG`
-  wordmark (reuses global `.v2-header-wordmark`, sync-bounce wired to
-  `syncStatus`) + `Logo` to its right; then **Quokka** (Sparkles) + 🔔 bell +
-  avatar. Bell → notifications center; avatar → Profile. (Routines display as
-  "Habits" — label only, no data rename.)
-- `NotificationsView.{jsx,css}` — notifications center reading the existing
-  `GET /api/notifications/log` (All/Unread, grouped Today/Yesterday/Earlier,
-  type-colored icons, optimistic mark-all-read). Reskin — no new data.
-- `WallabyNav.{jsx,css}` + `WallabyShell.{jsx,css}` — the loggd IA. A fixed 5-tab
-  bottom nav (**Home · Habits · Quokka · Tasks · More**) + the top header, over
-  the active surface. **Quokka** is its own page (the adviser rendered inline via
-  `.wb-quokka-page`, which strips the ModalShell chrome; the surface stops above
-  the nav). **More** routes to Profile · Goals · Analytics · **Packages** (real
-  modal) · **Timer** (coming-soon) · Vision (soon) · Daily (soon) · Settings.
-  (Header carries brand + bell + avatar only; tab icons color only when active.)
-
-**How the surfaces are reached (Wallaby mode).** `AppV2` renders `<WallabyShell>`
-(`position:fixed`, z-40 — covers the standard header + list) when
-`isWallaby && !isDesktop`, and skips the standard `BottomTabs`. The shell owns
-tab state (Home/Habits/Tasks/Timer/More) and a `sub` state for Profile/Goals
-opened from More. Shared modals render as **full pages** (no slide-up sheet) on
-mobile in Wallaby, via `src/wallaby/modals.css`, which handles two cases by
-DOM nesting:
-- **Overlay modals opened on top of the shell** (Edit/Add/Settings/Analytics/
-  Packages/Snooze/… — rendered by `AppV2` as siblings of `.wb-shell`, z-100) get
-  `inset: 0`: a **true full-screen takeover** that covers the WallabyHeader +
-  WallabyNav too. This is deliberate — the old version pinned the overlay
-  *between* header and nav (`bottom: 64px`), but the nav is content-sized, so a
-  clickable strip of the Home surface showed through below the overlay and the
-  header/nav stayed interactive behind the "page" (taps leaked through). Full-screen
-  takeover means nothing behind is reachable. The dismiss control is a **back
-  arrow** (top-left, like the drill-down views) — `ModalShell` swaps the X for a
-  lucide `ArrowLeft` when `useWallabyMode() && !useIsDesktop()` (class
-  `v2-modal-back`), styled in `modals.css` to match `.wb-back`. (User: "Packages
-  has this x instead of the back arrow.")
-- **Quokka** (`.wb-shell .v2-modal-overlay`) is rendered as the shell's active
-  *surface* for the Quokka nav tab, so it keeps the header + nav visible and sits
-  in the band between them (you leave it via the nav, like any tab). Its dismiss
-  control is hidden (`.wb-shell .v2-modal-close { display:none }`) — a tab isn't
-  an overlay you dismiss. The full-screen overlay modals keep their back arrow.
-Both strip the animation/rounded-card chrome and fill the page.
-Tapping a task → `EditTaskModal`, checkbox → `handleComplete`, subtask →
-`updateTask({checklists})`, Home check → toggle `completed_history` today, Goals
-Log session → `logProjectSession` etc. Desktop keeps Kanban + drawer. The old
-`.v2-habits-overlay` Spaces entries (`showHabits`/`showTasks`/`showProfile`/
-`showGoals`) remain wired but are now fully unreachable — the shell covers the
-Spaces hub in Wallaby, and the four Wallaby-native launcher rows
-(Dashboard/Habits/Tasks/Goals) were removed from `SpacesHub` (2026-06-07) because
-they leaked Wallaby surfaces into the **Standard** theme's hub. The Standard hub
-is back to Projects / Routines / Knowledge; the dead overlay blocks are kept as a
-fallback until the shell fully subsumes them.
-
-**Dev-only render harness.** `wallaby-preview.html` + `src/wallaby-preview.jsx`
-mount `HabitsView` in isolation (mock or API-injected routines) for
-screenshot verification. NOT imported by `index.html`, so it never ships to
-prod or affects the running app. Verified via a headless-Chromium (puppeteer)
-screenshot loop — render before claiming a surface works.
-
-**Running backlog of every observed loggd feature** (reskin status + deferred
-net-new features like Timer / Vision / Daily mood / gamification / notifications
-center / habit templates) lives in **`wiki/Wallaby-Ideas.md`** — keep it current
-as the reskin proceeds and new reference comes in.
-
-**Verifying UI changes in a session** (build a server + headless-screenshot it):
-see **`wiki/Local-Verification-Harness.md`** — the reproducible runbook (matching
-`APP_VERSION` build, seeded background server, theme injection via localStorage,
-puppeteer `domcontentloaded` + in-page clicks, `elementFromPoint` layering
-diagnostics) with every trap spelled out. Render before claiming a surface works.
-
-**Reskin still to do:** tabbed **Analytics** restructure (Overview/Habits/Tasks
-tabs) — but it's mostly gated behind deferred features (focus-time/mood) and
-would touch the *shared* AnalyticsModal, so it's parked. (Done: Tasks
-Done-tab + grouping + checkbox colors + action sheet; Settings + Analytics
-visual reskin; full-page modals; **Home daily-summary card** + **Profile Records
-strip**. The remaining Home "Today's Pulse" gaps — daily mood / vision whisper —
-are deferred net-new features, not reskin.)
-
-**Wallaby gotchas (dates):**
-- `store.localYMD(d)` requires a **Date** (`d.getFullYear()`), NOT an ISO
-  string — wrap completion timestamps in `new Date(ts)`. The Wallaby
-  `heatmapUtils.localYMD` handles strings; don't mix them up. (This silently
-  broke the Home habit check — the throw aborted the handler.)
-- **Never `new Date('YYYY-MM-DD')` on a date-only string** (e.g. `due_date`) —
-  it parses as UTC midnight, which is the PREVIOUS local day anywhere west of
-  UTC (a task due today bucketed as overdue). Use `heatmapUtils.parseLocalDate`
-  (local-midnight for date-only strings, normal parse otherwise); Wallaby's
-  `localYMD` also returns date-only strings as-is. Fixed 2026-06-10 in
-  TasksView grouping/dueMeta, GoalsView target date, and `longestStreak`.
-
-**Wallaby design-coherence conventions (2026-06-10):** shared control
-primitives (`.wb-back`, `.wb-seg`, `.wb-stepper`, `.wb-fab`, the `.wb-btn`
-semantic family, `.wb-confirm`) are defined ONCE in `shared.css` — per-view
-stylesheets may add scoped layout overrides (`.wb-tasks .wb-seg { width: 100% }`)
-but never restyle them (two views had drifted `.wb-btn` definitions whose
-winner depended on CSS import order). Active-state rule: **view/range tabs**
-(Single/Month/Year, Upcoming/Backlog/Done, All/Unread, Analytics tabs) use the
-slate `--wb-card-3` fill; **form value-pick segments** (Status/Size/Theme/Mode
-in forms.css + settings.css) use the green `--wb-action-complete` fill. New
-tokens: `--wb-on-action` (fg on saturated fills — no raw `#fff` in wallaby
-CSS/JSX), `--wb-on-pause`, `--wb-scrim`, `--wb-shadow-pop`, `--wb-shadow-press`
-(all palette-aware so wallaby-light renders correctly). Energy accents in
-`WallabyEditTask` map to `--wb-cat-*` tokens.
-
-**Routine completion = one history stamp per path (2026-06-08).** The Wallaby
-grids/streaks (`HomeView`/`HabitsView`/`ProfileView`) read `routine.completed_history`;
-the habit meter ("1/2 this week") + analytics read **done tasks**
-(`countHabitCompletions`). `completed_history` must be stamped **exactly once per
-completion** or grids double-count. The writers: `completeRoutine` (auto routines,
-on task completion via `handleComplete`), `logHabit` (habit-mode born-done task —
-stamps inline), `skipCycle`, and the "Last done" editor. The **reopen** counterpart
-is `uncompleteRoutine(id, ymd)` (removes one same-day entry), called from
-`handleUncomplete`. The Wallaby Home checkbox (`onToggleHabit`) is a *shortcut into
-these paths*, NOT a raw writer for today — it completes/reopens the real task so
-`completeRoutine` stays the lone stamp (the old raw write doubled the day whenever
-the task was also completed normally). It writes `completed_history` directly only
-when no concrete task applies — **past days** (backfill) or **today with nothing
-surfaced** — and that direct write is a *toggle* (check adds, re-tap removes), not
-an append. **Stacks** stamp history only on
-the last-member clear; their Home rows go through `onCompleteTask`, and reopen
-removes the stamp only when the full cycle is being un-cleared. Don't reintroduce a
-second writer for today.
-**Deferred net-new features (after reskin):** Timer, Vision (eulogy/bucket list),
-Daily mood-journal, XP/levels/achievements, notifications gamification.
+**Theme migration shims** (keep until prod data can't contain old values):
+`loadSettings()` in store.js + the index.html pre-paint script silently
+collapse any stored `terminal*`/`wallaby*` theme onto `kept-dark`/`kept-light`.
 
 ### Kept — the public-facing design language (2026-06-10, approved direction)
 

@@ -5,7 +5,7 @@ import DensityRibbon from './DensityRibbon'
 import CycleChips from './CycleChips'
 import LoopDetail from './LoopDetail'
 import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally } from './cycles'
-import { historyByDay } from '../wallaby/heatmapUtils'
+import { historyByDay } from './heatmapUtils'
 import { routineFeathers } from './feathers'
 import './shell.css'
 
