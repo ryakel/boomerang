@@ -1401,6 +1401,7 @@ export default function AppV2() {
           onOpenActivity={() => setShowActivityLog(true)}
           onOpenNotifications={() => setShowNotifications(true)}
           onOpenFlightLog={() => setShowFlightLog(true)}
+          onStatusChange={handleStatusChange}
           onOpenSuggestions={() => setShowSuggestions(true)}
           syncStatus={syncStatus}
           queueLength={queueLength}

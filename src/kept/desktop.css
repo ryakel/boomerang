@@ -105,3 +105,50 @@
 .bm-rail-row { padding: 9px 0; }
 .bm-rail-row .bm-chk { width: 19px; height: 19px; }
 .bm-rail-empty { color: var(--bm-text-meta); font-size: 12.5px; padding: 8px 2px; }
+
+/* Board view mode (BoardView.jsx, K5) — status columns with native DnD */
+.bm-view-toggle { display: flex; gap: 4px; }
+.bm-board { display: flex; gap: 14px; align-items: flex-start; }
+.bm-board-col {
+  flex: 1 1 0; min-width: 0;
+  background: var(--bm-card);
+  border: 1px solid var(--bm-hairline);
+  border-radius: 14px;
+  padding: 10px;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.bm-board-col.is-over {
+  border-color: var(--bm-ember);
+  background: color-mix(in srgb, var(--bm-ember) 6%, var(--bm-card));
+}
+.bm-board-head {
+  font: 700 11px/1 var(--v2-font-body);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--bm-text-meta);
+  padding: 4px 4px 10px;
+  display: flex; gap: 6px; align-items: center;
+}
+.bm-board-cards { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.bm-board-card {
+  display: flex; align-items: flex-start; gap: 7px;
+  background: var(--bm-bg);
+  border: 1px solid var(--bm-hairline);
+  border-radius: 10px;
+  padding: 10px 11px;
+  font-size: 13px; font-weight: 550; color: var(--bm-text);
+  cursor: grab;
+}
+.bm-board-card:active { cursor: grabbing; }
+.bm-board-card.is-dragging { opacity: 0.45; }
+.bm-board-card.is-done { opacity: 0.6; }
+.bm-board-card.is-done .bm-board-card-title { text-decoration: line-through; color: var(--bm-text-meta); }
+.bm-board-card-chk { color: var(--bm-ember); flex: 0 0 auto; margin-top: 2px; }
+.bm-board-card-title { flex: 1 1 auto; min-width: 0; }
+.bm-board-hi { color: var(--bm-ember); font-weight: 800; }
+.bm-board-empty {
+  border: 1px dashed var(--bm-hairline-strong);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  font-size: 11.5px; color: var(--bm-text-faint);
+}
