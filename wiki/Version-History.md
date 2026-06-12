@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- fix(notion): KB adoption reports REST-access failures with the share-the-database fix [S]
+  - Mystery solved (verified by fetching the user's database directly): there are TWO "Boomerang Knowledge" databases — the auto-created `742626dd…` (REST-shared, what the server synced) and `ee8d3826…` (the one the user actually uses, holding the real entries, NOT shared with the REST integration). When REST can't see a database, the MCP fallback returns only the SCHEMA — never rows — so the index sits empty while entries exist: the exact "connected but empty / schema instead of content" symptom.
+  - `verifyRestAccess` now returns a boolean, adoption carries `rest_access`, and the setup response includes a pointed hint when REST is blind: *"open the database → ⋯ → Connections → add your Boomerang integration, then Sync now."*
+
 - fix(ui): Quokka opens at the latest message [XS]
   - Reopening Quokka dropped you at the TOP of your last chat (prod report). The auto-scroll only fired on message changes and only moved the inner pane — on open, the chat hydrates async and Kept's outer page scroller stayed at the top. Both scrollers now land at the bottom on open (frame + post-hydration pass) and stay pinned during streaming. Recorded as diagnosis (d) in the Q-plan; Q2's single-scroller layout retires the dual-scroller problem for good.
   - Verified live: a seeded 29-message chat opens with the newest message in view, both scrollers at bottom.

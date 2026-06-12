@@ -1372,7 +1372,13 @@ app.post('/api/knowledge/setup', async (req, res) => {
       const result = await adoptKnowledgeDatabase({ databaseId: req.body.database_id, getData, setData })
       const refresh = await refreshKnowledgeIndex({ getData, setData })
         .catch(err => ({ ok: false, error: err.message, count: 0 }))
-      return res.json({ ...result, indexed: refresh?.count ?? 0, refresh_error: refresh?.ok === false ? refresh.error : undefined })
+      // No REST access = the MCP fallback can only see the database SCHEMA,
+      // never its rows — the index will sit empty no matter how many
+      // entries exist. Tell the user exactly what to do about it.
+      const hint = result.rest_access === false
+        ? 'Connected, but the Notion REST integration cannot read this database — its rows will not index. In Notion: open the database → ⋯ → Connections → add your Boomerang integration, then Sync now.'
+        : undefined
+      return res.json({ ...result, indexed: refresh?.count ?? 0, hint, refresh_error: refresh?.ok === false ? refresh.error : undefined })
     } catch (err) {
       console.error('[Knowledge] adopt failed:', err?.message)
       return res.status(400).json({ error: err.message || 'Could not connect that database' })

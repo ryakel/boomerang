@@ -55,7 +55,7 @@ async function verifyRestAccess(databaseId) {
   const token = process.env.NOTION_INTEGRATION_TOKEN
   if (!token) {
     console.warn('[Knowledge] No NOTION_INTEGRATION_TOKEN — REST operations (query, block reads) will use MCP fallback only')
-    return
+    return false
   }
   try {
     const res = await fetch(`${NOTION_BASE}/databases/${databaseId}`, {
@@ -66,6 +66,7 @@ async function verifyRestAccess(databaseId) {
     })
     if (res.ok) {
       console.log('[Knowledge] REST access verified — integration token can reach the KB database')
+      return true
     } else if (res.status === 404 || res.status === 403) {
       console.warn(
         `[Knowledge] WARNING: REST integration token CANNOT access the KB database (${res.status}). ` +
@@ -74,9 +75,11 @@ async function verifyRestAccess(databaseId) {
       )
     } else {
       console.warn(`[Knowledge] REST access check returned ${res.status} — may work, may not`)
+      return false
     }
   } catch (err) {
     console.warn('[Knowledge] REST access check failed:', err.message)
+    return false
   }
 }
 
@@ -169,9 +172,9 @@ export async function adoptKnowledgeDatabase({ databaseId, getData, setData }) {
   }
   setData(KNOWLEDGE_DB_KEY, id)
   setData(KNOWLEDGE_DB_URL_KEY, db.url || null)
-  await verifyRestAccess(id)
-  console.log(`[Knowledge] Adopted existing Notion database ${id}`)
-  return { database_id: id, url: db.url || null, created: false, adopted: true }
+  const restAccess = await verifyRestAccess(id)
+  console.log(`[Knowledge] Adopted existing Notion database ${id} (rest_access=${restAccess})`)
+  return { database_id: id, url: db.url || null, created: false, adopted: true, rest_access: restAccess }
 }
 
 // Query the DB and replace the local cache.
