@@ -341,13 +341,14 @@ function mergeDurableStreakSettings(prevSettings, nextSettings) {
       console.log(`[SYNC] ${key} guard: restored ${merged.length - next.length} entries dropped by incoming blob`)
     }
   }
-  const prevEggs = prevSettings?.easter_egg_wins
-  if (prevEggs && Object.keys(prevEggs).length > 0) {
-    const nextEggs = nextSettings.easter_egg_wins || {}
-    const missing = Object.keys(prevEggs).filter(k => !(k in nextEggs))
+  for (const key of ['easter_egg_wins', 'badges_earned']) {
+    const prevMap = prevSettings?.[key]
+    if (!prevMap || Object.keys(prevMap).length === 0) continue
+    const nextMap = nextSettings[key] || {}
+    const missing = Object.keys(prevMap).filter(k => !(k in nextMap))
     if (missing.length > 0) {
-      nextSettings.easter_egg_wins = { ...prevEggs, ...nextEggs }
-      console.log(`[SYNC] easter_egg_wins guard: restored ${missing.length} day(s) dropped by incoming blob`)
+      nextSettings[key] = { ...prevMap, ...nextMap }
+      console.log(`[SYNC] ${key} guard: restored ${missing.length} entr${missing.length === 1 ? 'y' : 'ies'} dropped by incoming blob`)
     }
   }
 }
