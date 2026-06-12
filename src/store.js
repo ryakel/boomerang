@@ -259,18 +259,11 @@ export function loadSettings() {
   }
   // Remove legacy notif_frequency field
   delete saved.notif_frequency
-  // Theme migration shims. Terminal was removed (2026-06-10) — old values
-  // upgrade silently: 'terminal' -> 'terminal-dark' -> wallaby-*. Saved back so
-  // the next read short-circuits.
-  if (saved.theme === 'terminal') {
-    saved.theme = 'terminal-dark'
-    save(SETTINGS_KEY, saved)
-  }
-  // Terminal mode turned OFF (2026-06-06): removed from the picker and migrated
-  // to Wallaby (the daily driver). Terminal CSS/components are kept in place
-  // (not ripped out), so this is reversible — only the stored preference flips.
-  if (saved.theme === 'terminal-dark' || saved.theme === 'terminal-light') {
-    saved.theme = saved.theme === 'terminal-light' ? 'wallaby-light' : 'wallaby-dark'
+  // Theme migration shims. Terminal was removed 2026-06-10 and Wallaby was
+  // torn down 2026-06-12 (K6) — every legacy value lands on Kept silently.
+  // Saved back so the next read short-circuits.
+  if (saved.theme && /^(terminal|wallaby)/.test(saved.theme)) {
+    saved.theme = saved.theme.endsWith('-light') ? 'kept-light' : 'kept-dark'
     save(SETTINGS_KEY, saved)
   }
 

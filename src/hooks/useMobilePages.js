@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 
 // True when the active theme uses the mobile "full-page modal" IA — the
-// Wallaby and Kept shells (overlay modals become full-screen pages with a
-// back arrow instead of sheets with an X). Subscribes to documentElement's
+// Kept shell (overlay modals become full-screen pages with a back arrow
+// instead of sheets with an X). Subscribes to documentElement's
 // data-theme via MutationObserver: theme flips happen by direct DOM mutation
 // (Settings + the pre-paint script), so no context is needed.
 const matches = () => {
   if (typeof document === 'undefined') return false
   const t = document.documentElement.getAttribute('data-theme') || ''
-  return t.startsWith('wallaby') || t.startsWith('kept')
+  return t.startsWith('kept')
 }
 
 export function useMobilePages() {

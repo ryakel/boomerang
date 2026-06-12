@@ -1,0 +1,60 @@
+/* wb-token compatibility layer (post-Wallaby-teardown survivor).
+ * The Kept quick editor (QuickEditTask) and the shared modal/forms override
+ * sheets were built on --wb-* tokens; kept/palette.css bridges them to
+ * --bm-* inside the kept theme blocks. This base block keeps every --wb-*
+ * var RESOLVABLE in non-kept themes so those components never render with
+ * unset custom properties. Dies when the quick editor is rebuilt bm-first.
+ */
+
+:root[data-ui="v2"] {
+  --wb-bg: #0E1322;
+  --wb-card: #161C2D;
+  --wb-card-2: #1E2638;
+  --wb-card-3: #232C42;
+  --wb-hairline: rgba(255, 255, 255, 0.08);
+  --wb-hairline-strong: rgba(255, 255, 255, 0.14);
+  --wb-text: #EAEEF7;
+  --wb-text-meta: rgba(234, 238, 247, 0.56);
+  --wb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.28);
+  --wb-cat-blue: #4F8DF5;
+  --wb-cat-purple: #8C7CF0;
+  --wb-cat-green: #41C083;
+  --wb-cat-orange: #F0973E;
+  --wb-cat-pink: #EA6C9D;
+  --wb-heat-empty: #1B2235;
+  --wb-heat-border: rgba(255, 255, 255, 0.03);
+  --wb-action-primary: #F0853A;
+  --wb-action-complete: #34C27E;
+  --wb-action-pause: #E6B43E;
+  --wb-action-delete: #E5564B;
+  --wb-action-secondary: #2A3348;
+  --wb-fab-habits: #7C5CF0;
+  --wb-fab-tasks: #34C27E;
+  /* Foreground on saturated action/category fills (buttons, FABs, filled
+   * checks). The action colors stay saturated in both palettes, so this is
+   * constant — but every consumer goes through the token, never raw #fff. */
+  --wb-on-action: #fff;
+  /* Pause yellow is the one light action color — dark text in both palettes. */
+  --wb-on-pause: #231A06;
+  /* Overlay scrim + elevated shadows (overridden per palette below). */
+  --wb-scrim: rgba(5, 8, 16, 0.55);
+  --wb-shadow-pop: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --wb-shadow-press: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* Quokka toolbar icon buttons (used by AdviserModal in mobile-pages mode) */
+.wb-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--wb-hairline);
+  background: var(--wb-card);
+  color: var(--wb-text-meta);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.wb-icon-btn.is-active { color: var(--wb-text); border-color: var(--wb-hairline-strong); }
+
+

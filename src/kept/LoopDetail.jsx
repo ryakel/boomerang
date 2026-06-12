@@ -3,7 +3,7 @@ import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2 } from 'lucide-re
 import MonthDots from './MonthDots'
 import CycleChips from './CycleChips'
 import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally } from './cycles'
-import { historyByDay } from '../wallaby/heatmapUtils'
+import { historyByDay } from './heatmapUtils'
 import { formatCadence, formatScheduleAnchor } from '../store'
 import './shell.css'
 

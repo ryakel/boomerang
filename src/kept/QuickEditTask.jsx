@@ -8,7 +8,7 @@ import AutosaveIndicator from '../components/AutosaveIndicator'
 import DateField from '../components/DateField'
 import { useTaskForm } from '../hooks/useTaskForm'
 import { loadLabels, uuid } from '../store'
-import './WallabyEditTask.css'
+import './QuickEditTask.css'
 
 const STATUSES = [
   { id: 'not_started', label: 'Not started' },

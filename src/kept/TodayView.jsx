@@ -3,7 +3,7 @@ import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass } from 'lucide-r
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD, parseLocalDate } from '../dates'
-import { historyByDay, currentStreak } from '../wallaby/heatmapUtils'
+import { historyByDay, currentStreak } from './heatmapUtils'
 import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate, loadSettings } from '../store'
 import { calculateTaskPoints } from '../scoring'
 import { routineFeathers } from './feathers'

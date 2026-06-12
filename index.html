@@ -15,30 +15,23 @@
     <title>Boomerang</title>
     <script>
       // Apply the theme before first paint so v2 tokens (and the chosen
-      // light/dark/wallaby variant) are in scope before React mounts.
+      // light/dark/kept variant) are in scope before React mounts.
       // Critical for the ErrorBoundary fallback: if AppV2 throws on first
       // render, the boundary still renders with the right tokens applied.
       // (v1 was removed 2026-06-10 — v2 is unconditional.)
       try {
         document.documentElement.setAttribute('data-ui', 'v2')
         var s = JSON.parse(localStorage.getItem('boom_settings_v1'))
-        // Migrate legacy 'terminal' to 'terminal-dark' before pre-paint so
-        // the right palette tokens are scoped from the very first frame.
-        if (s && s.theme === 'terminal') {
-          s.theme = 'terminal-dark'
-          try { localStorage.setItem('boom_settings_v1', JSON.stringify(s)) } catch(_) {}
-        }
-        // Terminal mode turned off (2026-06-06): migrate to Wallaby pre-paint so
-        // current terminal users don't flash the terminal palette on first load.
-        if (s && (s.theme === 'terminal-dark' || s.theme === 'terminal-light')) {
-          s.theme = s.theme === 'terminal-light' ? 'wallaby-light' : 'wallaby-dark'
+        // Legacy theme migration (terminal removed 2026-06-10, Wallaby torn
+        // down 2026-06-12): collapse every old value onto Kept pre-paint so
+        // nobody flashes a dead palette on first load.
+        if (s && s.theme && /^(terminal|wallaby)/.test(s.theme)) {
+          s.theme = /-light$/.test(s.theme) ? 'kept-light' : 'kept-dark'
           try { localStorage.setItem('boom_settings_v1', JSON.stringify(s)) } catch(_) {}
         }
         var themeColors = {
           light: '#FFFFFF',
           dark: '#0B0B0F',
-          'wallaby-dark': '#0E1322',
-          'wallaby-light': '#F4F6FB',
           'kept-dark': '#16140F',
           'kept-light': '#F8F4ED'
         }

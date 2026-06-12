@@ -5,8 +5,6 @@
 export const THEME_COLORS = {
   light: '#FFFFFF',
   dark: '#0B0B0F',
-  'wallaby-dark': '#0E1322',
-  'wallaby-light': '#F4F6FB',
   'kept-dark': '#16140F',
   'kept-light': '#F8F4ED',
 }

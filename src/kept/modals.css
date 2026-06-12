@@ -25,14 +25,14 @@
 
 @media (max-width: 767px) {
   /* ── Case 1: overlay modals → full-screen takeover ───────────────────────── */
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-overlay {
+  [data-theme^="kept"] .v2-modal-overlay {
     inset: 0;                       /* cover EVERYTHING — header + nav included */
     background: var(--wb-bg);
     align-items: stretch;
     justify-content: stretch;
     animation: none;
   }
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal {
+  [data-theme^="kept"] .v2-modal {
     min-height: 0;
     max-height: none;
     height: 100%;
@@ -45,7 +45,7 @@
   /* The page starts at the very top of the screen. The dismiss control is a
    * back arrow (top-LEFT, like the drill-down views), so the title drops below
    * it; the autosave slot still rides top-right. All pick up the notch inset. */
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-header {
+  [data-theme^="kept"] .v2-modal-header {
     padding: calc(72px + env(safe-area-inset-top)) 20px 16px;
   }
   /* Pinned-control underlay: scrolled content frosts out under the top strip
@@ -53,7 +53,7 @@
    * title report, then the "back button keeps overlapping shit" report).
    * Backdrop blur + translucent page tint + feathered mask — content visibly
    * dissolves behind the control, reading as intentional. Clicks pass through. */
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal::before {
+  [data-theme^="kept"] .v2-modal::before {
     content: "";
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -68,10 +68,10 @@
   }
   /* The Quokka tab surface keeps the app header + nav — no pinned back
    * control there, so no frosting band over the header. */
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) :is(.wb-shell, .bm-shell) .v2-modal::before {
+  [data-theme^="kept"] .bm-shell .v2-modal::before {
     display: none;
   }
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-back {
+  [data-theme^="kept"] .v2-modal-back {
     /* .v2-modal is the page SCROLLER — absolute positioning rode along with
      * the content, so the back button scrolled off-screen on long pages.
      * The page covers the viewport, so fixed = pinned top-left. */
@@ -87,32 +87,32 @@
     border: 1px solid var(--wb-hairline);
     color: var(--wb-text);
   }
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-header-slot { position: fixed; z-index: 5; top: calc(22px + env(safe-area-inset-top)); }
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-title { font-size: 26px; }
+  [data-theme^="kept"] .v2-modal-header-slot { position: fixed; z-index: 5; top: calc(22px + env(safe-area-inset-top)); }
+  [data-theme^="kept"] .v2-modal-title { font-size: 26px; }
   /* Give the body bottom safe-area room so the last controls clear the home bar. */
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-modal-body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  [data-theme^="kept"] .v2-modal-body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 
   /* ── Case 2: Quokka surface (inside the shell) → keep header + nav ───────── */
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) :is(.wb-shell, .bm-shell) .v2-modal-overlay {
+  [data-theme^="kept"] .bm-shell .v2-modal-overlay {
     top: calc(52px + env(safe-area-inset-top));       /* below the WallabyHeader */
     right: 0;
     bottom: calc(64px + env(safe-area-inset-bottom)); /* stop above the WallabyNav */
     left: 0;
     background: transparent;
   }
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) :is(.wb-shell, .bm-shell) .v2-modal-header { padding: 22px 20px 16px; }
+  [data-theme^="kept"] .bm-shell .v2-modal-header { padding: 22px 20px 16px; }
   /* No close X on Quokka — it's a nav tab, you leave it via the bottom nav (not
    * an overlay you dismiss). The X is only for the full-screen overlay modals
    * that cover the nav. */
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) :is(.wb-shell, .bm-shell) .v2-modal-close { display: none; }
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) :is(.wb-shell, .bm-shell) .v2-modal-header-slot { top: 24px; }
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) :is(.wb-shell, .bm-shell) .v2-modal-body { padding-bottom: 16px; }
+  [data-theme^="kept"] .bm-shell .v2-modal-close { display: none; }
+  [data-theme^="kept"] .bm-shell .v2-modal-header-slot { top: 24px; }
+  [data-theme^="kept"] .bm-shell .v2-modal-body { padding-bottom: 16px; }
 
   /* Quokka: pull Chats + New-chat up into the title row as icon buttons (like
    * the Tasks header), pinned top-right. The toolbar lives in the flex body
    * (which is overflow:hidden, not the scroller), and its containing block is
    * `.v2-modal`, so absolute-positioning it here doesn't scroll or get clipped. */
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) :is(.wb-shell, .bm-shell) .v2-adviser-toolbar {
+  [data-theme^="kept"] .bm-shell .v2-adviser-toolbar {
     position: absolute;
     top: 14px;
     right: 16px;
@@ -122,12 +122,12 @@
     border: none;
     gap: 8px;
   }
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) :is(.wb-shell, .bm-shell) .v2-adviser-toolbar .wb-icon-btn-accent {
+  [data-theme^="kept"] .bm-shell .v2-adviser-toolbar .wb-icon-btn-accent {
     background: var(--wb-cat-purple);
     border-color: var(--wb-cat-purple);
     color: var(--wb-on-action);
   }
 
   /* Quokka/adviser toolbar: spread chats / new-chat across the page width. */
-  :is([data-theme^="wallaby"], [data-theme^="kept"]) .v2-adviser-toolbar { justify-content: space-between; }
+  [data-theme^="kept"] .v2-adviser-toolbar { justify-content: space-between; }
 }
