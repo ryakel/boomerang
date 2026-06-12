@@ -1370,10 +1370,9 @@ app.post('/api/knowledge/setup', async (req, res) => {
   if (req.body?.database_id) {
     try {
       const result = await adoptKnowledgeDatabase({ databaseId: req.body.database_id, getData, setData })
-      await refreshKnowledgeIndex({ getData, setData }).catch(err => {
-        console.warn('[Knowledge] initial refresh failed:', err.message)
-      })
-      return res.json(result)
+      const refresh = await refreshKnowledgeIndex({ getData, setData })
+        .catch(err => ({ ok: false, error: err.message, count: 0 }))
+      return res.json({ ...result, indexed: refresh?.count ?? 0, refresh_error: refresh?.ok === false ? refresh.error : undefined })
     } catch (err) {
       console.error('[Knowledge] adopt failed:', err?.message)
       return res.status(400).json({ error: err.message || 'Could not connect that database' })
