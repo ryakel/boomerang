@@ -650,6 +650,23 @@ function IntegrationsPanel({
     return () => { cancelled = true }
   }, [statuses.notion?.connected])
 
+  const [kbExistingInput, setKbExistingInput] = useState('')
+  const runKnowledgeAdopt = async () => {
+    setKbError(null)
+    setKbSetupBusy(true)
+    try {
+      const api = await import('../api')
+      const result = await api.knowledgeSetup(null, kbExistingInput.trim())
+      const next = await api.knowledgeStatus()
+      setKbStatus(next || result)
+      setKbExistingInput('')
+    } catch (e) {
+      setKbError(e?.message || 'Could not connect that database')
+    } finally {
+      setKbSetupBusy(false)
+    }
+  }
+
   const runKnowledgeSetup = async () => {
     setKbError(null)
     setKbSetupBusy(true)
@@ -966,9 +983,26 @@ function IntegrationsPanel({
                             </div>
                           </>
                         ) : (
-                          <button className="v2-settings-btn" onClick={runKnowledgeSetup} disabled={kbSetupBusy || !settings.notion_sync_parent_id}>
-                            {kbSetupBusy ? 'Setting up…' : 'Set up Knowledge Base'}
-                          </button>
+                          <>
+                            <button className="v2-settings-btn" onClick={runKnowledgeSetup} disabled={kbSetupBusy || !settings.notion_sync_parent_id}>
+                              {kbSetupBusy ? 'Setting up…' : 'Set up Knowledge Base'}
+                            </button>
+                            <div className="v2-integrations-hint" style={{ marginTop: 10 }}>…or connect an existing database:</div>
+                            <div className="v2-integrations-toggle-row" style={{ gap: 8 }}>
+                              <input
+                                className="v2-form-input"
+                                style={{ flex: '1 1 auto', minWidth: 0 }}
+                                placeholder="Notion database URL or ID"
+                                value={kbExistingInput}
+                                onChange={e => setKbExistingInput(e.target.value)}
+                              />
+                              <button
+                                className="v2-settings-btn"
+                                disabled={kbSetupBusy || !kbExistingInput.trim()}
+                                onClick={runKnowledgeAdopt}
+                              >Connect</button>
+                            </div>
+                          </>
                         )}
                         {kbStatus?.last_sync && <div className="v2-integrations-hint">Last synced {new Date(kbStatus.last_sync).toLocaleString()}</div>}
                         {!settings.notion_sync_parent_id && !kbStatus?.configured && (
