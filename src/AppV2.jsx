@@ -18,6 +18,7 @@ import ProjectsView from './components/ProjectsView'
 import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import NotificationsModal from './components/NotificationsModal'
+import FlightLog from './kept/FlightLog'
 import RoutinesModal from './components/RoutinesModal'
 import WallabyShell from './wallaby/WallabyShell'
 import KeptShell from './kept/KeptShell'
@@ -91,6 +92,7 @@ export default function AppV2() {
   const [showDone, setShowDone] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showFlightLog, setShowFlightLog] = useState(false)
   const [showMarkdownImport, setShowMarkdownImport] = useState(false)
   const [updateVersion, setUpdateVersion] = useState(null)
   // SpacesHub is the destination for the Spaces tab. Opens a picker
@@ -515,6 +517,7 @@ export default function AppV2() {
   if (showDone) activeModals.push('done')
   if (showActivityLog) activeModals.push('activitylog')
   if (showNotifications) activeModals.push('notifications')
+  if (showFlightLog) activeModals.push('flightlog')
   if (showRoutines) activeModals.push('routines')
   if (showPackages) activeModals.push('packages')
   if (showAdviser) activeModals.push('adviser')
@@ -535,6 +538,7 @@ export default function AppV2() {
     if (showDone) { setShowDone(false); return }
     if (showActivityLog) { setShowActivityLog(false); return }
     if (showNotifications) { setShowNotifications(false); return }
+    if (showFlightLog) { setShowFlightLog(false); return }
     if (showRoutines) { setShowRoutines(false); return }
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
@@ -1344,6 +1348,7 @@ export default function AppV2() {
           onOpenDone={() => setShowDone(true)}
           onOpenActivity={() => setShowActivityLog(true)}
           onOpenNotifications={() => setShowNotifications(true)}
+          onOpenFlightLog={() => setShowFlightLog(true)}
           onOpenSuggestions={() => setShowSuggestions(true)}
           syncStatus={syncStatus}
           queueLength={queueLength}
@@ -1395,6 +1400,7 @@ export default function AppV2() {
           onOpenDone={() => setShowDone(true)}
           onOpenActivity={() => setShowActivityLog(true)}
           onOpenNotifications={() => setShowNotifications(true)}
+          onOpenFlightLog={() => setShowFlightLog(true)}
           onOpenSuggestions={() => setShowSuggestions(true)}
           syncStatus={syncStatus}
           queueLength={queueLength}
@@ -1563,6 +1569,15 @@ export default function AppV2() {
         open={showActivityLog}
         onClose={() => setShowActivityLog(false)}
         onRestore={handleRestore}
+      />
+      <FlightLog
+        open={showFlightLog}
+        onClose={() => setShowFlightLog(false)}
+        tasks={tasks}
+        routines={routines}
+        records={records}
+        streak={streak}
+        dailyStats={dailyStats}
       />
       <NotificationsModal
         open={showNotifications}

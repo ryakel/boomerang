@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- feat(ui): Flight log — the avatar's real destination (K4 complete) [M]
+  - The Kept header avatar opened Analytics — the last borrowed screen. It now opens the **Flight log**: a six-card records strip (↻ rally / best rally / lifetime / year points / best day / today, gold-iconed), **Your year** as a Density Ribbon with a Catches/Points toggle (arcs not grids, per the spec), and the full achievements wall with earned dates. Reads the analytics daily series; no new data. Analytics keeps its More-menu home.
+  - New `src/kept/FlightLog.{jsx → flightlog.css}`; avatar wiring threaded through KeptShell with the Analytics fallback.
+  - **K4 is complete**: bell → notifications center, loop card → detail page, avatar → Flight log. Every header affordance now leads to its own purpose-built surface.
+  - Verified live: avatar → Flight log with correct stats (records strip matches seeded data), ribbon renders, metric toggle flips, 6/24 badge wall embedded.
+
 - feat(ui): loop detail page + cycle-true rally (K4, part 2) [M]
   - **Tapping a loop card opens a real detail page** instead of dumping into the editor: back arrow + title + a deliberate Edit button, cadence/anchor/time meta, three stat cards (↻ rally / best / lifetime in the loop's feather color), a 16-chip "Recent cycles" trail, and a steppable month calendar (MonthDots with prev/next). The card's pencil still edits directly.
   - **Rally and best are now measured in the loop's own cycles** — consecutive weeks/months/intervals caught (`cycleRally` in cycles.js, computed over a 60-window depth) — replacing the calendar-day streak that read "↻ 1" forever on anything non-daily. Card chips and detail agree; the current in-flight cycle extends the rally only once caught and never breaks it.

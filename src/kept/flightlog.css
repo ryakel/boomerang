@@ -1,0 +1,61 @@
+/* Flight log (FlightLog.jsx, K4) — records strip + year ribbon + badge wall.
+ * Lives in a ModalShell page; bm tokens resolve in every v2 theme via the
+ * palette.css base block. */
+
+.bm-fl-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.bm-fl-stat {
+  background: var(--bm-card);
+  border: 1px solid var(--bm-hairline);
+  border-radius: 14px;
+  padding: 11px 8px 9px;
+  text-align: center;
+}
+.bm-fl-stat-icon { color: var(--bm-gold); }
+.bm-fl-stat-num {
+  margin-top: 3px;
+  font: 700 18px/1.1 var(--v2-font-display);
+  color: var(--bm-text);
+}
+.bm-fl-stat-cap {
+  margin-top: 3px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--bm-text-meta);
+}
+
+.bm-fl-year {
+  background: var(--bm-card);
+  border: 1px solid var(--bm-hairline);
+  border-radius: 16px;
+  padding: 14px 15px;
+  margin-bottom: 18px;
+}
+.bm-fl-year-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.bm-fl-year-title {
+  font-family: var(--v2-font-display);
+  font-weight: 700; font-size: 14.5px;
+  color: var(--bm-text);
+}
+.bm-fl-toggle { display: flex; gap: 4px; }
+.bm-fl-toggle-btn {
+  border: 1px solid var(--bm-hairline);
+  background: transparent;
+  color: var(--bm-text-meta);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: 600 11.5px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.bm-fl-toggle-btn.is-active {
+  background: var(--bm-ember);
+  border-color: var(--bm-ember);
+  color: var(--bm-on-ember);
+}
