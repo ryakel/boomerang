@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check, Flame } from 'lucide-react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, formatScheduleAnchor, getNextDueDate, computeHabitStats, localYMD } from '../store'
 import ModalShell from './ModalShell'
+import FormDisclosure from './FormDisclosure'
 import EmptyState from './EmptyState'
 import ChainReconcileModal from './ChainReconcileModal'
 import SectionLabel from './SectionLabel'
@@ -341,23 +342,6 @@ function FollowUpStepRow({ step, index, isFirst, isLast, onChange, onRemove, onM
         </button>
       </div>
     </li>
-  )
-}
-
-// Hairline disclosure row — the Kept editor language (design doc §13b):
-// the 2-3 decisions you actually make stay visible; everything else expands
-// in place. Collapsed rows show a summary of what's set inside.
-function FormDisclosure({ label, summary, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <div className={`v2-form-disclosure${open ? ' is-open' : ''}`}>
-      <button type="button" className="v2-form-disclosure-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        <span className="v2-form-disclosure-label">{label}</span>
-        {summary && !open && <span className="v2-form-disclosure-sum">{summary}</span>}
-        <ChevronDown size={15} strokeWidth={2} className="v2-form-disclosure-chev" />
-      </button>
-      {open && <div className="v2-form-disclosure-body">{children}</div>}
-    </div>
   )
 }
 
