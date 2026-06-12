@@ -1,11 +1,10 @@
 @import './tokens.css';
-@import './wallaby/palette.css';
+@import './kept/wb-compat.css';
 @import './kept/palette.css';
-@import './wallaby/settings.css';
-@import './wallaby/analytics.css';
-@import './wallaby/modals.css';
-@import './wallaby/forms.css';
-@import './wallaby/shared.css';
+@import './kept/settings.css';
+@import './kept/analytics.css';
+@import './kept/modals.css';
+@import './kept/forms.css';
 
 /* Match body bg to v2 app bg so any sub-pixel gap between the fixed
  * container and the screen edge is invisible. The v1 body uses --bg

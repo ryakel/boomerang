@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- feat(ui)!: K6 — Wallaby teardown [XL]
+  - **`src/wallaby/` is gone** (22 files): WallabyShell + the Home/Habits/Tasks/Profile/Goals/Notifications views, nav, header, ContributionHeatmap, the shared.css de-pill overrides, and the wallaby palette blocks. The Wallaby family is removed from the theme picker, `theme.js`, and the index.html pre-paint map.
+  - **Survivors relocated into `src/kept/`** (load-bearing for Kept): `heatmapUtils.js`; `WallabyEditTask` → `QuickEditTask.{jsx,css}` (the Kept mobile quick editor); the `modals/forms/settings/analytics` override sheets with gates narrowed from `:is(wallaby, kept)` to `kept` only; and a new `wb-compat.css` carrying the base `--wb-*` token defaults + the Quokka toolbar `.wb-icon-btn` rules so wb-token components resolve everywhere until the quick editor is rebuilt bm-first.
+  - **Theme migration**: stored `terminal*`/`wallaby*` values collapse silently onto `kept-dark`/`kept-light` in both `loadSettings()` and the pre-paint script — no dead-palette flash, no stranded users.
+  - AppV2 sheds the WallabyShell render block, `isWallaby`, and `useWallabyEditor` (now `useQuickEditor`, Kept-only); `useMobilePages` matches kept only.
+  - Verified live: stored `wallaby-dark` → boots as `kept-dark` (DOM + persisted) into the Kept shell; quick editor and full editor (5 disclosures) intact; theme picker reads Standard/Kept; Standard theme renders its own layout untouched. `npm test` 5/5, lint clean, build green.
+
 - feat(ui): Board view mode — Kanban demoted to a mode (K5 complete) [M]
   - The desktop Tasks surface gains a **List | Board** toggle: Board renders Up next / Doing / Waiting / Done as Kept-native columns with native drag-and-drop. Dragging a card between columns changes its status; **dropping on Done catches it** through the canonical completion handler (points, toast, undo all ride along); dragging out of Done reopens. Done column shows the last 15. Label filters compose; the board excludes gmail-pending, children, and stack members like the list does.
   - New `src/kept/BoardView.jsx` + `bm-board-*` styles; `boardable` + `onStatusChange` threaded through KeptDesktop only (mobile keeps the list).
