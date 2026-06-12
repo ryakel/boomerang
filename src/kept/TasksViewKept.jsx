@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, Search, Pencil, Trash2, X, Undo2 } from 'lucide-react'
+import { Check, Search, Pencil, Trash2, X, Undo2, ArrowUpDown } from 'lucide-react'
 import { localYMD, parseLocalDate, addDays } from '../dates'
 import { isSnoozed, formatSnoozeLabel } from '../store'
 import RowSwipe from './RowSwipe'
@@ -24,6 +24,10 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
   const [collapsed, toggleSection] = useCollapsedSections()
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
   const [labelFilter, setLabelFilter] = useState('all')
+  // Sort modes (prod-requested): 'due' keeps the grouped day-planner view;
+  // the others flatten to a single sorted list within the active tab+filters.
+  const [sortBy, setSortBy] = useState('due')
+  const [sortOpen, setSortOpen] = useState(false)
   // Stack members live in their Today folder (v2 dropped them from the main
   // sections too); they stay visible in Done as records.
   const stackIds = useMemo(() => new Set(
@@ -45,14 +49,28 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
     })
   }, [tasks, tab, query, labelFilter, stackIds])
 
-  const sections = useMemo(() => groupTasks(visible, tab), [visible, tab])
+  const sections = useMemo(() => {
+    if (sortBy === 'due' || tab === 'done' || tab === 'snoozed') return groupTasks(visible, tab)
+    const sorted = [...visible]
+    if (sortBy === 'newest') sorted.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    else if (sortBy === 'oldest') sorted.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+    else if (sortBy === 'az') sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    const label = sortBy === 'newest' ? 'Newest first' : sortBy === 'oldest' ? 'Oldest first' : 'A to Z'
+    return sorted.length ? [{ key: `sort-${sortBy}`, label, items: sorted }] : []
+  }, [visible, tab, sortBy])
 
   return (
     <div className="bm-surface">
       <div className="bm-title-row">
         <h1 className="bm-h1">Tasks</h1>
         <button
-          className="bm-back" style={{ marginLeft: 'auto' }}
+          className={`bm-back${sortBy !== 'due' ? ' is-active-sort' : ''}`} style={{ marginLeft: 'auto' }}
+          onClick={() => setSortOpen(o => !o)}
+          aria-label="Sort tasks"
+          aria-expanded={sortOpen}
+        ><ArrowUpDown size={15} strokeWidth={2} /></button>
+        <button
+          className="bm-back"
           onClick={() => { setSearchOpen(o => !o); if (searchOpen) setQuery('') }}
           aria-label="Search tasks"
         ><Search size={16} strokeWidth={2} /></button>
@@ -64,6 +82,13 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
             onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
+      {sortOpen && tab !== 'done' && tab !== 'snoozed' && (
+        <div className="bm-filter-row" aria-label="Sort order">
+          {[['due', 'By due date'], ['newest', 'Newest'], ['oldest', 'Oldest'], ['az', 'A–Z']].map(([id, label]) => (
+            <button key={id} className={`bm-pick bm-pick-sm${sortBy === id ? ' is-on' : ''}`} onClick={() => setSortBy(id)}>{label}</button>
+          ))}
+        </div>
+      )}
       {labels.length > 0 && tab !== 'done' && (
         <div className="bm-filter-row">
           <button className={`bm-pick bm-pick-sm${labelFilter === 'all' ? ' is-on' : ''}`} onClick={() => setLabelFilter('all')}>All</button>
