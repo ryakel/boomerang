@@ -480,6 +480,14 @@ containing a scrollable box.
 `wb-icon-btn` toolbar buttons, full-page-ified by override CSS designed
 for forms, not chat.
 
+**(d) Reopen lands at the TOP of the last chat** (prod report: "uber
+annoying — I have to either back out or scroll to the bottom"). The
+auto-scroll effect only fired on message changes and only scrolled the
+INNER pane — on open, messages hydrate async and the outer page scroller
+stayed at the top. Hotfixed 2026-06-12 (scroll both scrollers on open +
+after hydration settle); Q2's single-scroller layout removes the dual-
+scroller problem entirely and adds stick-to-bottom with a "↓ latest" pill.
+
 ### The plan — three phases, independently shippable
 
 **Q1 — Chat engine correctness (no visual change).**

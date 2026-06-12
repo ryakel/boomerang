@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- fix(ui): Quokka opens at the latest message [XS]
+  - Reopening Quokka dropped you at the TOP of your last chat (prod report). The auto-scroll only fired on message changes and only moved the inner pane — on open, the chat hydrates async and Kept's outer page scroller stayed at the top. Both scrollers now land at the bottom on open (frame + post-hydration pass) and stay pinned during streaming. Recorded as diagnosis (d) in the Q-plan; Q2's single-scroller layout retires the dual-scroller problem for good.
+  - Verified live: a seeded 29-message chat opens with the newest message in view, both scrollers at bottom.
+
 - docs(design): Quokka surface redesign plan (Q1–Q3) + diagnosis [S]
   - Prod report: chat loses message order, has massive overscroll, and "feels like we bolted v2 into Kept again." All three diagnosed to exact causes (design doc §14): the stream handler updates messages BY POSITION (`slice(0,-1)` replace-last) instead of by identity, the SSE resubscribe replays the whole event buffer with no consumed-index filter, and the chat renders two nested scrollers (the Kept full-page `.v2-modal` scroller wrapping a 60dvh inner pane) inside form-oriented override CSS.
   - Plan: **Q1** chat-engine correctness (message ids, update-by-id, one consumed-event cursor across SSE+poll, strict placeholder lifecycle), **Q2** Kept-native QuokkaSurface (fixed three-row column, one scroller with overscroll containment + stick-to-bottom, ember user bubbles / document-voice replies / gold tool chips / plan card as the hero, frosted composer; desktop 720px column), **Q3** polish (history slide-over, suggestion chips, wb-icon-btn retirement).

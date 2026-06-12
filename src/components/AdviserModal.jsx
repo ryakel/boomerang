@@ -198,9 +198,28 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
     })
   }, [open, draftSeed])
 
+  // Keep the latest message in view. In Kept's full-page mode the OUTER
+  // .v2-modal is the page scroller — scroll both, or reopening lands the
+  // user at the TOP of their last chat (prod report: "uber annoying").
+  const scrollToLatest = () => {
+    const pane = scrollRef.current
+    if (!pane) return
+    pane.scrollTop = pane.scrollHeight
+    const page = pane.closest('.v2-modal')
+    if (page) page.scrollTop = page.scrollHeight
+  }
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    scrollToLatest()
   }, [messages, status])
+
+  // On open: land at the latest message once the active chat hydrates
+  // (messages arrive async after mount, so a second pass after settle).
+  useEffect(() => {
+    if (!open) return
+    requestAnimationFrame(scrollToLatest)
+    const t = setTimeout(scrollToLatest, 250)
+    return () => clearTimeout(t)
+  }, [open])
 
   // Don't auto-focus the input on modal open — on iOS PWA the keyboard
   // pops immediately and covers half the empty-state typing demo +
