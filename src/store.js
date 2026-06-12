@@ -47,13 +47,12 @@ export const DEFAULT_SETTINGS = {
   notion_sync_parent_id: '',   // parent page whose children become tasks
   notion_sync_parent_title: '', // display name for the sync parent
   notion_last_sync: null,
-  // Knowledge base — Notion database holding long-term reference items
-  // (where things are kept, decisions, how-tos, people). Boomerang
-  // creates the DB on demand; this stores the resulting page id so we
-  // can re-find it next session. See knowledgeSync.js.
-  notion_knowledge_db_id: '',
-  notion_knowledge_db_url: '',
-  notion_knowledge_last_sync: null,
+  // Knowledge base: the database id/url live in STANDALONE server keys
+  // (app_data 'notion_knowledge_db_id'), NOT in this settings blob. The
+  // decoy blob keys that used to sit here misled Quokka into declaring a
+  // working KB "unconfigured" (its get_settings reads the blob), and the
+  // repair overwrote the real key — removed 2026-06-12. last_sync is a
+  // server-side standalone key too.
   sort_by: 'age',
   daily_task_goal: 3,
   daily_points_goal: 15,

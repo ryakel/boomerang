@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- fix(notion): remove the decoy KB settings keys that misled Quokka [XS]
+  - The vestigial `settings.notion_knowledge_db_id/url/last_sync` blob keys (always empty — the real connection lives in standalone server keys) made Quokka's `get_settings` read a WORKING knowledge base as "unconfigured," which kicked off the whole repair spiral that overwrote the real key with a share-link id. The decoys are gone from DEFAULT_SETTINGS; the knowledge tools' own configured-check (the standalone key) is the single truth.
+
 - fix(notion): KB adoption proves the id is a queryable database + reports indexed count [S]
   - Round 2 of the existing-KB report: adoption "succeeded" with a `/p/` share-link id but every index query came back empty — `getDatabase`'s MCP `notion-fetch` fallback returns content for ANY id (pages, views, share-link targets), so it can't tell a database from anything else. Adoption now runs a real `queryDatabase` against the id BEFORE storing it and rejects non-databases with a pointed message ("open the database as a full page and copy THAT URL").
   - The setup response and Quokka's `connect_knowledge_database` result now include the **indexed count**, so "Connected — 2 items" vs a silently empty index is visible at connect time; refresh errors surface instead of being swallowed.
