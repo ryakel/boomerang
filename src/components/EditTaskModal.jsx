@@ -5,6 +5,7 @@ import { useTaskForm } from '../hooks/useTaskForm'
 import { researchTask } from '../api'
 import WeatherSection, { resolveWeatherVisibility } from './WeatherSection'
 import ModalShell from './ModalShell'
+import FormDisclosure from './FormDisclosure'
 import AutosaveIndicator from './AutosaveIndicator'
 import DateField from './DateField'
 import './AddTaskModal.css' // shared form-control styles
@@ -793,6 +794,7 @@ export default function EditTaskModal({
         </button>
       </div>
 
+      <FormDisclosure label="Attachments" summary={form.attachments.length > 0 ? String(form.attachments.length) : undefined} defaultOpen={form.attachments.length > 0}>
       {/* Attachments — file uploads with optional AI text extraction. The
           ATTACHMENTS label only renders when there's content; empty state is
           a lone "+ Attach files" pill in the affordance strip below. */}
@@ -854,7 +856,9 @@ export default function EditTaskModal({
           </ul>
         )}
       </div>
+      </FormDisclosure>
 
+      <FormDisclosure label="Connections" summary={form.notionResult ? 'Notion linked' : undefined} defaultOpen={!!form.notionResult || !!form.notionState}>
       {/* Connections — Notion link/create. Lives next to Checklists +
           Attachments because it's the third "linking content" affordance.
           CONNECTIONS label only when something is linked or in-flight; empty
@@ -949,10 +953,15 @@ export default function EditTaskModal({
           </div>
         )}
       </div>
+      </FormDisclosure>
 
       {labels.length > 0 && (
+        <FormDisclosure
+          label="Labels"
+          summary={form.selectedTags.length > 0 ? `${form.selectedTags.length} selected` : undefined}
+          defaultOpen={form.selectedTags.length > 0}
+        >
         <div className="v2-form-section">
-          <label className="v2-form-label">Labels</label>
           <div className="v2-form-label-grid">
             {labels.map(lbl => {
               const active = form.selectedTags.includes(lbl.id)
@@ -971,6 +980,7 @@ export default function EditTaskModal({
             })}
           </div>
         </div>
+        </FormDisclosure>
       )}
 
       {/* Routine-conversion picker — only visible while the user is actively
@@ -1016,6 +1026,7 @@ export default function EditTaskModal({
         </div>
       )}
 
+      <FormDisclosure label="Comments" summary={comments.length > 0 ? String(comments.length) : undefined} defaultOpen={comments.length > 0}>
       {/* Comments — task-local thread. COMMENTS label only when content
           OR explicitly opened; otherwise just the "+ Add" pill. */}
       <div className={`v2-form-section${comments.length === 0 && !showComments ? ' v2-form-section-compact' : ''}`}>
@@ -1077,7 +1088,14 @@ export default function EditTaskModal({
           </>
         )}
       </div>
+      </FormDisclosure>
 
+      {(isProject || availableParents.length > 0) && (
+      <FormDisclosure
+        label={isProject ? 'Project' : 'Project link'}
+        summary={!isProject && parentId ? 'linked' : undefined}
+        defaultOpen={isProject || !!parentId}
+      >
       {/* Project-only controls: pinning, nag toggle, session log, add child.
         * For a non-project task, render the "Parent project" picker instead
         * so the user can link / unlink the task to a project. */}
@@ -1281,7 +1299,10 @@ export default function EditTaskModal({
           )}
         </div>
       ) : null}
+      </FormDisclosure>
+      )}
 
+      <FormDisclosure label="Linked knowledge" summary={knowledgeIds.length > 0 ? String(knowledgeIds.length) : undefined} defaultOpen={knowledgeIds.length > 0}>
       {/* Linked knowledge — Notion-backed reference items attached to this
         * task. Renders as chips with an X to unlink. The + chip opens a
         * lightweight search picker against the cached knowledge index.
@@ -1368,6 +1389,7 @@ export default function EditTaskModal({
           </div>
         )}
       </div>
+      </FormDisclosure>
 
       <div className="v2-form-section v2-edit-manage">
         <div className="v2-edit-manage-label">Manage</div>
