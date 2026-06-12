@@ -109,7 +109,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
   // Local achievements — derived from data we already have (no new schema).
   const badges = useMemo(() => computeBadges({
     lifetimeDone: tasks.filter(t => t.status === 'done').length,
-    routines, records, streak, history: heatMapData || [],
+    routines, records, streak, history: heatMapData || [], tasks,
   }), [tasks, routines, records, streak, heatMapData])
 
   // Radar spokes derived from history.
