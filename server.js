@@ -41,7 +41,7 @@ import { registerMiscTools } from './adviserToolsMisc.js'
 import { registerKnowledgeTools } from './adviserToolsKnowledge.js'
 import * as notionMCP from './notionMCP.js'
 import * as notionProxy from './notionMCPProxy.js'
-import {
+import { adoptKnowledgeDatabase,
   ensureKnowledgeDatabase, refreshKnowledgeIndex, fetchKnowledgeBody,
   startKnowledgeRefreshLoop, getKnowledgeStatus,
 } from './knowledgeSync.js'
@@ -1365,6 +1365,20 @@ app.get('/api/knowledge/status', (_req, res) => {
 // One-shot setup: creates the Notion database under a parent page (defaults
 // to the user's existing notion_sync_parent_id) and seeds the local index.
 app.post('/api/knowledge/setup', async (req, res) => {
+  // Two modes: adopt an EXISTING database (body.database_id — URL or id), or
+  // auto-create a fresh one under the sync parent (the original flow).
+  if (req.body?.database_id) {
+    try {
+      const result = await adoptKnowledgeDatabase({ databaseId: req.body.database_id, getData, setData })
+      await refreshKnowledgeIndex({ getData, setData }).catch(err => {
+        console.warn('[Knowledge] initial refresh failed:', err.message)
+      })
+      return res.json(result)
+    } catch (err) {
+      console.error('[Knowledge] adopt failed:', err?.message)
+      return res.status(400).json({ error: err.message || 'Could not connect that database' })
+    }
+  }
   const settings = getData('settings') || {}
   const parentPageId = req.body?.parent_page_id || settings.notion_sync_parent_id || null
   if (!parentPageId) {

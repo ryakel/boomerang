@@ -627,10 +627,10 @@ export async function knowledgeStatus() {
   }
 }
 
-export async function knowledgeSetup(parentPageId = null) {
+export async function knowledgeSetup(parentPageId = null, databaseId = null) {
   const res = await fetch('/api/knowledge/setup', {
     method: 'POST', headers: { ...getApiHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(parentPageId ? { parent_page_id: parentPageId } : {}),
+    body: JSON.stringify(databaseId ? { database_id: databaseId } : parentPageId ? { parent_page_id: parentPageId } : {}),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || 'Knowledge setup failed')

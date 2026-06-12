@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- fix(notion): connect an EXISTING knowledge-base database — the missing path [M]
+  - Prod report: a user with a pre-existing "Boomerang Knowledge" database had no way to register it — the DB id lives in a standalone server key written ONLY by the auto-create flow, the Settings field Quokka described didn't exist, and Quokka's `update_settings` writes settings-blob keys the server never reads. Re-running setup would have minted a duplicate database.
+  - **Three new paths**: (1) `POST /api/knowledge/setup` accepts `database_id` (URL or bare id) and adopts the existing database after verifying it's reachable and un-archived, then runs the first index sync; (2) Settings → Notion → Knowledge Base gains an "…or connect an existing database" input + Connect button; (3) Quokka gains a `connect_knowledge_database` tool (64th) so "use my existing KB" works conversationally — with compensation clearing the stored id on plan rollback.
+  - `parseDatabaseId` handles dashed UUIDs, bare 32-hex, notion.so slug URLs (where a trailing slug letter must not bleed into the id — caught in unit checks), app.notion.com `/p/` short links, and hand-grouped dashed ids.
+  - Verified: parser unit table (6 shapes), endpoint error paths (garbage input → clear parser message; unreachable Notion → clear connection message), Settings UI in the bundle (section renders inside the Notion-connected gate, which the harness can't enter).
+
 - feat(ui)!: K6 — Wallaby teardown [XL]
   - **`src/wallaby/` is gone** (22 files): WallabyShell + the Home/Habits/Tasks/Profile/Goals/Notifications views, nav, header, ContributionHeatmap, the shared.css de-pill overrides, and the wallaby palette blocks. The Wallaby family is removed from the theme picker, `theme.js`, and the index.html pre-paint map.
   - **Survivors relocated into `src/kept/`** (load-bearing for Kept): `heatmapUtils.js`; `WallabyEditTask` → `QuickEditTask.{jsx,css}` (the Kept mobile quick editor); the `modals/forms/settings/analytics` override sheets with gates narrowed from `:is(wallaby, kept)` to `kept` only; and a new `wb-compat.css` carrying the base `--wb-*` token defaults + the Quokka toolbar `.wb-icon-btn` rules so wb-token components resolve everywhere until the quick editor is rebuilt bm-first.
