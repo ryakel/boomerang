@@ -10,15 +10,21 @@
   top: calc(10px + env(safe-area-inset-top));
   margin: 0 auto;
   z-index: 120; /* above pinned modal controls + shell header */
-  background: var(--v2-text);
-  color: var(--v2-bg);
+  /* Frosted banner (the Kept chrome language — same treatment as the nav
+     bar and the pinned-control underlay) with an ember accent edge. */
+  background: color-mix(in srgb, var(--v2-surface) 86%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  backdrop-filter: blur(16px) saturate(1.1);
+  border: 1px solid var(--v2-hairline);
+  border-left: 3px solid var(--v2-accent);
+  color: var(--v2-text);
   border-radius: 18px;
   padding: 14px 18px;
   display: flex;
   align-items: center;
   gap: 12px;
   max-width: 480px;
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
   cursor: pointer;
   animation: v2-toast-in var(--v2-dur-emphasis) var(--v2-ease-emphasis);
 }
@@ -29,8 +35,8 @@
 }
 
 .v2-toast-reopen {
-  background: var(--v2-accent);
-  color: #fff;
+  border-left-color: var(--v2-alert-high-pri, var(--v2-accent));
+  background: color-mix(in srgb, var(--v2-accent) 14%, var(--v2-surface));
 }
 
 .v2-toast-content {
@@ -55,7 +61,7 @@
   flex-wrap: wrap;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid var(--v2-hairline);
   background: transparent;
   border-left: none;
   border-right: none;
@@ -84,8 +90,8 @@
 .v2-toast-undo {
   flex: 0 0 auto;
   background: transparent;
-  color: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--v2-accent);
+  border: 1px solid var(--v2-hairline-strong, var(--v2-hairline));
   border-radius: var(--v2-radius-pill);
   padding: 6px 14px;
   font: 600 12px/1 var(--v2-font-body);
@@ -96,5 +102,5 @@
 }
 
 .v2-toast-undo:hover {
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--v2-accent) 12%, transparent);
 }
