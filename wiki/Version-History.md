@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- feat(ui): quick editor — Polish + Research inline, decrowded checklist [S]
+  - Prod report: "Big lists feel crowded and the polish and research functions are missing unless I go to more options." The Kept quick editor (QuickEditTask) now surfaces both AI actions right under the notes field: a **Polish** pill wired to useTaskForm's existing `handlePolish` (it was always in the form hook, just never rendered here) and a **Research** pill that reveals an inline prompt + Go, running the same `researchTask` call as the full editor and appending results to notes via the autosave path.
+  - Decrowding: checklist rows get breathing room (9px vertical padding, hairline separators, 1.35 line-height) with delete icons dimmed to 0.45 until hover; the title input is now an auto-growing textarea so long titles wrap instead of clipping ("Move Notion connector to new Bo…" → full title visible).
+  - Verified in the harness at 390px kept-dark: 2-line title renders unclipped in a grown textarea, both pills present, Research reveals the prompt input, 6 checklist rows show the new spacing.
+
 - fix(notion): KB adoption reports REST-access failures with the share-the-database fix [S]
   - Mystery solved (verified by fetching the user's database directly): there are TWO "Boomerang Knowledge" databases — the auto-created `742626dd…` (REST-shared, what the server synced) and `ee8d3826…` (the one the user actually uses, holding the real entries, NOT shared with the REST integration). When REST can't see a database, the MCP fallback returns only the SCHEMA — never rows — so the index sits empty while entries exist: the exact "connected but empty / schema instead of content" symptom.
   - `verifyRestAccess` now returns a boolean, adoption carries `rest_access`, and the setup response includes a pointed hint when REST is blind: *"open the database → ⋯ → Connections → add your Boomerang integration, then Sync now."*
