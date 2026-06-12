@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- feat(ui): desktop Today rail + sidebar K4 parity (K5 continuation, part 1) [M]
+  - **Today rail**: the Kept desktop command center gains its third column — while working in Tasks or Loops, a 290px right rail keeps today ambient: date + rally chip, the Day Arc, catches/pts-left, a What now button, and the Due-today list with catchable checks (canonical handlers). Hidden on the Today tab, where the full surface IS today.
+  - **Sidebar K4 parity**: Flight log and Notifications rows join the Review section — the K4 destinations were mobile-only until now.
+  - New `src/kept/TodayRail.jsx` + `bm-rail-*` styles in desktop.css.
+  - Verified live at 1440px: rail renders on Tasks (arc + stats + due rows), disappears on Today, sidebar rows open the Flight log and Notifications center.
+
 - feat(ui): Tasks sort modes + Kept-native frosted toast [S]
   - **Tasks tab sorting** (the queued ask): an ArrowUpDown toggle next to search reveals sort chips — **By due date** (the grouped day-planner default) / **Newest** / **Oldest** / **A–Z**; non-default modes flatten to one sorted section within the active tab + label filter, and the toggle glows ember while a custom sort is active. Done/Snoozed keep their natural orders.
   - **Toast restyle, the visual half of the earlier overhaul**: the inverted black pill becomes a **frosted banner** — translucent surface + backdrop blur (the same chrome language as the Kept nav and the pinned-control underlay), hairline border, a 3px ember accent edge, ember UNDO pill. Reopen variant tints toward the accent. All on `--v2` tokens, so Standard inherits gracefully.

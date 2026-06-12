@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Home, ListTodo, Repeat2, FolderKanban, BarChart3, Package, Settings,
-  Sparkles, Plus, CheckCircle2, ScrollText, Inbox, Compass,
+  Sparkles, Plus, CheckCircle2, ScrollText, Inbox, Compass, Bell, TrendingUp,
 } from 'lucide-react'
 import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
@@ -9,6 +9,7 @@ import TodayView from './TodayView'
 import TasksViewKept from './TasksViewKept'
 import LoopsView from './LoopsView'
 import ThrowSheet from './ThrowSheet'
+import TodayRail from './TodayRail'
 import './shell.css'
 import './desktop.css'
 
@@ -23,6 +24,7 @@ export default function KeptDesktop({
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
+  onOpenNotifications, onOpenFlightLog,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
@@ -46,6 +48,8 @@ export default function KeptDesktop({
     { id: 'loops', label: 'Loops', icon: Repeat2 },
   ]
   const navReview = [
+    { label: 'Flight log', icon: TrendingUp, onClick: onOpenFlightLog },
+    { label: 'Notifications', icon: Bell, onClick: onOpenNotifications },
     { label: 'Arcs', icon: FolderKanban, onClick: onOpenProjects },
     { label: 'Caught', icon: CheckCircle2, onClick: onOpenDone },
     { label: 'Analytics', icon: BarChart3, onClick: onOpenAnalytics },
@@ -123,6 +127,13 @@ export default function KeptDesktop({
         </button>
       </aside>
       <main className="bm-main">{surface}</main>
+      {tab !== 'today' && (
+        <TodayRail
+          tasks={tasks} routines={routines}
+          dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
+          onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onWhatNow={onWhatNow}
+        />
+      )}
       <ThrowSheet
         open={throwOpen}
         onClose={() => setThrowOpen(false)}

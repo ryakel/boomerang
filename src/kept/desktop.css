@@ -80,3 +80,28 @@
 /* Centered dialog treatment for sheets on desktop */
 .bm-desktop-sheets .bm-sheet-backdrop { align-items: center; justify-content: center; }
 .bm-desktop-sheets .bm-sheet { max-width: 480px; border-radius: 22px; border: 1px solid var(--bm-hairline); }
+
+/* Today rail (TodayRail.jsx, K5) — ambient today column while working in
+ * Tasks/Loops. */
+.bm-rail {
+  flex: 0 0 290px;
+  border-left: 1px solid var(--bm-hairline);
+  padding: 20px 18px;
+  overflow-y: auto;
+}
+.bm-rail-date {
+  display: flex; align-items: center; gap: 8px;
+  font: 700 14px/1.2 var(--v2-font-display);
+  color: var(--bm-text);
+  margin-bottom: 10px;
+}
+.bm-rail-date .bm-rally-chip { margin-left: auto; }
+.bm-rail-sec {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--bm-text-meta);
+  margin: 4px 2px 4px;
+}
+.bm-rail-row { padding: 9px 0; }
+.bm-rail-row .bm-chk { width: 19px; height: 19px; }
+.bm-rail-empty { color: var(--bm-text-meta); font-size: 12.5px; padding: 8px 2px; }
