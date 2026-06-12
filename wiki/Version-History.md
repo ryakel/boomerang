@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- feat(ui): loop detail page + cycle-true rally (K4, part 2) [M]
+  - **Tapping a loop card opens a real detail page** instead of dumping into the editor: back arrow + title + a deliberate Edit button, cadence/anchor/time meta, three stat cards (↻ rally / best / lifetime in the loop's feather color), a 16-chip "Recent cycles" trail, and a steppable month calendar (MonthDots with prev/next). The card's pencil still edits directly.
+  - **Rally and best are now measured in the loop's own cycles** — consecutive weeks/months/intervals caught (`cycleRally` in cycles.js, computed over a 60-window depth) — replacing the calendar-day streak that read "↻ 1" forever on anything non-daily. Card chips and detail agree; the current in-flight cycle extends the rally only once caught and never breaks it.
+  - Verified live: weekly loop with catches 0/7/14 days back reads ↻ 3 on card + detail (best 3, 9× lifetime); month stepper steps; Edit opens the editor; back returns to the list.
+
 - feat(ui): notifications center — the bell's real destination (K4, part 1) [M]
   - The Kept header bell opened the Activity log — a borrowed screen. It now opens a real **Notifications** center reading the existing server `notification_log` (no new data): All/Unread tabs with a live unread count, day-grouped rows in the Activity log's icon-chip language (overdue/stale/pile-up/package/weather/Quokka tones), unread dots, two-line body previews, channel + time-ago meta.
   - **Tap a row** → marks it read (stamps `tapped_at` via the engagement API when task-linked) and deep-links into the task editor. **Mark all read** clears the dots optimistically. Activity log remains in More, unchanged.

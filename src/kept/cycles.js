@@ -118,3 +118,22 @@ export function cycleUnitLabel(routine, singular = false) {
   }
   return plural('cycle')
 }
+
+// Consecutive-cycle rally + best, from a window series (oldest -> newest).
+// The CURRENT window only extends the rally when already caught — an
+// in-flight cycle you haven't hit yet doesn't break anything.
+export function cycleRally(windows, target = 1) {
+  const closed = windows.filter(w => !w.current)
+  const cur = windows[windows.length - 1]
+  let rally = cur && cur.current && cur.hits >= target ? 1 : 0
+  for (let i = closed.length - 1; i >= 0; i--) {
+    if (closed[i].hits >= target) rally++
+    else break
+  }
+  let best = 0, run = 0
+  for (const w of closed) {
+    if (w.hits >= target) { run++; best = Math.max(best, run) } else run = 0
+  }
+  if (cur && cur.current && cur.hits >= target) best = Math.max(best, rally)
+  return { rally, best }
+}

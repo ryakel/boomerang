@@ -3,8 +3,9 @@ import { Repeat2, Pencil, Sparkle } from 'lucide-react'
 import MonthDots from './MonthDots'
 import DensityRibbon from './DensityRibbon'
 import CycleChips from './CycleChips'
-import { cycleWindows, habitWindows, cycleUnitLabel } from './cycles'
-import { historyByDay, currentStreak } from '../wallaby/heatmapUtils'
+import LoopDetail from './LoopDetail'
+import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally } from './cycles'
+import { historyByDay } from '../wallaby/heatmapUtils'
 import { routineFeathers } from './feathers'
 import './shell.css'
 
@@ -18,6 +19,9 @@ const RANGES = [
 // Density Ribbon (spec §6). Edit routes to the existing routine editor.
 export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpenSuggestions }) {
   const [range, setRange] = useState('trail')
+  // Tapping a card opens the loop DETAIL (K4) — stats + month calendar —
+  // not the editor. Edit is a deliberate button on the detail page.
+  const [detailId, setDetailId] = useState(null)
   // Pending pattern-scan suggestions — drives the dot badge on the
   // Suggestions button so a passive Sunday-scan find still waves at you.
   const [suggestionCount, setSuggestionCount] = useState(0)
@@ -33,9 +37,28 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
     const feathers = routineFeathers(routines)
     return routines.filter(r => !r.paused).map(r => {
       const byDay = historyByDay(r.completed_history)
-      return { r, color: feathers[r.id], byDay, rally: currentStreak(byDay), total: r.completed_history?.length || 0 }
+      const isHabit = r.spawn_mode === 'habit' && r.target_count
+      const wins = isHabit ? habitWindows(r, 60) : cycleWindows(r, 60)
+      // Rally in the loop's own cycles (consecutive weeks/months/etc caught),
+      // not calendar days — day-streaks read as 1 forever on non-dailies.
+      const { rally } = cycleRally(wins, isHabit ? r.target_count : 1)
+      return { r, color: feathers[r.id], byDay, rally, total: r.completed_history?.length || 0 }
     })
   }, [routines])
+
+  if (detailId) {
+    const sel = loops.find(l => l.r.id === detailId)
+    if (sel) {
+      return (
+        <LoopDetail
+          routine={sel.r}
+          color={sel.color}
+          onBack={() => setDetailId(null)}
+          onEdit={(r) => { setDetailId(null); onEditLoop?.(r) }}
+        />
+      )
+    }
+  }
 
   return (
     <div className="bm-surface">
@@ -61,7 +84,7 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
             <span className="bm-loop-ring" style={{ width: 28, height: 28 }}><Repeat2 size={13} strokeWidth={2.2} /></span>
             <button
               style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
-              onClick={() => onEditLoop?.(r)}
+              onClick={() => setDetailId(r.id)}
             >{r.title}</button>
             {rally > 0 && <span className="bm-loop-rally" style={{ fontSize: 11.5 }}>↻ {rally}</span>}
             <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bm-text-meta)' }}>{total}×</span>
