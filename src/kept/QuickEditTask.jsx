@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Trash2, Plus, Check, ChevronDown, Sliders, Sparkles,
-  Monitor, Users, MapPin, Palette, Dumbbell, Zap,
+  Monitor, Users, MapPin, Palette, Dumbbell, Zap, BookOpenText,
 } from 'lucide-react'
 import ModalShell from '../components/ModalShell'
 import AutosaveIndicator from '../components/AutosaveIndicator'
 import DateField from '../components/DateField'
 import { useTaskForm } from '../hooks/useTaskForm'
 import { loadLabels, uuid } from '../store'
+import { researchTask } from '../api'
 import './QuickEditTask.css'
 
 const STATUSES = [
@@ -46,6 +47,29 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
   const [checklists, setChecklists] = useState(Array.isArray(task.checklists) ? task.checklists : [])
   const [openChip, setOpenChip] = useState(null)
   const [newSub, setNewSub] = useState('')
+  // Inline AI actions (prod report: "polish and research functions are
+  // missing unless I go to more options"). Polish rides useTaskForm's
+  // existing handler; Research mirrors the full editor's runner compactly.
+  const [showResearch, setShowResearch] = useState(false)
+  const [researchPrompt, setResearchPrompt] = useState('')
+  const [researching, setResearching] = useState(false)
+  const [researchError, setResearchError] = useState(null)
+  const runResearch = async () => {
+    const prompt = researchPrompt.trim()
+    if (!prompt) return
+    setResearching(true)
+    setResearchError(null)
+    try {
+      const result = await researchTask(form.title || 'Untitled task', form.notes, prompt, [])
+      if (result?.notes) form.setNotes(result.notes)
+      setResearchPrompt('')
+      setShowResearch(false)
+    } catch (e) {
+      setResearchError(e?.message || 'Research failed')
+    } finally {
+      setResearching(false)
+    }
+  }
   const labels = useMemo(() => loadLabels(), [])
   const labelById = useMemo(() => Object.fromEntries(labels.map(l => [l.id, l])), [labels])
 
@@ -147,11 +171,14 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
       width="narrow"
       headerSlot={<AutosaveIndicator saved={justSaved} />}
     >
-      <input
+      <textarea
         className="wb-edit-title"
         value={form.title}
         onChange={e => form.setTitle(e.target.value)}
+        onInput={e => { e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px` }}
+        ref={el => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px` } }}
         placeholder="Task title"
+        rows={1}
       />
 
       <textarea
@@ -161,6 +188,36 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
         placeholder="Add details or notes…"
         rows={3}
       />
+
+      {/* AI actions — same capabilities as the full editor, zero detours. */}
+      <div className="wb-edit-ai-row">
+        <button className="wb-edit-ai-pill" onClick={form.handlePolish} disabled={form.polishing}>
+          <Sparkles size={13} strokeWidth={2} /> {form.polishing ? 'Polishing…' : 'Polish'}
+        </button>
+        <button
+          className={`wb-edit-ai-pill${showResearch ? ' is-active' : ''}`}
+          onClick={() => setShowResearch(o => !o)}
+        >
+          <BookOpenText size={13} strokeWidth={2} /> Research
+        </button>
+      </div>
+      {form.polishError && <div className="wb-edit-ai-error">{form.polishError}</div>}
+      {showResearch && (
+        <div className="wb-edit-research">
+          <input
+            className="wb-edit-sub-input wb-edit-research-input"
+            value={researchPrompt}
+            onChange={e => setResearchPrompt(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runResearch() } }}
+            placeholder="What should I look into?"
+            autoFocus
+          />
+          <button className="wb-edit-ai-pill" onClick={runResearch} disabled={researching || !researchPrompt.trim()}>
+            {researching ? 'Researching…' : 'Go'}
+          </button>
+        </div>
+      )}
+      {researchError && <div className="wb-edit-ai-error">{researchError}</div>}
 
       {/* Subtasks */}
       <div className="wb-edit-subs">

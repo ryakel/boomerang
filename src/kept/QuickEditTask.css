@@ -155,3 +155,36 @@
 }
 .wb-edit-more { color: var(--wb-text); }
 .wb-edit-delete { color: var(--wb-action-delete); border-color: color-mix(in srgb, var(--wb-action-delete) 40%, transparent); }
+
+/* Crowding pass (prod report: big lists feel crowded) */
+.wb-edit-title { resize: none; overflow: hidden; line-height: 1.25; }
+.wb-edit-sub { padding: 9px 0; border-bottom: 1px solid var(--wb-hairline); }
+.wb-edit-sub:last-of-type { border-bottom: none; }
+.wb-edit-sub-text { line-height: 1.35; }
+.wb-edit-sub-del { opacity: 0.45; }
+.wb-edit-sub-del:hover, .wb-edit-sub-del:active { opacity: 1; }
+
+/* Inline AI actions */
+.wb-edit-ai-row { display: flex; gap: 8px; margin: 2px 0 12px; }
+.wb-edit-ai-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--wb-card-2, var(--wb-card));
+  border: 1px solid var(--wb-hairline);
+  color: var(--wb-text);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font: 600 12px/1 inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+.wb-edit-ai-pill:disabled { opacity: 0.55; cursor: default; }
+.wb-edit-ai-pill.is-active { border-color: var(--bm-ember, var(--wb-action)); color: var(--bm-ember, var(--wb-action)); }
+.wb-edit-research { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; }
+.wb-edit-research-input {
+  flex: 1 1 auto;
+  background: var(--wb-card-2, var(--wb-card));
+  border: 1px solid var(--wb-hairline);
+  border-radius: 10px;
+  padding: 8px 11px;
+}
+.wb-edit-ai-error { color: var(--bm-danger, #E0455C); font-size: 12px; margin: -6px 0 10px; }
