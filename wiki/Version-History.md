@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- feat(ui): Board view mode — Kanban demoted to a mode (K5 complete) [M]
+  - The desktop Tasks surface gains a **List | Board** toggle: Board renders Up next / Doing / Waiting / Done as Kept-native columns with native drag-and-drop. Dragging a card between columns changes its status; **dropping on Done catches it** through the canonical completion handler (points, toast, undo all ride along); dragging out of Done reopens. Done column shows the last 15. Label filters compose; the board excludes gmail-pending, children, and stack members like the list does.
+  - New `src/kept/BoardView.jsx` + `bm-board-*` styles; `boardable` + `onStatusChange` threaded through KeptDesktop only (mobile keeps the list).
+  - With the Today rail (part 1) and Board, **K5 is functionally complete** — the remaining spec items (Timeline mode, detail panel, j/k nav) move to the post-teardown polish list.
+  - Verified live at 1440px: 4 columns render with correct counts; dragging "Change furnace filter" onto Done moved it and completed the task server-side.
+
 - feat(ui): desktop Today rail + sidebar K4 parity (K5 continuation, part 1) [M]
   - **Today rail**: the Kept desktop command center gains its third column — while working in Tasks or Loops, a 290px right rail keeps today ambient: date + rally chip, the Day Arc, catches/pts-left, a What now button, and the Due-today list with catchable checks (canonical handlers). Hidden on the Today tab, where the full surface IS today.
   - **Sidebar K4 parity**: Flight log and Notifications rows join the Review section — the K4 destinations were mobile-only until now.
