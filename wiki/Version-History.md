@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- fix(notion): KB adoption proves the id is a queryable database + reports indexed count [S]
+  - Round 2 of the existing-KB report: adoption "succeeded" with a `/p/` share-link id but every index query came back empty — `getDatabase`'s MCP `notion-fetch` fallback returns content for ANY id (pages, views, share-link targets), so it can't tell a database from anything else. Adoption now runs a real `queryDatabase` against the id BEFORE storing it and rejects non-databases with a pointed message ("open the database as a full page and copy THAT URL").
+  - The setup response and Quokka's `connect_knowledge_database` result now include the **indexed count**, so "Connected — 2 items" vs a silently empty index is visible at connect time; refresh errors surface instead of being swallowed.
+
 - fix(notion): connect an EXISTING knowledge-base database — the missing path [M]
   - Prod report: a user with a pre-existing "Boomerang Knowledge" database had no way to register it — the DB id lives in a standalone server key written ONLY by the auto-create flow, the Settings field Quokka described didn't exist, and Quokka's `update_settings` writes settings-blob keys the server never reads. Re-running setup would have minted a duplicate database.
   - **Three new paths**: (1) `POST /api/knowledge/setup` accepts `database_id` (URL or bare id) and adopts the existing database after verifying it's reachable and un-archived, then runs the first index sync; (2) Settings → Notion → Knowledge Base gains an "…or connect an existing database" input + Connect button; (3) Quokka gains a `connect_knowledge_database` tool (64th) so "use my existing KB" works conversationally — with compensation clearing the stored id on plan rollback.

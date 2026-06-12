@@ -151,6 +151,22 @@ export async function adoptKnowledgeDatabase({ databaseId, getData, setData }) {
   const db = await notion.getDatabase(id)
   if (!db) throw new Error('That database is not accessible to the Boomerang Notion connection.')
   if (db.archived) throw new Error('That database is archived in Notion — restore it first.')
+  // Prove the id is a QUERYABLE DATABASE before storing it. The MCP
+  // notion-fetch fallback in getDatabase returns content for ANY id —
+  // pages, views, /p/ share-link targets — so getDatabase alone can't
+  // tell (prod incident: a /p/ short-link id "adopted" fine, then every
+  // index query came back empty).
+  let queryOk = false
+  try {
+    const { raw } = await notion.queryDatabase(id)
+    let json = null
+    try { json = typeof raw === 'string' ? JSON.parse(raw) : raw } catch { json = null }
+    if (json && Array.isArray(json.results)) queryOk = true
+    else if (typeof raw === 'string' && /"results"|data[ _-]?source/i.test(raw.slice(0, 600))) queryOk = true
+  } catch { queryOk = false }
+  if (!queryOk) {
+    throw new Error("That ID doesn't behave like a database — it may be a page or a share link. Open the database as a full page in Notion and copy THAT URL; it contains the real database ID.")
+  }
   setData(KNOWLEDGE_DB_KEY, id)
   setData(KNOWLEDGE_DB_URL_KEY, db.url || null)
   await verifyRestAccess(id)
