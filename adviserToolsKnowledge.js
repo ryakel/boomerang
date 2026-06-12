@@ -61,9 +61,10 @@ export function registerKnowledgeTools() {
         getData: deps.kbGetData,
         setData: deps.kbSetData,
       })
-      await refreshKnowledgeIndex({ getData: deps.kbGetData, setData: deps.kbSetData }).catch(() => {})
+      const refresh = await refreshKnowledgeIndex({ getData: deps.kbGetData, setData: deps.kbSetData })
+        .catch(err => ({ ok: false, error: err.message, count: 0 }))
       return {
-        result,
+        result: { ...result, indexed: refresh?.count ?? 0 },
         compensation: async () => {
           deps.kbSetData('notion_knowledge_db_id', null)
           deps.kbSetData('notion_knowledge_db_url', null)
