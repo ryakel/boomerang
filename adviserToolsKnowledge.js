@@ -11,6 +11,7 @@ import {
 import {
   createKnowledgeItem, updateKnowledgeItem, archiveKnowledgeItem,
   restoreKnowledgeItem, refreshKnowledgeIndex, fetchKnowledgeBody,
+  adoptKnowledgeDatabase,
 } from './knowledgeSync.js'
 import { isConnected } from './notionMCPProxy.js'
 
@@ -43,6 +44,34 @@ function ensureNotionConnected() {
 
 export function registerKnowledgeTools() {
   // --- READ ---
+  registerTool({
+    name: 'connect_knowledge_database',
+    description: 'Connect an EXISTING Notion database as the knowledge base (when the user already has one, instead of auto-creating). Accepts the database URL or its 32-character ID. Verifies access, stores the connection, and runs the first index sync. Use this when knowledgeDbConfigured is false and the user points at an existing database — do NOT tell them to paste it into Settings.',
+    schema: {
+      type: 'object',
+      properties: {
+        database_url_or_id: { type: 'string', description: 'Notion database URL (notion.so / app.notion.com links fine) or bare ID.' },
+      },
+      required: ['database_url_or_id'],
+    },
+    preview: (args) => `Connect existing Notion database as the knowledge base: ${args.database_url_or_id}`,
+    execute: async (args, deps) => {
+      const result = await adoptKnowledgeDatabase({
+        databaseId: args.database_url_or_id,
+        getData: deps.kbGetData,
+        setData: deps.kbSetData,
+      })
+      await refreshKnowledgeIndex({ getData: deps.kbGetData, setData: deps.kbSetData }).catch(() => {})
+      return {
+        result,
+        compensation: async () => {
+          deps.kbSetData('notion_knowledge_db_id', null)
+          deps.kbSetData('notion_knowledge_db_url', null)
+        },
+      }
+    },
+  })
+
   registerTool({
     name: 'search_knowledge',
     description: 'Search the user\'s personal knowledge base (Notion-backed). Matches against title, tags, and a short summary. Use BEFORE create_knowledge to dedup — the user dislikes duplicates. Returns up to `limit` items, highest-relevance first.',

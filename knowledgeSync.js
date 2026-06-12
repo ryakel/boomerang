@@ -119,6 +119,45 @@ export async function ensureKnowledgeDatabase({ parentPageId, getData, setData }
   return { database_id: result.id, url: result.url, created: true }
 }
 
+// Pull a database id out of whatever the user pastes — a full Notion URL
+// (notion.so / app.notion.com, /p/ short links included), a dashed UUID, or
+// the bare 32-hex id. Returns the dashed-UUID form or null.
+export function parseDatabaseId(input) {
+  const raw = String(input || '')
+  const toUuid = (h) => `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+  const dashed = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
+  if (dashed) return dashed[0].toLowerCase()
+  // Bare 32-hex run in the raw string (slug dashes break runs naturally, so
+  // a "Knowledge-<id>" slug can't bleed its trailing letters into the id).
+  const hex = raw.match(/[0-9a-f]{32}/i)
+  if (hex) return toUuid(hex[0].toLowerCase())
+  // Last resort: a single hex-and-dash run that collapses to exactly 32 hex
+  // (ids hand-grouped with dashes in a non-UUID pattern).
+  for (const run of raw.match(/[0-9a-f][0-9a-f-]{30,}[0-9a-f]/gi) || []) {
+    const h = run.replace(/-/g, '').toLowerCase()
+    if (h.length === 32) return toUuid(h)
+  }
+  return null
+}
+
+// Adopt an EXISTING Notion database as the knowledge base (prod report
+// 2026-06-12: there was no path for this at all — the id was only ever
+// written by the auto-create flow, so users with a pre-existing KB were
+// stuck, and re-running setup would have minted a duplicate). Verifies the
+// database is reachable and un-archived before storing the id.
+export async function adoptKnowledgeDatabase({ databaseId, getData, setData }) {
+  const id = parseDatabaseId(databaseId)
+  if (!id) throw new Error('Could not find a database ID in that input — paste the database URL or its 32-character ID.')
+  const db = await notion.getDatabase(id)
+  if (!db) throw new Error('That database is not accessible to the Boomerang Notion connection.')
+  if (db.archived) throw new Error('That database is archived in Notion — restore it first.')
+  setData(KNOWLEDGE_DB_KEY, id)
+  setData(KNOWLEDGE_DB_URL_KEY, db.url || null)
+  await verifyRestAccess(id)
+  console.log(`[Knowledge] Adopted existing Notion database ${id}`)
+  return { database_id: id, url: db.url || null, created: false, adopted: true }
+}
+
 // Query the DB and replace the local cache.
 export async function refreshKnowledgeIndex({ getData, setData }) {
   const dbId = getData(KNOWLEDGE_DB_KEY)
