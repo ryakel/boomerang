@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-11
 
+- feat(ui): task editor — progressive disclosure (design wave 3/4, part 2) [M]
+  - The full task editor (reached via "More options" from the quick editor) gets the same treatment as the loop form: Status, Notes (+weather), Due/Priority, GCal duration, Size, Energy, and Checklists stay visible; **Attachments, Connections, Labels, Comments, Project/Project-link, and Linked knowledge** move behind summarizing disclosure rows (counts / "Notion linked" / "2 selected"), opening by default when they have content. The Project row only renders when relevant (project task or parents available). Manage row unchanged at the bottom.
+  - `FormDisclosure` extracted to a shared component (`src/components/FormDisclosure.{jsx,css}`) — both editors now use one primitive.
+  - Verified live through the Kept flow: task → quick editor → More options → full editor shows 5 collapsed disclosures + the visible essentials; Labels expands to working pills.
+
 - fix(ui): Loops page speaks one visual language — dailies join the cycle chips [S]
   - Prod report: "Why in the world are there two entirely different design strategies on the loops page?" — the daily mini-trail exception from wave 1 put dot-rows next to chunky chips on the same surface. Dailies now render cycle chips like everything else (one chip per day, "caught 8 of last 11 days · today ✓"); the FlightTrail leaves the Loops cards entirely.
   - Also: caption pluralization fixed ("caught 1 of last 1 months" → singular units), and the window anchor falls back to the oldest history stamp for legacy loops without created_at.
