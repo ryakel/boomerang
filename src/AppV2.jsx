@@ -17,6 +17,7 @@ import SettingsModal from './components/SettingsModal'
 import ProjectsView from './components/ProjectsView'
 import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
+import NotificationsModal from './components/NotificationsModal'
 import RoutinesModal from './components/RoutinesModal'
 import WallabyShell from './wallaby/WallabyShell'
 import KeptShell from './kept/KeptShell'
@@ -89,6 +90,7 @@ export default function AppV2() {
   const [showProjects, setShowProjects] = useState(false)
   const [showDone, setShowDone] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
   const [showMarkdownImport, setShowMarkdownImport] = useState(false)
   const [updateVersion, setUpdateVersion] = useState(null)
   // SpacesHub is the destination for the Spaces tab. Opens a picker
@@ -512,6 +514,7 @@ export default function AppV2() {
   if (showProjects) activeModals.push('projects')
   if (showDone) activeModals.push('done')
   if (showActivityLog) activeModals.push('activitylog')
+  if (showNotifications) activeModals.push('notifications')
   if (showRoutines) activeModals.push('routines')
   if (showPackages) activeModals.push('packages')
   if (showAdviser) activeModals.push('adviser')
@@ -531,6 +534,7 @@ export default function AppV2() {
     if (showProjects) { setShowProjects(false); return }
     if (showDone) { setShowDone(false); return }
     if (showActivityLog) { setShowActivityLog(false); return }
+    if (showNotifications) { setShowNotifications(false); return }
     if (showRoutines) { setShowRoutines(false); return }
     if (showPackages) { setShowPackages(false); return }
     if (showAdviser) { setShowAdviser(false); return }
@@ -1339,6 +1343,7 @@ export default function AppV2() {
           onOpenProjects={() => setShowProjects(true)}
           onOpenDone={() => setShowDone(true)}
           onOpenActivity={() => setShowActivityLog(true)}
+          onOpenNotifications={() => setShowNotifications(true)}
           onOpenSuggestions={() => setShowSuggestions(true)}
           syncStatus={syncStatus}
           queueLength={queueLength}
@@ -1389,6 +1394,7 @@ export default function AppV2() {
           onOpenProjects={() => setShowProjects(true)}
           onOpenDone={() => setShowDone(true)}
           onOpenActivity={() => setShowActivityLog(true)}
+          onOpenNotifications={() => setShowNotifications(true)}
           onOpenSuggestions={() => setShowSuggestions(true)}
           syncStatus={syncStatus}
           queueLength={queueLength}
@@ -1557,6 +1563,14 @@ export default function AppV2() {
         open={showActivityLog}
         onClose={() => setShowActivityLog(false)}
         onRestore={handleRestore}
+      />
+      <NotificationsModal
+        open={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onOpenTask={(taskId) => {
+          const t = tasks.find(x => x.id === taskId)
+          if (t) setEditTarget(t)
+        }}
       />
       <RoutinesModal
         open={showRoutines}

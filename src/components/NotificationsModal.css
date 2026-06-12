@@ -1,0 +1,55 @@
+/* Notifications center — rides the Activity log's row language; only the
+ * notification-specific bits live here. */
+
+.v2-notif-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.v2-notif-markall {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--v2-accent);
+  font: 600 12.5px/1 var(--v2-font-body);
+  cursor: pointer;
+  padding: 6px 4px;
+}
+
+.v2-notif-row {
+  width: 100%;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.v2-notif-row.is-unread .v2-activity-title { font-weight: 650; }
+
+.v2-notif-body {
+  font: 400 12.5px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin-top: 1px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.v2-notif-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--v2-accent);
+}
