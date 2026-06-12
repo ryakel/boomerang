@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- docs(design): Quokka surface redesign plan (Q1–Q3) + diagnosis [S]
+  - Prod report: chat loses message order, has massive overscroll, and "feels like we bolted v2 into Kept again." All three diagnosed to exact causes (design doc §14): the stream handler updates messages BY POSITION (`slice(0,-1)` replace-last) instead of by identity, the SSE resubscribe replays the whole event buffer with no consumed-index filter, and the chat renders two nested scrollers (the Kept full-page `.v2-modal` scroller wrapping a 60dvh inner pane) inside form-oriented override CSS.
+  - Plan: **Q1** chat-engine correctness (message ids, update-by-id, one consumed-event cursor across SSE+poll, strict placeholder lifecycle), **Q2** Kept-native QuokkaSurface (fixed three-row column, one scroller with overscroll containment + stick-to-bottom, ember user bubbles / document-voice replies / gold tool chips / plan card as the hero, frosted composer; desktop 720px column), **Q3** polish (history slide-over, suggestion chips, wb-icon-btn retirement).
+  - Also tracked: KB creates succeed but report errors (response parsing after side effect) — user-deferred.
+
 - fix(notion): remove the decoy KB settings keys that misled Quokka [XS]
   - The vestigial `settings.notion_knowledge_db_id/url/last_sync` blob keys (always empty — the real connection lives in standalone server keys) made Quokka's `get_settings` read a WORKING knowledge base as "unconfigured," which kicked off the whole repair spiral that overwrote the real key with a share-link id. The decoys are gone from DEFAULT_SETTINGS; the knowledge tools' own configured-check (the standalone key) is the single truth.
 

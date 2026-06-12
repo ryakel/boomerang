@@ -450,3 +450,69 @@ Direction: **progressive disclosure, Kept type-scale.**
   achievements that reveal on earn (the fun ones); all derived values must
   follow the Derived-Stat Durability Rules (persist earn-time provenance,
   never recompute from deletable rows — see CLAUDE.md).
+
+## 14 · Quokka surface redesign (Q-plan, 2026-06-12 prod report)
+
+User report: chat "(a) struggles to keep messages in order, (b) has some
+pretty massive overscroll issues, (c) feels like we bolted v2 into Kept
+again." All three confirmed with exact causes:
+
+**(a) Ordering — the event handler updates by POSITION, not identity.**
+Every streaming event in `useAdviser` does
+`setMessages(prev => [...prev.slice(0, -1), {...pending}])` — "replace
+whatever happens to be last." Race a user send, a reconnect replay, or a
+queued message against in-flight events and the wrong message gets
+clobbered. Compounding: the SSE resubscribe path replays the session's
+whole event buffer with NO consumed-index filter (only the poll path
+tracks `startFrom`), and `ensurePlaceholder` adopts "the last assistant
+message if not committed" — replayed content merges into the wrong bubble
+or duplicates.
+
+**(b) Overscroll — two nested scrollers fighting.** In Kept, `.v2-modal`
+IS the full-page scroller (modals.css), and `.v2-adviser-messages` is a
+second scroller capped at `max-height: 60dvh` inside it. iOS scroll
+chaining + the fixed back-button strip = clipped content, the message
+pane drifting under the pinned controls, sideways shift. Chat needs ONE
+scroller in a fixed viewport column; today it's a scrollable document
+containing a scrollable box.
+
+**(c) Bolted-in — literally.** ModalShell + `v2-adviser-*` styles +
+`wb-icon-btn` toolbar buttons, full-page-ified by override CSS designed
+for forms, not chat.
+
+### The plan — three phases, independently shippable
+
+**Q1 — Chat engine correctness (no visual change).**
+- Every message gets a stable `id`; stream events update BY ID
+  (`prev.map(m => m.id === pendingId ? next : m)`), never by position.
+- One consumed-event cursor per session, honored by BOTH the SSE replay
+  and the poll path — replays skip `idx < cursor`, killing duplicates.
+- One placeholder per runner-start, keyed to the turn; the
+  "adopt last uncommitted assistant" heuristic dies.
+- Harness-verifiable with scripted SSE fixtures (send-during-stream,
+  reconnect mid-turn, queued sends).
+
+**Q2 — QuokkaSurface, Kept-native (replaces AdviserModal's shell).**
+- NOT a ModalShell modal: `position: fixed; inset: 0` three-row column —
+  slim header (back · chat title · history · new), the message pane as
+  THE one scroller (`overscroll-behavior: contain`, auto-stick-to-bottom
+  with a "↓ latest" pill when scrolled up), composer pinned to the bottom
+  with safe-area padding and the frosted chrome (nav-bar treatment).
+- Kept voice: USER messages as ember-tinted right-aligned bubbles; QUOKKA
+  replies as plain document text on the canvas (no bubble — the calm
+  voice); tool activity as gold sparkle chips with live status
+  ("✦ search_tasks ✓"); the STAGED PLAN as a hairline card with the
+  ember "Apply N changes" pill — the review moment is the hero of the
+  surface, per the atomic-execute model.
+- Desktop: same component centered in a 720px column over the work
+  surface; ⌘K continues to open Throw, the sidebar Quokka row opens this.
+
+**Q3 — Polish.** Kept-styled suggestion chips, history as a slide-over
+panel, expiry banner as a quiet hairline note, the `wb-icon-btn` usages
+replaced (when QuickEditTask is rebuilt bm-first, wb-compat.css dies).
+
+### Tracked alongside (user-deferred): KB create-but-error
+Quokka creates knowledge entries successfully but REPORTS an error —
+likely the MCP create succeeds and the response parsing throws after the
+side effect, so the tool result reads as failure. Diagnose in
+`createKnowledgeItem` response handling when the user circles back.
