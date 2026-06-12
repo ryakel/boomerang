@@ -4,6 +4,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-12
+
+- feat(ui): achievements expansion — 11 new badges + durable earn persistence (design wave 4/4) [M]
+  - **Earned is forever now**: the first render where a badge qualifies stamps `settings.badges_earned[id] = 'YYYY-MM-DD'` (via `stampEarnedBadges` in the shared BadgesGrid); `computeBadges` merges the map so deleting the rows that earned a badge can never un-earn it — the existing 12 badges were silently vulnerable to exactly the deletion class that caused the streak incident. Server-side key-union guard added for `badges_earned` in `mergeDurableStreakSettings`. Earned cards show their date.
+  - **11 new badges** (10/12-earned wall → 23 total): recovery class — 🪃 *It Comes Back* (catch a 30+ day-old task, hidden), 🔆 *Phoenix* (lose a 14+ day rally, build a 7-day one from the ashes, hidden), 🏳️ *Strategic Retreat* (set aside 5 tasks); energy class — 🐉 *Dragon Slayer* (⚡⚡⚡ confrontation catch), 🥗 *Balanced Diet* (every energy type in one week), 🏋️ *Heavy Lifting* (3 L/XL in a day); pattern class — 🌅 *Dawn Patrol* (3 before 8am), 🌙 *Night Shift* (a catch after 10pm, hidden), 🛠️ *Weekend Warrior* (10-catch weekend); loop class — 📦 *Stack Champion* (10 clear-bonuses), 🛤️ *Long Haul* (quarterly+ loop alive a year).
+  - **Hidden badges** render as dashed ❓ mystery cards until earned, then reveal with their tier color.
+  - Verified live: seeded a ⚡⚡⚡ confrontation catch, a 45-day-old completion, and a 10pm catch → Dragon Slayer / It Comes Back / Night Shift earned and revealed, earn map stamped with dates, Phoenix still a mystery card.
+
 ## 2026-06-11
 
 - feat(ui): task editor — progressive disclosure (design wave 3/4, part 2) [M]
