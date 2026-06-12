@@ -20,7 +20,7 @@ export default function KeptShell({
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
-  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
+  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenNotifications,
   onRefresh,
   syncStatus = 'synced', queueLength = 0,
 }) {
@@ -65,7 +65,7 @@ export default function KeptShell({
     <div className="bm-shell">
       <KeptHeader
         onQuokka={onOpenQuokka}
-        onBell={onOpenActivity}
+        onBell={onOpenNotifications || onOpenActivity}
         onAvatar={onOpenAnalytics}
         syncStatus={syncStatus}
         queueLength={queueLength}

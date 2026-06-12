@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- feat(ui): notifications center — the bell's real destination (K4, part 1) [M]
+  - The Kept header bell opened the Activity log — a borrowed screen. It now opens a real **Notifications** center reading the existing server `notification_log` (no new data): All/Unread tabs with a live unread count, day-grouped rows in the Activity log's icon-chip language (overdue/stale/pile-up/package/weather/Quokka tones), unread dots, two-line body previews, channel + time-ago meta.
+  - **Tap a row** → marks it read (stamps `tapped_at` via the engagement API when task-linked) and deep-links into the task editor. **Mark all read** clears the dots optimistically. Activity log remains in More, unchanged.
+  - New `src/components/NotificationsModal.{jsx,css}`; bell wiring threaded through KeptShell (`onOpenNotifications`).
+  - Verified live with mocked log fixtures: day groups + unread dots render, Unread tab filters (2 of 5), mark-all-read empties it, tapping a task-linked row opens the editor.
+
 - feat(ui): 🧹 Clean Sweep — 24th badge, evens out the wall [XS]
   - Gold, recovery class: catch 3+ overdue tasks and end the day with zero overdue. Computed from live state (overdue caught today + nothing overdue remaining); the durable earn stamp makes the moment permanent.
   - Verified live: with overdue caught and the board cleared, the badge earned and stamped (`badges_earned.clean_sweep`); while loop-spawned overdue remained it correctly stayed locked.
