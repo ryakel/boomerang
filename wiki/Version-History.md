@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-12
 
+- feat(ui): Tasks sort modes + Kept-native frosted toast [S]
+  - **Tasks tab sorting** (the queued ask): an ArrowUpDown toggle next to search reveals sort chips — **By due date** (the grouped day-planner default) / **Newest** / **Oldest** / **A–Z**; non-default modes flatten to one sorted section within the active tab + label filter, and the toggle glows ember while a custom sort is active. Done/Snoozed keep their natural orders.
+  - **Toast restyle, the visual half of the earlier overhaul**: the inverted black pill becomes a **frosted banner** — translucent surface + backdrop blur (the same chrome language as the Kept nav and the pinned-control underlay), hairline border, a 3px ember accent edge, ember UNDO pill. Reopen variant tints toward the accent. All on `--v2` tokens, so Standard inherits gracefully.
+  - Verified live: sort chips render, A–Z flattens correctly (first/last alphabetical), toast renders frosted with the ember edge + Next-up row.
+
 - feat(ui): Flight log — the avatar's real destination (K4 complete) [M]
   - The Kept header avatar opened Analytics — the last borrowed screen. It now opens the **Flight log**: a six-card records strip (↻ rally / best rally / lifetime / year points / best day / today, gold-iconed), **Your year** as a Density Ribbon with a Catches/Points toggle (arcs not grids, per the spec), and the full achievements wall with earned dates. Reads the analytics daily series; no new data. Analytics keeps its More-menu home.
   - New `src/kept/FlightLog.{jsx → flightlog.css}`; avatar wiring threaded through KeptShell with the Analytics fallback.
