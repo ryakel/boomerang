@@ -4,6 +4,7 @@ import { localYMD, parseLocalDate, addDays } from '../dates'
 import { isSnoozed, formatSnoozeLabel } from '../store'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
+import BoardView from './BoardView'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -16,8 +17,11 @@ const TABS = [
 
 // Kept "Tasks" — grouped hairline rows, gold circle checks, dot-tags, and the
 // action sheet with reschedule chips ("throw it back") (spec §6).
-export default function TasksViewKept({ tasks = [], labels = [], routines = [], onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze }) {
+export default function TasksViewKept({ tasks = [], labels = [], routines = [], onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange }) {
   const [tab, setTab] = useState('upcoming')
+  // 'list' | 'board' — Board is the desktop view mode (K5): status columns
+  // with drag-and-drop; Kanban demoted to a mode, per the spec.
+  const [view, setView] = useState('list')
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [sheetTask, setSheetTask] = useState(null)
@@ -63,8 +67,14 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
     <div className="bm-surface">
       <div className="bm-title-row">
         <h1 className="bm-h1">Tasks</h1>
+        {boardable && (
+          <div className="bm-view-toggle" role="tablist" aria-label="View mode" style={{ marginLeft: 'auto' }}>
+            <button role="tab" aria-selected={view === 'list'} className={`bm-fl-toggle-btn${view === 'list' ? ' is-active' : ''}`} onClick={() => setView('list')}>List</button>
+            <button role="tab" aria-selected={view === 'board'} className={`bm-fl-toggle-btn${view === 'board' ? ' is-active' : ''}`} onClick={() => setView('board')}>Board</button>
+          </div>
+        )}
         <button
-          className={`bm-back${sortBy !== 'due' ? ' is-active-sort' : ''}`} style={{ marginLeft: 'auto' }}
+          className={`bm-back${sortBy !== 'due' ? ' is-active-sort' : ''}`} style={boardable ? undefined : { marginLeft: 'auto' }}
           onClick={() => setSortOpen(o => !o)}
           aria-label="Sort tasks"
           aria-expanded={sortOpen}
@@ -75,6 +85,7 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
           aria-label="Search tasks"
         ><Search size={16} strokeWidth={2} /></button>
       </div>
+      {(!boardable || view === 'list') && (
       <div className="bm-seg" role="tablist" aria-label="Task list">
         {TABS.map(t => (
           <button key={t.id} role="tab" aria-selected={tab === t.id}
@@ -82,6 +93,7 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
             onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
+      )}
       {sortOpen && tab !== 'done' && tab !== 'snoozed' && (
         <div className="bm-filter-row" aria-label="Sort order">
           {[['due', 'By due date'], ['newest', 'Newest'], ['oldest', 'Oldest'], ['az', 'A–Z']].map(([id, label]) => (
@@ -110,8 +122,19 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
         />
       )}
 
-      {sections.length === 0 && <p className="bm-empty">Nothing here.</p>}
-      {sections.map(sec => (
+      {boardable && view === 'board' && (
+        <BoardView
+          tasks={tasks.filter(t => !t.gmail_pending && !t.parent_id
+            && !(t.routine_id && stackIds.has(t.routine_id))
+            && (t.status === 'done' || (ACTIVE.includes(t.status) && !isSnoozed(t)))
+            && (labelFilter === 'all' || (t.tags || []).includes(labelFilter)))}
+          onStatusChange={onStatusChange}
+          onToggleComplete={onToggleComplete}
+          onOpenTask={onOpenTask}
+        />
+      )}
+      {(!boardable || view === 'list') && sections.length === 0 && <p className="bm-empty">Nothing here.</p>}
+      {(!boardable || view === 'list') && sections.map(sec => (
         <div key={sec.key}>
           <Section id={`tasks-${sec.key}`} label={sec.label} count={sec.items.length} collapsed={!!collapsed[`tasks-${sec.key}`]} onToggle={toggleSection}>
           <div className="bm-rows">
