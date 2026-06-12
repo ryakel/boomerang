@@ -9,7 +9,7 @@
 // target, hidden? }. `tier` drives display color: bronze | silver | gold.
 // `hidden` badges render as mystery cards until earned.
 
-import { loadSettings, saveSettings, localYMD } from './store'
+import { loadSettings, saveSettings, localYMD, parseLocalDate } from './store'
 
 // Longest run of consecutive calendar days with any completion, from the
 // analytics daily series ([{ day:'YYYY-MM-DD', tasks, points }]).
@@ -97,6 +97,19 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
     longHaulDays = Math.max(longHaulDays, Math.round((Math.max(...hist) - Math.min(...hist)) / 86400000))
   }
 
+  // Clean Sweep: today you caught 3+ tasks that were overdue, and nothing
+  // overdue remains. Computed from live state — the durable earn stamp
+  // makes the moment permanent once it happens.
+  const todayKey = localYMD()
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+  const overdueCaughtToday = done.filter(t =>
+    localYMD(new Date(t.completed_at)) === todayKey
+    && t.due_date && parseLocalDate(String(t.due_date).slice(0, 10)) < todayStart).length
+  const overdueRemaining = (tasks || []).filter(t =>
+    ['not_started', 'doing', 'in_progress', 'waiting'].includes(t.status)
+    && t.due_date && parseLocalDate(String(t.due_date).slice(0, 10)) < todayStart).length
+  const cleanSweep = overdueCaughtToday >= 3 && overdueRemaining === 0 ? 1 : 0
+
   // Phoenix: you lost a 14+ day rally and built a new 7+ day one from the
   // ashes. Only detectable while the new rally is shorter than the old best;
   // the durable earn stamp makes the moment permanent.
@@ -122,6 +135,7 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
     mk('it_comes_back', 'It Comes Back', 'Catch a task 30+ days old', '🪃', 'silver', cameBack, 1, true),
     mk('phoenix', 'Phoenix', 'Lose a 14+ day rally, then build a 7-day one from the ashes', '🔆', 'gold', phoenix, 1, true),
     mk('strategic_retreat', 'Strategic Retreat', 'Set aside 5 tasks — knowing your limits is a skill', '🏳️', 'bronze', setAside, 5),
+    mk('clean_sweep', 'Clean Sweep', 'Catch 3+ overdue tasks and end the day with zero overdue', '🧹', 'gold', cleanSweep, 1),
     // Energy class.
     mk('dragon_slayer', 'Dragon Slayer', 'Catch a ⚡⚡⚡ confrontation task', '🐉', 'silver', dragonsSlain, 1),
     mk('balanced_diet', 'Balanced Diet', 'Catch every energy type in one week', '🥗', 'gold', balancedBest, ENERGY_TYPE_COUNT),
