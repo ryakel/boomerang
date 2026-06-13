@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-13
 
+- fix(routines)!: "Mark done" on a stack cycle inflated the count + never cleared [S]
+  - Prod report: tapping **Mark done** on a Bedtime (stack) needs-attention day kept ticking the lifetime count up (12 → 43) while the day stayed "finished, not recorded". Cause: `markRoutineDayDone` keyed its idempotency + the gap check on the cycle's **due day** (`ymd`) but STAMPED the member's `completed_at` ISO — for a stack, members are often completed on a *different* local day than the due date, so the stamp bucketed elsewhere, the June-8 check never saw it, and every click appended another stamp.
+  - Fix: the stamp now always buckets to `ymd` (use the real completion time only when it lands on the same local day, else noon-of-`ymd`), so a single click resolves the gap and further clicks are true no-ops. `markRoutineDayDone` also self-heals exact-duplicate timestamps, and `hydrateRoutines` collapses exact-duplicate `completed_history` stamps on load — correcting counts already inflated by the bug (identical timestamps are never legitimate). Verified: 4 junk dupes → 1, gap clears on click 1, clicks 2-3 unchanged.
+
 - fix(achievements): Balanced Diet breakdown matches the progress number [XS]
   - The detail checklist showed THIS week's energy types while the card's "4/6" is the BEST week ever — two different weeks, so the breakdown contradicted the number (the achievement is "every energy type in one week"). The overlay now reflects the **best week's** type set (`balancedBestSet` in `badges.js`), titled "Your best week", so the 4 checked match the 4/6 and the two unchecked are what that single week was missing.
 
