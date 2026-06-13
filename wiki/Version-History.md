@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-13
 
+- fix(achievements): Balanced Diet breakdown matches the progress number [XS]
+  - The detail checklist showed THIS week's energy types while the card's "4/6" is the BEST week ever — two different weeks, so the breakdown contradicted the number (the achievement is "every energy type in one week"). The overlay now reflects the **best week's** type set (`balancedBestSet` in `badges.js`), titled "Your best week", so the 4 checked match the 4/6 and the two unchecked are what that single week was missing.
+
 - feat(achievements): tier legend, aligned card footers, tap-through detail overlay [S]
   - Three asks from a prod screenshot. (1) **What the colors mean** is now explicit — a Bronze/Silver/Gold legend sits in the grid header (the card tints are achievement tiers). (2) **Footer alignment** — earned dates and progress bars sat at different heights because cards were different sizes; cards are now equal-height (`grid-auto-rows: 1fr`) with the footer pinned to the bottom (`margin-top:auto`), so dates/bars line up across the whole grid. (3) **Detail overlay** — tapping any badge opens a popup with the emoji, tier, description, and either the earned date or a progress bar + "N to go". Set-shaped badges show a **done/outstanding checklist**: Balanced Diet lists all six energy types with this-week checks (`checklist`/`checklistTitle` added in `badges.js`). Mystery badges open a "keep playing" card. Cards are now buttons; `BadgesGrid` is shared by Analytics + the Flight log so all surfaces get it.
 
