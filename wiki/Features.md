@@ -98,7 +98,7 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 | 2 | ⚡⚡ | Medium drain — requires focus |
 | 3 | ⚡⚡⚡ | High drain — significant willpower |
 
-- **Auto-inferred** — `inferSize()` returns size, energy type, and energy level in a single API call
+- **Auto-inferred** — `inferSize()` returns size, energy type, energy level, and matching tags in a single API call. New tasks are automatically tagged with any of your existing labels that clearly apply (it won't invent new labels, won't touch the quiet-hours `wake-me` label, and never removes a tag you set by hand)
 - **Tap-to-cycle** — on task cards, tap the type emoji to cycle types, tap the bolts to cycle intensity
 - **Points multiplier** — `SIZE_POINTS[size] × ENERGY_MULTIPLIER[level] × speedMultiplier`. An XL⚡⚡⚡ task can earn up to 80 points
 - **Nagging boost** — confrontation/errand tasks get nagged ~30-56% more frequently via `applyAvoidanceBoost()`

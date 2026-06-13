@@ -206,7 +206,7 @@ export default function AppV2() {
   // package polling + delivery notifications.
   useNotifications(tasks)
   useExternalSync(tasks, updateTask)
-  useSizeAutoInfer(tasks, updateTask)
+  useSizeAutoInfer(tasks, updateTask, labels)
   const prefetchToast = useToastPrefetch(tasks, updateTask)
 
   // Routine-id set for routines with an active instance on the list. Drives
@@ -927,11 +927,22 @@ export default function AppV2() {
       setCreateAsProject(false)
     }
     if (!taskData.size && taskData.title) {
-      inferSize(taskData.title, taskData.notes).then(inferred => {
+      // Auto-evaluate size + energy + tags. Tags are drawn from the user's
+      // existing labels (minus the quiet-hours bypass label, which must never
+      // be auto-applied). This path sets size_inferred=true, so it owns the
+      // tag pass for tasks added here (the background hook would otherwise).
+      const bypass = loadSettings()?.quiet_hours_bypass_label || 'wake-me'
+      const taggable = (labels || []).filter(l => l && l.id && l.id !== bypass)
+      inferSize(taskData.title, taskData.notes, taggable).then(inferred => {
         const updates = {}
         if (inferred.size) updates.size = inferred.size
         if (inferred.energy) updates.energy = inferred.energy
         if (inferred.energyLevel) updates.energyLevel = inferred.energyLevel
+        if (Array.isArray(inferred.tags) && inferred.tags.length > 0) {
+          const have = Array.isArray(taskData.tags) ? taskData.tags : []
+          const merged = Array.from(new Set([...have, ...inferred.tags]))
+          if (merged.length !== have.length) updates.tags = merged
+        }
         if (Object.keys(updates).length > 0) {
           updates.size_inferred = true
           updateTask(taskId, updates)
