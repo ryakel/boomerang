@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-13
 
+- fix(routines): loop reconcile now covers STACKS (the blank-cycle bug) [S]
+  - Prod report (with screenshots): "Bedtime" showed June 10 as incomplete on its calendar even though every Bedtime task (Start dishwasher, Lock doors, …) was done that day. Cause: a stack closes per `(routine_id, due_date)` cycle (all members cleared → one `completed_history` stamp), but that closing stamp can fail to land (completed from the main list, a refetch race, pre-fix completions) — and the reconcile work explicitly EXCLUDED stacks, so `loopGaps` returned nothing for Bedtime (no "Needs attention" card) and the day stayed blank with no way to fix it.
+  - `loopGaps` (`src/kept/cycles.js`) and the server `reconcileRoutineHistory` (`db.js`) now reconcile stacks per cycle: a past `(routine_id, due_date)` cycle whose every member is done but whose closing stamp is missing is surfaced as an **unrecorded** gap (Mark done stamps the due day, closing the cycle). Partial cycles (not all members done) are left alone; habit loops still excluded. Verified: a fully-done unstamped cycle is flagged, a partial one isn't.
+
 - fix(routines): make the loop trail tappable into the missed-days breakdown [XS]
   - User report (with screenshot): "I should be able to click on this and see what was missed on a given loop." The cycle-chip trail / month / year visualization — the thing that visually shows the misses — wasn't a tap target; only the loop title opened the detail. Wrapped the visualization in a keyboard-accessible button (`bm-loop-card-viz`) that opens `LoopDetail`, where the per-day "Needs attention" breakdown (unrecorded + missed, each with Mark done / Skip) already lives.
 

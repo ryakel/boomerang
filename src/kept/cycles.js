@@ -109,9 +109,9 @@ export function habitWindows(routine, count = 12, weekStartsOn = 1) {
 //   - missed: the cycle was due but has no completion AND no finished task.
 // Days the user already acknowledged (Skip) sit in `routine.skipped_days` and
 // are excluded. Each entry carries the representative local day used to stamp
-// (Mark done) or dismiss (Skip), plus a human label. Only for ordinary cadence
-// loops — stacks and habit loops return empty (they don't model a single
-// closeable cycle here).
+// (Mark done) or dismiss (Skip), plus a human label. Stacks are reconciled by
+// their own (routine_id, due_date) cycle rule (see below); habit loops return
+// empty (no single closeable cycle).
 const GAP_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function gapLabel(routine, w) {
   const s = w.start
@@ -128,10 +128,52 @@ function gapLabel(routine, w) {
   return weekScale ? `week of ${day}` : day
 }
 
+function ymdDayLabel(ymd) {
+  const [y, m, d] = String(ymd).split('-').map(Number)
+  if (!y || !m || !d) return ymd
+  return `${GAP_MONTHS[m - 1]} ${d}`
+}
+
 export function loopGaps(routine, tasks = [], count = 12) {
-  const isStack = Array.isArray(routine?.members) && routine.members.length > 0
-  if (!routine || isStack || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [] }
+  if (!routine || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [] }
   const skipped = new Set(Array.isArray(routine.skipped_days) ? routine.skipped_days : [])
+  const histDays = new Set((routine.completed_history || []).map(ts => localYMD(new Date(ts))))
+
+  // Stacks close per (routine_id, due_date) cycle — every member done. A cycle
+  // where all members are done but completed_history was never stamped (the
+  // last-member-clear stamp didn't land — completed from the main list, a
+  // refetch race, or pre-fix completions) is an UNRECORDED gap, fixable by
+  // stamping that day. Partial cycles (not all members done) are genuinely
+  // incomplete and left alone. (Bug: a fully-cleared Bedtime cycle showed the
+  // day blank because stacks were excluded from reconcile entirely.)
+  const isStack = Array.isArray(routine.members) && routine.members.length > 0
+  if (isStack) {
+    const today = localYMD()
+    const byCycle = new Map()
+    for (const t of tasks) {
+      if (t.routine_id !== routine.id) continue
+      const due = String(t.due_date || '').slice(0, 10)
+      if (!due || due >= today) continue // only past cycles
+      if (['cancelled', 'backlog', 'project'].includes(t.status)) continue
+      if (!byCycle.has(due)) byCycle.set(due, { due, total: 0, done: 0, lastIso: null })
+      const c = byCycle.get(due)
+      c.total++
+      if (t.status === 'done') {
+        c.done++
+        const iso = t.completed_at || `${due}T12:00:00.000Z`
+        if (!c.lastIso || iso > c.lastIso) c.lastIso = iso
+      }
+    }
+    const unrecorded = []
+    for (const c of byCycle.values()) {
+      if (c.total === 0 || c.done < c.total) continue // partial / incomplete cycle
+      if (histDays.has(c.due) || skipped.has(c.due)) continue
+      unrecorded.push({ key: c.due, day: c.due, iso: new Date(c.lastIso).toISOString(), label: ymdDayLabel(c.due), taskId: null })
+    }
+    unrecorded.sort((a, b) => b.day.localeCompare(a.day))
+    return { unrecorded, missed: [] }
+  }
+
   const doneTasks = tasks.filter(t => t.routine_id === routine.id && t.status === 'done')
   const wins = cycleWindows(routine, count)
   const unrecorded = []
