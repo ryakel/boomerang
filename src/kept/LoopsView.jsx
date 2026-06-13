@@ -115,6 +115,17 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
               <Pencil size={13} strokeWidth={2} />
             </button>
           </div>
+          {/* The trail/calendar is the thing that shows the misses — make it a
+              tap target straight into the loop detail (where the per-day
+              "Needs attention" breakdown lives). */}
+          <div
+            className="bm-loop-card-viz"
+            role="button"
+            tabIndex={0}
+            onClick={() => setDetailId(r.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailId(r.id) } }}
+            aria-label={`Open ${r.title} — see caught and missed cycles`}
+          >
           {range === 'trail' && (() => {
             // Cadence-fit visuals (§13a): ONE language for every card —
             // cycle chips. Dailies get one chip per day, habit loops get
@@ -152,6 +163,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
           })()}
           {range === 'month' && <MonthDots valueByDay={byDay} color={color} />}
           {range === 'year' && <DensityRibbon valueByDay={byDay} color={color} />}
+          </div>
         </div>
         )
         // Cadence loops get swipe-to-Spawn/Skip (plan item 1). Habit loops are
