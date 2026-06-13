@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-13
 
+- feat(tags): weekly NEW-tag discovery from past tasks [M]
+  - Sibling to the routine pattern scan. New `tagSuggestions.js` runs a weekly (Sunday 4am local) scan over recent task titles (last 90 days) and asks Claude for up to 5 NEW tag themes that recur across tasks but aren't covered by existing labels — durable contexts ("finances", "home", "health") over one-offs, deduped against current labels + pending suggestions. Stored in `app_data.tag_suggestions`.
+  - Surfaced in the Suggestions inbox above the routine suggestions: each shows the proposed tag + rationale + example task titles, with **Add tag** (creates the label client-side via the normal CRUD + sync, then dismisses) or **Dismiss**. New tasks then auto-tag with the accepted label. Server never mutates the labels blob (dodges the bulk-write hazard) — accept is client-side.
+  - Endpoints: `GET /api/tag-suggestions`, `POST /api/tag-suggestions/:id/dismiss`, `POST /api/tag-suggestions/scan` (manual, runs in the same pass as the routine scan from the modal). `tagSuggestions.js` added to the Dockerfile runtime COPY list (root module imported by server.js). Verified: module boots + lifecycle starts, store list/dismiss work, no-key scan degrades gracefully.
+
 - feat(tasks): auto-evaluate tags on new tasks (alongside size + energy) [S]
   - `inferSize` now takes the user's label list and also returns `tags` — the existing labels that clearly apply (conservative; never invents labels; only valid ids survive). Auto-applied on every create path via the background `useSizeAutoInfer` hook + `handleAddTask`, merged into any hand-set tags (never drops one). The quiet-hours bypass label (`wake-me`) is excluded from candidates so auto-tagging can't change notification behavior. (Weekly NEW-tag discovery from past tasks is the next piece.)
 

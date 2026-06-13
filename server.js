@@ -27,6 +27,7 @@ import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount,
 import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
 import { startPatternDetection, runPatternScan } from './patternDetection.js'
+import { startTagSuggestions, runTagScan, listPendingTagSuggestions, dismissTagSuggestion } from './tagSuggestions.js'
 import { listPendingSuggestions, getPatternSuggestion, updateSuggestionStatus, snoozeSuggestion, countPendingSuggestions } from './db.js'
 import { runBackup } from './scripts/backup-db.js'
 import {
@@ -2763,6 +2764,30 @@ app.post('/api/suggestions/scan', async (req, res) => {
   }
 })
 
+// Tag suggestions (weekly NEW-tag discovery). Accept is client-side (the client
+// creates the label via its normal CRUD, then dismisses the suggestion here),
+// so there's no accept endpoint — just list / dismiss / manual scan.
+app.get('/api/tag-suggestions', (req, res) => {
+  const suggestions = listPendingTagSuggestions()
+  res.json({ suggestions, count: suggestions.length })
+})
+
+app.post('/api/tag-suggestions/:id/dismiss', (req, res) => {
+  const { id } = req.params
+  if (!id) return res.status(400).json({ error: 'Invalid suggestion id' })
+  dismissTagSuggestion(id)
+  res.json({ ok: true })
+})
+
+app.post('/api/tag-suggestions/scan', async (req, res) => {
+  try {
+    const result = await runTagScan()
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.post('/api/notifications/tap', (req, res) => {
   const { taskId, channel } = req.body || {}
   if (!taskId) return res.status(400).json({ error: 'Missing taskId' })
@@ -3681,6 +3706,7 @@ initDb(dbPath).then(async () => {
     startWeatherSync()
     startWeeklyPatternReview()
     startPatternDetection()
+    startTagSuggestions()
 
     // Background knowledge-base index refresh. Bails silently when not configured.
     startKnowledgeRefreshLoop({ getData, setData })

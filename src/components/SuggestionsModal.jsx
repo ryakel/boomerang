@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Check, X, Clock, Sparkles } from 'lucide-react'
+import { Check, X, Clock, Sparkles, Tag } from 'lucide-react'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
+import { getTagSuggestions, dismissTagSuggestion, scanTagSuggestions } from '../api'
 import './SuggestionsModal.css'
 
 // Format cadence as a human-friendly chip.
@@ -88,8 +89,45 @@ function SuggestionCard({ suggestion, onAccept, onSnooze, onDismiss, busy }) {
   )
 }
 
-export default function SuggestionsModal({ open, onClose, onAccepted, title = 'Routine suggestions' }) {
+function TagSuggestionCard({ suggestion, onAdd, onDismiss, busy }) {
+  return (
+    <li className="v2-suggestion-card v2-tagsug-card">
+      <div className="v2-suggestion-head">
+        <div className="v2-suggestion-title-row">
+          <span className="v2-tagsug-chip"><Tag size={12} strokeWidth={2} /> {suggestion.name}</span>
+        </div>
+        {suggestion.rationale && <div className="v2-tagsug-rationale">{suggestion.rationale}</div>}
+        {Array.isArray(suggestion.examples) && suggestion.examples.length > 0 && (
+          <ul className="v2-suggestion-samples">
+            {suggestion.examples.map((s, i) => <li key={i} className="v2-suggestion-sample">{s}</li>)}
+          </ul>
+        )}
+      </div>
+      <div className="v2-suggestion-actions">
+        <button
+          className="v2-suggestion-action v2-suggestion-action-primary"
+          disabled={busy}
+          onClick={() => onAdd(suggestion)}
+          title="Create this label"
+        >
+          <Check size={14} strokeWidth={1.75} /> Add tag
+        </button>
+        <button
+          className="v2-suggestion-action v2-suggestion-action-danger"
+          disabled={busy}
+          onClick={() => onDismiss(suggestion)}
+          title="Hide this tag suggestion"
+        >
+          <X size={14} strokeWidth={1.75} /> Dismiss
+        </button>
+      </div>
+    </li>
+  )
+}
+
+export default function SuggestionsModal({ open, onClose, onAccepted, onCreateTag, title = 'Routine suggestions' }) {
   const [suggestions, setSuggestions] = useState([])
+  const [tagSuggestions, setTagSuggestions] = useState([])
   const [loading, setLoading] = useState(false)
   const [busyId, setBusyId] = useState(null)
   const [recentAcceptTitle, setRecentAcceptTitle] = useState(null)
@@ -98,15 +136,37 @@ export default function SuggestionsModal({ open, onClose, onAccepted, title = 'R
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/suggestions')
-      if (res.ok) {
-        const data = await res.json()
-        setSuggestions(data.suggestions || [])
-      }
+      const [routineRes, tagRes] = await Promise.allSettled([
+        fetch('/api/suggestions').then(r => (r.ok ? r.json() : null)),
+        getTagSuggestions().catch(() => null),
+      ])
+      if (routineRes.status === 'fulfilled' && routineRes.value) setSuggestions(routineRes.value.suggestions || [])
+      if (tagRes.status === 'fulfilled' && tagRes.value) setTagSuggestions(tagRes.value.suggestions || [])
     } finally {
       setLoading(false)
     }
   }, [])
+
+  const handleAddTag = async (sug) => {
+    setBusyId(sug.id)
+    try {
+      onCreateTag?.(sug.name)
+      await dismissTagSuggestion(sug.id)
+      setTagSuggestions(prev => prev.filter(s => s.id !== sug.id))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleDismissTag = async (sug) => {
+    setBusyId(sug.id)
+    try {
+      await dismissTagSuggestion(sug.id)
+      setTagSuggestions(prev => prev.filter(s => s.id !== sug.id))
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   useEffect(() => {
     if (open) load()
@@ -170,7 +230,10 @@ export default function SuggestionsModal({ open, onClose, onAccepted, title = 'R
     try {
       // Surface what the scan actually saw — a silent empty result is
       // indistinguishable from a broken scanner (prod report 2026-06-11).
-      const res = await fetch('/api/suggestions/scan', { method: 'POST' })
+      const [res] = await Promise.all([
+        fetch('/api/suggestions/scan', { method: 'POST' }),
+        scanTagSuggestions().catch(() => null), // discover new tags in the same pass
+      ])
       const data = await res.json().catch(() => null)
       setScanResult(res.ok && data?.ok ? data : { error: data?.error || `scan failed (${res.status})` })
       await load()
@@ -184,9 +247,9 @@ export default function SuggestionsModal({ open, onClose, onAccepted, title = 'R
       open={open}
       onClose={onClose}
       title={title}
-      subtitle={suggestions.length === 0
+      subtitle={(suggestions.length + tagSuggestions.length) === 0
         ? (loading ? 'Loading…' : undefined)
-        : `${suggestions.length} waiting`}
+        : `${suggestions.length + tagSuggestions.length} waiting`}
       width="wide"
     >
       {recentAcceptTitle && (
@@ -195,7 +258,28 @@ export default function SuggestionsModal({ open, onClose, onAccepted, title = 'R
           Created routine “{recentAcceptTitle}”. Open Routines to refine.
         </div>
       )}
-      {suggestions.length === 0 ? (
+
+      {tagSuggestions.length > 0 && (
+        <>
+          <div className="v2-suggestion-hint">
+            <Tag size={13} strokeWidth={2} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            Themes Boomerang noticed across your recent tasks. Add the ones worth tracking as labels — new tasks then auto-tag with them.
+          </div>
+          <ul className="v2-suggestion-list">
+            {tagSuggestions.map(s => (
+              <TagSuggestionCard
+                key={s.id}
+                suggestion={s}
+                onAdd={handleAddTag}
+                onDismiss={handleDismissTag}
+                busy={busyId === s.id}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+
+      {suggestions.length === 0 && tagSuggestions.length === 0 ? (
         <EmptyState
           icon={Sparkles}
           title={scanResult ? 'Scan complete — nothing routine-shaped yet' : 'No suggestions right now'}
@@ -203,11 +287,11 @@ export default function SuggestionsModal({ open, onClose, onAccepted, title = 'R
             ? (scanResult.error
               ? `The scan hit an error: ${scanResult.error}`
               : `Scanned ${scanResult.scanned} completed task${scanResult.scanned === 1 ? '' : 's'} and found ${scanResult.candidates} repeating candidate${scanResult.candidates === 1 ? '' : 's'}; ${scanResult.surfaced} cleared the confidence bar. Tasks spawned by your existing loops are skipped on purpose — only ad-hoc repeats count, and a pattern needs 3+ completions at a steady rhythm before it surfaces.`)
-            : 'Boomerang scans your completed task history weekly (Sundays at 3am) and surfaces patterns that look routine-shaped. Once you\'ve completed a recurring task a few times, it\'ll show up here.'}
+            : 'Boomerang scans your task history weekly (Sundays) and surfaces routine-shaped patterns and new tag themes. Once you\'ve completed a recurring task a few times, or built up a theme across tasks, it\'ll show up here.'}
           cta={loading ? 'Scanning…' : 'Run scan now'}
           ctaOnClick={handleScan}
         />
-      ) : (
+      ) : suggestions.length > 0 ? (
         <>
           <div className="v2-suggestion-hint">
             Boomerang noticed these in your completed history. Accept to turn into a routine, snooze if you're not sure, or dismiss to hide permanently.
@@ -228,6 +312,10 @@ export default function SuggestionsModal({ open, onClose, onAccepted, title = 'R
             {loading ? 'Scanning…' : 'Run scan now'}
           </button>
         </>
+      ) : (
+        <button className="v2-suggestion-scan-link" onClick={handleScan} disabled={loading}>
+          {loading ? 'Scanning…' : 'Run scan now'}
+        </button>
       )}
     </ModalShell>
   )
