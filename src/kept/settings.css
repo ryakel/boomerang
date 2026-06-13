@@ -140,3 +140,16 @@
   border-color: var(--bm-hairline);
   border-radius: 14px;
 }
+
+/* The General/appearance tab puts settings rows DIRECTLY in .v2-settings-form
+ * (no .v2-settings-block wrapper like the other tabs), so it rendered flat —
+ * not carded like the rest. Card those forms specifically (the :has guard
+ * skips forms that wrap their own blocks, so we never double-card). */
+[data-theme^="kept"] .v2-settings-form:has(> .v2-settings-row) {
+  background: var(--bm-card);
+  border: 1px solid var(--bm-hairline);
+  border-radius: 16px;
+  box-shadow: var(--bm-shadow);
+  padding: 2px 16px;
+  margin-top: 6px;
+}
