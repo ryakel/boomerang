@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-13
 
+- feat(achievements): tier legend, aligned card footers, tap-through detail overlay [S]
+  - Three asks from a prod screenshot. (1) **What the colors mean** is now explicit — a Bronze/Silver/Gold legend sits in the grid header (the card tints are achievement tiers). (2) **Footer alignment** — earned dates and progress bars sat at different heights because cards were different sizes; cards are now equal-height (`grid-auto-rows: 1fr`) with the footer pinned to the bottom (`margin-top:auto`), so dates/bars line up across the whole grid. (3) **Detail overlay** — tapping any badge opens a popup with the emoji, tier, description, and either the earned date or a progress bar + "N to go". Set-shaped badges show a **done/outstanding checklist**: Balanced Diet lists all six energy types with this-week checks (`checklist`/`checklistTitle` added in `badges.js`). Mystery badges open a "keep playing" card. Cards are now buttons; `BadgesGrid` is shared by Analytics + the Flight log so all surfaces get it.
+
 - feat(tags): weekly NEW-tag discovery from past tasks [M]
   - Sibling to the routine pattern scan. New `tagSuggestions.js` runs a weekly (Sunday 4am local) scan over recent task titles (last 90 days) and asks Claude for up to 5 NEW tag themes that recur across tasks but aren't covered by existing labels — durable contexts ("finances", "home", "health") over one-offs, deduped against current labels + pending suggestions. Stored in `app_data.tag_suggestions`.
   - Surfaced in the Suggestions inbox above the routine suggestions: each shows the proposed tag + rationale + example task titles, with **Add tag** (creates the label client-side via the normal CRUD + sync, then dismisses) or **Dismiss**. New tasks then auto-tag with the accepted label. Server never mutates the labels blob (dodges the bulk-write hazard) — accept is client-side.

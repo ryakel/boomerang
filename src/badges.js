@@ -88,6 +88,12 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
   }
   const balancedBest = Math.max(0, ...Object.values(weekTypes).map(s => s.size))
 
+  // This-week energy types caught — powers the Balanced Diet detail breakdown
+  // ("what's done vs outstanding" right now, the actionable view).
+  const cwStart = new Date(); cwStart.setHours(0, 0, 0, 0)
+  cwStart.setDate(cwStart.getDate() - ((cwStart.getDay() + 6) % 7)) // Monday
+  const thisWeekTypes = weekTypes[localYMD(cwStart)] || new Set()
+
   // A quarterly+ loop kept alive for a year (history span).
   let longHaulDays = 0
   for (const r of routines || []) {
@@ -148,6 +154,21 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
     mk('stack_champion', 'Stack Champion', 'Earn 10 stack clear-bonuses', '📦', 'silver', stackBonuses, 10),
     mk('long_haul', 'Long Haul', 'Keep a quarterly+ loop alive for a year', '🛤️', 'gold', longHaulDays, 365),
   ]
+
+  // Per-criterion breakdown for the detail overlay. Most badges are a single
+  // count (the overlay shows "N to go"); set-shaped ones get a checklist of
+  // their discrete pieces so "what's done vs outstanding" is concrete.
+  const ENERGY_LABELS = {
+    desk: 'Desk', people: 'People', errand: 'Errand',
+    confrontation: 'Confrontation', creative: 'Creative', physical: 'Physical',
+  }
+  const balanced = badges.find(b => b.id === 'balanced_diet')
+  if (balanced) {
+    balanced.checklistTitle = 'Caught this week'
+    balanced.checklist = Object.keys(ENERGY_LABELS).map(t => ({
+      label: ENERGY_LABELS[t], done: thisWeekTypes.has(t),
+    }))
+  }
 
   // Durable earned state: once stamped, a badge stays earned no matter what
   // happens to the rows that earned it.
