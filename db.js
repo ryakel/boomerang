@@ -1138,8 +1138,12 @@ export function deleteRoutine(id) {
 // path) so they line up with computeStreak's local bucketing. Idempotent —
 // only adds genuine done-task evidence, so re-running is a no-op.
 //
-// Excludes stacks (close on last-member clear) and habit loops (multi-per-day
-// logs make day-set matching lossy, and they have no cadence to "close").
+// Habit loops are excluded (multi-per-day logs make day-set matching lossy,
+// and they have no cadence to "close"). STACKS are handled by their own
+// per-(due_date) cycle rule: a cycle whose every member is done but whose
+// closing completed_history stamp never landed gets stamped (the last-member-
+// clear stamp can fail to land — completed from the main list, a refetch race,
+// or pre-fix completions — leaving the day blank despite all members done).
 //
 // `dryRun: true` reports what WOULD change without writing — used so the
 // Quokka tool can stage an accurate preview before the user commits.
@@ -1147,10 +1151,11 @@ export function deleteRoutine(id) {
 export function reconcileRoutineHistory({ dryRun = false } = {}) {
   const settings = getData('settings') || {}
   const tz = settings.user_timezone
+  const today = ymdInUserTimezone(new Date().toISOString(), tz)
   const repaired = []
   for (const r of getAllRoutines()) {
+    if (r.spawn_mode === 'habit') continue
     const isStack = Array.isArray(r.members) && r.members.length > 0
-    if (isStack || r.spawn_mode === 'habit') continue
     const hist = Array.isArray(r.completed_history) ? r.completed_history.slice() : []
     const histDays = new Set(hist.map(ts => ymdInUserTimezone(ts, tz)))
     // Days the user explicitly skipped ("never did it, move on") must not be
@@ -1158,14 +1163,36 @@ export function reconcileRoutineHistory({ dryRun = false } = {}) {
     const skipped = new Set(Array.isArray(r.skipped_days) ? r.skipped_days : [])
     const additions = []
     const addedDays = []
-    for (const t of queryTasks({ status: 'done', routine_id: r.id })) {
-      const stampIso = t.completed_at || (t.due_date ? `${String(t.due_date).slice(0, 10)}T12:00:00.000Z` : null)
-      if (!stampIso) continue
-      const day = ymdInUserTimezone(stampIso, tz)
-      if (!day || histDays.has(day) || skipped.has(day)) continue
-      histDays.add(day)
-      additions.push(new Date(stampIso).toISOString())
-      addedDays.push(day)
+    if (isStack) {
+      // Group the stack's tasks into (due_date) cycles; stamp any past cycle
+      // that's fully done but unrecorded. The stamp buckets to the due day.
+      const byCycle = new Map()
+      for (const t of queryTasks({ routine_id: r.id })) {
+        const due = String(t.due_date || '').slice(0, 10)
+        if (!due || due >= today) continue
+        if (['cancelled', 'backlog', 'project'].includes(t.status)) continue
+        if (!byCycle.has(due)) byCycle.set(due, { due, total: 0, done: 0 })
+        const c = byCycle.get(due)
+        c.total++
+        if (t.status === 'done') c.done++
+      }
+      for (const c of byCycle.values()) {
+        if (c.total === 0 || c.done < c.total) continue
+        if (histDays.has(c.due) || skipped.has(c.due)) continue
+        histDays.add(c.due)
+        additions.push(`${c.due}T12:00:00.000Z`)
+        addedDays.push(c.due)
+      }
+    } else {
+      for (const t of queryTasks({ status: 'done', routine_id: r.id })) {
+        const stampIso = t.completed_at || (t.due_date ? `${String(t.due_date).slice(0, 10)}T12:00:00.000Z` : null)
+        if (!stampIso) continue
+        const day = ymdInUserTimezone(stampIso, tz)
+        if (!day || histDays.has(day) || skipped.has(day)) continue
+        histDays.add(day)
+        additions.push(new Date(stampIso).toISOString())
+        addedDays.push(day)
+      }
     }
     if (additions.length === 0) continue
     const after = [...hist, ...additions].sort()
