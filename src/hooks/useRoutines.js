@@ -307,43 +307,34 @@ export function useRoutines() {
     return { spawned, rolled }
   }, [routines])
 
-  // Reconcile completed_history with already-completed spawned tasks. A loop
-  // "closes" (advances its cadence + crosses out) when its spawned task is
-  // completed — that stamps completed_history. But tasks completed before that
-  // stamping path existed, via a path that didn't stamp, or surviving a history
-  // wipe, leave the loop stuck OPEN: a done task on the list and no matching
-  // history entry. This walks every ordinary cadence routine's done tasks and
-  // appends a stamp for any completion-day missing from completed_history.
-  // Idempotent — it only ever adds genuine evidence (a real done task), so a
-  // second run is a no-op. Returns the number of routines repaired.
-  //
-  // Excluded: stacks (close on last-member clear via their own (routine_id,
-  // due_date) cycle accounting) and habit loops (multiple-per-day logs make
-  // day-set matching lossy, and they have no cadence to "close").
-  const reconcileRoutineHistory = useCallback((taskList = []) => {
-    let repaired = 0
+  // Loop-reconcile review actions (per-day Mark done / Skip). Both key off a
+  // local 'YYYY-MM-DD' day so they're stable regardless of clock time.
+
+  // Credit a specific day as a completion (stamp completed_history at noon, the
+  // same convention the Today loop-check uses). No-op if the day is already
+  // recorded. Used by "Mark done" on the loop's needs-attention list.
+  const markRoutineDayDone = useCallback((routineId, ymd, iso) => {
+    if (!ymd) return
     setRoutines(prev => prev.map(r => {
-      const isStack = Array.isArray(r.members) && r.members.length > 0
-      if (isStack || r.spawn_mode === 'habit') return r
+      if (r.id !== routineId) return r
       const hist = Array.isArray(r.completed_history) ? r.completed_history : []
-      const histDays = new Set(hist.map(ts => localYMD(new Date(ts))))
-      const additions = []
-      for (const t of taskList) {
-        if (t.routine_id !== r.id || t.status !== 'done') continue
-        // completed_at is the real local-time evidence; fall back to the due
-        // day (noon UTC, the same convention the Today loop-check writes).
-        const stampIso = t.completed_at || (t.due_date ? `${String(t.due_date).slice(0, 10)}T12:00:00.000Z` : null)
-        if (!stampIso) continue
-        const day = localYMD(new Date(stampIso))
-        if (!day || histDays.has(day)) continue
-        histDays.add(day)
-        additions.push(new Date(stampIso).toISOString())
-      }
-      if (additions.length === 0) return r
-      repaired++
-      return { ...r, completed_history: [...hist, ...additions].sort() }
+      if (hist.some(ts => localYMD(new Date(ts)) === ymd)) return r
+      const stamp = iso || `${ymd}T12:00:00.000Z`
+      return { ...r, completed_history: [...hist, stamp].sort() }
     }))
-    return repaired
+  }, [])
+
+  // Acknowledge a day as "didn't do it, move on" — record it in skipped_days so
+  // it stops surfacing as needing attention, WITHOUT crediting a completion
+  // (the trail stays honestly uncaught). Used by "Skip" on the same list.
+  const skipRoutineDay = useCallback((routineId, ymd) => {
+    if (!ymd) return
+    setRoutines(prev => prev.map(r => {
+      if (r.id !== routineId) return r
+      const skipped = Array.isArray(r.skipped_days) ? r.skipped_days : []
+      if (skipped.includes(ymd)) return r
+      return { ...r, skipped_days: [...skipped, ymd].sort() }
+    }))
   }, [])
 
   const hydrateRoutines = useCallback((data) => {
@@ -366,7 +357,8 @@ export function useRoutines() {
     spawnNow,
     logHabit,
     skipCycle,
-    reconcileRoutineHistory,
+    markRoutineDayDone,
+    skipRoutineDay,
     hydrateRoutines,
   }
 }

@@ -101,6 +101,62 @@ export function habitWindows(routine, count = 12, weekStartsOn = 1) {
   return windows
 }
 
+// Per-loop reconcile gaps — the days a loop "needs you to look at" (plan
+// follow-up). Walks the cadence windows and splits past, non-current,
+// uncaught cycles into two groups:
+//   - unrecorded: a finished task exists in the window but the loop never
+//     recorded it (the reconcile case) — review before crediting.
+//   - missed: the cycle was due but has no completion AND no finished task.
+// Days the user already acknowledged (Skip) sit in `routine.skipped_days` and
+// are excluded. Each entry carries the representative local day used to stamp
+// (Mark done) or dismiss (Skip), plus a human label. Only for ordinary cadence
+// loops — stacks and habit loops return empty (they don't model a single
+// closeable cycle here).
+const GAP_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function gapLabel(routine, w) {
+  const s = w.start
+  const monthScale = ['monthly', 'quarterly', 'annually'].includes(routine.cadence)
+    || (routine.cadence === 'custom' && routine.custom_unit === 'months')
+  if (monthScale) {
+    if (routine.cadence === 'annually') return String(s.getFullYear())
+    return `${GAP_MONTHS[s.getMonth()]} ${s.getFullYear()}`
+  }
+  // day/week windows: show the start day (week windows read as "week of")
+  const day = `${GAP_MONTHS[s.getMonth()]} ${s.getDate()}`
+  const weekScale = routine.cadence === 'weekly'
+    || (routine.cadence === 'custom' && routine.custom_unit !== 'months' && (routine.custom_days || 7) > 1)
+  return weekScale ? `week of ${day}` : day
+}
+
+export function loopGaps(routine, tasks = [], count = 12) {
+  const isStack = Array.isArray(routine?.members) && routine.members.length > 0
+  if (!routine || isStack || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [] }
+  const skipped = new Set(Array.isArray(routine.skipped_days) ? routine.skipped_days : [])
+  const doneTasks = tasks.filter(t => t.routine_id === routine.id && t.status === 'done')
+  const wins = cycleWindows(routine, count)
+  const unrecorded = []
+  const missed = []
+  for (const w of wins) {
+    if (w.current || w.caught) continue
+    const task = doneTasks.find(t => {
+      const iso = t.completed_at || (t.due_date ? `${String(t.due_date).slice(0, 10)}T12:00:00.000Z` : null)
+      if (!iso) return false
+      const d = new Date(iso)
+      return d >= w.start && d < w.end
+    })
+    if (task) {
+      const iso = task.completed_at || `${String(task.due_date).slice(0, 10)}T12:00:00.000Z`
+      const day = localYMD(new Date(iso))
+      if (skipped.has(day) || skipped.has(w.key)) continue
+      unrecorded.push({ key: w.key, day, iso: new Date(iso).toISOString(), label: gapLabel(routine, w), taskId: task.id })
+    } else {
+      if (skipped.has(w.key)) continue
+      missed.push({ key: w.key, day: w.key, iso: `${w.key}T12:00:00.000Z`, label: gapLabel(routine, w) })
+    }
+  }
+  return { unrecorded, missed }
+}
+
 export function cycleUnitLabel(routine, singular = false) {
   const c = routine.cadence
   const plural = (w) => (singular ? w : `${w}s`)

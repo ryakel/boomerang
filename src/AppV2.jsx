@@ -198,7 +198,7 @@ export default function AppV2() {
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
-    completeRoutine, uncompleteRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, reconcileRoutineHistory, hydrateRoutines,
+    completeRoutine, uncompleteRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, markRoutineDayDone, skipRoutineDay, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -351,20 +351,10 @@ export default function AppV2() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks])
 
-  // One-time reconcile of stuck-open loops: a routine whose spawned task was
-  // completed but whose completed_history never got the matching stamp (task
-  // completed before the stamping path existed, via a non-stamping path, or
-  // surviving a history wipe) shows as never-closed. Run once after the server
-  // hydrates so the evidence is the authoritative task list, not the
-  // localStorage seed. Idempotent — only adds genuine done-task evidence.
-  const reconcileCheckedRef = useRef(false)
-  useEffect(() => {
-    if (reconcileCheckedRef.current || !serverHydratedRef.current || tasks.length === 0) return
-    reconcileCheckedRef.current = true
-    const repaired = reconcileRoutineHistory(tasks)
-    if (repaired > 0) flushSync()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks])
+  // (Stuck-open loops are no longer silently reconciled on load — the user
+  // reviews and fixes them per-day on the loop's detail page, or fixes all at
+  // once via Quokka's reconcile_loops. See loopGaps + the Loops "needs
+  // attention" surface.)
 
   // Spawn due routine tasks on load + when routines change. Auto-roll routines
   // bump an existing active instance forward instead of spawning a duplicate
@@ -1321,6 +1311,8 @@ export default function AppV2() {
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
           onSkipCycle={skipCycle}
+          onMarkLoopDay={markRoutineDayDone}
+          onSkipLoopDay={skipRoutineDay}
           onOpenQuokka={() => setShowAdviser(true)}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPackages={() => setShowPackages(true)}
@@ -1375,6 +1367,8 @@ export default function AppV2() {
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
           onSkipCycle={skipCycle}
+          onMarkLoopDay={markRoutineDayDone}
+          onSkipLoopDay={skipRoutineDay}
           onOpenQuokka={() => setShowAdviser(true)}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPackages={() => setShowPackages(true)}
