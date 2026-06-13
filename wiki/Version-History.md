@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-13
 
+- feat(tasks): auto-evaluate tags on new tasks (alongside size + energy) [S]
+  - `inferSize` now takes the user's label list and also returns `tags` — the existing labels that clearly apply (conservative; never invents labels; only valid ids survive). Auto-applied on every create path via the background `useSizeAutoInfer` hook + `handleAddTask`, merged into any hand-set tags (never drops one). The quiet-hours bypass label (`wake-me`) is excluded from candidates so auto-tagging can't change notification behavior. (Weekly NEW-tag discovery from past tasks is the next piece.)
+
 - fix(routines): loop reconcile now covers STACKS (the blank-cycle bug) [S]
   - Prod report (with screenshots): "Bedtime" showed June 10 as incomplete on its calendar even though every Bedtime task (Start dishwasher, Lock doors, …) was done that day. Cause: a stack closes per `(routine_id, due_date)` cycle (all members cleared → one `completed_history` stamp), but that closing stamp can fail to land (completed from the main list, a refetch race, pre-fix completions) — and the reconcile work explicitly EXCLUDED stacks, so `loopGaps` returned nothing for Bedtime (no "Needs attention" card) and the day stayed blank with no way to fix it.
   - `loopGaps` (`src/kept/cycles.js`) and the server `reconcileRoutineHistory` (`db.js`) now reconcile stacks per cycle: a past `(routine_id, due_date)` cycle whose every member is done but whose closing stamp is missing is surfaced as an **unrecorded** gap (Mark done stamps the due day, closing the cycle). Partial cycles (not all members done) are left alone; habit loops still excluded. Verified: a fully-done unstamped cycle is flagged, a partial one isn't.

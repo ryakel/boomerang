@@ -62,7 +62,16 @@ export async function inferDate(title, notes = '') {
 // Returns { size, energy, energyLevel } in a single API call.
 // energy = type of capacity (desk|people|errand|creative|physical)
 // energyLevel = drain intensity (1=low, 2=medium, 3=high)
-export async function inferSize(title, notes = '') {
+export async function inferSize(title, notes = '', labels = []) {
+  const taggable = Array.isArray(labels) ? labels.filter(l => l && l.id && l.name) : []
+  const tagInstructions = taggable.length > 0
+    ? `
+
+For TAGS, pick from the user's EXISTING labels below any that clearly apply to this task. Be conservative — only assign a label when it obviously fits (most tasks get zero or one). Never invent new labels. Return the matching label ids in a "tags" array (empty array if none fit).
+Available labels (id — name):
+${taggable.map(l => `- ${l.id} — ${l.name}`).join('\n')}`
+    : ''
+  const tagKey = taggable.length > 0 ? ', "tags": ["<label id>", ...]' : ''
   const system = `You estimate task effort and energy requirements for someone with ADHD.
 
 For SIZE, use T-shirt sizes: XS (under 5 min, trivial), S (5-15 min, quick), M (15-60 min, moderate), L (1-4 hours, significant), XL (4+ hours or multi-day). Consider complexity, steps involved, and dependencies.
@@ -79,22 +88,26 @@ For ENERGY LEVEL, rate the drain intensity 1-3:
 - 2 = medium drain, requires focus/effort (presentation prep, store returns, moderate cleaning)
 - 3 = high drain, significant willpower needed (difficult conversations, deep cleaning, complex social situations)
 
-Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLevel": 1|2|3}`
+Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLevel": 1|2|3${tagKey}}${tagInstructions}`
 
-  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nEstimate size, energy type, and energy level. JSON only.`
+  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nEstimate size, energy type, energy level${taggable.length > 0 ? ', and any clearly-applicable tags' : ''}. JSON only.`
 
   try {
     const text = await callClaude(system, user)
     const match = text.match(/\{[\s\S]*\}/)
-    if (!match) return { size: null, energy: null, energyLevel: null }
+    if (!match) return { size: null, energy: null, energyLevel: null, tags: [] }
     const result = JSON.parse(match[0])
+    // Only accept tags that map to a real provided label id.
+    const validIds = new Set(taggable.map(l => l.id))
+    const tags = Array.isArray(result.tags) ? result.tags.filter(id => validIds.has(id)) : []
     return {
       size: result.size || null,
       energy: result.energy || null,
       energyLevel: result.energyLevel || null,
+      tags,
     }
   } catch {
-    return { size: null, energy: null, energyLevel: null }
+    return { size: null, energy: null, energyLevel: null, tags: [] }
   }
 }
 
