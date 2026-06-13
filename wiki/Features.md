@@ -567,6 +567,7 @@ Accessible two ways: the SystemMenu (⚙ icon, top-right) or by tapping the BOOM
 - **Energy type breakdown** — completions by energy type (desk, errand, people, etc.) with energy icons
 - **Size breakdown** — completions by T-shirt size (XS through XL) with point totals
 - **Activity heat map** — GitHub-style contribution graph showing 52 weeks of daily activity. Toggle between tasks (green) and points (orange). Color intensity scales with volume. Scrollable on mobile.
+- **Achievements** — a grid of earnable badges, computed live from your data with durable earned state (deleting tasks never un-earns one). Cards are tinted by **tier** — Bronze, Silver, Gold by prestige — explained by a legend in the header. Earned cards show the date; in-progress cards show a progress bar. **Tap any badge** for a detail popup: earned date or progress with "N to go", and for badges that track a set of things (like Balanced Diet — every energy type in one week) a checklist of exactly what's done vs still outstanding. Hidden badges stay mysteries until earned.
 - **Completed task search** — collapsible section; search completed tasks with filters for energy type, size, and tag
 - **Vacation mode** — freezes your streak so time away doesn't reset it. Choose a duration (3 days, 5 days, 7 days, or custom) and it auto-expires when the end date passes. End early if you're back sooner.
 - **Free day** — one-tap button to pause your streak for a single day without entering vacation mode. Togglable on/off for today.

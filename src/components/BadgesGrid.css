@@ -2,7 +2,10 @@
  * --v2-* so it inherits the right palette automatically). */
 .v2-badges-head {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
   margin-bottom: 10px;
 }
 .v2-badges-count {
@@ -10,9 +13,32 @@
   font-weight: 700;
   color: var(--v2-text-meta);
 }
+/* Tier legend — explains the card tints (bronze / silver / gold by prestige) */
+.v2-badges-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.v2-badges-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--v2-text-meta);
+}
+.v2-badge-swatch {
+  width: 11px; height: 11px; border-radius: 50%;
+  display: inline-block;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+}
+.v2-swatch-bronze { background: #C58A4A; }
+.v2-swatch-silver { background: #9FB0C3; }
+.v2-swatch-gold   { background: #E8B23A; }
 .v2-badges-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  grid-auto-rows: 1fr;   /* every card the same height → footers align across the whole grid */
   gap: 10px;
 }
 .v2-badge {
@@ -27,6 +53,13 @@
   border: 1px solid var(--v2-hairline);
   opacity: 0.55;
   filter: grayscale(0.7);
+  /* it's a <button> now — reset chrome, keep it tappable */
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .v2-badge.is-earned {
   opacity: 1;
@@ -39,7 +72,8 @@
 .v2-badge-name { font-size: 12.5px; font-weight: 700; color: var(--v2-text); }
 .v2-badge-desc { font-size: 10.5px; color: var(--v2-text-meta); line-height: 1.25; }
 .v2-badge-earned-tag {
-  margin-top: 4px;
+  margin-top: auto;   /* pin to the bottom so earned dates line up across cards */
+  padding-top: 6px;
   font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -48,7 +82,7 @@
 }
 .v2-badge-progress {
   position: relative;
-  margin-top: 6px;
+  margin-top: auto;   /* pin to the bottom so bars line up across cards */
   width: 100%;
   height: 14px;
   border-radius: 999px;
@@ -74,4 +108,100 @@
 .v2-badge-mystery {
   opacity: 0.55;
   border-style: dashed;
+}
+
+/* ── Detail overlay (tap a badge) ─────────────────────────────────────────── */
+.v2-badge-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.v2-badge-detail {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 18px;
+  padding: 24px 20px 22px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+.v2-badge-detail.v2-badge-bronze.is-earned { border-color: color-mix(in srgb, #C58A4A 60%, transparent); background: color-mix(in srgb, #C58A4A 10%, var(--v2-surface)); }
+.v2-badge-detail.v2-badge-silver.is-earned { border-color: color-mix(in srgb, #9FB0C3 60%, transparent); background: color-mix(in srgb, #9FB0C3 10%, var(--v2-surface)); }
+.v2-badge-detail.v2-badge-gold.is-earned   { border-color: color-mix(in srgb, #E8B23A 65%, transparent); background: color-mix(in srgb, #E8B23A 12%, var(--v2-surface)); }
+.v2-badge-detail-close {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text-meta);
+  display: grid; place-items: center;
+  cursor: pointer;
+}
+.v2-badge-detail-emoji { font-size: 46px; line-height: 1; }
+.v2-badge-detail-name { margin: 0; font-size: 18px; font-weight: 800; color: var(--v2-text); }
+.v2-badge-tier-chip {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 999px;
+}
+.v2-badge-tier-bronze { background: color-mix(in srgb, #C58A4A 18%, transparent); color: #C58A4A; }
+.v2-badge-tier-silver { background: color-mix(in srgb, #9FB0C3 20%, transparent); color: #8198ad; }
+.v2-badge-tier-gold   { background: color-mix(in srgb, #E8B23A 20%, transparent); color: #c9941e; }
+.v2-badge-detail-desc { margin: 2px 0 4px; font-size: 13px; line-height: 1.4; color: var(--v2-text-meta); }
+.v2-badge-detail-earned {
+  margin-top: 4px;
+  font-size: 13px; font-weight: 800;
+  color: var(--v2-accent);
+}
+.v2-badge-detail-progress-wrap { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.v2-badge-detail-bar {
+  position: relative; width: 100%; height: 8px;
+  border-radius: 999px; background: var(--v2-hairline); overflow: hidden;
+}
+.v2-badge-detail-bar-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: color-mix(in srgb, var(--v2-accent) 55%, transparent);
+}
+.v2-badge-detail-count { font-size: 13px; color: var(--v2-text); }
+.v2-badge-detail-togo { color: var(--v2-text-meta); }
+.v2-badge-checklist {
+  width: 100%;
+  margin-top: 4px;
+  text-align: left;
+  border-top: 1px solid var(--v2-hairline);
+  padding-top: 10px;
+}
+.v2-badge-checklist-title {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--v2-text-meta); margin-bottom: 6px;
+}
+.v2-badge-checklist ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.v2-badge-checklist li {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--v2-text-meta);
+}
+.v2-badge-checklist li.is-done { color: var(--v2-text); font-weight: 600; }
+.v2-badge-checklist-mark {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid var(--v2-hairline);
+  display: grid; place-items: center; flex: 0 0 auto;
+  color: var(--v2-accent);
+}
+.v2-badge-checklist li.is-done .v2-badge-checklist-mark {
+  border-color: var(--v2-accent);
+  background: color-mix(in srgb, var(--v2-accent) 16%, transparent);
 }
