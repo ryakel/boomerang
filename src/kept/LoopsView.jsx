@@ -4,6 +4,7 @@ import MonthDots from './MonthDots'
 import DensityRibbon from './DensityRibbon'
 import CycleChips from './CycleChips'
 import LoopDetail from './LoopDetail'
+import LoopSwipe from './LoopSwipe'
 import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally } from './cycles'
 import { historyByDay } from './heatmapUtils'
 import { routineFeathers } from './feathers'
@@ -17,7 +18,7 @@ const RANGES = [
 
 // Kept "Loops" — one card per loop carrying its Flight Trail / Month Dots /
 // Density Ribbon (spec §6). Edit routes to the existing routine editor.
-export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpenSuggestions }) {
+export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onOpenSuggestions }) {
   const [range, setRange] = useState('trail')
   // Tapping a card opens the loop DETAIL (K4) — stats + month calendar —
   // not the editor. Edit is a deliberate button on the detail page.
@@ -42,9 +43,14 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
       // Rally in the loop's own cycles (consecutive weeks/months/etc caught),
       // not calendar days — day-streaks read as 1 forever on non-dailies.
       const { rally } = cycleRally(wins, isHabit ? r.target_count : 1)
-      return { r, color: feathers[r.id], byDay, rally, total: r.completed_history?.length || 0 }
+      // Spawn is blocked while an instance is still active on the list (mirrors
+      // the spawn guard in AppV2.handleSpawnLoop) — greys the swipe action.
+      const hasActive = tasks.some(t =>
+        t.routine_id === r.id && !['done', 'completed', 'cancelled'].includes(t.status),
+      )
+      return { r, color: feathers[r.id], byDay, rally, hasActive, total: r.completed_history?.length || 0 }
     })
-  }, [routines])
+  }, [routines, tasks])
 
   if (detailId) {
     const sel = loops.find(l => l.r.id === detailId)
@@ -53,8 +59,11 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
         <LoopDetail
           routine={sel.r}
           color={sel.color}
+          spawnBlocked={sel.hasActive}
           onBack={() => setDetailId(null)}
           onEdit={(r) => { setDetailId(null); onEditLoop?.(r) }}
+          onSpawnNow={onSpawnNow}
+          onSkipCycle={onSkipCycle}
         />
       )
     }
@@ -78,8 +87,10 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
         ))}
       </div>
       {loops.length === 0 && <p className="bm-empty">No loops yet — things that come back around live here.</p>}
-      {loops.map(({ r, color, byDay, rally, total }) => (
-        <div key={r.id} className="bm-card" style={{ '--loop': color }}>
+      {loops.map(({ r, color, byDay, rally, total, hasActive }) => {
+        const isHabit = r.spawn_mode === 'habit' && r.target_count
+        const card = (
+        <div className="bm-card" style={{ '--loop': color }}>
           <div className="bm-card-title">
             <span className="bm-loop-ring" style={{ width: 28, height: 28 }}><Repeat2 size={13} strokeWidth={2.2} /></span>
             <button
@@ -130,7 +141,21 @@ export default function LoopsView({ routines = [], onEditLoop, onAddLoop, onOpen
           {range === 'month' && <MonthDots valueByDay={byDay} color={color} />}
           {range === 'year' && <DensityRibbon valueByDay={byDay} color={color} />}
         </div>
-      ))}
+        )
+        // Cadence loops get swipe-to-Spawn/Skip (plan item 1). Habit loops are
+        // logged, not spawned/skipped (parity with the modal), so they render
+        // as a plain card.
+        return isHabit ? (
+          <div key={r.id}>{card}</div>
+        ) : (
+          <LoopSwipe
+            key={r.id}
+            blocked={hasActive}
+            onSpawn={() => onSpawnNow?.(r.id)}
+            onSkip={() => onSkipCycle?.(r.id)}
+          >{card}</LoopSwipe>
+        )
+      })}
     </div>
   )
 }

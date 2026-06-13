@@ -130,6 +130,8 @@ Recurring tasks with configurable cadence:
 - **End date**: optional end date to auto-stop a routine (e.g., "study daily until exam day"). After the end date, no new tasks are spawned. Displayed on routine cards as "ends Mon DD".
 - **Management**: routines live in their own screen, accessible from the tag bar. Active and paused routines are shown separately.
 - **Auto-spawning**: when a routine is due, a task instance is automatically created in the main task list. Completing the instance logs the completion on the routine and schedules the next occurrence.
+- **Closes when you finish its task**: completing a loop's task — from the loop's own check OR from the main task list — crosses out the loop card and ticks the "Loops `done/total`" count on Today. Loops left stuck open from completed tasks (e.g. after a data restore) auto-close on next app open: Boomerang reconciles each loop's history against its finished tasks so it stops nagging and advances to the next cycle. You can also trigger this on demand by asking Quokka ("close the loops that won't clear") — it previews exactly which loops it'll fix before applying.
+- **Quick actions on the Loops page**: swipe a loop card left to reveal **Spawn** (run it now without waiting for the schedule) and **Skip** (skip this cycle). The same two actions sit as buttons on a loop's detail page. Spawn greys to "On list" when an instance is already waiting for you.
 - **Fixed schedule (no drift)**: due dates follow a fixed grid — completing early or late never shifts the series. "Every Monday" stays Monday, "the 18th" stays the 18th, no matter when you actually check it off. A missed cycle shows up as a single overdue task, not a pile.
 - **Editable "Last done" date**: in a routine's edit screen you can set when it was last completed. This drives the next due date — handy for fixing a routine that keeps nagging because its history is wrong or missing. (Quokka can do it too: "mark the furnace filter as last done March 29.")
 - **Intelligent schedule anchor**: the "On" picker adapts to the cadence. Weekly → pick a weekday. Monthly / quarterly / annually → pick **a day of the month** ("the 18th"), **an ordinal weekday** ("1st Monday", "2nd Tuesday", "last Friday"), or leave it on the day the routine was created. The chosen anchor — not the creation date — drives the schedule.
@@ -384,6 +386,10 @@ Uses [Open-Meteo](https://open-meteo.com) to suggest the right tasks for the wea
 - **Respects quiet hours** — weather alerts are silenced during your DND window like other notifications.
 
 ## Notifications
+
+### Notification Center (in-app)
+
+The bell in the header opens an in-app notification center listing everything that's gone out (nags, package updates, weather alerts, Quokka plan pings), grouped by day. Tap a row to jump to its task; tap **Mark all read** to clear the unread state. **Read state now sticks** — it's saved server-side, so closing and reopening the center (or switching devices) keeps what you've read marked read, and task-less notifications (weather, pile-up) can be marked read too. (Previously "read" was only remembered for the current screen and reset on reopen.)
 
 ### Browser Push Notifications
 

@@ -191,6 +191,12 @@ UI: the v2 `RoutinesModal` "On" field is cadence-aware — weekly shows the week
 
 **"Skip this cycle" trigger:** `skipCycle(routineId)` in `src/hooks/useRoutines.js`. Expanded routine card has a fast-forward button next to the "+" that stamps `completed_history` with today's timestamp WITHOUT spawning a task — `getNextDueDate()` rolls forward by one cadence interval. Use case: vacation, illness, "the lawn doesn't need mowing this week." Only renders for non-paused routines. Skips count toward the "Nx completed" total — a separate skip log is tracked-as-tech-debt-but-not-built since the personal app doesn't need the analytics distinction.
 
+**Kept Loops quick-actions (2026-06-13):** `spawnNow` + `skipCycle` are surfaced on the Kept Loops surface (not just buried in the RoutinesModal list). `onSpawnNow` + `onSkipCycle` thread AppV2 → `KeptShell`/`KeptDesktop` → `LoopsView` → `LoopDetail`. **Swipe** (`src/kept/LoopSwipe.jsx`, reusing `useSwipeActions`): each Loops card swipes left to reveal **Spawn** (gold) + **Skip** (neutral) with a brief ✓ confirmation; Spawn greys to "On list" when an instance is already active. **Buttons**: a Spawn now / Skip cycle action row on `LoopDetail` under the stat cards. Habit loops render as plain cards (logged, not spawned/skipped). The spawn guard (refuse while an instance is active) is one shared `handleSpawnLoop` in AppV2 used by RoutinesModal and both Kept shells.
+
+**Loop closes on task completion + reconcile (2026-06-13):** Completing a routine-spawned task from the main task list advances the cadence (`handleComplete → completeRoutine`), but the Today loop card's `doneToday` indicator + the "Loops {done}/{total}" header used to key solely off the `completed_history` stamp, which can lag or be reverted by a refetch race. `doneToday` now ORs in a second independent signal: a routine-spawned task with `status='done'` and `completed_at` bucketing to today (`TodayView.jsx`). For loops stuck open from BEFORE this path (done tasks but no history stamp — pre-fix completions, non-stamping paths, history wipes), `reconcileRoutineHistory(tasks)` in `useRoutines.js` appends a stamp for every done-task completion-day missing from `completed_history`; it runs once per session after server hydration (AppV2, gated like the streak anchor) and is idempotent. Excludes stacks (close on last-member clear) and habit loops (multi-per-day logs, no cadence). A server-side twin `reconcileRoutineHistory({ dryRun })` in `db.js` (buckets days in `settings.user_timezone`, same as the durability `completion_days` path) backs the Quokka `reconcile_loops` tool — staged with an accurate dry-run preview + per-routine LIFO compensation, so the user can also fix stuck loops by asking ("close my loops that won't clear").
+
+**Edit-loop modal fixes (2026-06-13):** Removed the redundant in-form `← Back` pill (`v2-routine-back`) that stacked under ModalShell's own back-arrow + title (a smashed double header) — the modal chrome is the single exit. When the modal opens directly into the form from Kept (`editRoutineId`/`openToForm`), Save now calls `onClose()` (back to the Kept Loops page) instead of dumping the user on the modal's leftover internal list; forms reached from the internal list still return to it. Tracked via an `openedToForm` flag in `RoutinesModal.jsx`.
+
 ### Notion Sync (Pull + Ongoing)
 Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks in sync.
 
@@ -503,6 +509,7 @@ Each event id (e.g. `weather:bad_weekend:2026-04-19:rain`) gets an 18-hour dedup
 - Throttle timestamps persist in localStorage across app reloads (prevents duplicate notifications)
 - Test notification button available in settings
 - **Avoidance boost**: confrontation/errand tasks get nagged ~30-56% more frequently
+- **Persisted read state (migration 036):** the Notifications center keys "unread" off a dedicated `notification_log.read_at` column, NOT the engagement-analytics `tapped_at`. The two were once conflated, which broke read state three ways (client-only `markAllRead` that never persisted; task-less rows could never be marked read; passive glances polluted tap/completion metrics). `db.js` `markNotifEntriesRead(ids)` + `markAllNotifsRead()`; `POST /api/notifications/log/read` (`{ ids }` or `{ all: true }`); `markNotifsRead()` in `src/api.js`. Read state rides `notification_log` (survives bulk wipes) so it syncs across devices. `POST /api/notifications/tap` still stamps `tapped_at` for real task taps (analytics) only.
 
 ### Email Notifications
 Server-side email notification engine (`emailNotifications.js`) that mirrors client-side push notification logic.
@@ -805,7 +812,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 
 **Server modules:**
 - `adviserTools.js` — registry, session/plan storage (10-min TTL, 1-min sweep), `handleToolCall()`, `commitPlan()` with rollback
-- `adviserToolsTasks.js` — 21 task + routine tools (incl. 4 Sequences chain editors: `add_follow_up`, `edit_follow_up`, `remove_follow_up`, `reorder_follow_ups`)
+- `adviserToolsTasks.js` — 22 task + routine tools (incl. 4 Sequences chain editors: `add_follow_up`, `edit_follow_up`, `remove_follow_up`, `reorder_follow_ups`; + `reconcile_loops`)
 - `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools
 - `adviserToolsMisc.js` — 20 Gmail + packages + weather + settings + analytics tools
 - `adviserToolsKnowledge.js` — 9 knowledge-base tools (search, get, refresh, list, create, update, delete, link/unlink to tasks)
@@ -821,7 +828,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 
 **Tool categories & counts:**
 - Tasks (12): search, get, create (with optional `checklist_items` for multi-part tasks), update, delete, complete, reopen, snooze, move_to_projects, move_to_backlog, activate, research_task (append AI-researched notes with web search)
-- Routines (6): list, get, create, update, delete, spawn_now
+- Routines (7): list, get, create, update, delete, spawn_now, reconcile_loops (stamp completed_history for stuck-open cadence loops whose tasks are done — staged + LIFO-compensated; idempotent; skips stacks + habit loops)
 - Anthropic server-side `web_search` available in the main chat loop — Quokka can look up current info (prices, news, current best-practices) live during a reply, not just from training data
 - Google Calendar (5): list calendars, list events, create/update/delete events
 - Notion (5): search, get page, query database, create page, update page

@@ -4,6 +4,33 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-13
+
+- feat(routines): loop quick-actions on the Kept Loops surface — Spawn + Skip [M]
+  - Plan item 1. `spawnNow` and `skipCycle` existed only inside the buried RoutinesModal list; they're now reachable from the Kept Loops page. `onSpawnNow` + `onSkipCycle` thread AppV2 → KeptShell / KeptDesktop → LoopsView → LoopDetail. The spawn guard (refuse while an instance is still active) is extracted into one shared `handleSpawnLoop` in AppV2 so RoutinesModal and the Kept surfaces all enforce it identically.
+  - **Swipe** (`LoopSwipe.jsx`, reusing `useSwipeActions`): each Loops card swipes left to reveal **Spawn** (gold) + **Skip** (neutral), with a brief ✓ "Spawned" / "Skipped" confirmation like the modal's spawn feedback. Spawn greys to "On list" when an instance is already active. Habit loops render as plain cards (they're logged, not spawned/skipped — parity with the modal).
+  - **Buttons** on `LoopDetail`: a Spawn now / Skip cycle action row sits under the rally/best/lifetime stat cards so the tap-through page carries the same actions.
+  - Gardyn case note holds: spawn today → complete the task → the cycle's clock resets on completion, so Spawn alone covers "run it today, the month resets" now that it's no longer buried.
+
+- feat(quokka): `reconcile_loops` tool — close stuck-open loops on request [S]
+  - Companion to the auto-on-load reconcile: a server-side `reconcileRoutineHistory({ dryRun })` in `db.js` (buckets completion-days in `settings.user_timezone`, matching the durability `completion_days` path) backs a new Quokka `reconcile_loops` tool in `adviserToolsTasks.js`. Staged like other edits, with a dry-run preview that names exactly which loops + how many days it'll stamp, and per-routine LIFO compensation that restores each `completed_history` on rollback. Idempotent; skips stacks + habit loops. So "close the loops that won't clear" now works conversationally, not just on the next app open. (Routine tool count 6 → 7.)
+
+- fix(routines): reconcile stuck-open loops against their completed tasks [S]
+  - Follow-on to item 4 (user report: "loops that all tasks have been completed but the loop isn't closed"). A loop closes (cadence advances, card crosses out) when its spawned task is completed — that stamps `completed_history`. Tasks completed before the stamping path existed, via a non-stamping path, or surviving a history wipe leave the loop stuck open: a done task on the list and no matching history entry, so it never advances and keeps nagging.
+  - New `reconcileRoutineHistory(tasks)` in `useRoutines.js` walks every ordinary cadence routine's done tasks and appends a `completed_history` stamp for any completion-day missing from the history. Runs once per session after server hydration (AppV2, gated like the streak-anchor effect) so existing stuck loops auto-close on next open. Idempotent — only ever adds genuine done-task evidence, so re-running is a no-op. Stacks (close on last-member clear) and habit loops (multi-per-day logs, no cadence) are excluded.
+
+- fix(routines): loop card crosses out + counts when its task is completed from the main list [S]
+  - Plan item 4. Completing a routine-spawned task from the main task list advanced the cadence clock (`completeRoutine` stamps `completed_history`) but the Today loop card didn't reliably cross out or increment the "Loops `{done}/{total}`" header — the `doneToday` indicator keyed solely off the `completed_history` stamp, which can lag or be reverted by a server refetch race.
+  - `doneToday` now ORs in a second, independent signal: a routine-spawned task with `status='done'` and a `completed_at` bucketing (local time) to today. The two completion paths (loop check vs main-list complete) now agree. Stacks are unchanged — they still close on last-member clear via their own cycle accounting.
+
+- fix(routines): un-smash the Edit-loop header + return to the Kept loops page on save [S]
+  - Plan items 2 + 3. The in-form `← Back to {noun}s` pill (`v2-routine-back`) stacked directly under ModalShell's own back-arrow + title — a doubled, smashed header. Removed; ModalShell's close affordance is the single exit (button + CSS both gone).
+  - When the modal opens DIRECTLY into the form from Kept (via `editRoutineId` / `openToForm`), Save now calls `onClose()` instead of `setView('list')` — so the user lands back on the Kept Loops page, not the leftover internal "Loops · N active" list. Forms reached from the modal's own list still return to that list. Tracked via a new `openedToForm` flag.
+
+- fix(notifications)!: notifications now stay read — persisted `read_at`, separate from `tapped_at` [M]
+  - Plan item 5. "Read" was conflated with the engagement-analytics `tapped_at` field, which broke three ways: `markAllRead` only mutated local React state (never the server, so reopening re-marked everything unread); `tapped_at` is keyed by `(task_id, channel)` so task-less notifications (weather, pile-up, generic) could never be marked read; and stamping `tapped_at` for a passive glance polluted tap/completion analytics.
+  - **Schema:** migration `036_notification_read_at.sql` adds `read_at TEXT` to `notification_log` (rides the table that already survives bulk wipes, so read-state syncs across devices). **db.js:** `markNotifEntriesRead(ids)` + `markAllNotifsRead()`; `listNotifLog` returns `read_at`. **server.js:** `POST /api/notifications/log/read` (body `{ ids }` or `{ all: true }`). **api.js:** `markNotifsRead()`. **NotificationsModal:** "unread" + the row dot/highlight key off `read_at`; `handleTap` and `markAllRead` persist via the new endpoint. `markNotificationTap` stays for real task-tap engagement analytics only.
+
 ## 2026-06-12
 
 - feat(ui): quick editor — Polish + Research inline, decrowded checklist [S]

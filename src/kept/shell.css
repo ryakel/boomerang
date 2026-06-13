@@ -426,6 +426,32 @@
   will-change: transform;
 }
 
+/* Loop-card swipe (plan item 1): Spawn (gold) + Skip behind a Loops card.
+ * Same gesture as the hairline row-swipe, but the moving element is the
+ * rounded bm-card, so the wrapper carries the radius/margin and the card
+ * itself drops its own bottom margin. */
+.bm-loop-swipe {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  margin-bottom: 14px;
+}
+.bm-loop-swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+}
+.bm-loop-swipe .bm-row-swipe-act:disabled { opacity: 0.55; cursor: default; }
+.bm-loop-swipe-spawn { background: var(--bm-gold); color: var(--bm-on-ember); }
+.bm-loop-swipe-skip { background: var(--bm-card-2); color: var(--bm-text); }
+.bm-loop-swipe-body {
+  position: relative; z-index: 1;
+  background: var(--bm-bg);
+  transition: transform 200ms ease;
+  will-change: transform;
+}
+.bm-loop-swipe-body > .bm-card { margin-bottom: 0; }
+
 /* Stacks on Today — grouped member rows under a stack head */
 .bm-stack { padding: 9px 2px 6px; border-bottom: 1px solid var(--bm-hairline); }
 .bm-stack:last-child { border-bottom: none; }
@@ -585,6 +611,13 @@
 .bm-stat-num { font: 700 19px/1.1 var(--v2-font-display); color: var(--loop, var(--bm-ember)); }
 .bm-stat-cap { margin-top: 3px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bm-text-meta); }
 .bm-month-head { display: flex; align-items: center; gap: 8px; }
+
+/* Loop detail quick-action row (plan item 1) — Spawn now + Skip cycle. */
+.bm-loop-actions { display: flex; gap: 10px; margin-bottom: 14px; }
+.bm-loop-actions .bm-btn { flex: 1 1 0; justify-content: center; gap: 7px; padding: 11px 12px; }
+.bm-loop-action-spawn { background: var(--bm-gold); color: var(--bm-on-ember); }
+.bm-loop-action-skip { background: var(--bm-card-2); color: var(--bm-text); }
+.bm-loop-actions .bm-btn:disabled { opacity: 0.55; cursor: default; }
 
 /* Sort toggle active hint (Tasks tab) */
 .bm-back.is-active-sort { color: var(--bm-ember); border-color: var(--bm-ember); }
