@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-13
 
+- fix(api): research mode no longer crashes on backslashes / newlines [S]
+  - Prod: running Research threw "JSON Parse error: Unrecognized token '\'". `researchTask` asked the model for `{"notes":"…multi-line bullets…"}` then `JSON.parse`d it — but freeform notes routinely contain raw newlines and backslashes (measurements like `3\4"`, paths, escapes) that aren't valid JSON, so the parse blew up and the result was lost. Long-standing fragility, not a regression from the recent tags/loops work (git log on `researchTask` confirms it was untouched). Fix: prompt for a plain markdown bullet list and use the response text directly; if an older reply still wraps it in JSON, unwrap by hand (no `JSON.parse`) and strip code fences. Verified the failing backslash case + fenced + legacy-JSON inputs.
+
 - fix(ui): Settings joins the card aesthetic + edit-modal title affordance [S]
   - Settings was lagging the loop/edit-modal polish: inputs sat on a different surface, and the **Logs tab had no Kept treatment** — its active filter was an inverted near-black pill clashing with the warm palette. Now (Kept) settings inputs are inset on the page bg to match the editors, buttons are raised card-2 chips, the Logs filter chips use ember when active, and the log stream is a proper warm card.
   - Edit-modal title fix: the heading-styled title input read as a section header with no visible field when empty (you couldn't tell where to type a new loop/task name). Added a hairline underline (ember on focus) so it's clearly editable while keeping the big-title look.
