@@ -86,13 +86,15 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
     if (!weekTypes[wk]) weekTypes[wk] = new Set()
     weekTypes[wk].add(t.energy)
   }
-  const balancedBest = Math.max(0, ...Object.values(weekTypes).map(s => s.size))
-
-  // This-week energy types caught — powers the Balanced Diet detail breakdown
-  // ("what's done vs outstanding" right now, the actionable view).
-  const cwStart = new Date(); cwStart.setHours(0, 0, 0, 0)
-  cwStart.setDate(cwStart.getDate() - ((cwStart.getDay() + 6) % 7)) // Monday
-  const thisWeekTypes = weekTypes[localYMD(cwStart)] || new Set()
+  // Track the BEST week's type SET (not just its size) so the detail breakdown
+  // describes the same week the progress number does — "Catch every energy type
+  // in one week" is a single-week measure, and 4/6 means your best week caught
+  // 4 of the 6. Showing this-week's types instead would contradict that number.
+  let balancedBestSet = new Set()
+  for (const s of Object.values(weekTypes)) {
+    if (s.size > balancedBestSet.size) balancedBestSet = s
+  }
+  const balancedBest = balancedBestSet.size
 
   // A quarterly+ loop kept alive for a year (history span).
   let longHaulDays = 0
@@ -164,9 +166,12 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
   }
   const balanced = badges.find(b => b.id === 'balanced_diet')
   if (balanced) {
-    balanced.checklistTitle = 'Caught this week'
+    // Same week as the 4/6 progress — these are the types your best single
+    // week caught; the unchecked ones are what that week was missing (catch
+    // all six within one week to earn it).
+    balanced.checklistTitle = 'Your best week'
     balanced.checklist = Object.keys(ENERGY_LABELS).map(t => ({
-      label: ENERGY_LABELS[t], done: thisWeekTypes.has(t),
+      label: ENERGY_LABELS[t], done: balancedBestSet.has(t),
     }))
   }
 
