@@ -140,15 +140,18 @@
   background: var(--bm-card-2);
 }
 
-/* The title field reads as the form's heading, not a boxed input (mirrors the
- * big LoopDetail title). Wins over the .v2-form-input rule above by order. */
+/* The title field reads as the form's heading (mirrors the big LoopDetail
+ * title) — but keeps a hairline underline so it's clearly an editable field
+ * when empty, instead of looking like a section header you can't type into. */
 [data-theme^="kept"] .v2-form-title {
   background: transparent;
   border: none;
-  padding: 4px 2px;
+  border-bottom: 1.5px solid var(--bm-hairline-strong);
+  border-radius: 0;
+  padding: 4px 2px 8px;
   font: 700 21px/1.3 var(--v2-font-display);
 }
-[data-theme^="kept"] .v2-form-title:focus { outline: none; box-shadow: none; }
+[data-theme^="kept"] .v2-form-title:focus { outline: none; box-shadow: none; border-bottom-color: var(--bm-ember); }
 
 /* FormDisclosure (loop-editor collapsibles) → its own card, not a bare
  * hairline divider. */

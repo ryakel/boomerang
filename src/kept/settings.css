@@ -95,3 +95,48 @@
   background: var(--wb-card-3);
   border-color: var(--wb-hairline);
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Bring Settings the rest of the way into the loop-editor card aesthetic
+ * (2026-06-13): inset inputs (match the edit modals), ember active states,
+ * and a proper card surface for the Logs tab (it had no Kept treatment — its
+ * active filter was an inverted near-black pill that clashed with the warm
+ * palette). Gated to kept.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* Inputs → INSET on the page bg, identical to the edit modals (was --wb-card-2,
+ * which made settings fields read differently from the loop/task editors). */
+[data-theme^="kept"] .v2-form-input,
+[data-theme^="kept"] .v2-settings-compact-input,
+[data-theme^="kept"] .v2-settings-quiet-field input {
+  background: var(--bm-bg);
+  border-color: var(--bm-hairline);
+}
+
+/* Settings buttons → raised card-2 chips (consistent with the editor chips). */
+[data-theme^="kept"] .v2-settings-btn {
+  background: var(--bm-card-2);
+  border-color: var(--bm-hairline);
+  color: var(--bm-text);
+}
+[data-theme^="kept"] .v2-settings-btn:hover { background: color-mix(in srgb, var(--bm-text) 6%, var(--bm-card-2)); }
+
+/* Logs tab — make it feel intentional, not a raw debug dump. */
+[data-theme^="kept"] .v2-settings-filter {
+  background: var(--bm-card-2);
+  border-color: var(--bm-hairline);
+  color: var(--bm-text-meta);
+}
+/* Active filter was background:var(--v2-text) (a near-black/white inverted
+ * pill) — swap to the ember the rest of the theme uses. */
+[data-theme^="kept"] .v2-settings-filter-active,
+[data-theme^="kept"] .v2-settings-filter.v2-settings-filter-active {
+  background: var(--bm-ember);
+  border-color: var(--bm-ember);
+  color: var(--bm-on-ember);
+}
+[data-theme^="kept"] .v2-settings-logs-stream {
+  background: var(--bm-card);
+  border-color: var(--bm-hairline);
+  border-radius: 14px;
+}

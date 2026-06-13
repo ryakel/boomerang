@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-13
 
+- fix(ui): Settings joins the card aesthetic + edit-modal title affordance [S]
+  - Settings was lagging the loop/edit-modal polish: inputs sat on a different surface, and the **Logs tab had no Kept treatment** — its active filter was an inverted near-black pill clashing with the warm palette. Now (Kept) settings inputs are inset on the page bg to match the editors, buttons are raised card-2 chips, the Logs filter chips use ember when active, and the log stream is a proper warm card.
+  - Edit-modal title fix: the heading-styled title input read as a section header with no visible field when empty (you couldn't tell where to type a new loop/task name). Added a hairline underline (ember on focus) so it's clearly editable while keeping the big-title look.
+
 - feat(ui): Kept edit modals adopt the LoopDetail card aesthetic [M]
   - Polish pass toward the native build. The Add/Edit task + loop-editor forms still wore the flat wallaby-era form styling; now (Kept only) each `.v2-form-section` / `.v2-form-row` / `FormDisclosure` renders as a warm rounded card (matching LoopDetail's "Recent cycles"/"Needs attention" cards) — an iOS-grouped-form feel. Inputs are inset on the page bg so they don't blend card-on-card; chips/pills are raised to `--bm-card-2`; the title reads as a heading (display font, no box); the primary submit is gold to match the LoopDetail primary. All in `src/kept/forms.css`, gated to `[data-theme^="kept"]`, so Standard themes are untouched.
 
