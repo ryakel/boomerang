@@ -3,7 +3,7 @@ import {
   Bell, AlertCircle, Clock3, Layers, Package, CloudSun, Sparkles, CheckCheck,
 } from 'lucide-react'
 import { localYMD } from '../store'
-import { getNotifLog, markNotificationTap } from '../api'
+import { getNotifLog, markNotificationTap, markNotifsRead } from '../api'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import './ActivityLog.css'
@@ -54,8 +54,10 @@ export default function NotificationsModal({ open, onClose, onOpenTask }) {
     getNotifLog(200).then(d => setEntries(d.entries || [])).catch(() => setEntries([]))
   }, [open])
 
-  const unread = useMemo(() => entries.filter(e => !e.tapped_at).length, [entries])
-  const shown = tab === 'unread' ? entries.filter(e => !e.tapped_at) : entries
+  // "Unread" keys off the persisted read_at flag (migration 036), NOT tapped_at
+  // — tapped_at is engagement analytics and can't represent task-less rows.
+  const unread = useMemo(() => entries.filter(e => !e.read_at).length, [entries])
+  const shown = tab === 'unread' ? entries.filter(e => !e.read_at) : entries
 
   const groups = useMemo(() => {
     const out = []
@@ -70,14 +72,21 @@ export default function NotificationsModal({ open, onClose, onOpenTask }) {
 
   const markAllRead = () => {
     const now = new Date().toISOString()
-    setEntries(prev => prev.map(e => (e.tapped_at ? e : { ...e, tapped_at: now })))
+    setEntries(prev => prev.map(e => (e.read_at ? e : { ...e, read_at: now })))
+    // Persist server-side so it survives reopen + syncs across devices. This
+    // is the actual bug fix: the old markAllRead only touched local state.
+    markNotifsRead(true).catch(() => {})
   }
 
   const handleTap = (entry) => {
-    if (!entry.tapped_at) {
-      setEntries(prev => prev.map(e => (e.id === entry.id ? { ...e, tapped_at: new Date().toISOString() } : e)))
-      if (entry.task_id) markNotificationTap(entry.task_id).catch(() => {})
+    if (!entry.read_at) {
+      const now = new Date().toISOString()
+      setEntries(prev => prev.map(e => (e.id === entry.id ? { ...e, read_at: now } : e)))
+      markNotifsRead([entry.id]).catch(() => {})
     }
+    // markNotificationTap stays for engagement analytics — only for real task
+    // taps (a deep-link follow-through), never for passive "glanced at it".
+    if (entry.task_id) markNotificationTap(entry.task_id).catch(() => {})
     if (entry.task_id && onOpenTask) {
       onClose()
       onOpenTask(entry.task_id)
@@ -124,7 +133,7 @@ export default function NotificationsModal({ open, onClose, onOpenTask }) {
                 return (
                   <button
                     key={e.id}
-                    className={`v2-activity-row v2-notif-row${e.tapped_at ? '' : ' is-unread'}`}
+                    className={`v2-activity-row v2-notif-row${e.read_at ? '' : ' is-unread'}`}
                     onClick={() => handleTap(e)}
                   >
                     <span className="v2-activity-icon" style={{ '--tone': tone }}>
@@ -140,7 +149,7 @@ export default function NotificationsModal({ open, onClose, onOpenTask }) {
                         <span className="v2-activity-time">{ago(e.sent_at)} · {e.channel}</span>
                       </div>
                     </div>
-                    {!e.tapped_at && <span className="v2-notif-dot" aria-label="Unread" />}
+                    {!e.read_at && <span className="v2-notif-dot" aria-label="Unread" />}
                   </button>
                 )
               })}

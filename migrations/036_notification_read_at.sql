@@ -1,0 +1,17 @@
+-- Persisted "read" state for notifications, separate from engagement analytics.
+--
+-- Background: "read" used to be conflated with the engagement-analytics
+-- `tapped_at` column (migration 020). That broke three ways:
+--   1. `markAllRead` only mutated local React state — nothing was persisted, so
+--      reopening the Notifications center refetched server rows where nothing
+--      changed and everything was "unread" again.
+--   2. `tapped_at` is keyed by (task_id, channel), so task-less notifications
+--      (weather, pile-up, generic) could never be marked read at all.
+--   3. Stamping `tapped_at` for a passive "I glanced at the center" polluted the
+--      engagement analytics (tap-rate / completion-rate).
+--
+-- `read_at` is the dedicated UI read flag. It rides notification_log, which
+-- already survives bulk wipes (it's not in the bulk-PUT collection list — see
+-- the Data Durability rules), so read state syncs across devices. `tapped_at`
+-- stays exclusively for real task-tap engagement analytics.
+ALTER TABLE notification_log ADD COLUMN read_at TEXT;

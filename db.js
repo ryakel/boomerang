@@ -1404,7 +1404,7 @@ export function logNotifPush(id, type, taskId, title, body, channel = 'push') {
 
 export function listNotifLog(limit = 200) {
   const stmt = db.prepare(
-    `SELECT id, type, task_id, title, body, channel, sent_at, tapped_at, completed_after
+    `SELECT id, type, task_id, title, body, channel, sent_at, tapped_at, completed_after, read_at
      FROM notification_log ORDER BY sent_at DESC LIMIT ?`
   )
   stmt.bind([limit])
@@ -1417,6 +1417,34 @@ export function listNotifLog(limit = 200) {
 export function clearNotifLog() {
   db.run('DELETE FROM notification_log')
   schedulePersist()
+}
+
+// --- Persisted read state (migration 036) ---
+// Distinct from `tapped_at` (engagement analytics): `read_at` is the UI read
+// flag the Notifications center keys "unread" off of. Marking read here does
+// NOT touch engagement analytics, and works for task-less rows too.
+
+// Stamp read_at on a specific set of log-entry ids. Returns the number marked.
+export function markNotifEntriesRead(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return 0
+  const now = new Date().toISOString()
+  let n = 0
+  for (const id of ids) {
+    db.run('UPDATE notification_log SET read_at = ? WHERE id = ? AND read_at IS NULL', [now, id])
+    n++
+  }
+  schedulePersist()
+  return n
+}
+
+// Stamp read_at on every currently-unread log entry. Returns the count.
+export function markAllNotifsRead() {
+  const now = new Date().toISOString()
+  db.run('UPDATE notification_log SET read_at = ? WHERE read_at IS NULL', [now])
+  schedulePersist()
+  // sql.js doesn't surface changes() conveniently here; the caller doesn't
+  // need an exact count, just success.
+  return true
 }
 
 // --- Engagement tracking (tap-through and completion-after-notification) ---

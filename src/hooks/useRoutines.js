@@ -307,6 +307,45 @@ export function useRoutines() {
     return { spawned, rolled }
   }, [routines])
 
+  // Reconcile completed_history with already-completed spawned tasks. A loop
+  // "closes" (advances its cadence + crosses out) when its spawned task is
+  // completed — that stamps completed_history. But tasks completed before that
+  // stamping path existed, via a path that didn't stamp, or surviving a history
+  // wipe, leave the loop stuck OPEN: a done task on the list and no matching
+  // history entry. This walks every ordinary cadence routine's done tasks and
+  // appends a stamp for any completion-day missing from completed_history.
+  // Idempotent — it only ever adds genuine evidence (a real done task), so a
+  // second run is a no-op. Returns the number of routines repaired.
+  //
+  // Excluded: stacks (close on last-member clear via their own (routine_id,
+  // due_date) cycle accounting) and habit loops (multiple-per-day logs make
+  // day-set matching lossy, and they have no cadence to "close").
+  const reconcileRoutineHistory = useCallback((taskList = []) => {
+    let repaired = 0
+    setRoutines(prev => prev.map(r => {
+      const isStack = Array.isArray(r.members) && r.members.length > 0
+      if (isStack || r.spawn_mode === 'habit') return r
+      const hist = Array.isArray(r.completed_history) ? r.completed_history : []
+      const histDays = new Set(hist.map(ts => localYMD(new Date(ts))))
+      const additions = []
+      for (const t of taskList) {
+        if (t.routine_id !== r.id || t.status !== 'done') continue
+        // completed_at is the real local-time evidence; fall back to the due
+        // day (noon UTC, the same convention the Today loop-check writes).
+        const stampIso = t.completed_at || (t.due_date ? `${String(t.due_date).slice(0, 10)}T12:00:00.000Z` : null)
+        if (!stampIso) continue
+        const day = localYMD(new Date(stampIso))
+        if (!day || histDays.has(day)) continue
+        histDays.add(day)
+        additions.push(new Date(stampIso).toISOString())
+      }
+      if (additions.length === 0) return r
+      repaired++
+      return { ...r, completed_history: [...hist, ...additions].sort() }
+    }))
+    return repaired
+  }, [])
+
   const hydrateRoutines = useCallback((data) => {
     if (Array.isArray(data)) {
       setRoutines(data)
@@ -327,6 +366,7 @@ export function useRoutines() {
     spawnNow,
     logHabit,
     skipCycle,
+    reconcileRoutineHistory,
     hydrateRoutines,
   }
 }

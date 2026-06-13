@@ -11,6 +11,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   markNotificationTapped, getNotificationAnalytics,
   listThrottleDecisions, markThrottleDecisionFeedback,
   listNotifLog, clearNotifLog as clearServerNotifLog,
+  markNotifEntriesRead, markAllNotifsRead,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
   PROJECT_CONSTANTS } from './db.js'
 import { seedDatabase } from './seed.js'
@@ -2793,6 +2794,22 @@ app.get('/api/notifications/log', (req, res) => {
 app.delete('/api/notifications/log', (req, res) => {
   clearServerNotifLog()
   res.json({ ok: true })
+})
+
+// Persist notification read state (migration 036). Body: { ids: [...] } to mark
+// specific entries, or { all: true } to mark everything read. Separate from the
+// engagement-analytics tap endpoint above.
+app.post('/api/notifications/log/read', (req, res) => {
+  const { ids, all } = req.body || {}
+  if (all) {
+    markAllNotifsRead()
+    return res.json({ ok: true, all: true })
+  }
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Provide { ids: [...] } or { all: true }' })
+  }
+  const marked = markNotifEntriesRead(ids)
+  res.json({ ok: true, marked })
 })
 
 app.get('/api/analytics/throttle-decisions', (req, res) => {

@@ -66,6 +66,25 @@ export default function TodayView({
   // checked loop doesn't vanish), or overdue from an earlier cycle. The full
   // library lives on the Loops tab. (Prod bug: every non-paused loop was
   // listed daily — loggd's all-habits-are-daily assumption.)
+  // Routine ids whose spawned task was COMPLETED today, bucketed in local time.
+  // This is the same evidence a spawned-task completion writes (status=done +
+  // completed_at), independent of the completed_history stamp. Completing a
+  // routine task from the MAIN task list advances the cadence clock
+  // (handleComplete → completeRoutine), but the completed_history stamp can lag
+  // or get reverted by a server refetch race — so the loop card wouldn't reliably
+  // cross out or count. ORing this task-side signal into doneToday makes the two
+  // completion paths agree. (Plan item 4. Stacks already close on last-member
+  // clear via their own cycle accounting, so they're handled separately above.)
+  const doneRoutineToday = useMemo(() => {
+    const s = new Set()
+    for (const t of tasks) {
+      if (!t.routine_id || t.status !== 'done') continue
+      const ts = t.completed_at || t.due_date
+      if (ts && localYMD(new Date(ts)) === todayKey) s.add(t.routine_id)
+    }
+    return s
+  }, [tasks, todayKey])
+
   const loops = useMemo(() => {
     const feathers = routineFeathers(routines)
     return routines.filter(r => !r.paused).map(r => {
@@ -98,7 +117,11 @@ export default function TodayView({
       return {
         r, color: feathers[r.id], byDay, isStack, cycles,
         rally: currentStreak(byDay),
-        doneToday: !!byDay[todayKey],
+        // Stacks stay keyed on the completed_history stamp (written only when
+        // the last member clears — see their cycle accounting). Ordinary loops
+        // also credit a today-completed spawned task, so completing from the
+        // main list crosses the card + counts even if the history stamp lags.
+        doneToday: !!byDay[todayKey] || (!isStack && doneRoutineToday.has(r.id)),
         // Habit-mode (target frequency) loops are loggable ANY day — the
         // cadence engine doesn't model them, so they're always "due".
         dueToday: r.spawn_mode === 'habit' || (!!dueKey && dueKey <= todayKey),
@@ -108,7 +131,7 @@ export default function TodayView({
     // receipt until midnight (prod report: clearing Bedtime's last member
     // flipped the hero from 2/3 loops to 2/2 instead of crediting 3/3).
     }).filter(l => (l.isStack ? (l.cycles.length > 0 || l.doneToday) : (l.dueToday || l.doneToday)))
-  }, [routines, tasks, todayKey])
+  }, [routines, tasks, todayKey, doneRoutineToday])
   const loopsDone = loops.filter(l => l.doneToday).length
 
   // Gmail-imported items awaiting review (Keep / Dismiss) — restores the
