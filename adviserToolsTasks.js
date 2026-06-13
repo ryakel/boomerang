@@ -7,6 +7,7 @@ import crypto from 'crypto'
 import {
   upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
+  reconcileRoutineHistory,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
   PROJECT_CONSTANTS,
 } from './db.js'
@@ -1037,6 +1038,33 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       return {
         result: { id, task: summarizeTask(getTask(id)) },
         compensation: async () => { deleteTask(id) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'reconcile_loops',
+    description: 'Close loops (routines) that are stuck OPEN: their spawned task(s) were completed but the completion was never recorded in the routine, so the loop keeps showing as due and never advances. This stamps each missing completion-day from the finished tasks, so the cadence advances and the loop stops nagging. Safe and idempotent — it only adds completion evidence that real done tasks already prove, never removes anything, and re-running does nothing. Skips stacks and habit loops. Use when the user says a loop won\'t close / stays due even though they finished it.',
+    schema: { type: 'object', properties: {} },
+    preview: () => {
+      const { repaired } = reconcileRoutineHistory({ dryRun: true })
+      if (repaired.length === 0) return 'Reconcile loops — nothing to fix (all loops already match their completed tasks)'
+      const lines = repaired.map(r => `"${r.title}" (+${r.addedDays.length} day${r.addedDays.length === 1 ? '' : 's'})`)
+      return `Close ${repaired.length} stuck loop${repaired.length === 1 ? '' : 's'}: ${lines.join(', ')}`
+    },
+    execute: async () => {
+      const { repaired } = reconcileRoutineHistory()
+      // Capture pre-state per routine so a later plan failure restores every
+      // completed_history we touched (LIFO compensation).
+      const before = repaired.map(r => ({ id: r.id, completed_history: r.before }))
+      return {
+        result: {
+          repaired_count: repaired.length,
+          repaired: repaired.map(r => ({ id: r.id, title: r.title, added_days: r.addedDays })),
+        },
+        compensation: async () => {
+          for (const r of before) updateRoutinePartial(r.id, { completed_history: r.completed_history })
+        },
       }
     },
   })

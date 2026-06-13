@@ -1125,6 +1125,51 @@ export function deleteRoutine(id) {
   schedulePersist()
 }
 
+// Server-side mirror of the client reconcileRoutineHistory (useRoutines.js):
+// close loops left stuck OPEN — a routine whose spawned task was completed but
+// whose completed_history never got the matching stamp (task completed before
+// the stamping path existed, via a non-stamping path, or surviving a history
+// wipe). For each ordinary cadence routine, append a completed_history stamp
+// for every done-task completion-day missing from the history. Days are
+// bucketed in the user's timezone (same as the durability completion_days
+// path) so they line up with computeStreak's local bucketing. Idempotent —
+// only adds genuine done-task evidence, so re-running is a no-op.
+//
+// Excludes stacks (close on last-member clear) and habit loops (multi-per-day
+// logs make day-set matching lossy, and they have no cadence to "close").
+//
+// `dryRun: true` reports what WOULD change without writing — used so the
+// Quokka tool can stage an accurate preview before the user commits.
+// Returns { repaired: [{ id, title, before, after, addedDays }] }.
+export function reconcileRoutineHistory({ dryRun = false } = {}) {
+  const settings = getData('settings') || {}
+  const tz = settings.user_timezone
+  const repaired = []
+  for (const r of getAllRoutines()) {
+    const isStack = Array.isArray(r.members) && r.members.length > 0
+    if (isStack || r.spawn_mode === 'habit') continue
+    const hist = Array.isArray(r.completed_history) ? r.completed_history.slice() : []
+    const histDays = new Set(hist.map(ts => ymdInUserTimezone(ts, tz)))
+    const additions = []
+    const addedDays = []
+    for (const t of queryTasks({ status: 'done', routine_id: r.id })) {
+      const stampIso = t.completed_at || (t.due_date ? `${String(t.due_date).slice(0, 10)}T12:00:00.000Z` : null)
+      if (!stampIso) continue
+      const day = ymdInUserTimezone(stampIso, tz)
+      if (!day || histDays.has(day)) continue
+      histDays.add(day)
+      additions.push(new Date(stampIso).toISOString())
+      addedDays.push(day)
+    }
+    if (additions.length === 0) continue
+    const after = [...hist, ...additions].sort()
+    if (!dryRun) updateRoutinePartial(r.id, { completed_history: after })
+    repaired.push({ id: r.id, title: r.title, before: hist, after, addedDays })
+  }
+  return { repaired }
+}
+
+
 // ============================================================
 // Package row <-> object mapping
 // ============================================================
