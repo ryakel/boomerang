@@ -198,7 +198,7 @@ export default function AppV2() {
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
-    completeRoutine, uncompleteRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, hydrateRoutines,
+    completeRoutine, uncompleteRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, reconcileRoutineHistory, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -348,6 +348,21 @@ export default function AppV2() {
         flushSync()
       }
     })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks])
+
+  // One-time reconcile of stuck-open loops: a routine whose spawned task was
+  // completed but whose completed_history never got the matching stamp (task
+  // completed before the stamping path existed, via a non-stamping path, or
+  // surviving a history wipe) shows as never-closed. Run once after the server
+  // hydrates so the evidence is the authoritative task list, not the
+  // localStorage seed. Idempotent — only adds genuine done-task evidence.
+  const reconcileCheckedRef = useRef(false)
+  useEffect(() => {
+    if (reconcileCheckedRef.current || !serverHydratedRef.current || tasks.length === 0) return
+    reconcileCheckedRef.current = true
+    const repaired = reconcileRoutineHistory(tasks)
+    if (repaired > 0) flushSync()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks])
 
@@ -635,6 +650,22 @@ export default function AppV2() {
   }, [tasks, routines, completeTask, completeRoutine, updateTask, pushStatusToTrello])
 
   const handleEdit = useCallback((task) => setEditTarget(task), [])
+
+  // Spawn a one-off task from a loop right now, bypassing the schedule. Shared
+  // by RoutinesModal and the Kept Loops surfaces (cards + LoopDetail) so the
+  // same active-instance guard applies everywhere — without it, tapping Spawn
+  // repeatedly mints duplicate cards. Returns the spawned tasks (or null when
+  // blocked) so callers can show ✓ feedback.
+  const handleSpawnLoop = useCallback((routineId) => {
+    const hasActive = tasks.some(t =>
+      t.routine_id === routineId &&
+      !['done', 'completed', 'cancelled'].includes(t.status),
+    )
+    if (hasActive) return null
+    const spawned = spawnNow(routineId)
+    if (spawned.length) addSpawnedTasks(spawned)
+    return spawned
+  }, [tasks, spawnNow, addSpawnedTasks])
 
   // Snooze with reframe-threshold check: if a task's been snoozed enough
   // times (configurable via reframe_threshold), open the Reframe modal
@@ -1288,6 +1319,8 @@ export default function AppV2() {
           onOpenFullAdd={() => setShowAdd(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
+          onSpawnNow={handleSpawnLoop}
+          onSkipCycle={skipCycle}
           onOpenQuokka={() => setShowAdviser(true)}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPackages={() => setShowPackages(true)}
@@ -1340,6 +1373,8 @@ export default function AppV2() {
           onOpenFullAdd={() => setShowAdd(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
+          onSpawnNow={handleSpawnLoop}
+          onSkipCycle={skipCycle}
           onOpenQuokka={() => setShowAdviser(true)}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPackages={() => setShowPackages(true)}
@@ -1548,19 +1583,7 @@ export default function AppV2() {
         onDelete={deleteRoutine}
         onTogglePause={togglePause}
         onUpdate={updateRoutine}
-        onSpawnNow={(routineId) => {
-          // Guard at the call site: if an instance of this routine is still
-          // active on the list, refuse the spawn. Stops the "tap 10 times,
-          // get 10 duplicates" footgun the user hit.
-          const hasActive = tasks.some(t =>
-            t.routine_id === routineId &&
-            !['done', 'completed', 'cancelled'].includes(t.status)
-          )
-          if (hasActive) return null
-          const spawned = spawnNow(routineId)
-          if (spawned.length) addSpawnedTasks(spawned)
-          return spawned
-        }}
+        onSpawnNow={handleSpawnLoop}
         onLogHabit={(routineId) => {
           const task = logHabit(routineId)
           if (task) addSpawnedTasks([task])

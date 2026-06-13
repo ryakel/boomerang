@@ -345,7 +345,7 @@ function FollowUpStepRow({ step, index, isFirst, isLast, onChange, onRemove, onM
   )
 }
 
-function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
+function RoutineForm({ initial, onSave, noun = 'routine' }) {
   const isNew = !initial
   const [title, setTitle] = useState(initial?.title || '')
   const [cadence, setCadence] = useState(initial?.cadence || 'weekly')
@@ -590,8 +590,9 @@ function RoutineForm({ initial, onSave, onCancel, noun = 'routine' }) {
 
   return (
     <div className="v2-routine-form">
-      <button type="button" className="v2-routine-back" onClick={onCancel}>← Back to {noun}s</button>
-
+      {/* The in-form "← Back" pill was removed (plan item 2): it stacked under
+          ModalShell's own back-arrow + title and read as a smashed double
+          header. ModalShell's close affordance is now the single exit. */}
       <input
         className="v2-form-input v2-form-title"
         placeholder={isHabit ? "What habit?" : "What recurring task?"}
@@ -1028,6 +1029,12 @@ export default function RoutinesModal({
   const [view, setView] = useState('list')  // 'list' | 'form'
   const [editing, setEditing] = useState(null)  // routine being edited; null = new
   const [expandedId, setExpandedId] = useState(null)
+  // Did the modal open DIRECTLY into the form (from the Kept loops page, via
+  // openToForm / editRoutineId)? If so, Save/Cancel close the modal — there's
+  // no internal list to return to. Forms reached from the modal's own list
+  // return to that list instead. (Plan item 3: stop dumping Kept users on the
+  // leftover internal "Loops · N active" list after a save.)
+  const [openedToForm, setOpenedToForm] = useState(false)
 
   // Reset to list view whenever the modal opens fresh.
   useEffect(() => {
@@ -1035,6 +1042,7 @@ export default function RoutinesModal({
       setView('list')
       setEditing(null)
       setExpandedId(null)
+      setOpenedToForm(false)
     }
   }, [open])
 
@@ -1045,6 +1053,7 @@ export default function RoutinesModal({
     if (open && openToForm) {
       setEditing(null)
       setView('form')
+      setOpenedToForm(true)
       onConsumeOpenToForm?.()
     }
   }, [open, openToForm, onConsumeOpenToForm])
@@ -1057,6 +1066,7 @@ export default function RoutinesModal({
       if (target) {
         setEditing(target)
         setView('form')
+        setOpenedToForm(true)
       }
       onClearEditRoutineId?.()
     }
@@ -1105,8 +1115,11 @@ export default function RoutinesModal({
         data.members,
       )
     }
-    setView('list')
     setEditing(null)
+    // Opened straight into the form (from Kept) → close out. Otherwise fall
+    // back to the modal's own list.
+    if (openedToForm) onClose?.()
+    else setView('list')
   }
 
   return (
@@ -1124,7 +1137,6 @@ export default function RoutinesModal({
           noun={noun}
           initial={editing}
           onSave={handleSubmitForm}
-          onCancel={() => { setView('list'); setEditing(null) }}
         />
       ) : (
         <>

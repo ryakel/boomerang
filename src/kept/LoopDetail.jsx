@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2 } from 'lucide-react'
+import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2, Plus, FastForward, Check } from 'lucide-react'
 import MonthDots from './MonthDots'
 import CycleChips from './CycleChips'
 import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally } from './cycles'
@@ -10,8 +10,10 @@ import './shell.css'
 // Loop detail (K4): tapping a loop card lands HERE — rally / best / total
 // stat cards, the cycle-chip trail, and a steppable month calendar — instead
 // of dumping straight into the editor. Edit is a deliberate button.
-export default function LoopDetail({ routine, color, onBack, onEdit }) {
+export default function LoopDetail({ routine, color, spawnBlocked = false, onBack, onEdit, onSpawnNow, onSkipCycle }) {
   const [monthRef, setMonthRef] = useState(() => new Date())
+  const [spawned, setSpawned] = useState(false)
+  const [skipped, setSkipped] = useState(false)
   if (!routine) return null
 
   const byDay = historyByDay(routine.completed_history)
@@ -35,6 +37,18 @@ export default function LoopDetail({ routine, color, onBack, onEdit }) {
   const meta = isHabit
     ? `habit · ${routine.target_count}× / ${routine.target_period}`
     : `${formatCadence(routine)}${anchor ? ` · ${anchor}` : ''}${routine.trigger_time ? ` · ${routine.trigger_time}` : ''}`
+
+  const handleSpawn = () => {
+    if (spawnBlocked) return
+    onSpawnNow?.(routine.id)
+    setSpawned(true)
+    setTimeout(() => setSpawned(false), 1500)
+  }
+  const handleSkip = () => {
+    onSkipCycle?.(routine.id)
+    setSkipped(true)
+    setTimeout(() => setSkipped(false), 1500)
+  }
 
   const stepMonth = (dir) => {
     setMonthRef(m => new Date(m.getFullYear(), m.getMonth() + dir, 1))
@@ -71,6 +85,34 @@ export default function LoopDetail({ routine, color, onBack, onEdit }) {
           <div className="bm-stat-cap">lifetime</div>
         </div>
       </div>
+
+      {/* Quick actions (plan item 1) — Spawn now + Skip cycle, the tap-through
+          twins of the Loops-card swipe. Habit loops are logged elsewhere, so
+          they don't carry these. */}
+      {!isHabit && (
+        <div className="bm-loop-actions">
+          <button
+            className="bm-btn bm-loop-action-spawn"
+            onClick={handleSpawn}
+            disabled={spawnBlocked || spawned}
+            title={spawnBlocked
+              ? 'An instance is already on your list — finish or skip it first'
+              : 'Create a one-off task now without affecting the schedule'}
+          >
+            {spawned ? <Check size={14} strokeWidth={2.4} /> : <Plus size={14} strokeWidth={2.4} />}
+            {spawned ? 'Spawned' : spawnBlocked ? 'On list' : 'Spawn now'}
+          </button>
+          <button
+            className="bm-btn bm-loop-action-skip"
+            onClick={handleSkip}
+            disabled={skipped}
+            title="Skip this cycle — advance the schedule without spawning a task"
+          >
+            {skipped ? <Check size={14} strokeWidth={2.4} /> : <FastForward size={14} strokeWidth={2} />}
+            {skipped ? 'Skipped' : 'Skip cycle'}
+          </button>
+        </div>
+      )}
 
       <div className="bm-card">
         <div className="bm-card-title">Recent cycles</div>

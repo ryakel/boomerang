@@ -1306,6 +1306,20 @@ export async function clearServerNotifLog() {
   return res.json()
 }
 
+// Persist notification read state. Pass an array of log-entry ids, or `true`
+// to mark every notification read. Separate from markNotificationTap (which is
+// engagement analytics, task-keyed).
+export async function markNotifsRead(idsOrAll) {
+  const body = idsOrAll === true ? { all: true } : { ids: idsOrAll }
+  const res = await fetch('/api/notifications/log/read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`mark notifs read failed: ${res.status}`)
+  return res.json()
+}
+
 // --- Projects ---
 export async function getProjectChildren(projectId) {
   const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/children`)
