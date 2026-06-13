@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-13
 
+- fix(routines): make the loop trail tappable into the missed-days breakdown [XS]
+  - User report (with screenshot): "I should be able to click on this and see what was missed on a given loop." The cycle-chip trail / month / year visualization — the thing that visually shows the misses — wasn't a tap target; only the loop title opened the detail. Wrapped the visualization in a keyboard-accessible button (`bm-loop-card-viz`) that opens `LoopDetail`, where the per-day "Needs attention" breakdown (unrecorded + missed, each with Mark done / Skip) already lives.
+
 - feat(routines): loop reconcile review surface — see + fix the days per loop [M]
   - Follow-up to the reconcile work (user: "I'd like to click on the missing loops to see what days I need to look at and fix"). Instead of silently auto-closing stuck loops on load, Boomerang now surfaces them for review. `loopGaps(routine, tasks)` (`src/kept/cycles.js`) walks the cadence windows and splits past, non-current, uncaught cycles into **unrecorded** (a finished task exists in the window — the loop just never recorded it) and **missed** (due but no completion at all).
   - `LoopsView` shows an "N to fix" chip on each affected loop card; tapping it (or the card) opens `LoopDetail`, which renders a **Needs attention** card listing each day, labeled by group, with two actions per day: **Mark done** (`markRoutineDayDone` → stamps `completed_history`, crediting the cycle) or **Skip** (`skipRoutineDay` → records the day so it stops surfacing, without crediting — the trail stays honestly uncaught).

@@ -656,6 +656,8 @@
 }
 .bm-loop-fix-done { background: var(--bm-gold); color: var(--bm-on-ember); }
 .bm-loop-fix-skip { background: var(--bm-card-2); color: var(--bm-text-meta); }
+.bm-loop-card-viz { cursor: pointer; border-radius: 10px; }
+.bm-loop-card-viz:focus-visible { outline: 2px solid var(--bm-gold); outline-offset: 3px; }
 
 /* Sort toggle active hint (Tasks tab) */
 .bm-back.is-active-sort { color: var(--bm-ember); border-color: var(--bm-ember); }
