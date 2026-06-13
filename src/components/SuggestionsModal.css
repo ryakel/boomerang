@@ -165,3 +165,20 @@
   color: var(--v2-text);
 }
 .v2-suggestion-scan-link:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Tag suggestions (weekly new-tag discovery) — same card chrome as routine
+ * suggestions, with a label-chip title + rationale. */
+.v2-tagsug-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--v2-radius-pill);
+  background: rgba(var(--v2-text-rgb), 0.06);
+  border: 1px solid var(--v2-hairline);
+  font: 600 13px/1 var(--v2-font-body);
+  color: var(--v2-text);
+}
+.v2-tagsug-rationale {
+  margin-top: 8px;
+  font: 400 13px/1.45 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}

@@ -54,7 +54,7 @@ import { useNotionSync } from './hooks/useNotionSync'
 import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss } from './api'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD } from './store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS } from './store'
 import { computeRecords, calculateTaskPoints } from './scoring'
 import { applyTheme } from './theme'
 import './AppV2.css'
@@ -1603,8 +1603,21 @@ export default function AppV2() {
 
       <SuggestionsModal
         open={showSuggestions}
-        title={isKept ? 'Loop suggestions' : 'Routine suggestions'}
+        title={isKept ? 'Suggestions' : 'Routine suggestions'}
         onClose={() => setShowSuggestions(false)}
+        onCreateTag={(name) => {
+          // Accept a suggested tag = create the label client-side (normal CRUD
+          // + sync), so the server never touches the labels blob. No-op if a
+          // same-name label already exists.
+          const clean = String(name || '').trim()
+          if (!clean) return
+          if (labels.some(l => l.name.toLowerCase() === clean.toLowerCase())) return
+          const color = LABEL_COLORS[labels.length % LABEL_COLORS.length]
+          const next = [...labels, { id: uuid(), name: clean, color }]
+          setLabels(next)
+          saveLabels(next)
+          flushSync()
+        }}
         onAccepted={() => {
           // Routine was just created server-side — refresh the local routines
           // cache on next SSE poke (handled by useServerSync), or fall back

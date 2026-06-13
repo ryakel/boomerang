@@ -1313,6 +1313,22 @@ export async function getNotifLog(limit = 200) {
   return res.json()
 }
 
+// --- Weekly tag suggestions (new-tag discovery from past tasks) ---
+export async function getTagSuggestions() {
+  const res = await fetch('/api/tag-suggestions')
+  if (!res.ok) throw new Error(`tag suggestions failed: ${res.status}`)
+  return res.json()
+}
+export async function dismissTagSuggestion(id) {
+  const res = await fetch(`/api/tag-suggestions/${id}/dismiss`, { method: 'POST' })
+  if (!res.ok) throw new Error(`dismiss tag suggestion failed: ${res.status}`)
+  return res.json()
+}
+export async function scanTagSuggestions() {
+  const res = await fetch('/api/tag-suggestions/scan', { method: 'POST' })
+  return res.json().catch(() => ({ ok: false, error: `scan failed (${res.status})` }))
+}
+
 export async function clearServerNotifLog() {
   const res = await fetch('/api/notifications/log', { method: 'DELETE' })
   if (!res.ok) throw new Error(`clear notif log failed: ${res.status}`)
