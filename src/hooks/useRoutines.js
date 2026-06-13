@@ -310,16 +310,29 @@ export function useRoutines() {
   // Loop-reconcile review actions (per-day Mark done / Skip). Both key off a
   // local 'YYYY-MM-DD' day so they're stable regardless of clock time.
 
-  // Credit a specific day as a completion (stamp completed_history at noon, the
-  // same convention the Today loop-check uses). No-op if the day is already
-  // recorded. Used by "Mark done" on the loop's needs-attention list.
+  // Credit a specific local DAY (`ymd`) as a completion. No-op if that day is
+  // already recorded. Used by "Mark done" on the loop's needs-attention list.
+  //
+  // The stamp MUST bucket to `ymd` in local time, or the idempotency check
+  // below — and loopGaps' gap-resolution, which keys on the cycle day — won't
+  // see it: you'd re-stamp on every click, inflating the lifetime count while
+  // the gap never clears. (Bug: stacks pass the cycle's due_date as `ymd` but
+  // a member's `completed_at` as `iso`; a late-night completion buckets to the
+  // next local day, so the real-time stamp landed on the wrong day forever.)
+  // Use the real completion time only when it lands on the same local day;
+  // otherwise noon-of-ymd. Also self-heal any exact-duplicate stamps a prior
+  // re-stamp piled up (identical timestamps are never legitimate).
   const markRoutineDayDone = useCallback((routineId, ymd, iso) => {
     if (!ymd) return
     setRoutines(prev => prev.map(r => {
       if (r.id !== routineId) return r
-      const hist = Array.isArray(r.completed_history) ? r.completed_history : []
-      if (hist.some(ts => localYMD(new Date(ts)) === ymd)) return r
-      const stamp = iso || `${ymd}T12:00:00.000Z`
+      const raw = Array.isArray(r.completed_history) ? r.completed_history : []
+      const hist = Array.from(new Set(raw)) // drop exact-duplicate timestamps
+      const already = hist.some(ts => localYMD(new Date(ts)) === ymd)
+      if (already) {
+        return hist.length === raw.length ? r : { ...r, completed_history: hist.sort() }
+      }
+      const stamp = (iso && localYMD(new Date(iso)) === ymd) ? iso : `${ymd}T12:00:00.000Z`
       return { ...r, completed_history: [...hist, stamp].sort() }
     }))
   }, [])
@@ -338,9 +351,16 @@ export function useRoutines() {
   }, [])
 
   const hydrateRoutines = useCallback((data) => {
-    if (Array.isArray(data)) {
-      setRoutines(data)
-    }
+    if (!Array.isArray(data)) return
+    // Self-heal exact-duplicate completed_history stamps (artifacts of the
+    // re-stamp bug that inflated lifetime counts). Identical timestamps are
+    // never legitimate — even habit double-logs differ by milliseconds — so
+    // collapsing them is safe and corrects an inflated count on next load.
+    setRoutines(data.map(r => {
+      const h = Array.isArray(r.completed_history) ? r.completed_history : []
+      const deduped = Array.from(new Set(h))
+      return deduped.length === h.length ? r : { ...r, completed_history: deduped }
+    }))
   }, [])
 
   return {
