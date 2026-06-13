@@ -21,7 +21,7 @@ export default function KeptDesktop({
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
-  onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle,
+  onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
   onOpenNotifications, onOpenFlightLog, onStatusChange,
@@ -70,7 +70,7 @@ export default function KeptDesktop({
       />
     )
   } else if (tab === 'loops') {
-    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} />
+    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onSkipLoopDay={onSkipLoopDay} />
   } else {
     surface = (
       <TodayView

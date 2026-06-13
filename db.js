@@ -1013,6 +1013,7 @@ function routineToRow(routine) {
     target_period: routine.target_period || null,
     follow_ups_json: JSON.stringify(routine.follow_ups || []),
     members_json: JSON.stringify(routine.members || []),
+    skipped_days_json: JSON.stringify(routine.skipped_days || []),
   }
 }
 
@@ -1044,6 +1045,7 @@ function rowToRoutine(row) {
     target_period: row.target_period || null,
     follow_ups: safeJsonParse(row.follow_ups_json, []),
     members: safeJsonParse(row.members_json, []),
+    skipped_days: safeJsonParse(row.skipped_days_json, []),
   }
 }
 
@@ -1056,8 +1058,8 @@ const UPSERT_ROUTINE_SQL = `
     energy, energy_level, notion_page_id, notion_url, created_at, paused,
     tags_json, completed_history_json, end_date, schedule_day_of_week,
     schedule_day_of_month, schedule_week_of_month, trigger_time, auto_roll,
-    spawn_mode, target_count, target_period, follow_ups_json, members_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    spawn_mode, target_count, target_period, follow_ups_json, members_json, skipped_days_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
     custom_unit=excluded.custom_unit,
@@ -1071,7 +1073,8 @@ const UPSERT_ROUTINE_SQL = `
     trigger_time=excluded.trigger_time,
     auto_roll=excluded.auto_roll, spawn_mode=excluded.spawn_mode,
     target_count=excluded.target_count, target_period=excluded.target_period,
-    follow_ups_json=excluded.follow_ups_json, members_json=excluded.members_json`
+    follow_ups_json=excluded.follow_ups_json, members_json=excluded.members_json,
+    skipped_days_json=excluded.skipped_days_json`
 
 function runUpsertRoutine(routine) {
   const r = routineToRow(routine)
@@ -1081,7 +1084,7 @@ function runUpsertRoutine(routine) {
     r.tags_json, r.completed_history_json, r.end_date, r.schedule_day_of_week,
     r.schedule_day_of_month, r.schedule_week_of_month,
     r.trigger_time, r.auto_roll, r.spawn_mode, r.target_count, r.target_period,
-    r.follow_ups_json, r.members_json,
+    r.follow_ups_json, r.members_json, r.skipped_days_json,
   ])
 }
 
@@ -1150,13 +1153,16 @@ export function reconcileRoutineHistory({ dryRun = false } = {}) {
     if (isStack || r.spawn_mode === 'habit') continue
     const hist = Array.isArray(r.completed_history) ? r.completed_history.slice() : []
     const histDays = new Set(hist.map(ts => ymdInUserTimezone(ts, tz)))
+    // Days the user explicitly skipped ("never did it, move on") must not be
+    // re-stamped by a blanket reconcile.
+    const skipped = new Set(Array.isArray(r.skipped_days) ? r.skipped_days : [])
     const additions = []
     const addedDays = []
     for (const t of queryTasks({ status: 'done', routine_id: r.id })) {
       const stampIso = t.completed_at || (t.due_date ? `${String(t.due_date).slice(0, 10)}T12:00:00.000Z` : null)
       if (!stampIso) continue
       const day = ymdInUserTimezone(stampIso, tz)
-      if (!day || histDays.has(day)) continue
+      if (!day || histDays.has(day) || skipped.has(day)) continue
       histDays.add(day)
       additions.push(new Date(stampIso).toISOString())
       addedDays.push(day)

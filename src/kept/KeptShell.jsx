@@ -18,7 +18,7 @@ export default function KeptShell({
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
-  onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle,
+  onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenNotifications, onOpenFlightLog,
   onRefresh,
@@ -29,7 +29,7 @@ export default function KeptShell({
 
   let surface
   if (tab === 'loops') {
-    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onOpenSuggestions={onOpenSuggestions} />
+    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onSkipLoopDay={onSkipLoopDay} onOpenSuggestions={onOpenSuggestions} />
   } else if (tab === 'tasks') {
     surface = (
       <TasksViewKept

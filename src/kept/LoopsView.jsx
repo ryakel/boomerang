@@ -5,7 +5,7 @@ import DensityRibbon from './DensityRibbon'
 import CycleChips from './CycleChips'
 import LoopDetail from './LoopDetail'
 import LoopSwipe from './LoopSwipe'
-import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally } from './cycles'
+import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
 import { routineFeathers } from './feathers'
 import './shell.css'
@@ -18,7 +18,7 @@ const RANGES = [
 
 // Kept "Loops" — one card per loop carrying its Flight Trail / Month Dots /
 // Density Ribbon (spec §6). Edit routes to the existing routine editor.
-export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onOpenSuggestions }) {
+export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay, onOpenSuggestions }) {
   const [range, setRange] = useState('trail')
   // Tapping a card opens the loop DETAIL (K4) — stats + month calendar —
   // not the editor. Edit is a deliberate button on the detail page.
@@ -48,7 +48,11 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
       const hasActive = tasks.some(t =>
         t.routine_id === r.id && !['done', 'completed', 'cancelled'].includes(t.status),
       )
-      return { r, color: feathers[r.id], byDay, rally, hasActive, total: r.completed_history?.length || 0 }
+      // Days needing attention (unrecorded completions + missed cycles) drive
+      // the card's "N to fix" badge; the breakdown lives on the detail page.
+      const gaps = loopGaps(r, tasks)
+      const gapCount = gaps.unrecorded.length + gaps.missed.length
+      return { r, color: feathers[r.id], byDay, rally, hasActive, gapCount, total: r.completed_history?.length || 0 }
     })
   }, [routines, tasks])
 
@@ -60,10 +64,13 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
           routine={sel.r}
           color={sel.color}
           spawnBlocked={sel.hasActive}
+          tasks={tasks}
           onBack={() => setDetailId(null)}
           onEdit={(r) => { setDetailId(null); onEditLoop?.(r) }}
           onSpawnNow={onSpawnNow}
           onSkipCycle={onSkipCycle}
+          onMarkLoopDay={onMarkLoopDay}
+          onSkipLoopDay={onSkipLoopDay}
         />
       )
     }
@@ -87,7 +94,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
         ))}
       </div>
       {loops.length === 0 && <p className="bm-empty">No loops yet — things that come back around live here.</p>}
-      {loops.map(({ r, color, byDay, rally, total, hasActive }) => {
+      {loops.map(({ r, color, byDay, rally, total, hasActive, gapCount }) => {
         const isHabit = r.spawn_mode === 'habit' && r.target_count
         const card = (
         <div className="bm-card" style={{ '--loop': color }}>
@@ -97,6 +104,11 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
               style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
               onClick={() => setDetailId(r.id)}
             >{r.title}</button>
+            {gapCount > 0 && (
+              <button className="bm-loop-fix-chip" onClick={() => setDetailId(r.id)} aria-label={`${gapCount} day${gapCount === 1 ? '' : 's'} to fix`}>
+                {gapCount} to fix
+              </button>
+            )}
             {rally > 0 && <span className="bm-loop-rally" style={{ fontSize: 11.5 }}>↻ {rally}</span>}
             <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bm-text-meta)' }}>{total}×</span>
             <button className="bm-back" style={{ width: 28, height: 28 }} onClick={() => onEditLoop?.(r)} aria-label="Edit loop">
