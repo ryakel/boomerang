@@ -92,3 +92,78 @@
 [data-theme^="kept"] .v2-edit-checklist-progress-fill {
   background: var(--wb-action-complete);
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Kept edit-modal aesthetic (2026-06-13): bring the Add/Edit task + loop
+ * editor forms into the LoopDetail card language — grouped warm cards, inset
+ * fields, raised chips, gold primary. An iOS-grouped-form feel for the polish
+ * push toward the native build. Gated to kept; mobile + desktop.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* Each form section becomes a warm rounded card (matches the LoopDetail
+ * "Recent cycles" / "Needs attention" cards). Empty add-pill rows stay flat. */
+[data-theme^="kept"] .v2-form-section:not(.v2-form-section-compact),
+[data-theme^="kept"] .v2-form-row {
+  background: var(--bm-card);
+  border: 1px solid var(--bm-hairline);
+  border-radius: 16px;
+  box-shadow: var(--bm-shadow);
+  padding: 13px 14px;
+  margin-top: 12px;
+}
+[data-theme^="kept"] .v2-form-section-compact { margin-top: 10px; }
+
+/* Section label → quiet card eyebrow. */
+[data-theme^="kept"] .v2-form-label { color: var(--bm-text-meta); font-weight: 700; }
+
+/* Inputs/textareas/selects → INSET on the page bg so they contrast with the
+ * card they sit in (the earlier rule put them on --wb-card = the card color,
+ * so they vanished card-on-card). */
+[data-theme^="kept"] .v2-form-input,
+[data-theme^="kept"] .v2-form-textarea,
+[data-theme^="kept"] .v2-edit-duration-input,
+[data-theme^="kept"] .v2-edit-checklist-add-input,
+[data-theme^="kept"] .v2-edit-comment-input-row input {
+  background: var(--bm-bg);
+  border-color: var(--bm-hairline);
+}
+
+/* Chips / pills inside the cards → raised one step (card-2) so they read as
+ * tappable chips against the card surface. */
+[data-theme^="kept"] .v2-form-seg,
+[data-theme^="kept"] .v2-form-energy-pill,
+[data-theme^="kept"] .v2-form-label-pill,
+[data-theme^="kept"] .v2-edit-add-pill,
+[data-theme^="kept"] .v2-edit-connection-pill,
+[data-theme^="kept"] .v2-edit-knowledge-chip,
+[data-theme^="kept"] .v2-edit-blocker-chip {
+  background: var(--bm-card-2);
+}
+
+/* The title field reads as the form's heading, not a boxed input (mirrors the
+ * big LoopDetail title). Wins over the .v2-form-input rule above by order. */
+[data-theme^="kept"] .v2-form-title {
+  background: transparent;
+  border: none;
+  padding: 4px 2px;
+  font: 700 21px/1.3 var(--v2-font-display);
+}
+[data-theme^="kept"] .v2-form-title:focus { outline: none; box-shadow: none; }
+
+/* FormDisclosure (loop-editor collapsibles) → its own card, not a bare
+ * hairline divider. */
+[data-theme^="kept"] .v2-form-disclosure {
+  background: var(--bm-card);
+  border: 1px solid var(--bm-hairline);
+  border-radius: 16px;
+  box-shadow: var(--bm-shadow);
+  margin-top: 12px;
+  padding: 0 14px;
+}
+[data-theme^="kept"] .v2-form-disclosure:last-of-type { border-bottom: 1px solid var(--bm-hairline); }
+
+/* Primary submit → gold, matching the LoopDetail primary action. */
+[data-theme^="kept"] .v2-form-submit {
+  background: var(--bm-gold);
+  color: var(--bm-on-ember);
+}
