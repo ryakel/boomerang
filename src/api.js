@@ -291,10 +291,10 @@ Return JSON with these fields:
 
 // --- Research ---
 export async function researchTask(title, existingNotes, prompt, attachments = []) {
-  const system = `You are a research assistant for someone with ADHD. Given a task and a research question, provide practical, actionable research notes. Be specific and concrete — links, steps, options, pros/cons. Format as bullet points starting with "- ". Keep it concise but thorough. Don't repeat what's already in the existing notes. If images or documents are attached, incorporate relevant details from them into your research. Return JSON only: {"notes": "the research notes as a string with line breaks between bullets"}`
+  const system = `You are a research assistant for someone with ADHD. Given a task and a research question, provide practical, actionable research notes. Be specific and concrete — links, steps, options, pros/cons. Format as a plain markdown bullet list, each line starting with "- ". Keep it concise but thorough. Don't repeat what's already in the existing notes. If images or documents are attached, incorporate relevant details from them into your research. Return ONLY the bullet list — no preamble, no JSON, no code fences.`
 
   const context = existingNotes ? `\nExisting notes:\n${existingNotes}` : ''
-  const textContent = `Task: "${title}"${context}\n\nResearch question: "${prompt}"\n\nProvide research notes. JSON only.`
+  const textContent = `Task: "${title}"${context}\n\nResearch question: "${prompt}"\n\nProvide the research notes as a bullet list.`
 
   // Build content blocks — text + any image/document attachments
   const content = []
@@ -332,10 +332,24 @@ export async function researchTask(title, existingNotes, prompt, attachments = [
   }
 
   const data = await res.json()
-  const text = data.content[0].text
-  const match = text.match(/\{[\s\S]*\}/)
-  if (!match) throw new Error('Could not parse research results')
-  return JSON.parse(match[0])
+  let text = (data.content?.[0]?.text || '').trim()
+  // Research notes are freeform markdown (bullets with line breaks, and often
+  // backslashes — measurements like 3\4", paths, escapes). Do NOT JSON.parse
+  // them: the old `{"notes":"..."}` contract threw "Unrecognized token '\'" the
+  // moment the notes held a character that isn't a valid JSON escape. Use the
+  // text directly; if an older model response still wraps it in JSON, unwrap by
+  // hand (no JSON.parse) and strip any code fences.
+  if (/^\s*\{/.test(text) && /"notes"\s*:/.test(text)) {
+    const inner = text.match(/"notes"\s*:\s*"([\s\S]*?)"\s*\}\s*$/)
+    if (inner) {
+      text = inner[1]
+        .replace(/\\n/g, '\n').replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+    }
+  }
+  text = text.replace(/^```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '').trim()
+  if (!text) throw new Error('Research returned no content')
+  return { notes: text }
 }
 
 // --- Attachment text extraction (OCR / verbatim transcript) ---
