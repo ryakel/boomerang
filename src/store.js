@@ -366,6 +366,9 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
                          // Shape: [{ id, title, energy_type?, energy_level?,
                          // notes?, tags? }]. Clearing all members of a cycle
                          // pays a 20% bonus.
+    skipped_days: [],    // loop-reconcile: days the user acknowledged as
+                         // "didn't do it, move on" so they stop showing as
+                         // needing attention (array of 'YYYY-MM-DD').
   }
 }
 

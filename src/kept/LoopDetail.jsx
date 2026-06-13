@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2, Plus, FastForward, Check } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2, Plus, FastForward, Check, AlertCircle } from 'lucide-react'
 import MonthDots from './MonthDots'
 import CycleChips from './CycleChips'
-import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally } from './cycles'
+import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
 import { formatCadence, formatScheduleAnchor } from '../store'
 import './shell.css'
@@ -10,10 +10,21 @@ import './shell.css'
 // Loop detail (K4): tapping a loop card lands HERE — rally / best / total
 // stat cards, the cycle-chip trail, and a steppable month calendar — instead
 // of dumping straight into the editor. Edit is a deliberate button.
-export default function LoopDetail({ routine, color, spawnBlocked = false, onBack, onEdit, onSpawnNow, onSkipCycle }) {
+export default function LoopDetail({ routine, color, spawnBlocked = false, tasks = [], onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay }) {
   const [monthRef, setMonthRef] = useState(() => new Date())
   const [spawned, setSpawned] = useState(false)
   const [skipped, setSkipped] = useState(false)
+
+  // Days needing attention (plan follow-up): unrecorded completions + missed
+  // cycles, each fixable per-day (Mark done / Skip). Recomputed live so a row
+  // disappears the instant it's resolved. (Hooks run before the null guard
+  // below — rules-of-hooks; the helper no-ops for a null routine.)
+  const gaps = useMemo(() => loopGaps(routine, tasks), [routine, tasks])
+  const gapItems = useMemo(() => [
+    ...gaps.unrecorded.map(g => ({ ...g, kind: 'unrecorded' })),
+    ...gaps.missed.map(g => ({ ...g, kind: 'missed' })),
+  ].sort((a, b) => b.day.localeCompare(a.day)), [gaps])
+
   if (!routine) return null
 
   const byDay = historyByDay(routine.completed_history)
@@ -111,6 +122,44 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, onBac
             {skipped ? <Check size={14} strokeWidth={2.4} /> : <FastForward size={14} strokeWidth={2} />}
             {skipped ? 'Skipped' : 'Skip cycle'}
           </button>
+        </div>
+      )}
+
+      {/* Needs attention — days the loop never recorded (you finished the task)
+          and cycles you were due but missed. Mark done credits the cycle; Skip
+          acknowledges it without crediting. Each row vanishes when resolved. */}
+      {!isHabit && gapItems.length > 0 && (
+        <div className="bm-card bm-loop-fix">
+          <div className="bm-card-title">
+            <span className="bm-loop-fix-icon"><AlertCircle size={15} strokeWidth={2.2} /></span>
+            Needs attention
+            <span className="bm-loop-fix-count">{gapItems.length}</span>
+          </div>
+          <p className="bm-loop-fix-hint">
+            Mark a day done to credit the cycle, or skip it to move on without crediting.
+          </p>
+          <ul className="bm-loop-fix-list">
+            {gapItems.map(g => (
+              <li key={`${g.kind}-${g.key}`} className="bm-loop-fix-row">
+                <span className="bm-loop-fix-day">
+                  <span className="bm-loop-fix-date">{g.label}</span>
+                  <span className={`bm-loop-fix-tag bm-loop-fix-tag-${g.kind}`}>
+                    {g.kind === 'unrecorded' ? 'finished, not recorded' : 'missed'}
+                  </span>
+                </span>
+                <span className="bm-loop-fix-acts">
+                  <button
+                    className="bm-loop-fix-btn bm-loop-fix-done"
+                    onClick={() => onMarkLoopDay?.(routine.id, g.day, g.iso)}
+                  ><Check size={13} strokeWidth={2.6} /> Mark done</button>
+                  <button
+                    className="bm-loop-fix-btn bm-loop-fix-skip"
+                    onClick={() => onSkipLoopDay?.(routine.id, g.day)}
+                  >Skip</button>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

@@ -619,5 +619,43 @@
 .bm-loop-action-skip { background: var(--bm-card-2); color: var(--bm-text); }
 .bm-loop-actions .bm-btn:disabled { opacity: 0.55; cursor: default; }
 
+/* "N to fix" chip on a Loops card (reconcile review entry point) */
+.bm-loop-fix-chip {
+  flex: 0 0 auto;
+  border: 1px solid var(--bm-danger);
+  background: transparent; color: var(--bm-danger);
+  border-radius: var(--v2-radius-pill, 999px);
+  padding: 2px 8px; font-size: 10.5px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+}
+
+/* Loop detail "Needs attention" reconcile card */
+.bm-loop-fix-icon { color: var(--bm-danger); display: inline-flex; }
+.bm-loop-fix-count {
+  margin-left: auto; min-width: 20px; text-align: center;
+  background: var(--bm-danger); color: var(--bm-on-ember);
+  border-radius: 999px; padding: 1px 7px; font-size: 11px; font-weight: 800;
+}
+.bm-loop-fix-hint { margin: 6px 0 10px; font-size: 12px; color: var(--bm-text-meta); line-height: 1.4; }
+.bm-loop-fix-list { list-style: none; margin: 0; padding: 0; }
+.bm-loop-fix-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; border-top: 1px solid var(--bm-hairline);
+}
+.bm-loop-fix-row:first-child { border-top: none; }
+.bm-loop-fix-day { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bm-loop-fix-date { font-size: 13px; font-weight: 600; color: var(--bm-text); }
+.bm-loop-fix-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.bm-loop-fix-tag-unrecorded { color: var(--bm-gold); }
+.bm-loop-fix-tag-missed { color: var(--bm-text-meta); }
+.bm-loop-fix-acts { flex: 0 0 auto; display: flex; gap: 6px; }
+.bm-loop-fix-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: none; border-radius: 9px; padding: 7px 10px;
+  font-size: 12px; font-weight: 700; font-family: var(--v2-font-body); cursor: pointer;
+}
+.bm-loop-fix-done { background: var(--bm-gold); color: var(--bm-on-ember); }
+.bm-loop-fix-skip { background: var(--bm-card-2); color: var(--bm-text-meta); }
+
 /* Sort toggle active hint (Tasks tab) */
 .bm-back.is-active-sort { color: var(--bm-ember); border-color: var(--bm-ember); }
