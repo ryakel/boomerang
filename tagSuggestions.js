@@ -77,7 +77,7 @@ Return JSON only: {"tags":[{"name":"<tag>","rationale":"<one short sentence>","e
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 700,
         system,
         messages: [{ role: 'user', content: user }],

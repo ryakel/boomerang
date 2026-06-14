@@ -2888,7 +2888,7 @@ app.post('/api/push/log', (req, res) => {
 // AI Adviser
 // ============================================================
 
-const ADVISER_MODEL = 'claude-sonnet-4-20250514'
+const ADVISER_MODEL = 'claude-sonnet-4-6'
 const ADVISER_MAX_TURNS = 15
 const adviserAbortMap = new Map() // sessionId -> AbortController
 
