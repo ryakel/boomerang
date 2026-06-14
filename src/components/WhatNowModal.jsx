@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Target, Monitor, Users, MapPin, Palette, Dumbbell } from 'lucide-react'
+import { Target, Monitor, Users, MapPin, Flame, Palette, Dumbbell } from 'lucide-react'
 import { getWhatNow, getWeather } from '../api'
 import { ENERGY_TYPES } from '../store'
 import ModalShell from './ModalShell'
 import './WhatNowModal.css'
 
-const ENERGY_ICONS = { Monitor, Users, MapPin, Palette, Dumbbell }
+const ENERGY_ICONS = { Monitor, Users, MapPin, Flame, Palette, Dumbbell }
 
 const TIME_OPTIONS = [
   { label: '5–10 minutes', sub: 'Quick win' },

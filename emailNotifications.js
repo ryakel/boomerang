@@ -60,7 +60,7 @@ async function generateAINudge(task) {
 }
 
 // Avoidance-prone energy types (same as client)
-const AVOIDANCE_ENERGY_TYPES = ['errand']
+const AVOIDANCE_ENERGY_TYPES = ['errand', 'confrontation']
 const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
 
 let transporter = null

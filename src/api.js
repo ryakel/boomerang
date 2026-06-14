@@ -60,7 +60,7 @@ export async function inferDate(title, notes = '') {
 
 // --- T-shirt sizing + energy inference ---
 // Returns { size, energy, energyLevel } in a single API call.
-// energy = type of capacity (desk|people|errand|creative|physical)
+// energy = type of capacity (desk|people|errand|confrontation|creative|physical)
 // energyLevel = drain intensity (1=low, 2=medium, 3=high)
 export async function inferSize(title, notes = '', labels = []) {
   const taggable = Array.isArray(labels) ? labels.filter(l => l && l.id && l.name) : []
@@ -80,6 +80,7 @@ For ENERGY TYPE, determine what kind of capacity this task draws from:
 - "desk" — focused computer/paperwork (writing, coding, paying bills, data entry)
 - "people" — social interaction (meetings, lunch with someone, asking favors)
 - "errand" — going somewhere physically (pickup, returns, shopping, appointments)
+- "confrontation" — emotionally difficult interaction (disputing a bill, giving hard feedback, dreaded phone calls, conflict)
 - "creative" — open-ended thinking/making (design, writing, planning, brainstorming)
 - "physical" — bodily effort (cleaning, moving, exercise, yard work, assembly)
 
@@ -213,11 +214,11 @@ When should this be due? JSON only.`
 }
 
 // --- What Now ---
-// capacity = optional energy type filter (desk|people|errand|creative|physical|null)
+// capacity = optional energy type filter (desk|people|errand|confrontation|creative|physical|null)
 // weather = optional summary string like "Today: sunny, 72° · Tomorrow: rain, 55° · Sat: snow"
 export async function getWhatNow(tasks, time, energy, capacity = null, weather = null) {
   const ACTIVE = ['not_started', 'doing', 'waiting', 'open']
-  const ENERGY_LABELS = { desk: 'Desk', people: 'People', errand: 'Errand', creative: 'Creative', physical: 'Physical' }
+  const ENERGY_LABELS = { desk: 'Desk', people: 'People', errand: 'Errand', confrontation: 'Confrontation', creative: 'Creative', physical: 'Physical' }
   const openTasks = tasks
     .filter(t => ACTIVE.includes(t.status))
     .map(t => {
@@ -238,7 +239,7 @@ export async function getWhatNow(tasks, time, energy, capacity = null, weather =
   const system = `You are a helpful assistant for someone with ADHD. You help them pick the right task to work on right now. Be warm, direct, and practical. No fluff. Never be preachy or condescending.
 
 Tasks have t-shirt sizes: XS (~5 min), S (~15 min), M (~30-60 min), L (~half day), XL (~full day+).
-Tasks also have energy types (desk, people, errand, creative, physical) and drain levels (low, med, high).
+Tasks also have energy types (desk, people, errand, confrontation, creative, physical) and drain levels (low, med, high).
 HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}${weatherRule}
 
 Respond with JSON only — an object with two fields:
@@ -572,7 +573,7 @@ export async function analyzeNotionPage(title, plainTextContent) {
 For each task, determine:
 - title: clear, actionable task title (imperative mood)
 - size: T-shirt size (XS/S/M/L/XL)
-- energy: type of capacity needed (desk/people/errand/creative/physical)
+- energy: type of capacity needed (desk/people/errand/confrontation/creative/physical)
 - energyLevel: drain intensity (1=low, 2=medium, 3=high)
 - due_date: ISO date (YYYY-MM-DD) if mentioned or inferable, null otherwise
 - notes: brief context from the page content

@@ -34,6 +34,7 @@
   --bm-f-billabong: #6FA6C9;
   --bm-f-ironbark: #9D87D6;
   --bm-f-heath: #C77C9E;
+  --bm-f-flame: #E5734F;    /* confrontation — hotter than clay, never collides */
   --bm-trail-empty: rgba(243, 238, 229, 0.10);
   --bm-scrim: rgba(8, 6, 3, 0.6);
   --bm-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 10px 28px rgba(0, 0, 0, 0.30);
@@ -57,6 +58,7 @@
   --energy-desk: var(--bm-f-billabong);
   --energy-people: var(--bm-f-ironbark);
   --energy-errand: var(--bm-f-eucalypt);
+  --energy-confrontation: var(--bm-f-flame);
   --energy-creative: var(--bm-f-heath);
   --energy-physical: var(--bm-f-clay);
   /* ── Wallaby-token bridge ─────────────────────────────────────────────
@@ -127,6 +129,7 @@
   --bm-f-billabong: #41799C;
   --bm-f-ironbark: #7E61C7;
   --bm-f-heath: #B25579;
+  --bm-f-flame: #C0392B;    /* confrontation — deeper than clay, never collides */
   --bm-trail-empty: rgba(38, 32, 26, 0.11);
   --bm-scrim: rgba(38, 32, 26, 0.35);
   --bm-shadow: 0 1px 2px rgba(38, 32, 26, 0.06), 0 10px 28px rgba(38, 32, 26, 0.10);
@@ -136,6 +139,7 @@
   --energy-desk: var(--bm-f-billabong);
   --energy-people: var(--bm-f-ironbark);
   --energy-errand: var(--bm-f-eucalypt);
+  --energy-confrontation: var(--bm-f-flame);
   --energy-creative: var(--bm-f-heath);
   --energy-physical: var(--bm-f-clay);
   /* ── Wallaby-token bridge ─────────────────────────────────────────────
