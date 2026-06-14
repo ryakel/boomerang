@@ -131,7 +131,7 @@ async function maybeAiCluster(clusters) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 800,
         system: 'You are a clustering helper. Given a list of task titles, group ones that describe the SAME recurring activity (e.g., "mow the lawn" and "mow grass" are the same; "buy milk" and "buy bread" are NOT). Reply with a JSON array of clusters, each an array of 1-indexed numbers from the input. Singletons may be omitted. Reply ONLY with the JSON, no prose.',
         messages: [{ role: 'user', content: titleList }],

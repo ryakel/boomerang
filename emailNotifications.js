@@ -48,7 +48,7 @@ async function generateAINudge(task) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514', max_tokens: 100,
+        model: 'claude-sonnet-4-6', max_tokens: 100,
         system: 'Generate a short, encouraging one-liner nudge (under 80 chars) for someone with ADHD about this task. Be warm, specific, and motivating. No quotes.',
         messages: [{ role: 'user', content: `Task: "${task.title}"${task.energy ? ` (${task.energy})` : ''}` }],
       }),

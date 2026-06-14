@@ -968,7 +968,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           max_tokens: 2048,
           messages: [{ role: 'user', content: prompt }],
           tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],

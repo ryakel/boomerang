@@ -26,7 +26,7 @@ export async function callClaude(systemPrompt, userMessage) {
     method: 'POST',
     headers: getApiHeaders(),
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: withCustomInstructions(systemPrompt),
       messages: [{ role: 'user', content: userMessage }],
@@ -320,7 +320,7 @@ export async function researchTask(title, existingNotes, prompt, attachments = [
     method: 'POST',
     headers: getApiHeaders(),
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: withCustomInstructions(system),
       messages: [{ role: 'user', content }],
@@ -401,7 +401,7 @@ export async function extractAttachmentText(attachments = []) {
     method: 'POST',
     headers: getApiHeaders(),
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system,
       messages: [{ role: 'user', content }],
