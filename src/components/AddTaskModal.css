@@ -213,33 +213,36 @@
   border-color: var(--v2-text);
 }
 
-/* Energy type — flex row with all five chips sharing equal width via
- * flex: 1, so the full set (desk / people / errand / creative / physical)
- * fits on one row at iPhone-mini widths. Smaller font + padding than the
- * shared .v2-form-seg shape so "physical" / "creative" don't truncate.
- * Per-type color in the active state still distinguishes via inline border
- * + text colors. */
+/* Energy type — a responsive grid (auto-fit, min 88px) so the full set
+ * (desk / people / errand / confrontation / creative / physical) wraps to as
+ * many rows as it needs and every label stays fully readable. The old
+ * single-row flex (flex: 1; nowrap) truncated long labels — "confrontation"
+ * became "co…" — the moment a 6th type was added. Per-type color in the
+ * active state distinguishes via inline border + text colors. */
 .v2-form-energy-grid {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 6px;
 }
 
 .v2-form-energy-pill {
-  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
-  height: 32px;
-  padding: 0 8px;
+  min-height: 34px;
+  padding: 5px 7px;
   border-radius: var(--v2-radius-pill);
   background: var(--v2-bg);
   color: var(--v2-text);
   border: 1px solid var(--v2-hairline);
-  font: 500 12px/1 var(--v2-font-body);
+  font: 500 12px/1.15 var(--v2-font-body);
   text-align: center;
   text-transform: lowercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Wrap (don't ellipsize) so long labels like "confrontation" stay fully
+   * readable in a narrow grid cell instead of clipping to "confrontat…". */
+  white-space: normal;
+  overflow-wrap: anywhere;
   cursor: pointer;
   transition: background var(--v2-dur-quick) var(--v2-ease-standard),
               border-color var(--v2-dur-quick) var(--v2-ease-standard);

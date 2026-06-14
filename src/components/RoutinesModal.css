@@ -244,9 +244,19 @@
 }
 
 /* Habit-mode picker: segmented control between Auto and Habit. The segmented
- * class is reused from AddTaskModal.css. */
+ * class is reused from AddTaskModal.css. The labels ("Auto (cadence)" /
+ * "Habit (target frequency)") are too long to share one row at phone widths
+ * without wrapping into floating half-pills, so each gets its own full-width
+ * row. */
 .v2-form-mode-segmented {
   margin-top: 4px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.v2-form-mode-segmented .v2-form-seg {
+  width: 100%;
+  justify-content: center;
 }
 
 /* Habit-row visual indicators: progress chip + streak. Shown in the summary
@@ -314,6 +324,7 @@
 .v2-followups-step-body {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding-left: 26px;
 }
@@ -337,7 +348,7 @@
   font: 500 13px/1 var(--v2-font-body);
 }
 .v2-followups-step-mode {
-  width: 96px;
+  width: 116px;
   height: 32px;
   padding: 4px 8px;
   font: 500 13px/1 var(--v2-font-body);
