@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-14
+
+- fix(tasks): restore the missing "Confrontation" energy type everywhere [S]
+  - Bug report: the energy-type picker (Kept quick-edit, Add/Edit modals, What-now capacity step) offered only 5 types — **Confrontation was absent** — yet badges (Dragon Slayer, the gold "Balanced Diet" = every energy type in one week), the avoidance nagging boost, and the AI inference docs all treat it as a first-class 6th type. So Balanced Diet was literally unearnable and confrontation tasks could never be tagged by hand.
+  - Root cause: `confrontation` had been dropped from every UI/inference surface while the Quokka tool enums (`adviserToolsTasks.js`) and badge math still expected 6. Restored across the board:
+    - `store.ENERGY_TYPES` (the single source for Add/Edit modals, EditTaskModal, WhatNowModal, TaskCard) + tap-to-cycle now includes Confrontation (`Flame` icon).
+    - `src/kept/QuickEditTask.jsx` hardcoded `ENERGY` list (the modal in the report) + `TaskCard`/`WhatNowModal` icon maps gained `Flame`.
+    - **Color token** `--energy-confrontation` was missing from the single-source block — added to `tokens.css` (#E8806A) and both Kept palettes via a new `--bm-f-flame` flight token (light #C0392B / dark #E5734F), distinct from clay (physical) and eucalypt (errand). Verified all six render distinctly in kept-dark.
+    - **AI inference prompt** (`inferSize` in `src/api.js`) never listed confrontation, so the model could never emit it either — added it plus the What-now / capture prompts and label maps.
+    - **Avoidance nagging boost** (`AVOIDANCE_ENERGY_TYPES`) was `['errand']` only across `store.js` + the three server engines (`email`/`push`/`pushover`), contradicting the documented "confrontation/errand get nagged ~30-56% more" — now `['errand', 'confrontation']` everywhere.
+
 ## 2026-06-13
 
 - fix(api): research mode no longer crashes on backslashes / newlines [S]

@@ -46,7 +46,7 @@ function ensureVapidKeys() {
   console.log('[Push] Auto-generated VAPID keys and stored in database')
 }
 
-const AVOIDANCE_ENERGY_TYPES = ['errand']
+const AVOIDANCE_ENERGY_TYPES = ['errand', 'confrontation']
 // ACTIVE_STATUSES retained for any legacy refs; new code uses isNotifiable()
 // from db.js which folds in project / snooze_indefinite / gmail_pending rules.
 const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
