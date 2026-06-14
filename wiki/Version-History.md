@@ -15,6 +15,25 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Prod report: "Broke the shit outta Quokka" — new chats open but every send returns "Could not retrieve response". Root cause: every Claude call in the app hardcoded `claude-sonnet-4-20250514` (Claude Sonnet 4, May 2025 snapshot), which Anthropic **deprecated with a retirement date of 2026-06-15** — so it began failing right at the deadline. Quokka surfaced it first because it's the heaviest caller (up to 15 tool-use turns per message → near-certain to hit the failing model), but the same stale ID powered size/energy inference, date extraction, toast lines, research, pattern detection, tag suggestions, Gmail scan, and AI nudges. Confirmed via the `claude-api` skill (authoritative model catalog) — not a regression from recent commits (none touched the adviser path).
   - Fix: swapped every `claude-sonnet-4-20250514` → the current `claude-sonnet-4-6` across all 9 source files (`server.js` `ADVISER_MODEL`, `adviserToolsTasks.js` research_task, `src/api.js`, `src/hooks/useNotifications.js`, `patternDetection.js`, `tagSuggestions.js`, `emailNotifications.js`, `gmailSync.js`, `scripts/generate-seed-data.js`). The adviser/inference call shapes carry no `thinking`/`budget_tokens`/prefill/`output_format`, so the migration is a clean model-ID swap with no breaking-change risk. The Haiku calls (`claude-haiku-4-5-20251001`) are still current and were left untouched. Kept the Sonnet *tier* (Quokka's deliberate cost choice for long tool loops); `claude-sonnet-4-6` is a non-dated alias so it won't silently age out the same way. Effort tuning (Sonnet 4.6 defaults to `high`) deferred — pure correctness swap.
 
+- fix(ui): un-smash the loop + task editor forms at iPhone PWA width [S]
+  - Rendered every edit screen at iPhone PWA size (390px). The forms-based
+    editors (Edit loop / RoutinesModal, full Edit task + Add task / EditTaskModal
+    + AddTaskModal — all sharing `forms.css` + the energy-grid CSS) were cramped;
+    the chip quick-editor, Throw sheet, What-now and Settings rendered fine.
+  - **Energy type pills truncated** ("people"→"pe…", "confrontation"→"co…"): the
+    grid was `flex: 1; flex-wrap: nowrap`, built for 5 chips on one row; the 6th
+    type (confrontation, added earlier today) tipped it into ellipsis. Now a
+    responsive `grid (auto-fit, minmax 88px)` that wraps to a clean 3×2 with
+    text-wrap fallback + tuned font/padding so even "confrontation" reads on one
+    line. Fixes Add + Edit task together (single source in `AddTaskModal.css`).
+  - **Loop "Auto (cadence) / Habit (target frequency)" toggle** wrapped into two
+    floating half-pills → now two full-width stacked segments.
+  - **Follow-up step rows**: the "After prev" timing select truncated to
+    "After pre" (96px → 116px) and the controls row now `flex-wrap`s so the
+    move-up/down arrows drop to their own line instead of overflowing.
+  - CSS-only; `RoutinesModal.css` + `AddTaskModal.css`. Verified via a puppeteer
+    iPhone-viewport harness against the real running app.
+
 - fix(tasks): restore the missing "Confrontation" energy type everywhere [S]
   - Bug report: the energy-type picker (Kept quick-edit, Add/Edit modals, What-now capacity step) offered only 5 types — **Confrontation was absent** — yet badges (Dragon Slayer, the gold "Balanced Diet" = every energy type in one week), the avoidance nagging boost, and the AI inference docs all treat it as a first-class 6th type. So Balanced Diet was literally unearnable and confrontation tasks could never be tagged by hand.
   - Root cause: `confrontation` had been dropped from every UI/inference surface while the Quokka tool enums (`adviserToolsTasks.js`) and badge math still expected 6. Restored across the board:
