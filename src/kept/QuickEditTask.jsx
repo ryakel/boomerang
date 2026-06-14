@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Trash2, Plus, Check, ChevronDown, Sliders, Sparkles,
-  Monitor, Users, MapPin, Palette, Dumbbell, Zap, BookOpenText,
+  Monitor, Users, MapPin, Flame, Palette, Dumbbell, Zap, BookOpenText,
 } from 'lucide-react'
 import ModalShell from '../components/ModalShell'
 import AutosaveIndicator from '../components/AutosaveIndicator'
@@ -24,6 +24,7 @@ const ENERGY = [
   { id: 'desk', label: 'Desk', Icon: Monitor, color: 'var(--energy-desk)' },
   { id: 'people', label: 'People', Icon: Users, color: 'var(--energy-people)' },
   { id: 'errand', label: 'Errand', Icon: MapPin, color: 'var(--energy-errand)' },
+  { id: 'confrontation', label: 'Confrontation', Icon: Flame, color: 'var(--energy-confrontation)' },
   { id: 'creative', label: 'Creative', Icon: Palette, color: 'var(--energy-creative)' },
   { id: 'physical', label: 'Physical', Icon: Dumbbell, color: 'var(--energy-physical)' },
 ]

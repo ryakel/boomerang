@@ -26,7 +26,7 @@ import { isInQuietHours, getUserTimeParts } from './userTime.js'
 const PUSHOVER_API = 'https://api.pushover.net/1/messages.json'
 const PUSHOVER_RECEIPT_API = 'https://api.pushover.net/1/receipts'
 
-const AVOIDANCE_ENERGY_TYPES = ['errand']
+const AVOIDANCE_ENERGY_TYPES = ['errand', 'confrontation']
 const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
 
 let loopTimer = null

@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react'
-import { Check, Pencil, Moon, Monitor, Users, MapPin, Palette, Dumbbell, Zap, SkipForward } from 'lucide-react'
+import { Check, Pencil, Moon, Monitor, Users, MapPin, Palette, Dumbbell, Flame, Zap, SkipForward } from 'lucide-react'
 import {
   isStale, isSnoozed, isOverdue,
   formatSnoozeLabel, formatDueDate, daysOld, ENERGY_TYPES,
@@ -7,7 +7,7 @@ import {
 import WeatherBadge from './WeatherBadge'
 import './TaskCard.css'
 
-const ENERGY_ICONS = { Monitor, Users, MapPin, Palette, Dumbbell }
+const ENERGY_ICONS = { Monitor, Users, MapPin, Flame, Palette, Dumbbell }
 
 // Swipe tuning. v2 only supports swipe-left for action reveal — destructive
 // actions stay in EditTaskModal with explicit confirm so the calm aesthetic
