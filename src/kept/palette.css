@@ -44,10 +44,7 @@
 
 /* ── Kept dark — "Nightgum" ────────────────────────────────────────────── */
 :root[data-ui="v2"][data-theme="kept-dark"] {
-  /* Display face: Syne (geometric grotesque) — deliberately NOT the
-   * Fraunces/serif "warmth" default that reads as AI-generated. Matches the
-   * tokens.css base so Kept stops overriding it onto Fraunces. */
-  --v2-font-display: 'Syne', system-ui, sans-serif;
+  --v2-font-display: 'Fraunces', Georgia, serif;
 
   --v2-bg: #16140F;
   --v2-surface: #1F1C16;
@@ -101,7 +98,7 @@
 
 /* ── Kept light — "Linen" ──────────────────────────────────────────────── */
 :root[data-ui="v2"][data-theme="kept-light"] {
-  --v2-font-display: 'Syne', system-ui, sans-serif;
+  --v2-font-display: 'Fraunces', Georgia, serif;
 
   --v2-bg: #F8F4ED;
   --v2-surface: #FFFFFF;

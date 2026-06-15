@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
-  FolderKanban, BarChart3, Package, Settings,
+  Home, ListTodo, Repeat2, FolderKanban, BarChart3, Package, Settings,
   Sparkles, Plus, CheckCircle2, ScrollText, Inbox, Compass, Bell, TrendingUp,
 } from 'lucide-react'
-import { IconToday, IconLoops, IconTasks } from './icons'
 import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
 import TodayView from './TodayView'
@@ -44,9 +43,9 @@ export default function KeptDesktop({
   }, [])
 
   const navMain = [
-    { id: 'today', label: 'Today', icon: IconToday },
-    { id: 'tasks', label: 'Tasks', icon: IconTasks },
-    { id: 'loops', label: 'Loops', icon: IconLoops },
+    { id: 'today', label: 'Today', icon: Home },
+    { id: 'tasks', label: 'Tasks', icon: ListTodo },
+    { id: 'loops', label: 'Loops', icon: Repeat2 },
   ]
   const navReview = [
     { label: 'Flight log', icon: TrendingUp, onClick: onOpenFlightLog },

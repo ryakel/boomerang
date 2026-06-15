@@ -1030,27 +1030,6 @@ for new installs on both mobile and desktop.** Remaining: K5 continuation
 Kept-native surfaces), and the K6 completion — Wallaby teardown once the
 user confirms Kept as the daily driver.
 
-**De-generification pass (2026-06-15) — making Kept not read as AI-generated.**
-Four layers landed (prototypes `kept-preview-p1/p2/p3.html` + `kept-motion.html`
-drove it; dev-only harnesses): (1) **display face Fraunces → Syne** — Kept's
-`--v2-font-display` now matches the `tokens.css` Syne base (the Fraunces
-`<link>` is gone from `index.html`); the "warmth serif" was itself the tell.
-(2) **Custom arc-vocabulary icons** in `src/kept/icons.jsx` (`IconToday` day-arc
-gauge / `IconLoops` return-arc+caught-dot, also the loop-ring / `IconTasks`
-stacked arc-ticks / `IconMore` flight-trail dots) replace the Lucide nav+loop
-glyphs in `KeptNav`, `KeptDesktop`, and every `bm-loop-ring`. (3) **Flight-path
-hero** — `DayArc` is no longer a semicircle gauge but a flat out-and-back
-boomerang trajectory (ember = points flown, faint = remaining return; the
-boomerang spins to rest on entry; left-weighted count; rAF, reduced-motion →
-static). Same `{value,goal,caption}` contract. (4) **Motion vocabulary**
-`src/kept/motion.js` (spec §8), WAAPI + reduced-motion-gated, wired into the
-real handlers: **catch** (the gold dot arcs back into the filling check + strike
-+ settle, commit delayed ~300ms — `catchThenComplete` on the chk buttons),
-**throw** (`playThrowIn` drops the new row in on a spring arc after
-`handleAddTask`), **return** (`returnThenCommit` flies the row off on snooze; a
-"↩ Throw it back — returns tomorrow" row in the Kept action sheet gives mobile a
-visible return via `onSnoozeBack`). Rows carry `data-task-id` for the lookups.
-
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
 
