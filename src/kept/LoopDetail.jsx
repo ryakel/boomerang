@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2, Plus, FastForward, Check, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Plus, FastForward, Check, AlertCircle } from 'lucide-react'
+import { IconLoops } from './icons'
 import MonthDots from './MonthDots'
 import CycleChips from './CycleChips'
 import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
@@ -78,7 +79,7 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
         </button>
       </div>
       <div className="bm-detail-meta">
-        <span className="bm-loop-ring" style={{ width: 24, height: 24 }}><Repeat2 size={12} strokeWidth={2.2} /></span>
+        <span className="bm-loop-ring" style={{ width: 24, height: 24 }}><IconLoops size={12} strokeWidth={2.2} /></span>
         {meta}{routine.paused ? ' · paused' : ''}
       </div>
 

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass } from 'lucide-react'
+import { Check, Flame, FolderKanban, Inbox, X, Compass } from 'lucide-react'
+import { IconLoops } from './icons'
+import { catchThenComplete } from './motion'
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD, parseLocalDate } from '../dates'
@@ -284,10 +286,10 @@ export default function TodayView({
           const statusTag = t.status === 'doing' ? 'doing' : t.status === 'waiting' ? 'waiting' : null
           return (
             <RowSwipe key={t.id} done={done} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
-              <div className="bm-row">
+              <div className="bm-row" data-task-id={t.id}>
                 <button
                   className={`bm-chk${done ? ' is-done' : ''}${t.high_priority ? ' is-hi' : ''}`}
-                  onClick={() => onCompleteTask?.(t)}
+                  onClick={(e) => catchThenComplete(e.currentTarget, () => onCompleteTask?.(t))}
                   aria-label={done ? 'Reopen' : 'Catch it'}
                 >{done && <Check size={13} strokeWidth={3.4} />}</button>
                 <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
@@ -327,8 +329,8 @@ export default function TodayView({
               const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
               return (
                 <RowSwipe key={t.id} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
-                  <div className="bm-row">
-                    <button className="bm-chk" onClick={() => onCompleteTask?.(t)} aria-label="Catch it" />
+                  <div className="bm-row" data-task-id={t.id}>
+                    <button className="bm-chk" onClick={(e) => catchThenComplete(e.currentTarget, () => onCompleteTask?.(t))} aria-label="Catch it" />
                     <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                       <span className="bm-row-title">{t.title}</span>
                       {chips.length > 0 && (
@@ -357,7 +359,7 @@ export default function TodayView({
                 // un-clearing goes through reopening the member task.
                 return (
                   <div key={r.id} className="bm-loop" style={{ '--loop': color }}>
-                    <span className="bm-loop-ring"><Repeat2 size={15} strokeWidth={2.2} /></span>
+                    <span className="bm-loop-ring"><IconLoops size={15} strokeWidth={2.2} /></span>
                     <button className="bm-loop-body" onClick={() => onEditLoop?.(r)} aria-label={`Edit ${r.title}`}>
                       <div className="bm-loop-title">{r.title}</div>
                       <div className="bm-loop-sub">
@@ -377,7 +379,7 @@ export default function TodayView({
                 return cycles.map(c => (
                   <div key={`${r.id}|${c.due}`} className="bm-stack" style={{ '--loop': color }}>
                     <div className="bm-stack-head">
-                      <span className="bm-loop-ring" style={{ width: 26, height: 26 }}><Repeat2 size={13} strokeWidth={2.2} /></span>
+                      <span className="bm-loop-ring" style={{ width: 26, height: 26 }}><IconLoops size={13} strokeWidth={2.2} /></span>
                       <button className="bm-stack-title" onClick={() => onEditLoop?.(r)}>{r.title}</button>
                       <span className="bm-stack-progress">{c.done}/{c.total}</span>
                     </div>
@@ -399,7 +401,7 @@ export default function TodayView({
               }
               return (
               <div key={r.id} className="bm-loop" style={{ '--loop': color }}>
-                <span className="bm-loop-ring"><Repeat2 size={15} strokeWidth={2.2} /></span>
+                <span className="bm-loop-ring"><IconLoops size={15} strokeWidth={2.2} /></span>
                 <button className="bm-loop-body" onClick={() => onEditLoop?.(r)} aria-label={`Edit ${r.title}`}>
                   <div className="bm-loop-title">{r.title}</div>
                   <div className="bm-loop-sub">

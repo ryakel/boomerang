@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Repeat2, Pencil, Sparkle } from 'lucide-react'
+import { Pencil, Sparkle } from 'lucide-react'
+import { IconLoops } from './icons'
 import MonthDots from './MonthDots'
 import DensityRibbon from './DensityRibbon'
 import CycleChips from './CycleChips'
@@ -99,7 +100,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
         const card = (
         <div className="bm-card" style={{ '--loop': color }}>
           <div className="bm-card-title">
-            <span className="bm-loop-ring" style={{ width: 28, height: 28 }}><Repeat2 size={13} strokeWidth={2.2} /></span>
+            <span className="bm-loop-ring" style={{ width: 28, height: 28 }}><IconLoops size={13} strokeWidth={2.2} /></span>
             <button
               style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
               onClick={() => setDetailId(r.id)}
