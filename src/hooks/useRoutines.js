@@ -250,19 +250,30 @@ export function useRoutines() {
           t => t.routine_id === routine.id && !TERMINAL_FOR_ROLL.has(t.status),
         )
         if (activeInstance) {
+          // Re-anchor the snooze to TODAY's trigger time: today@trigger if it's
+          // still in the future, else null (triggerSnooze handles the no-trigger
+          // and already-past cases). The roll path previously only *cleared* a
+          // stale snooze and never re-applied the trigger, so a trigger-time
+          // routine rolled forward surfaced immediately instead of waiting for
+          // its clock time — e.g. a 13:00 "IFR Studying – PM" showing at 07:40.
+          const desiredSnooze = triggerSnooze(today, routine.trigger_time)
           const needsDateBump = activeInstance.due_date !== today
           const hasStaleSnooze = activeInstance.snoozed_until &&
             new Date(activeInstance.snoozed_until) <= new Date()
-          if (!needsDateBump && !hasStaleSnooze) return
+          // Instance should be parked at today's trigger but isn't (rolled with
+          // a cleared snooze, or never snoozed). null !== a future ISO → fixes
+          // the already-surfaced task on the next spawn pass, idempotently.
+          const needsSnoozeFix = !!desiredSnooze && activeInstance.snoozed_until !== desiredSnooze
+          if (!needsDateBump && !hasStaleSnooze && !needsSnoozeFix) return
 
-          const updates = {
-            due_date: today,
-            last_touched: new Date().toISOString(),
-          }
-          if (hasStaleSnooze) {
-            updates.snoozed_until = null
-          }
-          rolled.push({ taskId: activeInstance.id, updates })
+          rolled.push({
+            taskId: activeInstance.id,
+            updates: {
+              due_date: today,
+              last_touched: new Date().toISOString(),
+              snoozed_until: desiredSnooze,
+            },
+          })
           return
         }
       } else if (!isStack) {
