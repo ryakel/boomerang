@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-15
 
+- fix(build)!: clear all 3 high-severity audit findings — vite 6→8, plugin-react 4→6, vite-plugin-pwa 1.2→1.3 [S]
+  - `npm audit` flagged 3 high advisories (esbuild + vite + `@vitejs/plugin-react`, incl. the esbuild dev-server advisory `GHSA-gv7w-rqvm-qjhr`), and Dependabot was alerting on the default branch. All three are **build-time `devDependencies` only** — the multi-stage Dockerfile's runtime stage runs `npm ci --omit=dev`, so vite/esbuild/plugin-react never ship in the prod container (actual runtime exposure was zero). Cleared anyway since prod promotion was gated on a clean audit.
+  - npm's only fix path was the semver-major bump, so: `vite ^6.3.5 → ^8.0.16`, `@vitejs/plugin-react ^4.4.1 → ^6.0.2`, `vite-plugin-pwa ^1.2.0 → ^1.3.0` (1.3.0 declares `vite ^8` support). `vite.config.js` uses only stable APIs (`defineConfig`/`define`/`server.proxy`/`VitePWA`) so no config changes were needed. Docker already runs `node:22-alpine` (satisfies vite 8's `^20.19 || >=22.12` engine). Verified: `npm audit` → **0 vulnerabilities**, `npm run build` green (PWA v1.3.0, comparable bundle size), eslint clean (pre-existing warnings only), and the built app boots + serves under `node server.js`.
+
 - docs: update wiki model references to claude-sonnet-4-6 [XS]
   - `Development.md` + `Features.md` still named the retired `claude-sonnet-4-20250514`; aligned them with the app-wide model swap. (Version-History references to the old id are intentional — they describe the migration.)
 
