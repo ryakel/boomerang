@@ -5,7 +5,6 @@ import { isSnoozed, formatSnoozeLabel } from '../store'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
 import BoardView from './BoardView'
-import { catchThenComplete } from './motion'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -18,7 +17,7 @@ const TABS = [
 
 // Kept "Tasks" — grouped hairline rows, gold circle checks, dot-tags, and the
 // action sheet with reschedule chips ("throw it back") (spec §6).
-export default function TasksViewKept({ tasks = [], labels = [], routines = [], onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, onSnoozeBack, boardable = false, onStatusChange }) {
+export default function TasksViewKept({ tasks = [], labels = [], routines = [], onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange }) {
   const [tab, setTab] = useState('upcoming')
   // 'list' | 'board' — Board is the desktop view mode (K5): status columns
   // with drag-and-drop; Kanban demoted to a mode, per the spec.
@@ -147,10 +146,10 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
                 .flatMap(cl => (cl.items || []).map(it => ({ ...it, clId: cl.id })))
               return (
                 <RowSwipe key={t.id} done={done} onCatch={() => onToggleComplete?.(t)} onDelete={() => onDelete?.(t)}>
-                  <div className="bm-row" data-task-id={t.id}>
+                  <div className="bm-row">
                     <button
                       className={`bm-chk${done ? ' is-done' : ''}${t.high_priority ? ' is-hi' : ''}`}
-                      onClick={(e) => done ? onToggleComplete?.(t) : catchThenComplete(e.currentTarget, () => onToggleComplete?.(t))}
+                      onClick={() => onToggleComplete?.(t)}
                       aria-label={done ? 'Reopen' : 'Catch it'}
                     >{done && <Check size={13} strokeWidth={3.4} />}</button>
                     <div className="bm-row-stack">
@@ -210,11 +209,6 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
                 <button key={o.label} className="bm-pick" onClick={() => { onReschedule?.(sheetTask, o.ymd); setSheetTask(null) }}>{o.label}</button>
               ))}
             </div>
-            {onSnoozeBack && sheetTask.status !== 'done' && !isSnoozed(sheetTask) && (
-              <button className="bm-sheet-row" onClick={() => { const t = sheetTask; setSheetTask(null); requestAnimationFrame(() => onSnoozeBack(t)) }}>
-                <Undo2 size={16} strokeWidth={2} /> Throw it back — returns tomorrow
-              </button>
-            )}
             <button className="bm-sheet-row" onClick={() => { const t = sheetTask; setSheetTask(null); onOpenTask?.(t) }}>
               <Pencil size={16} strokeWidth={2} /> Edit task
             </button>

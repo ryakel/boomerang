@@ -23,7 +23,6 @@ import RoutinesModal from './components/RoutinesModal'
 import KeptShell from './kept/KeptShell'
 import KeptDesktop from './kept/KeptDesktop'
 import QuickEditTask from './kept/QuickEditTask'
-import { playThrowIn, returnThenCommit } from './kept/motion'
 import SuggestionsModal from './components/SuggestionsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -953,7 +952,6 @@ export default function AppV2() {
     } else {
       prefetchToast(taskId, taskData.title, taskData.energy, taskData.energyLevel)
     }
-    return taskId
   }, [addTask, updateTask, prefetchToast, addChildOfProject, setTaskParent, setChildVisibility, createAsProject])
 
   const renderSection = (label, list, sigil) => {
@@ -1296,10 +1294,6 @@ export default function AppV2() {
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}
           onRefresh={refetchFromServer}
-          onSnoozeBack={(task) => {
-            const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0)
-            returnThenCommit(task.id, () => snoozeTask(task.id, d))
-          }}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
           onGmailKeep={async (t) => {
             updateTask(t.id, { gmail_pending: false })
@@ -1322,7 +1316,7 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate }) => { const id = handleAddTask({ title, dueDate }); playThrowIn(id) }}
+          onThrow={({ title, dueDate }) => handleAddTask({ title, dueDate })}
           onOpenFullAdd={() => setShowAdd(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
@@ -1378,7 +1372,7 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate }) => { const id = handleAddTask({ title, dueDate }); playThrowIn(id) }}
+          onThrow={({ title, dueDate }) => handleAddTask({ title, dueDate })}
           onOpenFullAdd={() => setShowAdd(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
@@ -1423,7 +1417,7 @@ export default function AppV2() {
       {snoozeTarget && (
         <SnoozeModal
           task={snoozeTarget}
-          onSnooze={(id, until, opts) => returnThenCommit(id, () => snoozeTask(id, until, opts))}
+          onSnooze={snoozeTask}
           onUnsnooze={unsnoozeTask}
           onClose={() => setSnoozeTarget(null)}
         />
