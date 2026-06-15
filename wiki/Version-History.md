@@ -4,6 +4,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-15
+
+- docs: update wiki model references to claude-sonnet-4-6 [XS]
+  - `Development.md` + `Features.md` still named the retired `claude-sonnet-4-20250514`; aligned them with the app-wide model swap. (Version-History references to the old id are intentional — they describe the migration.)
+
 ## 2026-06-14
 
 - fix(ai)!: migrate off the retiring `claude-sonnet-4-20250514` model app-wide [S]
