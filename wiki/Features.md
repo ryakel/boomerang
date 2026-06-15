@@ -61,7 +61,7 @@ The header shows a task count with configurable display modes:
 
 ## AI Features (requires Anthropic API key)
 
-All AI features use Claude (claude-sonnet-4-20250514) via a server-side proxy. They are fully disabled if no API key is configured — the rest of the app works normally without them.
+All AI features use Claude (claude-sonnet-4-6) via a server-side proxy. They are fully disabled if no API key is configured — the rest of the app works normally without them.
 
 - **What Now** — a guided flow that asks how much time you have (5-10 min, 30 min, a couple hours) and your energy level (running on fumes, moderate, I've got it), then recommends 1-3 tasks with reasons. Enforces hard rules matching task size to available time and energy. When fewer than 3 picks are available, shows a "Feeling ambitious?" stretch suggestion one size up. You can mark tasks done directly from the suggestions.
 - **Polish** — takes messy brain-dump notes and turns them into clear, actionable bullet points. Also cleans up the task title if it's vague. Automatically triggers date inference and size inference on the polished content.
