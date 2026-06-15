@@ -1062,7 +1062,7 @@ user confirms Kept as the daily driver.
 ## Documentation Requirements (NON-NEGOTIABLE)
 **Every commit must be reflected in docs before pushing.** This applies to ALL changes — features, fixes, refactors, cleanup, doc-only changes, everything.
 
-1. **`wiki/Version-History.md`** — add an entry for every commit, every time. No exceptions.
+1. **`wiki/Version-History.md`** — add an entry for every commit, every time. No exceptions. **This file is `merge=union` (see `.gitattributes`):** because every change appends near the top, it used to conflict on essentially every parallel or stale-base branch. The union driver now keeps BOTH sides' entries automatically on merge/rebase — so it never blocks again, but the trade-off is entries from two branches can interleave in odd order (harmless; tidy on sight). Keep it append-only/additive (the union driver only resolves cleanly for that shape). Still `git fetch && git reset --hard origin/dev` before starting work so your base is fresh.
 2. **`CLAUDE.md`** — update if the change affects features, architecture, or known limitations
 3. **`wiki/Features.md`** — update if user-facing behavior changed
 4. **`wiki/Architecture.md`** — update if technical implementation, routes, or schema changed

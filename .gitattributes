@@ -1,0 +1,7 @@
+# Changelog is append-only — both sides of any merge/rebase add entries near
+# the top, which made wiki/Version-History.md conflict on essentially every
+# parallel or stale-base change. The built-in `union` merge driver keeps BOTH
+# sides' added lines instead of emitting a conflict, so the changelog never
+# blocks a merge or rebase again. (Only valid for append-only files — do NOT
+# add prose files like CLAUDE.md here, where edits replace text.)
+wiki/Version-History.md merge=union
