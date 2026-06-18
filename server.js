@@ -15,7 +15,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
   PROJECT_CONSTANTS } from './db.js'
 import { seedDatabase } from './seed.js'
-import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail } from './emailNotifications.js'
+import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush } from './pushNotifications.js'
 import {
   startPushoverNotifications, sendTestNotification as sendTestPushover,
@@ -24,7 +24,7 @@ import {
   sendDigestNow,
 } from './pushoverNotifications.js'
 import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle, getAllTasks } from './db.js'
-import { initGmailSync, syncGmail, startGmailPolling } from './gmailSync.js'
+import { initGmailSync, syncGmail, startGmailPolling, getGmailAccessToken } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
 import { startPatternDetection, runPatternScan } from './patternDetection.js'
 import { startTagSuggestions, runTagScan, listPendingTagSuggestions, dismissTagSuggestion } from './tagSuggestions.js'
@@ -2892,9 +2892,172 @@ const ADVISER_MODEL = 'claude-sonnet-4-6'
 const ADVISER_MAX_TURNS = 15
 const adviserAbortMap = new Map() // sessionId -> AbortController
 
+// ============================================================
+// Integration health probe — one call, LIVE-checks every integration.
+// Powers `GET /api/integrations/health` and the Quokka `check_integrations`
+// tool ("check my integrations" → a full status report).
+//
+// Each probe makes a real network round-trip where it's FREE + SAFE: it spends
+// no Anthropic tokens (lists models), sends no email (SMTP verify only), fires
+// no Pushover message (validate endpoint only). Notion is split into its two
+// independent paths — MCP (mcp.notion.com / OAuth) and REST (api.notion.com /
+// integration token) — so a rotated integration token is tested on its own
+// path with no MCP fallback to mask a failure.
+//
+// Every probe is wrapped so one slow/failing service never sinks the report.
+// status: 'connected' | 'degraded' | 'error' | 'not_configured'.
+// ============================================================
+
+const INTEGRATION_PROBE_TIMEOUT_MS = 8000
+
+function withProbeTimeout(promise, ms = INTEGRATION_PROBE_TIMEOUT_MS) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms)),
+  ])
+}
+
+async function probeIntegrations(req) {
+  const probe = async (meta, fn) => {
+    try {
+      return { ...meta, ...(await withProbeTimeout(fn())) }
+    } catch (err) {
+      return { ...meta, configured: true, status: 'error', detail: err?.message || String(err) }
+    }
+  }
+
+  const checks = [
+    probe({ id: 'anthropic', name: 'Anthropic (Claude)', category: 'AI', path: 'REST api.anthropic.com' }, async () => {
+      const key = getAnthropicKey(req)
+      if (!key) return { configured: false, status: 'not_configured', detail: 'No API key set' }
+      const res = await fetch('https://api.anthropic.com/v1/models?limit=1', {
+        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      })
+      if (!res.ok) return { configured: true, status: 'error', detail: res.status === 401 ? 'Invalid API key' : `HTTP ${res.status}` }
+      return { configured: true, status: 'connected', detail: 'Key valid' }
+    }),
+
+    probe({ id: 'notion_mcp', name: 'Notion (MCP)', category: 'Notion', path: 'MCP mcp.notion.com · OAuth' }, async () => {
+      const s = notionMCP.getStatus()
+      if (!s.hasTokens) return { configured: false, status: 'not_configured', detail: 'Not connected — link in Settings' }
+      if (!s.connected) return { configured: true, status: s.needsReauth ? 'error' : 'degraded', detail: s.error || 'Has tokens but client not connected' }
+      return { configured: true, status: 'connected', detail: `${s.toolCount} tools available` }
+    }),
+
+    probe({ id: 'notion_rest', name: 'Notion (REST token)', category: 'Notion', path: 'REST api.notion.com · integration token' }, async () => {
+      const r = await notionProxy.restTokenStatus()
+      if (!r.configured) return { configured: false, status: 'not_configured', detail: 'No NOTION_INTEGRATION_TOKEN set' }
+      if (!r.ok) return { configured: true, status: 'error', detail: r.detail || 'Token rejected' }
+      return { configured: true, status: 'connected', detail: r.botName ? `Bot: ${r.botName}` : 'Token valid' }
+    }),
+
+    probe({ id: 'trello', name: 'Trello', category: 'Trello', path: 'REST api.trello.com' }, async () => {
+      const { key, token } = getTrelloAuth(req)
+      if (!key || !token) return { configured: false, status: 'not_configured', detail: 'No credentials' }
+      const res = await fetch(`${TRELLO_BASE}/members/me?fields=username&key=${key}&token=${token}`)
+      if (!res.ok) return { configured: true, status: 'error', detail: `HTTP ${res.status}` }
+      const data = await res.json().catch(() => ({}))
+      return { configured: true, status: 'connected', detail: data.username ? `@${data.username}` : 'Authenticated' }
+    }),
+
+    probe({ id: 'gcal', name: 'Google Calendar', category: 'Google', path: 'OAuth · refresh token' }, async () => {
+      const tokens = getData(GCAL_TOKENS_KEY)
+      if (!tokens?.refresh_token) return { configured: false, status: 'not_configured', detail: 'Not connected' }
+      const tok = await getGCalAccessToken()
+      if (!tok) return { configured: true, status: 'error', detail: 'Token refresh failed — reconnect' }
+      return { configured: true, status: 'connected', detail: tokens.email || 'Authenticated' }
+    }),
+
+    probe({ id: 'gmail', name: 'Gmail scanner', category: 'Google', path: 'OAuth · refresh token' }, async () => {
+      const tokens = getData(GMAIL_TOKENS_KEY)
+      if (!tokens?.refresh_token) return { configured: false, status: 'not_configured', detail: 'Not connected' }
+      const tok = await getGmailAccessToken()
+      if (!tok) return { configured: true, status: 'error', detail: 'Token refresh failed — reconnect' }
+      return { configured: true, status: 'connected', detail: tokens.email || 'Authenticated' }
+    }),
+
+    probe({ id: 'packages', name: 'Package tracking (17track)', category: 'Packages', path: 'REST api.17track.net' }, async () => {
+      const apiKey = getTrackingApiKey(req)
+      if (!apiKey) return { configured: false, status: 'not_configured', detail: 'No API key' }
+      const res = await fetch('https://api.17track.net/track/v2.4/getquota', { headers: { '17token': apiKey } })
+      if (res.status === 401 || res.status === 403) return { configured: true, status: 'error', detail: 'Invalid API key' }
+      const data = await res.json().catch(() => ({}))
+      if (!(data.code === 0 || res.ok)) return { configured: true, status: 'error', detail: data.message || `HTTP ${res.status}` }
+      const remain = data?.data?.remain
+      return { configured: true, status: 'connected', detail: Number.isFinite(remain) ? `${remain} queries left today` : 'Key valid' }
+    }),
+
+    probe({ id: 'weather', name: 'Weather (Open-Meteo)', category: 'Weather', path: 'REST open-meteo.com · no key' }, async () => {
+      const s = getWeatherStatus()
+      if (!s.enabled) return { configured: false, status: 'not_configured', detail: 'Disabled' }
+      if (s.latitude == null || s.longitude == null) return { configured: false, status: 'not_configured', detail: 'Enabled, no location set' }
+      if (!s.has_forecast) return { configured: true, status: 'degraded', detail: 'Location set, no forecast cached yet' }
+      return { configured: true, status: 'connected', detail: s.location || 'Forecast loaded' }
+    }),
+
+    probe({ id: 'email', name: 'Email (SMTP)', category: 'Notifications', path: 'SMTP · env-only' }, async () => {
+      const r = await verifyEmail()
+      if (!r.configured) return { configured: false, status: 'not_configured', detail: 'SMTP not configured (env vars)' }
+      if (!r.ok) return { configured: true, status: 'error', detail: r.detail }
+      if (!r.has_recipient) return { configured: true, status: 'degraded', detail: 'Connected, but no recipient set' }
+      return { configured: true, status: 'connected', detail: `→ ${r.recipient}${r.sms_mode ? ' (SMS gateway)' : ''}` }
+    }),
+
+    probe({ id: 'web_push', name: 'Web Push', category: 'Notifications', path: 'VAPID · self-managed' }, async () => {
+      const s = getPushStatus()
+      if (!s.configured) return { configured: false, status: 'not_configured', detail: 'VAPID not configured' }
+      const n = s.subscription_count || 0
+      if (!n) return { configured: true, status: 'degraded', detail: 'Ready, but no devices subscribed' }
+      return { configured: true, status: 'connected', detail: `${n} device${n === 1 ? '' : 's'} subscribed` }
+    }),
+
+    probe({ id: 'pushover', name: 'Pushover', category: 'Notifications', path: 'REST api.pushover.net' }, async () => {
+      const settings = getData('settings') || {}
+      const userKey = settings.pushover_user_key
+      const appToken = settings.pushover_app_token || process.env.PUSHOVER_DEFAULT_APP_TOKEN
+      if (!userKey || !appToken) return { configured: false, status: 'not_configured', detail: 'No credentials' }
+      const res = await fetch('https://api.pushover.net/1/users/validate.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ token: appToken, user: userKey }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (data?.status !== 1) return { configured: true, status: 'error', detail: (data?.errors && data.errors[0]) || 'Credentials rejected' }
+      return { configured: true, status: 'connected', detail: 'Credentials valid' }
+    }),
+
+    probe({ id: 'knowledge', name: 'Knowledge base', category: 'Knowledge', path: 'Notion-backed' }, async () => {
+      const dbId = getData('notion_knowledge_db_id')
+      if (!dbId) return { configured: false, status: 'not_configured', detail: 'Not set up — run setup in Settings' }
+      const lastSync = getData('notion_knowledge_last_sync')
+      return { configured: true, status: 'connected', detail: lastSync ? `Last synced ${lastSync}` : 'Configured' }
+    }),
+  ]
+
+  const integrations = await Promise.all(checks)
+  const summary = {
+    total: integrations.length,
+    connected: integrations.filter(r => r.status === 'connected').length,
+    degraded: integrations.filter(r => r.status === 'degraded').length,
+    error: integrations.filter(r => r.status === 'error').length,
+    not_configured: integrations.filter(r => r.status === 'not_configured').length,
+  }
+  return { generated_at: new Date().toISOString(), summary, integrations }
+}
+
+app.get('/api/integrations/health', async (req, res) => {
+  try {
+    res.json(await probeIntegrations(req))
+  } catch (err) {
+    console.error('[Integrations] health probe failed:', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 function adviserDeps(req) {
   return {
     anthropicKey: getAnthropicKey(req),
+    probeIntegrations: () => probeIntegrations(req),
     notionConnected: notionMCP.getStatus().connected,
     trello: getTrelloAuth(req),
     gcalToken: null, // filled in async before tools that need it

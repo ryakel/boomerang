@@ -301,6 +301,7 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 | `GET` | `/api/notion/mcp/status` | `{connected, hasTokens, toolCount}` |
 | `GET` | `/api/notion/mcp/tools` | Enumerate tools the MCP server exposes |
 | `POST` | `/api/notion/mcp/disconnect` | Clear MCP tokens + DCR client info |
+| `GET` | `/api/integrations/health` | Live one-pass health check across all 12 integrations — `{ generated_at, summary, integrations[] }`, each `{id,name,category,path,configured,status,detail}` (`status ∈ connected\|degraded\|error\|not_configured`). Probes are free + non-destructive (lists models, SMTP `verify()`, Pushover `validate`); Notion is split into MCP + REST-token rows. Backed by `probeIntegrations()`; also exposed to Quokka as the `check_integrations` tool. |
 | `GET` | `/api/trello/status` | Check Trello connection status |
 | `GET` | `/api/trello/boards` | List user's Trello boards |
 | `GET` | `/api/trello/boards/:id/lists` | Get lists in a Trello board |

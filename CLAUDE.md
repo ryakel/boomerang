@@ -105,7 +105,7 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
 - Header icons: Packages + Quokka (AI adviser) always visible in the top-right; overflow "..." menu contains Settings, Projects, Import, Analytics, Activity Log
-- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics, knowledge base). 63 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial.
+- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics, knowledge base). 64 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial. Includes a one-command **integration health check** ("check my integrations") — see Integration Health Check below.
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
 
 ### Energy/Capacity Tagging System
@@ -820,9 +820,9 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - `adviserTools.js` — registry, session/plan storage (10-min TTL, 1-min sweep), `handleToolCall()`, `commitPlan()` with rollback
 - `adviserToolsTasks.js` — 22 task + routine tools (incl. 4 Sequences chain editors: `add_follow_up`, `edit_follow_up`, `remove_follow_up`, `reorder_follow_ups`; + `reconcile_loops`)
 - `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools
-- `adviserToolsMisc.js` — 20 Gmail + packages + weather + settings + analytics tools
+- `adviserToolsMisc.js` — 21 Gmail + packages + weather + settings + analytics tools (incl. `check_integrations`, the live cross-integration health probe)
 - `adviserToolsKnowledge.js` — 9 knowledge-base tools (search, get, refresh, list, create, update, delete, link/unlink to tasks)
-- **Total:** 63 tools; diagnostic list at `GET /api/adviser/tools`
+- **Total:** 64 tools; diagnostic list at `GET /api/adviser/tools`
 
 **Server endpoints:**
 | Endpoint | Purpose |
@@ -842,7 +842,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Gmail (4): status, sync, approve pending, dismiss pending
 - Packages (6): list, get, create, update, delete, refresh-all
 - Weather (3): get, refresh, geocode
-- Settings + analytics (4): get/update settings (secrets blocked), get analytics, get analytics history
+- Settings + analytics (5): get/update settings (secrets blocked), get analytics, get analytics history, `check_integrations` (live one-pass health check across every integration — see below)
 - Knowledge base (9): search, get, refresh, list, create, update, delete, link/unlink to tasks (see Knowledge Base section above)
 
 **Rollback compensation:**
@@ -897,6 +897,34 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - The model needs an Anthropic API key configured; if missing, the endpoint 400s with a clear error
 - Tool-use loops can rack up tokens (5K system prompt × 15 turns × multi-tool calls per turn), noticeable in API costs for heavy use
 - No audit log yet — mutations go through the normal DB path and show up in sync history but aren't separately annotated as adviser-initiated
+
+### Integration Health Check (2026-06-18)
+One command — "check my integrations" — and Quokka reports the live status of every integration you've connected.
+
+**Core:** `probeIntegrations(req)` in `server.js` runs all 12 probes in parallel and returns `{ generated_at, summary, integrations[] }`. Each integration: `{ id, name, category, path, configured, status, detail }` where `status ∈ { connected, degraded, error, not_configured }`. Every probe is wrapped in `withProbeTimeout` (8s) + try/catch so one slow/failing service never sinks the report.
+
+**Probes are LIVE but free + non-destructive** — real round-trips that cost nothing and send nothing:
+| Integration | Probe | Cost/safety |
+|---|---|---|
+| Anthropic | `GET /v1/models?limit=1` | Free, no tokens spent |
+| **Notion (MCP)** | `notionMCP.getStatus()` | mcp.notion.com / OAuth — connection state |
+| **Notion (REST token)** | `restTokenStatus()` → `GET api.notion.com/v1/users/me` | **NO MCP fallback** — validates `NOTION_INTEGRATION_TOKEN` on its own path so a rotated key is tested without MCP masking a failure |
+| Trello | `GET /members/me` | Free |
+| Google Calendar / Gmail | OAuth refresh-token exchange | Free, validates the refresh token |
+| 17track | `getquota` | Free, doesn't consume a tracking query |
+| Weather | config + cache freshness | No key |
+| Email (SMTP) | nodemailer `verifyEmail()` → `transporter.verify()` | **No email sent** (unlike `sendTestEmail`) |
+| Web Push | `getPushStatus()` (VAPID + sub count) | Self-managed, no external call |
+| Pushover | `POST /users/validate.json` | **No push fired** (unlike the test endpoints) |
+| Knowledge base | `notion_knowledge_db_id` + last-sync | Notion-backed |
+
+**Notion split is deliberate:** the two paths are independent (MCP OAuth token ≠ REST integration token; neither works as the other), so they're reported as two separate rows. This is the supported way to answer "test my new Notion key and confirm it isn't hitting the MCP."
+
+**Surfaces:**
+- `GET /api/integrations/health` — endpoint (for a future Settings panel).
+- Quokka tool `check_integrations` (read-only, in `adviserToolsMisc.js`, wired via `adviserDeps.probeIntegrations`). Triggers: "check my integrations", "are my connections working", "test my Notion key".
+
+**New exports:** `restTokenStatus()` (`notionMCPProxy.js`), `verifyEmail()` (`emailNotifications.js`). No new files — both modules are already in the Dockerfile runtime COPY list.
 
 ### Toast Messages (Completion/Reopen Feedback)
 - AI-generated contextual one-liners via `generateToastMessage()` in `src/api.js`
