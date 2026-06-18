@@ -678,6 +678,22 @@ export function getEmailStatus() {
   }
 }
 
+// Live SMTP connection check — opens the connection + authenticates via
+// nodemailer's verify(), but sends NO email (unlike sendTestEmail). Used by the
+// integration health probe so "check my integrations" never spams the inbox.
+export async function verifyEmail() {
+  const status = getEmailStatus()
+  if (!status.smtp_configured) return { configured: false, ok: false, detail: 'SMTP not configured (env vars)' }
+  try {
+    const tx = getTransporter()
+    if (!tx) return { configured: true, ok: false, detail: 'Transporter unavailable' }
+    await tx.verify()
+    return { configured: true, ok: true, host: status.host, recipient: status.recipient, has_recipient: status.has_recipient, sms_mode: status.sms_mode }
+  } catch (err) {
+    return { configured: true, ok: false, detail: err.message }
+  }
+}
+
 // --- Lifecycle ---
 
 export function startEmailNotifications() {

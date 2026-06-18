@@ -43,6 +43,32 @@ async function restJson(url, init, label) {
   return data
 }
 
+// REST-only token probe — validates NOTION_INTEGRATION_TOKEN directly against
+// api.notion.com (GET /v1/users/me). Deliberately has NO MCP fallback: this is
+// the one call that confirms the integration token itself works, so it must
+// never silently succeed via the MCP path (see queryDatabase's fallback, which
+// would mask a broken REST token). Never throws — returns a status object.
+export async function restTokenStatus() {
+  const token = getRestToken()
+  if (!token) return { configured: false, ok: false, detail: 'No NOTION_INTEGRATION_TOKEN set' }
+  try {
+    const res = await fetch(`${NOTION_BASE}/users/me`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': '2022-06-28' },
+    })
+    const text = await res.text()
+    let data = {}
+    try { data = text ? JSON.parse(text) : {} } catch { data = {} }
+    if (!res.ok) {
+      return { configured: true, ok: false, status: res.status, detail: data.message || data.code || `HTTP ${res.status}` }
+    }
+    const botName = data?.name || data?.bot?.owner?.user?.name || null
+    const workspace = data?.bot?.workspace_name || null
+    return { configured: true, ok: true, botName, workspace }
+  } catch (err) {
+    return { configured: true, ok: false, detail: err.message }
+  }
+}
+
 async function callMCP(toolName, args) {
   ensureConnected()
   console.log(`[Notion:MCP] ${toolName}`, JSON.stringify(args).slice(0, 200))
