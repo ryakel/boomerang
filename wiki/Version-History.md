@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-19
+
+- feat(server): opt-in authentication gate + iOS Shortcut intake endpoint [L]
+  - New `auth.js` root module (added to the Dockerfile runtime COPY list) with an `authGate` middleware mounted over every `/api` route. **INERT unless `AUTH_PASSWORD` or `AUTH_PASSWORD_HASH` is set** — existing self-hosted instances are unchanged until configured, so this ships safely. Built for the "I want to host this on a public web host" move, which breaks the old "attacker who can read the DB already has shell" threat model.
+  - **Two credential types share the gate.** Humans: `POST /api/auth/login {password}` → httpOnly + SameSite=Lax + Secure session cookie `boom_session` (30-day rolling, persisted in `app_data.auth_sessions` so restarts/redeploys don't log you out). Because cookies ride every same-origin fetch + the SSE EventSource automatically, the client needed ZERO per-fetch changes — just one boot gate in `src/App.jsx` that probes `GET /api/auth/status` and renders the new `src/components/LoginScreen.{jsx,css}` when `authEnabled && !authenticated` (fails OPEN on a flaky probe; the server is the real enforcement). Machines (iOS Shortcut / future native app): static `API_TOKEN` as `Authorization: Bearer <token>` or `x-api-token: <token>`.
+  - Passwords verified with `scrypt` + `crypto.timingSafeEqual` (hash format `scrypt$<saltHex>$<hashHex>`); API token timing-safe compared. `scripts/auth-setup.js [password]` prints `AUTH_PASSWORD_HASH` + a fresh `API_TOKEN`. Cookie `Secure` auto-detects via `req.secure` (`trust proxy` already on) or force with `COOKIE_SECURE=1`/`0`. Open-without-auth even when gated: `/api/health`, `/api/auth/status`, `/api/auth/login`, `/api/auth/logout`.
+  - **New `POST /api/intake`** `{ title|text, notes?, due_date?, high_priority?, tags? }` — the iOS Shortcut's target. Authed by the gate (API token or cookie), builds a full task with server-side defaults + `size_inferred=false` so the background auto-sizer refines size/energy. Recipe doc `wiki/iOS-Shortcut.md` covers share-sheet / Siri / Action button wiring.
+  - Verified by live boot tests: gate inert with no env (200 on `/api/data`); with creds set, `/api/data` 401 without auth, `/api/intake` 401 on wrong token + creates a task on valid Bearer token, login rejects wrong password (401) and sets an httpOnly cookie on the right one, cookie then authorizes `/api/data` (200). `npm run build`, `eslint`, and `npm test` (smoke + date units) all pass.
+  - Docs: README (Features bullet + Configuration → Authentication), `wiki/Security-Notes.md` (new Authentication section + serverless caveat), `wiki/Architecture.md` (Authentication section + new routes), `wiki/Features.md` (Authentication + iOS Shortcut sections), CLAUDE.md (Authentication section), `.env.example` (auth vars). **Note:** the app is NOT serverless-friendly (persistent notification loops + SSE + in-memory Quokka runner + local SQLite + session store assume one always-on instance) — documented so a Lambda/Cloud-Functions host isn't attempted.
+  - Pre-existing `npm audit` high (`nodemailer` <=9.0.0, used by the email engine — untouched here; fix is a breaking major bump) flagged, not bundled into this PR.
+
 ## 2026-06-18
 
 - feat(api): one-command live health check across every integration ("check my integrations") [M]

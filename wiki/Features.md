@@ -593,3 +593,21 @@ Attach files to any task (5 MB limit per file). Attachments can be added in the 
 ## Version Display
 
 The current app version (from git tags or the `APP_VERSION` build arg) is shown in the Settings header.
+
+## Authentication (optional)
+
+Off by default — Boomerang is built for single-user, trusted-machine use. When
+you host it externally, enable a login gate by setting `AUTH_PASSWORD_HASH` (or
+`AUTH_PASSWORD`) and `API_TOKEN` in the environment (`node scripts/auth-setup.js`
+generates both). Once enabled, the app shows a password login screen; signing in
+stores a 30-day session cookie. Automations (the iOS Shortcut, a future native
+app) authenticate with the API token instead. See the README → Authentication
+and `wiki/Security-Notes.md` for setup and the threat-model details.
+
+## Create tasks from anywhere on iOS (Shortcut)
+
+With auth enabled, an iOS Shortcut can drop a task into Boomerang from the share
+sheet (share a Message, email, webpage, or selected text → *Add to Boomerang*),
+Siri, the Action button, or Back Tap — no native app needed. It POSTs to
+`/api/intake` with the API token; the task lands with AI sizing/energy inferred
+in the background. Step-by-step build instructions: `wiki/iOS-Shortcut.md`.

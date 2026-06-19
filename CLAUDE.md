@@ -1061,6 +1061,19 @@ user confirms Kept as the daily driver.
 ## Additional Notes
 - Single developer (ryakel) — no PR review process needed.
 
+## Authentication (2026-06-19, opt-in)
+**Off by default; turn on before public hosting.** `auth.js` (root module, in the Dockerfile runtime COPY list) adds an `authGate` middleware over every `/api` route — INERT unless `AUTH_PASSWORD` or `AUTH_PASSWORD_HASH` is set in env, so existing self-hosted instances are unchanged until configured. Two credential types share the gate:
+- **Humans** → `POST /api/auth/login {password}` → httpOnly+SameSite=Lax+Secure session cookie `boom_session` (30-day rolling, persisted in `app_data.auth_sessions` so restarts don't log you out). Cookies ride every same-origin fetch + the SSE stream automatically, so the client is gated by ONE boot check: `src/App.jsx` calls `GET /api/auth/status` and renders `src/components/LoginScreen.jsx` when `authEnabled && !authenticated`. Fails OPEN on a flaky status probe (the server is the real enforcement; client gate is just UX).
+- **Machines** (iOS Shortcut, future native app) → static `API_TOKEN` env as `Authorization: Bearer <token>` or `x-api-token: <token>`.
+
+Passwords verified with `scrypt` + timing-safe compare (hash format `scrypt$<saltHex>$<hashHex>`); API token timing-safe compared. `scripts/auth-setup.js [password]` prints `AUTH_PASSWORD_HASH` + a fresh `API_TOKEN`. Cookie `Secure` auto-detects via `req.secure` (`trust proxy` is on) or force with `COOKIE_SECURE=1`/`0`.
+
+**Open paths even when gated:** `GET /api/health`, `GET /api/auth/status`, `POST /api/auth/login`, `POST /api/auth/logout` (login/status must be reachable pre-auth).
+
+**Quick intake endpoint:** `POST /api/intake {title|text, notes?, due_date?, high_priority?, tags?}` — authed by the gate (API token or cookie), builds a full task with server-side defaults + `size_inferred=false` so the background auto-sizer refines it. This is the iOS Shortcut's target. Recipe: `wiki/iOS-Shortcut.md`.
+
+**Not serverless-friendly** (persistent notification loops + SSE + in-memory Quokka runner + local SQLite + session store all assume one always-on instance) — host on a small always-on box, NOT Lambda.
+
 ## Security Posture (2026-05-02)
 **Threat model:** single-user self-hosted, user controls the machine. See `wiki/Security-Notes.md` for the full breakdown.
 
