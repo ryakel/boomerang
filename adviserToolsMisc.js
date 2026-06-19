@@ -342,6 +342,19 @@ export function registerSettingsTools() {
   })
 
   registerTool({
+    name: 'check_integrations',
+    description: 'Run a LIVE health check across EVERY integration and report each one\'s status in a single pass. Covers Anthropic, both Notion paths (MCP via mcp.notion.com AND the REST integration token via api.notion.com — checked independently so a rotated token is tested on its own path with no MCP fallback), Trello, Google Calendar, Gmail, 17track package tracking, weather, email/SMTP, web push, Pushover, and the knowledge base. Each probe makes a real round-trip but spends no money and sends no notifications/emails. Use this whenever the user says "check my integrations", "are my connections working", "test my Notion key", etc. Returns a summary count plus a per-integration list with status (connected | degraded | error | not_configured), a human detail string, and the auth path used.',
+    readOnly: true,
+    schema: { type: 'object', properties: {} },
+    execute: async (_args, deps) => {
+      if (typeof deps?.probeIntegrations !== 'function') {
+        throw new Error('Integration health probe unavailable in this context')
+      }
+      return { result: await deps.probeIntegrations() }
+    },
+  })
+
+  registerTool({
     name: 'update_settings',
     description: 'Partially update settings (merge, not replace). Refuses to write secret keys (anthropic_api_key, tokens, secrets) — those are env-var or UI-only.',
     schema: {
