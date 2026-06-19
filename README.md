@@ -32,6 +32,8 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - **Routines + Habits + Suggestions** — recurring tasks with cadence (daily/weekly/monthly/quarterly/annually), an optional trigger time (surface-at clock time so a chore stays hidden/silent until e.g. 8pm) including absolute clock times on follow-up steps, an `auto_roll` flag for meds that can't double up, habit mode for target-frequency tracking (`2× / week`, behind-pace nudges), plus a weekly server scan that detects patterns in completed-task history and surfaces them as routine suggestions
 - **Projects with sessions** — long-term work lives as projects. Pin a project to the main list to chip away; "Log session" awards points + bumps the streak (capped at 10 sessions before requiring a child completion). Add child tasks for the concrete steps; completing them awards their own points. Silent by default; opt in to nags via `Allow nags without a due date` or just set a deadline
 - **"Later — set aside" snooze** — park a task indefinitely with no auto-resurface; bring it back from the Snooze modal when you're ready
+- **Optional authentication** — opt-in login gate for public/external hosting: password → session cookie for the browser, plus a static API token for automations. Off by default (single-user, trusted-machine). See Configuration below
+- **iOS Shortcut intake** — create tasks from the share sheet / Siri / Action button via `POST /api/intake` and a static API token (`wiki/iOS-Shortcut.md`)
 - **Custom labels**, due dates, high-priority escalation
 
 ### Notifications
@@ -70,6 +72,29 @@ docker run -d -p 3001:3001 \
 ```
 
 `PUSHOVER_DEFAULT_APP_TOKEN` is optional — it provides a default app token so you don't have to paste it in the UI for every install. Per-user keys are always entered in the Settings UI.
+
+### Authentication (for public hosting)
+
+Boomerang ships with **no auth** (single-user, trusted-machine threat model). If
+you expose it to the internet, turn the login gate on by setting credentials:
+
+```bash
+node scripts/auth-setup.js            # prints AUTH_PASSWORD_HASH + a fresh API_TOKEN
+```
+
+```bash
+docker run -d -p 3001:3001 -v boomerang-data:/data \
+  -e AUTH_PASSWORD_HASH='scrypt$...$...' \   # browser login
+  -e API_TOKEN=long_random_hex \             # iOS Shortcut / automations
+  -e COOKIE_SECURE=1 \                        # behind a TLS proxy
+  ghcr.io/ryakel/boomerang:latest
+```
+
+Humans log in with the password (→ httpOnly session cookie); the iOS Shortcut
+and any automations authenticate with `Authorization: Bearer <API_TOKEN>`. Run
+behind HTTPS. **Not serverless-friendly** — needs one always-on instance (it runs
+persistent notification loops, holds SSE connections, and uses local SQLite), so
+host on a small VPS / Fly.io machine / Render service rather than Lambda.
 
 ## Tech Stack
 
