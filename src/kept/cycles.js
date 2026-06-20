@@ -48,7 +48,19 @@ export function cycleWindows(routine, count = 12) {
   if (stepDays != null) {
     const anchor = created
       ? new Date(created.getFullYear(), created.getMonth(), created.getDate())
-      : today
+      : new Date(today)
+    // Weekly routines with an explicit weekday anchor align the 7-day grid to
+    // that weekday — mirroring getNextDueDate's fixed grid. Without this, a
+    // routine created mid-week put the window boundaries on the wrong day, so a
+    // completion on the scheduled weekday could fall across two windows: a done
+    // cycle read as MISSED and "Mark done" stamped the window start (wrong
+    // weekday). Move the anchor FORWARD to the first scheduled weekday on/after
+    // creation (not backward — that would mint a leading window predating the
+    // routine, a fresh false-missed) so every boundary lands on it.
+    const sdow = Number(routine.schedule_day_of_week)
+    if (cadence === 'weekly' && Number.isInteger(sdow) && sdow >= 0 && sdow <= 6) {
+      anchor.setDate(anchor.getDate() + ((sdow - anchor.getDay() + 7) % 7))
+    }
     const sinceDays = Math.floor((today - anchor) / 86400000)
     const idx = Math.max(0, Math.floor(sinceDays / stepDays))
     for (let i = Math.max(0, idx - count + 1); i <= idx; i++) {
