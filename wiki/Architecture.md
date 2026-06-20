@@ -255,11 +255,27 @@ Stage 3 will migrate `useNotionSync` + `useExternalSync` + the REST proxy to MCP
 
 `GET /api/health` returns `{ status: "ok" }`. Used by the Docker healthcheck (wget-based, every 30 seconds) to monitor container health.
 
+## Authentication (opt-in)
+
+`auth.js` adds an `authGate` middleware over every `/api` route. It is **inert
+unless `AUTH_PASSWORD` or `AUTH_PASSWORD_HASH` is set** in env, preserving the
+default no-auth single-user deployment. When enabled, a request passes if it
+carries a valid `boom_session` cookie (human login) OR a valid `API_TOKEN` in
+`Authorization: Bearer …` / `x-api-token` (machine access). Sessions persist in
+`app_data.auth_sessions`. Open-without-auth: `/api/health`, `/api/auth/status`,
+`/api/auth/login`, `/api/auth/logout`. Client gate: `src/App.jsx` probes
+`/api/auth/status` on boot and renders `LoginScreen` when required. Setup helper:
+`scripts/auth-setup.js`. Full writeup: `wiki/Security-Notes.md` → Authentication.
+
 ## Server Routes
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/health` | Health check |
+| `GET` | `/api/auth/status` | `{ authEnabled, authenticated }` — drives the client login gate |
+| `POST` | `/api/auth/login` | `{ password }` → sets `boom_session` httpOnly cookie (401 on bad password) |
+| `POST` | `/api/auth/logout` | Destroys the session + clears the cookie |
+| `POST` | `/api/intake` | Quick task create for the iOS Shortcut: `{ title\|text, notes?, due_date?, high_priority?, tags? }` (authed by gate) |
 | `GET` | `/api/keys/status` | Reports env var key availability |
 | `GET` | `/api/events` | SSE endpoint for real-time cross-client sync |
 | `GET` | `/api/data` | Get all data from SQLite (includes `_version`) |

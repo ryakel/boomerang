@@ -2,6 +2,45 @@
 
 Boomerang is built for **single-user self-hosted deployment**. The threat model is "your own machine, your own data, your own network." This document is honest about what that means for credential handling — read it before deciding whether the app fits your situation.
 
+## Authentication (opt-in — required before public hosting)
+
+By default Boomerang has **no auth at all** — every `/api` route is open. That's
+acceptable only when the app is unreachable from untrusted networks (LAN, VPN,
+localhost). **The moment you put it on a public host, turn auth on.**
+
+Setting `AUTH_PASSWORD` (or, preferred, `AUTH_PASSWORD_HASH`) in the environment
+activates a gate (`auth.js`, `authGate` middleware) over every `/api` route.
+Two credential types pass it:
+
+- **Humans** → `POST /api/auth/login` with the password → an **httpOnly,
+  SameSite=Lax, Secure** session cookie (`boom_session`, 30-day rolling).
+  Cookies ride every same-origin fetch + the SSE stream automatically, so the
+  whole React app is gated by one boot check (`/api/auth/status`) that shows a
+  login screen when needed.
+- **Machines** (the iOS Shortcut, a future native app) → a static `API_TOKEN`
+  sent as `Authorization: Bearer <token>` or `x-api-token: <token>`.
+
+Generate both with `node scripts/auth-setup.js [password]`. Passwords are
+verified with `scrypt` + timing-safe compare; the API token with a timing-safe
+compare. Sessions persist in `app_data.auth_sessions` (survives restarts).
+
+**What this does and doesn't cover:**
+- ✅ Stops anonymous internet access to your tasks, settings, and integrations.
+- ✅ Keeps the Shortcut/API surface authenticated with a revocable token
+  (rotate by re-running `auth-setup.js`).
+- ❌ Still single-user — one password, one token. Not multi-tenant.
+- ❌ Does **not** encrypt secrets at rest (see below) — a host compromise still
+  exposes the DB. Use the env-var path for integration keys to keep them out of
+  the settings blob, and pair with HTTPS + a TLS-terminating proxy.
+- ⚠️ Open even when the gate is on: `GET /api/health`, `GET /api/auth/status`,
+  `POST /api/auth/login`, `POST /api/auth/logout` (login/status need to be
+  reachable pre-auth; health leaks only the version string).
+
+> **Not serverless-friendly.** The session store, the persistent notification
+> loops, SSE, the in-memory Quokka runner, and local SQLite all assume a single
+> always-on instance. Host on a small always-on box (Fly.io machine, Render web
+> service, a VPS) — not Lambda/Cloud Functions.
+
 ## Credential Storage: How It Actually Works
 
 ### Where secrets live

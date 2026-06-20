@@ -1,0 +1,73 @@
+.login-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bm-bg, #f7f4ef);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 32px 28px;
+  border-radius: 18px;
+  background: var(--bm-surface, #fff);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.login-mark {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--bm-ink, #1c1a17);
+}
+
+.login-sub {
+  margin: -6px 0 4px;
+  font-size: 14px;
+  color: var(--bm-ink-soft, #6b655c);
+}
+
+.login-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 16px; /* >=16px avoids iOS zoom-on-focus */
+  border: 1px solid var(--bm-line, #e2dcd2);
+  border-radius: 12px;
+  background: var(--bm-bg, #faf8f4);
+  color: var(--bm-ink, #1c1a17);
+  box-sizing: border-box;
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: var(--bm-ember, #d9622b);
+}
+
+.login-error {
+  font-size: 13px;
+  color: #c0392b;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--bm-ember, #d9622b);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.login-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

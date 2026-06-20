@@ -49,6 +49,8 @@ import { adoptKnowledgeDatabase,
 } from './knowledgeSync.js'
 import { getAllKnowledgeItems, searchKnowledgeItems, getKnowledgeItem } from './db.js'
 import crypto from 'crypto'
+import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
+  setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
 
 // Register adviser tools once at module load
 registerTaskTools()
@@ -185,9 +187,60 @@ app.set('trust proxy', 1)
 app.use(cors())
 app.use(express.json({ limit: '2mb' }))
 
+// --- Auth gate (opt-in; inert unless AUTH_PASSWORD/AUTH_PASSWORD_HASH is set) ---
+initAuth({ getData, setData })
+app.use(authGate)
+
 // --- Health check ---
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', appVersion, isDev: isDevEnv })
+})
+
+// --- Auth endpoints (all reachable without a session; see auth.js OPEN_PATHS) ---
+app.get('/api/auth/status', (req, res) => {
+  res.json({ authEnabled: isAuthEnabled(), authenticated: isAuthEnabled() ? isAuthenticated(req) : true })
+})
+
+app.post('/api/auth/login', (req, res) => {
+  if (!isAuthEnabled()) return res.json({ ok: true, authEnabled: false })
+  const token = login(req.body?.password || '')
+  if (!token) return res.status(401).json({ error: 'Invalid password' })
+  setSessionCookie(req, res, token)
+  res.json({ ok: true })
+})
+
+app.post('/api/auth/logout', (req, res) => {
+  destroySession(sessionTokenFromReq(req))
+  clearSessionCookie(req, res)
+  res.json({ ok: true })
+})
+
+// --- Quick intake (iOS Shortcut / share-sheet target). Authed by the gate via
+// the API token or a session cookie. Takes free text and builds a full task
+// with server-side defaults so the Shortcut body stays trivial. size_inferred
+// is false so the background auto-sizer refines size/energy after creation.
+app.post('/api/intake', (req, res) => {
+  const body = req.body || {}
+  const title = (body.title || body.text || '').toString().trim()
+  if (!title) return res.status(400).json({ error: 'title (or text) is required' })
+  const now = new Date().toISOString()
+  const task = {
+    id: crypto.randomUUID(),
+    title: title.slice(0, 500),
+    status: 'not_started',
+    notes: (body.notes || '').toString(),
+    due_date: body.due_date || null,
+    high_priority: Boolean(body.high_priority),
+    tags: Array.isArray(body.tags) ? body.tags : [],
+    size: 'M',
+    size_inferred: false,
+    last_touched: now,
+    created_at: now,
+  }
+  upsertTask(task)
+  const newVersion = bumpVersion()
+  broadcast(newVersion, null)
+  res.json({ ok: true, task: getTask(task.id), version: newVersion })
 })
 
 // --- Server logs endpoint ---
