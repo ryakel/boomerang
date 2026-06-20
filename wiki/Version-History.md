@@ -4,6 +4,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-20
+
+- fix(routines): align weekly loop cycle-windows to schedule_day_of_week (false-missed + wrong-day "Mark done") [S]
+  - Prod bug (screenshots): a "weekly · Fri" loop flagged "week of Jun 13 — MISSED" despite being done, and clicking **Mark done** stamped Jun 13 (a **Saturday**) — an off-schedule green dot. Root cause: `cycleWindows()` in `src/kept/cycles.js` anchored the 7-day grid on the routine's **creation date**, ignoring `schedule_day_of_week`. The loop was created on a Saturday, so windows ran Sat→Fri; completing this week's task today (Sat Jun 20) landed in the *next* window, leaving Jun 13–19 empty → false missed. The missed gap's representative day is the window **start** (Saturday), so `markRoutineDayDone` stamped the wrong weekday.
+  - Fix: when a weekly routine has an explicit `schedule_day_of_week`, move the window anchor FORWARD to the first scheduled weekday on/after creation (mirrors `getNextDueDate`'s fixed grid; forward — not backward — avoids minting a leading window that predates the routine, which would be a fresh false-missed). Every window boundary then lands on the scheduled weekday, a same-week completion closes the current cycle, and "Mark done" stamps the correct day. Daily/custom/month-scale cadences unchanged.
+  - Verified with a frozen-clock (TZ-pinned) repro of the exact scenario: without the anchor the "week of Jun 13" miss reproduces; with it, windows align to Friday (Jun 5/12/19), today's Jun 20 completion closes the current week, and `loopGaps` returns no missed/unrecorded. `npm test` (5), eslint, and `npm run build` pass.
+  - Note: a stray completed_history stamp on Jun 13 from the earlier mis-fire persists in the user's data (cosmetic Saturday dot + lifetime +1); it no longer causes a false gap and can be removed via the routine's "Last done" edit / Quokka.
+
 ## 2026-06-19
 
 - feat(server): opt-in authentication gate + iOS Shortcut intake endpoint [L]
