@@ -38,3 +38,12 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Capacitor / iOS (native app — generated on the Mac)
+ios/App/Pods
+ios/App/App/public
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+ios/.gitignore
+DerivedData
+*.xcuserstate

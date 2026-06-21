@@ -1,0 +1,85 @@
+// apiConfig.js — connection config for the native (Capacitor) shell.
+//
+// On the WEB (same-origin) nothing is configured: the base is '' and there's no
+// token, so requests use relative /api paths + the session cookie exactly as
+// before — this module installs nothing and has zero effect. In the BUNDLED
+// native app the WebView origin is capacitor://localhost, which is NOT the API
+// origin, so once a base + token are configured we:
+//   (a) prefix relative /api URLs with the configured server base, and
+//   (b) attach the API token as a Bearer header (cross-origin can't ride the
+//       session cookie), or as a ?api_token= query param for the SSE stream
+//       (EventSource can't set headers).
+//
+// Config is read at runtime — NO secrets are baked into the app bundle:
+//   localStorage.boom_api_base   e.g. "https://boomerang.tailnet.ts.net"
+//   localStorage.boom_api_token  the server's API_TOKEN
+// A later phase adds an in-app "Connection" settings screen to set these.
+
+const BASE_KEY = 'boom_api_base'
+const TOKEN_KEY = 'boom_api_token'
+
+export function getApiBase() {
+  try { return (localStorage.getItem(BASE_KEY) || '').replace(/\/+$/, '') } catch { return '' }
+}
+export function getApiToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || '' } catch { return '' }
+}
+export function setApiConfig({ base, token } = {}) {
+  try {
+    if (base !== undefined) localStorage.setItem(BASE_KEY, (base || '').replace(/\/+$/, ''))
+    if (token !== undefined) localStorage.setItem(TOKEN_KEY, token || '')
+  } catch { /* storage unavailable — ignore */ }
+}
+
+// Resolve a possibly-relative API path against the configured base.
+export function apiUrl(path) {
+  const base = getApiBase()
+  if (!base || typeof path !== 'string') return path
+  if (/^https?:\/\//i.test(path)) return path
+  return base + (path.startsWith('/') ? path : `/${path}`)
+}
+
+// Install fetch + EventSource shims that rewrite relative /api URLs to the
+// configured base and inject the token. INERT when nothing is configured (the
+// web build) — it installs nothing, so there is zero overhead or risk for the
+// same-origin PWA. Idempotent.
+let installed = false
+export function installApiInterceptor() {
+  if (installed) return
+  const base = getApiBase()
+  const token = getApiToken()
+  if (!base && !token) return // web / same-origin: do nothing at all
+  installed = true
+
+  const origFetch = window.fetch.bind(window)
+  window.fetch = (input, init = {}) => {
+    try {
+      const url = typeof input === 'string' ? input : input?.url
+      if (typeof url === 'string' && url.startsWith('/api')) {
+        const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined))
+        if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
+        return origFetch(apiUrl(url), { ...init, headers })
+      }
+    } catch { /* fall through to the unmodified call */ }
+    return origFetch(input, init)
+  }
+
+  // EventSource (SSE sync) can't carry an Authorization header, so the token
+  // rides as a query param; the server accepts ?api_token= on /api routes.
+  if (base && typeof window.EventSource === 'function') {
+    const OrigES = window.EventSource
+    const Wrapped = function (url, opts) {
+      let u = url
+      if (typeof u === 'string' && u.startsWith('/api')) {
+        u = apiUrl(u)
+        if (token) u += (u.includes('?') ? '&' : '?') + 'api_token=' + encodeURIComponent(token)
+      }
+      return new OrigES(u, opts)
+    }
+    Wrapped.prototype = OrigES.prototype
+    Wrapped.CONNECTING = OrigES.CONNECTING
+    Wrapped.OPEN = OrigES.OPEN
+    Wrapped.CLOSED = OrigES.CLOSED
+    window.EventSource = Wrapped
+  }
+}

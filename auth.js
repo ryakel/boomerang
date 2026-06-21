@@ -129,7 +129,10 @@ export function sessionTokenFromReq(req) {
 function bearerFromReq(req) {
   const h = req.headers['authorization'] || ''
   if (h.toLowerCase().startsWith('bearer ')) return h.slice(7).trim()
-  return req.headers['x-api-token'] || null
+  if (req.headers['x-api-token']) return req.headers['x-api-token']
+  // Query param: the SSE stream (EventSource) can't set headers, so the native
+  // app passes the token as ?api_token= on /api/events. Header is preferred.
+  return (req.query && req.query.api_token) || null
 }
 
 export function verifyApiToken(token) {
