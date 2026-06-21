@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-06-21
+
+- feat(mobile): Capacitor scaffold + native connection plumbing (iOS app Phase 1) [M]
+  - First step toward a native iOS app (Capacitor wrap of the existing web app, to add a Share Extension + App Intents for creating tasks from Messages/Siri). **Model: bundled assets** (ships `dist/` in the binary, talks to the API remotely) so the PWA's offline mutation queue + cached shell are preserved; **connectivity via Tailscale** (server stays private, app reaches the tailnet host, `API_TOKEN` gates it).
+  - `@capacitor/core` + `@capacitor/ios` (deps) + `@capacitor/cli` (dev) added; `capacitor.config.ts` (bundled model — `webDir: 'dist'`, no `server.url`); `npm run build:mobile` = `vite build && cap sync ios`.
+  - `src/apiConfig.js` — runtime connection config (`boom_api_base` / `boom_api_token` in localStorage; no secrets in the bundle) + a `window.fetch`/`EventSource` shim that prefixes relative `/api` URLs with the configured server base and attaches the token. **Inert on the web** (nothing configured → installs nothing), installed once from `src/main.jsx`. Cross-origin can't ride the session cookie, hence Bearer token; the SSE stream uses `?api_token=` since EventSource can't set headers.
+  - `auth.js` `bearerFromReq` now also accepts `?api_token=` (query) in addition to `Authorization: Bearer` / `x-api-token`, so the native app's EventSource sync authenticates. Header remains preferred.
+  - No Dockerfile / server-build impact: `apiConfig.js` rides the Vite bundle, `capacitor.config.ts` + `ios/` are Mac/dev-only, runtime COPY list unchanged. Verified: `npm install`, `eslint`, `npm run build` clean; live boot test confirms `/api/data` + `/api/events` authenticate via header token, query token, and reject a bad token (401), web path (no auth) unchanged.
+  - Guide: `wiki/iOS-Native-App.md` (Mac steps `cap add ios` / `pod install` / Xcode signing, runtime connection config, phased roadmap: 1.5 in-app Connection screen → 2 Share Extension → 3 App Intents → 4 native push). `.gitignore` covers Capacitor's generated `ios/` artifacts.
+
 ## 2026-06-20
 
 - fix(routines): align weekly loop cycle-windows to schedule_day_of_week (false-missed + wrong-day "Mark done") [S]
