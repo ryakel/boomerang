@@ -31,9 +31,10 @@ every request.
 
 ---
 
-## Phase 1 — scaffold (this PR)
+## Phase 1 — scaffold (DONE — merged to `dev`)
 
-Already in the repo:
+The scaffold + connection plumbing is in the repo and ready; it is **inert in
+production** until a device is configured (below). Already in place:
 - `@capacitor/core`, `@capacitor/ios` (deps) + `@capacitor/cli` (dev) in
   `package.json`.
 - `capacitor.config.ts` (bundled model: `webDir: 'dist'`, no `server.url`).
