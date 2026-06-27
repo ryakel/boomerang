@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-06-21
 
+- fix(sync): flush pending local changes before hydrating — stop completed tasks resurfacing [M]
+  - **Prod bug:** checking a task off and having it pop back onto the list. Root cause: a completion is written to local state immediately but its push to the server is debounced (`DEBOUNCE_MS = 300`). If a refetch fired inside that 300ms window, `fetchAndHydrate` **cancelled** the pending push and then overwrote local state with the server's copy — which never received the completion — so the task reverted. Triggers: `visibilitychange` (the app regaining focus — the single-device path, brutal on mobile), an `sse-update` from another device (the desktop↔phone "smashing on top of each other"), and `pull-refresh`.
+  - Fix: `fetchAndHydrate` now **flushes** pending mutations before fetching instead of cancelling them — `pushChanges` is made awaitable and the refetch awaits it, so the user's change lands on the server first and the subsequent fetch returns the merged result. Per-record (tasks/routines), so push-then-fetch is order-safe.
+  - Also closed a narrower single-device sliver: a genuine edit made within the 2s post-hydrate echo-suppression window used to be **dropped** (early `return`); it's now rescheduled for just after the window instead of lost. The per-record diff baseline already makes the hydrate echo a no-op, so nothing re-pushes spuriously.
+  - Verified: `eslint`, `npm run build`, and the smoke test pass. The true repro is a two-device / refocus race — recommend confirming on `boomerang-dev` with desktop + phone before promoting.
+
 - feat(mobile): Capacitor scaffold + native connection plumbing (iOS app Phase 1) [M]
   - First step toward a native iOS app (Capacitor wrap of the existing web app, to add a Share Extension + App Intents for creating tasks from Messages/Siri). **Model: bundled assets** (ships `dist/` in the binary, talks to the API remotely) so the PWA's offline mutation queue + cached shell are preserved; **connectivity via Tailscale** (server stays private, app reaches the tailnet host, `API_TOKEN` gates it).
   - `@capacitor/core` + `@capacitor/ios` (deps) + `@capacitor/cli` (dev) added; `capacitor.config.ts` (bundled model — `webDir: 'dist'`, no `server.url`); `npm run build:mobile` = `vite build && cap sync ios`.
