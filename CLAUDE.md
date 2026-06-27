@@ -1074,6 +1074,13 @@ Passwords verified with `scrypt` + timing-safe compare (hash format `scrypt$<sal
 
 **Not serverless-friendly** (persistent notification loops + SSE + in-memory Quokka runner + local SQLite + session store all assume one always-on instance) — host on a small always-on box, NOT Lambda.
 
+## iOS Native App (2026-06-21, Capacitor — in progress)
+Wrapping the existing web app in a Capacitor shell to add native surfaces (Share Extension, App Intents) for creating tasks from Messages/Siri. **Decisions locked:** Capacitor (not a rewrite); **bundled-assets** model (ships `dist/` in the binary, talks to the API remotely — keeps the PWA offline mutation queue + cached shell, unlike a live-WebView wrapper); **Tailscale** connectivity (server stays private, app reaches the tailnet host, `API_TOKEN` gates it); local Xcode build loop.
+
+**Phase 1 (scaffold — DONE):** `@capacitor/core`+`@capacitor/ios` deps + `@capacitor/cli` dev; `capacitor.config.ts` (`webDir: 'dist'`, no `server.url`); `npm run build:mobile` = `vite build && cap sync ios`. `src/apiConfig.js` holds the runtime connection config (`boom_api_base`/`boom_api_token` in localStorage — NO secrets in the bundle) + a `window.fetch`/`EventSource` shim that prefixes relative `/api` URLs with the configured base and attaches the token; **inert on the web** (nothing configured → installs nothing), installed once in `src/main.jsx`. Cross-origin can't ride the `boom_session` cookie → Bearer token; the SSE stream uses `?api_token=` because EventSource can't set headers, so `auth.js` `bearerFromReq` accepts `?api_token=` (query) alongside the header. **No Dockerfile/server-build impact** — `apiConfig.js` rides the Vite bundle; `capacitor.config.ts` + generated `ios/` are Mac/dev-only (gitignored).
+
+**Roadmap:** Phase 1.5 in-app Connection settings screen (replaces the Web-Inspector localStorage step) → Phase 2 Share Extension (Swift → `POST /api/intake`, token shared via App Group) → Phase 3 App Intents (Siri/Shortcuts/Action button) → Phase 4 optional native APNs push + deep links. Full build guide + Mac steps: `wiki/iOS-Native-App.md`.
+
 ## Security Posture (2026-05-02)
 **Threat model:** single-user self-hosted, user controls the machine. See `wiki/Security-Notes.md` for the full breakdown.
 
@@ -1095,6 +1102,8 @@ Passwords verified with `scrypt` + timing-safe compare (hash format `scrypt$<sal
 **Bulk-write guard.** `PUT/POST /api/data` rejects (HTTP 409) any payload where `body.tasks` is an array AND would empty the table OR shrink it >50% (with a 10-row floor). This is the durability fix for the 2026-05-07 wipe — a client whose initial GET failed pushed `tasks: []` via the manual-flush code path and obliterated 153 rows. Per-record `/api/tasks` mutations are unaffected; that's the supported path for legitimate bulk deletes.
 
 **Recovery diagnostic.** `scripts/recover-from-notification-log.js` (read-only) queries `notification_log` (which survives `setAllData` since it's not in the bulk-PUT collection list) for unique `(task_id, most_recent_title)` pairs and flags which IDs are still present in the live `tasks` table. Up to 500 rows of history.
+
+**Flush-before-hydrate (2026-06-21).** A local mutation (completing a task, an edit) is written to state instantly but its server push is debounced (`DEBOUNCE_MS = 300` in `useServerSync.js`). `fetchAndHydrate` must **flush** that pending push before overwriting local state with the server's copy — NOT cancel it. The original code cancelled the pending push, so any refetch landing inside the 300ms window (`visibilitychange` app-refocus, an `sse-update` from another device, `pull-refresh`) discarded the user's change and the task resurfaced ("I checked it off and it came back"). `pushChanges` is awaitable; `fetchAndHydrate` awaits it, then fetches the merged per-record result (push-then-fetch is order-safe because tasks/routines are per-record). Corollary rule: **any new refetch/hydrate path must flush local mutations first** — never blind-overwrite local state that may hold an unpushed change. The post-hydrate echo-suppression window must also never *drop* a real edit made inside it (reschedule past the window; the per-record diff already neutralizes the echo).
 
 **Server log timestamps.** Every `console.log/.error/.warn` call gets an ISO-8601 timestamp prefix automatically (wrappers in `server.js` near line 161). Don't add manual timestamps to log lines.
 
