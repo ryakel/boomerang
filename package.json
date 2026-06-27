@@ -22,7 +22,7 @@
     "express": "^5.2.1",
     "lucide-react": "^1.7.0",
     "mobile-drag-drop": "^3.0.0-rc.0",
-    "nodemailer": "^8.0.5",
+    "nodemailer": "^9.0.1",
     "qs": "^6.15.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
