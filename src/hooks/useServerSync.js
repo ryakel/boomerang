@@ -214,7 +214,10 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       if (!currRMap.has(id)) opDescriptions.push({ type: 'deleteRoutine', id })
     }
 
-    Promise.all(ops.map(op => op()))
+    // Returned so callers (fetchAndHydrate) can AWAIT a flush of pending local
+    // mutations before pulling server state — otherwise a refetch can clobber a
+    // change the user just made but that hasn't been pushed yet.
+    return Promise.all(ops.map(op => op()))
       .then(results => {
         for (const r of results) {
           if (r?.version) serverVersion.current = r.version
@@ -284,11 +287,24 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
 
   // Fetch server data and hydrate local state
   const fetchAndHydrate = useCallback((reason) => {
+    // CRITICAL: flush any pending local mutations BEFORE pulling server state.
+    // A debounced completion/edit lives only in local state until it pushes; if
+    // a refetch (another device's SSE update, or this app simply regaining
+    // focus) lands first and we overwrite local state with the server's copy,
+    // the unpushed change is lost — the classic "I checked it off and it came
+    // back" bug. We push first, then fetch the merged result.
+    let flush = Promise.resolve()
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current)
       debounceTimer.current = null
-      remoteLog(`${reason}: cancelled pending push`)
+      if (hydrated.current) {
+        remoteLog(`${reason}: flushing pending local changes before hydrate`)
+        flush = Promise.resolve(
+          pushChanges(latestState.current.tasks, latestState.current.routines)
+        ).catch(() => {})
+      }
     }
+    return flush.then(() => {
     remoteLog(`${reason}: fetching /api/data`)
     return fetch('/api/data')
       .then(res => {
@@ -334,7 +350,8 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       .catch(err => {
         remoteLog(`${reason}: fetch failed: ${err.message}`)
       })
-  }, [onHydrate, pushBulkState])
+    })
+  }, [onHydrate, pushBulkState, pushChanges])
 
   // SSE connection
   useEffect(() => {
@@ -434,14 +451,19 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   // Debounced per-record push whenever tasks or routines change
   useEffect(() => {
     if (!hydrated.current) return
-    if (Date.now() < skipPushUntil.current) {
-      return
-    }
+
+    // The post-hydrate window suppresses the hydrate's own state-write from
+    // echoing back as a push. A genuine user edit can land in that window too,
+    // so DON'T drop it (the old `return` lost the change) — schedule the push
+    // for just after the window. The per-record diff makes the echo a no-op
+    // anyway, and a scheduled timer means fetchAndHydrate will flush it first.
+    const skipFor = skipPushUntil.current - Date.now()
+    const delay = skipFor > 0 ? skipFor + DEBOUNCE_MS : DEBOUNCE_MS
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
       pushChanges(latestState.current.tasks, latestState.current.routines)
-    }, DEBOUNCE_MS)
+    }, delay)
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
