@@ -173,6 +173,7 @@
 .v2-edit-toggle-row input[type="checkbox"] {
   margin-top: 3px;
   flex: 0 0 auto;
+  accent-color: var(--v2-accent);
 }
 
 .v2-edit-toggle-row-compact {
@@ -685,14 +686,22 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0;
+  /* Visible by default — a hover-only reveal leaves no way to discover or
+     tap this on a touch device, which never fires :hover. Fine-pointer
+     (mouse) devices get the tidier hover-reveal treatment below instead. */
+  opacity: 1;
   transition: opacity var(--v2-dur-quick) var(--v2-ease-standard),
               background var(--v2-dur-quick) var(--v2-ease-standard),
               color var(--v2-dur-quick) var(--v2-ease-standard);
 }
 
-.v2-edit-checklist-item:hover .v2-edit-checklist-item-remove {
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .v2-edit-checklist-item-remove {
+    opacity: 0;
+  }
+  .v2-edit-checklist-item:hover .v2-edit-checklist-item-remove {
+    opacity: 1;
+  }
 }
 
 .v2-edit-checklist-item-remove:hover {
@@ -1160,7 +1169,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border: 1px solid var(--v2-border);
+  border: 1px solid var(--v2-hairline);
   border-radius: var(--v2-radius-pill);
   background: var(--v2-surface);
   color: var(--v2-text);
@@ -1179,8 +1188,8 @@
 .v2-edit-knowledge-picker {
   margin-top: 8px;
   padding: 12px;
-  background: var(--v2-surface-elev);
-  border: 1px solid var(--v2-border);
+  background: rgba(var(--v2-text-rgb), 0.04);
+  border: 1px solid var(--v2-hairline);
   border-radius: 8px;
 }
 .v2-edit-knowledge-results {

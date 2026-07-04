@@ -355,7 +355,7 @@ export default function TodayView({
           const escalationTotal = (t.escalation_rungs || []).length
           return (
             <RowSwipe key={t.id} done={done} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
-              <div className="bm-row">
+              <div className="bm-row" data-task-id={t.id}>
                 <button
                   className={`bm-chk${done ? ' is-done' : ''}${t.high_priority ? ' is-hi' : ''}`}
                   onClick={() => onCompleteTask?.(t)}
@@ -405,7 +405,7 @@ export default function TodayView({
               const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
               return (
                 <RowSwipe key={t.id} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
-                  <div className="bm-row">
+                  <div className="bm-row" data-task-id={t.id}>
                     <button className="bm-chk" onClick={() => onCompleteTask?.(t)} aria-label="Catch it" />
                     <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                       <span className="bm-row-title">{t.title}</span>

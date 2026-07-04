@@ -1261,7 +1261,7 @@
 .v2-integrations-kb {
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px dashed var(--v2-border);
+  border-top: 1px dashed var(--v2-hairline);
   display: flex;
   flex-direction: column;
   gap: 8px;

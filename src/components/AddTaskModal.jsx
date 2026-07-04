@@ -14,8 +14,12 @@ const ENERGY_LEVEL_LABELS = [
 
 const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL']
 
-export default function AddTaskModal({ open, onAdd, onClose, parentProject = null, createAsProject = false }) {
-  const form = useTaskForm({ dueDate: getDefaultDueDate() })
+export default function AddTaskModal({ open, onAdd, onClose, parentProject = null, createAsProject = false, initialDraft = null }) {
+  // AppV2 remounts this component (via a `key` bump) every time it's freshly
+  // opened, so `initial` only ever needs to be read once here — no reset
+  // logic required. `initialDraft` seeds a title/date handed off from
+  // ThrowSheet's "More options" (previously dropped on the floor).
+  const form = useTaskForm({ title: initialDraft?.title || '', dueDate: initialDraft?.dueDate || getDefaultDueDate() })
   const titleRef = useRef(null)
 
   useEffect(() => {

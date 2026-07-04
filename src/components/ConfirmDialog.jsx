@@ -38,14 +38,13 @@ export default function ConfirmDialog({
         <h3 id="v2-confirm-title" className="v2-confirm-title">{title}</h3>
         {body && <p className="v2-confirm-body">{body}</p>}
         <div className="v2-confirm-actions">
-          <button type="button" className="v2-confirm-btn v2-confirm-btn-cancel" onClick={onCancel}>
+          <button type="button" className="v2-confirm-btn v2-confirm-btn-cancel" onClick={onCancel} autoFocus>
             {cancelLabel}
           </button>
           <button
             type="button"
             className={`v2-confirm-btn v2-confirm-btn-${tone}`}
             onClick={onConfirm}
-            autoFocus
           >
             {confirmLabel}
           </button>
