@@ -10,6 +10,7 @@ import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
 import WeekBreakdown from './WeekBreakdown'
+import WeatherBadge from '../components/WeatherBadge'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -18,7 +19,7 @@ const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 // with mini Flight Trails (spec §6). Handlers come from AppV2; loop checks
 // route through the canonical onToggleHabit/onCompleteTask completion paths.
 export default function TodayView({
-  tasks = [], routines = [], labels = [],
+  tasks = [], routines = [], labels = [], weatherByDate = null,
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow,
@@ -282,6 +283,10 @@ export default function TodayView({
           const stale = !done && isStale(t)
           const ageDays = stale ? Math.floor((Date.now() - new Date(t.created_at).getTime()) / 86400000) : 0
           const statusTag = t.status === 'doing' ? 'doing' : t.status === 'waiting' ? 'waiting' : null
+          // Weather badge: same due_date-within-forecast-window lookup as the
+          // legacy TaskCard (src/components/TaskCard.jsx) — Kept's rows never
+          // got this wiring when the Today view was built from scratch.
+          const weatherDay = t.due_date && weatherByDate ? weatherByDate[t.due_date] : null
           return (
             <RowSwipe key={t.id} done={done} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
               <div className="bm-row">
@@ -292,12 +297,13 @@ export default function TodayView({
                 >{done && <Check size={13} strokeWidth={3.4} />}</button>
                 <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                   <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0) && (
+                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0 || weatherDay) && (
                     <span className="bm-row-meta">
                       {t.high_priority && <span className="bm-tag-hi">high</span>}
                       {statusTag && <span className="bm-tag-status">{statusTag}</span>}
                       {overdue && <span className="bm-due-over">overdue</span>}
                       {stale && <span className="bm-tag-stale">{ageDays}d on list</span>}
+                      {weatherDay && <WeatherBadge day={weatherDay} />}
                       {chips.slice(0, 3).map(l => (
                         <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
                       ))}
