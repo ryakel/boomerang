@@ -24,6 +24,19 @@
   gap: 8px;
 }
 
+.weather-best-line {
+  font-size: 11.5px;
+  color: var(--text);
+  opacity: 0.9;
+  text-align: center;
+  padding-bottom: 2px;
+}
+
+.weather-day-best {
+  outline: 1px solid rgba(120, 200, 130, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(120, 200, 130, 0.12);
+}
+
 .weather-day {
   display: flex;
   flex-direction: column;

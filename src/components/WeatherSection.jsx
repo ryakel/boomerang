@@ -155,6 +155,13 @@ export default memo(function WeatherSection({ forecast, dueDate }) {
   const topRow = days.slice(0, 3)
   const bottomRow = days.slice(3, 7)
 
+  // Surface an actual recommendation instead of just listing the week —
+  // pickBestDays/formatBestDaysLine existed as exported utilities but were
+  // never consumed anywhere in the app (dead code since they were written).
+  const bestDays = pickBestDays(days)
+  const bestDateSet = new Set(bestDays.map(d => d.date))
+  const bestLine = formatBestDaysLine(bestDays, todayDateStr)
+
   const renderDay = (d, sizeClass) => {
     const icon = WMO_ICON[d.weather_code] || '•'
     const label = WMO_LABEL[d.weather_code] || 'unknown'
@@ -163,10 +170,11 @@ export default memo(function WeatherSection({ forecast, dueDate }) {
     const wind = d.wind_max != null ? `${Math.round(d.wind_max)}mph` : ''
     const precip = d.precipitation_prob_max != null ? `${d.precipitation_prob_max}%` : ''
     const isDue = dueDateObj && d.date === dueDateObj
+    const isBest = bestDateSet.has(d.date)
     return (
       <div
         key={d.date}
-        className={`weather-day weather-day-${sizeClass}${isDue ? ' weather-day-due' : ''}`}
+        className={`weather-day weather-day-${sizeClass}${isDue ? ' weather-day-due' : ''}${isBest ? ' weather-day-best' : ''}`}
         title={`${label}${wind ? ` · ${wind} wind` : ''}${precip ? ` · ${precip} precip` : ''}`}
       >
         <span className="weather-day-name">{dayLabel(d.date, todayDateStr)}</span>
@@ -179,6 +187,11 @@ export default memo(function WeatherSection({ forecast, dueDate }) {
 
   return (
     <div className="weather-section" onClick={e => e.stopPropagation()}>
+      {bestLine && (
+        <div className="weather-best-line">
+          <span aria-hidden="true">☀️</span> {bestLine}
+        </div>
+      )}
       <div className="weather-section-row weather-section-row-top">
         {topRow.map(d => renderDay(d, 'lg'))}
       </div>
