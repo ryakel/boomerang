@@ -264,6 +264,14 @@
   box-shadow: var(--bm-shadow-pop);
   animation: bm-rise 240ms cubic-bezier(0.3, 1.2, 0.4, 1);
 }
+.bm-sheet-handle {
+  display: flex; justify-content: center;
+  padding: 10px 0 6px;
+  margin: -10px 0 -6px;
+  touch-action: none;
+  cursor: grab;
+}
+.bm-sheet-handle:active { cursor: grabbing; }
 .bm-grabber { width: 36px; height: 4px; border-radius: 4px; background: var(--bm-hairline-strong); margin: 0 auto 12px; }
 .bm-sheet-title {
   font-family: var(--v2-font-display);

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Search, Pencil, Trash2, X, Undo2, ArrowUpDown } from 'lucide-react'
 import { localYMD, parseLocalDate, addDays } from '../dates'
 import { isSnoozed, formatSnoozeLabel } from '../store'
+import useSheetSwipeDown from '../hooks/useSheetSwipeDown'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
 import BoardView from './BoardView'
@@ -25,6 +26,8 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [sheetTask, setSheetTask] = useState(null)
+  const sheetRef = useRef(null)
+  const { handleProps: sheetHandleProps } = useSheetSwipeDown(sheetRef, () => setSheetTask(null))
   // Escape closes the task action sheet — same convention as every other
   // modal/sheet primitive in the app (ModalShell, ConfirmDialog, ThrowSheet).
   useEffect(() => {
@@ -204,8 +207,10 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
 
       {sheetTask && (
         <div className="bm-sheet-backdrop" onClick={() => setSheetTask(null)}>
-          <div className="bm-sheet" onClick={e => e.stopPropagation()}>
-            <div className="bm-grabber" />
+          <div className="bm-sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
+            <div className="bm-sheet-handle" {...sheetHandleProps}>
+              <div className="bm-grabber" />
+            </div>
             <h3 className="bm-sheet-title">{sheetTask.title}</h3>
             <div className="bm-chip-row">
               {[
