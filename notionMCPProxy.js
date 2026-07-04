@@ -87,15 +87,37 @@ function tryParseJSON(text) {
 }
 
 function extractIdFromUrl(text) {
-  const m = text.match(/notion\.so\/(?:[^/]*\/)?([a-f0-9]{32})/)
+  // Notion page URLs come in more than one host format depending on which
+  // surface generated them — the classic www.notion.so/<id> share link, and
+  // the hosted MCP server's app.notion.com/p/<id> format (seen in prod: a
+  // notion-create-pages response whose page.url used app.notion.com/p/,
+  // which this regex didn't match, so a perfectly valid response was
+  // rejected as unparseable).
+  const m = text.match(/notion\.so\/(?:[^/]*\/)?([a-f0-9]{32})/) || text.match(/notion\.com\/p\/([a-f0-9]{32})/)
   if (!m) return null
   const h = m[1]
   return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`
 }
 
 function extractUrlFromText(text) {
-  const m = text.match(/https:\/\/www\.notion\.so\/[^\s"<>)]+/)
+  const m = text.match(/https:\/\/(?:www\.notion\.so|app\.notion\.com\/p)\/[^\s"<>)]+/)
   return m ? m[0] : null
+}
+
+// notion-create-pages' response shape from the hosted MCP server wraps the
+// created page(s) as {"pages":[{id, url, properties}]} — createPage/
+// createPageInDatabase used to check for a top-level `json.id`, which is
+// never present on this shape, so every create silently fell through to the
+// URL-regex fallback (which then also failed on app.notion.com/p/ URLs,
+// see extractIdFromUrl above — together these produced "Could not parse
+// page ID from response" on a perfectly successful create).
+function parseCreatedPage(raw) {
+  const json = tryParseJSON(raw)
+  const page = json?.pages?.[0] || (json?.id ? json : null)
+  if (page?.id) return { id: page.id, url: page.url || extractUrlFromText(raw) }
+  const id = extractIdFromUrl(raw)
+  if (!id) throw new Error('Could not parse page ID from response: ' + raw.slice(0, 300))
+  return { id, url: extractUrlFromText(raw) }
 }
 
 function extractTitleFromProperties(properties) {
@@ -173,11 +195,7 @@ export async function createPage({ parentId, title, content }) {
     pages: [{ properties: { title }, ...(content ? { content } : {}) }],
   }
   const raw = await callMCP('notion-create-pages', args)
-  const json = tryParseJSON(raw)
-  if (json?.id) return { id: json.id, url: json.url }
-  const id = extractIdFromUrl(raw)
-  if (!id) throw new Error('Could not parse page ID from response: ' + raw.slice(0, 300))
-  return { id, url: extractUrlFromText(raw) }
+  return parseCreatedPage(raw)
 }
 
 export async function createPageInDatabase({ databaseId, properties, content }) {
@@ -193,11 +211,7 @@ export async function createPageInDatabase({ databaseId, properties, content }) 
     pages: [page],
   }
   const raw = await callMCP('notion-create-pages', args)
-  const json = tryParseJSON(raw)
-  if (json?.id) return { id: json.id, url: json.url }
-  const id = extractIdFromUrl(raw)
-  if (!id) throw new Error('Could not parse page ID from response: ' + raw.slice(0, 300))
-  return { id, url: extractUrlFromText(raw) }
+  return parseCreatedPage(raw)
 }
 
 export async function updateDataSource({ dataSourceId, statements }) {
