@@ -4,6 +4,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-04
+
+- fix(routines): pre-stamp create_routine id so chained add_follow_up doesn't hallucinate a routine_id [S]
+  - **Prod bug:** a Quokka plan that created a routine and chained a follow-up onto it in the same turn ("create a weekly recycling routine, then chain a compost follow-up to it") failed at commit with `Routine not found: <uuid>`. Root cause: `create_task` has a `preStage` hook that pre-stamps a real id at *stage* time so a later staged step can reference it (documented in the system prompt); `create_routine` never got the same treatment — its id was only generated inside `execute`, i.e. at *commit* time. The staged response the model saw for the create_routine step had no real, usable id, so when asked to chain `add_follow_up.routine_id` to "the routine I'm about to create," the model fabricated a UUID, which predictably didn't exist yet at commit.
+  - Fix: `create_routine` now has a `preStage` (mirrors `create_task`'s) that pre-stamps `rt-<ts>-<hex>` and returns it as `id` in the staged response; `execute` uses `args.id`. `add_follow_up` and `spawn_routine_now` gained a `stagedValidate` (mirrors `create_task`'s parent_id check) that accepts a `routine_id` matching either a real routine or an earlier staged `create_routine` in the same plan, surfacing a clear correction to the model at stage time instead of letting the whole plan roll back at commit. `routineLabel()` now resolves forward references to staged (not-yet-committed) routines for a natural-reading preview (`"Take out recycling (pending)"`) instead of `"(missing routine ...)"`. System prompt's "Chained-create id handling" bullet extended to state the identical rule for `create_routine` → `add_follow_up`/`spawn_routine_now`/`update_routine`.
+  - Verified: a standalone script driving `create_routine` → `add_follow_up` → `commitPlan` through the real `db.js` (fresh SQLite, all 37 migrations) confirms the staged `create_routine` response now includes a real `id`, the follow-up stages cleanly with a `"(pending)"` preview, and the plan commits successfully end-to-end (previously reproduced the exact `Routine not found` failure without the fix). `node --check` on both touched files.
+
 ## 2026-06-21
 
 - fix(sync): flush pending local changes before hydrating — stop completed tasks resurfacing [M]
