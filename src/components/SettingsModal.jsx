@@ -838,6 +838,17 @@ function IntegrationsPanel({
     },
   ]
 
+  // Per-integration collapse state, same persisted-in-settings pattern the
+  // Notifications panel already uses (collapsed_notif_sections) — this
+  // panel never had it: every integration's full inline config (API key
+  // fields, Disconnect, Sync Parent, Knowledge Base, etc.) rendered
+  // unconditionally, forcing a long scroll with no way to fold rows shut.
+  const collapsedIntegrations = settings.collapsed_integrations_sections || {}
+  const isIntCollapsed = (key) => !!collapsedIntegrations[key]
+  const toggleIntCollapsed = (key) => {
+    update('collapsed_integrations_sections', { ...collapsedIntegrations, [key]: !collapsedIntegrations[key] })
+  }
+
   const runPushoverTest = async (emergency) => {
     const setter = emergency ? setPushoverEmer : setPushoverTest
     setter({ status: 'sending', error: null })
@@ -872,9 +883,20 @@ function IntegrationsPanel({
             <li key={int.key} className="v2-integrations-row">
               <span className={`v2-integrations-dot v2-integrations-dot-${int.connected === 'warn' ? 'warn' : int.connected ? 'connected' : 'unconfigured'}`} />
               <div className="v2-integrations-meta">
-                <div className="v2-integrations-name">{int.label}</div>
+                <button
+                  type="button"
+                  className="v2-integrations-name v2-integrations-name-toggle"
+                  onClick={() => toggleIntCollapsed(int.key)}
+                  aria-expanded={!isIntCollapsed(int.key)}
+                >
+                  <span className="v2-settings-section-chev" aria-hidden="true">
+                    {isIntCollapsed(int.key) ? '▸' : '▾'}
+                  </span>
+                  {int.label}
+                </button>
                 {int.sub && <div className="v2-integrations-sub">{int.sub}</div>}
                 <div className="v2-integrations-hint">{int.hint}</div>
+                {!isIntCollapsed(int.key) && (<>
                 {int.inline === 'api-key' && (
                   <div className="v2-integrations-inline">
                     {int.envFlag ? (
@@ -1510,6 +1532,7 @@ function IntegrationsPanel({
                 {int.syncResult && (
                   <div className="v2-integrations-sync-result">{int.syncResult}</div>
                 )}
+                </>)}
               </div>
               <div className="v2-integrations-row-actions">
                 {int.sync && (
