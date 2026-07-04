@@ -661,3 +661,26 @@
 
 /* Sort toggle active hint (Tasks tab) */
 .bm-back.is-active-sort { color: var(--bm-ember); border-color: var(--bm-ember); }
+
+/* Growth area — today's rotating coaching pick, above the Day Arc hero.
+ * Dismiss is "seen", not "done" — no checkbox, no completion state. */
+.bm-growth-banner {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bm-card);
+  border: 1px solid var(--bm-hairline);
+  border-radius: 14px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.bm-growth-banner-icon { flex: 0 0 auto; color: var(--bm-gold); display: flex; }
+.bm-growth-banner-text {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 13px; line-height: 1.4; color: var(--bm-text);
+}
+.bm-growth-banner-dismiss {
+  flex: 0 0 auto;
+  border: none; background: transparent; color: var(--bm-text-faint);
+  display: flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+}
+.bm-growth-banner-dismiss:hover { background: var(--bm-card-2); color: var(--bm-text); }

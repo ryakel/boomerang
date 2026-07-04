@@ -216,7 +216,8 @@ When should this be due? JSON only.`
 // --- What Now ---
 // capacity = optional energy type filter (desk|people|errand|confrontation|creative|physical|null)
 // weather = optional summary string like "Today: sunny, 72° · Tomorrow: rain, 55° · Sat: snow"
-export async function getWhatNow(tasks, time, energy, capacity = null, weather = null) {
+// growthAreas = optional array of active {title, energy_affinity} growth areas (persistent/both mode)
+export async function getWhatNow(tasks, time, energy, capacity = null, weather = null, growthAreas = null) {
   const ACTIVE = ['not_started', 'doing', 'waiting', 'open']
   const ENERGY_LABELS = { desk: 'Desk', people: 'People', errand: 'Errand', confrontation: 'Confrontation', creative: 'Creative', physical: 'Physical' }
   const openTasks = tasks
@@ -236,11 +237,15 @@ export async function getWhatNow(tasks, time, energy, capacity = null, weather =
     ? `\nWEATHER CONTEXT: ${weather}. If outdoor-leaning tasks (errand, physical, or tasks whose titles suggest being outside — mowing, yardwork, grocery, etc.) would benefit from today's weather (nice day, worse weather coming), prefer them. If today is bad weather and later looks better, prefer indoor tasks (desk, creative) and mention that a better day is coming. Only mention weather in the reason when it genuinely affects the pick.`
     : ''
 
+  const growthAreasRule = growthAreas && growthAreas.length > 0
+    ? `\nGROWTH AREAS: The user is also working on these personal growth areas: ${growthAreas.map(a => `"${a.title}"${a.energy_affinity ? ` (relates to ${a.energy_affinity} energy)` : ''}`).join(', ')}. If your pick's energy type matches one of these, you may add ONE short clause to the reason noting it's a rep for that area (e.g. "...and this one's a rep for staying patient") — but ONLY when genuinely relevant. Never force this onto every response; most picks should have no mention of it at all.`
+    : ''
+
   const system = `You are a helpful assistant for someone with ADHD. You help them pick the right task to work on right now. Be warm, direct, and practical. No fluff. Never be preachy or condescending.
 
 Tasks have t-shirt sizes: XS (~5 min), S (~15 min), M (~30-60 min), L (~half day), XL (~full day+).
 Tasks also have energy types (desk, people, errand, confrontation, creative, physical) and drain levels (low, med, high).
-HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}${weatherRule}
+HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}${weatherRule}${growthAreasRule}
 
 Respond with JSON only — an object with two fields:
 - "picks": array of 1-3 objects with "task" (exact task title from the list) and "reason" (one sentence why this is a good pick right now).
@@ -1420,6 +1425,54 @@ export async function geocodeWeather(query) {
   if (!res.ok) throw new Error(`geocode failed: ${res.status}`)
   const data = await res.json()
   return data.results || []
+}
+
+// --- Growth areas ---
+// Dedicated endpoints, deliberately not part of the bulk /api/data sync blob.
+
+export async function getGrowthAreas() {
+  const res = await fetch('/api/growth-areas')
+  if (!res.ok) throw new Error(`growth areas fetch failed: ${res.status}`)
+  const data = await res.json()
+  return data.areas || []
+}
+
+export async function createGrowthArea({ title, mode }) {
+  const res = await fetch('/api/growth-areas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, mode }),
+  })
+  if (!res.ok) throw new Error(`growth area create failed: ${res.status}`)
+  const data = await res.json()
+  return data.area
+}
+
+export async function updateGrowthArea(id, updates) {
+  const res = await fetch(`/api/growth-areas/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error(`growth area update failed: ${res.status}`)
+  const data = await res.json()
+  return data.area
+}
+
+export async function deleteGrowthArea(id) {
+  const res = await fetch(`/api/growth-areas/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`growth area delete failed: ${res.status}`)
+  return res.json()
+}
+
+export async function getTodayGrowthArea() {
+  try {
+    const res = await fetch('/api/growth-areas/today')
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
 }
 
 // --- AI Adviser ---

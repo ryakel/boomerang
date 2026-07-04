@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Home, ListTodo, Repeat2, FolderKanban, BarChart3, Package, Settings,
-  Sparkles, Plus, CheckCircle2, ScrollText, Inbox, Compass, Bell, TrendingUp,
+  Sparkles, Plus, CheckCircle2, ScrollText, Inbox, Compass, Bell, TrendingUp, Sprout,
 } from 'lucide-react'
 import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
@@ -23,7 +23,7 @@ export default function KeptDesktop({
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
-  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions,
+  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenGrowthAreas,
   onOpenNotifications, onOpenFlightLog, onStatusChange,
   syncStatus = 'synced', queueLength = 0,
 }) {
@@ -55,6 +55,7 @@ export default function KeptDesktop({
     { label: 'Analytics', icon: BarChart3, onClick: onOpenAnalytics },
     { label: 'Packages', icon: Package, onClick: onOpenPackages },
     { label: 'Loop suggestions', icon: Inbox, onClick: onOpenSuggestions },
+    { label: 'Growth areas', icon: Sprout, onClick: onOpenGrowthAreas },
     { label: 'Activity log', icon: ScrollText, onClick: onOpenActivity },
   ]
 

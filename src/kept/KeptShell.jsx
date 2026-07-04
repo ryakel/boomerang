@@ -21,6 +21,7 @@ export default function KeptShell({
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenNotifications, onOpenFlightLog,
+  onOpenGrowthAreas,
   onRefresh,
   syncStatus = 'synced', queueLength = 0,
 }) {
@@ -46,6 +47,7 @@ export default function KeptShell({
         onOpenPackages={onOpenPackages} onOpenDone={onOpenDone}
         onOpenActivity={onOpenActivity}
         onOpenSettings={onOpenSettings}
+        onOpenGrowthAreas={onOpenGrowthAreas}
       />
     )
   } else {

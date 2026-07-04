@@ -24,6 +24,7 @@ import KeptShell from './kept/KeptShell'
 import KeptDesktop from './kept/KeptDesktop'
 import QuickEditTask from './kept/QuickEditTask'
 import SuggestionsModal from './components/SuggestionsModal'
+import GrowthAreasModal from './components/GrowthAreasModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
@@ -111,6 +112,7 @@ export default function AppV2() {
   const [adviserDraftSeed, setAdviserDraftSeed] = useState('')
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showGrowthAreas, setShowGrowthAreas] = useState(false)
   // 7-day strip visibility — single source of truth. Date tap toggles
   // it in all themes. Two settings can seed the initial state on load:
   //   - week_strip_always_open: explicit "open by default" toggle
@@ -275,10 +277,10 @@ export default function AppV2() {
   // Check app version whenever a view/modal opens — same cadence v1 uses.
   // Catches stale clients without waiting for the next SSE/sync round-trip.
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || editTarget || showAdd || showWhatNow || showMarkdownImport) {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || showGrowthAreas || editTarget || showAdd || showWhatNow || showMarkdownImport) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, showGrowthAreas, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
 
   // Deep-link handler. Notifications come in as `/?task=<id>` (task tap),
   // `/?routine=<id>` (habit nudge tap, PR 2 — currently no-op without
@@ -535,6 +537,7 @@ export default function AppV2() {
   if (showAdviser) activeModals.push('adviser')
   if (showAnalytics) activeModals.push('analytics')
   if (showSuggestions) activeModals.push('suggestions')
+  if (showGrowthAreas) activeModals.push('growthAreas')
   if (spacesHubOpen) activeModals.push('spaces')
   if (systemMenuOpen) activeModals.push('systemMenu')
   if (searchOpen) activeModals.push('search')
@@ -556,10 +559,11 @@ export default function AppV2() {
     if (showAdviser) { setShowAdviser(false); return }
     if (showAnalytics) { setShowAnalytics(false); return }
     if (showSuggestions) { setShowSuggestions(false); return }
+    if (showGrowthAreas) { setShowGrowthAreas(false); return }
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
     if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, showGrowthAreas, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -1016,6 +1020,7 @@ export default function AppV2() {
         onOpenDone={() => setShowDone(true)}
         onOpenSuggestions={() => setShowSuggestions(true)}
         onOpenActivityLog={() => setShowActivityLog(true)}
+        onOpenGrowthAreas={() => setShowGrowthAreas(true)}
       />
       <main className={`v2-main${isDesktop ? ' v2-main-kanban' : ''}`}>
         {(tasks.length > 0 || searchOpen) && (
@@ -1344,6 +1349,7 @@ export default function AppV2() {
           onOpenNotifications={() => setShowNotifications(true)}
           onOpenFlightLog={() => setShowFlightLog(true)}
           onOpenSuggestions={() => setShowSuggestions(true)}
+          onOpenGrowthAreas={() => setShowGrowthAreas(true)}
           syncStatus={syncStatus}
           queueLength={queueLength}
         />
@@ -1402,6 +1408,7 @@ export default function AppV2() {
           onOpenFlightLog={() => setShowFlightLog(true)}
           onStatusChange={handleStatusChange}
           onOpenSuggestions={() => setShowSuggestions(true)}
+          onOpenGrowthAreas={() => setShowGrowthAreas(true)}
           syncStatus={syncStatus}
           queueLength={queueLength}
         />
@@ -1635,6 +1642,11 @@ export default function AppV2() {
           // to a manual flush. The user will see the new routine on the
           // Routines screen.
         }}
+      />
+
+      <GrowthAreasModal
+        open={showGrowthAreas}
+        onClose={() => setShowGrowthAreas(false)}
       />
 
       <PackagesModal

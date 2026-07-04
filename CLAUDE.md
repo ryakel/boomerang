@@ -806,6 +806,30 @@ Personal knowledge store Quokka can search. Where things are kept, how-tos, deci
 - Keyword search only (title/tags/summary). Semantic search across full bodies not wired.
 - 5-minute refresh cadence — if the user adds an item in Notion directly and immediately asks Quokka, they need to tap "Sync now" or have Quokka call `refresh_knowledge_index`.
 
+### Growth Areas (personal-coaching reminders, 2026-07-04)
+
+Deliberately tiny feature: standing reminders about *yourself* ("be more patient on calls"), not tasks — no tracking, no streak, no check-in. Full spec + design rationale (including the adversarial-review rewrite that killed the original static-banner delivery): `wiki/Growth-Areas.md`.
+
+**Storage.** `growthAreas.js` (root module, in the Dockerfile runtime COPY list). Its own dedicated `app_data` collections — `growth_areas` (the CRUD list) and `growth_area_today` (the cached daily rotation pick) — deliberately kept OUT of the bulk `/api/data` sync blob, same carve-out reasoning as tasks/routines/packages (see Derived-Stat Durability Rules above). The client only ever talks to dedicated `/api/growth-areas*` endpoints, never folding growth-area state into the object `useServerSync.js` pushes, so there's nothing for the whole-blob last-writer-wins path to clobber.
+
+**Data shape:** `{ id, title, mode: 'morning'|'persistent'|'both', energy_affinity, active, created_at }`. `energy_affinity` is inferred server-side via a cheap Claude call at creation time (same `claude-sonnet-4-6` + conservative-single-guess posture as tag inference); omitted when no clean match.
+
+**Surfacing — the part that got rebuilt after the adversarial pass:**
+- **Morning rotation.** One area a day (day-of-year index mod the `morning ∪ both` pool — deterministic per day), rendered as a **fresh AI rephrasing** of the stored title (reuses the toast-message shape: short prompt, timeout, static fallback = the stored title verbatim). Computed once per day, server-side, cached in `growth_area_today` so the digest and the Today-view banner never disagree or double-call the AI. An EMPTY cached pick (no eligible areas yet) is deliberately NOT sticky — `ensureTodayGrowthArea()` only treats a cache hit as final once it holds a real `area_id`, so adding your first area mid-day shows up immediately instead of waiting for tomorrow.
+- **Contextual injection (`persistent`/`both`).** NOT a static chip anymore. Active areas (title + `energy_affinity`) are passed into `getWhatNow()` (`src/api.js`, 6th param) and folded into Quokka's system prompt (`adviserSystemPrompt()` in server.js) — both may mention an area in one line when a task's energy genuinely matches, mirroring the existing "only mention weather when it affects the pick" rule. Never forced.
+- **Digest line.** `digestBuilder.js` reads `getTodayGrowthAreaCached()` (sync, cache-only — the digest builder is fully synchronous and must never block on a live AI call) and renders "☀️ Today: {text}" right after the lead-in, before Today.
+- **Today-view banner.** Small dismissible card above the Day Arc hero in `src/kept/TodayView.jsx` (`getTodayGrowthArea()` client call). Dismiss is "seen," not "done" — persisted in localStorage keyed by the pick's date, reappears next local morning. Same component renders on both KeptShell (mobile) and KeptDesktop (both use `TodayView`).
+
+**Background sync.** `startGrowthAreaSync()` (mirrors `weatherSync.js`'s cadence pattern) ticks every 15 min, calling `ensureTodayGrowthArea()` so the digest always has a warm cache by the time it builds.
+
+**Server endpoints:** `GET/POST /api/growth-areas`, `PATCH/DELETE /api/growth-areas/:id`, `GET /api/growth-areas/today`.
+
+**Management UI:** `GrowthAreasModal` (`src/components/GrowthAreasModal.jsx`) — simplest CRUD surface in the app, on par with Labels. Entry points: System menu (legacy theme), More → Growth areas (Kept mobile), sidebar nav (Kept desktop).
+
+**Quokka tools (4, in `adviserToolsMisc.js`):** `list_growth_areas` (read-only), `create_growth_area`, `update_growth_area`, `delete_growth_area` — staged with capture/restore compensation like every other mutation tool.
+
+**Known limitations:** no tracking is a deliberate locked v1 choice, not a placeholder. No AI-suggested growth areas — the user authors these directly. `energy_affinity` inference is best-effort/single-valued. See the wiki page's "Known limitations / parked" for the rest.
+
 ### Quokka (AI Adviser)
 Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and Quokka finds related tasks/GCal events/routines and queues the fix. Named after the quokka (a small, perpetually-smiling Australian marsupial). User-facing branding uses "Quokka"; internal code (module names, CSS classes, endpoints under `/api/adviser/`, state vars like `showAdviser`) stays as `adviser`/`Adviser` — renaming plumbing provides no value.
 
