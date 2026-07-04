@@ -48,6 +48,7 @@ export default function KeptShell({
         onOpenActivity={onOpenActivity}
         onOpenSettings={onOpenSettings}
         onOpenGrowthAreas={onOpenGrowthAreas}
+        onWhatNow={onWhatNow}
       />
     )
   } else {
