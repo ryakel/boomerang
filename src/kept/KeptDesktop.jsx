@@ -17,7 +17,7 @@ import './desktop.css'
 // shared Kept surfaces, ⌘K Throw. The Today rail + Board/Timeline view modes
 // are the K5 continuation; Kanban remains available via the standard themes.
 export default function KeptDesktop({
-  tasks = [], routines = [], labels = [],
+  tasks = [], routines = [], labels = [], weatherByDate = null,
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
@@ -70,11 +70,11 @@ export default function KeptDesktop({
       />
     )
   } else if (tab === 'loops') {
-    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onSkipLoopDay={onSkipLoopDay} />
+    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onSkipLoopDay={onSkipLoopDay} onOpenSuggestions={onOpenSuggestions} />
   } else {
     surface = (
       <TodayView
-        tasks={tasks} routines={routines} labels={labels}
+        tasks={tasks} routines={routines} labels={labels} weatherByDate={weatherByDate}
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
