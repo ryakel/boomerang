@@ -122,11 +122,24 @@ function taskLabel(id, session = null) {
   return `(missing task ${id.slice(0, 8)})`
 }
 
-function routineLabel(id) {
+function routineLabel(id, session = null) {
+  if (!id) return '(no id)'
   const r = getRoutine(id)
-  if (!r) return `(missing routine ${id.slice(0, 8)})`
-  const title = r.title?.trim() || '(untitled)'
-  return title.length > 60 ? `${title.slice(0, 57)}…` : title
+  if (r) {
+    const title = r.title?.trim() || '(untitled)'
+    return title.length > 60 ? `${title.slice(0, 57)}…` : title
+  }
+  // Forward reference to a not-yet-committed staged create_routine in the
+  // same session plan. Resolves the friendly title from the staged input
+  // so the preview reads naturally instead of "(missing routine abc12345)".
+  if (session) {
+    const staged = findStagedCreate(session, id)
+    if (staged?.input?.title) {
+      const title = String(staged.input.title).trim() || '(untitled)'
+      return (title.length > 60 ? `${title.slice(0, 57)}…` : title) + ' (pending)'
+    }
+  }
+  return `(missing routine ${id.slice(0, 8)})`
 }
 
 function pickTaskUpdates(input) {
@@ -783,8 +796,18 @@ export function registerTaskTools() {
       required: ['title', 'cadence'],
     },
     preview: (args) => `Create routine: "${args.title}" (${args.cadence})${Array.isArray(args.members) && args.members.length ? ` · ${args.members.length}-item stack` : ''}`,
-    execute: async (args) => {
+    // Pre-stamp the new routine's id at stage time so a chained
+    // add_follow_up in the same plan can reference it. Returned to the
+    // model as `id` in the staged response. At commit time, execute uses
+    // args.id.
+    preStage: (args) => {
       const id = `rt-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
+      return { id, input: { ...args, id } }
+    },
+    execute: async (args) => {
+      // args.id is now always pre-stamped via preStage; fall back to a
+      // fresh generation in case anything still calls execute directly.
+      const id = args.id || `rt-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
       const now = new Date().toISOString()
       const routine = {
         id,
@@ -1012,7 +1035,13 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       properties: { routine_id: { type: 'string' } },
       required: ['routine_id'],
     },
-    preview: (args) => `Spawn task from routine "${routineLabel(args.routine_id)}"`,
+    preview: (args, session) => `Spawn task from routine "${routineLabel(args.routine_id, session)}"`,
+    stagedValidate: (args, session) => {
+      if (!getRoutine(args.routine_id) && !findStagedCreate(session, args.routine_id)) {
+        return `routine_id "${args.routine_id}" doesn't match any real routine or any staged create_routine earlier in this plan. When chaining onto a routine you're creating in this same plan, the create_routine response includes an "id" field — use that id as the routine_id here.`
+      }
+      return null
+    },
     execute: async ({ routine_id }) => {
       const routine = getRoutine(routine_id)
       if (!routine) throw new Error(`Routine not found: ${routine_id}`)
@@ -1115,7 +1144,17 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       },
       required: ['routine_id', 'title'],
     },
-    preview: (args) => `Add chain step "${args.title}" to routine "${routineLabel(args.routine_id)}"`,
+    preview: (args, session) => `Add chain step "${args.title}" to routine "${routineLabel(args.routine_id, session)}"`,
+    // Stage-time validation: surface a bad routine_id to the model NOW
+    // instead of letting the whole plan roll back at commit. Accepts a
+    // routine_id that points to a real routine OR an earlier staged
+    // create_routine in the same plan (the chained-creation case).
+    stagedValidate: (args, session) => {
+      if (!getRoutine(args.routine_id) && !findStagedCreate(session, args.routine_id)) {
+        return `routine_id "${args.routine_id}" doesn't match any real routine or any staged create_routine earlier in this plan. When chaining a follow-up to a routine you're creating in this same plan, the create_routine response includes an "id" field — use that id as the routine_id here.`
+      }
+      return null
+    },
     execute: async (args) => {
       const before = getRoutine(args.routine_id)
       if (!before) throw new Error(`Routine not found: ${args.routine_id}`)
@@ -1163,7 +1202,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       },
       required: ['routine_id'],
     },
-    preview: (args) => `Edit chain step in routine "${routineLabel(args.routine_id)}"`,
+    preview: (args, session) => `Edit chain step in routine "${routineLabel(args.routine_id, session)}"`,
     execute: async (args) => {
       const before = getRoutine(args.routine_id)
       if (!before) throw new Error(`Routine not found: ${args.routine_id}`)
@@ -1233,7 +1272,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       },
       required: ['routine_id'],
     },
-    preview: (args) => `Remove chain step from routine "${routineLabel(args.routine_id)}"`,
+    preview: (args, session) => `Remove chain step from routine "${routineLabel(args.routine_id, session)}"`,
     execute: async (args) => {
       const before = getRoutine(args.routine_id)
       if (!before) throw new Error(`Routine not found: ${args.routine_id}`)
@@ -1270,7 +1309,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       },
       required: ['routine_id'],
     },
-    preview: (args) => `Reorder chain steps in routine "${routineLabel(args.routine_id)}"`,
+    preview: (args, session) => `Reorder chain steps in routine "${routineLabel(args.routine_id, session)}"`,
     execute: async (args) => {
       const before = getRoutine(args.routine_id)
       if (!before) throw new Error(`Routine not found: ${args.routine_id}`)
