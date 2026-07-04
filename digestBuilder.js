@@ -10,6 +10,7 @@
  *
  * Sections (in order):
  *   1. Lead-in — friendly opener (rotating static line, AI later via Phase 5)
+ *   1b. Growth area — today's rotating personal-coaching pick (cached, see growthAreas.js)
  *   2. Yesterday recap — completion count + streak (only if there's something positive)
  *   3. Today — tasks due today (overdue rolled in here, gentle phrasing)
  *   4. Coming up — tasks due in next 3 days
@@ -20,6 +21,7 @@
 
 import { queryTasks, getData, getAnalytics, filterNotifiableTasks } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
+import { getTodayGrowthAreaCached } from './growthAreas.js'
 
 // ACTIVE_STATUSES retained for any legacy refs; new code uses isNotifiable()
 // from db.js so the digest respects nag_allowed / snooze_indefinite / project
@@ -137,10 +139,13 @@ export function buildDigest(settings) {
   }
 
   const weatherSummary = buildWeatherSummary(getWeatherCache())
+  const growthPick = getTodayGrowthAreaCached()
+  const growthText = growthPick?.text || null
 
   // --- Build text version (for SMS gateway, push body, Pushover) ---
   const textParts = []
   textParts.push(pickLeadIn())
+  if (growthText) textParts.push(`☀️ Today: ${growthText}`)
   if (yesterday.length > 0 || streak > 0) {
     const recap = []
     if (yesterday.length > 0) recap.push(`Completed ${yesterday.length} yesterday`)
@@ -184,6 +189,9 @@ export function buildDigest(settings) {
 
   const htmlParts = []
   htmlParts.push(`<p style="font-size:15px;color:#111;margin:0 0 8px 0">${escapeHtml(pickLeadIn())}</p>`)
+  if (growthText) {
+    htmlParts.push(`<p style="font-size:14px;color:#0E6B36;margin:0 0 8px 0;font-weight:500">☀️ Today: ${escapeHtml(growthText)}</p>`)
+  }
   if (yesterday.length > 0 || streak > 0) {
     const bits = []
     if (yesterday.length > 0) bits.push(`<strong>${yesterday.length}</strong> completed yesterday`)

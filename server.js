@@ -28,6 +28,7 @@ import { initGmailSync, syncGmail, startGmailPolling, getGmailAccessToken } from
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
 import { startPatternDetection, runPatternScan } from './patternDetection.js'
 import { startTagSuggestions, runTagScan, listPendingTagSuggestions, dismissTagSuggestion } from './tagSuggestions.js'
+import { startGrowthAreaSync, listGrowthAreas, createGrowthArea, updateGrowthArea, deleteGrowthArea, ensureTodayGrowthArea, contextualGrowthAreas } from './growthAreas.js'
 import { listPendingSuggestions, getPatternSuggestion, updateSuggestionStatus, snoozeSuggestion, countPendingSuggestions } from './db.js'
 import { runBackup } from './scripts/backup-db.js'
 import {
@@ -2841,6 +2842,46 @@ app.post('/api/tag-suggestions/scan', async (req, res) => {
   }
 })
 
+// Growth areas — personal coaching reminders. Dedicated per-record endpoints,
+// deliberately NOT part of the bulk /api/data blob. See wiki/Growth-Areas.md.
+app.get('/api/growth-areas', (req, res) => {
+  res.json({ areas: listGrowthAreas() })
+})
+
+app.post('/api/growth-areas', async (req, res) => {
+  try {
+    const { title, mode } = req.body || {}
+    const area = await createGrowthArea({ title, mode })
+    res.json({ ok: true, area })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+app.patch('/api/growth-areas/:id', (req, res) => {
+  const area = updateGrowthArea(req.params.id, req.body || {})
+  if (!area) return res.status(404).json({ error: 'Growth area not found' })
+  res.json({ ok: true, area })
+})
+
+app.delete('/api/growth-areas/:id', (req, res) => {
+  const ok = deleteGrowthArea(req.params.id)
+  if (!ok) return res.status(404).json({ error: 'Growth area not found' })
+  res.json({ ok: true })
+})
+
+app.get('/api/growth-areas/today', async (req, res) => {
+  try {
+    // ensureTodayGrowthArea() already returns the cached pick when one exists
+    // (and only ever recomputes a stale/empty cache) — calling it directly
+    // avoids treating a cached "no eligible areas yet" result as permanent.
+    const pick = await ensureTodayGrowthArea()
+    res.json(pick)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.post('/api/notifications/tap', (req, res) => {
   const { taskId, channel } = req.body || {}
   if (!taskId) return res.status(400).json({ error: 'Missing taskId' })
@@ -3171,7 +3212,11 @@ function adviserSystemPrompt() {
   const notionConnected = !!(getData('notion_mcp_tokens')?.access_token || envNotionToken)
   const trelloConnected = !!(envTrelloKey && envTrelloToken)
   const trackingConnected = !!getTrackingApiKey()
-  return `You are Quokka, the cheerful AI adviser for Boomerang — an ADHD task manager PWA. Today is ${today} (${dayOfWeek}). You are named after the quokka (a small, smiley Australian marsupial that looks like it's always having a good day); lean into a warm, upbeat, down-to-earth tone without being cloying. The very occasional Aussie flavor ("no worries", "on ya") is fine but don't overdo it.
+  const growthAreas = contextualGrowthAreas()
+  const growthAreasNote = growthAreas.length > 0
+    ? `\n\nThe user is also working on these personal growth areas (standing self-improvement reminders, not tasks): ${growthAreas.map(a => `"${a.title}"${a.energy_affinity ? ` (${a.energy_affinity})` : ''}`).join(', ')}. When the conversation naturally touches on one of these (e.g. they're dreading a confrontation-flavored task and one of these areas relates to that), you may weave in a brief, warm, coaching-flavored line — but only when it's genuinely relevant to what they said. Never bring these up unprompted or force them into unrelated replies.`
+    : ''
+  return `You are Quokka, the cheerful AI adviser for Boomerang — an ADHD task manager PWA. Today is ${today} (${dayOfWeek}). You are named after the quokka (a small, smiley Australian marsupial that looks like it's always having a good day); lean into a warm, upbeat, down-to-earth tone without being cloying. The very occasional Aussie flavor ("no worries", "on ya") is fine but don't overdo it.${growthAreasNote}
 
 The user will describe something they want done ("I've rescheduled my FAA exam to May 12 — adjust everything", "move all my lawn-care tasks to next weekend since it'll rain", etc.). You have tools that mirror every capability of the app: tasks, routines, Google Calendar, Notion, Trello, Gmail, packages, weather, settings.
 
@@ -3923,6 +3968,7 @@ initDb(dbPath).then(async () => {
     startWeeklyPatternReview()
     startPatternDetection()
     startTagSuggestions()
+    startGrowthAreaSync()
 
     // Background knowledge-base index refresh. Bails silently when not configured.
     startKnowledgeRefreshLoop({ getData, setData })

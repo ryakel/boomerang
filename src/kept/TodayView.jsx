@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass, Sprout } from 'lucide-react'
+import { getTodayGrowthArea } from '../api'
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD, parseLocalDate } from '../dates'
@@ -32,6 +33,25 @@ export default function TodayView({
   // (prod report: "slider and counts should change with the date selection").
   const [breakdownDay, setBreakdownDay] = useState(null)
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
+
+  // Today's growth-area rotation pick — cached server-side (growthAreas.js),
+  // same one read the digest uses. Dismiss is "seen", not "done" — no
+  // completion semantics — and re-appears the next local morning.
+  const [growthPick, setGrowthPick] = useState(null)
+  const [growthDismissed, setGrowthDismissed] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    getTodayGrowthArea().then(pick => {
+      if (cancelled || !pick?.text) return
+      setGrowthPick(pick)
+      setGrowthDismissed(localStorage.getItem('bm_growth_banner_dismissed') === pick.date)
+    })
+    return () => { cancelled = true }
+  }, [todayKey])
+  const dismissGrowthBanner = () => {
+    if (growthPick) localStorage.setItem('bm_growth_banner_dismissed', growthPick.date)
+    setGrowthDismissed(true)
+  }
 
   const stackRoutineIds = useMemo(() => new Set(
     routines.filter(r => Array.isArray(r.members) && r.members.length > 0).map(r => r.id),
@@ -177,6 +197,15 @@ export default function TodayView({
 
   return (
     <div className="bm-surface">
+      {growthPick?.text && !growthDismissed && (
+        <div className="bm-growth-banner">
+          <span className="bm-growth-banner-icon"><Sprout size={15} strokeWidth={2} /></span>
+          <span className="bm-growth-banner-text">{growthPick.text}</span>
+          <button className="bm-growth-banner-dismiss" onClick={dismissGrowthBanner} aria-label="Dismiss">
+            <X size={14} strokeWidth={2.2} />
+          </button>
+        </div>
+      )}
       <div className="bm-card bm-card-hero">
         <div className="bm-hero-date">
           <span className="bm-hero-day">{(selStats ? selStats.date : new Date()).toLocaleDateString('en-US', { weekday: 'long' })}</span>
