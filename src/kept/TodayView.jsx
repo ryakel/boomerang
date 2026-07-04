@@ -63,6 +63,15 @@ export default function TodayView({
     localStorage.setItem('bm_growth_banner_dismissed', growthDismissKey)
     setGrowthDismissed(prev => ({ ...prev, [growthDismissKey]: true }))
   }
+  // Restore — dismiss isn't a one-way door. If it was tapped by mistake (or
+  // the user changes their mind), a small "show it again" affordance takes
+  // its place rather than the banner just vanishing for the rest of the
+  // period with no way back.
+  const restoreGrowthBanner = () => {
+    if (!growthDismissKey) return
+    localStorage.removeItem('bm_growth_banner_dismissed')
+    setGrowthDismissed(prev => { const next = { ...prev }; delete next[growthDismissKey]; return next })
+  }
   const growthBannerDismissed = growthDismissKey
     ? (growthDismissed[growthDismissKey] || localStorage.getItem('bm_growth_banner_dismissed') === growthDismissKey)
     : false
@@ -211,7 +220,11 @@ export default function TodayView({
 
   return (
     <div className="bm-surface">
-      {growthPick?.text && !growthBannerDismissed && (
+      {growthPick?.text && (growthBannerDismissed ? (
+        <button className="bm-growth-banner-restore" onClick={restoreGrowthBanner}>
+          <Sprout size={12} strokeWidth={2} /> Show today's nudge
+        </button>
+      ) : (
         <div className="bm-growth-banner">
           <span className="bm-growth-banner-icon"><Sprout size={15} strokeWidth={2} /></span>
           <span className="bm-growth-banner-text">{growthPick.text}</span>
@@ -219,7 +232,7 @@ export default function TodayView({
             <X size={14} strokeWidth={2.2} />
           </button>
         </div>
-      )}
+      ))}
       <div className="bm-card bm-card-hero">
         <div className="bm-hero-date">
           <span className="bm-hero-day">{(selStats ? selStats.date : new Date()).toLocaleDateString('en-US', { weekday: 'long' })}</span>

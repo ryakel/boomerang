@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-04
 
+- fix(tasks): make the Growth Areas Today-view dismiss reversible [XS]
+  - **User request:** "if I dismiss I need the ability to restore it."
+  - `src/kept/TodayView.jsx`: dismissing the growth-area banner now leaves a tiny "Show today's nudge" restore link in its place (icon + short label, not a full sentence) instead of the banner just vanishing for the rest of the period. Tapping it clears the dismiss key and brings the banner back.
+
 - feat(tasks): Growth Areas — evening timing + day-scope filtering [M]
   - **User request:** prod feedback — "on a Saturday I probably can deprioritize work things and prioritize family things... leave work at work" plus a request for an evening/workday-evening surfacing option.
   - Replaced the single `mode` enum (`morning`/`persistent`/`both`) with three independent booleans (`morning`, `evening`, `persistent`) plus a `day_scope` (`any`/`weekdays`/`weekends`) eligibility filter, applied everywhere an area is considered — the daily rotation pool AND contextual injection (What Now/Quokka). Legacy `mode`-shaped records normalize on read, no migration needed (JSON blob collection, not a SQL table).
