@@ -1,4 +1,4 @@
-import { localYMD } from '../dates'
+import { localYMD } from '../dates.js'
 
 // Cadence-window math for the Loops cards (design doc §13a): the
 // visualization unit is the loop's own cycle, not the calendar day. A
@@ -62,22 +62,36 @@ export function cycleWindows(routine, count = 12) {
       anchor.setDate(anchor.getDate() + ((sdow - anchor.getDay() + 7) % 7))
     }
     const sinceDays = Math.floor((today - anchor) / 86400000)
-    const idx = Math.max(0, Math.floor(sinceDays / stepDays))
-    for (let i = Math.max(0, idx - count + 1); i <= idx; i++) {
-      const start = new Date(anchor); start.setDate(start.getDate() + i * stepDays)
-      const end = new Date(start); end.setDate(end.getDate() + stepDays)
-      windows.push(windowOf(start, end, today, stamps))
+    // sinceDays < 0 means the forward-shifted anchor's first cycle hasn't
+    // started yet (e.g. a routine created today with a schedule_day_of_week
+    // that already passed this calendar week — the anchor lands next week).
+    // The old Math.max(0, ...) clamp forced idx to 0 in that case, minting a
+    // FUTURE window (start > today) that's neither current nor caught, which
+    // loopGaps() then had no way to distinguish from a genuinely missed past
+    // cycle — a brand-new routine immediately showed "1 to fix." No windows
+    // exist yet when the first cycle hasn't started.
+    if (sinceDays >= 0) {
+      const idx = Math.floor(sinceDays / stepDays)
+      for (let i = Math.max(0, idx - count + 1); i <= idx; i++) {
+        const start = new Date(anchor); start.setDate(start.getDate() + i * stepDays)
+        const end = new Date(start); end.setDate(end.getDate() + stepDays)
+        windows.push(windowOf(start, end, today, stamps))
+      }
     }
   } else if (stepMonths != null) {
     const anchor = created
       ? new Date(created.getFullYear(), created.getMonth(), 1)
       : new Date(today.getFullYear(), today.getMonth(), 1)
     const monthsSince = (today.getFullYear() - anchor.getFullYear()) * 12 + (today.getMonth() - anchor.getMonth())
-    const idx = Math.max(0, Math.floor(monthsSince / stepMonths))
-    for (let i = Math.max(0, idx - count + 1); i <= idx; i++) {
-      const start = new Date(anchor); start.setMonth(start.getMonth() + i * stepMonths)
-      const end = new Date(start); end.setMonth(end.getMonth() + stepMonths)
-      windows.push(windowOf(start, end, today, stamps))
+    // Same fix as the day-stepped branch above: a future anchor (monthsSince
+    // < 0) means the first cycle hasn't started — no windows yet.
+    if (monthsSince >= 0) {
+      const idx = Math.floor(monthsSince / stepMonths)
+      for (let i = Math.max(0, idx - count + 1); i <= idx; i++) {
+        const start = new Date(anchor); start.setMonth(start.getMonth() + i * stepMonths)
+        const end = new Date(start); end.setMonth(end.getMonth() + stepMonths)
+        windows.push(windowOf(start, end, today, stamps))
+      }
     }
   }
   return windows
