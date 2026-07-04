@@ -16,32 +16,32 @@
   gap: 14px;
   padding: 32px 28px;
   border-radius: 18px;
-  background: var(--bm-surface, #fff);
+  background: var(--bm-card, #fff);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
 }
 
 .login-mark {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: var(--v2-font-display, 'Fraunces', Georgia, serif);
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--bm-ink, #1c1a17);
+  color: var(--bm-text, #1c1a17);
 }
 
 .login-sub {
   margin: -6px 0 4px;
   font-size: 14px;
-  color: var(--bm-ink-soft, #6b655c);
+  color: var(--bm-text-meta, #6b655c);
 }
 
 .login-input {
   width: 100%;
   padding: 12px 14px;
   font-size: 16px; /* >=16px avoids iOS zoom-on-focus */
-  border: 1px solid var(--bm-line, #e2dcd2);
+  border: 1px solid var(--bm-hairline, #e2dcd2);
   border-radius: 12px;
   background: var(--bm-bg, #faf8f4);
-  color: var(--bm-ink, #1c1a17);
+  color: var(--bm-text, #1c1a17);
   box-sizing: border-box;
 }
 
@@ -52,7 +52,7 @@
 
 .login-error {
   font-size: 13px;
-  color: #c0392b;
+  color: var(--bm-danger, #c0392b);
 }
 
 .login-btn {

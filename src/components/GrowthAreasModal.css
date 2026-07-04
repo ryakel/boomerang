@@ -99,7 +99,7 @@
   color: var(--v2-text-meta);
 }
 .v2-growth-chip-energy {
-  background: rgba(255, 98, 64, 0.12);
+  background: color-mix(in srgb, var(--v2-accent) 15%, transparent);
   color: var(--v2-accent);
 }
 .v2-growth-chip-scope {
@@ -128,6 +128,7 @@
 }
 .v2-growth-timing-check input {
   margin: 0;
+  accent-color: var(--v2-accent);
 }
 
 .v2-growth-row-actions {

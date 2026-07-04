@@ -69,6 +69,18 @@ export default function AppV2() {
   const [editFull, setEditFull] = useState(false)
   useEffect(() => { if (!editTarget) setEditFull(false) }, [editTarget])
   const [showAdd, setShowAdd] = useState(false)
+  // Every fresh Add-modal open gets a new key so useTaskForm's internal state
+  // (title/notes/tags/size/energy) can't leak from a previous entry — the
+  // modal is permanently mounted (see render below) so a stale open/close
+  // toggle alone never resets it. `draft` seeds the form when handed off
+  // from ThrowSheet's "More options" (previously dropped on the floor).
+  const [addModalKey, setAddModalKey] = useState(0)
+  const [addInitialDraft, setAddInitialDraft] = useState(null)
+  const openAddModal = useCallback((draft = null) => {
+    setAddInitialDraft(draft)
+    setAddModalKey(k => k + 1)
+    setShowAdd(true)
+  }, [])
   const [toast, setToast] = useState(null)
   const [showWhatNow, setShowWhatNow] = useState(false)
   // Bottom-tab navigation state. 'today' = main task list, 'spaces' =
@@ -694,7 +706,7 @@ export default function AppV2() {
     onEdit: setEditTarget,
     onComplete: handleComplete,
     onSnooze: handleSnooze,
-    openAddModal: useCallback(() => setShowAdd(true), []),
+    openAddModal: () => openAddModal(),
     focusSearch: focusSearchInput,
     activeModals,
     closeTopModal,
@@ -760,8 +772,8 @@ export default function AppV2() {
   const [addChildOfProject, setAddChildOfProject] = useState(null)
   const handleAddChildToProject = useCallback((project) => {
     setAddChildOfProject(project)
-    setShowAdd(true)
-  }, [])
+    openAddModal()
+  }, [openAddModal])
 
   // "+ New project" launcher — opens AddTaskModal with a flag so the
   // created task lands as status='project' instead of the default
@@ -771,8 +783,8 @@ export default function AppV2() {
   const handleCreateProject = useCallback(() => {
     setShowProjects(false)
     setCreateAsProject(true)
-    setShowAdd(true)
-  }, [])
+    openAddModal()
+  }, [openAddModal])
 
   // Log a project session. Renders a toast with the points awarded, or an
   // explanatory message when capped. Falls back silently to a local-only
@@ -967,7 +979,23 @@ export default function AppV2() {
     } else {
       prefetchToast(taskId, taskData.title, taskData.energy, taskData.energyLevel)
     }
+    return taskId
   }, [addTask, updateTask, prefetchToast, addChildOfProject, setTaskParent, setChildVisibility, createAsProject])
+
+  // Scrolls a just-created task's row into view once the on-screen keyboard
+  // has had time to collapse. Quick-capture surfaces (Throw, quick-add) sit
+  // at the bottom of the layout viewport, so a new task can land in a list
+  // position still covered by the (dismissing) keyboard — prod report: "new
+  // tasks have a tendency to show up under the keyboard and I have to scroll
+  // to get to it." The delay is a pragmatic wait for the iOS dismiss
+  // animation to finish rather than a hard viewport-settled signal.
+  const scrollTaskIntoView = useCallback((taskId) => {
+    if (!taskId) return
+    setTimeout(() => {
+      document.querySelector(`[data-task-id="${taskId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 350)
+  }, [])
+
 
   const renderSection = (label, list, sigil) => {
     if (list.length === 0) return null
@@ -1213,7 +1241,7 @@ export default function AppV2() {
             title={activeFilter !== 'all' ? 'No tasks match this filter' : 'Nothing on your plate'}
             body={activeFilter !== 'all' ? 'Tap All above to clear the filter.' : 'No active tasks right now. Tap the + above to add one.'}
             cta={activeFilter !== 'all' ? 'Show all' : 'Add task'}
-            ctaOnClick={activeFilter !== 'all' ? () => setActiveFilter('all') : () => setShowAdd(true)}
+            ctaOnClick={activeFilter !== 'all' ? () => setActiveFilter('all') : () => openAddModal()}
           />
         ) : isDesktop ? (
           <KanbanBoard
@@ -1293,7 +1321,7 @@ export default function AppV2() {
             }
           }}
           onQuickAdd={(title) => addTask({ title })}
-          onAddLongPress={() => setShowAdd(true)}
+          onAddLongPress={() => openAddModal()}
           onWhatNow={() => setShowWhatNow(true)}
         />
       )}
@@ -1333,8 +1361,8 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate }) => handleAddTask({ title, dueDate })}
-          onOpenFullAdd={() => setShowAdd(true)}
+          onThrow={({ title, dueDate }) => scrollTaskIntoView(handleAddTask({ title, dueDate }))}
+          onOpenFullAdd={(draft) => openAddModal(draft)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
@@ -1391,8 +1419,8 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate }) => handleAddTask({ title, dueDate })}
-          onOpenFullAdd={() => setShowAdd(true)}
+          onThrow={({ title, dueDate }) => scrollTaskIntoView(handleAddTask({ title, dueDate }))}
+          onOpenFullAdd={(draft) => openAddModal(draft)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
@@ -1444,11 +1472,13 @@ export default function AppV2() {
       )}
 
       <AddTaskModal
+        key={addModalKey}
         open={showAdd}
         onAdd={handleAddTask}
         onClose={() => { setShowAdd(false); setAddChildOfProject(null); setCreateAsProject(false) }}
         parentProject={addChildOfProject}
         createAsProject={createAsProject}
+        initialDraft={addInitialDraft}
       />
 
       {editTarget && useQuickEditor && (
