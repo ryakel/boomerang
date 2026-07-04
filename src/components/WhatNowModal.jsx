@@ -18,6 +18,15 @@ const ENERGY_OPTIONS = [
   { label: "I've got it", sub: 'Peak focus' },
 ]
 
+// Mirrors growthAreas.js's server-side dayScopeMatches() — the browser's
+// Date is already in the user's local time, so no timezone lookup needed.
+function dayScopeMatches(dayScope) {
+  if (!dayScope || dayScope === 'any') return true
+  const dow = new Date().getDay()
+  const isWeekend = dow === 0 || dow === 6
+  return dayScope === 'weekends' ? isWeekend : !isWeekend
+}
+
 // Build a compact summary string for the AI prompt — same shape as v1.
 function buildWeatherSummaryFromCache(cache) {
   const days = cache?.cache?.forecast?.days
@@ -78,7 +87,7 @@ export default function WhatNowModal({ open, tasks, onClose, onComplete }) {
       let growthAreas = null
       try {
         const areas = await getGrowthAreas()
-        const contextual = areas.filter(a => a.active && (a.mode === 'persistent' || a.mode === 'both'))
+        const contextual = areas.filter(a => a.active && a.persistent && dayScopeMatches(a.day_scope))
         if (contextual.length > 0) growthAreas = contextual
       } catch { /* growth areas optional */ }
       const results = await getWhatNow(tasks, time, energy, capacity, weatherSummary, growthAreas)

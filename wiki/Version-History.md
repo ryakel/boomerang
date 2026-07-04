@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-04
 
+- feat(tasks): Growth Areas — evening timing + day-scope filtering [M]
+  - **User request:** prod feedback — "on a Saturday I probably can deprioritize work things and prioritize family things... leave work at work" plus a request for an evening/workday-evening surfacing option.
+  - Replaced the single `mode` enum (`morning`/`persistent`/`both`) with three independent booleans (`morning`, `evening`, `persistent`) plus a `day_scope` (`any`/`weekdays`/`weekends`) eligibility filter, applied everywhere an area is considered — the daily rotation pool AND contextual injection (What Now/Quokka). Legacy `mode`-shaped records normalize on read, no migration needed (JSON blob collection, not a SQL table).
+  - Solves the concrete example deterministically rather than via AI-inferred domain weighting: "leave work at work" = `evening` + `day_scope: weekdays` simply never enters the pool on a Saturday.
+  - `growth_area_today` cache now holds independent morning + evening picks (`{date, morning, evening}`); each period gets its own once-daily rotation + AI rephrase (period-flavored prompt — morning = start-the-day cue, evening = wind-down cue). Digest reads the morning pick; the Kept Today-view banner picks whichever period it currently is client-side (evening from 5pm local on), with a per-`date:period` dismiss key so dismissing one doesn't suppress the other.
+  - UI: `GrowthAreasModal`'s mode dropdown replaced with Morning/Evening/Persistent checkboxes + a day-scope select, in both the add form and the row editor.
+  - Quokka: `create_growth_area`/`update_growth_area` schemas updated to the new fields (still default to morning+persistent when none of the three timing flags are given, matching the old "both" default).
+
 - feat(tasks): add Escalation Ladder — contact-persistence tracking [XL]
   - **User request:** second half of the "Fix the specs then build" instruction, following the Growth Areas build. Builds `wiki/Escalation-Ladder.md` end-to-end.
   - For "I need a response and I'm not getting one" tasks: tracks repeated attempts to reach an unresponsive person/organization and PROMPTS to switch tactic once a rung's attempts are exhausted, rather than just re-nagging the same dead approach. Distinct from Sequences (`follow_ups`, completion-triggered) — this fires on attempt-threshold.
