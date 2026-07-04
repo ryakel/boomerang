@@ -259,6 +259,11 @@ function taskToRow(task) {
     waiting_at: task.waiting_at || null,
     stack_bonus: task.stack_bonus ?? null,
     assignee: task.assignee || null,
+    escalation_rungs_json: JSON.stringify(task.escalation_rungs || []),
+    escalation_current_rung: task.escalation_current_rung ?? null,
+    escalation_attempt_log_json: JSON.stringify(task.escalation_attempt_log || []),
+    escalation_awaiting_advance: task.escalation_awaiting_advance ? 1 : 0,
+    escalation_stuck: task.escalation_stuck ? 1 : 0,
   }
 }
 
@@ -314,6 +319,11 @@ function rowToTask(row) {
     waiting_at: row.waiting_at || null,
     stack_bonus: row.stack_bonus ?? null,
     assignee: row.assignee || null,
+    escalation_rungs: safeJsonParse(row.escalation_rungs_json, []),
+    escalation_current_rung: row.escalation_current_rung ?? null,
+    escalation_attempt_log: safeJsonParse(row.escalation_attempt_log_json, []),
+    escalation_awaiting_advance: !!row.escalation_awaiting_advance,
+    escalation_stuck: !!row.escalation_stuck,
   }
 }
 
@@ -339,8 +349,10 @@ const UPSERT_TASK_SQL = `
     pushover_receipt, follow_ups_json, skipped,
     parent_id, pinned_to_today, nag_allowed, session_count, last_session_at,
     session_log_json, child_visibility, snooze_indefinite, blocked_by_json,
-    knowledge_page_ids_json, stack_bonus, assignee)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    knowledge_page_ids_json, stack_bonus, assignee,
+    escalation_rungs_json, escalation_current_rung, escalation_attempt_log_json,
+    escalation_awaiting_advance, escalation_stuck)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -369,7 +381,12 @@ const UPSERT_TASK_SQL = `
     blocked_by_json=excluded.blocked_by_json,
     knowledge_page_ids_json=excluded.knowledge_page_ids_json,
     stack_bonus=excluded.stack_bonus,
-    assignee=excluded.assignee`
+    assignee=excluded.assignee,
+    escalation_rungs_json=excluded.escalation_rungs_json,
+    escalation_current_rung=excluded.escalation_current_rung,
+    escalation_attempt_log_json=excluded.escalation_attempt_log_json,
+    escalation_awaiting_advance=excluded.escalation_awaiting_advance,
+    escalation_stuck=excluded.escalation_stuck`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -385,6 +402,8 @@ function runUpsertTask(task) {
     r.parent_id, r.pinned_to_today, r.nag_allowed, r.session_count, r.last_session_at,
     r.session_log_json, r.child_visibility, r.snooze_indefinite, r.blocked_by_json,
     r.knowledge_page_ids_json, r.stack_bonus, r.assignee,
+    r.escalation_rungs_json, r.escalation_current_rung, r.escalation_attempt_log_json,
+    r.escalation_awaiting_advance, r.escalation_stuck,
   ])
 }
 
@@ -758,6 +777,129 @@ export function logProjectSession(projectId) {
 }
 
 export const PROJECT_CONSTANTS = { SESSION_PCT, SESSION_CAP, DEFAULT_PROJECT_BUDGET }
+
+// ============================================================
+// Escalation Ladder — repeated-contact-attempt tracking on a single task.
+// See wiki/Escalation-Ladder.md. Distinct from Sequences (follow_ups):
+// this fires the next rung on ATTEMPT-THRESHOLD, not on completion.
+// ============================================================
+
+// Set/replace the rung list. `append: true` adds to the existing list
+// (used by the Brainstorm-stages-new-rungs flow) instead of replacing it —
+// and un-sticks the ladder, since there's now somewhere further to go.
+export function setEscalationLadder(taskId, rungs, { append = false } = {}) {
+  const task = getTask(taskId)
+  if (!task) throw new Error(`Task not found: ${taskId}`)
+  const incoming = Array.isArray(rungs) ? rungs : []
+  const nextRungs = append ? [...(task.escalation_rungs || []), ...incoming] : incoming
+  const wasInactive = task.escalation_current_rung == null
+  const updates = { escalation_rungs: nextRungs }
+  // Starting a ladder for the first time (or restarting a resolved one)
+  // begins at rung 0. Appending onto an in-progress ladder just extends it.
+  if (nextRungs.length > 0 && (wasInactive || !append)) {
+    updates.escalation_current_rung = 0
+    updates.escalation_awaiting_advance = false
+  }
+  if (append && task.escalation_stuck) updates.escalation_stuck = false
+  updateTaskPartial(taskId, updates)
+  return getTask(taskId)
+}
+
+// Log one contact attempt at the current rung. Awards 1 point (attempts are
+// real effort, same "waiting = progress" principle as elsewhere in the app).
+// Flips escalation_awaiting_advance (or escalation_stuck, on the last rung)
+// once the rung's attempts_before_ready threshold is met — the app OFFERS
+// to move on, it never advances silently.
+export function logEscalationAttempt(taskId, note) {
+  const task = getTask(taskId)
+  if (!task) throw new Error(`Task not found: ${taskId}`)
+  const rungs = task.escalation_rungs || []
+  const currentIdx = task.escalation_current_rung
+  if (currentIdx == null || !rungs[currentIdx]) throw new Error('No active escalation ladder on this task')
+  const now = new Date().toISOString()
+  const log = [...(task.escalation_attempt_log || []), {
+    id: `esc-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    at: now,
+    rung_index: currentIdx,
+    points: 1,
+    note: note || undefined,
+  }]
+  const rung = rungs[currentIdx]
+  const attemptsAtRung = log.filter(e => e.rung_index === currentIdx).length
+  const isLastRung = currentIdx >= rungs.length - 1
+  const thresholdMet = rung.attempts_before_ready != null && attemptsAtRung >= rung.attempts_before_ready
+  const updates = { escalation_attempt_log: log }
+  if (thresholdMet) {
+    if (isLastRung) updates.escalation_stuck = true
+    else updates.escalation_awaiting_advance = true
+  }
+  updateTaskPartial(taskId, updates)
+  return { task: getTask(taskId), attemptsAtRung, thresholdMet }
+}
+
+// Manual "Move on" — also used to accept a prompted-advance ("Move on"
+// button on the awaiting-advance nudge). Advances to the next rung; if
+// there is no next rung, there's nowhere scripted left to go, so it flips
+// escalation_stuck instead of advancing out of bounds.
+export function advanceEscalationRung(taskId) {
+  const task = getTask(taskId)
+  if (!task) throw new Error(`Task not found: ${taskId}`)
+  const rungs = task.escalation_rungs || []
+  const currentIdx = task.escalation_current_rung
+  if (currentIdx == null) throw new Error('No active escalation ladder on this task')
+  const nextIdx = currentIdx + 1
+  const updates = { escalation_awaiting_advance: false }
+  if (nextIdx < rungs.length) updates.escalation_current_rung = nextIdx
+  else updates.escalation_stuck = true
+  updateTaskPartial(taskId, updates)
+  return getTask(taskId)
+}
+
+// "One more try" on a prompted-advance nudge — stays on the current rung,
+// just clears the prompt (the user's own threshold was too eager this time).
+export function dismissEscalationAdvancePrompt(taskId) {
+  const task = getTask(taskId)
+  if (!task) throw new Error(`Task not found: ${taskId}`)
+  updateTaskPartial(taskId, { escalation_awaiting_advance: false })
+  return getTask(taskId)
+}
+
+// "Got a response" — success path. Clears the ACTIVE ladder state but keeps
+// escalation_rungs + escalation_attempt_log as a record (so the celebration
+// toast / history can reference how many rungs it took).
+export function resolveEscalation(taskId) {
+  const task = getTask(taskId)
+  if (!task) throw new Error(`Task not found: ${taskId}`)
+  updateTaskPartial(taskId, {
+    escalation_current_rung: null,
+    escalation_awaiting_advance: false,
+    escalation_stuck: false,
+  })
+  return getTask(taskId)
+}
+
+// Notification content override for a task with an active ladder — used by
+// push/email/pushover in place of the generic stale/nudge copy, and to
+// override that notification's cadence with the current rung's own tempo.
+// Returns null when there's no active ladder to override with.
+export function escalationNudgeOverride(task) {
+  if (!task || task.escalation_current_rung == null) return null
+  const rungs = task.escalation_rungs || []
+  const rung = rungs[task.escalation_current_rung]
+  if (!rung) return null
+  const attemptsAtRung = (task.escalation_attempt_log || []).filter(e => e.rung_index === task.escalation_current_rung).length
+  if (task.escalation_awaiting_advance) {
+    const nextRung = rungs[task.escalation_current_rung + 1]
+    return {
+      text: `${rung.label} has had ${attemptsAtRung} tr${attemptsAtRung === 1 ? 'y' : 'ies'} with no response. Ready to switch to ${nextRung?.label || 'the next approach'}?`,
+      cadenceDays: rung.nudge_every_days || null,
+    }
+  }
+  return {
+    text: `${rung.suggestion || rung.label}${rung.script ? ` — try: "${rung.script}"` : ''} (attempt ${attemptsAtRung + 1})`,
+    cadenceDays: rung.nudge_every_days || null,
+  }
+}
 
 // Single source of truth for "should this task trigger any notification?".
 // Used by push/email/pushover engines + digest builder. The rules:

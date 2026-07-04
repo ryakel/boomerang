@@ -52,6 +52,27 @@ export function computeSessionStatsToday(tasks) {
   return { count, points }
 }
 
+// Sum escalation-ladder attempt points logged today, across every task
+// (active ladder or not — a resolved/closed ladder's history still counts
+// for the day the attempt actually happened). Each logged attempt is worth
+// 1 point, same "waiting = progress" principle as elsewhere — sent the
+// email, made the call is real effort even without resolution.
+export function computeEscalationStatsToday(tasks) {
+  const todayStr = new Date().toDateString()
+  let count = 0
+  let points = 0
+  for (const t of tasks) {
+    const log = Array.isArray(t.escalation_attempt_log) ? t.escalation_attempt_log : []
+    for (const entry of log) {
+      if (!entry?.at) continue
+      if (new Date(entry.at).toDateString() !== todayStr) continue
+      count += 1
+      points += entry.points || 0
+    }
+  }
+  return { count, points }
+}
+
 // Compute today's task count and total points. Optional `settings` arg
 // applies the Easter-egg bonus: winning the hidden tic-tac-toe game
 // (triggered by 7-tapping the EditTaskModal title) stamps
@@ -83,11 +104,12 @@ export function computeDailyStats(tasks, settings = null) {
   const waitingToday = tasks.filter(t => t.status === 'waiting' && t.waiting_at && new Date(t.waiting_at).toDateString() === todayStr)
 
   const sessions = computeSessionStatsToday(tasks)
+  const escalations = computeEscalationStatsToday(tasks)
   const eggBonus = settings?.easter_egg_wins?.[todayIso] ? 1 : 0
 
   return {
-    tasksToday: todayTasks.length + waitingToday.length + sessions.count + eggBonus,
-    pointsToday: points + waitingToday.length + sessions.points + eggBonus,
+    tasksToday: todayTasks.length + waitingToday.length + sessions.count + escalations.count + eggBonus,
+    pointsToday: points + waitingToday.length + sessions.points + escalations.points + eggBonus,
   }
 }
 

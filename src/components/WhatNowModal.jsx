@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Target, Monitor, Users, MapPin, Flame, Palette, Dumbbell } from 'lucide-react'
-import { getWhatNow, getWeather } from '../api'
+import { getWhatNow, getWeather, getGrowthAreas } from '../api'
 import { ENERGY_TYPES } from '../store'
 import ModalShell from './ModalShell'
 import './WhatNowModal.css'
@@ -75,7 +75,13 @@ export default function WhatNowModal({ open, tasks, onClose, onComplete }) {
         const weatherData = await getWeather()
         if (weatherData?.enabled) weatherSummary = buildWeatherSummaryFromCache(weatherData)
       } catch { /* weather optional */ }
-      const results = await getWhatNow(tasks, time, energy, capacity, weatherSummary)
+      let growthAreas = null
+      try {
+        const areas = await getGrowthAreas()
+        const contextual = areas.filter(a => a.active && (a.mode === 'persistent' || a.mode === 'both'))
+        if (contextual.length > 0) growthAreas = contextual
+      } catch { /* growth areas optional */ }
+      const results = await getWhatNow(tasks, time, energy, capacity, weatherSummary, growthAreas)
       setSuggestions(results)
     } catch (err) {
       setError(err.message)

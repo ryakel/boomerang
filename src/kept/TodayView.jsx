@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass, Sprout } from 'lucide-react'
+import { getTodayGrowthArea } from '../api'
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD, parseLocalDate } from '../dates'
@@ -32,6 +33,25 @@ export default function TodayView({
   // (prod report: "slider and counts should change with the date selection").
   const [breakdownDay, setBreakdownDay] = useState(null)
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
+
+  // Today's growth-area rotation pick — cached server-side (growthAreas.js),
+  // same one read the digest uses. Dismiss is "seen", not "done" — no
+  // completion semantics — and re-appears the next local morning.
+  const [growthPick, setGrowthPick] = useState(null)
+  const [growthDismissed, setGrowthDismissed] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    getTodayGrowthArea().then(pick => {
+      if (cancelled || !pick?.text) return
+      setGrowthPick(pick)
+      setGrowthDismissed(localStorage.getItem('bm_growth_banner_dismissed') === pick.date)
+    })
+    return () => { cancelled = true }
+  }, [todayKey])
+  const dismissGrowthBanner = () => {
+    if (growthPick) localStorage.setItem('bm_growth_banner_dismissed', growthPick.date)
+    setGrowthDismissed(true)
+  }
 
   const stackRoutineIds = useMemo(() => new Set(
     routines.filter(r => Array.isArray(r.members) && r.members.length > 0).map(r => r.id),
@@ -177,6 +197,15 @@ export default function TodayView({
 
   return (
     <div className="bm-surface">
+      {growthPick?.text && !growthDismissed && (
+        <div className="bm-growth-banner">
+          <span className="bm-growth-banner-icon"><Sprout size={15} strokeWidth={2} /></span>
+          <span className="bm-growth-banner-text">{growthPick.text}</span>
+          <button className="bm-growth-banner-dismiss" onClick={dismissGrowthBanner} aria-label="Dismiss">
+            <X size={14} strokeWidth={2.2} />
+          </button>
+        </div>
+      )}
       <div className="bm-card bm-card-hero">
         <div className="bm-hero-date">
           <span className="bm-hero-day">{(selStats ? selStats.date : new Date()).toLocaleDateString('en-US', { weekday: 'long' })}</span>
@@ -295,6 +324,8 @@ export default function TodayView({
             && resolveWeatherVisibility({ task: t, labels, weatherEnabled: true }) === 'visible'
             ? weatherByDate[t.due_date]
             : null
+          const escalationActive = t.escalation_current_rung != null
+          const escalationTotal = (t.escalation_rungs || []).length
           return (
             <RowSwipe key={t.id} done={done} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
               <div className="bm-row">
@@ -305,7 +336,7 @@ export default function TodayView({
                 >{done && <Check size={13} strokeWidth={3.4} />}</button>
                 <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                   <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0 || weatherDay || t.assignee) && (
+                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0 || weatherDay || t.assignee || escalationActive) && (
                     <span className="bm-row-meta">
                       {t.high_priority && <span className="bm-tag-hi">high</span>}
                       {statusTag && <span className="bm-tag-status">{statusTag}</span>}
@@ -313,6 +344,11 @@ export default function TodayView({
                       {stale && <span className="bm-tag-stale">{ageDays}d on list</span>}
                       {weatherDay && <WeatherBadge day={weatherDay} />}
                       {t.assignee && <span className="bm-tag-status">for {t.assignee}</span>}
+                      {escalationActive && (
+                        <span className={`bm-tag-status${t.escalation_awaiting_advance || t.escalation_stuck ? ' bm-tag-escalation-alert' : ''}`}>
+                          ☎ {t.escalation_current_rung + 1}/{escalationTotal}
+                        </span>
+                      )}
                       {chips.slice(0, 3).map(l => (
                         <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
                       ))}

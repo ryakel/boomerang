@@ -6,6 +6,26 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-04
 
+- feat(tasks): add Escalation Ladder — contact-persistence tracking [XL]
+  - **User request:** second half of the "Fix the specs then build" instruction, following the Growth Areas build. Builds `wiki/Escalation-Ladder.md` end-to-end.
+  - For "I need a response and I'm not getting one" tasks: tracks repeated attempts to reach an unresponsive person/organization and PROMPTS to switch tactic once a rung's attempts are exhausted, rather than just re-nagging the same dead approach. Distinct from Sequences (`follow_ups`, completion-triggered) — this fires on attempt-threshold.
+  - New `tasks` columns (migration 039): `escalation_rungs`, `escalation_current_rung`, `escalation_attempt_log`, `escalation_awaiting_advance`, `escalation_stuck`. Business logic in `db.js`: `setEscalationLadder`, `logEscalationAttempt`, `advanceEscalationRung`, `dismissEscalationAdvancePrompt`, `resolveEscalation`, `escalationNudgeOverride`.
+  - Scoring: each logged attempt is worth 1 point (`computeEscalationStatsToday` in `src/scoring.js`, same "waiting = progress" principle as project sessions), rolled into daily points/tasks and credited toward the streak.
+  - Notifications: active-ladder tasks get their own tactic-aware per-task nudge (current rung's suggestion/script, or the prompted-advance copy) at the rung's own cadence, across push/email/Pushover — new `*_notif_escalation` toggles (default ON), excluded from the generic aggregate stale/nudge pools so they're never double-nagged.
+  - UI: `EditTaskModal` gains an "Escalation" section (toggle, rung editor, status line, Log attempt/Move on/Got a response actions, prompted-advance and stuck banners with a "Brainstorm next moves" hand-off to Quokka). Kept's `TodayView` rows show a small "☎ N/M" indicator (amber-pulsing when awaiting-advance or stuck).
+  - Quokka: 5 new tools in `adviserToolsTasks.js` — `generate_escalation_ladder` (its own Claude call to draft rungs, same pattern as `research_task`), `set_escalation_ladder`, `log_escalation_attempt`, `advance_escalation_rung`, `resolve_escalation`.
+  - Verified end-to-end against a fresh SQLite DB: set rungs → log attempts to threshold → awaiting-advance → advance → last-rung attempt (no auto-stuck without a threshold, matches spec) → resolve, all via curl.
+
+- feat(tasks): add Growth Areas — standing personal-coaching reminders [L]
+  - **User request:** two docs-only feature specs (`wiki/Growth-Areas.md`, `wiki/Escalation-Ladder.md`) were sent through an adversarial Fable-model design pass, revised per its critique, then built end-to-end. This commit covers Growth Areas.
+  - Deliberately tiny: standing reminders about *yourself* ("be more patient on calls") — not tasks, no tracking, no streak, no check-in. The rebuilt part vs. the original draft is delivery: rotation instead of a static list, fresh AI-rephrased wording instead of static banner text, and contextual injection instead of a permanent chip (habituation was the design flaw the Fable pass caught).
+  - New `growthAreas.js` root module (Dockerfile runtime COPY list) — its own dedicated `app_data` collections (`growth_areas`, `growth_area_today`), deliberately kept out of the bulk `/api/data` sync blob (same durability reasoning as tasks/routines/packages). Server endpoints: `GET/POST /api/growth-areas`, `PATCH/DELETE /api/growth-areas/:id`, `GET /api/growth-areas/today`.
+  - Morning rotation: one area a day (day-of-year mod pool size), AI-rephrased fresh each day, cached server-side so the digest and Today-view banner agree. Bugfix during testing: an empty cached pick (no eligible areas yet) is no longer sticky — adding your first area now shows up the same day instead of waiting until tomorrow.
+  - Contextual injection: active `persistent`/`both` areas feed into `getWhatNow()` (new 6th param) and Quokka's system prompt — both may mention an area in one line when genuinely relevant, never forced.
+  - Digest gains a "☀️ Today: {text}" line (`digestBuilder.js`, synchronous cache read); Kept's `TodayView` gets a small dismissible banner above the Day Arc hero (dismiss = "seen", reappears next local morning).
+  - Management UI: `GrowthAreasModal` (simplest CRUD in the app, on par with Labels) — entry points in the legacy System menu, Kept mobile More view, and Kept desktop sidebar.
+  - Quokka: 4 new tools (`list_growth_areas`, `create_growth_area`, `update_growth_area`, `delete_growth_area`) in `adviserToolsMisc.js`, staged with capture/restore compensation.
+
 - feat(routines): add `assignee` for loops/tasks the user supervises but doesn't own [M]
   - **User request:** track recurring chores that are for the user's son (something they supervise, not their own task) with simple flat-point scoring rather than the normal ADHD-effort size×energy grading.
   - New `assignee` TEXT column on both `routines` and `tasks` (migration 038). Free text (e.g. "Jack"), null = the user's own task/loop — no multi-user accounts, purely informational/organizational since only the user operates this app.

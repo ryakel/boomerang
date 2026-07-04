@@ -7,6 +7,7 @@ import {
   listPendingSuggestions, getPatternSuggestion, updateSuggestionStatus, snoozeSuggestion,
 } from './db.js'
 import { registerTool } from './adviserTools.js'
+import { listGrowthAreas, getGrowthArea, createGrowthArea, updateGrowthArea, deleteGrowthArea } from './growthAreas.js'
 
 function ensure(cond, msg) { if (!cond) throw new Error(msg) }
 
@@ -472,6 +473,94 @@ export function registerSuggestionTools() {
 }
 
 // ============================================================
+// Growth areas (personal-coaching reminders — see wiki/Growth-Areas.md)
+// ============================================================
+
+export function registerGrowthAreaTools() {
+  registerTool({
+    name: 'list_growth_areas',
+    description: 'List the user\'s growth areas — standing personal-coaching reminders ("be more patient on calls"), not tasks. Includes inactive ones.',
+    readOnly: true,
+    schema: { type: 'object', properties: {} },
+    execute: async () => ({ result: { areas: listGrowthAreas() } }),
+  })
+
+  registerTool({
+    name: 'create_growth_area',
+    description: 'Create a new growth area. `mode` controls surfacing: "morning" (once-daily rotation), "persistent" (contextual — surfaces in What Now / Quokka when relevant), or "both". energy_affinity is inferred automatically server-side, do not pass it.',
+    schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'e.g. "Be more patient on calls"' },
+        mode: { type: 'string', enum: ['morning', 'persistent', 'both'], default: 'both' },
+      },
+      required: ['title'],
+    },
+    preview: (a) => `Create growth area "${a.title}" (${a.mode || 'both'})`,
+    execute: async (args) => {
+      const area = await createGrowthArea({ title: args.title, mode: args.mode })
+      return {
+        result: { id: area.id, area },
+        compensation: async () => { deleteGrowthArea(area.id) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'update_growth_area',
+    description: 'Update a growth area\'s title, mode, or active state (active=false pauses it without losing the wording — use for "stop showing X").',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        title: { type: 'string' },
+        mode: { type: 'string', enum: ['morning', 'persistent', 'both'] },
+        active: { type: 'boolean' },
+      },
+      required: ['id'],
+    },
+    preview: (a) => `Update growth area ${a.id}`,
+    execute: async (args) => {
+      const before = getGrowthArea(args.id)
+      ensure(before, `Growth area not found: ${args.id}`)
+      const updates = {}
+      for (const k of ['title', 'mode', 'active']) if (args[k] !== undefined) updates[k] = args[k]
+      const area = updateGrowthArea(args.id, updates)
+      return {
+        result: { id: args.id, area },
+        compensation: async () => { updateGrowthArea(args.id, before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'delete_growth_area',
+    description: 'Permanently remove a growth area.',
+    schema: {
+      type: 'object',
+      properties: { id: { type: 'string' } },
+      required: ['id'],
+    },
+    preview: (a) => `Delete growth area ${a.id}`,
+    execute: async ({ id }) => {
+      const before = getGrowthArea(id)
+      ensure(before, `Growth area not found: ${id}`)
+      deleteGrowthArea(id)
+      return {
+        result: { id, deleted: true },
+        compensation: async () => {
+          const arr = listGrowthAreas()
+          arr.push(before)
+          // deleteGrowthArea/createGrowthArea don't expose a raw re-insert,
+          // so recreate the record directly via the same collection shape.
+          setData('growth_areas', arr)
+        },
+      }
+    },
+  })
+}
+
+// ============================================================
 // Register all misc tools
 // ============================================================
 
@@ -481,4 +570,5 @@ export function registerMiscTools() {
   registerWeatherTools()
   registerSettingsTools()
   registerSuggestionTools()
+  registerGrowthAreaTools()
 }

@@ -10,7 +10,7 @@
 import nodemailer from 'nodemailer'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail, countPendingSuggestions, filterNotifiableTasks } from './db.js'
+import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail, countPendingSuggestions, filterNotifiableTasks, escalationNudgeOverride } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -410,6 +410,28 @@ async function runNotificationCheck() {
       }
     }
 
+    // Escalation ladder — same tactic-aware per-task nudge as push/pushover,
+    // at the rung's own cadence. Excluded from the aggregate stale/nudge pools.
+    const escalationActiveIds = new Set()
+    if (settings.email_notif_escalation !== false) {
+      const escalationTasks = nonSnoozed.filter(t => t.escalation_current_rung != null)
+      for (const task of escalationTasks) {
+        escalationActiveIds.add(task.id)
+        const override = escalationNudgeOverride(task)
+        if (!override) continue
+        const freq = (override.cadenceDays || 1) * 24 * 60 * 60 * 1000
+        if (!checkThrottle(`email_escalation:${task.id}`, freq)) continue
+        const title = task.escalation_stuck ? 'Out of moves — brainstorm?'
+          : task.escalation_awaiting_advance ? 'Ready to switch tactics?'
+          : `Follow up: ${task.title}`
+        const sent = await sendEmail(title, simpleEmailHtml(title, override.text), override.text)
+        if (sent) {
+          markThrottle(`email_escalation:${task.id}`)
+          logNotifEmail(genId(), 'escalation', task.id, title, override.text)
+        }
+      }
+    }
+
     // Overdue tasks
     if (settings.email_notif_overdue !== false) {
       const freq = getFreqMs(settings, 'notif_freq_overdue', 0.5)
@@ -431,7 +453,7 @@ async function runNotificationCheck() {
     if (settings.email_notif_stale !== false) {
       const freq = getFreqMs(settings, 'notif_freq_stale', 0.5)
       if (checkThrottle('email_stale', freq)) {
-        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days))
+        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id))
         if (staleTasks.length > 0) {
           const intro = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
           const text = staleTasks.map(t => `- ${t.title}`).join('\n')
@@ -448,7 +470,7 @@ async function runNotificationCheck() {
     if (settings.email_notif_nudge !== false) {
       const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
       if (checkThrottle('email_nudge', freq) && nonSnoozed.length > 0) {
-        const smallTasks = nonSnoozed.filter(t => t.size === 'XS' || t.size === 'S')
+        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id))
         const pick = smallTasks.length > 0
           ? smallTasks[Math.floor(Math.random() * smallTasks.length)]
           : nonSnoozed[Math.floor(Math.random() * nonSnoozed.length)]

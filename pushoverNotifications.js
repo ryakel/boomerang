@@ -19,6 +19,7 @@ import {
   queryTasks, getData, getNotifThrottle, setNotifThrottle,
   logNotifPush, getTask, updateTaskPartial,
   getEffectiveThrottleMultiplier, countPendingSuggestions, filterNotifiableTasks,
+  escalationNudgeOverride,
 } from './db.js'
 import { rewriteNotifBody, canRewriteThisTick, shouldRewrite } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -424,11 +425,38 @@ async function runPushoverCheck() {
     // Below: priority 0 categories — all suppressed during quiet hours.
     if (inQuiet) return
 
+    // Escalation ladder — same tactic-aware per-task nudge as push/email, at
+    // the rung's own cadence. Excluded from the aggregate stale/nudge pools.
+    const escalationActiveIds = new Set()
+    if (settings.pushover_notif_escalation !== false) {
+      const escalationTasks = nonSnoozed.filter(t => t.escalation_current_rung != null)
+      for (const task of escalationTasks) {
+        escalationActiveIds.add(task.id)
+        const override = escalationNudgeOverride(task)
+        if (!override) continue
+        const freq = adaptiveFreq('escalation', (override.cadenceDays || 1) * 24 * 60 * 60 * 1000)
+        const throttleKey = `pushover_escalation:${task.id}`
+        if (!checkThrottle(throttleKey, freq)) continue
+        const title = task.escalation_stuck ? '[BOOMERANG] Out of moves — brainstorm?'
+          : task.escalation_awaiting_advance ? '[BOOMERANG] Ready to switch tactics?'
+          : truncatedTitle('[BOOMERANG] Follow up: ', task.title)
+        const url = buildDeepLink(settings, task.id)
+        const result = await sendPushover({
+          userKey, appToken, title, message: override.text, priority: 0,
+          url, urlTitle: url ? 'Open in Boomerang' : undefined,
+        })
+        if (result.ok) {
+          markThrottle(throttleKey)
+          logNotifPush(genId(), 'escalation', task.id, title, override.text, 'pushover')
+        }
+      }
+    }
+
     // Stale
     if (settings.pushover_notif_stale !== false) {
       const freq = adaptiveFreq('stale', getFreqMs(settings, 'notif_freq_stale', 0.5))
       if (checkThrottle('pushover_stale', freq)) {
-        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days))
+        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id))
         if (staleTasks.length > 0) {
           const body = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
           const result = await sendPushover({
@@ -449,7 +477,7 @@ async function runPushoverCheck() {
     if (settings.pushover_notif_nudge !== false) {
       const freq = adaptiveFreq('nudge', getFreqMs(settings, 'notif_freq_nudge', 1))
       if (checkThrottle('pushover_nudge', freq) && nonSnoozed.length > 0) {
-        const smallTasks = nonSnoozed.filter(t => t.size === 'XS' || t.size === 'S')
+        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id))
         let title, body
         if (smallTasks.length > 0) {
           const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]

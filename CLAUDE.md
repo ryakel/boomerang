@@ -806,6 +806,50 @@ Personal knowledge store Quokka can search. Where things are kept, how-tos, deci
 - Keyword search only (title/tags/summary). Semantic search across full bodies not wired.
 - 5-minute refresh cadence — if the user adds an item in Notion directly and immediately asks Quokka, they need to tap "Sync now" or have Quokka call `refresh_knowledge_index`.
 
+### Growth Areas (personal-coaching reminders, 2026-07-04)
+
+Deliberately tiny feature: standing reminders about *yourself* ("be more patient on calls"), not tasks — no tracking, no streak, no check-in. Full spec + design rationale (including the adversarial-review rewrite that killed the original static-banner delivery): `wiki/Growth-Areas.md`.
+
+**Storage.** `growthAreas.js` (root module, in the Dockerfile runtime COPY list). Its own dedicated `app_data` collections — `growth_areas` (the CRUD list) and `growth_area_today` (the cached daily rotation pick) — deliberately kept OUT of the bulk `/api/data` sync blob, same carve-out reasoning as tasks/routines/packages (see Derived-Stat Durability Rules above). The client only ever talks to dedicated `/api/growth-areas*` endpoints, never folding growth-area state into the object `useServerSync.js` pushes, so there's nothing for the whole-blob last-writer-wins path to clobber.
+
+**Data shape:** `{ id, title, mode: 'morning'|'persistent'|'both', energy_affinity, active, created_at }`. `energy_affinity` is inferred server-side via a cheap Claude call at creation time (same `claude-sonnet-4-6` + conservative-single-guess posture as tag inference); omitted when no clean match.
+
+**Surfacing — the part that got rebuilt after the adversarial pass:**
+- **Morning rotation.** One area a day (day-of-year index mod the `morning ∪ both` pool — deterministic per day), rendered as a **fresh AI rephrasing** of the stored title (reuses the toast-message shape: short prompt, timeout, static fallback = the stored title verbatim). Computed once per day, server-side, cached in `growth_area_today` so the digest and the Today-view banner never disagree or double-call the AI. An EMPTY cached pick (no eligible areas yet) is deliberately NOT sticky — `ensureTodayGrowthArea()` only treats a cache hit as final once it holds a real `area_id`, so adding your first area mid-day shows up immediately instead of waiting for tomorrow.
+- **Contextual injection (`persistent`/`both`).** NOT a static chip anymore. Active areas (title + `energy_affinity`) are passed into `getWhatNow()` (`src/api.js`, 6th param) and folded into Quokka's system prompt (`adviserSystemPrompt()` in server.js) — both may mention an area in one line when a task's energy genuinely matches, mirroring the existing "only mention weather when it affects the pick" rule. Never forced.
+- **Digest line.** `digestBuilder.js` reads `getTodayGrowthAreaCached()` (sync, cache-only — the digest builder is fully synchronous and must never block on a live AI call) and renders "☀️ Today: {text}" right after the lead-in, before Today.
+- **Today-view banner.** Small dismissible card above the Day Arc hero in `src/kept/TodayView.jsx` (`getTodayGrowthArea()` client call). Dismiss is "seen," not "done" — persisted in localStorage keyed by the pick's date, reappears next local morning. Same component renders on both KeptShell (mobile) and KeptDesktop (both use `TodayView`).
+
+**Background sync.** `startGrowthAreaSync()` (mirrors `weatherSync.js`'s cadence pattern) ticks every 15 min, calling `ensureTodayGrowthArea()` so the digest always has a warm cache by the time it builds.
+
+**Server endpoints:** `GET/POST /api/growth-areas`, `PATCH/DELETE /api/growth-areas/:id`, `GET /api/growth-areas/today`.
+
+**Management UI:** `GrowthAreasModal` (`src/components/GrowthAreasModal.jsx`) — simplest CRUD surface in the app, on par with Labels. Entry points: System menu (legacy theme), More → Growth areas (Kept mobile), sidebar nav (Kept desktop).
+
+**Quokka tools (4, in `adviserToolsMisc.js`):** `list_growth_areas` (read-only), `create_growth_area`, `update_growth_area`, `delete_growth_area` — staged with capture/restore compensation like every other mutation tool.
+
+**Known limitations:** no tracking is a deliberate locked v1 choice, not a placeholder. No AI-suggested growth areas — the user authors these directly. `energy_affinity` inference is best-effort/single-valued. See the wiki page's "Known limitations / parked" for the rest.
+
+### Escalation Ladder (contact-persistence tasks, 2026-07-04)
+
+Task-level feature for "I need a response from someone and I'm not getting one" — tracks repeated attempts to reach an unresponsive person/organization and PROMPTS to change tactic once a rung's attempts are exhausted, rather than just re-nagging the same dead approach. Distinct from Sequences (`follow_ups`, which chains the user's OWN steps on completion) — this fires the next rung on ATTEMPT-THRESHOLD, not completion. Full spec: `wiki/Escalation-Ladder.md`.
+
+**Data model (migration 039, on `tasks`):** `escalation_rungs` (ordered array of `{id, label, suggestion, script?, attempts_before_ready, nudge_every_days}` — `script` is a literal one-to-two-line opener the user can read/paste, the highest-leverage field for confrontation-flavored rungs), `escalation_current_rung` (index; `null` = no active ladder — never started or resolved via "Got a response", rungs stay as a record), `escalation_attempt_log` (append-only `{id, at, rung_index, points: 1}`, never trimmed — audit trail + points source), `escalation_awaiting_advance` (threshold met, app is OFFERING to move on — never automatic), `escalation_stuck` (last rung exhausted, nowhere scripted left to go).
+
+**Business logic (`db.js`):** `setEscalationLadder(id, rungs, {append})`, `logEscalationAttempt(id, note)` (awards 1 point, sets `awaiting_advance`/`stuck` when the current rung's `attempts_before_ready` threshold is met — a `null` threshold means "last rung, no auto-threshold, user decides manually via Move on"), `advanceEscalationRung(id)` (manual "Move on" — also accepts the prompted-advance; flips `stuck` if there's no next rung to advance to), `dismissEscalationAdvancePrompt(id)` ("One more try" — clears the prompt, stays put), `resolveEscalation(id)` ("Got a response" — clears active state, keeps rungs + attempt log as history), `escalationNudgeOverride(task)` (returns the current rung's tactic-aware nudge text + its own `nudge_every_days` cadence, or the prompted-advance copy, for the notification engines).
+
+**Scoring:** `computeEscalationStatsToday()` in `src/scoring.js` sums today's attempt-log points (1 each) into `computeDailyStats`, same "waiting = progress" principle as project sessions. `computeStreak()` in `src/store.js` credits any day with a logged attempt as a completion day.
+
+**Notifications:** a task with an active ladder gets its own per-task nudge (mirrors the High Priority per-task block, NOT the aggregate stale/nudge copy) at the rung's own cadence (`nudge_every_days`), across all three transports (`pushNotifications.js`/`emailNotifications.js`/`pushoverNotifications.js`) — new `push_notif_escalation`/`email_notif_escalation`/`pushover_notif_escalation` toggles (default ON). Escalation-active tasks are excluded from the generic aggregate stale/nudge pools so they're never double-nagged. Pushover respects quiet hours (priority 0, same as stale/nudge). Web-push inline actions (Snooze1h/Done-style tappable buttons) are NOT wired for escalation nudges in v1 — email/Pushover/push all show the tactic text, but only the in-app card has Log attempt/Move on/Got a response buttons.
+
+**Server endpoints:** `POST /api/tasks/:id/escalation/rungs` (`{rungs, append}`), `POST /api/tasks/:id/escalation/attempts` (`{note?}`), `POST /api/tasks/:id/escalation/advance`, `POST /api/tasks/:id/escalation/dismiss-prompt`, `POST /api/tasks/:id/escalation/resolve`.
+
+**UI:** `EditTaskModal`'s "Escalation" section (non-project tasks only) — toggle, a simple stacked rung editor (label/suggestion/script/tempo, add-one-at-end + delete, no reorder), a status line + Log attempt/Move on/Got a response actions once a ladder is active, and a prompted-advance banner (Move on / One more try) or a stuck banner ("Brainstorm next moves" — closes the modal and seeds a Quokka chat draft asking it to draft new rungs via `generate_escalation_ladder`). Kept's `TodayView` row meta shows a small "☎ N/M" indicator (amber-pulsing when awaiting-advance or stuck).
+
+**Quokka tools (5, in `adviserToolsTasks.js`):** `generate_escalation_ladder({task_id, situation, existing_rungs_exhausted?})` — runs its own Claude call (same `deps.anthropicKey` pattern as `research_task`) to draft rungs, then stages via `set_escalation_ladder`; `set_escalation_ladder({task_id, rungs, append?})` (direct set/replace); `log_escalation_attempt({task_id, note?})`; `advance_escalation_rung({task_id})`; `resolve_escalation({task_id})`. `summarizeTask()` exposes `escalation_rungs`/`escalation_current_rung`/`escalation_attempt_count`/`escalation_awaiting_advance`/`escalation_stuck`.
+
+**Known limitations:** reactive creation (app noticing a stuck avoidance-prone task and offering a ladder) is parked — v1 creation is the EditTaskModal toggle or asking Quokka directly. No auto-detection of outbound attempts (Gmail/Trello/Notion) or inbound success detection — "Got a response" is manual/Quokka-only. Not wired into Routines. Web-push inline actions for escalation nudges are a follow-up (the mechanism exists for Snooze1h/Done; extending it to Log attempt/Move on/Got a response is real but separate scope).
+
 ### Quokka (AI Adviser)
 Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and Quokka finds related tasks/GCal events/routines and queues the fix. Named after the quokka (a small, perpetually-smiling Australian marsupial). User-facing branding uses "Quokka"; internal code (module names, CSS classes, endpoints under `/api/adviser/`, state vars like `showAdviser`) stays as `adviser`/`Adviser` — renaming plumbing provides no value.
 
