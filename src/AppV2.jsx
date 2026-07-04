@@ -1290,6 +1290,7 @@ export default function AppV2() {
           tasks={tasks}
           routines={routines}
           labels={labels}
+          weatherByDate={weather.enabled ? weather.byDate : null}
           dailyStats={dailyStats}
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}
@@ -1347,6 +1348,7 @@ export default function AppV2() {
           tasks={tasks}
           routines={routines}
           labels={labels}
+          weatherByDate={weather.enabled ? weather.byDate : null}
           dailyStats={dailyStats}
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}

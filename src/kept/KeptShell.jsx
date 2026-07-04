@@ -14,7 +14,7 @@ import './shell.css'
 // state; data and mutation handlers come from AppV2 (shared hooks). Quokka
 // lives in the header, not the nav.
 export default function KeptShell({
-  tasks = [], routines = [], labels = [],
+  tasks = [], routines = [], labels = [], weatherByDate = null,
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
@@ -51,7 +51,7 @@ export default function KeptShell({
   } else {
     surface = (
       <TodayView
-        tasks={tasks} routines={routines} labels={labels}
+        tasks={tasks} routines={routines} labels={labels} weatherByDate={weatherByDate}
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
