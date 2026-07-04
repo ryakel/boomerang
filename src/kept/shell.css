@@ -686,3 +686,17 @@
   width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
 }
 .bm-growth-banner-dismiss:hover { background: var(--bm-card-2); color: var(--bm-text); }
+
+/* Restore — takes the dismissed banner's place. Deliberately tiny (icon +
+ * short label, no full sentence) so it doesn't reintroduce the persistent-
+ * chrome habituation trap the banner design itself was built to avoid —
+ * this is an undo affordance for the user's own dismiss action, not a
+ * standing reminder. */
+.bm-growth-banner-restore {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: none; background: transparent; color: var(--bm-text-faint);
+  font-size: 11.5px; font-weight: 500;
+  padding: 4px 2px; margin-bottom: 6px;
+  cursor: pointer;
+}
+.bm-growth-banner-restore:hover { color: var(--bm-gold); }
