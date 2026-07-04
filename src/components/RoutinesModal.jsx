@@ -374,6 +374,11 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
   const [triggerTime, setTriggerTime] = useState(initial?.trigger_time || '')
   const [selectedTags, setSelectedTags] = useState(initial?.tags || [])
   const [notes, setNotes] = useState(initial?.notes || '')
+  // Who this loop is actually for — e.g. a kid's chore the user supervises
+  // rather than their own task (migration 038). Free text, blank = mine.
+  // Propagated onto every spawned task; scores a flat point per completion
+  // (see calculateTaskPoints in scoring.js) instead of size x energy.
+  const [assignee, setAssignee] = useState(initial?.assignee || '')
   const [highPriority, setHighPriority] = useState(initial?.high_priority || false)
   const [endDate, setEndDate] = useState(initial?.end_date || '')
   const [autoRoll, setAutoRoll] = useState(initial?.auto_roll || false)
@@ -528,6 +533,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
     spawnMode,
     targetCount: isHabit ? Math.max(1, Number(targetCount) || 1) : null,
     targetPeriod: isHabit ? targetPeriod : null,
+    assignee: assignee.trim() || null,
   })
 
   const handleSave = () => {
@@ -587,6 +593,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
   const extrasSummaryBits = []
   if (selectedTags.length) extrasSummaryBits.push(`${selectedTags.length} label${selectedTags.length === 1 ? '' : 's'}`)
   if (notes.trim()) extrasSummaryBits.push('notes')
+  if (assignee.trim()) extrasSummaryBits.push(`for ${assignee.trim()}`)
 
   return (
     <div className="v2-routine-form">
@@ -991,6 +998,19 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
           </div>
         )}
         <div className="v2-form-section">
+          <label className="v2-form-label">For</label>
+          <input
+            type="text"
+            className="v2-form-input"
+            placeholder="Leave blank if it's yours — or a name, e.g. Jack"
+            value={assignee}
+            onChange={e => setAssignee(e.target.value)}
+          />
+          <div className="v2-form-section-hint">
+            Marks this as someone else's chore you're supervising. Spawned tasks score a flat 1 point each (instead of size × energy) but still count toward your own daily total.
+          </div>
+        </div>
+        <div className="v2-form-section">
           <label className="v2-form-label">Notes</label>
           <textarea
             className="v2-form-textarea"
@@ -1096,6 +1116,7 @@ export default function RoutinesModal({
         spawn_mode: data.spawnMode,
         target_count: data.targetCount,
         target_period: data.targetPeriod,
+        assignee: data.assignee,
       }
       // Only touch completed_history when the "Last done" date was changed
       // (undefined = leave it alone; never send undefined into the merge).
@@ -1112,7 +1133,7 @@ export default function RoutinesModal({
         data.spawnMode, data.targetCount, data.targetPeriod,
         data.customUnit, data.triggerTime,
         data.scheduleDayOfMonth, data.scheduleWeekOfMonth,
-        data.members,
+        data.members, data.assignee,
       )
     }
     setEditing(null)

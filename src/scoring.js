@@ -14,7 +14,14 @@ const ENERGY_MULTIPLIER = { 1: 1.0, 2: 1.5, 3: 2.0 }
 
 // Calculate points for a single task.
 // Uses completed_at if available, otherwise assumes "now" (for previewing points).
+//
+// Assigned tasks (task.assignee set — e.g. a kid's chore the user supervises
+// rather than their own task, migration 038) score a flat 1 point instead of
+// the size x energy x speed formula: it's a simple did-it-or-didn't chore,
+// not graded ADHD-effort. Still counts toward the user's own daily total —
+// only the per-task amount changes.
 export function calculateTaskPoints(task) {
+  if (task.assignee) return 1
   const base = SIZE_POINTS[task.size] || 1
   const energyMult = ENERGY_MULTIPLIER[task.energyLevel] || 1.0
   const completedAt = task.completed_at ? new Date(task.completed_at) : new Date()

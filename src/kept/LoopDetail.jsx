@@ -45,9 +45,10 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
     : cycleUnitLabel(routine, past.length === 1)
 
   const anchor = formatScheduleAnchor(routine)
-  const meta = isHabit
+  const meta = (isHabit
     ? `habit · ${routine.target_count}× / ${routine.target_period}`
-    : `${formatCadence(routine)}${anchor ? ` · ${anchor}` : ''}${routine.trigger_time ? ` · ${routine.trigger_time}` : ''}`
+    : `${formatCadence(routine)}${anchor ? ` · ${anchor}` : ''}${routine.trigger_time ? ` · ${routine.trigger_time}` : ''}`)
+    + (routine.assignee ? ` · for ${routine.assignee}` : '')
 
   const handleSpawn = () => {
     if (spawnBlocked) return

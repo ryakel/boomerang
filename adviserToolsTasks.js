@@ -26,6 +26,9 @@ const TASK_FIELDS = [
   // sibling sub IDs. A sub is "blocked" (hidden from main list) when
   // any blocker is incomplete.
   'blocked_by',
+  // Who this is actually for (migration 038) — e.g. a kid's chore the user
+  // supervises rather than their own task. Free text; null = the user's own.
+  'assignee',
 ]
 
 function summarizeTask(t) {
@@ -53,6 +56,7 @@ function summarizeTask(t) {
     session_count: t.session_count || 0,
     last_session_at: t.last_session_at || null,
     child_visibility: t.child_visibility || 'backstage',
+    assignee: t.assignee || null,
   }
 }
 
@@ -71,6 +75,7 @@ function summarizeRoutine(r) {
     tags: r.tags || [],
     paused: !!r.paused,
     end_date: r.end_date || null,
+    assignee: r.assignee || null,
     last_completed: r.completed_history?.[r.completed_history.length - 1] || null,
     // Sequences: expose the chain template so adviser can address steps
     // by id when calling add/edit/remove/reorder_follow_up tools.
@@ -287,6 +292,10 @@ export function registerTaskTools() {
           items: { type: 'string' },
           description: 'Array of sibling sub task ids that must complete before this sub appears in the main list. Use to model dependency chains (e.g. "Booking day" waits on "Choose destination" + "Research flights"). Hidden from main list until every blocker reaches status=done; shown in the Projects drill-down with a "⏸ waits on X, Y" indicator. Cycles (A blocks B blocks A) are rejected at stage time.',
         },
+        assignee: {
+          type: 'string',
+          description: 'Set when this task is actually for someone else the user supervises (e.g. a kid\'s chore), not the user\'s own task — a name, e.g. "Jack". Leave unset for the user\'s own tasks. Scores a flat 1 point on completion instead of the size x energy formula, but still counts toward the user\'s own daily total.',
+        },
       },
       required: ['title'],
     },
@@ -392,6 +401,7 @@ export function registerTaskTools() {
         // out of the payload when status != 'project' to avoid surprise.
         pinned_to_today: args.status === 'project' ? !!args.pinned_to_today : false,
         nag_allowed: args.status === 'project' ? !!args.nag_allowed : false,
+        assignee: args.assignee || null,
         created_at: now,
         updated_at: now,
         last_touched: now,
@@ -431,6 +441,7 @@ export function registerTaskTools() {
         pinned_to_today: { type: 'boolean', description: 'Project pin toggle (status=project tasks only).' },
         nag_allowed: { type: 'boolean', description: 'Project nag opt-in (status=project tasks only).' },
         blocked_by: { type: 'array', items: { type: 'string' }, description: 'Array of sibling sub task ids that must complete before this sub becomes visible in the main list. Empty array clears all blockers. Cycles are rejected.' },
+        assignee: { type: ['string', 'null'], description: 'Set when this task is actually for someone else the user supervises (e.g. a kid\'s chore) — a name, e.g. "Jack". Pass null to clear (back to the user\'s own task).' },
       },
       required: ['id'],
     },
@@ -792,10 +803,14 @@ export function registerTaskTools() {
             required: ['title'],
           },
         },
+        assignee: {
+          type: 'string',
+          description: 'Set when this loop is actually for someone else the user supervises (e.g. a kid\'s chore), not the user\'s own task — a name, e.g. "Jack". Leave unset for the user\'s own loops. Every spawned task inherits it and scores a flat 1 point on completion instead of the size x energy formula, but still counts toward the user\'s own daily total.',
+        },
       },
       required: ['title', 'cadence'],
     },
-    preview: (args) => `Create routine: "${args.title}" (${args.cadence})${Array.isArray(args.members) && args.members.length ? ` · ${args.members.length}-item stack` : ''}`,
+    preview: (args) => `Create routine: "${args.title}" (${args.cadence})${Array.isArray(args.members) && args.members.length ? ` · ${args.members.length}-item stack` : ''}${args.assignee ? ` · for ${args.assignee}` : ''}`,
     // Pre-stamp the new routine's id at stage time so a chained
     // add_follow_up in the same plan can reference it. Returned to the
     // model as `id` in the staged response. At commit time, execute uses
@@ -839,6 +854,7 @@ export function registerTaskTools() {
         completed_history: [],
         created_at: now,
         updated_at: now,
+        assignee: args.assignee || null,
       }
       upsertRoutine(routine)
       return {
@@ -883,6 +899,7 @@ export function registerTaskTools() {
           },
         },
         last_done: { type: ['string', 'null'], description: 'Set when the routine was last completed, "YYYY-MM-DD" (or null = never done). Drives the next due date — use it to repair a routine that nags as if never done after lost completion history. Sets the most-recent completion entry; does not erase older history.' },
+        assignee: { type: ['string', 'null'], description: 'Set when this loop is actually for someone else the user supervises (e.g. a kid\'s chore) — a name, e.g. "Jack". Pass null to clear (back to the user\'s own loop). Only affects future spawns, not already-spawned tasks.' },
       },
       required: ['id'],
     },
