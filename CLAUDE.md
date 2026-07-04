@@ -145,6 +145,8 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 
 **Waiting = Progress:** Moving a task from not_started or doing to waiting awards +1 task and +1 point for the daily count. Reflects real effort (sent the email, made the call) even though the task isn't done. Tracked via `waiting_at` timestamp (migration 032); cleared when leaving waiting status. Counts toward streak and WeekStrip intensity.
 
+**Assignee (2026-07-04, migration 038):** `assignee` TEXT column on both `tasks` and `routines` — free text (e.g. "Jack"), null = the user's own task/loop. For tracking a recurring chore that's for someone the user supervises (e.g. a kid) rather than their own task. No multi-user accounts here — purely informational, since only the user operates this app. `calculateTaskPoints()` in `src/scoring.js` returns a flat `1` point for any task with `assignee` set (instead of `size × energy × speed`) — it's a simple did-it-or-didn't chore, not graded ADHD-effort — but it STILL counts toward the user's own daily points/streak total, since they're the one supervising it. Propagated routine → spawned task at every spawn path (`spawnDueTasks`/`spawnNow`/`logHabit`/stack members), same as `energy_type`/`energy_level` inheritance. UI: `RoutinesModal`'s "For" field; shown as a chip/meta suffix on Kept's `LoopsView`/`LoopDetail`/`TodayView`. Quokka: `create_routine`/`update_routine`/`create_task`/`update_task` all accept it.
+
 **Nagging Boost:** Avoidance-prone types (confrontation, errand) get more frequent notifications.
 - Avoidance type: interval / 1.3 (30% more frequent)
 - High drain (level 3): additional / 1.2
