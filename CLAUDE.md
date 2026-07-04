@@ -1025,6 +1025,26 @@ removed from the theme picker / theme.js / index.html pre-paint, and every
 `loadSettings()` in store.js + the index.html pre-paint script silently
 collapse any stored `terminal*`/`wallaby*` theme onto `kept-dark`/`kept-light`.
 
+**System-follow theme option (2026-07-04):** `settings.theme` can hold a
+`'system'` or `'kept-system'` sentinel (per family) meaning "match the OS
+color scheme" — resolved live via `prefers-color-scheme`, not frozen to
+whatever the OS said at first load. `src/theme.js` is the source of truth:
+`resolveTheme()` maps a sentinel to its concrete `light`/`dark` equivalent,
+`isSystemTheme()` detects one, `applyTheme()` resolves-then-paints, and
+`watchSystemTheme(getTheme)` subscribes to `prefers-color-scheme` changes
+and re-applies the theme live while the app is open (wired in `AppV2.jsx`'s
+mount effect) — so an OS-level light/dark switch (e.g. automatic sunset
+dark mode) repaints the app without a reload. `index.html`'s pre-paint
+script mirrors the same sentinel-resolution table (inline scripts can't
+import modules) so there's no flash of the wrong theme before React mounts.
+Settings → General's Mode picker is now a three-way Light/Dark/System
+segmented control (previously two-way); `store.js`'s "unset theme" default
+for new installs is now the literal `'kept-system'` sentinel rather than a
+resolved snapshot, so new installs keep tracking the OS scheme going
+forward instead of freezing to whatever it said at first launch. Existing
+users' explicit theme choices are untouched — this only changes the
+default for a genuinely unset `settings.theme`.
+
 ### Kept — the public-facing design language (2026-06-10, approved direction)
 
 Wallaby is too visually close to its loggd.life inspiration to take public.

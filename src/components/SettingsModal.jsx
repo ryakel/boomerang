@@ -2525,10 +2525,10 @@ export default function SettingsModal({
             {(() => {
               const currentTheme = settings.theme || 'light'
               const family = currentTheme.startsWith('kept') ? 'kept' : 'standard'
-              const mode = currentTheme.endsWith('dark') ? 'dark' : 'light'
+              const mode = currentTheme.endsWith('system') ? 'system' : currentTheme.endsWith('dark') ? 'dark' : 'light'
               const setTheme = (nextFamily, nextMode) => {
                 const value = nextFamily === 'standard'
-                  ? (nextMode === 'dark' ? 'dark' : 'light')
+                  ? (nextMode === 'dark' ? 'dark' : nextMode === 'system' ? 'system' : 'light')
                   : `${nextFamily}-${nextMode}`
                 update('theme', value)
                 applyTheme(value)
@@ -2561,12 +2561,13 @@ export default function SettingsModal({
                   <div className="v2-settings-row v2-settings-row-stacked">
                     <div className="v2-settings-row-text">
                       <div className="v2-settings-row-label">Mode</div>
-                      <div className="v2-settings-row-hint">Light or dark canvas. Applies to whichever family is active.</div>
+                      <div className="v2-settings-row-hint">Light, dark, or follow your device's setting. Applies to whichever family is active.</div>
                     </div>
                     <div className="v2-settings-segment" role="radiogroup" aria-label="Theme mode">
                       {[
                         { value: 'light', label: 'Light' },
                         { value: 'dark', label: 'Dark' },
+                        { value: 'system', label: 'System' },
                       ].map(opt => (
                         <button
                           key={opt.value}
