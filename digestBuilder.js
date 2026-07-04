@@ -140,7 +140,7 @@ export function buildDigest(settings) {
 
   const weatherSummary = buildWeatherSummary(getWeatherCache())
   const growthPick = getTodayGrowthAreaCached()
-  const growthText = growthPick?.text || null
+  const growthText = growthPick?.morning?.text || null
 
   // --- Build text version (for SMS gateway, push body, Pushover) ---
   const textParts = []

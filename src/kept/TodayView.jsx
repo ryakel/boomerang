@@ -35,23 +35,37 @@ export default function TodayView({
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
 
   // Today's growth-area rotation pick — cached server-side (growthAreas.js),
-  // same one read the digest uses. Dismiss is "seen", not "done" — no
-  // completion semantics — and re-appears the next local morning.
-  const [growthPick, setGrowthPick] = useState(null)
-  const [growthDismissed, setGrowthDismissed] = useState(false)
+  // same one read the digest uses. Two independent picks (morning/evening);
+  // the banner shows whichever period it currently is (evening from 5pm
+  // local on), falling back to the other period's pick if that one has no
+  // eligible areas — a coaching nudge staying visible past its "prime" slot
+  // beats going silent for the rest of the day. Dismiss is "seen", not
+  // "done" — no completion semantics — keyed per-period so dismissing the
+  // morning one doesn't suppress an evening one appearing later.
+  const isEveningNow = new Date().getHours() >= 17
+  const [growthPicks, setGrowthPicks] = useState(null)
+  const [growthDismissed, setGrowthDismissed] = useState({})
   useEffect(() => {
     let cancelled = false
-    getTodayGrowthArea().then(pick => {
-      if (cancelled || !pick?.text) return
-      setGrowthPick(pick)
-      setGrowthDismissed(localStorage.getItem('bm_growth_banner_dismissed') === pick.date)
+    getTodayGrowthArea().then(picks => {
+      if (cancelled || !picks?.date) return
+      setGrowthPicks(picks)
     })
     return () => { cancelled = true }
   }, [todayKey])
+  const activePeriod = isEveningNow && growthPicks?.evening?.text ? 'evening'
+    : growthPicks?.morning?.text ? 'morning'
+    : growthPicks?.evening?.text ? 'evening' : null
+  const growthPick = activePeriod ? growthPicks[activePeriod] : null
+  const growthDismissKey = growthPicks && activePeriod ? `${growthPicks.date}:${activePeriod}` : null
   const dismissGrowthBanner = () => {
-    if (growthPick) localStorage.setItem('bm_growth_banner_dismissed', growthPick.date)
-    setGrowthDismissed(true)
+    if (!growthDismissKey) return
+    localStorage.setItem('bm_growth_banner_dismissed', growthDismissKey)
+    setGrowthDismissed(prev => ({ ...prev, [growthDismissKey]: true }))
   }
+  const growthBannerDismissed = growthDismissKey
+    ? (growthDismissed[growthDismissKey] || localStorage.getItem('bm_growth_banner_dismissed') === growthDismissKey)
+    : false
 
   const stackRoutineIds = useMemo(() => new Set(
     routines.filter(r => Array.isArray(r.members) && r.members.length > 0).map(r => r.id),
@@ -197,7 +211,7 @@ export default function TodayView({
 
   return (
     <div className="bm-surface">
-      {growthPick?.text && !growthDismissed && (
+      {growthPick?.text && !growthBannerDismissed && (
         <div className="bm-growth-banner">
           <span className="bm-growth-banner-icon"><Sprout size={15} strokeWidth={2} /></span>
           <span className="bm-growth-banner-text">{growthPick.text}</span>

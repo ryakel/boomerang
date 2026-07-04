@@ -2,8 +2,13 @@
 
 .v2-growth-add {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   margin-bottom: 8px;
+}
+.v2-growth-add-row {
+  display: flex;
+  gap: 8px;
 }
 .v2-growth-add-input {
   flex: 1;
@@ -97,6 +102,33 @@
   background: rgba(255, 98, 64, 0.12);
   color: var(--v2-accent);
 }
+.v2-growth-chip-scope {
+  background: rgba(var(--v2-text-rgb), 0.1);
+  font-weight: 600;
+}
+
+.v2-growth-timing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.v2-growth-timing-checks {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.v2-growth-timing-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  cursor: pointer;
+}
+.v2-growth-timing-check input {
+  margin: 0;
+}
 
 .v2-growth-row-actions {
   display: flex;
@@ -139,11 +171,8 @@
   color: var(--v2-text);
   font: 400 13px/1.4 var(--v2-font-body);
 }
-.v2-growth-edit-mode {
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1px solid var(--v2-hairline);
-  background: var(--v2-bg);
-  color: var(--v2-text);
-  font: 400 12px/1.4 var(--v2-font-body);
+.v2-growth-row-editing-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
 }
