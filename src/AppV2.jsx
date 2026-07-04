@@ -206,6 +206,8 @@ export default function AppV2() {
     staleTasks, snoozedTasks, waitingTasks, doingTasks, upNextTasks, hydrateTasks,
     pinnedProjects, activeChildrenOfPinned, isPinnedChild,
     setProjectPinned, setTaskParent, setChildVisibility, logProjectSession,
+    setEscalationRungs, logEscalationAttempt, advanceEscalationRung,
+    dismissEscalationAdvancePrompt, resolveEscalation,
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
@@ -1482,6 +1484,16 @@ export default function AppV2() {
             handleAddChildToProject(project)
           }}
           onOpenTask={(otherTask) => setEditTarget(otherTask)}
+          onSetEscalationRungs={setEscalationRungs}
+          onLogEscalationAttempt={logEscalationAttempt}
+          onAdvanceEscalationRung={advanceEscalationRung}
+          onDismissEscalationAdvancePrompt={dismissEscalationAdvancePrompt}
+          onResolveEscalation={resolveEscalation}
+          onBrainstormEscalation={(t) => {
+            setEditTarget(null)
+            setAdviserDraftSeed(`I'm out of scripted moves on "${t.title}" — every rung on the escalation ladder has stalled. Can you brainstorm some genuinely new tactics (different contact channels, different people/departments, alternate approaches) and stage them as new rungs?`)
+            setShowAdviser(true)
+          }}
         />
       )}
 

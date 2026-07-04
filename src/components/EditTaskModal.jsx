@@ -33,6 +33,8 @@ export default function EditTaskModal({
   childTasks = [],
   siblingSubs = [],
   onLogSession, onAddChild, onOpenTask,
+  onSetEscalationRungs, onLogEscalationAttempt, onAdvanceEscalationRung,
+  onDismissEscalationAdvancePrompt, onResolveEscalation, onBrainstormEscalation,
 }) {
   const form = useTaskForm({
     title: task.title,
@@ -138,6 +140,116 @@ export default function EditTaskModal({
     setNewComment('')
   }
   const removeComment = (id) => setComments(prev => prev.filter(c => c.id !== id))
+
+  // Escalation Ladder — see wiki/Escalation-Ladder.md. Rungs are edited
+  // locally (title/mode/etc. share the existing autosave loop, but rungs
+  // are structural — closer to Sequences than a text field) and pushed via
+  // a dedicated endpoint on explicit Save, mirroring how session logging
+  // hits its own endpoint rather than riding the generic task PATCH.
+  const [escalationTask, setEscalationTask] = useState(task)
+  useEffect(() => { setEscalationTask(task) }, [task.id])
+  const [escalationEnabled, setEscalationEnabled] = useState((task.escalation_rungs || []).length > 0)
+  const [rungs, setRungs] = useState(() => task.escalation_rungs || [])
+  const [rungsDirty, setRungsDirty] = useState(false)
+  const [escalationBusy, setEscalationBusy] = useState(false)
+  const [escalationFeedback, setEscalationFeedback] = useState(null)
+  const isEscalationActive = escalationTask.escalation_current_rung != null
+  const currentRung = isEscalationActive ? (escalationTask.escalation_rungs || [])[escalationTask.escalation_current_rung] : null
+  const attemptsAtCurrentRung = isEscalationActive
+    ? (escalationTask.escalation_attempt_log || []).filter(e => e.rung_index === escalationTask.escalation_current_rung).length
+    : 0
+  const lastAttempt = (escalationTask.escalation_attempt_log || []).slice(-1)[0]
+
+  const flashEscalationFeedback = (ok, text) => {
+    setEscalationFeedback({ ok, text })
+    setTimeout(() => setEscalationFeedback(null), 4000)
+  }
+
+  const addRung = () => {
+    setRungs(prev => [...prev, { id: uuid(), label: '', suggestion: '', script: '', attempts_before_ready: 3, nudge_every_days: 2 }])
+    setRungsDirty(true)
+  }
+  const updateRung = (id, updates) => {
+    setRungs(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r))
+    setRungsDirty(true)
+  }
+  const removeRung = (id) => {
+    setRungs(prev => prev.filter(r => r.id !== id))
+    setRungsDirty(true)
+  }
+  const saveRungs = async () => {
+    if (!onSetEscalationRungs) return
+    setEscalationBusy(true)
+    try {
+      const cleaned = rungs.map(r => ({ ...r, label: r.label.trim() || 'Untitled tactic' })).filter(r => r.label)
+      const saved = await onSetEscalationRungs(task.id, cleaned)
+      setEscalationTask(saved)
+      setRungs(saved.escalation_rungs || [])
+      setRungsDirty(false)
+      flashEscalationFeedback(true, 'Ladder saved.')
+    } catch {
+      flashEscalationFeedback(false, 'Failed to save ladder.')
+    } finally {
+      setEscalationBusy(false)
+    }
+  }
+  const toggleEscalationEnabled = (on) => {
+    setEscalationEnabled(on)
+    if (on && rungs.length === 0) addRung()
+    if (!on) {
+      setRungs([])
+      setRungsDirty(true)
+      onSetEscalationRungs?.(task.id, []).then(setEscalationTask).catch(() => {})
+    }
+  }
+  const handleLogAttempt = async () => {
+    if (!onLogEscalationAttempt || escalationBusy) return
+    setEscalationBusy(true)
+    try {
+      const result = await onLogEscalationAttempt(task.id)
+      setEscalationTask(result.task)
+      flashEscalationFeedback(true, `+1 pt logged · attempt ${result.attemptsAtRung}`)
+    } catch {
+      flashEscalationFeedback(false, 'Failed to log attempt.')
+    } finally {
+      setEscalationBusy(false)
+    }
+  }
+  const handleMoveOn = async () => {
+    if (!onAdvanceEscalationRung || escalationBusy) return
+    setEscalationBusy(true)
+    try {
+      const updated = await onAdvanceEscalationRung(task.id)
+      setEscalationTask(updated)
+    } catch {
+      flashEscalationFeedback(false, 'Failed to advance.')
+    } finally {
+      setEscalationBusy(false)
+    }
+  }
+  const handleOneMoreTry = async () => {
+    if (!onDismissEscalationAdvancePrompt || escalationBusy) return
+    setEscalationBusy(true)
+    try {
+      const updated = await onDismissEscalationAdvancePrompt(task.id)
+      setEscalationTask(updated)
+    } finally {
+      setEscalationBusy(false)
+    }
+  }
+  const handleGotResponse = async () => {
+    if (!onResolveEscalation || escalationBusy) return
+    setEscalationBusy(true)
+    try {
+      const updated = await onResolveEscalation(task.id)
+      setEscalationTask(updated)
+      flashEscalationFeedback(true, `Caught them! ${(updated.escalation_rungs || []).length} rung${(updated.escalation_rungs || []).length === 1 ? '' : 's'} and you got a response.`)
+    } catch {
+      flashEscalationFeedback(false, 'Failed to resolve.')
+    } finally {
+      setEscalationBusy(false)
+    }
+  }
 
   const [currentStatus, setCurrentStatus] = useState(task.status === 'open' ? 'not_started' : task.status)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -1299,6 +1411,130 @@ export default function EditTaskModal({
           )}
         </div>
       ) : null}
+      </FormDisclosure>
+      )}
+
+      {!isProject && (
+      <FormDisclosure
+        label="Escalation"
+        summary={isEscalationActive ? `rung ${escalationTask.escalation_current_rung + 1}/${(escalationTask.escalation_rungs || []).length}` : undefined}
+        defaultOpen={escalationEnabled}
+      >
+      <div className="v2-form-section v2-edit-escalation">
+        <label className="v2-edit-toggle-row">
+          <input
+            type="checkbox"
+            checked={escalationEnabled}
+            onChange={e => toggleEscalationEnabled(e.target.checked)}
+          />
+          <span className="v2-edit-toggle-label">
+            Track contact attempts for this task
+            <span className="v2-edit-toggle-meta">For "waiting on a reply and it's not coming" tasks — repeated attempts to reach someone, with a nudge to change tactic once one approach stalls out.</span>
+          </span>
+        </label>
+
+        {escalationEnabled && (
+          <>
+            {escalationTask.escalation_stuck && (
+              <div className="v2-edit-escalation-banner v2-edit-escalation-banner-stuck">
+                <span>Out of scripted moves on this one.</span>
+                {onBrainstormEscalation && (
+                  <button type="button" className="v2-edit-action v2-edit-action-primary" onClick={() => onBrainstormEscalation(task)}>
+                    Brainstorm next moves
+                  </button>
+                )}
+              </div>
+            )}
+            {escalationTask.escalation_awaiting_advance && currentRung && (
+              <div className="v2-edit-escalation-banner v2-edit-escalation-banner-advance">
+                <span>{currentRung.label} has had {attemptsAtCurrentRung} tr{attemptsAtCurrentRung === 1 ? 'y' : 'ies'} with no response. Ready to switch?</span>
+                <div className="v2-edit-escalation-banner-actions">
+                  <button type="button" className="v2-edit-action v2-edit-action-primary" disabled={escalationBusy} onClick={handleMoveOn}>Move on</button>
+                  <button type="button" className="v2-edit-action" disabled={escalationBusy} onClick={handleOneMoreTry}>One more try</button>
+                </div>
+              </div>
+            )}
+
+            {isEscalationActive && currentRung && (
+              <div className="v2-edit-escalation-status">
+                <div className="v2-edit-escalation-status-line">
+                  Rung {escalationTask.escalation_current_rung + 1} of {(escalationTask.escalation_rungs || []).length} · {attemptsAtCurrentRung} attempt{attemptsAtCurrentRung === 1 ? '' : 's'} logged{lastAttempt ? ` · last ${new Date(lastAttempt.at).toLocaleDateString()}` : ''}
+                </div>
+                {currentRung.script && (
+                  <div className="v2-edit-escalation-script">"{currentRung.script}"</div>
+                )}
+                <div className="v2-edit-escalation-actions">
+                  <button type="button" className="v2-edit-action v2-edit-action-primary" disabled={escalationBusy} onClick={handleLogAttempt}>Log attempt</button>
+                  <button type="button" className="v2-edit-action" disabled={escalationBusy} onClick={handleMoveOn}>Move on</button>
+                  <button type="button" className="v2-edit-action" disabled={escalationBusy} onClick={handleGotResponse}>Got a response</button>
+                </div>
+              </div>
+            )}
+
+            <div className="v2-edit-escalation-rungs">
+              <div className="v2-edit-manage-label">Rungs (tactics, in order)</div>
+              {rungs.map((rung, idx) => (
+                <div key={rung.id} className="v2-edit-escalation-rung">
+                  <div className="v2-edit-escalation-rung-head">
+                    <span className="v2-edit-escalation-rung-idx">{idx + 1}</span>
+                    <input
+                      className="v2-edit-escalation-rung-label"
+                      placeholder="Tactic (e.g. Email, Call, Call main line)"
+                      value={rung.label}
+                      onChange={e => updateRung(rung.id, { label: e.target.value })}
+                    />
+                    <button type="button" className="v2-edit-escalation-rung-remove" onClick={() => removeRung(rung.id)} aria-label="Remove rung">
+                      <XIcon size={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                  <textarea
+                    className="v2-edit-escalation-rung-suggestion"
+                    placeholder="What to do (shown in the nudge)"
+                    value={rung.suggestion || ''}
+                    onChange={e => updateRung(rung.id, { suggestion: e.target.value })}
+                    rows={2}
+                  />
+                  <input
+                    className="v2-edit-escalation-rung-script"
+                    placeholder="Script (optional) — what to actually say"
+                    value={rung.script || ''}
+                    onChange={e => updateRung(rung.id, { script: e.target.value })}
+                  />
+                  <div className="v2-edit-escalation-rung-tempo">
+                    <label>
+                      Attempts before ready
+                      <input
+                        type="number" min={1} max={20}
+                        value={rung.attempts_before_ready ?? ''}
+                        onChange={e => updateRung(rung.id, { attempts_before_ready: e.target.value ? Number(e.target.value) : null })}
+                      />
+                    </label>
+                    <label>
+                      Nudge every (days)
+                      <input
+                        type="number" min={1} max={30}
+                        value={rung.nudge_every_days ?? ''}
+                        onChange={e => updateRung(rung.id, { nudge_every_days: e.target.value ? Number(e.target.value) : null })}
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+              <button type="button" className="v2-edit-action" onClick={addRung}>+ Add rung</button>
+              {rungsDirty && (
+                <button type="button" className="v2-edit-action v2-edit-action-primary" disabled={escalationBusy} onClick={saveRungs}>
+                  {escalationBusy ? 'Saving…' : 'Save ladder'}
+                </button>
+              )}
+            </div>
+            {escalationFeedback && (
+              <div className={`v2-edit-session-feedback v2-edit-session-feedback-${escalationFeedback.ok ? 'ok' : 'warn'}`}>
+                {escalationFeedback.text}
+              </div>
+            )}
+          </>
+        )}
+      </div>
       </FormDisclosure>
       )}
 

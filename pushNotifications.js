@@ -9,7 +9,7 @@
 import webpush from 'web-push'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush, countPendingSuggestions, filterNotifiableTasks } from './db.js'
+import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush, countPendingSuggestions, filterNotifiableTasks, escalationNudgeOverride } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -311,6 +311,30 @@ async function runPushCheck() {
       }
     }
 
+    // Escalation ladder — tasks with an active contact-attempt ladder get
+    // their own tactic-aware nudge (current rung's suggestion/script, or the
+    // prompted-advance copy) at the RUNG's own cadence, instead of generic
+    // stale/nudge copy. Excluded from the aggregate stale/nudge pools below.
+    const escalationActiveIds = new Set()
+    if (settings.push_notif_escalation !== false) {
+      const escalationTasks = nonSnoozed.filter(t => t.escalation_current_rung != null)
+      for (const task of escalationTasks) {
+        escalationActiveIds.add(task.id)
+        const override = escalationNudgeOverride(task)
+        if (!override) continue
+        const freq = (override.cadenceDays || 1) * 24 * 60 * 60 * 1000
+        if (!checkThrottle(`push_escalation:${task.id}`, freq)) continue
+        const title = task.escalation_stuck ? 'Out of moves — brainstorm?'
+          : task.escalation_awaiting_advance ? 'Ready to switch tactics?'
+          : `Follow up: ${task.title}`
+        const sent = await sendPush({ title, body: override.text, tag: `escalation:${task.id}`, data: { taskId: task.id } })
+        if (sent) {
+          markThrottle(`push_escalation:${task.id}`)
+          logNotifPush(genId(), 'escalation', task.id, title, override.text)
+        }
+      }
+    }
+
     // Overdue tasks
     if (settings.push_notif_overdue !== false) {
       const freq = getFreqMs(settings, 'notif_freq_overdue', 0.5)
@@ -331,7 +355,7 @@ async function runPushCheck() {
     if (settings.push_notif_stale !== false) {
       const freq = getFreqMs(settings, 'notif_freq_stale', 0.5)
       if (checkThrottle('push_stale', freq)) {
-        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days))
+        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id))
         if (staleTasks.length > 0) {
           const body = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
           const sent = await sendPush({ title: 'Stale Tasks', body, tag: 'stale' })
@@ -347,7 +371,7 @@ async function runPushCheck() {
     if (settings.push_notif_nudge !== false) {
       const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
       if (checkThrottle('push_nudge', freq) && nonSnoozed.length > 0) {
-        const smallTasks = nonSnoozed.filter(t => t.size === 'XS' || t.size === 'S')
+        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id))
         let title, body
         if (smallTasks.length > 0) {
           const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]

@@ -876,6 +876,11 @@ export function computeStreak(tasks, settings) {
         if (entry?.timestamp) completionDates.add(new Date(entry.timestamp).toDateString())
       }
     }
+    if (Array.isArray(t.escalation_attempt_log)) {
+      for (const entry of t.escalation_attempt_log) {
+        if (entry?.at) completionDates.add(new Date(entry.at).toDateString())
+      }
+    }
     if (t.created_at) {
       const c = new Date(t.created_at)
       if (Number.isFinite(c.getTime()) && (!earliest || c < earliest)) earliest = c
