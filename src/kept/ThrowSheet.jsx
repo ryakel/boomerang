@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { localYMD, addDays } from '../dates'
+import useSheetSwipeDown from '../hooks/useSheetSwipeDown'
 import './shell.css'
 
 const DATES = [
@@ -28,6 +29,22 @@ export default function ThrowSheet({ open, onClose, onThrow, onMoreOptions }) {
   const [dateId, setDateId] = useState('none')
   const inputRef = useRef(null)
   const sheetRef = useRef(null)
+  // The keyboard-occlusion offset below (px, <= 0) — kept in a ref rather
+  // than composed ad-hoc so the swipe-down handler can add its own live drag
+  // offset on top of it without the two effects fighting over
+  // sheet.style.transform.
+  const kbOffsetRef = useRef(0)
+
+  // Blur before closing — otherwise the focused input unmounts while the
+  // keyboard is still up, and its dismiss animation unwinds mid-re-render of
+  // whatever's now visible underneath (prod report: new tasks landing behind
+  // the collapsing keyboard).
+  const closeAndBlur = () => {
+    inputRef.current?.blur()
+    onClose?.()
+  }
+
+  const { applyExtraOffset, handleProps } = useSheetSwipeDown(sheetRef, closeAndBlur, kbOffsetRef)
 
   // Keyboard-occlusion handling — same visualViewport pattern BottomTabs.jsx
   // and FloatingCapture.jsx already use. Without this, an input this close to
@@ -37,21 +54,22 @@ export default function ThrowSheet({ open, onClose, onThrow, onMoreOptions }) {
   useEffect(() => {
     if (!open) return
     const vv = window.visualViewport
-    const sheet = sheetRef.current
-    if (!vv || !sheet) return
+    if (!vv) return
     const update = () => {
       const occluded = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
-      sheet.style.transform = occluded > 0 ? `translateY(${-occluded}px)` : ''
+      kbOffsetRef.current = occluded > 0 ? -occluded : 0
+      applyExtraOffset(0)
     }
     update()
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
     return () => {
-      sheet.style.transform = ''
+      kbOffsetRef.current = 0
+      applyExtraOffset(0)
       vv.removeEventListener('resize', update)
       vv.removeEventListener('scroll', update)
     }
-  }, [open])
+  }, [open, applyExtraOffset])
 
   // Escape closes, same as every other modal/sheet primitive (ModalShell,
   // ConfirmDialog) — this sheet previously only dismissed via backdrop tap.
@@ -63,15 +81,6 @@ export default function ThrowSheet({ open, onClose, onThrow, onMoreOptions }) {
   }, [open, onClose])
 
   if (!open) return null
-
-  // Blur before closing — otherwise the focused input unmounts while the
-  // keyboard is still up, and its dismiss animation unwinds mid-re-render of
-  // whatever's now visible underneath (prod report: new tasks landing behind
-  // the collapsing keyboard).
-  const closeAndBlur = () => {
-    inputRef.current?.blur()
-    onClose?.()
-  }
 
   const send = () => {
     const t = title.trim()
@@ -89,7 +98,9 @@ export default function ThrowSheet({ open, onClose, onThrow, onMoreOptions }) {
   return (
     <div className="bm-sheet-backdrop" onClick={closeAndBlur}>
       <div className="bm-sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
-        <div className="bm-grabber" />
+        <div className="bm-sheet-handle" {...handleProps}>
+          <div className="bm-grabber" />
+        </div>
         <h3 className="bm-sheet-title">Throw a task</h3>
         <input
           ref={inputRef}

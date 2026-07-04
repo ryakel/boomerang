@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-04
 
+- fix(ui): swipe-down-to-dismiss on Kept's bottom sheets [S]
+  - **User report:** "Throw task modal swipe down doesn't work" — the sheet's grabber bar has always looked draggable (it's the standard bottom-sheet affordance) but no touch handling was ever wired behind it on either `.bm-sheet` (ThrowSheet, and the Tasks action sheet in `TasksViewKept.jsx` shares the identical grabber pattern and the identical gap).
+  - New `src/hooks/useSheetSwipeDown.js`: a small reusable pointer-events hook — drag follows the finger via a live `translateY`, release past ~90px or a quick flick calls the dismiss callback, otherwise the sheet snaps back with a short eased transition. Attaches to a dedicated `.bm-sheet-handle` wrapper around the grabber (not the whole sheet), so the input/chips/buttons below stay normal tap targets and don't fight the drag gesture.
+  - `ThrowSheet.jsx` composes the swipe offset with its existing keyboard-occlusion `translateY` (both now write through the same ref-tracked offset instead of two effects stomping `sheet.style.transform`) so swiping down still works correctly while the keyboard is up.
+  - `TasksViewKept.jsx`'s task action sheet gets the same fix for consistency — it had the exact same grabber-implies-swipe gap.
+
 - fix(ui): wire up the "What now?" row on Kept mobile's More tab [XS]
   - **User report:** "What now is still a dead link" — reported again after the design-audit pass (which added the row to `MoreView.jsx`) had already shipped to `dev`.
   - Root cause: that earlier fix added the `onWhatNow` prop declaration and the row to `MoreView.jsx`, but never updated `KeptShell.jsx`'s `<MoreView>` render call to actually pass `onWhatNow` down — it was only wired to `<TodayView>`. So the prop was `undefined` on the More tab specifically, and tapping the row did nothing. `KeptDesktop.jsx` and `AppV2.jsx`'s own wiring were both already correct (confirmed by re-tracing the whole chain), which is why the bug looked like a phantom the first time.
