@@ -268,12 +268,12 @@ export function loadSettings() {
   }
 
   // Kept cutover (K6, 2026-06-10): NEW installs default to Kept, following
-  // the system color scheme at first load. Existing users keep whatever
-  // theme they had — only an unset theme gets the default.
+  // the system color scheme. Existing users keep whatever theme they had —
+  // only an unset theme gets the default. Storing the 'kept-system' sentinel
+  // (2026-07-04) rather than a resolved snapshot means new installs keep
+  // tracking the OS scheme going forward, not just at first load.
   if (!saved.theme) {
-    const prefersDark = typeof window !== 'undefined'
-      && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches
-    saved.theme = prefersDark ? 'kept-dark' : 'kept-light'
+    saved.theme = 'kept-system'
     save(SETTINGS_KEY, saved)
   }
   return { ...DEFAULT_SETTINGS, ...saved }

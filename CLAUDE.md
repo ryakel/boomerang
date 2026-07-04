@@ -463,9 +463,9 @@ Free forecast integration that nudges the right tasks for the weather.
 
 **Weather-aware "What Now?":** `getWhatNow()` now accepts an optional weather summary string and injects it into the AI system prompt. Rule: outdoor-leaning tasks (errand, physical, or keyword-matched titles like "mow") preferred on nice days before bad weather; indoor tasks preferred during rough weather with a better day coming up. Weather only mentioned in the reason when it genuinely affects the pick.
 
-**Forecast badges on task cards:** Tasks with `due_date` inside the 7-day forecast window show a small weather emoji + high temp next to the due-date meta. Tooltip includes condition label + precipitation probability. Uses `src/components/WeatherBadge.jsx`; forecast data provided via `useWeather` hook → `TaskActionsContext`. **Kept parity (2026-07-04):** `src/kept/TodayView.jsx` renders the same badge for its `dayTasks` rows — `weatherByDate` is threaded from `AppV2.jsx` into `KeptShell`/`KeptDesktop` → `TodayView` (this wiring didn't exist when Kept's Today view was first built from scratch, since it doesn't reuse `TaskCard.jsx`).
+**Forecast badges on task cards:** Tasks with `due_date` inside the 7-day forecast window show a small weather emoji + high temp next to the due-date meta. Tooltip includes condition label + precipitation probability. Uses `src/components/WeatherBadge.jsx`; forecast data provided via `useWeather` hook → `TaskActionsContext`. **Kept parity (2026-07-04):** `src/kept/TodayView.jsx` renders the same badge for its `dayTasks` rows — `weatherByDate` is threaded from `AppV2.jsx` into `KeptShell`/`KeptDesktop` → `TodayView` (this wiring didn't exist when Kept's Today view was first built from scratch, since it doesn't reuse `TaskCard.jsx`). **Gated by relevance (2026-07-04 bugfix):** the badge only renders when `resolveWeatherVisibility()` returns `'visible'` — indoor/weather-independent tasks (tagged `inside`/`indoor`, e.g. "IFR Studying") no longer show a badge just because they have a due date. The legacy `TaskCard.jsx` badge (desktop Kanban/Projects/Stacks) is NOT yet gated this way — it doesn't currently receive a `labels` prop; tracked as a follow-up if noticed there too.
 
-**"Best days" recommendation on the expanded card:** For outdoor-leaning tasks (energy=physical/errand, or title matches outdoor keywords like "mow"/"paint the deck"/"wash car"), tapping a card to expand reveals a "Best days: …" line just above the notes with a sun icon. Up to 3 days are picked by `pickBestDays()` in `src/components/WeatherSection.jsx` (scored on condition kind, precip probability, wind, and temperature comfort). Computed live from the cached forecast — not written into the `notes` field — so user-typed notes stay clean.
+**"Best days" recommendation:** `pickBestDays()` in `src/components/WeatherSection.jsx` scores each forecast day (condition kind, precip probability, wind, temperature comfort) and picks up to 3 good ones. **Actually wired in 2026-07-04** (it existed as a fully-implemented, exported, but never-called utility since it was written — the "reveals a Best days line on the expanded card" behavior described in earlier docs never actually existed in any component). `WeatherSection` (used by `EditTaskModal`'s 7-day forecast widget) now renders a "☀️ Best days: …" callout above the grid and highlights the picked day(s) with a distinct green outline, separate from the amber due-date highlight (a day can be both). Computed live from the cached forecast — not written into the `notes` field — so user-typed notes stay clean.
 
 **7-day forecast in EditTaskModal:** Opening an outdoor task in the full edit modal shows the 7-day forecast widget (compact 3+4 centered layout with condition icon, high/low, and wind per day; due date highlighted) above the Notes field. Reacts to live edits of title + energy — change the task's energy from `physical` to `desk` and the forecast disappears.
 
@@ -1024,6 +1024,26 @@ removed from the theme picker / theme.js / index.html pre-paint, and every
 **Theme migration shims** (keep until prod data can't contain old values):
 `loadSettings()` in store.js + the index.html pre-paint script silently
 collapse any stored `terminal*`/`wallaby*` theme onto `kept-dark`/`kept-light`.
+
+**System-follow theme option (2026-07-04):** `settings.theme` can hold a
+`'system'` or `'kept-system'` sentinel (per family) meaning "match the OS
+color scheme" — resolved live via `prefers-color-scheme`, not frozen to
+whatever the OS said at first load. `src/theme.js` is the source of truth:
+`resolveTheme()` maps a sentinel to its concrete `light`/`dark` equivalent,
+`isSystemTheme()` detects one, `applyTheme()` resolves-then-paints, and
+`watchSystemTheme(getTheme)` subscribes to `prefers-color-scheme` changes
+and re-applies the theme live while the app is open (wired in `AppV2.jsx`'s
+mount effect) — so an OS-level light/dark switch (e.g. automatic sunset
+dark mode) repaints the app without a reload. `index.html`'s pre-paint
+script mirrors the same sentinel-resolution table (inline scripts can't
+import modules) so there's no flash of the wrong theme before React mounts.
+Settings → General's Mode picker is now a three-way Light/Dark/System
+segmented control (previously two-way); `store.js`'s "unset theme" default
+for new installs is now the literal `'kept-system'` sentinel rather than a
+resolved snapshot, so new installs keep tracking the OS scheme going
+forward instead of freezing to whatever it said at first launch. Existing
+users' explicit theme choices are untouched — this only changes the
+default for a genuinely unset `settings.theme`.
 
 ### Kept — the public-facing design language (2026-06-10, approved direction)
 

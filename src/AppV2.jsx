@@ -56,7 +56,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss } from './api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS } from './store'
 import { computeRecords, calculateTaskPoints } from './scoring'
-import { applyTheme } from './theme'
+import { applyTheme, watchSystemTheme } from './theme'
 import './AppV2.css'
 
 export default function AppV2() {
@@ -185,7 +185,16 @@ export default function AppV2() {
   useEffect(() => {
     document.documentElement.setAttribute('data-ui', 'v2')
     applyTheme(loadSettings().theme)
-    return () => { document.documentElement.removeAttribute('data-ui') }
+    // Live-follow: a 'system'/'kept-system' preference re-paints when the OS
+    // flips light/dark while the app is open (e.g. an automatic sunset dark
+    // mode) instead of only resolving once at load. No-ops for a concrete
+    // light/dark preference. Reads loadSettings().theme fresh on each OS
+    // change so it always sees whatever the user has picked most recently.
+    const unwatch = watchSystemTheme(() => loadSettings().theme)
+    return () => {
+      document.documentElement.removeAttribute('data-ui')
+      unwatch()
+    }
   }, [])
 
   // Shared task + routine state — same hooks v1 uses, no fork.

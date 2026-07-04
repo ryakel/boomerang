@@ -11,6 +11,7 @@ import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
 import WeekBreakdown from './WeekBreakdown'
 import WeatherBadge from '../components/WeatherBadge'
+import { resolveWeatherVisibility } from '../components/WeatherSection'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -285,8 +286,15 @@ export default function TodayView({
           const statusTag = t.status === 'doing' ? 'doing' : t.status === 'waiting' ? 'waiting' : null
           // Weather badge: same due_date-within-forecast-window lookup as the
           // legacy TaskCard (src/components/TaskCard.jsx) — Kept's rows never
-          // got this wiring when the Today view was built from scratch.
-          const weatherDay = t.due_date && weatherByDate ? weatherByDate[t.due_date] : null
+          // got this wiring when the Today view was built from scratch. Gated
+          // by resolveWeatherVisibility so weather-independent indoor tasks
+          // (e.g. "IFR Studying", tagged `inside`) don't show a badge just
+          // because they happen to have a due date — matches the same
+          // visibility rule EditTaskModal's forecast widget already uses.
+          const weatherDay = t.due_date && weatherByDate
+            && resolveWeatherVisibility({ task: t, labels, weatherEnabled: true }) === 'visible'
+            ? weatherByDate[t.due_date]
+            : null
           return (
             <RowSwipe key={t.id} done={done} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
               <div className="bm-row">
