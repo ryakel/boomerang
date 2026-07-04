@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-04
 
+- fix(ui): wire up the "What now?" row on Kept mobile's More tab [XS]
+  - **User report:** "What now is still a dead link" — reported again after the design-audit pass (which added the row to `MoreView.jsx`) had already shipped to `dev`.
+  - Root cause: that earlier fix added the `onWhatNow` prop declaration and the row to `MoreView.jsx`, but never updated `KeptShell.jsx`'s `<MoreView>` render call to actually pass `onWhatNow` down — it was only wired to `<TodayView>`. So the prop was `undefined` on the More tab specifically, and tapping the row did nothing. `KeptDesktop.jsx` and `AppV2.jsx`'s own wiring were both already correct (confirmed by re-tracing the whole chain), which is why the bug looked like a phantom the first time.
+  - Fixed: `KeptShell.jsx` now passes `onWhatNow={onWhatNow}` to `<MoreView>`.
+
 - fix(notion): create-page ID parsing failed on the hosted MCP server's actual response shape [S]
   - **User report:** creating a Knowledge Base entry via Quokka staged correctly but errored with "Could not parse page ID from response: {"pages":[{"id":"...","url":"https://app.notion.com/p/...",...}]}" after the Notion page was actually created.
   - Root cause, two compounding bugs in `notionMCPProxy.js`'s `createPage()`/`createPageInDatabase()` (both call `notion-create-pages`): (1) they checked for a top-level `json.id`, but the hosted MCP server wraps the result as `{"pages":[{id, url, properties}]}` — the id is one level deeper, so the check always missed and fell through to a URL-regex fallback; (2) that fallback (`extractIdFromUrl`) only matched `www.notion.so/<id>` URLs, not the `app.notion.com/p/<id>` format the hosted server actually returns, so it failed too — together turning every successful create into a thrown error.
