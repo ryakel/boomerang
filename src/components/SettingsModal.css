@@ -1041,6 +1041,22 @@
   margin-bottom: 2px;
 }
 
+.v2-integrations-name-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.v2-integrations-name-toggle:hover .v2-settings-section-chev {
+  color: var(--v2-text);
+}
+
 .v2-integrations-sub {
   font: 500 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--v2-text-meta);
