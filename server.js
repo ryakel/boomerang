@@ -13,7 +13,9 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   listNotifLog, clearNotifLog as clearServerNotifLog,
   markNotifEntriesRead, markAllNotifsRead,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
-  PROJECT_CONSTANTS } from './db.js'
+  PROJECT_CONSTANTS,
+  setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
+  dismissEscalationAdvancePrompt, resolveEscalation } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush } from './pushNotifications.js'
@@ -609,6 +611,70 @@ app.post('/api/projects/:id/log-session', (req, res) => {
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
+  }
+})
+
+// --- Escalation Ladder endpoints ---
+// See wiki/Escalation-Ladder.md. All mutate a single task's escalation_*
+// columns and bump the version so connected clients refetch.
+
+app.post('/api/tasks/:id/escalation/rungs', (req, res) => {
+  const clientId = req.body?._clientId || null
+  try {
+    const task = setEscalationLadder(req.params.id, req.body?.rungs, { append: !!req.body?.append })
+    const newVersion = bumpVersion()
+    broadcast(newVersion, clientId)
+    res.json({ task, version: newVersion })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+app.post('/api/tasks/:id/escalation/attempts', (req, res) => {
+  const clientId = req.body?._clientId || null
+  try {
+    const result = logEscalationAttempt(req.params.id, req.body?.note)
+    const newVersion = bumpVersion()
+    broadcast(newVersion, clientId)
+    res.json({ ...result, version: newVersion })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+app.post('/api/tasks/:id/escalation/advance', (req, res) => {
+  const clientId = req.body?._clientId || null
+  try {
+    const task = advanceEscalationRung(req.params.id)
+    const newVersion = bumpVersion()
+    broadcast(newVersion, clientId)
+    res.json({ task, version: newVersion })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+app.post('/api/tasks/:id/escalation/dismiss-prompt', (req, res) => {
+  const clientId = req.body?._clientId || null
+  try {
+    const task = dismissEscalationAdvancePrompt(req.params.id)
+    const newVersion = bumpVersion()
+    broadcast(newVersion, clientId)
+    res.json({ task, version: newVersion })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+app.post('/api/tasks/:id/escalation/resolve', (req, res) => {
+  const clientId = req.body?._clientId || null
+  try {
+    const task = resolveEscalation(req.params.id)
+    const newVersion = bumpVersion()
+    broadcast(newVersion, clientId)
+    res.json({ task, version: newVersion })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
   }
 })
 

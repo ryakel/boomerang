@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-04
 
+- feat(tasks): add Escalation Ladder — contact-persistence tracking [XL]
+  - **User request:** second half of the "Fix the specs then build" instruction, following the Growth Areas build. Builds `wiki/Escalation-Ladder.md` end-to-end.
+  - For "I need a response and I'm not getting one" tasks: tracks repeated attempts to reach an unresponsive person/organization and PROMPTS to switch tactic once a rung's attempts are exhausted, rather than just re-nagging the same dead approach. Distinct from Sequences (`follow_ups`, completion-triggered) — this fires on attempt-threshold.
+  - New `tasks` columns (migration 039): `escalation_rungs`, `escalation_current_rung`, `escalation_attempt_log`, `escalation_awaiting_advance`, `escalation_stuck`. Business logic in `db.js`: `setEscalationLadder`, `logEscalationAttempt`, `advanceEscalationRung`, `dismissEscalationAdvancePrompt`, `resolveEscalation`, `escalationNudgeOverride`.
+  - Scoring: each logged attempt is worth 1 point (`computeEscalationStatsToday` in `src/scoring.js`, same "waiting = progress" principle as project sessions), rolled into daily points/tasks and credited toward the streak.
+  - Notifications: active-ladder tasks get their own tactic-aware per-task nudge (current rung's suggestion/script, or the prompted-advance copy) at the rung's own cadence, across push/email/Pushover — new `*_notif_escalation` toggles (default ON), excluded from the generic aggregate stale/nudge pools so they're never double-nagged.
+  - UI: `EditTaskModal` gains an "Escalation" section (toggle, rung editor, status line, Log attempt/Move on/Got a response actions, prompted-advance and stuck banners with a "Brainstorm next moves" hand-off to Quokka). Kept's `TodayView` rows show a small "☎ N/M" indicator (amber-pulsing when awaiting-advance or stuck).
+  - Quokka: 5 new tools in `adviserToolsTasks.js` — `generate_escalation_ladder` (its own Claude call to draft rungs, same pattern as `research_task`), `set_escalation_ladder`, `log_escalation_attempt`, `advance_escalation_rung`, `resolve_escalation`.
+  - Verified end-to-end against a fresh SQLite DB: set rungs → log attempts to threshold → awaiting-advance → advance → last-rung attempt (no auto-stuck without a threshold, matches spec) → resolve, all via curl.
+
 - feat(tasks): add Growth Areas — standing personal-coaching reminders [L]
   - **User request:** two docs-only feature specs (`wiki/Growth-Areas.md`, `wiki/Escalation-Ladder.md`) were sent through an adversarial Fable-model design pass, revised per its critique, then built end-to-end. This commit covers Growth Areas.
   - Deliberately tiny: standing reminders about *yourself* ("be more patient on calls") — not tasks, no tracking, no streak, no check-in. The rebuilt part vs. the original draft is delivery: rotation instead of a static list, fresh AI-rephrased wording instead of static banner text, and contextual injection instead of a permanent chip (habituation was the design flaw the Fable pass caught).

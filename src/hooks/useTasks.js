@@ -1,6 +1,12 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadTasks, saveTasks, createTask, isStale, isSnoozed, isActiveTask, logActivity } from '../store'
-import { logProjectSession as apiLogProjectSession } from '../api'
+import { logProjectSession as apiLogProjectSession,
+  setEscalationRungs as apiSetEscalationRungs,
+  logEscalationAttempt as apiLogEscalationAttempt,
+  advanceEscalationRung as apiAdvanceEscalationRung,
+  dismissEscalationAdvancePrompt as apiDismissEscalationAdvancePrompt,
+  resolveEscalation as apiResolveEscalation,
+} from '../api'
 import { computeProjectSessionPoints, PROJECT_SESSION_CAP } from '../scoring'
 
 // Activity-log noise filter. updateTask is called from many paths
@@ -290,6 +296,44 @@ export function useTasks() {
     }
   }, [tasks])
 
+  // Escalation Ladder — see wiki/Escalation-Ladder.md. All five actions hit
+  // a dedicated per-task endpoint and adopt the server's canonical returned
+  // task (mirrors logProjectSession's "server is canonical" shape, without
+  // the offline fallback — a failed action here just means "try again",
+  // not silently lost session-cap-limited points).
+  const setEscalationRungs = useCallback(async (taskId, rungs, opts) => {
+    const result = await apiSetEscalationRungs(taskId, rungs, opts)
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...result.task } : t))
+    return result.task
+  }, [])
+
+  const logEscalationAttempt = useCallback(async (taskId, note) => {
+    const result = await apiLogEscalationAttempt(taskId, note)
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...result.task } : t))
+    logActivity('escalation_attempt_logged', result.task)
+    return result
+  }, [])
+
+  const advanceEscalationRung = useCallback(async (taskId) => {
+    const result = await apiAdvanceEscalationRung(taskId)
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...result.task } : t))
+    return result.task
+  }, [])
+
+  const dismissEscalationAdvancePrompt = useCallback(async (taskId) => {
+    const result = await apiDismissEscalationAdvancePrompt(taskId)
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...result.task } : t))
+    return result.task
+  }, [])
+
+  const resolveEscalation = useCallback(async (taskId) => {
+    const task = tasks.find(t => t.id === taskId)
+    const result = await apiResolveEscalation(taskId)
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...result.task } : t))
+    logActivity('escalation_resolved', task)
+    return result.task
+  }, [tasks])
+
   // Active children of pinned projects surface in the main list with a
   // parent-project badge. Pinning a project doesn't auto-promote its
   // children — each child has its own `child_visibility` setting.
@@ -386,5 +430,10 @@ export function useTasks() {
     setTaskParent,
     setChildVisibility,
     logProjectSession,
+    setEscalationRungs,
+    logEscalationAttempt,
+    advanceEscalationRung,
+    dismissEscalationAdvancePrompt,
+    resolveEscalation,
   }
 }

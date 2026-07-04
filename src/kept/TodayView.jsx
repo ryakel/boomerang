@@ -324,6 +324,8 @@ export default function TodayView({
             && resolveWeatherVisibility({ task: t, labels, weatherEnabled: true }) === 'visible'
             ? weatherByDate[t.due_date]
             : null
+          const escalationActive = t.escalation_current_rung != null
+          const escalationTotal = (t.escalation_rungs || []).length
           return (
             <RowSwipe key={t.id} done={done} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
               <div className="bm-row">
@@ -334,7 +336,7 @@ export default function TodayView({
                 >{done && <Check size={13} strokeWidth={3.4} />}</button>
                 <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                   <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0 || weatherDay || t.assignee) && (
+                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0 || weatherDay || t.assignee || escalationActive) && (
                     <span className="bm-row-meta">
                       {t.high_priority && <span className="bm-tag-hi">high</span>}
                       {statusTag && <span className="bm-tag-status">{statusTag}</span>}
@@ -342,6 +344,11 @@ export default function TodayView({
                       {stale && <span className="bm-tag-stale">{ageDays}d on list</span>}
                       {weatherDay && <WeatherBadge day={weatherDay} />}
                       {t.assignee && <span className="bm-tag-status">for {t.assignee}</span>}
+                      {escalationActive && (
+                        <span className={`bm-tag-status${t.escalation_awaiting_advance || t.escalation_stuck ? ' bm-tag-escalation-alert' : ''}`}>
+                          ☎ {t.escalation_current_rung + 1}/{escalationTotal}
+                        </span>
+                      )}
                       {chips.slice(0, 3).map(l => (
                         <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
                       ))}

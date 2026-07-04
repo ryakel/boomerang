@@ -10,6 +10,8 @@ import {
   reconcileRoutineHistory,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
   PROJECT_CONSTANTS,
+  setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
+  dismissEscalationAdvancePrompt, resolveEscalation,
 } from './db.js'
 import { registerTool, findStagedCreate } from './adviserTools.js'
 
@@ -57,6 +59,11 @@ function summarizeTask(t) {
     last_session_at: t.last_session_at || null,
     child_visibility: t.child_visibility || 'backstage',
     assignee: t.assignee || null,
+    escalation_rungs: t.escalation_rungs || [],
+    escalation_current_rung: t.escalation_current_rung ?? null,
+    escalation_attempt_count: (t.escalation_attempt_log || []).length,
+    escalation_awaiting_advance: !!t.escalation_awaiting_advance,
+    escalation_stuck: !!t.escalation_stuck,
   }
 }
 
@@ -1355,6 +1362,163 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       return {
         result: { routine_id: args.routine_id, chain: summarizeChain(getRoutine(args.routine_id)) },
         compensation: async () => { upsertRoutine(before) },
+      }
+    },
+  })
+
+  // ============================================================
+  // Escalation Ladder — see wiki/Escalation-Ladder.md
+  // ============================================================
+
+  registerTool({
+    name: 'generate_escalation_ladder',
+    description: 'Draft an escalation ladder (ordered contact-attempt tactics) for a task where the user is trying to reach an unresponsive person/organization. `situation` should describe who/what, channels available, and urgency. Runs its own Claude call to draft rungs (label + suggestion + script + tempo), then stages them via set_escalation_ladder for the user to review. Use when the user asks for help with a "not getting a response" task, or when calling this after a Brainstorm request (out of scripted moves — draft NEW tactics distinct from any already on the ladder, which are visible in the task\'s escalation_rungs via get_task).',
+    schema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string' },
+        situation: { type: 'string', description: 'Who/what you\'re trying to reach, channels available (email/phone/in-person/etc.), urgency.' },
+        existing_rungs_exhausted: { type: 'boolean', description: 'True when this is a Brainstorm request for a stuck ladder — draft rungs distinct from what already exists, and APPEND rather than replace.' },
+      },
+      required: ['task_id', 'situation'],
+    },
+    preview: (args) => `Draft an escalation ladder for "${taskLabel(args.task_id)}"`,
+    execute: async (args, deps) => {
+      if (!deps.anthropicKey) throw new Error('No Anthropic API key configured — ladder drafting unavailable')
+      const task = getTask(args.task_id)
+      if (!task) throw new Error(`Task not found: ${args.task_id}`)
+      const existing = Array.isArray(task.escalation_rungs) ? task.escalation_rungs : []
+
+      const system = `You design "escalation ladders" for an ADHD task app — ordered lists of TACTICS for repeatedly trying to reach an unresponsive person/organization. Each rung is a DIFFERENT approach (not a repeat of the last), e.g. email -> phone call -> call the main line instead of the individual -> ask in person for a manager. Return JSON only: {"rungs":[{"label":"short tactic name","suggestion":"one sentence describing what to do, shown in nudges","script":"a literal 1-2 line opener the user can read or paste when they act - REQUIRED whenever the tactic involves talking to a person, since knowing what to say is the real barrier, not remembering to do it","attempts_before_ready":<int, how many tries before offering to switch tactics>,"nudge_every_days":<int, how often to nudge while on this rung>}]}. 2-5 rungs. The LAST rung should have a higher attempts_before_ready or represent the most escalated real-world option (in person, formal complaint channel, etc.) — do not set attempts_before_ready on it if there's genuinely nowhere further to go after it.`
+      const existingNote = existing.length > 0 ? `\n\nExisting rungs already on this ladder (draft NEW, DIFFERENT tactics — do not repeat these):\n${existing.map(r => `- ${r.label}: ${r.suggestion}`).join('\n')}` : ''
+      const user = `Task: ${task.title}\nSituation: ${args.situation}${existingNote}`
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': deps.anthropicKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1200, system, messages: [{ role: 'user', content: user }] }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error?.message || `Ladder draft call ${response.status}`)
+      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('')
+      const match = text.match(/\{[\s\S]*\}/)
+      if (!match) throw new Error('Could not parse drafted ladder')
+      const parsed = JSON.parse(match[0])
+      const drafted = (Array.isArray(parsed.rungs) ? parsed.rungs : []).map(r => ({
+        id: crypto.randomUUID(),
+        label: String(r.label || '').slice(0, 60),
+        suggestion: String(r.suggestion || '').slice(0, 300),
+        script: r.script ? String(r.script).slice(0, 300) : undefined,
+        attempts_before_ready: Number.isInteger(r.attempts_before_ready) ? r.attempts_before_ready : 3,
+        nudge_every_days: Number.isInteger(r.nudge_every_days) ? r.nudge_every_days : 2,
+      })).filter(r => r.label)
+      if (drafted.length === 0) throw new Error('Ladder draft returned no rungs')
+
+      const before = getTask(args.task_id)
+      const append = !!args.existing_rungs_exhausted
+      const finalRungs = append ? [...existing, ...drafted] : drafted
+      const task2 = setEscalationLadder(args.task_id, finalRungs, { append })
+      return {
+        result: { task_id: args.task_id, rungs: task2.escalation_rungs },
+        compensation: async () => { upsertTask(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'set_escalation_ladder',
+    description: 'Directly set/replace (or append to) a task\'s escalation ladder rungs. Prefer generate_escalation_ladder unless the user has dictated exact rungs themselves.',
+    schema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string' },
+        rungs: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' },
+              suggestion: { type: 'string' },
+              script: { type: 'string' },
+              attempts_before_ready: { type: 'integer' },
+              nudge_every_days: { type: 'integer' },
+            },
+            required: ['label'],
+          },
+        },
+        append: { type: 'boolean', default: false },
+      },
+      required: ['task_id', 'rungs'],
+    },
+    preview: (args) => `Set escalation ladder on "${taskLabel(args.task_id)}" (${args.rungs?.length || 0} rungs)`,
+    execute: async (args) => {
+      const before = getTask(args.task_id)
+      if (!before) throw new Error(`Task not found: ${args.task_id}`)
+      const rungs = (args.rungs || []).map(r => ({ id: crypto.randomUUID(), attempts_before_ready: 3, nudge_every_days: 2, ...r }))
+      const task = setEscalationLadder(args.task_id, rungs, { append: !!args.append })
+      return {
+        result: { task_id: args.task_id, rungs: task.escalation_rungs },
+        compensation: async () => { upsertTask(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'log_escalation_attempt',
+    description: 'Log a contact attempt at the task\'s CURRENT escalation rung — e.g. "I called again just now, still nothing." Awards 1 point.',
+    schema: {
+      type: 'object',
+      properties: { task_id: { type: 'string' }, note: { type: 'string' } },
+      required: ['task_id'],
+    },
+    preview: (args) => `Log a contact attempt on "${taskLabel(args.task_id)}"`,
+    execute: async (args) => {
+      const before = getTask(args.task_id)
+      if (!before) throw new Error(`Task not found: ${args.task_id}`)
+      const result = logEscalationAttempt(args.task_id, args.note)
+      return {
+        result: { task_id: args.task_id, attempts_at_rung: result.attemptsAtRung, threshold_met: result.thresholdMet },
+        compensation: async () => { upsertTask(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'advance_escalation_rung',
+    description: 'Move a task\'s escalation ladder to the next rung (switch tactics) — e.g. "move this to calling now."',
+    schema: {
+      type: 'object',
+      properties: { task_id: { type: 'string' } },
+      required: ['task_id'],
+    },
+    preview: (args) => `Advance escalation rung on "${taskLabel(args.task_id)}"`,
+    execute: async (args) => {
+      const before = getTask(args.task_id)
+      if (!before) throw new Error(`Task not found: ${args.task_id}`)
+      const task = advanceEscalationRung(args.task_id)
+      return {
+        result: { task_id: args.task_id, current_rung: task.escalation_current_rung, stuck: task.escalation_stuck },
+        compensation: async () => { upsertTask(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'resolve_escalation',
+    description: 'Close out a task\'s escalation ladder because the user got a response — e.g. "they finally got back to me, close it out." Keeps the rungs + attempt history as a record but clears the active ladder state.',
+    schema: {
+      type: 'object',
+      properties: { task_id: { type: 'string' } },
+      required: ['task_id'],
+    },
+    preview: (args) => `Resolve escalation ladder on "${taskLabel(args.task_id)}"`,
+    execute: async (args) => {
+      const before = getTask(args.task_id)
+      if (!before) throw new Error(`Task not found: ${args.task_id}`)
+      const task = resolveEscalation(args.task_id)
+      return {
+        result: { task_id: args.task_id, resolved: true },
+        compensation: async () => { upsertTask(before) },
       }
     },
   })

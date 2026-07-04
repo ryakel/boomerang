@@ -1394,6 +1394,46 @@ export async function logProjectSession(projectId, clientId = null) {
   return res.json()
 }
 
+// --- Escalation Ladder ---
+
+export async function setEscalationRungs(taskId, rungs, { append = false } = {}) {
+  const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/escalation/rungs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rungs, append }),
+  })
+  if (!res.ok) throw new Error(`set escalation rungs failed: ${res.status}`)
+  return res.json()
+}
+
+export async function logEscalationAttempt(taskId, note) {
+  const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/escalation/attempts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  })
+  if (!res.ok) throw new Error(`log escalation attempt failed: ${res.status}`)
+  return res.json()
+}
+
+export async function advanceEscalationRung(taskId) {
+  const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/escalation/advance`, { method: 'POST' })
+  if (!res.ok) throw new Error(`advance escalation rung failed: ${res.status}`)
+  return res.json()
+}
+
+export async function dismissEscalationAdvancePrompt(taskId) {
+  const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/escalation/dismiss-prompt`, { method: 'POST' })
+  if (!res.ok) throw new Error(`dismiss escalation prompt failed: ${res.status}`)
+  return res.json()
+}
+
+export async function resolveEscalation(taskId) {
+  const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/escalation/resolve`, { method: 'POST' })
+  if (!res.ok) throw new Error(`resolve escalation failed: ${res.status}`)
+  return res.json()
+}
+
 // --- Weather ---
 
 export async function getWeather() {
