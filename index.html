@@ -35,10 +35,22 @@
           'kept-dark': '#16140F',
           'kept-light': '#F8F4ED'
         }
-        if (s && themeColors[s.theme]) {
-          document.documentElement.setAttribute('data-theme', s.theme)
+        // "-system" sentinels follow the OS color scheme (src/theme.js is
+        // the source of truth; this is a pre-paint mirror since inline
+        // scripts can't import modules).
+        var systemThemes = {
+          system: { dark: 'dark', light: 'light' },
+          'kept-system': { dark: 'kept-dark', light: 'kept-light' }
+        }
+        var resolvedTheme = s && s.theme
+        if (resolvedTheme && systemThemes[resolvedTheme]) {
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          resolvedTheme = prefersDark ? systemThemes[resolvedTheme].dark : systemThemes[resolvedTheme].light
+        }
+        if (resolvedTheme && themeColors[resolvedTheme]) {
+          document.documentElement.setAttribute('data-theme', resolvedTheme)
           var meta = document.querySelector('meta[name="theme-color"]')
-          if (meta) meta.content = themeColors[s.theme]
+          if (meta) meta.content = themeColors[resolvedTheme]
         }
       } catch(e) {}
     </script>
