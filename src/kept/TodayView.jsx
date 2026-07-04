@@ -305,13 +305,14 @@ export default function TodayView({
                 >{done && <Check size={13} strokeWidth={3.4} />}</button>
                 <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                   <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0 || weatherDay) && (
+                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0 || weatherDay || t.assignee) && (
                     <span className="bm-row-meta">
                       {t.high_priority && <span className="bm-tag-hi">high</span>}
                       {statusTag && <span className="bm-tag-status">{statusTag}</span>}
                       {overdue && <span className="bm-due-over">overdue</span>}
                       {stale && <span className="bm-tag-stale">{ageDays}d on list</span>}
                       {weatherDay && <WeatherBadge day={weatherDay} />}
+                      {t.assignee && <span className="bm-tag-status">for {t.assignee}</span>}
                       {chips.slice(0, 3).map(l => (
                         <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
                       ))}
@@ -345,8 +346,9 @@ export default function TodayView({
                     <button className="bm-chk" onClick={() => onCompleteTask?.(t)} aria-label="Catch it" />
                     <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                       <span className="bm-row-title">{t.title}</span>
-                      {chips.length > 0 && (
+                      {(chips.length > 0 || t.assignee) && (
                         <span className="bm-row-meta">
+                          {t.assignee && <span className="bm-tag-status">for {t.assignee}</span>}
                           {chips.slice(0, 3).map(l => (
                             <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
                           ))}

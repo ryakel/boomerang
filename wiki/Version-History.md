@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-04
 
+- feat(routines): add `assignee` for loops/tasks the user supervises but doesn't own [M]
+  - **User request:** track recurring chores that are for the user's son (something they supervise, not their own task) with simple flat-point scoring rather than the normal ADHD-effort size×energy grading.
+  - New `assignee` TEXT column on both `routines` and `tasks` (migration 038). Free text (e.g. "Jack"), null = the user's own task/loop — no multi-user accounts, purely informational/organizational since only the user operates this app.
+  - Propagated from routine → spawned task at every spawn path (`spawnDueTasks`, `spawnNow`, `logHabit`, stack members) — same pattern as `energy_type`/`energy_level` inheritance.
+  - Scoring: `calculateTaskPoints()` in `src/scoring.js` now returns a flat `1` for any task with `assignee` set, instead of the `size × energy × speed` formula — per user decision, still counts toward the user's own daily points/streak total (they're supervising it), it just scores like a simple did-it-or-didn't chore rather than graded effort.
+  - UI: `RoutinesModal`'s "Labels & notes" section gains a "For" text field (blank = mine). Kept's `LoopsView`/`LoopDetail` show a small chip/meta suffix when set; `TodayView`'s task rows show "for {name}" in the meta line.
+  - Quokka: `create_routine`/`update_routine` and `create_task`/`update_task` all accept `assignee` now (routines for recurring chores, tasks for one-off ad-hoc ones); `summarizeTask`/`summarizeRoutine` expose it so the model can read current state.
+  - Verified: a standalone script against a fresh SQLite DB (all 38 migrations) confirms the `assignee` column round-trips correctly on both `routines` and `tasks` (set and unset cases), and a scoring script confirms `calculateTaskPoints` returns flat `1` for an assigned task regardless of size/energy while leaving the user's own tasks' scoring unchanged. `eslint` clean, production build clean, `npm test` passes.
+
 - feat(weather): surface the "Best days" recommendation + hide badges on weather-independent tasks [S]
   - **Prod feedback:** the 7-day forecast widget in `EditTaskModal` just listed the week passively — no actual "do it on X day" suggestion, even though the data made it obvious (e.g. tomorrow was the clearest day of the week). Separately, the on-card weather badge in Kept's Today view was showing on every dated task regardless of whether it was actually weather-relevant — indoor/weather-independent routines like "IFR Studying" and "Weekly Cleaning" (tagged `inside`) displayed the same rain badge as genuinely outdoor tasks.
   - Root cause 1: `pickBestDays()`/`formatBestDaysLine()` in `src/components/WeatherSection.jsx` were fully implemented and exported (and documented in CLAUDE.md as a shipped "Best days" feature) but **never actually called from anywhere in the app** — dead code since the day they were written. The forecast widget only ever highlighted the task's own due date, never the best-scoring day.

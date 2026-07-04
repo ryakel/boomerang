@@ -36,6 +36,7 @@ function spawnStackMembers(routine, dueYMD) {
     const energyLevel = m.energy_level ?? routine.energyLevel
     if (energy) task.energy = energy
     if (energyLevel) task.energyLevel = energyLevel
+    if (routine.assignee) task.assignee = routine.assignee
     task.snoozed_until = snooze
     return task
   })
@@ -48,7 +49,7 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days', triggerTime = null, scheduleDayOfMonth = null, scheduleWeekOfMonth = null, members = []) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days', triggerTime = null, scheduleDayOfMonth = null, scheduleWeekOfMonth = null, members = [], assignee = null) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes, customUnit)
     if (highPriority) routine.high_priority = true
     if (endDate) routine.end_date = endDate
@@ -59,6 +60,7 @@ export function useRoutines() {
     if (Array.isArray(followUps) && followUps.length > 0) routine.follow_ups = followUps
     if (Array.isArray(members) && members.length > 0) routine.members = members
     if (autoRoll) routine.auto_roll = true
+    if (assignee) routine.assignee = assignee
     if (spawnMode === 'habit') {
       routine.spawn_mode = 'habit'
       routine.target_count = targetCount
@@ -161,6 +163,7 @@ export function useRoutines() {
     task.last_touched = now
     if (routine.energy) task.energy = routine.energy
     if (routine.energyLevel) task.energyLevel = routine.energyLevel
+    if (routine.assignee) task.assignee = routine.assignee
     setRoutines(prev => prev.map(r => r.id === routineId
       ? { ...r, completed_history: [...(r.completed_history || []), now] }
       : r))
@@ -210,6 +213,7 @@ export function useRoutines() {
     if (routine.high_priority) task.high_priority = true
     if (routine.energy) task.energy = routine.energy
     if (routine.energyLevel) task.energyLevel = routine.energyLevel
+    if (routine.assignee) task.assignee = routine.assignee
     if (Array.isArray(routine.follow_ups) && routine.follow_ups.length > 0) {
       task.follow_ups = routine.follow_ups
     }
@@ -309,6 +313,7 @@ export function useRoutines() {
       task.notion_page_id = routine.notion_page_id
       task.notion_url = routine.notion_url
       if (routine.high_priority) task.high_priority = true
+      if (routine.assignee) task.assignee = routine.assignee
       if (Array.isArray(routine.follow_ups) && routine.follow_ups.length > 0) {
         task.follow_ups = routine.follow_ups
       }

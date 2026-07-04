@@ -104,6 +104,11 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
               style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
               onClick={() => setDetailId(r.id)}
             >{r.title}</button>
+            {r.assignee && (
+              <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--bm-text-meta)', border: '1px solid var(--bm-hairline)', borderRadius: 999, padding: '2px 7px', flex: '0 0 auto' }}>
+                {r.assignee}
+              </span>
+            )}
             {gapCount > 0 && (
               <button className="bm-loop-fix-chip" onClick={() => setDetailId(r.id)} aria-label={`${gapCount} day${gapCount === 1 ? '' : 's'} to fix`}>
                 {gapCount} to fix
