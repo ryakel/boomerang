@@ -2916,8 +2916,8 @@ app.get('/api/growth-areas', (req, res) => {
 
 app.post('/api/growth-areas', async (req, res) => {
   try {
-    const { title, mode } = req.body || {}
-    const area = await createGrowthArea({ title, mode })
+    const { title, morning, evening, persistent, day_scope } = req.body || {}
+    const area = await createGrowthArea({ title, morning, evening, persistent, day_scope })
     res.json({ ok: true, area })
   } catch (err) {
     res.status(400).json({ error: err.message })

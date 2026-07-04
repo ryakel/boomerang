@@ -5,28 +5,66 @@ import EmptyState from './EmptyState'
 import { getGrowthAreas, createGrowthArea, updateGrowthArea, deleteGrowthArea } from '../api'
 import './GrowthAreasModal.css'
 
-const MODE_OPTIONS = [
-  { value: 'morning', label: 'Morning', hint: 'Once-a-day rotation' },
-  { value: 'persistent', label: 'Persistent', hint: 'Surfaces when relevant' },
-  { value: 'both', label: 'Both', hint: 'Morning + relevant moments' },
+const DAY_SCOPE_OPTIONS = [
+  { value: 'any', label: 'Any day' },
+  { value: 'weekdays', label: 'Weekdays' },
+  { value: 'weekends', label: 'Weekends' },
 ]
-
-const MODE_LABEL = { morning: 'Morning', persistent: 'Persistent', both: 'Both' }
+const DAY_SCOPE_LABEL = { any: 'Any day', weekdays: 'Weekdays', weekends: 'Weekends' }
 
 const ENERGY_LABEL = { desk: 'Desk', people: 'People', errand: 'Errand', confrontation: 'Confrontation', creative: 'Creative', physical: 'Physical' }
+
+// Morning/evening/persistent are independent — an area can be any
+// combination (e.g. "leave work at work" as evening + weekdays-only).
+// Shared by both the add form and the inline row editor.
+function TimingControls({ morning, evening, persistent, dayScope, onChange, idPrefix }) {
+  return (
+    <div className="v2-growth-timing">
+      <div className="v2-growth-timing-checks">
+        <label className="v2-growth-timing-check">
+          <input type="checkbox" checked={morning} onChange={e => onChange({ morning: e.target.checked })} />
+          Morning
+        </label>
+        <label className="v2-growth-timing-check">
+          <input type="checkbox" checked={evening} onChange={e => onChange({ evening: e.target.checked })} />
+          Evening
+        </label>
+        <label className="v2-growth-timing-check">
+          <input type="checkbox" checked={persistent} onChange={e => onChange({ persistent: e.target.checked })} />
+          Persistent
+        </label>
+      </div>
+      <select
+        className="v2-growth-add-mode"
+        aria-label="Which days this applies to"
+        value={dayScope}
+        onChange={e => onChange({ day_scope: e.target.value })}
+        id={idPrefix ? `${idPrefix}-day-scope` : undefined}
+      >
+        {DAY_SCOPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  )
+}
 
 function AreaRow({ area, onUpdate, onDelete, busy }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(area.title)
-  const [mode, setMode] = useState(area.mode)
+  const [timing, setTiming] = useState({
+    morning: !!area.morning, evening: !!area.evening, persistent: !!area.persistent, day_scope: area.day_scope || 'any',
+  })
 
   const save = async () => {
     const t = title.trim()
     if (!t) return
-    await onUpdate(area.id, { title: t, mode })
+    await onUpdate(area.id, { title: t, ...timing })
     setEditing(false)
   }
-  const cancel = () => { setTitle(area.title); setMode(area.mode); setEditing(false) }
+  const cancel = () => {
+    setTitle(area.title)
+    setTiming({ morning: !!area.morning, evening: !!area.evening, persistent: !!area.persistent, day_scope: area.day_scope || 'any' })
+    setEditing(false)
+  }
 
   if (editing) {
     return (
@@ -37,15 +75,19 @@ function AreaRow({ area, onUpdate, onDelete, busy }) {
           onChange={e => setTitle(e.target.value)}
           autoFocus
         />
-        <select className="v2-growth-edit-mode" value={mode} onChange={e => setMode(e.target.value)}>
-          {MODE_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
-        <button className="v2-growth-icon-btn" onClick={save} disabled={busy} title="Save">
-          <Check size={16} strokeWidth={2} />
-        </button>
-        <button className="v2-growth-icon-btn" onClick={cancel} disabled={busy} title="Cancel">
-          <X size={16} strokeWidth={2} />
-        </button>
+        <TimingControls
+          morning={timing.morning} evening={timing.evening} persistent={timing.persistent} dayScope={timing.day_scope}
+          onChange={patch => setTiming(prev => ({ ...prev, ...patch }))}
+          idPrefix={`edit-${area.id}`}
+        />
+        <div className="v2-growth-row-editing-actions">
+          <button className="v2-growth-icon-btn" onClick={save} disabled={busy} title="Save">
+            <Check size={16} strokeWidth={2} />
+          </button>
+          <button className="v2-growth-icon-btn" onClick={cancel} disabled={busy} title="Cancel">
+            <X size={16} strokeWidth={2} />
+          </button>
+        </div>
       </li>
     )
   }
@@ -55,7 +97,12 @@ function AreaRow({ area, onUpdate, onDelete, busy }) {
       <div className="v2-growth-row-main">
         <span className="v2-growth-title">{area.title}</span>
         <div className="v2-growth-chips">
-          <span className="v2-growth-chip">{MODE_LABEL[area.mode] || area.mode}</span>
+          {area.morning && <span className="v2-growth-chip">Morning</span>}
+          {area.evening && <span className="v2-growth-chip">Evening</span>}
+          {area.persistent && <span className="v2-growth-chip">Persistent</span>}
+          {area.day_scope && area.day_scope !== 'any' && (
+            <span className="v2-growth-chip v2-growth-chip-scope">{DAY_SCOPE_LABEL[area.day_scope]}</span>
+          )}
           {area.energy_affinity && (
             <span className="v2-growth-chip v2-growth-chip-energy">{ENERGY_LABEL[area.energy_affinity] || area.energy_affinity}</span>
           )}
@@ -82,11 +129,13 @@ function AreaRow({ area, onUpdate, onDelete, busy }) {
   )
 }
 
+const DEFAULT_TIMING = { morning: true, evening: false, persistent: true, day_scope: 'any' }
+
 export default function GrowthAreasModal({ open, onClose }) {
   const [areas, setAreas] = useState([])
   const [loading, setLoading] = useState(false)
   const [newTitle, setNewTitle] = useState('')
-  const [newMode, setNewMode] = useState('both')
+  const [newTiming, setNewTiming] = useState(DEFAULT_TIMING)
   const [adding, setAdding] = useState(false)
   const [busyId, setBusyId] = useState(null)
   const [error, setError] = useState(null)
@@ -115,10 +164,10 @@ export default function GrowthAreasModal({ open, onClose }) {
     setAdding(true)
     setError(null)
     try {
-      const area = await createGrowthArea({ title: t, mode: newMode })
+      const area = await createGrowthArea({ title: t, ...newTiming })
       setAreas(prev => [...prev, area])
       setNewTitle('')
-      setNewMode('both')
+      setNewTiming(DEFAULT_TIMING)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -159,21 +208,28 @@ export default function GrowthAreasModal({ open, onClose }) {
       width="narrow"
     >
       <form className="v2-growth-add" onSubmit={handleAdd}>
-        <input
-          className="v2-growth-add-input"
-          placeholder="e.g. Be more patient on calls"
-          value={newTitle}
-          onChange={e => setNewTitle(e.target.value)}
-          maxLength={80}
+        <div className="v2-growth-add-row">
+          <input
+            className="v2-growth-add-input"
+            placeholder="e.g. Be more patient on calls"
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            maxLength={80}
+          />
+          <button className="v2-growth-add-btn" type="submit" disabled={adding || !newTitle.trim()}>
+            {adding ? '...' : 'Add'}
+          </button>
+        </div>
+        <TimingControls
+          morning={newTiming.morning} evening={newTiming.evening} persistent={newTiming.persistent} dayScope={newTiming.day_scope}
+          onChange={patch => setNewTiming(prev => ({ ...prev, ...patch }))}
+          idPrefix="new-area"
         />
-        <select className="v2-growth-add-mode" value={newMode} onChange={e => setNewMode(e.target.value)}>
-          {MODE_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
-        <button className="v2-growth-add-btn" type="submit" disabled={adding || !newTitle.trim()}>
-          {adding ? '...' : 'Add'}
-        </button>
       </form>
-      <div className="v2-growth-hint">Works best with 2-3 active areas — a longer list just means each one is seen less often.</div>
+      <div className="v2-growth-hint">
+        Works best with 2-3 active areas — a longer list just means each one is seen less often.
+        Evening + Weekdays is a good fit for work-life-boundary reminders ("leave work at work") — they simply won't come up on a Saturday.
+      </div>
 
       {error && <div className="v2-growth-error">{error}</div>}
 

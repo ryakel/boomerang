@@ -9,24 +9,47 @@
 //
 // Two collections:
 //   growth_areas       — the user's list of areas (CRUD)
-//   growth_area_today  — the cached once-daily rotation pick + AI rendering,
-//                        `{ date, area_id, area_title, text }`
+//   growth_area_today  — the cached once-daily rotation picks + AI renderings,
+//                        `{ date, morning: pick|null, evening: pick|null }`
+//                        where pick = `{ area_id, area_title, text }`
 
 import { getData, setData } from './db.js'
 
 const AREAS_COLLECTION = 'growth_areas'
 const TODAY_COLLECTION = 'growth_area_today'
 const AI_TIMEOUT_MS = 6000
-const VALID_MODES = new Set(['morning', 'persistent', 'both'])
 const ENERGY_TYPES = ['desk', 'people', 'errand', 'confrontation', 'creative', 'physical']
+const VALID_DAY_SCOPES = new Set(['any', 'weekdays', 'weekends'])
+const ROTATION_PERIODS = ['morning', 'evening']
 
 function getAnthropicKey() {
   return getData('settings')?.anthropic_api_key || process.env.ANTHROPIC_API_KEY || null
 }
 
+// Legacy areas (shipped 2026-07-04) stored a single `mode: 'morning'|
+// 'persistent'|'both'` field. Normalized on every read so old records keep
+// working without a migration (this collection is a JSON blob, not a SQL
+// table) — translated once into the current morning/evening/persistent +
+// day_scope shape. The raw stored record keeps its stale `mode` key until
+// next saved; harmless, nothing reads it after normalization.
+function normalizeArea(a) {
+  if (!a) return a
+  if (a.morning !== undefined || a.evening !== undefined || a.persistent !== undefined) {
+    return { day_scope: 'any', evening: false, ...a }
+  }
+  const mode = a.mode || 'both'
+  return {
+    ...a,
+    morning: mode === 'morning' || mode === 'both',
+    evening: false,
+    persistent: mode === 'persistent' || mode === 'both',
+    day_scope: 'any',
+  }
+}
+
 function loadAreas() {
   const arr = getData(AREAS_COLLECTION)
-  return Array.isArray(arr) ? arr : []
+  return Array.isArray(arr) ? arr.map(normalizeArea) : []
 }
 function saveAreas(arr) {
   setData(AREAS_COLLECTION, arr)
@@ -41,6 +64,34 @@ function todayLocalYMD() {
   } catch {
     return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
   }
+}
+
+// Day-of-week in the user's timezone, mirroring tagSuggestions.js's
+// userLocalParts() pattern. 0 = Sunday ... 6 = Saturday.
+function localDayOfWeek() {
+  const tz = getData('settings')?.user_timezone
+  try {
+    const wd = new Intl.DateTimeFormat('en-US', { timeZone: tz || undefined, weekday: 'short' }).format(new Date())
+    const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+    return map[wd] ?? new Date().getDay()
+  } catch {
+    return new Date().getDay()
+  }
+}
+
+// "Leave work at work" — a work-scoped area shouldn't even be ELIGIBLE on a
+// day it doesn't apply to, rather than trying to auto-detect "this is a
+// work reminder, deprioritize on weekends" (which would mean guessing life
+// domains via AI — more speculative machinery than this feature's "dead
+// simple, no tracking" design calls for). day_scope is the deterministic,
+// user-declared alternative: applies to both the daily rotation pool AND
+// contextual injection, so a weekday-only area is fully invisible on a
+// Saturday, not just deprioritized.
+function dayScopeMatches(dayScope) {
+  if (!dayScope || dayScope === 'any') return true
+  const dow = localDayOfWeek()
+  const isWeekend = dow === 0 || dow === 6
+  return dayScope === 'weekends' ? isWeekend : !isWeekend
 }
 
 function dayOfYear(ymd) {
@@ -96,15 +147,24 @@ export function getGrowthArea(id) {
   return loadAreas().find(a => a.id === id) || null
 }
 
-export async function createGrowthArea({ title, mode }) {
+// `morning`/`evening`/`persistent` default to the old "both" shape (morning
+// + persistent, no evening) when none are explicitly specified — e.g. a
+// bare Quokka create_growth_area({title}) call. Once ANY of the three is
+// specified, the other two default to false rather than silently keeping
+// the old default, so an explicit "evening only" request isn't quietly
+// widened.
+export async function createGrowthArea({ title, morning, evening, persistent, day_scope }) {
   const t = String(title || '').trim()
   if (!t) throw new Error('title is required')
-  const m = VALID_MODES.has(mode) ? mode : 'both'
+  const anySpecified = morning !== undefined || evening !== undefined || persistent !== undefined
   const energy_affinity = await inferEnergyAffinity(t)
   const area = {
     id: `ga-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     title: t,
-    mode: m,
+    morning: anySpecified ? !!morning : true,
+    evening: anySpecified ? !!evening : false,
+    persistent: anySpecified ? !!persistent : true,
+    day_scope: VALID_DAY_SCOPES.has(day_scope) ? day_scope : 'any',
     energy_affinity,
     active: true,
     created_at: new Date().toISOString(),
@@ -121,11 +181,15 @@ export function updateGrowthArea(id, updates = {}) {
   if (idx === -1) return null
   const next = { ...arr[idx] }
   if (updates.title !== undefined) next.title = String(updates.title).trim()
-  if (updates.mode !== undefined && VALID_MODES.has(updates.mode)) next.mode = updates.mode
+  if (updates.morning !== undefined) next.morning = !!updates.morning
+  if (updates.evening !== undefined) next.evening = !!updates.evening
+  if (updates.persistent !== undefined) next.persistent = !!updates.persistent
+  if (updates.day_scope !== undefined && VALID_DAY_SCOPES.has(updates.day_scope)) next.day_scope = updates.day_scope
   if (updates.active !== undefined) next.active = !!updates.active
   if (updates.energy_affinity !== undefined) {
     next.energy_affinity = ENERGY_TYPES.includes(updates.energy_affinity) ? updates.energy_affinity : null
   }
+  delete next.mode // fully migrated off the legacy field once explicitly edited
   arr[idx] = next
   saveAreas(arr)
   return next
@@ -139,10 +203,10 @@ export function deleteGrowthArea(id) {
   return true
 }
 
-// --- Morning rotation ---
+// --- Rotation (morning + evening, independently scoped) ---
 
-function rotationPool() {
-  return loadAreas().filter(a => a.active && (a.mode === 'morning' || a.mode === 'both'))
+function rotationPool(period) {
+  return loadAreas().filter(a => a.active && a[period] && dayScopeMatches(a.day_scope))
 }
 
 function pickRotationArea(pool, ymd) {
@@ -151,9 +215,12 @@ function pickRotationArea(pool, ymd) {
   return pool[idx]
 }
 
-async function rephraseArea(area) {
+async function rephraseArea(area, period) {
+  const framing = period === 'evening'
+    ? 'This is an EVENING nudge — write it as a wind-down/closing-out cue (e.g. "closing your laptop", "before you head home"), not a morning energize-for-the-day tone.'
+    : 'This is a MORNING nudge — write it as a start-the-day cue.'
   const text = await callClaude({
-    system: `You write short, warm, concrete morning nudges for an ADHD-friendly personal coaching app. Given a standing "growth area" the user wants to work on about themselves, write ONE fresh, specific, encouraging sentence (under 16 words) that makes today's version of it concrete and actionable — not a generic restatement. Vary the phrasing every time; never just repeat the input. Reply with just the sentence — no quotes, no preamble.`,
+    system: `You write short, warm, concrete nudges for an ADHD-friendly personal coaching app. Given a standing "growth area" the user wants to work on about themselves, write ONE fresh, specific, encouraging sentence (under 16 words) that makes today's version of it concrete and actionable — not a generic restatement. ${framing} Vary the phrasing every time; never just repeat the input. Reply with just the sentence — no quotes, no preamble.`,
     user: area.title,
     maxTokens: 60,
   })
@@ -161,46 +228,55 @@ async function rephraseArea(area) {
   return text.replace(/^["']|["']$/g, '').trim() || area.title
 }
 
-// Computes (if not already cached for today) and returns the daily pick.
-// Safe to call frequently — no-ops once today's pick is cached.
+// Computes (if not already cached for today) and returns the daily picks
+// for both periods. Safe to call frequently — no-ops once cached.
 //
-// A cached EMPTY pick (area_id: null — no eligible areas at the time) is
-// deliberately NOT sticky: it's the common first-run shape (user adds their
-// first morning/both area mid-day, after the background loop's startup tick
-// already cached "nothing to show"). Re-checking the pool costs nothing when
-// it's still empty, and only ever upgrades null → a real pick, so it can't
-// cause the digest/banner disagreement the caching exists to prevent — that
-// risk only applies once a REAL pick (with its AI-rephrased text) has been
-// made and potentially already delivered.
+// A cached EMPTY pick (area_id: null — no eligible areas that period/day)
+// is deliberately NOT sticky: it's the common first-run shape (user adds
+// their first area mid-day, or a work-scoped area's day_scope just isn't
+// "today"), and re-checking the pool costs nothing when still empty. Only
+// ever upgrades null → a real pick, so it can't cause the digest/banner
+// disagreement the caching exists to prevent — that risk only applies once
+// a REAL pick (with its AI-rephrased text) has been made and potentially
+// already delivered.
 export async function ensureTodayGrowthArea() {
   const today = todayLocalYMD()
   const cached = getData(TODAY_COLLECTION)
-  if (cached?.date === today && cached.area_id) return cached
+  const result = cached?.date === today ? { ...cached } : { date: today }
+  let changed = cached?.date !== today
 
-  const pool = rotationPool()
-  const area = pickRotationArea(pool, today)
-  if (!area) {
-    const empty = { date: today, area_id: null, area_title: null, text: null }
-    setData(TODAY_COLLECTION, empty)
-    return empty
+  for (const period of ROTATION_PERIODS) {
+    if (result[period]?.area_id) continue // already resolved a real pick for this period today
+    const pool = rotationPool(period)
+    const area = pickRotationArea(pool, today)
+    if (!area) {
+      result[period] = { area_id: null, area_title: null, text: null }
+      changed = true
+      continue
+    }
+    const text = await rephraseArea(area, period)
+    result[period] = { area_id: area.id, area_title: area.title, text }
+    changed = true
   }
-  const text = await rephraseArea(area)
-  const result = { date: today, area_id: area.id, area_title: area.title, text }
-  setData(TODAY_COLLECTION, result)
+  if (changed) setData(TODAY_COLLECTION, result)
   return result
 }
 
-// Sync read-only accessor — returns null if today's pick hasn't been
+// Sync read-only accessor — returns null if today's picks haven't been
 // computed yet (caller should trigger ensureTodayGrowthArea() separately;
 // digestBuilder.js is synchronous and must never block on a live AI call).
+// Returns `{ date, morning, evening }`; either period may be null/absent
+// if not yet computed this cycle.
 export function getTodayGrowthAreaCached() {
   const cached = getData(TODAY_COLLECTION)
   return cached?.date === todayLocalYMD() ? cached : null
 }
 
-// Active areas eligible for contextual injection (What Now / Quokka).
+// Active areas eligible for contextual injection (What Now / Quokka),
+// filtered by day_scope the same way the rotation pool is — a weekday-only
+// area doesn't get mentioned in a Saturday What Now pick either.
 export function contextualGrowthAreas() {
-  return loadAreas().filter(a => a.active && (a.mode === 'persistent' || a.mode === 'both'))
+  return loadAreas().filter(a => a.active && a.persistent && dayScopeMatches(a.day_scope))
 }
 
 // --- Background sync loop, mirrors weatherSync.js's cadence pattern ---

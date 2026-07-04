@@ -487,18 +487,23 @@ export function registerGrowthAreaTools() {
 
   registerTool({
     name: 'create_growth_area',
-    description: 'Create a new growth area. `mode` controls surfacing: "morning" (once-daily rotation), "persistent" (contextual — surfaces in What Now / Quokka when relevant), or "both". energy_affinity is inferred automatically server-side, do not pass it.',
+    description: 'Create a new growth area. Surfacing is three independent flags: `morning` (once-daily rotation pick), `evening` (a separate once-daily evening rotation pick — good for wind-down/work-boundary reminders like "leave work at work"), `persistent` (contextual — surfaces in What Now / Quokka when genuinely relevant). If none of the three are specified, defaults to morning+persistent (no evening). `day_scope` optionally restricts which days it\'s even eligible on: "any" (default), "weekdays", or "weekends" — e.g. a work-boundary reminder should usually be evening + weekdays so it never comes up on a Saturday. energy_affinity is inferred automatically server-side, do not pass it.',
     schema: {
       type: 'object',
       properties: {
         title: { type: 'string', description: 'e.g. "Be more patient on calls"' },
-        mode: { type: 'string', enum: ['morning', 'persistent', 'both'], default: 'both' },
+        morning: { type: 'boolean' },
+        evening: { type: 'boolean' },
+        persistent: { type: 'boolean' },
+        day_scope: { type: 'string', enum: ['any', 'weekdays', 'weekends'], default: 'any' },
       },
       required: ['title'],
     },
-    preview: (a) => `Create growth area "${a.title}" (${a.mode || 'both'})`,
+    preview: (a) => `Create growth area "${a.title}"`,
     execute: async (args) => {
-      const area = await createGrowthArea({ title: args.title, mode: args.mode })
+      const area = await createGrowthArea({
+        title: args.title, morning: args.morning, evening: args.evening, persistent: args.persistent, day_scope: args.day_scope,
+      })
       return {
         result: { id: area.id, area },
         compensation: async () => { deleteGrowthArea(area.id) },
@@ -508,13 +513,16 @@ export function registerGrowthAreaTools() {
 
   registerTool({
     name: 'update_growth_area',
-    description: 'Update a growth area\'s title, mode, or active state (active=false pauses it without losing the wording — use for "stop showing X").',
+    description: 'Update a growth area\'s title, surfacing flags (morning/evening/persistent), day_scope, or active state (active=false pauses it without losing the wording — use for "stop showing X").',
     schema: {
       type: 'object',
       properties: {
         id: { type: 'string' },
         title: { type: 'string' },
-        mode: { type: 'string', enum: ['morning', 'persistent', 'both'] },
+        morning: { type: 'boolean' },
+        evening: { type: 'boolean' },
+        persistent: { type: 'boolean' },
+        day_scope: { type: 'string', enum: ['any', 'weekdays', 'weekends'] },
         active: { type: 'boolean' },
       },
       required: ['id'],
@@ -524,7 +532,7 @@ export function registerGrowthAreaTools() {
       const before = getGrowthArea(args.id)
       ensure(before, `Growth area not found: ${args.id}`)
       const updates = {}
-      for (const k of ['title', 'mode', 'active']) if (args[k] !== undefined) updates[k] = args[k]
+      for (const k of ['title', 'morning', 'evening', 'persistent', 'day_scope', 'active']) if (args[k] !== undefined) updates[k] = args[k]
       const area = updateGrowthArea(args.id, updates)
       return {
         result: { id: args.id, area },

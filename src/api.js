@@ -1477,11 +1477,11 @@ export async function getGrowthAreas() {
   return data.areas || []
 }
 
-export async function createGrowthArea({ title, mode }) {
+export async function createGrowthArea({ title, morning, evening, persistent, day_scope }) {
   const res = await fetch('/api/growth-areas', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, mode }),
+    body: JSON.stringify({ title, morning, evening, persistent, day_scope }),
   })
   if (!res.ok) throw new Error(`growth area create failed: ${res.status}`)
   const data = await res.json()
