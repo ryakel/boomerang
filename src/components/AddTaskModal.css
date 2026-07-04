@@ -76,10 +76,13 @@
   margin-top: 8px;
 }
 
-/* Two-column row used for date+priority etc. CSS Grid (over flex) so each
- * column gets exactly half the available width regardless of intrinsic
- * content widths — Safari/iOS renders empty <input type="date"> at a
- * collapsed intrinsic width which broke the flex layout.
+/* Two-column row used for date+priority, frequency+on, every-N+unit, etc.
+ * (also reused as-is by RoutinesModal for several genuinely equal-weight
+ * pairs — that's why the default stays 1:1; see the -due-priority modifier
+ * below for the one pairing that isn't equal-weight). CSS Grid (over flex)
+ * so each column gets a fixed share of the available width regardless of
+ * intrinsic content widths — Safari/iOS renders empty <input type="date">
+ * at a collapsed intrinsic width which broke the flex layout.
  *
  * minmax(0, 1fr) (not the shorthand `1fr` which is minmax(auto, 1fr)) so
  * filled date inputs don't expand the column past its half-share —
@@ -91,6 +94,16 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   margin-top: 18px;
+}
+
+/* Due packs a "YYYY-MM-DD" text field PLUS a calendar-icon button into its
+ * column (DateField.jsx), while Priority is a single button whose longest
+ * label ("! High") is under 10 chars — an even split was cramping the date
+ * text against the fixed-width calendar button (prod report: dates
+ * truncating) while Priority sat on unused space. Same minmax(0, Nfr)
+ * reasoning as the default, just an asymmetric ratio. */
+.v2-form-row-due-priority {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
 }
 
 .v2-form-field {

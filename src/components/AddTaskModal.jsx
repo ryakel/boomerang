@@ -106,7 +106,7 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
         )}
       </div>
 
-      <div className="v2-form-row">
+      <div className="v2-form-row v2-form-row-due-priority">
         <div className="v2-form-field">
           <label className="v2-form-label">Due</label>
           <DateField value={form.dueDate} onChange={form.setDueDate} min={today} />
