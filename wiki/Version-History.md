@@ -4,7 +4,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
-## 2026-07-04
+## 2026-07-10
+
+- fix(store): Quokka's "Could not retrieve response" error on long tool-use turns [S]
+  - **User report:** screenshot + transcript of Quokka's "find contractors for my tasks" request — a broad request that legitimately fanned out into 13+ `search_tasks` calls, 2 `get_task` calls, 2 `web_search` calls, and 2 `update_task` calls — ending in "Could not retrieve response" even though the updates had actually been staged.
+  - Root cause: `useAdviser.js`'s SSE-drop poll-fallback (used when the stream disconnects mid-turn — common on mobile cellular, especially once the phone screen locks) only polled `GET /api/adviser/session/:id` for 30 attempts × 1.5s = 45 seconds before giving up. The server-side detached runner (per the Quokka architecture doc above) keeps working regardless of client disconnects — sessions stay alive up to 10 min idle / 30 min while a plan is staged — so 45 seconds was never enough budget for a genuinely long multi-tool-call turn like this one; the client declared failure while the server was still legitimately working.
+  - Fixed: extracted the (previously duplicated in two places) poll loop into a shared `pollSessionForResult()`, extended the budget to 5 minutes, and made transient fetch errors mid-poll retry instead of immediately aborting (only a 404 — session genuinely gone — stops early). Module-level `POLL_INTERVAL_MS`/`POLL_BUDGET_MS` constants make the budget easy to retune later.
 
 - fix(ui): swipe-down-to-dismiss on Kept's bottom sheets [S]
   - **User report:** "Throw task modal swipe down doesn't work" — the sheet's grabber bar has always looked draggable (it's the standard bottom-sheet affordance) but no touch handling was ever wired behind it on either `.bm-sheet` (ThrowSheet, and the Tasks action sheet in `TasksViewKept.jsx` shares the identical grabber pattern and the identical gap).
