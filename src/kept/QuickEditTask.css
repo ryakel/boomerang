@@ -173,7 +173,9 @@
   color: var(--wb-text);
   border-radius: 10px;
   padding: 7px 12px;
-  font: 600 12px/1 inherit;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1;
   font-family: inherit;
   cursor: pointer;
 }

@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Search, Pencil, Trash2, X, Undo2, ArrowUpDown } from 'lucide-react'
 import { localYMD, parseLocalDate, addDays } from '../dates'
 import { isSnoozed, formatSnoozeLabel } from '../store'
+import useSheetSwipeDown from '../hooks/useSheetSwipeDown'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
 import BoardView from './BoardView'
@@ -25,6 +26,16 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [sheetTask, setSheetTask] = useState(null)
+  const sheetRef = useRef(null)
+  const { handleProps: sheetHandleProps } = useSheetSwipeDown(sheetRef, () => setSheetTask(null))
+  // Escape closes the task action sheet — same convention as every other
+  // modal/sheet primitive in the app (ModalShell, ConfirmDialog, ThrowSheet).
+  useEffect(() => {
+    if (!sheetTask) return
+    const onKey = (e) => { if (e.key === 'Escape') setSheetTask(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [sheetTask])
   const [collapsed, toggleSection] = useCollapsedSections()
   const labelsById = useMemo(() => { const m = {}; for (const l of labels) m[l.id] = l; return m }, [labels])
   const [labelFilter, setLabelFilter] = useState('all')
@@ -146,7 +157,7 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
                 .flatMap(cl => (cl.items || []).map(it => ({ ...it, clId: cl.id })))
               return (
                 <RowSwipe key={t.id} done={done} onCatch={() => onToggleComplete?.(t)} onDelete={() => onDelete?.(t)}>
-                  <div className="bm-row">
+                  <div className="bm-row" data-task-id={t.id}>
                     <button
                       className={`bm-chk${done ? ' is-done' : ''}${t.high_priority ? ' is-hi' : ''}`}
                       onClick={() => onToggleComplete?.(t)}
@@ -196,8 +207,10 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
 
       {sheetTask && (
         <div className="bm-sheet-backdrop" onClick={() => setSheetTask(null)}>
-          <div className="bm-sheet" onClick={e => e.stopPropagation()}>
-            <div className="bm-grabber" />
+          <div className="bm-sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
+            <div className="bm-sheet-handle" {...sheetHandleProps}>
+              <div className="bm-grabber" />
+            </div>
             <h3 className="bm-sheet-title">{sheetTask.title}</h3>
             <div className="bm-chip-row">
               {[

@@ -696,7 +696,7 @@ export default function EditTaskModal({
         )
       })()}
 
-      <div className="v2-form-row">
+      <div className="v2-form-row v2-form-row-due-priority">
         <div className="v2-form-field">
           <label className="v2-form-label">Due</label>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
