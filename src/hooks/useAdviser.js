@@ -7,6 +7,9 @@ import {
   adviserActivateChat, adviserStarChat, adviserUnstarChat,
 } from '../api'
 
+const POLL_INTERVAL_MS = 1500
+const POLL_BUDGET_MS = 5 * 60 * 1000 // 5 minutes
+
 function quokkaLog(...args) {
   const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
   console.log('[Quokka]', line)
@@ -253,6 +256,56 @@ export function useAdviser() {
     })
   }, [makeEventHandler])
 
+  // Polls the detached server-side runner for turn results when the SSE
+  // stream drops (mobile network hiccups, backgrounding) mid-turn. The
+  // runner keeps working server-side regardless of the client's connection
+  // — sessions stay alive up to 10 min idle / 30 min while a plan is staged
+  // (adviserTools.js) — so this budget errs long rather than declaring
+  // failure while the server is still legitimately grinding through a
+  // many-tool-call turn (e.g. "search my whole task list" fanning out into
+  // a dozen+ search_tasks calls before it even reaches the web searches).
+  // A transient fetch failure mid-poll (also common on mobile) retries
+  // instead of aborting; only a 404 (session genuinely gone — TTL expired,
+  // or already cleaned up post-commit/abort) stops early.
+  const pollSessionForResult = useCallback((sid, handler, startIdx = 0) => {
+    let lastIdx = startIdx
+    const deadline = Date.now() + POLL_BUDGET_MS
+    const tick = async () => {
+      await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+      try {
+        const res = await fetch(`/api/adviser/session/${sid}`)
+        if (res.status === 404) {
+          quokkaLog('poll: session gone (404)')
+          setLastError('Could not retrieve response')
+          setStatus('error')
+          return
+        }
+        if (res.ok) {
+          const result = await res.json()
+          const events = result.events || []
+          for (let i = lastIdx; i < events.length; i++) {
+            handler(events[i].type || 'message', events[i].data || events[i])
+          }
+          lastIdx = events.length
+          if (result.runnerState !== 'running') {
+            quokkaLog('poll complete, runnerState=' + result.runnerState, 'events=' + events.length)
+            return
+          }
+        }
+      } catch (e) {
+        quokkaLog('poll error (retrying):', e.message)
+      }
+      if (Date.now() < deadline) {
+        tick()
+      } else {
+        quokkaLog('poll budget exhausted')
+        setLastError('Could not retrieve response')
+        setStatus('error')
+      }
+    }
+    tick()
+  }, [])
+
   const buildHistory = useCallback(() => {
     const history = []
     for (const m of messages) {
@@ -312,32 +365,7 @@ export function useAdviser() {
           // Start from current event count — skip events from prior turns
           const startFrom = (data.eventCount || 0)
           quokkaLog('switching to poll, sid=' + sid, 'startFrom=' + startFrom)
-          let lastIdx = startFrom
-          const pollForResult = async () => {
-            for (let attempt = 0; attempt < 30; attempt++) {
-              await new Promise(r => setTimeout(r, 1500))
-              try {
-                const res = await fetch(`/api/adviser/session/${sid}`)
-                if (!res.ok) break
-                const result = await res.json()
-                const events = result.events || []
-                for (let i = lastIdx; i < events.length; i++) {
-                  handler(events[i].type || 'message', events[i].data || events[i])
-                }
-                lastIdx = events.length
-                if (result.runnerState !== 'running') {
-                  quokkaLog('poll complete, runnerState=' + result.runnerState, 'events=' + events.length)
-                  return
-                }
-              } catch (e) {
-                quokkaLog('poll error:', e.message)
-                break
-              }
-            }
-            setLastError('Could not retrieve response')
-            setStatus('error')
-          }
-          pollForResult()
+          pollSessionForResult(sid, handler, startFrom)
         }
       },
       onError: (err) => {
@@ -346,32 +374,7 @@ export function useAdviser() {
         streamRef.current = null
         if (sid) {
           quokkaLog('stream died before session event, polling with ref sid=' + sid)
-          let lastIdx = 0
-          const pollForResult = async () => {
-            for (let attempt = 0; attempt < 30; attempt++) {
-              await new Promise(r => setTimeout(r, 1500))
-              try {
-                const res = await fetch(`/api/adviser/session/${sid}`)
-                if (!res.ok) break
-                const result = await res.json()
-                const events = result.events || []
-                for (let i = lastIdx; i < events.length; i++) {
-                  handler(events[i].type || 'message', events[i].data || events[i])
-                }
-                lastIdx = events.length
-                if (result.runnerState !== 'running') {
-                  quokkaLog('poll complete, runnerState=' + result.runnerState, 'events=' + events.length)
-                  return
-                }
-              } catch (e) {
-                quokkaLog('poll error:', e.message)
-                break
-              }
-            }
-            setLastError('Could not retrieve response')
-            setStatus('error')
-          }
-          pollForResult()
+          pollSessionForResult(sid, handler, 0)
         } else {
           setLastError(err.message || String(err))
           setStatus('error')
@@ -381,7 +384,7 @@ export function useAdviser() {
         streamRef.current = null
       },
     })
-  }, [buildHistory, sessionId, ensureActiveChat, runnerState, makeEventHandler])
+  }, [buildHistory, sessionId, ensureActiveChat, runnerState, makeEventHandler, pollSessionForResult])
 
   const commit = useCallback(async () => {
     if (!sessionId) return
