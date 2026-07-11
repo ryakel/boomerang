@@ -4,6 +4,12 @@
 
 Every task always comes back. Dismissal is never free — every "not now" requires a "then when."
 
+| Today | Tasks | Loops |
+|---|---|---|
+| ![Kept mobile Today view](images/kept-mobile-today.png) | ![Kept mobile Tasks view](images/kept-mobile-tasks.png) | ![Kept mobile Loops view](images/kept-mobile-loops.png) |
+
+*The Kept mobile IA: Today (Day Arc hero + dated tasks), Tasks (grouped hairline rows), and Loops (cycle-chip trails with rally streaks).*
+
 ## Themes
 
 Four palettes, picked in Settings → General → Theme:
@@ -391,7 +397,11 @@ Uses [Open-Meteo](https://open-meteo.com) to suggest the right tasks for the wea
 
 **Undated tasks are quiet by default.** A task with no due date won't trigger stale/nudge/pile-up notifications unless you turn on "Remind me about this without a due date" in the edit modal (same toggle Projects have always had) — otherwise it just sits in Anytime/Tasks without any pressure. This applies to the pile-up count too, so a big backlog of someday tasks won't push you over the "too many open tasks" limit. Tasks with a due date, and any task with an active Escalation Ladder, are unaffected — this only changes truly undated tasks.
 
-**Exempt labeled tasks from the pile-up count.** Settings → Notifications has a label picker (below "Max open tasks") — tasks tagged with any label you pick there stop counting toward the "too many open tasks" limit and warning. Useful for tasks you're deliberately keeping around for reference or context rather than active work. Off by default (no labels picked = no effect).
+**Exempt labeled tasks from the pile-up count.** Settings → Notifications has a label picker (below "Pile-up thresholds") — tasks tagged with any label you pick there stop counting toward the "too many open tasks" limit and warning. Useful for tasks you're deliberately keeping around for reference or context rather than active work. Off by default (no labels picked = no effect).
+
+![Settings → Notifications: pile-up thresholds and label exemption](images/settings-notifications.png)
+
+*Settings → Notifications: pile-up thresholds with the label-exemption picker directly below.*
 
 ### Notification Center (in-app)
 
@@ -493,6 +503,10 @@ Tasks can be marked as high priority via a toggle in the Edit modal. High priori
 - **Click outside** or **Escape** to dismiss the menu
 
 ## Desktop UI
+
+![Kept desktop Tasks in Board view](images/kept-desktop-tasks-board.png)
+
+*Desktop command center: sidebar, Tasks in Board view mode, and the Today rail.*
 
 On screens 768px+, the app switches to a desktop layout:
 - **Kanban board** — 6-column board (Doing, Up Next, Waiting, Snoozed, Backlog, Projects) with drag-and-drop between columns

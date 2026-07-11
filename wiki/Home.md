@@ -6,6 +6,10 @@ A personal ADHD task manager that won't let things disappear. Tasks always come 
 
 Boomerang is built around the idea that dismissal is never free. Every "not now" requires a "then when." Tasks that go untouched become stale. Tasks that get snoozed too many times trigger an AI-powered reframe. Optional AI features help you polish notes, pick what to work on, and break down stuck tasks. Integrates with Notion and Trello for bidirectional sync. Multiple clients stay in sync in real time via Server-Sent Events.
 
+<img src="images/kept-mobile-today.png" alt="Kept mobile Today view" width="390">
+
+*Today: Day Arc hero, "What now?" prompt, dated tasks, and today's loops.*
+
 ## Quick Start
 
 ```bash

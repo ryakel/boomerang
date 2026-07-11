@@ -17,6 +17,12 @@ docker run -d \
 
 Open `http://localhost:3001`.
 
+To add your first task, hit the center **Throw** button (mobile) or **Throw a task** / ⌘K (desktop) — type what needs doing, pick a smart date chip, and throw it:
+
+<img src="images/kept-mobile-throw.png" alt="Throw a task quick-capture sheet" width="390">
+
+*Throw: quick capture with smart date chips (Today / Tomorrow / Weekend / No date).*
+
 ## API Keys (Optional)
 
 Both the Anthropic API key and the Notion integration token are **optional**. The app works fully without them — you just won't have access to AI features or Notion integration.

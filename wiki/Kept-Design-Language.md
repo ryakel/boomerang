@@ -19,6 +19,41 @@ back), **catch** (complete), **kept** (your history — everything you caught).
 
 ---
 
+## 0 · Reference screenshots (shipped UI, captured 2026-07-11)
+
+Real captures of the shipped Kept UI (light mode, seeded dev data) — the
+living counterpart to the `kept-preview.html` / `kept-desktop.html` prototypes.
+
+**Mobile (390×844):**
+
+| Today | Tasks | Loops |
+|---|---|---|
+| ![Today](images/kept-mobile-today.png) | ![Tasks](images/kept-mobile-tasks.png) | ![Loops](images/kept-mobile-loops.png) |
+
+| Loop detail | Throw | Task action sheet |
+|---|---|---|
+| ![Loop detail](images/kept-mobile-loop-detail.png) | ![Throw](images/kept-mobile-throw.png) | ![Action sheet](images/kept-mobile-tasks-sheet.png) |
+
+| More | What now? | Quick edit |
+|---|---|---|
+| ![More](images/kept-mobile-more.png) | ![What now](images/kept-mobile-whatnow.png) | ![Quick edit](images/kept-mobile-edit-task.png) |
+
+**Desktop (1440×900):**
+
+| Today | Tasks (List + rail) |
+|---|---|
+| ![Desktop Today](images/kept-desktop-today.png) | ![Desktop Tasks list](images/kept-desktop-tasks-list.png) |
+
+| Tasks (Board) | Loops |
+|---|---|
+| ![Desktop Board](images/kept-desktop-tasks-board.png) | ![Desktop Loops](images/kept-desktop-loops.png) |
+
+| Throw (⌘K) | Quokka |
+|---|---|
+| ![Desktop Throw](images/kept-desktop-throw.png) | ![Desktop Quokka](images/kept-desktop-quokka.png) |
+
+---
+
 ## 1 · Identity pillars
 
 1. **Arcs, not grids.** loggd is built on squares (heatmap cells, square

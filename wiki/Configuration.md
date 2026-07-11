@@ -37,7 +37,15 @@ When an environment variable is set, the Settings UI shows a "Set by environment
 
 All settings are accessible via the gear icon in the header:
 
+![Settings → General](images/settings-general.png)
+
+*Settings → General: theme family, light/dark/system mode, and core task-behavior fields.*
+
 ### API Keys
+
+![Settings → Integrations](images/settings-integrations.png)
+
+*Settings → Integrations: every integration connects, configures, and disconnects inline.*
 - **Anthropic API key** — for AI features. Stored in localStorage, sent as `x-anthropic-key` header. Hidden when env var is set.
 - **Notion integration token** — for Notion features. Stored in localStorage, sent as `x-notion-token` header. Hidden when env var is set.
 - **Trello API key + token** — for Trello card sync. Stored in localStorage, sent as `x-trello-key` and `x-trello-token` headers. Hidden when env vars are set. After entering credentials, click Connect to select a board and list.
@@ -64,6 +72,10 @@ All settings are accessible via the gear icon in the header:
 - Create custom labels with names and colors (10 color options)
 - Delete existing labels
 - Default labels: inside (blue), outside (green), follow-up (orange)
+
+![Settings → Labels](images/settings-labels.png)
+
+*Settings → Labels: rename inline, pick colors, reorder with the arrows.*
 
 ### Notifications
 - Enable/disable browser push notifications
