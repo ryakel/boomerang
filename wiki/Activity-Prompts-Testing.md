@@ -24,7 +24,7 @@ Covers PR 1 (auto-roll + pills), PR 2 (habit mode + workouts), PR 3 (pattern det
   ```sql
   SELECT id FROM _migrations WHERE id IN (25, 26, 27);  -- expect three rows
   ```
-- [ ] Open the v2 UI (default since 2026-05-03 cutover). If on terminal-dark theme, confirm Settings → Beta → Use v2 interface is on.
+- [ ] Open the app (v2/Kept is the only UI — the old v1/v2 Beta toggle and Terminal/Wallaby themes no longer exist).
 
 ---
 
@@ -140,7 +140,7 @@ The fix touched 4 dispatchers + the legacy counts digest. Most can't be tested w
 Setup: it's Thursday afternoon, target 2/week, completions 0.
 
 - [ ] `db`: Verify `computeHabitStats` (server inline mirror) would mark behind-pace: `elapsedRatio` past 0.3 + `completions < target × ratio`.
-- [ ] `dev`: Card shows `0/2 this week` with the count in **alert color** (red/orange depending on theme). On theme: terminal-dark = magenta-red; light = `--v2-alert-high-pri` orange.
+- [ ] `dev`: Card shows `0/2 this week` with the count in **alert color** (`--v2-alert-high-pri` orange, or the theme's equivalent).
 
 ### Hit target, see streak
 
@@ -317,7 +317,6 @@ VALUES
 
 ## Smoke test that must still pass
 
-- [ ] `npm test` (the `scripts/smoke-test.sh` smoke test) — green
-- [ ] `npm run lint` — 0 errors (9 pre-existing warnings unrelated)
-- [ ] `npm run check:terminal-titles` — all v2 ModalShell calls have `terminalTitle` props
+- [ ] `npm test` (unit tests in `scripts/dates.test.mjs`/`scripts/cycles.test.mjs` + `scripts/smoke-test.sh`) — green
+- [ ] `npm run lint` — 0 errors (pre-existing warnings unrelated)
 - [ ] `node patternDetection.js`-style direct invocation isn't supported; `POST /api/suggestions/scan` is the manual hook

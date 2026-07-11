@@ -218,18 +218,21 @@ Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks 
 |---|---|---|
 | **Search pages** | MCP `notion-search` | Works, returns JSON results. No REST advantage. |
 | **Create database** | MCP `notion-create-database` | Custom tool with SQL DDL schema format — cleaner than raw API. |
-| **Get page** | MCP `notion-fetch` | Custom tool, convenient resource URI format. |
-| **Get child pages** | MCP `notion-fetch` | Same custom tool with block children URI. |
+| **Get page** | REST first, MCP fallback | `notionMCPProxy.js` `getPage()` tries `GET /v1/pages/{id}` when `NOTION_INTEGRATION_TOKEN` is set (structured `properties`), falls back to MCP `notion-fetch` if not configured or the REST call throws. |
+| **Get child pages** | REST first, MCP fallback | `getChildPages()` calls `getBlockChildren()` (see below) and filters for `child_page` blocks; only falls back to text-extraction from MCP's markdown when no token is configured. |
 | **Create page** | MCP `notion-create-pages` | Maps to `POST /v1/pages`. Properties are Notion API objects, children are string array. |
 | **Create page in DB** | MCP `notion-create-pages` | Same tool, parent is `{ database_id }` instead of `{ page_id }`. |
 | **Update page props** | MCP `notion-update-page` | Maps to `PATCH /v1/pages/{id}`. Properties + archived only — NO children/content support. |
 | **Archive/restore** | MCP `notion-update-page` | `{ page_id, archived: true/false }` |
-| **Query database** | MCP `notion-fetch` | **LIMITATION:** No MCP query tool with filter/sort. `notion-fetch` with database URI may only return schema. May need REST fallback for filtered queries. |
-| **Get block content** | MCP `notion-fetch` | Returns page body. Response format may be enhanced markdown, not structured blocks. |
-| **Update page content** | **NOT AVAILABLE via MCP** | `patch-page` doesn't take children. REST delete-blocks + append-blocks pattern needed. Currently skipped — content updates are best-effort property-only. |
+| **Query database** | REST first, MCP fallback | `queryDatabase()` uses `POST /v1/databases/{id}/query` (paginated, full properties) when a REST token is configured — this is the primary path, not a limitation-driven fallback. Only degrades to MCP `notion-fetch` (schema-only, no filter/sort) when no token is set. |
+| **Get database** | REST first, MCP fallback | `getDatabase()` — REST returns clean JSON with the `archived` flag; MCP fallback only when no token configured. |
+| **Get block content** | REST first, MCP fallback | `getBlockChildren()` — REST returns paginated structured blocks with `rich_text` arrays → clean plaintext conversion. MCP `notion-fetch` fallback returns enhanced markdown, not structured blocks, when no token is set. |
+| **Update page content** | **REST only** | MCP `patch-page` doesn't take children. Uses the delete-blocks + append-blocks pattern (`updatePageContent()`). Requires `NOTION_INTEGRATION_TOKEN`. |
 | **File uploads** | **REST only** | `POST /v1/file_uploads` + send. No MCP equivalent in the 14 available tools. Requires `NOTION_INTEGRATION_TOKEN` env var. |
 | **Append blocks** | **REST only** | `PATCH /v1/blocks/{id}/children`. Used for file attachments. Requires integration token. |
 | **Connection status** | MCP `getStatus()` | No REST call needed — checks `clientConnected` flag. |
+
+Everywhere REST is the primary path, it's gated behind `NOTION_INTEGRATION_TOKEN` being set — a fresh install with only the MCP OAuth connection (no env token) transparently degrades to the MCP fallback for all of these, so both paths need to keep working. See `wiki/Notion-Integration.md` for the full table (kept in sync with this one) and the MCP tool ↔ REST-operation mapping.
 
 **Full architecture, tool schemas, and endpoint reference:** See `wiki/Notion-Integration.md`. **Update that page whenever Notion code changes.**
 
