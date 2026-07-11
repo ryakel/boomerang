@@ -6,13 +6,18 @@ captured by a different agent/environment that can actually drive a browser. Thi
 file is a self-contained handoff: setup steps, then the exact list of shots needed,
 each with viewport/theme/state and where it lands in the docs.
 
-**Note on Batch B (Settings):** a Settings reorg is in progress in this same repo
-(moving/renaming a few fields so related settings live together — see
-`wiki/Version-History.md`'s latest entries for what changed). If Batch A is done
-before that lands, fine — do it now. Batch B should wait until that reorg is merged,
-otherwise the screenshots will show a layout that's about to change. Check
-`git log --oneline -20` on `main`/`dev` for anything mentioning "settings" reorg
-before shooting Batch B, or just ask.
+**Status (2026-07-11):** Batches A and B below were captured and embedded (see the
+"real UI screenshots" entry in `wiki/Version-History.md`). Batch B's Settings shots
+were taken right after the *first* pile-up-picker-location fix landed, but a second,
+larger Settings tab-structure reorg (`General/AI/Labels/Integrations/Notifications/
+Data/Logs` → `General/Tasks/Labels/Integrations/Notifications/Data`) landed
+immediately afterward — see **Batch C** below for which of those four shots are now
+stale and need a retake.
+
+**Note on Batch B (Settings) — historical, already resolved:** a Settings reorg was
+in progress when this file was first written (moving/renaming a few fields so
+related settings live together). Batch B was captured once that landed. Left here
+for context; no action needed.
 
 ## Setup
 
@@ -84,6 +89,37 @@ before shooting Batch B, or just ask.
 | `settings-notifications.png` | Settings → Notifications tab, scrolled to show "Pile-up thresholds" + the label-exemption picker together | This is the specific area that was just reorganized — a good "after" reference shot. |
 | `settings-integrations.png` | Settings → Integrations tab, top of the list | Shows the integration cards (Notion/Trello/GCal/Gmail/17track/Weather/Pushover). |
 | `settings-labels.png` | Settings → Labels tab | Shows the label list with color pickers. |
+
+## Batch C — retakes needed after the 2026-07-11 Settings tab-structure reorg
+
+The four Settings screenshots in `wiki/images/` (`settings-general.png`,
+`settings-notifications.png`, `settings-integrations.png`, `settings-labels.png`)
+all show the **old 7-tab bar** (`General, AI, Labels, Integrations, Notifications,
+Data, Logs`). The reorg changed this to **6 tabs**
+(`General, Tasks, Labels, Integrations, Notifications, Data`) — see `CLAUDE.md`'s
+"Settings IA Rethink" section for the full change. Two of the four are also
+*content*-stale, not just tab-bar-stale:
+
+| Filename | Why it's stale | Priority |
+|---|---|---|
+| `settings-general.png` | Shows "Default due date", "Staleness threshold", "Reframe trigger", and "Max open tasks" — all four have **moved out of General** (the first three to the new Tasks tab, the fourth into the Notifications → Pile-up card). Retaken General tab should show only Theme, Mode, and Home screen (7-day strip toggles, daily goal) + Build. | High — content is actively wrong, not just a stale tab bar. |
+| `settings-notifications.png` | Missing the "Max open tasks" field, which now lives in the *same card* as "Pile-up thresholds" and "Exempt from pile-up count" (previously two separate cards). Retake should show all three together in one "Pile-up" card. | High — the whole point of the reorg was consolidating this card; the current shot undersells it. |
+| `settings-integrations.png` | Tab bar only (card content — Anthropic/Notion/Trello/GCal — is unchanged). | Low — cosmetic (stale tab bar visible at top), retake opportunistically. |
+| `settings-labels.png` | Tab bar only (label list content is unchanged). | Low — same as above. |
+
+**New shot worth adding** (didn't exist before, since the tab itself is new):
+
+| Filename | Screen / state | Notes |
+|---|---|---|
+| `settings-tasks.png` | Settings → Tasks tab | Shows Default due date / Staleness threshold / Reframe trigger, then an "AI tone" sub-head with the custom-instructions textarea + a one-line pointer to Integrations for the Anthropic key. |
+
+Suggested placement for `settings-tasks.png`: `wiki/Configuration.md`, in the new
+"Tasks" subsection of "Settings (in-app)".
+
+Once retaken, replace the four files in `wiki/images/` in place (same filenames —
+no doc changes needed beyond removing the "Screenshot note" callout directly under
+the General shot in `wiki/Configuration.md`, which exists only to flag this
+staleness) and add the `settings-tasks.png` embed.
 
 ## Where these go in the docs
 

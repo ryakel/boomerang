@@ -35,13 +35,21 @@ When an environment variable is set, the Settings UI shows a "Set by environment
 
 ## Settings (in-app)
 
-All settings are accessible via the gear icon in the header:
+All settings are accessible via the gear icon in the header, organized into six tabs: **General, Tasks, Labels, Integrations, Notifications, Data** (reorganized 2026-07-11 — the old layout split closely-related settings across a near-empty `AI` tab and a standalone `Logs` tab with no cross-reference; see `CLAUDE.md`'s "Settings IA Rethink" for the full before/after).
 
 ![Settings → General](images/settings-general.png)
 
-*Settings → General: theme family, light/dark/system mode, and core task-behavior fields.*
+*Settings → General: theme family, light/dark/system mode, and Home screen options. Pure appearance — task-behavior fields moved to Tasks below.*
 
-### API Keys
+> **Screenshot note:** the General/Notifications shots above and below predate the 2026-07-11 tab reorg and show the previous 7-tab bar (`General, AI, Labels, Integrations, Notifications, Data, Logs`) with fields in their old locations. Content described in this section reflects the *current* app; see `Screenshot-Shot-List.md` for the pending recapture list.
+
+### Tasks
+- **Default due date** — days from now for new tasks (default: 7, set to 0 to disable)
+- **Staleness threshold** — days before a task is marked stale (default: 2, range: 1-30) — drives both the Stale section on the task list and the Stale notification type
+- **Reframe trigger** — snooze count before reframe is required instead of snooze (default: 3, range: 1-20)
+- **AI custom instructions** — free-text field that shapes all AI output (Polish, What Now, Reframe, smart nudges, Quokka tone). Import from `.md`/`.txt`, export to `.md`, clear button when set. The Anthropic API key itself is configured in Integrations (see below); this tab just links there.
+
+### API Keys (Integrations tab)
 
 ![Settings → Integrations](images/settings-integrations.png)
 
@@ -50,17 +58,6 @@ All settings are accessible via the gear icon in the header:
 - **Notion integration token** — for Notion features. Stored in localStorage, sent as `x-notion-token` header. Hidden when env var is set.
 - **Trello API key + token** — for Trello card sync. Stored in localStorage, sent as `x-trello-key` and `x-trello-token` headers. Hidden when env vars are set. After entering credentials, click Connect to select a board and list.
 - **Google Calendar Client ID + Secret** — for Google Calendar sync. Stored in localStorage, sent as `x-google-client-id` and `x-google-client-secret` headers. Hidden when env vars are set. After entering credentials, click Connect to complete OAuth flow and select a calendar.
-
-### AI Custom Instructions
-- Free-text field that shapes all AI output (Polish, What Now, Reframe, smart nudges)
-- Import from `.md` or `.txt` file
-- Export to `.md` file
-- Clear button when instructions are set
-
-### Task Behavior
-- **Default due date** — days from now for new tasks (default: 7, set to 0 to disable)
-- **Staleness threshold** — days before a task is marked stale (default: 2, range: 1-30)
-- **Reframe trigger** — snooze count before reframe is required instead of snooze (default: 3, range: 1-20)
 
 ### Display
 - **Task count display** — controls the header task count format:
@@ -81,7 +78,7 @@ All settings are accessible via the gear icon in the header:
 - Enable/disable browser push notifications
 - Check frequency: 15m, 30m, 1h, 2h (default: 30m)
 - Toggles for: overdue tasks, stale tasks, general nudges
-- Stale task percentage threshold — configurable percentage at which a warning notification fires
+- **Pile-up** — one card holds everything for "too many open tasks": the `max_open_tasks` limit, the percentage/day-age warning threshold, and the label-exemption picker (previously split across General and Notifications with no cross-reference; consolidated 2026-07-11). See the Features page's Notifications section for the full "Exempt labeled tasks" description.
 
 ### Pushover (reliable iOS notifications)
 - Solves the iOS Safari web-push throttling problem — Pushover has a dedicated iOS app with full APNs entitlements
@@ -112,6 +109,9 @@ Digest emails to your inbox (not spam) require sender authentication. The defaul
 ### Data
 - **Export** — download JSON backup of all tasks, routines, settings, and labels
 - **Import** — upload a JSON backup to restore data
+- **Activity log** and **Markdown import** — same tab
+- **Server logs** — live tail of the server process (Google/Push/Email/DB/SSE lines + errors), folded in here from the old standalone `Logs` tab as of the 2026-07-11 reorg — same diagnostics category as Activity above
+- **Danger zone** — clear completed tasks / clear all data (see below)
 
 ### Activity Rings and Goals
 - **Daily task goal** — number of tasks to complete per day for the Tasks ring (default: configurable)
