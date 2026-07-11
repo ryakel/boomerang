@@ -547,6 +547,7 @@ export async function sendPackagePush(pkg, eventType) {
 
   if (eventType === 'delivered' && settings.push_notif_package_delivered === false) return
   if (eventType === 'exception' && settings.push_notif_package_exception === false) return
+  if (eventType === 'signature_required' && settings.push_notif_package_signature === false) return
 
   const key = `push_pkg:${pkg.id}:${eventType}`
   if (!checkThrottle(key, 30 * 60 * 1000)) return

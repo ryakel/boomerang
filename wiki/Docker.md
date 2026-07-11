@@ -38,7 +38,17 @@ services:
       - NOTION_INTEGRATION_TOKEN=${NOTION_INTEGRATION_TOKEN:-}
       - TRELLO_API_KEY=${TRELLO_API_KEY:-}
       - TRELLO_SECRET=${TRELLO_SECRET:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - TRACKING_API_KEY=${TRACKING_API_KEY:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - NOTIFICATION_EMAIL=${NOTIFICATION_EMAIL:-}
       - PUSHOVER_DEFAULT_APP_TOKEN=${PUSHOVER_DEFAULT_APP_TOKEN:-}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-}
       - DB_PATH=/data/boomerang.db
     volumes:
       - boomerang-data:/data
@@ -54,6 +64,8 @@ volumes:
   boomerang-data:
 ```
 
+See `Configuration` for what each optional variable enables — most integrations also configure entirely from the Settings UI, with env vars as an alternative for self-hosters who'd rather not paste keys into the browser.
+
 ## Healthcheck
 
 The container includes a healthcheck that pings `/api/health` using `wget`. The health endpoint returns `{"status": "ok"}` when the server is ready.
@@ -65,10 +77,11 @@ The container includes a healthcheck that pings `/api/health` using `wget`. The 
 
 ## Dockerfile
 
-Multi-stage build with an `APP_VERSION` build argument:
+Three-stage build with an `APP_VERSION` build argument:
 
-- **Stage 1 (build)**: Installs all dependencies, runs `npm run build` to produce the Vite frontend bundle. The `APP_VERSION` arg is passed through so the frontend can display the version.
-- **Stage 2 (production)**: Copies only production dependencies, `server.js`, `db.js`, and the built `dist/` folder. Runs `node server.js`.
+- **Stage 1 (build)**: `--platform=$BUILDPLATFORM`, installs all dependencies, runs `npm run build` to produce the Vite frontend bundle. The `APP_VERSION` arg is passed through so the frontend can display the version.
+- **Stage 2 (deps)**: Also `--platform=$BUILDPLATFORM` — installs production-only dependencies (`npm ci --omit=dev`) on the *build* platform rather than the target platform. This exists specifically to dodge QEMU slowness/flakiness when cross-building `arm64` on an `amd64` runner (native `npm ci` on the build platform, then just copy the resulting `node_modules` into the target-platform final stage).
+- **Stage 3 (production)**: Runs on the target platform. Copies `node_modules` from Stage 2, then an **explicit list** of root-level runtime `.js` files (`server.js`, `auth.js`, `db.js`, `seed.js`, the notification/sync/integration modules, `aiModels.js`, etc.), the `adviserTools*.js` family, the `migrations/` and `scripts/` directories, and the built `dist/` folder from Stage 1. There is no `COPY . .` in this stage — any new root-level `.js` file that's `import`ed at runtime must be added to the `COPY` line explicitly or it's silently missing from the container (crashes with `ERR_MODULE_NOT_FOUND` on deploy, not at build time). See `CLAUDE.md`'s Dockerfile COPY-list rule for the full checklist.
 
 ```bash
 # Build with a specific version

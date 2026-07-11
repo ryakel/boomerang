@@ -13,6 +13,18 @@ import AutosaveIndicator from './AutosaveIndicator'
 import { applyTheme } from '../theme'
 import './SettingsModal.css'
 
+// Shared toggle switch — was locally defined inside NotificationsPanel and
+// hand-copied at ~10 other call sites across IntegrationsPanel/General. One
+// definition so a future visual tweak doesn't need a find-and-replace.
+function Toggle({ checked, onChange, disabled }) {
+  return (
+    <label className={`v2-settings-toggle${disabled ? ' v2-settings-toggle-disabled' : ''}`}>
+      <input type="checkbox" checked={!!checked} onChange={onChange} disabled={disabled} />
+      <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
+    </label>
+  )
+}
+
 // Labels tab — extracted so SettingsModal stays readable.
 function LabelsPanel() {
   const [labels, setLabels] = useState(() => loadLabels())
@@ -172,7 +184,15 @@ function LabelsPanel() {
 }
 
 
-const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data', 'Logs']
+// IA rethink (2026-07-11, "shit is everywhere" prod feedback): the old 7-tab
+// layout split closely-related settings across tabs with no cross-reference
+// (task-behavior thresholds lived in General while the AI tone that shapes
+// the same tasks lived in a near-empty standalone AI tab; the rarely-used
+// server-log viewer got its own top-level tab despite being pure diagnostics,
+// same category as the Data tab's activity log / backup tools). Folded AI's
+// one real setting (custom instructions) in next to the task-behavior
+// thresholds it's most related to as "Tasks", and Logs into Data.
+const TABS = ['General', 'Tasks', 'Labels', 'Integrations', 'Notifications', 'Data']
 
 // All Settings tabs now have v2 implementations.
 
@@ -181,7 +201,7 @@ const TABS = ['General', 'AI', 'Labels', 'Integrations', 'Notifications', 'Data'
 // uses: push_notif_<key>, email_notif_<key>, pushover_notif_<key>.
 const NOTIF_TYPES = [
   { key: 'overdue', label: 'Overdue', desc: 'Past-due tasks. Repeats until done or snoozed.', freqKey: 'notif_freq_overdue', freqDefault: 0.5 },
-  { key: 'stale', label: 'Stale', desc: 'Tasks untouched longer than the staleness threshold.', freqKey: 'notif_freq_stale', freqDefault: 0.5 },
+  { key: 'stale', label: 'Stale', desc: 'Tasks untouched longer than the staleness threshold (set in General).', freqKey: 'notif_freq_stale', freqDefault: 0.5 },
   { key: 'nudge', label: 'Nudges', desc: 'General "got a minute?" pokes when the list is sitting idle.', freqKey: 'notif_freq_nudge', freqDefault: 1 },
   { key: 'size', label: 'Size-based', desc: 'Heads-up on L/XL tasks approaching their due date.', freqKey: 'notif_freq_size', freqDefault: 1 },
   { key: 'pileup', label: 'Pile-up', desc: 'Warning when too many active tasks accumulate.', freqKey: 'notif_freq_pileup', freqDefault: 2 },
@@ -197,16 +217,14 @@ const NOTIF_TYPES = [
 const NOTIF_PACKAGE_TYPES = [
   { key: 'package_delivered', label: 'Package delivered', desc: 'Shipping carrier reports the package was delivered.' },
   { key: 'package_exception', label: 'Package exception', desc: 'Delivery issue or routing problem reported by carrier.' },
+  { key: 'package_signature', label: 'Signature required', desc: 'Carrier reports the package needs a signature on delivery.' },
 ]
 
 // Integrations panel — status summary + inline config for each
 // OAuth-heavy ones. Inline credential entry for simple key-only integrations
 // (Anthropic, 17track) since those are one-field forms.
-// Anthropic key entry + status check. Lives in the AI tab; the
-// IntegrationsPanel still surfaces a status dot but the actual key
-// management happens here.
 // Anthropic key entry + test. Embedded under the Anthropic row in
-// IntegrationsPanel; the AI tab just shows a one-liner pointer.
+// IntegrationsPanel; the Tasks tab just shows a one-liner pointer back here.
 function AnthropicKeyBlock({ settings, update, embedded = false }) {
   const [envKey, setEnvKey] = useState(false)
   const [status, setStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
@@ -791,7 +809,10 @@ function IntegrationsPanel({
       hint: 'Push tasks to Trello with checklists + attachments. Bidirectional status sync.',
       connected: !!statuses.trello?.connected,
       sub: statuses.trello?.username ? `Connected as ${statuses.trello.username}` : null,
-      sync: onTrelloSync && settings.trello_sync_enabled ? { fn: onTrelloSync, busy: trelloSyncing } : null,
+      // trello_sync_enabled has no UI control anywhere and was never true,
+      // so this button could never appear — condition on trello_board_id
+      // instead (mirrors Notion's notion_sync_parent_id check above).
+      sync: onTrelloSync && settings.trello_board_id ? { fn: onTrelloSync, busy: trelloSyncing } : null,
       inline: statuses.trello?.connected ? 'trello-config' : 'trello-connect',
     },
     {
@@ -1302,10 +1323,7 @@ function IntegrationsPanel({
                     </select>
                     <div className="v2-integrations-toggle-row">
                       <span>Push tasks as calendar events</span>
-                      <label className="v2-settings-toggle">
-                        <input type="checkbox" checked={!!settings.gcal_sync_enabled} onChange={e => update('gcal_sync_enabled', e.target.checked)} />
-                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                      </label>
+                      <Toggle checked={settings.gcal_sync_enabled} onChange={e => update('gcal_sync_enabled', e.target.checked)} />
                     </div>
                     {settings.gcal_sync_enabled && (
                       <div className="v2-integrations-sub-settings">
@@ -1321,10 +1339,7 @@ function IntegrationsPanel({
                         ))}
                         <div className="v2-integrations-toggle-row">
                           <span>AI-timed events (vs all-day)</span>
-                          <label className="v2-settings-toggle">
-                            <input type="checkbox" checked={!!settings.gcal_use_timed_events} onChange={e => update('gcal_use_timed_events', e.target.checked)} />
-                            <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                          </label>
+                          <Toggle checked={settings.gcal_use_timed_events} onChange={e => update('gcal_use_timed_events', e.target.checked)} />
                         </div>
                         {settings.gcal_use_timed_events && (
                           <div className="v2-integrations-row-compact">
@@ -1336,26 +1351,17 @@ function IntegrationsPanel({
                         )}
                         <div className="v2-integrations-toggle-row">
                           <span>Remove events when tasks completed</span>
-                          <label className="v2-settings-toggle">
-                            <input type="checkbox" checked={settings.gcal_remove_on_complete !== false} onChange={e => update('gcal_remove_on_complete', e.target.checked)} />
-                            <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                          </label>
+                          <Toggle checked={settings.gcal_remove_on_complete !== false} onChange={e => update('gcal_remove_on_complete', e.target.checked)} />
                         </div>
                         <div className="v2-integrations-toggle-row">
                           <span>15-min buffer around events</span>
-                          <label className="v2-settings-toggle">
-                            <input type="checkbox" checked={!!settings.gcal_event_buffer} onChange={e => update('gcal_event_buffer', e.target.checked)} />
-                            <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                          </label>
+                          <Toggle checked={settings.gcal_event_buffer} onChange={e => update('gcal_event_buffer', e.target.checked)} />
                         </div>
                       </div>
                     )}
                     <div className="v2-integrations-toggle-row">
                       <span>Pull events as tasks</span>
-                      <label className="v2-settings-toggle">
-                        <input type="checkbox" checked={!!settings.gcal_pull_enabled} onChange={e => update('gcal_pull_enabled', e.target.checked)} />
-                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                      </label>
+                      <Toggle checked={settings.gcal_pull_enabled} onChange={e => update('gcal_pull_enabled', e.target.checked)} />
                     </div>
                     {settings.gcal_pull_enabled && (
                       <div className="v2-integrations-sub-settings">
@@ -1376,10 +1382,7 @@ function IntegrationsPanel({
                     </div>
                     <div className="v2-integrations-toggle-row">
                       <span>Auto-scan inbox for tasks &amp; tracking numbers</span>
-                      <label className="v2-settings-toggle">
-                        <input type="checkbox" checked={!!settings.gmail_sync_enabled} onChange={e => update('gmail_sync_enabled', e.target.checked)} />
-                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                      </label>
+                      <Toggle checked={settings.gmail_sync_enabled} onChange={e => update('gmail_sync_enabled', e.target.checked)} />
                     </div>
                     <div className="v2-integrations-toggle-row">
                       <span>Scan window (days back)</span>
@@ -1392,10 +1395,7 @@ function IntegrationsPanel({
                   <div className="v2-integrations-inline">
                     <div className="v2-integrations-toggle-row">
                       <span>Enable weather features</span>
-                      <label className="v2-settings-toggle">
-                        <input type="checkbox" checked={!!settings.weather_enabled} onChange={e => update('weather_enabled', e.target.checked)} />
-                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                      </label>
+                      <Toggle checked={settings.weather_enabled} onChange={e => update('weather_enabled', e.target.checked)} />
                     </div>
                     {settings.weather_latitude && settings.weather_location_name ? (
                       <div className="v2-weather-current">
@@ -1444,33 +1444,12 @@ function IntegrationsPanel({
                         <span className="v2-integrations-hint">days</span>
                       </div>
                     </div>
-                    <div className="v2-integrations-toggle-row">
-                      <span>Notify on delivery</span>
-                      <label className="v2-settings-toggle">
-                        <input type="checkbox" checked={settings.package_notify_delivered !== false} onChange={e => update('package_notify_delivered', e.target.checked)} />
-                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                      </label>
-                    </div>
-                    <div className="v2-integrations-toggle-row">
-                      <span>Notify on delays / exceptions</span>
-                      <label className="v2-settings-toggle">
-                        <input type="checkbox" checked={settings.package_notify_exception !== false} onChange={e => update('package_notify_exception', e.target.checked)} />
-                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                      </label>
-                    </div>
-                    <div className="v2-integrations-toggle-row">
-                      <span>Notify when signature required</span>
-                      <label className="v2-settings-toggle">
-                        <input type="checkbox" checked={settings.package_notify_signature !== false} onChange={e => update('package_notify_signature', e.target.checked)} />
-                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                      </label>
+                    <div className="v2-integrations-hint" style={{ marginTop: 4 }}>
+                      Delivery/exception/signature notifications are configured per-channel in Settings → Notifications.
                     </div>
                     <div className="v2-integrations-toggle-row">
                       <span>Auto-create errand task for signature</span>
-                      <label className="v2-settings-toggle">
-                        <input type="checkbox" checked={settings.package_auto_task_signature !== false} onChange={e => update('package_auto_task_signature', e.target.checked)} />
-                        <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-                      </label>
+                      <Toggle checked={settings.package_auto_task_signature !== false} onChange={e => update('package_auto_task_signature', e.target.checked)} />
                     </div>
                   </div>
                 )}
@@ -1513,19 +1492,8 @@ function IntegrationsPanel({
                     {pushoverEmer.status === 'error' && pushoverEmer.error && (
                       <div className="v2-integrations-error">{pushoverEmer.error}</div>
                     )}
-                    <label className="v2-form-label" style={{ marginTop: 8 }}>Public app URL (for deep links)</label>
-                    <input
-                      type="text"
-                      className="v2-form-input"
-                      placeholder="https://boomerang.example.com"
-                      value={settings.public_app_url || ''}
-                      onChange={e => update('public_app_url', e.target.value)}
-                    />
-                    <div className="v2-integrations-hint" style={{ marginTop: 4 }}>
-                      When set, notifications include a tappable link to the relevant task. Required for Pushover deep links.
-                    </div>
                     <div className="v2-integrations-hint" style={{ marginTop: 6 }}>
-                      Configure which notification types fire over Pushover in the Notifications tab.
+                      Configure which notification types fire over Pushover, and the Public app URL used for deep links, in the Notifications tab.
                     </div>
                   </div>
                 )}
@@ -1586,6 +1554,18 @@ function IntegrationsPanel({
 }
 
 function NotificationsPanel({ settings, update }) {
+  // Pile-up exemption label picker, shown right after "Pile-up thresholds"
+  // below. loadLabels() is a cheap synchronous localStorage read, same
+  // pattern LabelsPanel uses.
+  const allLabels = loadLabels()
+  const pileupExemptLabels = Array.isArray(settings.pileup_exempt_labels) ? settings.pileup_exempt_labels : []
+  const togglePileupExempt = (id) => {
+    const next = pileupExemptLabels.includes(id)
+      ? pileupExemptLabels.filter(x => x !== id)
+      : [...pileupExemptLabels, id]
+    update('pileup_exempt_labels', next)
+  }
+
   // Channel master toggles. Pushover gates additionally on credentials being
   // present, but for the v2 panel we just toggle the boolean and show a hint.
   const masters = [
@@ -1600,13 +1580,6 @@ function NotificationsPanel({ settings, update }) {
   // never gets an endpoint to push to.
   const pushSub = usePushSubscription()
   const [subscribeError, setSubscribeError] = useState(null)
-
-  const Toggle = ({ checked, onChange, disabled }) => (
-    <label className={`v2-settings-toggle${disabled ? ' v2-settings-toggle-disabled' : ''}`}>
-      <input type="checkbox" checked={!!checked} onChange={onChange} disabled={disabled} />
-      <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-    </label>
-  )
 
   // Channel test buttons — small per-button state machine: idle | sending | sent | error.
   const [tests, setTests] = useState({})
@@ -1756,6 +1729,25 @@ function NotificationsPanel({ settings, update }) {
         </>)}
       </div>
 
+      {/* Public app URL — genuinely cross-channel infra (web push, Pushover,
+        * and the daily digest all use it for tappable deep links), but used
+        * to be buried inside the Pushover integration block labeled as if it
+        * were Pushover-specific. */}
+      <div className="v2-settings-block">
+        <div className="v2-settings-row-text">
+          <label className="v2-form-label" htmlFor="v2-public-app-url">Public app URL</label>
+          <div className="v2-settings-row-hint">When set, notifications and the daily digest include a tappable link back to the relevant task — used by web push, Pushover, and email.</div>
+        </div>
+        <input
+          id="v2-public-app-url"
+          type="text"
+          className="v2-form-input"
+          placeholder="https://boomerang.example.com"
+          value={settings.public_app_url || ''}
+          onChange={e => update('public_app_url', e.target.value)}
+        />
+      </div>
+
       {/* Per-type × per-channel — card-per-type layout works at any width */}
       <div className="v2-settings-block">
         <SectionHeader k="types" label="Notification types" hint="Each card toggles a notification type per channel. Frequency is the cooldown between repeats." />
@@ -1897,9 +1889,29 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
-      {/* Pile-up thresholds */}
+      {/* Pile-up — every knob for "too many open tasks" lives in one place:
+        * the limit itself (max_open_tasks — moved here from General, where it
+        * was stranded next to unrelated task-behavior fields with no link to
+        * the rest of this feature), the percentage-based warning, and the
+        * label exemption. Previously split across two tabs with zero
+        * cross-reference — reported in prod as "shit is everywhere." */}
       <div className="v2-settings-block">
         <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label" htmlFor="v2-max-open">Max open tasks</label>
+            <div className="v2-settings-row-hint">Warns when you exceed this. 0 = no limit.</div>
+          </div>
+          <input
+            id="v2-max-open"
+            className="v2-form-input v2-settings-compact-input"
+            type="number"
+            min="0"
+            max="100"
+            value={settings.max_open_tasks ?? 10}
+            onChange={e => update('max_open_tasks', parseInt(e.target.value) || 0)}
+          />
+        </div>
+        <div className="v2-settings-row" style={{ paddingTop: 12, borderTop: '1px solid var(--v2-hairline)' }}>
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">Pile-up thresholds</div>
             <div className="v2-settings-row-hint">Fire a pile-up warning when this percentage of active tasks are older than N days.</div>
@@ -1911,6 +1923,31 @@ function NotificationsPanel({ settings, update }) {
           <input type="number" className="v2-form-input v2-settings-compact-input" min={1} max={90} value={settings.stale_warn_days ?? 7} onChange={e => update('stale_warn_days', parseInt(e.target.value, 10) || 7)} />
           <span className="v2-integrations-hint">days</span>
         </div>
+        {allLabels.length > 0 && (
+          <div className="v2-settings-row" style={{ alignItems: 'flex-start', paddingTop: 12, borderTop: '1px solid var(--v2-hairline)' }}>
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">Exempt from pile-up count</div>
+              <div className="v2-settings-row-hint">Tasks with any of these labels don't count toward the limit or its warning — useful for things you're deliberately tracking for reference, not actively working.</div>
+              <div className="v2-form-label-grid" style={{ marginTop: 8 }}>
+                {allLabels.map(lbl => {
+                  const active = pileupExemptLabels.includes(lbl.id)
+                  return (
+                    <button
+                      key={lbl.id}
+                      type="button"
+                      className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
+                      onClick={() => togglePileupExempt(lbl.id)}
+                      style={{ '--label-color': lbl.color }}
+                      title={lbl.name}
+                    >
+                      {lbl.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quiet hours — section header is the toggle row, no redundant sub-toggle */}
@@ -2193,7 +2230,12 @@ function NotificationsPanel({ settings, update }) {
         </>)}
       </div>
 
-      {/* Weather notifications — master + per-channel toggles */}
+      {/* Weather notifications — master + per-channel toggles. No Pushover
+        * row here (unlike every other notification type) because
+        * pushoverNotifications.js has no weather-event dispatch at all —
+        * adding a toggle with nothing behind it would just be another dead
+        * setting. Real feature work, not a settings-placement fix; tracked
+        * as a known gap rather than faked with a non-functional toggle. */}
       <div className="v2-settings-block">
         <SectionHeader k="weather" label="Weather notifications" hint="Alerts for nice-day windows, bad-weekend warnings, and consecutive-nice-day windows. Requires a weather location in Integrations." />
         {!isCollapsed('weather') && (<>
@@ -2416,19 +2458,6 @@ export default function SettingsModal({
     }
   }, [onFlush])
 
-  // Pile-up exemption label picker (Notifications tab, near "Max open
-  // tasks") — tasks with any of these labels don't count toward the
-  // limit/warning. loadLabels() is a cheap synchronous localStorage read,
-  // same pattern LabelsPanel uses.
-  const allLabels = loadLabels()
-  const pileupExemptLabels = Array.isArray(settings.pileup_exempt_labels) ? settings.pileup_exempt_labels : []
-  const togglePileupExempt = (id) => {
-    const next = pileupExemptLabels.includes(id)
-      ? pileupExemptLabels.filter(x => x !== id)
-      : [...pileupExemptLabels, id]
-    update('pileup_exempt_labels', next)
-  }
-
   const handleExportData = () => {
     const data = {
       tasks: loadTasks(),
@@ -2599,96 +2628,6 @@ export default function SettingsModal({
               )
             })()}
 
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-default-due-days">Default due date</label>
-                <div className="v2-settings-row-hint">Days from now. 0 = no default; tasks ship without a due date unless you pick one.</div>
-              </div>
-              <input
-                id="v2-default-due-days"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="0"
-                max="90"
-                value={settings.default_due_days ?? 7}
-                onChange={e => update('default_due_days', parseInt(e.target.value) || 0)}
-              />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-staleness-days">Staleness threshold</label>
-                <div className="v2-settings-row-hint">Days of inactivity before a task surfaces in the Stale section.</div>
-              </div>
-              <input
-                id="v2-staleness-days"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="1"
-                max="30"
-                value={settings.staleness_days ?? 7}
-                onChange={e => update('staleness_days', parseInt(e.target.value) || 1)}
-              />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-reframe-threshold">Reframe trigger</label>
-                <div className="v2-settings-row-hint">Snooze count after which tapping Snooze opens the Reframe modal instead.</div>
-              </div>
-              <input
-                id="v2-reframe-threshold"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="1"
-                max="20"
-                value={settings.reframe_threshold ?? 3}
-                onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
-              />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-max-open">Max open tasks</label>
-                <div className="v2-settings-row-hint">Warns when you exceed this. 0 = no limit.</div>
-              </div>
-              <input
-                id="v2-max-open"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="0"
-                max="100"
-                value={settings.max_open_tasks ?? 10}
-                onChange={e => update('max_open_tasks', parseInt(e.target.value) || 0)}
-              />
-            </div>
-
-            {allLabels.length > 0 && (
-              <div className="v2-settings-row" style={{ alignItems: 'flex-start' }}>
-                <div className="v2-settings-row-text">
-                  <div className="v2-settings-row-label">Exempt from pile-up count</div>
-                  <div className="v2-settings-row-hint">Tasks with any of these labels don't count toward the "too many open tasks" limit or its warning — useful for things you're deliberately tracking for reference, not actively working.</div>
-                  <div className="v2-form-label-grid" style={{ marginTop: 8 }}>
-                    {allLabels.map(lbl => {
-                      const active = pileupExemptLabels.includes(lbl.id)
-                      return (
-                        <button
-                          key={lbl.id}
-                          type="button"
-                          className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
-                          onClick={() => togglePileupExempt(lbl.id)}
-                          style={{ '--label-color': lbl.color }}
-                          title={lbl.name}
-                        >
-                          {lbl.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div className="v2-settings-subhead">Home screen</div>
 
             <div className="v2-settings-row">
@@ -2696,14 +2635,7 @@ export default function SettingsModal({
                 <div className="v2-settings-row-label">Show 7-day strip (light/dark)</div>
                 <div className="v2-settings-row-hint">Calendar row above the task list with activity intensity per day. Tap the date in the home stats line to show/hide.</div>
               </div>
-              <label className="v2-settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.show_week_strip}
-                  onChange={e => update('show_week_strip', e.target.checked)}
-                />
-                <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-              </label>
+              <Toggle checked={settings.show_week_strip} onChange={e => update('show_week_strip', e.target.checked)} />
             </div>
 
             <div className="v2-settings-row">
@@ -2711,14 +2643,7 @@ export default function SettingsModal({
                 <div className="v2-settings-row-label">Open 7-day strip by default</div>
                 <div className="v2-settings-row-hint">Show the strip expanded when the app loads. Tap the date in the home stats line any time to hide it or re-open it.</div>
               </div>
-              <label className="v2-settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.week_strip_always_open}
-                  onChange={e => update('week_strip_always_open', e.target.checked)}
-                />
-                <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-              </label>
+              <Toggle checked={settings.week_strip_always_open} onChange={e => update('week_strip_always_open', e.target.checked)} />
             </div>
 
             <div className="v2-settings-row">
@@ -2752,8 +2677,58 @@ export default function SettingsModal({
           </div>
         )}
 
-        {activeTab === 'AI' && (
+        {activeTab === 'Tasks' && (
           <div className="v2-settings-form">
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <label className="v2-settings-row-label" htmlFor="v2-default-due-days">Default due date</label>
+                <div className="v2-settings-row-hint">Days from now. 0 = no default; tasks ship without a due date unless you pick one.</div>
+              </div>
+              <input
+                id="v2-default-due-days"
+                className="v2-form-input v2-settings-compact-input"
+                type="number"
+                min="0"
+                max="90"
+                value={settings.default_due_days ?? 7}
+                onChange={e => update('default_due_days', parseInt(e.target.value) || 0)}
+              />
+            </div>
+
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <label className="v2-settings-row-label" htmlFor="v2-staleness-days">Staleness threshold</label>
+                <div className="v2-settings-row-hint">Days of inactivity before a task counts as stale — drives the Stale section on the task list AND the Stale notification type (Settings → Notifications).</div>
+              </div>
+              <input
+                id="v2-staleness-days"
+                className="v2-form-input v2-settings-compact-input"
+                type="number"
+                min="1"
+                max="30"
+                value={settings.staleness_days ?? 7}
+                onChange={e => update('staleness_days', parseInt(e.target.value) || 1)}
+              />
+            </div>
+
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <label className="v2-settings-row-label" htmlFor="v2-reframe-threshold">Reframe trigger</label>
+                <div className="v2-settings-row-hint">Snooze count after which tapping Snooze opens the Reframe modal instead.</div>
+              </div>
+              <input
+                id="v2-reframe-threshold"
+                className="v2-form-input v2-settings-compact-input"
+                type="number"
+                min="1"
+                max="20"
+                value={settings.reframe_threshold ?? 3}
+                onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
+              />
+            </div>
+
+            <div className="v2-settings-subhead">AI tone</div>
+
             <div className="v2-settings-block">
               <label className="v2-form-label" htmlFor="v2-ci">Custom instructions</label>
               <div className="v2-settings-row-hint">
@@ -2826,6 +2801,12 @@ export default function SettingsModal({
             </div>
 
             <div className="v2-settings-block">
+              <div className="v2-form-label">Server logs</div>
+              <div className="v2-settings-row-hint">Live tail of the server process — Google/Push/Email/DB/SSE lines and errors. Used to be its own top-level tab despite being the same kind of diagnostics as Activity above.</div>
+              <ServerLogsPanel />
+            </div>
+
+            <div className="v2-settings-block">
               <div className="v2-form-label">Markdown import</div>
               <div className="v2-settings-row-hint">Paste a markdown list or checklist and have it parsed into tasks. Rarely used; lives here so it doesn't crowd the main menu.</div>
               <button
@@ -2892,7 +2873,6 @@ export default function SettingsModal({
           />
         )}
 
-        {activeTab === 'Logs' && <ServerLogsPanel />}
 
       </div>
 

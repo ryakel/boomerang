@@ -1,10 +1,15 @@
 # Kept — the Boomerang design language
 
-> **Status (2026-06-10): approved direction, pre-implementation.** Chosen from a
-> three-direction full-rebrand exploration (`brand-board.html`); prototypes live
-> at `kept-preview.html` (mobile) and `kept-desktop.html` (desktop) — dev-only
-> render harnesses, never shipped. This document is the single source of truth
-> for the public-facing iOS + desktop redesign that replaces Wallaby.
+> **Status (2026-07-11): shipped, the default UI for new installs on both
+> mobile and desktop** since the K6 cutover (2026-06-10). Chosen from a
+> three-direction full-rebrand exploration (`brand-board.html`); the original
+> prototypes (`kept-preview.html`, `kept-desktop.html`) were dev-only render
+> harnesses and are long superseded by the real implementation in `src/kept/`.
+> This document is the single source of truth for the design language itself
+> (tokens, components, motion, a11y) — see `CLAUDE.md`'s "Kept" section for
+> what's actually shipped vs. still in progress (K5 continuation: Today rail,
+> Board/Timeline modes, detail panel; K4 polish: Arcs/Flight log). Wallaby,
+> which this replaced, was fully torn out in the K6 demolition.
 
 **Why it exists.** Wallaby is a faithful study of loggd.life — close enough
 (navy canvas, 5-color accent cycle, GitHub-style contribution grids, 5-tab IA,
@@ -16,6 +21,41 @@ expression of it from Boomerang's own metaphor.
 **The name.** A boomerang is thrown, it returns, and you *keep* it. The brand
 verb set: **throw** (capture a task), **return** (snooze/recur — it comes
 back), **catch** (complete), **kept** (your history — everything you caught).
+
+---
+
+## 0 · Reference screenshots (shipped UI, captured 2026-07-11)
+
+Real captures of the shipped Kept UI (light mode, seeded dev data) — the
+living counterpart to the `kept-preview.html` / `kept-desktop.html` prototypes.
+
+**Mobile (390×844):**
+
+| Today | Tasks | Loops |
+|---|---|---|
+| ![Today](images/kept-mobile-today.png) | ![Tasks](images/kept-mobile-tasks.png) | ![Loops](images/kept-mobile-loops.png) |
+
+| Loop detail | Throw | Task action sheet |
+|---|---|---|
+| ![Loop detail](images/kept-mobile-loop-detail.png) | ![Throw](images/kept-mobile-throw.png) | ![Action sheet](images/kept-mobile-tasks-sheet.png) |
+
+| More | What now? | Quick edit |
+|---|---|---|
+| ![More](images/kept-mobile-more.png) | ![What now](images/kept-mobile-whatnow.png) | ![Quick edit](images/kept-mobile-edit-task.png) |
+
+**Desktop (1440×900):**
+
+| Today | Tasks (List + rail) |
+|---|---|
+| ![Desktop Today](images/kept-desktop-today.png) | ![Desktop Tasks list](images/kept-desktop-tasks-list.png) |
+
+| Tasks (Board) | Loops |
+|---|---|
+| ![Desktop Board](images/kept-desktop-tasks-board.png) | ![Desktop Loops](images/kept-desktop-loops.png) |
+
+| Throw (⌘K) | Quokka |
+|---|---|
+| ![Desktop Throw](images/kept-desktop-throw.png) | ![Desktop Quokka](images/kept-desktop-quokka.png) |
 
 ---
 

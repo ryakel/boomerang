@@ -283,7 +283,7 @@ Three PRs, each independently mergeable on `dev`:
   - Pushover: weekly throttle, opt-in only (`=== true` gate).
   - Settings UI: added to the v2 Notifications matrix.
 - **Service worker** opens `/?suggestions=1` when payload has `suggestionsView` and no taskId.
-- **`SuggestionsModal.jsx` + .css** in `src/v2/components/`:
+- **`SuggestionsModal.jsx` + .css** in `src/components/`:
   - List of suggestion cards with title, cadence chip, sample titles (collapsible if multiple), "5× in past 12mo · last 3d ago · 67% match" meta
   - Three actions per card: **Make it a routine** (accepts inline with cadence-aware defaults; user can refine on Routines screen afterward), **Not yet (14d)** (snooze), **Dismiss** (permanent)
   - Empty state with "Run scan now" CTA

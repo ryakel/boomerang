@@ -24,7 +24,10 @@ jobs:
 
       - name: Sync wiki content
         run: |
-          cp wiki/*.md .wiki/
+          # Mirror wiki/*.md into the wiki repo, removing pages that no longer
+          # exist in the source (a plain `cp` never deletes stale pages, so a
+          # file removed from wiki/ would linger on the published wiki forever).
+          rsync -a --delete --exclude='.git' wiki/ .wiki/
           cd .wiki
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

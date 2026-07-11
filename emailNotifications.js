@@ -634,6 +634,7 @@ export async function sendPackageEmail(pkg, eventType) {
   // Check per-type setting
   if (eventType === 'delivered' && settings.email_notif_package_delivered === false) return
   if (eventType === 'exception' && settings.email_notif_package_exception === false) return
+  if (eventType === 'signature_required' && settings.email_notif_package_signature === false) return
 
   // Throttle: 30 min per package per event type
   const key = `email_pkg:${pkg.id}:${eventType}`
