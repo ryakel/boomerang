@@ -4,7 +4,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
-## 2026-07-10
+## 2026-07-11
+
+- fix(ui): desktop Today rail was missing undated ("Anytime") tasks [S]
+  - **User report:** "Getting really frustrated with notifications when the items are in tasks and not in today... if they aren't in today then they should functionally be a backlog task or something should be pushing those tasks forward to today."
+  - Root cause: `isNotifiable()` (`db.js`) makes any `not_started`/`doing`/`waiting` task eligible for stale/nudge nags regardless of `due_date` — no due-date gate at all for ordinary tasks (only `project` status has the due-date-aware `nag_allowed` opt-in). Mobile's `TodayView.jsx` already accounts for this: undated active tasks render in a dedicated "Anytime" section on the Today screen ("the main page must show them"). But `TodayRail.jsx` — the side rail shown on desktop while browsing Tasks/Loops — only ever computed `dueToday` (`due_date <= today`) and had no undated-task section at all. So on desktop, an undated task sat visibly in the main Tasks pane while being completely invisible on the rail that represents "Today" — yet it was still fully nag-eligible. Not a backlog task (backlog is a manual, never-automatic status per `AppV2.jsx`/`adviserToolsTasks.js`) and not shown in Today — exactly the disconnect reported.
+  - Fixed by giving `TodayRail.jsx` the same "Anytime" section `TodayView.jsx` already has (undated, active, unsnoozed, non-stack, non-child tasks), capped at 8 rows with a "+N more in Tasks" note so nothing silently disappears if the list is long. Now every notifiable task surfaces somewhere on the Today surface, on both mobile and desktop.
 
 - fix(store): Quokka's "Could not retrieve response" error on long tool-use turns [S]
   - **User report:** screenshot + transcript of Quokka's "find contractors for my tasks" request — a broad request that legitimately fanned out into 13+ `search_tasks` calls, 2 `get_task` calls, 2 `web_search` calls, and 2 `update_task` calls — ending in "Could not retrieve response" even though the updates had actually been staged.

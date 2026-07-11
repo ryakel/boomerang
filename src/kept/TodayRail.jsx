@@ -28,6 +28,21 @@ export default function TodayRail({
     return t.due_date ? String(t.due_date).slice(0, 10) <= todayKey : false
   }).slice(0, 12), [tasks, todayKey, stackIds])
 
+  // Undated active tasks — mirrors TodayView.jsx's "Anytime" section. Without
+  // this, an undated task is fully notifiable (isNotifiable() in db.js has no
+  // due_date requirement) but was invisible anywhere on this rail — the exact
+  // "nagged about something I can't even see" gap reported in prod, since the
+  // rail is what's on screen while browsing Tasks/Loops.
+  const anytimeTasks = useMemo(() => tasks.filter(t => {
+    if (t.parent_id || t.gmail_pending || t.due_date) return false
+    if (t.routine_id && stackIds.has(t.routine_id)) return false
+    if (!ACTIVE.includes(t.status)) return false
+    return !isSnoozed(t)
+  }), [tasks, stackIds])
+  const ANYTIME_CAP = 8
+  const anytimeShown = anytimeTasks.slice(0, ANYTIME_CAP)
+  const anytimeOverflow = anytimeTasks.length - anytimeShown.length
+
   const catches = dailyStats.tasksToday ?? 0
 
   return (
@@ -63,6 +78,29 @@ export default function TodayRail({
             </div>
           ))}
         </div>
+      )}
+
+      {anytimeTasks.length > 0 && (
+        <>
+          <div className="bm-rail-sec">Anytime</div>
+          <div className="bm-rows">
+            {anytimeShown.map(t => (
+              <div key={t.id} className="bm-row bm-rail-row">
+                <button
+                  className={`bm-chk${t.high_priority ? ' is-hi' : ''}`}
+                  onClick={() => onCompleteTask?.(t)}
+                  aria-label="Catch it"
+                ><Check size={12} strokeWidth={3.2} style={{ opacity: 0 }} /></button>
+                <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
+                  <span className="bm-row-title" style={{ fontSize: 13.5 }}>{t.title}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+          {anytimeOverflow > 0 && (
+            <p className="bm-rail-empty">+{anytimeOverflow} more in Tasks</p>
+          )}
+        </>
       )}
     </aside>
   )
