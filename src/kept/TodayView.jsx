@@ -159,8 +159,20 @@ export default function TodayView({
         cycles = [...byCycle.values()].filter(c => c.open.length > 0)
           .sort((a, b) => a.due.localeCompare(b.due))
       }
+      // Weather badge for the card's open-today occurrence — a loop like
+      // "Mow" is exactly the outdoor-vs-weather case this feature exists
+      // for, but loop cards never got the wiring since they don't carry a
+      // due_date the way tasks do. Routines share the same tags/energy
+      // shape as tasks (propagated to spawned tasks), so the same
+      // resolveWeatherVisibility gate applies; the lookup date is always
+      // "today" (not the routine's own due-key) since that's when the
+      // user would actually act on it, overdue or not.
+      const weatherDay = weatherByDate
+        && resolveWeatherVisibility({ task: r, labels, weatherEnabled: true }) === 'visible'
+        ? weatherByDate[todayKey]
+        : null
       return {
-        r, color: feathers[r.id], byDay, isStack, cycles,
+        r, color: feathers[r.id], byDay, isStack, cycles, weatherDay,
         rally: currentStreak(byDay),
         // Stacks stay keyed on the completed_history stamp (written only when
         // the last member clears — see their cycle accounting). Ordinary loops
@@ -176,7 +188,7 @@ export default function TodayView({
     // receipt until midnight (prod report: clearing Bedtime's last member
     // flipped the hero from 2/3 loops to 2/2 instead of crediting 3/3).
     }).filter(l => (l.isStack ? (l.cycles.length > 0 || l.doneToday) : (l.dueToday || l.doneToday)))
-  }, [routines, tasks, todayKey, doneRoutineToday])
+  }, [routines, tasks, todayKey, doneRoutineToday, weatherByDate, labels])
   const loopsDone = loops.filter(l => l.doneToday).length
 
   // Gmail-imported items awaiting review (Keep / Dismiss) — restores the
@@ -429,7 +441,7 @@ export default function TodayView({
       {loops.length > 0 && (
         <Section id="loops" label="Loops" count={`${loopsDone}/${loops.length}`} collapsed={!!collapsed.loops} onToggle={toggleSection}>
           <div className="bm-rows">
-            {loops.map(({ r, color, byDay, rally, doneToday, isStack, cycles }) => {
+            {loops.map(({ r, color, byDay, rally, doneToday, isStack, cycles, weatherDay }) => {
               if (isStack && cycles.length === 0 && doneToday) {
                 // Cleared-today receipt: the folder is done, keep the loop
                 // visible + credited until midnight. Check is display-only —
@@ -483,6 +495,7 @@ export default function TodayView({
                   <div className="bm-loop-title">{r.title}</div>
                   <div className="bm-loop-sub">
                     {r.cadence || 'routine'}{rally > 0 && <> · <span className="bm-loop-rally">↻ {rally}</span></>}
+                    {weatherDay && <> · <WeatherBadge day={weatherDay} /></>}
                   </div>
                 </button>
                 <span className="bm-loop-trail"><FlightTrail valueByDay={byDay} color={color} mini /></span>
