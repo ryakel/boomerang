@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-11
 
+- docs(wiki): real UI screenshots captured + embedded across the wiki [M]
+  - Executed the screenshot shot list handoff (the prior session's sandbox couldn't drive a browser against `localhost`; this one can). Captured 18 shots of the shipped Kept UI against a seeded dev DB (`SEED_DB=1`, static-fallback data), light mode, at the spec'd viewports (mobile 390×844 @3x, desktop 1440×900 @2x). New `wiki/images/` directory.
+  - **Batch A (14):** mobile Today / Tasks / task action sheet / quick edit / Loops / loop detail / Throw / More / What now; desktop Today / Tasks List / Tasks Board / Loops / Throw (⌘K) / Quokka welcome.
+  - **Batch B (4, unblocked):** the Settings reorg the shot list said to wait for (the pile-up exemption picker move to the Notifications tab) had already landed on `dev`, so the four Settings shots (General / Notifications / Integrations / Labels) were captured too — `settings-notifications.png` shows the post-reorg "Pile-up thresholds" + "Exempt from pile-up count" cards together, the specific "after" reference the list wanted.
+  - **Skipped (1):** `kept-mobile-today-loop-weather.png` — needs the Weather integration configured plus an outdoor-tagged seeded loop; flagged for a follow-up pass once weather is set up in a capture environment.
+  - Embedded: `Home.md` (Today hero), `Getting-Started.md` (Throw sheet at the first-task step), `Features.md` (mobile Today/Tasks/Loops trio at the top, desktop Board under Desktop UI, Settings→Notifications under the pile-up exemption paragraph — whose stale "below Max open tasks" pointer was also corrected to "below Pile-up thresholds" per the reorg), `Kept-Design-Language.md` (new "§0 Reference screenshots" gallery of all 14 Batch A shots), `Configuration.md` (General / Integrations / Labels shots at their subsections).
+
 - fix(ui): pile-up label exemption picker was in the wrong settings tab [XS]
   - **User report:** screenshots showing the actual Notifications settings screen ("Pile-up thresholds", "Quiet hours") with no exemption picker in sight, while it had actually landed in the General tab next to "Max open tasks" — despite being documented as "Settings → Notifications." "Why the fuck would it be there??"
   - Root cause: `SettingsModal.jsx` has two separate pile-up-related fields living in two different tabs — `max_open_tasks` (the limit itself) sits in General, while `stale_warn_pct`/`stale_warn_days` ("Pile-up thresholds") sit in the actual Notifications tab (`NotificationsPanel`). The new exempt-labels picker was added next to `max_open_tasks` in General, matching neither its own documentation nor where a user looking for pile-up config would actually look.
