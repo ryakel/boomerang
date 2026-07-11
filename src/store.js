@@ -38,6 +38,7 @@ export const DEFAULT_SETTINGS = {
   quiet_hours_end: '08:00',
   default_due_days: 7,
   max_open_tasks: 10,
+  pileup_exempt_labels: [],
   stale_warn_days: 7,
   stale_warn_pct: 50,
   custom_instructions: '',

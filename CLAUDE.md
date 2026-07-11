@@ -657,6 +657,10 @@ Every notification deep-links to its task via `?task={id}`. The deep-link handle
 
 Default behavior in quiet hours is silence — even priority-1/priority-2 Pushover messages don't fire. Tasks tagged with the configured bypass label (default `wake-me`) are the exception and can wake the user. `quiet_hours_bypass_label` setting controls which label name. EditTaskModal has a "Wake me up for this" checkbox that toggles the label cleanly.
 
+### Pile-up Label Exemption (2026-07-11)
+
+**User request:** "If tasks are labeled for something else they shouldn't count in the pile up. Maybe that is configurable." — tasks kept on the list for reference/context (not active work) were inflating the "too many open tasks" pile-up count and warning. `settings.pileup_exempt_labels` (array of label ids, default `[]` — off until configured) lets the user pick any of their existing labels as exempt via a multi-select in Settings → Notifications, right below "Max open tasks" (`SettingsModal.jsx`, reuses the same `v2-form-label-grid`/`v2-form-label-pill` picker AddTaskModal's tag picker uses). A matching `isPileupExempt(task, settings)` helper — duplicated per-file the same way `isStale()`/`isAvoidance()` already are, not centralized — filters the pile-up pool in all four places that compute it: `pushNotifications.js`, `emailNotifications.js`, `pushoverNotifications.js` (server-side push/email/pushover engines), and `src/hooks/useNotifications.js` (client-side browser push, which — noted as a pre-existing, separate gap — still uses its own older `ACTIVE_STATUSES` filter rather than `isNotifiable()`'s due-date-or-nag_allowed gate from the "quiet unless opted in" work above). Scoped narrowly to pile-up counting only, per the request — stale/nudge sampling and the digest are unaffected.
+
 ### Web-push Subscription Dedup
 
 Repeat subscribes from the same device (PWA reinstall, iOS evicts subscription, etc.) used to accumulate stale rows in `push_subscriptions`, causing duplicate notifications. `upsertPushSubscription()` now deletes prior rows with matching `(p256dh, auth)` keys before inserting. One-time cleanup script: `node scripts/dedupe-push-subscriptions.js`.
