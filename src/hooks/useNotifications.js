@@ -49,6 +49,17 @@ async function getAINudge(taskCount) {
   }
 }
 
+// Tasks tagged with a user-configured "exempt" label (settings.pileup_
+// exempt_labels, an array of label ids picked in Settings) don't count
+// toward the pile-up limit or its warning — for things deliberately kept
+// on the list for reference/context rather than active work.
+function isPileupExempt(task, settings) {
+  const exempt = settings.pileup_exempt_labels
+  if (!Array.isArray(exempt) || exempt.length === 0) return false
+  if (!Array.isArray(task.tags)) return false
+  return task.tags.some(id => exempt.includes(id))
+}
+
 function isInQuietHours(settings) {
   if (!settings.quiet_hours_enabled) return false
   const now = new Date()
@@ -232,18 +243,19 @@ export function useNotifications(tasks) {
         // Check for too many open tasks (pile-up)
         if (now - lc.pileup >= freqs.pileup) {
           lc.pileup = now
+          const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings))
 
-          if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {
-            sendNotification('pileup', 'Too many open tasks', `You have ${nonSnoozed.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`, 'too-many')
+          if (settings.max_open_tasks && pileupPool.length > settings.max_open_tasks) {
+            sendNotification('pileup', 'Too many open tasks', `You have ${pileupPool.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`, 'too-many')
           }
 
           // Check for high percentage of old tasks
           if (settings.stale_warn_pct > 0) {
-            const oldTasks = nonSnoozed.filter(t => {
+            const oldTasks = pileupPool.filter(t => {
               const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
               return age > (settings.stale_warn_days || 7)
             })
-            const pct = nonSnoozed.length > 0 ? Math.round(oldTasks.length / nonSnoozed.length * 100) : 0
+            const pct = pileupPool.length > 0 ? Math.round(oldTasks.length / pileupPool.length * 100) : 0
             if (pct >= settings.stale_warn_pct) {
               sendNotification('pileup', 'Tasks piling up', `${pct}% of your tasks have been open for ${settings.stale_warn_days}+ days`, 'stale-warn')
             }
