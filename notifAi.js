@@ -18,6 +18,7 @@
  */
 
 import { getData } from './db.js'
+import { HAIKU_MODEL } from './aiModels.js'
 
 const REWRITE_TIMEOUT_MS = 2500
 
@@ -76,7 +77,7 @@ Rewrite the notification body in the user's preferred tone.`
       signal: ctrl.signal,
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: HAIKU_MODEL,
         max_tokens: 100,
         system,
         messages: [{ role: 'user', content: user }],

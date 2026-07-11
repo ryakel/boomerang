@@ -14,6 +14,7 @@ import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
+import { SONNET_MODEL } from './aiModels.js'
 
 // --- Environment ---
 let smtpHost = process.env.SMTP_HOST
@@ -48,7 +49,7 @@ async function generateAINudge(task) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6', max_tokens: 100,
+        model: SONNET_MODEL, max_tokens: 100,
         system: 'Generate a short, encouraging one-liner nudge (under 80 chars) for someone with ADHD about this task. Be warm, specific, and motivating. No quotes.',
         messages: [{ role: 'user', content: `Task: "${task.title}"${task.energy ? ` (${task.energy})` : ''}` }],
       }),

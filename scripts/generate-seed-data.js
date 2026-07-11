@@ -8,6 +8,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { randomUUID } from 'crypto'
+import { SONNET_MODEL } from '../aiModels.js'
 
 // --- Load API key from env or .env file ---
 let apiKey = process.env.ANTHROPIC_API_KEY
@@ -194,7 +195,7 @@ const response = await fetch('https://api.anthropic.com/v1/messages', {
     'anthropic-version': '2023-06-01',
   },
   body: JSON.stringify({
-    model: 'claude-sonnet-4-6',
+    model: SONNET_MODEL,
     max_tokens: 16000,
     messages: [{ role: 'user', content: prompt }],
   }),

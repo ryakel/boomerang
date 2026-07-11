@@ -21,7 +21,7 @@ ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
-COPY server.js auth.js db.js seed.js emailNotifications.js pushNotifications.js pushoverNotifications.js digestBuilder.js notifAi.js userTime.js gmailSync.js weatherSync.js notionMCP.js notionMCPProxy.js patternDetection.js tagSuggestions.js knowledgeSync.js growthAreas.js ./
+COPY server.js auth.js db.js seed.js emailNotifications.js pushNotifications.js pushoverNotifications.js digestBuilder.js notifAi.js userTime.js gmailSync.js weatherSync.js notionMCP.js notionMCPProxy.js patternDetection.js tagSuggestions.js knowledgeSync.js growthAreas.js aiModels.js ./
 COPY adviserTools.js adviserToolsTasks.js adviserToolsIntegrations.js adviserToolsMisc.js adviserToolsKnowledge.js ./
 COPY migrations ./migrations
 COPY scripts ./scripts
