@@ -1,10 +1,15 @@
 # Kept — the Boomerang design language
 
-> **Status (2026-06-10): approved direction, pre-implementation.** Chosen from a
-> three-direction full-rebrand exploration (`brand-board.html`); prototypes live
-> at `kept-preview.html` (mobile) and `kept-desktop.html` (desktop) — dev-only
-> render harnesses, never shipped. This document is the single source of truth
-> for the public-facing iOS + desktop redesign that replaces Wallaby.
+> **Status (2026-07-11): shipped, the default UI for new installs on both
+> mobile and desktop** since the K6 cutover (2026-06-10). Chosen from a
+> three-direction full-rebrand exploration (`brand-board.html`); the original
+> prototypes (`kept-preview.html`, `kept-desktop.html`) were dev-only render
+> harnesses and are long superseded by the real implementation in `src/kept/`.
+> This document is the single source of truth for the design language itself
+> (tokens, components, motion, a11y) — see `CLAUDE.md`'s "Kept" section for
+> what's actually shipped vs. still in progress (K5 continuation: Today rail,
+> Board/Timeline modes, detail panel; K4 polish: Arcs/Flight log). Wallaby,
+> which this replaced, was fully torn out in the K6 demolition.
 
 **Why it exists.** Wallaby is a faithful study of loggd.life — close enough
 (navy canvas, 5-color accent cycle, GitHub-style contribution grids, 5-tab IA,

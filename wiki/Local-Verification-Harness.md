@@ -2,8 +2,9 @@
 
 How to spin up a real Boomerang server **inside a Claude Code session** and drive
 it headlessly to verify UI changes — render before claiming a surface works. This
-is the exact workflow used to build/QA the Wallaby reskin. Every step here has a
-non-obvious trap; read the **Gotchas** at the end before improvising.
+was originally built while QA'ing the Wallaby reskin (since removed) but every
+mechanic below is theme-agnostic and applies the same way to Kept. Every step
+here has a non-obvious trap; read the **Gotchas** at the end before improvising.
 
 > TL;DR: build with a **matching `APP_VERSION`**, launch the server **seeded** in
 > the background, then drive it with **puppeteer run from the repo root**, loading
@@ -58,9 +59,10 @@ status.)
 
 ## 3. Force a specific theme / UI version (client-side)
 
-Settings live server-side, and `seed.js` doesn't set a `theme`, so the app boots
-in the default skin. The robust way to preview a specific theme (e.g. Wallaby) is
-to inject a **complete** settings blob into `localStorage` with a far-future
+Settings live server-side, and `seed.js` doesn't set a `theme`, so a fresh seed
+boots on the default `kept-system` sentinel (resolves to `kept-light`/`kept-dark`
+via `prefers-color-scheme`). The robust way to force a specific theme is to
+inject a **complete** settings blob into `localStorage` with a far-future
 modified timestamp so local settings win over server hydration. Fetch the real
 settings first so you don't drop defaults:
 
@@ -68,16 +70,19 @@ settings first so you don't drop defaults:
 await page.goto('http://localhost:3001', { waitUntil: 'domcontentloaded' })
 await page.evaluate(async () => {
   const d = await fetch('/api/data').then(r => r.json())
-  localStorage.setItem('boom_settings_v1', JSON.stringify({ ...(d.settings || {}), theme: 'wallaby-dark' }))
+  localStorage.setItem('boom_settings_v1', JSON.stringify({ ...(d.settings || {}), theme: 'kept-dark' }))
   localStorage.setItem('boom_last_modified', String(Date.now() + 1e7)) // local newer than server
 })
 await page.goto('http://localhost:3001', { waitUntil: 'domcontentloaded' }) // reload with settings applied
 ```
 
 Keys (from `src/store.js`): `boom_settings_v1`, `boom_last_modified`.
-Themes: `wallaby-dark` / `wallaby-light` / `terminal-dark` /
-`terminal-light` / `dark` / (default light). Verify it took with
-`document.documentElement.getAttribute('data-theme')`.
+Themes: `kept-light` / `kept-dark` / `light` / `dark` (plus the `system`/
+`kept-system` sentinels, which resolve live off the OS scheme rather than a
+fixed value — inject a concrete theme instead of a sentinel when you need a
+deterministic screenshot). Terminal and Wallaby are both fully removed; any
+stored value from either is silently upgraded to a Kept equivalent on load.
+Verify it took with `document.documentElement.getAttribute('data-theme')`.
 
 ## 4. Drive it with puppeteer
 
@@ -91,7 +96,7 @@ const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox']
 const page = await browser.newPage()
 await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 }) // iPhoneish
 // ...theme injection from step 3...
-await page.waitForSelector('.wb-shell', { timeout: 15000 }) // wait for a known root, not networkidle
+await page.waitForSelector('.bm-shell', { timeout: 15000 }) // wait for a known root, not networkidle
 await new Promise(r => setTimeout(r, 1500))                 // let lazy fetches resolve
 await page.screenshot({ path: '/tmp/shot.png' })
 await browser.close()
@@ -106,7 +111,7 @@ Then **Read** the PNG to actually look at it. Conventions that matter:
   FABs are `position: fixed`; puppeteer's coordinate-based click mis-fires on
   fixed elements and silently no-ops. Use in-page `.click()`:
   ```js
-  const navTab = i => page.evaluate(i => document.querySelectorAll('.wb-nav-tab')[i]?.click(), i)
+  const navTab = i => page.evaluate(i => document.querySelectorAll('.bm-nav-tab')[i]?.click(), i)
   const clickText = (sel, t) => page.evaluate((sel, t) =>
     [...document.querySelectorAll(sel)].find(e => e.textContent.toLowerCase().includes(t.toLowerCase()))?.click(), sel, t)
   ```
@@ -127,7 +132,7 @@ invaluable for "taps leak behind the modal" bugs. Walk up to a meaningful class:
 await page.evaluate(() => [40,250,600,835].map(y => {
   let n = document.elementFromPoint(195, y), m = ''
   while (n && n !== document.body) { const c = (n.className?.toString?.()||'')
-    const hit = c.split(/\s+/).find(x => /^wb-|^v2-modal/.test(x)); if (hit){m=hit;break} n=n.parentElement }
+    const hit = c.split(/\s+/).find(x => /^bm-|^v2-modal/.test(x)); if (hit){m=hit;break} n=n.parentElement }
   return `${y}: ${m}`
 }))
 ```
@@ -167,8 +172,10 @@ endpoint 403s and the button hides outside dev — `isDevEnv` in `server.js`).
 
 ## Related
 
-- `wallaby-preview.html` + `src/wallaby-preview.jsx` — a lighter, dev-only render
-  harness that mounts a single Wallaby view in isolation with mock data (not
-  imported by `index.html`, never ships).
+- `kept-preview.html` (mobile) + `kept-desktop.html` (desktop) — dev-only render
+  harnesses that mount Kept surfaces in isolation with mock data, never imported
+  by `index.html` and never shipped. `wallaby-preview.html` + `src/wallaby-preview.jsx`
+  are the equivalent harness for the removed Wallaby theme — dead code, kept around
+  only because nothing has cleaned it up yet.
 - The `run` / `verify` skills cover the general "launch and confirm a change"
   pattern; this page is the Boomerang-specific runbook with the traps spelled out.

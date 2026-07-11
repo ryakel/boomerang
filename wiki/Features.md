@@ -12,20 +12,18 @@ Every task always comes back. Dismissal is never free — every "not now" requir
 
 ## Themes
 
-Four palettes, picked in Settings → General → Theme:
+Two families, each with a Light/Dark/System mode, picked in Settings → General:
 
-| Theme | Look |
+| Family | Look |
 |---|---|
-| **Light** | Wheneri-style — warm orange accent, soft pastels, rounded pills, generous whitespace |
-| **Dark** | Same layout language, dark canvas |
-| **Terminal Dark** | GitHub Dark code-editor aesthetic — monospace stack, cyan-blue accent on `#0D1117` canvas, `> boomerang_` blinking-cursor wordmark, ASCII flourishes (`[ ]` clickable checkboxes on task rows, `[ Save changes ]` bracket buttons, `> section [3]` sigil-prefixed labels), no-button-chrome philosophy (every settings control flat sigil+text or bracket-radio idiom), density signals on TaskCard (`[3/5]` checklist counter, `🔥N` routine streak, one-line notes preview) |
-| **Terminal Light** | Same monospace aesthetic on a white canvas with GitHub Light colors (deep-link blue `#0969DA`, `#1F2328` text). Same density signals, same ASCII structure |
+| **Standard** | The calm hairline UI — heritage v2 look: single accent, generous whitespace, hairline-separated lists over stacked cards |
+| **Kept** | Boomerang's own design language (see `wiki/Kept-Design-Language.md`) — warm Smoke/Linen canvases, ember-orange hero accent + gold rally/feather accents, arcs-not-grids data viz (Flight Trail, Month Dots, Day Arc), Fraunces display serif. **The default for new installs**, on both mobile and desktop. |
 
-Modal headers in terminal mode read as commands: `> task --new`, `> snooze`, `> what-now`, `> settings`, `> quokka`, `> delete --confirm`. Empty states render as `// comment` lines. Light + Dark stay calm and unchanged.
+Mode is a separate Light/Dark/System segmented control — System tracks the OS `prefers-color-scheme` live (an automatic sunset dark-mode switch repaints the app without a reload) rather than freezing to whatever the OS said at first launch.
 
-**Home stats line (terminal):** Above the task list, a single segmented line shows `📅 Sun, May 10 ▾ · 🔥 N days · ✓ N/goal today`. Tap the calendar date to show/hide the 7-day strip below — the strip is collapsed by default. The `🔥 streak` is the global day-streak; the `✓ today` tracks `tasksToday / daily_task_goal`.
+The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flourishes) and the Wallaby theme (loggd.life-inspired navy heatmap dashboard) both shipped and were later fully removed — any device with an old stored `terminal*`/`wallaby*` theme value silently upgrades to a Kept equivalent on next load.
 
-**7-day strip:** Shows activity intensity per day (▁▃█ in terminal, soft dots in light/dark) with today's exact `count/goal` inline. Hidden by default in terminal mode — tap the date in the home stats line to reveal. Light/dark users opt-in via Settings → General → Home screen. `week_strip_always_open` setting keeps it permanently visible.
+**7-day strip (Standard theme):** Shows activity intensity per day (soft dots) with today's exact `count/goal` inline above the task list. Opt-in via Settings → General → Home screen; `week_strip_always_open` keeps it permanently visible. Kept has its own equivalent visualizations (Day Arc, Flight Trail) built into its Today view rather than this strip.
 
 ## Task Management
 
@@ -496,11 +494,21 @@ Tasks can be marked as high priority via a toggle in the Edit modal. High priori
 - **On due date** — every hour (configurable)
 - **Overdue** — every 30 minutes (configurable)
 
-## Header Layout
+## Header Layout & Navigation
 
-- **Always visible:** Packages icon (box), Settings gear icon
-- **Overflow menu ("..."):** Projects, Import Markdown, Analytics, Activity Log
-- **Click outside** or **Escape** to dismiss the menu
+Navigation is split by theme family (`isKept` in `AppV2.jsx`) and by mobile vs. desktop. Which one a given install sees depends on Settings → General → Theme.
+
+**Standard theme, mobile:**
+- Header: sparkle (Quokka) + Packages icon always visible in the top-right; a ⚙ icon opens the **SystemMenu** popover (Settings, Analytics, Done, Suggestions, Activity log)
+- **BottomTabs**: Today | New | What now | Spaces — New short-taps to an inline quick-add, long-presses to the full Add Task modal; Spaces opens the **SpacesHub** (Projects / Routines / Knowledge picker)
+- Click outside or Escape dismisses any open popover/sheet
+
+**Kept theme, mobile:**
+- Header: Boomerang wordmark + Quokka sparkle
+- 4-tab + center-Throw bottom nav: Today | Loops | ⌁ Throw (capture) | Tasks | More. Today leads with the Day Arc hero; Loops replaces Routines; More houses Settings/Analytics/Suggestions/Knowledge/Growth areas
+- Naming is metaphor-flavored where it fits ("Caught it.", "↩ returns Tue") and plain everywhere else (Loops = routines, Arcs = projects, Flight log = profile)
+
+**Desktop (both themes, ≥769px):** bottom nav is hidden; navigation lives in a persistent sidebar (Kept) or side drawer + header icons (Standard).
 
 ## Desktop UI
 
@@ -508,14 +516,16 @@ Tasks can be marked as high priority via a toggle in the Edit modal. High priori
 
 *Desktop command center: sidebar, Tasks in Board view mode, and the Today rail.*
 
-On screens 768px+, the app switches to a desktop layout:
+**Standard theme:**
 - **Kanban board** — 6-column board (Doing, Up Next, Waiting, Snoozed, Backlog, Projects) with drag-and-drop between columns
 - **Hover states** — task cards reveal action buttons on hover
 - **Side drawer** — EditTaskModal renders as a 480px right-side drawer instead of bottom sheet, with slide-in animation
 - **Richer cards** — desktop cards show notes preview (first 120 chars), checklist progress bar with done/total count, and always-visible tags
 - **Keyboard shortcuts** — `n` (new task), `/` (search), `j`/`k` (navigate), `Enter`/`e` (edit), `x` (complete), `s` (snooze), `Escape` (close/deselect), `?` (help). Disabled when typing in inputs.
-- **Sheet modals** — Settings, Routines, Analytics, and Edit Task use centered sheet-overlay modals with X close button (mobile keeps full-screen)
+- **Sheet modals** — Settings, Routines, Analytics, and Edit Task use centered sheet-overlay modals with X close button
 - **Compact header** — "What now?" button in header instead of bottom bar
+
+**Kept theme — command center** (`src/kept/KeptDesktop.jsx`): a persistent sidebar (Today / Loops / Tasks / Arcs / Flight log / More) + a work surface + a Today rail, with **⌘K Throw** for fast capture from anywhere. Kanban survives as a **Board** view-mode option within Tasks rather than the default view. This is the newer, more actively developed of the two desktop layouts — see `wiki/Kept-Design-Language.md` for what's shipped vs. still in progress.
 
 ## Cross-Client Sync
 
