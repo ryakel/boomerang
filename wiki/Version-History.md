@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-11
 
+- fix(ui): pile-up label exemption picker was in the wrong settings tab [XS]
+  - **User report:** screenshots showing the actual Notifications settings screen ("Pile-up thresholds", "Quiet hours") with no exemption picker in sight, while it had actually landed in the General tab next to "Max open tasks" — despite being documented as "Settings → Notifications." "Why the fuck would it be there??"
+  - Root cause: `SettingsModal.jsx` has two separate pile-up-related fields living in two different tabs — `max_open_tasks` (the limit itself) sits in General, while `stale_warn_pct`/`stale_warn_days` ("Pile-up thresholds") sit in the actual Notifications tab (`NotificationsPanel`). The new exempt-labels picker was added next to `max_open_tasks` in General, matching neither its own documentation nor where a user looking for pile-up config would actually look.
+  - Fixed: moved the picker (state, toggle handler, and JSX) out of `SettingsModal`'s General-tab body and into `NotificationsPanel`, as its own `.v2-settings-block` card directly below "Pile-up thresholds" — same screen as every other pile-up-related setting.
+
 - feat(ui): weather badges on Today's inline Loops section [XS]
   - **User follow-up** (after the Tasks weather fix, and a "what about Loops?" question): screenshot of Today's "Loops" section showing routine cards (e.g. "Tighten Washer door") with no weather info — "Seems like it would be really helpful here, no?"
   - Checked the Loops tab/detail page first: no gap there, since neither shows any due-dated task row at all (just cycle-chip trails and cadence stats) — nowhere to put a badge.

@@ -1586,6 +1586,18 @@ function IntegrationsPanel({
 }
 
 function NotificationsPanel({ settings, update }) {
+  // Pile-up exemption label picker, shown right after "Pile-up thresholds"
+  // below. loadLabels() is a cheap synchronous localStorage read, same
+  // pattern LabelsPanel uses.
+  const allLabels = loadLabels()
+  const pileupExemptLabels = Array.isArray(settings.pileup_exempt_labels) ? settings.pileup_exempt_labels : []
+  const togglePileupExempt = (id) => {
+    const next = pileupExemptLabels.includes(id)
+      ? pileupExemptLabels.filter(x => x !== id)
+      : [...pileupExemptLabels, id]
+    update('pileup_exempt_labels', next)
+  }
+
   // Channel master toggles. Pushover gates additionally on credentials being
   // present, but for the v2 panel we just toggle the boolean and show a hint.
   const masters = [
@@ -1912,6 +1924,34 @@ function NotificationsPanel({ settings, update }) {
           <span className="v2-integrations-hint">days</span>
         </div>
       </div>
+
+      {allLabels.length > 0 && (
+        <div className="v2-settings-block">
+          <div className="v2-settings-row">
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">Exempt from pile-up count</div>
+              <div className="v2-settings-row-hint">Tasks with any of these labels don't count toward the "too many open tasks" limit or its warning — useful for things you're deliberately tracking for reference, not actively working.</div>
+            </div>
+          </div>
+          <div className="v2-form-label-grid" style={{ paddingBottom: 8 }}>
+            {allLabels.map(lbl => {
+              const active = pileupExemptLabels.includes(lbl.id)
+              return (
+                <button
+                  key={lbl.id}
+                  type="button"
+                  className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
+                  onClick={() => togglePileupExempt(lbl.id)}
+                  style={{ '--label-color': lbl.color }}
+                  title={lbl.name}
+                >
+                  {lbl.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Quiet hours — section header is the toggle row, no redundant sub-toggle */}
       <div className="v2-settings-block">
@@ -2416,19 +2456,6 @@ export default function SettingsModal({
     }
   }, [onFlush])
 
-  // Pile-up exemption label picker (Notifications tab, near "Max open
-  // tasks") — tasks with any of these labels don't count toward the
-  // limit/warning. loadLabels() is a cheap synchronous localStorage read,
-  // same pattern LabelsPanel uses.
-  const allLabels = loadLabels()
-  const pileupExemptLabels = Array.isArray(settings.pileup_exempt_labels) ? settings.pileup_exempt_labels : []
-  const togglePileupExempt = (id) => {
-    const next = pileupExemptLabels.includes(id)
-      ? pileupExemptLabels.filter(x => x !== id)
-      : [...pileupExemptLabels, id]
-    update('pileup_exempt_labels', next)
-  }
-
   const handleExportData = () => {
     const data = {
       tasks: loadTasks(),
@@ -2662,32 +2689,6 @@ export default function SettingsModal({
                 onChange={e => update('max_open_tasks', parseInt(e.target.value) || 0)}
               />
             </div>
-
-            {allLabels.length > 0 && (
-              <div className="v2-settings-row" style={{ alignItems: 'flex-start' }}>
-                <div className="v2-settings-row-text">
-                  <div className="v2-settings-row-label">Exempt from pile-up count</div>
-                  <div className="v2-settings-row-hint">Tasks with any of these labels don't count toward the "too many open tasks" limit or its warning — useful for things you're deliberately tracking for reference, not actively working.</div>
-                  <div className="v2-form-label-grid" style={{ marginTop: 8 }}>
-                    {allLabels.map(lbl => {
-                      const active = pileupExemptLabels.includes(lbl.id)
-                      return (
-                        <button
-                          key={lbl.id}
-                          type="button"
-                          className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
-                          onClick={() => togglePileupExempt(lbl.id)}
-                          style={{ '--label-color': lbl.color }}
-                          title={lbl.name}
-                        >
-                          {lbl.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="v2-settings-subhead">Home screen</div>
 
