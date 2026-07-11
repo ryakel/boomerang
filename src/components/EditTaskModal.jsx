@@ -725,6 +725,25 @@ export default function EditTaskModal({
         </div>
       </div>
 
+      {/* Undated ordinary tasks are quiet by default (2026-07-11) — stale/
+        * nudge/pile-up notifications skip them unless opted in here, same
+        * rule projects have always had. Hidden once a due date is set (the
+        * escalation ladder toggle below covers "no due date, contact
+        * persistence" tasks on its own). */}
+      {!isProject && !form.dueDate && (
+        <label className="v2-edit-toggle-row v2-edit-toggle-row-compact" style={{ marginBottom: 14 }}>
+          <input
+            type="checkbox"
+            checked={nagAllowed}
+            onChange={e => setNagAllowed(e.target.checked)}
+          />
+          <span className="v2-edit-toggle-label">
+            Remind me about this without a due date
+            <span className="v2-edit-toggle-meta">Off by default — stale/nudge reminders stay quiet for undated tasks unless you turn this on.</span>
+          </span>
+        </label>
+      )}
+
       {form.dueDate && (
         <div className="v2-form-section">
           <label className="v2-form-label" htmlFor="v2-gcal-duration">GCal duration override (min)</label>

@@ -905,7 +905,17 @@ export function escalationNudgeOverride(task) {
 // Used by push/email/pushover engines + digest builder. The rules:
 //   - gmail_pending tasks are inbox suggestions, never notified
 //   - snooze_indefinite ("Until I come back") bypasses everything
-//   - the usual active-status set always qualifies
+//   - the usual active-status set qualifies when it has a due date, has
+//     an active escalation ladder (that ladder is its own explicit
+//     per-task opt-in — see Escalation Ladder), or the user opted the
+//     task into undated nags via nag_allowed. (2026-07-11: previously ANY
+//     active task nagged regardless of due date, so a "someday, no
+//     deadline" task counted toward the pile-up count and got sampled
+//     for stale/nudge pings exactly as loudly as something due today —
+//     reported in prod as "getting yelled at" about tasks that don't even
+//     show up in Today. Undated tasks are quiet by default now, same as
+//     projects always were — set nag_allowed on a specific one if you
+//     want reminders on it anyway.)
 //   - projects qualify only when they have a due date (escalation rules
 //     apply normally) OR the user opted them into nags via nag_allowed
 export function isNotifiable(task) {
@@ -913,8 +923,10 @@ export function isNotifiable(task) {
   if (task.gmail_pending) return false
   if (task.snooze_indefinite) return false
   if (task.notifications_muted) return false
-  if (['not_started', 'doing', 'waiting'].includes(task.status)) return true
-  if (task.status === 'project' && (task.due_date || task.nag_allowed)) return true
+  if (task.status === 'project') return !!(task.due_date || task.nag_allowed)
+  if (['not_started', 'doing', 'waiting'].includes(task.status)) {
+    return !!(task.due_date || task.nag_allowed || task.escalation_current_rung != null)
+  }
   return false
 }
 
