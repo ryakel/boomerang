@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-11
 
+- fix(ui): Tasks was missing weather badges [XS]
+  - **User report:** "Tasks is missing the weather."
+  - `weatherByDate` was already threaded from `AppV2.jsx` into `KeptShell.jsx`/`KeptDesktop.jsx` and passed to `TodayView.jsx` (which shows weather badges), but was never also passed to `TasksViewKept.jsx` — so Tasks' list rows never got the badge even for dated tasks in the exact same forecast window Today would show it for.
+  - Fixed: `TasksViewKept.jsx` now accepts `weatherByDate`, computes the same due-date + `resolveWeatherVisibility()`-gated badge `TodayView.jsx` uses, and renders it in the row meta. `KeptShell.jsx`/`KeptDesktop.jsx` now pass the prop through.
+  - Left `BoardView.jsx` (Tasks' desktop Board mode) alone — it's a deliberately minimal card view that doesn't show due dates or tags either, not a parity gap.
+
 - refactor(ai): centralize model ids in aiModels.js, upgrade Sonnet to claude-sonnet-5 [M]
   - **User question, then request:** "What models is boomerang using? Should we be updating them?" → after summarizing findings (Sonnet usage was on an older `claude-sonnet-4-6`; Haiku usage was already current), user said "Let's update and centralize."
   - New root module `aiModels.js` (no Node-specific dependencies, so it's importable from both server modules and the Vite client bundle) exports `SONNET_MODEL` (now `claude-sonnet-5`, was `claude-sonnet-4-6`) and `HAIKU_MODEL` (`claude-haiku-4-5-20251001`, unchanged — already current).

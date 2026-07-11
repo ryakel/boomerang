@@ -64,7 +64,7 @@ export default function KeptDesktop({
     surface = (
       <TasksViewKept
         tasks={tasks} labels={labels}
-        routines={routines}
+        routines={routines} weatherByDate={weatherByDate}
         onToggleComplete={onCompleteTask} onToggleItem={onToggleItem} onOpenTask={onOpenTask}
         onDelete={onDeleteTask} onReschedule={onRescheduleTask} onUnsnooze={onUnsnooze}
         boardable onStatusChange={onStatusChange}
