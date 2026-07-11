@@ -46,7 +46,6 @@ import { useExternalSync } from './hooks/useExternalSync'
 import { useSizeAutoInfer } from './hooks/useSizeAutoInfer'
 import { useToastPrefetch } from './hooks/useToastPrefetch'
 import { usePackages } from './hooks/usePackages'
-import { usePackageNotifications } from './hooks/usePackageNotifications'
 import { useAdviser } from './hooks/useAdviser'
 import { useIsDesktop } from './hooks/useIsDesktop'
 import { useWeather } from './hooks/useWeather'
@@ -246,7 +245,6 @@ export default function AppV2() {
     return s
   }, [tasks])
   const { packages, addPackage, removePackage, refresh: refreshPackage, refreshAll: refreshAllPackages } = usePackages()
-  usePackageNotifications(packages)
   // Trello status push lives at this level so handleComplete / status-change
   // / handleUncomplete can fire it for any task with a linked Trello card.
   const { pushStatusToTrello, syncTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
