@@ -389,6 +389,8 @@ Uses [Open-Meteo](https://open-meteo.com) to suggest the right tasks for the wea
 
 ## Notifications
 
+**Undated tasks are quiet by default.** A task with no due date won't trigger stale/nudge/pile-up notifications unless you turn on "Remind me about this without a due date" in the edit modal (same toggle Projects have always had) — otherwise it just sits in Anytime/Tasks without any pressure. This applies to the pile-up count too, so a big backlog of someday tasks won't push you over the "too many open tasks" limit. Tasks with a due date, and any task with an active Escalation Ladder, are unaffected — this only changes truly undated tasks.
+
 ### Notification Center (in-app)
 
 The bell in the header opens an in-app notification center listing everything that's gone out (nags, package updates, weather alerts, Quokka plan pings), grouped by day. Tap a row to jump to its task; tap **Mark all read** to clear the unread state. **Read state now sticks** — it's saved server-side, so closing and reopening the center (or switching devices) keeps what you've read marked read, and task-less notifications (weather, pile-up) can be marked read too. (Previously "read" was only remembered for the current screen and reset on reopen.)

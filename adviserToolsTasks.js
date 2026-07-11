@@ -292,7 +292,7 @@ export function registerTaskTools() {
         },
         nag_allowed: {
           type: 'boolean',
-          description: 'Project-only flag (ignored unless status=project). When true, the project triggers calm stale/nudge notifications even without a due date. Default false — projects are silent by default. A due_date overrides this and triggers full escalation regardless.',
+          description: 'When true, this task can trigger calm stale/nudge notifications even without a due date. Default false — any undated task (project or ordinary) is silent by default. A due_date overrides this and triggers full escalation regardless. An active escalation ladder always overrides this too.',
         },
         blocked_by: {
           type: 'array',
@@ -404,10 +404,11 @@ export function registerTaskTools() {
         checklists,
         parent_id: args.parent_id || null,
         child_visibility: childVis,
-        // Project-only flags. Harmless on non-project tasks but skipped
-        // out of the payload when status != 'project' to avoid surprise.
+        // pinned_to_today only has visible effect on projects (the "Pinned
+        // projects" section is project-only) so it's skipped for other
+        // statuses to avoid surprise. nag_allowed now applies to any task.
         pinned_to_today: args.status === 'project' ? !!args.pinned_to_today : false,
-        nag_allowed: args.status === 'project' ? !!args.nag_allowed : false,
+        nag_allowed: !!args.nag_allowed,
         assignee: args.assignee || null,
         created_at: now,
         updated_at: now,
@@ -424,7 +425,7 @@ export function registerTaskTools() {
   // --- UPDATE ---
   registerTool({
     name: 'update_task',
-    description: 'Update any subset of task fields. Only provided fields change. Use this to link an orphan task to a project (set parent_id), pin a project (pinned_to_today), opt a project into nags (nag_allowed), or fix child_visibility — all in a single call, no need for separate link/pin tools. For common transitions prefer complete_task/reopen_task/snooze_task/move_to_projects.',
+    description: 'Update any subset of task fields. Only provided fields change. Use this to link an orphan task to a project (set parent_id), pin a project (pinned_to_today), opt any undated task into nags (nag_allowed), or fix child_visibility — all in a single call, no need for separate link/pin tools. For common transitions prefer complete_task/reopen_task/snooze_task/move_to_projects.',
     schema: {
       type: 'object',
       properties: {
@@ -446,7 +447,7 @@ export function registerTaskTools() {
         parent_id: { type: ['string', 'null'], description: 'Link to a project. Pass null to unlink.' },
         child_visibility: { type: 'string', enum: ['active', 'backstage'], description: 'Visibility under the parent project. Only meaningful when parent_id is set.' },
         pinned_to_today: { type: 'boolean', description: 'Project pin toggle (status=project tasks only).' },
-        nag_allowed: { type: 'boolean', description: 'Project nag opt-in (status=project tasks only).' },
+        nag_allowed: { type: 'boolean', description: 'Opt this task into calm stale/nudge notifications while it has no due date. Default false for any undated task (ordinary or project) — set true if the user wants reminders on it anyway.' },
         blocked_by: { type: 'array', items: { type: 'string' }, description: 'Array of sibling sub task ids that must complete before this sub becomes visible in the main list. Empty array clears all blockers. Cycles are rejected.' },
         assignee: { type: ['string', 'null'], description: 'Set when this task is actually for someone else the user supervises (e.g. a kid\'s chore) — a name, e.g. "Jack". Pass null to clear (back to the user\'s own task).' },
       },
