@@ -54,6 +54,7 @@ import { getAllKnowledgeItems, searchKnowledgeItems, getKnowledgeItem } from './
 import crypto from 'crypto'
 import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
   setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
+import { SONNET_MODEL, HAIKU_MODEL } from './aiModels.js'
 
 // Register adviser tools once at module load
 registerTaskTools()
@@ -745,7 +746,7 @@ app.post('/api/search/ai', async (req, res) => {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: HAIKU_MODEL,
           max_tokens: 400,
           system: 'You search an activity log. Given a search query and numbered entries, return a JSON array of entry indices that match semantically. Include partial/related matches. Return ONLY a JSON array of integers.',
           messages: [{ role: 'user', content: `Query: "${keyword}"\n\nEntries:\n${taskList}` }],
@@ -780,7 +781,7 @@ app.post('/api/search/ai', async (req, res) => {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: HAIKU_MODEL,
         max_tokens: 400,
         system: 'You search a task list. Given a search query and numbered tasks, return a JSON array of task indices that match the query semantically. Include close/related matches, sorted by relevance (best first). Return ONLY a JSON array of integers.',
         messages: [{ role: 'user', content: `Query: "${keyword}"\n\nTasks:\n${taskList}` }],
@@ -3048,7 +3049,6 @@ app.post('/api/push/log', (req, res) => {
 // AI Adviser
 // ============================================================
 
-const ADVISER_MODEL = 'claude-sonnet-4-6'
 const ADVISER_MAX_TURNS = 15
 const adviserAbortMap = new Map() // sessionId -> AbortController
 
@@ -3390,7 +3390,7 @@ async function runChatTurn(sessionId, apiKey, message, history, deps, abortContr
       let response
       try {
         response = await callAdviserModel(apiKey, {
-          model: ADVISER_MODEL,
+          model: SONNET_MODEL,
           max_tokens: 2048,
           system: adviserSystemPrompt(),
           tools,

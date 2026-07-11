@@ -1,5 +1,6 @@
 // Gmail Sync — fetches emails, uses AI to extract tasks and tracking numbers
 import { getData, setData, isGmailProcessed, markGmailProcessed, upsertTask, upsertPackage, getAllPackages, bumpVersion } from './db.js'
+import { SONNET_MODEL } from './aiModels.js'
 
 // Strip USPS 420+ZIP routing prefix — store only the clean tracking number
 function normalizeTrackingNumber(num) {
@@ -235,7 +236,7 @@ async function callClaude(systemPrompt, userMessage) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: SONNET_MODEL,
       max_tokens: 2048,
       // Conservative classifier — drift from "skip" should require strong signal.
       temperature: 0,

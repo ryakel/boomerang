@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-11
 
+- refactor(ai): centralize model ids in aiModels.js, upgrade Sonnet to claude-sonnet-5 [M]
+  - **User question, then request:** "What models is boomerang using? Should we be updating them?" → after summarizing findings (Sonnet usage was on an older `claude-sonnet-4-6`; Haiku usage was already current), user said "Let's update and centralize."
+  - New root module `aiModels.js` (no Node-specific dependencies, so it's importable from both server modules and the Vite client bundle) exports `SONNET_MODEL` (now `claude-sonnet-5`, was `claude-sonnet-4-6`) and `HAIKU_MODEL` (`claude-haiku-4-5-20251001`, unchanged — already current).
+  - Replaced the literal model string at every call site: `server.js` (Quokka adviser — removed the now-redundant `ADVISER_MODEL` local constant; 2 AI-search endpoints), `gmailSync.js`, `growthAreas.js`, `patternDetection.js`, `tagSuggestions.js`, `emailNotifications.js`, `adviserToolsTasks.js` (research_task + generate_escalation_ladder), `notifAi.js`, `scripts/generate-seed-data.js`, and client-side `src/api.js` (3 call sites) + `src/hooks/useNotifications.js`.
+  - Added `aiModels.js` to the Dockerfile's Stage 3 runtime `COPY` list (root-level `.js` file imported by `server.js` and others — would silently `ERR_MODULE_NOT_FOUND` on deploy otherwise, per the standing Dockerfile-COPY rule).
+  - A future model upgrade is now a one-line edit in `aiModels.js` instead of a grep-and-replace across a dozen files.
+
 - feat(notifications): undated tasks are quiet by default, not just projects [M]
   - **User report (follow-up):** after the Today-rail fix above, user corrected: "This is 100% a mobile problem" — and attached screenshots showing Pushover nags ("Too many open tasks: 22 open (limit: 20)", "Quick win available: Try 'Paint header'") that named/counted undated "Anytime" tasks even though mobile's Today screen already showed them correctly. The actual gap wasn't visibility — it was that `isNotifiable()` let ANY `not_started`/`doing`/`waiting` task nag regardless of due date, so "someday, no deadline" tasks counted toward the pile-up limit and got sampled for stale/quick-win pings exactly as loudly as something due today.
   - Asked the user to choose a direction (`AskUserQuestion`) between quieting undated tasks by default, restricting pileup/nudge to due-today-only, or auto-promoting neglected tasks into Today. User picked **"quiet unless opted in"** — the same pattern Projects have always had via `nag_allowed`.

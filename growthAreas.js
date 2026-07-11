@@ -14,6 +14,7 @@
 //                        where pick = `{ area_id, area_title, text }`
 
 import { getData, setData } from './db.js'
+import { SONNET_MODEL } from './aiModels.js'
 
 const AREAS_COLLECTION = 'growth_areas'
 const TODAY_COLLECTION = 'growth_area_today'
@@ -111,7 +112,7 @@ async function callClaude({ system, user, maxTokens }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: SONNET_MODEL,
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: user }],

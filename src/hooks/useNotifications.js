@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { loadSettings, isStale, isOverdue, logNotification, AVOIDANCE_ENERGY_TYPES } from '../store'
+import { SONNET_MODEL } from '../../aiModels.js'
 
 const FALLBACK_NUDGES = [
   "Got 2 minutes? Even one tiny thing counts.",
@@ -33,7 +34,7 @@ async function getAINudge(taskCount) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: SONNET_MODEL,
         max_tokens: 100,
         system: `You write short push notification messages (under 80 chars) to nudge someone back into their task manager app. ADHD-friendly: low pressure, warm, not preachy. One message only, no quotes.\n\nThe user has provided these custom instructions:\n---\n${custom_instructions.trim()}\n---`,
         messages: [{ role: 'user', content: `They have ${taskCount} open tasks. Write one nudge message.` }],
