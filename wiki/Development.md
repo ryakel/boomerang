@@ -90,6 +90,6 @@ boomerang/
 
 - **Frontend**: React 19, Vite, PWA (vite-plugin-pwa)
 - **Backend**: Express 5, sql.js (SQLite in-process)
-- **AI**: Anthropic Claude API (claude-sonnet-4-6)
+- **AI**: Anthropic Claude API — model ids centralized in `aiModels.js` (`SONNET_MODEL`, `HAIKU_MODEL`)
 - **Integrations**: Notion API, Trello REST API
 - **Deployment**: Docker (node:22-alpine), GitHub Actions, GHCR

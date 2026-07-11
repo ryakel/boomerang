@@ -6,6 +6,32 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-11
 
+- feat(ui): weather badges on Today's inline Loops section [XS]
+  - **User follow-up** (after the Tasks weather fix, and a "what about Loops?" question): screenshot of Today's "Loops" section showing routine cards (e.g. "Tighten Washer door") with no weather info — "Seems like it would be really helpful here, no?"
+  - Checked the Loops tab/detail page first: no gap there, since neither shows any due-dated task row at all (just cycle-chip trails and cadence stats) — nowhere to put a badge.
+  - But Today's inline "Loops" section (the routine cards shown when a loop is due/done today) had the same missing wiring Tasks just got fixed for — and a loop like "Mow" is exactly the outdoor-vs-weather case this feature exists for. Routines already share the same `tags`/`energy` shape as tasks (propagated to spawned tasks), so `resolveWeatherVisibility()` applies directly; looked up against "today" rather than the routine's own due-key, since that's when the user would act on it regardless of overdue status.
+  - `TodayView.jsx`'s `loops` computation now includes a `weatherDay` per routine; rendered only on the plain open-loop card (not the cleared-today receipt or stack folder header, which aren't "should I do this" moments).
+
+- feat(notifications): configurable label exemption from the pile-up count [M]
+  - **User request:** "If tasks are labeled for something else they shouldn't count in the pile up. Maybe that is configurable."
+  - New `settings.pileup_exempt_labels` (array of label ids, default `[]`) — tasks tagged with any of these labels no longer count toward the "too many open tasks" limit/warning. Configurable in Settings → Notifications via a multi-select label picker just below "Max open tasks", reusing the same `v2-form-label-grid`/`v2-form-label-pill` component AddTaskModal's tag picker already uses.
+  - New `isPileupExempt(task, settings)` helper (duplicated per-file, matching the existing convention for `isStale()`/`isAvoidance()` in this codebase rather than centralizing) — applied to the pile-up pool in all four places that compute it: `pushNotifications.js`, `emailNotifications.js`, `pushoverNotifications.js`, and the client-side `src/hooks/useNotifications.js` browser-push path. Verified with a standalone script covering 7 cases (matching tag, non-matching tag, missing tags, feature disabled, multi-tag/multi-exempt overlap).
+  - Scoped narrowly to pile-up counting, per the request — stale/nudge sampling and the digest are unaffected; an exempt task still surfaces normally everywhere else.
+  - Noted (not fixed, out of scope): the client-side browser-push pileup path in `useNotifications.js` still uses its own older `ACTIVE_STATUSES` filter rather than `isNotifiable()`'s due-date-or-nag_allowed gate from the 2026-07-11 "quiet unless opted in" work earlier today — a pre-existing gap this fix didn't introduce or need to touch.
+
+- fix(ui): Tasks was missing weather badges [XS]
+  - **User report:** "Tasks is missing the weather."
+  - `weatherByDate` was already threaded from `AppV2.jsx` into `KeptShell.jsx`/`KeptDesktop.jsx` and passed to `TodayView.jsx` (which shows weather badges), but was never also passed to `TasksViewKept.jsx` — so Tasks' list rows never got the badge even for dated tasks in the exact same forecast window Today would show it for.
+  - Fixed: `TasksViewKept.jsx` now accepts `weatherByDate`, computes the same due-date + `resolveWeatherVisibility()`-gated badge `TodayView.jsx` uses, and renders it in the row meta. `KeptShell.jsx`/`KeptDesktop.jsx` now pass the prop through.
+  - Left `BoardView.jsx` (Tasks' desktop Board mode) alone — it's a deliberately minimal card view that doesn't show due dates or tags either, not a parity gap.
+
+- refactor(ai): centralize model ids in aiModels.js, upgrade Sonnet to claude-sonnet-5 [M]
+  - **User question, then request:** "What models is boomerang using? Should we be updating them?" → after summarizing findings (Sonnet usage was on an older `claude-sonnet-4-6`; Haiku usage was already current), user said "Let's update and centralize."
+  - New root module `aiModels.js` (no Node-specific dependencies, so it's importable from both server modules and the Vite client bundle) exports `SONNET_MODEL` (now `claude-sonnet-5`, was `claude-sonnet-4-6`) and `HAIKU_MODEL` (`claude-haiku-4-5-20251001`, unchanged — already current).
+  - Replaced the literal model string at every call site: `server.js` (Quokka adviser — removed the now-redundant `ADVISER_MODEL` local constant; 2 AI-search endpoints), `gmailSync.js`, `growthAreas.js`, `patternDetection.js`, `tagSuggestions.js`, `emailNotifications.js`, `adviserToolsTasks.js` (research_task + generate_escalation_ladder), `notifAi.js`, `scripts/generate-seed-data.js`, and client-side `src/api.js` (3 call sites) + `src/hooks/useNotifications.js`.
+  - Added `aiModels.js` to the Dockerfile's Stage 3 runtime `COPY` list (root-level `.js` file imported by `server.js` and others — would silently `ERR_MODULE_NOT_FOUND` on deploy otherwise, per the standing Dockerfile-COPY rule).
+  - A future model upgrade is now a one-line edit in `aiModels.js` instead of a grep-and-replace across a dozen files.
+
 - feat(notifications): undated tasks are quiet by default, not just projects [M]
   - **User report (follow-up):** after the Today-rail fix above, user corrected: "This is 100% a mobile problem" — and attached screenshots showing Pushover nags ("Too many open tasks: 22 open (limit: 20)", "Quick win available: Try 'Paint header'") that named/counted undated "Anytime" tasks even though mobile's Today screen already showed them correctly. The actual gap wasn't visibility — it was that `isNotifiable()` let ANY `not_started`/`doing`/`waiting` task nag regardless of due date, so "someday, no deadline" tasks counted toward the pile-up limit and got sampled for stale/quick-win pings exactly as loudly as something due today.
   - Asked the user to choose a direction (`AskUserQuestion`) between quieting undated tasks by default, restricting pileup/nudge to due-today-only, or auto-promoting neglected tasks into Today. User picked **"quiet unless opted in"** — the same pattern Projects have always had via `nag_allowed`.

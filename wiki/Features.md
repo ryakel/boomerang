@@ -61,7 +61,7 @@ The header shows a task count with configurable display modes:
 
 ## AI Features (requires Anthropic API key)
 
-All AI features use Claude (claude-sonnet-4-6) via a server-side proxy. They are fully disabled if no API key is configured — the rest of the app works normally without them.
+All AI features use Claude via a server-side proxy — the model id is centralized in `aiModels.js` (`SONNET_MODEL`/`HAIKU_MODEL`) so an upgrade is one edit instead of hunting down every call site. They are fully disabled if no API key is configured — the rest of the app works normally without them.
 
 - **What Now** — a guided flow that asks how much time you have (5-10 min, 30 min, a couple hours) and your energy level (running on fumes, moderate, I've got it), then recommends 1-3 tasks with reasons. Enforces hard rules matching task size to available time and energy. When fewer than 3 picks are available, shows a "Feeling ambitious?" stretch suggestion one size up. You can mark tasks done directly from the suggestions.
 - **Polish** — takes messy brain-dump notes and turns them into clear, actionable bullet points. Also cleans up the task title if it's vague. Automatically triggers date inference and size inference on the polished content.
@@ -390,6 +390,8 @@ Uses [Open-Meteo](https://open-meteo.com) to suggest the right tasks for the wea
 ## Notifications
 
 **Undated tasks are quiet by default.** A task with no due date won't trigger stale/nudge/pile-up notifications unless you turn on "Remind me about this without a due date" in the edit modal (same toggle Projects have always had) — otherwise it just sits in Anytime/Tasks without any pressure. This applies to the pile-up count too, so a big backlog of someday tasks won't push you over the "too many open tasks" limit. Tasks with a due date, and any task with an active Escalation Ladder, are unaffected — this only changes truly undated tasks.
+
+**Exempt labeled tasks from the pile-up count.** Settings → Notifications has a label picker (below "Max open tasks") — tasks tagged with any label you pick there stop counting toward the "too many open tasks" limit and warning. Useful for tasks you're deliberately keeping around for reference or context rather than active work. Off by default (no labels picked = no effect).
 
 ### Notification Center (in-app)
 

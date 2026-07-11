@@ -27,6 +27,7 @@
 
 import { readFileSync, existsSync } from 'fs'
 import { queryTasks, getData, upsertPatternSuggestion, countPendingSuggestions, getAllRoutines } from './db.js'
+import { SONNET_MODEL } from './aiModels.js'
 
 const TWELVE_MONTHS_MS = 365 * 24 * 60 * 60 * 1000
 const CONFIDENCE_FLOOR = 0.45
@@ -131,7 +132,7 @@ async function maybeAiCluster(clusters) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: SONNET_MODEL,
         max_tokens: 800,
         system: 'You are a clustering helper. Given a list of task titles, group ones that describe the SAME recurring activity (e.g., "mow the lawn" and "mow grass" are the same; "buy milk" and "buy bread" are NOT). Reply with a JSON array of clusters, each an array of 1-indexed numbers from the input. Singletons may be omitted. Reply ONLY with the JSON, no prose.',
         messages: [{ role: 'user', content: titleList }],

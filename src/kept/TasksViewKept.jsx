@@ -6,6 +6,8 @@ import useSheetSwipeDown from '../hooks/useSheetSwipeDown'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
 import BoardView from './BoardView'
+import WeatherBadge from '../components/WeatherBadge'
+import { resolveWeatherVisibility } from '../components/WeatherSection'
 import './shell.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
@@ -18,7 +20,7 @@ const TABS = [
 
 // Kept "Tasks" — grouped hairline rows, gold circle checks, dot-tags, and the
 // action sheet with reschedule chips ("throw it back") (spec §6).
-export default function TasksViewKept({ tasks = [], labels = [], routines = [], onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange }) {
+export default function TasksViewKept({ tasks = [], labels = [], routines = [], weatherByDate = null, onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange }) {
   const [tab, setTab] = useState('upcoming')
   // 'list' | 'board' — Board is the desktop view mode (K5): status columns
   // with drag-and-drop; Kanban demoted to a mode, per the spec.
@@ -155,6 +157,15 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
               const chips = (t.tags || []).map(id => labelsById[id]).filter(Boolean)
               const subItems = tab === 'snoozed' || done ? [] : (Array.isArray(t.checklists) ? t.checklists : [])
                 .flatMap(cl => (cl.items || []).map(it => ({ ...it, clId: cl.id })))
+              // Weather badge — same due_date-within-forecast-window lookup as
+              // TodayView.jsx/the legacy TaskCard. Tasks never got this wiring
+              // when the Kept Tasks surface was built from scratch. Gated by
+              // resolveWeatherVisibility so weather-independent indoor tasks
+              // don't show a badge just because they have a due date.
+              const weatherDay = !done && t.due_date && weatherByDate
+                && resolveWeatherVisibility({ task: t, labels, weatherEnabled: true }) === 'visible'
+                ? weatherByDate[t.due_date]
+                : null
               return (
                 <RowSwipe key={t.id} done={done} onCatch={() => onToggleComplete?.(t)} onDelete={() => onDelete?.(t)}>
                   <div className="bm-row" data-task-id={t.id}>
@@ -166,10 +177,11 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
                     <div className="bm-row-stack">
                       <button className="bm-row-body" onClick={() => setSheetTask(t)}>
                         <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                        {!done && (due || chips.length > 0 || tab === 'snoozed') && (
+                        {!done && (due || chips.length > 0 || weatherDay || tab === 'snoozed') && (
                           <span className="bm-row-meta">
                             {tab === 'snoozed' && <span className="bm-return-chip">↩ returns {formatSnoozeLabel(t.snoozed_until)}</span>}
                             {due && <span className={due.tone === 'over' ? 'bm-due-over' : due.tone === 'hot' ? 'bm-due-hot' : undefined}>{due.label}</span>}
+                            {weatherDay && <WeatherBadge day={weatherDay} />}
                             {chips.slice(0, 3).map(l => (
                               <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
                             ))}

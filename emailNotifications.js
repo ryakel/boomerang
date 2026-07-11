@@ -14,6 +14,7 @@ import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
+import { SONNET_MODEL } from './aiModels.js'
 
 // --- Environment ---
 let smtpHost = process.env.SMTP_HOST
@@ -48,7 +49,7 @@ async function generateAINudge(task) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6', max_tokens: 100,
+        model: SONNET_MODEL, max_tokens: 100,
         system: 'Generate a short, encouraging one-liner nudge (under 80 chars) for someone with ADHD about this task. Be warm, specific, and motivating. No quotes.',
         messages: [{ role: 'user', content: `Task: "${task.title}"${task.energy ? ` (${task.energy})` : ''}` }],
       }),
@@ -230,6 +231,17 @@ function isStale(task, staleDays) {
   if (task.snoozed_until && new Date(task.snoozed_until) > new Date()) return false
   const elapsed = Date.now() - new Date(task.last_touched).getTime()
   return elapsed > (task.staleness_days || staleDays || 2) * 86400000
+}
+
+// Tasks tagged with a user-configured "exempt" label (settings.pileup_
+// exempt_labels, an array of label ids picked in Settings) don't count
+// toward the pile-up limit or its warning — for things deliberately kept
+// on the list for reference/context rather than active work.
+function isPileupExempt(task, settings) {
+  const exempt = settings.pileup_exempt_labels
+  if (!Array.isArray(exempt) || exempt.length === 0) return false
+  if (!Array.isArray(task.tags)) return false
+  return task.tags.some(id => exempt.includes(id))
 }
 
 function applyAvoidanceBoost(freqMs, task) {
@@ -549,18 +561,19 @@ async function runNotificationCheck() {
       const freq = getFreqMs(settings, 'notif_freq_pileup', 2)
       if (checkThrottle('email_pileup', freq)) {
         let sent = false
-        if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {
+        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings))
+        if (settings.max_open_tasks && pileupPool.length > settings.max_open_tasks) {
           const subject = 'Too many open tasks'
-          const body = `You have ${nonSnoozed.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`
+          const body = `You have ${pileupPool.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`
           sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
           if (sent) logNotifEmail(genId(), 'pileup', null, subject, body)
         }
         if (!sent && settings.stale_warn_pct > 0) {
-          const oldTasks = nonSnoozed.filter(t => {
+          const oldTasks = pileupPool.filter(t => {
             const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
             return age > (settings.stale_warn_days || 7)
           })
-          const pct = nonSnoozed.length > 0 ? Math.round(oldTasks.length / nonSnoozed.length * 100) : 0
+          const pct = pileupPool.length > 0 ? Math.round(oldTasks.length / pileupPool.length * 100) : 0
           if (pct >= settings.stale_warn_pct) {
             const subject = 'Tasks piling up'
             const body = `${pct}% of your tasks have been open for ${settings.stale_warn_days || 7}+ days`

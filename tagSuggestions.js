@@ -9,6 +9,7 @@
 // the Suggestions inbox.
 
 import { getData, setData, queryTasks } from './db.js'
+import { SONNET_MODEL } from './aiModels.js'
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000
 const MAX_SUGGESTIONS = 5
@@ -77,7 +78,7 @@ Return JSON only: {"tags":[{"name":"<tag>","rationale":"<one short sentence>","e
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: SONNET_MODEL,
         max_tokens: 700,
         system,
         messages: [{ role: 'user', content: user }],

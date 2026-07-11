@@ -224,6 +224,17 @@ function isStale(task, staleDays) {
   return elapsed > (task.staleness_days || staleDays || 2) * 86400000
 }
 
+// Tasks tagged with a user-configured "exempt" label (settings.pileup_
+// exempt_labels, an array of label ids picked in Settings) don't count
+// toward the pile-up limit or its warning — for things deliberately kept
+// on the list for reference/context rather than active work.
+function isPileupExempt(task, settings) {
+  const exempt = settings.pileup_exempt_labels
+  if (!Array.isArray(exempt) || exempt.length === 0) return false
+  if (!Array.isArray(task.tags)) return false
+  return task.tags.some(id => exempt.includes(id))
+}
+
 function isAvoidance(task) {
   return !!(task.energy && AVOIDANCE_ENERGY_TYPES.includes(task.energy))
 }
@@ -529,9 +540,10 @@ async function runPushoverCheck() {
       const freq = adaptiveFreq('pileup', getFreqMs(settings, 'notif_freq_pileup', 2))
       if (checkThrottle('pushover_pileup', freq)) {
         let sent = false
-        if (settings.max_open_tasks && nonSnoozed.length > settings.max_open_tasks) {
+        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings))
+        if (settings.max_open_tasks && pileupPool.length > settings.max_open_tasks) {
           const title = '[BOOMERANG] Too many open tasks'
-          const body = `${nonSnoozed.length} open (limit: ${settings.max_open_tasks}). Knock one out?`
+          const body = `${pileupPool.length} open (limit: ${settings.max_open_tasks}). Knock one out?`
           const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
           if (result.ok) {
             sent = true
@@ -539,11 +551,11 @@ async function runPushoverCheck() {
           }
         }
         if (!sent && settings.stale_warn_pct > 0) {
-          const oldTasks = nonSnoozed.filter(t => {
+          const oldTasks = pileupPool.filter(t => {
             const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
             return age > (settings.stale_warn_days || 7)
           })
-          const pct = nonSnoozed.length > 0 ? Math.round(oldTasks.length / nonSnoozed.length * 100) : 0
+          const pct = pileupPool.length > 0 ? Math.round(oldTasks.length / pileupPool.length * 100) : 0
           if (pct >= settings.stale_warn_pct) {
             const title = '[BOOMERANG] Tasks piling up'
             const body = `${pct}% of your tasks have been open ${settings.stale_warn_days || 7}+ days`
