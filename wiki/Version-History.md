@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-11
 
+- feat(ui): weather badges on Today's inline Loops section [XS]
+  - **User follow-up** (after the Tasks weather fix, and a "what about Loops?" question): screenshot of Today's "Loops" section showing routine cards (e.g. "Tighten Washer door") with no weather info — "Seems like it would be really helpful here, no?"
+  - Checked the Loops tab/detail page first: no gap there, since neither shows any due-dated task row at all (just cycle-chip trails and cadence stats) — nowhere to put a badge.
+  - But Today's inline "Loops" section (the routine cards shown when a loop is due/done today) had the same missing wiring Tasks just got fixed for — and a loop like "Mow" is exactly the outdoor-vs-weather case this feature exists for. Routines already share the same `tags`/`energy` shape as tasks (propagated to spawned tasks), so `resolveWeatherVisibility()` applies directly; looked up against "today" rather than the routine's own due-key, since that's when the user would act on it regardless of overdue status.
+  - `TodayView.jsx`'s `loops` computation now includes a `weatherDay` per routine; rendered only on the plain open-loop card (not the cleared-today receipt or stack folder header, which aren't "should I do this" moments).
+
 - fix(ui): Tasks was missing weather badges [XS]
   - **User report:** "Tasks is missing the weather."
   - `weatherByDate` was already threaded from `AppV2.jsx` into `KeptShell.jsx`/`KeptDesktop.jsx` and passed to `TodayView.jsx` (which shows weather badges), but was never also passed to `TasksViewKept.jsx` — so Tasks' list rows never got the badge even for dated tasks in the exact same forecast window Today would show it for.
