@@ -122,7 +122,7 @@ CREATE TABLE tasks (
   -- Project pinning, sessions, parent/child (migration 028):
   parent_id TEXT,                        -- self-FK; child task of a project
   pinned_to_today INTEGER DEFAULT 0,     -- project surfaces on main list when 1
-  nag_allowed INTEGER DEFAULT 0,         -- project notifications opt-in
+  nag_allowed INTEGER DEFAULT 0,         -- notifications opt-in for any undated task (originally project-only, extended to ordinary tasks 2026-07-11)
   session_count INTEGER DEFAULT 0,
   last_session_at TEXT,
   session_log_json TEXT DEFAULT '[]',    -- [{timestamp, points}, ...]
