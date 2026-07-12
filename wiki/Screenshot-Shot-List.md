@@ -6,13 +6,12 @@ captured by a different agent/environment that can actually drive a browser. Thi
 file is a self-contained handoff: setup steps, then the exact list of shots needed,
 each with viewport/theme/state and where it lands in the docs.
 
-**Status (2026-07-11):** Batches A and B below were captured and embedded (see the
-"real UI screenshots" entry in `wiki/Version-History.md`). Batch B's Settings shots
-were taken right after the *first* pile-up-picker-location fix landed, but a second,
-larger Settings tab-structure reorg (`General/AI/Labels/Integrations/Notifications/
-Data/Logs` → `General/Tasks/Labels/Integrations/Notifications/Data`) landed
-immediately afterward — see **Batch C** below for which of those four shots are now
-stale and need a retake.
+**Status (2026-07-12):** Batches A, B, AND C below are all captured and embedded
+(see the "real UI screenshots" entries in `wiki/Version-History.md`). Batch C's
+retakes replaced the four stale Settings shots in place and added the new
+`settings-tasks.png`. The only outstanding shot is
+`kept-mobile-today-loop-weather.png` (Batch A), which needs a capture environment
+with the Weather integration configured plus an outdoor-tagged seeded loop.
 
 **Note on Batch B (Settings) — historical, already resolved:** a Settings reorg was
 in progress when this file was first written (moving/renaming a few fields so
@@ -90,7 +89,7 @@ for context; no action needed.
 | `settings-integrations.png` | Settings → Integrations tab, top of the list | Shows the integration cards (Notion/Trello/GCal/Gmail/17track/Weather/Pushover). |
 | `settings-labels.png` | Settings → Labels tab | Shows the label list with color pickers. |
 
-## Batch C — retakes needed after the 2026-07-11 Settings tab-structure reorg
+## Batch C — retakes after the 2026-07-11 Settings tab-structure reorg (DONE 2026-07-12)
 
 The four Settings screenshots in `wiki/images/` (`settings-general.png`,
 `settings-notifications.png`, `settings-integrations.png`, `settings-labels.png`)

@@ -4,6 +4,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-12
+
+- docs(wiki): Batch C Settings screenshot retakes after the tab-structure reorg [S]
+  - Retook the four Settings shots (`settings-general/notifications/integrations/labels.png`, replaced in place) against the shipped 6-tab structure (`General, Tasks, Labels, Integrations, Notifications, Data`), and captured the new `settings-tasks.png` for the Tasks tab. Same conventions as the original pass (seeded dev DB, light mode, desktop 1440×900 @2x).
+  - The two content-stale shots now show what the reorg actually built: `settings-general.png` is pure appearance (Theme/Mode/Home screen/Daily goal/Build — the task-behavior fields are gone from it), and `settings-notifications.png` shows the consolidated Pile-up card with "Max open tasks" + "Pile-up thresholds" + "Exempt from pile-up count" together in one card.
+  - `Configuration.md`: removed the interim "Screenshot note" staleness callout (its reason for existing is resolved) and embedded `settings-tasks.png` in the Tasks subsection. `Screenshot-Shot-List.md`: status updated — Batch C marked done; the weather loop shot remains the only outstanding capture.
+
 ## 2026-07-11
 
 - docs(wiki): reconcile settings-reorg + wiki-rebuild branches with the merged screenshot PR [S]
