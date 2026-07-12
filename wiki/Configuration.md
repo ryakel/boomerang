@@ -41,9 +41,11 @@ All settings are accessible via the gear icon in the header, organized into six 
 
 *Settings → General: theme family, light/dark/system mode, and Home screen options. Pure appearance — task-behavior fields moved to Tasks below.*
 
-> **Screenshot note:** the General/Notifications shots above and below predate the 2026-07-11 tab reorg and show the previous 7-tab bar (`General, AI, Labels, Integrations, Notifications, Data, Logs`) with fields in their old locations. Content described in this section reflects the *current* app; see `Screenshot-Shot-List.md` for the pending recapture list.
-
 ### Tasks
+
+![Settings → Tasks](images/settings-tasks.png)
+
+*Settings → Tasks: task-behavior thresholds with the AI-tone custom instructions right below them.*
 - **Default due date** — days from now for new tasks (default: 7, set to 0 to disable)
 - **Staleness threshold** — days before a task is marked stale (default: 2, range: 1-30) — drives both the Stale section on the task list and the Stale notification type
 - **Reframe trigger** — snooze count before reframe is required instead of snooze (default: 3, range: 1-20)
