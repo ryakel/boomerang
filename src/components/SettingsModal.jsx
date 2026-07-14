@@ -2000,6 +2000,62 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
+      {/* Crisis mode — the "prio" tag's nag path. One card for everything
+          about crisis behavior (cadence, staleness check-in, auto triage).
+          The tag itself is applied per-task via EditTaskModal's Crisis mode
+          checkbox or by adding the label directly. */}
+      <div className="v2-settings-block">
+        <SectionHeader k="crisis" label="Crisis mode" hint='Tasks tagged with the crisis label get the most aggressive nag path in the app: their own per-task pings on every enabled channel (rides the High priority toggles), a pinned 🚨 section, and an auto-drafted triage checklist. Pushover escalates to Emergency once a crisis is overdue or 24h old.' />
+        {!isCollapsed('crisis') && (<>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">Crisis label</label>
+            <div className="v2-settings-row-hint">Which label puts a task on the crisis path. Never auto-applied by AI tagging.</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
+            type="text"
+            value={settings.crisis_label || 'prio'}
+            onChange={e => update('crisis_label', e.target.value)}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">Nag every (hours)</label>
+            <div className="v2-settings-row-hint">Per-task crisis cadence, fractional ok (0.5 = 30 min). Ignoring a crisis never backs this off.</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input"
+            type="number" min="0.25" step="0.25"
+            value={settings.notif_freq_crisis ?? 2}
+            onChange={e => update('notif_freq_crisis', e.target.value === '' ? 2 : parseFloat(e.target.value))}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">"Still a crisis?" check-in (days)</label>
+            <div className="v2-settings-row-hint">After this long in crisis, one gentle ping asks to keep or demote. Never demotes on its own. 0 = never ask.</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input"
+            type="number" min="0" step="1"
+            value={settings.crisis_stale_days ?? 7}
+            onChange={e => update('crisis_stale_days', e.target.value === '' ? 7 : parseInt(e.target.value, 10))}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Auto triage checklist</div>
+            <div className="v2-settings-row-hint">When a task enters crisis, AI drafts 3-5 first moves into its checklist (first one doable in under 5 minutes).</div>
+          </div>
+          <Toggle
+            checked={settings.crisis_auto_breakdown !== false}
+            onChange={e => update('crisis_auto_breakdown', e.target.checked)}
+          />
+        </div>
+        </>)}
+      </div>
+
       {/* Daily digest — per-channel opt-in. sendDigestNow gates on these flags,
           not on channel masters, so users with push/email/pushover enabled still
           need to opt into the digest separately. */}
@@ -2725,6 +2781,63 @@ export default function SettingsModal({
                 value={settings.reframe_threshold ?? 3}
                 onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
               />
+            </div>
+
+            <div className="v2-settings-subhead">Impact dates</div>
+
+            <div className="v2-settings-block">
+              <div className="v2-settings-row-hint">
+                Events that make related work more urgent as they approach — a holiday, a visit, a trip. Tasks sharing the event's label rank higher in Impact sort / Today ordering during the lead-up. Quokka can edit these too ("add an impact date for Christmas").
+              </div>
+              {(settings.impact_dates || []).map(ev => (
+                <div key={ev.id} className="v2-settings-row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    className="v2-form-input"
+                    style={{ flex: '1 1 120px' }}
+                    type="text"
+                    placeholder="Label (e.g. Christmas)"
+                    value={ev.label || ''}
+                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, label: e.target.value } : x))}
+                  />
+                  <input
+                    className="v2-form-input"
+                    style={{ width: 140 }}
+                    type="date"
+                    value={ev.date || ''}
+                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, date: e.target.value } : x))}
+                  />
+                  <input
+                    className="v2-form-input v2-settings-compact-input"
+                    type="number" min="1" max="90"
+                    title="Lead days — how far out the boost starts ramping"
+                    value={ev.lead_days ?? 14}
+                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, lead_days: parseInt(e.target.value, 10) || 14 } : x))}
+                  />
+                  <select
+                    className="v2-form-input"
+                    style={{ width: 130 }}
+                    value={ev.tag || ''}
+                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, tag: e.target.value || null } : x))}
+                  >
+                    <option value="">No label</option>
+                    {loadLabels().map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                  <button
+                    className="v2-settings-btn v2-settings-btn-danger"
+                    onClick={() => update('impact_dates', (settings.impact_dates || []).filter(x => x.id !== ev.id))}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <div className="v2-settings-actions">
+                <button
+                  className="v2-settings-btn"
+                  onClick={() => update('impact_dates', [...(settings.impact_dates || []), { id: uuid(), label: '', date: '', lead_days: 14, tag: null }])}
+                >
+                  + Add impact date
+                </button>
+              </div>
             </div>
 
             <div className="v2-settings-subhead">AI tone</div>

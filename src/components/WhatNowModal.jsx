@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Target, Monitor, Users, MapPin, Flame, Palette, Dumbbell } from 'lucide-react'
 import { getWhatNow, getWeather, getGrowthAreas } from '../api'
-import { ENERGY_TYPES } from '../store'
+import { ENERGY_TYPES, loadSettings, isCrisisTask } from '../store'
 import ModalShell from './ModalShell'
 import './WhatNowModal.css'
 
@@ -90,7 +90,11 @@ export default function WhatNowModal({ open, tasks, onClose, onComplete }) {
         const contextual = areas.filter(a => a.active && a.persistent && dayScopeMatches(a.day_scope))
         if (contextual.length > 0) growthAreas = contextual
       } catch { /* growth areas optional */ }
-      const results = await getWhatNow(tasks, time, energy, capacity, weatherSummary, growthAreas)
+      // Crisis tasks get a hard preference in the prompt — computed here so
+      // getWhatNow stays settings-agnostic.
+      const settings = loadSettings()
+      const crisisIds = new Set(tasks.filter(t => isCrisisTask(t, settings)).map(t => t.id))
+      const results = await getWhatNow(tasks, time, energy, capacity, weatherSummary, growthAreas, crisisIds)
       setSuggestions(results)
     } catch (err) {
       setError(err.message)

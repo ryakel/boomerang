@@ -134,9 +134,13 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
     const pts = isReopen ? 0 : computeTaskPoints(task)
     const aiSub = ai?.subtitle
     const staticSub = getStaticSubtitle(daysOnList, todayCount, isReopen, task.title)
-    const subtitle = aiSub
+    let subtitle = aiSub
       ? `${aiSub}${pts ? ` · +${pts} pts` : ''}`
       : `${staticSub}${pts ? ` · +${pts} pts` : ''}`
+    // Impact-3 completions get told so — the visible payoff for doing the
+    // thing that actually mattered (impact ranking spec, "the feeling of
+    // impact" surface).
+    if (!isReopen && task.impact === 3) subtitle = `That one mattered. ${subtitle}`
     frozen.current = { message, subtitle }
   }
 

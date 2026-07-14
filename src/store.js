@@ -128,6 +128,23 @@ export const DEFAULT_SETTINGS = {
   // Default: 'wake-me'. Tasks tagged with this label can wake the user up;
   // every other task is silent during quiet hours regardless of priority.
   quiet_hours_bypass_label: 'wake-me',
+  // Crisis tag ("prio") — the label that puts a task on the crisis path:
+  // relentless per-task nags across every channel, auto triage breakdown,
+  // pinned 🚨 section. See wiki/Crisis-Tag-And-Impact-Ranking.md.
+  crisis_label: 'prio',
+  // Per-task crisis nag cadence in hours (fractional ok). 2h per user
+  // decision 2026-07-14 (30-minute pings were overkill).
+  notif_freq_crisis: 2,
+  // Auto-generate the AI triage checklist when a task enters crisis.
+  crisis_auto_breakdown: true,
+  // Days in crisis before the one gentle "Still a crisis?" check-in.
+  // 0 = never ask. Never auto-demotes.
+  crisis_stale_days: 7,
+  // Impact ranking: user-maintained event list for the proximity boost —
+  // [{ id, label, date: 'YYYY-MM-DD', lead_days, tag }]. Tasks sharing an
+  // event's tag rank higher as the date approaches. Managed in Settings →
+  // Tasks; ordinary non-secret setting so Quokka can edit it too.
+  impact_dates: [],
   // Pushover (gated by credentials being entered in Settings)
   pushover_notifications_enabled: false,
   pushover_user_key: '',
@@ -150,6 +167,9 @@ const DEFAULT_LABELS = [
   // Quiet-hours bypass label — tasks with this label can fire priority-1 / priority-2
   // notifications during quiet hours. Default to red as visual flag.
   { id: 'wake-me', name: 'wake-me', color: '#FF6240' },
+  // Crisis label — flips a task onto the crisis path (relentless nags, AI
+  // triage, pinned 🚨 section). Never auto-applied by AI tagging.
+  { id: 'prio', name: 'prio', color: '#DC2626' },
 ]
 
 const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
@@ -164,6 +184,19 @@ const STATUS_META = {
 
 function isActiveTask(task) {
   return ACTIVE_STATUSES.includes(task.status) || task.status === 'open'
+}
+
+// Crisis tag ("prio") — client-side mirror of db.js isCrisisTask (matched by
+// label id, case-insensitive, against settings.crisis_label). Both sides must
+// agree or the UI shows a 🚨 section for tasks the engines aren't nagging.
+export function isCrisisTask(task, settings = null) {
+  const s = settings || loadSettings()
+  const target = String(s?.crisis_label || 'prio').toLowerCase()
+  if (!target || !task || !Array.isArray(task.tags)) return false
+  return task.tags.some(t => {
+    const v = typeof t === 'string' ? t : (t?.id || t?.name || '')
+    return String(v).toLowerCase() === target
+  })
 }
 
 const SIZE_ORDER = { XL: 5, L: 4, M: 3, S: 2, XS: 1 }

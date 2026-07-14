@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight, RotateCw, BookOpen } from 'lucide-react'
-import { loadLabels, ENERGY_TYPES, STATUS_META, uuid, localYMD } from '../store'
+import { loadLabels, loadSettings, ENERGY_TYPES, STATUS_META, uuid, localYMD } from '../store'
 import { useTaskForm } from '../hooks/useTaskForm'
 import { researchTask } from '../api'
 import WeatherSection, { resolveWeatherVisibility } from './WeatherSection'
@@ -84,6 +84,15 @@ export default function EditTaskModal({
   const [weatherHidden, setWeatherHidden] = useState(!!task.weather_hidden)
   const [forecastDrawerOpen, setForecastDrawerOpen] = useState(false)
   const [gcalDuration, setGcalDuration] = useState(task.gcal_duration || '')
+
+  // Impact (1-3, null = not yet inferred). Manual picks persist with
+  // impact_inferred=true — same flag semantics as size — so the background
+  // inference never overwrites a hand-set value.
+  const [impact, setImpact] = useState(task.impact ?? null)
+
+  // Crisis staleness check-in: "Keep" re-stamps crisis_since (rides the
+  // autosave payload), "Demote" swaps the crisis tag for high_priority.
+  const [crisisKeepAt, setCrisisKeepAt] = useState(null)
 
   // Project + parent-child state.
   // - For projects: pinned_to_today + nag_allowed are project-level toggles.
@@ -298,6 +307,9 @@ export default function EditTaskModal({
     high_priority: form.highPriority,
     low_priority: form.lowPriority,
     size_inferred: !!form.size,
+    impact,
+    impact_inferred: impact != null,
+    ...(crisisKeepAt ? { crisis_since: crisisKeepAt } : {}),
     checklists,
     attachments: form.attachments,
     comments,
@@ -322,7 +334,7 @@ export default function EditTaskModal({
     form.attachments, form.notionResult,
     checklists, comments, weatherHidden, gcalDuration,
     pinnedToToday, nagAllowed, parentId, childVisibility, blockedBy,
-    knowledgeIds,
+    knowledgeIds, impact, crisisKeepAt,
     currentStatus, completedAtIso,
   ])
 
@@ -744,6 +756,70 @@ export default function EditTaskModal({
         </label>
       )}
 
+      {/* Crisis mode — toggles the configured crisis label (default "prio").
+        * The tag is the mechanism: relentless per-task nags on every channel
+        * at the crisis cadence, auto triage checklist, pinned 🚨 section.
+        * Quiet-hours waking stays a separate deliberate tap (decision D1). */}
+      {!isProject && (() => {
+        const settings = loadSettings()
+        const crisisId = settings.crisis_label || 'prio'
+        const bypassId = settings.quiet_hours_bypass_label || 'wake-me'
+        const crisisOn = form.selectedTags.includes(crisisId)
+        const hasWake = form.selectedTags.includes(bypassId)
+        const staleDays = settings.crisis_stale_days ?? 7
+        const ageDays = task.crisis_since ? Math.floor((Date.now() - new Date(task.crisis_since).getTime()) / 86400000) : 0
+        const showStaleBanner = crisisOn && staleDays > 0 && ageDays >= staleDays && !crisisKeepAt
+        return (
+          <div className="v2-form-section" style={{ marginBottom: 14 }}>
+            <label className="v2-edit-toggle-row v2-edit-toggle-row-compact">
+              <input
+                type="checkbox"
+                checked={crisisOn}
+                onChange={() => form.toggleTag(crisisId)}
+              />
+              <span className="v2-edit-toggle-label">
+                🚨 Crisis mode
+                <span className="v2-edit-toggle-meta">Nags every {settings.notif_freq_crisis ?? 2}h on every channel, pins to the top of Today, auto-drafts a triage checklist. Applies the "{crisisId}" label.</span>
+              </span>
+            </label>
+            {crisisOn && (
+              <label className="v2-edit-toggle-row v2-edit-toggle-row-compact" style={{ marginLeft: 26, marginTop: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={hasWake}
+                  onChange={() => form.toggleTag(bypassId)}
+                />
+                <span className="v2-edit-toggle-label">
+                  Also wake me for this
+                  <span className="v2-edit-toggle-meta">Adds the "{bypassId}" label so urgent pings break through quiet hours.</span>
+                </span>
+              </label>
+            )}
+            {showStaleBanner && (
+              <div className="v2-edit-crisis-stale-banner">
+                <span>Still a crisis? This has been in crisis mode for {ageDays} days.</span>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <button
+                    type="button"
+                    className="v2-form-ai-pill v2-form-ai-pill-inline"
+                    onClick={() => setCrisisKeepAt(new Date().toISOString())}
+                  >
+                    Keep — still a crisis
+                  </button>
+                  <button
+                    type="button"
+                    className="v2-form-ai-pill v2-form-ai-pill-inline"
+                    onClick={() => { form.toggleTag(crisisId); form.setHighPriority(true); form.setLowPriority(false) }}
+                  >
+                    Demote to high priority
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {form.dueDate && (
         <div className="v2-form-section">
           <label className="v2-form-label" htmlFor="v2-gcal-duration">GCal duration override (min)</label>
@@ -784,6 +860,24 @@ export default function EditTaskModal({
             {form.sizing ? <span className="v2-spinner" /> : <Sparkles size={12} strokeWidth={1.75} />}
             {form.sizing ? 'Sizing…' : 'Auto'}
           </button>
+        </div>
+      </div>
+
+      {/* Impact — who/what this matters to (1-3). AI-inferred alongside size;
+        * a manual pick here persists with impact_inferred so inference backs
+        * off. Deselect (tap the active one) returns it to auto. */}
+      <div className="v2-form-section">
+        <label className="v2-form-label">Impact</label>
+        <div className="v2-form-segmented">
+          {[[1, '● Low'], [2, '●● Med'], [3, '●●● High']].map(([lvl, label]) => (
+            <button
+              key={lvl}
+              className={`v2-form-seg${impact === lvl ? ' v2-form-seg-active' : ''}`}
+              onClick={() => setImpact(impact === lvl ? null : lvl)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 

@@ -2,11 +2,15 @@ import { useEffect, useRef } from 'react'
 import { inferSize } from '../api'
 import { ACTIVE_STATUSES, loadSettings } from '../store'
 
-// Labels the AI may auto-assign EXCLUDES the quiet-hours bypass label — auto
-// tagging "wake-me" would silently change a task's notification behavior.
+// Labels the AI may auto-assign EXCLUDE the quiet-hours bypass label AND the
+// crisis label — auto tagging "wake-me" would silently change a task's
+// notification behavior, and an AI silently declaring a crisis (Emergency
+// pages, 2h nag loop) is worse. Only a human escalates to crisis.
 function taggableLabels(labels) {
-  const bypass = loadSettings()?.quiet_hours_bypass_label || 'wake-me'
-  return (labels || []).filter(l => l && l.id && l.id !== bypass)
+  const settings = loadSettings()
+  const bypass = settings?.quiet_hours_bypass_label || 'wake-me'
+  const crisis = settings?.crisis_label || 'prio'
+  return (labels || []).filter(l => l && l.id && l.id !== bypass && l.id !== crisis)
 }
 
 // Throttle between inferSize calls so we don't hammer the Anthropic API
@@ -60,6 +64,12 @@ export function useSizeAutoInfer(tasks, updateTask, labels = []) {
             energy: inferred.energy || next.energy || null,
             energyLevel: inferred.energyLevel || next.energyLevel || null,
             size_inferred: true,
+          }
+          // Impact rides the same single inference call. Never overwrite a
+          // hand-set value (impact_inferred flips true on manual picks too).
+          if (inferred.impact && next.impact == null && !next.impact_inferred) {
+            updates.impact = inferred.impact
+            updates.impact_inferred = true
           }
           // Merge AI-suggested tags into whatever's already on the task — never
           // drop a tag the user set by hand. Only write if it actually adds one.

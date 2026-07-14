@@ -2,10 +2,9 @@
 
 ## Near-term
 
-### Crisis Tag ("prio") + Impact-Based Prioritization
-- Planned 2026-07-14; full spec + build order (5 PRs) + open decisions in `wiki/Crisis-Tag-And-Impact-Ranking.md`
-- Crisis tag: configurable label that puts a task on the most aggressive nag path in the app + auto-generates an AI triage checklist + pins a 🚨 section to the top of Today
-- Impact: AI-inferred 1–3 impact dimension (spouse/household weight, consequences of delay) + live context boosts (closing weather windows, holiday/event proximity) feeding sort order, What Now, digest, and analytics
+### Crisis Tag + Impact — remaining follow-ups (core SHIPPED 2026-07-14)
+- Spec + shipped-state notes: `wiki/Crisis-Tag-And-Impact-Ranking.md`
+- Parked from v1: impact points multiplier (D3 — revisit after real use), GCal-derived impact dates, crisis-specific web-push inline actions ("On it" snooze), weekly impact recap notification, 🚨 section + impact dots on the legacy standard-theme list
 
 ### Per-type Notification Frequencies
 - Per-type frequency settings (e.g. overdue checks every 15m, nudges every 2h)

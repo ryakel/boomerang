@@ -170,4 +170,81 @@ export function computeProjectSessionPoints(project, allTasks = []) {
   return Math.max(1, Math.round(budget * PROJECT_SESSION_PCT))
 }
 
+// --- Impact ranking (see wiki/Crisis-Tag-And-Impact-Ranking.md) ---
+//
+// One pure scorer every surface consumes (Today ordering, Tasks "Impact"
+// sort, Next-up toast) so "what matters most right now" is a single number:
+//
+//   crisis                → CRISIS_RANK, always sorts above everything
+//   base                  = (impact ?? 2) × 100    (null = never inferred →
+//                           displays/scores as the 2 baseline, lazy backfill)
+//   + due proximity       overdue 80 / today 60 / tomorrow 40 / this week 20
+//   + weather window      50 when the task is outdoor AND today is one of the
+//                           good days before a bad stretch (ctx-computed —
+//                           see computeWeatherWindow in WeatherSection.jsx)
+//   + event proximity     0→50 ramping over an impact_date's lead_days when
+//                           the task shares the event's tag
+//   − stale decay         up to −15 past 14 days untouched, so ancient tasks
+//                           don't win on boosts alone
+//
+// Pure JS, no imports — node unit tests (scripts/impact.test.mjs) exercise it
+// directly. All context arrives via `ctx`:
+//   { todayYmd, isCrisis(task), isOutdoor(task), weatherWindowActive,
+//     impactDates: [{date:'YYYY-MM-DD', lead_days, tag}], nowMs }
+export const CRISIS_RANK = 100000
+
+export function impactRank(task, ctx = {}) {
+  if (ctx.isCrisis && ctx.isCrisis(task)) return CRISIS_RANK
+
+  let score = (task.impact ?? 2) * 100
+
+  // Due proximity
+  const today = ctx.todayYmd || null
+  if (task.due_date && today) {
+    const due = String(task.due_date).slice(0, 10)
+    const diffDays = daysBetweenYmd(today, due)
+    if (diffDays < 0) score += 80
+    else if (diffDays === 0) score += 60
+    else if (diffDays === 1) score += 40
+    else if (diffDays <= 7) score += 20
+  }
+
+  // Closing weather window — outdoor task + a good day now before bad days
+  if (ctx.weatherWindowActive && ctx.isOutdoor && ctx.isOutdoor(task)) {
+    score += 50
+  }
+
+  // Event proximity — impact_dates entries with a tag this task carries.
+  // Boost ramps linearly from 0 (lead_days out) to 50 (event day); expired
+  // events contribute nothing.
+  if (Array.isArray(ctx.impactDates) && ctx.impactDates.length > 0 && Array.isArray(task.tags) && today) {
+    let best = 0
+    for (const ev of ctx.impactDates) {
+      if (!ev?.date || !ev.tag || !task.tags.includes(ev.tag)) continue
+      const lead = Math.max(1, ev.lead_days || 14)
+      const daysOut = daysBetweenYmd(today, String(ev.date).slice(0, 10))
+      if (daysOut < 0 || daysOut > lead) continue
+      best = Math.max(best, Math.round(50 * (1 - daysOut / lead)))
+    }
+    score += best
+  }
+
+  // Stale decay
+  if (task.created_at) {
+    const now = ctx.nowMs || Date.now()
+    const ageDays = Math.floor((now - new Date(task.created_at).getTime()) / 86400000)
+    if (ageDays > 14) score -= Math.min(15, ageDays - 14)
+  }
+
+  return score
+}
+
+// Whole-day difference between two 'YYYY-MM-DD' strings (b - a), computed in
+// UTC so DST transitions can't produce off-by-one days.
+function daysBetweenYmd(a, b) {
+  const [ay, am, ad] = a.split('-').map(Number)
+  const [by, bm, bd] = b.split('-').map(Number)
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000)
+}
+
 export { SIZE_POINTS, ENERGY_MULTIPLIER }
