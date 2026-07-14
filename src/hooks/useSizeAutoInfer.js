@@ -17,6 +17,16 @@ function taggableLabels(labels) {
 // after the migration on first load (could be dozens of tasks at once).
 const THROTTLE_MS = 500
 
+// Fill-only pass eligibility: tasks created since impact ranking shipped
+// whose size was settled AT CREATION (Quokka passing a size, a manual size
+// pick in the add modal) never enter the primary net — size_inferred is
+// already true — so impact/tags/missing-energy were never inferred at all
+// ("new tasks didn't get anything", 2026-07-14 prod report). Gating on
+// created_at keeps the deliberate lazy backfill for historical tasks: a
+// pre-impact task with a settled size stays at the impact-2 baseline
+// instead of triggering an upgrade-day inference storm.
+const IMPACT_EPOCH = '2026-07-14'
+
 /**
  * Background auto-sizer. Watches the task list for active tasks where
  * `size_inferred` is false, runs inferSize for each (one at a time, throttled),
@@ -48,13 +58,23 @@ export function useSizeAutoInfer(tasks, updateTask, labels = []) {
     // Stable Set — captured locally so the cleanup reads the same object the
     // effect body used (and the exhaustive-deps lint stays quiet).
     const attemptedSet = attempted.current
-    const next = tasks.find(t =>
-      !t.size_inferred
-      && ACTIVE_STATUSES.includes(t.status)
+    const eligible = t =>
+      ACTIVE_STATUSES.includes(t.status)
       && !t.gmail_pending
       && !attemptedSet.has(t.id)
       && t.title?.trim()
+    // Primary: size not yet settled — full inference (size/energy/impact/tags).
+    const primary = tasks.find(t => !t.size_inferred && eligible(t))
+    // Secondary: size settled at creation but impact never inferred — same
+    // single API call, but only the still-unset fields get written.
+    const secondary = primary ? null : tasks.find(t =>
+      t.size_inferred
+      && t.impact == null && !t.impact_inferred
+      && String(t.created_at || '') >= IMPACT_EPOCH
+      && eligible(t)
     )
+    const next = primary || secondary
+    const fillOnly = !primary
     if (!next) return
 
     attemptedSet.add(next.id)
@@ -72,12 +92,22 @@ export function useSizeAutoInfer(tasks, updateTask, labels = []) {
         // is safe regardless of list churn; merge against the LATEST state.
         if (inferred?.size) {
           const current = latestTasks.current.find(t => t.id === next.id) || next
-          const updates = {
-            size: inferred.size,
-            energy: inferred.energy || current.energy || null,
-            energyLevel: inferred.energyLevel || current.energyLevel || null,
-            size_inferred: true,
-          }
+          // Fill-only mode never touches a size/energy the user (or Quokka)
+          // already settled — it only writes what's still unset. Marking
+          // impact_inferred even when the model returned no impact keeps the
+          // task from being re-picked forever.
+          const updates = fillOnly
+            ? {
+                impact_inferred: true,
+                ...(current.energy ? {} : { energy: inferred.energy || null }),
+                ...(current.energyLevel != null ? {} : { energyLevel: inferred.energyLevel || null }),
+              }
+            : {
+                size: inferred.size,
+                energy: inferred.energy || current.energy || null,
+                energyLevel: inferred.energyLevel || current.energyLevel || null,
+                size_inferred: true,
+              }
           // Impact rides the same single inference call. Never overwrite a
           // hand-set value (impact_inferred flips true on manual picks too).
           if (inferred.impact && current.impact == null && !current.impact_inferred) {
