@@ -4,6 +4,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-14
+
+- docs(wiki): plan crisis tag ("prio") + impact-based prioritization [S]
+  - **User request (planning only, no implementation yet):** (1) a tag like `prio` that flips a task onto a much higher priority path — nags relentlessly AND helps distill how to rapidly get started (washing-machine-broken scenario); (2) a better mechanism to prioritize by impact — spouse impact, holiday proximity, getting outdoor work done before a stretch of bad weather — because "doing lots of shit but none that feels super impactful."
+  - New `wiki/Crisis-Tag-And-Impact-Ranking.md`: full two-feature spec. Crisis tag reuses the `wake-me` tag-as-behavior-switch pattern — per-task nag loop in all three engines at its own `notif_freq_crisis` cadence (default 2h, per user), Pushover priority 1 escalating to Emergency, exempt from adaptive-throttle back-off and the high-pri per-tick cap, counts as an `isNotifiable()` opt-in so undated crises still nag, auto-generated AI triage checklist (`crisis_triage_done`, migration 040), 🚨 pinned section, hard What Now preference, and a never-auto-applied guardrail (excluded from AI auto-tagging like `wake-me`). Impact is a stored AI-inferred 1–3 dimension (migration 041, rides the existing single `inferSize()` call, tap-to-cycle like energy) plus live rank-time boosts: weather-window-closing (reuses `pickBestDays` + `resolveWeatherVisibility`), event proximity via a manual `settings.impact_dates` list, and due proximity — all combined in one pure, unit-tested `impactRank()` in `src/scoring.js` consumed by sort order, What Now, Next-up scorer, digest "Big rock" line, completion toast, and an Analytics breakdown.
+  - Spec includes the crisis-vs-impact ranking model (crisis is a separate manual-alarm axis, never "impact 4"), a 5-PR build order, and a parked list (GCal-derived event detection, crisis inline push actions, weekly impact recap). All decision points resolved by the user same-day, one at a time: 2h crisis cadence; quiet-hours wake stays a separate inline opt-in; "Still a crisis?" check-in at 7 days (configurable, never auto-demotes); NO impact points multiplier in v1; Pushover Emergency only at overdue-or-24h-in-crisis; impact rendered as dots (●●●).
+  - `UPCOMING_FEATURES.md`: near-term entry pointing at the spec.
+
 ## 2026-07-12
 
 - docs(wiki): Batch C Settings screenshot retakes after the tab-structure reorg [S]
