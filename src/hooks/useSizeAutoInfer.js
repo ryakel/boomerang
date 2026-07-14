@@ -96,7 +96,11 @@ export function useSizeAutoInfer(tasks, updateTask, labels = []) {
         // If inferred.size is null (API error / no key), leave size_inferred
         // false. Next session's page load will try again.
       } catch {
-        // swallow — retry on next session
+        // Network-shaped failure (app suspended mid-call, offline blip) —
+        // release the id so the next effect run (e.g. the post-resume
+        // refetch) retries. Real API errors never reach here; the api
+        // helper swallows them and returns the empty shape instead.
+        attemptedSet.delete(next.id)
       }
     }, THROTTLE_MS)
 
