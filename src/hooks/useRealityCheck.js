@@ -25,26 +25,32 @@ export function useRealityCheck(tasks, updateTask) {
   const attempted = useRef(new Set())
 
   useEffect(() => {
+    // Stable Set — captured locally so the cleanup reads the same object the
+    // effect body used (and the exhaustive-deps lint stays quiet).
+    const attemptedSet = attempted.current
     const settings = loadSettings()
     if (settings.diy_reality_check === false) return
     const next = tasks.find(t =>
       !t.diy_assessed
       && ['not_started', 'doing', 'waiting'].includes(t.status)
       && !t.gmail_pending
-      && !attempted.current.has(t.id)
+      && !attemptedSet.has(t.id)
       && t.title?.trim()
       && isRepairTaskShape(t)
     )
     if (!next) return
 
-    let cancelled = false
-    attempted.current.add(next.id)
+    attemptedSet.add(next.id)
+    let started = false
 
     const timer = setTimeout(async () => {
-      if (cancelled) return
+      started = true
       try {
         const check = await generateRealityCheck(next.title, next.notes || '')
-        if (cancelled) return
+        // Deliberately NOT gated on effect cleanup — the effect re-runs on
+        // every task-list change, which is the normal state right after
+        // creating a task; dropping the result here starved the assessment
+        // forever (2026-07-14 prod bug). updateTask by id is safe.
         if (check) {
           updateTask(next.id, {
             diy_assessed: true,
@@ -61,8 +67,11 @@ export function useRealityCheck(tasks, updateTask) {
     }, THROTTLE_MS)
 
     return () => {
-      cancelled = true
       clearTimeout(timer)
+      // If the call never started, release the id so the next effect run
+      // re-picks it — otherwise list churn inside the throttle window
+      // permanently starves the task for the session.
+      if (!started) attemptedSet.delete(next.id)
     }
   }, [tasks, updateTask])
 }

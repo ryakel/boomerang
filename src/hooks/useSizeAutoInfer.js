@@ -39,42 +39,55 @@ const THROTTLE_MS = 500
  */
 export function useSizeAutoInfer(tasks, updateTask, labels = []) {
   const attempted = useRef(new Set())
+  // Latest task list, read at write time — the AI call takes seconds and the
+  // task's tags/impact may have changed underneath it.
+  const latestTasks = useRef(tasks)
+  latestTasks.current = tasks
 
   useEffect(() => {
+    // Stable Set — captured locally so the cleanup reads the same object the
+    // effect body used (and the exhaustive-deps lint stays quiet).
+    const attemptedSet = attempted.current
     const next = tasks.find(t =>
       !t.size_inferred
       && ACTIVE_STATUSES.includes(t.status)
       && !t.gmail_pending
-      && !attempted.current.has(t.id)
+      && !attemptedSet.has(t.id)
       && t.title?.trim()
     )
     if (!next) return
 
-    let cancelled = false
-    attempted.current.add(next.id)
+    attemptedSet.add(next.id)
+    let started = false
 
     const timer = setTimeout(async () => {
-      if (cancelled) return
+      started = true
       try {
         const inferred = await inferSize(next.title, next.notes || '', taggableLabels(labels))
-        if (cancelled) return
+        // Deliberately NOT gated on effect cleanup: the effect re-runs on
+        // every task-list change (sync echoes, our own writes) — the normal
+        // state right after a task is created — and dropping the result here
+        // starved inference for the whole session (2026-07-14 prod bug,
+        // found via the crisis-triage twin of this hook). updateTask by id
+        // is safe regardless of list churn; merge against the LATEST state.
         if (inferred?.size) {
+          const current = latestTasks.current.find(t => t.id === next.id) || next
           const updates = {
             size: inferred.size,
-            energy: inferred.energy || next.energy || null,
-            energyLevel: inferred.energyLevel || next.energyLevel || null,
+            energy: inferred.energy || current.energy || null,
+            energyLevel: inferred.energyLevel || current.energyLevel || null,
             size_inferred: true,
           }
           // Impact rides the same single inference call. Never overwrite a
           // hand-set value (impact_inferred flips true on manual picks too).
-          if (inferred.impact && next.impact == null && !next.impact_inferred) {
+          if (inferred.impact && current.impact == null && !current.impact_inferred) {
             updates.impact = inferred.impact
             updates.impact_inferred = true
           }
           // Merge AI-suggested tags into whatever's already on the task — never
           // drop a tag the user set by hand. Only write if it actually adds one.
           if (Array.isArray(inferred.tags) && inferred.tags.length > 0) {
-            const have = Array.isArray(next.tags) ? next.tags : []
+            const have = Array.isArray(current.tags) ? current.tags : []
             const merged = Array.from(new Set([...have, ...inferred.tags]))
             if (merged.length !== have.length) updates.tags = merged
           }
@@ -88,8 +101,11 @@ export function useSizeAutoInfer(tasks, updateTask, labels = []) {
     }, THROTTLE_MS)
 
     return () => {
-      cancelled = true
       clearTimeout(timer)
+      // If the call never started, release the id so the next effect run
+      // re-picks it — otherwise list churn inside the 500ms throttle window
+      // permanently starves the task for the session.
+      if (!started) attemptedSet.delete(next.id)
     }
   }, [tasks, updateTask, labels])
 }
