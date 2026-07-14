@@ -62,7 +62,11 @@ export function useRealityCheck(tasks, updateTask) {
         // null (API error / no key): leave diy_assessed false, retry next
         // session.
       } catch {
-        // swallow — retry next session
+        // Network-shaped failure (app suspended mid-call, offline blip) —
+        // release the id so the next effect run (e.g. the post-resume
+        // refetch) retries. Real API errors never reach here; the api
+        // helper swallows them and returns the empty shape instead.
+        attemptedSet.delete(next.id)
       }
     }, THROTTLE_MS)
 

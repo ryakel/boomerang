@@ -109,12 +109,42 @@ export function useAdviser() {
     return () => clearTimeout(saveTimerRef.current)
   }, [messages, sessionId, hydrated, activeId])
 
-  // Abort in-flight stream only when the app is tearing down. Modal open/close does not
-  // unmount this hook.
+  // Tear down only the LOCAL stream reader on unmount. Deliberately do NOT
+  // abort the server session — the runner is detached by design (it survives
+  // page reloads; the plan-ready push deep-links back into it). The previous
+  // cleanup tried adviserAbort(sessionId) here, but the [] deps froze
+  // sessionId at its initial null so it never actually fired — killing a
+  // running plan on every page refresh would have been a bug, not a feature.
   useEffect(() => () => {
     if (streamRef.current) streamRef.current.abort()
-    if (sessionId) adviserAbort(sessionId)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
+
+  // iOS-PWA resume recovery (2026-07-14 prod bug: "can't navigate away from
+  // Quokka without it failing"). Backgrounding the app suspends JS and kills
+  // the SSE reader / poll timers mid-turn — the detached runner keeps
+  // working server-side, but nothing on the client re-attached after resume,
+  // so the user came back to a dead stream or "Could not retrieve response"
+  // even though the answer was sitting in the session buffer. On every
+  // return to visibility: if we have a session and no live stream,
+  // opportunistically resubscribe (subscribe-only mode replays buffered
+  // events; a 404 for a dead session is a silent no-op) and clear a stale
+  // error state so the replayed result can render.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const sid = sessionIdRef.current
+      if (!sid || streamRef.current) return
+      quokkaLog('resume: re-attaching to session', sid)
+      setLastError(null)
+      setStatus(prev => (prev === 'error' ? 'idle' : prev))
+      // Defined below; runs at event time, well after mount.
+      // eslint-disable-next-line no-use-before-define
+      tryResubscribe(sid)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Shared SSE event handler. Used by both `send` (new user message) and
   // `tryResubscribe` (re-attach to an in-flight runner). The handler

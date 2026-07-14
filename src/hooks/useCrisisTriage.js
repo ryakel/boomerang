@@ -76,7 +76,11 @@ export function useCrisisTriage(tasks, updateTask) {
         // steps === [] (API error / no key): leave the flag false and retry
         // next session.
       } catch {
-        // swallow — retry next session
+        // Network-shaped failure (app suspended mid-call, offline blip) —
+        // release the id so the next effect run (e.g. the post-resume
+        // refetch) retries. Real API errors never reach here; the api
+        // helper swallows them and returns the empty shape instead.
+        attemptedSet.delete(next.id)
       }
     }, THROTTLE_MS)
 

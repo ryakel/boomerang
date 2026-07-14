@@ -22,6 +22,15 @@ function withCustomInstructions(systemPrompt) {
   return `${systemPrompt}\n\nThe user has provided these custom instructions for how you should communicate and behave. Follow them closely:\n---\n${custom_instructions.trim()}\n---`
 }
 
+// Network-shaped failures (fetch TypeError, aborted requests — e.g. iOS
+// suspending the PWA mid-call) are RETHROWN by the background-inference
+// helpers below so their hooks can release the task for a retry when the
+// app resumes. Real API errors (bad key, 4xx/5xx, unparseable output) stay
+// swallowed — retrying those in a loop wouldn't help until config changes.
+function isNetworkError(e) {
+  return e instanceof TypeError || e?.name === 'AbortError'
+}
+
 export async function callClaude(systemPrompt, userMessage) {
   const res = await fetch(PROXY_URL, {
     method: 'POST',
@@ -114,7 +123,8 @@ Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLev
       impact: [1, 2, 3].includes(result.impact) ? result.impact : null,
       tags,
     }
-  } catch {
+  } catch (e) {
+    if (isNetworkError(e)) throw e
     return { size: null, energy: null, energyLevel: null, impact: null, tags: [] }
   }
 }
@@ -147,7 +157,8 @@ Return JSON only: {"verdict": "hire"|"diy", "reason": "<one blunt sentence, unde
       reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 200) : '',
       first_move: typeof parsed.first_move === 'string' ? parsed.first_move.slice(0, 100) : '',
     }
-  } catch {
+  } catch (e) {
+    if (isNetworkError(e)) throw e
     return null
   }
 }
@@ -176,7 +187,8 @@ Return JSON only: {"steps": ["...", "..."]}`
     return Array.isArray(parsed.steps)
       ? parsed.steps.filter(s => typeof s === 'string' && s.trim()).slice(0, 5)
       : []
-  } catch {
+  } catch (e) {
+    if (isNetworkError(e)) throw e
     return []
   }
 }
