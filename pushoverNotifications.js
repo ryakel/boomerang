@@ -269,7 +269,7 @@ function buildCrisisBody(task) {
   const bits = []
   if (task.crisis_since) {
     const days = Math.floor((Date.now() - new Date(task.crisis_since).getTime()) / 86400000)
-    if (days >= 1) bits.push(`in crisis ${days}d`)
+    if (days >= 1) bits.push(`critical for ${days}d`)
   }
   if (task.due_date) {
     const today = new Date(); today.setHours(0, 0, 0, 0)

@@ -258,7 +258,7 @@ function buildCrisisBody(task) {
   const bits = []
   if (task.crisis_since) {
     const days = Math.floor((Date.now() - new Date(task.crisis_since).getTime()) / 86400000)
-    if (days >= 1) bits.push(`in crisis ${days}d`)
+    if (days >= 1) bits.push(`critical for ${days}d`)
   }
   if (task.due_date) {
     const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -423,10 +423,10 @@ async function runNotificationCheck() {
         const freq = applyAvoidanceBoost(getFreqMs(settings, 'notif_freq_crisis', 2), task)
         if (!checkThrottle(`email_crisis:${task.id}`, freq)) continue
         const body = buildCrisisBody(task)
-        const sent = await sendEmail('🚨 CRISIS', simpleEmailHtml('🚨 CRISIS', body), body)
+        const sent = await sendEmail('🚨 CRITICAL', simpleEmailHtml('🚨 CRITICAL', body), body)
         if (sent) {
           markThrottle(`email_crisis:${task.id}`)
-          logNotifEmail(genId(), 'crisis', task.id, '🚨 CRISIS', body)
+          logNotifEmail(genId(), 'crisis', task.id, '🚨 CRITICAL', body)
         }
       }
     }

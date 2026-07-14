@@ -153,7 +153,7 @@ function buildCrisisBody(task) {
   const bits = []
   if (task.crisis_since) {
     const days = Math.floor((Date.now() - new Date(task.crisis_since).getTime()) / 86400000)
-    if (days >= 1) bits.push(`in crisis ${days}d`)
+    if (days >= 1) bits.push(`critical for ${days}d`)
   }
   if (task.due_date) {
     const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -327,28 +327,28 @@ async function runPushCheck() {
         const freq = applyAvoidanceBoost(getFreqMs(settings, 'notif_freq_crisis', 2), task)
         if (checkThrottle(`push_crisis:${task.id}`, freq)) {
           const body = buildCrisisBody(task)
-          const sent = await sendPush({ title: '🚨 CRISIS', body, tag: `crisis:${task.id}`, data: { taskId: task.id } })
+          const sent = await sendPush({ title: '🚨 CRITICAL', body, tag: `crisis:${task.id}`, data: { taskId: task.id } })
           if (sent) {
             markThrottle(`push_crisis:${task.id}`)
-            logNotifPush(genId(), 'crisis', task.id, '🚨 CRISIS', body)
+            logNotifPush(genId(), 'crisis', task.id, '🚨 CRITICAL', body)
           }
         }
 
-        // "Still a crisis?" staleness check-in (D2): after crisis_stale_days
-        // (default 7, 0 = never) in crisis, ONE gentle ping per window asking
-        // the user to keep or demote. Never auto-demotes — the in-app banner
-        // in EditTaskModal carries the Keep/Demote actions.
+        // "Still critical?" staleness check-in (D2): after crisis_stale_days
+        // (default 7, 0 = never) marked critical, ONE gentle ping per window
+        // asking the user to keep or demote. Never auto-demotes — the in-app
+        // banner in EditTaskModal carries the Keep/Demote actions.
         const staleDays = settings.crisis_stale_days ?? 7
         if (staleDays > 0 && task.crisis_since) {
           const ageMs = Date.now() - new Date(task.crisis_since).getTime()
           const staleMs = staleDays * 86400000
           if (ageMs > staleMs && checkThrottle(`push_crisis_stale:${task.id}`, staleMs)) {
             const days = Math.floor(ageMs / 86400000)
-            const body = `"${task.title}" has been in crisis mode for ${days} days. Still a crisis? Open it to keep or demote.`
-            const sent = await sendPush({ title: 'Still a crisis?', body, tag: `crisis-stale:${task.id}`, data: { taskId: task.id } })
+            const body = `"${task.title}" has been marked critical for ${days} days. Still critical? Open it to keep or demote.`
+            const sent = await sendPush({ title: 'Still critical?', body, tag: `crisis-stale:${task.id}`, data: { taskId: task.id } })
             if (sent) {
               markThrottle(`push_crisis_stale:${task.id}`)
-              logNotifPush(genId(), 'crisis_stale', task.id, 'Still a crisis?', body)
+              logNotifPush(genId(), 'crisis_stale', task.id, 'Still critical?', body)
             }
           }
         }
