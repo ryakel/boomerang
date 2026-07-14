@@ -1,6 +1,11 @@
 # Crisis Tag ("prio") + Impact-Based Prioritization — Plan
 
-**Status: PLAN, decisions resolved — ready to build.** Two interlocking features, drafted 2026-07-14; all open decision points answered by the user the same day (see "Decisions — RESOLVED" below). Nothing in this doc is shipped yet.
+**Status: SHIPPED 2026-07-14** (same day as the plan — user said "merge and build it all", so the 5-PR build order below collapsed into one implementation PR). All decisions below are implemented as specified. Deviations from plan, all scope trims rather than behavior changes:
+- **Kept-first UI.** The 🚨 pinned section + impact dots render on the Kept surfaces (TodayView, TasksViewKept, both mobile and desktop shells). The legacy standard-theme list gets the behavior via the shared paths (notification engines, Next-up scorer, What Now, EditTaskModal controls) but no dedicated 🚨 section or card dots — follow-up if the standard theme is still in daily use.
+- **"Talk it through" Quokka-seed affordance on the crisis section** was dropped — the crisis row shows the triage's first move directly, and Quokka's system prompt (rule 10) already covers drafting/expanding triage on request.
+- **"Still a crisis?" check-in ping** fires via web push (plus the in-app banner in EditTaskModal and a pulsing chip on the Today row); email/Pushover don't duplicate it.
+- `pickBestDays` didn't need hoisting — `WeatherSection.jsx` was already the shared exporter; the new `computeWeatherWindow()` lives beside it, consumed via `src/impactContext.js`.
+- AddTaskModal has no dedicated crisis checkbox (the label pill grid already covers tagging at creation); EditTaskModal's "🚨 Crisis mode" checkbox is the guided path.
 
 **The two asks, verbatim:**
 1. *"I want the ability to use a tag (say `prio`) as an indicator that things need to follow a much higher priority path and that somehow beat me the fuck up. Example — if my wife says the washing machine is broken, that should not only help me distill down how to rapidly get started helping but also make sure that thing nags the ever loving fuck out of me."*

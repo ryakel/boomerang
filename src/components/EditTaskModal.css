@@ -1364,3 +1364,13 @@
   color: var(--v2-text);
   font: 400 13px/1.3 var(--v2-font-body);
 }
+
+/* Crisis staleness check-in banner ("Still a crisis?", decision D2). */
+.v2-edit-crisis-stale-banner {
+  margin: 8px 0 0 26px;
+  padding: 10px 12px;
+  border: 1px solid #E8B04B;
+  border-radius: 8px;
+  background: rgba(232, 176, 75, 0.08);
+  font-size: 13px;
+}

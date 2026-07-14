@@ -10,7 +10,7 @@
 import nodemailer from 'nodemailer'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail, countPendingSuggestions, filterNotifiableTasks, escalationNudgeOverride } from './db.js'
+import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail, countPendingSuggestions, filterNotifiableTasks, escalationNudgeOverride, isCrisisTask } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -251,6 +251,32 @@ function applyAvoidanceBoost(freqMs, task) {
   return Math.round(freqMs / boost)
 }
 
+// Crisis nag body — mirrors pushNotifications.js (duplicated per-file like
+// the other engine helpers): age-in-crisis + due info + first open checklist
+// step as the "first move" so the nag helps start, not just yells.
+function buildCrisisBody(task) {
+  const bits = []
+  if (task.crisis_since) {
+    const days = Math.floor((Date.now() - new Date(task.crisis_since).getTime()) / 86400000)
+    if (days >= 1) bits.push(`in crisis ${days}d`)
+  }
+  if (task.due_date) {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const due = new Date(task.due_date + 'T00:00:00')
+    const diffDays = Math.round((due - today) / 86400000)
+    if (diffDays < 0) bits.push(`${Math.abs(diffDays)}d overdue`)
+    else if (diffDays === 0) bits.push('due today')
+  }
+  let firstMove = null
+  for (const cl of (Array.isArray(task.checklists) ? task.checklists : [])) {
+    const open = (cl.items || []).find(it => !it.completed && it.text)
+    if (open) { firstMove = open.text; break }
+  }
+  let body = `"${task.title}"${bits.length ? ` — ${bits.join(', ')}` : ''}`
+  if (firstMove) body += `. First move: ${firstMove}`
+  return body
+}
+
 function getHighPriorityFreqMs(task, settings) {
   const now = new Date()
   if (!task.due_date) return getFreqMs(settings, 'notif_freq_highpri_before', 24)
@@ -384,9 +410,30 @@ async function runNotificationCheck() {
 
     const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
 
+    // Crisis tag ("prio") — per-task loop at notif_freq_crisis (default 2h),
+    // before and exempt from the high-pri per-tick cap. Mirrors the push/
+    // pushover engines; the engine-wide quiet-hours gate above keeps email
+    // silent overnight. Crisis tasks are excluded from the hp/escalation
+    // loops and stale/nudge/pile-up pools below (no double-nag).
+    const crisisIds = new Set()
+    if (settings.email_notif_highpri !== false) {
+      const crisisTasks = nonSnoozed.filter(t => isCrisisTask(t, settings))
+      for (const task of crisisTasks) {
+        crisisIds.add(task.id)
+        const freq = applyAvoidanceBoost(getFreqMs(settings, 'notif_freq_crisis', 2), task)
+        if (!checkThrottle(`email_crisis:${task.id}`, freq)) continue
+        const body = buildCrisisBody(task)
+        const sent = await sendEmail('🚨 CRISIS', simpleEmailHtml('🚨 CRISIS', body), body)
+        if (sent) {
+          markThrottle(`email_crisis:${task.id}`)
+          logNotifEmail(genId(), 'crisis', task.id, '🚨 CRISIS', body)
+        }
+      }
+    }
+
     // High-priority notifications
     if (settings.email_notif_highpri !== false) {
-      const highPriTasks = nonSnoozed.filter(t => t.high_priority)
+      const highPriTasks = nonSnoozed.filter(t => t.high_priority && !crisisIds.has(t.id))
       let hpCount = 0
       for (const task of highPriTasks) {
         if (hpCount >= 3) break
@@ -426,7 +473,8 @@ async function runNotificationCheck() {
     // at the rung's own cadence. Excluded from the aggregate stale/nudge pools.
     const escalationActiveIds = new Set()
     if (settings.email_notif_escalation !== false) {
-      const escalationTasks = nonSnoozed.filter(t => t.escalation_current_rung != null)
+      // Crisis takes precedence — no stacked escalation nudge on a crisis task.
+      const escalationTasks = nonSnoozed.filter(t => t.escalation_current_rung != null && !crisisIds.has(t.id))
       for (const task of escalationTasks) {
         escalationActiveIds.add(task.id)
         const override = escalationNudgeOverride(task)
@@ -465,7 +513,7 @@ async function runNotificationCheck() {
     if (settings.email_notif_stale !== false) {
       const freq = getFreqMs(settings, 'notif_freq_stale', 0.5)
       if (checkThrottle('email_stale', freq)) {
-        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id))
+        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
         if (staleTasks.length > 0) {
           const intro = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
           const text = staleTasks.map(t => `- ${t.title}`).join('\n')
@@ -482,7 +530,7 @@ async function runNotificationCheck() {
     if (settings.email_notif_nudge !== false) {
       const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
       if (checkThrottle('email_nudge', freq) && nonSnoozed.length > 0) {
-        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id))
+        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
         const pick = smallTasks.length > 0
           ? smallTasks[Math.floor(Math.random() * smallTasks.length)]
           : nonSnoozed[Math.floor(Math.random() * nonSnoozed.length)]
@@ -561,7 +609,7 @@ async function runNotificationCheck() {
       const freq = getFreqMs(settings, 'notif_freq_pileup', 2)
       if (checkThrottle('email_pileup', freq)) {
         let sent = false
-        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings))
+        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings) && !crisisIds.has(t.id))
         if (settings.max_open_tasks && pileupPool.length > settings.max_open_tasks) {
           const subject = 'Too many open tasks'
           const body = `You have ${pileupPool.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`

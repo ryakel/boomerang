@@ -708,3 +708,32 @@
   cursor: pointer;
 }
 .bm-growth-banner-restore:hover { color: var(--bm-gold); }
+
+/* --- Crisis tag ("prio") — the one deliberately loud surface in Kept.
+ * See wiki/Crisis-Tag-And-Impact-Ranking.md. --- */
+.bm-crisis-row {
+  border-left: 3px solid var(--bm-danger);
+  padding-left: 9px;
+  background: color-mix(in srgb, var(--bm-danger) 6%, transparent);
+  border-radius: 6px;
+}
+.bm-chk.is-crisis { border-color: var(--bm-danger); }
+.bm-tag-crisis {
+  font-size: 11px; font-weight: 750; color: var(--bm-danger);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.bm-tag-crisis-stale {
+  font-size: 11px; font-weight: 650; color: var(--bm-gold);
+  animation: bm-escalation-pulse 2s ease-in-out infinite;
+}
+.bm-crisis-firstmove { font-size: 11.5px; color: var(--bm-text-meta); font-style: italic; }
+
+/* --- Impact dots (●/●●/●●●, decision D5) — distinct from the energy bolts;
+ * tappable to cycle 1 → 2 → 3 → 1. --- */
+.bm-impact {
+  font-size: 8.5px; letter-spacing: 1.5px; line-height: 1;
+  cursor: pointer; user-select: none;
+  color: var(--bm-text-meta);
+}
+.bm-impact-2 { color: var(--bm-gold); }
+.bm-impact-3 { color: var(--bm-ember); }

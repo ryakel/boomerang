@@ -9,7 +9,7 @@
 import webpush from 'web-push'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush, countPendingSuggestions, filterNotifiableTasks, escalationNudgeOverride } from './db.js'
+import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush, countPendingSuggestions, filterNotifiableTasks, escalationNudgeOverride, isCrisisTask } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -143,6 +143,33 @@ function applyAvoidanceBoost(freqMs, task) {
   let boost = 1.3
   if (task.energy_level === 3) boost *= 1.2
   return Math.round(freqMs / boost)
+}
+
+// Crisis nag body: age-in-crisis + due info + the first open checklist step
+// (the AI triage's "first move" — the highest-leverage line for actually
+// getting started instead of just being yelled at). Shared shape across the
+// push/email/pushover engines (duplicated per-file like the other helpers).
+function buildCrisisBody(task) {
+  const bits = []
+  if (task.crisis_since) {
+    const days = Math.floor((Date.now() - new Date(task.crisis_since).getTime()) / 86400000)
+    if (days >= 1) bits.push(`in crisis ${days}d`)
+  }
+  if (task.due_date) {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const due = new Date(task.due_date + 'T00:00:00')
+    const diffDays = Math.round((due - today) / 86400000)
+    if (diffDays < 0) bits.push(`${Math.abs(diffDays)}d overdue`)
+    else if (diffDays === 0) bits.push('due today')
+  }
+  let firstMove = null
+  for (const cl of (Array.isArray(task.checklists) ? task.checklists : [])) {
+    const open = (cl.items || []).find(it => !it.completed && it.text)
+    if (open) { firstMove = open.text; break }
+  }
+  let body = `"${task.title}"${bits.length ? ` — ${bits.join(', ')}` : ''}`
+  if (firstMove) body += `. First move: ${firstMove}`
+  return body
 }
 
 function getHighPriorityFreqMs(task, settings) {
@@ -284,9 +311,53 @@ async function runPushCheck() {
 
     const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
 
+    // Crisis tag ("prio") — the most aggressive per-task loop in the app.
+    // Fires BEFORE high-priority, exempt from the hp per-tick cap, at its own
+    // notif_freq_crisis cadence (default 2h) regardless of due date, and is
+    // NEVER adaptively backed off (ignoring a crisis must not teach the app
+    // to nag less). Rides the highpri channel toggle — crisis IS high
+    // priority, dialed up. Crisis tasks are excluded from the hp/escalation
+    // loops and the stale/nudge/pile-up aggregate pools below (no double-nag).
+    // Web push stays silent during quiet hours via the engine-wide gate above.
+    const crisisIds = new Set()
+    if (settings.push_notif_highpri !== false) {
+      const crisisTasks = nonSnoozed.filter(t => isCrisisTask(t, settings))
+      for (const task of crisisTasks) {
+        crisisIds.add(task.id)
+        const freq = applyAvoidanceBoost(getFreqMs(settings, 'notif_freq_crisis', 2), task)
+        if (checkThrottle(`push_crisis:${task.id}`, freq)) {
+          const body = buildCrisisBody(task)
+          const sent = await sendPush({ title: '🚨 CRISIS', body, tag: `crisis:${task.id}`, data: { taskId: task.id } })
+          if (sent) {
+            markThrottle(`push_crisis:${task.id}`)
+            logNotifPush(genId(), 'crisis', task.id, '🚨 CRISIS', body)
+          }
+        }
+
+        // "Still a crisis?" staleness check-in (D2): after crisis_stale_days
+        // (default 7, 0 = never) in crisis, ONE gentle ping per window asking
+        // the user to keep or demote. Never auto-demotes — the in-app banner
+        // in EditTaskModal carries the Keep/Demote actions.
+        const staleDays = settings.crisis_stale_days ?? 7
+        if (staleDays > 0 && task.crisis_since) {
+          const ageMs = Date.now() - new Date(task.crisis_since).getTime()
+          const staleMs = staleDays * 86400000
+          if (ageMs > staleMs && checkThrottle(`push_crisis_stale:${task.id}`, staleMs)) {
+            const days = Math.floor(ageMs / 86400000)
+            const body = `"${task.title}" has been in crisis mode for ${days} days. Still a crisis? Open it to keep or demote.`
+            const sent = await sendPush({ title: 'Still a crisis?', body, tag: `crisis-stale:${task.id}`, data: { taskId: task.id } })
+            if (sent) {
+              markThrottle(`push_crisis_stale:${task.id}`)
+              logNotifPush(genId(), 'crisis_stale', task.id, 'Still a crisis?', body)
+            }
+          }
+        }
+      }
+    }
+
     // High-priority notifications
     if (settings.push_notif_highpri !== false) {
-      const highPriTasks = nonSnoozed.filter(t => t.high_priority)
+      const highPriTasks = nonSnoozed.filter(t => t.high_priority && !crisisIds.has(t.id))
       let hpCount = 0
       for (const task of highPriTasks) {
         if (hpCount >= 3) break
@@ -328,7 +399,9 @@ async function runPushCheck() {
     // stale/nudge copy. Excluded from the aggregate stale/nudge pools below.
     const escalationActiveIds = new Set()
     if (settings.push_notif_escalation !== false) {
-      const escalationTasks = nonSnoozed.filter(t => t.escalation_current_rung != null)
+      // Crisis takes precedence — a crisis task with an active ladder already
+      // nags at the crisis cadence; don't stack the escalation nudge on top.
+      const escalationTasks = nonSnoozed.filter(t => t.escalation_current_rung != null && !crisisIds.has(t.id))
       for (const task of escalationTasks) {
         escalationActiveIds.add(task.id)
         const override = escalationNudgeOverride(task)
@@ -366,7 +439,7 @@ async function runPushCheck() {
     if (settings.push_notif_stale !== false) {
       const freq = getFreqMs(settings, 'notif_freq_stale', 0.5)
       if (checkThrottle('push_stale', freq)) {
-        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id))
+        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
         if (staleTasks.length > 0) {
           const body = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
           const sent = await sendPush({ title: 'Stale Tasks', body, tag: 'stale' })
@@ -382,7 +455,7 @@ async function runPushCheck() {
     if (settings.push_notif_nudge !== false) {
       const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
       if (checkThrottle('push_nudge', freq) && nonSnoozed.length > 0) {
-        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id))
+        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
         let title, body
         if (smallTasks.length > 0) {
           const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
@@ -460,7 +533,7 @@ async function runPushCheck() {
       const freq = getFreqMs(settings, 'notif_freq_pileup', 2)
       if (checkThrottle('push_pileup', freq)) {
         let sent = false
-        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings))
+        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings) && !crisisIds.has(t.id))
         if (settings.max_open_tasks && pileupPool.length > settings.max_open_tasks) {
           const title = 'Too many open tasks'
           const body = `You have ${pileupPool.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`

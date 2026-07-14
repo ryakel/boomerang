@@ -49,7 +49,8 @@ All settings are accessible via the gear icon in the header, organized into six 
 - **Default due date** — days from now for new tasks (default: 7, set to 0 to disable)
 - **Staleness threshold** — days before a task is marked stale (default: 2, range: 1-30) — drives both the Stale section on the task list and the Stale notification type
 - **Reframe trigger** — snooze count before reframe is required instead of snooze (default: 3, range: 1-20)
-- **AI custom instructions** — free-text field that shapes all AI output (Polish, What Now, Reframe, smart nudges, Quokka tone). Import from `.md`/`.txt`, export to `.md`, clear button when set. The Anthropic API key itself is configured in Integrations (see below); this tab just links there.
+- **Impact dates** — a list of upcoming events (label, date, lead days, linked task label) that make related work rank higher as they approach (Impact sort, Today ordering). E.g. "Christmas · 12-25 · 21 days lead · label `xmas`" boosts every `xmas`-tagged task through December. Stored as `impact_dates`; Quokka can edit the list too.
+- **AI custom instructions** — free-text field that shapes all AI output (Polish, What Now, Reframe, smart nudges, Quokka tone, size/energy/impact inference). Import from `.md`/`.txt`, export to `.md`, clear button when set. The Anthropic API key itself is configured in Integrations (see below); this tab just links there.
 
 ### API Keys (Integrations tab)
 
@@ -70,7 +71,7 @@ All settings are accessible via the gear icon in the header, organized into six 
 ### Labels
 - Create custom labels with names and colors (10 color options)
 - Delete existing labels
-- Default labels: inside (blue), outside (green), follow-up (orange)
+- Default labels: inside (blue), outside (green), follow-up (orange), wake-me (red — quiet-hours bypass), prio (dark red — crisis mode)
 
 ![Settings → Labels](images/settings-labels.png)
 
@@ -81,6 +82,7 @@ All settings are accessible via the gear icon in the header, organized into six 
 - Check frequency: 15m, 30m, 1h, 2h (default: 30m)
 - Toggles for: overdue tasks, stale tasks, general nudges
 - **Pile-up** — one card holds everything for "too many open tasks": the `max_open_tasks` limit, the percentage/day-age warning threshold, and the label-exemption picker (previously split across General and Notifications with no cross-reference; consolidated 2026-07-11). See the Features page's Notifications section for the full "Exempt labeled tasks" description.
+- **Crisis mode** — one card for the crisis tag's behavior: the crisis label name (`crisis_label`, default `prio`), the per-task nag cadence (`notif_freq_crisis`, default 2h, fractional ok), the "Still a crisis?" check-in window (`crisis_stale_days`, default 7, 0 = never), and the auto triage checklist toggle (`crisis_auto_breakdown`, default on). Crisis pings ride the per-channel High-priority toggles rather than adding new ones. See the Features page's Crisis Mode section.
 
 ### Pushover (reliable iOS notifications)
 - Solves the iOS Safari web-push throttling problem — Pushover has a dedicated iOS app with full APNs entitlements

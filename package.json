@@ -8,7 +8,7 @@
     "build": "vite build",
     "start": "node server.js",
     "lint": "eslint .",
-    "test": "node --test scripts/dates.test.mjs scripts/cycles.test.mjs && sh scripts/smoke-test.sh",
+    "test": "node --test scripts/dates.test.mjs scripts/cycles.test.mjs scripts/impact.test.mjs && sh scripts/smoke-test.sh",
     "prepare": "git config core.hooksPath .githooks || true",
     "preview": "vite preview",
     "cap:sync": "cap sync ios",

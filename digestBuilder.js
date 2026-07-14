@@ -19,7 +19,7 @@
  *   7. Weather — existing buildWeatherSummary() output if configured
  */
 
-import { queryTasks, getData, getAnalytics, filterNotifiableTasks } from './db.js'
+import { queryTasks, getData, getAnalytics, filterNotifiableTasks, isCrisisTask } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { getTodayGrowthAreaCached } from './growthAreas.js'
 
@@ -112,7 +112,25 @@ export function buildDigest(settings) {
   }
 
   const base = getPublicAppUrl(settings)
-  const today = nonMuted.filter(isDueTodayOrOverdue).slice(0, 5)
+  // Crisis tasks lead the Today section with the 🚨 marker — undated crises
+  // qualify too (they're exactly the "washing machine" case), so the Today
+  // pool is due-today-or-overdue OR in crisis, crisis first.
+  const crisis = t => isCrisisTask(t, settings)
+  const today = nonMuted
+    .filter(t => isDueTodayOrOverdue(t) || crisis(t))
+    .sort((a, b) => (crisis(b) ? 1 : 0) - (crisis(a) ? 1 : 0))
+    .slice(0, 5)
+
+  // "Big rock today" — the single highest-impact move of the day. Only
+  // renders when a genuinely high-impact (impact 3) task exists; picked by
+  // base impact + due proximity (the digest builder is synchronous, so the
+  // weather/event boosts stay client-side — see impactRank in src/scoring.js).
+  const bigRock = nonMuted
+    .filter(t => t.impact === 3 && !crisis(t))
+    .sort((a, b) => {
+      const due = t => !t.due_date ? 0 : isDueTodayOrOverdue(t) ? 2 : isInWindow(t, 3) ? 1 : 0
+      return due(b) - due(a)
+    })[0] || null
   const comingUp = nonMuted
     .filter(t => isInWindow(t, 3))
     .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
@@ -156,7 +174,8 @@ export function buildDigest(settings) {
     if (items.length === 0) return null
     return `${heading}:\n${items.map(line => `• ${line}`).join('\n')}`
   }
-  const todaySection = textSection('Today', today.map(t => `${t.title} (${relDueLine(t) || 'no date'})`))
+  if (bigRock) textParts.push(`🎯 Big rock today: ${bigRock.title}`)
+  const todaySection = textSection('Today', today.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title} (${relDueLine(t) || 'no date'})`))
   if (todaySection) textParts.push(todaySection)
   const comingUpSection = textSection('Coming up', comingUp.map(t => `${t.title} (${relDueLine(t)})`))
   if (comingUpSection) textParts.push(comingUpSection)
@@ -178,13 +197,13 @@ export function buildDigest(settings) {
       <ul style="margin:8px 0 0 0;padding-left:20px;line-height:1.7">${items.join('')}</ul>
     </div>`
   }
-  const taskItem = (task, suffix) => {
+  const taskItem = (task, suffix, isCrisis = false) => {
     const url = deepLink(base, task.id)
     const titleHtml = url
       ? `<a href="${url}" style="color:#0F4FB3;text-decoration:none;font-weight:500">${escapeHtml(task.title)}</a>`
       : `<span style="color:#111;font-weight:500">${escapeHtml(task.title)}</span>`
     const suffixHtml = suffix ? ` <span style="color:#444;font-size:13px">— ${escapeHtml(suffix)}</span>` : ''
-    return `<li style="color:#111">${titleHtml}${suffixHtml}</li>`
+    return `<li style="color:#111">${isCrisis ? '🚨 ' : ''}${titleHtml}${suffixHtml}</li>`
   }
 
   const htmlParts = []
@@ -198,7 +217,14 @@ export function buildDigest(settings) {
     if (streak > 0) bits.push(`day <strong>${streak}</strong> of your streak`)
     htmlParts.push(`<div style="margin-top:4px;color:#0E6B36;font-size:14px;font-weight:500">${bits.join(' · ')}</div>`)
   }
-  htmlParts.push(htmlSection('Today', today.map(t => taskItem(t, relDueLine(t) || 'no date'))))
+  if (bigRock) {
+    const rockUrl = deepLink(base, bigRock.id)
+    const rockTitle = rockUrl
+      ? `<a href="${rockUrl}" style="color:#0F4FB3;text-decoration:none;font-weight:600">${escapeHtml(bigRock.title)}</a>`
+      : `<strong>${escapeHtml(bigRock.title)}</strong>`
+    htmlParts.push(`<div style="margin-top:8px;font-size:14px;color:#111">🎯 <strong>Big rock today:</strong> ${rockTitle}</div>`)
+  }
+  htmlParts.push(htmlSection('Today', today.map(t => taskItem(t, relDueLine(t) || 'no date', crisis(t)))))
   htmlParts.push(htmlSection('Coming up', comingUp.map(t => taskItem(t, relDueLine(t)))))
   htmlParts.push(htmlSection('Carrying', carrying.map(t => taskItem(t, `${carryingDays(t)} days`))))
   htmlParts.push(htmlSection('Quick wins', quickWins.map(t => taskItem(t, t.size))))

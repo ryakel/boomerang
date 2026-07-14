@@ -37,6 +37,7 @@ function spawnStackMembers(routine, dueYMD) {
     if (energy) task.energy = energy
     if (energyLevel) task.energyLevel = energyLevel
     if (routine.assignee) task.assignee = routine.assignee
+    if (routine.impact) task.impact = routine.impact
     task.snoozed_until = snooze
     return task
   })
@@ -164,6 +165,7 @@ export function useRoutines() {
     if (routine.energy) task.energy = routine.energy
     if (routine.energyLevel) task.energyLevel = routine.energyLevel
     if (routine.assignee) task.assignee = routine.assignee
+    if (routine.impact) task.impact = routine.impact
     setRoutines(prev => prev.map(r => r.id === routineId
       ? { ...r, completed_history: [...(r.completed_history || []), now] }
       : r))
@@ -214,6 +216,7 @@ export function useRoutines() {
     if (routine.energy) task.energy = routine.energy
     if (routine.energyLevel) task.energyLevel = routine.energyLevel
     if (routine.assignee) task.assignee = routine.assignee
+    if (routine.impact) task.impact = routine.impact
     if (Array.isArray(routine.follow_ups) && routine.follow_ups.length > 0) {
       task.follow_ups = routine.follow_ups
     }
@@ -314,6 +317,7 @@ export function useRoutines() {
       task.notion_url = routine.notion_url
       if (routine.high_priority) task.high_priority = true
       if (routine.assignee) task.assignee = routine.assignee
+      if (routine.impact) task.impact = routine.impact
       if (Array.isArray(routine.follow_ups) && routine.follow_ups.length > 0) {
         task.follow_ups = routine.follow_ups
       }
