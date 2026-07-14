@@ -1374,3 +1374,19 @@
   background: rgba(232, 176, 75, 0.08);
   font-size: 13px;
 }
+
+/* DIY-or-hire Reality check banner. Hire verdicts get the amber "listen to
+ * this" treatment; DIY passes stay neutral. */
+.v2-edit-diy-banner {
+  padding: 10px 12px;
+  border: 1px solid var(--border, #444);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.v2-edit-diy-hire {
+  border-color: #E8B04B;
+  background: rgba(232, 176, 75, 0.08);
+}
+.v2-edit-diy-verdict { font-weight: 650; margin-bottom: 2px; }
+.v2-edit-diy-reason { opacity: 0.85; }
+.v2-edit-diy-move { margin-top: 4px; font-style: italic; opacity: 0.85; }

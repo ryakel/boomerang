@@ -94,6 +94,10 @@ export default function EditTaskModal({
   // autosave payload), "Demote" swaps the crisis tag for high_priority.
   const [crisisKeepAt, setCrisisKeepAt] = useState(null)
 
+  // Reality-check override: flips the DIY-or-hire verdict without re-running
+  // the assessment ("I'm doing it myself anyway" / "Actually, hire it out").
+  const [diyOverride, setDiyOverride] = useState(null)
+
   // Project + parent-child state.
   // - For projects: pinned_to_today + nag_allowed are project-level toggles.
   // - For child tasks: parent_id + child_visibility ('active' surfaces under
@@ -310,6 +314,7 @@ export default function EditTaskModal({
     impact,
     impact_inferred: impact != null,
     ...(crisisKeepAt ? { crisis_since: crisisKeepAt } : {}),
+    ...(diyOverride ? { diy_verdict: diyOverride.verdict, diy_reason: diyOverride.reason, diy_assessed: true } : {}),
     checklists,
     attachments: form.attachments,
     comments,
@@ -334,7 +339,7 @@ export default function EditTaskModal({
     form.attachments, form.notionResult,
     checklists, comments, weatherHidden, gcalDuration,
     pinnedToToday, nagAllowed, parentId, childVisibility, blockedBy,
-    knowledgeIds, impact, crisisKeepAt,
+    knowledgeIds, impact, crisisKeepAt, diyOverride,
     currentStatus, completedAtIso,
   ])
 
@@ -863,6 +868,38 @@ export default function EditTaskModal({
           </button>
         </div>
       </div>
+
+      {/* Reality check — the DIY-or-hire verdict on repair/construction
+        * tasks (auto-assessed by useRealityCheck, hire-out by default). The
+        * override button flips the verdict WITHOUT re-running — 'diy' also
+        * returns the nag framing to normal. */}
+      {!isProject && (task.diy_assessed || diyOverride) && (() => {
+        const verdict = diyOverride?.verdict || task.diy_verdict
+        const reason = diyOverride?.reason || task.diy_reason
+        const isHire = verdict === 'hire'
+        return (
+          <div className="v2-form-section v2-edit-diy" style={{ marginBottom: 14 }}>
+            <label className="v2-form-label">Reality check</label>
+            <div className={`v2-edit-diy-banner${isHire ? ' v2-edit-diy-hire' : ''}`}>
+              <div className="v2-edit-diy-verdict">{isHire ? '🛠 Hire it out' : '👍 DIY-able'}</div>
+              {reason && <div className="v2-edit-diy-reason">{reason}</div>}
+              {isHire && task.diy_first_move && !diyOverride && (
+                <div className="v2-edit-diy-move">First move: {task.diy_first_move}</div>
+              )}
+              <button
+                type="button"
+                className="v2-form-ai-pill v2-form-ai-pill-inline"
+                style={{ marginTop: 6 }}
+                onClick={() => setDiyOverride(isHire
+                  ? { verdict: 'diy', reason: 'Overridden — doing it myself, eyes open.' }
+                  : { verdict: 'hire', reason: 'Overridden — hiring it out.' })}
+              >
+                {isHire ? "I'm doing it myself anyway" : 'Actually, hire it out'}
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Impact — who/what this matters to (1-3). AI-inferred alongside size;
         * a manual pick here persists with impact_inferred so inference backs

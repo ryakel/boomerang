@@ -132,6 +132,16 @@ Live boosts stack on top at ranking time:
 
 Where it shows up: Today/Anytime ordering, an "Impact" sort in Tasks, What Now preferences ("who it matters for" appears in the reason), the Next-up suggestion, a "🎯 Big rock today" line in the morning digest, a "That one mattered." completion toast for impact-3 catches, and a "By impact" breakdown in Analytics. Points are deliberately unaffected — effort and impact stay separate axes.
 
+## DIY-or-Hire Reality Check
+
+For the "I'm admittedly not handy but my pride disagrees" problem. Any repair/construction-shaped task (fix, install, replace, leak, drywall, appliance…) automatically gets one blunt AI verdict: **🛠 Hire it out** or **👍 DIY-able** — and the verdict starts at hire-out; DIY has to earn it (swap-a-filter easy, near-zero risk of making it worse; anything touching water, gas, electrical, roof, or structure is an automatic hire).
+
+- **Shown on the task** — a 🛠 "hire it out" chip on rows, and a Reality check banner in the edit modal with the one-sentence reason and a first move ("Call 2 plumbers for quotes").
+- **Nags push the call, not the repair** — once a task is verdict-hire, its reminders, the quick-win nudge ("Make the call"), the morning digest, and critical-mode pings all frame the next step as hiring, with the first move inline.
+- **Critical synergy** — a repair-shaped critical task's auto-triage defaults to stop-the-bleeding + warranty + quotes, not DIY repair steps.
+- **You can overrule it** — "I'm doing it myself anyway" in the edit modal flips the verdict (eyes open) and returns the reminders to normal. Quokka also honors and can flip verdicts ("fine, I'll hire out the deck").
+- **Toggle:** Settings → Tasks → DIY reality check (on by default).
+
 ## Snooze System
 
 Context-aware preset options that show the exact date and time (e.g., "Tomorrow · Mon Apr 6 9 AM"). Options adapt to the current day of week — "This Weekend" only appears Mon–Thu, "Tonight" disappears after 7 PM, and duplicate days are automatically removed. A "Pick a date..." button opens a custom date/time picker for full control. High-priority tasks get shorter intervals (2 Hours, Tonight, Tomorrow, Day After). Each snooze increments a counter. After hitting the reframe threshold (configurable, default: 3), snoozing triggers the Reframe flow instead.

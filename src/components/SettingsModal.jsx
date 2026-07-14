@@ -2784,6 +2784,17 @@ export default function SettingsModal({
               />
             </div>
 
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <div className="v2-settings-row-label">DIY reality check</div>
+                <div className="v2-settings-row-hint">Repair/construction-shaped tasks get an automatic, blunt "DIY or hire it out?" verdict — hire-out by default. A hire verdict switches that task's reminders to push the call instead of the repair. Override per-task in the edit modal.</div>
+              </div>
+              <Toggle
+                checked={settings.diy_reality_check !== false}
+                onChange={e => update('diy_reality_check', e.target.checked)}
+              />
+            </div>
+
             <div className="v2-settings-subhead">Impact dates</div>
 
             <div className="v2-settings-block">

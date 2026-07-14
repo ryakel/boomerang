@@ -119,6 +119,39 @@ Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLev
   }
 }
 
+// --- DIY-or-hire Reality check ---
+// One call per repair/construction-shaped task (useRealityCheck hook).
+// The stance is deliberately loaded: the user has said outright that pride
+// pushes them to DIY jobs they shouldn't, so the verdict STARTS at "hire"
+// and DIY has to earn it. Custom instructions still flow in via callClaude
+// so "actually I'm great with plumbing specifically" can carve exceptions.
+// Returns { verdict, reason, first_move } or null on any failure (caller
+// retries next session, same posture as the other background inferrers).
+export async function generateRealityCheck(title, notes = '') {
+  const system = `You give a blunt DIY-vs-hire reality check on a home construction/repair task, for someone who has told you directly: "I am admittedly not handy. My pride pushes me to fix things myself when I shouldn't."
+
+STANCE: The verdict STARTS at "hire" and DIY has to earn it. Only answer "diy" when the job is trivially easy for a non-handy person with near-zero risk of making it worse — swap a filter, tighten a visible screw, plunger-level unclog, replace a bulb or battery. Anything touching water supply, gas, electrical beyond a bulb, roofing, or structure is an automatic "hire". Weigh the real cost of their weekend and the redo-work when DIY goes sideways against what a pro charges.
+
+Be direct, not cruel. No hedging, no "you could try...".
+
+Return JSON only: {"verdict": "hire"|"diy", "reason": "<one blunt sentence, under 140 chars, that names the actual risk or the actual easiness>", "first_move": "<one imperative step under 12 words — for hire: who to call / get 2 quotes; for diy: the first physical step>"}`
+  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nDIY or hire it out? JSON only.`
+  try {
+    const text = await callClaude(system, user)
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const parsed = JSON.parse(match[0])
+    if (parsed.verdict !== 'hire' && parsed.verdict !== 'diy') return null
+    return {
+      verdict: parsed.verdict,
+      reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 200) : '',
+      first_move: typeof parsed.first_move === 'string' ? parsed.first_move.slice(0, 100) : '',
+    }
+  } catch {
+    return null
+  }
+}
+
 // --- Crisis triage breakdown ---
 // One call, fired by useCrisisTriage when the crisis label lands on a task
 // (settings.crisis_auto_breakdown). Returns 3-5 concrete steps, ordered
@@ -131,7 +164,7 @@ export async function generateCrisisTriage(title, notes = '') {
 - Order them stop-the-bleeding first (e.g. for an appliance leak: shut the water valves before anything else).
 - The FIRST step must be physically doable in under 5 minutes with no prep.
 - Each step is one short imperative line (under 12 words). No sub-steps, no explanations.
-- Include a "get help lined up" step when DIY likely won't cut it (find warranty, get 2 repair quotes).
+- The user is NOT handy and has said pride pushes them to DIY jobs they shouldn't. For construction/repair crises, after the immediate stop-the-bleeding step(s), the plan is HIRE-OUT by default: find the warranty, get 2 repair quotes, book the pro — not DIY repair steps beyond trivial mitigation.
 
 Return JSON only: {"steps": ["...", "..."]}`
   const user = `Crisis task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nGive me the first moves. JSON only.`

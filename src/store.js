@@ -143,6 +143,11 @@ export const DEFAULT_SETTINGS = {
   // Days in crisis before the one gentle "Still a crisis?" check-in.
   // 0 = never ask. Never auto-demotes.
   crisis_stale_days: 7,
+  // DIY-or-hire "Reality check": repair/construction-shaped tasks get an
+  // automatic blunt assessment of whether to do it yourself or hire it out
+  // (verdict defaults to hire — per user, pride pushes them to DIY jobs
+  // they shouldn't). Master toggle; see isRepairTaskShape + useRealityCheck.
+  diy_reality_check: true,
   // Impact ranking: user-maintained event list for the proximity boost —
   // [{ id, label, date: 'YYYY-MM-DD', lead_days, tag }]. Tasks sharing an
   // event's tag rank higher as the date approaches. Managed in Settings →
@@ -187,6 +192,21 @@ const STATUS_META = {
 
 function isActiveTask(task) {
   return ACTIVE_STATUSES.includes(task.status) || task.status === 'open'
+}
+
+// Repair/construction shape detection for the DIY-or-hire Reality check.
+// Deterministic and free (no AI call to decide WHETHER to assess — only the
+// assessment itself costs a call). Strong repair nouns/verbs match outright;
+// the too-generic "fix" only counts when the energy type says hands-on
+// ("fix resume" is desk work, "fix the faucet" matches on its own noun).
+const REPAIR_KEYWORDS_RE = /\b(repair|install|replace|patch|remount|mount|unclog|rewire|re-?caulk|leak\w*|drywall|plumb\w*|pipe|drain|faucet|toilet|sink|disposal|water heater|furnace|hvac|thermostat|appliance|dishwasher|washing machine|washer|dryer|garage door|gutter\w*|roof\w*|shingle|siding|fence|deck|tile|grout|caulk|outlet|breaker|wiring|sump|septic|insulation|door (?:knob|hinge|frame)|window (?:screen|pane|sill))\b/i
+
+export function isRepairTaskShape(task) {
+  if (!task) return false
+  const text = `${task.title || ''} ${task.notes || ''}`
+  if (REPAIR_KEYWORDS_RE.test(text)) return true
+  if (/\bfix\b/i.test(text) && (task.energy === 'physical' || task.energy === 'errand')) return true
+  return false
 }
 
 // Critical tag — client-side mirror of db.js isCrisisTask (matched by

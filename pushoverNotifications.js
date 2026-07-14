@@ -278,10 +278,18 @@ function buildCrisisBody(task) {
     if (diffDays < 0) bits.push(`${Math.abs(diffDays)}d overdue`)
     else if (diffDays === 0) bits.push('due today')
   }
+  // A hire-out Reality-check verdict overrides the first move — the nag
+  // should push the call, not the repair.
   let firstMove = null
-  for (const cl of (Array.isArray(task.checklists) ? task.checklists : [])) {
-    const open = (cl.items || []).find(it => !it.completed && it.text)
-    if (open) { firstMove = open.text; break }
+  if (task.diy_verdict === 'hire') {
+    bits.push('hire it out')
+    if (task.diy_first_move) firstMove = task.diy_first_move
+  }
+  if (!firstMove) {
+    for (const cl of (Array.isArray(task.checklists) ? task.checklists : [])) {
+      const open = (cl.items || []).find(it => !it.completed && it.text)
+      if (open) { firstMove = open.text; break }
+    }
   }
   let body = `"${task.title}"${bits.length ? ` — ${bits.join(', ')}` : ''}`
   if (firstMove) body += `. First move: ${firstMove}`
@@ -344,14 +352,18 @@ function priorityToSound(priority) {
 }
 
 function buildHighPriBody(task) {
-  if (!task.due_date) return `"${task.title}" is marked high priority`
+  // Hire-out Reality-check framing appended below: push the call, not the repair.
+  const hireSuffix = task.diy_verdict === 'hire'
+    ? ` — you decided to hire this out${task.diy_first_move ? `. First move: ${task.diy_first_move}` : ''}`
+    : ''
+  if (!task.due_date) return `"${task.title}" is marked high priority${hireSuffix}`
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const due = new Date(task.due_date + 'T00:00:00')
   const diffDays = Math.round((due - today) / 86400000)
-  if (diffDays < 0) return `"${task.title}" — due ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} ago`
-  if (diffDays === 0) return `"${task.title}" is due today`
-  if (diffDays === 1) return `"${task.title}" is due tomorrow`
-  return `"${task.title}" is due in ${diffDays} days`
+  if (diffDays < 0) return `"${task.title}" — due ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} ago${hireSuffix}`
+  if (diffDays === 0) return `"${task.title}" is due today${hireSuffix}`
+  if (diffDays === 1) return `"${task.title}" is due tomorrow${hireSuffix}`
+  return `"${task.title}" is due in ${diffDays} days${hireSuffix}`
 }
 
 function truncatedTitle(prefix, title) {
@@ -561,8 +573,14 @@ async function runPushoverCheck() {
         let title, body
         if (smallTasks.length > 0) {
           const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
-          title = '[BOOMERANG] Quick win available'
-          body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
+          if (pick.diy_verdict === 'hire') {
+            // Hire-out Reality-check framing: the quick win IS the phone call.
+            title = '[BOOMERANG] Make the call'
+            body = `"${pick.title}" — you're hiring this out. ${pick.diy_first_move || 'First move: get 2 quotes.'}`
+          } else {
+            title = '[BOOMERANG] Quick win available'
+            body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
+          }
         } else {
           title = '[BOOMERANG] Pick one'
           body = `${nonSnoozed.length} open tasks. Pick the easiest one.`

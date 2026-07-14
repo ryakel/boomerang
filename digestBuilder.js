@@ -174,12 +174,15 @@ export function buildDigest(settings) {
     if (items.length === 0) return null
     return `${heading}:\n${items.map(line => `• ${line}`).join('\n')}`
   }
-  if (bigRock) textParts.push(`🎯 Big rock today: ${bigRock.title}`)
-  const todaySection = textSection('Today', today.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title} (${relDueLine(t) || 'no date'})`))
+  // Hire-out Reality-check verdicts ride the digest lines too — the plan is
+  // the call, not the repair.
+  const hireSuffix = t => t.diy_verdict === 'hire' ? ' · hire it out' : ''
+  if (bigRock) textParts.push(`🎯 Big rock today: ${bigRock.title}${hireSuffix(bigRock)}`)
+  const todaySection = textSection('Today', today.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title} (${relDueLine(t) || 'no date'})${hireSuffix(t)}`))
   if (todaySection) textParts.push(todaySection)
   const comingUpSection = textSection('Coming up', comingUp.map(t => `${t.title} (${relDueLine(t)})`))
   if (comingUpSection) textParts.push(comingUpSection)
-  const carryingSection = textSection('Carrying', carrying.map(t => `${t.title} (${carryingDays(t)}d)`))
+  const carryingSection = textSection('Carrying', carrying.map(t => `${t.title} (${carryingDays(t)}d)${hireSuffix(t)}`))
   if (carryingSection) textParts.push(carryingSection)
   const quickWinsSection = textSection('Quick wins', quickWins.map(t => `${t.title} (${t.size})`))
   if (quickWinsSection) textParts.push(quickWinsSection)
@@ -224,9 +227,9 @@ export function buildDigest(settings) {
       : `<strong>${escapeHtml(bigRock.title)}</strong>`
     htmlParts.push(`<div style="margin-top:8px;font-size:14px;color:#111">🎯 <strong>Big rock today:</strong> ${rockTitle}</div>`)
   }
-  htmlParts.push(htmlSection('Today', today.map(t => taskItem(t, relDueLine(t) || 'no date', crisis(t)))))
+  htmlParts.push(htmlSection('Today', today.map(t => taskItem(t, `${relDueLine(t) || 'no date'}${hireSuffix(t)}`, crisis(t)))))
   htmlParts.push(htmlSection('Coming up', comingUp.map(t => taskItem(t, relDueLine(t)))))
-  htmlParts.push(htmlSection('Carrying', carrying.map(t => taskItem(t, `${carryingDays(t)} days`))))
+  htmlParts.push(htmlSection('Carrying', carrying.map(t => taskItem(t, `${carryingDays(t)} days${hireSuffix(t)}`))))
   htmlParts.push(htmlSection('Quick wins', quickWins.map(t => taskItem(t, t.size))))
   if (weatherSummary) {
     htmlParts.push(`<div style="margin-top:18px;font-size:13px;color:#111"><strong style="color:#111">Weather:</strong> ${escapeHtml(weatherSummary)}</div>`)

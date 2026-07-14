@@ -337,7 +337,10 @@ export default function TodayView({
                       <span className="bm-row-meta">
                         <span className="bm-tag-crisis">critical{ageDays >= 1 ? ` · ${ageDays}d` : ''}</span>
                         {staleAsk && <span className="bm-tag-crisis-stale">still critical?</span>}
-                        {firstMove && <span className="bm-crisis-firstmove">→ {firstMove.text}</span>}
+                        {t.diy_verdict === 'hire' && <span className="bm-tag-hire">🛠 hire it out</span>}
+                        {t.diy_verdict === 'hire' && t.diy_first_move
+                          ? <span className="bm-crisis-firstmove">→ {t.diy_first_move}</span>
+                          : firstMove && <span className="bm-crisis-firstmove">→ {firstMove.text}</span>}
                       </span>
                     </button>
                   </div>
@@ -441,6 +444,7 @@ export default function TodayView({
                       {stale && <span className="bm-tag-stale">{ageDays}d on list</span>}
                       {weatherDay && <WeatherBadge day={weatherDay} />}
                       <ImpactDots task={t} onCycle={onCycleImpact} />
+                      {t.diy_verdict === 'hire' && <span className="bm-tag-hire">🛠 hire it out</span>}
                       {t.assignee && <span className="bm-tag-status">for {t.assignee}</span>}
                       {escalationActive && (
                         <span className={`bm-tag-status${t.escalation_awaiting_advance || t.escalation_stuck ? ' bm-tag-escalation-alert' : ''}`}>
@@ -482,6 +486,7 @@ export default function TodayView({
                       <span className="bm-row-title">{t.title}</span>
                       <span className="bm-row-meta">
                         <ImpactDots task={t} onCycle={onCycleImpact} />
+                        {t.diy_verdict === 'hire' && <span className="bm-tag-hire">🛠 hire it out</span>}
                         {t.assignee && <span className="bm-tag-status">for {t.assignee}</span>}
                         {chips.slice(0, 3).map(l => (
                           <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>

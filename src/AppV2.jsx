@@ -45,6 +45,7 @@ import { useServerSync } from './hooks/useServerSync'
 import { useExternalSync } from './hooks/useExternalSync'
 import { useSizeAutoInfer } from './hooks/useSizeAutoInfer'
 import { useCrisisTriage } from './hooks/useCrisisTriage'
+import { useRealityCheck } from './hooks/useRealityCheck'
 import { useToastPrefetch } from './hooks/useToastPrefetch'
 import { usePackages } from './hooks/usePackages'
 import { useAdviser } from './hooks/useAdviser'
@@ -236,6 +237,9 @@ export default function AppV2() {
   // sizer: any task that lands with the critical label and no triage pass
   // gets one.
   useCrisisTriage(tasks, updateTask)
+  // DIY-or-hire Reality check — repair/construction-shaped tasks get one
+  // blunt hire-out-by-default verdict, automatically.
+  useRealityCheck(tasks, updateTask)
 
   // Terminology reconciler (2026-07-14): the Critical tag's default label was
   // renamed prio → critical the same day the feature shipped. loadLabels()

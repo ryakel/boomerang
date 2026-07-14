@@ -207,6 +207,7 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
                             {due && <span className={due.tone === 'over' ? 'bm-due-over' : due.tone === 'hot' ? 'bm-due-hot' : undefined}>{due.label}</span>}
                             {weatherDay && <WeatherBadge day={weatherDay} />}
                             {tab !== 'snoozed' && <ImpactDots task={t} onCycle={onCycleImpact} />}
+                            {t.diy_verdict === 'hire' && <span className="bm-tag-hire">🛠 hire it out</span>}
                             {chips.slice(0, 3).map(l => (
                               <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
                             ))}

@@ -268,6 +268,10 @@ function taskToRow(task) {
     crisis_triage_done: task.crisis_triage_done ? 1 : 0,
     impact: task.impact ?? null,
     impact_inferred: task.impact_inferred ? 1 : 0,
+    diy_assessed: task.diy_assessed ? 1 : 0,
+    diy_verdict: task.diy_verdict || null,
+    diy_reason: task.diy_reason || null,
+    diy_first_move: task.diy_first_move || null,
   }
 }
 
@@ -332,6 +336,10 @@ function rowToTask(row) {
     crisis_triage_done: !!row.crisis_triage_done,
     impact: row.impact ?? null,
     impact_inferred: !!row.impact_inferred,
+    diy_assessed: !!row.diy_assessed,
+    diy_verdict: row.diy_verdict || null,
+    diy_reason: row.diy_reason || null,
+    diy_first_move: row.diy_first_move || null,
   }
 }
 
@@ -360,8 +368,9 @@ const UPSERT_TASK_SQL = `
     knowledge_page_ids_json, stack_bonus, assignee,
     escalation_rungs_json, escalation_current_rung, escalation_attempt_log_json,
     escalation_awaiting_advance, escalation_stuck,
-    crisis_since, crisis_triage_done, impact, impact_inferred)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    crisis_since, crisis_triage_done, impact, impact_inferred,
+    diy_assessed, diy_verdict, diy_reason, diy_first_move)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -399,7 +408,11 @@ const UPSERT_TASK_SQL = `
     crisis_since=excluded.crisis_since,
     crisis_triage_done=excluded.crisis_triage_done,
     impact=excluded.impact,
-    impact_inferred=excluded.impact_inferred`
+    impact_inferred=excluded.impact_inferred,
+    diy_assessed=excluded.diy_assessed,
+    diy_verdict=excluded.diy_verdict,
+    diy_reason=excluded.diy_reason,
+    diy_first_move=excluded.diy_first_move`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -418,6 +431,7 @@ function runUpsertTask(task) {
     r.escalation_rungs_json, r.escalation_current_rung, r.escalation_attempt_log_json,
     r.escalation_awaiting_advance, r.escalation_stuck,
     r.crisis_since, r.crisis_triage_done, r.impact, r.impact_inferred,
+    r.diy_assessed, r.diy_verdict, r.diy_reason, r.diy_first_move,
   ])
 }
 
