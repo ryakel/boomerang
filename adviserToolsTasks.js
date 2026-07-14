@@ -35,6 +35,9 @@ const TASK_FIELDS = [
   // Impact 1-3 (migration 041) — who/what this matters to. Manual sets via
   // Quokka count as hand-set (impact_inferred stamped in the execute paths).
   'impact',
+  // DIY-or-hire Reality check (migration 042). Quokka can set/flip a verdict
+  // when the user decides ("fine, I'll hire out the deck repair").
+  'diy_assessed', 'diy_verdict', 'diy_reason', 'diy_first_move',
 ]
 
 function summarizeTask(t) {
@@ -65,6 +68,8 @@ function summarizeTask(t) {
     assignee: t.assignee || null,
     impact: t.impact ?? null,
     crisis_since: t.crisis_since || null,
+    diy_verdict: t.diy_verdict || null,
+    diy_first_move: t.diy_first_move || null,
     escalation_rungs: t.escalation_rungs || [],
     escalation_current_rung: t.escalation_current_rung ?? null,
     escalation_attempt_count: (t.escalation_attempt_log || []).length,

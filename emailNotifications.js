@@ -267,10 +267,18 @@ function buildCrisisBody(task) {
     if (diffDays < 0) bits.push(`${Math.abs(diffDays)}d overdue`)
     else if (diffDays === 0) bits.push('due today')
   }
+  // A hire-out Reality-check verdict overrides the first move — the nag
+  // should push the call, not the repair.
   let firstMove = null
-  for (const cl of (Array.isArray(task.checklists) ? task.checklists : [])) {
-    const open = (cl.items || []).find(it => !it.completed && it.text)
-    if (open) { firstMove = open.text; break }
+  if (task.diy_verdict === 'hire') {
+    bits.push('hire it out')
+    if (task.diy_first_move) firstMove = task.diy_first_move
+  }
+  if (!firstMove) {
+    for (const cl of (Array.isArray(task.checklists) ? task.checklists : [])) {
+      const open = (cl.items || []).find(it => !it.completed && it.text)
+      if (open) { firstMove = open.text; break }
+    }
   }
   let body = `"${task.title}"${bits.length ? ` — ${bits.join(', ')}` : ''}`
   if (firstMove) body += `. First move: ${firstMove}`
@@ -454,6 +462,10 @@ async function runNotificationCheck() {
         } else {
           body = `"${task.title}" is marked high priority`
         }
+        // Hire-out Reality-check framing: push the call, not the repair.
+        if (task.diy_verdict === 'hire') {
+          body += ` — you decided to hire this out${task.diy_first_move ? `. First move: ${task.diy_first_move}` : ''}`
+        }
 
         // Tone-aware rewrite — at most one per tick
         if (canRewriteThisTick('email')) {
@@ -536,17 +548,24 @@ async function runNotificationCheck() {
           : nonSnoozed[Math.floor(Math.random() * nonSnoozed.length)]
 
         let subject, body
-        // Try AI nudge first
-        const aiNudge = await generateAINudge(pick)
-        if (aiNudge) {
-          subject = 'Boomerang'
-          body = aiNudge
-        } else if (smallTasks.length > 0) {
-          subject = 'Quick win available'
-          body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
+        if (pick.diy_verdict === 'hire') {
+          // Hire-out Reality-check framing beats the generic nudge: the
+          // quick win IS the phone call, not the repair.
+          subject = 'Make the call'
+          body = `"${pick.title}" — you're hiring this out. ${pick.diy_first_move || 'First move: get 2 quotes.'}`
         } else {
-          subject = 'Boomerang'
-          body = `You have ${nonSnoozed.length} open tasks. Pick the easiest one and knock it out.`
+          // Try AI nudge first
+          const aiNudge = await generateAINudge(pick)
+          if (aiNudge) {
+            subject = 'Boomerang'
+            body = aiNudge
+          } else if (smallTasks.length > 0) {
+            subject = 'Quick win available'
+            body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
+          } else {
+            subject = 'Boomerang'
+            body = `You have ${nonSnoozed.length} open tasks. Pick the easiest one and knock it out.`
+          }
         }
         const sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
         if (sent) {

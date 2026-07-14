@@ -49,6 +49,7 @@ All settings are accessible via the gear icon in the header, organized into six 
 - **Default due date** — days from now for new tasks (default: 7, set to 0 to disable)
 - **Staleness threshold** — days before a task is marked stale (default: 2, range: 1-30) — drives both the Stale section on the task list and the Stale notification type
 - **Reframe trigger** — snooze count before reframe is required instead of snooze (default: 3, range: 1-20)
+- **DIY reality check** (`diy_reality_check`, default on) — repair/construction-shaped tasks get an automatic blunt "DIY or hire it out?" verdict, hire-out by default; a hire verdict switches that task's reminders to push the call instead of the repair. Per-task override in the edit modal.
 - **Impact dates** — a list of upcoming events (label, date, lead days, linked task label) that make related work rank higher as they approach (Impact sort, Today ordering). E.g. "Christmas · 12-25 · 21 days lead · label `xmas`" boosts every `xmas`-tagged task through December. Stored as `impact_dates`; Quokka can edit the list too.
 - **AI custom instructions** — free-text field that shapes all AI output (Polish, What Now, Reframe, smart nudges, Quokka tone, size/energy/impact inference). Import from `.md`/`.txt`, export to `.md`, clear button when set. The Anthropic API key itself is configured in Integrations (see below); this tab just links there.
 
