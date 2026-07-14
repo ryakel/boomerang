@@ -86,7 +86,7 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
           const rest = grouped
             .map(sec => ({ ...sec, items: sec.items.filter(t => !crisisIds.has(t.id)) }))
             .filter(sec => sec.items.length > 0)
-          return [{ key: 'crisis', label: '🚨 Now', items: crisis }, ...rest]
+          return [{ key: 'crisis', label: '🚨 Critical', items: crisis }, ...rest]
         }
       }
       return grouped

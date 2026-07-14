@@ -9,7 +9,7 @@ import { ACTIVE_STATUSES, loadSettings } from '../store'
 function taggableLabels(labels) {
   const settings = loadSettings()
   const bypass = settings?.quiet_hours_bypass_label || 'wake-me'
-  const crisis = settings?.crisis_label || 'prio'
+  const crisis = settings?.crisis_label || 'critical'
   return (labels || []).filter(l => l && l.id && l.id !== bypass && l.id !== crisis)
 }
 

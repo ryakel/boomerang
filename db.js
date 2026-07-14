@@ -978,14 +978,15 @@ export function isNotifiable(task, settings = null) {
   return false
 }
 
-// Crisis tag ("prio"): does this task carry the user-configured crisis label?
-// Matches against tag id (strings stored in task.tags), case-insensitive —
-// same matching rule as the quiet-hours bypass label. Shared export (like
-// filterNotifiableTasks/escalationNudgeOverride) so all three notification
-// engines, the digest builder, and isNotifiable agree on one definition.
-// See wiki/Crisis-Tag-And-Impact-Ranking.md.
+// Critical tag: does this task carry the user-configured critical label?
+// (User-facing term is "Critical"; internal crisis_* identifiers keep their
+// names.) Matches against tag id (strings stored in task.tags),
+// case-insensitive — same matching rule as the quiet-hours bypass label.
+// Shared export (like filterNotifiableTasks/escalationNudgeOverride) so all
+// three notification engines, the digest builder, and isNotifiable agree on
+// one definition. See wiki/Crisis-Tag-And-Impact-Ranking.md.
 export function isCrisisTask(task, settings) {
-  const target = String((settings && settings.crisis_label) || 'prio').toLowerCase()
+  const target = String((settings && settings.crisis_label) || 'critical').toLowerCase()
   if (!target || !task || !Array.isArray(task.tags)) return false
   return task.tags.some(t => {
     const v = typeof t === 'string' ? t : (t?.id || t?.name || '')

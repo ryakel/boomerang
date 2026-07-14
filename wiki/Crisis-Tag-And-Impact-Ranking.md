@@ -1,4 +1,6 @@
-# Crisis Tag ("prio") + Impact-Based Prioritization — Plan
+# Critical Tag + Impact-Based Prioritization — Plan
+
+> **Terminology (2026-07-14, post-ship):** this plan was written and shipped under the working name **"crisis"** with default label **`prio`**. The same day, the user renamed the user-facing term to **Critical** and the default label to **`critical`**. This doc keeps its original wording as the design record — read "crisis"/"prio" as "critical"/"critical" everywhere user-facing. Internal identifiers (columns, settings keys, `isCrisisTask`, notification-log types) deliberately keep the `crisis_*` names.
 
 **Status: SHIPPED 2026-07-14** (same day as the plan — user said "merge and build it all", so the 5-PR build order below collapsed into one implementation PR). All decisions below are implemented as specified. Deviations from plan, all scope trims rather than behavior changes:
 - **Kept-first UI.** The 🚨 pinned section + impact dots render on the Kept surfaces (TodayView, TasksViewKept, both mobile and desktop shells). The legacy standard-theme list gets the behavior via the shared paths (notification engines, Next-up scorer, What Now, EditTaskModal controls) but no dedicated 🚨 section or card dots — follow-up if the standard theme is still in daily use.

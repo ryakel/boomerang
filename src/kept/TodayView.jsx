@@ -316,7 +316,7 @@ export default function TodayView({
       </div>
 
       {crisisTasks.length > 0 && (
-        <Section id="crisis" label="🚨 Now" count={crisisTasks.length} collapsed={!!collapsed.crisis} onToggle={toggleSection}>
+        <Section id="crisis" label="🚨 Critical" count={crisisTasks.length} collapsed={!!collapsed.crisis} onToggle={toggleSection}>
           <div className="bm-rows">
             {crisisTasks.map(t => {
               const settings = loadSettings()
@@ -335,8 +335,8 @@ export default function TodayView({
                     <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                       <span className="bm-row-title">{t.title}</span>
                       <span className="bm-row-meta">
-                        <span className="bm-tag-crisis">crisis{ageDays >= 1 ? ` · ${ageDays}d` : ''}</span>
-                        {staleAsk && <span className="bm-tag-crisis-stale">still a crisis?</span>}
+                        <span className="bm-tag-crisis">critical{ageDays >= 1 ? ` · ${ageDays}d` : ''}</span>
+                        {staleAsk && <span className="bm-tag-crisis-stale">still critical?</span>}
                         {firstMove && <span className="bm-crisis-firstmove">→ {firstMove.text}</span>}
                       </span>
                     </button>

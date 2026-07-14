@@ -2000,29 +2000,30 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
-      {/* Crisis mode — the "prio" tag's nag path. One card for everything
-          about crisis behavior (cadence, staleness check-in, auto triage).
-          The tag itself is applied per-task via EditTaskModal's Crisis mode
+      {/* Critical mode — the critical tag's nag path (internal identifiers
+          keep the original crisis_* names). One card for everything about
+          critical behavior (cadence, staleness check-in, auto triage). The
+          tag itself is applied per-task via EditTaskModal's Critical
           checkbox or by adding the label directly. */}
       <div className="v2-settings-block">
-        <SectionHeader k="crisis" label="Crisis mode" hint='Tasks tagged with the crisis label get the most aggressive nag path in the app: their own per-task pings on every enabled channel (rides the High priority toggles), a pinned 🚨 section, and an auto-drafted triage checklist. Pushover escalates to Emergency once a crisis is overdue or 24h old.' />
+        <SectionHeader k="crisis" label="Critical mode" hint='Tasks tagged with the critical label get the most aggressive nag path in the app: their own per-task pings on every enabled channel (rides the High priority toggles), a pinned 🚨 section, and an auto-drafted triage checklist. Pushover escalates to Emergency once a critical task is overdue or 24h old.' />
         {!isCollapsed('crisis') && (<>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
-            <label className="v2-settings-row-label">Crisis label</label>
-            <div className="v2-settings-row-hint">Which label puts a task on the crisis path. Never auto-applied by AI tagging.</div>
+            <label className="v2-settings-row-label">Critical label</label>
+            <div className="v2-settings-row-hint">Which label puts a task on the critical path. Never auto-applied by AI tagging.</div>
           </div>
           <input
             className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
             type="text"
-            value={settings.crisis_label || 'prio'}
+            value={settings.crisis_label || 'critical'}
             onChange={e => update('crisis_label', e.target.value)}
           />
         </div>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
             <label className="v2-settings-row-label">Nag every (hours)</label>
-            <div className="v2-settings-row-hint">Per-task crisis cadence, fractional ok (0.5 = 30 min). Ignoring a crisis never backs this off.</div>
+            <div className="v2-settings-row-hint">Per-task critical cadence, fractional ok (0.5 = 30 min). Ignoring a critical task never backs this off.</div>
           </div>
           <input
             className="v2-form-input v2-settings-compact-input"
@@ -2033,8 +2034,8 @@ function NotificationsPanel({ settings, update }) {
         </div>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
-            <label className="v2-settings-row-label">"Still a crisis?" check-in (days)</label>
-            <div className="v2-settings-row-hint">After this long in crisis, one gentle ping asks to keep or demote. Never demotes on its own. 0 = never ask.</div>
+            <label className="v2-settings-row-label">"Still critical?" check-in (days)</label>
+            <div className="v2-settings-row-hint">After this long marked critical, one gentle ping asks to keep or demote. Never demotes on its own. 0 = never ask.</div>
           </div>
           <input
             className="v2-form-input v2-settings-compact-input"
@@ -2046,7 +2047,7 @@ function NotificationsPanel({ settings, update }) {
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">Auto triage checklist</div>
-            <div className="v2-settings-row-hint">When a task enters crisis, AI drafts 3-5 first moves into its checklist (first one doable in under 5 minutes).</div>
+            <div className="v2-settings-row-hint">When a task is marked critical, AI drafts 3-5 first moves into its checklist (first one doable in under 5 minutes).</div>
           </div>
           <Toggle
             checked={settings.crisis_auto_breakdown !== false}

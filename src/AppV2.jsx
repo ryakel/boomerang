@@ -232,9 +232,37 @@ export default function AppV2() {
   useNotifications(tasks)
   useExternalSync(tasks, updateTask)
   useSizeAutoInfer(tasks, updateTask, labels)
-  // Crisis triage auto-breakdown — same background-net pattern as the sizer:
-  // any task that lands with the crisis label and no triage pass gets one.
+  // Critical triage auto-breakdown — same background-net pattern as the
+  // sizer: any task that lands with the critical label and no triage pass
+  // gets one.
   useCrisisTriage(tasks, updateTask)
+
+  // Terminology reconciler (2026-07-14): the Critical tag's default label was
+  // renamed prio → critical the same day the feature shipped. loadLabels()
+  // never merges defaults into existing installs, so any 'prio' remnants from
+  // the few hours the old name was live get re-pointed here: the seeded label
+  // (id + name), any task tags carrying 'prio', and a stored
+  // crisis_label='prio'. Idempotent and self-extinguishing — once no 'prio'
+  // remains it's a pure no-op. Safe to delete after prod data can't contain
+  // 'prio' anymore (same lifecycle as the theme migration shims).
+  useEffect(() => {
+    const hasPrioLabel = labels.some(l => l.id === 'prio' && l.name === 'prio')
+    const prioTasks = tasks.filter(t => Array.isArray(t.tags) && t.tags.includes('prio'))
+    const settingsNow = loadSettings()
+    const prioSetting = settingsNow.crisis_label === 'prio'
+    if (!hasPrioLabel && prioTasks.length === 0 && !prioSetting) return
+    if (hasPrioLabel) {
+      const next = labels.some(l => l.id === 'critical')
+        ? labels.filter(l => l.id !== 'prio')
+        : labels.map(l => (l.id === 'prio' && l.name === 'prio') ? { ...l, id: 'critical', name: 'critical' } : l)
+      setLabels(next)
+      saveLabels(next)
+    }
+    for (const t of prioTasks) {
+      updateTask(t.id, { tags: Array.from(new Set(t.tags.map(id => id === 'prio' ? 'critical' : id))) })
+    }
+    if (prioSetting) saveSettings({ ...settingsNow, crisis_label: 'critical' })
+  }, [tasks, labels, updateTask])
   const prefetchToast = useToastPrefetch(tasks, updateTask)
 
   // Routine-id set for routines with an active instance on the list. Drives
@@ -975,7 +1003,7 @@ export default function AppV2() {
       // tag pass for tasks added here (the background hook would otherwise).
       const addSettings = loadSettings() || {}
       const bypass = addSettings.quiet_hours_bypass_label || 'wake-me'
-      const crisisId = addSettings.crisis_label || 'prio'
+      const crisisId = addSettings.crisis_label || 'critical'
       // Crisis label joins wake-me in the never-auto-applied exclusion —
       // an AI silently putting a task on the Emergency-paging path is worse
       // than a silently changed quiet-hours behavior.

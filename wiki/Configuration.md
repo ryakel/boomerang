@@ -71,7 +71,7 @@ All settings are accessible via the gear icon in the header, organized into six 
 ### Labels
 - Create custom labels with names and colors (10 color options)
 - Delete existing labels
-- Default labels: inside (blue), outside (green), follow-up (orange), wake-me (red — quiet-hours bypass), prio (dark red — crisis mode)
+- Default labels: inside (blue), outside (green), follow-up (orange), wake-me (red — quiet-hours bypass), critical (dark red — critical mode)
 
 ![Settings → Labels](images/settings-labels.png)
 
@@ -82,7 +82,7 @@ All settings are accessible via the gear icon in the header, organized into six 
 - Check frequency: 15m, 30m, 1h, 2h (default: 30m)
 - Toggles for: overdue tasks, stale tasks, general nudges
 - **Pile-up** — one card holds everything for "too many open tasks": the `max_open_tasks` limit, the percentage/day-age warning threshold, and the label-exemption picker (previously split across General and Notifications with no cross-reference; consolidated 2026-07-11). See the Features page's Notifications section for the full "Exempt labeled tasks" description.
-- **Crisis mode** — one card for the crisis tag's behavior: the crisis label name (`crisis_label`, default `prio`), the per-task nag cadence (`notif_freq_crisis`, default 2h, fractional ok), the "Still a crisis?" check-in window (`crisis_stale_days`, default 7, 0 = never), and the auto triage checklist toggle (`crisis_auto_breakdown`, default on). Crisis pings ride the per-channel High-priority toggles rather than adding new ones. See the Features page's Crisis Mode section.
+- **Critical mode** — one card for the critical tag's behavior: the critical label name (`crisis_label`, default `critical` — internal setting keys keep the original crisis_* names), the per-task nag cadence (`notif_freq_crisis`, default 2h, fractional ok), the "Still critical?" check-in window (`crisis_stale_days`, default 7, 0 = never), and the auto triage checklist toggle (`crisis_auto_breakdown`, default on). Critical pings ride the per-channel High-priority toggles rather than adding new ones. See the Features page's Critical section.
 
 ### Pushover (reliable iOS notifications)
 - Solves the iOS Safari web-push throttling problem — Pushover has a dedicated iOS app with full APNs entitlements

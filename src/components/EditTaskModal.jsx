@@ -756,13 +756,14 @@ export default function EditTaskModal({
         </label>
       )}
 
-      {/* Crisis mode — toggles the configured crisis label (default "prio").
+      {/* Critical — toggles the configured critical label (default
+        * "critical"; internal identifiers keep the original crisis_* names).
         * The tag is the mechanism: relentless per-task nags on every channel
-        * at the crisis cadence, auto triage checklist, pinned 🚨 section.
+        * at the critical cadence, auto triage checklist, pinned 🚨 section.
         * Quiet-hours waking stays a separate deliberate tap (decision D1). */}
       {!isProject && (() => {
         const settings = loadSettings()
-        const crisisId = settings.crisis_label || 'prio'
+        const crisisId = settings.crisis_label || 'critical'
         const bypassId = settings.quiet_hours_bypass_label || 'wake-me'
         const crisisOn = form.selectedTags.includes(crisisId)
         const hasWake = form.selectedTags.includes(bypassId)
@@ -778,7 +779,7 @@ export default function EditTaskModal({
                 onChange={() => form.toggleTag(crisisId)}
               />
               <span className="v2-edit-toggle-label">
-                🚨 Crisis mode
+                🚨 Critical
                 <span className="v2-edit-toggle-meta">Nags every {settings.notif_freq_crisis ?? 2}h on every channel, pins to the top of Today, auto-drafts a triage checklist. Applies the "{crisisId}" label.</span>
               </span>
             </label>
@@ -797,14 +798,14 @@ export default function EditTaskModal({
             )}
             {showStaleBanner && (
               <div className="v2-edit-crisis-stale-banner">
-                <span>Still a crisis? This has been in crisis mode for {ageDays} days.</span>
+                <span>Still critical? This has been marked critical for {ageDays} days.</span>
                 <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                   <button
                     type="button"
                     className="v2-form-ai-pill v2-form-ai-pill-inline"
                     onClick={() => setCrisisKeepAt(new Date().toISOString())}
                   >
-                    Keep — still a crisis
+                    Keep — still critical
                   </button>
                   <button
                     type="button"

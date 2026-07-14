@@ -264,7 +264,7 @@ export async function getWhatNow(tasks, time, energy, capacity = null, weather =
       const drainLabel = t.energyLevel === 3 ? 'high' : t.energyLevel === 2 ? 'med' : 'low'
       const energyInfo = t.energy ? `, energy: ${ENERGY_LABELS[t.energy] || t.energy} (${drainLabel} drain)` : ''
       const impactInfo = t.impact ? `, impact: ${IMPACT_LABELS[t.impact] || t.impact}` : ''
-      const crisisFlag = crisisIds instanceof Set && crisisIds.has(t.id) ? ' [CRISIS]' : ''
+      const crisisFlag = crisisIds instanceof Set && crisisIds.has(t.id) ? ' [CRITICAL]' : ''
       return `- "${t.title}"${crisisFlag} (${t.size || 'unsized'}${energyInfo}${impactInfo}, ${t.tags.join(', ') || 'no tags'}, ${Math.floor((Date.now() - new Date(t.last_touched).getTime()) / 86400000)}d old, snoozed ${t.snooze_count}x)`
     })
     .join('\n')
@@ -278,7 +278,7 @@ export async function getWhatNow(tasks, time, energy, capacity = null, weather =
     : ''
 
   const crisisRule = hasCrisis
-    ? `\nCRISIS RULE: Tasks marked [CRISIS] are active emergencies. If ANY [CRISIS] task can fit the time window at all, it MUST be pick #1 and the reason should say why it's the fire. If the whole crisis task is too big for the window, suggest its smallest first move as the pick instead of skipping it.`
+    ? `\nCRITICAL RULE: Tasks marked [CRITICAL] are active emergencies. If ANY [CRITICAL] task can fit the time window at all, it MUST be pick #1 and the reason should say why it's the fire. If the whole critical task is too big for the window, suggest its smallest first move as the pick instead of skipping it.`
     : ''
 
   const impactRule = `\nIMPACT: Among tasks that fit the time/energy window, prefer higher impact — say who or what it matters for in the reason (e.g. "Sarah's counting on it", "unblocks the trip"). Never violate the size-vs-time HARD RULE for impact.`
