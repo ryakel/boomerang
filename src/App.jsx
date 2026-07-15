@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import AppV2 from './AppV2.jsx'
+import ConnectionSetup from './components/ConnectionSetup.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
+import { consumeConnectionSetupRequest, getApiBase, isNativeShell } from './apiConfig'
 import { logSystemError } from './store'
 
 // The legacy v1 UI was removed (2026-06-10) — v2 is the only interface.
@@ -31,6 +33,15 @@ export default function App() {
   // a valid session; 'needed' when the server requires a login we don't have.
   const [authState, setAuthState] = useState('checking')
 
+  // Native shell with no server configured → Connection screen before anything
+  // else (the /api probes below would just fail against capacitor://localhost).
+  // Also reachable on demand: Settings → Data → Change server / the login
+  // screen's escape hatch (sessionStorage flag), or ?connect=1 on the web.
+  const [showConnect, setShowConnect] = useState(() =>
+    (isNativeShell() && !getApiBase())
+    || consumeConnectionSetupRequest()
+    || new URLSearchParams(window.location.search).has('connect'))
+
   useEffect(() => {
     document.documentElement.setAttribute('data-ui-version', 'v2')
     if (!errorLoggingWired) {
@@ -51,6 +62,14 @@ export default function App() {
     return () => { cancelled = true }
   }, [])
 
+  if (showConnect) {
+    return (
+      <ConnectionSetup
+        onDone={() => window.location.reload()} // reload re-installs the fetch/SSE interceptor with the new config
+        onCancel={getApiBase() || !isNativeShell() ? () => setShowConnect(false) : null}
+      />
+    )
+  }
   if (authState === 'checking') return null
   if (authState === 'needed') return <LoginScreen onAuthenticated={() => setAuthState('ok')} />
 

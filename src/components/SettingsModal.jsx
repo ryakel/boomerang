@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight } from 'lucide-react'
+import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server } from 'lucide-react'
+import { isNativeShell, getApiBase, requestConnectionSetup } from '../apiConfig'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
   loadRoutines, saveRoutines, loadLabels, saveLabels,
@@ -2899,6 +2900,18 @@ export default function SettingsModal({
 
         {activeTab === 'Data' && (
           <div className="v2-settings-form">
+            {isNativeShell() && (
+              <div className="v2-settings-block">
+                <div className="v2-form-label">Server connection</div>
+                <div className="v2-settings-row-hint">
+                  This app talks to <strong>{getApiBase() || 'no server yet'}</strong>. Changing the server or API token reloads the app.
+                </div>
+                <button className="v2-settings-btn" onClick={requestConnectionSetup}>
+                  <Server size={13} strokeWidth={1.75} /> Change server…
+                </button>
+              </div>
+            )}
+
             <div className="v2-settings-block">
               <div className="v2-form-label">Backup</div>
               <div className="v2-settings-row-hint">Export tasks, routines, settings, and labels as a single JSON file. Importing replaces the current state and reloads.</div>
