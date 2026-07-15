@@ -1771,6 +1771,30 @@ function NotificationsPanel({ settings, update }) {
             Web push isn't supported in this browser. On iOS, add Boomerang to the Home Screen and open from there.
           </div>
         )}
+
+        {/* Native iOS (APNs) — the 4th channel, native shell only. Same
+          * per-device registration shape as the web-push "This device" row. */}
+        {isNativeShell() && (
+          <div className="v2-settings-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">Native iOS (APNs)</div>
+              <div className="v2-settings-row-hint">
+                Boomerang-branded banners — tapping one opens this app.
+                {apnsStatus && !apnsStatus.configured && ` Server not configured yet (missing: ${apnsStatus.missing.join(', ')}).`}
+                {apnsStatus?.configured && ` Server ready (${apnsStatus.env}) · ${apnsStatus.devices} device(s) registered.`}
+                {apnsMsg && ` ${apnsMsg}`}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="v2-settings-btn" onClick={handleEnableNativePush} disabled={apnsBusy}>
+                {apnsBusy ? 'Working…' : 'Enable on this device'}
+              </button>
+              <button className="v2-settings-btn" onClick={handleApnsTest} disabled={apnsBusy || !apnsStatus?.configured}>
+                Send test
+              </button>
+            </div>
+          </div>
+        )}
         </>)}
       </div>
 
@@ -1791,28 +1815,6 @@ function NotificationsPanel({ settings, update }) {
           value={settings.public_app_url || ''}
           onChange={e => update('public_app_url', e.target.value)}
         />
-        {isNativeShell() && (
-          <div className="v2-settings-row">
-            <div className="v2-settings-row-text">
-              <div className="v2-settings-row-label">Native iOS notifications (APNs)</div>
-              <div className="v2-settings-row-hint">
-                Real Boomerang notifications — tapping the banner opens this app.
-                {apnsStatus && !apnsStatus.configured && ` Server not configured yet (missing: ${apnsStatus.missing.join(', ')}).`}
-                {apnsStatus?.configured && ` Server ready (${apnsStatus.env}) · ${apnsStatus.devices} device(s) registered.`}
-                {apnsMsg && ` ${apnsMsg}`}
-              </div>
-              <div className="v2-settings-actions">
-                <button className="v2-settings-btn" onClick={handleEnableNativePush} disabled={apnsBusy}>
-                  {apnsBusy ? 'Working…' : 'Enable on this device'}
-                </button>
-                <button className="v2-settings-btn" onClick={handleApnsTest} disabled={apnsBusy || !apnsStatus?.configured}>
-                  Send test
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">Open Pushover links in the iOS app</div>
