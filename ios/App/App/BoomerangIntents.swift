@@ -50,10 +50,14 @@ struct BoomerangShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: AddBoomerangTaskIntent(),
+            // Phrases may only embed AppEnum/AppEntity parameters — a free-form
+            // String can't appear in the spoken trigger, so Siri collects the
+            // title via the parameter's requestValueDialog instead.
             phrases: [
                 "Add a task to \(.applicationName)",
-                "Add \(\.$taskTitle) to \(.applicationName)",
-                "Throw \(\.$taskTitle) to \(.applicationName)"
+                "Add a task in \(.applicationName)",
+                "Throw a task to \(.applicationName)",
+                "New task in \(.applicationName)"
             ],
             shortTitle: "Add task",
             systemImageName: "plus.circle.fill"
