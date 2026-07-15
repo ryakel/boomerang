@@ -50,6 +50,12 @@ function getCredentials(settings) {
 // CFBundleURLTypes) and routes it via @capacitor/app appUrlOpen. Off by default
 // so existing web-only setups are unchanged. The scheme is fixed (`boomerang`)
 // and matches the value registered natively.
+// The native URL scheme is environment-split so a dev server's links open the
+// side-by-side "Boomerang Dev" app (bundle ryakel.boomerang.app.dev, scheme
+// boomerang-dev) instead of the prod app. Same dev detection as isDevEnv in
+// server.js: Docker dev builds set APP_VERSION to 'dev' or 'dev-<sha>'.
+const NATIVE_SCHEME = /^dev(-|$)/.test(process.env.APP_VERSION || '') ? 'boomerang-dev' : 'boomerang'
+
 function buildDeepLink(settings, taskId) {
   // Link mode lives in its own app_data key (see /api/pushover/link-mode in
   // server.js) so the clobber-prone bulk settings blob can't erase it. The
@@ -57,7 +63,7 @@ function buildDeepLink(settings, taskId) {
   const mode = getData('pushover_link_mode')
   const openNative = mode ? !!mode.open_native : !!settings.pushover_open_native
   if (openNative) {
-    return taskId ? `boomerang://?task=${encodeURIComponent(taskId)}` : 'boomerang://'
+    return taskId ? `${NATIVE_SCHEME}://?task=${encodeURIComponent(taskId)}` : `${NATIVE_SCHEME}://`
   }
   const base = (settings.public_app_url || process.env.PUBLIC_APP_URL || '').replace(/\/$/, '')
   if (!base) return null
