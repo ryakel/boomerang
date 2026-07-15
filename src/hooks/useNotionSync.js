@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { loadSettings, saveSettings, createTask } from '../store'
+import { loadSettings, saveSettings, createTask, safeSetItem } from '../store'
 import { notionGetChildPages, notionQueryDatabase, notionGetBlocks, analyzeNotionPage, aiDedupNotionPages } from '../api'
 import { deduplicateImports, remoteLog } from '../syncDedup'
 
@@ -12,7 +12,7 @@ function loadPageCache() {
 }
 
 function savePageCache(cache) {
-  localStorage.setItem(NOTION_PAGE_CACHE_KEY, JSON.stringify(cache))
+  safeSetItem(NOTION_PAGE_CACHE_KEY, JSON.stringify(cache))
 }
 
 // Track dismissed routine suggestions to avoid re-suggesting
@@ -27,7 +27,7 @@ function saveDismissedPattern(patternKey) {
   const dismissed = loadDismissedPatterns()
   if (!dismissed.includes(patternKey)) {
     dismissed.push(patternKey)
-    localStorage.setItem(DISMISSED_PATTERNS_KEY, JSON.stringify(dismissed))
+    safeSetItem(DISMISSED_PATTERNS_KEY, JSON.stringify(dismissed))
   }
 }
 

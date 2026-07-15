@@ -35,8 +35,10 @@ export function getApiToken() {
 }
 export function setApiConfig({ base, token } = {}) {
   try {
-    if (base !== undefined) localStorage.setItem(BASE_KEY, (base || '').replace(/\/+$/, ''))
-    if (token !== undefined) localStorage.setItem(TOKEN_KEY, token || '')
+    try {
+      if (base !== undefined) localStorage.setItem(BASE_KEY, (base || '').replace(/\/+$/, ''))
+      if (token !== undefined) localStorage.setItem(TOKEN_KEY, token || '')
+    } catch (e) { console.warn('[apiConfig] localStorage write failed:', e?.message) }
   } catch { /* storage unavailable — ignore */ }
   mirrorConfigToNative()
 }

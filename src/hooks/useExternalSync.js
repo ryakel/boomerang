@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { loadSettings, loadRoutines, localYMD } from '../store'
+import { loadSettings, loadRoutines, localYMD, safeSetItem } from '../store'
 import {
   trelloUpdateCard,
   trelloCreateChecklist,
@@ -23,7 +23,7 @@ function loadQueue() {
 }
 
 function saveQueue(queue) {
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(queue))
+  safeSetItem(QUEUE_KEY, JSON.stringify(queue))
 }
 
 function enqueue(ops) {
@@ -483,7 +483,7 @@ export function useExternalSync(tasks, onUpdateTask) {
           const idx = routines.findIndex(r => r.id === task.routine_id)
           if (idx >= 0) {
             routines[idx].gcal_recurring_event_id = result.eventId
-            localStorage.setItem('boom_routines', JSON.stringify(routines))
+            safeSetItem('boom_routines', JSON.stringify(routines))
           }
         }
       } catch (err) {

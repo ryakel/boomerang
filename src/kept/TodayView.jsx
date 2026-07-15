@@ -62,7 +62,7 @@ export default function TodayView({
   const growthDismissKey = growthPicks && activePeriod ? `${growthPicks.date}:${activePeriod}` : null
   const dismissGrowthBanner = () => {
     if (!growthDismissKey) return
-    localStorage.setItem('bm_growth_banner_dismissed', growthDismissKey)
+    try { localStorage.setItem('bm_growth_banner_dismissed', growthDismissKey) } catch { /* quota — banner just reappears */ }
     setGrowthDismissed(prev => ({ ...prev, [growthDismissKey]: true }))
   }
   // Restore — dismiss isn't a one-way door. If it was tapped by mistake (or

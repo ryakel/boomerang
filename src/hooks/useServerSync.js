@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { saveTasks, saveRoutines, saveSettings, saveLabels, loadSettings, uuid } from '../store'
+import { saveTasks, saveRoutines, saveSettings, saveLabels, loadSettings, uuid, safeSetItem } from '../store'
 import { serverCreateTask, serverUpdateTask, serverDeleteTask,
   serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine } from '../api'
 import { isNativeShell } from '../apiConfig'
@@ -25,7 +25,7 @@ function loadQueue() {
 }
 
 function saveQueue(queue) {
-  localStorage.setItem(MUTATION_QUEUE_KEY, JSON.stringify(queue))
+  safeSetItem(MUTATION_QUEUE_KEY, JSON.stringify(queue))
 }
 
 function enqueueMutations(ops) {
