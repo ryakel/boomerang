@@ -2446,6 +2446,7 @@ export default function SettingsModal({
   // Dev-only reseed: only the dev environment exposes the button. The server
   // also hard-gates POST /api/dev/seed to dev, so this is just visibility.
   const [isDev, setIsDev] = useState(false)
+  const [serverVersion, setServerVersion] = useState('')
   const [reseeding, setReseeding] = useState(false)
   // Easter egg trigger — 7 taps on the Build row within a rolling 2s
   // window opens the hidden tic-tac-toe game. Android-build-number
@@ -2476,7 +2477,11 @@ export default function SettingsModal({
     let alive = true
     fetch('/api/health')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (alive && d) setIsDev(!!d.isDev) })
+      .then(d => {
+        if (!alive || !d) return
+        setIsDev(!!d.isDev)
+        setServerVersion(d.appVersion || 'unknown')
+      })
       .catch(() => {})
     return () => { alive = false }
   }, [open])
@@ -2732,8 +2737,8 @@ export default function SettingsModal({
 
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Build</div>
-                <div className="v2-settings-row-hint">Static identifier of the running build.</div>
+                <div className="v2-settings-row-label">App build</div>
+                <div className="v2-settings-row-hint">The bundle this client is running (in the native app: what Xcode installed; on the web: what the server served).</div>
               </div>
               <code
                 className="v2-settings-build"
@@ -2741,6 +2746,14 @@ export default function SettingsModal({
                 role="button"
                 tabIndex={-1}
               >{__APP_VERSION__}</code>
+            </div>
+
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <div className="v2-settings-row-label">Server version</div>
+                <div className="v2-settings-row-hint">Live from the connected server's /api/health — what's actually deployed there right now. These two are DIFFERENT builds in the native app; they only match on the web.</div>
+              </div>
+              <code className="v2-settings-build">{serverVersion || '…'}</code>
             </div>
           </div>
         )}
