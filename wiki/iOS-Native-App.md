@@ -70,7 +70,10 @@ device.
 
 Until the in-app Connection settings screen lands (Phase 1.5), set the two keys
 from Safari Web Inspector (Develop → your device → the app's WebView console),
-or temporarily hardcode for testing:
+or temporarily hardcode for testing. (The WebView is explicitly marked
+inspectable via `webContentsDebuggingEnabled: true` in `capacitor.config.ts` —
+required for this step; if Safari says "No Inspectable Applications", bring the
+app to the foreground and relaunch Safari with the simulator already running.)
 
 ```js
 localStorage.setItem('boom_api_base', 'https://YOUR-HOST.tailnet.ts.net')
