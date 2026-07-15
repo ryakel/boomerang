@@ -26,7 +26,7 @@ import {
   sendPackagePushover, cancelEmergencyForTask as cancelPushoverEmergencyForTask,
   sendDigestNow,
 } from './pushoverNotifications.js'
-import { upsertPushSubscription, deletePushSubscription, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle, getAllTasks } from './db.js'
+import { upsertPushSubscription, deletePushSubscription, getAllPushSubscriptions, deletePushSubscriptionById, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle, getAllTasks } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling, getGmailAccessToken } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
 import { startPatternDetection, runPatternScan } from './patternDetection.js'
@@ -71,6 +71,13 @@ const appVersion = process.env.APP_VERSION || 'dev'
 // the dev image is built `APP_VERSION=dev-<sha>`, and a bare local run is 'dev'.
 // Used to gate the dev-only reseed (button + endpoint) so it can never touch prod.
 const isDevEnv = appVersion === 'dev' || appVersion.startsWith('dev-')
+// Dev instances share the user's real Pushover/email/push credentials the
+// moment settings are copied or configured for a test — and then every nag
+// fires TWICE (once from prod, once from dev). A dev-shaped server therefore
+// never background-sends (engines, digest, package + weather + Quokka pushes)
+// unless explicitly unmuzzled. Direct test endpoints stay live so channels
+// can still be validated from the dev UI.
+const notifsMuzzled = isDevEnv && process.env.DEV_NOTIFICATIONS !== '1'
 
 // --- Environment (fallback keys — user can override via UI) ---
 let envApiKey = process.env.ANTHROPIC_API_KEY
@@ -198,7 +205,7 @@ app.use(authGate)
 
 // --- Health check ---
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', appVersion, isDev: isDevEnv })
+  res.json({ status: 'ok', appVersion, isDev: isDevEnv, notifsMuzzled })
 })
 
 // --- Auth endpoints (all reachable without a session; see auth.js OPEN_PATHS) ---
@@ -2275,9 +2282,11 @@ async function pollActivePackages() {
           const cleanupDate = new Date(now.getTime() + retentionDays * 86400000)
           updates.auto_cleanup_at = cleanupDate.toISOString()
           console.log(`[Packages] ${pkg.label || pkg.tracking_number} delivered`)
-          sendPackageEmail(pkg, 'delivered')
-          sendPackagePush(pkg, 'delivered')
-          sendPackagePushover(pkg, 'delivered')
+          if (!notifsMuzzled) {
+            sendPackageEmail(pkg, 'delivered')
+            sendPackagePush(pkg, 'delivered')
+            sendPackagePushover(pkg, 'delivered')
+          }
 
           if (pkg.signature_task_id) {
             const task = getTask(pkg.signature_task_id)
@@ -2308,19 +2317,25 @@ async function pollActivePackages() {
 
         // Notifications for status changes
         if (newStatus === 'exception' && pkg.status !== 'exception') {
-          sendPackageEmail(pkg, 'exception')
-          sendPackagePush(pkg, 'exception')
-          sendPackagePushover(pkg, 'exception')
+          if (!notifsMuzzled) {
+            sendPackageEmail(pkg, 'exception')
+            sendPackagePush(pkg, 'exception')
+            sendPackagePushover(pkg, 'exception')
+          }
         }
         if (newStatus === 'out_for_delivery' && pkg.status !== 'out_for_delivery') {
-          sendPackageEmail(pkg, 'out_for_delivery')
-          sendPackagePush(pkg, 'out_for_delivery')
-          sendPackagePushover(pkg, 'out_for_delivery')
+          if (!notifsMuzzled) {
+            sendPackageEmail(pkg, 'out_for_delivery')
+            sendPackagePush(pkg, 'out_for_delivery')
+            sendPackagePushover(pkg, 'out_for_delivery')
+          }
         }
         if (sigRequired && !pkg.signature_required) {
-          sendPackageEmail(pkg, 'signature_required')
-          sendPackagePush(pkg, 'signature_required')
-          sendPackagePushover(pkg, 'signature_required')
+          if (!notifsMuzzled) {
+            sendPackageEmail(pkg, 'signature_required')
+            sendPackagePush(pkg, 'signature_required')
+            sendPackagePushover(pkg, 'signature_required')
+          }
         }
 
         updatePackagePartial(pkg.id, updates)
@@ -2707,6 +2722,24 @@ app.post('/api/push/subscribe', (req, res) => {
   upsertPushSubscription(id, endpoint, keys.p256dh, keys.auth)
   console.log(`[Push] New subscription registered: ...${endpoint.slice(-30)}`)
   res.json({ ok: true })
+})
+
+// Server-side subscription registry — lets ANY client (including the native
+// app, which cannot see a stale Home-Screen PWA's subscription) list and
+// revoke the devices the server will actually web-push to.
+app.get('/api/push/subscriptions', (req, res) => {
+  const subs = getAllPushSubscriptions().map(sub => ({
+    id: sub.id,
+    endpoint: sub.endpoint,
+    updated_at: sub.updated_at,
+  }))
+  res.json({ subscriptions: subs })
+})
+
+app.delete('/api/push/subscriptions/:id', (req, res) => {
+  deletePushSubscriptionById(req.params.id)
+  console.log(`[Push] Subscription removed via registry: ${req.params.id}`)
+  res.json({ success: true })
 })
 
 app.post('/api/push/unsubscribe', (req, res) => {
@@ -3573,7 +3606,7 @@ onPlanReady(async (sessionId, session) => {
     const body = planCount === 1 ? previewLines : `${planCount} changes — ${previewLines}${planCount > 3 ? ' …' : ''}`
     const base = (settings.public_app_url || process.env.PUBLIC_APP_URL || '').replace(/\/$/, '')
     const tapUrl = base ? `${base}/?adviser=${encodeURIComponent(session.chatId || '')}` : null
-    await sendQuokkaPlanReadyPush({ title: '✨ Quokka has a plan ready', body, url: tapUrl })
+    if (!notifsMuzzled) await sendQuokkaPlanReadyPush({ title: '✨ Quokka has a plan ready', body, url: tapUrl })
     appendEvent(sessionId, { type: 'push_sent', data: { planCount } })
   } catch (err) {
     console.error('[Adviser] plan-ready push failed:', err?.message)
@@ -4096,10 +4129,14 @@ initDb(dbPath).then(async () => {
       console.log(`Notion MCP: ${ok ? 'connected' : 'not connected'}`)
     })
 
-    // Start notification loops
-    startEmailNotifications()
-    startPushNotifications()
-    startPushoverNotifications()
+    // Start notification loops (muzzled on dev instances — see notifsMuzzled)
+    if (notifsMuzzled) {
+      console.log('[Notifications] Dev instance: background engines muzzled (DEV_NOTIFICATIONS=1 to enable)')
+    } else {
+      startEmailNotifications()
+      startPushNotifications()
+      startPushoverNotifications()
+    }
     startWeatherSync()
     startWeeklyPatternReview()
     startPatternDetection()
