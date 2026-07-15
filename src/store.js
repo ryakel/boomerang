@@ -268,14 +268,44 @@ function load(key, fallback) {
   }
 }
 
+// Quota-safe localStorage write. The server is the source of truth and
+// localStorage is only the offline cache, so a failed write must degrade to
+// "stale cache" — never crash the render (2026-07-15 native-shell incident:
+// the capacitor:// origin's quota blew on hydrate and the QuotaExceededError
+// took down the whole app via the ErrorBoundary, unrecoverably, since
+// clear-and-reload just re-hydrated into the same overflow).
+// Eviction ladder: the convenience logs + refetchable caches go first, then
+// one retry; if the payload still doesn't fit we warn and carry on in-memory.
+const QUOTA_EVICT_KEYS = ['boom_activity_log_v1', 'boom_notif_log_v1', 'boom_packages_v1']
+let quotaWarned = false
+export function safeSetItem(key, str) {
+  try {
+    localStorage.setItem(key, str)
+    return true
+  } catch {
+    try {
+      for (const k of QUOTA_EVICT_KEYS) { if (k !== key) localStorage.removeItem(k) }
+      localStorage.setItem(key, str)
+      console.warn(`[Storage] Quota hit — evicted convenience caches to fit ${key}`)
+      return true
+    } catch {
+      if (!quotaWarned) {
+        quotaWarned = true
+        console.warn(`[Storage] Quota exceeded — ${key} not cached locally (app continues; server holds the data)`)
+      }
+      return false
+    }
+  }
+}
+
 function save(key, data) {
-  localStorage.setItem(key, JSON.stringify(data))
+  safeSetItem(key, JSON.stringify(data))
 }
 
 // Touch the local modification timestamp — used to detect
 // whether localStorage is newer than the server on hydration.
 function touchModified() {
-  localStorage.setItem(MODIFIED_KEY, String(Date.now()))
+  safeSetItem(MODIFIED_KEY, String(Date.now()))
 }
 
 // LOCAL-timezone YYYY-MM-DD key. Prefer this over `date.toISOString().slice(0, 10)`
@@ -293,7 +323,7 @@ export function getLocalModified() {
 }
 
 export function setLocalModified(ts) {
-  localStorage.setItem(MODIFIED_KEY, String(ts))
+  safeSetItem(MODIFIED_KEY, String(ts))
 }
 
 export function loadTasks() { return load(TASKS_KEY, []) }
@@ -1045,7 +1075,23 @@ export function loadActivityLog() {
 }
 
 export function saveActivityLog(log) {
-  localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify(log))
+  safeSetItem(ACTIVITY_LOG_KEY, JSON.stringify(log))
+}
+
+// Activity snapshots exist for recovery of task METADATA — base64 attachment
+// bodies do not belong in them (500 snapshots × attachments was the single
+// biggest quota consumer in the native-shell overflow). Notes are kept but
+// capped; attachments are reduced to a count.
+function slimSnapshot(task) {
+  const snap = { ...task }
+  if (Array.isArray(snap.attachments) && snap.attachments.length > 0) {
+    snap.attachments_count = snap.attachments.length
+  }
+  delete snap.attachments
+  if (typeof snap.notes === 'string' && snap.notes.length > 2000) {
+    snap.notes = snap.notes.slice(0, 2000) + '…'
+  }
+  return snap
 }
 
 export function logActivity(action, task) {
@@ -1057,7 +1103,7 @@ export function logActivity(action, task) {
     action,
     task_id: task.id,
     task_title: task.title,
-    task_snapshot: { ...task },
+    task_snapshot: slimSnapshot(task),
     timestamp: new Date().toISOString(),
   })
   // Keep log bounded
@@ -1089,7 +1135,7 @@ export function loadNotifLog() {
 }
 
 export function saveNotifLog(log) {
-  localStorage.setItem(NOTIF_LOG_KEY, JSON.stringify(log))
+  safeSetItem(NOTIF_LOG_KEY, JSON.stringify(log))
 }
 
 export function logNotification(type, title, body) {

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { fetchPackages, createPackage, updatePackage, deletePackageApi, refreshPackage, refreshAllPackages } from '../api'
+import { safeSetItem } from '../store'
 
 const CACHE_KEY = 'boom_packages_v1'
 
@@ -12,7 +13,7 @@ function loadCache() {
 
 function saveCache(packages) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(packages))
+    safeSetItem(CACHE_KEY, JSON.stringify(packages))
   } catch { /* quota exceeded — non-fatal */ }
 }
 
