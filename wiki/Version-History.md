@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- feat(ios): Phase 0 — native token bridge (App Group) [S]
+  - Foundation for every out-of-WebView native surface (Share Extension, App Intents, native push): those run in Swift processes that can't read the WebView's `localStorage`, where the connection config lives. `BoomerangNative.swift` — a `CAPBridgedPlugin` exposing `setSharedConfig`/`getSharedConfig` — mirrors `boom_api_base`/`boom_api_token` into an App Group container (`UserDefaults(suiteName: "group.in.kfam.boomerang")`). `src/apiConfig.js` calls it from `setApiConfig()` (every Connection-screen save) and once on interceptor install (covers configs set before this build). WebView stays the source of truth; the bridge only writes what JS hands it.
+  - **Safe to ship inert:** no entitlements/signing touched, so it can't break the current build. Until the App Group capability is added in Xcode (paid account), `UserDefaults(suiteName:)` returns nil and the plugin resolves `stored:false` — a silent no-op. On web, `isNativeShell()` is false so nothing runs; `@capacitor/core` is now pulled into the bundle (+8KB) but only `registerPlugin` (proxy factory), never invoked off-native.
+  - Verified: lint 0 errors, `npm test` 17/17 + smoke green.
+
 - fix(ios): belt-and-braces + instrumentation for the shrunken layout viewport [S]
   - The first `obscuredContentInsets = .zero` pass may not have been in the tested binary (screenshot looked identical pre/post; build-vs-pull timing ambiguous). Rather than another blind round: `BoomerangViewController` now (1) **logs** `⚡️ [Boomerang] fullBleed(...)` lines to the Xcode console with the inset/safe-area/frame values it found — proving from the console whether the override runs and which mechanism the system used; (2) zeroes the viewport through **both** shrink-capable APIs (`obscuredContentInsets`, iOS 26+, and `setMinimumViewportInset(.zero, maximumViewportInset: .zero)`, iOS 15.5+); (3) re-asserts in a post-`viewDidAppear` async pass to catch late system writes.
 
