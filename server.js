@@ -412,6 +412,32 @@ function mergeDurableStreakSettings(prevSettings, nextSettings) {
   }
 }
 
+// The generalization of the guard above (2026-07-15, born from the
+// pushover_open_native incident): a client running a PRE-FEATURE bundle has no
+// idea a new settings key exists — its localStorage blob simply omits the key —
+// and the whole-blob write erased the key within seconds of the user setting it
+// ("the toggle never saves"). For any key present in the stored blob but ABSENT
+// from the incoming blob, keep the stored value. Absent ≠ turned off: every
+// hydrated client sends explicit values (defaults come from DEFAULT_SETTINGS in
+// store.js), so flipping a toggle off still works — only blobs from stale
+// bundles omit keys. Keys removed from DEFAULT_SETTINGS linger in the stored
+// blob, which is the documented-harmless tradeoff (same as the stale
+// v1_disabled key). Deliberate removals still work via Quokka update_settings
+// (setData() directly, bypassing this path).
+function preserveAbsentSettings(prevSettings, nextSettings) {
+  if (!prevSettings || !nextSettings) return
+  const restored = []
+  for (const key of Object.keys(prevSettings)) {
+    if (!(key in nextSettings)) {
+      nextSettings[key] = prevSettings[key]
+      restored.push(key)
+    }
+  }
+  if (restored.length > 0) {
+    console.log(`[SYNC] settings guard: incoming blob (stale bundle) omitted ${restored.length} key(s), preserved: ${restored.join(', ')}`)
+  }
+}
+
 function handleWeatherSettingsChange(prevSettings, nextSettings) {
   if (!nextSettings) return
   const prevLat = prevSettings?.weather_latitude
@@ -437,6 +463,7 @@ app.put('/api/data', (req, res) => {
   delete body._clientId
   delete body._version
   const prevSettings = getData('settings')
+  preserveAbsentSettings(prevSettings, body.settings)
   mergeDurableStreakSettings(prevSettings, body.settings)
   const newVersion = setAllData(body)
   if (body.settings) {
@@ -456,6 +483,7 @@ app.post('/api/data', (req, res) => {
   delete body._clientId
   delete body._version
   const prevSettings = getData('settings')
+  preserveAbsentSettings(prevSettings, body.settings)
   mergeDurableStreakSettings(prevSettings, body.settings)
   const newVersion = setAllData(body)
   if (body.settings) {
