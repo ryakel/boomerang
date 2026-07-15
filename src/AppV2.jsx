@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ListChecks } from 'lucide-react'
+import { App as CapacitorApp } from '@capacitor/app'
+import { isNativeShell } from './apiConfig'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import BottomTabs from './components/BottomTabs'
@@ -331,20 +333,24 @@ export default function AppV2() {
   }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, showGrowthAreas, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
 
   // Deep-link handler. Notifications come in as `/?task=<id>` (task tap),
-  // `/?routine=<id>` (habit nudge tap, PR 2 — currently no-op without
-  // matching state), or `/?suggestions=1` (routine_suggestion push, PR 3).
-  // Strip the query after handling so reload doesn't re-trigger.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+  // `/?suggestions=1` (routine_suggestion push), or `/?adviser=...` (plan
+  // ready). On the web these arrive in `window.location.search`; in the native
+  // shell a Pushover tap opens `boomerang://?task=<id>`, delivered by
+  // @capacitor/app's appUrlOpen (below) — both feed this one applier.
+  const applyDeepLink = useCallback((search) => {
+    const params = new URLSearchParams(search || '')
     const taskId = params.get('task')
     const wantSuggestions = params.get('suggestions') === '1'
     const wantAdviser = params.has('adviser')
     if (!taskId && !wantSuggestions && !wantAdviser) return
-    params.delete('task')
-    params.delete('suggestions')
-    params.delete('adviser')
-    const search = params.toString()
-    window.history.replaceState({}, '', `/${search ? `?${search}` : ''}${window.location.hash}`)
+    // Strip the query from the visible URL so a reload doesn't re-trigger
+    // (web only; the native WebView URL is capacitor://localhost and unaffected).
+    if (!isNativeShell()) {
+      const visible = new URLSearchParams(window.location.search)
+      visible.delete('task'); visible.delete('suggestions'); visible.delete('adviser')
+      const s = visible.toString()
+      window.history.replaceState({}, '', `/${s ? `?${s}` : ''}${window.location.hash}`)
+    }
     if (taskId) {
       const task = tasks.find(t => t.id === taskId)
       if (task) setEditTarget(task)
@@ -352,15 +358,37 @@ export default function AppV2() {
         markNotificationTap?.(taskId).catch(() => {})
       }).catch(() => {})
     }
-    if (wantSuggestions) {
-      setShowSuggestions(true)
+    if (wantSuggestions) setShowSuggestions(true)
+    if (wantAdviser) setShowAdviser(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks])
+
+  // Web / initial-load deep link.
+  useEffect(() => {
+    applyDeepLink(window.location.search)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Native custom-scheme deep link (boomerang://?task=<id>) from a Pushover
+  // tap. Handles both cold start (getLaunchUrl) and warm (appUrlOpen). Runs
+  // ONCE — the handler is read through a ref so a tasks change doesn't re-fire
+  // getLaunchUrl and re-open the launch task.
+  const applyDeepLinkRef = useRef(applyDeepLink)
+  applyDeepLinkRef.current = applyDeepLink
+  useEffect(() => {
+    if (!isNativeShell()) return
+    let listener
+    const parseSearch = (url) => {
+      const q = String(url || '').split('?')[1]
+      return q ? `?${q}` : ''
     }
-    // Plan-ready push deep-link — open the Quokka modal so the user can
-    // review the staged plan. The chatId in the URL param is informational
-    // for analytics; useAdviser hydrates the active chat regardless.
-    if (wantAdviser) {
-      setShowAdviser(true)
-    }
+    CapacitorApp.getLaunchUrl().then((res) => {
+      if (res?.url) applyDeepLinkRef.current(parseSearch(res.url))
+    }).catch(() => {})
+    CapacitorApp.addListener('appUrlOpen', (event) => {
+      applyDeepLinkRef.current(parseSearch(event?.url))
+    }).then((l) => { listener = l }).catch(() => {})
+    return () => { listener?.remove?.() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

@@ -15,8 +15,17 @@
 //   localStorage.boom_api_token  the server's API_TOKEN
 // A later phase adds an in-app "Connection" settings screen to set these.
 
+import { registerPlugin } from '@capacitor/core'
+
 const BASE_KEY = 'boom_api_base'
 const TOKEN_KEY = 'boom_api_token'
+
+// Native bridge (Phase 0). registerPlugin returns a proxy on all platforms; we
+// only ever call it inside the native shell, where the BoomerangNative Swift
+// plugin mirrors the config into the App Group container so the Share Extension
+// / App Intents / native push can read the same credentials. On web this is
+// never invoked.
+const BoomerangNative = registerPlugin('BoomerangNative')
 
 export function getApiBase() {
   try { return (localStorage.getItem(BASE_KEY) || '').replace(/\/+$/, '') } catch { return '' }
@@ -29,6 +38,18 @@ export function setApiConfig({ base, token } = {}) {
     if (base !== undefined) localStorage.setItem(BASE_KEY, (base || '').replace(/\/+$/, ''))
     if (token !== undefined) localStorage.setItem(TOKEN_KEY, token || '')
   } catch { /* storage unavailable — ignore */ }
+  mirrorConfigToNative()
+}
+
+// Push the current base+token into the App Group container. No-op on web and a
+// harmless no-op in the shell until the App Group capability is provisioned
+// (the Swift side resolves `stored: false` rather than throwing).
+export function mirrorConfigToNative() {
+  if (!isNativeShell()) return
+  try {
+    BoomerangNative.setSharedConfig({ base: getApiBase(), token: getApiToken() })
+      .catch(() => { /* plugin absent / group not provisioned — ignore */ })
+  } catch { /* @capacitor/core proxy threw synchronously — ignore */ }
 }
 
 // True when running inside the Capacitor native shell (WebView origin is
@@ -73,6 +94,11 @@ export function installApiInterceptor() {
   const token = getApiToken()
   if (!base && !token) return // web / same-origin: do nothing at all
   installed = true
+
+  // Re-mirror on boot so a config set before this build shipped (i.e. before the
+  // native bridge existed) reaches the App Group the first time the new binary
+  // runs. Cheap and idempotent.
+  mirrorConfigToNative()
 
   const origFetch = window.fetch.bind(window)
   window.fetch = (input, init = {}) => {
