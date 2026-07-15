@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- fix(notifications): Pushover link mode carved out of the settings blob — un-clobber-able [S]
+  - **Round 2 of "the toggle never saves":** even with `preserveAbsentSettings()`, the toggle still reverted on force-quit/navigation. Cause: the guard only protects ABSENT keys — any client on a **current** bundle whose localStorage predates the user's flip sends an explicit `pushover_open_native: false` (defaults merge in `loadSettings()`), and explicit values must win or nothing could ever be turned off. A boolean in a whole-blob LWW sync across N devices is unfixable by guards.
+  - **Fix — the growth-areas carve-out pattern:** the setting now lives in its own `app_data` key (`pushover_link_mode`) with dedicated endpoints `GET/POST /api/pushover/link-mode`; the Settings toggle reads/writes those directly (optimistic, reverts on failure), and `buildDeepLink()` reads the carve-out first (legacy blob key = fallback only). No bulk blob push can touch it, by construction.
+  - **Verified live, including the attack:** booted the server, set link-mode true, then pushed a bulk settings blob containing an explicit `pushover_open_native: false` — link-mode read back `true`. The clobber path is disconnected, not guarded.
+  - Note: the native app's previously-installed bundle still shows the OLD blob-backed toggle until its next rebuild — set the mode from the prod web app (or verify at `/api/pushover/link-mode`) in the meantime.
+
 - feat(settings): show the connected server's version next to the app build [XS]
   - **Prod feedback (justified):** "you have mangled the app version and the server version and removed the caching refresh so I have no idea what to track." Since the native shell disabled version-mismatch reloads (correctly — they boot-looped), there was NO user-visible way to tell what the *server* is running: the Settings Build row shows the client bundle's `__APP_VERSION__`, which in the native app is the Xcode-built bundle and never matches the server's Docker tag.
   - Settings → General now has two labeled rows: **App build** (this client's bundle, hint text explains native-vs-web semantics) and **Server version** (live `appVersion` from the connected server's `/api/health`, piggybacking the existing isDev health fetch). "Did the deploy land?" is now answered in-app on any client, native included.
