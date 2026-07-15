@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- fix(ios): App Shortcut phrases can't embed a String parameter [XS]
+  - Second Mac-compile error in `BoomerangIntents.swift`: "'AppEntity' and 'AppEnum' are the only allowed types for 'taskTitle'". Siri phrases may only embed AppEnum/AppEntity parameters (finite vocabulary); the two parameterized phrases (`"Add \(\.$taskTitle) to …"` / `"Throw \(\.$taskTitle) to …"`) were invalid for a free-form String. Replaced with four non-parameterized phrase variants — Siri collects the title via the parameter's `requestValueDialog` ("What's the task?") instead, which is the standard dictation flow for free-text intents.
+
 - fix(ios): raise iOS deployment target 15.0 → 16.0 — AppIntents requires it [XS]
   - First real Mac compile of the Mac-session bundle failed: every AppIntents symbol in `BoomerangIntents.swift` errored "only available in iOS 16.0 or newer" because the App target (and project) still carried the Capacitor template's `IPHONEOS_DEPLOYMENT_TARGET = 15.0` (`-target arm64-apple-ios15.0` in the failing swiftc invocation). All 12 remaining `15.0` entries in `project.pbxproj` (project-level + App target, Debug/Release + their `-Dev` clones) bumped to `16.0`, matching the ShareExtension configs which were authored at 16.0 from the start. Chose the target bump over sprinkling `@available(iOS 16, *)` — `AppShortcutsProvider` registration doesn't gate cleanly, and the only device this app targets runs iOS 27. pbxproj re-validated with mod-pbxproj after the edit.
 
