@@ -41,9 +41,19 @@ function getCredentials(settings) {
 }
 
 // Build a deep link URL for a notification. Used to make every Pushover
-// message tappable — opens the task in the app. Returns null if the public
-// URL isn't configured (notification still sends, just without a URL field).
+// message tappable — opens the task in the app. Returns null if nothing is
+// configured (notification still sends, just without a URL field).
+//
+// When `pushover_open_native` is on, the URL is the native app's custom scheme
+// (`boomerang://?task=<id>`) so tapping opens the installed iOS app instead of
+// the web app in Safari — the app registers the scheme (Info.plist
+// CFBundleURLTypes) and routes it via @capacitor/app appUrlOpen. Off by default
+// so existing web-only setups are unchanged. The scheme is fixed (`boomerang`)
+// and matches the value registered natively.
 function buildDeepLink(settings, taskId) {
+  if (settings.pushover_open_native) {
+    return taskId ? `boomerang://?task=${encodeURIComponent(taskId)}` : 'boomerang://'
+  }
   const base = (settings.public_app_url || process.env.PUBLIC_APP_URL || '').replace(/\/$/, '')
   if (!base) return null
   return taskId ? `${base}/?task=${encodeURIComponent(taskId)}` : base
