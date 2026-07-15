@@ -1569,6 +1569,36 @@ function NotificationsPanel({ settings, update }) {
     return () => { alive = false }
   }, [])
 
+  // Native iOS push (APNs) — Phase 4. Only rendered in the native shell.
+  // Status comes from the server; enabling runs the full permission →
+  // APNs-register → server-register chain via src/nativePush.js.
+  const [apnsStatus, setApnsStatus] = useState(null)
+  const [apnsBusy, setApnsBusy] = useState(false)
+  const [apnsMsg, setApnsMsg] = useState('')
+  const refreshApnsStatus = useCallback(() => {
+    fetch('/api/apns/status')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setApnsStatus(d) })
+      .catch(() => {})
+  }, [])
+  useEffect(() => { if (isNativeShell()) refreshApnsStatus() }, [refreshApnsStatus])
+  const handleEnableNativePush = async () => {
+    setApnsBusy(true)
+    setApnsMsg('')
+    const { enableNativePush } = await import('../nativePush')
+    const result = await enableNativePush()
+    setApnsMsg(result.ok ? 'This device is registered for native notifications.' : result.error)
+    setApnsBusy(false)
+    refreshApnsStatus()
+  }
+  const handleApnsTest = async () => {
+    setApnsBusy(true)
+    setApnsMsg('')
+    const r = await fetch('/api/apns/test', { method: 'POST' }).then(x => x.json()).catch(() => ({ success: false, error: 'request failed' }))
+    setApnsMsg(r.success ? `Test sent to ${r.sent} device(s).` : r.error)
+    setApnsBusy(false)
+  }
+
   // Pile-up exemption label picker, shown right after "Pile-up thresholds"
   // below. loadLabels() is a cheap synchronous localStorage read, same
   // pattern LabelsPanel uses.
@@ -1761,6 +1791,28 @@ function NotificationsPanel({ settings, update }) {
           value={settings.public_app_url || ''}
           onChange={e => update('public_app_url', e.target.value)}
         />
+        {isNativeShell() && (
+          <div className="v2-settings-row">
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">Native iOS notifications (APNs)</div>
+              <div className="v2-settings-row-hint">
+                Real Boomerang notifications — tapping the banner opens this app.
+                {apnsStatus && !apnsStatus.configured && ` Server not configured yet (missing: ${apnsStatus.missing.join(', ')}).`}
+                {apnsStatus?.configured && ` Server ready (${apnsStatus.env}) · ${apnsStatus.devices} device(s) registered.`}
+                {apnsMsg && ` ${apnsMsg}`}
+              </div>
+              <div className="v2-settings-actions">
+                <button className="v2-settings-btn" onClick={handleEnableNativePush} disabled={apnsBusy}>
+                  {apnsBusy ? 'Working…' : 'Enable on this device'}
+                </button>
+                <button className="v2-settings-btn" onClick={handleApnsTest} disabled={apnsBusy || !apnsStatus?.configured}>
+                  Send test
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">Open Pushover links in the iOS app</div>

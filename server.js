@@ -19,6 +19,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush } from './pushNotifications.js'
+import { getApnsStatus, registerApnsDevice, unregisterApnsDevice, sendApnsTest } from './apnsNotifications.js'
 import {
   startPushoverNotifications, sendTestNotification as sendTestPushover,
   sendTestEmergency as sendTestPushoverEmergency, getPushoverStatus,
@@ -2750,6 +2751,23 @@ app.get('/api/pushover/link-mode', (req, res) => {
   // Fall back to any value the (legacy) settings-blob toggle managed to keep.
   const settings = getData('settings') || {}
   res.json({ open_native: stored ? !!stored.open_native : !!settings.pushover_open_native })
+})
+
+// --- Native iOS push (APNs) — Phase 4 of the native app ---
+app.get('/api/apns/status', (req, res) => {
+  res.json(getApnsStatus())
+})
+
+app.post('/api/apns/register', (req, res) => {
+  res.json(registerApnsDevice(req.body?.token))
+})
+
+app.post('/api/apns/unregister', (req, res) => {
+  res.json(unregisterApnsDevice(req.body?.token))
+})
+
+app.post('/api/apns/test', async (req, res) => {
+  res.json(await sendApnsTest())
 })
 
 app.post('/api/pushover/link-mode', (req, res) => {
