@@ -2,8 +2,19 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { saveTasks, saveRoutines, saveSettings, saveLabels, loadSettings, uuid } from '../store'
 import { serverCreateTask, serverUpdateTask, serverDeleteTask,
   serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine } from '../api'
+import { isNativeShell } from '../apiConfig'
 
 const DEBOUNCE_MS = 300
+
+// Version-mismatch handling reloads the page to pick up the server's new
+// bundle. That is only meaningful on the web, where the server serves the
+// assets. In the native (Capacitor) shell the bundle is baked into the app
+// binary — its version string ("v2.16.1-15-g<sha>" from git describe on the
+// build Mac) NEVER equals the server's Docker APP_VERSION ("dev-<sha>"), and a
+// reload can't change it, so the reload-on-mismatch path becomes an infinite
+// boot loop that also skips hydration. Native updates ship via app rebuilds;
+// skip version checks there entirely.
+const VERSION_CHECKS_ENABLED = !isNativeShell()
 const MUTATION_QUEUE_KEY = 'boom_mutation_queue'
 
 // --- Mutation queue helpers ---
@@ -372,7 +383,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           remoteLog(`SSE: connected, server v${msg.version}, appVersion=${msg.appVersion}`)
 
           const clientVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
-          if (msg.appVersion && clientVersion !== 'dev' && msg.appVersion !== clientVersion) {
+          if (VERSION_CHECKS_ENABLED && msg.appVersion && clientVersion !== 'dev' && msg.appVersion !== clientVersion) {
             remoteLog(`SSE: VERSION MISMATCH — client=${clientVersion} server=${msg.appVersion}`)
             flushLogs()
             fireVersionMismatch(msg.appVersion)
@@ -501,7 +512,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
 
   // Check app version against server on demand
   const checkVersion = useCallback(() => {
-    if (versionMismatchFired.current) return
+    if (!VERSION_CHECKS_ENABLED || versionMismatchFired.current) return
     fetch('/api/health')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
