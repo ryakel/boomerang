@@ -21,8 +21,10 @@ every request.
 
 ## Prerequisites
 
-- A **Mac with Xcode** (15+), **CocoaPods** (`sudo gem install cocoapods` or
-  `brew install cocoapods`), and an **Apple Developer Program** membership.
+- A **Mac with Xcode 26+** (Capacitor 8's floor; current betas work). No
+  CocoaPods needed — Capacitor 8's iOS template uses Swift Package Manager.
+  An **Apple Developer Program** membership (a free Apple ID also works for
+  personal sideloads; builds expire after 7 days).
 - **Auth enabled on the server** (`AUTH_PASSWORD_HASH` + `API_TOKEN` — see
   `wiki/Security-Notes.md` → Authentication). The app authenticates with
   `API_TOKEN`.
@@ -36,7 +38,10 @@ every request.
 The scaffold + connection plumbing is in the repo and ready; it is **inert in
 production** until a device is configured (below). Already in place:
 - `@capacitor/core`, `@capacitor/ios` (deps) + `@capacitor/cli` (dev) in
-  `package.json`.
+  `package.json` — **Capacitor 8** (bumped from 6 on 2026-07-15; the v8 iOS
+  template is SPM-based, no CocoaPods). `typescript` 5.x is a devDep — the
+  Capacitor CLI needs it to parse `capacitor.config.ts`, and TypeScript ≥6
+  breaks the CLI's config loader, so don't float it to latest.
 - `capacitor.config.ts` (bundled model: `webDir: 'dist'`, no `server.url`).
 - `src/apiConfig.js` — runtime connection config + a fetch/EventSource shim that
   prefixes relative `/api` URLs with the configured base and attaches the token.
@@ -51,7 +56,7 @@ production** until a device is configured (below). Already in place:
 ```sh
 npm install
 npm run build                 # produce dist/
-npx cap add ios               # creates ios/ (Mac-only: runs CocoaPods)
+npx cap add ios               # creates ios/ (SPM-based project, no CocoaPods)
 npx cap sync ios              # copies dist/ + plugins into the iOS project
 npx cap open ios              # opens Xcode
 ```

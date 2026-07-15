@@ -4,6 +4,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-15
+
+- chore(deps): Capacitor 6→8, TypeScript devDep, nodemailer 9 [S]
+  - **Prod report from the first real Mac build attempt (macOS 27 / Xcode 27 beta):** `npx cap add ios` failed twice. (1) The repo never declared `typescript` as a devDependency even though `capacitor.config.ts` requires it to parse — and installing today's latest TypeScript (7.x) crashes the Capacitor CLI's config loader (`Cannot read properties of undefined (reading 'CommonJS')` — the CLI's `requireTS` uses the classic `ts.ModuleKind` API that TS ≥6 removed). Pinned `typescript: ^5.9.0` as a devDep. (2) An `npm audit fix --force` run on the Mac had half-upgraded the stack (`@capacitor/cli` 8.4.2 alongside core/ios 6.2.0) — mixed majors.
+  - **Fix:** all three Capacitor packages aligned at `^8.4.2` (Capacitor 8 targets Xcode 26+, correct for current toolchains; its iOS template is SPM-based, so CocoaPods is no longer needed at all). `nodemailer` `^8.0.5` → `^9.0.3` (clears GHSA-p6gq-j5cr-w38f; the vuln's `raw` option is never used by `emailNotifications.js`, and the API surface we use — `createTransport`/`sendMail`/`verify` — is unchanged). This also clears the 3 pre-existing high `npm audit` findings flagged on 2026-07-14 (`@capacitor/cli`→`tar` chain): `npm audit` is now 0.
+  - **Verification:** `npm test` green (17/17 unit + smoke: server boots on nodemailer 9, bundle parses); `npx cap config --json` parses `capacitor.config.ts` cleanly with CLI 8.4.2 + TS 5.9.3. No Dockerfile impact (all changes are deps; Capacitor/TS are client/dev-only, nodemailer version rides the existing `npm ci`).
+  - Docs: `wiki/iOS-Native-App.md` prerequisites + generate steps updated (Xcode 26+, SPM instead of CocoaPods, TS note).
+
 ## 2026-07-14
 
 - fix(tasks): tasks born with a settled size never got impact/tags/energy inferred [S]
