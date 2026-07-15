@@ -12,7 +12,8 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "preview": "vite preview",
     "cap:sync": "cap sync ios",
-    "build:mobile": "vite build && cap sync ios"
+    "build:mobile": "vite build && cap sync ios",
+    "ios": "sh scripts/ios-rebuild.sh"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",
