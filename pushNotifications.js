@@ -13,6 +13,7 @@ import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, 
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
+import { isApnsConfigured, sendApnsToAll } from './apnsNotifications.js'
 
 // --- Environment (optional overrides) ---
 let vapidPublicKey = process.env.VAPID_PUBLIC_KEY
@@ -74,9 +75,47 @@ function setupVapid() {
 
 // --- Push sending ---
 
+// Phase 4b: the Push channel has two delivery legs — web push (browser
+// subscriptions) and native APNs (the iOS app's registered devices). One
+// engine computes every notification; this function fans out to both legs.
+// Arbitration: when the native leg lands on ≥1 device, Apple web-push
+// endpoints (Safari / Home-Screen PWA) are skipped, so a phone carrying both
+// the PWA and the native app never gets the same banner twice. Non-Apple
+// endpoints (desktop Chrome / Firefox) always still receive. Escape hatch:
+// settings.push_web_alongside_native === true keeps Apple endpoints firing.
+// If the native leg sends 0 (unconfigured, no devices, expired key), the
+// web leg runs in full — native can only ever reduce duplication, never
+// silently drop a notification.
 async function sendPush(payload) {
-  const subscriptions = getAllPushSubscriptions()
-  if (subscriptions.length === 0) return false
+  let nativeSent = 0
+  try {
+    if (isApnsConfigured()) {
+      const url = payload.url
+        || (payload.data?.taskId ? `/?task=${payload.data.taskId}` : null)
+      const result = await sendApnsToAll({
+        title: payload.title,
+        message: payload.body,
+        url,
+        threadId: payload.tag || 'boomerang',
+      })
+      nativeSent = result.sent || 0
+    }
+  } catch (err) {
+    console.error('[Push] APNs leg failed, falling through to web push:', err.message)
+  }
+
+  let subscriptions = getAllPushSubscriptions()
+  if (nativeSent > 0) {
+    const settings = getData('settings') || {}
+    if (settings.push_web_alongside_native !== true) {
+      const before = subscriptions.length
+      subscriptions = subscriptions.filter(s => !s.endpoint.includes('push.apple.com'))
+      if (subscriptions.length < before) {
+        console.log(`[Push] Delivered natively to ${nativeSent} device(s); skipped ${before - subscriptions.length} Apple web-push endpoint(s)`)
+      }
+    }
+  }
+  if (subscriptions.length === 0) return nativeSent > 0
 
   const payloadStr = JSON.stringify(payload)
   let sent = false
@@ -100,7 +139,7 @@ async function sendPush(payload) {
       }
     }
   }
-  return sent
+  return sent || nativeSent > 0
 }
 
 // --- Notification helpers (same as emailNotifications.js) ---
@@ -680,9 +719,14 @@ export async function sendDigestPush(digest) {
 export async function sendTestPush() {
   if (!isConfigured()) return { success: false, error: 'VAPID keys not configured' }
   const subscriptions = getAllPushSubscriptions()
-  if (subscriptions.length === 0) return { success: false, error: 'No push subscriptions registered. Enable push notifications in your browser first.' }
+  // A native-only setup (APNs devices, zero web subscriptions) is valid —
+  // the test rides the same dual-leg sendPush as real notifications.
+  const nativeReady = isApnsConfigured()
+  if (subscriptions.length === 0 && !nativeReady) {
+    return { success: false, error: 'No push subscriptions registered. Enable push notifications in your browser first.' }
+  }
 
-  console.log(`[Push] Sending test to ${subscriptions.length} subscription(s)`)
+  console.log(`[Push] Sending test to ${subscriptions.length} web subscription(s)${nativeReady ? ' + native devices' : ''}`)
   const sent = await sendPush({
     title: 'Boomerang Test',
     body: 'Push notifications are working!',

@@ -1581,7 +1581,7 @@ function NotificationsPanel({ settings, update }) {
       .then(d => { if (d) setApnsStatus(d) })
       .catch(() => {})
   }, [])
-  useEffect(() => { if (isNativeShell()) refreshApnsStatus() }, [refreshApnsStatus])
+  useEffect(() => { refreshApnsStatus() }, [refreshApnsStatus])
   const handleEnableNativePush = async () => {
     setApnsBusy(true)
     setApnsMsg('')
@@ -1649,7 +1649,7 @@ function NotificationsPanel({ settings, update }) {
   // Channel master toggles. Pushover gates additionally on credentials being
   // present, but for the v2 panel we just toggle the boolean and show a hint.
   const masters = [
-    { key: 'push_notifications_enabled', label: 'Web push', hint: 'Browser-native notifications. Per-device subscription.' },
+    { key: 'push_notifications_enabled', label: 'Push', hint: 'One channel, two delivery legs: web push to browsers/PWAs + native APNs to the iOS app. The per-type "Push" toggles below gate both.' },
     { key: 'email_notifications_enabled', label: 'Email', hint: 'Server-side SMTP. Address comes from `email_address` setting or NOTIFICATION_EMAIL env.' },
     { key: 'pushover_notifications_enabled', label: 'Pushover', hint: 'iOS-friendly transport via the Pushover app. Credentials in Integrations tab.' },
   ]
@@ -1849,27 +1849,51 @@ function NotificationsPanel({ settings, update }) {
           </div>
         )}
 
-        {/* Native iOS (APNs) — the 4th channel, native shell only. Same
-          * per-device registration shape as the web-push "This device" row. */}
-        {isNativeShell() && (
+        {/* Native iOS (APNs) — the second delivery leg of the Push channel
+          * (Phase 4b): every notification type the engine computes goes to
+          * registered native devices, and Apple web-push endpoints are
+          * skipped when native lands so one phone never gets two banners.
+          * Status + test are available from any client; Enable needs the
+          * native shell (Capacitor bridge). */}
+        {(isNativeShell() || apnsStatus?.configured) && (
           <div className="v2-settings-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
             <div className="v2-settings-row-text">
               <div className="v2-settings-row-label">Native iOS (APNs)</div>
               <div className="v2-settings-row-hint">
-                Boomerang-branded banners — tapping one opens this app.
+                Boomerang-branded banners — tapping one opens the native app. Rides the Push master and
+                the per-type Push toggles above.
                 {apnsStatus && !apnsStatus.configured && ` Server not configured yet (missing: ${apnsStatus.missing.join(', ')}).`}
                 {apnsStatus?.configured && ` Server ready (${apnsStatus.env}) · ${apnsStatus.devices} device(s) registered.`}
                 {apnsMsg && ` ${apnsMsg}`}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="v2-settings-btn" onClick={handleEnableNativePush} disabled={apnsBusy}>
-                {apnsBusy ? 'Working…' : 'Enable on this device'}
-              </button>
+              {isNativeShell() && (
+                <button className="v2-settings-btn" onClick={handleEnableNativePush} disabled={apnsBusy}>
+                  {apnsBusy ? 'Working…' : 'Enable on this device'}
+                </button>
+              )}
               <button className="v2-settings-btn" onClick={handleApnsTest} disabled={apnsBusy || !apnsStatus?.configured}>
                 Send test
               </button>
             </div>
+          </div>
+        )}
+        {apnsStatus?.configured && apnsStatus?.devices > 0 && (
+          <div className="v2-settings-row">
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">Also send Apple web push alongside native</div>
+              <div className="v2-settings-row-hint">
+                Off (default): with a native device registered, pushes to Apple web-push endpoints
+                (Safari / Home-Screen PWA) are skipped so the same phone isn't notified twice. Turn on
+                only if you rely on a separate Apple device's PWA (e.g. an iPad or Mac Safari) that
+                doesn't run the native app. Desktop Chrome/Firefox always receive either way.
+              </div>
+            </div>
+            <Toggle
+              checked={settings.push_web_alongside_native === true}
+              onChange={e => update('push_web_alongside_native', e.target.checked)}
+            />
           </div>
         )}
         </>)}
