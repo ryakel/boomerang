@@ -71,3 +71,13 @@
   opacity: 0.55;
   cursor: default;
 }
+
+.login-alt-link {
+  padding: 6px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: var(--bm-text-meta, #6b655c);
+  cursor: pointer;
+  text-decoration: underline;
+}

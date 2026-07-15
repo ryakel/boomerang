@@ -264,6 +264,14 @@ function taskToRow(task) {
     escalation_attempt_log_json: JSON.stringify(task.escalation_attempt_log || []),
     escalation_awaiting_advance: task.escalation_awaiting_advance ? 1 : 0,
     escalation_stuck: task.escalation_stuck ? 1 : 0,
+    crisis_since: task.crisis_since || null,
+    crisis_triage_done: task.crisis_triage_done ? 1 : 0,
+    impact: task.impact ?? null,
+    impact_inferred: task.impact_inferred ? 1 : 0,
+    diy_assessed: task.diy_assessed ? 1 : 0,
+    diy_verdict: task.diy_verdict || null,
+    diy_reason: task.diy_reason || null,
+    diy_first_move: task.diy_first_move || null,
   }
 }
 
@@ -324,6 +332,14 @@ function rowToTask(row) {
     escalation_attempt_log: safeJsonParse(row.escalation_attempt_log_json, []),
     escalation_awaiting_advance: !!row.escalation_awaiting_advance,
     escalation_stuck: !!row.escalation_stuck,
+    crisis_since: row.crisis_since || null,
+    crisis_triage_done: !!row.crisis_triage_done,
+    impact: row.impact ?? null,
+    impact_inferred: !!row.impact_inferred,
+    diy_assessed: !!row.diy_assessed,
+    diy_verdict: row.diy_verdict || null,
+    diy_reason: row.diy_reason || null,
+    diy_first_move: row.diy_first_move || null,
   }
 }
 
@@ -351,8 +367,10 @@ const UPSERT_TASK_SQL = `
     session_log_json, child_visibility, snooze_indefinite, blocked_by_json,
     knowledge_page_ids_json, stack_bonus, assignee,
     escalation_rungs_json, escalation_current_rung, escalation_attempt_log_json,
-    escalation_awaiting_advance, escalation_stuck)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    escalation_awaiting_advance, escalation_stuck,
+    crisis_since, crisis_triage_done, impact, impact_inferred,
+    diy_assessed, diy_verdict, diy_reason, diy_first_move)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -386,7 +404,15 @@ const UPSERT_TASK_SQL = `
     escalation_current_rung=excluded.escalation_current_rung,
     escalation_attempt_log_json=excluded.escalation_attempt_log_json,
     escalation_awaiting_advance=excluded.escalation_awaiting_advance,
-    escalation_stuck=excluded.escalation_stuck`
+    escalation_stuck=excluded.escalation_stuck,
+    crisis_since=excluded.crisis_since,
+    crisis_triage_done=excluded.crisis_triage_done,
+    impact=excluded.impact,
+    impact_inferred=excluded.impact_inferred,
+    diy_assessed=excluded.diy_assessed,
+    diy_verdict=excluded.diy_verdict,
+    diy_reason=excluded.diy_reason,
+    diy_first_move=excluded.diy_first_move`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -404,10 +430,33 @@ function runUpsertTask(task) {
     r.knowledge_page_ids_json, r.stack_bonus, r.assignee,
     r.escalation_rungs_json, r.escalation_current_rung, r.escalation_attempt_log_json,
     r.escalation_awaiting_advance, r.escalation_stuck,
+    r.crisis_since, r.crisis_triage_done, r.impact, r.impact_inferred,
+    r.diy_assessed, r.diy_verdict, r.diy_reason, r.diy_first_move,
   ])
 }
 
+// Stamp/clear the crisis-since timestamp as the crisis label transitions on
+// or off a task. Lives here (not in a route handler) so every write path is
+// covered — per-record create/update, bulk sync, and Quokka mutations all
+// funnel through upsertTask. Mutates the task object in place before the row
+// write. Never throws — a settings hiccup must not block a task write.
+function applyCrisisTransition(task) {
+  try {
+    const settings = getData('settings') || {}
+    const inCrisis = isCrisisTask(task, settings)
+    if (inCrisis && !task.crisis_since) {
+      task.crisis_since = new Date().toISOString()
+    } else if (!inCrisis && task.crisis_since) {
+      // Crisis over (label removed): clear the clock and reset the triage
+      // flag so a re-declared crisis gets a fresh triage pass.
+      task.crisis_since = null
+      task.crisis_triage_done = false
+    }
+  } catch { /* never block a write */ }
+}
+
 export function upsertTask(task) {
+  applyCrisisTransition(task)
   runUpsertTask(task)
   schedulePersist()
 }
@@ -544,6 +593,15 @@ function isResolutionUpdate(existing, updates) {
     if (['done', 'completed', 'cancelled', 'project', 'backlog'].includes(updates.status)) return true
   }
   if (updates.completed_at && !existing.completed_at) return true
+  // Removing the crisis label counts as a resolution — if a crisis-driven
+  // Pushover Emergency is still ringing, un-crisising the task should stop
+  // the alarm just like completing it would.
+  if (Array.isArray(updates.tags)) {
+    try {
+      const settings = getData('settings') || {}
+      if (isCrisisTask(existing, settings) && !isCrisisTask({ ...existing, tags: updates.tags }, settings)) return true
+    } catch { /* settings hiccup — skip the check */ }
+  }
   if (updates.snoozed_until) {
     const newSnooze = new Date(updates.snoozed_until).getTime()
     if (newSnooze > Date.now()) return true
@@ -918,16 +976,36 @@ export function escalationNudgeOverride(task) {
 //     want reminders on it anyway.)
 //   - projects qualify only when they have a due date (escalation rules
 //     apply normally) OR the user opted them into nags via nag_allowed
-export function isNotifiable(task) {
+export function isNotifiable(task, settings = null) {
   if (!task) return false
   if (task.gmail_pending) return false
   if (task.snooze_indefinite) return false
   if (task.notifications_muted) return false
   if (task.status === 'project') return !!(task.due_date || task.nag_allowed)
   if (['not_started', 'doing', 'waiting'].includes(task.status)) {
-    return !!(task.due_date || task.nag_allowed || task.escalation_current_rung != null)
+    // The crisis label is its own explicit opt-in, same as nag_allowed and an
+    // active escalation ladder — an UNDATED crisis task must still nag
+    // (nobody sets a due date mid-crisis; the washing-machine case).
+    const s = settings || getData('settings') || {}
+    return !!(task.due_date || task.nag_allowed || task.escalation_current_rung != null || isCrisisTask(task, s))
   }
   return false
+}
+
+// Critical tag: does this task carry the user-configured critical label?
+// (User-facing term is "Critical"; internal crisis_* identifiers keep their
+// names.) Matches against tag id (strings stored in task.tags),
+// case-insensitive — same matching rule as the quiet-hours bypass label.
+// Shared export (like filterNotifiableTasks/escalationNudgeOverride) so all
+// three notification engines, the digest builder, and isNotifiable agree on
+// one definition. See wiki/Crisis-Tag-And-Impact-Ranking.md.
+export function isCrisisTask(task, settings) {
+  const target = String((settings && settings.crisis_label) || 'critical').toLowerCase()
+  if (!target || !task || !Array.isArray(task.tags)) return false
+  return task.tags.some(t => {
+    const v = typeof t === 'string' ? t : (t?.id || t?.name || '')
+    return String(v).toLowerCase() === target
+  })
 }
 
 // Full notification-eligibility filter. Combines isNotifiable() with the
@@ -944,8 +1022,9 @@ export function isNotifiable(task) {
 export function filterNotifiableTasks(allTasks) {
   if (!Array.isArray(allTasks)) return []
   const byId = new Map(allTasks.map(t => [t.id, t]))
+  const settings = getData('settings') || {}
   return allTasks.filter(t => {
-    if (!isNotifiable(t)) return false
+    if (!isNotifiable(t, settings)) return false
     // Backstage sub of a project
     if (t.parent_id && t.child_visibility === 'backstage') {
       const parent = byId.get(t.parent_id)
@@ -1075,6 +1154,7 @@ export function getAnalyticsHistory(days) {
   const byTag = {}
   const byEnergy = {}
   const bySize = {}
+  const byImpact = {}
   const byDayOfWeek = Array.from({ length: 7 }, () => ({ tasks: 0, points: 0 }))
   let totalTasks = 0, totalPoints = 0
 
@@ -1121,6 +1201,12 @@ export function getAnalyticsHistory(days) {
       bySize[row.size].points += points
     }
 
+    // Impact (1-3; tasks never inferred bucket under 2 — the display default)
+    const impactKey = String(row.impact ?? 2)
+    if (!byImpact[impactKey]) byImpact[impactKey] = { tasks: 0, points: 0 }
+    byImpact[impactKey].tasks++
+    byImpact[impactKey].points += points
+
     // Day of week
     const dow = new Date(row.completed_at).getDay()
     byDayOfWeek[dow].tasks++
@@ -1131,7 +1217,7 @@ export function getAnalyticsHistory(days) {
   // Sort daily entries chronologically
   const dailyArr = Object.values(daily).sort((a, b) => a.day.localeCompare(b.day))
 
-  return { daily: dailyArr, byTag, byEnergy, bySize, byDayOfWeek, totalTasks, totalPoints }
+  return { daily: dailyArr, byTag, byEnergy, bySize, byImpact, byDayOfWeek, totalTasks, totalPoints }
 }
 
 // (syncTasksFromArray removed 2026-05-08 — bulk-replace was the wipe vector.
@@ -1172,6 +1258,7 @@ function routineToRow(routine) {
     members_json: JSON.stringify(routine.members || []),
     skipped_days_json: JSON.stringify(routine.skipped_days || []),
     assignee: routine.assignee || null,
+    impact: routine.impact ?? null,
   }
 }
 
@@ -1205,6 +1292,7 @@ function rowToRoutine(row) {
     members: safeJsonParse(row.members_json, []),
     skipped_days: safeJsonParse(row.skipped_days_json, []),
     assignee: row.assignee || null,
+    impact: row.impact ?? null,
   }
 }
 
@@ -1218,8 +1306,8 @@ const UPSERT_ROUTINE_SQL = `
     tags_json, completed_history_json, end_date, schedule_day_of_week,
     schedule_day_of_month, schedule_week_of_month, trigger_time, auto_roll,
     spawn_mode, target_count, target_period, follow_ups_json, members_json, skipped_days_json,
-    assignee)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    assignee, impact)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
     custom_unit=excluded.custom_unit,
@@ -1235,7 +1323,7 @@ const UPSERT_ROUTINE_SQL = `
     target_count=excluded.target_count, target_period=excluded.target_period,
     follow_ups_json=excluded.follow_ups_json, members_json=excluded.members_json,
     skipped_days_json=excluded.skipped_days_json,
-    assignee=excluded.assignee`
+    assignee=excluded.assignee, impact=excluded.impact`
 
 function runUpsertRoutine(routine) {
   const r = routineToRow(routine)
@@ -1245,7 +1333,7 @@ function runUpsertRoutine(routine) {
     r.tags_json, r.completed_history_json, r.end_date, r.schedule_day_of_week,
     r.schedule_day_of_month, r.schedule_week_of_month,
     r.trigger_time, r.auto_roll, r.spawn_mode, r.target_count, r.target_period,
-    r.follow_ups_json, r.members_json, r.skipped_days_json, r.assignee,
+    r.follow_ups_json, r.members_json, r.skipped_days_json, r.assignee, r.impact,
   ])
 }
 

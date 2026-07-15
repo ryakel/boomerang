@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight } from 'lucide-react'
+import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server } from 'lucide-react'
+import { isNativeShell, getApiBase, requestConnectionSetup } from '../apiConfig'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
   loadRoutines, saveRoutines, loadLabels, saveLabels,
@@ -2000,6 +2001,63 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
+      {/* Critical mode — the critical tag's nag path (internal identifiers
+          keep the original crisis_* names). One card for everything about
+          critical behavior (cadence, staleness check-in, auto triage). The
+          tag itself is applied per-task via EditTaskModal's Critical
+          checkbox or by adding the label directly. */}
+      <div className="v2-settings-block">
+        <SectionHeader k="crisis" label="Critical mode" hint='Tasks tagged with the critical label get the most aggressive nag path in the app: their own per-task pings on every enabled channel (rides the High priority toggles), a pinned 🚨 section, and an auto-drafted triage checklist. Pushover escalates to Emergency once a critical task is overdue or 24h old.' />
+        {!isCollapsed('crisis') && (<>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">Critical label</label>
+            <div className="v2-settings-row-hint">Which label puts a task on the critical path. Never auto-applied by AI tagging.</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
+            type="text"
+            value={settings.crisis_label || 'critical'}
+            onChange={e => update('crisis_label', e.target.value)}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">Nag every (hours)</label>
+            <div className="v2-settings-row-hint">Per-task critical cadence, fractional ok (0.5 = 30 min). Ignoring a critical task never backs this off.</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input"
+            type="number" min="0.25" step="0.25"
+            value={settings.notif_freq_crisis ?? 2}
+            onChange={e => update('notif_freq_crisis', e.target.value === '' ? 2 : parseFloat(e.target.value))}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">"Still critical?" check-in (days)</label>
+            <div className="v2-settings-row-hint">After this long marked critical, one gentle ping asks to keep or demote. Never demotes on its own. 0 = never ask.</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input"
+            type="number" min="0" step="1"
+            value={settings.crisis_stale_days ?? 7}
+            onChange={e => update('crisis_stale_days', e.target.value === '' ? 7 : parseInt(e.target.value, 10))}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Auto triage checklist</div>
+            <div className="v2-settings-row-hint">When a task is marked critical, AI drafts 3-5 first moves into its checklist (first one doable in under 5 minutes).</div>
+          </div>
+          <Toggle
+            checked={settings.crisis_auto_breakdown !== false}
+            onChange={e => update('crisis_auto_breakdown', e.target.checked)}
+          />
+        </div>
+        </>)}
+      </div>
+
       {/* Daily digest — per-channel opt-in. sendDigestNow gates on these flags,
           not on channel masters, so users with push/email/pushover enabled still
           need to opt into the digest separately. */}
@@ -2727,6 +2785,74 @@ export default function SettingsModal({
               />
             </div>
 
+            <div className="v2-settings-row">
+              <div className="v2-settings-row-text">
+                <div className="v2-settings-row-label">DIY reality check</div>
+                <div className="v2-settings-row-hint">Repair/construction-shaped tasks get an automatic, blunt "DIY or hire it out?" verdict — hire-out by default. A hire verdict switches that task's reminders to push the call instead of the repair. Override per-task in the edit modal.</div>
+              </div>
+              <Toggle
+                checked={settings.diy_reality_check !== false}
+                onChange={e => update('diy_reality_check', e.target.checked)}
+              />
+            </div>
+
+            <div className="v2-settings-subhead">Impact dates</div>
+
+            <div className="v2-settings-block">
+              <div className="v2-settings-row-hint">
+                Events that make related work more urgent as they approach — a holiday, a visit, a trip. Tasks sharing the event's label rank higher in Impact sort / Today ordering during the lead-up. Quokka can edit these too ("add an impact date for Christmas").
+              </div>
+              {(settings.impact_dates || []).map(ev => (
+                <div key={ev.id} className="v2-settings-row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    className="v2-form-input"
+                    style={{ flex: '1 1 120px' }}
+                    type="text"
+                    placeholder="Label (e.g. Christmas)"
+                    value={ev.label || ''}
+                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, label: e.target.value } : x))}
+                  />
+                  <input
+                    className="v2-form-input"
+                    style={{ width: 140 }}
+                    type="date"
+                    value={ev.date || ''}
+                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, date: e.target.value } : x))}
+                  />
+                  <input
+                    className="v2-form-input v2-settings-compact-input"
+                    type="number" min="1" max="90"
+                    title="Lead days — how far out the boost starts ramping"
+                    value={ev.lead_days ?? 14}
+                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, lead_days: parseInt(e.target.value, 10) || 14 } : x))}
+                  />
+                  <select
+                    className="v2-form-input"
+                    style={{ width: 130 }}
+                    value={ev.tag || ''}
+                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, tag: e.target.value || null } : x))}
+                  >
+                    <option value="">No label</option>
+                    {loadLabels().map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                  <button
+                    className="v2-settings-btn v2-settings-btn-danger"
+                    onClick={() => update('impact_dates', (settings.impact_dates || []).filter(x => x.id !== ev.id))}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <div className="v2-settings-actions">
+                <button
+                  className="v2-settings-btn"
+                  onClick={() => update('impact_dates', [...(settings.impact_dates || []), { id: uuid(), label: '', date: '', lead_days: 14, tag: null }])}
+                >
+                  + Add impact date
+                </button>
+              </div>
+            </div>
+
             <div className="v2-settings-subhead">AI tone</div>
 
             <div className="v2-settings-block">
@@ -2774,6 +2900,18 @@ export default function SettingsModal({
 
         {activeTab === 'Data' && (
           <div className="v2-settings-form">
+            {isNativeShell() && (
+              <div className="v2-settings-block">
+                <div className="v2-form-label">Server connection</div>
+                <div className="v2-settings-row-hint">
+                  This app talks to <strong>{getApiBase() || 'no server yet'}</strong>. Changing the server or API token reloads the app.
+                </div>
+                <button className="v2-settings-btn" onClick={requestConnectionSetup}>
+                  <Server size={13} strokeWidth={1.75} /> Change server…
+                </button>
+              </div>
+            )}
+
             <div className="v2-settings-block">
               <div className="v2-form-label">Backup</div>
               <div className="v2-settings-row-hint">Export tasks, routines, settings, and labels as a single JSON file. Importing replaces the current state and reloads.</div>

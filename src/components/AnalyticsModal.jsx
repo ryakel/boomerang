@@ -366,6 +366,33 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
             </section>
           )}
 
+          {/* Impact breakdown — "was this week impactful?" gets a real answer.
+              Bucket "2" includes never-inferred tasks (the display default). */}
+          {tab === 'tasks' && Object.keys(history.byImpact || {}).length > 0 && (
+            <section className="v2-analytics-section">
+              <h3 className="v2-analytics-heading">By impact</h3>
+              <ul className="v2-analytics-bd">
+                {['3', '2', '1'].filter(k => history.byImpact[k]).map(k => {
+                  const data = history.byImpact[k]
+                  const v = metric === 'tasks' ? data.tasks : data.points
+                  const max = Math.max(...Object.values(history.byImpact).map(d => metric === 'tasks' ? d.tasks : d.points))
+                  const color = k === '3' ? '#F26640' : k === '2' ? '#E8B04B' : '#9CA3AF'
+                  const label = k === '3' ? '●●● High' : k === '2' ? '●● Med' : '● Low'
+                  return (
+                    <li key={k} className="v2-analytics-bd-row">
+                      <span className="v2-analytics-bd-dot" style={{ background: color }} />
+                      <span className="v2-analytics-bd-label">{label}</span>
+                      <div className="v2-analytics-bd-track">
+                        <div className="v2-analytics-bd-fill" style={{ width: `${(v / max) * 100}%`, background: color }} />
+                      </div>
+                      <span className="v2-analytics-bd-value">{v}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )}
+
           {/* 52-week heatmap */}
           {tab === 'overview' && heatMap.weeks.length > 0 && (
             <section className="v2-analytics-section">

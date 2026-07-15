@@ -103,11 +103,44 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 | 2 | ⚡⚡ | Medium drain — requires focus |
 | 3 | ⚡⚡⚡ | High drain — significant willpower |
 
-- **Auto-inferred** — `inferSize()` returns size, energy type, energy level, and matching tags in a single API call. New tasks are automatically tagged with any of your existing labels that clearly apply (it won't invent new labels, won't touch the quiet-hours `wake-me` label, and never removes a tag you set by hand)
+- **Auto-inferred** — `inferSize()` returns size, energy type, energy level, impact, and matching tags in a single API call. New tasks are automatically tagged with any of your existing labels that clearly apply (it won't invent new labels, won't touch the quiet-hours `wake-me` label or the `critical` label, and never removes a tag you set by hand)
 - **Tap-to-cycle** — on task cards, tap the type emoji to cycle types, tap the bolts to cycle intensity
 - **Points multiplier** — `SIZE_POINTS[size] × ENERGY_MULTIPLIER[level] × speedMultiplier`. An XL⚡⚡⚡ task can earn up to 80 points
 - **Nagging boost** — confrontation/errand tasks get nagged ~30-56% more frequently via `applyAvoidanceBoost()`
 - **What Now filter** — capacity step asks "What can you do right now?" with energy type options
+
+## Critical (the "critical" tag)
+
+Tag a task with the critical label (default `critical`, configurable in Settings → Notifications → Critical mode) and it goes on the loudest path in the app — built for "the washing machine is broken" moments. Full design doc: `Crisis-Tag-And-Impact-Ranking.md` (planned under the working name "crisis"; the user-facing term is **Critical**).
+
+- **Relentless nags** — its own per-task ping on every enabled channel (web push / email / Pushover, riding the High-priority channel toggles) every 2 hours by default (`notif_freq_crisis`, fractional hours ok), regardless of due date — an undated critical task still nags. Ignoring it never backs the cadence off (critical is exempt from adaptive throttling).
+- **Pushover Emergency** — priority 1 immediately; once the task is overdue or has sat critical untouched for 24h, priority 2 Emergency (repeats every 30s for up to an hour until acknowledged). Acting on the task — or removing the critical tag — cancels the alarm.
+- **Quiet hours** — critical stays silent overnight by default; the edit modal's Critical checkbox offers an inline "Also wake me for this" that adds the `wake-me` label for true 2am-worthy fires.
+- **Auto triage checklist** — on being marked critical, AI drafts 3–5 stop-the-bleeding-first steps (the first doable in under 5 minutes) into a "Triage" checklist. Your own checklist items are never touched. Toggle: `crisis_auto_breakdown`.
+- **Pinned 🚨 Critical section** — top of Today and Tasks (Kept), red-bordered rows showing how long it's been critical and the next first move. What Now hard-prefers critical tasks; the Next-up toast and morning digest lead with them.
+- **"Still critical?"** — after 7 days (configurable, 0 = never) one gentle check-in asks you to keep or demote to high priority. It never demotes on its own.
+- **Never auto-applied** — AI tagging is forbidden from adding the critical label; only you (or an explicit ask to Quokka: "make it critical") can declare one.
+
+## Impact Ranking
+
+Every task carries an AI-inferred **impact** (1–3) alongside size and energy — who and what it actually matters to: ●●● affects people you're responsible to / money / health / unblocks things; ●● meaningful motion on your own commitments; ● self-only. Shown as colored dots on task rows; tap to cycle, or set it (or return it to auto) in the edit modal. Custom instructions shape inference ("anything my wife asked for is impact 3").
+
+Live boosts stack on top at ranking time:
+- **Closing weather window** — outdoor tasks rank higher when today/tomorrow is a good day before a multi-day bad stretch.
+- **Impact dates** — Settings → Tasks lets you list events (Christmas, a visit, a trip) with a date, lead time, and a label; tasks sharing the label climb as the date approaches. Quokka can manage the list.
+- **Due proximity** and a mild stale decay.
+
+Where it shows up: Today/Anytime ordering, an "Impact" sort in Tasks, What Now preferences ("who it matters for" appears in the reason), the Next-up suggestion, a "🎯 Big rock today" line in the morning digest, a "That one mattered." completion toast for impact-3 catches, and a "By impact" breakdown in Analytics. Points are deliberately unaffected — effort and impact stay separate axes.
+
+## DIY-or-Hire Reality Check
+
+For the "I'm admittedly not handy but my pride disagrees" problem. Any repair/construction-shaped task (fix, install, replace, leak, drywall, appliance…) automatically gets one blunt AI verdict: **🛠 Hire it out** or **👍 DIY-able** — and the verdict starts at hire-out; DIY has to earn it (swap-a-filter easy, near-zero risk of making it worse; anything touching water, gas, electrical, roof, or structure is an automatic hire).
+
+- **Shown on the task** — a 🛠 "hire it out" chip on rows, and a Reality check banner in the edit modal with the one-sentence reason and a first move ("Call 2 plumbers for quotes").
+- **Nags push the call, not the repair** — once a task is verdict-hire, its reminders, the quick-win nudge ("Make the call"), the morning digest, and critical-mode pings all frame the next step as hiring, with the first move inline.
+- **Critical synergy** — a repair-shaped critical task's auto-triage defaults to stop-the-bleeding + warranty + quotes, not DIY repair steps.
+- **You can overrule it** — "I'm doing it myself anyway" in the edit modal flips the verdict (eyes open) and returns the reminders to normal. Quokka also honors and can flip verdicts ("fine, I'll hire out the deck").
+- **Toggle:** Settings → Tasks → DIY reality check (on by default).
 
 ## Snooze System
 

@@ -19,7 +19,7 @@ import {
   queryTasks, getData, getNotifThrottle, setNotifThrottle,
   logNotifPush, getTask, updateTaskPartial,
   getEffectiveThrottleMultiplier, countPendingSuggestions, filterNotifiableTasks,
-  escalationNudgeOverride,
+  escalationNudgeOverride, isCrisisTask,
 } from './db.js'
 import { rewriteNotifBody, canRewriteThisTick, shouldRewrite } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
@@ -262,6 +262,40 @@ function applyAvoidanceBoost(freqMs, task) {
   return Math.round(freqMs / boost)
 }
 
+// Crisis nag body — mirrors pushNotifications.js (duplicated per-file like
+// the other engine helpers): age-in-crisis + due info + first open checklist
+// step as the "first move" so the nag helps start, not just yells.
+function buildCrisisBody(task) {
+  const bits = []
+  if (task.crisis_since) {
+    const days = Math.floor((Date.now() - new Date(task.crisis_since).getTime()) / 86400000)
+    if (days >= 1) bits.push(`critical for ${days}d`)
+  }
+  if (task.due_date) {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const due = new Date(task.due_date + 'T00:00:00')
+    const diffDays = Math.round((due - today) / 86400000)
+    if (diffDays < 0) bits.push(`${Math.abs(diffDays)}d overdue`)
+    else if (diffDays === 0) bits.push('due today')
+  }
+  // A hire-out Reality-check verdict overrides the first move — the nag
+  // should push the call, not the repair.
+  let firstMove = null
+  if (task.diy_verdict === 'hire') {
+    bits.push('hire it out')
+    if (task.diy_first_move) firstMove = task.diy_first_move
+  }
+  if (!firstMove) {
+    for (const cl of (Array.isArray(task.checklists) ? task.checklists : [])) {
+      const open = (cl.items || []).find(it => !it.completed && it.text)
+      if (open) { firstMove = open.text; break }
+    }
+  }
+  let body = `"${task.title}"${bits.length ? ` — ${bits.join(', ')}` : ''}`
+  if (firstMove) body += `. First move: ${firstMove}`
+  return body
+}
+
 function getHighPriorityStage(task) {
   if (!task.due_date) return 1
   const now = new Date()
@@ -318,14 +352,18 @@ function priorityToSound(priority) {
 }
 
 function buildHighPriBody(task) {
-  if (!task.due_date) return `"${task.title}" is marked high priority`
+  // Hire-out Reality-check framing appended below: push the call, not the repair.
+  const hireSuffix = task.diy_verdict === 'hire'
+    ? ` — you decided to hire this out${task.diy_first_move ? `. First move: ${task.diy_first_move}` : ''}`
+    : ''
+  if (!task.due_date) return `"${task.title}" is marked high priority${hireSuffix}`
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const due = new Date(task.due_date + 'T00:00:00')
   const diffDays = Math.round((due - today) / 86400000)
-  if (diffDays < 0) return `"${task.title}" — due ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} ago`
-  if (diffDays === 0) return `"${task.title}" is due today`
-  if (diffDays === 1) return `"${task.title}" is due tomorrow`
-  return `"${task.title}" is due in ${diffDays} days`
+  if (diffDays < 0) return `"${task.title}" — due ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} ago${hireSuffix}`
+  if (diffDays === 0) return `"${task.title}" is due today${hireSuffix}`
+  if (diffDays === 1) return `"${task.title}" is due tomorrow${hireSuffix}`
+  return `"${task.title}" is due in ${diffDays} days${hireSuffix}`
 }
 
 function truncatedTitle(prefix, title) {
@@ -351,9 +389,51 @@ async function runPushoverCheck() {
     const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
     const inQuiet = isInQuietHours(settings)
 
+    // Crisis tag ("prio") — per-task loop at notif_freq_crisis (default 2h),
+    // BEFORE and exempt from the high-pri loop's per-tick cap. Priority 1
+    // immediately; escalates to priority 2 Emergency (30s retry / 1h expire /
+    // act-to-cancel receipt) once the task is overdue OR has sat in crisis
+    // untouched for >24h (decision D4). Deliberately NOT adaptiveFreq'd —
+    // ignoring a crisis must never teach the app to back off. Quiet hours:
+    // same per-task wake-me bypass gate as the high-pri loop (D1 — crisis
+    // does not auto-bypass; the edit modal offers "also wake me").
+    const crisisIds = new Set()
+    if (settings.pushover_notif_highpri !== false) {
+      const crisisTasks = nonSnoozed.filter(t => isCrisisTask(t, settings))
+      for (const task of crisisTasks) {
+        crisisIds.add(task.id)
+
+        const ageMs = task.crisis_since ? Date.now() - new Date(task.crisis_since).getTime() : 0
+        const priority = (isOverdue(task) || ageMs > 24 * 60 * 60 * 1000) ? 2 : 1
+        if (inQuiet && !taskHasBypassLabel(task, settings)) continue
+
+        const freq = applyAvoidanceBoost(getFreqMs(settings, 'notif_freq_crisis', 2), task)
+        const throttleKey = `pushover_crisis:${task.id}`
+        if (!checkThrottle(throttleKey, freq)) continue
+
+        const body = buildCrisisBody(task)
+        const url = buildDeepLink(settings, task.id)
+        const result = await sendPushover({
+          userKey, appToken,
+          title: truncatedTitle('[BOOMERANG] 🚨 ', task.title),
+          message: body,
+          priority,
+          sound: priorityToSound(priority),
+          url, urlTitle: url ? 'Open in Boomerang' : undefined,
+        })
+        if (result.ok) {
+          markThrottle(throttleKey)
+          logNotifPush(genId(), 'crisis', task.id, '[BOOMERANG] 🚨 ' + task.title, body, 'pushover')
+          if (priority === 2 && result.receipt) {
+            updateTaskPartial(task.id, { pushover_receipt: result.receipt })
+          }
+        }
+      }
+    }
+
     // High-priority notifications (per-task)
     if (settings.pushover_notif_highpri !== false) {
-      const highPriTasks = nonSnoozed.filter(t => t.high_priority)
+      const highPriTasks = nonSnoozed.filter(t => t.high_priority && !crisisIds.has(t.id))
       let hpCount = 0
       for (const task of highPriTasks) {
         if (hpCount >= 3) break
@@ -440,7 +520,8 @@ async function runPushoverCheck() {
     // the rung's own cadence. Excluded from the aggregate stale/nudge pools.
     const escalationActiveIds = new Set()
     if (settings.pushover_notif_escalation !== false) {
-      const escalationTasks = nonSnoozed.filter(t => t.escalation_current_rung != null)
+      // Crisis takes precedence — no stacked escalation nudge on a crisis task.
+      const escalationTasks = nonSnoozed.filter(t => t.escalation_current_rung != null && !crisisIds.has(t.id))
       for (const task of escalationTasks) {
         escalationActiveIds.add(task.id)
         const override = escalationNudgeOverride(task)
@@ -467,7 +548,7 @@ async function runPushoverCheck() {
     if (settings.pushover_notif_stale !== false) {
       const freq = adaptiveFreq('stale', getFreqMs(settings, 'notif_freq_stale', 0.5))
       if (checkThrottle('pushover_stale', freq)) {
-        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id))
+        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
         if (staleTasks.length > 0) {
           const body = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
           const result = await sendPushover({
@@ -488,12 +569,18 @@ async function runPushoverCheck() {
     if (settings.pushover_notif_nudge !== false) {
       const freq = adaptiveFreq('nudge', getFreqMs(settings, 'notif_freq_nudge', 1))
       if (checkThrottle('pushover_nudge', freq) && nonSnoozed.length > 0) {
-        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id))
+        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
         let title, body
         if (smallTasks.length > 0) {
           const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
-          title = '[BOOMERANG] Quick win available'
-          body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
+          if (pick.diy_verdict === 'hire') {
+            // Hire-out Reality-check framing: the quick win IS the phone call.
+            title = '[BOOMERANG] Make the call'
+            body = `"${pick.title}" — you're hiring this out. ${pick.diy_first_move || 'First move: get 2 quotes.'}`
+          } else {
+            title = '[BOOMERANG] Quick win available'
+            body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
+          }
         } else {
           title = '[BOOMERANG] Pick one'
           body = `${nonSnoozed.length} open tasks. Pick the easiest one.`
@@ -540,7 +627,7 @@ async function runPushoverCheck() {
       const freq = adaptiveFreq('pileup', getFreqMs(settings, 'notif_freq_pileup', 2))
       if (checkThrottle('pushover_pileup', freq)) {
         let sent = false
-        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings))
+        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings) && !crisisIds.has(t.id))
         if (settings.max_open_tasks && pileupPool.length > settings.max_open_tasks) {
           const title = '[BOOMERANG] Too many open tasks'
           const body = `${pileupPool.length} open (limit: ${settings.max_open_tasks}). Knock one out?`

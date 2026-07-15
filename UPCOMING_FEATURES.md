@@ -2,6 +2,10 @@
 
 ## Near-term
 
+### Critical Tag + Impact — remaining follow-ups (core SHIPPED 2026-07-14)
+- Spec + shipped-state notes: `wiki/Crisis-Tag-And-Impact-Ranking.md`
+- Parked from v1: impact points multiplier (D3 — revisit after real use), GCal-derived impact dates, critical-specific web-push inline actions ("On it" snooze), weekly impact recap notification, 🚨 section + impact dots on the legacy standard-theme list
+
 ### Per-type Notification Frequencies
 - Per-type frequency settings (e.g. overdue checks every 15m, nudges every 2h)
 - Notification sound/vibration toggle

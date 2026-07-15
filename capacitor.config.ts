@@ -10,7 +10,19 @@ const config: CapacitorConfig = {
   appName: 'Boomerang',
   webDir: 'dist',
   ios: {
-    contentInset: 'always',
+    // Edge-to-edge WebView (the default, 'never'). Do NOT set contentInset:
+    // 'always' — the app's CSS already handles notch/home-indicator spacing
+    // with env(safe-area-inset-*) + viewport-fit=cover (it ships as an iOS
+    // PWA), and a native content inset stacks on top of that: the viewport
+    // gets offset and the fixed bottom tab bar lands half off-screen
+    // (2026-07-15 fix, first simulator run).
+    // Explicitly inspectable (iOS 16.4+ WKWebView isInspectable). Capacitor's
+    // "auto-true in development builds" detection proved unreliable on beta
+    // toolchains (Safari showed "No Inspectable Applications"), and until the
+    // Phase 1.5 in-app Connection screen exists, the Safari Web Inspector is
+    // the ONLY way to set boom_api_base/boom_api_token on a device. Single-user
+    // personal app — an inspectable WebView in release builds is acceptable.
+    webContentsDebuggingEnabled: true,
   },
 }
 

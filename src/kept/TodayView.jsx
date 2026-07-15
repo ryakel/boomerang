@@ -5,8 +5,10 @@ import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD, parseLocalDate } from '../dates'
 import { historyByDay, currentStreak } from './heatmapUtils'
-import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate, loadSettings } from '../store'
-import { calculateTaskPoints } from '../scoring'
+import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate, loadSettings, isCrisisTask } from '../store'
+import { calculateTaskPoints, impactRank } from '../scoring'
+import { buildImpactCtx } from '../impactContext'
+import ImpactDots from './ImpactDots'
 import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
@@ -24,7 +26,7 @@ export default function TodayView({
   tasks = [], routines = [], labels = [], weatherByDate = null,
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
-  onLogSession, onGmailKeep, onGmailDismiss, onWhatNow,
+  onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onCycleImpact,
 }) {
   const todayKey = localYMD()
   const [collapsed, toggleSection] = useCollapsedSections()
@@ -80,8 +82,29 @@ export default function TodayView({
     routines.filter(r => Array.isArray(r.members) && r.members.length > 0).map(r => r.id),
   ), [routines])
 
+  // 🚨 Crisis tasks ("prio" label) — their own pinned section above
+  // everything, pulled OUT of the normal Today/Anytime pools. Snoozed
+  // crises stay out (the engines skip them too — snooze is the one
+  // legitimate "not now" on a crisis).
+  const crisisTasks = useMemo(() => {
+    const settings = loadSettings()
+    return tasks.filter(t => {
+      if (t.parent_id || t.gmail_pending) return false
+      if (!ACTIVE.includes(t.status)) return false
+      if (isSnoozed(t)) return false
+      return isCrisisTask(t, settings)
+    })
+  }, [tasks])
+  const crisisIds = useMemo(() => new Set(crisisTasks.map(t => t.id)), [crisisTasks])
+
+  // Live impact context (crisis label, closing weather window, impact_dates)
+  // — one ranking for Today + Anytime ordering, same scorer as the Tasks
+  // "Impact" sort and the Next-up toast.
+  const impactCtx = useMemo(() => buildImpactCtx({ labels, weatherByDate }), [labels, weatherByDate])
+
   const dayTasks = useMemo(() => tasks.filter(t => {
     if (t.parent_id || t.gmail_pending) return false
+    if (crisisIds.has(t.id)) return false
     // Stack members render grouped under their stack in the Loops section.
     if (t.routine_id && stackRoutineIds.has(t.routine_id)) return false
     // Caught tasks leave the list immediately (v2 contract — the toast's
@@ -89,17 +112,18 @@ export default function TodayView({
     if (!ACTIVE.includes(t.status)) return false
     if (isSnoozed(t)) return false
     return t.due_date ? String(t.due_date).slice(0, 10) <= todayKey : false
-  }), [tasks, todayKey, stackRoutineIds])
+  }).sort((a, b) => impactRank(b, impactCtx) - impactRank(a, impactCtx)), [tasks, todayKey, stackRoutineIds, crisisIds, impactCtx])
 
   // Undated active tasks — the main page must show them (v2's Up next did).
   // Future-DATED tasks stay off Today until their day; undated means
   // "anytime", and anytime includes today.
   const anytimeTasks = useMemo(() => tasks.filter(t => {
     if (t.parent_id || t.gmail_pending || t.due_date) return false
+    if (crisisIds.has(t.id)) return false
     if (t.routine_id && stackRoutineIds.has(t.routine_id)) return false
     if (!ACTIVE.includes(t.status)) return false
     return !isSnoozed(t)
-  }), [tasks, stackRoutineIds])
+  }).sort((a, b) => impactRank(b, impactCtx) - impactRank(a, impactCtx)), [tasks, stackRoutineIds, crisisIds, impactCtx])
 
   const returningSoon = useMemo(() => tasks.filter(t =>
     ACTIVE.includes(t.status) && !t.parent_id && !t.gmail_pending && isSnoozed(t) && !t.snooze_indefinite
@@ -291,6 +315,42 @@ export default function TodayView({
         </button>
       </div>
 
+      {crisisTasks.length > 0 && (
+        <Section id="crisis" label="🚨 Critical" count={crisisTasks.length} collapsed={!!collapsed.crisis} onToggle={toggleSection}>
+          <div className="bm-rows">
+            {crisisTasks.map(t => {
+              const settings = loadSettings()
+              const ageDays = t.crisis_since ? Math.floor((Date.now() - new Date(t.crisis_since).getTime()) / 86400000) : 0
+              const staleDays = settings.crisis_stale_days ?? 7
+              const staleAsk = staleDays > 0 && ageDays >= staleDays
+              const firstMove = (t.checklists || []).flatMap(cl => cl.items || []).find(it => !it.completed && it.text)
+              return (
+                <RowSwipe key={t.id} onCatch={() => onCompleteTask?.(t)} onDelete={() => onDeleteTask?.(t)}>
+                  <div className="bm-row bm-crisis-row" data-task-id={t.id}>
+                    <button
+                      className="bm-chk is-crisis"
+                      onClick={() => onCompleteTask?.(t)}
+                      aria-label="Catch it"
+                    />
+                    <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
+                      <span className="bm-row-title">{t.title}</span>
+                      <span className="bm-row-meta">
+                        <span className="bm-tag-crisis">critical{ageDays >= 1 ? ` · ${ageDays}d` : ''}</span>
+                        {staleAsk && <span className="bm-tag-crisis-stale">still critical?</span>}
+                        {t.diy_verdict === 'hire' && <span className="bm-tag-hire">🛠 hire it out</span>}
+                        {t.diy_verdict === 'hire' && t.diy_first_move
+                          ? <span className="bm-crisis-firstmove">→ {t.diy_first_move}</span>
+                          : firstMove && <span className="bm-crisis-firstmove">→ {firstMove.text}</span>}
+                      </span>
+                    </button>
+                  </div>
+                </RowSwipe>
+              )
+            })}
+          </div>
+        </Section>
+      )}
+
       {gmailPending.length > 0 && (
         <Section id="review" label="Review" count={gmailPending.length} collapsed={!!collapsed.review} onToggle={toggleSection}>
           <div className="bm-rows">
@@ -375,13 +435,16 @@ export default function TodayView({
                 >{done && <Check size={13} strokeWidth={3.4} />}</button>
                 <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                   <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                  {!done && (overdue || stale || statusTag || t.high_priority || chips.length > 0 || weatherDay || t.assignee || escalationActive) && (
+                  {/* Meta always renders now — the impact dots are on every row. */}
+                  {!done && (
                     <span className="bm-row-meta">
                       {t.high_priority && <span className="bm-tag-hi">high</span>}
                       {statusTag && <span className="bm-tag-status">{statusTag}</span>}
                       {overdue && <span className="bm-due-over">overdue</span>}
                       {stale && <span className="bm-tag-stale">{ageDays}d on list</span>}
                       {weatherDay && <WeatherBadge day={weatherDay} />}
+                      <ImpactDots task={t} onCycle={onCycleImpact} />
+                      {t.diy_verdict === 'hire' && <span className="bm-tag-hire">🛠 hire it out</span>}
                       {t.assignee && <span className="bm-tag-status">for {t.assignee}</span>}
                       {escalationActive && (
                         <span className={`bm-tag-status${t.escalation_awaiting_advance || t.escalation_stuck ? ' bm-tag-escalation-alert' : ''}`}>
@@ -421,14 +484,14 @@ export default function TodayView({
                     <button className="bm-chk" onClick={() => onCompleteTask?.(t)} aria-label="Catch it" />
                     <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                       <span className="bm-row-title">{t.title}</span>
-                      {(chips.length > 0 || t.assignee) && (
-                        <span className="bm-row-meta">
-                          {t.assignee && <span className="bm-tag-status">for {t.assignee}</span>}
-                          {chips.slice(0, 3).map(l => (
-                            <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
-                          ))}
-                        </span>
-                      )}
+                      <span className="bm-row-meta">
+                        <ImpactDots task={t} onCycle={onCycleImpact} />
+                        {t.diy_verdict === 'hire' && <span className="bm-tag-hire">🛠 hire it out</span>}
+                        {t.assignee && <span className="bm-tag-status">for {t.assignee}</span>}
+                        {chips.slice(0, 3).map(l => (
+                          <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
+                        ))}
+                      </span>
                     </button>
                   </div>
                 </RowSwipe>

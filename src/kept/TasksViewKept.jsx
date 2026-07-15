@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Search, Pencil, Trash2, X, Undo2, ArrowUpDown } from 'lucide-react'
 import { localYMD, parseLocalDate, addDays } from '../dates'
-import { isSnoozed, formatSnoozeLabel } from '../store'
+import { isSnoozed, formatSnoozeLabel, loadSettings, isCrisisTask } from '../store'
+import { impactRank } from '../scoring'
+import { buildImpactCtx } from '../impactContext'
+import ImpactDots from './ImpactDots'
 import useSheetSwipeDown from '../hooks/useSheetSwipeDown'
 import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
@@ -20,7 +23,7 @@ const TABS = [
 
 // Kept "Tasks" — grouped hairline rows, gold circle checks, dot-tags, and the
 // action sheet with reschedule chips ("throw it back") (spec §6).
-export default function TasksViewKept({ tasks = [], labels = [], routines = [], weatherByDate = null, onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange }) {
+export default function TasksViewKept({ tasks = [], labels = [], routines = [], weatherByDate = null, onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange, onCycleImpact }) {
   const [tab, setTab] = useState('upcoming')
   // 'list' | 'board' — Board is the desktop view mode (K5): status columns
   // with drag-and-drop; Kanban demoted to a mode, per the spec.
@@ -66,15 +69,36 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
     })
   }, [tasks, tab, query, labelFilter, stackIds])
 
+  // Live impact context — same scorer the Today ordering and Next-up toast
+  // use, so "Impact" sort agrees with everything else.
+  const impactCtx = useMemo(() => buildImpactCtx({ labels, weatherByDate }), [labels, weatherByDate])
+
   const sections = useMemo(() => {
-    if (sortBy === 'due' || tab === 'done' || tab === 'snoozed') return groupTasks(visible, tab)
+    if (sortBy === 'due' || tab === 'done' || tab === 'snoozed') {
+      const grouped = groupTasks(visible, tab)
+      // 🚨 crisis tasks lead the Upcoming tab as their own pinned section,
+      // pulled out of the day-planner groups.
+      if (tab === 'upcoming') {
+        const settings = loadSettings()
+        const crisis = visible.filter(t => isCrisisTask(t, settings))
+        if (crisis.length > 0) {
+          const crisisIds = new Set(crisis.map(t => t.id))
+          const rest = grouped
+            .map(sec => ({ ...sec, items: sec.items.filter(t => !crisisIds.has(t.id)) }))
+            .filter(sec => sec.items.length > 0)
+          return [{ key: 'crisis', label: '🚨 Critical', items: crisis }, ...rest]
+        }
+      }
+      return grouped
+    }
     const sorted = [...visible]
     if (sortBy === 'newest') sorted.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
     else if (sortBy === 'oldest') sorted.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
     else if (sortBy === 'az') sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
-    const label = sortBy === 'newest' ? 'Newest first' : sortBy === 'oldest' ? 'Oldest first' : 'A to Z'
+    else if (sortBy === 'impact') sorted.sort((a, b) => impactRank(b, impactCtx) - impactRank(a, impactCtx))
+    const label = sortBy === 'newest' ? 'Newest first' : sortBy === 'oldest' ? 'Oldest first' : sortBy === 'impact' ? 'By impact' : 'A to Z'
     return sorted.length ? [{ key: `sort-${sortBy}`, label, items: sorted }] : []
-  }, [visible, tab, sortBy])
+  }, [visible, tab, sortBy, impactCtx])
 
   return (
     <div className="bm-surface">
@@ -109,7 +133,7 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
       )}
       {sortOpen && tab !== 'done' && tab !== 'snoozed' && (
         <div className="bm-filter-row" aria-label="Sort order">
-          {[['due', 'By due date'], ['newest', 'Newest'], ['oldest', 'Oldest'], ['az', 'A–Z']].map(([id, label]) => (
+          {[['due', 'By due date'], ['impact', 'Impact'], ['newest', 'Newest'], ['oldest', 'Oldest'], ['az', 'A–Z']].map(([id, label]) => (
             <button key={id} className={`bm-pick bm-pick-sm${sortBy === id ? ' is-on' : ''}`} onClick={() => setSortBy(id)}>{label}</button>
           ))}
         </div>
@@ -177,11 +201,13 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
                     <div className="bm-row-stack">
                       <button className="bm-row-body" onClick={() => setSheetTask(t)}>
                         <span className={`bm-row-title${done ? ' is-done' : ''}`}>{t.title}</span>
-                        {!done && (due || chips.length > 0 || weatherDay || tab === 'snoozed') && (
+                        {!done && (
                           <span className="bm-row-meta">
                             {tab === 'snoozed' && <span className="bm-return-chip">↩ returns {formatSnoozeLabel(t.snoozed_until)}</span>}
                             {due && <span className={due.tone === 'over' ? 'bm-due-over' : due.tone === 'hot' ? 'bm-due-hot' : undefined}>{due.label}</span>}
                             {weatherDay && <WeatherBadge day={weatherDay} />}
+                            {tab !== 'snoozed' && <ImpactDots task={t} onCycle={onCycleImpact} />}
+                            {t.diy_verdict === 'hire' && <span className="bm-tag-hire">🛠 hire it out</span>}
                             {chips.slice(0, 3).map(l => (
                               <span key={l.id} className="bm-tagdot" style={{ '--tag': l.color }}><i />{l.name}</span>
                             ))}

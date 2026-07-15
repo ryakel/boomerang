@@ -32,6 +32,12 @@ const TASK_FIELDS = [
   // Who this is actually for (migration 038) — e.g. a kid's chore the user
   // supervises rather than their own task. Free text; null = the user's own.
   'assignee',
+  // Impact 1-3 (migration 041) — who/what this matters to. Manual sets via
+  // Quokka count as hand-set (impact_inferred stamped in the execute paths).
+  'impact',
+  // DIY-or-hire Reality check (migration 042). Quokka can set/flip a verdict
+  // when the user decides ("fine, I'll hire out the deck repair").
+  'diy_assessed', 'diy_verdict', 'diy_reason', 'diy_first_move',
 ]
 
 function summarizeTask(t) {
@@ -60,6 +66,10 @@ function summarizeTask(t) {
     last_session_at: t.last_session_at || null,
     child_visibility: t.child_visibility || 'backstage',
     assignee: t.assignee || null,
+    impact: t.impact ?? null,
+    crisis_since: t.crisis_since || null,
+    diy_verdict: t.diy_verdict || null,
+    diy_first_move: t.diy_first_move || null,
     escalation_rungs: t.escalation_rungs || [],
     escalation_current_rung: t.escalation_current_rung ?? null,
     escalation_attempt_count: (t.escalation_attempt_log || []).length,
@@ -84,6 +94,7 @@ function summarizeRoutine(r) {
     paused: !!r.paused,
     end_date: r.end_date || null,
     assignee: r.assignee || null,
+    impact: r.impact ?? null,
     last_completed: r.completed_history?.[r.completed_history.length - 1] || null,
     // Sequences: expose the chain template so adviser can address steps
     // by id when calling add/edit/remove/reorder_follow_up tools.
@@ -304,6 +315,11 @@ export function registerTaskTools() {
           type: 'string',
           description: 'Set when this task is actually for someone else the user supervises (e.g. a kid\'s chore), not the user\'s own task — a name, e.g. "Jack". Leave unset for the user\'s own tasks. Scores a flat 1 point on completion instead of the size x energy formula, but still counts toward the user\'s own daily total.',
         },
+        impact: {
+          type: 'integer',
+          enum: [1, 2, 3],
+          description: 'Who/what this matters to: 3 = affects people the user is responsible to (spouse/household) or money/health/legal consequences or unblocks other things; 2 = meaningful forward motion on their own commitments; 1 = self-only, low consequence. Leave unset to let background inference pick it.',
+        },
       },
       required: ['title'],
     },
@@ -411,6 +427,8 @@ export function registerTaskTools() {
         pinned_to_today: args.status === 'project' ? !!args.pinned_to_today : false,
         nag_allowed: !!args.nag_allowed,
         assignee: args.assignee || null,
+        impact: args.impact ?? null,
+        impact_inferred: args.impact != null,
         created_at: now,
         updated_at: now,
         last_touched: now,
@@ -451,6 +469,7 @@ export function registerTaskTools() {
         nag_allowed: { type: 'boolean', description: 'Opt this task into calm stale/nudge notifications while it has no due date. Default false for any undated task (ordinary or project) — set true if the user wants reminders on it anyway.' },
         blocked_by: { type: 'array', items: { type: 'string' }, description: 'Array of sibling sub task ids that must complete before this sub becomes visible in the main list. Empty array clears all blockers. Cycles are rejected.' },
         assignee: { type: ['string', 'null'], description: 'Set when this task is actually for someone else the user supervises (e.g. a kid\'s chore) — a name, e.g. "Jack". Pass null to clear (back to the user\'s own task).' },
+        impact: { type: ['integer', 'null'], enum: [1, 2, 3, null], description: 'Who/what this matters to: 3 = affects people the user is responsible to / real consequences / unblocks others; 2 = own commitments; 1 = self-only. Pass null to return it to background inference.' },
       },
       required: ['id'],
     },
@@ -503,6 +522,9 @@ export function registerTaskTools() {
       const now = new Date().toISOString()
       updates.updated_at = now
       updates.last_touched = now
+      // A Quokka-set impact counts as hand-set (background inference backs
+      // off); clearing it (null) hands it back to inference.
+      if ('impact' in updates) updates.impact_inferred = updates.impact != null
       updateTaskPartial(args.id, updates)
       return {
         result: { id: args.id, task: summarizeTask(getTask(args.id)) },
@@ -816,6 +838,11 @@ export function registerTaskTools() {
           type: 'string',
           description: 'Set when this loop is actually for someone else the user supervises (e.g. a kid\'s chore), not the user\'s own task — a name, e.g. "Jack". Leave unset for the user\'s own loops. Every spawned task inherits it and scores a flat 1 point on completion instead of the size x energy formula, but still counts toward the user\'s own daily total.',
         },
+        impact: {
+          type: 'integer',
+          enum: [1, 2, 3],
+          description: 'Impact 1-3 inherited by every spawned task (3 = household/others affected, 2 = own commitments, 1 = self-only).',
+        },
       },
       required: ['title', 'cadence'],
     },
@@ -864,6 +891,7 @@ export function registerTaskTools() {
         created_at: now,
         updated_at: now,
         assignee: args.assignee || null,
+        impact: args.impact ?? null,
       }
       upsertRoutine(routine)
       return {
@@ -909,6 +937,7 @@ export function registerTaskTools() {
         },
         last_done: { type: ['string', 'null'], description: 'Set when the routine was last completed, "YYYY-MM-DD" (or null = never done). Drives the next due date — use it to repair a routine that nags as if never done after lost completion history. Sets the most-recent completion entry; does not erase older history.' },
         assignee: { type: ['string', 'null'], description: 'Set when this loop is actually for someone else the user supervises (e.g. a kid\'s chore) — a name, e.g. "Jack". Pass null to clear (back to the user\'s own loop). Only affects future spawns, not already-spawned tasks.' },
+        impact: { type: ['integer', 'null'], enum: [1, 2, 3, null], description: 'Impact 1-3 inherited by future spawned tasks. Pass null to clear.' },
       },
       required: ['id'],
     },

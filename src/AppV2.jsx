@@ -44,6 +44,8 @@ import { useNotifications } from './hooks/useNotifications'
 import { useServerSync } from './hooks/useServerSync'
 import { useExternalSync } from './hooks/useExternalSync'
 import { useSizeAutoInfer } from './hooks/useSizeAutoInfer'
+import { useCrisisTriage } from './hooks/useCrisisTriage'
+import { useRealityCheck } from './hooks/useRealityCheck'
 import { useToastPrefetch } from './hooks/useToastPrefetch'
 import { usePackages } from './hooks/usePackages'
 import { useAdviser } from './hooks/useAdviser'
@@ -54,7 +56,7 @@ import { useNotionSync } from './hooks/useNotionSync'
 import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss } from './api'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS } from './store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS, isCrisisTask } from './store'
 import { computeRecords, calculateTaskPoints } from './scoring'
 import { applyTheme, watchSystemTheme } from './theme'
 import './AppV2.css'
@@ -231,6 +233,40 @@ export default function AppV2() {
   useNotifications(tasks)
   useExternalSync(tasks, updateTask)
   useSizeAutoInfer(tasks, updateTask, labels)
+  // Critical triage auto-breakdown — same background-net pattern as the
+  // sizer: any task that lands with the critical label and no triage pass
+  // gets one.
+  useCrisisTriage(tasks, updateTask)
+  // DIY-or-hire Reality check — repair/construction-shaped tasks get one
+  // blunt hire-out-by-default verdict, automatically.
+  useRealityCheck(tasks, updateTask)
+
+  // Terminology reconciler (2026-07-14): the Critical tag's default label was
+  // renamed prio → critical the same day the feature shipped. loadLabels()
+  // never merges defaults into existing installs, so any 'prio' remnants from
+  // the few hours the old name was live get re-pointed here: the seeded label
+  // (id + name), any task tags carrying 'prio', and a stored
+  // crisis_label='prio'. Idempotent and self-extinguishing — once no 'prio'
+  // remains it's a pure no-op. Safe to delete after prod data can't contain
+  // 'prio' anymore (same lifecycle as the theme migration shims).
+  useEffect(() => {
+    const hasPrioLabel = labels.some(l => l.id === 'prio' && l.name === 'prio')
+    const prioTasks = tasks.filter(t => Array.isArray(t.tags) && t.tags.includes('prio'))
+    const settingsNow = loadSettings()
+    const prioSetting = settingsNow.crisis_label === 'prio'
+    if (!hasPrioLabel && prioTasks.length === 0 && !prioSetting) return
+    if (hasPrioLabel) {
+      const next = labels.some(l => l.id === 'critical')
+        ? labels.filter(l => l.id !== 'prio')
+        : labels.map(l => (l.id === 'prio' && l.name === 'prio') ? { ...l, id: 'critical', name: 'critical' } : l)
+      setLabels(next)
+      saveLabels(next)
+    }
+    for (const t of prioTasks) {
+      updateTask(t.id, { tags: Array.from(new Set(t.tags.map(id => id === 'prio' ? 'critical' : id))) })
+    }
+    if (prioSetting) saveSettings({ ...settingsNow, crisis_label: 'critical' })
+  }, [tasks, labels, updateTask])
   const prefetchToast = useToastPrefetch(tasks, updateTask)
 
   // Routine-id set for routines with an active instance on the list. Drives
@@ -636,8 +672,13 @@ export default function AppV2() {
       const completedTags = new Set(task.tags || [])
       const completedTitleLower = (task.title || '').toLowerCase()
       const followUpKeywords = ['follow up', 'follow-up', 'followup', 'after ', 'next step', 'reply to', 'respond to']
+      const nextUpSettings = loadSettings()
       const score = t => {
         let s = 0
+        // Crisis dwarfs everything — if a crisis is open, it IS next up.
+        if (isCrisisTask(t, nextUpSettings)) s += 1000
+        // Impact weighting (null = the 2 baseline, same as impactRank).
+        s += (t.impact ?? 2) * 25
         if (t.high_priority) s += 100
         if (t.due_date && t.due_date <= todayStr) s += 50
         if (t.size === 'XS' || t.size === 'S') s += 20
@@ -665,6 +706,14 @@ export default function AppV2() {
   }, [tasks, routines, completeTask, completeRoutine, updateTask, pushStatusToTrello])
 
   const handleEdit = useCallback((task) => setEditTarget(task), [])
+
+  // Tap-to-cycle the impact dots (1 → 2 → 3 → 1; null shows/cycles as the 2
+  // baseline). Manual taps flip impact_inferred so the background sizer never
+  // overwrites a hand-set value — same flag semantics as size_inferred.
+  const handleCycleImpact = useCallback((task) => {
+    const next = ((task.impact ?? 2) % 3) + 1
+    updateTask(task.id, { impact: next, impact_inferred: true })
+  }, [updateTask])
 
   // Spawn a one-off task from a loop right now, bypassing the schedule. Shared
   // by RoutinesModal and the Kept Loops surfaces (cards + LoopDetail) so the
@@ -956,13 +1005,19 @@ export default function AppV2() {
       // existing labels (minus the quiet-hours bypass label, which must never
       // be auto-applied). This path sets size_inferred=true, so it owns the
       // tag pass for tasks added here (the background hook would otherwise).
-      const bypass = loadSettings()?.quiet_hours_bypass_label || 'wake-me'
-      const taggable = (labels || []).filter(l => l && l.id && l.id !== bypass)
+      const addSettings = loadSettings() || {}
+      const bypass = addSettings.quiet_hours_bypass_label || 'wake-me'
+      const crisisId = addSettings.crisis_label || 'critical'
+      // Crisis label joins wake-me in the never-auto-applied exclusion —
+      // an AI silently putting a task on the Emergency-paging path is worse
+      // than a silently changed quiet-hours behavior.
+      const taggable = (labels || []).filter(l => l && l.id && l.id !== bypass && l.id !== crisisId)
       inferSize(taskData.title, taskData.notes, taggable).then(inferred => {
         const updates = {}
         if (inferred.size) updates.size = inferred.size
         if (inferred.energy) updates.energy = inferred.energy
         if (inferred.energyLevel) updates.energyLevel = inferred.energyLevel
+        if (inferred.impact) { updates.impact = inferred.impact; updates.impact_inferred = true }
         if (Array.isArray(inferred.tags) && inferred.tags.length > 0) {
           const have = Array.isArray(taskData.tags) ? taskData.tags : []
           const merged = Array.from(new Set([...have, ...inferred.tags]))
@@ -1336,6 +1391,7 @@ export default function AppV2() {
           dailyStats={dailyStats}
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}
+          onCycleImpact={handleCycleImpact}
           onRefresh={refetchFromServer}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
           onGmailKeep={async (t) => {
@@ -1395,6 +1451,7 @@ export default function AppV2() {
           dailyStats={dailyStats}
           pointsGoal={settingsForRings.daily_points_goal || 15}
           streak={streak}
+          onCycleImpact={handleCycleImpact}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
           onGmailKeep={async (t) => {
             updateTask(t.id, { gmail_pending: false })

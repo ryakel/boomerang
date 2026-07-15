@@ -1,0 +1,103 @@
+/* ConnectionSetup — sibling of LoginScreen; same calm card language. */
+
+.conn-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bm-bg, #f7f4ef);
+}
+
+.conn-card {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 32px 28px;
+  border-radius: 18px;
+  background: var(--bm-card, #fff);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.conn-mark {
+  font-family: var(--v2-font-display, 'Fraunces', Georgia, serif);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--bm-text, #1c1a17);
+}
+
+.conn-sub {
+  margin: -6px 0 8px;
+  font-size: 14px;
+  color: var(--bm-text-meta, #6b655c);
+}
+
+.conn-label {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bm-text-meta, #6b655c);
+}
+
+.conn-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 16px; /* >=16px avoids iOS zoom-on-focus */
+  border: 1px solid var(--bm-hairline, #e2dcd2);
+  border-radius: 12px;
+  background: var(--bm-bg, #faf8f4);
+  color: var(--bm-text, #1c1a17);
+  box-sizing: border-box;
+}
+
+.conn-input:focus {
+  outline: none;
+  border-color: var(--bm-ember, #d9622b);
+}
+
+.conn-input-token {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 14px;
+}
+
+.conn-error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  background: color-mix(in srgb, var(--bm-danger, #c0392b) 10%, transparent);
+  color: var(--bm-danger, #c0392b);
+}
+
+.conn-btn {
+  margin-top: 6px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  background: var(--bm-ember, #d9622b);
+  color: #fff;
+  cursor: pointer;
+}
+
+.conn-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.conn-cancel {
+  padding: 8px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: var(--bm-text-meta, #6b655c);
+  cursor: pointer;
+  text-decoration: underline;
+}

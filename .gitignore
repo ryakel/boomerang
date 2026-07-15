@@ -39,11 +39,17 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Capacitor / iOS (native app — generated on the Mac)
+# Capacitor / iOS (native project IS committed as of 2026-07-15 — it carries
+# the TN3187 scene-lifecycle migration; only generated/build output is ignored)
 ios/App/Pods
+ios/App/build
+ios/App/output
 ios/App/App/public
 ios/App/App/capacitor.config.json
 ios/App/App/config.xml
 ios/.gitignore
+ios/capacitor-cordova-ios-plugins
+ios/DerivedData
 DerivedData
+xcuserdata/
 *.xcuserstate

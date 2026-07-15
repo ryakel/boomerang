@@ -22,6 +22,15 @@ function withCustomInstructions(systemPrompt) {
   return `${systemPrompt}\n\nThe user has provided these custom instructions for how you should communicate and behave. Follow them closely:\n---\n${custom_instructions.trim()}\n---`
 }
 
+// Network-shaped failures (fetch TypeError, aborted requests — e.g. iOS
+// suspending the PWA mid-call) are RETHROWN by the background-inference
+// helpers below so their hooks can release the task for a retry when the
+// app resumes. Real API errors (bad key, 4xx/5xx, unparseable output) stay
+// swallowed — retrying those in a loop wouldn't help until config changes.
+function isNetworkError(e) {
+  return e instanceof TypeError || e?.name === 'AbortError'
+}
+
 export async function callClaude(systemPrompt, userMessage) {
   const res = await fetch(PROXY_URL, {
     method: 'POST',
@@ -90,14 +99,19 @@ For ENERGY LEVEL, rate the drain intensity 1-3:
 - 2 = medium drain, requires focus/effort (presentation prep, store returns, moderate cleaning)
 - 3 = high drain, significant willpower needed (difficult conversations, deep cleaning, complex social situations)
 
-Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLevel": 1|2|3${tagKey}}${tagInstructions}`
+For IMPACT, rate 1-3 who and what this actually matters to:
+- 3 = affects people the user is responsible to (spouse, kids, household), or carries real money/health/legal/relationship consequences if delayed, or unblocks other things. A task done for or requested by someone else (an assignee, "for my wife") is a strong 3 signal.
+- 2 = meaningful forward motion on the user's own real commitments
+- 1 = self-only, low consequence if it slips a week
 
-  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nEstimate size, energy type, energy level${taggable.length > 0 ? ', and any clearly-applicable tags' : ''}. JSON only.`
+Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLevel": 1|2|3, "impact": 1|2|3${tagKey}}${tagInstructions}`
+
+  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nEstimate size, energy type, energy level, impact${taggable.length > 0 ? ', and any clearly-applicable tags' : ''}. JSON only.`
 
   try {
     const text = await callClaude(system, user)
     const match = text.match(/\{[\s\S]*\}/)
-    if (!match) return { size: null, energy: null, energyLevel: null, tags: [] }
+    if (!match) return { size: null, energy: null, energyLevel: null, impact: null, tags: [] }
     const result = JSON.parse(match[0])
     // Only accept tags that map to a real provided label id.
     const validIds = new Set(taggable.map(l => l.id))
@@ -106,10 +120,76 @@ Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLev
       size: result.size || null,
       energy: result.energy || null,
       energyLevel: result.energyLevel || null,
+      impact: [1, 2, 3].includes(result.impact) ? result.impact : null,
       tags,
     }
-  } catch {
-    return { size: null, energy: null, energyLevel: null, tags: [] }
+  } catch (e) {
+    if (isNetworkError(e)) throw e
+    return { size: null, energy: null, energyLevel: null, impact: null, tags: [] }
+  }
+}
+
+// --- DIY-or-hire Reality check ---
+// One call per repair/construction-shaped task (useRealityCheck hook).
+// The stance is deliberately loaded: the user has said outright that pride
+// pushes them to DIY jobs they shouldn't, so the verdict STARTS at "hire"
+// and DIY has to earn it. Custom instructions still flow in via callClaude
+// so "actually I'm great with plumbing specifically" can carve exceptions.
+// Returns { verdict, reason, first_move } or null on any failure (caller
+// retries next session, same posture as the other background inferrers).
+export async function generateRealityCheck(title, notes = '') {
+  const system = `You give a blunt DIY-vs-hire reality check on a home construction/repair task, for someone who has told you directly: "I am admittedly not handy. My pride pushes me to fix things myself when I shouldn't."
+
+STANCE: The verdict STARTS at "hire" and DIY has to earn it. Only answer "diy" when the job is trivially easy for a non-handy person with near-zero risk of making it worse — swap a filter, tighten a visible screw, plunger-level unclog, replace a bulb or battery. Anything touching water supply, gas, electrical beyond a bulb, roofing, or structure is an automatic "hire". Weigh the real cost of their weekend and the redo-work when DIY goes sideways against what a pro charges.
+
+Be direct, not cruel. No hedging, no "you could try...".
+
+Return JSON only: {"verdict": "hire"|"diy", "reason": "<one blunt sentence, under 140 chars, that names the actual risk or the actual easiness>", "first_move": "<one imperative step under 12 words — for hire: who to call / get 2 quotes; for diy: the first physical step>"}`
+  const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nDIY or hire it out? JSON only.`
+  try {
+    const text = await callClaude(system, user)
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const parsed = JSON.parse(match[0])
+    if (parsed.verdict !== 'hire' && parsed.verdict !== 'diy') return null
+    return {
+      verdict: parsed.verdict,
+      reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 200) : '',
+      first_move: typeof parsed.first_move === 'string' ? parsed.first_move.slice(0, 100) : '',
+    }
+  } catch (e) {
+    if (isNetworkError(e)) throw e
+    return null
+  }
+}
+
+// --- Crisis triage breakdown ---
+// One call, fired by useCrisisTriage when the crisis label lands on a task
+// (settings.crisis_auto_breakdown). Returns 3-5 concrete steps, ordered
+// stop-the-bleeding first, the FIRST one explicitly doable in under 5
+// minutes — the point is rapid start, not a project plan. Custom
+// instructions flow in via callClaude's existing plumbing where applicable;
+// returns [] on any failure so the caller just retries next session.
+export async function generateCrisisTriage(title, notes = '') {
+  const system = `You help someone with ADHD start handling a household/life crisis RIGHT NOW. Given the crisis, produce 3-5 concrete triage steps:
+- Order them stop-the-bleeding first (e.g. for an appliance leak: shut the water valves before anything else).
+- The FIRST step must be physically doable in under 5 minutes with no prep.
+- Each step is one short imperative line (under 12 words). No sub-steps, no explanations.
+- The user is NOT handy and has said pride pushes them to DIY jobs they shouldn't. For construction/repair crises, after the immediate stop-the-bleeding step(s), the plan is HIRE-OUT by default: find the warranty, get 2 repair quotes, book the pro — not DIY repair steps beyond trivial mitigation.
+
+Return JSON only: {"steps": ["...", "..."]}`
+  const user = `Crisis task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nGive me the first moves. JSON only.`
+  try {
+    const text = await callClaude(system, user)
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return []
+    const parsed = JSON.parse(match[0])
+    return Array.isArray(parsed.steps)
+      ? parsed.steps.filter(s => typeof s === 'string' && s.trim()).slice(0, 5)
+      : []
+  } catch (e) {
+    if (isNetworkError(e)) throw e
+    return []
   }
 }
 
@@ -218,15 +298,19 @@ When should this be due? JSON only.`
 // capacity = optional energy type filter (desk|people|errand|confrontation|creative|physical|null)
 // weather = optional summary string like "Today: sunny, 72° · Tomorrow: rain, 55° · Sat: snow"
 // growthAreas = optional array of active {title, energy_affinity} growth areas (persistent/both mode)
-export async function getWhatNow(tasks, time, energy, capacity = null, weather = null, growthAreas = null) {
+export async function getWhatNow(tasks, time, energy, capacity = null, weather = null, growthAreas = null, crisisIds = null) {
   const ACTIVE = ['not_started', 'doing', 'waiting', 'open']
   const ENERGY_LABELS = { desk: 'Desk', people: 'People', errand: 'Errand', confrontation: 'Confrontation', creative: 'Creative', physical: 'Physical' }
+  const IMPACT_LABELS = { 1: 'low', 2: 'med', 3: 'HIGH' }
+  const hasCrisis = crisisIds instanceof Set && tasks.some(t => ACTIVE.includes(t.status) && crisisIds.has(t.id))
   const openTasks = tasks
     .filter(t => ACTIVE.includes(t.status))
     .map(t => {
       const drainLabel = t.energyLevel === 3 ? 'high' : t.energyLevel === 2 ? 'med' : 'low'
       const energyInfo = t.energy ? `, energy: ${ENERGY_LABELS[t.energy] || t.energy} (${drainLabel} drain)` : ''
-      return `- "${t.title}" (${t.size || 'unsized'}${energyInfo}, ${t.tags.join(', ') || 'no tags'}, ${Math.floor((Date.now() - new Date(t.last_touched).getTime()) / 86400000)}d old, snoozed ${t.snooze_count}x)`
+      const impactInfo = t.impact ? `, impact: ${IMPACT_LABELS[t.impact] || t.impact}` : ''
+      const crisisFlag = crisisIds instanceof Set && crisisIds.has(t.id) ? ' [CRITICAL]' : ''
+      return `- "${t.title}"${crisisFlag} (${t.size || 'unsized'}${energyInfo}${impactInfo}, ${t.tags.join(', ') || 'no tags'}, ${Math.floor((Date.now() - new Date(t.last_touched).getTime()) / 86400000)}d old, snoozed ${t.snooze_count}x)`
     })
     .join('\n')
 
@@ -238,6 +322,12 @@ export async function getWhatNow(tasks, time, energy, capacity = null, weather =
     ? `\nWEATHER CONTEXT: ${weather}. If outdoor-leaning tasks (errand, physical, or tasks whose titles suggest being outside — mowing, yardwork, grocery, etc.) would benefit from today's weather (nice day, worse weather coming), prefer them. If today is bad weather and later looks better, prefer indoor tasks (desk, creative) and mention that a better day is coming. Only mention weather in the reason when it genuinely affects the pick.`
     : ''
 
+  const crisisRule = hasCrisis
+    ? `\nCRITICAL RULE: Tasks marked [CRITICAL] are active emergencies. If ANY [CRITICAL] task can fit the time window at all, it MUST be pick #1 and the reason should say why it's the fire. If the whole critical task is too big for the window, suggest its smallest first move as the pick instead of skipping it.`
+    : ''
+
+  const impactRule = `\nIMPACT: Among tasks that fit the time/energy window, prefer higher impact — say who or what it matters for in the reason (e.g. "Sarah's counting on it", "unblocks the trip"). Never violate the size-vs-time HARD RULE for impact.`
+
   const growthAreasRule = growthAreas && growthAreas.length > 0
     ? `\nGROWTH AREAS: The user is also working on these personal growth areas: ${growthAreas.map(a => `"${a.title}"${a.energy_affinity ? ` (relates to ${a.energy_affinity} energy)` : ''}`).join(', ')}. If your pick's energy type matches one of these, you may add ONE short clause to the reason noting it's a rep for that area (e.g. "...and this one's a rep for staying patient") — but ONLY when genuinely relevant. Never force this onto every response; most picks should have no mention of it at all.`
     : ''
@@ -246,7 +336,7 @@ export async function getWhatNow(tasks, time, energy, capacity = null, weather =
 
 Tasks have t-shirt sizes: XS (~5 min), S (~15 min), M (~30-60 min), L (~half day), XL (~full day+).
 Tasks also have energy types (desk, people, errand, confrontation, creative, physical) and drain levels (low, med, high).
-HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${capacityRule}${weatherRule}${growthAreasRule}
+HARD RULE: Never suggest a task bigger than the available time allows. If they have 15 minutes, only suggest XS or S tasks. If they say "fumes" or "low" energy, only suggest XS or S AND prefer low-drain tasks. A medium task requires at least 30 minutes AND moderate energy. Ignore stale/old tasks if they are too big for the window.${crisisRule}${impactRule}${capacityRule}${weatherRule}${growthAreasRule}
 
 Respond with JSON only — an object with two fields:
 - "picks": array of 1-3 objects with "task" (exact task title from the list) and "reason" (one sentence why this is a good pick right now).

@@ -81,6 +81,23 @@ function scoreDay(d) {
   return score
 }
 
+// "Closing weather window" detector for impact ranking: true when today (or
+// tomorrow) is a GOOD outdoor day AND at least 2 of the 3 days after it are
+// bad — i.e. "get outside shit done before multiple days of upcoming bad
+// weather." Consumed via buildImpactCtx (src/impactContext.js) → impactRank.
+export function computeWeatherWindow(days, { minScore = 55 } = {}) {
+  if (!days?.length) return false
+  const sorted = [...days].filter(d => d?.date).sort((a, b) => a.date.localeCompare(b.date))
+  const scores = sorted.map(scoreDay)
+  for (const idx of [0, 1]) {
+    if (idx >= sorted.length) break
+    if (scores[idx] < minScore) continue
+    const after = scores.slice(idx + 1, idx + 4)
+    if (after.length >= 2 && after.filter(s => s < minScore).length >= 2) return true
+  }
+  return false
+}
+
 export function pickBestDays(days, { limit = 3, minScore = 55 } = {}) {
   if (!days?.length) return []
   const scored = days.map(d => ({ ...d, _score: scoreDay(d) }))

@@ -21,8 +21,10 @@ every request.
 
 ## Prerequisites
 
-- A **Mac with Xcode** (15+), **CocoaPods** (`sudo gem install cocoapods` or
-  `brew install cocoapods`), and an **Apple Developer Program** membership.
+- A **Mac with Xcode 26+** (Capacitor 8's floor; current betas work). No
+  CocoaPods needed — Capacitor 8's iOS template uses Swift Package Manager.
+  An **Apple Developer Program** membership (a free Apple ID also works for
+  personal sideloads; builds expire after 7 days).
 - **Auth enabled on the server** (`AUTH_PASSWORD_HASH` + `API_TOKEN` — see
   `wiki/Security-Notes.md` → Authentication). The app authenticates with
   `API_TOKEN`.
@@ -36,7 +38,10 @@ every request.
 The scaffold + connection plumbing is in the repo and ready; it is **inert in
 production** until a device is configured (below). Already in place:
 - `@capacitor/core`, `@capacitor/ios` (deps) + `@capacitor/cli` (dev) in
-  `package.json`.
+  `package.json` — **Capacitor 8** (bumped from 6 on 2026-07-15; the v8 iOS
+  template is SPM-based, no CocoaPods). `typescript` 5.x is a devDep — the
+  Capacitor CLI needs it to parse `capacitor.config.ts`, and TypeScript ≥6
+  breaks the CLI's config loader, so don't float it to latest.
 - `capacitor.config.ts` (bundled model: `webDir: 'dist'`, no `server.url`).
 - `src/apiConfig.js` — runtime connection config + a fetch/EventSource shim that
   prefixes relative `/api` URLs with the configured base and attaches the token.
@@ -51,7 +56,7 @@ production** until a device is configured (below). Already in place:
 ```sh
 npm install
 npm run build                 # produce dist/
-npx cap add ios               # creates ios/ (Mac-only: runs CocoaPods)
+npx cap add ios               # creates ios/ (SPM-based project, no CocoaPods)
 npx cap sync ios              # copies dist/ + plugins into the iOS project
 npx cap open ios              # opens Xcode
 ```
@@ -63,30 +68,38 @@ device.
 
 ### Configure the connection (first run)
 
-Until the in-app Connection settings screen lands (Phase 1.5), set the two keys
-from Safari Web Inspector (Develop → your device → the app's WebView console),
-or temporarily hardcode for testing:
+On first launch in the native shell the app shows the **Connection screen**
+(`src/components/ConnectionSetup.jsx`): enter the server URL, paste the
+`API_TOKEN`, hit **Test & save**. It verifies `/api/health` (base URL) and
+`/api/auth/status` with the token before saving, then reloads into the app.
+Change it later via **Settings → Data → Change server…**, from the login
+screen's "Change server or API token…" link, or with `?connect=1` on the web
+build.
 
-```js
-localStorage.setItem('boom_api_base', 'https://YOUR-HOST.tailnet.ts.net')
-localStorage.setItem('boom_api_token', 'YOUR_API_TOKEN')
-location.reload()
-```
-
-After reload the shim points all `/api` calls (and the SSE sync stream) at your
-server with the token attached. Confirm tasks load + sync works.
+After the reload the shim points all `/api` calls (and the SSE sync stream) at
+your server with the token attached. Confirm tasks load + sync works.
 
 > Re-run `npm run build:mobile` after any web change to re-bundle + sync into the
 > iOS project.
 
+Fallback: the same two values can still be set manually from Safari Web
+Inspector (Develop → your device → the app's WebView console) —
+`localStorage.boom_api_base` / `localStorage.boom_api_token` + reload. The
+WebView is explicitly marked inspectable via `webContentsDebuggingEnabled:
+true` in `capacitor.config.ts`; if Safari says "No Inspectable Applications",
+bring the app to the foreground and relaunch Safari with the simulator already
+running.
+
 ---
 
-## Phase 1.5 — in-app Connection screen (next)
+## Phase 1.5 — in-app Connection screen (DONE 2026-07-15)
 
-A small first-run setup screen (server URL + API token, stored via
-`setApiConfig()` in `src/apiConfig.js`) so there's no Web-Inspector step. The
-interceptor reads config at startup, so the app reloads the WebView after the
-token is saved.
+First-run setup screen (server URL + API token, stored via `setApiConfig()` in
+`src/apiConfig.js`) — no Web-Inspector step. The interceptor reads config at
+startup, so the app reloads the WebView after saving. Note the login screen is
+a dead end in the native shell (cross-origin fetches can't carry the session
+cookie, so password login only works on the web) — the API token is the native
+credential, which is why the login screen links back to the Connection screen.
 
 ## Phase 2 — Share Extension (the headline feature)
 
@@ -115,9 +128,19 @@ Spotlight, the Action button, and Back Tap — same `/api/intake` target.
   bundle; `capacitor.config.ts` + `ios/` are dev/Mac-only. The server's runtime
   `COPY` list is unchanged. The web/PWA build is byte-for-byte unaffected (the
   interceptor is inert with no config).
-- **`ios/` is generated on the Mac.** Pods and the synced `public/` assets are
-  gitignored; commit the rest of `ios/App` if you want the native project under
-  version control.
+- **`ios/` is committed to the repo** (since 2026-07-15). It carries two
+  iOS-26/27-SDK fixes Capacitor 8's stock template lacks: the **UIScene
+  lifecycle migration (TN3187)** — `SceneDelegate.swift` + the
+  `UIApplicationSceneManifest` in `Info.plist` — without which the SDK refuses
+  to launch the app (`EXC_BREAKPOINT` at startup), and
+  **`BoomerangViewController.swift`** (the storyboard's root VC) which zeroes
+  the auto-populated `obscuredContentInsets` so the layout viewport isn't
+  shrunk by the safe areas (the app's CSS owns that via `env()`, same as the
+  PWA). Do NOT regenerate with `npx cap add ios` — that resurrects the broken
+  template; `npx cap sync ios` is the normal refresh path. Build output and synced assets (`public/`,
+  `capacitor.config.json`, Pods/build/DerivedData/xcuserdata) stay gitignored.
+  Signing (Team + bundle id) is per-Mac state in the pbxproj — set it once in
+  Xcode after the first pull.
 - **Token handling.** The `API_TOKEN` lives in `localStorage` (and, in Phase 2,
   an App Group / Keychain) on the device — not in the repo or the app bundle.
   Rotate it by re-running `scripts/auth-setup.js` and updating the device.

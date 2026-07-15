@@ -8,21 +8,21 @@
     "build": "vite build",
     "start": "node server.js",
     "lint": "eslint .",
-    "test": "node --test scripts/dates.test.mjs scripts/cycles.test.mjs && sh scripts/smoke-test.sh",
+    "test": "node --test scripts/dates.test.mjs scripts/cycles.test.mjs scripts/impact.test.mjs && sh scripts/smoke-test.sh",
     "prepare": "git config core.hooksPath .githooks || true",
     "preview": "vite preview",
     "cap:sync": "cap sync ios",
     "build:mobile": "vite build && cap sync ios"
   },
   "dependencies": {
-    "@capacitor/core": "^6.2.0",
-    "@capacitor/ios": "^6.2.0",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "lucide-react": "^1.7.0",
     "mobile-drag-drop": "^3.0.0-rc.0",
-    "nodemailer": "^8.0.5",
+    "nodemailer": "^9.0.3",
     "qs": "^6.15.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -35,7 +35,7 @@
     "serialize-javascript": "^7.0.5"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.2.0",
+    "@capacitor/cli": "^8.4.2",
     "@eslint/js": "^9.25.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
@@ -45,6 +45,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "sharp": "^0.34.5",
+    "typescript": "^5.9.0",
     "vite": "^8.0.16",
     "vite-plugin-pwa": "^1.3.0"
   }
