@@ -720,6 +720,14 @@ Default behavior in quiet hours is silence — even priority-1/priority-2 Pushov
 
 Repeat subscribes from the same device (PWA reinstall, iOS evicts subscription, etc.) used to accumulate stale rows in `push_subscriptions`, causing duplicate notifications. `upsertPushSubscription()` now deletes prior rows with matching `(p256dh, auth)` keys before inserting. One-time cleanup script: `node scripts/dedupe-push-subscriptions.js`.
 
+### Channel Truth (2026-07-15 duplicate-notifications incident)
+
+Duplicates reported as "server pushing Pushover while my app does iOS push" with the app's toggles showing channels off. Three guards shipped as a class:
+
+- **Dev-instance notification muzzle.** A dev-shaped server (`APP_VERSION` = `dev`/`dev-*`) never background-sends: engine loops (+ digest), package sends, weather alerts, Quokka plan-ready push — all gated by `notifsMuzzled` in `server.js` (env opt-out `DEV_NOTIFICATIONS=1`; weather check duplicated per-file in `weatherSync.js`). Rationale: the moment dev shares real Pushover/SMTP credentials (settings copy or one test session), every nag fires twice. Direct test endpoints stay live. Exposed as `notifsMuzzled` on `/api/health`; Settings shows a banner. **Any new background send path must check `notifsMuzzled`.**
+- **Web-push subscription registry.** `GET /api/push/subscriptions` + `DELETE /api/push/subscriptions/:id` — listed in Settings → Notifications → Channels with per-device Remove, rendered regardless of master toggles. A stale Home-Screen PWA's subscription keeps receiving web push that looks like native iOS push and is invisible from the native shell; the registry is the only cross-context view/kill.
+- **Honest toggle display.** Per-type channel toggles are display-gated by their channel master — a toggle must never LOOK on when nothing will send. Keep this invariant when adding notification-type toggles.
+
 ### Email Deliverability Overrides
 
 `email_from_address` and `email_from_name` settings let users override the From header for deliverability without changing env vars or restarting. Using a domain you control with SPF/DKIM/DMARC is the single biggest factor in keeping digests out of spam.
