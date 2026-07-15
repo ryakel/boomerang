@@ -1688,6 +1688,11 @@ export function deletePushSubscription(endpoint) {
   schedulePersist()
 }
 
+export function deletePushSubscriptionById(id) {
+  db.run('DELETE FROM push_subscriptions WHERE id = ?', [id])
+  schedulePersist()
+}
+
 // One-time cleanup utility: remove duplicate subscriptions, keeping the most
 // recently updated row for each (p256dh, auth) keypair. Exposed as a script.
 export function dedupePushSubscriptions() {

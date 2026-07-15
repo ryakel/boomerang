@@ -386,6 +386,11 @@ async function sendWeatherEmail(subject, body) {
 }
 
 async function evaluateWeatherNotifications(cache, settings) {
+  // Dev-instance muzzle — same check as server.js notifsMuzzled (duplicated
+  // per-file like isPileupExempt/isStale): the weather loop must keep running
+  // on dev (badges + What-Now need the cache) but never background-send.
+  const appVer = process.env.APP_VERSION || ''
+  if ((appVer === 'dev' || appVer.startsWith('dev-')) && process.env.DEV_NOTIFICATIONS !== '1') return
   if (!settings.weather_notifications_enabled) return
   if (isInQuietHours(settings)) return
 

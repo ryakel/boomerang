@@ -1599,6 +1599,41 @@ function NotificationsPanel({ settings, update }) {
     setApnsBusy(false)
   }
 
+  // Server-side channel truth: the web-push subscription registry + the
+  // dev-instance engine muzzle. Both exist so ANY client can see and control
+  // what the server will actually send — the phantom-PWA incident (duplicate
+  // web-push + Pushover banners that no visible toggle explained, because the
+  // stale Home-Screen PWA's subscription was invisible from the native app)
+  // is the reason this is surfaced here.
+  const [pushDevices, setPushDevices] = useState([])
+  const [notifsMuzzled, setNotifsMuzzled] = useState(false)
+  const loadPushDevices = useCallback(() => {
+    fetch('/api/push/subscriptions')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setPushDevices(d.subscriptions || []) })
+      .catch(() => {})
+  }, [])
+  useEffect(() => {
+    loadPushDevices()
+    fetch('/api/health')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setNotifsMuzzled(!!d.notifsMuzzled) })
+      .catch(() => {})
+  }, [loadPushDevices])
+  const removePushDevice = async (id) => {
+    await fetch(`/api/push/subscriptions/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {})
+    loadPushDevices()
+  }
+  const pushServiceName = (endpoint) => {
+    try {
+      const host = new URL(endpoint).hostname
+      if (host.includes('push.apple.com')) return 'Apple device (Safari / Home-Screen PWA)'
+      if (host.includes('googleapis.com') || host.includes('fcm')) return 'Chrome / Android'
+      if (host.includes('mozilla')) return 'Firefox'
+      return host
+    } catch { return 'unknown service' }
+  }
+
   // Pile-up exemption label picker, shown right after "Pile-up thresholds"
   // below. loadLabels() is a cheap synchronous localStorage read, same
   // pattern LabelsPanel uses.
@@ -1704,6 +1739,20 @@ function NotificationsPanel({ settings, update }) {
 
   return (
     <div className="v2-settings-form">
+      {/* Dev-instance muzzle banner — this server never background-sends. */}
+      {notifsMuzzled && (
+        <div className="v2-settings-block" style={{ borderLeft: '3px solid var(--v2-accent, #F26640)' }}>
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Dev server — background notifications muzzled</div>
+            <div className="v2-settings-row-hint">
+              This instance never sends scheduled nags, digests, package or weather alerts, so it can't
+              duplicate what production sends. Test buttons still work. Set DEV_NOTIFICATIONS=1 on the
+              container to unmuzzle.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Channel masters */}
       <div className="v2-settings-block">
         <SectionHeader k="channels" label="Channels" hint="Master toggle per delivery channel. Each channel still respects its per-type settings below." />
@@ -1772,6 +1821,34 @@ function NotificationsPanel({ settings, update }) {
           </div>
         )}
 
+        {/* Server-side subscription registry — every device the server will
+          * actually web-push to, visible from ANY client. The native app
+          * cannot see a stale Home-Screen PWA's subscription any other way;
+          * removing it here is how you stop a device that "shows nothing
+          * enabled" from still receiving web push. Rendered regardless of the
+          * master toggle for exactly that reason. */}
+        {pushDevices.length > 0 && (
+          <div className="v2-settings-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">Registered push devices ({pushDevices.length})</div>
+              <div className="v2-settings-row-hint">
+                Every live web-push subscription on the server. If a device keeps getting notifications
+                nothing on it explains (e.g. an old Home-Screen PWA), remove it here.
+              </div>
+            </div>
+            {pushDevices.map(d => (
+              <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+                <div className="v2-settings-row-hint" style={{ flex: 1 }}>
+                  {pushServiceName(d.endpoint)} · added {d.updated_at ? new Date(d.updated_at + 'Z').toLocaleDateString() : '—'}
+                </div>
+                <button className="v2-settings-btn v2-settings-btn-danger" onClick={() => removePushDevice(d.id)}>
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Native iOS (APNs) — the 4th channel, native shell only. Same
           * per-device registration shape as the web-push "This device" row. */}
         {isNativeShell() && (
@@ -1803,6 +1880,8 @@ function NotificationsPanel({ settings, update }) {
         * to be buried inside the Pushover integration block labeled as if it
         * were Pushover-specific. */}
       <div className="v2-settings-block">
+        <SectionHeader k="delivery" label="Deep links" hint="Where notification taps land — the public URL used by web push, Pushover, email, and the digest, plus native-app link routing." />
+        {!isCollapsed('delivery') && (<>
         <div className="v2-settings-row-text">
           <label className="v2-form-label" htmlFor="v2-public-app-url">Public app URL</label>
           <div className="v2-settings-row-hint">When set, notifications and the daily digest include a tappable link back to the relevant task — used by web push, Pushover, and email.</div>
@@ -1836,6 +1915,7 @@ function NotificationsPanel({ settings, update }) {
             }}
           />
         </div>
+        </>)}
       </div>
 
       {/* Per-type × per-channel — card-per-type layout works at any width */}
@@ -1871,8 +1951,10 @@ function NotificationsPanel({ settings, update }) {
                   { key: 'pushover', master: 'pushover_notifications_enabled', defaultOn: false },
                 ].map(c => (
                   <label key={c.key} className={`v2-notif-card-channel${settings[c.master] !== true ? ' v2-notif-card-channel-disabled' : ''}`}>
+                    {/* Display is master-gated: a toggle must never LOOK on
+                      * when its channel master means nothing will send. */}
                     <Toggle
-                      checked={c.defaultOn ? settings[`${c.key}_notif_${t.key}`] !== false : settings[`${c.key}_notif_${t.key}`] === true}
+                      checked={settings[c.master] === true && (c.defaultOn ? settings[`${c.key}_notif_${t.key}`] !== false : settings[`${c.key}_notif_${t.key}`] === true)}
                       onChange={e => update(`${c.key}_notif_${t.key}`, e.target.checked)}
                       disabled={settings[c.master] !== true}
                     />
@@ -1898,7 +1980,7 @@ function NotificationsPanel({ settings, update }) {
                 ].map(c => (
                   <label key={c.key} className={`v2-notif-card-channel${settings[c.master] !== true ? ' v2-notif-card-channel-disabled' : ''}`}>
                     <Toggle
-                      checked={settings[`${c.key}_notif_${t.key}`] !== false}
+                      checked={settings[c.master] === true && settings[`${c.key}_notif_${t.key}`] !== false}
                       onChange={e => update(`${c.key}_notif_${t.key}`, e.target.checked)}
                       disabled={settings[c.master] !== true}
                     />
@@ -1922,7 +2004,7 @@ function NotificationsPanel({ settings, update }) {
             <div className="v2-notif-card-channels">
               <label className={`v2-notif-card-channel${settings.push_notifications_enabled !== true ? ' v2-notif-card-channel-disabled' : ''}`}>
                 <Toggle
-                  checked={settings.push_notif_quokka_plan_ready !== false}
+                  checked={settings.push_notifications_enabled === true && settings.push_notif_quokka_plan_ready !== false}
                   onChange={e => update('push_notif_quokka_plan_ready', e.target.checked)}
                   disabled={settings.push_notifications_enabled !== true}
                 />
@@ -1977,6 +2059,63 @@ function NotificationsPanel({ settings, update }) {
             </label>
           </div>
         )}
+      </div>
+
+      {/* Critical mode — the critical tag's nag path (internal identifiers
+          keep the original crisis_* names). One card for everything about
+          critical behavior (cadence, staleness check-in, auto triage). The
+          tag itself is applied per-task via EditTaskModal's Critical
+          checkbox or by adding the label directly. */}
+      <div className="v2-settings-block">
+        <SectionHeader k="crisis" label="Critical mode" hint='Tasks tagged with the critical label get the most aggressive nag path in the app: their own per-task pings on every enabled channel (rides the High priority toggles), a pinned 🚨 section, and an auto-drafted triage checklist. Pushover escalates to Emergency once a critical task is overdue or 24h old.' />
+        {!isCollapsed('crisis') && (<>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">Critical label</label>
+            <div className="v2-settings-row-hint">Which label puts a task on the critical path. Never auto-applied by AI tagging.</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
+            type="text"
+            value={settings.crisis_label || 'critical'}
+            onChange={e => update('crisis_label', e.target.value)}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">Nag every (hours)</label>
+            <div className="v2-settings-row-hint">Per-task critical cadence, fractional ok (0.5 = 30 min). Ignoring a critical task never backs this off.</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input"
+            type="number" min="0.25" step="0.25"
+            value={settings.notif_freq_crisis ?? 2}
+            onChange={e => update('notif_freq_crisis', e.target.value === '' ? 2 : parseFloat(e.target.value))}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">"Still critical?" check-in (days)</label>
+            <div className="v2-settings-row-hint">After this long marked critical, one gentle ping asks to keep or demote. Never demotes on its own. 0 = never ask.</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input"
+            type="number" min="0" step="1"
+            value={settings.crisis_stale_days ?? 7}
+            onChange={e => update('crisis_stale_days', e.target.value === '' ? 7 : parseInt(e.target.value, 10))}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Auto triage checklist</div>
+            <div className="v2-settings-row-hint">When a task is marked critical, AI drafts 3-5 first moves into its checklist (first one doable in under 5 minutes).</div>
+          </div>
+          <Toggle
+            checked={settings.crisis_auto_breakdown !== false}
+            onChange={e => update('crisis_auto_breakdown', e.target.checked)}
+          />
+        </div>
+        </>)}
       </div>
 
       {/* Pile-up — every knob for "too many open tasks" lives in one place:
@@ -2090,63 +2229,6 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
-      {/* Critical mode — the critical tag's nag path (internal identifiers
-          keep the original crisis_* names). One card for everything about
-          critical behavior (cadence, staleness check-in, auto triage). The
-          tag itself is applied per-task via EditTaskModal's Critical
-          checkbox or by adding the label directly. */}
-      <div className="v2-settings-block">
-        <SectionHeader k="crisis" label="Critical mode" hint='Tasks tagged with the critical label get the most aggressive nag path in the app: their own per-task pings on every enabled channel (rides the High priority toggles), a pinned 🚨 section, and an auto-drafted triage checklist. Pushover escalates to Emergency once a critical task is overdue or 24h old.' />
-        {!isCollapsed('crisis') && (<>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <label className="v2-settings-row-label">Critical label</label>
-            <div className="v2-settings-row-hint">Which label puts a task on the critical path. Never auto-applied by AI tagging.</div>
-          </div>
-          <input
-            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
-            type="text"
-            value={settings.crisis_label || 'critical'}
-            onChange={e => update('crisis_label', e.target.value)}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <label className="v2-settings-row-label">Nag every (hours)</label>
-            <div className="v2-settings-row-hint">Per-task critical cadence, fractional ok (0.5 = 30 min). Ignoring a critical task never backs this off.</div>
-          </div>
-          <input
-            className="v2-form-input v2-settings-compact-input"
-            type="number" min="0.25" step="0.25"
-            value={settings.notif_freq_crisis ?? 2}
-            onChange={e => update('notif_freq_crisis', e.target.value === '' ? 2 : parseFloat(e.target.value))}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <label className="v2-settings-row-label">"Still critical?" check-in (days)</label>
-            <div className="v2-settings-row-hint">After this long marked critical, one gentle ping asks to keep or demote. Never demotes on its own. 0 = never ask.</div>
-          </div>
-          <input
-            className="v2-form-input v2-settings-compact-input"
-            type="number" min="0" step="1"
-            value={settings.crisis_stale_days ?? 7}
-            onChange={e => update('crisis_stale_days', e.target.value === '' ? 7 : parseInt(e.target.value, 10))}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Auto triage checklist</div>
-            <div className="v2-settings-row-hint">When a task is marked critical, AI drafts 3-5 first moves into its checklist (first one doable in under 5 minutes).</div>
-          </div>
-          <Toggle
-            checked={settings.crisis_auto_breakdown !== false}
-            onChange={e => update('crisis_auto_breakdown', e.target.checked)}
-          />
-        </div>
-        </>)}
-      </div>
-
       {/* Daily digest — per-channel opt-in. sendDigestNow gates on these flags,
           not on channel masters, so users with push/email/pushover enabled still
           need to opt into the digest separately. */}
@@ -2159,7 +2241,7 @@ function NotificationsPanel({ settings, update }) {
             <div className="v2-settings-row-hint">Requires Web push to be enabled and subscribed on this device.</div>
           </div>
           <Toggle
-            checked={settings.push_digest_enabled === true}
+            checked={settings.push_notifications_enabled === true && settings.push_digest_enabled === true}
             onChange={e => update('push_digest_enabled', e.target.checked)}
             disabled={settings.push_notifications_enabled !== true}
           />
@@ -2170,7 +2252,7 @@ function NotificationsPanel({ settings, update }) {
             <div className="v2-settings-row-hint">Requires Email to be enabled with a recipient address.</div>
           </div>
           <Toggle
-            checked={settings.email_digest_enabled === true}
+            checked={settings.email_notifications_enabled === true && settings.email_digest_enabled === true}
             onChange={e => update('email_digest_enabled', e.target.checked)}
             disabled={settings.email_notifications_enabled !== true}
           />
@@ -2181,7 +2263,7 @@ function NotificationsPanel({ settings, update }) {
             <div className="v2-settings-row-hint">Delivers as a single priority-0 Pushover message each morning.</div>
           </div>
           <Toggle
-            checked={settings.pushover_digest_enabled === true}
+            checked={settings.pushover_notifications_enabled === true && settings.pushover_digest_enabled === true}
             onChange={e => update('pushover_digest_enabled', e.target.checked)}
             disabled={settings.pushover_notifications_enabled !== true}
           />
@@ -2201,6 +2283,123 @@ function NotificationsPanel({ settings, update }) {
             <option value="curated">Curated</option>
             <option value="counts">Counts only</option>
           </select>
+        </div>
+        </>)}
+      </div>
+
+      {emergencyConfirm && (
+        <div className="v2-settings-confirm-overlay" onClick={() => setEmergencyConfirm(false)}>
+          <div className="v2-settings-confirm" onClick={e => e.stopPropagation()}>
+            <div className="v2-settings-confirm-title">Trigger Emergency alarm?</div>
+            <div className="v2-settings-confirm-message">
+              This fires a Pushover priority-2 alarm that repeats every 30 seconds and bypasses Do Not Disturb. Auto-cancels after about 90 seconds.
+            </div>
+            <div className="v2-settings-confirm-actions">
+              <button className="v2-settings-btn" onClick={() => setEmergencyConfirm(false)}>Cancel</button>
+              <button
+                className="v2-settings-btn v2-settings-btn-danger"
+                onClick={() => {
+                  setEmergencyConfirm(false)
+                  runTest('emergency', () => import('../api').then(m => m.testPushoverEmergency({
+                    userKey: settings.pushover_user_key,
+                    appToken: settings.pushover_app_token,
+                  })))
+                }}
+              >
+                Trigger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email deliverability — recipient + From override + batch mode */}
+      <div className="v2-settings-block">
+        <SectionHeader k="email_deliv" label="Email deliverability" hint="Recipient, From header overrides (SPF/DKIM/DMARC), and batch mode." />
+        {!isCollapsed('email_deliv') && (<>
+        <div className="v2-settings-row" style={{ marginTop: 8 }}>
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Recipient email</div>
+            <div className="v2-settings-row-hint">Where notifications go. Can also be set via NOTIFICATION_EMAIL env var.</div>
+          </div>
+          <input className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide" type="email" placeholder="you@example.com" value={settings.email_address || ''} onChange={e => update('email_address', e.target.value)} />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">From name</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
+            type="text"
+            placeholder="Boomerang Digest"
+            value={settings.email_from_name || ''}
+            onChange={e => update('email_from_name', e.target.value)}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">From address</div>
+          </div>
+          <input
+            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
+            type="email"
+            placeholder="digest@yourdomain.com"
+            value={settings.email_from_address || ''}
+            onChange={e => update('email_from_address', e.target.value)}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Batch mode</div>
+            <div className="v2-settings-row-hint">Bundles eligible notifications into a single digest-style email instead of sending one per event. Reduces inbox noise; trades immediacy for calm.</div>
+          </div>
+          <Toggle
+            checked={!!settings.email_batch_mode}
+            onChange={e => update('email_batch_mode', e.target.checked)}
+            disabled={settings.email_notifications_enabled !== true}
+          />
+        </div>
+        </>)}
+      </div>
+
+      {/* Weather notifications — master + per-channel toggles. No Pushover
+        * row here (unlike every other notification type) because
+        * pushoverNotifications.js has no weather-event dispatch at all —
+        * adding a toggle with nothing behind it would just be another dead
+        * setting. Real feature work, not a settings-placement fix; tracked
+        * as a known gap rather than faked with a non-functional toggle. */}
+      <div className="v2-settings-block">
+        <SectionHeader k="weather" label="Weather notifications" hint="Alerts for nice-day windows, bad-weekend warnings, and consecutive-nice-day windows. Requires a weather location in Integrations." />
+        {!isCollapsed('weather') && (<>
+        <div className="v2-settings-row" style={{ marginTop: 8 }}>
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Enable weather notifications</div>
+          </div>
+          <Toggle
+            checked={!!settings.weather_enabled && settings.weather_notifications_enabled !== false}
+            onChange={e => update('weather_notifications_enabled', e.target.checked)}
+            disabled={!settings.weather_enabled}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Push</div>
+          </div>
+          <Toggle
+            checked={settings.weather_notifications_enabled !== false && settings.push_notifications_enabled === true && settings.weather_notif_push !== false}
+            onChange={e => update('weather_notif_push', e.target.checked)}
+            disabled={settings.weather_notifications_enabled === false || settings.push_notifications_enabled !== true}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Email</div>
+          </div>
+          <Toggle
+            checked={settings.weather_notifications_enabled !== false && settings.email_notifications_enabled === true && settings.weather_notif_email !== false}
+            onChange={e => update('weather_notif_email', e.target.checked)}
+            disabled={settings.weather_notifications_enabled === false || settings.email_notifications_enabled !== true}
+          />
         </div>
         </>)}
       </div>
@@ -2300,123 +2499,6 @@ function NotificationsPanel({ settings, update }) {
             )}
           </div>
         )}
-      </div>
-
-      {emergencyConfirm && (
-        <div className="v2-settings-confirm-overlay" onClick={() => setEmergencyConfirm(false)}>
-          <div className="v2-settings-confirm" onClick={e => e.stopPropagation()}>
-            <div className="v2-settings-confirm-title">Trigger Emergency alarm?</div>
-            <div className="v2-settings-confirm-message">
-              This fires a Pushover priority-2 alarm that repeats every 30 seconds and bypasses Do Not Disturb. Auto-cancels after about 90 seconds.
-            </div>
-            <div className="v2-settings-confirm-actions">
-              <button className="v2-settings-btn" onClick={() => setEmergencyConfirm(false)}>Cancel</button>
-              <button
-                className="v2-settings-btn v2-settings-btn-danger"
-                onClick={() => {
-                  setEmergencyConfirm(false)
-                  runTest('emergency', () => import('../api').then(m => m.testPushoverEmergency({
-                    userKey: settings.pushover_user_key,
-                    appToken: settings.pushover_app_token,
-                  })))
-                }}
-              >
-                Trigger
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Email deliverability — recipient + From override + batch mode */}
-      <div className="v2-settings-block">
-        <SectionHeader k="email_deliv" label="Email deliverability" hint="Recipient, From header overrides (SPF/DKIM/DMARC), and batch mode." />
-        {!isCollapsed('email_deliv') && (<>
-        <div className="v2-settings-row" style={{ marginTop: 8 }}>
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Recipient email</div>
-            <div className="v2-settings-row-hint">Where notifications go. Can also be set via NOTIFICATION_EMAIL env var.</div>
-          </div>
-          <input className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide" type="email" placeholder="you@example.com" value={settings.email_address || ''} onChange={e => update('email_address', e.target.value)} />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">From name</div>
-          </div>
-          <input
-            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
-            type="text"
-            placeholder="Boomerang Digest"
-            value={settings.email_from_name || ''}
-            onChange={e => update('email_from_name', e.target.value)}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">From address</div>
-          </div>
-          <input
-            className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
-            type="email"
-            placeholder="digest@yourdomain.com"
-            value={settings.email_from_address || ''}
-            onChange={e => update('email_from_address', e.target.value)}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Batch mode</div>
-            <div className="v2-settings-row-hint">Bundles eligible notifications into a single digest-style email instead of sending one per event. Reduces inbox noise; trades immediacy for calm.</div>
-          </div>
-          <Toggle
-            checked={!!settings.email_batch_mode}
-            onChange={e => update('email_batch_mode', e.target.checked)}
-            disabled={settings.email_notifications_enabled !== true}
-          />
-        </div>
-        </>)}
-      </div>
-
-      {/* Weather notifications — master + per-channel toggles. No Pushover
-        * row here (unlike every other notification type) because
-        * pushoverNotifications.js has no weather-event dispatch at all —
-        * adding a toggle with nothing behind it would just be another dead
-        * setting. Real feature work, not a settings-placement fix; tracked
-        * as a known gap rather than faked with a non-functional toggle. */}
-      <div className="v2-settings-block">
-        <SectionHeader k="weather" label="Weather notifications" hint="Alerts for nice-day windows, bad-weekend warnings, and consecutive-nice-day windows. Requires a weather location in Integrations." />
-        {!isCollapsed('weather') && (<>
-        <div className="v2-settings-row" style={{ marginTop: 8 }}>
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Enable weather notifications</div>
-          </div>
-          <Toggle
-            checked={settings.weather_notifications_enabled !== false}
-            onChange={e => update('weather_notifications_enabled', e.target.checked)}
-            disabled={!settings.weather_enabled}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Push</div>
-          </div>
-          <Toggle
-            checked={settings.weather_notif_push !== false}
-            onChange={e => update('weather_notif_push', e.target.checked)}
-            disabled={settings.weather_notifications_enabled === false || settings.push_notifications_enabled !== true}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Email</div>
-          </div>
-          <Toggle
-            checked={settings.weather_notif_email !== false}
-            onChange={e => update('weather_notif_email', e.target.checked)}
-            disabled={settings.weather_notifications_enabled === false || settings.email_notifications_enabled !== true}
-          />
-        </div>
-        </>)}
       </div>
 
     </div>
