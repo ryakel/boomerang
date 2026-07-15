@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ListChecks } from 'lucide-react'
 import { App as CapacitorApp } from '@capacitor/app'
 import { isNativeShell } from './apiConfig'
+import { wireNativePushTapHandler } from './nativePush'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import BottomTabs from './components/BottomTabs'
@@ -388,7 +389,9 @@ export default function AppV2() {
     CapacitorApp.addListener('appUrlOpen', (event) => {
       applyDeepLinkRef.current(parseSearch(event?.url))
     }).then((l) => { listener = l }).catch(() => {})
-    return () => { listener?.remove?.() }
+    // Native APNs banner taps route through the same deep-link applier.
+    const unwirePush = wireNativePushTapHandler((search) => applyDeepLinkRef.current(search))
+    return () => { listener?.remove?.(); unwirePush() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
