@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Boomerang</string>
+	<string>$(BOOMERANG_DISPLAY_NAME)</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -23,7 +23,7 @@
 			<string>ryakel.boomerang.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>boomerang</string>
+				<string>$(BOOMERANG_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
@@ -33,6 +33,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>BoomerangAppGroup</key>
+	<string>$(BOOMERANG_APP_GROUP)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

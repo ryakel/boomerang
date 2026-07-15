@@ -13,11 +13,12 @@ import Capacitor
 //
 // APP GROUP: the single shared identifier used by every native target. It must
 // match (1) the App Groups capability on the App target, (2) the same capability
-// on each extension target, and (3) the literal below. Created once in the Apple
-// Developer portal / Xcode "Signing & Capabilities → App Groups". If you used a
-// bundle id other than in.kfam.boomerang, change this one string and the
-// capability to match.
-let boomerangAppGroup = "group.in.kfam.boomerang"
+// on each extension target, and (3) the resolved value below. Created once in the Apple
+// Developer portal / Xcode "Signing & Capabilities → App Groups".
+// Resolved from Info.plist (BoomerangAppGroup <- the BOOMERANG_APP_GROUP build
+// setting), so the prod app uses group.ryakel.boomerang and the Dev app uses
+// group.ryakel.boomerang.dev without code changes.
+let boomerangAppGroup = (Bundle.main.object(forInfoDictionaryKey: "BoomerangAppGroup") as? String) ?? "group.ryakel.boomerang"
 
 @objc(BoomerangNative)
 public class BoomerangNative: CAPPlugin, CAPBridgedPlugin {
