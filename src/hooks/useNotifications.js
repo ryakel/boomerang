@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { loadSettings, isStale, isOverdue, logNotification, AVOIDANCE_ENERGY_TYPES } from '../store'
+import { loadSettings, isStale, isOverdue, logNotification, AVOIDANCE_ENERGY_TYPES, safeSetItem } from '../store'
 import { SONNET_MODEL } from '../../aiModels.js'
 
 const FALLBACK_NUDGES = [
@@ -138,7 +138,7 @@ function loadLastChecks() {
 }
 
 function saveLastChecks(checks) {
-  localStorage.setItem(LAST_CHECKS_KEY, JSON.stringify(checks))
+  safeSetItem(LAST_CHECKS_KEY, JSON.stringify(checks))
 }
 
 function loadHpLastChecks() {
@@ -148,7 +148,7 @@ function loadHpLastChecks() {
 }
 
 function saveHpLastChecks(checks) {
-  localStorage.setItem(HP_LAST_CHECKS_KEY, JSON.stringify(checks))
+  safeSetItem(HP_LAST_CHECKS_KEY, JSON.stringify(checks))
 }
 
 export function useNotifications(tasks) {
