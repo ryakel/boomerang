@@ -1747,6 +1747,16 @@ function NotificationsPanel({ settings, update }) {
           value={settings.public_app_url || ''}
           onChange={e => update('public_app_url', e.target.value)}
         />
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Open Pushover links in the iOS app</div>
+            <div className="v2-settings-row-hint">Pushover taps open the native Boomerang app (boomerang:// deep link) instead of the web app in Safari. Turn on only if you use the native iOS app.</div>
+          </div>
+          <Toggle
+            checked={settings.pushover_open_native === true}
+            onChange={e => update('pushover_open_native', e.target.checked)}
+          />
+        </div>
       </div>
 
       {/* Per-type × per-channel — card-per-type layout works at any width */}

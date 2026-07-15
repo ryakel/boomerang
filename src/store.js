@@ -165,6 +165,10 @@ export const DEFAULT_SETTINGS = {
   pushover_notif_pileup: true,
   pushover_notif_package_delivered: true,
   pushover_notif_package_exception: true,
+  // When on, Pushover deep links use the native app's boomerang:// scheme so a
+  // tap opens the installed iOS app instead of the web app in Safari. Requires
+  // the native shell (registers the scheme) — a no-op for web-only setups.
+  pushover_open_native: false,
   notion_page_template: `## Overview\n> Context and background for this task\n\n### Details\n- **Last Updated:** {last_updated}\n- **Frequency:** {frequency}\n- **Last Performed:** {last_performed}\n\n## Notes\n- Key details from task notes\n\n## Action Items\n- [ ] First step\n- [ ] Second step\n- [ ] Third step\n\n---\n\n## Reference\n- Related links or resources\n\n## Tags\n- {tags}`,
 }
 

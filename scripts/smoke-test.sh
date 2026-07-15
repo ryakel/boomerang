@@ -44,24 +44,20 @@ if [ "$JS_STATUS" != "200" ]; then
   exit 1
 fi
 
-# Use Node to actually parse the JS and check for initialization errors
-node -e "
-const http = require('http');
-http.get('http://localhost:${PORT:-3001}${JS_FILE}', (res) => {
-  let data = '';
-  res.on('data', chunk => data += chunk);
-  res.on('end', () => {
-    try {
-      // Try to parse as a module - catches syntax errors
-      new Function(data);
-      console.log('JS bundle parses OK (' + Math.round(data.length/1024) + ' KB)');
-      process.exit(0);
-    } catch (e) {
-      console.error('FAIL: JS bundle has errors:', e.message);
-      process.exit(1);
-    }
-  });
-});
-"
+# Parse the JS as an ES module (the bundle is type=module; `new Function` would
+# reject valid top-level import/export, which Vite emits once anything is
+# code-split — e.g. a Capacitor plugin lazy-loading its web impl). Write to a
+# temp .mjs and use `node --check`, which parses module syntax correctly.
+JS_TMP=$(mktemp).mjs
+curl -s "http://localhost:${PORT:-3001}${JS_FILE}" -o "$JS_TMP"
+if node --check "$JS_TMP" 2>/tmp/smoke-js-err; then
+  echo "JS bundle parses OK ($(($(wc -c < "$JS_TMP")/1024)) KB)"
+  rm -f "$JS_TMP"
+else
+  echo "FAIL: JS bundle has errors:"
+  cat /tmp/smoke-js-err
+  rm -f "$JS_TMP"
+  exit 1
+fi
 
 echo "==> Smoke test passed"
