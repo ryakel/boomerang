@@ -24,6 +24,13 @@ const config: CapacitorConfig = {
     // personal app — an inspectable WebView in release builds is acceptable.
     webContentsDebuggingEnabled: true,
   },
+  plugins: {
+    // Native APNs push (Phase 4): show banners even when the app is
+    // foregrounded, matching how the web-push/Pushover channels behave.
+    PushNotifications: {
+      presentationOptions: ['banner', 'sound', 'badge'],
+    },
+  },
 }
 
 export default config
