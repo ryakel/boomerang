@@ -51,7 +51,12 @@ function getCredentials(settings) {
 // so existing web-only setups are unchanged. The scheme is fixed (`boomerang`)
 // and matches the value registered natively.
 function buildDeepLink(settings, taskId) {
-  if (settings.pushover_open_native) {
+  // Link mode lives in its own app_data key (see /api/pushover/link-mode in
+  // server.js) so the clobber-prone bulk settings blob can't erase it. The
+  // settings-blob key is only a legacy fallback.
+  const mode = getData('pushover_link_mode')
+  const openNative = mode ? !!mode.open_native : !!settings.pushover_open_native
+  if (openNative) {
     return taskId ? `boomerang://?task=${encodeURIComponent(taskId)}` : 'boomerang://'
   }
   const base = (settings.public_app_url || process.env.PUBLIC_APP_URL || '').replace(/\/$/, '')

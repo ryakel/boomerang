@@ -1555,6 +1555,20 @@ function IntegrationsPanel({
 }
 
 function NotificationsPanel({ settings, update }) {
+  // Pushover link mode is server-side state with its own endpoint (NOT part of
+  // the synced settings blob — the blob's last-writer-wins semantics let other
+  // devices revert it; see /api/pushover/link-mode in server.js). null = not
+  // loaded yet (toggle disabled until the fetch lands).
+  const [pushoverOpenNative, setPushoverOpenNative] = useState(null)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/pushover/link-mode')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (alive && d) setPushoverOpenNative(!!d.open_native) })
+      .catch(() => { if (alive) setPushoverOpenNative(false) })
+    return () => { alive = false }
+  }, [])
+
   // Pile-up exemption label picker, shown right after "Pile-up thresholds"
   // below. loadLabels() is a cheap synchronous localStorage read, same
   // pattern LabelsPanel uses.
@@ -1750,11 +1764,22 @@ function NotificationsPanel({ settings, update }) {
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">Open Pushover links in the iOS app</div>
-            <div className="v2-settings-row-hint">Pushover taps open the native Boomerang app (boomerang:// deep link) instead of the web app in Safari. Turn on only if you use the native iOS app.</div>
+            <div className="v2-settings-row-hint">Pushover links open the native Boomerang app (boomerang:// deep link) instead of the web app in Safari. Stored on the server directly — this one can't be reverted by other devices syncing.</div>
           </div>
           <Toggle
-            checked={settings.pushover_open_native === true}
-            onChange={e => update('pushover_open_native', e.target.checked)}
+            checked={pushoverOpenNative === true}
+            disabled={pushoverOpenNative === null}
+            onChange={e => {
+              const next = e.target.checked
+              setPushoverOpenNative(next)
+              fetch('/api/pushover/link-mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ open_native: next }),
+              }).then(r => r.ok ? r.json() : null)
+                .then(d => { if (d) setPushoverOpenNative(!!d.open_native) })
+                .catch(() => setPushoverOpenNative(v => !v)) // revert optimistic state on failure
+            }}
           />
         </div>
       </div>

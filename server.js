@@ -2738,6 +2738,27 @@ app.post('/api/pushover/test-emergency', async (req, res) => {
   res.json(result)
 })
 
+// Pushover link mode — whether deep links use the native boomerang:// scheme.
+// Deliberately stored OUTSIDE the bulk settings blob (own app_data key, same
+// carve-out reasoning as growth areas): the blob is whole-blob last-writer-wins
+// across every client, and a boolean there is unfixably clobber-able — any
+// current-bundle client with stale localStorage pushes an explicit `false`
+// back within seconds ("the toggle never saves", round 2, 2026-07-15). Only
+// these endpoints write it; no client blob push can touch it.
+app.get('/api/pushover/link-mode', (req, res) => {
+  const stored = getData('pushover_link_mode')
+  // Fall back to any value the (legacy) settings-blob toggle managed to keep.
+  const settings = getData('settings') || {}
+  res.json({ open_native: stored ? !!stored.open_native : !!settings.pushover_open_native })
+})
+
+app.post('/api/pushover/link-mode', (req, res) => {
+  const openNative = !!(req.body && req.body.open_native)
+  setData('pushover_link_mode', { open_native: openNative, updated_at: new Date().toISOString() })
+  console.log(`[Pushover] link mode set: open_native=${openNative}`)
+  res.json({ ok: true, open_native: openNative })
+})
+
 // --- Daily digest test (sends via every enabled channel right now) ---
 app.post('/api/digest/test', async (req, res) => {
   try {
