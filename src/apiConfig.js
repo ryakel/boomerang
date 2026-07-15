@@ -31,6 +31,29 @@ export function setApiConfig({ base, token } = {}) {
   } catch { /* storage unavailable — ignore */ }
 }
 
+// True when running inside the Capacitor native shell (WebView origin is
+// capacitor://localhost). The web/PWA build always returns false.
+export function isNativeShell() {
+  try { return window.location.protocol === 'capacitor:' } catch { return false }
+}
+
+// Reopen the Connection screen on next load (Settings → Data → Change server,
+// or the login screen's escape hatch). sessionStorage so it can't stick.
+const SHOW_CONNECT_KEY = 'boom_show_connect'
+export function requestConnectionSetup() {
+  try { sessionStorage.setItem(SHOW_CONNECT_KEY, '1') } catch { /* ignore */ }
+  window.location.reload()
+}
+export function consumeConnectionSetupRequest() {
+  try {
+    if (sessionStorage.getItem(SHOW_CONNECT_KEY)) {
+      sessionStorage.removeItem(SHOW_CONNECT_KEY)
+      return true
+    }
+  } catch { /* ignore */ }
+  return false
+}
+
 // Resolve a possibly-relative API path against the configured base.
 export function apiUrl(path) {
   const base = getApiBase()

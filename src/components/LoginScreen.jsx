@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isNativeShell, requestConnectionSetup } from '../apiConfig'
 import './LoginScreen.css'
 
 // Shown only when server-side auth is enabled (AUTH_PASSWORD set) and the
@@ -52,6 +53,15 @@ export default function LoginScreen({ onAuthenticated }) {
         <button type="submit" className="login-btn" disabled={busy || !password}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
+        {isNativeShell() && (
+          // In the native shell the session cookie can't ride cross-origin
+          // requests, so password login is a dead end — the API token (set on
+          // the Connection screen) is the credential. Seeing this screen in the
+          // app means the token is missing/rejected: fix it there.
+          <button type="button" className="login-alt-link" onClick={requestConnectionSetup}>
+            Change server or API token…
+          </button>
+        )}
       </form>
     </div>
   )

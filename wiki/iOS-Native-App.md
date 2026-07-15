@@ -68,33 +68,38 @@ device.
 
 ### Configure the connection (first run)
 
-Until the in-app Connection settings screen lands (Phase 1.5), set the two keys
-from Safari Web Inspector (Develop → your device → the app's WebView console),
-or temporarily hardcode for testing. (The WebView is explicitly marked
-inspectable via `webContentsDebuggingEnabled: true` in `capacitor.config.ts` —
-required for this step; if Safari says "No Inspectable Applications", bring the
-app to the foreground and relaunch Safari with the simulator already running.)
+On first launch in the native shell the app shows the **Connection screen**
+(`src/components/ConnectionSetup.jsx`): enter the server URL, paste the
+`API_TOKEN`, hit **Test & save**. It verifies `/api/health` (base URL) and
+`/api/auth/status` with the token before saving, then reloads into the app.
+Change it later via **Settings → Data → Change server…**, from the login
+screen's "Change server or API token…" link, or with `?connect=1` on the web
+build.
 
-```js
-localStorage.setItem('boom_api_base', 'https://YOUR-HOST.tailnet.ts.net')
-localStorage.setItem('boom_api_token', 'YOUR_API_TOKEN')
-location.reload()
-```
-
-After reload the shim points all `/api` calls (and the SSE sync stream) at your
-server with the token attached. Confirm tasks load + sync works.
+After the reload the shim points all `/api` calls (and the SSE sync stream) at
+your server with the token attached. Confirm tasks load + sync works.
 
 > Re-run `npm run build:mobile` after any web change to re-bundle + sync into the
 > iOS project.
 
+Fallback: the same two values can still be set manually from Safari Web
+Inspector (Develop → your device → the app's WebView console) —
+`localStorage.boom_api_base` / `localStorage.boom_api_token` + reload. The
+WebView is explicitly marked inspectable via `webContentsDebuggingEnabled:
+true` in `capacitor.config.ts`; if Safari says "No Inspectable Applications",
+bring the app to the foreground and relaunch Safari with the simulator already
+running.
+
 ---
 
-## Phase 1.5 — in-app Connection screen (next)
+## Phase 1.5 — in-app Connection screen (DONE 2026-07-15)
 
-A small first-run setup screen (server URL + API token, stored via
-`setApiConfig()` in `src/apiConfig.js`) so there's no Web-Inspector step. The
-interceptor reads config at startup, so the app reloads the WebView after the
-token is saved.
+First-run setup screen (server URL + API token, stored via `setApiConfig()` in
+`src/apiConfig.js`) — no Web-Inspector step. The interceptor reads config at
+startup, so the app reloads the WebView after saving. Note the login screen is
+a dead end in the native shell (cross-origin fetches can't carry the session
+cookie, so password login only works on the web) — the API token is the native
+credential, which is why the login screen links back to the Connection screen.
 
 ## Phase 2 — Share Extension (the headline feature)
 
