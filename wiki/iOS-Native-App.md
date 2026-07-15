@@ -128,13 +128,16 @@ Spotlight, the Action button, and Back Tap — same `/api/intake` target.
   bundle; `capacitor.config.ts` + `ios/` are dev/Mac-only. The server's runtime
   `COPY` list is unchanged. The web/PWA build is byte-for-byte unaffected (the
   interceptor is inert with no config).
-- **`ios/` is committed to the repo** (since 2026-07-15). It carries the
-  **UIScene lifecycle migration (TN3187)** — `SceneDelegate.swift` + the
-  `UIApplicationSceneManifest` in `Info.plist` — without which the iOS 27 SDK
-  refuses to launch the app (`EXC_BREAKPOINT` at startup; Capacitor 8's stock
-  template is still AppDelegate-only). Do NOT regenerate with
-  `npx cap add ios` — that resurrects the broken template; `npx cap sync ios`
-  is the normal refresh path. Build output and synced assets (`public/`,
+- **`ios/` is committed to the repo** (since 2026-07-15). It carries two
+  iOS-26/27-SDK fixes Capacitor 8's stock template lacks: the **UIScene
+  lifecycle migration (TN3187)** — `SceneDelegate.swift` + the
+  `UIApplicationSceneManifest` in `Info.plist` — without which the SDK refuses
+  to launch the app (`EXC_BREAKPOINT` at startup), and
+  **`BoomerangViewController.swift`** (the storyboard's root VC) which zeroes
+  the auto-populated `obscuredContentInsets` so the layout viewport isn't
+  shrunk by the safe areas (the app's CSS owns that via `env()`, same as the
+  PWA). Do NOT regenerate with `npx cap add ios` — that resurrects the broken
+  template; `npx cap sync ios` is the normal refresh path. Build output and synced assets (`public/`,
   `capacitor.config.json`, Pods/build/DerivedData/xcuserdata) stay gitignored.
   Signing (Team + bundle id) is per-Mac state in the pbxproj — set it once in
   Xcode after the first pull.
