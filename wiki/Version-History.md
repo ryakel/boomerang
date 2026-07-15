@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- fix(ui): APNs controls belong in the Channels section, not the Public-app-URL card [XS]
+  - Prod report: the native-push block "looks super stupid" as its own one-off section — the Notifications panel already models delivery channels (web push / email / Pushover rows in **Channels**, with web push's "Enable on this device" sub-row as the per-device registration pattern). The APNs block was nested inside the unrelated "Public app URL" card. Moved into Channels as the 4th channel row ("Native iOS (APNs)", native-shell-only), mirroring the web-push device-row layout (column row, same `v2-settings-btn` actions). No behavior change — same status line, Enable, and Send test wiring.
+
 - fix(ios): App Shortcut phrases can't embed a String parameter [XS]
   - Second Mac-compile error in `BoomerangIntents.swift`: "'AppEntity' and 'AppEnum' are the only allowed types for 'taskTitle'". Siri phrases may only embed AppEnum/AppEntity parameters (finite vocabulary); the two parameterized phrases (`"Add \(\.$taskTitle) to …"` / `"Throw \(\.$taskTitle) to …"`) were invalid for a free-form String. Replaced with four non-parameterized phrase variants — Siri collects the title via the parameter's `requestValueDialog` ("What's the task?") instead, which is the standard dictation flow for free-text intents.
 
