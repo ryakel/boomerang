@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- fix(ios): raise iOS deployment target 15.0 → 16.0 — AppIntents requires it [XS]
+  - First real Mac compile of the Mac-session bundle failed: every AppIntents symbol in `BoomerangIntents.swift` errored "only available in iOS 16.0 or newer" because the App target (and project) still carried the Capacitor template's `IPHONEOS_DEPLOYMENT_TARGET = 15.0` (`-target arm64-apple-ios15.0` in the failing swiftc invocation). All 12 remaining `15.0` entries in `project.pbxproj` (project-level + App target, Debug/Release + their `-Dev` clones) bumped to `16.0`, matching the ShareExtension configs which were authored at 16.0 from the start. Chose the target bump over sprinkling `@available(iOS 16, *)` — `AppShortcutsProvider` registration doesn't gate cleanly, and the only device this app targets runs iOS 27. pbxproj re-validated with mod-pbxproj after the edit.
+
 - feat(ios): `npm run ios:dev` / `ios:prod` — one-liner build+install+launch [S]
   - `scripts/ios-deploy.sh` (npm aliases `ios:dev` → scheme "App Dev" / `ios:prod` → scheme "App"): npm install → web build + `cap sync` → `xcodebuild` the requested scheme/config (`Debug-Dev`/`Debug`) for the first connected iPhone (`xcrun devicectl` autodetect, or pass a UDID) with `-allowProvisioningUpdates` → `devicectl install` + launch. No Xcode UI. `ios/build` (the script's derivedDataPath) gitignored. Caveat documented in the script: a brand-new capability (e.g. a not-yet-registered App Group) can require one interactive ⌘R in Xcode before headless signing works; steady-state is fully CLI. `npm run ios` (the Xcode-GUI flow) unchanged.
 
