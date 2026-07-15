@@ -164,11 +164,17 @@ export async function sendTestNotification(overrides = {}) {
   const appToken = overrides.appToken || fromSettings.appToken
   if (!userKey) return { success: false, error: 'Pushover User Key not configured' }
   if (!appToken) return { success: false, error: 'Pushover App Token not configured' }
+  // Include a deep link so the test is tappable — this is how you verify the
+  // native-app deep link works: with pushover_open_native on it's boomerang://
+  // (opens the iOS app), else the https public URL.
+  const url = buildDeepLink(settings, null)
   const result = await sendPushover({
     userKey, appToken,
     title: 'Boomerang test',
-    message: 'Pushover is wired up correctly.',
+    message: url ? 'Pushover is wired up. Tap to open Boomerang.' : 'Pushover is wired up correctly.',
     priority: 0,
+    url,
+    urlTitle: url ? 'Open in Boomerang' : undefined,
   })
   if (!result.ok) return { success: false, error: result.errors?.[0] || result.error || 'Send failed' }
   return { success: true, request: result.request }

@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- feat(ios): `npm run ios` one-command rebuild + tappable Pushover test [XS]
+  - **`scripts/ios-rebuild.sh` (npm alias `npm run ios`):** `npm install` → `npm run build` → `cap sync ios` → `cap open ios`, with friendly step output. Fixes the newbie trap where checking out a branch that added a dependency (`@capacitor/app`) and running `build:mobile` fails with "failed to resolve import" because `build:mobile` doesn't install. Use `npm run ios` as the standard rebuild-after-pull command.
+  - **Pushover test notification is now tappable:** `sendTestNotification()` had no `url`, so there was no "Open in Boomerang" link to test the deep link with. It now includes `buildDeepLink(settings, null)` — with `pushover_open_native` on that's `boomerang://` (opens the native app), so the Settings → Pushover → Test button verifies the native deep link end to end.
+
 - feat(notifications,ios): Pushover deep links open the native iOS app [M]
   - **User report:** tapping a Pushover notification opened the *web* app in Safari, not the installed native app. Cause: `buildDeepLink()` in `pushoverNotifications.js` always returned the https `public_app_url` (`https://.../?task=<id>`), which iOS hands to Safari — the native WebView loads `capacitor://localhost` and never matches an https URL.
   - **Fix:** a custom URL scheme the native app owns. New `pushover_open_native` setting (default OFF — web-only setups unchanged): when on, Pushover deep links become `boomerang://?task=<id>`. The app registers the `boomerang` scheme (`CFBundleURLTypes` in `ios/App/App/Info.plist`) and routes the tap via `@capacitor/app`'s `appUrlOpen` (+ `getLaunchUrl()` for cold start) into the existing deep-link handler, which now lives in a reusable `applyDeepLink(search)` in `AppV2.jsx` (shared by the web `?task=` path and the native scheme). The native listener runs once via a ref so a tasks-state change can't re-fire the launch task. Settings → Notifications → Channels gains an "Open Pushover links in the iOS app" toggle below Public app URL.
