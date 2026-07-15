@@ -43,6 +43,7 @@ Thumbs.db
 # the TN3187 scene-lifecycle migration; only generated/build output is ignored)
 ios/App/Pods
 ios/App/build
+ios/build
 ios/App/output
 ios/App/App/public
 ios/App/App/capacitor.config.json

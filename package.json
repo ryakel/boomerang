@@ -13,7 +13,9 @@
     "preview": "vite preview",
     "cap:sync": "cap sync ios",
     "build:mobile": "vite build && cap sync ios",
-    "ios": "sh scripts/ios-rebuild.sh"
+    "ios": "sh scripts/ios-rebuild.sh",
+    "ios:dev": "sh scripts/ios-deploy.sh 'App Dev'",
+    "ios:prod": "sh scripts/ios-deploy.sh App"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",
