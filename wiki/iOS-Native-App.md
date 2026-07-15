@@ -128,9 +128,16 @@ Spotlight, the Action button, and Back Tap — same `/api/intake` target.
   bundle; `capacitor.config.ts` + `ios/` are dev/Mac-only. The server's runtime
   `COPY` list is unchanged. The web/PWA build is byte-for-byte unaffected (the
   interceptor is inert with no config).
-- **`ios/` is generated on the Mac.** Pods and the synced `public/` assets are
-  gitignored; commit the rest of `ios/App` if you want the native project under
-  version control.
+- **`ios/` is committed to the repo** (since 2026-07-15). It carries the
+  **UIScene lifecycle migration (TN3187)** — `SceneDelegate.swift` + the
+  `UIApplicationSceneManifest` in `Info.plist` — without which the iOS 27 SDK
+  refuses to launch the app (`EXC_BREAKPOINT` at startup; Capacitor 8's stock
+  template is still AppDelegate-only). Do NOT regenerate with
+  `npx cap add ios` — that resurrects the broken template; `npx cap sync ios`
+  is the normal refresh path. Build output and synced assets (`public/`,
+  `capacitor.config.json`, Pods/build/DerivedData/xcuserdata) stay gitignored.
+  Signing (Team + bundle id) is per-Mac state in the pbxproj — set it once in
+  Xcode after the first pull.
 - **Token handling.** The `API_TOKEN` lives in `localStorage` (and, in Phase 2,
   an App Group / Keychain) on the device — not in the repo or the app bundle.
   Rotate it by re-running `scripts/auth-setup.js` and updating the device.
