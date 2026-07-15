@@ -114,11 +114,41 @@ will be added in that PR.
 Swift **App Intents** exposing "Add Boomerang task" to Siri, the Shortcuts app,
 Spotlight, the Action button, and Back Tap — same `/api/intake` target.
 
-## Phase 4 (optional, later)
+## Phase 4 (DONE 2026-07-15 — 4a pipeline + 4b full coverage)
 
-- Native **APNs push** via a Capacitor push plugin (more reliable than web push
-  in a WKWebView). Until then, keep Pushover / web push.
-- Deep links (`boomerang://task/<id>`) for notification taps.
+**4a — the pipeline:** `apnsNotifications.js` (server, zero new deps: Node
+`http2` + `crypto`, ES256 JWT) + `src/nativePush.js` (client: permission →
+APNs register → `POST /api/apns/register`; banner-tap handler routes the
+payload `url` into `applyDeepLink()`). Env-only config:
+`APNS_KEY_P8` / `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_TOPIC` (default
+`ryakel.boomerang.app`; the dev server sets `ryakel.boomerang.app.dev`) /
+`APNS_ENV` (`sandbox` default = Xcode sideloads; `production` for
+TestFlight/App Store builds). One `.p8` key serves both apps — keys are
+team-scoped; the topic selects the app.
+
+**4b — full coverage (how it works):** APNs is a **second delivery leg of the
+Push channel**, not a separate engine. `sendPush()` in `pushNotifications.js`
+is the single choke point every push notification funnels through — crisis,
+escalation, high-priority, overdue, stale, nudges, size-based, pile-up, habit
+pace, routine suggestions, the daily digest, package events, Quokka
+plan-ready, and the test button. It now sends native APNs first, web push
+second, with arbitration:
+
+- Native lands on ≥1 device → **Apple** web-push endpoints (Safari /
+  Home-Screen PWA) are skipped, so one phone never gets the same banner
+  twice. Desktop Chrome/Firefox endpoints always receive.
+- Native sends 0 (unconfigured, no devices, bad key) → full web push runs.
+  Native can only reduce duplication, never drop a notification.
+- `settings.push_web_alongside_native` (default off; appears in Settings →
+  Notifications → Channels once a device is registered) keeps Apple web-push
+  endpoints firing — for a PWA on a *different* Apple device (iPad/Mac).
+
+APNs rides the **Push** master toggle, the per-type `push_notif_*` matrix,
+and the `push_` throttle keys — no parallel settings. Deep links carry the
+same `?task=` URLs, so notification engagement analytics work unchanged.
+To go native-only on the phone: register the device (Settings → Notifications
+→ Native iOS (APNs) → Enable on this device), then turn the Pushover master
+off when you're satisfied.
 
 ---
 
