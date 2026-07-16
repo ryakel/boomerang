@@ -15,6 +15,16 @@ import Capacitor
 // diagnosable from the Xcode console.
 class BoomerangViewController: CAPBridgeViewController {
 
+    // Capacitor 6+ does NOT auto-discover plugins compiled into the app
+    // binary — they must be registered here. Without this, every JS call to
+    // BoomerangNative silently failed ("plugin not implemented"), the App
+    // Group never received the server config, and the Siri intent / Share
+    // Extension reported "Open Boomerang and connect to your server first"
+    // on a fully-connected phone (2026-07-16).
+    override open func capacitorDidLoad() {
+        bridge?.registerPluginInstance(BoomerangNative())
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         applyFullBleedViewport(reason: "viewDidLoad")
