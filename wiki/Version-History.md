@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-16
+
+- refactor(repo): de-splatter the root — server modules → `server/`, previews → `previews/`, plans → `wiki/` [L]
+  - The repo root held ~25 loose server runtime modules next to configs, five dev-preview HTML harnesses, two orphaned planning docs, and stray local junk. Reorganized:
+  - **`server/`** now holds every server runtime module (`server.js`, `db.js`, `auth.js`, `seed.js`, all notification engines + APNs, digest, gmail/weather/notion/knowledge syncs, pattern/tag detection, growth areas, `aiModels.js`, all five `adviserTools*`). Intra-module imports (`./db.js`) survived the move unchanged; the handful of boundary paths updated: `dist` static serving + `migrations` dir resolve via `__dirname/..`, `../scripts/backup-db.js`, `../scripts/seed-data.json`, scripts/CI/smoke/`npm start` run `node server/server.js`, client imports of the shared model-id module became `../server/aiModels.js`.
+  - **The Dockerfile's explicit per-file COPY list is GONE** — replaced by `COPY server ./server`. This retires the #1 documented prod-crash trap (a new root module silently missing from the image, `ERR_MODULE_NOT_FOUND` after deploy). New server modules now ship automatically. CLAUDE.md Git Rule 8 rewritten accordingly.
+  - **`previews/`** holds the dev-only render harnesses (`kept-preview`, `kept-desktop`, `kept-viz-preview`, `brand-board`, `wallaby-preview`); `LOOPS-NOTIFICATIONS-PLAN.md` + `UPCOMING_FEATURES.md` moved into `wiki/`. Root is now: configs, `index.html`, `Dockerfile`/composes, `README`/`CLAUDE.md`, and directories.
+  - **Validated:** lint 0, Vite build clean, unit tests + smoke green (the smoke boot caught the one missed boundary import — `scripts/backup-db.js` — exactly as designed), and a live boot from the new layout serving `/api/health` + the app shell with zero errors.
+
+---
+
 ## 2026-07-15
 
 - fix(notion): MCP resilience — synchronous token flush, dead-token retry parking, iOS re-auth guidance [S]

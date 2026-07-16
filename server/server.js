@@ -33,7 +33,7 @@ import { startPatternDetection, runPatternScan } from './patternDetection.js'
 import { startTagSuggestions, runTagScan, listPendingTagSuggestions, dismissTagSuggestion } from './tagSuggestions.js'
 import { startGrowthAreaSync, listGrowthAreas, createGrowthArea, updateGrowthArea, deleteGrowthArea, ensureTodayGrowthArea, contextualGrowthAreas } from './growthAreas.js'
 import { listPendingSuggestions, getPatternSuggestion, updateSuggestionStatus, snoozeSuggestion, countPendingSuggestions } from './db.js'
-import { runBackup } from './scripts/backup-db.js'
+import { runBackup } from '../scripts/backup-db.js'
 import {
   listToolSchemas, newSession, getSession, abortSession, clearSession,
   handleToolCall, commitPlan,
@@ -4092,7 +4092,7 @@ app.post('/api/dev/seed', async (req, res) => {
 // --- Static file serving (production) ---
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const distPath = path.join(__dirname, 'dist')
+const distPath = path.join(__dirname, '..', 'dist')
 
 if (existsSync(distPath)) {
   app.use(express.static(distPath))

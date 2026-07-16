@@ -1,5 +1,5 @@
 import { loadSettings, localYMD } from './store'
-import { SONNET_MODEL } from '../aiModels.js'
+import { SONNET_MODEL } from '../server/aiModels.js'
 
 const PROXY_URL = '/api/messages'
 
