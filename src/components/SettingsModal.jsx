@@ -949,6 +949,17 @@ function IntegrationsPanel({
                         Popup blocked — <a href={notionAuthUrl} target="_blank" rel="noreferrer">click here to connect</a>
                       </div>
                     )}
+                    {/* iOS universal links hijack the Notion consent page into
+                      * the Notion APP (where the OAuth flow dies) whenever the
+                      * app is installed. Private tabs don't fire universal
+                      * links, so that's the reliable phone path. */}
+                    {!statuses.notion?.mcpHealth?.connected && (
+                      <div className="v2-integrations-hint" style={{ marginBottom: 8 }}>
+                        📱 iPhone tip: if connecting bounces you into the Notion app, open this page in a
+                        <strong> private tab</strong> (universal links are disabled there) or connect once
+                        from a desktop browser — the connection lives on the server, so every device gets it.
+                      </div>
+                    )}
                     {!statuses.notion?.connected && !statuses.notion?.mcpHealth?.connected && !statuses.notion?.mcpHealth?.needsReauth && (
                       <button className="v2-settings-btn" onClick={reconnectNotionMCP} disabled={notionReconnecting}>
                         {notionReconnecting ? 'Connecting…' : 'Connect via MCP'}
