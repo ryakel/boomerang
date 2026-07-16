@@ -19,7 +19,7 @@
  *   7. Weather — existing buildWeatherSummary() output if configured
  */
 
-import { queryTasks, getData, getAnalytics, filterNotifiableTasks, isCrisisTask } from './db.js'
+import { queryTasks, getAnalytics, filterNotifiableTasks, isCrisisTask } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { getTodayGrowthAreaCached } from './growthAreas.js'
 

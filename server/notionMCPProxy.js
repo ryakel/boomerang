@@ -218,6 +218,50 @@ export async function updateDataSource({ dataSourceId, statements }) {
   return await callMCP('notion-update-data-source', { data_source_id: dataSourceId, statements })
 }
 
+// Text/simple-map → Notion property objects. RESTORED 2026-07-16: these two
+// existed until the 2026-05-24 create-pages schema refactor rewrote this file
+// and dropped the definitions while keeping the call sites — every string-
+// properties updatePage() (knowledgeSync property updates, the PATCH
+// /api/notion/pages title sync) has thrown ReferenceError since, swallowed by
+// callers' catch blocks. Surfaced by the server-wide lint expansion (no-undef).
+function textToNotionProperties(text) {
+  const props = {}
+  for (const line of text.split('\n')) {
+    const idx = line.indexOf(':')
+    if (idx < 0) continue
+    const key = line.slice(0, idx).trim()
+    const val = line.slice(idx + 1).trim()
+    if (!key || !val) continue
+    if (key === 'Name' || key === 'Title') {
+      props[key] = { title: [{ text: { content: val } }] }
+    } else if (['Type', 'Status', 'Confidence'].includes(key)) {
+      props[key] = { select: { name: val } }
+    } else if (key === 'Tags') {
+      props[key] = { multi_select: val.split(',').map(s => ({ name: s.trim() })).filter(s => s.name) }
+    } else {
+      props[key] = { rich_text: [{ text: { content: val } }] }
+    }
+  }
+  return props
+}
+
+function simpleMapToNotionProperties(map) {
+  const props = {}
+  for (const [key, val] of Object.entries(map)) {
+    if (val === undefined || val === null) continue
+    if (key === 'Name' || key === 'Title') {
+      props[key] = { title: [{ text: { content: String(val) } }] }
+    } else if (['Type', 'Status', 'Confidence'].includes(key)) {
+      props[key] = { select: { name: String(val) } }
+    } else if (key === 'Tags' && Array.isArray(val)) {
+      props[key] = { multi_select: val.map(s => ({ name: String(s) })) }
+    } else if (typeof val === 'string') {
+      props[key] = { rich_text: [{ text: { content: val } }] }
+    }
+  }
+  return props
+}
+
 export async function updatePage({ pageId, properties, archived }) {
   const args = { page_id: pageId }
   if (properties) {

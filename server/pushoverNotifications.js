@@ -70,10 +70,6 @@ function buildDeepLink(settings, taskId) {
   return taskId ? `${base}/?task=${encodeURIComponent(taskId)}` : base
 }
 
-function isConfigured(settings) {
-  const { userKey, appToken } = getCredentials(settings || getData('settings') || {})
-  return !!(userKey && appToken)
-}
 
 // --- Sending ---
 

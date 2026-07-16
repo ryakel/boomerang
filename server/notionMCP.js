@@ -112,13 +112,9 @@ async function ensureClient() {
   if (!client) client = new Client({ name: 'boomerang', version: '1.0.0' })
   if (!transport) transport = makeTransport()
   if (clientConnected) return client
-  try {
-    await client.connect(transport)
-    clientConnected = true
-    return client
-  } catch (err) {
-    throw err
-  }
+  await client.connect(transport)
+  clientConnected = true
+  return client
 }
 
 async function refreshToolCache() {

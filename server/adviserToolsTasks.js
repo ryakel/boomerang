@@ -11,7 +11,7 @@ import {
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
-  dismissEscalationAdvancePrompt, resolveEscalation,
+  resolveEscalation,
 } from './db.js'
 import { registerTool, findStagedCreate } from './adviserTools.js'
 import { SONNET_MODEL } from './aiModels.js'
@@ -1546,7 +1546,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
     execute: async (args) => {
       const before = getTask(args.task_id)
       if (!before) throw new Error(`Task not found: ${args.task_id}`)
-      const task = resolveEscalation(args.task_id)
+      resolveEscalation(args.task_id)
       return {
         result: { task_id: args.task_id, resolved: true },
         compensation: async () => { upsertTask(before) },
