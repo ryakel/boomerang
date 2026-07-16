@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- fix(ui): APNs "already enabled" detection + locked-toggle explainers [S]
+  - Prod annoyance report: the APNs "Enable on this device" button rendered stateless — identical before and after registration ("Do you have a clean way to detect that notifications are already enabled?"). Three-part fix:
+  - **Per-device state:** `enableNativePush()` stores the device token (`boom_apns_token`, quota-safe); `GET /api/apns/status?token=…` now answers `this_device: true|false` (`getApnsStatus(deviceToken)` in `apnsNotifications.js`); the Settings button becomes a disabled "✓ Enabled on this device" when registered. Live-verified (registered token → `this_device:true`, unknown → `false`).
+  - **Launch keep-fresh:** `refreshNativePushRegistration()` in `nativePush.js`, called from AppV2's mount effect — re-registers on every launch per Apple guidance (tokens rotate on restore/reinstall). Guarded on permission already granted, so it can never trigger the iOS permission prompt.
+  - **Locked-toggle explainers** (companion report: "why don't I have the ability to enable these?"): the Notification-types section now says which channel columns are locked because their masters are off, and the APNs row shows a red warning when devices are registered but the Push master is OFF — the state where Send test works (direct endpoint) but no real nag would ever send natively.
+
 - fix(store): quota-safe localStorage — the native shell's "Boomerang hit a snag" crash [M]
   - Native-app crash report (ErrorBoundary screen): `setItem` threw "The quota has been exceeded" during hydrate on the `capacitor://localhost` origin, and `save()` had no error handling, so the QuotaExceededError killed the whole render. Unrecoverable by design flaw: "Clear local state & reload" re-hydrated from the server straight back into the same overflow.
   - **Biggest payload found:** `logActivity()` stored a FULL task snapshot per entry — base64 `attachments` included — 500 entries deep. Snapshots now go through `slimSnapshot()`: attachments reduced to a count (`attachments_count`), notes capped at 2000 chars. Snapshots exist for metadata recovery; attachment bodies never belonged there.

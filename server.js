@@ -2788,7 +2788,7 @@ app.get('/api/pushover/link-mode', (req, res) => {
 
 // --- Native iOS push (APNs) — Phase 4 of the native app ---
 app.get('/api/apns/status', (req, res) => {
-  res.json(getApnsStatus())
+  res.json(getApnsStatus(req.query.token || null))
 })
 
 app.post('/api/apns/register', (req, res) => {
