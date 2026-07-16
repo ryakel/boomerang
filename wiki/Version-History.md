@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-16
 
+- fix(ios): ios-deploy.sh picked a SIMULATOR — physical devices only now [S]
+  - Second real-run failure mode: the build succeeded (and the bundle-id guard proudly reported the right app), but `devicectl` staged the install into **CoreSimulator** (`EBADARCH`: device-arm64 binary, simulator target). Cause: the JSON picker's fallback to `d['identifier']` — when the phone's tunnel wasn't up, it took "any device," and devicectl's list includes simulators, whose identifiers are standard UUIDs. The picker now accepts ONLY physical hardware (UDID shape `^[0-9A-F]{8}-[0-9A-F]{16}$`), prefers a connected one, and never falls back past that; the no-device error message says simulators are deliberately excluded. Unit-tested: a connected simulator loses to a disconnected physical phone.
+
 - feat(brand): new logo — icon set regenerated from the real art [M]
   - The user's generated brand art landed via the `brand-drop` branch (chat image uploads arrive view-only — no file bytes — so GitHub web upload became the pipeline). **`brand/`** (new top-level dir, dev-only, not in the Docker image) holds the 10 source PNGs: dark/light square marks (1254²), dark/light DEV concepts, dark/light wordmarks, 4 transparent wordmarks.
   - **Generated from the source pixels** (sharp, no re-drawing): `AppIcon.appiconset` 1024 (straight resize of `boomerang_dark.png`), `AppIcon-Dev.appiconset` 1024 (from `boomerang_dev_dark.png`, its baked-in white rounded corners filled with the art's background via an even-odd rounded-rect overlay — the fill seam sits entirely inside the zone iOS's ~22% corner mask removes; the art's own radius is ~16%), PWA `icon-512`/`icon-192`/`apple-touch-icon` PNGs, and `favicon.svg` + legacy `icon-*.svg` as embedded-PNG SVGs of the same art.
