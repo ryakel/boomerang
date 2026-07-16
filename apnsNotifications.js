@@ -96,8 +96,9 @@ export function unregisterApnsDevice(token) {
   return { ok: true, devices: Object.keys(devices).length }
 }
 
-export function getApnsStatus() {
+export function getApnsStatus(deviceToken = null) {
   const c = config()
+  const devices = loadDevices()
   return {
     configured: isApnsConfigured(),
     missing: [
@@ -107,7 +108,11 @@ export function getApnsStatus() {
     ].filter(Boolean),
     env: c.env,
     topic: c.topic,
-    devices: Object.keys(loadDevices()).length,
+    devices: Object.keys(devices).length,
+    // When the caller identifies itself (?token=), say whether THAT device
+    // is in the registry — lets the Settings UI show "already enabled"
+    // instead of a stateless Enable button.
+    ...(deviceToken ? { this_device: !!devices[String(deviceToken).trim().toLowerCase()] } : {}),
   }
 }
 

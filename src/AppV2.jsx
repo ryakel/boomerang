@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ListChecks } from 'lucide-react'
 import { App as CapacitorApp } from '@capacitor/app'
 import { isNativeShell } from './apiConfig'
-import { wireNativePushTapHandler } from './nativePush'
+import { wireNativePushTapHandler, refreshNativePushRegistration } from './nativePush'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import BottomTabs from './components/BottomTabs'
@@ -391,6 +391,9 @@ export default function AppV2() {
     }).then((l) => { listener = l }).catch(() => {})
     // Native APNs banner taps route through the same deep-link applier.
     const unwirePush = wireNativePushTapHandler((search) => applyDeepLinkRef.current(search))
+    // Keep the device's APNs registration fresh (tokens can rotate) — only
+    // acts when permission is already granted, so it never prompts.
+    refreshNativePushRegistration()
     return () => { listener?.remove?.(); unwirePush() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

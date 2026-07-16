@@ -36,10 +36,33 @@ export async function enableNativePush() {
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data.ok) return { ok: false, error: data.error || `Server rejected the token (${res.status}).` }
+    // Remember this device's token so the Settings UI can ask the server
+    // "is THIS device registered?" instead of showing a stateless button.
+    try { localStorage.setItem('boom_apns_token', token) } catch { /* quota — state check degrades */ }
     return { ok: true, devices: data.devices }
   } catch (err) {
     return { ok: false, error: err?.message || 'Native push setup failed.' }
   }
+}
+
+// The APNs token this device registered with, if any. Used by Settings to
+// query per-device registration state.
+export function getStoredApnsToken() {
+  try { return localStorage.getItem('boom_apns_token') || null } catch { return null }
+}
+
+// Silent keep-fresh: APNs tokens can rotate (restore from backup, OS
+// reinstall), and Apple's guidance is to re-register on every launch. Called
+// from AppV2's mount effect — only acts when permission is ALREADY granted,
+// so it can never trigger the iOS permission prompt; if the user has never
+// enabled (or denied), it does nothing.
+export async function refreshNativePushRegistration() {
+  if (!isNativeShell()) return
+  try {
+    const perm = await PushNotifications.checkPermissions()
+    if (perm.receive !== 'granted') return
+    await enableNativePush()
+  } catch { /* background freshness only — Settings has the loud path */ }
 }
 
 export function wireNativePushTapHandler(onDeepLink) {
