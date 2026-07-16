@@ -4124,7 +4124,18 @@ initDb(dbPath).then(async () => {
     console.log(`SMTP: ${envSmtpHost ? 'from env' : 'not configured'}`)
 
     // Initialize Notion MCP client (auto-reconnects if tokens exist from a previous session)
-    notionMCP.initNotionMCP({ getData, setData })
+    // Token rotation is the one write where losing the 1s persist-batch
+    // window bricks an integration: MCP refresh tokens ROTATE, so a restart
+    // inside the window strands the DB with an already-invalidated token
+    // (the 2026-07-15 disconnect — ~10 rapid deploys that evening). Flush
+    // Notion token writes to disk synchronously.
+    notionMCP.initNotionMCP({
+      getData,
+      setData: (key, value) => {
+        setData(key, value)
+        if (key === 'notion_mcp_tokens') flushNow()
+      },
+    })
     notionMCP.autoReconnect().then(ok => {
       console.log(`Notion MCP: ${ok ? 'connected' : 'not connected'}`)
     })
