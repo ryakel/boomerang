@@ -27,6 +27,12 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
 
   if (!routine) return null
 
+  // Archive state: a paused or ended loop keeps its full history here —
+  // the banner names the state and the road back (edit → unpause / clear
+  // the end date).
+  const ended = !!routine.end_date && Date.now() > new Date(routine.end_date + 'T23:59:59').getTime()
+  const restingWhy = routine.paused ? 'paused' : (ended ? `ended ${routine.end_date}` : null)
+
   const byDay = historyByDay(routine.completed_history)
   const total = routine.completed_history?.length || 0
   const isHabit = routine.spawn_mode === 'habit' && routine.target_count
@@ -82,6 +88,15 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
         <span className="bm-loop-ring" style={{ width: 24, height: 24 }}><Repeat2 size={12} strokeWidth={2.2} /></span>
         {meta}{routine.paused ? ' · paused' : ''}
       </div>
+      {restingWhy && (
+        <div style={{ margin: '10px 0 2px', padding: '10px 12px', borderRadius: 12, border: '1px solid var(--bm-hairline)', background: 'var(--bm-gold-soft, rgba(232,176,75,0.14))', fontSize: 13, color: 'var(--bm-text)' }}>
+          This loop is <strong>{restingWhy}</strong> — its stats are kept and nothing spawns or nags.
+          {' '}
+          <button className="bm-btn" style={{ padding: '4px 10px', marginLeft: 6 }} onClick={() => onEdit?.(routine)}>
+            {routine.paused ? 'Edit to resume' : 'Edit to reactivate'}
+          </button>
+        </div>
+      )}
 
       <div className="bm-stat-row">
         <div className="bm-stat-card">
