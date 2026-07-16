@@ -343,9 +343,16 @@ function guardStaleClient(req, res) {
     res.json({ ok: true }) // 200 so old code doesn't retry
     return true
   }
-  // Reject pushes from clients running an old app version
+  // Reject pushes from clients running an old app version. WEB only: this
+  // guard exists for stale cached JS after a deploy (remedy = reload). The
+  // native shell's bundled version is stamped by the Mac/Xcode Cloud build
+  // and can never equal the Docker APP_VERSION — treating that as staleness
+  // silently swallowed every settings toggle made in the native app
+  // (2026-07-16 "push notifications are not staying enabled"). Native
+  // clients skip this check; the data-version check below still applies to
+  // them, which is the guard that actually prevents behind-data clobbers.
   const clientAppVer = req.body._appVersion
-  if (clientAppVer && clientAppVer !== 'dev' && clientAppVer !== appVersion) {
+  if (clientAppVer && req.body._platform !== 'native' && clientAppVer !== 'dev' && clientAppVer !== appVersion) {
     console.log(`[SYNC] REJECTED stale push from app ${clientAppVer} (server is ${appVersion})`)
     res.json({ ok: true, version: getVersion() })
     return true

@@ -110,6 +110,11 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     }
     payload._clientId = clientId
     payload._appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
+    // The native shell's bundle version is stamped by the Mac build and can
+    // NEVER equal the server's Docker APP_VERSION — the server's stale-client
+    // guard must not treat that mismatch as staleness (same class as the
+    // version-mismatch reload loop, sync edition).
+    payload._platform = isNativeShell() ? 'native' : 'web'
 
     remoteLog('push: PUT /api/data (settings/labels) keys=' + Object.keys(payload).filter(k => !k.startsWith('_')).join(','))
     setSyncStatus('saving')
@@ -492,6 +497,11 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       if (payload) {
         payload._clientId = clientId
         payload._appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
+    // The native shell's bundle version is stamped by the Mac build and can
+    // NEVER equal the server's Docker APP_VERSION — the server's stale-client
+    // guard must not treat that mismatch as staleness (same class as the
+    // version-mismatch reload loop, sync edition).
+    payload._platform = isNativeShell() ? 'native' : 'web'
         navigator.sendBeacon(
           '/api/data',
           new Blob([JSON.stringify(payload)], { type: 'application/json' })
