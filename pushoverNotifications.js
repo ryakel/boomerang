@@ -794,8 +794,21 @@ export async function sendDigestNow() {
   const fired = []
   const skipped = []
 
+  // The test path must obey the SAME gates as the scheduled path (channel
+  // master AND digest opt-in) — it used to check only the digest flags, so
+  // with all masters off it still fired every opted-in channel: a "test"
+  // that behaves differently from the real thing (2026-07-15 report:
+  // digest toggles all displayed off, test still double-sent).
+  const masterOn = {
+    pushover: settings.pushover_notifications_enabled === true,
+    email: settings.email_notifications_enabled === true,
+    push: settings.push_notifications_enabled === true,
+  }
+
   // Pushover
-  if (settings.pushover_digest_enabled) {
+  if (!masterOn.pushover) {
+    skipped.push({ channel: 'pushover', reason: 'channel master off' })
+  } else if (settings.pushover_digest_enabled) {
     const { userKey, appToken } = getCredentials(settings)
     if (userKey && appToken) {
       const url = buildDeepLink(settings, null)
@@ -821,7 +834,9 @@ export async function sendDigestNow() {
 
   // Email + Web Push delegated to their modules so they reuse the same
   // transporter / VAPID setup. Lazy-imported to avoid circular deps.
-  if (settings.email_digest_enabled) {
+  if (!masterOn.email) {
+    skipped.push({ channel: 'email', reason: 'channel master off' })
+  } else if (settings.email_digest_enabled) {
     try {
       const { sendDigestEmail } = await import('./emailNotifications.js')
       const ok = await sendDigestEmail(digest)
@@ -834,7 +849,9 @@ export async function sendDigestNow() {
     skipped.push({ channel: 'email', reason: 'disabled' })
   }
 
-  if (settings.push_digest_enabled) {
+  if (!masterOn.push) {
+    skipped.push({ channel: 'push', reason: 'channel master off' })
+  } else if (settings.push_digest_enabled) {
     try {
       const { sendDigestPush } = await import('./pushNotifications.js')
       const ok = await sendDigestPush(digest)
