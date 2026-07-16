@@ -19,7 +19,6 @@ const OPEN_METEO_FORECAST = 'https://api.open-meteo.com/v1/forecast'
 const OPEN_METEO_GEOCODE = 'https://geocoding-api.open-meteo.com/v1/search'
 
 let loopTimer = null
-let lastFetchAt = 0
 
 // --- WMO weather code → condition label + emoji ---
 // https://open-meteo.com/en/docs (WMO Weather interpretation codes)
@@ -195,7 +194,6 @@ export async function refreshWeather({ force = false } = {}) {
       label: settings.weather_location_name || null,
     }
     const saved = saveWeatherCache(forecast, location)
-    lastFetchAt = Date.now()
 
     // Evaluate notifications after every refresh (no-op if nothing meaningful)
     try {
