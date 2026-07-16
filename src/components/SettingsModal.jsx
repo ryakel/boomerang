@@ -1576,7 +1576,14 @@ function NotificationsPanel({ settings, update }) {
   const [apnsBusy, setApnsBusy] = useState(false)
   const [apnsMsg, setApnsMsg] = useState('')
   const refreshApnsStatus = useCallback(() => {
-    fetch('/api/apns/status')
+    // Identify this device (stored at register time) so the server can say
+    // whether it's already registered — drives the ✓ button state below.
+    let tokenQs = ''
+    try {
+      const t = localStorage.getItem('boom_apns_token')
+      if (t) tokenQs = `?token=${encodeURIComponent(t)}`
+    } catch { /* state check degrades to the stateless button */ }
+    fetch(`/api/apns/status${tokenQs}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setApnsStatus(d) })
       .catch(() => {})
@@ -1866,12 +1873,24 @@ function NotificationsPanel({ settings, update }) {
                 {apnsStatus?.configured && ` Server ready (${apnsStatus.env}) · ${apnsStatus.devices} device(s) registered.`}
                 {apnsMsg && ` ${apnsMsg}`}
               </div>
+              {apnsStatus?.configured && apnsStatus?.devices > 0 && settings.push_notifications_enabled !== true && (
+                <div className="v2-settings-row-hint" style={{ color: 'var(--v2-danger, #c83a3a)', marginTop: 4 }}>
+                  ⚠ The Push master above is OFF — native banners won't send for real notifications
+                  until it's on. (Send test bypasses it.)
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {isNativeShell() && (
-                <button className="v2-settings-btn" onClick={handleEnableNativePush} disabled={apnsBusy}>
-                  {apnsBusy ? 'Working…' : 'Enable on this device'}
-                </button>
+                apnsStatus?.this_device ? (
+                  <button className="v2-settings-btn" disabled title="This device is registered — re-registration happens automatically on every launch">
+                    ✓ Enabled on this device
+                  </button>
+                ) : (
+                  <button className="v2-settings-btn" onClick={handleEnableNativePush} disabled={apnsBusy}>
+                    {apnsBusy ? 'Working…' : 'Enable on this device'}
+                  </button>
+                )
               )}
               <button className="v2-settings-btn" onClick={handleApnsTest} disabled={apnsBusy || !apnsStatus?.configured}>
                 Send test
@@ -1945,6 +1964,16 @@ function NotificationsPanel({ settings, update }) {
       {/* Per-type × per-channel — card-per-type layout works at any width */}
       <div className="v2-settings-block">
         <SectionHeader k="types" label="Notification types" hint="Each card toggles a notification type per channel. Frequency is the cooldown between repeats." />
+        {!isCollapsed('types') && (() => {
+          const offMasters = masters.filter(m => settings[m.key] !== true).map(m => m.label)
+          return offMasters.length === 0 ? null : (
+            <div className="v2-settings-row-hint" style={{ marginBottom: 10 }}>
+              {offMasters.join(' + ')} column{offMasters.length > 1 ? 's are' : ' is'} locked because
+              {offMasters.length > 1 ? ' those channels are' : ' that channel is'} off — flip the master
+              in Channels above to edit {offMasters.length > 1 ? 'them' : 'it'}.
+            </div>
+          )
+        })()}
         {!isCollapsed('types') && (
         <div className="v2-notif-cards">
           {NOTIF_TYPES.map(t => (
