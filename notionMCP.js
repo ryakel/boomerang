@@ -214,10 +214,23 @@ export async function autoReconnect() {
     const msg = err?.message || String(err)
     console.warn('[NotionMCP] auto-reconnect failed:', msg)
     clientConnected = false
-    lastError = msg
-    scheduleRetry()
+    if (isDeadTokenError(msg)) {
+      // A rotated-away/revoked refresh token can never self-heal — retrying
+      // every 5 minutes just spams the log. Park with an actionable status.
+      lastError = 'Notion session expired — reconnect from Settings → Integrations → Notion.'
+      console.warn('[NotionMCP] refresh token is no longer valid; retries stopped — re-auth required')
+    } else {
+      lastError = msg
+      scheduleRetry()
+    }
     return false
   }
+}
+
+// invalid_grant / 401-shaped failures mean the refresh token itself is dead
+// (rotated away by a lost write, or revoked in Notion) — only re-auth fixes it.
+function isDeadTokenError(msg) {
+  return /invalid_grant|invalid_token|unauthorized|401/i.test(String(msg || ''))
 }
 
 function scheduleRetry() {
@@ -237,7 +250,14 @@ function scheduleRetry() {
       reconnectTimer = null
       console.log('[NotionMCP] reconnected on retry')
     } catch (err) {
-      console.warn('[NotionMCP] retry failed:', err?.message || err)
+      const msg = err?.message || String(err)
+      console.warn('[NotionMCP] retry failed:', msg)
+      if (isDeadTokenError(msg)) {
+        lastError = 'Notion session expired — reconnect from Settings → Integrations → Notion.'
+        console.warn('[NotionMCP] refresh token is no longer valid; retries stopped — re-auth required')
+        clearInterval(reconnectTimer)
+        reconnectTimer = null
+      }
     }
   }, 5 * 60 * 1000)
 }
