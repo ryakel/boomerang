@@ -9,7 +9,7 @@ import { readFileSync, existsSync } from 'fs'
 import { clearAllData, setData, upsertTask, upsertRoutine, bumpVersion, flushNow } from './db.js'
 
 function loadSeedData() {
-  const p = new URL('./scripts/seed-data.json', import.meta.url).pathname
+  const p = new URL('../scripts/seed-data.json', import.meta.url).pathname
   if (!existsSync(p)) {
     throw new Error(`[Seed] Static seed data not found at ${p}`)
   }

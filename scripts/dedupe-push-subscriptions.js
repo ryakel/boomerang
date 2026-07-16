@@ -13,7 +13,7 @@
  *   docker exec boomerang node scripts/dedupe-push-subscriptions.js
  */
 
-import { initDb, dedupePushSubscriptions, flushNow } from '../db.js'
+import { initDb, dedupePushSubscriptions, flushNow } from '../server/db.js'
 
 const dbPath = process.env.DB_PATH || './boomerang.db'
 

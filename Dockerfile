@@ -21,8 +21,10 @@ ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
-COPY server.js auth.js db.js seed.js emailNotifications.js pushNotifications.js pushoverNotifications.js apnsNotifications.js digestBuilder.js notifAi.js userTime.js gmailSync.js weatherSync.js notionMCP.js notionMCPProxy.js patternDetection.js tagSuggestions.js knowledgeSync.js growthAreas.js aiModels.js ./
-COPY adviserTools.js adviserToolsTasks.js adviserToolsIntegrations.js adviserToolsMisc.js adviserToolsKnowledge.js ./
+# All server runtime modules live in server/ — copied wholesale, so a new
+# module can never be silently dropped from the image (the old explicit
+# file list was the #1 documented prod-crash trap).
+COPY server ./server
 COPY migrations ./migrations
 COPY scripts ./scripts
 COPY --from=build /app/dist ./dist
@@ -33,4 +35,4 @@ ENV DB_PATH=/data/boomerang.db
 EXPOSE ${PORT}
 VOLUME /data
 
-CMD ["node", "server.js"]
+CMD ["node", "server/server.js"]
