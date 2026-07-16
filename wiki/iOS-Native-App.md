@@ -19,6 +19,50 @@ every request.
 
 ---
 
+## The standard rebuild (start here every time)
+
+```bash
+git checkout main && git pull
+npm run ios:prod    # scheme "App"     → Boomerang      (point it at tasks.kfam.in)
+npm run ios:dev     # scheme "App Dev" → Boomerang Dev  (point it at tasks-dev.kfam.in)
+```
+
+Phone plugged in and unlocked. Each one-liner runs `npm install` → web build →
+`cap sync` → `xcodebuild` → install + launch, and **refuses to install** if the
+built bundle id doesn't match the scheme (so a scheme mixup can never overwrite
+the wrong app).
+
+**Which branch do I build from?** The branch picks the *code*; the scheme picks
+the *app flavor*. These are independent:
+
+- **Default: build BOTH apps from `main`.** Boomerang Dev exists so you can
+  test against the dev *server and its data* — it does not require the dev
+  *branch*. After a promotion, `main` and `dev` are content-identical anyway.
+- Build from the **`dev` branch** only when something landed on dev that hasn't
+  been promoted yet and you want it on the phone before it ships to prod.
+
+**Am I on the latest build?** Settings → General → **App build** shows
+`git describe` of the commit you built from. Compare against the repo:
+
+```bash
+git fetch origin --tags
+git describe --tags origin/main   # what a fresh main build will stamp (e.g. v2.24.3)
+git describe --tags origin/dev    # what a fresh dev build will stamp
+```
+
+A clean tag (`v2.24.3`) means the tip is exactly the tagged release;
+`v2.24.3-1-g<sha>` means one commit past it — the trailing hash is the commit
+that's actually in your binary. The **Server version** row on the same screen
+shows what the container is running (client and server versions differ by
+design in the native shell — the bundled client never matches the Docker
+`APP_VERSION`, which is why the version-mismatch reload is disabled there).
+
+**First build of a new capability** (a new App Group, push entitlement, new
+extension target): run it once interactively in Xcode (⌘R) so automatic signing
+registers it with Apple — after that the one-liners work headlessly again.
+
+---
+
 ## Prerequisites
 
 - A **Mac with Xcode 26+** (Capacitor 8's floor; current betas work). No
