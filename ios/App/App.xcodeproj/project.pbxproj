@@ -439,7 +439,7 @@
 				BOOMERANG_APP_GROUP = group.ryakel.boomerang;
 				BOOMERANG_DISPLAY_NAME = Boomerang;
 				BOOMERANG_URL_SCHEME = boomerang;
-				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
+				CODE_SIGN_ENTITLEMENTS = App/App.Release.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = L7JZ99D6K5;
@@ -706,7 +706,7 @@
 				BOOMERANG_APP_GROUP = group.ryakel.boomerang.dev;
 				BOOMERANG_DISPLAY_NAME = "Boomerang Dev";
 				BOOMERANG_URL_SCHEME = "boomerang-dev";
-				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
+				CODE_SIGN_ENTITLEMENTS = App/App.Release.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = L7JZ99D6K5;

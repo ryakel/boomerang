@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-16
 
+- feat(ios): TestFlight/Xcode Cloud Phase 0 — repo prep [S]
+  - `ios/App/ci_scripts/ci_post_clone.sh` (Xcode Cloud builds the web bundle: brew node if missing → `npm ci` → `npm run build` → `cap sync ios` → `agvtool new-version -all $CI_BUILD_NUMBER` for TestFlight-unique build numbers; local builds unaffected). `App.Release.entitlements` with `aps-environment: production` wired to the App target's Release/Release-Dev configs only (Debug sideloads keep sandbox — no manual env switching, archives are production automatically). `ITSAppUsesNonExemptEncryption = false` in Info.plist (kills the per-build export-compliance questionnaire). Validated: both entitlements plists + Info.plist parse with correct values, pbxproj parses, per-block verification that only Release/Release-Dev reference the new file. Remaining phases (App Store Connect record, repo connect, workflow creation, `APNS_ENV=production` flip AFTER the TestFlight build registers) are the account-holder's — click-path in `wiki/TestFlight-Xcode-Cloud.md`.
+
 - fix(ios): ios-deploy.sh picked a SIMULATOR — physical devices only now [S]
   - Second real-run failure mode: the build succeeded (and the bundle-id guard proudly reported the right app), but `devicectl` staged the install into **CoreSimulator** (`EBADARCH`: device-arm64 binary, simulator target). Cause: the JSON picker's fallback to `d['identifier']` — when the phone's tunnel wasn't up, it took "any device," and devicectl's list includes simulators, whose identifiers are standard UUIDs. The picker now accepts ONLY physical hardware (UDID shape `^[0-9A-F]{8}-[0-9A-F]{16}$`), prefers a connected one, and never falls back past that; the no-device error message says simulators are deliberately excluded. Unit-tested: a connected simulator loses to a disconnected physical phone.
 
