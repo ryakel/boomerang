@@ -8,7 +8,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { randomUUID } from 'crypto'
-import { SONNET_MODEL } from '../aiModels.js'
+import { SONNET_MODEL } from '../server/aiModels.js'
 
 // --- Load API key from env or .env file ---
 let apiKey = process.env.ANTHROPIC_API_KEY

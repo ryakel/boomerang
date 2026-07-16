@@ -62,7 +62,7 @@ jobs:
 
       - name: Smoke test
         run: |
-          PORT=3002 DB_PATH=./test-smoke.db node server.js &
+          PORT=3002 DB_PATH=./test-smoke.db node server/server.js &
           sleep 2
           curl -sf http://localhost:3002/api/health
           curl -sf http://localhost:3002/ | grep -q '<div id="root">'

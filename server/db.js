@@ -39,7 +39,7 @@ function runMigrations() {
   // Ensure _migrations table exists (bootstrap)
   db.run(`CREATE TABLE IF NOT EXISTS _migrations (id INTEGER PRIMARY KEY)`)
 
-  const migDir = path.join(__dirname, 'migrations')
+  const migDir = path.join(__dirname, '..', 'migrations')
   if (!existsSync(migDir)) return
 
   const files = readdirSync(migDir)

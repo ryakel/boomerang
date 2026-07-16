@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { loadSettings, isStale, isOverdue, logNotification, AVOIDANCE_ENERGY_TYPES, safeSetItem } from '../store'
-import { SONNET_MODEL } from '../../aiModels.js'
+import { SONNET_MODEL } from '../../server/aiModels.js'
 
 const FALLBACK_NUDGES = [
   "Got 2 minutes? Even one tiny thing counts.",

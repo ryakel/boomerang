@@ -8,7 +8,7 @@ echo "==> Building production bundle..."
 npm run build --silent
 
 echo "==> Starting server..."
-DB_PATH=./test-smoke.db node server.js &
+DB_PATH=./test-smoke.db node server/server.js &
 SERVER_PID=$!
 
 # Wait for server to be ready
