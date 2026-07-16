@@ -37,26 +37,30 @@ if [ -z "$UDID" ]; then
   # as 'available'); devicectl can reach those too.
   DEVJSON=$(mktemp)
   xcrun devicectl list devices --json-output "$DEVJSON" >/dev/null 2>&1 || true
-  UDID=$(python3 - "$DEVJSON" <<'PYEOF'
-import json, sys
+  UDID=$(python3 - "$DEVJSON" <<'PYINNER'
+import json, re, sys
 try:
     devices = json.load(open(sys.argv[1])).get('result', {}).get('devices', [])
 except Exception:
     devices = []
+# PHYSICAL devices only: hardware UDIDs look like 00008120-XXXXXXXXXXXXXXXX.
+# Simulators carry standard UUIDs — an earlier fallback to d['identifier']
+# happily picked one and devicectl staged the install into CoreSimulator
+# (EBADARCH: device build, simulator target). Never fall back past this.
+HW = re.compile(r'^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}$')
+phys = [d for d in devices if HW.match(d.get('hardwareProperties', {}).get('udid') or '')]
 def key(d):
     tunnel = (d.get('connectionProperties', {}).get('tunnelState') or '').lower()
     return 0 if tunnel == 'connected' else 1
-devices.sort(key=key)
-for d in devices:
-    udid = d.get('hardwareProperties', {}).get('udid') or d.get('identifier')
-    if udid:
-        print(udid)
-        break
-PYEOF
+phys.sort(key=key)
+if phys:
+    print(phys[0]['hardwareProperties']['udid'])
+PYINNER
 )
   rm -f "$DEVJSON"
   if [ -z "$UDID" ]; then
-    echo "No iPhone found. Plug it in (unlocked + trusted), or pass a UDID:"
+    echo "No physical iPhone found (simulators are deliberately excluded)."
+    echo "Plug the phone in (unlocked + trusted), or pass a UDID:"
     echo "  sh scripts/ios-deploy.sh \"$SCHEME\" <udid>"
     xcrun devicectl list devices 2>/dev/null || true
     exit 1
