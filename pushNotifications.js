@@ -13,7 +13,7 @@ import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, 
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
 import { isInQuietHours, getUserTimeParts } from './userTime.js'
-import { isApnsConfigured, sendApnsToAll } from './apnsNotifications.js'
+import { isApnsConfigured, sendApnsToAll, hasApnsTargets } from './apnsNotifications.js'
 
 // --- Environment (optional overrides) ---
 let vapidPublicKey = process.env.VAPID_PUBLIC_KEY
@@ -318,8 +318,10 @@ async function checkPushDigest() {
 
   if (!checkThrottle('push_digest', 23 * 60 * 60 * 1000)) return
 
+  // Native-only setups (APNs devices, zero web subscriptions) are valid —
+  // sendPush fans out to both legs, so only bail when NEITHER has targets.
   const subscriptions = getAllPushSubscriptions()
-  if (subscriptions.length === 0) return
+  if (subscriptions.length === 0 && !hasApnsTargets()) return
 
   const { buildDigest } = await import('./digestBuilder.js')
   const digest = buildDigest(settings)
@@ -349,8 +351,10 @@ async function runPushCheck() {
     if (!settings.push_notifications_enabled) return
     if (isInQuietHours(settings)) return
 
+    // Same native-aware bail as the digest check: a native-only phone (zero
+    // web subscriptions) must still get the full engine pass.
     const subscriptions = getAllPushSubscriptions()
-    if (subscriptions.length === 0) return
+    if (subscriptions.length === 0 && !hasApnsTargets()) return
 
     const allTasks = queryTasks({})
     const activeTasks = filterNotifiableTasks(allTasks)
@@ -760,5 +764,5 @@ export function startPushNotifications() {
   setupVapid()
   loopTimer = setInterval(runPushCheck, 60 * 1000)
   setTimeout(runPushCheck, 20000) // First check after 20s
-  console.log(`Push notifications: configured (${getAllPushSubscriptions().length} subscription(s))`)
+  console.log(`Push notifications: configured (${getAllPushSubscriptions().length} web subscription(s)${hasApnsTargets() ? ', native APNs active' : ''})`)
 }

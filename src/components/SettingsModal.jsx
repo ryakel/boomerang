@@ -2290,8 +2290,8 @@ function NotificationsPanel({ settings, update }) {
         {!isCollapsed('digest') && (<>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Web push digest</div>
-            <div className="v2-settings-row-hint">Requires Web push to be enabled and subscribed on this device.</div>
+            <div className="v2-settings-row-label">Push digest</div>
+            <div className="v2-settings-row-hint">Delivers via the Push channel — native banner on the iOS app, web push on subscribed browsers. Requires the Push master.</div>
           </div>
           <Toggle
             checked={settings.push_notifications_enabled === true && settings.push_digest_enabled === true}
