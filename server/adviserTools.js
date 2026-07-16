@@ -157,7 +157,7 @@ export function registerTool(def) {
     description: def.description || '',
     schema: def.schema || { type: 'object', properties: {} },
     readOnly: !!def.readOnly,
-    preview: def.preview || ((args) => `Will run ${def.name}`),
+    preview: def.preview || (() => `Will run ${def.name}`),
     execute: def.execute || (async () => ({ result: null })),
     // Optional preStage(input) hook: mutation tools that create a new
     // resource can use this to pre-stamp a real id at stage time and

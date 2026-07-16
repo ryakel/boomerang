@@ -4,12 +4,12 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'ios', 'previews'] },
   // Server-side files (Node.js)
   {
-    files: ['server.js', 'db.js', 'vite.config.js'],
+    files: ['server/**/*.js', 'scripts/**/*.{js,mjs}', 'vite.config.js'],
     languageOptions: {
-      ecmaVersion: 2020,
+      ecmaVersion: 'latest',
       globals: globals.node,
       sourceType: 'module',
     },

@@ -148,7 +148,7 @@ export function parseDatabaseId(input) {
 // written by the auto-create flow, so users with a pre-existing KB were
 // stuck, and re-running setup would have minted a duplicate). Verifies the
 // database is reachable and un-archived before storing the id.
-export async function adoptKnowledgeDatabase({ databaseId, getData, setData }) {
+export async function adoptKnowledgeDatabase({ databaseId, setData }) {
   const id = parseDatabaseId(databaseId)
   if (!id) throw new Error('Could not find a database ID in that input — paste the database URL or its 32-character ID.')
   const db = await notion.getDatabase(id)

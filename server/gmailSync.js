@@ -572,7 +572,7 @@ export async function syncGmail(daysBack = 7) {
             continue
           }
           const item = { package: { tracking_number: tn.tracking_number, carrier: tn.carrier, label } }
-          const pkgId = createPackageFromGmail(item, email.messageId)
+          createPackageFromGmail(item, email.messageId)
           existingTrackingNums.add(tn.tracking_number.toLowerCase())
           packagesCreated++
           createdAny = true
@@ -625,7 +625,7 @@ export async function syncGmail(daysBack = 7) {
           if (existingTrackingNums.has(result.package.tracking_number.toLowerCase())) {
             console.log(`[Gmail] AI: skipping duplicate tracking ${result.package.tracking_number}`)
           } else {
-            const pkgId = createPackageFromGmail(result, result.message_id)
+            createPackageFromGmail(result, result.message_id)
             existingTrackingNums.add(result.package.tracking_number.toLowerCase())
             packagesCreated++
             console.log(`[Gmail] Created package: ${result.package.tracking_number} from "${email.subject}"${reason}`)
