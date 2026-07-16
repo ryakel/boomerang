@@ -10,26 +10,24 @@ times over; cloud-managed signing means no certificates to export or renew.
 
 ---
 
-## Phase 0 — repo prep (Claude, no Mac needed)
+## Phase 0 — repo prep (DONE 2026-07-16)
 
-1. **`ios/App/ci_scripts/ci_post_clone.sh`** — Xcode Cloud clones the repo and
-   runs `xcodebuild`, nothing else. This script must install Node (Homebrew is
-   preinstalled on the runners), then `npm ci && npm run build && npx cap sync
-   ios` so `dist/` + the synced native assets exist before the archive step.
-   Without it every cloud build fails on the missing web bundle.
-2. **Entitlements split for APNs environment** — the committed
-   `App.entitlements` says `aps-environment: development` (correct for Xcode
-   sideloads). TestFlight builds need `production`. Add
-   `App.Release.entitlements` (production) and point `CODE_SIGN_ENTITLEMENTS`
-   at it in the Release/Release-Dev configs only — Debug sideloads keep
-   sandbox, archives get production, no manual switching.
-3. **`ITSAppUsesNonExemptEncryption = false`** in Info.plist — otherwise every
-   TestFlight build parks on a manual export-compliance questionnaire in App
-   Store Connect. (Standard HTTPS-only apps qualify for the exemption.)
-4. **Build-number auto-increment** — TestFlight rejects re-used build numbers.
-   Set `CURRENT_PROJECT_VERSION = $(CI_BUILD_NUMBER)`-style wiring (Xcode
-   Cloud exposes the counter; local builds fall back to the static value).
-5. Docs: fold the resulting click-path back into this page.
+All landed:
+
+1. **`ios/App/ci_scripts/ci_post_clone.sh`** — installs Node via Homebrew if
+   missing, then `npm ci && npm run build && npx cap sync ios` from
+   `CI_PRIMARY_REPOSITORY_PATH`, and stamps `CI_BUILD_NUMBER` into the project
+   via `agvtool new-version -all` so every cloud build uploads with a fresh
+   build number. Local builds keep the static value (the agvtool step only
+   runs when `CI_BUILD_NUMBER` is set).
+2. **Entitlements split** — `App.Release.entitlements`
+   (`aps-environment: production`) wired to `CODE_SIGN_ENTITLEMENTS` in the
+   App target's `Release` + `Release-Dev` configs only (verified per-block);
+   Debug sideloads keep sandbox via the original `App.entitlements`.
+3. **`ITSAppUsesNonExemptEncryption = false`** in Info.plist — no manual
+   export-compliance questionnaire per build.
+4. Everything validated: plists parse (dev=development, release=production),
+   pbxproj parses via mod-pbxproj, script `sh -n` clean.
 
 ## Phase 1 — App Store Connect app record (you, ~5 min)
 
