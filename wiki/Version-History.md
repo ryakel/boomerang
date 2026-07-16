@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- docs(ios): "The standard rebuild" — branch-vs-scheme rule + build-verification recipe [XS]
+  - New lead section in `wiki/iOS-Native-App.md` (mirrored in CLAUDE.md): build BOTH apps from `main` by default — the branch picks the code, the scheme picks the flavor; Boomerang Dev targets the dev *server*, not the dev *branch* (build from `dev` only for unpromoted work). Includes the how-do-I-know-I'm-current recipe: Settings → General → App build vs `git describe --tags origin/<branch>` (fetch tags — prod releases are auto-tagged, e.g. `v2.24.3`), and the reminder that a new capability's first build needs one interactive ⌘R for signing registration. Written after a stale-build round where the phone showed `v2.24.1-1-gba5d8a5` while the tips were two fix-rounds ahead.
+
 - fix(notifications): native-only phones got nothing — engine bailed on zero web subscriptions [S]
   - Prod catch, and a real Phase-4b hole: `runPushCheck()` and `checkPushDigest()` kept their pre-4b `if (subscriptions.length === 0) return` guards, so a native-only setup (APNs device registered, zero web-push subscriptions — exactly the recommended end state) never reached the dual-leg `sendPush()`: no nags, no digest, nothing. Both bails are now native-aware (`subscriptions.length === 0 && !hasApnsTargets()`), with `hasApnsTargets()` (configured + ≥1 device) exported from `apnsNotifications.js`. The send-path functions (`sendPackagePush`/`sendQuokkaPlanReadyPush`/`sendDigestPush`) had no such guards and were already correct. Startup log now reports both legs ("0 web subscription(s), native APNs active" — live-verified).
 
