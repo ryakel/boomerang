@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- fix(notifications): Test digest bypassed channel masters [S]
+  - Prod report: test digest double-sent (native iOS + Pushover) while ALL digest toggles displayed off. The scheduled digest paths in all three engines correctly require channel master AND digest opt-in — but `sendDigestNow()` (the Test digest button) checked only the digest opt-in flags. The user's settings carried `push_digest_enabled`/`pushover_digest_enabled: true` from earlier experimenting; masters were off; the honest master-gated display correctly showed "off"… and the test fired both channels anyway under different rules. `sendDigestNow` now applies the same master gates as the scheduled path, with explicit `channel master off` skip reasons in the response. Live-verified: masters off → all three skipped; push master on → push leg attempted, pushover still skipped.
+
 - docs(ios): TestFlight + Xcode Cloud plan [XS]
   - New `wiki/TestFlight-Xcode-Cloud.md`: the "no more Mac builds" plan. Phase 0 = repo prep Claude can do (ci_post_clone.sh web-bundle build, Release-entitlements split for `aps-environment: production`, `ITSAppUsesNonExemptEncryption`, CI build-number wiring); Phases 1–5 = the account-holder's Apple-UI + one-Mac-session path (app record → connect repo → create workflow → `APNS_ENV=production` flip on prod AFTER the TestFlight build is installed and registered — the sandbox/production sequencing trap is called out explicitly → internal tester install). Steady state: merge to `main` → cloud build → TestFlight update, 90-day expiry reset by any push. Boomerang Dev deliberately stays a local sideload.
 
