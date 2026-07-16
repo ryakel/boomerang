@@ -1,26 +1,13 @@
-// The Kept brand mark — "arc into catch": the returning boomerang (gold arc
-// landing as a dot) above the open catch-curve (canvas ink). See
-// wiki/Kept-Design-Language.md §2. The catch-curve follows the theme's text
-// ink via --v2-text so the mark reads on every canvas.
+// The Boomerang brand mark (2026-07-16 rebrand): the tapered "throw" swoosh
+// sweeping over the top into the catch dot, with the return-path blade
+// underneath. Traced from brand/boomerang_dark.png; the return blade follows
+// the theme's text ink via --v2-text so the mark reads on every canvas.
 export default function Logo({ size = 28 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <path
-        d="M 22 52 C 30 18, 70 18, 78 52"
-        stroke="#F26640"
-        strokeWidth="11"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <circle cx="78" cy="52" r="8" fill="#F26640" />
-      <path
-        d="M 30 70 C 42 82, 58 82, 70 70"
-        stroke="var(--v2-text, #1F2A22)"
-        strokeWidth="10"
-        strokeLinecap="round"
-        fill="none"
-        opacity="0.85"
-      />
+      <path d="M75.1 51.6L74.7 52.7L74.2 53.8L73.6 54.8L72.9 55.9L72.2 56.9L71.5 58.0L70.6 59.0L69.7 60.0L68.8 60.9L67.8 61.9L66.7 62.8L65.6 63.7L64.5 64.5L63.3 65.3L62.1 66.1L60.8 66.8L59.5 67.5L58.2 68.1L56.8 68.7L55.4 69.3L54.0 69.8L52.6 70.2L51.2 70.7L49.7 71.0L48.3 71.3L46.8 71.6L45.4 71.8L43.9 71.9L42.5 72.0L41.0 72.0L39.6 72.0L38.2 71.9L36.8 71.8L35.5 71.6L35.5 71.6L37.0 71.5L38.4 71.4L39.9 71.2L41.3 70.9L42.7 70.6L44.1 70.3L45.5 69.9L46.8 69.5L48.1 69.1L49.4 68.7L50.7 68.2L51.9 67.7L53.1 67.1L54.3 66.6L55.4 66.0L56.5 65.5L57.6 64.9L58.7 64.3L59.8 63.7L60.9 63.0L62.0 62.4L63.0 61.7L64.1 61.0L65.1 60.3L66.1 59.6L67.2 58.8L68.2 58.1L69.2 57.2L70.2 56.4L71.2 55.5L72.2 54.6L73.2 53.6L74.1 52.6L75.1 51.6Z" fill="var(--v2-text, #1F2A22)" opacity="0.85" />
+      <path d="M70.4 33.4L68.4 31.9L66.0 30.7L63.5 29.6L60.7 28.8L57.8 28.3L54.8 28.0L51.6 28.0L48.4 28.3L45.2 28.8L42.0 29.6L38.9 30.6L35.9 31.8L33.0 33.3L30.2 35.0L27.7 36.8L25.4 38.9L23.4 41.0L21.6 43.3L20.2 45.6L19.1 48.0L18.3 50.4L17.8 52.8L17.8 55.2L18.0 57.5L18.6 59.7L19.6 61.8L21.1 63.7L23.1 65.2L25.5 66.4L28.1 67.2L30.8 67.7L33.6 68.1L36.2 68.3L38.8 68.6L38.8 68.6L36.5 67.8L34.4 67.0L32.3 66.1L30.3 65.2L28.2 64.3L26.2 63.2L24.5 61.9L23.4 60.2L22.9 58.3L22.8 56.3L22.9 54.3L23.3 52.3L23.9 50.3L24.8 48.4L25.8 46.5L27.1 44.7L28.5 43.0L30.2 41.3L31.9 39.7L33.9 38.2L36.0 36.9L38.2 35.6L40.5 34.5L43.0 33.4L45.5 32.6L48.2 31.9L50.9 31.3L53.7 31.0L56.6 30.8L59.4 30.9L62.2 31.2L65.0 31.7L67.7 32.4L70.4 33.4Z" fill="#F04E23" />
+      <circle cx="77.4" cy="38.9" r="7" fill="#F04E23" />
     </svg>
   )
 }
