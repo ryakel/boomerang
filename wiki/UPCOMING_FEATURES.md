@@ -46,3 +46,23 @@
 - iOS/Android native app wrapper (Capacitor or similar)
 - Native push notifications (background, even when app is closed)
 - Widget support (iOS/Android home screen widgets)
+
+## Siri / App Intents expansion (queued 2026-07-16)
+
+v1 shipped one intent ("Add Boomerang task" — dictated title → /api/intake).
+The user wants a real action set. Candidates, roughly by value:
+
+- **Complete a task** — "mark X done in Boomerang" (needs a task-title
+  AppEntity query against /api — first dynamic-entity intent).
+- **What now?** — surface the What Now pick as a Siri answer/dialog.
+- **Log a loop / habit** — "log IFR studying in Boomerang" (spawn-and-complete
+  or logHabit path).
+- **Log an escalation attempt** — "log an attempt on the insurance call".
+- **Today summary** — "what's on Boomerang today" → counts + top items dialog
+  (read-only, great for CarPlay/HomePod).
+- **Snooze a task** — "snooze X until tomorrow".
+
+Notes: title-matching intents need an AppEntity with an EntityQuery hitting
+the API (App Group creds, same pattern as the add intent); phrases can then
+embed the entity (that's the AppEnum/AppEntity rule that free-text titles
+can't satisfy). Read-only intents (summary/what-now) are the easy wins.
