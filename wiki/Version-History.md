@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-16
 
+- fix(sync): native-app settings never saved — stale-client guard swallowed every push [M]
+  - Prod report (round 3 of "toggles won't stay"): the Push master kept reverting when toggled from the native app. Root cause is the sync-side twin of the version-mismatch reload loop: `guardStaleClient` rejects any bulk `/api/data` push whose `_appVersion` ≠ the server's `APP_VERSION` — silently, returning `{ok:true}` — as a stale-cached-JS defense. In the PWA the versions always match (the bundle is built inside the same Docker build). In the NATIVE shell they can never match (bundle stamped by the Mac/Xcode Cloud git checkout vs. the Docker tag), so every settings write from the native app was accepted-and-discarded, then reverted on the next hydrate.
+  - Fix: bulk pushes now carry `_platform` (`native`/`web`, from `isNativeShell()`); the app-version equality check is skipped for native clients — it's a WEB staleness heuristic whose remedy (reload) doesn't exist for a pinned native bundle. The data-version staleness check (`_version < serverVer`) still applies to all clients, which is the guard that actually prevents behind-data clobbers; `preserveAbsentSettings` + the durable-key merges are unaffected.
+  - Live-verified both directions: native client with mismatched app version → settings persist; stale WEB client with mismatched version → still silently rejected, stored settings untouched.
+  - NOTE: needs BOTH sides — the server (container cycle) and a rebuilt app (the client must send `_platform`). Until the next `npm run ios:*`, settings changes should be made from the PWA.
+
 - fix(loops): ended loops left on Today forever + "Resting" archive section [M]
   - Prod report: a loop with end date Jul 14 still surfaced in Today's Loops section on Jul 16, and the user wanted pause/end to behave like an ARCHIVE — stats kept, reactivation possible. Three parts:
   - **The bug:** `isRoutineDue()` in store.js respects `end_date`, but Kept's `TodayView` computes its own due check (`dueKey <= todayKey` from `getNextDueDate`) and never consulted it — an ended loop surfaced daily forever (spawning was already correctly stopped, so only the card lingered). New exported `isRoutineEnded()` in store.js (reused inside `isRoutineDue`); TodayView's loops memo now filters `!paused && !isRoutineEnded`.
