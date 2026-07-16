@@ -662,16 +662,21 @@ export function formatScheduleAnchor(routine) {
   return ''
 }
 
+// A loop past its optional end date is ENDED: it stops spawning and leaves
+// the daily surfaces, but the routine row (and its completed_history stats)
+// stays — archive semantics. Reactivate by clearing/extending the end date.
+export function isRoutineEnded(routine) {
+  if (!routine.end_date) return false
+  return Date.now() > new Date(routine.end_date + 'T23:59:59').getTime()
+}
+
 export function isRoutineDue(routine) {
   if (routine.paused) return false
   // Habit-mode routines have no cadence — they never "spawn due" the
   // automatic way. Users log them proactively via "+ Log it" or through
   // a behind-pace push nudge. Skip entirely.
   if (routine.spawn_mode === 'habit') return false
-  if (routine.end_date) {
-    const endOfDay = new Date(routine.end_date + 'T23:59:59')
-    if (Date.now() > endOfDay.getTime()) return false
-  }
+  if (isRoutineEnded(routine)) return false
   const nextDue = getNextDueDate(routine)
   return Date.now() >= nextDue.getTime()
 }

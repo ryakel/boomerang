@@ -7,6 +7,7 @@ import LoopDetail from './LoopDetail'
 import LoopSwipe from './LoopSwipe'
 import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
+import { isRoutineEnded } from '../store'
 import { routineFeathers } from './feathers'
 import './shell.css'
 
@@ -34,9 +35,22 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
       .catch(() => {})
     return () => { alive = false }
   }, [])
+  // Paused + ended loops used to be invisible here (paused) or mixed into
+  // the active list forever (ended) — the user's "archive" ask: keep the
+  // stats visible, out of the way, with a road back.
+  const resting = useMemo(() => {
+    const feathers = routineFeathers(routines)
+    return routines.filter(r => r.paused || isRoutineEnded(r)).map(r => ({
+      r,
+      color: feathers[r.id],
+      total: r.completed_history?.length || 0,
+      why: r.paused ? 'paused' : `ended ${r.end_date}`,
+    }))
+  }, [routines])
+
   const loops = useMemo(() => {
     const feathers = routineFeathers(routines)
-    return routines.filter(r => !r.paused).map(r => {
+    return routines.filter(r => !r.paused && !isRoutineEnded(r)).map(r => {
       const byDay = historyByDay(r.completed_history)
       const isHabit = r.spawn_mode === 'habit' && r.target_count
       const wins = isHabit ? habitWindows(r, 60) : cycleWindows(r, 60)
@@ -58,6 +72,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
 
   if (detailId) {
     const sel = loops.find(l => l.r.id === detailId)
+      || (() => { const x = resting.find(l => l.r.id === detailId); return x ? { ...x, hasActive: false } : null })()
     if (sel) {
       return (
         <LoopDetail
@@ -185,6 +200,29 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
           >{card}</LoopSwipe>
         )
       })}
+      {resting.length > 0 && (
+        <>
+          <div style={{ margin: '18px 2px 8px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--bm-text-faint)' }}>
+            Resting
+          </div>
+          {resting.map(({ r, color, total, why }) => (
+            <div key={r.id} className="bm-card" style={{ '--loop': color, opacity: 0.62 }}>
+              <div className="bm-card-title">
+                <span className="bm-loop-ring" style={{ width: 28, height: 28 }}><Repeat2 size={13} strokeWidth={2.2} /></span>
+                <button
+                  style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
+                  onClick={() => setDetailId(r.id)}
+                >{r.title}</button>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--bm-text-meta)', border: '1px solid var(--bm-hairline)', borderRadius: 999, padding: '2px 8px', flex: '0 0 auto' }}>{why}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bm-text-meta)' }}>{total}×</span>
+                <button className="bm-back" style={{ width: 28, height: 28 }} onClick={() => onEditLoop?.(r)} aria-label="Edit loop">
+                  <Pencil size={13} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   )
 }

@@ -5,7 +5,7 @@ import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD, parseLocalDate } from '../dates'
 import { historyByDay, currentStreak } from './heatmapUtils'
-import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate, loadSettings, isCrisisTask } from '../store'
+import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate, loadSettings, isCrisisTask, isRoutineEnded } from '../store'
 import { calculateTaskPoints, impactRank } from '../scoring'
 import { buildImpactCtx } from '../impactContext'
 import ImpactDots from './ImpactDots'
@@ -156,7 +156,11 @@ export default function TodayView({
 
   const loops = useMemo(() => {
     const feathers = routineFeathers(routines)
-    return routines.filter(r => !r.paused).map(r => {
+    // Ended loops (end_date passed) leave Today entirely — they were
+    // surfacing forever because this memo computed its own due check and
+    // never consulted end_date (prod report: loop ended Jul 14 still listed
+    // Jul 16). They live in the Loops tab's Resting section instead.
+    return routines.filter(r => !r.paused && !isRoutineEnded(r)).map(r => {
       const byDay = historyByDay(r.completed_history)
       const next = getNextDueDate(r)
       const dueKey = next ? localYMD(next) : null
