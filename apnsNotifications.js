@@ -96,6 +96,12 @@ export function unregisterApnsDevice(token) {
   return { ok: true, devices: Object.keys(devices).length }
 }
 
+// Cheap target check for the push engine's early-bail guards: the Push
+// channel has work to do when EITHER leg has somewhere to deliver.
+export function hasApnsTargets() {
+  return isApnsConfigured() && Object.keys(loadDevices()).length > 0
+}
+
 export function getApnsStatus(deviceToken = null) {
   const c = config()
   const devices = loadDevices()

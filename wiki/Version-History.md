@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- fix(notifications): native-only phones got nothing — engine bailed on zero web subscriptions [S]
+  - Prod catch, and a real Phase-4b hole: `runPushCheck()` and `checkPushDigest()` kept their pre-4b `if (subscriptions.length === 0) return` guards, so a native-only setup (APNs device registered, zero web-push subscriptions — exactly the recommended end state) never reached the dual-leg `sendPush()`: no nags, no digest, nothing. Both bails are now native-aware (`subscriptions.length === 0 && !hasApnsTargets()`), with `hasApnsTargets()` (configured + ≥1 device) exported from `apnsNotifications.js`. The send-path functions (`sendPackagePush`/`sendQuokkaPlanReadyPush`/`sendDigestPush`) had no such guards and were already correct. Startup log now reports both legs ("0 web subscription(s), native APNs active" — live-verified).
+
 - fix(ui): APNs "already enabled" detection + locked-toggle explainers [S]
   - Prod annoyance report: the APNs "Enable on this device" button rendered stateless — identical before and after registration ("Do you have a clean way to detect that notifications are already enabled?"). Three-part fix:
   - **Per-device state:** `enableNativePush()` stores the device token (`boom_apns_token`, quota-safe); `GET /api/apns/status?token=…` now answers `this_device: true|false` (`getApnsStatus(deviceToken)` in `apnsNotifications.js`); the Settings button becomes a disabled "✓ Enabled on this device" when registered. Live-verified (registered token → `this_device:true`, unknown → `false`).
