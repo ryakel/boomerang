@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-15
 
+- docs(ios): TestFlight + Xcode Cloud plan [XS]
+  - New `wiki/TestFlight-Xcode-Cloud.md`: the "no more Mac builds" plan. Phase 0 = repo prep Claude can do (ci_post_clone.sh web-bundle build, Release-entitlements split for `aps-environment: production`, `ITSAppUsesNonExemptEncryption`, CI build-number wiring); Phases 1–5 = the account-holder's Apple-UI + one-Mac-session path (app record → connect repo → create workflow → `APNS_ENV=production` flip on prod AFTER the TestFlight build is installed and registered — the sandbox/production sequencing trap is called out explicitly → internal tester install). Steady state: merge to `main` → cloud build → TestFlight update, 90-day expiry reset by any push. Boomerang Dev deliberately stays a local sideload.
+
 - docs(ios): "The standard rebuild" — branch-vs-scheme rule + build-verification recipe [XS]
   - New lead section in `wiki/iOS-Native-App.md` (mirrored in CLAUDE.md): build BOTH apps from `main` by default — the branch picks the code, the scheme picks the flavor; Boomerang Dev targets the dev *server*, not the dev *branch* (build from `dev` only for unpromoted work). Includes the how-do-I-know-I'm-current recipe: Settings → General → App build vs `git describe --tags origin/<branch>` (fetch tags — prod releases are auto-tagged, e.g. `v2.24.3`), and the reminder that a new capability's first build needs one interactive ⌘R for signing registration. Written after a stale-build round where the phone showed `v2.24.1-1-gba5d8a5` while the tips were two fix-rounds ahead.
 
