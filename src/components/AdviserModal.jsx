@@ -135,26 +135,24 @@ function ChatList({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew
   return (
     <div className="v2-adviser-history">
       <div className="v2-adviser-history-bar">
-        <button className="v2-adviser-history-btn" onClick={onBack}>← Back to chat</button>
-        <button className="v2-adviser-history-btn v2-adviser-history-btn-primary" onClick={onNew}>
+        <button className="v2-adviser-history-btn" onClick={onBack} aria-label="Back to chat">← Back</button>
+        <input
+          type="search"
+          className="v2-form-input v2-adviser-history-search"
+          placeholder="Search chats…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          aria-label="Search chat history — titles and messages"
+        />
+        <button className="v2-adviser-history-btn v2-adviser-history-btn-primary" onClick={onNew} aria-label="New chat">
           <Plus size={14} strokeWidth={2} /> New
         </button>
       </div>
-      <div style={{ padding: '0 2px 10px' }}>
-        <input
-          type="search"
-          className="v2-form-input"
-          placeholder="Search chats — titles and messages"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          aria-label="Search chat history"
-        />
-        {q.length >= 2 && (
-          <div style={{ fontSize: 11.5, color: 'var(--v2-text-meta, #8a8378)', marginTop: 4 }}>
-            {searchingBodies ? 'Searching message contents…' : `${shown.length} match${shown.length !== 1 ? 'es' : ''}`}
-          </div>
-        )}
-      </div>
+      {q.length >= 2 && (
+        <div style={{ fontSize: 11.5, color: 'var(--v2-text-meta, #8a8378)', margin: '-4px 2px 8px' }}>
+          {searchingBodies ? 'Searching message contents…' : `${shown.length} match${shown.length !== 1 ? 'es' : ''}`}
+        </div>
+      )}
       {chats.length === 0 ? (
         <EmptyState
           title="No chats yet"
@@ -323,7 +321,7 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
 
   return (
     <ModalShell open={open} onClose={onClose} title="Quokka" width="wide" flexBody>
-      <div className="v2-adviser-toolbar">
+      {!showHistory && <div className="v2-adviser-toolbar">
         {/* In Wallaby, these sit at the top of the page as icon buttons matching
          * the Tasks header (search-style chip). Elsewhere they're labeled pills. */}
         <button
@@ -339,16 +337,14 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
             ? <><History size={17} strokeWidth={2} />{chats.length > 0 && <span style={{ fontSize: 11.5, fontWeight: 700, marginLeft: 3 }}>{chats.length}</span>}</>
             : <><History size={14} strokeWidth={1.75} /> {chats.length > 0 ? `${chats.length} chat${chats.length !== 1 ? 's' : ''}` : 'Chats'}</>}
         </button>
-        {!showHistory && (
-          <button
-            className={wallaby ? 'wb-icon-btn wb-icon-btn-accent' : 'v2-adviser-tool-btn v2-adviser-tool-btn-primary'}
-            onClick={handleNewChat}
-            aria-label="New chat"
-          >
-            {wallaby ? <Plus size={18} strokeWidth={2.5} /> : <><Plus size={14} strokeWidth={2} /> New chat</>}
-          </button>
-        )}
-      </div>
+        <button
+          className={wallaby ? 'wb-icon-btn wb-icon-btn-accent' : 'v2-adviser-tool-btn v2-adviser-tool-btn-primary'}
+          onClick={handleNewChat}
+          aria-label="New chat"
+        >
+          {wallaby ? <Plus size={18} strokeWidth={2.5} /> : <><Plus size={14} strokeWidth={2} /> New chat</>}
+        </button>
+      </div>}
 
       {showHistory ? (
         <ChatList
