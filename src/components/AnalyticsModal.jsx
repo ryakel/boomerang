@@ -1,4 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { Flame, Trophy, Star, Zap, Target, CalendarCheck } from 'lucide-react'
+import BadgesGrid from './BadgesGrid'
+import { computeBadges } from '../badges'
+import '../kept/flightlog.css'
 import { ENERGY_TYPES, loadLabels } from '../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
@@ -50,9 +54,11 @@ function buildHeatMapGrid(dailyData, metric) {
   return { weeks, months, maxVal }
 }
 
-// Extra props (tasks/records/streak) were consumed by the badges grid,
-// which moved to the Flight log — callers may still pass them; ignored.
-export default function AnalyticsModal({ open, onClose, routines = [] }) {
+// One surface for everything stat-shaped (2026-07-17: Flight log merged in —
+// two surfaces showed the same data under different names). The Overview tab
+// leads with the profile hero (rally/best/lifetime/points) and ends with
+// Achievements; charts/patterns/AI live in the tabs.
+export default function AnalyticsModal({ open, onClose, tasks = [], routines = [], records = {}, streak = 0, dailyStats = {} }) {
   const labels = useMemo(() => loadLabels(), [])
   const labelMap = useMemo(() => Object.fromEntries(labels.map(l => [l.id, l])), [labels])
   const [range, setRange] = useState(30)
@@ -123,6 +129,21 @@ export default function AnalyticsModal({ open, onClose, routines = [] }) {
     const el = heatmapScrollRef.current
     if (el) el.scrollLeft = el.scrollWidth
   }, [open, tab, heatMap])
+
+  // Profile hero + achievements (absorbed from the Flight log).
+  const lifetimeDone = useMemo(() => tasks.filter(t => t.status === 'done').length, [tasks])
+  const yearPoints = useMemo(() => (heatMapData || []).reduce((n, d) => n + (d.points || 0), 0), [heatMapData])
+  const badges = useMemo(() => computeBadges({
+    lifetimeDone, routines, records, streak, history: heatMapData || [], tasks,
+  }), [lifetimeDone, routines, records, streak, heatMapData, tasks])
+  const heroStats = [
+    { Icon: Flame, label: 'rally', value: `\u21bb ${streak || 0}` },
+    { Icon: Trophy, label: 'best rally', value: Math.max(streak || 0, records?.longestStreak || 0) },
+    { Icon: Star, label: 'lifetime', value: `${lifetimeDone}\u00d7` },
+    { Icon: Zap, label: 'points (yr)', value: yearPoints },
+    { Icon: Target, label: 'best day', value: `${records?.bestTasks || 0}\u00d7` },
+    { Icon: CalendarCheck, label: 'today', value: `${dailyStats?.tasksToday ?? 0}\u00d7` },
+  ]
 
   // Radar spokes derived from history.
   const radarSpokes = useMemo(() => {
@@ -240,6 +261,18 @@ export default function AnalyticsModal({ open, onClose, routines = [] }) {
           )}
 
           {/* Daily chart */}
+          {tab === 'overview' && (
+            <div className="bm-fl-stats" style={{ marginBottom: 16 }}>
+              {heroStats.map(s => (
+                <div key={s.label} className="bm-fl-stat">
+                  <s.Icon size={14} strokeWidth={2.1} className="bm-fl-stat-icon" />
+                  <div className="bm-fl-stat-num">{s.value}</div>
+                  <div className="bm-fl-stat-cap">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {tab === 'overview' && history.daily?.length > 0 && (
             <section className="v2-analytics-section">
               <h3 className="v2-analytics-heading">Daily completions</h3>
@@ -463,6 +496,15 @@ export default function AnalyticsModal({ open, onClose, routines = [] }) {
                 </div>
                 </div>
               </div>
+            </section>
+          )}
+
+          {tab === 'overview' && (
+            <section className="v2-analytics-section">
+              <div className="v2-analytics-section-head">
+                <h2 className="v2-analytics-section-title">Achievements</h2>
+              </div>
+              <BadgesGrid badges={badges} />
             </section>
           )}
 

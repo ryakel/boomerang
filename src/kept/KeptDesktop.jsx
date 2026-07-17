@@ -25,7 +25,7 @@ export default function KeptDesktop({
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenGrowthAreas,
-  onOpenNotifications, onOpenFlightLog, onStatusChange,
+  onOpenNotifications, onStatusChange,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
@@ -49,7 +49,6 @@ export default function KeptDesktop({
     { id: 'loops', label: 'Loops', icon: Repeat2 },
   ]
   const navReview = [
-    { label: 'Flight log', icon: TrendingUp, onClick: onOpenFlightLog },
     { label: 'Notifications', icon: Bell, onClick: onOpenNotifications },
     { label: 'Arcs', icon: FolderKanban, onClick: onOpenProjects },
     { label: 'Caught', icon: CheckCircle2, onClick: onOpenDone },
