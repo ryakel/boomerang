@@ -9,7 +9,7 @@
 // the Suggestions inbox.
 
 import { getData, setData, queryTasks } from './db.js'
-import { SONNET_MODEL } from './aiModels.js'
+import { SONNET_MODEL, claudeText, NO_THINKING } from './aiModels.js'
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000
 const MAX_SUGGESTIONS = 5
@@ -80,13 +80,14 @@ Return JSON only: {"tags":[{"name":"<tag>","rationale":"<one short sentence>","e
       body: JSON.stringify({
         model: SONNET_MODEL,
         max_tokens: 700,
+        ...NO_THINKING,
         system,
         messages: [{ role: 'user', content: user }],
       }),
     })
     if (!res.ok) return { ok: false, error: `Claude ${res.status}`, surfaced: 0, scanned: titles.length }
     const data = await res.json()
-    const text = data?.content?.[0]?.text || ''
+    const text = claudeText(data)
     const m = text.match(/\{[\s\S]*\}/)
     if (m) proposed = JSON.parse(m[0]).tags || []
   } catch (e) {

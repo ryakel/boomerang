@@ -208,7 +208,8 @@ if (!response.ok) {
 }
 
 const result = await response.json()
-let text = result.content[0].text
+// First block can be a thinking block on adaptive-thinking models — take the text blocks.
+let text = (result.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n')
 
 // Strip markdown fences if present
 const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/)

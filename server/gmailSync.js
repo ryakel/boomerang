@@ -1,6 +1,6 @@
 // Gmail Sync — fetches emails, uses AI to extract tasks and tracking numbers
 import { getData, setData, isGmailProcessed, markGmailProcessed, upsertTask, upsertPackage, getAllPackages, bumpVersion } from './db.js'
-import { SONNET_MODEL } from './aiModels.js'
+import { SONNET_MODEL, claudeText, NO_THINKING } from './aiModels.js'
 
 // Strip USPS 420+ZIP routing prefix — store only the clean tracking number
 function normalizeTrackingNumber(num) {
@@ -238,15 +238,18 @@ async function callClaude(systemPrompt, userMessage) {
     body: JSON.stringify({
       model: SONNET_MODEL,
       max_tokens: 2048,
-      // Conservative classifier — drift from "skip" should require strong signal.
-      temperature: 0,
+      // Conservative classifier: thinking disabled (Sonnet 5 runs adaptive
+      // thinking by default — pure cost here) and NO temperature param —
+      // Sonnet 5 rejects non-default sampling params with a 400, which
+      // silently killed classification when `temperature: 0` was still sent.
+      ...NO_THINKING,
       system,
       messages: [{ role: 'user', content: userMessage }],
     }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(`Claude API error: ${data.error?.message || res.status}`)
-  return data.content?.[0]?.text || ''
+  return claudeText(data)
 }
 
 function extractJSON(text) {
