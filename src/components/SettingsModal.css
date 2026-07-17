@@ -314,6 +314,8 @@
   gap: 6px;
   height: 34px;
   padding: 0 14px;
+  white-space: nowrap;
+  flex-shrink: 0;
   border-radius: var(--v2-radius-pill);
   background: transparent;
   color: var(--v2-text-meta);
@@ -1189,6 +1191,24 @@
   gap: 12px;
   font: 400 13px/1.4 var(--v2-font-body);
   color: var(--v2-text);
+}
+
+.v2-integrations-toggle-row > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Sub-section labels inside an expanded integration (Sync parent /
+   Knowledge base / Database sync / Page template) — one consistent
+   rhythm instead of ad-hoc inline margins. */
+.v2-integrations-inline .v2-form-label {
+  margin-top: 14px;
+  margin-bottom: 2px;
+}
+
+.v2-integrations-inline .v2-form-label:first-child {
+  margin-top: 4px;
 }
 
 .v2-integrations-toggle-btn {
