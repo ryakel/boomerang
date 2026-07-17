@@ -18,7 +18,7 @@
  */
 
 import { getData } from './db.js'
-import { HAIKU_MODEL } from './aiModels.js'
+import { HAIKU_MODEL, claudeText } from './aiModels.js'
 
 const REWRITE_TIMEOUT_MS = 2500
 
@@ -89,7 +89,7 @@ Rewrite the notification body in the user's preferred tone.`
       return body
     }
     const data = await res.json()
-    const rewritten = data.content?.[0]?.text?.trim() || ''
+    const rewritten = claudeText(data)
     if (!rewritten || rewritten.length < 5) return body
     // Strip surrounding quotes if the model added any
     const clean = rewritten.replace(/^["'`]|["'`]$/g, '').slice(0, 200)

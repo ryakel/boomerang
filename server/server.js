@@ -56,7 +56,7 @@ import { getAllKnowledgeItems, searchKnowledgeItems, getKnowledgeItem } from './
 import crypto from 'crypto'
 import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
   setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
-import { SONNET_MODEL, HAIKU_MODEL } from './aiModels.js'
+import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 
 // Register adviser tools once at module load
 registerTaskTools()
@@ -812,7 +812,7 @@ app.post('/api/search/ai', async (req, res) => {
         }),
       })
       const data = await aiRes.json()
-      const indices = JSON.parse(data.content[0].text)
+      const indices = JSON.parse(claudeText(data))
       const aiIds = indices.map(i => items[i]?.id).filter(Boolean)
       const merged = [...new Set([...localHits, ...aiIds])]
       return res.json({ matchedIds: merged, ai: true })
@@ -847,7 +847,7 @@ app.post('/api/search/ai', async (req, res) => {
       }),
     })
     const data = await aiRes.json()
-    const indices = JSON.parse(data.content[0].text)
+    const indices = JSON.parse(claudeText(data))
     const aiMatched = indices.map(i => pool[i]).filter(Boolean)
     const seen = new Set(basicResults.map(r => r.id))
     const combined = [...basicResults]
