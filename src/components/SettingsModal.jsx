@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server } from 'lucide-react'
+import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server, Info } from 'lucide-react'
 import { isNativeShell, getApiBase, requestConnectionSetup } from '../apiConfig'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
@@ -39,6 +39,31 @@ function SettingsSection({ label, hint, children, defaultOpen = false }) {
         </span>
       </button>
       {open && children}
+    </div>
+  )
+}
+
+// Row whose explanatory hint stays hidden until the label is tapped
+// (2026-07-17: "Build numbers — I want to click on each for a description —
+// otherwise they should be minimized"). The control/value stays visible;
+// only the paragraph folds.
+function InfoHintRow({ label, hint, children }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="v2-settings-row">
+      <div className="v2-settings-row-text">
+        <button
+          type="button"
+          className="v2-settings-info-label"
+          onClick={() => setShow(s => !s)}
+          aria-expanded={show}
+        >
+          <span className="v2-settings-row-label">{label}</span>
+          <Info size={13} strokeWidth={1.75} className="v2-settings-info-icon" aria-hidden="true" />
+        </button>
+        {show && <div className="v2-settings-row-hint">{hint}</div>}
+      </div>
+      {children}
     </div>
   )
 }
@@ -3096,26 +3121,24 @@ export default function SettingsModal({
             </SettingsSection>
 
             <SettingsSection label="Build & version" hint="What this client and the server are running.">
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">App build</div>
-                <div className="v2-settings-row-hint">The bundle this client is running (in the native app: what Xcode installed; on the web: what the server served).</div>
-              </div>
+            <InfoHintRow
+              label="App build"
+              hint="The bundle this client is running (in the native app: what Xcode installed; on the web: what the server served)."
+            >
               <code
                 className="v2-settings-build"
                 onClick={handleBuildTap}
                 role="button"
                 tabIndex={-1}
               >{__APP_VERSION__}</code>
-            </div>
+            </InfoHintRow>
 
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Server version</div>
-                <div className="v2-settings-row-hint">Live from the connected server's /api/health — what's actually deployed there right now. These two are DIFFERENT builds in the native app; they only match on the web.</div>
-              </div>
+            <InfoHintRow
+              label="Server version"
+              hint="Live from the connected server's /api/health — what's actually deployed there right now. These two are DIFFERENT builds in the native app; they only match on the web."
+            >
               <code className="v2-settings-build">{serverVersion || '…'}</code>
-            </div>
+            </InfoHintRow>
             </SettingsSection>
           </div>
         )}
