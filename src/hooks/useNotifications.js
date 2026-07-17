@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import { loadSettings, isStale, isOverdue, logNotification, AVOIDANCE_ENERGY_TYPES, safeSetItem } from '../store'
-import { SONNET_MODEL, claudeText, NO_THINKING } from '../../server/aiModels.js'
 
 const FALLBACK_NUDGES = [
   "Got 2 minutes? Even one tiny thing counts.",
@@ -29,22 +28,23 @@ async function getAINudge(taskCount) {
     const settings2 = loadSettings()
     const headers = { 'Content-Type': 'application/json' }
     if (settings2.anthropic_api_key) headers['x-anthropic-key'] = settings2.anthropic_api_key
+    if (settings2.openai_api_key) headers['x-openai-key'] = settings2.openai_api_key
 
-    const res = await fetch('/api/messages', {
+    const res = await fetch('/api/ai/complete', {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: SONNET_MODEL,
+        tier: 'quick',
+        feature: 'push_nudge',
         max_tokens: 100,
-        ...NO_THINKING,
         system: `You write short push notification messages (under 80 chars) to nudge someone back into their task manager app. ADHD-friendly: low pressure, warm, not preachy. One message only, no quotes.\n\nThe user has provided these custom instructions:\n---\n${custom_instructions.trim()}\n---`,
-        messages: [{ role: 'user', content: `They have ${taskCount} open tasks. Write one nudge message.` }],
+        user: `They have ${taskCount} open tasks. Write one nudge message.`,
       }),
     })
 
     if (!res.ok) return pickRandom(FALLBACK_NUDGES)
     const data = await res.json()
-    const text = claudeText(data).replace(/^["']|["']$/g, '')
+    const text = (data.text || '').replace(/^["']|["']$/g, '')
     return text || pickRandom(FALLBACK_NUDGES)
   } catch {
     return pickRandom(FALLBACK_NUDGES)

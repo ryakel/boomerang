@@ -18,15 +18,11 @@
  */
 
 import { getData } from './db.js'
-import { HAIKU_MODEL, claudeText } from './aiModels.js'
+import { aiComplete, aiConfigured } from './aiGateway.js'
 
 const REWRITE_TIMEOUT_MS = 2500
 
 let lastRewriteTickKey = null
-
-function getApiKey() {
-  return process.env.ANTHROPIC_API_KEY || getData('settings')?.anthropic_api_key || null
-}
 
 function getCustomInstructions() {
   const s = getData('settings') || {}
@@ -43,9 +39,8 @@ function getCustomInstructions() {
  * @returns {Promise<string>} Rewritten body, or original on failure
  */
 export async function rewriteNotifBody(task, body) {
-  const key = getApiKey()
   const instructions = getCustomInstructions()
-  if (!key || !instructions || !body) return body
+  if (!aiConfigured('quick') || !instructions || !body) return body
 
   const taskCtx = `Title: "${task?.title || ''}"${task?.energy ? ` · Energy: ${task.energy}` : ''}${task?.due_date ? ` · Due: ${task.due_date}` : ''}`
   const system = `You rewrite ADHD task-manager notifications to match the user's preferred tone.
@@ -72,24 +67,16 @@ Rewrite the notification body in the user's preferred tone.`
   try {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), REWRITE_TIMEOUT_MS)
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: ctrl.signal,
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: HAIKU_MODEL,
-        max_tokens: 100,
-        system,
-        messages: [{ role: 'user', content: user }],
-      }),
-    })
-    clearTimeout(timer)
-    if (!res.ok) {
-      console.error('[NotifAI] rewrite failed:', res.status)
-      return body
+    let rewritten
+    try {
+      const r = await aiComplete({
+        tier: 'quick', system, user, maxTokens: 100,
+        feature: 'notif_rewrite', signal: ctrl.signal,
+      })
+      rewritten = r.text
+    } finally {
+      clearTimeout(timer)
     }
-    const data = await res.json()
-    const rewritten = claudeText(data)
     if (!rewritten || rewritten.length < 5) return body
     // Strip surrounding quotes if the model added any
     const clean = rewritten.replace(/^["'`]|["'`]$/g, '').slice(0, 200)

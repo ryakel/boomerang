@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import path from 'path'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
+import { estimateAiCost } from './aiModels.js'
 
 let db
 let dbPath
@@ -2093,6 +2094,64 @@ export function getNotificationAnalytics(days = 30) {
   while (stmt.step()) results.push(stmt.getAsObject())
   stmt.free()
   return results
+}
+
+// ============================================================
+// AI usage tracking (migration 043) — one row per AI call, logged at the
+// gateway/proxy choke points. Cost estimated at insert time from the
+// aiModels.js pricing table (snapshot; NULL for unpriced models). NEVER
+// throws — usage telemetry must not break the call it's recording.
+
+export function logAiUsage({ provider, model, feature, input_tokens = 0, output_tokens = 0 }) {
+  try {
+    const cost = estimateAiCost(model, input_tokens, output_tokens)
+    db.run(
+      `INSERT INTO ai_usage (id, ts, provider, model, feature, input_tokens, output_tokens, cost_estimate)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), new Date().toISOString(), provider || 'anthropic', model || 'unknown',
+        feature || null, input_tokens | 0, output_tokens | 0, cost]
+    )
+    schedulePersist()
+  } catch (e) {
+    console.error('[AiUsage] log failed:', e?.message)
+  }
+}
+
+export function getAiUsageSummary(days = 30) {
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+  const query = (sql) => {
+    const stmt = db.prepare(sql)
+    stmt.bind([cutoff])
+    const rows = []
+    while (stmt.step()) rows.push(stmt.getAsObject())
+    stmt.free()
+    return rows
+  }
+  const totals = query(
+    `SELECT COUNT(*) as calls, SUM(input_tokens) as input_tokens, SUM(output_tokens) as output_tokens,
+            SUM(cost_estimate) as cost, SUM(CASE WHEN cost_estimate IS NULL THEN 1 ELSE 0 END) as unpriced_calls
+     FROM ai_usage WHERE ts >= ?`
+  )[0] || {}
+  const byProvider = query(
+    `SELECT provider, COUNT(*) as calls, SUM(input_tokens) as input_tokens,
+            SUM(output_tokens) as output_tokens, SUM(cost_estimate) as cost
+     FROM ai_usage WHERE ts >= ? GROUP BY provider ORDER BY cost DESC`
+  )
+  const byModel = query(
+    `SELECT provider, model, COUNT(*) as calls, SUM(input_tokens) as input_tokens,
+            SUM(output_tokens) as output_tokens, SUM(cost_estimate) as cost
+     FROM ai_usage WHERE ts >= ? GROUP BY provider, model ORDER BY cost DESC`
+  )
+  const byFeature = query(
+    `SELECT feature, COUNT(*) as calls, SUM(input_tokens) as input_tokens,
+            SUM(output_tokens) as output_tokens, SUM(cost_estimate) as cost
+     FROM ai_usage WHERE ts >= ? GROUP BY feature ORDER BY cost DESC`
+  )
+  const byDay = query(
+    `SELECT substr(ts, 1, 10) as day, COUNT(*) as calls, SUM(cost_estimate) as cost
+     FROM ai_usage WHERE ts >= ? GROUP BY day ORDER BY day`
+  )
+  return { days, totals, byProvider, byModel, byFeature, byDay }
 }
 
 // ============================================================

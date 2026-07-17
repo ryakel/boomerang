@@ -7,6 +7,7 @@ function getApiHeaders() {
   const settings = loadSettings()
   const headers = { 'Content-Type': 'application/json' }
   if (settings.anthropic_api_key) headers['x-anthropic-key'] = settings.anthropic_api_key
+  if (settings.openai_api_key) headers['x-openai-key'] = settings.openai_api_key
   if (settings.notion_token) headers['x-notion-token'] = settings.notion_token
   if (settings.trello_api_key) headers['x-trello-key'] = settings.trello_api_key
   if (settings.trello_secret) headers['x-trello-token'] = settings.trello_secret
@@ -31,28 +32,27 @@ function isNetworkError(e) {
   return e instanceof TypeError || e?.name === 'AbortError'
 }
 
-export async function callClaude(systemPrompt, userMessage) {
-  const res = await fetch(PROXY_URL, {
+// Utility-AI completion via the server's provider gateway — routes to
+// whichever provider/model the user picked for the tier (Anthropic or
+// OpenAI) and logs usage for the AI dashboard. `feature` tags the call in
+// the usage breakdown. Vision calls (attachments) don't come through here —
+// they stay on /api/messages, pinned to Anthropic.
+export async function callClaude(systemPrompt, userMessage, { tier = 'workhorse', feature = 'utility', maxTokens = 2048 } = {}) {
+  const res = await fetch('/api/ai/complete', {
     method: 'POST',
     headers: getApiHeaders(),
     body: JSON.stringify({
-      model: SONNET_MODEL,
-      max_tokens: 2048,
-      ...NO_THINKING,
+      tier, feature,
+      max_tokens: maxTokens,
       system: withCustomInstructions(systemPrompt),
-      messages: [{ role: 'user', content: userMessage }],
+      user: userMessage,
     }),
   })
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Claude API error: ${res.status} ${err}`)
-  }
-
-  const data = await res.json()
-  const text = claudeText(data)
-  if (!text) throw new Error('Claude returned no text content')
-  return text
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(`AI error: ${data.error || res.status}`)
+  if (!data.text) throw new Error('AI returned no text content')
+  return data.text
 }
 
 // --- Date inference ---
@@ -64,7 +64,7 @@ export async function inferDate(title, notes = '') {
 
   const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nExtract the due date. JSON only.`
 
-  const text = await callClaude(system, user)
+  const text = await callClaude(system, user, { feature: 'infer_date' })
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) return null
   const result = JSON.parse(match[0])
@@ -112,7 +112,7 @@ Return JSON only: {"size": "XS"|"S"|"M"|"L"|"XL", "energy": "<type>", "energyLev
   const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nEstimate size, energy type, energy level, impact${taggable.length > 0 ? ', and any clearly-applicable tags' : ''}. JSON only.`
 
   try {
-    const text = await callClaude(system, user)
+    const text = await callClaude(system, user, { feature: 'infer_size' })
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) return { size: null, energy: null, energyLevel: null, impact: null, tags: [] }
     const result = JSON.parse(match[0])
@@ -150,7 +150,7 @@ Be direct, not cruel. No hedging, no "you could try...".
 Return JSON only: {"verdict": "hire"|"diy", "reason": "<one blunt sentence, under 140 chars, that names the actual risk or the actual easiness>", "first_move": "<one imperative step under 12 words — for hire: who to call / get 2 quotes; for diy: the first physical step>"}`
   const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nDIY or hire it out? JSON only.`
   try {
-    const text = await callClaude(system, user)
+    const text = await callClaude(system, user, { feature: 'reality_check' })
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) return null
     const parsed = JSON.parse(match[0])
@@ -183,7 +183,7 @@ export async function generateCrisisTriage(title, notes = '') {
 Return JSON only: {"steps": ["...", "..."]}`
   const user = `Crisis task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}\n\nGive me the first moves. JSON only.`
   try {
-    const text = await callClaude(system, user)
+    const text = await callClaude(system, user, { feature: 'crisis_triage' })
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) return []
     const parsed = JSON.parse(match[0])
@@ -251,7 +251,7 @@ ${titleChanges.map(c => {
 Suggest title updates for the steps that didn't change but now read inconsistently. JSON only.`
 
   try {
-    const text = await callClaude(system, user)
+    const text = await callClaude(system, user, { feature: 'chain_reconcile' })
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) return []
     const parsed = JSON.parse(match[0])
@@ -288,7 +288,7 @@ ${notes ? `Notes: ${notes}` : ''}
 When should this be due? JSON only.`
 
   try {
-    const text = await callClaude(system, user)
+    const text = await callClaude(system, user, { feature: 'routine_due' })
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) return null
     return JSON.parse(match[0])
@@ -347,7 +347,7 @@ Respond with JSON only — an object with two fields:
 
   const user = `Here are my open tasks:\n${openTasks}\n\nI have ${time} and my energy is "${energy}".${capacity ? ` I can do "${capacity}" type work right now.` : ''}${weather ? `\n\nWeather outlook: ${weather}` : ''}\n\nWhat should I work on? Return JSON object only.`
 
-  const text = await callClaude(system, user)
+  const text = await callClaude(system, user, { feature: 'what_now' })
   const objMatch = text.match(/\{[\s\S]*\}/)
   if (objMatch) {
     const parsed = JSON.parse(objMatch[0])
@@ -377,7 +377,7 @@ Return JSON with these fields:
 
   const user = `Task: "${title}"\n\nRaw notes:\n${rawNotes}\n\nPolish these into clear, actionable notes. Return JSON only.`
 
-  const text = await callClaude(system, user)
+  const text = await callClaude(system, user, { feature: 'polish' })
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('Could not parse polished notes')
   const parsed = JSON.parse(match[0])
@@ -422,6 +422,7 @@ export async function researchTask(title, existingNotes, prompt, attachments = [
       model: SONNET_MODEL,
       max_tokens: 2048,
       ...NO_THINKING,
+      _feature: 'research',
       system: withCustomInstructions(system),
       messages: [{ role: 'user', content }],
     }),
@@ -504,6 +505,7 @@ export async function extractAttachmentText(attachments = []) {
       model: SONNET_MODEL,
       max_tokens: 8192,
       ...NO_THINKING,
+      _feature: 'ocr',
       system,
       messages: [{ role: 'user', content }],
     }),
@@ -526,7 +528,7 @@ export async function reframeTask(taskTitle, snoozeCount, blocker) {
 
   const user = `The task "${taskTitle}" has been snoozed ${snoozeCount} times.\n\nWhat's blocking them: "${blocker}"\n\nReframe this into 1-3 actionable tasks. Return JSON array of strings only.`
 
-  const text = await callClaude(system, user)
+  const text = await callClaude(system, user, { feature: 'reframe' })
   const match = text.match(/\[[\s\S]*\]/)
   if (!match) throw new Error('Could not parse reframed tasks')
   return JSON.parse(match[0])
@@ -558,7 +560,7 @@ Make each one specific to the task title — generic motivational fluff is borin
 
   const user = `Task: "${taskTitle}"${energyNote}${drainNote}\n\nGenerate all 4 toast message variants. JSON only.`
 
-  const text = await callClaude(system, user)
+  const text = await callClaude(system, user, { feature: 'toast', tier: 'quick', maxTokens: 512 })
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('Bad response')
   return JSON.parse(match[0])
@@ -687,7 +689,7 @@ Return JSON only: {"tasks": [...]}`
   const user = `Notion page: "${title}"\n\nContent:\n${plainTextContent.slice(0, 4000)}\n\nExtract actionable tasks. JSON only.`
 
   try {
-    const text = await callClaude(system, user)
+    const text = await callClaude(system, user, { feature: 'notion_analyze' })
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) return { tasks: [] }
     return JSON.parse(match[0])
@@ -710,7 +712,7 @@ Return ONLY JSON: {"matches":[{"page_id":"...","task_id":"..." or null,"confiden
 - confidence >= 0.85 means auto-link
 - null task_id means create new task(s)
 JSON only.`
-  const result = await callClaude('You match Notion pages to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt)
+  const result = await callClaude('You match Notion pages to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt, { feature: 'dedup' })
   return extractJSON(result)
 }
 
@@ -789,6 +791,17 @@ export async function knowledgeRefresh() {
   return data
 }
 
+export async function testOpenAI() {
+  const res = await fetch('/api/ai/openai/test', { method: 'POST', headers: getApiHeaders() })
+  return res.json()
+}
+
+export async function getAiUsage(days = 30) {
+  const res = await fetch(`/api/ai/usage?days=${days}`)
+  if (!res.ok) throw new Error(`Usage fetch failed: ${res.status}`)
+  return res.json()
+}
+
 export async function getKeyStatus() {
   try {
     const res = await fetch('/api/keys/status')
@@ -796,6 +809,7 @@ export async function getKeyStatus() {
     const data = await res.json()
     return {
       anthropic: !!data.anthropic,
+      openai: !!data.openai,
       notion: !!data.notion,
       trello: !!data.trello,
       gcal: !!data.gcal,
@@ -821,7 +835,7 @@ export async function suggestNotionLink(taskTitle, taskNotes) {
   const system = `You help link tasks to Notion pages. Given a task and a list of Notion pages, determine if any page is a good match. Return JSON: {"action": "link" or "create", "page_id": "id if linking, null if creating", "reason": "one sentence"}`
   const user = `Task: "${taskTitle}"${taskNotes ? `\nNotes: ${taskNotes}` : ''}\n\nNotion pages found:\n${pageList}\n\nShould we link to an existing page or create a new one? JSON only.`
 
-  const text = await callClaude(system, user)
+  const text = await callClaude(system, user, { feature: 'notion_link' })
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) return { action: 'create', pages, reason: 'Could not determine match.' }
 
@@ -859,7 +873,7 @@ Template:
 ${template}`
   const user = `Create Notion page content for:\nTask: "${taskTitle}"${detailsStr}${taskNotes ? `\nNotes: ${taskNotes}` : ''}`
 
-  return callClaude(system, user)
+  return callClaude(system, user, { feature: 'notion_content' })
 }
 
 // --- Trello ---
@@ -979,13 +993,13 @@ function extractJSON(text) {
 
 export async function inferTrelloListMapping(lists) {
   const userPrompt = `Here are the Trello lists for a board:\n${JSON.stringify(lists.map(l => ({ id: l.id, name: l.name })))}\n\nMap each list to one of these task statuses based on the list name:\n- not_started (for "to do", "backlog", "new", "todo" type lists)\n- doing (for "in progress", "working", "active" type lists)\n- waiting (for "on hold", "blocked", "waiting", "review" type lists)\n- done (for "done", "complete", "finished", "archived" type lists)\n\nReturn ONLY a JSON object like: {"not_started":"listId","doing":"listId","waiting":"listId","done":"listId"}\nOmit any status that has no matching list. JSON only, no explanation.`
-  const result = await callClaude('You map Trello list names to task statuses. Return only valid JSON, nothing else.', userPrompt)
+  const result = await callClaude('You map Trello list names to task statuses. Return only valid JSON, nothing else.', userPrompt, { feature: 'trello_map' })
   return extractJSON(result)
 }
 
 export async function aiDedupTrelloCards(cards, tasks) {
   const userPrompt = `Match these Trello cards to existing tasks if they refer to the same thing (even if worded differently).\n\nTrello cards (unlinked):\n${JSON.stringify(cards.map(c => ({ id: c.id, name: c.name, desc: (c.desc || '').slice(0, 100) })))}\n\nExisting tasks (unlinked):\n${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, notes: (t.notes || '').slice(0, 100) })))}\n\nReturn ONLY JSON: {"matches":[{"card_id":"...","task_id":"..." or null,"confidence":0.0-1.0}]}\n- confidence >= 0.85 means auto-link\n- null task_id means create a new task\nJSON only.`
-  const result = await callClaude('You match Trello cards to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt)
+  const result = await callClaude('You match Trello cards to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt, { feature: 'dedup' })
   return extractJSON(result)
 }
 
@@ -1141,7 +1155,7 @@ Return JSON only: {"time": "HH:MM", "duration": minutes_number}`
   const user = `Task: "${title}"${notes ? `\nNotes: "${notes}"` : ''}${size ? `\nSize: ${size}` : ''}${energy ? `\nEnergy type: ${energy}` : ''}\n\nSuggest a time and duration. JSON only.`
 
   try {
-    const result = await callClaude(system, user)
+    const result = await callClaude(system, user, { feature: 'event_time' })
     return extractJSON(result)
   } catch {
     return {
@@ -1153,7 +1167,7 @@ Return JSON only: {"time": "HH:MM", "duration": minutes_number}`
 
 export async function aiDedupGCalEvents(events, tasks) {
   const userPrompt = `Match these Google Calendar events to existing tasks if they refer to the same thing (even if worded differently).\n\nCalendar events (unlinked):\n${JSON.stringify(events.map(e => ({ id: e.id, summary: e.summary, description: (e.description || '').slice(0, 100) })))}\n\nExisting tasks (unlinked):\n${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, notes: (t.notes || '').slice(0, 100) })))}\n\nReturn ONLY JSON: {"matches":[{"event_id":"...","task_id":"..." or null,"confidence":0.0-1.0}]}\n- confidence >= 0.85 means auto-link\n- null task_id means create a new task\nJSON only.`
-  const result = await callClaude('You match Google Calendar events to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt)
+  const result = await callClaude('You match Google Calendar events to existing tasks. Only match when clearly the same work item. Return only valid JSON.', userPrompt, { feature: 'dedup' })
   return extractJSON(result)
 }
 

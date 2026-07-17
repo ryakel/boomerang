@@ -15,6 +15,7 @@ import {
 } from './db.js'
 import { registerTool, findStagedCreate } from './adviserTools.js'
 import { SONNET_MODEL } from './aiModels.js'
+import { logAiUsage } from './db.js'
 
 const TASK_FIELDS = [
   'title', 'notes', 'due_date', 'status', 'size', 'energy', 'energy_level',
@@ -1054,6 +1055,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error?.message || `Research call ${response.status}`)
+      if (data?.usage) logAiUsage({ provider: 'anthropic', model: data.model || SONNET_MODEL, feature: 'research_task', input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 })
 
       const researchText = (data.content || [])
         .filter(b => b.type === 'text')
@@ -1431,6 +1433,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error?.message || `Ladder draft call ${response.status}`)
+      if (data?.usage) logAiUsage({ provider: 'anthropic', model: data.model || SONNET_MODEL, feature: 'escalation_ladder', input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 })
       const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('')
       const match = text.match(/\{[\s\S]*\}/)
       if (!match) throw new Error('Could not parse drafted ladder')

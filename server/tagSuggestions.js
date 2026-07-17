@@ -9,15 +9,13 @@
 // the Suggestions inbox.
 
 import { getData, setData, queryTasks } from './db.js'
-import { SONNET_MODEL, claudeText, NO_THINKING } from './aiModels.js'
+import { aiComplete, aiConfigured } from './aiGateway.js'
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000
 const MAX_SUGGESTIONS = 5
 const MAX_TITLES = 300
 
-function getAnthropicKey() {
-  return getData('settings')?.anthropic_api_key || process.env.ANTHROPIC_API_KEY || null
-}
+
 
 function loadStore() {
   const s = getData('tag_suggestions')
@@ -43,8 +41,7 @@ export function dismissTagSuggestion(id) {
 // by the user's labels (or already-pending suggestions). Conservative — only
 // themes several tasks share. Idempotent against existing names.
 export async function runTagScan() {
-  const key = getAnthropicKey()
-  if (!key) return { ok: false, error: 'No Anthropic API key configured', surfaced: 0, scanned: 0 }
+  if (!aiConfigured('workhorse')) return { ok: false, error: 'No AI provider configured', surfaced: 0, scanned: 0 }
 
   const sinceMs = Date.now() - NINETY_DAYS_MS
   const tasks = queryTasks({}).filter(t =>
@@ -74,20 +71,9 @@ Return JSON only: {"tags":[{"name":"<tag>","rationale":"<one short sentence>","e
 
   let proposed = []
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: SONNET_MODEL,
-        max_tokens: 700,
-        ...NO_THINKING,
-        system,
-        messages: [{ role: 'user', content: user }],
-      }),
+    const { text } = await aiComplete({
+      tier: 'workhorse', system, user, maxTokens: 700, feature: 'tag_scan',
     })
-    if (!res.ok) return { ok: false, error: `Claude ${res.status}`, surfaced: 0, scanned: titles.length }
-    const data = await res.json()
-    const text = claudeText(data)
     const m = text.match(/\{[\s\S]*\}/)
     if (m) proposed = JSON.parse(m[0]).tags || []
   } catch (e) {

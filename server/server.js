@@ -13,7 +13,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   listNotifLog, clearNotifLog as clearServerNotifLog,
   markNotifEntriesRead, markAllNotifsRead,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
-  findActiveSpawnTwin,
+  findActiveSpawnTwin, logAiUsage, getAiUsageSummary,
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
   dismissEscalationAdvancePrompt, resolveEscalation } from './db.js'
@@ -57,6 +57,7 @@ import crypto from 'crypto'
 import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
   setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
+import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
 
 // Register adviser tools once at module load
 registerTaskTools()
@@ -288,6 +289,7 @@ app.post('/api/logs/client-error', (req, res) => {
 app.get('/api/keys/status', (req, res) => {
   res.json({
     anthropic: !!envApiKey,
+    openai: !!process.env.OPENAI_API_KEY,
     notion: !!envNotionToken,
     trello: !!(envTrelloKey && envTrelloToken),
     gcal: !!(envGoogleClientId && envGoogleClientSecret),
@@ -862,9 +864,16 @@ app.post('/api/search/ai', async (req, res) => {
 })
 
 // --- Claude API proxy ---
+// Still the path for the Anthropic-pinned vision surfaces (attachment OCR,
+// research with images/PDFs). `_feature` is a client-side usage tag —
+// stripped before forwarding, used for the ai_usage log.
 app.post('/api/messages', async (req, res) => {
   const key = getAnthropicKey(req)
   if (!key) return res.status(400).json({ error: 'No Anthropic API key configured. Add one in Settings or set ANTHROPIC_API_KEY env var.' })
+
+  const feature = req.body?._feature || 'vision'
+  const body = { ...req.body }
+  delete body._feature
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -874,13 +883,52 @@ app.post('/api/messages', async (req, res) => {
         'x-api-key': key,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(body),
     })
     const data = await response.json()
+    if (response.ok && data?.usage) {
+      logAiUsage({
+        provider: 'anthropic', model: data.model || body.model, feature,
+        input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0,
+      })
+    }
     res.status(response.status).json(data)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
+})
+
+// --- AI gateway (multi-provider utility calls + usage dashboard) ---
+function getOpenAIKey(req) {
+  return req?.headers?.['x-openai-key'] || getOpenAIKeyFromEnvOrSettings()
+}
+
+app.post('/api/ai/complete', async (req, res) => {
+  const { tier, system, user, max_tokens, feature } = req.body || {}
+  if (!user) return res.status(400).json({ error: 'Missing user prompt' })
+  try {
+    const result = await aiComplete({
+      tier: tier === 'quick' ? 'quick' : 'workhorse',
+      system, user,
+      maxTokens: Math.min(Number(max_tokens) || 2048, 16000),
+      feature: feature || 'utility',
+      anthropicKey: getAnthropicKey(req),
+      openaiKey: getOpenAIKey(req),
+    })
+    res.json(result)
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
+app.get('/api/ai/usage', (req, res) => {
+  const days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 1), 365)
+  res.json(getAiUsageSummary(days))
+})
+
+app.post('/api/ai/openai/test', async (req, res) => {
+  const result = await probeOpenAI(getOpenAIKey(req))
+  res.json(result)
 })
 
 // --- Notion API proxy ---
@@ -3220,6 +3268,10 @@ async function probeIntegrations(req) {
       return { configured: true, status: 'connected', detail: 'Key valid' }
     }),
 
+    probe({ id: 'openai', name: 'OpenAI', category: 'AI', path: 'REST api.openai.com' }, async () => {
+      return probeOpenAI(getOpenAIKey(req))
+    }),
+
     probe({ id: 'notion_mcp', name: 'Notion (MCP)', category: 'Notion', path: 'MCP mcp.notion.com · OAuth' }, async () => {
       const s = notionMCP.getStatus()
       if (!s.hasTokens) return { configured: false, status: 'not_configured', detail: 'Not connected — link in Settings' }
@@ -3470,6 +3522,12 @@ async function callAdviserModel(apiKey, body, outerSignal) {
     if (!response.ok) {
       const msg = data.error?.message || data.error || data.raw || `Claude ${response.status}`
       throw new Error(msg)
+    }
+    if (data?.usage) {
+      logAiUsage({
+        provider: 'anthropic', model: data.model || body.model, feature: 'quokka',
+        input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0,
+      })
     }
     return data
   } finally {
