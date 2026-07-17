@@ -59,3 +59,22 @@
   border-color: var(--bm-ember);
   color: var(--bm-on-ember);
 }
+
+/* Handoff to the full Analytics surface (charts / patterns / AI usage) —
+   the Flight log is the profile page (streak + badges); numbers live there. */
+.bm-fl-analytics-link {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  padding: 13px 16px;
+  border: 1px solid var(--bm-hairline, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  background: transparent;
+  color: var(--bm-ink, inherit);
+  font: 600 13.5px/1.2 inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bm-fl-analytics-link:hover {
+  border-color: var(--bm-ember, #F04E23);
+}

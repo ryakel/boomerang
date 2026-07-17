@@ -1711,6 +1711,7 @@ export default function AppV2() {
       <FlightLog
         open={showFlightLog}
         onClose={() => setShowFlightLog(false)}
+        onOpenAnalytics={() => { setShowFlightLog(false); setShowAnalytics(true) }}
         tasks={tasks}
         routines={routines}
         records={records}

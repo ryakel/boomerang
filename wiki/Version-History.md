@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-17
 
+- fix(analytics): heatmap actually shows data on mobile; AI tab findable; Flight log \u2194 Analytics de-duped [M]
+  - **Heatmap ("GitHub style graph is completely broken"):** verified by headless render — the 687px grid sat in a ~308px scroller pinned to the LEFT, so phones showed only the year-old empty half while every active cell was off-screen right; worse, the month labels lived OUTSIDE the scroller and compressed to viewport width, so labels didn't even correspond to columns. Fix: labels moved inside a `heatmap-inner` container at the grid's natural width (labels + columns scroll together), and the scroller auto-positions to NOW on open — recent weeks visible first, swipe back in time. Confirmed post-fix via DOM probe (scrollLeft pinned right, hot cells on-screen) + screenshot.
+  - **AI tab ("where is the AI tab???"):** it rendered, but as the third identical segmented-pill row below the range and metric pickers — invisible as navigation. Tabs (Overview/Tasks/Habits/AI) now sit FIRST in the modal, styled as underline tabs (ember active underline, mirrors Settings); the metric toggle + summary card only render on the tabs they apply to (Overview/Tasks).
+  - **Flight log vs Analytics ("separate surfaces? basically the same data"):** the duplication was the badges grid on both. Achievements now live only on the Flight log (the profile page: streak, arcs, badges); Analytics is the numbers surface (charts, patterns, AI usage). The Flight log gains a "Full analytics — charts, patterns, AI usage \u2192" button that hands off directly, so the trend icon is one tap from everything. Kept's segmented-control tab override retired in `src/kept/analytics.css`.
+
 - fix(ui): Quokka history controls collapsed into one row [XS]
   - Prod screenshot: history view stacked three rows — the (now-redundant) toolbar history chip, a Back-to-chat/New row, then the search bar. The toolbar hides entirely while history is open (ChatList owns the controls), and Back \u00b7 search \u00b7 New share a single row (search flexes, buttons no-shrink). Match-count line renders under the bar only while searching.
 
