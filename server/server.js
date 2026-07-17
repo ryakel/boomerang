@@ -3517,7 +3517,7 @@ async function runChatTurn(sessionId, apiKey, message, history, deps, abortContr
       try {
         response = await callAdviserModel(apiKey, {
           model: SONNET_MODEL,
-          max_tokens: 2048,
+          max_tokens: 8192,
           system: adviserSystemPrompt(),
           tools,
           messages,
