@@ -13,6 +13,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   listNotifLog, clearNotifLog as clearServerNotifLog,
   markNotifEntriesRead, markAllNotifsRead,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
+  findActiveSpawnTwin,
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
   dismissEscalationAdvancePrompt, resolveEscalation } from './db.js'
@@ -569,6 +570,21 @@ app.get('/api/tasks/:id', (req, res) => {
 app.post('/api/tasks', (req, res) => {
   const task = req.body
   if (!task.id) return res.status(400).json({ error: 'Task must have an id' })
+  // Duplicate-spawn guard: only on genuine CREATEs (an existing id is a
+  // client re-push of a known record). The guard lives on this route — not
+  // inside upsertTask — because Quokka's LIFO compensation restores captured
+  // pre-state through upsertTask, and a rollback must never be silently
+  // dropped. See findActiveSpawnTwin in db.js for the key + rationale.
+  if (task.routine_id && !getTask(task.id)) {
+    const twinId = findActiveSpawnTwin(task)
+    if (twinId) {
+      console.log(`[spawn-dedupe] dropped duplicate routine spawn "${task.title}" (${String(task.id).slice(0, 8)}) — active twin ${twinId.slice(0, 8)} same routine + due date`)
+      // No insert → no version bump, no broadcast. Return the surviving twin
+      // so the client has a valid record + version; its phantom local copy
+      // is replaced on its next hydrate (the deduped flag triggers one).
+      return res.json({ task: getTask(twinId), version: getVersion(), deduped: true })
+    }
+  }
   upsertTask(task)
   const newVersion = bumpVersion()
   broadcast(newVersion, req.body._clientId || null)

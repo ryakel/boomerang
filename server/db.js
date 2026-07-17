@@ -625,6 +625,32 @@ function triggerEmergencyCancel(taskId, receipt) {
   }).catch(() => {})
 }
 
+// Duplicate-spawn guard (2026-07-17). Routine spawning is client-side
+// (spawnDueTasks in useRoutines.js) and its "already has an instance" check
+// only sees that client's own hydrated state — two clients opening inside
+// the same sync window (phone + desktop in the morning) each spawn the same
+// cycle, and per-record POST /api/tasks inserted both blindly. The server is
+// the only serialization point, so the create route asks here before
+// inserting: an incoming NEW task carrying a routine_id is a duplicate when
+// an ACTIVE twin — same (routine_id, due_date, title), non-terminal status —
+// already exists. Title is part of the key so stack members (which share
+// routine_id + due_date but differ by title) never collide. Done/cancelled
+// twins do NOT block: a manual "Spawn now" after completing today's instance
+// is a legitimate second task. Returns the twin's id, or null.
+export function findActiveSpawnTwin(task) {
+  if (!task?.routine_id || !task.due_date || !task.title) return null
+  const stmt = db.prepare(
+    `SELECT id FROM tasks
+     WHERE routine_id = ? AND due_date = ? AND title = ? AND id != ?
+       AND status NOT IN ('done', 'completed', 'cancelled')
+     LIMIT 1`,
+  )
+  stmt.bind([task.routine_id, task.due_date, task.title, task.id || ''])
+  const twinId = stmt.step() ? stmt.getAsObject().id : null
+  stmt.free()
+  return twinId
+}
+
 export function getTask(id) {
   const stmt = db.prepare('SELECT * FROM tasks WHERE id = ?')
   stmt.bind([id])
