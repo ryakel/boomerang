@@ -1300,3 +1300,26 @@
 .v2-settings-section:last-child {
   border-bottom: none;
 }
+
+/* Tap-for-description rows (build/version). Label + info glyph is the tap
+   target; the hint paragraph only renders while expanded. */
+.v2-settings-info-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.v2-settings-info-icon {
+  color: var(--v2-text-meta);
+  flex-shrink: 0;
+}
+.v2-settings-info-label[aria-expanded="true"] .v2-settings-info-icon {
+  color: var(--v2-text);
+}
