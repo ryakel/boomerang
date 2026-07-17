@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-17
 
+- feat(settings): build/version rows minimized — tap the label for the description [XS]
+  - Follow-up to the start-minimized pass: the App build and Server version rows carried paragraph-length explanations that always rendered. New `InfoHintRow` (label + \u24d8 glyph as the tap target) keeps just the label and the version chip visible; tapping the label reveals/hides the description. The build-tap easter-egg stays on the version code itself.
+
 - feat(settings): every Settings section starts minimized [M]
   - Prod request: "Settings should start minimized across the board. They seem to retain last state, but they get really long and really messy." Root of the mess: Notifications + Integrations persisted their fold state in settings with an all-expanded default — whatever you ever expanded stayed expanded forever — and General/Tasks/Data had no folding at all.
   - New shared `SettingsSection` component (chevron header reusing the existing section-header styling): SESSION-LOCAL state, always starts collapsed, deliberately un-persisted. Notifications + Integrations flipped from the persisted `collapsed_*_sections` maps to the same session-local start-collapsed behavior (the old settings keys become inert, like `v1_disabled`). General wrapped into Appearance / Home screen / Build & version; Tasks into Task behavior / Impact dates / AI tone / AI models & keys; Data into Server connection / Backup / Activity / Server logs / Markdown import / Developer / Danger zone. Labels stays flat (the list IS the content).
