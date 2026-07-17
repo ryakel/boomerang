@@ -80,6 +80,12 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const prevTasks = useRef(null)
   const prevRoutines = useRef(null)
 
+  // Late-bound ref to fetchAndHydrate so pushChanges (defined earlier) can
+  // trigger a rehydrate when the server dedupes a routine spawn — the local
+  // phantom copy has to be replaced by server truth. Direct use would be a
+  // circular dependency (fetchAndHydrate depends on pushChanges).
+  const hydrateRef = useRef(null)
+
   // If we just reloaded for a version update, skip all version checks this page load
   if (!versionMismatchFired.current && sessionStorage.getItem('boom_reloading_for_update')) {
     sessionStorage.removeItem('boom_reloading_for_update')
@@ -241,6 +247,14 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         prevTasks.current = currentTasks
         prevRoutines.current = currentRoutines
         remoteLog(`push: success, ${ops.length} ops, v${serverVersion.current}`)
+        // Server refused a create as a duplicate routine spawn (another
+        // client won the race). Local state still holds our phantom copy —
+        // rehydrate so it's replaced by the surviving twin before anything
+        // (auto-sizer, the user) touches the dead id.
+        if (results.some(r => r?.deduped)) {
+          remoteLog('push: spawn deduped by server — rehydrating')
+          setTimeout(() => hydrateRef.current?.('spawn-dedupe'), 50)
+        }
         setSyncStatus('saved')
         if (savedTimer.current) clearTimeout(savedTimer.current)
         savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
@@ -368,6 +382,9 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       })
     })
   }, [onHydrate, pushBulkState, pushChanges])
+
+  // Keep the late-bound ref current (see declaration above).
+  useEffect(() => { hydrateRef.current = fetchAndHydrate }, [fetchAndHydrate])
 
   // SSE connection
   useEffect(() => {
