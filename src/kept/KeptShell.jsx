@@ -21,7 +21,7 @@ export default function KeptShell({
   onCycleImpact,
   onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
-  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenNotifications, onOpenFlightLog,
+  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenNotifications,
   onOpenGrowthAreas,
   onRefresh,
   syncStatus = 'synced', queueLength = 0,
@@ -72,7 +72,7 @@ export default function KeptShell({
       <KeptHeader
         onQuokka={onOpenQuokka}
         onBell={onOpenNotifications || onOpenActivity}
-        onAvatar={onOpenFlightLog || onOpenAnalytics}
+        onAvatar={onOpenAnalytics}
         syncStatus={syncStatus}
         queueLength={queueLength}
       />
