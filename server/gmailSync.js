@@ -1,6 +1,6 @@
 // Gmail Sync — fetches emails, uses AI to extract tasks and tracking numbers
 import { getData, setData, isGmailProcessed, markGmailProcessed, upsertTask, upsertPackage, getAllPackages, bumpVersion } from './db.js'
-import { SONNET_MODEL, claudeText, NO_THINKING } from './aiModels.js'
+import { aiComplete } from './aiGateway.js'
 
 // Strip USPS 420+ZIP routing prefix — store only the clean tracking number
 function normalizeTrackingNumber(num) {
@@ -228,28 +228,11 @@ async function callClaude(systemPrompt, userMessage) {
     system += `\n\nUser's custom instructions:\n${settings.custom_instructions}`
   }
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': envAnthropicKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: SONNET_MODEL,
-      max_tokens: 4096,
-      // Conservative classifier: thinking disabled (Sonnet 5 runs adaptive
-      // thinking by default — pure cost here) and NO temperature param —
-      // Sonnet 5 rejects non-default sampling params with a 400, which
-      // silently killed classification when `temperature: 0` was still sent.
-      ...NO_THINKING,
-      system,
-      messages: [{ role: 'user', content: userMessage }],
-    }),
+  const { text } = await aiComplete({
+    tier: 'workhorse', system, user: userMessage, maxTokens: 4096,
+    feature: 'gmail_classify', anthropicKey: envAnthropicKey,
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(`Claude API error: ${data.error?.message || res.status}`)
-  return claudeText(data)
+  return text
 }
 
 function extractJSON(text) {

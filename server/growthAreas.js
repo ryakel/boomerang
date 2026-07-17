@@ -14,7 +14,7 @@
 //                        where pick = `{ area_id, area_title, text }`
 
 import { getData, setData } from './db.js'
-import { SONNET_MODEL, claudeText, NO_THINKING } from './aiModels.js'
+import { aiComplete } from './aiGateway.js'
 
 const AREAS_COLLECTION = 'growth_areas'
 const TODAY_COLLECTION = 'growth_area_today'
@@ -22,10 +22,6 @@ const AI_TIMEOUT_MS = 6000
 const ENERGY_TYPES = ['desk', 'people', 'errand', 'confrontation', 'creative', 'physical']
 const VALID_DAY_SCOPES = new Set(['any', 'weekdays', 'weekends'])
 const ROTATION_PERIODS = ['morning', 'evening']
-
-function getAnthropicKey() {
-  return getData('settings')?.anthropic_api_key || process.env.ANTHROPIC_API_KEY || null
-}
 
 // Legacy areas (shipped 2026-07-04) stored a single `mode: 'morning'|
 // 'persistent'|'both'` field. Normalized on every read so old records keep
@@ -103,26 +99,14 @@ function dayOfYear(ymd) {
 }
 
 async function callClaude({ system, user, maxTokens }) {
-  const key = getAnthropicKey()
-  if (!key) return null
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: SONNET_MODEL,
-        max_tokens: maxTokens,
-        ...NO_THINKING,
-        system,
-        messages: [{ role: 'user', content: user }],
-      }),
-      signal: controller.signal,
+    const { text } = await aiComplete({
+      tier: 'workhorse', system, user, maxTokens,
+      feature: 'growth_areas', signal: controller.signal,
     })
-    if (!res.ok) return null
-    const data = await res.json()
-    return claudeText(data)
+    return text || null
   } catch {
     return null
   } finally {

@@ -13,6 +13,7 @@ import EmptyState from './EmptyState'
 import AutosaveIndicator from './AutosaveIndicator'
 import { applyTheme } from '../theme'
 import './SettingsModal.css'
+import { MODEL_CATALOG as AI_MODEL_CATALOG, TIER_DEFAULTS as AI_TIER_DEFAULTS } from '../../server/aiModels.js'
 
 // Shared toggle switch — was locally defined inside NotificationsPanel and
 // hand-copied at ~10 other call sites across IntegrationsPanel/General. One
@@ -323,6 +324,101 @@ function AnthropicKeyBlock({ settings, update, embedded = false }) {
   )
 
   return embedded ? inner : <div className="v2-settings-block">{inner}</div>
+}
+
+// Mirrors AnthropicKeyBlock. Test = free GET /v1/models via the server
+// (validates the key without spending tokens).
+function OpenAIKeyBlock({ settings, update }) {
+  const [envKey, setEnvKey] = useState(false)
+  const [status, setStatus] = useState(null) // null | 'checking' | 'connected' | 'error'
+  const [error, setError] = useState(null)
+  const [showKey, setShowKey] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    import('../api').then(m => m.getKeyStatus()).then(keys => {
+      if (!cancelled) setEnvKey(!!keys?.openai)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  const runTest = async () => {
+    setStatus('checking')
+    setError(null)
+    try {
+      const api = await import('../api')
+      const result = await api.testOpenAI()
+      if (result?.status === 'connected') {
+        setStatus('connected')
+        setTimeout(() => setStatus(s => s === 'connected' ? null : s), 4000)
+      } else {
+        setStatus('error')
+        setError(result?.detail || 'Connection failed — check your key')
+      }
+    } catch (e) {
+      setStatus('error')
+      setError(e?.message || 'Connection failed — check your key')
+    }
+  }
+
+  const hasKey = envKey || !!settings.openai_api_key
+  const summary = status === 'checking' ? 'Checking…'
+    : status === 'connected' ? 'Connected ✓'
+    : status === 'error' ? (error || 'Connection failed')
+    : envKey ? 'Provided via env var'
+    : settings.openai_api_key ? 'Key saved'
+    : 'Not configured'
+  const summaryClass = status === 'connected' ? 'v2-integrations-status-ok'
+    : status === 'error' ? 'v2-integrations-error'
+    : 'v2-integrations-hint'
+
+  return (
+    <>
+      {envKey ? (
+        <div className="v2-integrations-env">
+          Provided via env var. Configure server-side; this field is read-only.
+        </div>
+      ) : (
+        <>
+          <input
+            type={showKey ? 'text' : 'password'}
+            className="v2-form-input"
+            placeholder="sk-…"
+            value={settings.openai_api_key || ''}
+            onChange={e => { update('openai_api_key', e.target.value); setStatus(null) }}
+          />
+          <div className="v2-integrations-actions">
+            <button className="v2-settings-btn" onClick={() => setShowKey(s => !s)}>
+              {showKey ? 'Hide key' : 'Show key'}
+            </button>
+            <button
+              className="v2-settings-btn"
+              onClick={runTest}
+              disabled={!hasKey || status === 'checking'}
+            >
+              {status === 'checking' ? 'Testing…' : 'Test'}
+            </button>
+            {settings.openai_api_key && (
+              <button
+                className="v2-settings-btn v2-settings-btn-danger"
+                onClick={() => { update('openai_api_key', ''); setStatus(null) }}
+              >
+                Disconnect
+              </button>
+            )}
+          </div>
+        </>
+      )}
+      {envKey && (
+        <div className="v2-integrations-actions">
+          <button className="v2-settings-btn" onClick={runTest} disabled={status === 'checking'}>
+            {status === 'checking' ? 'Testing…' : 'Test'}
+          </button>
+        </div>
+      )}
+      <div className={summaryClass}>{summary}</div>
+    </>
+  )
 }
 
 function IntegrationsPanel({
@@ -795,6 +891,13 @@ function IntegrationsPanel({
       inline: 'anthropic',
     },
     {
+      key: 'openai',
+      label: 'OpenAI',
+      hint: 'Optional second AI provider — run the utility AI surfaces on GPT models (pick per tier in Settings \u2192 Tasks \u2192 AI models). Quokka and image/PDF analysis stay on Anthropic.',
+      connected: envKeys.openai || !!settings.openai_api_key,
+      inline: 'openai',
+    },
+    {
       key: 'notion',
       label: 'Notion',
       hint: statuses.notion?.mcpHealth?.needsReauth
@@ -939,6 +1042,11 @@ function IntegrationsPanel({
                 {int.inline === 'anthropic' && (
                   <div className="v2-integrations-inline">
                     <AnthropicKeyBlock settings={settings} update={update} embedded />
+                  </div>
+                )}
+                {int.inline === 'openai' && (
+                  <div className="v2-integrations-inline">
+                    <OpenAIKeyBlock settings={settings} update={update} />
                   </div>
                 )}
                 {int.inline === 'notion-full' && (
@@ -3137,10 +3245,57 @@ export default function SettingsModal({
                 )}
               </div>
             </div>
+            <div className="v2-settings-subhead">AI models</div>
+
             <div className="v2-settings-block">
-              <div className="v2-form-label">Anthropic API key</div>
               <div className="v2-settings-row-hint">
-                Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>, then configure it under <button type="button" className="v2-settings-inline-link" onClick={() => setActiveTab('Integrations')}>Settings → Integrations</button>.
+                Which model runs each tier of AI work. <strong>Workhorse</strong> handles classification,
+                inference, polish, and scans; <strong>Quick</strong> handles one-liners and AI search.
+                Quokka and image/PDF analysis always use Anthropic. OpenAI models need a key under{' '}
+                <button type="button" className="v2-settings-inline-link" onClick={() => setActiveTab('Integrations')}>Settings → Integrations</button>.
+              </div>
+              {[
+                { key: 'ai_model_workhorse', label: 'Workhorse model', def: AI_TIER_DEFAULTS.workhorse },
+                { key: 'ai_model_quick', label: 'Quick model', def: AI_TIER_DEFAULTS.quick },
+              ].map(({ key, label, def }) => (
+                <div key={key} style={{ marginTop: 10 }}>
+                  <label className="v2-form-label" htmlFor={`v2-${key}`}>{label}</label>
+                  <select
+                    id={`v2-${key}`}
+                    className="v2-form-input"
+                    value={AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def)) ? (settings[key] || def) : '__custom'}
+                    onChange={e => update(key, e.target.value === '__custom' ? `anthropic:${settings[key] || def}` : e.target.value)}
+                  >
+                    <optgroup label="Anthropic">
+                      {AI_MODEL_CATALOG.filter(m => m.provider === 'anthropic').map(m => (
+                        <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="OpenAI">
+                      {AI_MODEL_CATALOG.filter(m => m.provider === 'openai').map(m => (
+                        <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
+                      ))}
+                    </optgroup>
+                    <option value="__custom">Custom…</option>
+                  </select>
+                  {!AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def)) && (
+                    <input
+                      type="text"
+                      className="v2-form-input"
+                      style={{ marginTop: 6 }}
+                      placeholder="provider:model-id, e.g. openai:gpt-5.2"
+                      value={settings[key] || ''}
+                      onChange={e => update(key, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="v2-settings-block">
+              <div className="v2-form-label">API keys</div>
+              <div className="v2-settings-row-hint">
+                Anthropic keys at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>, OpenAI keys at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">platform.openai.com</a> — both configured under <button type="button" className="v2-settings-inline-link" onClick={() => setActiveTab('Integrations')}>Settings → Integrations</button>.
               </div>
             </div>
           </div>

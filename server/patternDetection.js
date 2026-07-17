@@ -27,7 +27,7 @@
 
 import { readFileSync, existsSync } from 'fs'
 import { queryTasks, getData, upsertPatternSuggestion, countPendingSuggestions, getAllRoutines } from './db.js'
-import { SONNET_MODEL, claudeText, NO_THINKING } from './aiModels.js'
+import { aiComplete, aiConfigured } from './aiGateway.js'
 
 const TWELVE_MONTHS_MS = 365 * 24 * 60 * 60 * 1000
 const CONFIDENCE_FLOOR = 0.45
@@ -119,7 +119,7 @@ function buildBaseClusters(tasks) {
 // Bounded to ~50 candidate titles per run to cap API cost.
 async function maybeAiCluster(clusters) {
   const key = getAnthropicKey()
-  if (!key) return clusters
+  if (!key && !aiConfigured('workhorse')) return clusters
 
   // Only consider clusters with 1-2 completions (those are the lonely
   // candidates AI might be able to merge into a bigger group).
@@ -128,20 +128,12 @@ async function maybeAiCluster(clusters) {
 
   const titleList = candidates.map((c, i) => `${i + 1}. ${c.displayTitle}`).join('\n')
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: SONNET_MODEL,
-        max_tokens: 800,
-        ...NO_THINKING,
-        system: 'You are a clustering helper. Given a list of task titles, group ones that describe the SAME recurring activity (e.g., "mow the lawn" and "mow grass" are the same; "buy milk" and "buy bread" are NOT). Reply with a JSON array of clusters, each an array of 1-indexed numbers from the input. Singletons may be omitted. Reply ONLY with the JSON, no prose.',
-        messages: [{ role: 'user', content: titleList }],
-      }),
+    const result = await aiComplete({
+      tier: 'workhorse', maxTokens: 800, feature: 'pattern_scan', anthropicKey: key,
+      system: 'You are a clustering helper. Given a list of task titles, group ones that describe the SAME recurring activity (e.g., "mow the lawn" and "mow grass" are the same; "buy milk" and "buy bread" are NOT). Reply with a JSON array of clusters, each an array of 1-indexed numbers from the input. Singletons may be omitted. Reply ONLY with the JSON, no prose.',
+      user: titleList,
     })
-    if (!res.ok) return clusters
-    const data = await res.json()
-    const text = claudeText(data) || '[]'
+    const text = result.text || '[]'
     const parsed = JSON.parse(text.replace(/^```json\n?|\n?```$/g, ''))
     if (!Array.isArray(parsed)) return clusters
 

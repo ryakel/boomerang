@@ -63,6 +63,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
   const [heatMapMetric, setHeatMapMetric] = useState('tasks')
   const [radarMode, setRadarMode] = useState('tags')
   const [throttleDecisions, setThrottleDecisions] = useState([])
+  const [aiUsage, setAiUsage] = useState(null)
 
   const loadThrottleDecisions = async () => {
     try {
@@ -94,6 +95,14 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
       .then(data => { if (data) setHistory(data) })
       .catch(() => {})
   }, [open, range])
+
+  // AI usage summary — follows the selected range (default 30d).
+  useEffect(() => {
+    if (!open || tab !== 'ai') return
+    import('../api').then(m => m.getAiUsage(range || 365))
+      .then(setAiUsage)
+      .catch(() => setAiUsage(null))
+  }, [open, tab, range])
 
   // Heatmap always fetches a full year.
   useEffect(() => {
@@ -208,6 +217,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
               { id: 'overview', label: 'Overview' },
               { id: 'tasks', label: 'Tasks' },
               { id: 'habits', label: 'Habits' },
+              { id: 'ai', label: 'AI' },
             ].map(t => (
               <button
                 key={t.id}
@@ -455,6 +465,8 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
 
           {tab === 'habits' && <HabitsAnalytics routines={routines} />}
 
+          {tab === 'ai' && <AiUsagePanel usage={aiUsage} range={range} />}
+
           {tab === 'tasks' && throttleDecisions.filter(d => !d.feedback).length > 0 && (
             <section className="v2-analytics-section">
               <div className="v2-analytics-section-head">
@@ -552,5 +564,108 @@ function HabitsAnalytics({ routines = [] }) {
         ))}
       </ul>
     </section>
+  )
+}
+
+
+// --- AI usage dashboard (2026-07-17) ---
+// Local per-call telemetry from the ai_usage table: totals, then breakdowns
+// per provider, per model, and per feature, with cost estimated from the
+// aiModels.js pricing table at log time. "est." because prices are a
+// snapshot and unpriced (custom) models contribute tokens but no dollars.
+
+function fmtTokens(n) {
+  if (!n) return '0'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return String(n)
+}
+
+function fmtCost(c) {
+  if (c == null) return '—'
+  if (c > 0 && c < 0.01) return '<$0.01'
+  return `$${c.toFixed(2)}`
+}
+
+function AiUsagePanel({ usage, range }) {
+  if (!usage) {
+    return (
+      <section className="v2-analytics-section">
+        <h3 className="v2-analytics-heading">AI usage</h3>
+        <div className="v2-analytics-empty">No usage data yet — AI calls are logged from the moment this feature shipped.</div>
+      </section>
+    )
+  }
+  const t = usage.totals || {}
+  const providerName = (p) => p === 'openai' ? 'OpenAI' : p === 'anthropic' ? 'Anthropic' : (p || 'unknown')
+
+  const table = (rows, nameFn, keyFn) => (
+    <div className="v2-analytics-ai-tablewrap">
+      <table className="v2-analytics-ai-table">
+        <thead>
+          <tr><th>Name</th><th>Calls</th><th>In</th><th>Out</th><th>Est. cost</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={keyFn ? keyFn(r) : i}>
+              <td>{nameFn(r)}</td>
+              <td>{r.calls}</td>
+              <td>{fmtTokens(r.input_tokens)}</td>
+              <td>{fmtTokens(r.output_tokens)}</td>
+              <td>{fmtCost(r.cost)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+
+  return (
+    <>
+      <section className="v2-analytics-section">
+        <h3 className="v2-analytics-heading">AI usage · last {range || 365} days</h3>
+        <div className="v2-analytics-ai-cards">
+          <div className="v2-analytics-ai-card">
+            <span className="v2-analytics-ai-num">{fmtCost(t.cost)}</span>
+            <span className="v2-analytics-ai-label">est. cost{t.unpriced_calls > 0 ? ` (+${t.unpriced_calls} unpriced calls)` : ''}</span>
+          </div>
+          <div className="v2-analytics-ai-card">
+            <span className="v2-analytics-ai-num">{t.calls || 0}</span>
+            <span className="v2-analytics-ai-label">calls</span>
+          </div>
+          <div className="v2-analytics-ai-card">
+            <span className="v2-analytics-ai-num">{fmtTokens((t.input_tokens || 0) + (t.output_tokens || 0))}</span>
+            <span className="v2-analytics-ai-label">tokens</span>
+          </div>
+        </div>
+      </section>
+
+      {(usage.byProvider || []).length > 0 && (
+        <section className="v2-analytics-section">
+          <h3 className="v2-analytics-heading">By provider</h3>
+          {table(usage.byProvider, r => providerName(r.provider), r => r.provider)}
+        </section>
+      )}
+
+      {(usage.byModel || []).length > 0 && (
+        <section className="v2-analytics-section">
+          <h3 className="v2-analytics-heading">By model</h3>
+          {table(usage.byModel, r => `${r.model} · ${providerName(r.provider)}`, r => `${r.provider}:${r.model}`)}
+        </section>
+      )}
+
+      {(usage.byFeature || []).length > 0 && (
+        <section className="v2-analytics-section">
+          <h3 className="v2-analytics-heading">By feature</h3>
+          {table(usage.byFeature, r => r.feature || 'untagged', r => r.feature || 'untagged')}
+        </section>
+      )}
+
+      {(usage.totals?.calls || 0) === 0 && (
+        <section className="v2-analytics-section">
+          <div className="v2-analytics-empty">No AI calls logged in this window yet.</div>
+        </section>
+      )}
+    </>
   )
 }
