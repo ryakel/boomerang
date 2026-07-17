@@ -58,27 +58,10 @@
   box-shadow: var(--wb-shadow-press);
 }
 
-/* Section tabs → contained segmented control. View tabs take the slate
- * (card-3) active fill like every other Wallaby view/range tab — green is
- * reserved for form value-pick segments (see shared.css convention). */
-[data-theme^="kept"] .v2-analytics-tabs {
-  background: var(--wb-card-2);
-  border: 1px solid var(--wb-hairline);
-  border-radius: 10px;
-  padding: 3px;
-  gap: 2px;
-}
-[data-theme^="kept"] .v2-analytics-tab {
-  border: none;
-  background: transparent;
-  border-radius: 10px;
-  color: var(--wb-text-meta);
-}
+/* Section tabs are underline navigation now (2026-07-17) — base styles in
+ * AnalyticsModal.css apply in Kept too; only the accent maps to ember. */
 [data-theme^="kept"] .v2-analytics-tab-active {
-  background: var(--wb-card-3);
-  color: var(--wb-text);
-  box-shadow: var(--wb-shadow-press);
-  border: none;
+  border-bottom-color: var(--bm-ember, #F04E23);
 }
 
 /* Chart fills pick up the Wallaby accent (purple) over the v2 orange */

@@ -12,7 +12,7 @@ import './flightlog.css'
 // and the full achievements wall. Reads the analytics daily series; no
 // new data.
 export default function FlightLog({
-  open, onClose,
+  open, onClose, onOpenAnalytics,
   tasks = [], routines = [], records = {}, streak = 0, dailyStats = {},
 }) {
   const [history, setHistory] = useState([])
@@ -79,6 +79,12 @@ export default function FlightLog({
         <div className="bm-fl-year-title" style={{ marginBottom: 8 }}>Achievements</div>
         <BadgesGrid badges={badges} />
       </div>
+
+      {onOpenAnalytics && (
+        <button type="button" className="bm-fl-analytics-link" onClick={onOpenAnalytics}>
+          Full analytics — charts, patterns, AI usage →
+        </button>
+      )}
     </ModalShell>
   )
 }
