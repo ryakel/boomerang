@@ -18,6 +18,31 @@ import { MODEL_CATALOG as AI_MODEL_CATALOG, TIER_DEFAULTS as AI_TIER_DEFAULTS } 
 // Shared toggle switch — was locally defined inside NotificationsPanel and
 // hand-copied at ~10 other call sites across IntegrationsPanel/General. One
 // definition so a future visual tweak doesn't need a find-and-replace.
+// Collapsible settings section — session-local state that ALWAYS starts
+// collapsed (2026-07-17: "Settings should start minimized across the
+// board"). Deliberately NOT persisted: retained open-state is exactly how
+// the pages got long and messy.
+function SettingsSection({ label, hint, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="v2-settings-section">
+      <button
+        type="button"
+        className={`v2-settings-section-header${open ? '' : ' v2-settings-section-header-collapsed'}`}
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+      >
+        <span className="v2-settings-section-chev" aria-hidden="true">{open ? '\u25be' : '\u25b8'}</span>
+        <span className="v2-settings-section-header-text">
+          <span className="v2-form-label">{label}</span>
+          {hint && <span className="v2-settings-row-hint">{hint}</span>}
+        </span>
+      </button>
+      {open && children}
+    </div>
+  )
+}
+
 function Toggle({ checked, onChange, disabled }) {
   return (
     <label className={`v2-settings-toggle${disabled ? ' v2-settings-toggle-disabled' : ''}`}>
@@ -963,15 +988,14 @@ function IntegrationsPanel({
     },
   ]
 
-  // Per-integration collapse state, same persisted-in-settings pattern the
-  // Notifications panel already uses (collapsed_notif_sections) — this
-  // panel never had it: every integration's full inline config (API key
-  // fields, Disconnect, Sync Parent, Knowledge Base, etc.) rendered
-  // unconditionally, forcing a long scroll with no way to fold rows shut.
-  const collapsedIntegrations = settings.collapsed_integrations_sections || {}
-  const isIntCollapsed = (key) => !!collapsedIntegrations[key]
+  // Per-integration collapse state — SESSION-LOCAL, every integration
+  // starts folded on each Settings visit (2026-07-17). The old
+  // persisted-in-settings map meant whatever you once expanded stayed
+  // expanded forever, and the page crept back to a wall of config.
+  const [openIntegrations, setOpenIntegrations] = useState({})
+  const isIntCollapsed = (key) => !openIntegrations[key]
   const toggleIntCollapsed = (key) => {
-    update('collapsed_integrations_sections', { ...collapsedIntegrations, [key]: !collapsedIntegrations[key] })
+    setOpenIntegrations(s => ({ ...s, [key]: !s[key] }))
   }
 
   const runPushoverTest = async (emergency) => {
@@ -1837,14 +1861,13 @@ function NotificationsPanel({ settings, update }) {
     if (historyOpen && history === null) loadHistory()
   }, [historyOpen, history])
 
-  // Per-section collapse state for the notifications panel. Persists via
-  // settings so each section's fold state survives reloads. Section keys
-  // match the labels below; default is "all expanded" so first-time
-  // users see everything.
-  const collapsedSections = settings.collapsed_notif_sections || {}
-  const isCollapsed = (key) => !!collapsedSections[key]
+  // Per-section collapse state — SESSION-LOCAL, every section starts
+  // folded on each Settings visit (2026-07-17; was persisted-in-settings
+  // with an all-expanded default, which is how the page got so long).
+  const [openSections, setOpenSections] = useState({})
+  const isCollapsed = (key) => !openSections[key]
   const toggleCollapsed = (key) => {
-    update('collapsed_notif_sections', { ...collapsedSections, [key]: !collapsedSections[key] })
+    setOpenSections(s => ({ ...s, [key]: !s[key] }))
   }
   const SectionHeader = ({ k, label, hint }) => (
     <button
@@ -2970,6 +2993,7 @@ export default function SettingsModal({
 
         {activeTab === 'General' && (
           <div className="v2-settings-form">
+            <SettingsSection label="Appearance" hint="Theme family and light/dark mode.">
             {(() => {
               const currentTheme = settings.theme || 'light'
               const family = currentTheme.startsWith('kept') ? 'kept' : 'standard'
@@ -3033,8 +3057,9 @@ export default function SettingsModal({
                 </>
               )
             })()}
+            </SettingsSection>
 
-            <div className="v2-settings-subhead">Home screen</div>
+            <SettingsSection label="Home screen" hint="7-day strip and daily goal.">
 
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
@@ -3068,6 +3093,9 @@ export default function SettingsModal({
               />
             </div>
 
+            </SettingsSection>
+
+            <SettingsSection label="Build & version" hint="What this client and the server are running.">
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
                 <div className="v2-settings-row-label">App build</div>
@@ -3088,11 +3116,13 @@ export default function SettingsModal({
               </div>
               <code className="v2-settings-build">{serverVersion || '…'}</code>
             </div>
+            </SettingsSection>
           </div>
         )}
 
         {activeTab === 'Tasks' && (
           <div className="v2-settings-form">
+            <SettingsSection label="Task behavior" hint="Due-date defaults, staleness, reframe trigger, DIY reality check.">
             <div className="v2-settings-row">
               <div className="v2-settings-row-text">
                 <label className="v2-settings-row-label" htmlFor="v2-default-due-days">Default due date</label>
@@ -3152,7 +3182,9 @@ export default function SettingsModal({
               />
             </div>
 
-            <div className="v2-settings-subhead">Impact dates</div>
+            </SettingsSection>
+
+            <SettingsSection label="Impact dates" hint="Events that make related work more urgent as they approach.">
 
             <div className="v2-settings-block">
               <div className="v2-settings-row-hint">
@@ -3209,7 +3241,9 @@ export default function SettingsModal({
               </div>
             </div>
 
-            <div className="v2-settings-subhead">AI tone</div>
+            </SettingsSection>
+
+            <SettingsSection label="AI tone" hint="Custom instructions shaping every AI feature.">
 
             <div className="v2-settings-block">
               <label className="v2-form-label" htmlFor="v2-ci">Custom instructions</label>
@@ -3245,7 +3279,9 @@ export default function SettingsModal({
                 )}
               </div>
             </div>
-            <div className="v2-settings-subhead">AI models</div>
+            </SettingsSection>
+
+            <SettingsSection label="AI models & keys" hint="Which provider/model runs each tier of AI work.">
 
             <div className="v2-settings-block">
               <div className="v2-settings-row-hint">
@@ -3298,25 +3334,27 @@ export default function SettingsModal({
                 Anthropic keys at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>, OpenAI keys at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">platform.openai.com</a> — both configured under <button type="button" className="v2-settings-inline-link" onClick={() => setActiveTab('Integrations')}>Settings → Integrations</button>.
               </div>
             </div>
+            </SettingsSection>
           </div>
         )}
 
         {activeTab === 'Data' && (
           <div className="v2-settings-form">
             {isNativeShell() && (
-              <div className="v2-settings-block">
-                <div className="v2-form-label">Server connection</div>
-                <div className="v2-settings-row-hint">
-                  This app talks to <strong>{getApiBase() || 'no server yet'}</strong>. Changing the server or API token reloads the app.
+              <SettingsSection label="Server connection" hint="Which server this app talks to.">
+                <div className="v2-settings-block">
+                  <div className="v2-settings-row-hint">
+                    This app talks to <strong>{getApiBase() || 'no server yet'}</strong>. Changing the server or API token reloads the app.
+                  </div>
+                  <button className="v2-settings-btn" onClick={requestConnectionSetup}>
+                    <Server size={13} strokeWidth={1.75} /> Change server…
+                  </button>
                 </div>
-                <button className="v2-settings-btn" onClick={requestConnectionSetup}>
-                  <Server size={13} strokeWidth={1.75} /> Change server…
-                </button>
-              </div>
+              </SettingsSection>
             )}
 
+            <SettingsSection label="Backup" hint="Export / import everything as one JSON file.">
             <div className="v2-settings-block">
-              <div className="v2-form-label">Backup</div>
               <div className="v2-settings-row-hint">Export tasks, routines, settings, and labels as a single JSON file. Importing replaces the current state and reloads.</div>
               <div className="v2-settings-actions">
                 <button className="v2-settings-btn" onClick={handleExportData}>
@@ -3329,9 +3367,11 @@ export default function SettingsModal({
               </div>
             </div>
 
+            </SettingsSection>
+
+            <SettingsSection label="Activity" hint="Audit trail of edits, completions, and deletes.">
             <div className="v2-settings-block">
-              <div className="v2-form-label">Activity</div>
-              <div className="v2-settings-row-hint">Audit trail of edits, completions, and deletes. Deleted tasks can be restored from snapshots.</div>
+              <div className="v2-settings-row-hint">Deleted tasks can be restored from snapshots in the log.</div>
               <button
                 className="v2-settings-btn"
                 onClick={() => { onClose?.(); onShowActivityLog?.() }}
@@ -3341,14 +3381,18 @@ export default function SettingsModal({
               </button>
             </div>
 
+            </SettingsSection>
+
+            <SettingsSection label="Server logs" hint="Live tail of the server process.">
             <div className="v2-settings-block">
-              <div className="v2-form-label">Server logs</div>
-              <div className="v2-settings-row-hint">Live tail of the server process — Google/Push/Email/DB/SSE lines and errors. Used to be its own top-level tab despite being the same kind of diagnostics as Activity above.</div>
+              <div className="v2-settings-row-hint">Google/Push/Email/DB/SSE lines and errors from the running server.</div>
               <ServerLogsPanel />
             </div>
 
+            </SettingsSection>
+
+            <SettingsSection label="Markdown import" hint="Parse a pasted markdown list into tasks.">
             <div className="v2-settings-block">
-              <div className="v2-form-label">Markdown import</div>
               <div className="v2-settings-row-hint">Paste a markdown list or checklist and have it parsed into tasks. Rarely used; lives here so it doesn't crowd the main menu.</div>
               <button
                 className="v2-settings-btn"
@@ -3359,19 +3403,21 @@ export default function SettingsModal({
               </button>
             </div>
 
+            </SettingsSection>
+
             {isDev && (
+              <SettingsSection label="Developer · dev only" hint="Reseed this dev database.">
               <div className="v2-settings-block">
-                <div className="v2-form-label">Developer · dev only</div>
                 <div className="v2-settings-row-hint">Wipe this dev database and reload fresh seed data (tasks rebased to today, ~250 days of routine history). Only shown on the dev build; the server blocks it everywhere else.</div>
                 <button className="v2-settings-btn" onClick={handleReseed} disabled={reseeding}>
                   <RefreshCw size={13} strokeWidth={1.75} /> {reseeding ? 'Reseeding…' : 'Reseed dev database'}
                 </button>
               </div>
+              </SettingsSection>
             )}
 
+            <SettingsSection label="Danger zone" hint="These wipe data. No undo other than restoring from a backup.">
             <div className="v2-settings-danger">
-              <div className="v2-form-label">Danger zone</div>
-              <div className="v2-settings-row-hint">These wipe data. No undo other than restoring from a backup.</div>
               <div className="v2-settings-danger-actions">
                 <button
                   className="v2-settings-btn v2-settings-btn-danger v2-settings-btn-block"
@@ -3391,6 +3437,7 @@ export default function SettingsModal({
                 </button>
               </div>
             </div>
+            </SettingsSection>
           </div>
         )}
 
