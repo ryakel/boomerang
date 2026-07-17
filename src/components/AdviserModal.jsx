@@ -101,6 +101,37 @@ function ExpiryBanner({ chat, onStar }) {
 }
 
 function ChatList({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew, onBack }) {
+  // Search: titles match instantly; on a 2+ char query the full message
+  // bodies are fetched once (lazily, cached) so content matches too — the
+  // chat count is personal-app small, so fetch-all is fine.
+  const [query, setQuery] = useState('')
+  const [bodies, setBodies] = useState({})
+  const [searchingBodies, setSearchingBodies] = useState(false)
+  useEffect(() => {
+    if (query.trim().length < 2) return
+    const missing = chats.filter(c => bodies[c.id] === undefined)
+    if (missing.length === 0) return
+    let alive = true
+    setSearchingBodies(true)
+    ;(async () => {
+      const api = await import('../api')
+      const fetched = {}
+      await Promise.all(missing.map(async (c) => {
+        try {
+          const full = await api.adviserGetChat(c.id)
+          fetched[c.id] = (full?.messages || []).map(m => typeof m?.content === 'string' ? m.content : '').join('\n').toLowerCase()
+        } catch { fetched[c.id] = '' }
+      }))
+      if (alive) { setBodies(prev => ({ ...prev, ...fetched })); setSearchingBodies(false) }
+    })()
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, chats])
+  const q = query.trim().toLowerCase()
+  const shown = q.length === 0 ? chats : chats.filter(c =>
+    (c.title || '').toLowerCase().includes(q)
+    || (q.length >= 2 && (bodies[c.id] || '').includes(q)),
+  )
   return (
     <div className="v2-adviser-history">
       <div className="v2-adviser-history-bar">
@@ -109,6 +140,21 @@ function ChatList({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew
           <Plus size={14} strokeWidth={2} /> New
         </button>
       </div>
+      <div style={{ padding: '0 2px 10px' }}>
+        <input
+          type="search"
+          className="v2-form-input"
+          placeholder="Search chats — titles and messages"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          aria-label="Search chat history"
+        />
+        {q.length >= 2 && (
+          <div style={{ fontSize: 11.5, color: 'var(--v2-text-meta, #8a8378)', marginTop: 4 }}>
+            {searchingBodies ? 'Searching message contents…' : `${shown.length} match${shown.length !== 1 ? 'es' : ''}`}
+          </div>
+        )}
+      </div>
       {chats.length === 0 ? (
         <EmptyState
           title="No chats yet"
@@ -116,7 +162,7 @@ function ChatList({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew
         />
       ) : (
         <ul className="v2-adviser-chat-list">
-          {chats.map(c => {
+          {shown.map(c => {
             const days = daysUntil(c.expiresAt)
             const expiring = !c.starred && days != null && days <= 7
             const active = c.id === activeId
@@ -285,8 +331,12 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
           onClick={() => setShowHistory(v => !v)}
           aria-label="Chats"
         >
+          {/* The mobile chip used to render a SEARCH icon here (Wallaby-era
+            * "search-style chip") for what is actually the chat HISTORY —
+            * reported in prod as "can't get to my chat history without
+            * knowing the search is history". History icon + count, always. */}
           {wallaby
-            ? <Search size={18} strokeWidth={2} />
+            ? <><History size={17} strokeWidth={2} />{chats.length > 0 && <span style={{ fontSize: 11.5, fontWeight: 700, marginLeft: 3 }}>{chats.length}</span>}</>
             : <><History size={14} strokeWidth={1.75} /> {chats.length > 0 ? `${chats.length} chat${chats.length !== 1 ? 's' : ''}` : 'Chats'}</>}
         </button>
         {!showHistory && (

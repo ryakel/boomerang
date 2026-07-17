@@ -897,8 +897,8 @@ function IntegrationsPanel({
       <div className="v2-settings-block">
         <div className="v2-form-label">Status</div>
         <div className="v2-settings-row-hint">
-          Connect, configure, and disconnect every integration inline. Tokens are shared
-          Tokens persist across reloads — you only connect once.
+          Connect, configure, and disconnect every integration inline. Tokens persist
+          across reloads — you only connect once.
         </div>
         <ul className="v2-integrations-list">
           {integrations.map(int => (
