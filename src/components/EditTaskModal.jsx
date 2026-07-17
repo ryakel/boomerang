@@ -7,6 +7,7 @@ import WeatherSection, { resolveWeatherVisibility } from './WeatherSection'
 import ModalShell from './ModalShell'
 import FormDisclosure from './FormDisclosure'
 import AutosaveIndicator from './AutosaveIndicator'
+import AttachmentViewer from './AttachmentViewer'
 import DateField from './DateField'
 import './AddTaskModal.css' // shared form-control styles
 import './EditTaskModal.css'
@@ -54,6 +55,7 @@ export default function EditTaskModal({
   // Research state — inline because only EditTaskModal supports it; not worth
   // promoting into useTaskForm since AddTaskModal doesn't use it.
   const [showResearch, setShowResearch] = useState(false)
+  const [viewingAttachment, setViewingAttachment] = useState(null)
   const [researchPrompt, setResearchPrompt] = useState('')
   const [researching, setResearching] = useState(false)
   const [researchError, setResearchError] = useState(null)
@@ -1104,7 +1106,14 @@ export default function EditTaskModal({
           <ul className="v2-edit-attach-list">
             {form.attachments.map(a => (
               <li key={a.id} className="v2-edit-attach-item">
-                <span className="v2-edit-attach-name">{a.name}</span>
+                <button
+                  type="button"
+                  className="v2-edit-attach-name v2-edit-attach-open"
+                  onClick={() => setViewingAttachment(a)}
+                  title={`Open ${a.name}`}
+                >
+                  {a.name}
+                </button>
                 <span className="v2-edit-attach-size">{form.formatFileSize(a.size)}</span>
                 <button
                   type="button"
@@ -1846,6 +1855,13 @@ export default function EditTaskModal({
       >
         Close
       </button>
+
+      {viewingAttachment && (
+        <AttachmentViewer
+          attachment={viewingAttachment}
+          onClose={() => setViewingAttachment(null)}
+        />
+      )}
     </ModalShell>
   )
 }

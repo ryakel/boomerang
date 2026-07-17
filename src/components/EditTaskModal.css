@@ -862,6 +862,23 @@
   white-space: nowrap;
 }
 
+/* The name is a button now (tap to open the viewer) — keep the text look,
+   add link affordance. */
+.v2-edit-attach-open {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--v2-text-rgb), 0.25);
+  text-underline-offset: 2px;
+}
+.v2-edit-attach-open:hover {
+  text-decoration-color: currentColor;
+}
+
 .v2-edit-attach-size {
   font: 500 11px/1 var(--v2-font-body);
   color: var(--v2-text-meta);
