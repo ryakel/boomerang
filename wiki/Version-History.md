@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-16
 
+- docs(ios): iCloud Private Relay breaks Siri/Shortcuts DNS on tailnet-only hostnames [XS]
+  - On-device debugging after the plugin-registration fix: the Siri intent got past the config gate but failed with "A server with the specified hostname could not be found" — while Safari and the app reached the same hostname on the same phone at the same moment. Root cause (user-confirmed by toggling it off): **iCloud Private Relay** routes DNS for background/system-initiated requests (App Intents from Siri/Shortcuts, Share Extension) through Apple's DNS proxy, bypassing Tailscale's resolver — and the server hostname has no public DNS record. Documented in `wiki/iOS-Native-App.md` (Connectivity section): symptom, confirmed culprit, and the two fixes — Private Relay / Limit IP Address Tracking off, or (durable) a public A record pointing the hostname at the server's Tailscale `100.x` IP so any resolver answers while routing stays tunnel-only. Not fixable from app code; doc-only change.
+
 - fix(ui): Quokka history discoverability + chat search; Integrations tidy-up [M]
   - **Quokka history** (prod: "can't easily get to my chat history without knowing the search is history"): the mobile toolbar chip rendered a SEARCH icon for the chat-history toggle — a Wallaby-era leftover ("search-style chip") that Kept inherited. It's now a History icon + chat count on every theme.
   - **Chat search** (prod: "Also I have no search"): the history panel gains a search field — titles match instantly; a 2+ character query lazily fetches full message bodies once (cached) so message CONTENT matches too, with a match count / "searching contents…" line.
