@@ -42,26 +42,28 @@
   border-color: var(--v2-text);
 }
 
-/* Section tabs (Overview / Tasks / Habits) */
+/* Section tabs — underline navigation (NOT a segmented control; the range +
+   metric pickers below already use that shape, and three identical pill rows
+   made the tabs unreadable as navigation). Mirrors the Settings tab strip. */
 .v2-analytics-tabs {
   display: flex;
-  gap: 4px;
+  gap: 18px;
   margin: 0 0 16px;
+  border-bottom: 1px solid var(--v2-hairline);
 }
 .v2-analytics-tab {
-  flex: 1 1 0;
-  padding: 9px 10px;
-  border-radius: var(--v2-radius-pill);
+  padding: 8px 2px 10px;
   background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   color: var(--v2-text-meta);
-  border: 1px solid var(--v2-hairline);
-  font: 700 12px/1 var(--v2-font-body);
+  font: 700 13px/1 var(--v2-font-body);
   cursor: pointer;
 }
 .v2-analytics-tab-active {
-  background: var(--v2-text);
-  color: var(--v2-bg);
-  border-color: var(--v2-text);
+  color: var(--v2-text);
+  border-bottom-color: var(--v2-accent, #F26640);
 }
 
 .v2-analytics-summary {
@@ -236,10 +238,18 @@
   text-align: right;
 }
 
-/* 52-week heatmap */
+/* 52-week heatmap. The wrap scrolls; the inner container is the grid's
+   natural width and carries the month labels, so labels and columns stay
+   aligned while scrolling (they used to live outside the scroller and
+   compressed to the viewport width — total label/column mismatch). */
 .v2-analytics-heatmap-wrap {
-  position: relative;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.v2-analytics-heatmap-inner {
+  position: relative;
+  width: max-content;
   padding-top: 18px;
 }
 

@@ -1,10 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { ENERGY_TYPES, loadLabels } from '../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import BalanceRadar from './BalanceRadar'
-import BadgesGrid from './BadgesGrid'
-import { computeBadges } from '../badges'
 import { BarChart3 } from 'lucide-react'
 import './AnalyticsModal.css'
 
@@ -52,7 +50,9 @@ function buildHeatMapGrid(dailyData, metric) {
   return { weeks, months, maxVal }
 }
 
-export default function AnalyticsModal({ open, onClose, tasks = [], routines = [], records = {}, streak = 0 }) {
+// Extra props (tasks/records/streak) were consumed by the badges grid,
+// which moved to the Flight log — callers may still pass them; ignored.
+export default function AnalyticsModal({ open, onClose, routines = [] }) {
   const labels = useMemo(() => loadLabels(), [])
   const labelMap = useMemo(() => Object.fromEntries(labels.map(l => [l.id, l])), [labels])
   const [range, setRange] = useState(30)
@@ -115,11 +115,14 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
 
   const heatMap = useMemo(() => buildHeatMapGrid(heatMapData, heatMapMetric), [heatMapData, heatMapMetric])
 
-  // Local achievements — derived from data we already have (no new schema).
-  const badges = useMemo(() => computeBadges({
-    lifetimeDone: tasks.filter(t => t.status === 'done').length,
-    routines, records, streak, history: heatMapData || [], tasks,
-  }), [tasks, routines, records, streak, heatMapData])
+  // The grid is wider than a phone; start scrolled to NOW (right edge) —
+  // otherwise mobile shows only the year-old left half, which reads as a
+  // completely empty heatmap (2026-07-17 prod report).
+  const heatmapScrollRef = useRef(null)
+  useEffect(() => {
+    const el = heatmapScrollRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [open, tab, heatMap])
 
   // Radar spokes derived from history.
   const radarSpokes = useMemo(() => {
@@ -162,6 +165,27 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
 
   return (
     <ModalShell open={open} onClose={onClose} title="Analytics" width="wide">
+      {/* Section tabs — the modal's primary navigation, so they come FIRST
+          and are styled as underline tabs (2026-07-17: they used to render
+          below two identical-looking segmented controls and read as a third
+          picker — the AI tab was invisible in practice). */}
+      <div className="v2-analytics-tabs" role="tablist" aria-label="Analytics sections">
+        {[
+          { id: 'overview', label: 'Overview' },
+          { id: 'tasks', label: 'Tasks' },
+          { id: 'habits', label: 'Habits' },
+          { id: 'ai', label: 'AI' },
+        ].map(t => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`v2-analytics-tab${tab === t.id ? ' v2-analytics-tab-active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >{t.label}</button>
+        ))}
+      </div>
+
       {/* Range + metric controls */}
       <div className="v2-analytics-toolbar">
         <div className="v2-analytics-range">
@@ -175,20 +199,22 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
             </button>
           ))}
         </div>
-        <div className="v2-analytics-metric">
-          <button
-            className={`v2-analytics-metric-btn${metric === 'tasks' ? ' v2-analytics-metric-btn-active' : ''}`}
-            onClick={() => setMetric('tasks')}
-          >
-            Tasks
-          </button>
-          <button
-            className={`v2-analytics-metric-btn${metric === 'points' ? ' v2-analytics-metric-btn-active' : ''}`}
-            onClick={() => setMetric('points')}
-          >
-            Points
-          </button>
-        </div>
+        {(tab === 'overview' || tab === 'tasks') && (
+          <div className="v2-analytics-metric">
+            <button
+              className={`v2-analytics-metric-btn${metric === 'tasks' ? ' v2-analytics-metric-btn-active' : ''}`}
+              onClick={() => setMetric('tasks')}
+            >
+              Tasks
+            </button>
+            <button
+              className={`v2-analytics-metric-btn${metric === 'points' ? ' v2-analytics-metric-btn-active' : ''}`}
+              onClick={() => setMetric('points')}
+            >
+              Points
+            </button>
+          </div>
+        )}
       </div>
 
       {!history ? (
@@ -206,28 +232,12 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
       ) : (
         <>
           {/* Summary line */}
-          <div className="v2-analytics-summary">
-            <span className="v2-analytics-summary-num">{metric === 'tasks' ? history.totalTasks : history.totalPoints}</span>
-            <span className="v2-analytics-summary-label">{metric === 'tasks' ? 'tasks' : 'points'} · last {range || 'all'} {range ? 'days' : 'time'}</span>
-          </div>
-
-          {/* Section tabs */}
-          <div className="v2-analytics-tabs" role="tablist" aria-label="Analytics sections">
-            {[
-              { id: 'overview', label: 'Overview' },
-              { id: 'tasks', label: 'Tasks' },
-              { id: 'habits', label: 'Habits' },
-              { id: 'ai', label: 'AI' },
-            ].map(t => (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={tab === t.id}
-                className={`v2-analytics-tab${tab === t.id ? ' v2-analytics-tab-active' : ''}`}
-                onClick={() => setTab(t.id)}
-              >{t.label}</button>
-            ))}
-          </div>
+          {(tab === 'overview' || tab === 'tasks') && (
+            <div className="v2-analytics-summary">
+              <span className="v2-analytics-summary-num">{metric === 'tasks' ? history.totalTasks : history.totalPoints}</span>
+              <span className="v2-analytics-summary-label">{metric === 'tasks' ? 'tasks' : 'points'} · last {range || 'all'} {range ? 'days' : 'time'}</span>
+            </div>
+          )}
 
           {/* Daily chart */}
           {tab === 'overview' && history.daily?.length > 0 && (
@@ -423,7 +433,8 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
                   </button>
                 </div>
               </div>
-              <div className="v2-analytics-heatmap-wrap">
+              <div className="v2-analytics-heatmap-wrap" ref={heatmapScrollRef}>
+                <div className="v2-analytics-heatmap-inner">
                 <div className="v2-analytics-heatmap-months">
                   {heatMap.months.map((m, i) => (
                     <span key={i} className="v2-analytics-heatmap-month" style={{ left: `${(m.index / heatMap.weeks.length) * 100}%` }}>
@@ -450,17 +461,9 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
                     </div>
                   ))}
                 </div>
+                </div>
               </div>
             </section>
-          )}
-
-          {tab === 'overview' && (
-          <section className="v2-analytics-section">
-            <div className="v2-analytics-section-head">
-              <h2 className="v2-analytics-section-title">Achievements</h2>
-            </div>
-            <BadgesGrid badges={badges} />
-          </section>
           )}
 
           {tab === 'habits' && <HabitsAnalytics routines={routines} />}
