@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-16
 
+- fix(ui): Quokka history discoverability + chat search; Integrations tidy-up [M]
+  - **Quokka history** (prod: "can't easily get to my chat history without knowing the search is history"): the mobile toolbar chip rendered a SEARCH icon for the chat-history toggle — a Wallaby-era leftover ("search-style chip") that Kept inherited. It's now a History icon + chat count on every theme.
+  - **Chat search** (prod: "Also I have no search"): the history panel gains a search field — titles match instantly; a 2+ character query lazily fetches full message bodies once (cached) so message CONTENT matches too, with a match count / "searching contents…" line.
+  - **Integrations panel** (prod: "looks like shit"): fixed the garbled intro copy ("Tokens are shared Tokens persist across reloads"); `.v2-settings-btn` no longer wraps its label mid-word ("Sync\nnow") or gets crushed in flex rows (`white-space: nowrap` + `flex-shrink: 0`); toggle-row text owns the squeeze (`min-width: 0` + `overflow-wrap`); sub-section labels (Sync parent / Knowledge base / Database sync) get one consistent spacing rhythm instead of ad-hoc inline margins. A full visual redesign of the panel still wants a dedicated design pass with live rendering — this is the make-it-not-broken tier.
+
 - fix(ios): BoomerangNative plugin was never registered — App Group stayed empty, Siri intent dead [S]
   - First real Siri test: the intent RAN (registered in Shortcuts, executed) but replied "Open Boomerang and connect to your server first" on a fully-connected phone. Root cause: Capacitor 6+ does not auto-discover plugins compiled into the app binary — `BoomerangNative` (the localStorage→App Group config bridge from Phase 0) was a well-formed `CAPBridgedPlugin` that nothing ever registered, so every JS `setSharedConfig` call silently failed and the App Group never received `boom_api_base`/`boom_api_token`. The Share Extension reads the same App Group and would have failed identically. Fix: `capacitorDidLoad()` override in `BoomerangViewController` calls `bridge?.registerPluginInstance(BoomerangNative())`. After rebuild + one app launch (the interceptor-install mirror pushes the config), the intent and Share Extension have credentials.
 
