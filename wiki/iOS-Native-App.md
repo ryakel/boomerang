@@ -17,6 +17,27 @@ server on your tailnet and run Tailscale on the iPhone; the app reaches the
 tailnet hostname from anywhere with no public exposure. The `API_TOKEN` gates
 every request.
 
+**⚠️ iCloud Private Relay breaks Siri/Shortcuts/Share (2026-07-16, verified
+on-device).** The hostname only resolves through Tailscale's DNS, and iOS
+routes DNS for *background/system-initiated* requests — the App Intent run
+from Siri/Shortcuts, the Share Extension — through Apple's Private Relay DNS
+proxy, which bypasses the tunnel's resolver entirely. Symptom: the intent
+fails with **"A server with the specified hostname could not be found"** while
+Safari and the app itself reach the same hostname fine on the same phone at
+the same moment (foreground app traffic resolves on-host through the tunnel).
+Confirmed culprit: **Settings → Apple ID → iCloud → Private Relay** (the
+per-network **Limit IP Address Tracking** toggle triggers the same path).
+Fixes, either works:
+- Turn Private Relay off (or Limit IP Address Tracking off for your networks).
+- **Durable:** add a *public* A record for the hostname pointing at the
+  server's Tailscale `100.x` IP. Every resolver (including Apple's proxy) then
+  returns the right answer; routing still requires the tunnel, and `100.x` is
+  unreachable off-tailnet, so nothing is exposed. This survives iOS updates
+  and lets Private Relay stay on.
+
+This is a resolver-selection issue in iOS, not fixable from app code — the
+intent just calls `URLSession` and iOS picks the DNS path per context.
+
 ---
 
 ## The standard rebuild (start here every time)
