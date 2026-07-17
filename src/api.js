@@ -37,7 +37,7 @@ export async function callClaude(systemPrompt, userMessage) {
     headers: getApiHeaders(),
     body: JSON.stringify({
       model: SONNET_MODEL,
-      max_tokens: 1024,
+      max_tokens: 2048,
       ...NO_THINKING,
       system: withCustomInstructions(systemPrompt),
       messages: [{ role: 'user', content: userMessage }],
@@ -420,7 +420,7 @@ export async function researchTask(title, existingNotes, prompt, attachments = [
     headers: getApiHeaders(),
     body: JSON.stringify({
       model: SONNET_MODEL,
-      max_tokens: 1024,
+      max_tokens: 2048,
       ...NO_THINKING,
       system: withCustomInstructions(system),
       messages: [{ role: 'user', content }],
@@ -502,7 +502,7 @@ export async function extractAttachmentText(attachments = []) {
     headers: getApiHeaders(),
     body: JSON.stringify({
       model: SONNET_MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       ...NO_THINKING,
       system,
       messages: [{ role: 'user', content }],

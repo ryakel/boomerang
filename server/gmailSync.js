@@ -237,7 +237,7 @@ async function callClaude(systemPrompt, userMessage) {
     },
     body: JSON.stringify({
       model: SONNET_MODEL,
-      max_tokens: 2048,
+      max_tokens: 4096,
       // Conservative classifier: thinking disabled (Sonnet 5 runs adaptive
       // thinking by default — pure cost here) and NO temperature param —
       // Sonnet 5 rejects non-default sampling params with a 400, which
