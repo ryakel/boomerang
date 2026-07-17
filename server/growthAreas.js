@@ -14,7 +14,7 @@
 //                        where pick = `{ area_id, area_title, text }`
 
 import { getData, setData } from './db.js'
-import { SONNET_MODEL } from './aiModels.js'
+import { SONNET_MODEL, claudeText, NO_THINKING } from './aiModels.js'
 
 const AREAS_COLLECTION = 'growth_areas'
 const TODAY_COLLECTION = 'growth_area_today'
@@ -114,6 +114,7 @@ async function callClaude({ system, user, maxTokens }) {
       body: JSON.stringify({
         model: SONNET_MODEL,
         max_tokens: maxTokens,
+        ...NO_THINKING,
         system,
         messages: [{ role: 'user', content: user }],
       }),
@@ -121,7 +122,7 @@ async function callClaude({ system, user, maxTokens }) {
     })
     if (!res.ok) return null
     const data = await res.json()
-    return (data?.content?.[0]?.text || '').trim()
+    return claudeText(data)
   } catch {
     return null
   } finally {

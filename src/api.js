@@ -1,5 +1,5 @@
 import { loadSettings, localYMD } from './store'
-import { SONNET_MODEL } from '../server/aiModels.js'
+import { SONNET_MODEL, claudeText, NO_THINKING } from '../server/aiModels.js'
 
 const PROXY_URL = '/api/messages'
 
@@ -38,6 +38,7 @@ export async function callClaude(systemPrompt, userMessage) {
     body: JSON.stringify({
       model: SONNET_MODEL,
       max_tokens: 1024,
+      ...NO_THINKING,
       system: withCustomInstructions(systemPrompt),
       messages: [{ role: 'user', content: userMessage }],
     }),
@@ -49,7 +50,9 @@ export async function callClaude(systemPrompt, userMessage) {
   }
 
   const data = await res.json()
-  return data.content[0].text
+  const text = claudeText(data)
+  if (!text) throw new Error('Claude returned no text content')
+  return text
 }
 
 // --- Date inference ---
@@ -418,6 +421,7 @@ export async function researchTask(title, existingNotes, prompt, attachments = [
     body: JSON.stringify({
       model: SONNET_MODEL,
       max_tokens: 1024,
+      ...NO_THINKING,
       system: withCustomInstructions(system),
       messages: [{ role: 'user', content }],
     }),
@@ -429,7 +433,7 @@ export async function researchTask(title, existingNotes, prompt, attachments = [
   }
 
   const data = await res.json()
-  let text = (data.content?.[0]?.text || '').trim()
+  let text = claudeText(data)
   // Research notes are freeform markdown (bullets with line breaks, and often
   // backslashes — measurements like 3\4", paths, escapes). Do NOT JSON.parse
   // them: the old `{"notes":"..."}` contract threw "Unrecognized token '\'" the
@@ -499,6 +503,7 @@ export async function extractAttachmentText(attachments = []) {
     body: JSON.stringify({
       model: SONNET_MODEL,
       max_tokens: 4096,
+      ...NO_THINKING,
       system,
       messages: [{ role: 'user', content }],
     }),
@@ -508,7 +513,7 @@ export async function extractAttachmentText(attachments = []) {
     throw new Error(`Claude API error: ${res.status} ${err}`)
   }
   const data = await res.json()
-  const raw = data.content[0].text
+  const raw = claudeText(data)
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('Could not parse extraction')
   const aiText = (JSON.parse(match[0]).text || '').trim()

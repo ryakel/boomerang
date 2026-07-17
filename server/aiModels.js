@@ -13,3 +13,25 @@
 // list), short push-notification message generation.
 export const SONNET_MODEL = 'claude-sonnet-5'
 export const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
+
+// Extract the response text from a Messages API response. Claude Sonnet 5
+// runs adaptive thinking by default, so `content[0]` can be a `thinking`
+// block (with EMPTY text under the default display) — `content[0].text` is
+// then undefined and any .match()/.trim() on it crashes, or a `?.` chain
+// silently returns '' and the feature degrades (the 2026-07-17 Polish-button
+// incident). Always collect the text blocks, wherever they sit.
+export function claudeText(data) {
+  return (data?.content || [])
+    .filter(b => b && b.type === 'text' && typeof b.text === 'string')
+    .map(b => b.text)
+    .join('\n')
+    .trim()
+}
+
+// Explicitly disable thinking on cheap utility calls (inference, one-line
+// rewrites, classification). Sonnet 5 runs adaptive thinking when the field
+// is omitted — for these calls that only adds latency + cost and can eat a
+// small max_tokens budget from the inside. Spread into the request body:
+// `...NO_THINKING`. (Sonnet 5 accepts an explicit disabled; do not send
+// this to models where thinking is always-on.)
+export const NO_THINKING = { thinking: { type: 'disabled' } }
