@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-17
 
+- fix(ui): Quokka history controls collapsed into one row [XS]
+  - Prod screenshot: history view stacked three rows — the (now-redundant) toolbar history chip, a Back-to-chat/New row, then the search bar. The toolbar hides entirely while history is open (ChatList owns the controls), and Back \u00b7 search \u00b7 New share a single row (search flexes, buttons no-shrink). Match-count line renders under the bar only while searching.
+
 - feat(settings): build/version rows minimized — tap the label for the description [XS]
   - Follow-up to the start-minimized pass: the App build and Server version rows carried paragraph-length explanations that always rendered. New `InfoHintRow` (label + \u24d8 glyph as the tap target) keeps just the label and the version chip visible; tapping the label reveals/hides the description. The build-tap easter-egg stays on the version code itself.
 
