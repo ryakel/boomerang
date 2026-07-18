@@ -638,18 +638,78 @@ function triggerEmergencyCancel(taskId, receipt) {
 // routine_id + due_date but differ by title) never collide. Done/cancelled
 // twins do NOT block: a manual "Spawn now" after completing today's instance
 // is a legitimate second task. Returns the twin's id, or null.
+// 2026-07-17 v2 (prod: "still seeing a shit ton of duplicates"): the v1 key
+// included due_date, but a STALE client (offline since yesterday, old
+// completed_history) computes an older next-due for the same cycle — the
+// copies differ on due_date and both got through. The client-side legacy
+// rule has always been "any non-done instance blocks a spawn", so the
+// server now mirrors it: for a NON-STACK routine, ANY active task with the
+// same (routine_id, title) blocks, regardless of due date. Title stays in
+// the key so follow-up chain steps (which inherit routine_id but have
+// their own titles) never collide with the parent cycle. STACK routines
+// keep due_date in the key — a daily stack legitimately spawns today's
+// member while yesterday's identical-title member lingers overdue.
+function isStackRoutine(routineId) {
+  try {
+    const r = getRoutine(routineId)
+    return Array.isArray(r?.members) && r.members.length > 0
+  } catch { return false }
+}
+
 export function findActiveSpawnTwin(task) {
-  if (!task?.routine_id || !task.due_date || !task.title) return null
+  if (!task?.routine_id || !task.title) return null
+  const stack = isStackRoutine(task.routine_id)
+  if (stack && !task.due_date) return null
   const stmt = db.prepare(
     `SELECT id FROM tasks
-     WHERE routine_id = ? AND due_date = ? AND title = ? AND id != ?
+     WHERE routine_id = ? AND title = ? AND id != ?
+       ${stack ? 'AND due_date = ?' : ''}
        AND status NOT IN ('done', 'completed', 'cancelled')
      LIMIT 1`,
   )
-  stmt.bind([task.routine_id, task.due_date, task.title, task.id || ''])
+  stmt.bind(stack
+    ? [task.routine_id, task.title, task.id || '', task.due_date]
+    : [task.routine_id, task.title, task.id || ''])
   const twinId = stmt.step() ? stmt.getAsObject().id : null
   stmt.free()
   return twinId
+}
+
+// One-shot cleanup for duplicates that predate (or slipped past) the guard.
+// Groups ACTIVE routine-spawned tasks by the same key the guard uses and
+// deletes all but one per group. Survivor preference: a copy the user has
+// touched (status beyond not_started) over an untouched one, then the
+// OLDEST created_at (the original; later copies are the race artifacts).
+// Runs at server boot + exposed via POST /api/tasks/dedupe-spawns.
+export function dedupeSpawnedTasks({ dryRun = false } = {}) {
+  const active = getAllTasks().filter(t =>
+    t.routine_id && t.title &&
+    !['done', 'completed', 'cancelled'].includes(t.status))
+  const groups = new Map()
+  for (const t of active) {
+    const stack = isStackRoutine(t.routine_id)
+    const key = stack
+      ? `s|${t.routine_id}|${t.due_date || ''}|${t.title}`
+      : `r|${t.routine_id}|${t.title}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(t)
+  }
+  const removed = []
+  for (const [key, tasks] of groups) {
+    if (tasks.length < 2) continue
+    const score = (t) => (t.status !== 'not_started' ? 2 : 0) + ((t.checklists?.length || t.notes) ? 1 : 0)
+    const sorted = [...tasks].sort((a, b) =>
+      score(b) - score(a) || new Date(a.created_at) - new Date(b.created_at))
+    for (const extra of sorted.slice(1)) {
+      removed.push({ id: extra.id, title: extra.title, due_date: extra.due_date, key })
+      if (!dryRun) deleteTask(extra.id)
+    }
+  }
+  if (removed.length > 0) {
+    console.log(`[spawn-dedupe] ${dryRun ? 'would remove' : 'removed'} ${removed.length} duplicate spawn(s):`,
+      removed.map(r => `"${r.title}" (${r.due_date || 'no due'})`).join(', '))
+  }
+  return { removed: removed.length, details: removed, dryRun }
 }
 
 export function getTask(id) {

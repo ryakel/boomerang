@@ -13,7 +13,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   listNotifLog, clearNotifLog as clearServerNotifLog,
   markNotifEntriesRead, markAllNotifsRead,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
-  findActiveSpawnTwin, logAiUsage, getAiUsageSummary,
+  findActiveSpawnTwin, dedupeSpawnedTasks, logAiUsage, getAiUsageSummary,
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
   dismissEscalationAdvancePrompt, resolveEscalation } from './db.js'
@@ -591,6 +591,18 @@ app.post('/api/tasks', (req, res) => {
   const newVersion = bumpVersion()
   broadcast(newVersion, req.body._clientId || null)
   res.json({ task: getTask(task.id), version: newVersion })
+})
+
+// Manual duplicate-spawn sweep (?dryRun=1 to preview). Same logic as the
+// boot sweep; broadcasts so connected clients refetch.
+app.post('/api/tasks/dedupe-spawns', (req, res) => {
+  const dryRun = req.query.dryRun === '1' || req.body?.dryRun === true
+  const result = dedupeSpawnedTasks({ dryRun })
+  if (!dryRun && result.removed > 0) {
+    const newVersion = bumpVersion()
+    broadcast(newVersion, null)
+  }
+  res.json(result)
 })
 
 app.patch('/api/tasks/:id', (req, res) => {
@@ -4220,6 +4232,16 @@ initDb(dbPath).then(async () => {
     notionMCP.autoReconnect().then(ok => {
       console.log(`Notion MCP: ${ok ? 'connected' : 'not connected'}`)
     })
+
+    // Sweep duplicate routine spawns left by the pre-guard era (and any
+    // stale-client races the old due_date-keyed guard missed). Runs before
+    // the notification engines so a doomed copy never gets nagged about.
+    try {
+      const dedupe = dedupeSpawnedTasks({})
+      if (dedupe.removed > 0) bumpVersion()
+    } catch (e) {
+      console.error('[spawn-dedupe] boot sweep failed:', e?.message)
+    }
 
     // Start notification loops (muzzled on dev instances — see notifsMuzzled)
     if (notifsMuzzled) {
