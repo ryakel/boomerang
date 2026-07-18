@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Home, ListTodo, Repeat2, FolderKanban, BarChart3, Package, Settings,
-  Sparkles, Plus, CheckCircle2, ScrollText, Inbox, Compass, Bell, TrendingUp, Sprout,
+  Sparkles, Plus, CheckCircle2, ScrollText, Inbox, Compass, Bell, TrendingUp, Sprout, StickyNote,
 } from 'lucide-react'
 import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
@@ -22,9 +22,10 @@ export default function KeptDesktop({
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
   onCycleImpact,
-  onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
+  onThrow, onThrowNote, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenGrowthAreas,
+  onOpenNotes, pinnedNotes = [], onUnpinNote,
   onOpenNotifications, onStatusChange,
   syncStatus = 'synced', queueLength = 0,
 }) {
@@ -50,6 +51,7 @@ export default function KeptDesktop({
   ]
   const navReview = [
     { label: 'Notifications', icon: Bell, onClick: onOpenNotifications },
+    { label: 'Notes', icon: StickyNote, onClick: onOpenNotes },
     { label: 'Arcs', icon: FolderKanban, onClick: onOpenProjects },
     { label: 'Caught', icon: CheckCircle2, onClick: onOpenDone },
     { label: 'Analytics', icon: BarChart3, onClick: onOpenAnalytics },
@@ -83,6 +85,7 @@ export default function KeptDesktop({
         onLogSession={onLogSession} onGmailKeep={onGmailKeep} onGmailDismiss={onGmailDismiss}
         onWhatNow={onWhatNow}
         onCycleImpact={onCycleImpact}
+        pinnedNotes={pinnedNotes} onOpenNotes={onOpenNotes} onUnpinNote={onUnpinNote}
       />
     )
   }
@@ -142,6 +145,7 @@ export default function KeptDesktop({
         open={throwOpen}
         onClose={() => setThrowOpen(false)}
         onThrow={onThrow}
+        onThrowNote={onThrowNote}
         onMoreOptions={onOpenFullAdd}
       />
     </div>

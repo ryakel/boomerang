@@ -23,10 +23,14 @@ function resolve(id) {
 }
 
 // The Throw sheet — quick capture (spec §6). Title + smart date chips; "More
-// options" hands off to the full AddTaskModal with nothing lost.
-export default function ThrowSheet({ open, onClose, onThrow, onMoreOptions }) {
+// options" hands off to the full AddTaskModal with nothing lost. A Task|Note
+// mode toggle (2026-07-18) makes jotting a note as fast as adding a task —
+// note mode drops the date chips (notes have no dates) and routes to
+// onThrowNote instead.
+export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMoreOptions }) {
   const [title, setTitle] = useState('')
   const [dateId, setDateId] = useState('none')
+  const [mode, setMode] = useState('task')
   const inputRef = useRef(null)
   const sheetRef = useRef(null)
   // The keyboard-occlusion offset below (px, <= 0) — kept in a ref rather
@@ -85,7 +89,11 @@ export default function ThrowSheet({ open, onClose, onThrow, onMoreOptions }) {
   const send = () => {
     const t = title.trim()
     if (!t) return
-    onThrow?.({ title: t, dueDate: resolve(dateId) })
+    if (mode === 'note') {
+      onThrowNote?.({ body: t })
+    } else {
+      onThrow?.({ title: t, dueDate: resolve(dateId) })
+    }
     setTitle(''); setDateId('none')
     closeAndBlur()
   }
@@ -101,26 +109,38 @@ export default function ThrowSheet({ open, onClose, onThrow, onMoreOptions }) {
         <div className="bm-sheet-handle" {...handleProps}>
           <div className="bm-grabber" />
         </div>
-        <h3 className="bm-sheet-title">Throw a task</h3>
+        <div className="bm-throw-mode-row">
+          <h3 className="bm-sheet-title">{mode === 'note' ? 'Leave a note' : 'Throw a task'}</h3>
+          <div className="bm-throw-mode">
+            <button className={`bm-pick${mode === 'task' ? ' is-on' : ''}`} onClick={() => setMode('task')}>Task</button>
+            <button className={`bm-pick${mode === 'note' ? ' is-on' : ''}`} onClick={() => setMode('note')}>Note</button>
+          </div>
+        </div>
         <input
           ref={inputRef}
           className="bm-throw-input"
-          placeholder="What needs doing?"
+          placeholder={mode === 'note' ? 'What do you want to remember?' : 'What needs doing?'}
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') send() }}
           autoFocus
         />
-        <div className="bm-chip-row">
-          {DATES.map(d => (
-            <button key={d.id} className={`bm-pick${dateId === d.id ? ' is-on' : ''}`} onClick={() => setDateId(d.id)}>{d.label}</button>
-          ))}
-        </div>
+        {mode === 'task' && (
+          <div className="bm-chip-row">
+            {DATES.map(d => (
+              <button key={d.id} className={`bm-pick${dateId === d.id ? ' is-on' : ''}`} onClick={() => setDateId(d.id)}>{d.label}</button>
+            ))}
+          </div>
+        )}
         <div className="bm-throw-actions">
-          <button className="bm-btn bm-btn-fill" onClick={send} disabled={!title.trim()}>Throw it</button>
-          <button className="bm-btn bm-btn-ghost" onClick={openMoreOptions} aria-label="More options">
-            <SlidersHorizontal size={15} strokeWidth={2} />
+          <button className="bm-btn bm-btn-fill" onClick={send} disabled={!title.trim()}>
+            {mode === 'note' ? 'Leave it' : 'Throw it'}
           </button>
+          {mode === 'task' && (
+            <button className="bm-btn bm-btn-ghost" onClick={openMoreOptions} aria-label="More options">
+              <SlidersHorizontal size={15} strokeWidth={2} />
+            </button>
+          )}
         </div>
       </div>
     </div>

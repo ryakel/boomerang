@@ -19,10 +19,11 @@ export default function KeptShell({
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
   onCycleImpact,
-  onThrow, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
+  onThrow, onThrowNote, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenNotifications,
-  onOpenGrowthAreas,
+  onOpenGrowthAreas, onOpenNotes,
+  pinnedNotes = [], onUnpinNote,
   onRefresh,
   syncStatus = 'synced', queueLength = 0,
 }) {
@@ -50,6 +51,7 @@ export default function KeptShell({
         onOpenActivity={onOpenActivity}
         onOpenSettings={onOpenSettings}
         onOpenGrowthAreas={onOpenGrowthAreas}
+        onOpenNotes={onOpenNotes}
         onWhatNow={onWhatNow}
       />
     )
@@ -63,6 +65,7 @@ export default function KeptShell({
         onLogSession={onLogSession} onGmailKeep={onGmailKeep} onGmailDismiss={onGmailDismiss}
         onWhatNow={onWhatNow}
         onCycleImpact={onCycleImpact}
+        pinnedNotes={pinnedNotes} onOpenNotes={onOpenNotes} onUnpinNote={onUnpinNote}
       />
     )
   }
@@ -82,6 +85,7 @@ export default function KeptShell({
         open={throwOpen}
         onClose={() => setThrowOpen(false)}
         onThrow={onThrow}
+        onThrowNote={onThrowNote}
         onMoreOptions={onOpenFullAdd}
       />
     </div>

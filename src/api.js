@@ -1625,6 +1625,45 @@ export async function getTodayGrowthArea() {
   }
 }
 
+// --- Notes ---
+// Free-floating notes, no task semantics. Dedicated endpoints, deliberately
+// not part of the bulk /api/data sync blob (same carve-out as growth areas).
+
+export async function fetchNotes() {
+  const res = await fetch('/api/notes')
+  if (!res.ok) throw new Error(`notes fetch failed: ${res.status}`)
+  const data = await res.json()
+  return data.notes || []
+}
+
+export async function createNoteApi({ body, pinned }) {
+  const res = await fetch('/api/notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body, pinned }),
+  })
+  if (!res.ok) throw new Error(`note create failed: ${res.status}`)
+  const data = await res.json()
+  return data.note
+}
+
+export async function updateNoteApi(id, updates) {
+  const res = await fetch(`/api/notes/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error(`note update failed: ${res.status}`)
+  const data = await res.json()
+  return data.note
+}
+
+export async function deleteNoteApi(id) {
+  const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`note delete failed: ${res.status}`)
+  return res.json()
+}
+
 // --- AI Adviser ---
 
 // Opens a streaming SSE connection to the adviser. Calls `onEvent(event, data)` for each

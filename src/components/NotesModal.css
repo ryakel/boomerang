@@ -1,0 +1,151 @@
+/* Notes — free-floating notes, no task semantics. Same calm CRUD vocabulary
+ * as GrowthAreasModal/Labels. */
+
+.v2-notes-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.v2-notes-add-input {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 14px/1.45 var(--v2-font-body);
+}
+.v2-notes-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.v2-notes-add-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 12.5px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  cursor: pointer;
+}
+.v2-notes-add-pin input {
+  margin: 0;
+  accent-color: var(--v2-accent);
+}
+.v2-notes-add-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-accent);
+  background: var(--v2-accent);
+  color: #fff;
+  font: 600 13px/1 var(--v2-font-body);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.v2-notes-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.v2-notes-hint {
+  font: 400 12px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  margin-bottom: 16px;
+}
+
+.v2-notes-error {
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-alert-high-pri);
+  margin-bottom: 12px;
+}
+
+.v2-notes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.v2-notes-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--v2-hairline);
+  border-radius: 12px;
+  background: var(--v2-bg);
+}
+.v2-notes-row-pinned {
+  border-color: color-mix(in srgb, var(--v2-accent) 45%, var(--v2-hairline));
+}
+
+.v2-notes-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.v2-notes-body {
+  font: 400 14px/1.45 var(--v2-font-body);
+  color: var(--v2-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.v2-notes-meta {
+  font: 400 11.5px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-notes-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.v2-notes-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--v2-text-meta);
+  cursor: pointer;
+}
+.v2-notes-icon-btn:hover:not(:disabled) {
+  background: rgba(var(--v2-text-rgb), 0.06);
+  color: var(--v2-text);
+}
+.v2-notes-icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.v2-notes-icon-btn-danger:hover:not(:disabled) {
+  color: var(--v2-alert-high-pri);
+}
+.v2-notes-icon-btn.is-pinned { color: var(--v2-accent); }
+
+.v2-notes-row-editing {
+  flex-wrap: wrap;
+}
+.v2-notes-edit-input {
+  flex: 1 1 100%;
+  min-height: 64px;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 13.5px/1.45 var(--v2-font-body);
+}
+.v2-notes-row-editing-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}

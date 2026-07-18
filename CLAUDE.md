@@ -99,7 +99,8 @@ Boomerang is a personal ADHD task manager PWA built with React 19, Vite, Express
 - Real-time cross-client sync via SSE
 - Dark mode (single toggle), iOS-style toggle switches throughout settings
 - Header icons: Packages + Quokka (AI adviser) always visible in the top-right; overflow "..." menu contains Settings, Projects, Import, Analytics, Activity Log
-- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics, knowledge base). 64 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial. Includes a one-command **integration health check** ("check my integrations") — see Integration Health Check below.
+- Notes — free-floating notes with no task semantics (no due date, no status, no points, no nagging); pinned notes surface as a sticky strip on Today. See Notes section below.
+- Quokka — free-form natural-language AI adviser with control over every capability in the app (tasks, routines, GCal, Notion, Trello, Gmail, packages, weather, settings, analytics, knowledge base, notes). 86 server-side tools, staged-execution with user confirmation, LIFO compensation rollback on failure. Named after the perpetually-smiling Australian marsupial. Includes a one-command **integration health check** ("check my integrations") — see Integration Health Check below.
 - Installable PWA with full-square PNG icons (180, 192, 512) and apple-touch-icon
 
 ### Energy/Capacity Tagging System
@@ -869,6 +870,24 @@ Personal knowledge store Quokka can search. Where things are kept, how-tos, deci
 - Keyword search only (title/tags/summary). Semantic search across full bodies not wired.
 - 5-minute refresh cadence — if the user adds an item in Notion directly and immediately asks Quokka, they need to tap "Sync now" or have Quokka call `refresh_knowledge_index`.
 
+### Notes (free-floating notes, 2026-07-18, migration 044)
+
+User request verbatim: *"I need a concept of a note. Something where I can leave a note without creating a task that has a due date."* First-class `notes` concept with deliberately ZERO task semantics — no due date, no status, no points, no nagging; notes can never leak into notification pools, pile-up counts, or analytics because they are not tasks.
+
+**Storage.** Own SQL table `notes` (migration 044: `id`, `body`, `pinned`, `created_at`, `updated_at`) + CRUD in `server/db.js` (`getAllNotes` orders pinned-first then `updated_at` desc — every surface shows that order). Dedicated per-record endpoints (`GET/POST /api/notes`, `PATCH/DELETE /api/notes/:id` in `server.js`), deliberately NOT part of the bulk `/api/data` blob — same carve-out reasoning as growth areas/packages (see Derived-Stat Durability Rules). Writes bump the sync version + broadcast; the client's `useNotes` hook (`src/hooks/useNotes.js`) refetches from `hydrateFromServer` in `AppV2.jsx`, so cross-device edits land on the normal sync cadence.
+
+**Pinned = leave a note on the fridge.** `pinned: true` renders the note as a gold sticky strip (`bm-note-sticky` in `src/kept/shell.css`) at the top of Kept's Today — mobile and desktop — above the Day Arc hero, next to the growth banner. Tap opens the Notes surface; the X **unpins** (never deletes). Unpinned notes live only in the Notes page.
+
+**Capture paths:** (1) the Throw sheet's **Task | Note** toggle (`ThrowSheet.jsx` — note mode hides the date chips + More-options, placeholder "What do you want to remember?", button "Leave it", routes to `onThrowNote`); (2) the Notes surface composer (with pin-on-create checkbox); (3) Quokka (`create_note`).
+
+**Notes surface:** `NotesModal` (`src/components/NotesModal.{jsx,css}`, GrowthAreasModal's CRUD vocabulary) — entry points: More → Notes (Kept mobile), sidebar → Notes (Kept desktop). Rows: body, pinned/edited meta, pin toggle, inline edit, **"Make it a task"** (promote: first line → task title, remainder → task `notes`, then the note is deleted — goes through `handleAddTask`, so auto size/energy/tag inference applies), delete.
+
+**Quokka tools (4, in `adviserToolsMisc.js`):** `list_notes` (read-only), `create_note` (pinned only when the user explicitly wants it on Today), `update_note`, `delete_note` — staged with capture/restore compensation.
+
+**Distinct from the Knowledge Base:** notes are quick local jots (own SQLite table, instant, no external deps); knowledge is durable Notion-backed reference. The `list_notes` tool description spells this out so Quokka routes correctly.
+
+**Known limitations:** no legacy-theme entry point (Kept-only surfaces: More/sidebar/Today/Throw — the standard theme can still reach notes via Quokka); no note search (the list is expected to stay short — search lands if real usage disagrees); no reorder beyond pinned-first/recency.
+
 ### Growth Areas (personal-coaching reminders, 2026-07-04)
 
 Deliberately tiny feature: standing reminders about *yourself* ("be more patient on calls"), not tasks — no tracking, no streak, no check-in. Full spec + design rationale (including the adversarial-review rewrite that killed the original static-banner delivery): `wiki/Growth-Areas.md`.
@@ -931,9 +950,9 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - `adviserTools.js` — registry, session/plan storage (10-min TTL, 1-min sweep), `handleToolCall()`, `commitPlan()` with rollback
 - `adviserToolsTasks.js` — 22 task + routine tools (incl. 4 Sequences chain editors: `add_follow_up`, `edit_follow_up`, `remove_follow_up`, `reorder_follow_ups`; + `reconcile_loops`)
 - `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools
-- `adviserToolsMisc.js` — 21 Gmail + packages + weather + settings + analytics tools (incl. `check_integrations`, the live cross-integration health probe)
+- `adviserToolsMisc.js` — Gmail + packages + weather + settings + analytics + growth-area + notes tools (incl. `check_integrations`, the live cross-integration health probe)
 - `adviserToolsKnowledge.js` — 9 knowledge-base tools (search, get, refresh, list, create, update, delete, link/unlink to tasks)
-- **Total:** 64 tools; diagnostic list at `GET /api/adviser/tools`
+- **Total:** 86 tools (live count from the registry — this number drifts as features land; trust `GET /api/adviser/tools` over any doc); diagnostic list at `GET /api/adviser/tools`
 
 **Server endpoints:**
 | Endpoint | Purpose |
@@ -955,6 +974,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Weather (3): get, refresh, geocode
 - Settings + analytics (5): get/update settings (secrets blocked), get analytics, get analytics history, `check_integrations` (live one-pass health check across every integration — see below)
 - Knowledge base (9): search, get, refresh, list, create, update, delete, link/unlink to tasks (see Knowledge Base section above)
+- Notes (4): list, create, update, delete — free-floating notes, no task semantics (see Notes section above)
 
 **Rollback compensation:**
 - Local DB creates → delete on rollback
@@ -1251,6 +1271,8 @@ Wrapping the existing web app in a Capacitor shell to add native surfaces (Share
 **Recovery diagnostic.** `scripts/recover-from-notification-log.js` (read-only) queries `notification_log` (which survives `setAllData` since it's not in the bulk-PUT collection list) for unique `(task_id, most_recent_title)` pairs and flags which IDs are still present in the live `tasks` table. Up to 500 rows of history.
 
 **Flush-before-hydrate (2026-06-21).** A local mutation (completing a task, an edit) is written to state instantly but its server push is debounced (`DEBOUNCE_MS = 300` in `useServerSync.js`). `fetchAndHydrate` must **flush** that pending push before overwriting local state with the server's copy — NOT cancel it. The original code cancelled the pending push, so any refetch landing inside the 300ms window (`visibilitychange` app-refocus, an `sse-update` from another device, `pull-refresh`) discarded the user's change and the task resurfaced ("I checked it off and it came back"). `pushChanges` is awaitable; `fetchAndHydrate` awaits it, then fetches the merged per-record result (push-then-fetch is order-safe because tasks/routines are per-record). Corollary rule: **any new refetch/hydrate path must flush local mutations first** — never blind-overwrite local state that may hold an unpushed change. The post-hydrate echo-suppression window must also never *drop* a real edit made inside it (reschedule past the window; the per-record diff already neutralizes the echo).
+
+**Flush-before-bulk-push (2026-07-18, same bug class as above).** The manual settings/labels `flush()` used to CANCEL the pending per-record debounce, and `pushBulkState`'s success handler advanced `prevTasks`/`prevRoutines` to current state — so a task added within 300ms of any settings write (prod shape: first-ever task add → streak-anchor effect saves settings → flush) was marked "already pushed" without ever reaching the server. Fixed: `flush()` runs the pending `pushChanges` before the bulk push, and `pushBulkState` only bootstraps the per-record snapshots when they're still null (fresh-empty-server path) — a bulk push carries settings/labels only and must NEVER claim tasks/routines as pushed. Corollary of the corollary rule: any code path that cancels the per-record debounce timer must either push the pending changes itself or leave the snapshots alone.
 
 **Server log timestamps.** Every `console.log/.error/.warn` call gets an ISO-8601 timestamp prefix automatically (wrappers in `server.js` near line 161). Don't add manual timestamps to log lines.
 

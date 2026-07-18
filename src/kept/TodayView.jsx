@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass, Sprout } from 'lucide-react'
+import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass, Sprout, StickyNote } from 'lucide-react'
 import { getTodayGrowthArea } from '../api'
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
@@ -27,6 +27,7 @@ export default function TodayView({
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onCycleImpact,
+  pinnedNotes = [], onOpenNotes, onUnpinNote,
 }) {
   const todayKey = localYMD()
   const [collapsed, toggleSection] = useCollapsedSections()
@@ -269,6 +270,23 @@ export default function TodayView({
           <span className="bm-growth-banner-icon"><Sprout size={15} strokeWidth={2} /></span>
           <span className="bm-growth-banner-text">{growthPick.text}</span>
           <button className="bm-growth-banner-dismiss" onClick={dismissGrowthBanner} aria-label="Dismiss">
+            <X size={14} strokeWidth={2.2} />
+          </button>
+        </div>
+      ))}
+      {/* Pinned notes — the leave-a-note-on-the-fridge strip. Tap opens the
+        * Notes surface; the X unpins (the note itself survives in Notes). */}
+      {pinnedNotes.map(n => (
+        <div key={n.id} className="bm-note-sticky" onClick={() => onOpenNotes?.()} role="button" tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter') onOpenNotes?.() }}>
+          <span className="bm-note-sticky-icon"><StickyNote size={15} strokeWidth={2} /></span>
+          <span className="bm-note-sticky-text">{n.body}</span>
+          <button
+            className="bm-note-sticky-unpin"
+            onClick={e => { e.stopPropagation(); onUnpinNote?.(n) }}
+            aria-label="Unpin note"
+            title="Unpin (keeps the note in Notes)"
+          >
             <X size={14} strokeWidth={2.2} />
           </button>
         </div>
