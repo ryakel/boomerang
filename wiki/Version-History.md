@@ -4,6 +4,21 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-18
+
+- feat(tasks): Notes — leave a note without creating a task [L]
+  - User request: "I need a concept of a note. Something where I can leave a note without creating a task that has a due date." New first-class `notes` concept — free-floating notes with NO task semantics: no due date, no status, no points, no nagging, never counted in pile-up or analytics. Deliberately its own SQL table (migration 044: id/body/pinned/timestamps) + dedicated per-record endpoints (`GET/POST /api/notes`, `PATCH/DELETE /api/notes/:id`) — never part of the bulk `/api/data` blob (same carve-out as growth areas/packages), so the whole-blob LWW hazard can't touch it.
+  - **Pinned = leave a note on the fridge.** Pinned notes render as a gold sticky strip at the top of Kept's Today (mobile + desktop), above the Day Arc hero next to the growth banner. Tap opens the Notes surface; the X unpins (never deletes). Unpinned notes live only in the Notes page.
+  - **Capture:** the Throw sheet (center Throw button / ⌘K) gains a **Task | Note** toggle — note mode drops the date chips, placeholder flips to "What do you want to remember?", button becomes "Leave it". Plus the Notes surface's composer (with a pin-on-create checkbox) and Quokka.
+  - **Notes surface:** `NotesModal` (More → Notes on mobile, sidebar → Notes on desktop) — composer, pinned-first list, inline edit, pin/unpin, delete, and **"Make it a task"**: first line → task title, remainder → task notes, note removed once the task exists (goes through the normal `handleAddTask` path, so auto-sizing/tagging apply).
+  - **Quokka tools (4, in `adviserToolsMisc.js`):** `list_notes` (read-only), `create_note` ("note to self: …"; `pinned` only when the user asks for it on Today), `update_note`, `delete_note` — staged with capture/restore compensation like every other mutation tool. Live registry now reports 86 tools total (the docs' old "64" count had drifted; corrected).
+  - Cross-device: note writes bump the sync version + broadcast; `useNotes.reload()` rides `hydrateFromServer` so a note left on the phone appears on the desktop on the next sync round-trip.
+  - Verified end-to-end on a scratch server: full CRUD + validation via API; headless renders of the Today sticky, Throw-sheet note mode (created a real note through the UI), Notes list, and the promote flow (task landed server-side with body split into title/notes, note removed).
+
+- fix(sync): manual settings flush no longer swallows a just-added task [M]
+  - Found while live-verifying Notes, but pre-existing on `dev` and reproducible against a clean baseline: `flush()` (the manual settings/labels push) cleared the pending per-record debounce timer, and `pushBulkState`'s success handler then advanced `prevTasks`/`prevRoutines` to current state — marking any task/routine change from the last ~300ms as "already pushed" without ever pushing it. Concrete prod shape: the first-ever task add triggers the streak-anchor effect, which saves settings + flushes within the 300ms window → the task exists locally but never reaches the server (verified: baseline won the race by ~60ms of render timing; the Notes branch shifted timing and lost it deterministically).
+  - Fix, both halves: `flush()` now runs the pending per-record push before the bulk push (same pattern `fetchAndHydrate` already uses), and `pushBulkState` only bootstraps the per-record snapshots when they're still null (the fresh-empty-server path) instead of overwriting them — a bulk push carries settings/labels only and must never claim tasks as pushed. Verified: the previously-lost throw now lands server-side with the settings flush racing it.
+
 ## 2026-07-17
 
 - fix(routines): duplicate-spawn guard v2 — due_date out of the key + automatic cleanup sweep [M]

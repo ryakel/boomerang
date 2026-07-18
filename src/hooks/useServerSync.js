@@ -136,8 +136,15 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           setSyncStatus('offline')
         } else return res.json().then(r => {
           serverVersion.current = r.version
-          prevTasks.current = latestState.current.tasks
-          prevRoutines.current = latestState.current.routines
+          // Bulk push carries settings/labels ONLY — it must never claim
+          // tasks/routines as pushed. Overwriting the per-record snapshots
+          // here swallowed any task added in the last ~300ms (the debounced
+          // per-record push diffs against these and would see "no change").
+          // The snapshots are only bootstrapped when they're still null —
+          // the fresh-empty-server path, where local state is the accepted
+          // baseline and there's nothing on the server to lose.
+          if (!prevTasks.current) prevTasks.current = latestState.current.tasks
+          if (!prevRoutines.current) prevRoutines.current = latestState.current.routines
           remoteLog('push: success v' + r.version)
           setSyncStatus('saved')
           if (savedTimer.current) clearTimeout(savedTimer.current)
@@ -533,9 +540,20 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   // Manual flush for settings/labels changes (still bulk since those live in app_data)
   const flush = useCallback(() => {
     remoteLog('flush: manual (settings/labels changed)')
-    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+      debounceTimer.current = null
+      // A per-record push was pending — run it now instead of dropping it.
+      // Cancelling without pushing lost any task/routine change made in the
+      // last DEBOUNCE_MS whenever a settings write followed it (prod shape:
+      // first-ever task add → streak-anchor effect saves settings → flush
+      // raced the 300ms task debounce and the task never synced).
+      if (hydrated.current) {
+        pushChanges(latestState.current.tasks, latestState.current.routines)
+      }
+    }
     pushBulkState()
-  }, [pushBulkState])
+  }, [pushBulkState, pushChanges])
 
   // Check app version against server on demand
   const checkVersion = useCallback(() => {

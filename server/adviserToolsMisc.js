@@ -5,6 +5,7 @@ import {
   getPackage, getAllPackages, upsertPackage, deletePackage, updatePackagePartial,
   getData, setData, getAnalytics, getAnalyticsHistory, getGmailProcessedCount,
   listPendingSuggestions, getPatternSuggestion, updateSuggestionStatus, snoozeSuggestion,
+  getAllNotes, getNote, upsertNote, updateNotePartial, deleteNote,
 } from './db.js'
 import { registerTool } from './adviserTools.js'
 import { listGrowthAreas, getGrowthArea, createGrowthArea, updateGrowthArea, deleteGrowthArea } from './growthAreas.js'
@@ -569,6 +570,100 @@ export function registerGrowthAreaTools() {
 }
 
 // ============================================================
+// Notes (free-floating notes — no task semantics, no due date, no nagging)
+// ============================================================
+
+export function registerNoteTools() {
+  registerTool({
+    name: 'list_notes',
+    description: 'List the user\'s notes — free-floating notes with no task semantics (no due date, no status, no nagging). Pinned notes also show as a sticky strip on Today. Distinct from the Notion knowledge base: notes are quick local jots, knowledge is durable reference.',
+    readOnly: true,
+    schema: { type: 'object', properties: {} },
+    execute: async () => ({ result: { notes: getAllNotes() } }),
+  })
+
+  registerTool({
+    name: 'create_note',
+    description: 'Leave a note for the user ("note to self: …"). NOT a task — no due date, no reminders. Set pinned=true only when the user wants it visible on Today ("leave a note on my Today screen", "pin a note").',
+    schema: {
+      type: 'object',
+      properties: {
+        body: { type: 'string', description: 'The note text (multi-line ok)' },
+        pinned: { type: 'boolean', default: false },
+      },
+      required: ['body'],
+    },
+    preview: (a) => `Create ${a.pinned ? 'pinned ' : ''}note "${String(a.body || '').slice(0, 60)}"`,
+    execute: async (args) => {
+      const now = new Date().toISOString()
+      const note = {
+        id: `note-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        body: String(args.body || '').trim(),
+        pinned: !!args.pinned,
+        created_at: now,
+        updated_at: now,
+      }
+      ensure(note.body, 'Note body cannot be empty')
+      upsertNote(note)
+      return {
+        result: { id: note.id, note },
+        compensation: async () => { deleteNote(note.id) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'update_note',
+    description: 'Update a note\'s body or pin state (pinned=true shows it on Today; pinned=false tucks it back into the Notes surface).',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        body: { type: 'string' },
+        pinned: { type: 'boolean' },
+      },
+      required: ['id'],
+    },
+    preview: (a) => `Update note ${a.id}`,
+    execute: async (args) => {
+      const before = getNote(args.id)
+      ensure(before, `Note not found: ${args.id}`)
+      const updates = {}
+      if (args.body !== undefined) {
+        updates.body = String(args.body).trim()
+        ensure(updates.body, 'Note body cannot be empty')
+      }
+      if (args.pinned !== undefined) updates.pinned = !!args.pinned
+      const note = updateNotePartial(args.id, updates)
+      return {
+        result: { id: args.id, note },
+        compensation: async () => { upsertNote(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'delete_note',
+    description: 'Permanently delete a note.',
+    schema: {
+      type: 'object',
+      properties: { id: { type: 'string' } },
+      required: ['id'],
+    },
+    preview: (a) => `Delete note ${a.id}`,
+    execute: async ({ id }) => {
+      const before = getNote(id)
+      ensure(before, `Note not found: ${id}`)
+      deleteNote(id)
+      return {
+        result: { id, deleted: true },
+        compensation: async () => { upsertNote(before) },
+      }
+    },
+  })
+}
+
+// ============================================================
 // Register all misc tools
 // ============================================================
 
@@ -579,4 +674,5 @@ export function registerMiscTools() {
   registerSettingsTools()
   registerSuggestionTools()
   registerGrowthAreaTools()
+  registerNoteTools()
 }
