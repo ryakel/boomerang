@@ -1674,6 +1674,67 @@ export function deletePackage(id) {
   schedulePersist()
 }
 
+// ============================================================
+// Notes CRUD operations (migration 044) — free-floating notes, no task
+// semantics. Dedicated table + per-record endpoints, never part of the
+// bulk /api/data blob (same carve-out reasoning as packages).
+// ============================================================
+
+function rowToNote(row) {
+  return {
+    id: row.id,
+    body: row.body,
+    pinned: !!row.pinned,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+export function upsertNote(note) {
+  db.run(
+    `INSERT INTO notes (id, body, pinned, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       body=excluded.body, pinned=excluded.pinned, updated_at=excluded.updated_at`,
+    [note.id, note.body, note.pinned ? 1 : 0, note.created_at, note.updated_at],
+  )
+  schedulePersist()
+}
+
+export function getNote(id) {
+  const stmt = db.prepare('SELECT * FROM notes WHERE id = ?')
+  stmt.bind([id])
+  if (stmt.step()) {
+    const row = stmt.getAsObject()
+    stmt.free()
+    return rowToNote(row)
+  }
+  stmt.free()
+  return null
+}
+
+export function getAllNotes() {
+  // Pinned first, then most-recently-touched — same order every surface shows.
+  const results = []
+  const stmt = db.prepare('SELECT * FROM notes ORDER BY pinned DESC, updated_at DESC')
+  while (stmt.step()) results.push(rowToNote(stmt.getAsObject()))
+  stmt.free()
+  return results
+}
+
+export function updateNotePartial(id, updates) {
+  const existing = getNote(id)
+  if (!existing) return null
+  const merged = { ...existing, ...updates, updated_at: new Date().toISOString() }
+  upsertNote(merged)
+  return getNote(id)
+}
+
+export function deleteNote(id) {
+  db.run('DELETE FROM notes WHERE id = ?', [id])
+  schedulePersist()
+}
+
 // --- Gmail processed messages ---
 
 export function isGmailProcessed(messageId) {

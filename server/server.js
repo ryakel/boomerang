@@ -14,6 +14,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   markNotifEntriesRead, markAllNotifsRead,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
   findActiveSpawnTwin, dedupeSpawnedTasks, logAiUsage, getAiUsageSummary,
+  getAllNotes, getNote, upsertNote, updateNotePartial, deleteNote,
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
   dismissEscalationAdvancePrompt, resolveEscalation } from './db.js'
@@ -3130,6 +3131,54 @@ app.get('/api/growth-areas/today', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
+})
+
+// Notes — free-floating notes, no task semantics (no due date, no status,
+// no nagging, no points). Dedicated per-record endpoints, deliberately NOT
+// part of the bulk /api/data blob. Pinned notes surface on Today.
+app.get('/api/notes', (req, res) => {
+  res.json({ notes: getAllNotes() })
+})
+
+app.post('/api/notes', (req, res) => {
+  const body = (req.body?.body || '').trim()
+  if (!body) return res.status(400).json({ error: 'body required' })
+  const now = new Date().toISOString()
+  const note = {
+    id: `note-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    body,
+    pinned: !!req.body?.pinned,
+    created_at: now,
+    updated_at: now,
+  }
+  upsertNote(note)
+  const newVersion = bumpVersion()
+  broadcast(newVersion, req.body?._clientId || req.headers['x-client-id'])
+  res.json({ ok: true, note: getNote(note.id) || note })
+})
+
+app.patch('/api/notes/:id', (req, res) => {
+  const updates = {}
+  if (typeof req.body?.body === 'string') {
+    const trimmed = req.body.body.trim()
+    if (!trimmed) return res.status(400).json({ error: 'body cannot be empty' })
+    updates.body = trimmed
+  }
+  if (req.body?.pinned !== undefined) updates.pinned = !!req.body.pinned
+  const note = updateNotePartial(req.params.id, updates)
+  if (!note) return res.status(404).json({ error: 'Note not found' })
+  const newVersion = bumpVersion()
+  broadcast(newVersion, req.body?._clientId || req.headers['x-client-id'])
+  res.json({ ok: true, note })
+})
+
+app.delete('/api/notes/:id', (req, res) => {
+  const note = getNote(req.params.id)
+  if (!note) return res.status(404).json({ error: 'Note not found' })
+  deleteNote(req.params.id)
+  const newVersion = bumpVersion()
+  broadcast(newVersion, req.headers['x-client-id'])
+  res.json({ ok: true })
 })
 
 app.post('/api/notifications/tap', (req, res) => {

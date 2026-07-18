@@ -27,6 +27,7 @@ import KeptDesktop from './kept/KeptDesktop'
 import QuickEditTask from './kept/QuickEditTask'
 import SuggestionsModal from './components/SuggestionsModal'
 import GrowthAreasModal from './components/GrowthAreasModal'
+import NotesModal from './components/NotesModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
 import AnalyticsModal from './components/AnalyticsModal'
@@ -50,6 +51,7 @@ import { useCrisisTriage } from './hooks/useCrisisTriage'
 import { useRealityCheck } from './hooks/useRealityCheck'
 import { useToastPrefetch } from './hooks/useToastPrefetch'
 import { usePackages } from './hooks/usePackages'
+import { useNotes } from './hooks/useNotes'
 import { useAdviser } from './hooks/useAdviser'
 import { useIsDesktop } from './hooks/useIsDesktop'
 import { useWeather } from './hooks/useWeather'
@@ -127,6 +129,7 @@ export default function AppV2() {
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [showGrowthAreas, setShowGrowthAreas] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
   // 7-day strip visibility — single source of truth. Date tap toggles
   // it in all themes. Two settings can seed the initial state on load:
   //   - week_strip_always_open: explicit "open by default" toggle
@@ -282,6 +285,10 @@ export default function AppV2() {
     return s
   }, [tasks])
   const { packages, addPackage, removePackage, refresh: refreshPackage, refreshAll: refreshAllPackages } = usePackages()
+  // Notes — free-floating, no task semantics. Server-backed via dedicated
+  // endpoints; reload() rides hydrateFromServer so cross-device edits land.
+  const { notes, loading: notesLoading, reload: reloadNotes, addNote, editNote, removeNote } = useNotes()
+  const pinnedNotes = useMemo(() => notes.filter(n => n.pinned), [notes])
   // Trello status push lives at this level so handleComplete / status-change
   // / handleUncomplete can fire it for any task with a linked Trello card.
   const { pushStatusToTrello, syncTrello, syncing: trelloSyncing } = useTrelloSync(tasks, setTasks, changeStatus)
@@ -304,6 +311,9 @@ export default function AppV2() {
     serverHydratedRef.current = true
     if (data.tasks) hydrateTasks(data.tasks)
     if (data.routines) hydrateRoutines(data.routines)
+    // Notes live on their own endpoint (not in the bulk blob) — refresh them
+    // on the same cadence so a note left on another device shows up.
+    reloadNotes()
     if (data.settings) {
       if (data.settings.sort_by) setSortBy(data.settings.sort_by)
     }
@@ -311,7 +321,7 @@ export default function AppV2() {
       saveLabels(data.labels)
       setLabels(data.labels)
     }
-  }, [hydrateTasks, hydrateRoutines])
+  }, [hydrateTasks, hydrateRoutines, reloadNotes])
 
   const { flush: flushSync, checkVersion, syncStatus, queueLength, refetch: refetchFromServer } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
     setUpdateVersion(newVersion)
@@ -326,10 +336,10 @@ export default function AppV2() {
   // Check app version whenever a view/modal opens — same cadence v1 uses.
   // Catches stale clients without waiting for the next SSE/sync round-trip.
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || showGrowthAreas || editTarget || showAdd || showWhatNow || showMarkdownImport) {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || showGrowthAreas || showNotes || editTarget || showAdd || showWhatNow || showMarkdownImport) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, showGrowthAreas, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, showGrowthAreas, showNotes, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
 
   // Deep-link handler. Notifications come in as `/?task=<id>` (task tap),
   // `/?suggestions=1` (routine_suggestion push), or `/?adviser=...` (plan
@@ -617,6 +627,7 @@ export default function AppV2() {
   if (showAnalytics) activeModals.push('analytics')
   if (showSuggestions) activeModals.push('suggestions')
   if (showGrowthAreas) activeModals.push('growthAreas')
+  if (showNotes) activeModals.push('notes')
   if (spacesHubOpen) activeModals.push('spaces')
   if (systemMenuOpen) activeModals.push('systemMenu')
   if (searchOpen) activeModals.push('search')
@@ -638,10 +649,11 @@ export default function AppV2() {
     if (showAnalytics) { setShowAnalytics(false); return }
     if (showSuggestions) { setShowSuggestions(false); return }
     if (showGrowthAreas) { setShowGrowthAreas(false); return }
+    if (showNotes) { setShowNotes(false); return }
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
     if (systemMenuOpen) { setSystemMenuOpen(false); return }
     if (searchOpen) { handleCloseSearch(); return }
-  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, showGrowthAreas, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
+  }, [snoozeTarget, reframeTarget, editTarget, showAdd, showWhatNow, showSettings, showProjects, showDone, showActivityLog, showRoutines, showPackages, showAdviser, showAnalytics, showSuggestions, showGrowthAreas, showNotes, spacesHubOpen, systemMenuOpen, searchOpen, handleCloseSearch])
 
   const focusSearchInput = useCallback(() => {
     setSearchOpen(true)
@@ -1463,6 +1475,10 @@ export default function AppV2() {
           onOpenNotifications={() => setShowNotifications(true)}
           onOpenSuggestions={() => setShowSuggestions(true)}
           onOpenGrowthAreas={() => setShowGrowthAreas(true)}
+          onOpenNotes={() => setShowNotes(true)}
+          onThrowNote={({ body }) => addNote({ body }).catch(() => {})}
+          pinnedNotes={pinnedNotes}
+          onUnpinNote={(n) => editNote(n.id, { pinned: false }).catch(() => {})}
           syncStatus={syncStatus}
           queueLength={queueLength}
         />
@@ -1522,6 +1538,10 @@ export default function AppV2() {
           onStatusChange={handleStatusChange}
           onOpenSuggestions={() => setShowSuggestions(true)}
           onOpenGrowthAreas={() => setShowGrowthAreas(true)}
+          onOpenNotes={() => setShowNotes(true)}
+          onThrowNote={({ body }) => addNote({ body }).catch(() => {})}
+          pinnedNotes={pinnedNotes}
+          onUnpinNote={(n) => editNote(n.id, { pinned: false }).catch(() => {})}
           syncStatus={syncStatus}
           queueLength={queueLength}
         />
@@ -1764,6 +1784,25 @@ export default function AppV2() {
       <GrowthAreasModal
         open={showGrowthAreas}
         onClose={() => setShowGrowthAreas(false)}
+      />
+
+      <NotesModal
+        open={showNotes}
+        onClose={() => setShowNotes(false)}
+        notes={notes}
+        loading={notesLoading}
+        onAdd={addNote}
+        onUpdate={editNote}
+        onDelete={removeNote}
+        onPromote={async (note) => {
+          // First line → task title, remainder → task notes; the note itself
+          // is removed once the task exists (its content lives on in the task).
+          const lines = String(note.body || '').split('\n')
+          const title = (lines[0] || '').trim().slice(0, 200) || 'Note'
+          const rest = lines.slice(1).join('\n').trim()
+          handleAddTask({ title, ...(rest ? { notes: rest } : {}) })
+          await removeNote(note.id)
+        }}
       />
 
       <PackagesModal

@@ -158,6 +158,17 @@ CREATE TABLE app_data (
   collection TEXT PRIMARY KEY,
   data_json TEXT NOT NULL
 );
+
+-- Notes (migration 044) — free-floating notes, no task semantics. Own table
+-- + dedicated endpoints, never part of the bulk /api/data blob. `pinned`
+-- notes render as a sticky strip at the top of Today.
+CREATE TABLE notes (
+  id TEXT PRIMARY KEY,
+  body TEXT NOT NULL,
+  pinned INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 ```
 
 ```sql
@@ -361,10 +372,14 @@ carries a valid `boom_session` cookie (human login) OR a valid `API_TOKEN` in
 | `GET` | `/api/knowledge` | Search/filter/list cached knowledge items (`?q=&type=&limit=`) |
 | `GET` | `/api/knowledge/:id` | Cached metadata + on-demand body fetch |
 | `POST` | `/api/knowledge/refresh` | Force-refresh from Notion |
+| `GET` | `/api/notes` | List notes (pinned first, then most recently touched) |
+| `POST` | `/api/notes` | Create a note (`{ body, pinned? }`) |
+| `PATCH` | `/api/notes/:id` | Update a note's body and/or pin state |
+| `DELETE` | `/api/notes/:id` | Delete a note |
 
 ## AI Adviser
 
-`adviserTools.js` is the engine. `adviserToolsTasks.js`, `adviserToolsIntegrations.js`, `adviserToolsMisc.js`, and `adviserToolsKnowledge.js` register 60+ tools via `registerTool({ name, description, schema, readOnly, preview, execute })`. Includes 5 project tools added 2026-05-17 (`pin_project_to_today`, `log_project_session`, `project_set_nag_policy`, `link_task_to_project`, `list_project_children`) and 9 knowledge-base tools added 2026-05-21 (`search_knowledge`, `get_knowledge`, `refresh_knowledge_index`, `list_knowledge`, `create_knowledge`, `update_knowledge`, `delete_knowledge`, `link_knowledge_to_task`, `unlink_knowledge_from_task`).
+`adviserTools.js` is the engine. `adviserToolsTasks.js`, `adviserToolsIntegrations.js`, `adviserToolsMisc.js`, and `adviserToolsKnowledge.js` register 60+ tools via `registerTool({ name, description, schema, readOnly, preview, execute })`. Includes 5 project tools added 2026-05-17 (`pin_project_to_today`, `log_project_session`, `project_set_nag_policy`, `link_task_to_project`, `list_project_children`) and 9 knowledge-base tools added 2026-05-21 (`search_knowledge`, `get_knowledge`, `refresh_knowledge_index`, `list_knowledge`, `create_knowledge`, `update_knowledge`, `delete_knowledge`, `link_knowledge_to_task`, `unlink_knowledge_from_task`), and 4 notes tools added 2026-07-18 (`list_notes`, `create_note`, `update_note`, `delete_note`).
 
 **Staged execution.** During `/api/adviser/chat`, read-only tools run immediately and return data; mutation tools do nothing except return a `preview` string and push a staged step into the session's plan. When the user confirms, `/api/adviser/commit` runs every staged step in order via `commitPlan()`.
 
