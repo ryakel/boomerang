@@ -49,7 +49,8 @@
 
 ## Siri / App Intents expansion (queued 2026-07-16)
 
-v1 shipped one intent ("Add Boomerang task" — dictated title → /api/intake).
+v1 shipped one intent ("Add Boomerang task" — dictated title → /api/capture
+as of 2026-07-19, with capture_source provenance + an offline queue).
 The user wants a real action set. Candidates, roughly by value:
 
 - **Complete a task** — "mark X done in Boomerang" (needs a task-title
@@ -66,3 +67,24 @@ Notes: title-matching intents need an AppEntity with an EntityQuery hitting
 the API (App Group creds, same pattern as the add intent); phrases can then
 embed the entity (that's the AppEnum/AppEntity rule that free-text titles
 can't satisfy). Read-only intents (summary/what-now) are the easy wins.
+
+## Voice capture Phase 2 (queued 2026-07-19 — SHIPPED same day)
+
+Phase 1 (the `/api/capture` endpoint + "Boomerang Capture" dictation
+Shortcut, `wiki/Capture-Shortcut.md`) shipped, and the native Phase 2
+followed the same day (see `wiki/iOS-Native-App.md` → Phase 3):
+
+- ~~Point the native intent at `/api/capture`~~ **DONE** — native captures
+  carry `capture_source: 'siri'` + the server-side long-dictation split.
+- ~~Offline queue-and-sync~~ **DONE** — `CaptureQueue` in
+  `BoomerangIntents.swift`: App-Group-persisted, drains on next intent run +
+  app foreground, 10s request timeout so Siri answers fast.
+- **Parameterized one-utterance phrase** ("Add X to Boomerang" with no
+  dictation pause) — NOT POSSIBLE as specced: App Shortcuts phrases may only
+  embed AppEnum/AppEntity parameters, never a free-form String. The upgrade
+  path is the task-title AppEntity work in the "Siri / App Intents expansion"
+  section above (entities can appear in phrases; free text cannot).
+
+Still pending: the Mac build session to compile + on-device test the updated
+intent (no Xcode in the dev environment — Swift changes are code-reviewed,
+not compiled).

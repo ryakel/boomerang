@@ -4,6 +4,23 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-19
+
+- feat(ios): native App Intent is now the real voice-capture path — /api/capture target, offline queue, 10s timeout [M]
+  - User: "I actually need this to fix the native Siri integration. Shortcuts is a bandaid." `BoomerangIntents.swift` rewritten around the new capture endpoint: POSTs `{text, source:'siri'}` to `/api/capture` (was `/api/intake` — native captures now carry `capture_source` provenance and get the server-side long-dictation title/notes split), with a **10s request timeout** (an unreachable Tailscale host used to hang Siri for the 60s URLSession default).
+  - **Offline queue-and-sync (`CaptureQueue`):** a capture must never be lost. Network failure or 429 → the capture persists in the App Group (`boom_capture_queue`, JSON, 50-cap oldest-dropped) and Siri says "saved on this device — it'll sync next time." Drains oldest-first on the next intent run (before the new capture, preserving spoken order) and on every app foreground (`sceneDidBecomeActive` added to `SceneDelegate.swift`). Items removed only AFTER a successful send — crash mid-flush re-sends (duplicate, annoying) rather than loses (trust-destroying). 400 drops the item so bad content can't wedge the queue; 401/403/5xx keep it and stop.
+  - Honest Siri dialogs per failure class (not connected / token rejected / rate-limited / saved offline / server said no), two new invocation phrases ("Capture a thought in Boomerang", "Boomerang capture").
+  - One-utterance "Add X to Boomerang" confirmed NOT buildable as specced — App Shortcuts phrases can only embed AppEnum/AppEntity params, never free-form Strings; documented in `wiki/UPCOMING_FEATURES.md` (the task-title AppEntity is the upgrade path). Docs: `wiki/iOS-Native-App.md` Phase 3 rewritten, `wiki/Capture-Shortcut.md` repositions the HTTP Shortcut as the no-app fallback.
+  - NOT compile-verified — no Xcode in this environment; needs the pending Mac build session (`npm run ios:dev`).
+
+- feat(api): voice capture endpoint + "Boomerang Capture" Siri shortcut [M]
+  - **Goal:** a thought exits the head hands-free — "Hey Siri, Boomerang Capture" → dictate → task in the inbox within seconds, from phone, Watch, or CarPlay. New `POST /api/capture` (`{ text, source? }` → 201 with the created task) rides the existing auth gate (API token). Capture is deliberately dumb — no project, no due date, no priority; the background auto-sizer refines size/energy like every other create path.
+  - **Provenance:** migration 045 adds `tasks.capture_source` (NULL = not capture-created; `'siri'`/`'shortcut'`/`'manual'`/`'api'`) so a future digest can call out voice-captured items for triage. Wired through `taskToRow`/`rowToTask`/upsert in `server/db.js`; survives partial updates via the merge-then-upsert path.
+  - **Never lose a capture:** text trimmed, empty → 400, capped at 2,000 chars; long dictation keeps the first 500 chars as the title and preserves the FULL text in notes instead of silently truncating (unlike `/api/intake`'s 500-char slice). Failures return 5xx so the Shortcut visibly errors — no silent drops.
+  - **Hardening:** in-route sliding-window rate limit (30/min, `createRateLimiter` in the new `server/capture.js`) so a leaked token can't become a spam cannon; `authGate` in `auth.js` now logs rejected requests (method + path + IP, never the credential).
+  - **Tests:** `scripts/capture.test.mjs` (wired into `npm test`) — unit tests for validation/title-split/rate limiter, plus real-HTTP tests against a spawned server with auth enabled: 401 missing/bad token, 201 happy path (source stamped, inferred flags correct), 400 empty text.
+  - **Docs:** new `wiki/Capture-Shortcut.md` (2-minute Shortcuts recipe: Dictate Text → Get Contents of URL → notification confirmation, Watch enabled); Phase 2 (parameterized native App Intent phrase, offline queue-and-sync, pointing the native intent at `/api/capture`) queued in `wiki/UPCOMING_FEATURES.md`, not built.
+
 ## 2026-07-18
 
 - feat(tasks): Notes — leave a note without creating a task [L]

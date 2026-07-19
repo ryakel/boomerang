@@ -34,6 +34,7 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - **"Later — set aside" snooze** — park a task indefinitely with no auto-resurface; bring it back from the Snooze modal when you're ready
 - **Optional authentication** — opt-in login gate for public/external hosting: password → session cookie for the browser, plus a static API token for automations. Off by default (single-user, trusted-machine). See Configuration below
 - **iOS Shortcut intake** — create tasks from the share sheet / Siri / Action button via `POST /api/intake` and a static API token (`wiki/iOS-Shortcut.md`)
+- **Voice capture** — "Hey Siri, Boomerang Capture" → dictate → task in the inbox, hands-free from phone/Watch/CarPlay via `POST /api/capture` (rate-limited, provenance-stamped; `wiki/Capture-Shortcut.md`)
 - **Custom labels**, due dates, high-priority escalation
 
 ### Notifications

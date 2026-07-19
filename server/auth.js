@@ -184,5 +184,8 @@ export function authGate(req, res, next) {
   if (!req.path.startsWith('/api/')) return next()    // static / SPA served freely
   if (OPEN_PATHS.has(req.path)) return next()
   if (isAuthenticated(req)) return next()
+  // Log the rejection (path + source IP only — never the credential) so a
+  // token brute-force or a misconfigured Shortcut is visible in server logs.
+  console.warn(`[auth] rejected ${req.method} ${req.path} from ${req.ip}`)
   return res.status(401).json({ error: 'Authentication required' })
 }

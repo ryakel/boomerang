@@ -33,4 +33,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
         _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, continue: userActivity, restorationHandler: { _ in })
     }
+
+    // Drain any Siri captures queued while the server was unreachable (see
+    // CaptureQueue in BoomerangIntents.swift). Foregrounding the app is a
+    // strong signal connectivity is back — and the WebView's own sync happens
+    // here too, so a replayed capture appears in the list moments later.
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        Task { await CaptureQueue.flush() }
+    }
 }

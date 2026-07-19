@@ -177,7 +177,36 @@ will be added in that PR.
 ## Phase 3 — App Intents
 
 Swift **App Intents** exposing "Add Boomerang task" to Siri, the Shortcuts app,
-Spotlight, the Action button, and Back Tap — same `/api/intake` target.
+Spotlight, the Action button, and Back Tap.
+
+**Upgraded to the real voice-capture path (2026-07-19):** the intent now POSTs
+to **`/api/capture`** with `source: "siri"` (instead of `/api/intake`) — so
+native captures carry `capture_source` provenance and get the server-side
+long-dictation handling (first 500 chars → title, FULL text preserved in
+notes; nothing silently truncated). Two reliability fixes shipped with it, both
+in `BoomerangIntents.swift`:
+
+- **10s request timeout** — an unreachable tailnet host used to hang Siri for
+  the 60s URLSession default before erroring.
+- **Offline queue-and-sync (`CaptureQueue`)** — a capture must never be lost.
+  On network failure (or a 429) the capture is stored in the App Group
+  (`boom_capture_queue`, capped at 50, oldest dropped) and Siri says "saved on
+  this device — it'll sync next time." The queue drains oldest-first on the
+  next intent run (before the new capture, preserving spoken order) and on
+  every app foreground (`sceneDidBecomeActive` in `SceneDelegate.swift`).
+  Items are removed only AFTER a successful send — a crash mid-flush re-sends
+  (duplicate task, annoying) rather than losing a capture (trust-destroying);
+  the same tradeoff means a rare concurrent flush (app opening at the exact
+  moment a Siri capture runs) could double-send. A 400 response drops the item
+  (permanently bad content must not wedge the queue); 401/403/5xx keep it and
+  stop the flush.
+
+Siri phrase constraint (unchanged, platform-level): a free-form String can't
+appear in the spoken trigger, so "Add order PETG to Boomerang" in ONE
+utterance is impossible — Siri asks "What's the task?" as a follow-up. The
+phrase list covers "Add a task to Boomerang", "Boomerang capture", etc. The
+HTTP-Shortcut recipe (`wiki/Capture-Shortcut.md`) remains as the fallback and
+the reference for the raw endpoint contract.
 
 ## Phase 4 (DONE 2026-07-15 — 4a pipeline + 4b full coverage)
 
