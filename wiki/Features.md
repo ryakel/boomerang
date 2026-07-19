@@ -693,3 +693,9 @@ due date, no priority; capture is not triage — stamped with
 Long dictation keeps the first 500 chars as the title and preserves the full
 text (up to 2,000 chars) in notes, so nothing is silently lost. Setup recipe:
 `wiki/Capture-Shortcut.md`.
+
+On the native iOS app, the built-in **"Add Boomerang task" App Intent** is the
+first-class version of this: same `/api/capture` target, plus an on-device
+offline queue — a capture made with no connectivity (car, dead zones) is
+stored in the App Group and replayed on the next capture or app open, so a
+thought is never lost to a network blip. See `wiki/iOS-Native-App.md`.

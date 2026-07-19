@@ -83,11 +83,13 @@ silently dropped.
 | Works on Wi-Fi, not cellular/CarPlay | Host isn't publicly reachable / not on HTTPS. Use an internet-facing host or an always-on VPN (Tailscale). |
 | Siri doesn't recognize the phrase | The shortcut name is the phrase — rename collisions with other shortcuts/apps break invocation. |
 
-## Phase 2 (later, not built)
+## Native App Intent (the real integration)
 
-A native **App Intent** in the iOS app already covers the one-utterance path
-("Add Boomerang task" via Siri — see [iOS-Native-App](iOS-Native-App.md)).
-Remaining Phase-2 work is tracked in
-[UPCOMING_FEATURES](UPCOMING_FEATURES.md): parameterized capture phrases and
-an offline queue-and-sync when the server is unreachable. The HTTP endpoint
-stays the API surface either way.
+If you run the native iOS app, the built-in **"Add Boomerang task"** App
+Intent is the first-class path (see [iOS-Native-App](iOS-Native-App.md) →
+Phase 3): it targets this same `/api/capture` endpoint with
+`source: "siri"`, answers fast (10s timeout), and — unlike this Shortcut —
+**queues captures on-device when the server is unreachable** and replays
+them on the next capture or app open. This HTTP Shortcut remains useful as
+the no-app fallback (and works on devices without the native app installed);
+it fails visibly rather than queueing when offline.
