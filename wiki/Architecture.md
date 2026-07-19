@@ -289,6 +289,7 @@ carries a valid `boom_session` cookie (human login) OR a valid `API_TOKEN` in
 | `POST` | `/api/auth/login` | `{ password }` → sets `boom_session` httpOnly cookie (401 on bad password) |
 | `POST` | `/api/auth/logout` | Destroys the session + clears the cookie |
 | `POST` | `/api/intake` | Quick task create for the iOS Shortcut: `{ title\|text, notes?, due_date?, high_priority?, tags? }` (authed by gate) |
+| `POST` | `/api/capture` | Voice capture (Siri dictation): `{ text, source? }` → 201 with the inbox task; stamps `capture_source` (migration 045), 2000-char cap with overflow kept in notes, rate-limited 30/min (authed by gate; helpers in `server/capture.js`) |
 | `GET` | `/api/keys/status` | Reports env var key availability |
 | `GET` | `/api/events` | SSE endpoint for real-time cross-client sync |
 | `GET` | `/api/data` | Get all data from SQLite (includes `_version`) |

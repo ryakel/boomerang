@@ -66,3 +66,17 @@ Notes: title-matching intents need an AppEntity with an EntityQuery hitting
 the API (App Group creds, same pattern as the add intent); phrases can then
 embed the entity (that's the AppEnum/AppEntity rule that free-text titles
 can't satisfy). Read-only intents (summary/what-now) are the easy wins.
+
+## Voice capture Phase 2 (queued 2026-07-19)
+
+Phase 1 (the `/api/capture` endpoint + "Boomerang Capture" dictation
+Shortcut, `wiki/Capture-Shortcut.md`) shipped. Phase 2 = tighter native
+integration on top of the existing App Intent:
+
+- **Parameterized phrase** — "Add X to Boomerang" in one utterance (no
+  dictation pause), via an intent parameter in the phrase.
+- **Offline queue-and-sync** — when the server's unreachable, queue the
+  capture on-device and replay when connectivity returns (the native intent
+  currently fails fast; the web app's mutation queue doesn't cover intents).
+- Point the native intent at `/api/capture` (instead of `/api/intake`) so
+  native captures carry `capture_source` too.

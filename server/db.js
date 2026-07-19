@@ -273,6 +273,7 @@ function taskToRow(task) {
     diy_verdict: task.diy_verdict || null,
     diy_reason: task.diy_reason || null,
     diy_first_move: task.diy_first_move || null,
+    capture_source: task.capture_source || null,
   }
 }
 
@@ -341,6 +342,7 @@ function rowToTask(row) {
     diy_verdict: row.diy_verdict || null,
     diy_reason: row.diy_reason || null,
     diy_first_move: row.diy_first_move || null,
+    capture_source: row.capture_source || null,
   }
 }
 
@@ -370,8 +372,8 @@ const UPSERT_TASK_SQL = `
     escalation_rungs_json, escalation_current_rung, escalation_attempt_log_json,
     escalation_awaiting_advance, escalation_stuck,
     crisis_since, crisis_triage_done, impact, impact_inferred,
-    diy_assessed, diy_verdict, diy_reason, diy_first_move)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    diy_assessed, diy_verdict, diy_reason, diy_first_move, capture_source)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -413,7 +415,8 @@ const UPSERT_TASK_SQL = `
     diy_assessed=excluded.diy_assessed,
     diy_verdict=excluded.diy_verdict,
     diy_reason=excluded.diy_reason,
-    diy_first_move=excluded.diy_first_move`
+    diy_first_move=excluded.diy_first_move,
+    capture_source=excluded.capture_source`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -433,6 +436,7 @@ function runUpsertTask(task) {
     r.escalation_awaiting_advance, r.escalation_stuck,
     r.crisis_since, r.crisis_triage_done, r.impact, r.impact_inferred,
     r.diy_assessed, r.diy_verdict, r.diy_reason, r.diy_first_move,
+    r.capture_source,
   ])
 }
 

@@ -57,6 +57,7 @@ import { getAllKnowledgeItems, searchKnowledgeItems, getKnowledgeItem } from './
 import crypto from 'crypto'
 import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
   setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
+import { normalizeCapture, createRateLimiter } from './capture.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
 
@@ -256,6 +257,43 @@ app.post('/api/intake', (req, res) => {
   const newVersion = bumpVersion()
   broadcast(newVersion, null)
   res.json({ ok: true, task: getTask(task.id), version: newVersion })
+})
+
+// --- Voice capture (Siri shortcut target — wiki/Capture-Shortcut.md). Authed
+// by the gate (API token). Distinct from /api/intake: dictation-shaped (text
+// only, 2000-char cap with overflow preserved in notes instead of truncated),
+// stamps capture_source for the future digest, rate-limited so a leaked token
+// can't become a spam cannon, and returns 201. Capture is not triage — no
+// project, no due date, no priority; the background auto-sizer refines
+// size/energy after creation like every other create path.
+const captureLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 })
+
+app.post('/api/capture', (req, res) => {
+  if (!captureLimiter.allow()) {
+    return res.status(429).json({ error: 'Too many captures — try again in a minute' })
+  }
+  const parsed = normalizeCapture(req.body)
+  if (parsed.error) return res.status(400).json({ error: parsed.error })
+  const now = new Date().toISOString()
+  const task = {
+    id: crypto.randomUUID(),
+    title: parsed.title,
+    status: 'not_started',
+    notes: parsed.notes,
+    due_date: null,
+    high_priority: false,
+    tags: [],
+    size: 'M',
+    size_inferred: false,
+    capture_source: parsed.source,
+    last_touched: now,
+    created_at: now,
+  }
+  upsertTask(task)
+  const newVersion = bumpVersion()
+  broadcast(newVersion, null)
+  console.log(`[capture] task ${task.id} from source=${parsed.source}`)
+  res.status(201).json({ ok: true, task: getTask(task.id), version: newVersion })
 })
 
 // --- Server logs endpoint ---
