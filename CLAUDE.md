@@ -1225,6 +1225,8 @@ Passwords verified with `scrypt` + timing-safe compare (hash format `scrypt$<sal
 
 **Quick intake endpoint:** `POST /api/intake {title|text, notes?, due_date?, high_priority?, tags?}` — authed by the gate (API token or cookie), builds a full task with server-side defaults + `size_inferred=false` so the background auto-sizer refines it. This is the iOS Shortcut's target. Recipe: `wiki/iOS-Shortcut.md`.
 
+**Voice capture endpoint (2026-07-19, migration 045):** `POST /api/capture {text, source?}` → 201 with the created inbox task — the "Hey Siri, Boomerang Capture" dictation Shortcut's target (recipe: `wiki/Capture-Shortcut.md`). Distinct from `/api/intake`: dictation-shaped (2,000-char cap, long text keeps first 500 chars as title + FULL text in notes — never silently truncate a capture), stamps `tasks.capture_source` (`'siri'`/`'shortcut'`/`'manual'`, default `'api'`; NULL = not capture-created) for a future digest to identify voice-captured items, and rate-limited 30/min in-route (sliding window in `server/capture.js`, which also holds the pure `normalizeCapture()` — both unit-tested in `scripts/capture.test.mjs`, wired into `npm test` along with real-HTTP 401/201/400 tests against a spawned server). Capture is deliberately dumb (no due date/priority/AI parsing — Phase 2 native App Intent work is queued in `wiki/UPCOMING_FEATURES.md`). `authGate` now logs rejected requests (path + IP, never the credential).
+
 **Not serverless-friendly** (persistent notification loops + SSE + in-memory Quokka runner + local SQLite + session store all assume one always-on instance) — host on a small always-on box, NOT Lambda.
 
 ## iOS Native App (2026-06-21, Capacitor — in progress)

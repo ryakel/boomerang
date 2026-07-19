@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-19
+
+- feat(api): voice capture endpoint + "Boomerang Capture" Siri shortcut [M]
+  - **Goal:** a thought exits the head hands-free — "Hey Siri, Boomerang Capture" → dictate → task in the inbox within seconds, from phone, Watch, or CarPlay. New `POST /api/capture` (`{ text, source? }` → 201 with the created task) rides the existing auth gate (API token). Capture is deliberately dumb — no project, no due date, no priority; the background auto-sizer refines size/energy like every other create path.
+  - **Provenance:** migration 045 adds `tasks.capture_source` (NULL = not capture-created; `'siri'`/`'shortcut'`/`'manual'`/`'api'`) so a future digest can call out voice-captured items for triage. Wired through `taskToRow`/`rowToTask`/upsert in `server/db.js`; survives partial updates via the merge-then-upsert path.
+  - **Never lose a capture:** text trimmed, empty → 400, capped at 2,000 chars; long dictation keeps the first 500 chars as the title and preserves the FULL text in notes instead of silently truncating (unlike `/api/intake`'s 500-char slice). Failures return 5xx so the Shortcut visibly errors — no silent drops.
+  - **Hardening:** in-route sliding-window rate limit (30/min, `createRateLimiter` in the new `server/capture.js`) so a leaked token can't become a spam cannon; `authGate` in `auth.js` now logs rejected requests (method + path + IP, never the credential).
+  - **Tests:** `scripts/capture.test.mjs` (wired into `npm test`) — unit tests for validation/title-split/rate limiter, plus real-HTTP tests against a spawned server with auth enabled: 401 missing/bad token, 201 happy path (source stamped, inferred flags correct), 400 empty text.
+  - **Docs:** new `wiki/Capture-Shortcut.md` (2-minute Shortcuts recipe: Dictate Text → Get Contents of URL → notification confirmation, Watch enabled); Phase 2 (parameterized native App Intent phrase, offline queue-and-sync, pointing the native intent at `/api/capture`) queued in `wiki/UPCOMING_FEATURES.md`, not built.
+
 ## 2026-07-18
 
 - feat(tasks): Notes — leave a note without creating a task [L]

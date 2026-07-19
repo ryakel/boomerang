@@ -6,6 +6,11 @@ Message, an email, a webpage, highlighted text → Share → *Add to Boomerang*)
 Screen. No native app required — the Shortcut talks to the `POST /api/intake`
 endpoint over HTTPS.
 
+> For hands-free **voice capture** (dictate a thought via Siri from phone,
+> Watch, or CarPlay), see the sibling recipe: [Capture-Shortcut](Capture-Shortcut.md).
+> It targets the dedicated `POST /api/capture` endpoint, which stamps the
+> task's provenance (`capture_source`) and is rate-limited.
+
 ## Prerequisites
 
 1. Boomerang reachable over **HTTPS** at a stable URL (e.g. `https://boomerang.example.com`).
