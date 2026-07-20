@@ -21,8 +21,8 @@ export default function KeptShell({
   onCycleImpact,
   onThrow, onThrowNote, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
-  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenNotifications,
-  onOpenGrowthAreas, onOpenNotes,
+  onOpenProjects, onOpenActivity, onOpenSuggestions, onOpenNotifications,
+  onOpenNotes,
   pinnedNotes = [], onUnpinNote,
   onRefresh,
   syncStatus = 'synced', queueLength = 0,
@@ -46,13 +46,10 @@ export default function KeptShell({
   } else if (tab === 'more') {
     surface = (
       <MoreView
-        onOpenProjects={onOpenProjects} onOpenAnalytics={onOpenAnalytics}
-        onOpenPackages={onOpenPackages} onOpenDone={onOpenDone}
-        onOpenActivity={onOpenActivity}
+        onOpenProjects={onOpenProjects}
+        onOpenPackages={onOpenPackages}
         onOpenSettings={onOpenSettings}
-        onOpenGrowthAreas={onOpenGrowthAreas}
         onOpenNotes={onOpenNotes}
-        onWhatNow={onWhatNow}
       />
     )
   } else {

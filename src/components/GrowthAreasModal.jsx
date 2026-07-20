@@ -131,7 +131,12 @@ function AreaRow({ area, onUpdate, onDelete, busy }) {
 
 const DEFAULT_TIMING = { morning: true, evening: false, persistent: true, day_scope: 'any' }
 
-export default function GrowthAreasModal({ open, onClose }) {
+// The full Growth-areas CRUD surface without modal chrome. Used two ways:
+// wrapped in ModalShell below (legacy-theme System menu entry) and embedded
+// as the second section of the Kept Notebook (NotesModal, 2026-07-19 More
+// consolidation). Owns its own load/CRUD state; loads on mount, so only
+// render it when it's actually visible.
+export function GrowthAreasPanel() {
   const [areas, setAreas] = useState([])
   const [loading, setLoading] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -154,8 +159,8 @@ export default function GrowthAreasModal({ open, onClose }) {
   }, [])
 
   useEffect(() => {
-    if (open) load()
-  }, [open, load])
+    load()
+  }, [load])
 
   const handleAdd = async (e) => {
     e.preventDefault()
@@ -200,13 +205,7 @@ export default function GrowthAreasModal({ open, onClose }) {
   }
 
   return (
-    <ModalShell
-      open={open}
-      onClose={onClose}
-      title="Growth areas"
-      subtitle="Standing reminders about yourself — not tasks, nothing to check off"
-      width="narrow"
-    >
+    <>
       <form className="v2-growth-add" onSubmit={handleAdd}>
         <div className="v2-growth-add-row">
           <input
@@ -246,6 +245,20 @@ export default function GrowthAreasModal({ open, onClose }) {
           ))}
         </ul>
       )}
+    </>
+  )
+}
+
+export default function GrowthAreasModal({ open, onClose }) {
+  return (
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      title="Growth areas"
+      subtitle="Standing reminders about yourself — not tasks, nothing to check off"
+      width="narrow"
+    >
+      <GrowthAreasPanel />
     </ModalShell>
   )
 }

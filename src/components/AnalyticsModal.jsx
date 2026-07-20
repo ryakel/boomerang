@@ -7,7 +7,7 @@ import { ENERGY_TYPES, loadLabels } from '../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import BalanceRadar from './BalanceRadar'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, CheckCircle2, ChevronRight } from 'lucide-react'
 import './AnalyticsModal.css'
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -58,7 +58,7 @@ function buildHeatMapGrid(dailyData, metric) {
 // two surfaces showed the same data under different names). The Overview tab
 // leads with the profile hero (rally/best/lifetime/points) and ends with
 // Achievements; charts/patterns/AI live in the tabs.
-export default function AnalyticsModal({ open, onClose, tasks = [], routines = [], records = {}, streak = 0, dailyStats = {} }) {
+export default function AnalyticsModal({ open, onClose, tasks = [], routines = [], records = {}, streak = 0, dailyStats = {}, onOpenDone }) {
   const labels = useMemo(() => loadLabels(), [])
   const labelMap = useMemo(() => Object.fromEntries(labels.map(l => [l.id, l])), [labels])
   const [range, setRange] = useState(30)
@@ -549,6 +549,25 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
             </section>
           )}
         </>
+      )}
+
+      {/* Caught hand-off (2026-07-19 More consolidation) — outside the
+        * history gate so the Done list stays reachable even while analytics
+        * is loading or empty; Analytics is now its only entry point. */}
+      {tab === 'overview' && onOpenDone && (
+        <section className="v2-analytics-section">
+          <button
+            className="v2-analytics-handoff"
+            onClick={() => { onClose?.(); onOpenDone() }}
+          >
+            <CheckCircle2 size={17} strokeWidth={2} />
+            <span>
+              <span className="v2-analytics-handoff-label">Caught</span>
+              <span className="v2-analytics-handoff-sub">Everything you finished — search, restore, browse</span>
+            </span>
+            <ChevronRight size={16} strokeWidth={1.75} />
+          </button>
+        </section>
       )}
     </ModalShell>
   )

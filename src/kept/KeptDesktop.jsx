@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Home, ListTodo, Repeat2, FolderKanban, BarChart3, Package, Settings,
-  Sparkles, Plus, CheckCircle2, ScrollText, Inbox, Compass, Bell, TrendingUp, Sprout, StickyNote,
+  Sparkles, Plus, Compass, Bell, StickyNote,
 } from 'lucide-react'
 import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
@@ -24,7 +24,7 @@ export default function KeptDesktop({
   onCycleImpact,
   onThrow, onThrowNote, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
-  onOpenProjects, onOpenDone, onOpenActivity, onOpenSuggestions, onOpenGrowthAreas,
+  onOpenProjects, onOpenSuggestions,
   onOpenNotes, pinnedNotes = [], onUnpinNote,
   onOpenNotifications, onStatusChange,
   syncStatus = 'synced', queueLength = 0,
@@ -49,16 +49,16 @@ export default function KeptDesktop({
     { id: 'tasks', label: 'Tasks', icon: ListTodo },
     { id: 'loops', label: 'Loops', icon: Repeat2 },
   ]
+  // Pruned with the 2026-07-19 More consolidation: Caught lives inside
+  // Analytics (Overview → Caught), Activity log inside Settings → Data,
+  // Growth areas inside the Notebook, Loop suggestions on the Loops surface
+  // (Sparkles button — same home as mobile since 2026-06-11).
   const navReview = [
     { label: 'Notifications', icon: Bell, onClick: onOpenNotifications },
-    { label: 'Notes', icon: StickyNote, onClick: onOpenNotes },
+    { label: 'Notebook', icon: StickyNote, onClick: onOpenNotes },
     { label: 'Arcs', icon: FolderKanban, onClick: onOpenProjects },
-    { label: 'Caught', icon: CheckCircle2, onClick: onOpenDone },
     { label: 'Analytics', icon: BarChart3, onClick: onOpenAnalytics },
     { label: 'Packages', icon: Package, onClick: onOpenPackages },
-    { label: 'Loop suggestions', icon: Inbox, onClick: onOpenSuggestions },
-    { label: 'Growth areas', icon: Sprout, onClick: onOpenGrowthAreas },
-    { label: 'Activity log', icon: ScrollText, onClick: onOpenActivity },
   ]
 
   let surface
