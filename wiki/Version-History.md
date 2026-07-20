@@ -4,6 +4,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-20
+
+- fix(packages): Track-package button no longer fails silently or hangs on 17track [M]
+  - Prod report (with screenshot): "Pushing the track button does nothing" — number + label filled, USPS detected, tap, nothing. Two compounding bugs, both reproduced headless:
+  - **Silent client failure:** `handleAdd` in `PackagesModal.jsx` had `try/finally` with no catch — ANY failed `POST /api/packages` (409 duplicate, 401, 500, network) was an unhandled rejection and the form just sat there. Now caught and rendered inline (`.v2-package-add-error`); `createPackage` in `api.js` parses the server's error body so the message is the real reason, with a friendly 409 case ("Already tracking this number as \"X\" — pull to refresh if you don't see it", since the twin may be a pending Gmail import this device hasn't fetched).
+  - **Unbounded 17track awaits:** the add route awaited `register17track` + `poll17track` inline with NO timeout — a slow/unreachable api.17track.net held the response open for minutes, making the button look dead. All three 17track fetches (`register`, `changecarrier`, `gettrackinfo`) now carry `AbortSignal.timeout(15s)` (protects the background polling loop too), and the add route additionally races its inline register+poll against an 8s cap — past it, the response returns the pending package immediately and the poll finishes in the background (its write lands for the next fetch/poll cycle).
+  - Verified headless: happy path renders the row; duplicate attempt shows the inline message instead of nothing.
+
 ## 2026-07-19
 
 - refactor(ui): Kept More/sidebar consolidation — 9 rows down to 4, Notebook merges Notes + Growth areas [M]

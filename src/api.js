@@ -1257,7 +1257,15 @@ export async function createPackage(trackingNumber, label, carrier) {
     headers,
     body: JSON.stringify({ tracking_number: trackingNumber, label, carrier }),
   })
-  if (!res.ok) throw new Error(`create package failed: ${res.status}`)
+  if (!res.ok) {
+    // Surface the server's reason (e.g. 409 "Tracking number already exists")
+    // — the add form displays this message verbatim.
+    const body = await res.json().catch(() => null)
+    const err = new Error(body?.error || `create package failed: ${res.status}`)
+    err.status = res.status
+    err.existingLabel = body?.label
+    throw err
+  }
   return res.json()
 }
 
