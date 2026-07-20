@@ -149,3 +149,21 @@
   gap: 4px;
   margin-left: auto;
 }
+
+/* Notebook section divider — separates Notes from the embedded Growth areas
+ * panel (2026-07-19 More consolidation). */
+.v2-notebook-sec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 28px 0 2px;
+  padding-top: 18px;
+  border-top: 1px solid var(--v2-hairline);
+  font: 600 14px/1.3 var(--v2-font-body);
+  color: var(--v2-text);
+}
+.v2-notebook-sec-sub {
+  margin: 2px 0 12px;
+  font: 400 12.5px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}

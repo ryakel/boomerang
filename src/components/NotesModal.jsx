@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { StickyNote, Trash2, Pencil, X, Check, Pin, PinOff, ListPlus } from 'lucide-react'
+import { StickyNote, Trash2, Pencil, X, Check, Pin, PinOff, ListPlus, Sprout } from 'lucide-react'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
+import { GrowthAreasPanel } from './GrowthAreasModal'
 import './NotesModal.css'
 
 function fmtWhen(iso) {
@@ -78,10 +79,14 @@ function NoteRow({ note, onUpdate, onDelete, onPromote, busy }) {
   )
 }
 
-// Notes — a place to leave a thought without creating a task. No due date,
-// no status, no points, no nagging. Pinned notes also show as a sticky strip
-// at the top of Today. "Make it a task" promotes a note into a real task
-// (first line → title, rest → task notes) and removes the note.
+// Notebook — the "things I tell myself" surface (2026-07-19 More
+// consolidation): Notes on top, Growth areas below. Notes are one-off
+// thoughts with no task semantics (no due date, no status, no points, no
+// nagging; pinned notes show as a sticky strip on Today; "Make it a task"
+// promotes first line → title, rest → task notes). Growth areas are the
+// standing self-reminders — same CRUD panel the legacy-theme Growth areas
+// modal wraps. Component keeps the NotesModal name; renaming plumbing
+// provides no value.
 export default function NotesModal({ open, onClose, notes = [], loading = false, onAdd, onUpdate, onDelete, onPromote }) {
   const [newBody, setNewBody] = useState('')
   const [newPinned, setNewPinned] = useState(false)
@@ -122,8 +127,8 @@ export default function NotesModal({ open, onClose, notes = [], loading = false,
     <ModalShell
       open={open}
       onClose={onClose}
-      title="Notes"
-      subtitle="Leave yourself a note — no due date, no nagging, nothing to check off"
+      title="Notebook"
+      subtitle="Notes and standing reminders about yourself — nothing here nags or needs checking off"
       width="narrow"
     >
       <form className="v2-notes-add" onSubmit={handleAdd}>
@@ -171,6 +176,15 @@ export default function NotesModal({ open, onClose, notes = [], loading = false,
           ))}
         </ul>
       )}
+
+      <div className="v2-notebook-sec">
+        <Sprout size={16} strokeWidth={2} />
+        <span>Growth areas</span>
+      </div>
+      <div className="v2-notebook-sec-sub">
+        Standing reminders about yourself — resurfaced on Today in fresh wording, never a static banner.
+      </div>
+      <GrowthAreasPanel />
     </ModalShell>
   )
 }

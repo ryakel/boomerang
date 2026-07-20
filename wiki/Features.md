@@ -154,7 +154,7 @@ A place to leave a thought without creating a task. Notes have **no task semanti
 
 - **Capture** — the Throw sheet (center Throw button on mobile, ⌘K on desktop) has a **Task | Note** toggle: flip to Note, type, "Leave it." Or open the Notes surface and use its composer. Or tell Quokka ("note to self: the pool key is in the junk drawer").
 - **Pin to Today** — a pinned note shows as a gold sticky strip at the top of Today, like a note on the fridge. Tap it to open Notes; the X unpins (the note itself is kept). Unpinned notes live only in the Notes page.
-- **Notes surface** — More → Notes (mobile) or the sidebar (desktop): edit inline, pin/unpin, delete.
+- **Notes surface** — More → Notebook (mobile) or the sidebar (desktop): edit inline, pin/unpin, delete. Since 2026-07-19 the Notebook also hosts Growth areas as a second section.
 - **Make it a task** — if a note turns out to be something you actually need to do, promote it: the first line becomes the task title, the rest becomes the task's notes, and the note is removed. The new task gets normal auto size/energy/tag inference.
 - **Quokka** — `list_notes` / `create_note` / `update_note` / `delete_note`; distinct from the Notion-backed Knowledge Base (notes are quick local jots, knowledge is durable reference).
 
