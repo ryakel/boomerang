@@ -1470,11 +1470,9 @@ export default function AppV2() {
           onOpenPackages={() => setShowPackages(true)}
           onOpenAnalytics={() => setShowAnalytics(true)}
           onOpenProjects={() => setShowProjects(true)}
-          onOpenDone={() => setShowDone(true)}
           onOpenActivity={() => setShowActivityLog(true)}
           onOpenNotifications={() => setShowNotifications(true)}
           onOpenSuggestions={() => setShowSuggestions(true)}
-          onOpenGrowthAreas={() => setShowGrowthAreas(true)}
           onOpenNotes={() => setShowNotes(true)}
           onThrowNote={({ body }) => addNote({ body }).catch(() => {})}
           pinnedNotes={pinnedNotes}
@@ -1532,12 +1530,9 @@ export default function AppV2() {
           onOpenPackages={() => setShowPackages(true)}
           onOpenAnalytics={() => setShowAnalytics(true)}
           onOpenProjects={() => setShowProjects(true)}
-          onOpenDone={() => setShowDone(true)}
-          onOpenActivity={() => setShowActivityLog(true)}
           onOpenNotifications={() => setShowNotifications(true)}
           onStatusChange={handleStatusChange}
           onOpenSuggestions={() => setShowSuggestions(true)}
-          onOpenGrowthAreas={() => setShowGrowthAreas(true)}
           onOpenNotes={() => setShowNotes(true)}
           onThrowNote={({ body }) => addNote({ body }).catch(() => {})}
           pinnedNotes={pinnedNotes}
@@ -1837,6 +1832,7 @@ export default function AppV2() {
         records={records}
         streak={streak}
         dailyStats={dailyStats}
+        onOpenDone={() => setShowDone(true)}
       />
 
       {isDesktop && !isKept && (
