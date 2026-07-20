@@ -444,6 +444,7 @@ Track packages with auto carrier detection, adaptive server-side polling, and de
 - Test connection via `getquota` endpoint (free, no tracking query consumed)
 
 **Polling Strategy:**
+- All 17track fetches (`register`/`changecarrier`/`gettrackinfo`) carry `AbortSignal.timeout(15s)`, and the add-package route races its inline register+poll against an 8s cap (2026-07-20: un-timed awaits let a slow 17track hang `POST /api/packages` for minutes — reported as "Track button does nothing"; the client add form also now surfaces errors inline instead of swallowing them, incl. a friendly 409-duplicate message)
 - Server-side polling loop every 5 minutes, batched API calls (up to 40 per request)
 - Adaptive intervals: 15min (out_for_delivery), 30min (pending), 1-4hr (in_transit), 1hr (exception)
 - API quota tracking with automatic pause/resume at midnight UTC

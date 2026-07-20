@@ -166,6 +166,7 @@ export default function PackagesModal({
   const [trackingInput, setTrackingInput] = useState('')
   const [labelInput, setLabelInput] = useState('')
   const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [refreshingAll, setRefreshingAll] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
@@ -191,12 +192,22 @@ export default function PackagesModal({
     const tracking = trackingInput.trim().replace(/\s/g, '')
     if (!tracking) return
     setAdding(true)
+    setAddError(null)
     try {
       // addPackage takes positional args (trackingNumber, label, carrier) — same as v1.
       await onAdd(tracking, labelInput.trim() || null, detectedCarrier?.code || 'other')
       setTrackingInput('')
       setLabelInput('')
       setShowAddForm(false)
+    } catch (err) {
+      // Silent failure destroys trust in the button — say what went wrong.
+      // 409 = already tracked server-side (possibly a pending Gmail import
+      // this device hasn't fetched yet).
+      if (err?.status === 409) {
+        setAddError(`Already tracking this number${err.existingLabel ? ` as "${err.existingLabel}"` : ''}. Pull to refresh if you don't see it.`)
+      } else {
+        setAddError(err?.message || 'Could not add package — check the server connection.')
+      }
     } finally {
       setAdding(false)
     }
@@ -248,6 +259,7 @@ export default function PackagesModal({
               <span>Detected: <strong>{detectedCarrier.name}</strong></span>
             </div>
           )}
+          {addError && <div className="v2-package-add-error">{addError}</div>}
           <button
             className="v2-form-submit"
             onClick={handleAdd}

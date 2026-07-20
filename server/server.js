@@ -2212,6 +2212,9 @@ async function register17track(items, apiKey) {
         '17token': apiKey,
       },
       body: JSON.stringify(deduped),
+      // Bounded: an unreachable/slow 17track must never hang a caller — the
+      // add-package route awaits this inline before responding.
+      signal: AbortSignal.timeout(15_000),
     })
     const data = await res.json()
     console.log('[Packages] 17track register:', res.status, 'accepted:', data.data?.accepted?.length || 0, 'rejected:', data.data?.rejected?.length || 0)
@@ -2244,6 +2247,7 @@ async function changeCarrier17track(trackingNumber, carrierCode, apiKey) {
         '17token': apiKey,
       },
       body: JSON.stringify([{ number: normalize17trackNumber(trackingNumber), carrier: carrierCode }]),
+      signal: AbortSignal.timeout(15_000),
     })
     const data = await res.json()
     console.log('[Packages] 17track changecarrier:', normalize17trackNumber(trackingNumber), '→', carrierCode, 'status:', res.status, 'accepted:', data.data?.accepted?.length || 0)
@@ -2266,6 +2270,7 @@ async function poll17track(trackingNumbers, apiKey) {
       body: JSON.stringify(
         trackingNumbers.map(tn => ({ number: normalize17trackNumber(tn) }))
       ),
+      signal: AbortSignal.timeout(15_000),
     })
 
     if (res.status === 429) {
@@ -2538,10 +2543,16 @@ app.post('/api/packages', async (req, res) => {
 
   upsertPackage(pkg)
 
-  // Register + immediate poll so the card shows real data right away
+  // Register + immediate poll so the card shows real data right away — but
+  // BOUNDED: the row is already saved, so a slow/unreachable 17track must
+  // never hang this response (the prod "Track package does nothing" report:
+  // the un-timed awaits here held the request open for minutes). Past the
+  // race window we respond with the pending package and let the work finish
+  // in the background — its updatePackagePartial still lands for the next
+  // fetch, and the polling loop covers it regardless.
   const apiKey = getTrackingApiKey(req)
   if (apiKey) {
-    try {
+    const initialPoll = (async () => {
       await register17track([pkg], apiKey)
       await new Promise(r => setTimeout(r, 1500))
       const results = await poll17track([pkg.tracking_number], apiKey)
@@ -2565,9 +2576,9 @@ app.post('/api/packages', async (req, res) => {
         updatePackagePartial(pkg.id, updates)
         Object.assign(pkg, updates)
       }
-    } catch (err) {
-      console.error('[Packages] Initial poll failed:', err.message)
-    }
+    })()
+    initialPoll.catch(err => console.error('[Packages] Initial poll failed:', err.message))
+    await Promise.race([initialPoll.catch(() => {}), new Promise(r => setTimeout(r, 8000))])
   }
 
   const newVersion = bumpVersion()
