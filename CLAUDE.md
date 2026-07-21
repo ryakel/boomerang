@@ -476,6 +476,8 @@ Track packages with auto carrier detection, adaptive server-side polling, and de
 - `package_notify_delivered/exception/signature` — notification toggles
 - `package_auto_task_signature` — auto-create errand task for signature required
 
+**USPS is link-out only (2026-07-21).** USPS killed recipient-side third-party tracking on 2026-04-01 (Mailer-ID lockdown); 17track refuses USPS registration on the standard plan ("configure the 'Special Carriers'" — their paid add-on). `UNTRACKABLE_CARRIERS` in `server/server.js` (currently just `usps`) excludes those carriers from ALL 17track calls (polling loop, add-package inline poll, refresh, refresh-all — no quota burned on guaranteed misses), and the client (`PackageRow` in `PackagesModal.jsx`) renders them as "Link only" cards with a "Track on USPS.com" action instead of events/Refresh. To re-enable if the account ever buys the Special Carriers add-on: remove `usps` from the set + the client's `untrackable` gate — registration plumbing is intact. Side effect: USPS packages never auto-transition to delivered, so retention cleanup doesn't fire for them (manual delete). Alternative sources evaluated: Shippo Track API (accepts arbitrary numbers, paid per-number, USPS support post-April-2026 UNVERIFIED — test with a free account before building), or USPS Informed Delivery emails via the Gmail scanner.
+
 **Known Limitations:**
 - 17track free tier: 100 queries/day (batched, so typically sufficient for 30+ packages)
 - No webhook support yet (polling only)

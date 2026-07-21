@@ -2189,6 +2189,17 @@ function normalize17trackNumber(trackingNumber) {
   return match ? match[1] : trackingNumber
 }
 
+// USPS became a 17track "Special Carrier" behind a paid gate on 2026-04-01
+// (the USPS Mailer-ID lockdown): registration on the standard plan is refused
+// with "registration is temporarily unavailable ... configure the 'Special
+// Carriers'", so registering/polling it burns quota for a guaranteed miss.
+// USPS packages are kept as link-out cards (the client shows "Track on
+// USPS.com" instead of events). Remove 'usps' from this set if the 17track
+// account ever gets the paid Special Carriers add-on — nothing else needs
+// to change.
+const UNTRACKABLE_CARRIERS = new Set(['usps'])
+const isUntrackable = (pkg) => UNTRACKABLE_CARRIERS.has(pkg.carrier)
+
 // 17track carrier codes (numeric IDs required for registration)
 const CARRIER_17TRACK = {
   usps: 21051,
@@ -2342,6 +2353,7 @@ async function pollActivePackages() {
 
   const now = new Date()
   const eligible = packages.filter(pkg => {
+    if (isUntrackable(pkg)) return false // link-out only — see UNTRACKABLE_CARRIERS
     if (!pkg.last_polled) return true
     const minsSinceLastPoll = (now - new Date(pkg.last_polled)) / 60000
     return minsSinceLastPoll >= (pkg.poll_interval_minutes || 120)
@@ -2569,7 +2581,7 @@ app.post('/api/packages', async (req, res) => {
   // in the background — its updatePackagePartial still lands for the next
   // fetch, and the polling loop covers it regardless.
   const apiKey = getTrackingApiKey(req)
-  if (apiKey) {
+  if (apiKey && !isUntrackable(pkg)) {
     const initialPoll = (async () => {
       await register17track([pkg], apiKey)
       await new Promise(r => setTimeout(r, 1500))
@@ -2626,6 +2638,7 @@ app.delete('/api/packages/:id', (req, res) => {
 app.post('/api/packages/:id/refresh', async (req, res) => {
   const pkg = getPackage(req.params.id)
   if (!pkg) return res.status(404).json({ error: 'Package not found' })
+  if (isUntrackable(pkg)) return res.json({ ...pkg, untrackable: true }) // link-out only, no 17track calls
 
   // Throttle: 5 minutes per package (skip for pending packages — user is waiting for data)
   if (pkg.last_polled && pkg.status !== 'pending') {
@@ -2689,7 +2702,7 @@ app.post('/api/packages/refresh-all', async (req, res) => {
   if (!apiKey) return res.json({ error: 'No tracking API key configured', updated: 0 })
   if (trackingQuota.exhausted) return res.json({ error: 'API quota exhausted', updated: 0 })
 
-  const packages = getAllPackages('active')
+  const packages = getAllPackages('active').filter(p => !isUntrackable(p))
   if (packages.length === 0) return res.json({ updated: 0 })
 
   await register17track(packages, apiKey)
@@ -4395,23 +4408,21 @@ initDb(dbPath).then(async () => {
       startGmailPolling(5 * 60 * 1000)
     }
 
-    // Normalize any existing USPS 420-prefix tracking numbers + reset stuck USPS packages
+    // Normalize any existing USPS 420-prefix tracking numbers. (The old
+    // "reset stuck USPS packages for re-registration" repair is gone: USPS
+    // registration is refused outright on the standard 17track plan since
+    // 2026-04-01 — see UNTRACKABLE_CARRIERS — so re-registering was a
+    // guaranteed-miss loop.)
     const allPkgs = getAllPackages()
     let normalized = 0
-    let reset = 0
     for (const pkg of allPkgs) {
       const clean = normalize17trackNumber(pkg.tracking_number)
       if (clean !== pkg.tracking_number) {
         updatePackagePartial(pkg.id, { tracking_number: clean, last_polled: null })
         normalized++
-      } else if (pkg.carrier === 'usps' && pkg.status === 'pending' && pkg.last_polled) {
-        // Reset stuck USPS packages so they re-register without explicit carrier code
-        updatePackagePartial(pkg.id, { last_polled: null })
-        reset++
       }
     }
     if (normalized > 0) console.log(`[Packages] Normalized ${normalized} USPS tracking number(s)`)
-    if (reset > 0) console.log(`[Packages] Reset ${reset} stuck USPS package(s) for re-registration`)
 
     // Start package polling loop (every 5 minutes)
     setInterval(pollActivePackages, 5 * 60 * 1000)
