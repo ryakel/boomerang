@@ -38,6 +38,15 @@ Fixes, either works:
 This is a resolver-selection issue in iOS, not fixable from app code — the
 intent just calls `URLSession` and iOS picks the DNS path per context.
 
+**Off-tailnet no longer white-screens (2026-07-21).** The shell used to show
+a blank screen whenever the server was unreachable — not an asset/caching
+failure (the bundle loads from the binary fine) but the boot auth probe in
+`src/App.jsx`: a fetch to an unreachable `100.x` host hangs 60+ seconds
+instead of rejecting, and the gate rendered `null` the whole time. The probe
+now times out at 4s (failing open to the cached UI), skips probing entirely
+when offline, and renders a brand-mark splash while pending. Same hang class
+as the App Intent's 10s URLSession timeout above.
+
 ---
 
 ## The standard rebuild (start here every time)
