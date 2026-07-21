@@ -40,7 +40,14 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
 
-  const meta = STATUS_META[pkg.status] || STATUS_META.pending
+  // USPS blocks third-party tracking (Mailer-ID lockdown, April 2026 — 17track
+  // only serves it on a paid "Special Carriers" plan), so USPS rows are
+  // link-out cards: no polling, no refresh, just the carrier-site link.
+  // Mirrors the server's UNTRACKABLE_CARRIERS gate.
+  const untrackable = pkg.carrier === 'usps'
+  const meta = untrackable
+    ? { label: 'Link only', tone: 'pending' }
+    : (STATUS_META[pkg.status] || STATUS_META.pending)
   const events = pkg.events || []
   const trackUrl = getTrackingUrl(pkg.carrier, pkg.tracking_number)
   const summaryEta = pkg.status === 'delivered'
@@ -89,7 +96,12 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
               </>
             )}
           </div>
-          {events.length > 0 ? (
+          {untrackable ? (
+            <div className="v2-package-detail-empty">
+              USPS stopped allowing third-party tracking (April 2026), so live status
+              isn&apos;t available here — use the USPS site below.
+            </div>
+          ) : events.length > 0 ? (
             <ol className="v2-package-events">
               {events.slice(0, 8).map((evt, i) => (
                 <li key={i} className={`v2-package-event${i === 0 ? ' v2-package-event-latest' : ''}`}>
@@ -113,14 +125,16 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
             <div className="v2-package-detail-empty">No tracking events yet. Check back soon.</div>
           )}
           <div className="v2-package-actions">
-            <button
-              className="v2-package-action"
-              onClick={handleRefresh}
-              disabled={refreshing}
-            >
-              <RefreshCw size={14} strokeWidth={1.75} className={refreshing ? 'v2-package-spin' : ''} />
-              {refreshing ? 'Refreshing…' : 'Refresh'}
-            </button>
+            {!untrackable && (
+              <button
+                className="v2-package-action"
+                onClick={handleRefresh}
+                disabled={refreshing}
+              >
+                <RefreshCw size={14} strokeWidth={1.75} className={refreshing ? 'v2-package-spin' : ''} />
+                {refreshing ? 'Refreshing…' : 'Refresh'}
+              </button>
+            )}
             {trackUrl && (
               <a
                 className="v2-package-action"
@@ -129,7 +143,7 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
                 rel="noopener noreferrer"
                 onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(trackUrl, '_blank', 'noopener,noreferrer') }}
               >
-                <ExternalLink size={14} strokeWidth={1.75} /> Carrier site
+                <ExternalLink size={14} strokeWidth={1.75} /> {untrackable ? 'Track on USPS.com' : 'Carrier site'}
               </a>
             )}
             {!confirmDelete ? (
