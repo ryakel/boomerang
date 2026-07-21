@@ -289,3 +289,22 @@
 }
 [data-theme="dark"] .v2-package-add-error,
 [data-theme="kept-dark"] .v2-package-add-error { color: #e07b74; }
+
+/* Manual "Expect by" date on link-only cards (no carrier ETA source) */
+.v2-package-eta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 4px;
+}
+.v2-package-eta-label {
+  font: 600 12px/1 var(--v2-font-body);
+  color: var(--v2-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: none;
+}
+.v2-package-eta-input {
+  max-width: 170px;
+  padding: 8px 10px;
+}
