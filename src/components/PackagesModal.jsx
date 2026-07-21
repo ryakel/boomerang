@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Plus, Package as PackageIcon, RefreshCw, Trash2, ExternalLink } from 'lucide-react'
 import CarrierLogo from './CarrierLogo'
 import { detectCarrier, getTrackingUrl } from '../utils/carrierDetect'
+import { loadSettings } from '../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import './PackagesModal.css'
@@ -41,10 +42,13 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
   useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
 
   // USPS blocks third-party tracking (Mailer-ID lockdown, April 2026 — 17track
-  // only serves it on a paid "Special Carriers" plan), so USPS rows are
+  // only serves it on a paid "Special Carriers" plan). With a Shippo token
+  // configured, USPS tracks normally via Shippo; without one, USPS rows are
   // link-out cards: no polling, no refresh, just the carrier-site link.
-  // Mirrors the server's UNTRACKABLE_CARRIERS gate.
-  const untrackable = pkg.carrier === 'usps'
+  // Mirrors the server's SHIPPO_CARRIERS + isUntrackable() gates.
+  // (events check: a server-side SHIPPO_API_TOKEN env var tracks USPS without
+  // the setting existing client-side — populated events always win)
+  const untrackable = pkg.carrier === 'usps' && !loadSettings()?.shippo_api_token && !(pkg.events?.length)
   const meta = untrackable
     ? { label: 'Link only', tone: 'pending' }
     : (STATUS_META[pkg.status] || STATUS_META.pending)
@@ -99,7 +103,8 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
           {untrackable ? (
             <div className="v2-package-detail-empty">
               USPS stopped allowing third-party tracking (April 2026), so live status
-              isn&apos;t available here — use the USPS site below.
+              isn&apos;t available here — use the USPS site below, or add a Shippo token
+              in Settings → Integrations to track USPS in-app.
             </div>
           ) : events.length > 0 ? (
             <ol className="v2-package-events">
