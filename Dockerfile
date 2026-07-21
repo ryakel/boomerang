@@ -6,7 +6,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
+# dist.zip is the OTA bundle the native shell downloads via /api/bundle/*
+# (same public assets the SPA serves — see server.js). Built here so every
+# image ships a bundle matching its own APP_VERSION.
+RUN apk add --no-cache zip && npm run build && cd dist && zip -qr /app/dist.zip .
 
 # Stage 2: Install production deps on build platform to avoid QEMU issues
 FROM --platform=$BUILDPLATFORM node:22-alpine AS deps
@@ -28,6 +31,7 @@ COPY server ./server
 COPY migrations ./migrations
 COPY scripts ./scripts
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/dist.zip ./dist.zip
 RUN mkdir -p /data
 
 ENV PORT=3001

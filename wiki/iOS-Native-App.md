@@ -6,11 +6,28 @@ Boomerang's native iOS app wraps the existing React/Vite web app in a
 Intents** (Siri / Shortcuts / Action button), and a Home Screen presence — while
 keeping a single codebase.
 
-**Model: bundled assets.** The app ships the Vite build (`dist/`) inside the
-binary and talks to your server's API over the network. It does **not** load the
-UI live from the server, so the PWA's offline behavior (mutation queue + cached
-shell) is preserved. The API base URL + token are configured **at runtime** —
-never baked into the bundle.
+**Model: bundled assets + OTA updates (2026-07-21).** The app ships the Vite
+build (`dist/`) inside the binary and talks to your server's API over the
+network. It does **not** load the UI live from the server, so the PWA's offline
+behavior (mutation queue + cached shell) is preserved. The API base URL + token
+are configured **at runtime** — never baked into the bundle.
+
+On top of that, the shell now **live-updates its web bundle from your server**:
+on boot and app foreground it compares `GET /api/bundle/manifest` (the server's
+`APP_VERSION`) against the running bundle and, when newer, downloads
+`/api/bundle/download` (a zip of the server's own `dist`, produced by the
+Docker build) and swaps to it via `@capgo/capacitor-updater` (manual mode —
+no Capgo cloud involvement; auto-rollback if a swapped bundle fails to boot).
+Result: pushing to `dev`/`main` updates the matching app on next launch —
+**Xcode rebuilds are only needed for native-side changes** (plugins,
+entitlements, Swift, Info.plist). Because each install updates from whatever
+server it's pointed at, one binary works for any self-hosted instance — the
+reason this model was chosen over a study-style `server.url` live WebView,
+whose `WKAppBoundDomains` requirement bakes the server domain in at build
+time.
+
+⚠️ Getting the updater plugin itself into the binary takes one final ordinary
+rebuild: `npm install && npx cap sync ios` + build both schemes.
 
 **Connectivity: Tailscale.** The server stays private (LAN/VPN only). Put the
 server on your tailnet and run Tailscale on the iPhone; the app reaches the

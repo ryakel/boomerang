@@ -30,6 +30,12 @@ const config: CapacitorConfig = {
     PushNotifications: {
       presentationOptions: ['banner', 'sound', 'badge'],
     },
+    // OTA bundle updates are fully manual (src/otaUpdater.js drives them
+    // against OUR server's /api/bundle/* endpoints) — autoUpdate off so the
+    // plugin never phones Capgo's cloud backend.
+    CapacitorUpdater: {
+      autoUpdate: false,
+    },
   },
 }
 
