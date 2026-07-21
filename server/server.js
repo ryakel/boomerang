@@ -22,6 +22,7 @@ import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush } from './pushNotifications.js'
 import { getApnsStatus, registerApnsDevice, unregisterApnsDevice, sendApnsTest } from './apnsNotifications.js'
+import { shippoGetTrack, shippoProbe } from './shippoTracking.js'
 import {
   startPushoverNotifications, sendTestNotification as sendTestPushover,
   sendTestEmergency as sendTestPushoverEmergency, getPushoverStatus,
@@ -2192,13 +2193,21 @@ function normalize17trackNumber(trackingNumber) {
 // USPS became a 17track "Special Carrier" behind a paid gate on 2026-04-01
 // (the USPS Mailer-ID lockdown): registration on the standard plan is refused
 // with "registration is temporarily unavailable ... configure the 'Special
-// Carriers'", so registering/polling it burns quota for a guaranteed miss.
-// USPS packages are kept as link-out cards (the client shows "Track on
-// USPS.com" instead of events). Remove 'usps' from this set if the 17track
-// account ever gets the paid Special Carriers add-on — nothing else needs
-// to change.
-const UNTRACKABLE_CARRIERS = new Set(['usps'])
-const isUntrackable = (pkg) => UNTRACKABLE_CARRIERS.has(pkg.carrier)
+// Carriers'", so 17track never touches USPS numbers (no quota burned on
+// guaranteed misses). USPS tracking instead rides Shippo's Track API when a
+// Shippo token is configured (server/shippoTracking.js — verified live
+// post-cutover); without one, USPS packages are link-out cards (the client
+// shows "Track on USPS.com" instead of events).
+const SHIPPO_CARRIERS = new Set(['usps'])
+const isUntrackable = (pkg) => SHIPPO_CARRIERS.has(pkg.carrier) && !getShippoToken()
+
+let envShippoToken = process.env.SHIPPO_API_TOKEN
+function getShippoToken(req) {
+  if (req?.headers['x-shippo-token']) return req.headers['x-shippo-token']
+  if (envShippoToken) return envShippoToken
+  const settings = getData('settings')
+  return settings?.shippo_api_token || null
+}
 
 // 17track carrier codes (numeric IDs required for registration)
 const CARRIER_17TRACK = {
@@ -2334,6 +2343,106 @@ async function poll17track(trackingNumbers, apiKey) {
 }
 
 // Main polling loop — runs every 5 minutes
+// Apply one normalized tracking result to its matching package rows — the
+// single place status transitions, ETA, signature-task creation, delivery
+// cleanup stamps, and status-change notifications happen, shared by the
+// 17track batch poller and the Shippo (USPS) leg. Returns true when any
+// package row was updated.
+function applyTrackingResult(matching, { newStatus, detail, events, eta }, { now, settings }) {
+  const sigRequired = checkSignatureRequired(events)
+  let updated = false
+  for (const pkg of matching) {
+    // Never downgrade a package that already has real tracking data
+    const STATUS_RANK = { delivered: 5, out_for_delivery: 4, in_transit: 3, exception: 2, pending: 1, expired: 0 }
+    const oldRank = STATUS_RANK[pkg.status] ?? 1
+    const newRank = STATUS_RANK[newStatus] ?? 1
+    if (newRank < oldRank && oldRank >= 2) {
+      updatePackagePartial(pkg.id, { last_polled: now.toISOString() })
+      continue
+    }
+
+    const updates = {
+      status: newStatus,
+      status_detail: detail,
+      events: events.length > 0 ? events : pkg.events,
+      last_polled: now.toISOString(),
+      updated_at: now.toISOString(),
+      poll_interval_minutes: calcPollInterval({ ...pkg, status: newStatus }),
+      last_location: events[0]?.location || pkg.last_location,
+      signature_required: sigRequired,
+    }
+
+    if (eta) updates.eta = eta
+
+    // Handle delivery
+    if (newStatus === 'delivered' && pkg.status !== 'delivered') {
+      updates.delivered_at = now.toISOString()
+      const retentionDays = settings.package_retention_days ?? 3
+      const cleanupDate = new Date(now.getTime() + retentionDays * 86400000)
+      updates.auto_cleanup_at = cleanupDate.toISOString()
+      console.log(`[Packages] ${pkg.label || pkg.tracking_number} delivered`)
+      if (!notifsMuzzled) {
+        sendPackageEmail(pkg, 'delivered')
+        sendPackagePush(pkg, 'delivered')
+        sendPackagePushover(pkg, 'delivered')
+      }
+
+      if (pkg.signature_task_id) {
+        const task = getTask(pkg.signature_task_id)
+        if (task && task.status !== 'done') {
+          updateTaskPartial(pkg.signature_task_id, { status: 'done', completed_at: now.toISOString() })
+        }
+      }
+    }
+
+    // Handle signature required
+    if (sigRequired && !pkg.signature_required && !pkg.signature_task_id) {
+      if (settings.package_auto_task_signature !== false) {
+        const taskId = `pkg-sig-${pkg.id}-${Date.now()}`
+        upsertTask({
+          id: taskId,
+          title: `Be home to sign for: ${pkg.label || pkg.tracking_number}`,
+          status: 'not_started',
+          notes: `Package: ${pkg.tracking_number}\nCarrier: ${pkg.carrier_name || pkg.carrier || 'Unknown'}\nTracking requires signature.`,
+          high_priority: true, energy: 'errand', energy_level: 2,
+          due_date: pkg.eta || new Date().toISOString().split('T')[0],
+          created_at: now.toISOString(), last_touched: now.toISOString(),
+          tags: [], attachments: [], checklist: [], checklists: [], comments: [],
+        })
+        updates.signature_task_id = taskId
+        console.log(`[Packages] Created signature task for ${pkg.label || pkg.tracking_number}`)
+      }
+    }
+
+    // Notifications for status changes
+    if (newStatus === 'exception' && pkg.status !== 'exception') {
+      if (!notifsMuzzled) {
+        sendPackageEmail(pkg, 'exception')
+        sendPackagePush(pkg, 'exception')
+        sendPackagePushover(pkg, 'exception')
+      }
+    }
+    if (newStatus === 'out_for_delivery' && pkg.status !== 'out_for_delivery') {
+      if (!notifsMuzzled) {
+        sendPackageEmail(pkg, 'out_for_delivery')
+        sendPackagePush(pkg, 'out_for_delivery')
+        sendPackagePushover(pkg, 'out_for_delivery')
+      }
+    }
+    if (sigRequired && !pkg.signature_required) {
+      if (!notifsMuzzled) {
+        sendPackageEmail(pkg, 'signature_required')
+        sendPackagePush(pkg, 'signature_required')
+        sendPackagePushover(pkg, 'signature_required')
+      }
+    }
+
+    updatePackagePartial(pkg.id, updates)
+    updated = true
+  }
+  return updated
+}
+
 async function pollActivePackages() {
   // Check quota reset
   if (trackingQuota.exhausted && trackingQuota.reset_at) {
@@ -2346,20 +2455,29 @@ async function pollActivePackages() {
   }
 
   const apiKey = getTrackingApiKey()
-  if (!apiKey) return
+  const shippoToken = getShippoToken()
+  if (!apiKey && !shippoToken) return
 
   const packages = getAllPackages('active')
   if (packages.length === 0) return
 
   const now = new Date()
-  const eligible = packages.filter(pkg => {
-    if (isUntrackable(pkg)) return false // link-out only — see UNTRACKABLE_CARRIERS
+  const pollDue = (pkg) => {
     if (!pkg.last_polled) return true
     const minsSinceLastPoll = (now - new Date(pkg.last_polled)) / 60000
     return minsSinceLastPoll >= (pkg.poll_interval_minutes || 120)
-  })
+  }
+  // 17track never touches Shippo-served carriers (USPS: registration is
+  // refused on the standard plan) — they poll on the Shippo leg below, or
+  // sit as link-out cards when no Shippo token is configured.
+  const eligible = apiKey
+    ? packages.filter(pkg => !SHIPPO_CARRIERS.has(pkg.carrier) && pollDue(pkg))
+    : []
+  const shippoEligible = shippoToken
+    ? packages.filter(pkg => SHIPPO_CARRIERS.has(pkg.carrier) && pollDue(pkg))
+    : []
 
-  if (eligible.length === 0) return
+  if (eligible.length === 0 && shippoEligible.length === 0) return
 
   let anyUpdated = false
   const settings = getData('settings') || {}
@@ -2396,7 +2514,6 @@ async function pollActivePackages() {
       }))
 
       const { status: newStatus, detail } = map17trackStatus(trackInfo)
-      const sigRequired = checkSignatureRequired(events)
 
       let eta = null
       if (trackInfo.time_metrics) {
@@ -2409,95 +2526,7 @@ async function pollActivePackages() {
 
       // Update ALL packages with this tracking number (handles duplicates + 420-prefix normalization)
       const matching = batch.filter(p => p.tracking_number === result.number || normalize17trackNumber(p.tracking_number) === result.number)
-      for (const pkg of matching) {
-        // Never downgrade a package that already has real tracking data
-        const STATUS_RANK = { delivered: 5, out_for_delivery: 4, in_transit: 3, exception: 2, pending: 1, expired: 0 }
-        const oldRank = STATUS_RANK[pkg.status] ?? 1
-        const newRank = STATUS_RANK[newStatus] ?? 1
-        if (newRank < oldRank && oldRank >= 2) {
-          updatePackagePartial(pkg.id, { last_polled: now.toISOString() })
-          continue
-        }
-
-        const updates = {
-          status: newStatus,
-          status_detail: detail,
-          events: events.length > 0 ? events : pkg.events,
-          last_polled: now.toISOString(),
-          updated_at: now.toISOString(),
-          poll_interval_minutes: calcPollInterval({ ...pkg, status: newStatus }),
-          last_location: events[0]?.location || pkg.last_location,
-          signature_required: sigRequired,
-        }
-
-        if (eta) updates.eta = eta
-
-        // Handle delivery
-        if (newStatus === 'delivered' && pkg.status !== 'delivered') {
-          updates.delivered_at = now.toISOString()
-          const retentionDays = settings.package_retention_days ?? 3
-          const cleanupDate = new Date(now.getTime() + retentionDays * 86400000)
-          updates.auto_cleanup_at = cleanupDate.toISOString()
-          console.log(`[Packages] ${pkg.label || pkg.tracking_number} delivered`)
-          if (!notifsMuzzled) {
-            sendPackageEmail(pkg, 'delivered')
-            sendPackagePush(pkg, 'delivered')
-            sendPackagePushover(pkg, 'delivered')
-          }
-
-          if (pkg.signature_task_id) {
-            const task = getTask(pkg.signature_task_id)
-            if (task && task.status !== 'done') {
-              updateTaskPartial(pkg.signature_task_id, { status: 'done', completed_at: now.toISOString() })
-            }
-          }
-        }
-
-        // Handle signature required
-        if (sigRequired && !pkg.signature_required && !pkg.signature_task_id) {
-          if (settings.package_auto_task_signature !== false) {
-            const taskId = `pkg-sig-${pkg.id}-${Date.now()}`
-            upsertTask({
-              id: taskId,
-              title: `Be home to sign for: ${pkg.label || pkg.tracking_number}`,
-              status: 'not_started',
-              notes: `Package: ${pkg.tracking_number}\nCarrier: ${pkg.carrier_name || pkg.carrier || 'Unknown'}\nTracking requires signature.`,
-              high_priority: true, energy: 'errand', energy_level: 2,
-              due_date: pkg.eta || new Date().toISOString().split('T')[0],
-              created_at: now.toISOString(), last_touched: now.toISOString(),
-              tags: [], attachments: [], checklist: [], checklists: [], comments: [],
-            })
-            updates.signature_task_id = taskId
-            console.log(`[Packages] Created signature task for ${pkg.label || pkg.tracking_number}`)
-          }
-        }
-
-        // Notifications for status changes
-        if (newStatus === 'exception' && pkg.status !== 'exception') {
-          if (!notifsMuzzled) {
-            sendPackageEmail(pkg, 'exception')
-            sendPackagePush(pkg, 'exception')
-            sendPackagePushover(pkg, 'exception')
-          }
-        }
-        if (newStatus === 'out_for_delivery' && pkg.status !== 'out_for_delivery') {
-          if (!notifsMuzzled) {
-            sendPackageEmail(pkg, 'out_for_delivery')
-            sendPackagePush(pkg, 'out_for_delivery')
-            sendPackagePushover(pkg, 'out_for_delivery')
-          }
-        }
-        if (sigRequired && !pkg.signature_required) {
-          if (!notifsMuzzled) {
-            sendPackageEmail(pkg, 'signature_required')
-            sendPackagePush(pkg, 'signature_required')
-            sendPackagePushover(pkg, 'signature_required')
-          }
-        }
-
-        updatePackagePartial(pkg.id, updates)
-        anyUpdated = true
-      }
+      if (applyTrackingResult(matching, { newStatus, detail, events, eta }, { now, settings })) anyUpdated = true
     }
 
     // Mark packages that weren't in results as polled too (to avoid re-polling immediately)
@@ -2506,6 +2535,19 @@ async function pollActivePackages() {
         updatePackagePartial(pkg.id, { last_polled: now.toISOString() })
       }
     }
+  }
+
+  // Shippo leg (USPS) — one GET per package, no registration step, no
+  // 17track quota involved. A null result still stamps last_polled so a
+  // flaky Shippo can't hot-loop the poller.
+  for (const pkg of shippoEligible) {
+    const norm = await shippoGetTrack(pkg.carrier, pkg.tracking_number, shippoToken)
+    if (!norm) {
+      updatePackagePartial(pkg.id, { last_polled: now.toISOString() })
+      continue
+    }
+    if (applyTrackingResult([pkg], norm, { now, settings })) anyUpdated = true
+    await new Promise(r => setTimeout(r, 300))
   }
 
   // Auto-cleanup delivered packages past retention
@@ -2580,8 +2622,31 @@ app.post('/api/packages', async (req, res) => {
   // race window we respond with the pending package and let the work finish
   // in the background — its updatePackagePartial still lands for the next
   // fetch, and the polling loop covers it regardless.
+  // Shippo-served carriers (USPS): initial poll via Shippo, bounded exactly
+  // like the 17track path below. 17track never touches these numbers.
+  const addShippoToken = SHIPPO_CARRIERS.has(pkg.carrier) ? getShippoToken(req) : null
+  if (addShippoToken) {
+    const initialShippo = (async () => {
+      const norm = await shippoGetTrack(pkg.carrier, pkg.tracking_number, addShippoToken)
+      if (norm) {
+        const nowIso = new Date().toISOString()
+        const updates = {
+          status: norm.newStatus, status_detail: norm.detail, events: norm.events,
+          last_polled: nowIso, updated_at: nowIso,
+          poll_interval_minutes: calcPollInterval({ ...pkg, status: norm.newStatus }),
+          last_location: norm.events[0]?.location || '', signature_required: checkSignatureRequired(norm.events),
+        }
+        if (norm.eta) updates.eta = norm.eta
+        updatePackagePartial(pkg.id, updates)
+        Object.assign(pkg, updates)
+      }
+    })()
+    initialShippo.catch(err => console.error('[Packages] Initial Shippo poll failed:', err.message))
+    await Promise.race([initialShippo.catch(() => {}), new Promise(r => setTimeout(r, 8000))])
+  }
+
   const apiKey = getTrackingApiKey(req)
-  if (apiKey && !isUntrackable(pkg)) {
+  if (apiKey && !SHIPPO_CARRIERS.has(pkg.carrier)) {
     const initialPoll = (async () => {
       await register17track([pkg], apiKey)
       await new Promise(r => setTimeout(r, 1500))
@@ -2648,6 +2713,21 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
     }
   }
 
+  // Shippo-served carriers (USPS) refresh via Shippo — the 17track flow
+  // below never touches them. (The untrackable early-return above already
+  // handled the no-Shippo-token case.)
+  if (SHIPPO_CARRIERS.has(pkg.carrier)) {
+    const norm = await shippoGetTrack(pkg.carrier, pkg.tracking_number, getShippoToken(req))
+    if (norm) {
+      applyTrackingResult([pkg], norm, { now: new Date(), settings: getData('settings') || {} })
+      const newVersion = bumpVersion()
+      broadcast(newVersion, req.headers['x-client-id'])
+    } else {
+      updatePackagePartial(pkg.id, { last_polled: new Date().toISOString() })
+    }
+    return res.json(getPackage(pkg.id))
+  }
+
   const apiKey = getTrackingApiKey(req)
   if (!apiKey) return res.json({ ...pkg, error: 'No tracking API key configured' })
 
@@ -2699,11 +2779,36 @@ app.post('/api/packages/:id/refresh', async (req, res) => {
 
 app.post('/api/packages/refresh-all', async (req, res) => {
   const apiKey = getTrackingApiKey(req)
-  if (!apiKey) return res.json({ error: 'No tracking API key configured', updated: 0 })
-  if (trackingQuota.exhausted) return res.json({ error: 'API quota exhausted', updated: 0 })
+  const shippoToken = getShippoToken(req)
+  if (!apiKey && !shippoToken) return res.json({ error: 'No tracking API key configured', updated: 0 })
 
-  const packages = getAllPackages('active').filter(p => !isUntrackable(p))
-  if (packages.length === 0) return res.json({ updated: 0 })
+  const allActive = getAllPackages('active')
+
+  // Shippo leg (USPS) first — independent of the 17track key and quota.
+  let shippoUpdated = 0
+  let shippoCount = 0
+  if (shippoToken) {
+    const shippoSettings = getData('settings') || {}
+    for (const pkg of allActive.filter(p => SHIPPO_CARRIERS.has(p.carrier))) {
+      shippoCount++
+      const norm = await shippoGetTrack(pkg.carrier, pkg.tracking_number, shippoToken)
+      if (!norm) { updatePackagePartial(pkg.id, { last_polled: new Date().toISOString() }); continue }
+      if (applyTrackingResult([pkg], norm, { now: new Date(), settings: shippoSettings })) shippoUpdated++
+      await new Promise(r => setTimeout(r, 300))
+    }
+  }
+  const finishShippoOnly = (extra = {}) => {
+    if (shippoUpdated > 0) {
+      const newVersion = bumpVersion()
+      broadcast(newVersion, req.headers['x-client-id'])
+    }
+    return res.json({ updated: shippoUpdated, total: shippoCount, ...extra })
+  }
+  if (!apiKey) return finishShippoOnly()
+  if (trackingQuota.exhausted) return finishShippoOnly({ error: 'API quota exhausted' })
+
+  const packages = allActive.filter(p => !SHIPPO_CARRIERS.has(p.carrier))
+  if (packages.length === 0) return finishShippoOnly()
 
   await register17track(packages, apiKey)
 
@@ -2784,12 +2889,12 @@ app.post('/api/packages/refresh-all', async (req, res) => {
     }
   }
 
-  if (totalUpdated > 0) {
+  if (totalUpdated + shippoUpdated > 0) {
     const newVersion = bumpVersion()
     broadcast(newVersion, req.headers['x-client-id'])
   }
 
-  res.json({ updated: totalUpdated, total: packages.length })
+  res.json({ updated: totalUpdated + shippoUpdated, total: packages.length + shippoCount })
 })
 
 app.get('/api/packages/api-status', (req, res) => {
@@ -3461,6 +3566,17 @@ async function probeIntegrations(req) {
       if (!(data.code === 0 || res.ok)) return { configured: true, status: 'error', detail: data.message || `HTTP ${res.status}` }
       const remain = data?.data?.remain
       return { configured: true, status: 'connected', detail: Number.isFinite(remain) ? `${remain} queries left today` : 'Key valid' }
+    }),
+
+    probe({ id: 'shippo', name: 'Shippo (USPS tracking)', category: 'Packages', path: 'REST api.goshippo.com' }, async () => {
+      const token = getShippoToken(req)
+      if (!token) return { configured: false, status: 'not_configured', detail: 'No API token — USPS packages are link-out only' }
+      // Free: the mock "shippo" carrier's test numbers validate auth without
+      // billing a real tracking number.
+      const r = await shippoProbe(token)
+      if (r.status === 401 || r.status === 403) return { configured: true, status: 'error', detail: 'Invalid API token' }
+      if (!r.ok) return { configured: true, status: 'degraded', detail: `HTTP ${r.status}` }
+      return { configured: true, status: 'connected', detail: 'Token valid — USPS tracking active' }
     }),
 
     probe({ id: 'weather', name: 'Weather (Open-Meteo)', category: 'Weather', path: 'REST open-meteo.com · no key' }, async () => {
