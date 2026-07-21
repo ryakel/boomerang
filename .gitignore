@@ -54,3 +54,4 @@ ios/DerivedData
 DerivedData
 xcuserdata/
 *.xcuserstate
+dist.zip

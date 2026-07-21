@@ -212,6 +212,24 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', appVersion, isDev: isDevEnv, notifsMuzzled })
 })
 
+// --- OTA bundle (native shell live updates) ---
+// dist.zip is produced by the Docker build (same public assets the SPA
+// serves; open paths in auth.js). The native shell compares the manifest
+// version against its running bundle and swaps in the new zip via
+// @capgo/capacitor-updater — see src/otaUpdater.js. Absent zip (bare-metal
+// dev runs outside Docker) → available:false and the shell stays put.
+// (module __dirname is declared much further down — compute locally to
+// avoid the TDZ at load time)
+const bundleZipPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist.zip')
+app.get('/api/bundle/manifest', (req, res) => {
+  const available = existsSync(bundleZipPath)
+  res.json({ available, version: appVersion, url: available ? '/api/bundle/download' : null })
+})
+app.get('/api/bundle/download', (req, res) => {
+  if (!existsSync(bundleZipPath)) return res.status(404).json({ error: 'No bundle available on this server' })
+  res.sendFile(bundleZipPath)
+})
+
 // --- Auth endpoints (all reachable without a session; see auth.js OPEN_PATHS) ---
 app.get('/api/auth/status', (req, res) => {
   res.json({ authEnabled: isAuthEnabled(), authenticated: isAuthEnabled() ? isAuthenticated(req) : true })

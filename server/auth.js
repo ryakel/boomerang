@@ -177,6 +177,11 @@ const OPEN_PATHS = new Set([
   '/api/auth/status',
   '/api/auth/login',
   '/api/auth/logout',
+  // OTA bundle endpoints: the zip is the same public dist the SPA serves
+  // unauthenticated, and the native download runs outside the JS fetch
+  // interceptor (no token attached) — nothing secret, nothing to gate.
+  '/api/bundle/manifest',
+  '/api/bundle/download',
 ])
 
 export function authGate(req, res, next) {
