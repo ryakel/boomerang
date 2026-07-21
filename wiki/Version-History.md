@@ -4,7 +4,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
-## 2026-07-20
+## 2026-07-21
+
+- feat(ios): OTA bundle updates — web changes reach the native shell without an Xcode rebuild [M]
+  - Born of the study-app comparison ("why does study never need rebuilds?"): study's shell loads the deployed site live (`server.url`), but that model requires the server domain baked into the binary at build time (iOS `WKAppBoundDomains` is static), which breaks "someone else points one binary at their own server." Boomerang keeps the **bundled model + runtime config** and adds self-hosted **OTA live updates** instead — the distributable answer to the same problem.
+  - **Server:** the Docker build now also produces `dist.zip` (same public assets the SPA serves) and ships it in the image; `GET /api/bundle/manifest` (`{available, version, url}`, version = `APP_VERSION`) + `GET /api/bundle/download` serve it. Both are auth-gate OPEN_PATHS — the content is already served unauthenticated as the SPA, and the native download runs outside the token-attaching fetch interceptor. Bare-metal runs without the zip report `available:false` and nothing changes.
+  - **Client:** `src/otaUpdater.js` (wired in `main.jsx`, native shell only, dynamic import so the web bundle never loads the plugin) — on boot and app resume, compares the manifest version against the running bundle's `__APP_VERSION__`, downloads + `set()`s the new zip via `@capgo/capacitor-updater` (manual mode, `autoUpdate:false` — never talks to Capgo's cloud). `notifyAppReady()` on every boot arms the plugin's auto-rollback, so a broken bundle reverts instead of bricking the shell.
+  - **One last routine rebuild** is needed to get the plugin into the binary (`cap sync ios` + build on the Mac); after that, pushing to `dev`/`main` updates the corresponding app on next launch/foreground. Version checks stay disabled in the shell (`VERSION_CHECKS_ENABLED` gate) — OTA replaces that flow natively.
+  - Dev/prod pairing falls out automatically: each app updates from whatever server its ConnectionSetup points at (`boom_api_base`), so Boomerang Dev tracks the dev server and Boomerang tracks prod, with zero URLs in the repo.
+
+- fix(ui): boot auth probe times out and shows a splash — no more white screen off-tailnet [S]
+  - Prod report (surfaced while comparing rebuild models with the study app): the native shell — and the PWA offline — showed a blank screen when the server was unreachable, which read as "caching isn't working." The cache was fine; the boot gate was the blocker: `App.jsx` fetched `/api/auth/status` with no timeout and rendered `null` until it settled. Off-tailnet, a fetch to the `100.x` host doesn't reject — iOS silently drops the packets and lets it hang 60+ seconds — so the fail-open `.catch` never fired and the app sat blank. Same trap the App Intent hit (fixed 2026-07-19 with a 10s URLSession timeout); the web boot path never got the equivalent.
+  - The probe now carries `AbortSignal.timeout(4s)` (timeout → the existing fail-open path; the server remains the real enforcement), skips straight to the cached UI when `navigator.onLine === false`, and the `checking` state renders a minimal `BootSplash` (centered pulsing brand mark on the themed background) instead of `null` — even the bounded wait is never blank.
+  - Behind the gate everything was already offline-capable (tasks cache in `boom_tasks_v1`, mutation queue replays on reconnect), so this one gate was the whole "white screen offline" failure.
 
 - fix(packages): Track-package button no longer fails silently or hangs on 17track [M]
   - Prod report (with screenshot): "Pushing the track button does nothing" — number + label filled, USPS detected, tap, nothing. Two compounding bugs, both reproduced headless:
