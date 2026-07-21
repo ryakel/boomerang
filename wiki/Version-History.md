@@ -4,7 +4,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
-## 2026-07-20
+## 2026-07-21
+
+- fix(ui): boot auth probe times out and shows a splash — no more white screen off-tailnet [S]
+  - Prod report (surfaced while comparing rebuild models with the study app): the native shell — and the PWA offline — showed a blank screen when the server was unreachable, which read as "caching isn't working." The cache was fine; the boot gate was the blocker: `App.jsx` fetched `/api/auth/status` with no timeout and rendered `null` until it settled. Off-tailnet, a fetch to the `100.x` host doesn't reject — iOS silently drops the packets and lets it hang 60+ seconds — so the fail-open `.catch` never fired and the app sat blank. Same trap the App Intent hit (fixed 2026-07-19 with a 10s URLSession timeout); the web boot path never got the equivalent.
+  - The probe now carries `AbortSignal.timeout(4s)` (timeout → the existing fail-open path; the server remains the real enforcement), skips straight to the cached UI when `navigator.onLine === false`, and the `checking` state renders a minimal `BootSplash` (centered pulsing brand mark on the themed background) instead of `null` — even the bounded wait is never blank.
+  - Behind the gate everything was already offline-capable (tasks cache in `boom_tasks_v1`, mutation queue replays on reconnect), so this one gate was the whole "white screen offline" failure.
 
 - fix(packages): Track-package button no longer fails silently or hangs on 17track [M]
   - Prod report (with screenshot): "Pushing the track button does nothing" — number + label filled, USPS detected, tap, nothing. Two compounding bugs, both reproduced headless:
