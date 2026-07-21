@@ -41,14 +41,17 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
 
-  // USPS blocks third-party tracking (Mailer-ID lockdown, April 2026 — 17track
-  // only serves it on a paid "Special Carriers" plan). With a Shippo token
-  // configured, USPS tracks normally via Shippo; without one, USPS rows are
-  // link-out cards: no polling, no refresh, just the carrier-site link.
-  // Mirrors the server's SHIPPO_CARRIERS + isUntrackable() gates.
-  // (events check: a server-side SHIPPO_API_TOKEN env var tracks USPS without
-  // the setting existing client-side — populated events always win)
-  const untrackable = pkg.carrier === 'usps' && !loadSettings()?.shippo_api_token && !(pkg.events?.length)
+  // Link-out cards — no polling, no refresh, just the carrier-site link.
+  // Mirrors the server's UNTRACKABLE_CARRIERS/SHIPPO_CARRIERS gates:
+  // - Amazon TBA numbers are untrackable by ANY third party (they live inside
+  //   Amazon's own systems) — always link-out, to track.amazon.com.
+  // - USPS blocks third-party tracking (Mailer-ID lockdown, April 2026);
+  //   with a Shippo token configured it tracks normally via Shippo, without
+  //   one it's link-out. (events check: a server-side SHIPPO_API_TOKEN env
+  //   var tracks USPS without the setting existing client-side — populated
+  //   events always win.)
+  const untrackable = pkg.carrier === 'amazon'
+    || (pkg.carrier === 'usps' && !loadSettings()?.shippo_api_token && !(pkg.events?.length))
   const meta = untrackable
     ? { label: 'Link only', tone: 'pending' }
     : (STATUS_META[pkg.status] || STATUS_META.pending)
@@ -102,9 +105,9 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
           </div>
           {untrackable ? (
             <div className="v2-package-detail-empty">
-              USPS stopped allowing third-party tracking (April 2026), so live status
-              isn&apos;t available here — use the USPS site below, or add a Shippo token
-              in Settings → Integrations to track USPS in-app.
+              {pkg.carrier === 'amazon'
+                ? 'Amazon delivers TBA packages through its own network — live status only exists in your Amazon account. Use the link below (sign-in required).'
+                : 'USPS stopped allowing third-party tracking (April 2026), so live status isn’t available here — use the USPS site below, or add a Shippo token in Settings → Integrations to track USPS in-app.'}
             </div>
           ) : events.length > 0 ? (
             <ol className="v2-package-events">
@@ -148,7 +151,7 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
                 rel="noopener noreferrer"
                 onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(trackUrl, '_blank', 'noopener,noreferrer') }}
               >
-                <ExternalLink size={14} strokeWidth={1.75} /> {untrackable ? 'Track on USPS.com' : 'Carrier site'}
+                <ExternalLink size={14} strokeWidth={1.75} /> {!untrackable ? 'Carrier site' : pkg.carrier === 'amazon' ? 'Track on Amazon' : 'Track on USPS.com'}
               </a>
             )}
             {!confirmDelete ? (

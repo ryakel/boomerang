@@ -2199,7 +2199,17 @@ function normalize17trackNumber(trackingNumber) {
 // post-cutover); without one, USPS packages are link-out cards (the client
 // shows "Track on USPS.com" instead of events).
 const SHIPPO_CARRIERS = new Set(['usps'])
-const isUntrackable = (pkg) => SHIPPO_CARRIERS.has(pkg.carrier) && !getShippoToken()
+
+// Amazon Logistics (TBA numbers) is untrackable by ANY third party: TBA ids
+// live inside Amazon's own systems and are registered with no carrier
+// network — 17track accepts the registration and returns "Not found"
+// forever (verified in the account's dashboard export), and Shippo doesn't
+// offer Amazon at all. Always a link-out card (track.amazon.com knows the
+// number when you're signed in).
+const UNTRACKABLE_CARRIERS = new Set(['amazon'])
+const isUntrackable = (pkg) =>
+  UNTRACKABLE_CARRIERS.has(pkg.carrier)
+  || (SHIPPO_CARRIERS.has(pkg.carrier) && !getShippoToken())
 
 let envShippoToken = process.env.SHIPPO_API_TOKEN
 function getShippoToken(req) {
@@ -2469,9 +2479,10 @@ async function pollActivePackages() {
   }
   // 17track never touches Shippo-served carriers (USPS: registration is
   // refused on the standard plan) — they poll on the Shippo leg below, or
-  // sit as link-out cards when no Shippo token is configured.
+  // sit as link-out cards when no Shippo token is configured. Untrackable
+  // carriers (Amazon TBA) never poll anywhere.
   const eligible = apiKey
-    ? packages.filter(pkg => !SHIPPO_CARRIERS.has(pkg.carrier) && pollDue(pkg))
+    ? packages.filter(pkg => !SHIPPO_CARRIERS.has(pkg.carrier) && !UNTRACKABLE_CARRIERS.has(pkg.carrier) && pollDue(pkg))
     : []
   const shippoEligible = shippoToken
     ? packages.filter(pkg => SHIPPO_CARRIERS.has(pkg.carrier) && pollDue(pkg))
@@ -2646,7 +2657,7 @@ app.post('/api/packages', async (req, res) => {
   }
 
   const apiKey = getTrackingApiKey(req)
-  if (apiKey && !SHIPPO_CARRIERS.has(pkg.carrier)) {
+  if (apiKey && !SHIPPO_CARRIERS.has(pkg.carrier) && !UNTRACKABLE_CARRIERS.has(pkg.carrier)) {
     const initialPoll = (async () => {
       await register17track([pkg], apiKey)
       await new Promise(r => setTimeout(r, 1500))
@@ -2807,7 +2818,7 @@ app.post('/api/packages/refresh-all', async (req, res) => {
   if (!apiKey) return finishShippoOnly()
   if (trackingQuota.exhausted) return finishShippoOnly({ error: 'API quota exhausted' })
 
-  const packages = allActive.filter(p => !SHIPPO_CARRIERS.has(p.carrier))
+  const packages = allActive.filter(p => !SHIPPO_CARRIERS.has(p.carrier) && !UNTRACKABLE_CARRIERS.has(p.carrier))
   if (packages.length === 0) return finishShippoOnly()
 
   await register17track(packages, apiKey)
