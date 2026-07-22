@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-21
 
+- fix(settings): Shippo shows connected when configured via SHIPPO_API_TOKEN env var [XS]
+  - Prod report: env-var config worked for tracking but Settings showed Shippo disconnected, forcing the key into the UI. The `connected` badge only checked the client-visible setting — `/api/keys/status` never learned about Shippo. Added `shippo` to the endpoint + `getKeyStatus()`, the row's `connected` check, and the inline block now shows "Provided via env var" instead of the token field (mirrors 17track).
+
 - chore(deps): clear all npm/Dependabot vulnerabilities [S]
   - `npm audit fix` bumped the straightforward transitive trio: body-parser (DoS via invalid limit), brace-expansion ×3 paths (exponential-expansion DoS), js-yaml (merge-key quadratic CPU).
   - **sharp ^0.34.5 → ^0.35.3** (high: inherited libvips CVEs) — devDependency only (icon generation), never in the Docker image, so the 0.35 major is zero prod risk.

@@ -999,7 +999,7 @@ function IntegrationsPanel({
       key: 'shippo',
       label: 'Shippo (USPS tracking)',
       hint: 'USPS blocks third-party tracking since April 2026; Shippo is the USPS-authorized source. Without a token, USPS packages are link-out cards.',
-      connected: !!settings.shippo_api_token,
+      connected: envKeys.shippo || !!settings.shippo_api_token,
       inline: 'shippo',
     },
     {
@@ -1604,7 +1604,11 @@ function IntegrationsPanel({
                 )}
                 {int.inline === 'shippo' && (
                   <div className="v2-integrations-inline">
-                    <input type="password" className="v2-form-input" placeholder="Shippo live API token (shippo_live_…)" value={settings.shippo_api_token || ''} onChange={e => update('shippo_api_token', e.target.value)} />
+                    {envKeys.shippo ? (
+                      <div className="v2-integrations-hint">Provided via env var (SHIPPO_API_TOKEN).</div>
+                    ) : (
+                      <input type="password" className="v2-form-input" placeholder="Shippo live API token (shippo_live_…)" value={settings.shippo_api_token || ''} onChange={e => update('shippo_api_token', e.target.value)} />
+                    )}
                     <div className="v2-integrations-hint">Live token required — test tokens only track Shippo&apos;s mock carrier. Non-Shippo shipments bill per tracking number (~5¢).</div>
                   </div>
                 )}
