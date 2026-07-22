@@ -781,6 +781,85 @@ export function deleteTask(id) {
   schedulePersist()
 }
 
+// Merge a duplicate task into a survivor: fold in the duplicate's content
+// (notes under a provenance divider, tags/attachments/comments unioned,
+// checklists appended unless every item already exists verbatim), keep the
+// earliest due date, OR the opt-in flags, adopt any external links or
+// enrichment the survivor lacks, then delete the duplicate through the
+// normal evidence-preserving path (completion-day provenance + Pushover
+// receipt cancellation). Returns { survivor, duplicate } — duplicate is the
+// full pre-delete record so callers (Quokka rollback, GCal cleanup) can act
+// on it.
+export function mergeTasks(survivorId, duplicateId) {
+  if (survivorId === duplicateId) throw new Error('Cannot merge a task into itself')
+  const survivor = getTask(survivorId)
+  const dupe = getTask(duplicateId)
+  if (!survivor) throw new Error(`Task not found: ${survivorId}`)
+  if (!dupe) throw new Error(`Task not found: ${duplicateId}`)
+
+  const now = new Date().toISOString()
+
+  let notes = (survivor.notes || '').trim()
+  if ((dupe.notes || '').trim()) {
+    notes = [notes, `— merged from "${dupe.title}" (${now.slice(0, 10)}) —`, dupe.notes.trim()]
+      .filter(Boolean).join('\n\n')
+  }
+
+  const survivorItems = new Set(
+    (survivor.checklists || []).flatMap(c => (c.items || []).map(i => (i.text || '').trim().toLowerCase())),
+  )
+  const extraChecklists = (dupe.checklists || []).filter(c =>
+    (c.items || []).some(i => !survivorItems.has((i.text || '').trim().toLowerCase())),
+  )
+
+  const pickEarlier = (a, b) => {
+    if (!a) return b || null
+    if (!b) return a
+    return a <= b ? a : b
+  }
+
+  const updates = {
+    notes,
+    tags: [...new Set([...(survivor.tags || []), ...(dupe.tags || [])])],
+    checklists: [...(survivor.checklists || []), ...extraChecklists],
+    attachments: [...(survivor.attachments || []), ...(dupe.attachments || [])],
+    comments: [...(survivor.comments || []), ...(dupe.comments || [])],
+    due_date: pickEarlier(survivor.due_date, dupe.due_date),
+    high_priority: !!(survivor.high_priority || dupe.high_priority),
+    nag_allowed: !!(survivor.nag_allowed || dupe.nag_allowed),
+    updated_at: now,
+    last_touched: now,
+  }
+
+  // Adopt-if-missing scalars: external links + enrichment the survivor lacks.
+  const ADOPT = ['notion_page_id', 'notion_url', 'trello_card_id', 'trello_card_url',
+    'gcal_event_id', 'gcal_duration', 'gmail_message_id', 'routine_id',
+    'energy', 'energy_level', 'size', 'impact', 'assignee']
+  for (const k of ADOPT) {
+    if ((survivor[k] == null || survivor[k] === '') && dupe[k] != null && dupe[k] !== '') {
+      updates[k] = dupe[k]
+    }
+  }
+
+  // Whole-group adoptions — never interleave two ladders/chains.
+  if (!(survivor.follow_ups || []).length && (dupe.follow_ups || []).length) {
+    updates.follow_ups = dupe.follow_ups
+  }
+  if (!(survivor.escalation_rungs || []).length && (dupe.escalation_rungs || []).length) {
+    updates.escalation_rungs = dupe.escalation_rungs
+    updates.escalation_current_rung = dupe.escalation_current_rung
+    updates.escalation_attempt_log = dupe.escalation_attempt_log
+    updates.escalation_awaiting_advance = dupe.escalation_awaiting_advance
+    updates.escalation_stuck = dupe.escalation_stuck
+  }
+  const kIds = [...new Set([...(survivor.knowledge_page_ids || []), ...(dupe.knowledge_page_ids || [])])]
+  if (kIds.length) updates.knowledge_page_ids = kIds
+
+  updateTaskPartial(survivorId, updates)
+  deleteTask(duplicateId)
+  return { survivor: getTask(survivorId), duplicate: dupe }
+}
+
 export function queryTasks(filters = {}) {
   const clauses = []
   const params = []

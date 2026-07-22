@@ -4,6 +4,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-22
+
+- feat(tasks): merge duplicates — fold one task into another [M]
+  - User request: "say I have duplicates or whatever, I could log related/duplicate and merge tasks." One server-side primitive, three surfaces.
+  - **`mergeTasks(survivorId, duplicateId)` in `server/db.js`:** notes fold in under a provenance divider (`— merged from "title" (date) —`), tags/attachments/comments union, checklists append (skipped when every item already exists verbatim), earliest due date wins, `high_priority`/`nag_allowed` OR, adopt-if-missing scalars (Notion/Trello/GCal/Gmail links, routine_id, energy/size/impact/assignee), whole-group adoption for `follow_ups` and the escalation ladder (never interleaves two chains), knowledge-page ids union. The duplicate then goes through the normal `deleteTask` path (completion-day provenance stamped, Pushover Emergency receipts cancelled). No schema change.
+  - **`POST /api/tasks/:id/merge` `{duplicate_id}`** — returns the merged survivor; best-effort deletes the duplicate's own GCal event when the survivor keeps a different one (no ghost calendar copies); bump+broadcast.
+  - **Quokka `merge_tasks`** (adviserToolsTasks) — staged/destructive, plan-confirmed; LIFO compensation restores the survivor's pre-merge state and re-inserts the duplicate whole. "These two are the same thing, merge them" now works.
+  - **EditTaskModal "Merge duplicate" disclosure** — search picker over active tasks (open task is the survivor), inline confirm ("It will be deleted"), stays on the merged result afterward. Threaded `allTasks`/`onMerge` from AppV2; refetches server truth post-merge.
+  - Verified against a live scratch server: provenance divider, tag union, earliest-due, priority OR, adopted notion_page_id, duplicate 404s, self-merge 400s.
+
+- fix(tasks): "Notion ↗" connections chip no longer a dead link [XS]
+  - Prod report with screenshot: the Connections pill rendered `<a href={undefined}>` for any task whose `notion_url` is null — pull-synced and Quokka-linked tasks store only `notion_page_id`. The modal now derives the canonical `https://www.notion.so/<id-sans-dashes>` redirect when the stored URL is missing (both at form init and defensively at the anchor), which resolves for any page the viewer can access.
+
 ## 2026-07-21
 
 - fix(settings): Shippo shows connected when configured via SHIPPO_API_TOKEN env var [XS]

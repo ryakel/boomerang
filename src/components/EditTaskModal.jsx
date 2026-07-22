@@ -34,6 +34,7 @@ export default function EditTaskModal({
   childTasks = [],
   siblingSubs = [],
   onLogSession, onAddChild, onOpenTask,
+  allTasks = [], onMerge,
   onSetEscalationRungs, onLogEscalationAttempt, onAdvanceEscalationRung,
   onDismissEscalationAdvancePrompt, onResolveEscalation, onBrainstormEscalation,
 }) {
@@ -49,8 +50,31 @@ export default function EditTaskModal({
     lowPriority: task.low_priority || false,
     sizeInferred: !!task.size_inferred,
     attachments: task.attachments || [],
-    notion: task.notion_page_id ? { id: task.notion_page_id, url: task.notion_url } : null,
+    // notion_url is often null (pull-synced / Quokka-linked tasks store only
+    // the page id) — the canonical notion.so/<id-sans-dashes> redirect works
+    // for any page the viewer can access, so derive it rather than render a
+    // dead "Notion ↗" chip with href=undefined.
+    notion: task.notion_page_id
+      ? {
+          id: task.notion_page_id,
+          url: task.notion_url || `https://www.notion.so/${String(task.notion_page_id).replace(/-/g, '')}`,
+        }
+      : null,
   })
+
+  // Merge-duplicate state (search → pick → confirm; the actual merge is
+  // server-side via onMerge → POST /api/tasks/:id/merge).
+  const [mergeQuery, setMergeQuery] = useState('')
+  const [mergePick, setMergePick] = useState(null)
+  const [mergeBusy, setMergeBusy] = useState(false)
+  const [mergeError, setMergeError] = useState(null)
+  const mergeCandidates = useMemo(() => {
+    const q = mergeQuery.trim().toLowerCase()
+    if (q.length < 2) return []
+    return allTasks
+      .filter(t => t.id !== task.id && t.status !== 'done' && (t.title || '').toLowerCase().includes(q))
+      .slice(0, 8)
+  }, [mergeQuery, allTasks, task.id])
 
   // Research state — inline because only EditTaskModal supports it; not worth
   // promoting into useTaskForm since AddTaskModal doesn't use it.
@@ -1144,7 +1168,11 @@ export default function EditTaskModal({
         <div className="v2-edit-connections">
           {form.notionResult ? (
             <div className="v2-edit-connection-pill v2-edit-connection-linked">
-              <a href={form.notionResult.url} target="_blank" rel="noopener noreferrer">Notion ↗</a>
+              <a
+                href={form.notionResult.url || (form.notionResult.id ? `https://www.notion.so/${String(form.notionResult.id).replace(/-/g, '')}` : undefined)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >Notion ↗</a>
               <button
                 type="button"
                 className="v2-edit-connection-unlink"
@@ -1226,6 +1254,68 @@ export default function EditTaskModal({
         )}
       </div>
       </FormDisclosure>
+
+      {onMerge && (
+        <FormDisclosure label="Merge duplicate">
+          <div className="v2-form-section v2-form-section-compact">
+            <div className="v2-edit-notion-reason">
+              Fold another task into this one — its notes, checklist, tags and links move
+              here (earliest due date wins), and the other task is deleted.
+            </div>
+            <input
+              type="text"
+              className="v2-form-input"
+              placeholder="Search tasks to merge in…"
+              value={mergeQuery}
+              onChange={e => { setMergeQuery(e.target.value); setMergePick(null); setMergeError(null) }}
+            />
+            {!mergePick && mergeCandidates.length > 0 && (
+              <ul className="v2-edit-notion-list">
+                {mergeCandidates.map(t => (
+                  <li key={t.id}>
+                    <button type="button" className="v2-edit-notion-page" onClick={() => setMergePick(t)}>
+                      {t.title}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {mergePick && (
+              <div className="v2-edit-merge-confirm">
+                <div className="v2-edit-notion-reason">
+                  Merge &ldquo;{mergePick.title}&rdquo; into this task? It will be deleted.
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="v2-settings-btn"
+                    disabled={mergeBusy}
+                    onClick={async () => {
+                      setMergeBusy(true)
+                      setMergeError(null)
+                      try {
+                        await onMerge(task.id, mergePick.id)
+                        setMergePick(null)
+                        setMergeQuery('')
+                      } catch (e) {
+                        setMergeError(e.message || 'Merge failed')
+                      } finally {
+                        setMergeBusy(false)
+                      }
+                    }}
+                  >
+                    {mergeBusy ? 'Merging…' : 'Merge'}
+                  </button>
+                  <button type="button" className="v2-settings-btn" disabled={mergeBusy} onClick={() => setMergePick(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {mergeError && <div className="v2-form-error">{mergeError}</div>}
+          </div>
+        </FormDisclosure>
+      )}
 
       {labels.length > 0 && (
         <FormDisclosure
