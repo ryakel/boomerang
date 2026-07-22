@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-21
 
+- chore(deps): clear all npm/Dependabot vulnerabilities [S]
+  - `npm audit fix` bumped the straightforward transitive trio: body-parser (DoS via invalid limit), brace-expansion ×3 paths (exponential-expansion DoS), js-yaml (merge-key quadratic CPU).
+  - **sharp ^0.34.5 → ^0.35.3** (high: inherited libvips CVEs) — devDependency only (icon generation), never in the Docker image, so the 0.35 major is zero prod risk.
+  - **`@hono/node-server` forced to ^2.0.5 via npm overrides** (moderate: Windows-only path traversal in `serve-static`) — the MCP SDK pins ^1.19.x with no patched 1.x available. Boomerang uses the SDK strictly as a CLIENT (outbound to mcp.notion.com; the vulnerable server-static path is never exercised, and prod is Linux), so the out-of-range major is belt-and-suspenders; verified the SDK client entry + `notionMCP.js` load cleanly under the override and the full suite + boot smoke pass. If a future MCP SDK upgrade breaks against hono 2.x, the override is the first thing to suspect — it can be dropped once the SDK ships with a patched adapter.
+  - `npm audit`: **0 vulnerabilities**. 26/26 tests, smoke test green.
+
 - feat(packages): Shippo becomes the USPS tracking backend — live USPS status is back [M]
   - Follow-up to the link-out change below, closing the loop the same day: a live Shippo API call against the user's active Ground Advantage number returned FULL recipient-side tracking (event history, ETA, service level) post-cutover — Shippo's USPS-authorized position survived the April 1 Mailer-ID lockdown that killed 17track's standard-plan USPS access. Verified before building, per the "test with a free account before building" note.
   - **`server/shippoTracking.js`** (new): `shippoGetTrack()` — `GET api.goshippo.com/tracks/{carrier}/{number}`, 15s timeout, maps Shippo statuses (PRE_TRANSIT/TRANSIT/DELIVERED/RETURNED/FAILURE/UNKNOWN + `out_for_delivery` substatus) onto boomerang's, reverses the oldest-first history to the app's newest-first shape, null on any failure. Deliberately polling-only: the server is tailnet-private (no inbound webhooks) and USPS is NOT on Shippo's webhook-only carrier list. `shippoProbe()` validates auth free via the mock carrier's test numbers.
