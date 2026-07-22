@@ -5,7 +5,7 @@
 
 import crypto from 'crypto'
 import {
-  upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial,
+  upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial, mergeTasks,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
   reconcileRoutineHistory,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
@@ -557,6 +557,32 @@ export function registerTaskTools() {
       return {
         result: { id, deleted: true },
         compensation: async () => { upsertTask(before) },
+      }
+    },
+  })
+
+  registerTool({
+    name: 'merge_tasks',
+    description: 'Merge a duplicate task into a survivor. Folds the duplicate\'s notes (under a provenance divider), tags, checklists, attachments and comments into the survivor, keeps the earliest due date, ORs high-priority/nag opt-ins, adopts external links (Notion/Trello/GCal/Gmail) and enrichment the survivor lacks, then DELETES the duplicate. Use when the user says two tasks are duplicates or the same thing. The survivor keeps its own title. Destructive — always goes through plan confirmation.',
+    schema: {
+      type: 'object',
+      properties: {
+        survivor_id: { type: 'string', description: 'The task that remains after the merge' },
+        duplicate_id: { type: 'string', description: 'The task folded into the survivor and then deleted' },
+      },
+      required: ['survivor_id', 'duplicate_id'],
+    },
+    preview: (args) => `Merge "${taskLabel(args.duplicate_id)}" into "${taskLabel(args.survivor_id)}" (duplicate is deleted)`,
+    execute: async ({ survivor_id, duplicate_id }) => {
+      const beforeSurvivor = getTask(survivor_id)
+      const beforeDupe = getTask(duplicate_id)
+      if (!beforeSurvivor) throw new Error(`Task not found: ${survivor_id}`)
+      if (!beforeDupe) throw new Error(`Task not found: ${duplicate_id}`)
+      const { survivor } = mergeTasks(survivor_id, duplicate_id)
+      return {
+        result: { survivor: summarizeTask(survivor), merged_from: duplicate_id },
+        // LIFO restore: survivor back to its pre-merge state, duplicate re-inserted whole.
+        compensation: async () => { upsertTask(beforeSurvivor); upsertTask(beforeDupe) },
       }
     },
   })
