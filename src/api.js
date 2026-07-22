@@ -814,6 +814,7 @@ export async function getKeyStatus() {
       trello: !!data.trello,
       gcal: !!data.gcal,
       tracking: !!data.tracking,
+      shippo: !!data.shippo,
     }
   } catch {
     return { anthropic: false, notion: false, trello: false, tracking: false }

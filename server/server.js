@@ -352,6 +352,7 @@ app.get('/api/keys/status', (req, res) => {
     trello: !!(envTrelloKey && envTrelloToken),
     gcal: !!(envGoogleClientId && envGoogleClientSecret),
     tracking: !!getTrackingApiKey(),
+    shippo: !!envShippoToken,
     smtp: !!envSmtpHost,
   })
 })
