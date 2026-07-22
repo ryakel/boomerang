@@ -59,7 +59,7 @@ import { useTrelloSync } from './hooks/useTrelloSync'
 import { useNotionSync } from './hooks/useNotionSync'
 import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
-import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss } from './api'
+import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss, mergeTasks as apiMergeTasks } from './api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS, isCrisisTask } from './store'
 import { computeRecords, calculateTaskPoints } from './scoring'
 import { applyTheme, watchSystemTheme } from './theme'
@@ -1612,6 +1612,13 @@ export default function AppV2() {
             handleAddChildToProject(project)
           }}
           onOpenTask={(otherTask) => setEditTarget(otherTask)}
+          allTasks={tasks}
+          onMerge={async (survivorId, duplicateId) => {
+            const merged = await apiMergeTasks(survivorId, duplicateId)
+            await refetchFromServer()
+            setEditTarget(merged) // stay on the merged result
+            return merged
+          }}
           onSetEscalationRungs={setEscalationRungs}
           onLogEscalationAttempt={logEscalationAttempt}
           onAdvanceEscalationRung={advanceEscalationRung}

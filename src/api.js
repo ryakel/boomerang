@@ -1872,3 +1872,18 @@ export async function aiSearchActivity(query, items) {
   if (!res.ok) throw new Error(`Search failed: ${res.status}`)
   return res.json()
 }
+
+// Merge a duplicate task into a survivor (server-side — combines content,
+// keeps earliest due date, adopts missing external links, deletes the dupe).
+export async function mergeTasks(survivorId, duplicateId) {
+  const res = await fetch(`/api/tasks/${encodeURIComponent(survivorId)}/merge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ duplicate_id: duplicateId }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || `Merge failed (${res.status})`)
+  }
+  return res.json()
+}

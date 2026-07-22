@@ -29,7 +29,7 @@ import {
   sendPackagePushover, cancelEmergencyForTask as cancelPushoverEmergencyForTask,
   sendDigestNow,
 } from './pushoverNotifications.js'
-import { upsertPushSubscription, deletePushSubscription, getAllPushSubscriptions, deletePushSubscriptionById, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle, getAllTasks } from './db.js'
+import { upsertPushSubscription, deletePushSubscription, getAllPushSubscriptions, deletePushSubscriptionById, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle, getAllTasks, mergeTasks } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling, getGmailAccessToken } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
 import { startPatternDetection, runPatternScan } from './patternDetection.js'
@@ -796,6 +796,37 @@ app.post('/api/tasks/:id/escalation/dismiss-prompt', (req, res) => {
     res.json({ task, version: newVersion })
   } catch (err) {
     res.status(400).json({ error: err.message })
+  }
+})
+
+// Merge a duplicate task into a survivor (semantics: mergeTasks in db.js).
+app.post('/api/tasks/:id/merge', async (req, res) => {
+  const dupeId = req.body?.duplicate_id
+  if (!dupeId) return res.status(400).json({ error: 'duplicate_id required' })
+  try {
+    const { survivor, duplicate } = mergeTasks(req.params.id, dupeId)
+    // Best-effort: if the duplicate carried its own calendar event and the
+    // survivor kept a different one, remove the dupe's event so the calendar
+    // doesn't keep a ghost copy. Failure here never fails the merge.
+    if (duplicate.gcal_event_id && duplicate.gcal_event_id !== survivor.gcal_event_id) {
+      try {
+        const accessToken = await getGCalAccessToken()
+        if (accessToken) {
+          const settings = getData('settings') || {}
+          const calId = encodeURIComponent(settings.gcal_calendar_id || 'primary')
+          await fetch(`${GCAL_BASE}/calendars/${calId}/events/${encodeURIComponent(duplicate.gcal_event_id)}`, {
+            method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` },
+          })
+        }
+      } catch (e) {
+        console.warn(`[Tasks] merge: could not remove duplicate's calendar event: ${e.message}`)
+      }
+    }
+    const newVersion = bumpVersion()
+    broadcast(newVersion, req.body?._clientId || req.headers['x-client-id'])
+    res.json(survivor)
+  } catch (e) {
+    res.status(400).json({ error: e.message })
   }
 })
 

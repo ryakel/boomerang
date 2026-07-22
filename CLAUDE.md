@@ -951,7 +951,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 
 **Server modules:**
 - `adviserTools.js` — registry, session/plan storage (10-min TTL, 1-min sweep), `handleToolCall()`, `commitPlan()` with rollback
-- `adviserToolsTasks.js` — 22 task + routine tools (incl. 4 Sequences chain editors: `add_follow_up`, `edit_follow_up`, `remove_follow_up`, `reorder_follow_ups`; + `reconcile_loops`)
+- `adviserToolsTasks.js` — 23 task + routine tools (incl. 4 Sequences chain editors: `add_follow_up`, `edit_follow_up`, `remove_follow_up`, `reorder_follow_ups`; + `reconcile_loops`, `merge_tasks`)
 - `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools
 - `adviserToolsMisc.js` — Gmail + packages + weather + settings + analytics + growth-area + notes tools (incl. `check_integrations`, the live cross-integration health probe)
 - `adviserToolsKnowledge.js` — 9 knowledge-base tools (search, get, refresh, list, create, update, delete, link/unlink to tasks)
@@ -966,7 +966,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 | `GET /api/adviser/tools` | Returns the full tool inventory (name + description) for debugging. |
 
 **Tool categories & counts:**
-- Tasks (12): search, get, create (with optional `checklist_items` for multi-part tasks), update, delete, complete, reopen, snooze, move_to_projects, move_to_backlog, activate, research_task (append AI-researched notes with web search)
+- Tasks (13): search, get, create (with optional `checklist_items` for multi-part tasks), update, delete, complete, reopen, snooze, move_to_projects, move_to_backlog, activate, research_task (append AI-researched notes with web search), merge_tasks (fold a duplicate into a survivor — content combined, earliest due date, external links adopted, duplicate deleted; server primitive `mergeTasks()` in db.js, also behind `POST /api/tasks/:id/merge` + the EditTaskModal "Merge duplicate" picker)
 - Routines (7): list, get, create, update, delete, spawn_now, reconcile_loops (stamp completed_history for stuck-open cadence loops whose tasks are done — staged + LIFO-compensated; idempotent; skips stacks + habit loops)
 - Anthropic server-side `web_search` available in the main chat loop — Quokka can look up current info (prices, news, current best-practices) live during a reply, not just from training data
 - Google Calendar (5): list calendars, list events, create/update/delete events
