@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { Plus, Package as PackageIcon, RefreshCw, Trash2, ExternalLink } from 'lucide-react'
 import CarrierLogo from './CarrierLogo'
 import { detectCarrier, getTrackingUrl } from '../utils/carrierDetect'
+import { updatePackage } from '../api'
+import { loadSettings } from '../store'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import './PackagesModal.css'
@@ -38,21 +40,43 @@ function timeAgo(timestamp) {
 function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
   const [refreshing, setRefreshing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Link-only cards get no carrier ETA, so the user can set one by hand
+  // (optimistic local copy — the server PATCH lands and syncs on the next
+  // hydrate, but the card should reflect the pick instantly).
+  const [localEta, setLocalEta] = useState(undefined)
   useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
 
-  // USPS blocks third-party tracking (Mailer-ID lockdown, April 2026 — 17track
-  // only serves it on a paid "Special Carriers" plan), so USPS rows are
-  // link-out cards: no polling, no refresh, just the carrier-site link.
-  // Mirrors the server's UNTRACKABLE_CARRIERS gate.
-  const untrackable = pkg.carrier === 'usps'
+  // Link-out cards — no polling, no refresh, just the carrier-site link.
+  // Mirrors the server's UNTRACKABLE_CARRIERS/SHIPPO_CARRIERS gates:
+  // - Amazon TBA numbers are untrackable by ANY third party (they live inside
+  //   Amazon's own systems) — always link-out, to track.amazon.com.
+  // - USPS blocks third-party tracking (Mailer-ID lockdown, April 2026);
+  //   with a Shippo token configured it tracks normally via Shippo, without
+  //   one it's link-out. (events check: a server-side SHIPPO_API_TOKEN env
+  //   var tracks USPS without the setting existing client-side — populated
+  //   events always win.)
+  const untrackable = pkg.carrier === 'amazon'
+    || (pkg.carrier === 'usps' && !loadSettings()?.shippo_api_token && !(pkg.events?.length))
   const meta = untrackable
     ? { label: 'Link only', tone: 'pending' }
     : (STATUS_META[pkg.status] || STATUS_META.pending)
   const events = pkg.events || []
   const trackUrl = getTrackingUrl(pkg.carrier, pkg.tracking_number)
+  const effectiveEta = localEta === undefined ? pkg.eta : localEta
   const summaryEta = pkg.status === 'delivered'
     ? (pkg.delivered_at ? `Delivered ${timeAgo(pkg.delivered_at)}` : null)
-    : (pkg.eta ? `ETA ${formatEta(pkg.eta)}` : null)
+    : (effectiveEta ? `ETA ${formatEta(effectiveEta)}` : null)
+
+  const handleEtaChange = async (value) => {
+    // Local noon avoids the UTC-midnight date-drift trap (repo convention).
+    const eta = value ? `${value}T12:00:00` : null
+    setLocalEta(eta)
+    try {
+      await updatePackage(pkg.id, { eta })
+    } catch {
+      setLocalEta(undefined) // revert to server truth on failure
+    }
+  }
 
   const handleRefresh = async (e) => {
     e.stopPropagation()
@@ -97,10 +121,25 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
             )}
           </div>
           {untrackable ? (
-            <div className="v2-package-detail-empty">
-              USPS stopped allowing third-party tracking (April 2026), so live status
-              isn&apos;t available here — use the USPS site below.
-            </div>
+            <>
+              <div className="v2-package-detail-empty">
+                {pkg.carrier === 'amazon'
+                  ? 'Amazon delivers TBA packages through its own network — live status only exists in your Amazon account. Use the link below (sign-in required).'
+                  : 'USPS stopped allowing third-party tracking (April 2026), so live status isn’t available here — use the USPS site below, or add a Shippo token in Settings → Integrations to track USPS in-app.'}
+              </div>
+              <div className="v2-package-eta-row">
+                <span className="v2-package-eta-label">Expect by</span>
+                <input
+                  type="date"
+                  className="v2-form-input v2-package-eta-input"
+                  value={effectiveEta ? String(effectiveEta).slice(0, 10) : ''}
+                  onChange={e => handleEtaChange(e.target.value)}
+                />
+                {effectiveEta && (
+                  <button className="v2-package-action" onClick={() => handleEtaChange('')}>Clear</button>
+                )}
+              </div>
+            </>
           ) : events.length > 0 ? (
             <ol className="v2-package-events">
               {events.slice(0, 8).map((evt, i) => (
@@ -143,7 +182,7 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
                 rel="noopener noreferrer"
                 onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(trackUrl, '_blank', 'noopener,noreferrer') }}
               >
-                <ExternalLink size={14} strokeWidth={1.75} /> {untrackable ? 'Track on USPS.com' : 'Carrier site'}
+                <ExternalLink size={14} strokeWidth={1.75} /> {!untrackable ? 'Carrier site' : pkg.carrier === 'amazon' ? 'Track on Amazon' : 'Track on USPS.com'}
               </a>
             )}
             {!confirmDelete ? (

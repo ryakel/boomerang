@@ -13,6 +13,7 @@
 | `GOOGLE_CLIENT_ID` | No | — | Google OAuth Client ID for Calendar sync (users can add in UI) |
 | `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth Client Secret for Calendar sync (users can add in UI) |
 | `TRACKING_API_KEY` | No | — | 17track API key for package tracking (users can add in UI). Free tier: 100 queries/day. Get key at [api.17track.net](https://api.17track.net) |
+| `SHIPPO_API_TOKEN` | No | — | Shippo **live** API token — the USPS tracking backend (USPS blocks third-party tracking since April 2026; 17track can't serve it on the standard plan). Users can add in UI (`shippo_api_token` setting); env wins when both are set. Without it, USPS packages are link-out cards. Non-Shippo shipments bill ~5¢/tracking number. Get a token at [goshippo.com](https://goshippo.com) |
 | `PUSHOVER_DEFAULT_APP_TOKEN` | No | — | Pushover application token used as fallback if not set in Settings UI. Per-user keys are still required. Get a token at [pushover.net](https://pushover.net). |
 | `PUBLIC_APP_URL` | No | — | Public URL where Boomerang is reachable (e.g. `https://boomerang.example.com`). Used to build deep-link URLs in notifications so tapping opens the relevant task. Without this, notifications still send but aren't tappable. |
 | `APP_VERSION` | No | `dev` | Version string injected at build time (used if git tags are unavailable) |
