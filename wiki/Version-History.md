@@ -4,6 +4,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-24
+
+- feat(tasks): task model extensions — intentions, first steps, pick-three, punishment-free re-entry, locations [L]
+  - Step 1 of the task-model → digest-reshape → watch-app sequence: extends the schema + API so implementation intentions, shrink-it, punishment-free re-entry, location reminders, and the watch app all land on a model that already supports them. No UI changes; existing clients unaffected (all columns nullable/defaulted).
+  - **Schema (migration 046):** `intention_when`/`intention_where` (free-text implementation-intention triggers — the value is the commitment phrasing, not machine parsing), `first_step` (shrink-it, ≤140 chars enforced at the API), `location_json` (`{lat, lng, radius_m 50–1000 default 150, label, trigger arrive|leave}` — stored now, geofence delivery later), `committed_on` (pick-three day), `boomerang_count` + `last_boomeranged_at` (came-back-around data, never a shame counter), `released_at` ("let it go" outcome stamp).
+  - **State is DERIVED, not stored** (per design decision — spec adapted): `server/taskModel.js` computes `open | committed | boomeranged | shelved | done | archived` from the existing `status` machinery + the 046 fields, so there is exactly one source of truth and nothing can drift. Mappings: shelved = backlog/project/set-aside/running snooze (the spec's shelve-with-snooze IS a snooze); archived = done older than 7 days (age-derived — analytics/streaks read `status='done'` rows untouched) or released; boomeranged = committed on a past day, transient until the rollover returns it to the pool.
+  - **Verb endpoints** (semantic actions, 409 on illegal transitions with clear messages): `POST /api/tasks/:id/commit` (three-task ceiling, 409 returns the current three, `force=true` override logged), `/uncommit` (changing your mind ≠ slipping — no boomerang increment), `/complete`, `/shrink` (422 "that's a task, not a first step — shrink it further" past 140 chars), `/shelve` (optional `snooze_until`), `/unshelve`, `/let-go` (→ archived, `outcome: "released"` — first-class, not a delete). `GET /api/tasks` gains `?state=`, `?has_location=true`, `?committed_today=true` filters; POST/PATCH `/api/tasks` accept + validate all new fields.
+  - **`GET /api/today`** — the pick-three payload, shaped for the watch: committed tasks with intentions + first steps + done flags, gentle-return count (aggregate, never itemized-with-counts), open count, `timer: null` forward-shape. One pass over the in-process table — single round trip by construction.
+  - **Nightly rollover:** boot + every 30 min, in `settings.user_timezone` (default America/Chicago) — committed tasks the day rolled past return to the pool (`committed_on` cleared, `boomerang_count` incremented, `last_boomeranged_at` stamped). Idempotent by construction (the mutation clears its own precondition); data maintenance, never muzzled.
+  - **Language rule enforced:** word-boundary grep of the new module, migration, route block, and rollover — zero hits for the four banned punishment words. (Scope per user decision: new surfaces only; the existing nag engine's overdue escalation is deliberately untouched.)
+  - **Verified:** 16 new unit tests in `scripts/taskmodel.test.mjs` (every state, rollover plan, 3×-run chaos drill, validation bounds) wired into `npm test`; live scratch-server drill — migration on a populated DB, ceiling + force, every verb's legal/illegal paths, intention/location round-trip + 422s, backdated commitment → boot rollover → `boomerang_count=1` + `/api/today` `returned_count=1`, second boot a no-op.
+
 ## 2026-07-22
 
 - feat(tasks): merge duplicates — fold one task into another [M]
@@ -83,12 +95,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 - feat(api): voice capture endpoint + "Boomerang Capture" Siri shortcut [M]
   - **Goal:** a thought exits the head hands-free — "Hey Siri, Boomerang Capture" → dictate → task in the inbox within seconds, from phone, Watch, or CarPlay. New `POST /api/capture` (`{ text, source? }` → 201 with the created task) rides the existing auth gate (API token). Capture is deliberately dumb — no project, no due date, no priority; the background auto-sizer refines size/energy like every other create path.
-  - **Provenance:** migration 045 adds `tasks.capture_source` (NULL = not capture-created; `'siri'`/`'shortcut'`/`'manual'`/`'api'`) so a future digest can call out voice-captured items for triage. Wired through `taskToRow`/`rowToTask`/upsert in `server/db.js`; survives partial updates via the merge-then-upsert path.
+  - **Provenance:** migration 046 adds `tasks.capture_source` (NULL = not capture-created; `'siri'`/`'shortcut'`/`'manual'`/`'api'`) so a future digest can call out voice-captured items for triage. Wired through `taskToRow`/`rowToTask`/upsert in `server/db.js`; survives partial updates via the merge-then-upsert path.
   - **Never lose a capture:** text trimmed, empty → 400, capped at 2,000 chars; long dictation keeps the first 500 chars as the title and preserves the FULL text in notes instead of silently truncating (unlike `/api/intake`'s 500-char slice). Failures return 5xx so the Shortcut visibly errors — no silent drops.
   - **Hardening:** in-route sliding-window rate limit (30/min, `createRateLimiter` in the new `server/capture.js`) so a leaked token can't become a spam cannon; `authGate` in `auth.js` now logs rejected requests (method + path + IP, never the credential).
   - **Tests:** `scripts/capture.test.mjs` (wired into `npm test`) — unit tests for validation/title-split/rate limiter, plus real-HTTP tests against a spawned server with auth enabled: 401 missing/bad token, 201 happy path (source stamped, inferred flags correct), 400 empty text.
   - **Docs:** new `wiki/Capture-Shortcut.md` (2-minute Shortcuts recipe: Dictate Text → Get Contents of URL → notification confirmation, Watch enabled); Phase 2 (parameterized native App Intent phrase, offline queue-and-sync, pointing the native intent at `/api/capture`) queued in `wiki/UPCOMING_FEATURES.md`, not built.
-
 ## 2026-07-18
 
 - feat(tasks): Notes — leave a note without creating a task [L]
