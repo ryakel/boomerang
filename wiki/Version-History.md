@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-24
 
+- feat(packages): rename a package after creation [S]
+  - Prod report: "I don't have a way to edit existing tracking. Example I'd like to change the title." The server (`PATCH /api/packages/:id` accepts `label`) and the client hook (`usePackages.editPackage`) both supported it since the feature shipped — there was just no UI affordance anywhere. The expanded package card now has a **Rename** action: inline input (Enter or Save commits, Cancel reverts; empty label deliberately allowed — the card falls back to showing the tracking number), threaded AppV2 → PackagesModal → PackageRow via the previously-unwired `editPackage`. Verified headless: rename through the UI landed in client state and on the server.
+
 - feat(tasks): task model extensions — intentions, first steps, pick-three, punishment-free re-entry, locations [L]
   - Step 1 of the task-model → digest-reshape → watch-app sequence: extends the schema + API so implementation intentions, shrink-it, punishment-free re-entry, location reminders, and the watch app all land on a model that already supports them. No UI changes; existing clients unaffected (all columns nullable/defaulted).
   - **Schema (migration 046):** `intention_when`/`intention_where` (free-text implementation-intention triggers — the value is the commitment phrasing, not machine parsing), `first_step` (shrink-it, ≤140 chars enforced at the API), `location_json` (`{lat, lng, radius_m 50–1000 default 150, label, trigger arrive|leave}` — stored now, geofence delivery later), `committed_on` (pick-three day), `boomerang_count` + `last_boomeranged_at` (came-back-around data, never a shame counter), `released_at` ("let it go" outcome stamp).

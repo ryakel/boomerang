@@ -405,6 +405,7 @@ Track packages from any carrier with automatic status updates, notifications, an
 - **Status-colored cards** — pending (gray), in transit (blue), out for delivery (teal), delivered (green), exception (red), expired (dim gray). Carrier logos displayed on each card.
 - **Carrier links** — every card has a "Track on [Carrier]" link that opens the carrier's website with the tracking number pre-filled. Works even without an API key.
 - **Detail modal** — tap a card to see the full tracking timeline with events, locations, and timestamps. ETA shown in the status banner.
+- **Rename** — expand a card and hit Rename to change its title any time after creation (clearing the label falls back to showing the tracking number).
 - **Sorting** — sort by status (default, grouped by Issues/Active/Delivered), delivery date (flat by ETA), or carrier (grouped by carrier name).
 - **Batch refresh** — refresh-all button in the header polls all active packages in one batched API call. Pull-to-refresh triggers the same batch refresh.
 - **Auto-refresh on open** — app loads cached data instantly, then silently refreshes all packages from 17track in the background. Cards update automatically via SSE.

@@ -464,6 +464,7 @@ Track packages with auto carrier detection, adaptive server-side polling, and de
 
 **UI Features:**
 - Sort by status (default), delivery date, or carrier
+- Rename after creation (2026-07-24): expanded card → Rename → inline label edit (empty label falls back to the tracking number); rides the existing `PATCH /api/packages/:id` + `usePackages.editPackage`, which existed but had no UI affordance
 - Duplicate tracking number detection (client + server)
 - Animated swipe-to-reveal actions (matching TaskCard pattern)
 - Pull-to-refresh triggers batch refresh-all

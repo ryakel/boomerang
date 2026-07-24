@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Package as PackageIcon, RefreshCw, Trash2, ExternalLink } from 'lucide-react'
+import { Plus, Package as PackageIcon, RefreshCw, Trash2, ExternalLink, Pencil } from 'lucide-react'
 import CarrierLogo from './CarrierLogo'
 import { detectCarrier, getTrackingUrl } from '../utils/carrierDetect'
 import { updatePackage } from '../api'
@@ -37,14 +37,19 @@ function timeAgo(timestamp) {
   return `${days}d ago`
 }
 
-function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
+function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete, onEdit }) {
   const [refreshing, setRefreshing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Rename — the label is editable after creation (prod report: "I don't
+  // have a way to edit existing tracking… I'd like to change the title").
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const [savingRename, setSavingRename] = useState(false)
   // Link-only cards get no carrier ETA, so the user can set one by hand
   // (optimistic local copy — the server PATCH lands and syncs on the next
   // hydrate, but the card should reflect the pick instantly).
   const [localEta, setLocalEta] = useState(undefined)
-  useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
+  useEffect(() => { if (!expanded) { setConfirmDelete(false); setRenaming(false) } }, [expanded])
 
   // Link-out cards — no polling, no refresh, just the carrier-site link.
   // Mirrors the server's UNTRACKABLE_CARRIERS/SHIPPO_CARRIERS gates:
@@ -85,6 +90,22 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
       await onRefresh(pkg.id)
     } finally {
       setRefreshing(false)
+    }
+  }
+
+  const startRename = () => {
+    setRenameValue(pkg.label || '')
+    setRenaming(true)
+  }
+
+  const saveRename = async () => {
+    setSavingRename(true)
+    try {
+      // Empty label is a valid choice — the card falls back to the number.
+      await onEdit(pkg.id, { label: renameValue.trim() })
+      setRenaming(false)
+    } catch { /* row keeps editing state so the input isn't lost */ } finally {
+      setSavingRename(false)
     }
   }
 
@@ -163,7 +184,31 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
           ) : (
             <div className="v2-package-detail-empty">No tracking events yet. Check back soon.</div>
           )}
+          {renaming && (
+            <div className="v2-package-rename-row">
+              <input
+                className="v2-form-input v2-package-rename-input"
+                placeholder="Label (empty shows the tracking number)"
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveRename() }}
+                maxLength={120}
+                autoFocus
+              />
+              <button className="v2-package-action" onClick={saveRename} disabled={savingRename}>
+                {savingRename ? 'Saving…' : 'Save'}
+              </button>
+              <button className="v2-package-action" onClick={() => setRenaming(false)} disabled={savingRename}>
+                Cancel
+              </button>
+            </div>
+          )}
           <div className="v2-package-actions">
+            {!renaming && (
+              <button className="v2-package-action" onClick={startRename}>
+                <Pencil size={14} strokeWidth={1.75} /> Rename
+              </button>
+            )}
             {!untrackable && (
               <button
                 className="v2-package-action"
@@ -214,7 +259,7 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete }) {
 }
 
 export default function PackagesModal({
-  open, packages, onAdd, onDelete, onRefresh, onRefreshAll, onClose,
+  open, packages, onAdd, onDelete, onRefresh, onRefreshAll, onEdit, onClose,
 }) {
   const [trackingInput, setTrackingInput] = useState('')
   const [labelInput, setLabelInput] = useState('')
@@ -339,6 +384,7 @@ export default function PackagesModal({
               onToggleExpand={() => setExpandedId(expandedId === pkg.id ? null : pkg.id)}
               onRefresh={onRefresh}
               onDelete={onDelete}
+              onEdit={onEdit}
             />
           ))}
         </ul>
