@@ -61,6 +61,10 @@ import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
 import { normalizeCapture, createRateLimiter } from './capture.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
+import {
+  deriveTaskState, rolloverPlan, todayPayload, validateFirstStep, validateLocation,
+  ymdInTz, isActiveStatus, COMMIT_CEILING, DEFAULT_TIMEZONE,
+} from './taskModel.js'
 
 // Register adviser tools once at module load
 registerTaskTools()
@@ -616,9 +620,47 @@ app.get('/api/analytics/history', (req, res) => {
   res.json(getAnalyticsHistory(days))
 })
 
+// --- Task model extensions (migration 046) helpers ---
+// State is DERIVED from the existing `status` machinery + the 046 fields
+// (see server/taskModel.js) — there is no `state` column, so the two can
+// never drift. All copy in this layer is forward-looking by rule.
+
+function userTimezone() {
+  return (getData('settings') || {}).user_timezone || DEFAULT_TIMEZONE
+}
+
+function localTodayYMD() {
+  return ymdInTz(new Date(), userTimezone())
+}
+
+// Validates/normalizes the 046 fields on any generic task write. Returns an
+// error string or null (mutates body in place with normalized values).
+function applyTaskModelValidation(body) {
+  if (body && 'first_step' in body) {
+    const r = validateFirstStep(body.first_step)
+    if (!r.ok) return r.error
+    body.first_step = r.value
+  }
+  if (body && 'location' in body && body.location != null) {
+    const r = validateLocation(body.location)
+    if (!r.ok) return r.error
+    body.location = r.value
+  }
+  return null
+}
+
 // --- Per-record Task API ---
 app.get('/api/tasks', (req, res) => {
-  const tasks = queryTasks(req.query)
+  let tasks = queryTasks(req.query)
+  // Task-model filters (additive): ?state=, ?has_location=true,
+  // ?committed_today=true — applied over the derived state.
+  const { state, has_location, committed_today } = req.query
+  if (state || has_location === 'true' || committed_today === 'true') {
+    const todayYMD = localTodayYMD()
+    if (state) tasks = tasks.filter(t => deriveTaskState(t, { todayYMD }) === state)
+    if (has_location === 'true') tasks = tasks.filter(t => !!t.location)
+    if (committed_today === 'true') tasks = tasks.filter(t => t.committed_on === todayYMD)
+  }
   res.json(tasks)
 })
 
@@ -631,6 +673,8 @@ app.get('/api/tasks/:id', (req, res) => {
 app.post('/api/tasks', (req, res) => {
   const task = req.body
   if (!task.id) return res.status(400).json({ error: 'Task must have an id' })
+  const invalid = applyTaskModelValidation(task)
+  if (invalid) return res.status(422).json({ error: invalid })
   // Duplicate-spawn guard: only on genuine CREATEs (an existing id is a
   // client re-push of a known record). The guard lives on this route — not
   // inside upsertTask — because Quokka's LIFO compensation restores captured
@@ -668,6 +712,8 @@ app.patch('/api/tasks/:id', (req, res) => {
   const clientId = req.body._clientId
   const updates = { ...req.body }
   delete updates._clientId
+  const invalid = applyTaskModelValidation(updates)
+  if (invalid) return res.status(422).json({ error: invalid })
   const task = updateTaskPartial(req.params.id, updates)
   if (!task) return res.status(404).json({ error: 'Task not found' })
   const newVersion = bumpVersion()
@@ -692,6 +738,158 @@ app.post('/api/tasks/:id/skip-advance', (req, res) => {
   const newVersion = bumpVersion()
   broadcast(newVersion, clientId)
   res.json({ task, version: newVersion })
+})
+
+// --- Task model verbs (migration 046) ---
+// Semantic actions, not raw state PATCHes. Every response includes the
+// task's derived `state`. Illegal transitions 409 with a clear message.
+
+function taskVerbRespond(res, task, clientId) {
+  const newVersion = bumpVersion()
+  broadcast(newVersion, clientId || null)
+  res.json({ task, state: deriveTaskState(task, { todayYMD: localTodayYMD() }), version: newVersion })
+}
+
+// open → committed (one of today's three). 409 with the current three when
+// the ceiling is hit, unless force=true (logged).
+app.post('/api/tasks/:id/commit', (req, res) => {
+  const task = getTask(req.params.id)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const todayYMD = localTodayYMD()
+  const state = deriveTaskState(task, { todayYMD })
+  if (state === 'committed') {
+    return res.json({ task, state, version: getVersion(), already_committed: true })
+  }
+  if (state !== 'open' && state !== 'boomeranged') {
+    return res.status(409).json({ error: `Only a task in the pool can be committed (current state: ${state})` })
+  }
+  const force = req.query.force === 'true' || req.body?.force === true
+  const committedNow = getAllTasks().filter(t =>
+    t.id !== task.id && isActiveStatus(t.status) && t.committed_on === todayYMD)
+  if (committedNow.length >= COMMIT_CEILING) {
+    if (!force) {
+      return res.status(409).json({
+        error: 'Three tasks are already committed for today — complete or uncommit one first, or pass force=true.',
+        committed: committedNow.map(t => ({ id: t.id, title: t.title })),
+      })
+    }
+    console.log(`[taskmodel] commit ceiling overridden (force=true) for "${task.title}" — ${committedNow.length} already committed today`)
+  }
+  const updated = updateTaskPartial(task.id, { committed_on: todayYMD, last_touched: new Date().toISOString() })
+  taskVerbRespond(res, updated, req.body?._clientId)
+})
+
+// committed → open. Changing your mind is not slipping — no boomerang
+// increment, ever, on this path.
+app.post('/api/tasks/:id/uncommit', (req, res) => {
+  const task = getTask(req.params.id)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const state = deriveTaskState(task, { todayYMD: localTodayYMD() })
+  if (state !== 'committed') {
+    return res.status(409).json({ error: `Only a committed task can be uncommitted (current state: ${state})` })
+  }
+  const updated = updateTaskPartial(task.id, { committed_on: null, last_touched: new Date().toISOString() })
+  taskVerbRespond(res, updated, req.body?._clientId)
+})
+
+// → done from any non-terminal state. committed_on is kept so GET /today
+// still shows the task in today's three, checked off.
+app.post('/api/tasks/:id/complete', (req, res) => {
+  const task = getTask(req.params.id)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const state = deriveTaskState(task, { todayYMD: localTodayYMD() })
+  if (state === 'done') return res.json({ task, state, version: getVersion(), already_done: true })
+  if (state === 'archived') {
+    return res.status(409).json({ error: 'This task is archived — unshelve or recreate it instead' })
+  }
+  const now = new Date().toISOString()
+  const updated = updateTaskPartial(task.id, {
+    status: 'done', completed_at: now, last_touched: now,
+    snoozed_until: null, snooze_indefinite: false,
+  })
+  taskVerbRespond(res, updated, req.body?._clientId)
+})
+
+// Shrink-it: set/update the smallest concrete first action.
+app.post('/api/tasks/:id/shrink', (req, res) => {
+  const task = getTask(req.params.id)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const r = validateFirstStep(req.body?.first_step)
+  if (!r.ok) return res.status(422).json({ error: r.error })
+  const updated = updateTaskPartial(task.id, { first_step: r.value, last_touched: new Date().toISOString() })
+  taskVerbRespond(res, updated, req.body?._clientId)
+})
+
+// → shelved: deliberately parked, no timer, no guilt. Optional snooze_until
+// auto-returns it to the pool (rides the existing snooze machinery — a
+// shelve with a date IS a snooze). Shelving a committed task clears the
+// commitment without any boomerang increment (parking ≠ slipping).
+app.post('/api/tasks/:id/shelve', (req, res) => {
+  const task = getTask(req.params.id)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const state = deriveTaskState(task, { todayYMD: localTodayYMD() })
+  if (state === 'done' || state === 'archived') {
+    return res.status(409).json({ error: `A ${state} task can't be shelved` })
+  }
+  const snoozeUntil = req.body?.snooze_until || null
+  if (snoozeUntil && Number.isNaN(new Date(snoozeUntil).getTime())) {
+    return res.status(422).json({ error: 'snooze_until must be a valid timestamp' })
+  }
+  const updated = updateTaskPartial(task.id, {
+    snoozed_until: snoozeUntil || new Date(2099, 11, 31).toISOString(),
+    snooze_indefinite: !snoozeUntil,
+    committed_on: null,
+    last_touched: new Date().toISOString(),
+  })
+  taskVerbRespond(res, updated, req.body?._clientId)
+})
+
+// shelved → open.
+app.post('/api/tasks/:id/unshelve', (req, res) => {
+  const task = getTask(req.params.id)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const state = deriveTaskState(task, { todayYMD: localTodayYMD() })
+  if (state !== 'shelved') {
+    return res.status(409).json({ error: `Only a shelved task can be unshelved (current state: ${state})` })
+  }
+  if (task.status === 'project') {
+    return res.status(409).json({ error: 'Projects live on the Arcs surface — unshelving there keeps their sessions and children intact' })
+  }
+  const updates = {
+    snoozed_until: null, snooze_indefinite: false,
+    last_touched: new Date().toISOString(),
+  }
+  if (task.status === 'backlog') updates.status = 'not_started'
+  const updated = updateTaskPartial(task.id, updates)
+  taskVerbRespond(res, updated, req.body?._clientId)
+})
+
+// → archived with outcome "released". Letting go is a first-class action,
+// not a delete — the record is kept, recoverable, and never framed as a
+// failure.
+app.post('/api/tasks/:id/let-go', (req, res) => {
+  const task = getTask(req.params.id)
+  if (!task) return res.status(404).json({ error: 'Task not found' })
+  const state = deriveTaskState(task, { todayYMD: localTodayYMD() })
+  if (state === 'archived') return res.json({ task, state, version: getVersion(), already_released: true })
+  const now = new Date().toISOString()
+  const updated = updateTaskPartial(task.id, {
+    status: 'cancelled', released_at: now, committed_on: null, last_touched: now,
+  })
+  const newVersion = bumpVersion()
+  broadcast(newVersion, req.body?._clientId || null)
+  res.json({ task: updated, state: 'archived', outcome: 'released', version: newVersion })
+})
+
+// The pick-three payload — the watch app's primary endpoint. One pass over
+// the in-process task table (single round trip by construction): committed
+// tasks with intentions + first steps, and the count of gently-returned
+// tasks. Gmail-pending items are still under review and stay out.
+app.get('/api/today', (req, res) => {
+  const tz = userTimezone()
+  const todayYMD = ymdInTz(new Date(), tz)
+  const tasks = getAllTasks().filter(t => !t.gmail_pending)
+  res.json(todayPayload(tasks, { todayYMD, tz }))
 })
 
 // --- Project endpoints ---
@@ -4530,6 +4728,30 @@ initDb(dbPath).then(async () => {
     } catch (e) {
       console.error('[spawn-dedupe] boot sweep failed:', e?.message)
     }
+
+    // Nightly rollover (task model 046): committed tasks the day rolled past
+    // come back around to the pool — committed_on cleared, boomerang_count
+    // incremented. Idempotent by construction (the mutation clears its own
+    // precondition), so it runs at boot and every 30 minutes; whichever tick
+    // first lands after local midnight does the day's work, and re-runs are
+    // no-ops. Data maintenance, not a notification — never muzzled.
+    const runNightlyRollover = (reason) => {
+      try {
+        const tz = userTimezone()
+        const todayYMD = ymdInTz(new Date(), tz)
+        const plan = rolloverPlan(getAllTasks(), { todayYMD, nowIso: new Date().toISOString() })
+        for (const step of plan) updateTaskPartial(step.id, step.updates)
+        if (plan.length > 0) {
+          const v = bumpVersion()
+          broadcast(v, null)
+          console.log(`[rollover] ${reason}: ${plan.length} task(s) came back around to the pool (tz=${tz}, day=${todayYMD})`)
+        }
+      } catch (e) {
+        console.error('[rollover] error:', e?.message)
+      }
+    }
+    runNightlyRollover('boot')
+    setInterval(() => runNightlyRollover('scheduled'), 30 * 60 * 1000)
 
     // Start notification loops (muzzled on dev instances — see notifsMuzzled)
     if (notifsMuzzled) {

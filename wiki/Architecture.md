@@ -130,7 +130,17 @@ CREATE TABLE tasks (
   crisis_triage_done INTEGER DEFAULT 0,  -- AI triage checklist generated (reset when the tag is removed)
   -- Impact ranking (migration 041; routines gain a matching `impact` column):
   impact INTEGER,                        -- 1-3, NULL = not yet inferred (scores as 2)
-  impact_inferred INTEGER DEFAULT 0      -- same semantics as size_inferred
+  impact_inferred INTEGER DEFAULT 0,     -- same semantics as size_inferred
+  -- Task model extensions (migration 046). State is DERIVED from status +
+  -- these fields (server/taskModel.js) — deliberately no `state` column.
+  intention_when TEXT,                   -- implementation intention "when" (free text)
+  intention_where TEXT,                  -- implementation intention "where"
+  first_step TEXT,                       -- shrink-it: smallest concrete first action (<=140)
+  location_json TEXT,                    -- {lat, lng, radius_m, label, trigger} — geofence later
+  committed_on TEXT,                     -- 'YYYY-MM-DD' pick-three day; NULL = not committed
+  boomerang_count INTEGER DEFAULT 0,     -- came-back-around count (data, not a shame counter)
+  last_boomeranged_at TEXT,
+  released_at TEXT                       -- "let it go" stamp (outcome: released)
 );
 
 -- Knowledge base index (migration 030) — cached metadata for the
@@ -289,7 +299,7 @@ carries a valid `boom_session` cookie (human login) OR a valid `API_TOKEN` in
 | `POST` | `/api/auth/login` | `{ password }` → sets `boom_session` httpOnly cookie (401 on bad password) |
 | `POST` | `/api/auth/logout` | Destroys the session + clears the cookie |
 | `POST` | `/api/intake` | Quick task create for the iOS Shortcut: `{ title\|text, notes?, due_date?, high_priority?, tags? }` (authed by gate) |
-| `POST` | `/api/capture` | Voice capture (Siri dictation): `{ text, source? }` → 201 with the inbox task; stamps `capture_source` (migration 045), 2000-char cap with overflow kept in notes, rate-limited 30/min (authed by gate; helpers in `server/capture.js`) |
+| `POST` | `/api/capture` | Voice capture (Siri dictation): `{ text, source? }` → 201 with the inbox task; stamps `capture_source` (migration 046), 2000-char cap with overflow kept in notes, rate-limited 30/min (authed by gate; helpers in `server/capture.js`) |
 | `GET` | `/api/keys/status` | Reports env var key availability |
 | `GET` | `/api/events` | SSE endpoint for real-time cross-client sync |
 | `GET` | `/api/data` | Get all data from SQLite (includes `_version`) |
@@ -373,6 +383,14 @@ carries a valid `boom_session` cookie (human login) OR a valid `API_TOKEN` in
 | `GET` | `/api/knowledge` | Search/filter/list cached knowledge items (`?q=&type=&limit=`) |
 | `GET` | `/api/knowledge/:id` | Cached metadata + on-demand body fetch |
 | `POST` | `/api/knowledge/refresh` | Force-refresh from Notion |
+| `POST` | `/api/tasks/:id/commit` | open → committed (pick-three; 409 + current three at the ceiling, `?force=true` logged) |
+| `POST` | `/api/tasks/:id/uncommit` | committed → open (no boomerang increment) |
+| `POST` | `/api/tasks/:id/complete` | → done from any non-terminal state |
+| `POST` | `/api/tasks/:id/shrink` | Set `first_step` (422 past 140 chars) |
+| `POST` | `/api/tasks/:id/shelve` | → shelved; optional `{snooze_until}` auto-returns |
+| `POST` | `/api/tasks/:id/unshelve` | shelved → open |
+| `POST` | `/api/tasks/:id/let-go` | → archived, `outcome: "released"` |
+| `GET` | `/api/today` | Pick-three payload for the watch: committed + intentions + first steps, gentle-return count |
 | `GET` | `/api/notes` | List notes (pinned first, then most recently touched) |
 | `POST` | `/api/notes` | Create a note (`{ body, pinned? }`) |
 | `PATCH` | `/api/notes/:id` | Update a note's body and/or pin state |
