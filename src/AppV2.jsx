@@ -284,7 +284,7 @@ export default function AppV2() {
     }
     return s
   }, [tasks])
-  const { packages, addPackage, removePackage, refresh: refreshPackage, refreshAll: refreshAllPackages } = usePackages()
+  const { packages, addPackage, editPackage, removePackage, refresh: refreshPackage, refreshAll: refreshAllPackages } = usePackages()
   // Notes — free-floating, no task semantics. Server-backed via dedicated
   // endpoints; reload() rides hydrateFromServer so cross-device edits land.
   const { notes, loading: notesLoading, reload: reloadNotes, addNote, editNote, removeNote } = useNotes()
@@ -1814,6 +1814,7 @@ export default function AppV2() {
         onDelete={removePackage}
         onRefresh={refreshPackage}
         onRefreshAll={refreshAllPackages}
+        onEdit={editPackage}
         onClose={() => setShowPackages(false)}
       />
 
