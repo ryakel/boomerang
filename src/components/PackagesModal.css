@@ -308,3 +308,16 @@
   max-width: 170px;
   padding: 8px 10px;
 }
+
+/* Inline rename — the label is editable after creation */
+.v2-package-rename-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+.v2-package-rename-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 10px;
+}
