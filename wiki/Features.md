@@ -148,6 +148,10 @@ Context-aware preset options that show the exact date and time (e.g., "Tomorrow 
 
 **Later — set aside.** A "Later — set aside (no resurface)" option at the bottom of the snooze list parks a task indefinitely. The task stays in the Snoozed section but never auto-resurfaces, and notifications skip it entirely. Use it for "I don't want to think about this right now and I don't know when I will." Bring it back manually by opening Snooze on the task and tapping "↺ Bring back now" at the top.
 
+## Task Model Extensions (API layer — UI arrives with the digest reshape + watch app)
+
+The task schema and API now support implementation intentions (`intention_when`/`intention_where` — "after I pour coffee", "at my desk"), shrink-it first steps (`first_step`, capped at 140 characters so it stays genuinely small), stored locations for future point-of-performance reminders, and a **pick-three commitment model**: commit up to three tasks per day (`POST /api/tasks/:id/commit`), and any commitment the day rolls past simply *comes back around* — returned to the pool overnight with no red badges, no "days late" anywhere. Shelving ("park this, no timer, no guilt") and letting go ("release it" — kept for history, never framed as failure) are first-class actions. `GET /api/today` serves the whole pick-three picture in one round trip, shaped for a small screen. No visible UI yet — this is the foundation step; existing screens are unchanged.
+
 ## Notes
 
 A place to leave a thought without creating a task. Notes have **no task semantics** — no due date, no status, no points, no nagging, and they never count toward pile-up warnings or analytics.

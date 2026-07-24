@@ -274,6 +274,14 @@ function taskToRow(task) {
     diy_reason: task.diy_reason || null,
     diy_first_move: task.diy_first_move || null,
     capture_source: task.capture_source || null,
+    intention_when: task.intention_when || null,
+    intention_where: task.intention_where || null,
+    first_step: task.first_step || null,
+    location_json: task.location ? JSON.stringify(task.location) : null,
+    committed_on: task.committed_on || null,
+    boomerang_count: task.boomerang_count || 0,
+    last_boomeranged_at: task.last_boomeranged_at || null,
+    released_at: task.released_at || null,
   }
 }
 
@@ -343,6 +351,14 @@ function rowToTask(row) {
     diy_reason: row.diy_reason || null,
     diy_first_move: row.diy_first_move || null,
     capture_source: row.capture_source || null,
+    intention_when: row.intention_when || null,
+    intention_where: row.intention_where || null,
+    first_step: row.first_step || null,
+    location: safeJsonParse(row.location_json, null),
+    committed_on: row.committed_on || null,
+    boomerang_count: row.boomerang_count || 0,
+    last_boomeranged_at: row.last_boomeranged_at || null,
+    released_at: row.released_at || null,
   }
 }
 
@@ -372,8 +388,10 @@ const UPSERT_TASK_SQL = `
     escalation_rungs_json, escalation_current_rung, escalation_attempt_log_json,
     escalation_awaiting_advance, escalation_stuck,
     crisis_since, crisis_triage_done, impact, impact_inferred,
-    diy_assessed, diy_verdict, diy_reason, diy_first_move, capture_source)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    diy_assessed, diy_verdict, diy_reason, diy_first_move, capture_source,
+    intention_when, intention_where, first_step, location_json,
+    committed_on, boomerang_count, last_boomeranged_at, released_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -416,7 +434,15 @@ const UPSERT_TASK_SQL = `
     diy_verdict=excluded.diy_verdict,
     diy_reason=excluded.diy_reason,
     diy_first_move=excluded.diy_first_move,
-    capture_source=excluded.capture_source`
+    capture_source=excluded.capture_source,
+    intention_when=excluded.intention_when,
+    intention_where=excluded.intention_where,
+    first_step=excluded.first_step,
+    location_json=excluded.location_json,
+    committed_on=excluded.committed_on,
+    boomerang_count=excluded.boomerang_count,
+    last_boomeranged_at=excluded.last_boomeranged_at,
+    released_at=excluded.released_at`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -437,6 +463,8 @@ function runUpsertTask(task) {
     r.crisis_since, r.crisis_triage_done, r.impact, r.impact_inferred,
     r.diy_assessed, r.diy_verdict, r.diy_reason, r.diy_first_move,
     r.capture_source,
+    r.intention_when, r.intention_where, r.first_step, r.location_json,
+    r.committed_on, r.boomerang_count, r.last_boomeranged_at, r.released_at,
   ])
 }
 
