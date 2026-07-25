@@ -36,7 +36,11 @@ export default [
     },
     rules: {
       ...js.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
+      // react-hooks v7's recommended preset adds the React Compiler rule set
+      // (refs, purity, set-state-in-effect, …) — far stricter than what this
+      // codebase was written against. Keep the two classic rules only.
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
       'react-refresh/only-export-components': [
         'warn',

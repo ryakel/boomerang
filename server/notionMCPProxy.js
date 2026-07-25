@@ -37,7 +37,7 @@ async function restJson(url, init, label) {
   if (!headers) throw new Error('NOTION_INTEGRATION_TOKEN required for REST operations')
   const res = await fetch(url, { ...init, headers: { ...headers, ...(init?.headers || {}) } })
   const text = await res.text()
-  let data = {}
+  let data
   try { data = text ? JSON.parse(text) : {} } catch { data = { raw: text } }
   if (!res.ok) throw new Error(`${label} ${res.status}: ${data.message || data.code || text.slice(0, 200)}`)
   return data

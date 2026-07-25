@@ -18,7 +18,7 @@ function ensure(cond, msg) {
 async function httpJson(url, init, label) {
   const res = await fetch(url, init)
   const text = await res.text()
-  let data = {}
+  let data
   try { data = text ? JSON.parse(text) : {} } catch { data = { raw: text } }
   if (!res.ok) throw new Error(`${label} ${res.status}: ${data.error?.message || data.message || data.error || text.slice(0, 200)}`)
   return data
