@@ -391,6 +391,8 @@ carries a valid `boom_session` cookie (human login) OR a valid `API_TOKEN` in
 | `POST` | `/api/tasks/:id/unshelve` | shelved → open |
 | `POST` | `/api/tasks/:id/let-go` | → archived, `outcome: "released"` |
 | `GET` | `/api/today` | Pick-three payload for the watch: committed + intentions + first steps, gentle-return count |
+| `GET` | `/api/digest/today` | The assembled morning-digest payload (cached per day + data-version) |
+| `POST` | `/api/digest/test` | Re-run the full digest pipeline now (rollover → assemble → send; replaces, never stacks) |
 | `GET` | `/api/notes` | List notes (pinned first, then most recently touched) |
 | `POST` | `/api/notes` | Create a note (`{ body, pinned? }`) |
 | `PATCH` | `/api/notes/:id` | Update a note's body and/or pin state |

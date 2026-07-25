@@ -10,10 +10,8 @@
 import nodemailer from 'nodemailer'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, getNotifThrottle, setNotifThrottle, logNotifEmail, countPendingSuggestions, filterNotifiableTasks, escalationNudgeOverride, isCrisisTask } from './db.js'
-import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
-import { isInQuietHours, getUserTimeParts } from './userTime.js'
-import { aiComplete, aiConfigured } from './aiGateway.js'
+import { queryTasks, getData, getNotifThrottle, setNotifThrottle, logNotifEmail, filterNotifiableTasks, escalationNudgeOverride, isCrisisTask } from './db.js'
+import { isInQuietHours } from './userTime.js'
 
 // --- Environment ---
 let smtpHost = process.env.SMTP_HOST
@@ -31,25 +29,6 @@ if (existsSync('.env')) {
   smtpPass = smtpPass || envFile.match(/SMTP_PASS="?([^"\n]+)"?/)?.[1]
   smtpFrom = smtpFrom || envFile.match(/SMTP_FROM="?([^"\n]+)"?/)?.[1]
   notificationEmail = notificationEmail || envFile.match(/NOTIFICATION_EMAIL="?([^"\n]+)"?/)?.[1]
-}
-
-// AI nudge generation (server-side)
-let anthropicKey = process.env.ANTHROPIC_API_KEY
-if (!anthropicKey && existsSync('.env')) {
-  const envFile = readFileSync('.env', 'utf-8')
-  anthropicKey = anthropicKey || envFile.match(/(?:VITE_)?ANTHROPIC_API_KEY="?([^"\n]+)"?/)?.[1]
-}
-
-async function generateAINudge(task) {
-  if (!anthropicKey && !aiConfigured('workhorse')) return null
-  try {
-    const { text } = await aiComplete({
-      tier: 'workhorse', maxTokens: 100, feature: 'email_nudge',
-      system: 'Generate a short, encouraging one-liner nudge (under 80 chars) for someone with ADHD about this task. Be warm, specific, and motivating. No quotes.',
-      user: `Task: "${task.title}"${task.energy ? ` (${task.energy})` : ''}`,
-    })
-    return text || null
-  } catch { return null }
 }
 
 // Avoidance-prone energy types (same as client)
@@ -163,20 +142,6 @@ function emailWrapper(title, bodyHtml) {
 </html>`
 }
 
-function taskEmailHtml(tasks, intro) {
-  const items = tasks.map(t => {
-    const energyIcon = t.energy === 'desk' ? '&#x1F4BB;' : t.energy === 'people' ? '&#x1F465;' : t.energy === 'errand' ? '&#x1F3C3;' : t.energy === 'creative' ? '&#x1F3A8;' : t.energy === 'physical' ? '&#x1F4AA;' : ''
-    const bolts = t.energy_level ? '&#x26A1;'.repeat(t.energy_level) : ''
-    const size = t.size ? `<span style="color:#4A9EFF;font-size:12px">[${t.size}]</span>` : ''
-    const due = t.due_date ? `<span style="color:#FFB347;font-size:12px">due ${t.due_date}</span>` : ''
-    return `<div style="padding:8px 0;border-bottom:1px solid #2a2a4a">
-      <div style="font-size:14px;color:#fff">${energyIcon} ${t.title} ${size}</div>
-      <div style="font-size:12px;color:#888;margin-top:2px">${bolts} ${due}</div>
-    </div>`
-  }).join('')
-  return emailWrapper('Boomerang', `<div style="font-size:14px;color:#ccc;margin-bottom:12px">${intro}</div>${items}`)
-}
-
 function simpleEmailHtml(title, message) {
   return emailWrapper(title, `<div style="font-size:14px;color:#ccc;line-height:1.5">${message}</div>`)
 }
@@ -211,31 +176,6 @@ function getFreqMs(settings, key, fallbackHours) {
 
 // isInQuietHours / getUserTimeParts now imported from userTime.js
 
-function isOverdue(task) {
-  if (!task.due_date) return false
-  const [y, m, d] = task.due_date.split('-').map(Number)
-  const due = new Date(y, m - 1, d, 23, 59, 59, 999)
-  return Date.now() > due.getTime()
-}
-
-function isStale(task, staleDays) {
-  if (task.status === 'project') return false
-  if (task.snoozed_until && new Date(task.snoozed_until) > new Date()) return false
-  const elapsed = Date.now() - new Date(task.last_touched).getTime()
-  return elapsed > (task.staleness_days || staleDays || 2) * 86400000
-}
-
-// Tasks tagged with a user-configured "exempt" label (settings.pileup_
-// exempt_labels, an array of label ids picked in Settings) don't count
-// toward the pile-up limit or its warning — for things deliberately kept
-// on the list for reference/context rather than active work.
-function isPileupExempt(task, settings) {
-  const exempt = settings.pileup_exempt_labels
-  if (!Array.isArray(exempt) || exempt.length === 0) return false
-  if (!Array.isArray(task.tags)) return false
-  return task.tags.some(id => exempt.includes(id))
-}
-
 function applyAvoidanceBoost(freqMs, task) {
   if (!task.energy || !AVOIDANCE_ENERGY_TYPES.includes(task.energy)) return freqMs
   let boost = 1.3
@@ -256,7 +196,7 @@ function buildCrisisBody(task) {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const due = new Date(task.due_date + 'T00:00:00')
     const diffDays = Math.round((due - today) / 86400000)
-    if (diffDays < 0) bits.push(`${Math.abs(diffDays)}d overdue`)
+    if (diffDays < 0) bits.push(`due ${Math.abs(diffDays)}d ago`)
     else if (diffDays === 0) bits.push('due today')
   }
   // A hire-out Reality-check verdict overrides the first move — the nag
@@ -277,31 +217,6 @@ function buildCrisisBody(task) {
   return body
 }
 
-function getHighPriorityFreqMs(task, settings) {
-  const now = new Date()
-  if (!task.due_date) return getFreqMs(settings, 'notif_freq_highpri_before', 24)
-  const due = new Date(task.due_date + 'T00:00:00')
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-  const diffDays = Math.round((dueDay - today) / 86400000)
-
-  if (diffDays > 0) return getFreqMs(settings, 'notif_freq_highpri_before', 24)
-  if (diffDays === 0) return getFreqMs(settings, 'notif_freq_highpri_due', 1)
-  return getFreqMs(settings, 'notif_freq_highpri_overdue', 0.5)
-}
-
-function isInHighPriNotifWindow(task) {
-  const hour = new Date().getHours()
-  if (!task.due_date) return hour >= 8 && hour < 22
-  const now = new Date()
-  const due = new Date(task.due_date + 'T00:00:00')
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-  const diffDays = Math.round((dueDay - today) / 86400000)
-  if (diffDays >= 0) return hour >= 8 && hour < 22
-  return hour >= 6 && hour < 22 // overdue: earlier window
-}
-
 function checkThrottle(key, freqMs) {
   const last = getNotifThrottle(key)
   if (!last) return true
@@ -315,94 +230,25 @@ function markThrottle(key) {
 // Habit-mode helpers (mirror pushNotifications.js + computeHabitStats in
 // src/store.js — must stay in sync across all three or the user gets nudge /
 // progress drift between channels and the card).
-function habitPeriodBounds(period, weekStartsOn = 1, now = new Date()) {
-  const start = new Date(now)
-  start.setHours(0, 0, 0, 0)
-  if (period === 'week') {
-    const dow = start.getDay()
-    const diff = (dow - weekStartsOn + 7) % 7
-    start.setDate(start.getDate() - diff)
-    const end = new Date(start); end.setDate(end.getDate() + 7)
-    return { start, end, lengthDays: 7 }
-  }
-  start.setDate(1)
-  const end = new Date(start); end.setMonth(end.getMonth() + 1)
-  const lengthDays = Math.round((end.getTime() - start.getTime()) / 86400000)
-  return { start, end, lengthDays }
-}
-
-function countHabitCompletions(routineId, tasks, start, end) {
-  return tasks.filter(t => {
-    if (t.routine_id !== routineId) return false
-    if (!t.completed_at) return false
-    const c = new Date(t.completed_at).getTime()
-    return c >= start.getTime() && c < end.getTime()
-  }).length
-}
-
-function isHabitBehindPace(routine, tasks, weekStartsOn) {
-  const { start, lengthDays } = habitPeriodBounds(routine.target_period, weekStartsOn)
-  const completions = countHabitCompletions(routine.id, tasks, start, new Date())
-  const elapsedRatio = Math.min(1, (Date.now() - start.getTime()) / (lengthDays * 86400000))
-  const expected = elapsedRatio * routine.target_count
-  return {
-    completions,
-    target: routine.target_count,
-    elapsedRatio,
-    behind: completions < expected && elapsedRatio >= 0.3 && completions < routine.target_count,
-  }
-}
-
-function periodLabel(period) {
-  return period === 'week' ? 'this week' : 'this month'
-}
-
 function genId() {
   return crypto.randomUUID()
 }
 
-// --- Morning digest check ---
-
-async function checkDigest() {
-  if (!isConfigured()) return
-  const settings = getData('settings') || {}
-  if (!settings.email_notifications_enabled) return
-  if (!settings.email_digest_enabled) return
-
-  const digestTime = settings.digest_time || '07:00'
-  const [hh, mm] = digestTime.split(':').map(Number)
-  const userNow = getUserTimeParts(settings)
-  if (userNow.hours !== hh || userNow.minutes !== mm) return
-
-  if (!checkThrottle('email_digest', 23 * 60 * 60 * 1000)) return
-
-  const { buildDigest } = await import('./digestBuilder.js')
-  const digest = buildDigest(settings)
-  if (!digest.hasContent) return
-
-  const html = digestEmailHtml('Morning Digest', digest.htmlBody)
-  const sent = await sendEmail(digest.subject, html, digest.textBody)
-  if (sent) {
-    markThrottle('email_digest')
-    logNotifEmail(genId(), 'digest', null, digest.subject, digest.textBody)
-  }
-}
-
 // --- Main notification check loop ---
+//
+// 2026-07-24 digest reshape ("The Great Alert Deletion"): the ambient flood
+// is deleted — see pushNotifications.js for the full rationale. What remains
+// are the deliberate per-task opt-ins (Critical tag, escalation ladders,
+// nag_allowed daily line). The digest itself is scheduled by the central
+// pipeline in server.js, which calls sendDigestEmail() below.
 
 async function runNotificationCheck() {
-  // Check digest before main notification loop
-  try { await checkDigest() } catch (err) { console.error('[Email] Digest check failed:', err.message) }
-
   try {
     if (!isConfigured()) return
 
     const settings = getData('settings') || {}
     if (!settings.email_notifications_enabled) return
     if (isInQuietHours(settings)) return
-
-    const batchMode = !!settings.email_batch_mode
-    const batchItems = [] // collect items when batching
 
     const allTasks = queryTasks({})
     const activeTasks = filterNotifiableTasks(allTasks)
@@ -416,7 +262,7 @@ async function runNotificationCheck() {
     // silent overnight. Crisis tasks are excluded from the hp/escalation
     // loops and stale/nudge/pile-up pools below (no double-nag).
     const crisisIds = new Set()
-    if (settings.email_notif_highpri !== false) {
+    {
       const crisisTasks = nonSnoozed.filter(t => isCrisisTask(t, settings))
       for (const task of crisisTasks) {
         crisisIds.add(task.id)
@@ -431,50 +277,8 @@ async function runNotificationCheck() {
       }
     }
 
-    // High-priority notifications
-    if (settings.email_notif_highpri !== false) {
-      const highPriTasks = nonSnoozed.filter(t => t.high_priority && !crisisIds.has(t.id))
-      let hpCount = 0
-      for (const task of highPriTasks) {
-        if (hpCount >= 3) break
-        if (!isInHighPriNotifWindow(task)) continue
-
-        const freq = applyAvoidanceBoost(getHighPriorityFreqMs(task, settings), task)
-        if (!checkThrottle(`email_hp:${task.id}`, freq)) continue
-
-        const dueDate = task.due_date ? new Date(task.due_date + 'T00:00:00') : null
-        const today = new Date(); today.setHours(0, 0, 0, 0)
-        let body
-        if (dueDate) {
-          const diffDays = Math.round((dueDate - today) / 86400000)
-          if (diffDays < 0) body = `"${task.title}" is ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} overdue`
-          else if (diffDays === 0) body = `"${task.title}" is due today`
-          else if (diffDays === 1) body = `"${task.title}" is due tomorrow`
-          else body = `"${task.title}" is due in ${diffDays} days`
-        } else {
-          body = `"${task.title}" is marked high priority`
-        }
-        // Hire-out Reality-check framing: push the call, not the repair.
-        if (task.diy_verdict === 'hire') {
-          body += ` — you decided to hire this out${task.diy_first_move ? `. First move: ${task.diy_first_move}` : ''}`
-        }
-
-        // Tone-aware rewrite — at most one per tick
-        if (canRewriteThisTick('email')) {
-          body = await rewriteNotifBody(task, body)
-        }
-
-        const sent = await sendEmail('HIGH PRIORITY', simpleEmailHtml('HIGH PRIORITY', body), body)
-        if (sent) {
-          markThrottle(`email_hp:${task.id}`)
-          logNotifEmail(genId(), 'high_priority', task.id, 'HIGH PRIORITY', body)
-          hpCount++
-        }
-      }
-    }
-
     // Escalation ladder — same tactic-aware per-task nudge as push/pushover,
-    // at the rung's own cadence. Excluded from the aggregate stale/nudge pools.
+    // at the rung's own cadence. A deliberate per-task opt-in; survives the reshape.
     const escalationActiveIds = new Set()
     if (settings.email_notif_escalation !== false) {
       // Crisis takes precedence — no stacked escalation nudge on a crisis task.
@@ -496,186 +300,16 @@ async function runNotificationCheck() {
       }
     }
 
-    // Overdue tasks
-    if (settings.email_notif_overdue !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_overdue', 0.5)
-      if (checkThrottle('email_overdue', freq)) {
-        const overdueTasks = nonSnoozed.filter(isOverdue)
-        if (overdueTasks.length > 0) {
-          const intro = `You have ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''}`
-          const text = overdueTasks.map(t => `- ${t.title} (due ${t.due_date})`).join('\n')
-          const sent = await sendEmail('Overdue Tasks', taskEmailHtml(overdueTasks.slice(0, 5), intro), `${intro}\n\n${text}`)
-          if (sent) {
-            markThrottle('email_overdue')
-            logNotifEmail(genId(), 'overdue', null, 'Overdue Tasks', intro)
-          }
-        }
-      }
-    }
-
-    // Stale tasks
-    if (settings.email_notif_stale !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_stale', 0.5)
-      if (checkThrottle('email_stale', freq)) {
-        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
-        if (staleTasks.length > 0) {
-          const intro = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
-          const text = staleTasks.map(t => `- ${t.title}`).join('\n')
-          const sent = await sendEmail('Stale Tasks', taskEmailHtml(staleTasks.slice(0, 5), intro), `${intro}\n\n${text}`)
-          if (sent) {
-            markThrottle('email_stale')
-            logNotifEmail(genId(), 'stale', null, 'Stale Tasks', intro)
-          }
-        }
-      }
-    }
-
-    // General nudge (with AI when available)
-    if (settings.email_notif_nudge !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
-      if (checkThrottle('email_nudge', freq) && nonSnoozed.length > 0) {
-        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
-        const pick = smallTasks.length > 0
-          ? smallTasks[Math.floor(Math.random() * smallTasks.length)]
-          : nonSnoozed[Math.floor(Math.random() * nonSnoozed.length)]
-
-        let subject, body
-        if (pick.diy_verdict === 'hire') {
-          // Hire-out Reality-check framing beats the generic nudge: the
-          // quick win IS the phone call, not the repair.
-          subject = 'Make the call'
-          body = `"${pick.title}" — you're hiring this out. ${pick.diy_first_move || 'First move: get 2 quotes.'}`
-        } else {
-          // Try AI nudge first
-          const aiNudge = await generateAINudge(pick)
-          if (aiNudge) {
-            subject = 'Boomerang'
-            body = aiNudge
-          } else if (smallTasks.length > 0) {
-            subject = 'Quick win available'
-            body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
-          } else {
-            subject = 'Boomerang'
-            body = `You have ${nonSnoozed.length} open tasks. Pick the easiest one and knock it out.`
-          }
-        }
-        const sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
-        if (sent) {
-          markThrottle('email_nudge')
-          logNotifEmail(genId(), 'nudge', null, subject, body)
-        }
-      }
-    }
-
-    // Habit-mode behind-pace nudge. Default OFF (push is the primary channel
-    // for habits; email is opt-in for users who batch their notifications).
-    // One email per habit per 24h max, only when past the 30% pace mark.
-    if (settings.email_notif_habit_nudge === true) {
-      const weekStartsOn = settings.week_starts_on ?? 1
-      const habitRoutines = getAllRoutines().filter(
-        r => !r.paused && r.spawn_mode === 'habit' && r.target_count && r.target_period
-      )
-      for (const routine of habitRoutines) {
-        const throttleKey = `email_habit:${routine.id}`
-        if (!checkThrottle(throttleKey, 24 * 60 * 60 * 1000)) continue
-        const { completions, target, behind } = isHabitBehindPace(routine, allTasks, weekStartsOn)
-        if (!behind) continue
-        const subject = `Habit check-in: ${routine.title}`
-        const body = `${completions}/${target} ${periodLabel(routine.target_period)} — want to log one today?`
-        const sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
-        if (sent) {
-          markThrottle(throttleKey)
-          logNotifEmail(genId(), 'habit_nudge', null, subject, body)
-        }
-      }
-    }
-
-    // Size-based reminders
-    if (settings.email_notif_size !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_size', 1)
-      if (checkThrottle('email_size', freq)) {
-        const sizeLeadDays = { XL: 3, L: 2, M: 1 }
-        const upcoming = nonSnoozed.filter(t => {
-          if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
-          const dueDate = new Date(t.due_date)
-          const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
-          return daysUntil > 0 && daysUntil <= sizeLeadDays[t.size]
-        })
-        if (upcoming.length > 0) {
-          const t = upcoming[0]
-          const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
-          const subject = `${t.size} task due soon`
-          const body = `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`
-          const sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
-          if (sent) {
-            markThrottle('email_size')
-            logNotifEmail(genId(), 'size', t.id, subject, body)
-          }
-        }
-      }
-    }
-
-    // Pile-up warning
-    if (settings.email_notif_pileup !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_pileup', 2)
-      if (checkThrottle('email_pileup', freq)) {
-        let sent = false
-        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings) && !crisisIds.has(t.id))
-        if (settings.max_open_tasks && pileupPool.length > settings.max_open_tasks) {
-          const subject = 'Too many open tasks'
-          const body = `You have ${pileupPool.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`
-          sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
-          if (sent) logNotifEmail(genId(), 'pileup', null, subject, body)
-        }
-        if (!sent && settings.stale_warn_pct > 0) {
-          const oldTasks = pileupPool.filter(t => {
-            const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
-            return age > (settings.stale_warn_days || 7)
-          })
-          const pct = pileupPool.length > 0 ? Math.round(oldTasks.length / pileupPool.length * 100) : 0
-          if (pct >= settings.stale_warn_pct) {
-            const subject = 'Tasks piling up'
-            const body = `${pct}% of your tasks have been open for ${settings.stale_warn_days || 7}+ days`
-            sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
-            if (sent) logNotifEmail(genId(), 'pileup', null, subject, body)
-          }
-        }
-        if (sent) markThrottle('email_pileup')
-      }
-    }
-
-    // Routine suggestions (Activity Prompts PR 3). Weekly summary of pending
-    // pattern-detected routine ideas. Defaults ON since the scan is opt-in
-    // upstream via pattern_scan_enabled; if the scanner produces nothing,
-    // the dispatcher silently sends nothing.
-    if (settings.email_notif_routine_suggestion !== false) {
-      const freq = 7 * 24 * 60 * 60 * 1000 // weekly
-      if (checkThrottle('email_routine_suggestion', freq)) {
-        const pending = countPendingSuggestions()
-        if (pending > 0) {
-          const subject = pending === 1 ? 'Boomerang: 1 routine suggestion' : `Boomerang: ${pending} routine suggestions`
-          const body = 'Boomerang noticed patterns in your completed task history. Open the app to review and accept or dismiss.'
-          const sent = await sendEmail(subject, simpleEmailHtml(subject, body), body)
-          if (sent) {
-            markThrottle('email_routine_suggestion')
-            logNotifEmail(genId(), 'routine_suggestion', null, subject, body)
-          }
-        }
-      }
-    }
-
-    // Batch mode: send all collected items as one email
-    if (batchMode && batchItems.length > 0) {
-      const subject = `Boomerang: ${batchItems.length} notification${batchItems.length > 1 ? 's' : ''}`
-      const htmlParts = batchItems.map(item => `<div style="margin-bottom:12px"><strong>${item.subject}</strong><br>${item.body}</div>`)
-      const htmlBody = simpleEmailHtml(subject, htmlParts.join('<hr style="border:none;border-top:1px solid #333;margin:12px 0">'))
-      const textBody = batchItems.map(item => `${item.subject}: ${item.body}`).join('\n\n')
-      const sent = await sendEmail(subject, htmlBody, textBody)
+    // Per-task "remind me" (nag_allowed) — the explicit opt-in toggle on a
+    // task. ONE gentle line per opted-in task per day, forward-framed.
+    for (const task of nonSnoozed) {
+      if (!task.nag_allowed || crisisIds.has(task.id) || escalationActiveIds.has(task.id)) continue
+      if (!checkThrottle(`email_remind:${task.id}`, 24 * 60 * 60 * 1000)) continue
+      const body = `"${task.title}" is on your list — when you're ready.`
+      const sent = await sendEmail('A gentle reminder', simpleEmailHtml('A gentle reminder', body), body)
       if (sent) {
-        for (const item of batchItems) {
-          markThrottle(item.throttleKey)
-          logNotifEmail(genId(), item.type, item.taskId || null, item.subject, item.body)
-        }
+        markThrottle(`email_remind:${task.id}`)
+        logNotifEmail(genId(), 'remind', task.id, 'A gentle reminder', body)
       }
     }
   } catch (err) {

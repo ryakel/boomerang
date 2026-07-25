@@ -20,19 +20,6 @@ export const DEFAULT_SETTINGS = {
   reframe_threshold: 3,
   digest_time: '07:00',
   user_timezone: '', // auto-detected from browser on first load via Intl API
-  notifications_enabled: false,
-  notif_overdue: true,
-  notif_stale: true,
-  notif_nudge: true,
-  notif_freq_overdue: 0.5,
-  notif_freq_stale: 0.5,
-  notif_freq_nudge: 1,
-  notif_freq_size: 1,
-  notif_freq_pileup: 2,
-  notif_freq_highpri_before: 24,
-  notif_freq_highpri_due: 1,
-  notif_freq_highpri_overdue: 0.5,
-  notif_highpri_escalate: true,
   quiet_hours_enabled: false,
   quiet_hours_start: '22:00',
   quiet_hours_end: '08:00',
@@ -109,20 +96,11 @@ export const DEFAULT_SETTINGS = {
   // SPF/DKIM/DMARC configured on your SMTP relay).
   email_from_address: '',
   email_from_name: 'Boomerang Digest',
-  email_notif_overdue: true,
-  email_notif_stale: true,
-  email_notif_nudge: true,
-  email_notif_highpri: true,
-  email_notif_size: true,
-  email_notif_pileup: true,
   email_notif_package_delivered: true,
   email_notif_package_exception: true,
   // Public app URL (for deep links in notifications). Empty = relative links;
   // Pushover sends only get clickable URLs when this is set.
   public_app_url: '',
-  // Digest content style: 'curated' (positive recap + sectioned tasks) or
-  // 'counts' (legacy plain count summary)
-  digest_style: 'curated',
   pushover_digest_enabled: false,
   // Name of the label that grants quiet-hours bypass for Pushover priority 1+2.
   // Default: 'wake-me'. Tasks tagged with this label can wake the user up;

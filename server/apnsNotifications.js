@@ -148,7 +148,7 @@ function sendToToken(session, token, payload, headers) {
 //   { title, body, url?, threadId?, sound? }
 // url rides in the payload's custom data; the client's tap handler feeds it to
 // applyDeepLink() (same shape as web push/Pushover: '/?task=<id>').
-export async function sendApnsToAll({ title, message, url = null, threadId = 'boomerang', sound = 'default' }) {
+export async function sendApnsToAll({ title, message, url = null, threadId = 'boomerang', sound = 'default', collapseId = null }) {
   if (!isApnsConfigured()) return { ok: false, error: 'APNs not configured', sent: 0 }
   const devices = Object.keys(loadDevices())
   if (devices.length === 0) return { ok: false, error: 'no devices registered', sent: 0 }
@@ -175,6 +175,8 @@ export async function sendApnsToAll({ title, message, url = null, threadId = 'bo
     'apns-topic': c.topic,
     'apns-push-type': 'alert',
     'apns-priority': '10',
+    // Same collapse id → the new banner REPLACES the old one (digest re-sends).
+    ...(collapseId ? { 'apns-collapse-id': String(collapseId).slice(0, 64) } : {}),
   }
 
   const session = http2.connect(c.host)

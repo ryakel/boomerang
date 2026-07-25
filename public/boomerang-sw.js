@@ -37,6 +37,9 @@ self.addEventListener('push', function (event) {
     self.registration.showNotification(payload.title || 'Boomerang', {
       body: payload.body || '',
       data: payload.data || {},
+      // Same-tag notifications REPLACE each other (e.g. 'daily-digest') —
+      // a re-sent digest updates the banner instead of stacking a second one.
+      tag: payload.tag || undefined,
       actions: actions
     }).then(function () {
       fetch('/api/push/log', {
