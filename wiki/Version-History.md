@@ -4,7 +4,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
-## 2026-07-25 (security)
+## 2026-07-25
+
+- refactor(quokka): slim system prompt ~60% for Claude 5 — tool schemas carry the mechanics [M]
+  - Applied the same context-engineering pass to Quokka that the repo's CLAUDE.md got: instructions that describe a single tool's mechanics moved out of the always-sent system prompt and into that tool's schema, stated once (the Claude 5 "repetition → simple descriptions" rule).
+  - **Moved into tool descriptions:** staged-id chaining (create_task + create_routine now say the staged response carries the real post-commit `id` to chain from — never invented ids/stepId UUIDs), the critical-tag consent policy + alarm semantics (new `tags` field description on create_task/update_task only; routine tags stay plain), and the previously undocumented `title_hint` on notion_update_page (every external-mutation hint field now self-describes).
+  - **Prompt keeps** (compressed): persona/date/growth-areas, the staged-execution model + handoff-note format, defer-on-incoming-context, search-first/never-guess-IDs, parallel batching (mobile-drop rationale), skip-disconnected-integrations, the critical-tag explicit-emergency-only rule, the DIY-or-hire posture, `settings.impact_dates`, and the live integration-status block.
+  - **Dropped as duplication:** rule 6 (hint fields — each tool already demands its own), checklist-vs-project-vs-multiple shapes (create_task's description carries it), web_search/research_task routing (research_task's description carries it), impact 1–3 semantics (the `impact` enum description carries it), critical-tag feature mechanics (now on `tags`).
+  - ~8.3 KB → ~3.0 KB (~2,100 → ~800 tokens); sent on every one of up to 15 turns per chat, so the saving compounds. Verified: node --check on all touched modules, npm test 42/42 + smoke test (boots the server, parsing the new template in place), eslint clean.
 
 - chore(deps): clear all 11 npm audit highs — filelist override, eslint 10 [M]
   - `npm audit` flagged 11 high-severity findings, all one root cause: the `brace-expansion` unbounded-expansion DoS (GHSA-mh99-v99m-4gvg, fixed only in 5.0.8+), reachable through two dev/build chains: eslint 9's minimatch tree, and vite-plugin-pwa → workbox-build → rollup-plugin-off-main-thread → ejs → jake → filelist.

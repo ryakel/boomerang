@@ -260,14 +260,14 @@ export function registerTaskTools() {
   // --- CREATE ---
   registerTool({
     name: 'create_task',
-    description: 'Create a new task. Defaults: size M, status not_started. Size/energy will be auto-refined by the background AI sizer. For multi-part tasks, populate `checklist_items` with sub-items so the user gets one umbrella task with a checklist rather than 8 separate tasks. For PROJECT sub-tasks (the user wants real, independent tasks broken out from a project so each can complete on its own schedule), set `parent_id` to the project id — the task is linked at creation, no follow-up `link_task_to_project` call needed. To create a project itself, set `status: "project"`; optionally `pinned_to_today: true` and `nag_allowed: true`.',
+    description: 'Create a new task. Defaults: size M, status not_started. Size/energy will be auto-refined by the background AI sizer. For multi-part tasks, populate `checklist_items` with sub-items so the user gets one umbrella task with a checklist rather than 8 separate tasks. For PROJECT sub-tasks (the user wants real, independent tasks broken out from a project so each can complete on its own schedule), set `parent_id` to the project id — the task is linked at creation, no follow-up `link_task_to_project` call needed. To create a project itself, set `status: "project"`; optionally `pinned_to_today: true` and `nag_allowed: true`. The staged response includes the real `id` this task will have after commit — chain from THAT id (e.g. as `parent_id` of sub-tasks staged in the same plan, or the `id` of a same-plan update_task); never invent ids, never use the stepId UUID or partial id substrings.',
     schema: {
       type: 'object',
       properties: {
         title: { type: 'string' },
         notes: { type: 'string' },
         due_date: { type: 'string', description: 'ISO date (YYYY-MM-DD)' },
-        tags: { type: 'array', items: { type: 'string' } },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Freeform labels. The label named in settings.crisis_label (default "critical") puts the task on the critical path — relentless multi-channel ~2h nags plus Pushover Emergency once overdue — so apply it ONLY when the user explicitly declares an emergency, never by inference; removing it (or completing the task) stops the alarms, and a critical task should be staged with a short stop-the-bleeding triage checklist (first step doable in <5 min).' },
         high_priority: { type: 'boolean' },
         low_priority: { type: 'boolean' },
         status: { type: 'string', enum: ['not_started', 'doing', 'waiting', 'project', 'backlog'] },
@@ -457,7 +457,7 @@ export function registerTaskTools() {
         size: { type: 'string', enum: ['XS', 'S', 'M', 'L', 'XL'] },
         energy: { type: 'string' },
         energy_level: { type: 'integer', enum: [1, 2, 3] },
-        tags: { type: 'array', items: { type: 'string' } },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Freeform labels. The label named in settings.crisis_label (default "critical") puts the task on the critical path — relentless multi-channel ~2h nags plus Pushover Emergency once overdue — so apply it ONLY when the user explicitly declares an emergency, never by inference; removing it (or completing the task) stops the alarms, and a critical task should be staged with a short stop-the-bleeding triage checklist (first step doable in <5 min).' },
         high_priority: { type: 'boolean' },
         low_priority: { type: 'boolean' },
         snoozed_until: { type: ['string', 'null'] },
@@ -831,7 +831,7 @@ export function registerTaskTools() {
   // --- ROUTINES (MUTATION) ---
   registerTool({
     name: 'create_routine',
-    description: 'Create a recurring routine. Cadence: daily|weekly|monthly|quarterly|annually|custom. For custom, set custom_days as the interval and custom_unit as "days" (default) or "months" — e.g. {cadence:"custom", custom_days:2, custom_unit:"months"} for every-2-months. Due dates follow a FIXED schedule (anchored, not pushed by late completions). schedule_day_of_week 0=Sun..6=Sat — for weekly = "every <weekday>" (ignored for daily). Month-scale cadences (monthly/quarterly/annually/custom-months) anchor the day via EITHER schedule_day_of_month (1..31, "the 18th") OR schedule_week_of_month (1,2,3,4 or -1 for last) + schedule_day_of_week ("1st Monday", "last Friday"); omit both to use the creation day-of-month. trigger_time is an optional "HH:MM" 24h surface-at time — spawned tasks stay hidden (and silent) until that clock time on their due day, e.g. trigger_time:"20:00" for an after-8pm chore.',
+    description: 'Create a recurring routine. Cadence: daily|weekly|monthly|quarterly|annually|custom. For custom, set custom_days as the interval and custom_unit as "days" (default) or "months" — e.g. {cadence:"custom", custom_days:2, custom_unit:"months"} for every-2-months. Due dates follow a FIXED schedule (anchored, not pushed by late completions). schedule_day_of_week 0=Sun..6=Sat — for weekly = "every <weekday>" (ignored for daily). Month-scale cadences (monthly/quarterly/annually/custom-months) anchor the day via EITHER schedule_day_of_month (1..31, "the 18th") OR schedule_week_of_month (1,2,3,4 or -1 for last) + schedule_day_of_week ("1st Monday", "last Friday"); omit both to use the creation day-of-month. trigger_time is an optional "HH:MM" 24h surface-at time — spawned tasks stay hidden (and silent) until that clock time on their due day, e.g. trigger_time:"20:00" for an after-8pm chore. The staged response includes the real `id` this routine will have after commit — use THAT id as `routine_id` for same-plan add_follow_up/spawn_routine_now/update_routine calls; never invent routine ids.',
     schema: {
       type: 'object',
       properties: {
