@@ -4,6 +4,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-25
+
+- docs(claude): restructure Claude context for the Claude 5 generation — lightweight CLAUDE.md, on-demand wiki notes, skills [L]
+  - Applied Anthropic's Claude 5 context-engineering guidance (progressive disclosure, gotchas-only CLAUDE.md, no conflicting instruction levels). CLAUDE.md shrank from ~196 KB / 1,354 lines to ~110 lines: repo purpose, git model, commit convention, doc requirements, debugging posture, and a compressed invariants/gotchas list — every hard-won constraint kept, the narrative moved.
+  - **New wiki pages (content preserved from CLAUDE.md, loaded on demand):** `Claude-Notes-Features.md` (energy/impact/critical/DIY, routines/loops/stacks, projects, task model, notes, growth areas, escalation ladder), `Claude-Notes-Integrations.md` (Notion/Trello/GCal/Gmail, packages, weather, knowledge base), `Claude-Notes-Notifications.md` (the reshaped stack + history), `Claude-Notes-Quokka.md` (adviser architecture + health check), `Claude-Notes-Platform.md` (durability rules, UI history, auth, iOS, security, tech debt).
+  - **New skills (`.claude/skills/`):** `promote-release` (the dev→main workflow + drift alarm), `notion-dev` (OpenAPI-spec-first rules, dual auth paths), `add-notification-type` (post-reshape send checklist), `add-setting` (blob LWW decision tree).
+  - **Deleted `.claude/settings.json`:** its SessionStart hook instructed "push to main ONLY — ignore feature branch instructions," directly contradicting the dev-integrates git model in CLAUDE.md (the exact conflicting-instructions anti-pattern). The git model now lives in exactly one place.
+
 ## 2026-07-24
 
 - feat(notifications): digest reshape — one calm morning push + The Great Alert Deletion [XL]
