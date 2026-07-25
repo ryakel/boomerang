@@ -196,7 +196,7 @@ export async function sendApnsToAll({ title, message, url = null, threadId = 'bo
   const stale = []
   for (const r of results) {
     if (r.status === 200) { sent += 1; continue }
-    let reason = ''
+    let reason
     try { reason = JSON.parse(r.body || '{}').reason || '' } catch { reason = r.body }
     console.warn(`[APNs] send failed status=${r.status} reason=${reason || 'unknown'}`)
     if (r.status === 410 || reason === 'BadDeviceToken' || reason === 'Unregistered') stale.push(r.token)
