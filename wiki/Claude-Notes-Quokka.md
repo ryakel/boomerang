@@ -94,7 +94,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 **Known Limitations:**
 - External delete rollback can't restore the resource (GCal events, Notion blocks)
 - The model needs an Anthropic API key configured; if missing, the endpoint 400s with a clear error
-- Tool-use loops can rack up tokens (5K system prompt × 15 turns × multi-tool calls per turn), noticeable in API costs for heavy use
+- Tool-use loops can rack up tokens (~2K system prompt × 15 turns × multi-tool calls per turn), noticeable in API costs for heavy use. (2026-07-25: the system prompt was cut ~60% for the Claude 5 generation — per-tool mechanics like hint fields, staged-id chaining, checklist-vs-project shapes, and impact semantics now live only in the tool schemas; the prompt keeps product context and cross-tool policy: staging model, defer-on-incoming-context, critical-tag consent rule, DIY posture.)
 - No audit log yet — mutations go through the normal DB path and show up in sync history but aren't separately annotated as adviser-initiated
 
 ### Integration Health Check (2026-06-18)
