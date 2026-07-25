@@ -1398,6 +1398,35 @@ export async function markNotificationTap(taskId, channel) {
   return res.json()
 }
 
+// --- Device tokens (auth Phase A — wiki/Auth-Device-Tokens.md) ---
+
+export async function getAuthDevices() {
+  const res = await fetch('/api/auth/devices')
+  if (!res.ok) throw new Error(`devices fetch failed: ${res.status}`)
+  const data = await res.json()
+  return data.devices || []
+}
+
+export async function revokeAuthDevice(deviceId) {
+  const res = await fetch('/api/auth/device/revoke', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device_id: deviceId }),
+  })
+  if (!res.ok) throw new Error(`revoke failed: ${res.status}`)
+  return res.json()
+}
+
+export async function deleteAuthDevice(deviceId) {
+  const res = await fetch('/api/auth/device/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device_id: deviceId }),
+  })
+  if (!res.ok) throw new Error(`delete failed: ${res.status}`)
+  return res.json()
+}
+
 export async function getNotificationAnalytics(days = 30) {
   const res = await fetch(`/api/analytics/notifications?days=${days}`)
   if (!res.ok) throw new Error(`analytics failed: ${res.status}`)

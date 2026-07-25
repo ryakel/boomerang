@@ -19,6 +19,13 @@ import { registerPlugin } from '@capacitor/core'
 
 const BASE_KEY = 'boom_api_base'
 const TOKEN_KEY = 'boom_api_token'
+// Auth Phase A (wiki/Auth-Device-Tokens.md): per-device rotating token pair.
+// Preferred over the legacy static token when present; the legacy token stays
+// stored as the bootstrap/fallback credential.
+const DEVICE_ID_KEY = 'boom_device_id'
+const DEVICE_ACCESS_KEY = 'boom_device_access'
+const DEVICE_REFRESH_KEY = 'boom_device_refresh'
+const DEVICE_EXPIRES_KEY = 'boom_device_expires'
 
 // Native bridge (Phase 0). registerPlugin returns a proxy on all platforms; we
 // only ever call it inside the native shell, where the BoomerangNative Swift
@@ -32,6 +39,115 @@ export function getApiBase() {
 }
 export function getApiToken() {
   try { return localStorage.getItem(TOKEN_KEY) || '' } catch { return '' }
+}
+
+export function getDeviceTokens() {
+  try {
+    return {
+      deviceId: localStorage.getItem(DEVICE_ID_KEY) || '',
+      access: localStorage.getItem(DEVICE_ACCESS_KEY) || '',
+      refresh: localStorage.getItem(DEVICE_REFRESH_KEY) || '',
+      expires: Number(localStorage.getItem(DEVICE_EXPIRES_KEY) || 0),
+    }
+  } catch { return { deviceId: '', access: '', refresh: '', expires: 0 } }
+}
+
+export function setDeviceTokens({ device_id, access_token, refresh_token, access_expires } = {}) {
+  try {
+    localStorage.setItem(DEVICE_ID_KEY, device_id || '')
+    localStorage.setItem(DEVICE_ACCESS_KEY, access_token || '')
+    localStorage.setItem(DEVICE_REFRESH_KEY, refresh_token || '')
+    localStorage.setItem(DEVICE_EXPIRES_KEY, String(access_expires || 0))
+  } catch { /* storage unavailable — ignore */ }
+}
+
+export function clearDeviceTokens() {
+  try {
+    localStorage.removeItem(DEVICE_ID_KEY)
+    localStorage.removeItem(DEVICE_ACCESS_KEY)
+    localStorage.removeItem(DEVICE_REFRESH_KEY)
+    localStorage.removeItem(DEVICE_EXPIRES_KEY)
+  } catch { /* ignore */ }
+}
+
+// The credential to attach right now: a live device access token wins;
+// the legacy static token is the fallback. Read per call — device tokens
+// rotate hourly, so nothing may capture this value at install time.
+function currentAuthToken() {
+  const d = getDeviceTokens()
+  if (d.access && d.refresh) return d.access
+  return getApiToken()
+}
+
+// Single-flight refresh: many parallel 401s must produce ONE /refresh call
+// (a rotated refresh token is single-use — a second concurrent attempt with
+// the same token would trip the server's reuse detection on ourselves).
+let refreshInFlight = null
+async function refreshDevicePair(origFetch) {
+  if (refreshInFlight) return refreshInFlight
+  refreshInFlight = (async () => {
+    const d = getDeviceTokens()
+    if (!d.refresh) return false
+    try {
+      const res = await origFetch(apiUrl('/api/auth/device/refresh'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: d.refresh }),
+      })
+      if (res.status === 401) {
+        // Revoked (possibly by reuse detection) — drop the pair so the
+        // legacy token takes over, or the Connection screen surfaces.
+        console.warn('[apiConfig] device refresh rejected — clearing device tokens')
+        clearDeviceTokens()
+        return false
+      }
+      if (!res.ok) return false // transient — keep the pair, retry later
+      const pair = await res.json()
+      setDeviceTokens(pair)
+      return true
+    } catch { return false }
+  })()
+  try { return await refreshInFlight } finally { refreshInFlight = null }
+}
+
+// Proactive rotation: refresh when within 5 minutes of expiry so requests
+// almost never eat the 401-retry path.
+async function ensureFreshDeviceToken(origFetch) {
+  const d = getDeviceTokens()
+  if (!d.refresh || !d.access) return
+  if (d.expires && d.expires - Date.now() > 5 * 60 * 1000) return
+  await refreshDevicePair(origFetch)
+}
+
+// Enroll this device for a token pair, authenticating with whatever
+// credential is currently configured (bootstrap = the legacy API token).
+// Best-effort: callers treat failure as "stay on the legacy token".
+export async function enrollThisDevice(name) {
+  try {
+    const platform = isNativeShell() ? 'ios-native' : 'web'
+    const res = await fetch('/api/auth/device/enroll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name || defaultDeviceName(), platform }),
+    })
+    if (!res.ok) return false
+    const pair = await res.json()
+    if (!pair?.access_token) return false
+    setDeviceTokens(pair)
+    console.log(`[apiConfig] enrolled as device ${pair.device_id}`)
+    return true
+  } catch { return false }
+}
+
+function defaultDeviceName() {
+  try {
+    const ua = navigator.userAgent || ''
+    if (isNativeShell()) return /iPad/.test(ua) ? 'iPad (Boomerang app)' : 'iPhone (Boomerang app)'
+    if (/iPhone|iPad/.test(ua)) return 'iOS browser'
+    if (/Mac/.test(ua)) return 'Mac browser'
+    if (/Windows/.test(ua)) return 'Windows browser'
+    return 'Browser'
+  } catch { return 'Device' }
 }
 export function setApiConfig({ base, token } = {}) {
   try {
@@ -93,8 +209,8 @@ let installed = false
 export function installApiInterceptor() {
   if (installed) return
   const base = getApiBase()
-  const token = getApiToken()
-  if (!base && !token) return // web / same-origin: do nothing at all
+  const hasDevicePair = Boolean(getDeviceTokens().refresh)
+  if (!base && !getApiToken() && !hasDevicePair) return // web / same-origin: do nothing at all
   installed = true
 
   // Re-mirror on boot so a config set before this build shipped (i.e. before the
@@ -103,13 +219,35 @@ export function installApiInterceptor() {
   mirrorConfigToNative()
 
   const origFetch = window.fetch.bind(window)
-  window.fetch = (input, init = {}) => {
+  window.fetch = async (input, init = {}) => {
     try {
       const url = typeof input === 'string' ? input : input?.url
       if (typeof url === 'string' && url.startsWith('/api')) {
-        const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined))
-        if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
-        return origFetch(apiUrl(url), { ...init, headers })
+        // Credentials are read PER CALL — device tokens rotate hourly, so
+        // nothing may capture them at install time. Proactive refresh keeps
+        // the 401-retry path rare; the refresh endpoint itself is exempt
+        // (it authenticates with the refresh token, not the access token).
+        const isRefreshCall = url.startsWith('/api/auth/device/refresh')
+        if (!isRefreshCall) await ensureFreshDeviceToken(origFetch)
+
+        const buildHeaders = () => {
+          const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined))
+          const token = currentAuthToken()
+          if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
+          return headers
+        }
+
+        let res = await origFetch(apiUrl(url), { ...init, headers: buildHeaders() })
+        // One retry after a 401 when a device pair is in play: refresh, then
+        // re-send with the new access token (or the legacy fallback if the
+        // pair just got cleared by a rejected refresh).
+        if (res.status === 401 && !isRefreshCall && getDeviceTokens().refresh) {
+          const refreshed = await refreshDevicePair(origFetch)
+          if (refreshed || getApiToken()) {
+            res = await origFetch(apiUrl(url), { ...init, headers: buildHeaders() })
+          }
+        }
+        return res
       }
     } catch { /* fall through to the unmodified call */ }
     return origFetch(input, init)
@@ -117,12 +255,14 @@ export function installApiInterceptor() {
 
   // EventSource (SSE sync) can't carry an Authorization header, so the token
   // rides as a query param; the server accepts ?api_token= on /api routes.
+  // Read per construction — SSE reconnects pick up rotated tokens.
   if (base && typeof window.EventSource === 'function') {
     const OrigES = window.EventSource
     const Wrapped = function (url, opts) {
       let u = url
       if (typeof u === 'string' && u.startsWith('/api')) {
         u = apiUrl(u)
+        const token = currentAuthToken()
         if (token) u += (u.includes('?') ? '&' : '?') + 'api_token=' + encodeURIComponent(token)
       }
       return new OrigES(u, opts)
