@@ -187,7 +187,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
     .slice(0, 3)
   const yesterday = getYesterdayCompletions()
-  let analytics = null
+  let analytics
   try { analytics = getAnalytics(settings) } catch { analytics = null }
   const streak = analytics?.current_streak || analytics?.streak || 0
   const weatherSummary = buildWeatherSummary(getWeatherCache())

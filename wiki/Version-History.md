@@ -4,6 +4,29 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-25
+
+- refactor(quokka): slim system prompt ~60% for Claude 5 — tool schemas carry the mechanics [M]
+  - Applied the same context-engineering pass to Quokka that the repo's CLAUDE.md got: instructions that describe a single tool's mechanics moved out of the always-sent system prompt and into that tool's schema, stated once (the Claude 5 "repetition → simple descriptions" rule).
+  - **Moved into tool descriptions:** staged-id chaining (create_task + create_routine now say the staged response carries the real post-commit `id` to chain from — never invented ids/stepId UUIDs), the critical-tag consent policy + alarm semantics (new `tags` field description on create_task/update_task only; routine tags stay plain), and the previously undocumented `title_hint` on notion_update_page (every external-mutation hint field now self-describes).
+  - **Prompt keeps** (compressed): persona/date/growth-areas, the staged-execution model + handoff-note format, defer-on-incoming-context, search-first/never-guess-IDs, parallel batching (mobile-drop rationale), skip-disconnected-integrations, the critical-tag explicit-emergency-only rule, the DIY-or-hire posture, `settings.impact_dates`, and the live integration-status block.
+  - **Dropped as duplication:** rule 6 (hint fields — each tool already demands its own), checklist-vs-project-vs-multiple shapes (create_task's description carries it), web_search/research_task routing (research_task's description carries it), impact 1–3 semantics (the `impact` enum description carries it), critical-tag feature mechanics (now on `tags`).
+  - ~8.3 KB → ~3.0 KB (~2,100 → ~800 tokens); sent on every one of up to 15 turns per chat, so the saving compounds. Verified: node --check on all touched modules, npm test 42/42 + smoke test (boots the server, parsing the new template in place), eslint clean.
+
+- chore(deps): clear all 11 npm audit highs — filelist override, eslint 10 [M]
+  - `npm audit` flagged 11 high-severity findings, all one root cause: the `brace-expansion` unbounded-expansion DoS (GHSA-mh99-v99m-4gvg, fixed only in 5.0.8+), reachable through two dev/build chains: eslint 9's minimatch tree, and vite-plugin-pwa → workbox-build → rollup-plugin-off-main-thread → ejs → jake → filelist.
+  - **eslint chain:** eslint → ^10.8.0 + @eslint/js ^10 + eslint-plugin-react-hooks ^7 + eslint-plugin-react-refresh ^0.5 (their trees carry the fixed brace-expansion). react-hooks v7's `recommended` preset now bundles the React-Compiler rule set (132 new errors on this codebase) — `eslint.config.js` pins the two classic rules (`rules-of-hooks` error, `exhaustive-deps` warn) instead, matching prior behavior. eslint 10 also promoted `no-useless-assignment` into recommended: fixed the four real hits (dead initializers before unconditional try/catch reassignment in adviserToolsIntegrations, apnsNotifications, digestBuilder, notionMCPProxy).
+  - **workbox chain:** even the latest vite-plugin-pwa depends on the flagged tree, and the vulnerable jake/filelist code is never executed at build time (workbox only calls `ejs.render`) — so a targeted `overrides: {"filelist": "^2.0.2"}` swaps in the fixed minimatch/brace-expansion without touching plugin versions. Also removed the stale duplicate `vite-plugin-pwa ^1.2.0` entry from `dependencies` (it's a build plugin; the devDependencies ^1.3.0 entry is the real one, and the Docker builder runs full `npm ci`).
+  - **Verified:** `npm audit` 0 vulnerabilities; `npm run build` generates dist/sw.js + workbox bundle; `npx eslint .` 0 errors; `npm test` 42/42 + smoke test pass.
+
+## 2026-07-25
+
+- docs(claude): restructure Claude context for the Claude 5 generation — lightweight CLAUDE.md, on-demand wiki notes, skills [L]
+  - Applied Anthropic's Claude 5 context-engineering guidance (progressive disclosure, gotchas-only CLAUDE.md, no conflicting instruction levels). CLAUDE.md shrank from ~196 KB / 1,354 lines to ~110 lines: repo purpose, git model, commit convention, doc requirements, debugging posture, and a compressed invariants/gotchas list — every hard-won constraint kept, the narrative moved.
+  - **New wiki pages (content preserved from CLAUDE.md, loaded on demand):** `Claude-Notes-Features.md` (energy/impact/critical/DIY, routines/loops/stacks, projects, task model, notes, growth areas, escalation ladder), `Claude-Notes-Integrations.md` (Notion/Trello/GCal/Gmail, packages, weather, knowledge base), `Claude-Notes-Notifications.md` (the reshaped stack + history), `Claude-Notes-Quokka.md` (adviser architecture + health check), `Claude-Notes-Platform.md` (durability rules, UI history, auth, iOS, security, tech debt).
+  - **New skills (`.claude/skills/`):** `promote-release` (the dev→main workflow + drift alarm), `notion-dev` (OpenAPI-spec-first rules, dual auth paths), `add-notification-type` (post-reshape send checklist), `add-setting` (blob LWW decision tree).
+  - **Deleted `.claude/settings.json`:** its SessionStart hook instructed "push to main ONLY — ignore feature branch instructions," directly contradicting the dev-integrates git model in CLAUDE.md (the exact conflicting-instructions anti-pattern). The git model now lives in exactly one place.
+
 ## 2026-07-24
 
 - feat(notifications): digest reshape — one calm morning push + The Great Alert Deletion [XL]

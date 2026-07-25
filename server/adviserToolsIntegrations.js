@@ -18,7 +18,7 @@ function ensure(cond, msg) {
 async function httpJson(url, init, label) {
   const res = await fetch(url, init)
   const text = await res.text()
-  let data = {}
+  let data
   try { data = text ? JSON.parse(text) : {} } catch { data = { raw: text } }
   if (!res.ok) throw new Error(`${label} ${res.status}: ${data.error?.message || data.message || data.error || text.slice(0, 200)}`)
   return data
@@ -270,7 +270,7 @@ export function registerNotionTools() {
         page_id: { type: 'string' },
         title: { type: 'string' },
         content: { type: 'string', description: 'If set, REPLACES all existing content.' },
-        title_hint: { type: 'string' },
+        title_hint: { type: 'string', description: 'Human-readable page title for the plan preview (not sent to Notion). Pass the title you saw in notion_search.' },
       },
       required: ['page_id'],
     },
