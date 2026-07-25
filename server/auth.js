@@ -18,6 +18,7 @@
 // a single always-on instance — NOT a serverless / multi-instance host.
 
 import crypto from 'crypto'
+import { verifyDeviceAccessToken } from './deviceAuth.js'
 
 const SESSION_COOKIE = 'boom_session'
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days, rolling on login
@@ -140,11 +141,16 @@ export function verifyApiToken(token) {
   return Boolean(t) && Boolean(token) && safeEqual(token, t)
 }
 
-// Authenticated by EITHER a valid session cookie OR the static API token.
+// Authenticated by a valid session cookie, the static API token, OR a
+// per-device access token (Phase A — see server/deviceAuth.js). Device
+// tokens carry a `bda_` prefix, so the cheap prefix check routes them
+// without burning a compare against the static token.
 export function isAuthenticated(req) {
   if (verifySession(sessionTokenFromReq(req))) return true
-  if (verifyApiToken(bearerFromReq(req))) return true
-  return false
+  const bearer = bearerFromReq(req)
+  if (!bearer) return false
+  if (String(bearer).startsWith('bda_')) return verifyDeviceAccessToken(bearer)
+  return verifyApiToken(bearer)
 }
 
 function cookieSecure(req) {
@@ -182,6 +188,10 @@ const OPEN_PATHS = new Set([
   // interceptor (no token attached) — nothing secret, nothing to gate.
   '/api/bundle/manifest',
   '/api/bundle/download',
+  // Device-token refresh (Phase A): by definition called when the access
+  // token is expired, so it can't be gated on one. It authenticates itself
+  // (the refresh token IS the credential) and is rate-limited in-route.
+  '/api/auth/device/refresh',
 ])
 
 export function authGate(req, res, next) {

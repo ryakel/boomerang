@@ -18,8 +18,8 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
   dismissEscalationAdvancePrompt, resolveEscalation } from './db.js'
 import { seedDatabase } from './seed.js'
-import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail } from './emailNotifications.js'
-import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush } from './pushNotifications.js'
+import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail, sendSecurityAlertEmail } from './emailNotifications.js'
+import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush, sendSecurityAlertPush } from './pushNotifications.js'
 import { getApnsStatus, registerApnsDevice, unregisterApnsDevice, sendApnsTest } from './apnsNotifications.js'
 import { shippoGetTrack, shippoProbe } from './shippoTracking.js'
 import {
@@ -56,6 +56,8 @@ import { adoptKnowledgeDatabase,
 } from './knowledgeSync.js'
 import { getAllKnowledgeItems, searchKnowledgeItems, getKnowledgeItem } from './db.js'
 import crypto from 'crypto'
+import { initDeviceAuth, onSecurityAlert, enrollDevice, refreshDeviceTokens,
+  listDevices, revokeDevice, deleteDevice, issueAttestChallenge } from './deviceAuth.js'
 import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
   setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
 import { normalizeCapture, createRateLimiter } from './capture.js'
@@ -252,6 +254,84 @@ app.post('/api/auth/logout', (req, res) => {
   destroySession(sessionTokenFromReq(req))
   clearSessionCookie(req, res)
   res.json({ ok: true })
+})
+
+// --- Device tokens (auth Phase A — see wiki/Auth-Device-Tokens.md) ---
+// Per-device rotating token pairs: enroll (gated — bootstrap with the legacy
+// API_TOKEN, a session, or another device token), refresh (open, self-
+// authenticating, rate-limited), list/revoke/delete for the Settings UI.
+
+initDeviceAuth({ getData, setData })
+onSecurityAlert(async (event, device) => {
+  const titles = {
+    refresh_reuse: 'Security alert: token reuse detected',
+    attest_failure: 'Security alert: device attestation rejected',
+  }
+  const title = titles[event] || 'Security alert'
+  const body = event === 'refresh_reuse'
+    ? `A superseded refresh token for "${device?.name || 'a device'}" (${device?.platform || 'unknown'}) was presented again — the device has been revoked. If this was you, re-enroll it from the Connection screen; if not, someone copied its credentials.`
+    : `Device "${device?.name || 'unknown'}" hit a ${event} event.`
+  // The one loud category the digest reshape allows. Still dev-muzzled like
+  // every background send; direct log line always lands regardless.
+  if (notifsMuzzled) return
+  try { await sendSecurityAlertPush({ title, body }) } catch (e) { console.error('[deviceAuth] alert push error:', e?.message) }
+  try { await sendSecurityAlertEmail({ title, body }) } catch (e) { console.error('[deviceAuth] alert email error:', e?.message) }
+})
+
+app.post('/api/auth/device/enroll', (req, res) => {
+  // Route is behind the gate; when auth is disabled entirely, enrollment is
+  // pointless but harmless (tokens work the moment the gate turns on).
+  const result = enrollDevice({ name: req.body?.name, platform: req.body?.platform })
+  res.json(result)
+})
+
+// Sliding-window rate limit — the refresh endpoint is the only self-
+// authenticating open path, so keep brute force slow and boring.
+const refreshHits = []
+app.post('/api/auth/device/refresh', (req, res) => {
+  const now = Date.now()
+  while (refreshHits.length && refreshHits[0] < now - 60 * 1000) refreshHits.shift()
+  if (refreshHits.length >= 20) return res.status(429).json({ error: 'Too many refresh attempts — slow down' })
+  refreshHits.push(now)
+
+  const result = refreshDeviceTokens(req.body?.refresh_token || '')
+  if (!result.ok) {
+    // Reuse detection already revoked + alerted inside deviceAuth; the
+    // response is deliberately indistinguishable from a plain bad token.
+    console.warn(`[auth] device refresh rejected from ${req.ip}`)
+    return res.status(401).json({ error: 'Invalid refresh token' })
+  }
+  res.json(result.pair)
+})
+
+app.get('/api/auth/devices', (req, res) => {
+  res.json({ devices: listDevices() })
+})
+
+app.post('/api/auth/device/revoke', (req, res) => {
+  const result = revokeDevice(req.body?.device_id, 'manual')
+  if (!result.ok) return res.status(404).json(result)
+  res.json(result)
+})
+
+app.post('/api/auth/device/delete', (req, res) => {
+  const result = deleteDevice(req.body?.device_id)
+  if (!result.ok) return res.status(404).json(result)
+  res.json(result)
+})
+
+// Phase B scaffolding: real challenges (so the native App Attest side can be
+// built against this server today), honest 501 on verification — implementing
+// attestation checks without a device to produce a single valid test vector
+// would be unverifiable security code. See wiki/Auth-Device-Tokens.md.
+app.post('/api/auth/device/challenge', (req, res) => {
+  res.json(issueAttestChallenge())
+})
+
+app.post('/api/auth/device/attest', (req, res) => {
+  res.status(501).json({
+    error: 'App Attest verification is not implemented yet — Phase B lands with the native Swift package step. See wiki/Auth-Device-Tokens.md.',
+  })
 })
 
 // --- Quick intake (iOS Shortcut / share-sheet target). Authed by the gate via

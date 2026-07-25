@@ -53,6 +53,10 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 - The product is ONE morning digest plus a short list of intentionally rare pings (the 2026-07-24 "Great Alert Deletion"). Any new background send must justify itself against that surviving list. Load the `add-notification-type` skill before touching this area.
 - `isNotifiable()` in `server/db.js` is the single opt-in gate (`due_date || nag_allowed || active escalation`, plus crisis). Per-type channel toggles must never LOOK on when their channel master is off.
 
+**Auth**
+- Machine auth is per-device rotating token pairs (`server/deviceAuth.js`, spec `wiki/Auth-Device-Tokens.md`); the static `API_TOKEN` is the bootstrap/fallback only. Secrets are stored hashed; a superseded refresh token replayed = auto-revoke + security alert (the one loud notification category). `/api/auth/device/refresh` is an OPEN path by design (self-authenticating, rate-limited) — don't gate it. Never fake-implement App Attest verification (`/attest` stays 501 until it can be tested against a real device).
+- The client interceptor (`src/apiConfig.js`) reads credentials per call — never capture a token at install time; device tokens rotate hourly.
+
 **Notion**
 - Never write Notion MCP code without the actual OpenAPI spec, and remember the MCP OAuth token does NOT work as a REST bearer token — they are two independent auth paths. Load the `notion-dev` skill before touching Notion code.
 

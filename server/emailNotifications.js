@@ -317,6 +317,17 @@ async function runNotificationCheck() {
   }
 }
 
+// Security alert (auth Phase A/B) — mirrors sendSecurityAlertPush: the one
+// deliberately loud category, not silenceable by per-type toggles.
+export async function sendSecurityAlertEmail({ title, body }) {
+  if (!isConfigured()) return false
+  const settings = getData('settings') || {}
+  if (!settings.email_notifications_enabled) return false
+  const sent = await sendEmail(title, simpleEmailHtml(title, body), body)
+  if (sent) logNotifEmail(genId(), 'security', null, title, body)
+  return sent
+}
+
 // --- Package notification (called from server.js when package status changes) ---
 
 export async function sendPackageEmail(pkg, eventType) {
