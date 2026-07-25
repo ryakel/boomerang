@@ -1,44 +1,39 @@
 /**
- * Shared daily-digest builder used by all three notification transports.
+ * The morning digest — the ONE scheduled notification of the day (2026-07-24
+ * digest reshape). Everything informational competes for space inside it;
+ * nothing ambient gets its own push anymore. Consumes the task model
+ * (migration 046): committed tasks render as commitment sentences built from
+ * implementation intentions + first steps.
  *
- * The North Star is "pull the user back into the app to act." A counts-only
- * digest ("5 open · 2 due today · 3 overdue") informs but doesn't pull —
- * counts are debt, not invitation. This builder produces a curated, friendly
- * digest with positive reinforcement (yesterday recap, streak), tappable
- * task links, and gentle framing on overdue tasks ("due 2 days ago", not
- * "OVERDUE!").
+ * Principles (hard rules):
+ *   - Forward-framed: opens with today, never with what didn't happen.
+ *     Punishment-framing vocabulary (the four banned words) never appears.
+ *   - Glanceable then expandable: push text = the three commitments;
+ *     tapping opens the full digest (GET /api/digest/today renders it).
+ *   - Boomeranged tasks are "back in the pool" — an aggregate, gentle line.
+ *     Never itemized in the push; listed WITHOUT counts in the expanded view.
  *
- * Sections (in order):
- *   1. Lead-in — friendly opener (rotating static line, AI later via Phase 5)
- *   1b. Growth area — today's rotating personal-coaching pick (cached, see growthAreas.js)
- *   2. Yesterday recap — completion count + streak (only if there's something positive)
- *   3. Today — tasks due today (overdue rolled in here, gentle phrasing)
- *   4. Coming up — tasks due in next 3 days
- *   5. Carrying — stale tasks, framed as "carrying for N days"
- *   6. Quick wins — XS/S size active tasks
- *   7. Weather — existing buildWeatherSummary() output if configured
+ * Sections (each omitted when empty):
+ *   1. Today's three — committed tasks as commitment sentences. Until the
+ *      pick-three UI ships, falls back to the top due-today tasks (crisis
+ *      first) so the digest stays useful; an invite line mentions the pool
+ *      when fewer than three are committed. Never auto-commits.
+ *   2. Ten-minutes nudge — one committed task with a first_step, rotating
+ *      daily among candidates. (The spec keys this on timer history; no
+ *      timer feature exists yet, so rotation stands in until it ships.)
+ *   3. Back in the pool — aggregate gentle-return line.
+ *   4. Coming back — shelve-snoozes landing today.
+ *   5. Pool health — Mondays only: open/shelved counts + triage invite.
+ *   6. Coming up (next 3 days), yesterday recap + streak, growth-area line,
+ *      weather — the retained informational fold-ins, expanded view only.
  */
 
 import { queryTasks, getAnalytics, filterNotifiableTasks, isCrisisTask } from './db.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { getTodayGrowthAreaCached } from './growthAreas.js'
+import { deriveTaskState, ymdInTz, DEFAULT_TIMEZONE } from './taskModel.js'
 
-// ACTIVE_STATUSES retained for any legacy refs; new code uses isNotifiable()
-// from db.js so the digest respects nag_allowed / snooze_indefinite / project
-// rules without duplication.
-const ACTIVE_STATUSES = ['not_started', 'doing', 'waiting']
-
-const LEAD_INS = [
-  "Quick recap before today's list.",
-  "Here's what's on your plate today.",
-  "Morning. Light pull-up of what's open.",
-  "Coffee's brewing — here's the day.",
-  "Friendly nudge, not a pile-on.",
-]
-
-function pickLeadIn() {
-  return LEAD_INS[Math.floor(Math.random() * LEAD_INS.length)]
-}
+const PUSH_BODY_MAX = 150
 
 function getPublicAppUrl(settings) {
   const base = (settings.public_app_url || process.env.PUBLIC_APP_URL || '').replace(/\/$/, '')
@@ -61,11 +56,6 @@ function relDueLine(task) {
   return `due in ${diffDays} days`
 }
 
-function carryingDays(task) {
-  const ms = Date.now() - new Date(task.last_touched).getTime()
-  return Math.max(1, Math.floor(ms / 86400000))
-}
-
 function isInWindow(task, days) {
   if (!task.due_date) return false
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -74,11 +64,29 @@ function isInWindow(task, days) {
   return diffDays > 0 && diffDays <= days
 }
 
-function isDueTodayOrOverdue(task) {
+function isDueTodayOrEarlier(task) {
   if (!task.due_date) return false
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const due = new Date(task.due_date + 'T00:00:00')
   return due.getTime() <= today.getTime()
+}
+
+function dayOfYear(d = new Date()) {
+  const start = new Date(d.getFullYear(), 0, 0)
+  return Math.floor((d - start) / 86400000)
+}
+
+// Commitment sentence from the task model's intention fields:
+//   "After you pour coffee — file the expense report (start: open the receipts folder)"
+// Falls back to the plain title (+ first step) when no intention is set.
+function commitmentLine(task) {
+  const lead = task.intention_when || task.intention_where || null
+  const start = task.first_step ? ` (start: ${task.first_step})` : ''
+  if (lead) {
+    const cap = lead.charAt(0).toUpperCase() + lead.slice(1)
+    return `${cap} — ${task.title}${start}`
+  }
+  return `${task.title}${start}`
 }
 
 // Counts yesterday's completions from the tasks table directly (cheap query).
@@ -95,200 +103,220 @@ function getYesterdayCompletions() {
 
 /**
  * Build the digest payload.
- * Returns { hasContent, subject, textBody, htmlBody } — `hasContent: false`
- * when there's nothing to surface (transports skip the send entirely).
+ * Returns { hasContent, date, pushTitle, pushBody, subject, textBody,
+ * htmlBody, sections } — pushTitle/pushBody are the notification shape
+ * (~150 chars); textBody/htmlBody are the expanded view.
  */
-export function buildDigest(settings) {
-  const allTasks = queryTasks({})
-  const activeTasks = filterNotifiableTasks(allTasks)
-  const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
-  const nonMuted = nonSnoozed.filter(t => !t.notifications_muted)
+export function buildDigest(settings, { now = new Date() } = {}) {
+  const tz = settings.user_timezone || DEFAULT_TIMEZONE
+  const todayYMD = ymdInTz(now, tz)
 
-  // Counts-style fallback (preserve legacy behavior when user opts in).
-  // Counts derive from nonSnoozed only — items the user has explicitly
-  // silenced shouldn't pad the digest's "N open" / overdue / stale numbers.
-  if (settings.digest_style === 'counts') {
-    return buildCountsDigest(settings, nonSnoozed)
+  const allTasks = queryTasks({}).filter(t => !t.gmail_pending)
+  const activeTasks = filterNotifiableTasks(allTasks)
+  const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= now)
+  const nonMuted = nonSnoozed.filter(t => !t.notifications_muted)
+  const crisis = t => isCrisisTask(t, settings)
+  const stateOf = t => deriveTaskState(t, { todayYMD, nowMs: now.getTime() })
+
+  // --- 1. Today's three ---
+  const committed = allTasks
+    .filter(t => t.committed_on === todayYMD)
+    .filter(t => {
+      const s = stateOf(t)
+      return s === 'committed' || (s === 'done' && ymdInTz(t.completed_at || 0, tz) === todayYMD)
+    })
+  const committedOpen = committed.filter(t => stateOf(t) === 'committed')
+  const openPool = allTasks.filter(t => stateOf(t) === 'open')
+
+  // Fallback while the pick-three UI is still landing: with nothing
+  // committed, lead with today's due tasks (crisis first) so the digest
+  // keeps its morning-brief value.
+  let threeMode = 'committed'
+  let three = committed
+  if (committed.length === 0) {
+    three = nonMuted
+      .filter(t => isDueTodayOrEarlier(t) || crisis(t))
+      .sort((a, b) => (crisis(b) ? 1 : 0) - (crisis(a) ? 1 : 0) || ((b.impact ?? 2) - (a.impact ?? 2)))
+      .slice(0, 3)
+    threeMode = three.length > 0 ? 'today' : 'empty'
+  }
+  // Crisis tasks always lead, committed or not — the one deliberately loud
+  // thing in the app belongs at the top of its one notification.
+  const crisisExtras = nonMuted.filter(t => crisis(t) && !three.some(x => x.id === t.id))
+  if (threeMode === 'committed' && crisisExtras.length > 0) {
+    three = [...crisisExtras, ...three]
   }
 
-  const base = getPublicAppUrl(settings)
-  // Crisis tasks lead the Today section with the 🚨 marker — undated crises
-  // qualify too (they're exactly the "washing machine" case), so the Today
-  // pool is due-today-or-overdue OR in crisis, crisis first.
-  const crisis = t => isCrisisTask(t, settings)
-  const today = nonMuted
-    .filter(t => isDueTodayOrOverdue(t) || crisis(t))
-    .sort((a, b) => (crisis(b) ? 1 : 0) - (crisis(a) ? 1 : 0))
-    .slice(0, 5)
+  const inviteLine = (() => {
+    if (threeMode === 'committed' && committedOpen.length > 0 && committedOpen.length < 3 && openPool.length > 0) {
+      const n = committedOpen.length
+      const more = 3 - n
+      return `You've got ${n} committed. ${openPool.length} in the pool if you want to pick ${more === 1 ? 'one more' : `${more} more`}.`
+    }
+    if (threeMode !== 'committed' && openPool.length > 0) {
+      return `${openPool.length} in the pool when you're ready.`
+    }
+    return null
+  })()
 
-  // "Big rock today" — the single highest-impact move of the day. Only
-  // renders when a genuinely high-impact (impact 3) task exists; picked by
-  // base impact + due proximity (the digest builder is synchronous, so the
-  // weather/event boosts stay client-side — see impactRank in src/scoring.js).
-  const bigRock = nonMuted
-    .filter(t => t.impact === 3 && !crisis(t))
-    .sort((a, b) => {
-      const due = t => !t.due_date ? 0 : isDueTodayOrOverdue(t) ? 2 : isInWindow(t, 3) ? 1 : 0
-      return due(b) - due(a)
-    })[0] || null
+  // --- 2. Ten-minutes nudge (rotate daily among committed-with-first-step) ---
+  const nudgeCandidates = committedOpen.filter(t => t.first_step)
+  const tenMinutes = nudgeCandidates.length > 0
+    ? nudgeCandidates[dayOfYear(now) % nudgeCandidates.length]
+    : null
+
+  // --- 3. Back in the pool (gentle-return aggregate) ---
+  const returned = allTasks.filter(t =>
+    stateOf(t) === 'open' && t.last_boomeranged_at && ymdInTz(t.last_boomeranged_at, tz) === todayYMD)
+
+  // --- 4. Coming back (shelve-snoozes landing today) ---
+  const returningToday = allTasks.filter(t =>
+    !t.snooze_indefinite && t.snoozed_until && ymdInTz(t.snoozed_until, tz) === todayYMD
+    && ['not_started', 'doing', 'waiting'].includes(t.status))
+
+  // --- 5. Pool health (Mondays only) ---
+  const isMonday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(now) === 'Mon'
+  const shelvedCount = allTasks.filter(t => stateOf(t) === 'shelved' && t.status !== 'project').length
+  const poolHealth = isMonday && (openPool.length > 0 || shelvedCount > 0)
+    ? `Pool: ${openPool.length} open · ${shelvedCount} shelved. Want a 5-minute triage?`
+    : null
+
+  // --- Retained informational fold-ins (expanded view only) ---
   const comingUp = nonMuted
-    .filter(t => isInWindow(t, 3))
+    .filter(t => isInWindow(t, 3) && !three.some(x => x.id === t.id))
     .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
     .slice(0, 3)
-  const staleDays = settings.staleness_days || 2
-  const carrying = nonMuted
-    .filter(t => carryingDays(t) > staleDays && !isDueTodayOrOverdue(t))
-    .sort((a, b) => carryingDays(b) - carryingDays(a))
-    .slice(0, 3)
-  const quickWins = nonMuted
-    .filter(t => (t.size === 'XS' || t.size === 'S') && !t.high_priority && !isDueTodayOrOverdue(t))
-    .slice(0, 3)
-
-  // Yesterday recap + streak — positive reinforcement
   const yesterday = getYesterdayCompletions()
   let analytics = null
   try { analytics = getAnalytics(settings) } catch { analytics = null }
   const streak = analytics?.current_streak || analytics?.streak || 0
-
-  // Skip if every section is empty AND there's no positive recap
-  const totalItems = today.length + comingUp.length + carrying.length + quickWins.length
-  if (totalItems === 0 && yesterday.length === 0 && streak === 0) {
-    return { hasContent: false }
-  }
-
   const weatherSummary = buildWeatherSummary(getWeatherCache())
   const growthPick = getTodayGrowthAreaCached()
   const growthText = growthPick?.morning?.text || null
 
-  // --- Build text version (for SMS gateway, push body, Pushover) ---
+  // --- Push notification shape ---
+  const hireSuffix = t => t.diy_verdict === 'hire' ? ' · hire it out' : ''
+  const pushTitle = threeMode === 'committed' ? "Today's three"
+    : threeMode === 'today' ? 'Today'
+    : 'Pick your three'
+  let pushBody
+  if (three.length > 0) {
+    pushBody = three.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title}`).join(', ')
+    if (pushBody.length > PUSH_BODY_MAX) pushBody = pushBody.slice(0, PUSH_BODY_MAX - 1) + '…'
+  } else {
+    pushBody = inviteLine || 'A quiet day — nothing scheduled.'
+  }
+
+  // --- Expanded text version (SMS gateway, Pushover, in-app fallback) ---
   const textParts = []
-  textParts.push(pickLeadIn())
-  if (growthText) textParts.push(`☀️ Today: ${growthText}`)
+  const threeHeading = threeMode === 'committed' ? "Today's three" : 'Today'
+  if (three.length > 0) {
+    const lines = three.map(t => `• ${crisis(t) ? '🚨 ' : ''}${threeMode === 'committed' ? commitmentLine(t) : `${t.title} (${relDueLine(t) || 'no date'})`}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`)
+    textParts.push(`${threeHeading}:\n${lines.join('\n')}`)
+  }
+  if (inviteLine) textParts.push(inviteLine)
+  if (tenMinutes) textParts.push(`Ten minutes on "${tenMinutes.title}"? That's all.`)
+  if (returned.length > 0) {
+    textParts.push(`${returned.length} task${returned.length > 1 ? 's' : ''} came back around — in the pool when you're ready.`)
+  }
+  if (returningToday.length > 0) {
+    textParts.push(`Returning today: ${returningToday.map(t => t.title).join(', ')}`)
+  }
+  if (poolHealth) textParts.push(poolHealth)
+  if (comingUp.length > 0) {
+    textParts.push(`Coming up:\n${comingUp.map(t => `• ${t.title} (${relDueLine(t)})`).join('\n')}`)
+  }
   if (yesterday.length > 0 || streak > 0) {
     const recap = []
-    if (yesterday.length > 0) recap.push(`Completed ${yesterday.length} yesterday`)
-    if (streak > 0) recap.push(`Day ${streak} streak`)
+    if (yesterday.length > 0) recap.push(`${yesterday.length} caught yesterday`)
+    if (streak > 0) recap.push(`day ${streak} of your rally`)
     textParts.push(recap.join(' · '))
   }
-  const textSection = (heading, items) => {
-    if (items.length === 0) return null
-    return `${heading}:\n${items.map(line => `• ${line}`).join('\n')}`
-  }
-  // Hire-out Reality-check verdicts ride the digest lines too — the plan is
-  // the call, not the repair.
-  const hireSuffix = t => t.diy_verdict === 'hire' ? ' · hire it out' : ''
-  if (bigRock) textParts.push(`🎯 Big rock today: ${bigRock.title}${hireSuffix(bigRock)}`)
-  const todaySection = textSection('Today', today.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title} (${relDueLine(t) || 'no date'})${hireSuffix(t)}`))
-  if (todaySection) textParts.push(todaySection)
-  const comingUpSection = textSection('Coming up', comingUp.map(t => `${t.title} (${relDueLine(t)})`))
-  if (comingUpSection) textParts.push(comingUpSection)
-  const carryingSection = textSection('Carrying', carrying.map(t => `${t.title} (${carryingDays(t)}d)${hireSuffix(t)}`))
-  if (carryingSection) textParts.push(carryingSection)
-  const quickWinsSection = textSection('Quick wins', quickWins.map(t => `${t.title} (${t.size})`))
-  if (quickWinsSection) textParts.push(quickWinsSection)
+  if (growthText) textParts.push(`☀️ Today: ${growthText}`)
   if (weatherSummary) textParts.push(`Weather: ${weatherSummary}`)
-  const textBody = textParts.join('\n\n')
+  const textBody = textParts.join('\n\n') || pushBody
 
-  // --- Build HTML version (for email) ---
-  // High-contrast, self-contained card. Email clients sometimes invert colors
-  // or apply pale backgrounds (Gmail dark mode, iOS Mail), so use dark text
-  // with bold weights and avoid light grays — works on white, pale, or dark.
+  // --- Expanded HTML version (email) ---
+  const base = getPublicAppUrl(settings)
   const htmlSection = (heading, items) => {
     if (items.length === 0) return ''
     return `<div style="margin-top:18px">
-      <div style="font-weight:700;font-size:13px;color:#111;text-transform:uppercase;letter-spacing:0.6px">${heading}</div>
+      <div style="font-weight:700;font-size:13px;color:#111;text-transform:uppercase;letter-spacing:0.6px">${escapeHtml(heading)}</div>
       <ul style="margin:8px 0 0 0;padding-left:20px;line-height:1.7">${items.join('')}</ul>
     </div>`
   }
-  const taskItem = (task, suffix, isCrisis = false) => {
+  const taskItem = (task, text, isCrisis = false) => {
     const url = deepLink(base, task.id)
-    const titleHtml = url
-      ? `<a href="${url}" style="color:#0F4FB3;text-decoration:none;font-weight:500">${escapeHtml(task.title)}</a>`
-      : `<span style="color:#111;font-weight:500">${escapeHtml(task.title)}</span>`
-    const suffixHtml = suffix ? ` <span style="color:#444;font-size:13px">— ${escapeHtml(suffix)}</span>` : ''
-    return `<li style="color:#111">${isCrisis ? '🚨 ' : ''}${titleHtml}${suffixHtml}</li>`
+    const inner = url
+      ? `<a href="${url}" style="color:#0F4FB3;text-decoration:none;font-weight:500">${escapeHtml(text)}</a>`
+      : `<span style="color:#111;font-weight:500">${escapeHtml(text)}</span>`
+    return `<li style="color:#111">${isCrisis ? '🚨 ' : ''}${inner}</li>`
   }
+  const line = (html) => `<p style="font-size:14px;color:#111;margin:12px 0 0 0">${html}</p>`
 
   const htmlParts = []
-  htmlParts.push(`<p style="font-size:15px;color:#111;margin:0 0 8px 0">${escapeHtml(pickLeadIn())}</p>`)
-  if (growthText) {
-    htmlParts.push(`<p style="font-size:14px;color:#0E6B36;margin:0 0 8px 0;font-weight:500">☀️ Today: ${escapeHtml(growthText)}</p>`)
+  htmlParts.push(htmlSection(threeHeading, three.map(t =>
+    taskItem(t, `${threeMode === 'committed' ? commitmentLine(t) : `${t.title} — ${relDueLine(t) || 'no date'}`}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`, crisis(t)))))
+  if (inviteLine) htmlParts.push(line(escapeHtml(inviteLine)))
+  if (tenMinutes) htmlParts.push(line(`Ten minutes on <strong>${escapeHtml(tenMinutes.title)}</strong>? That's all.`))
+  if (returned.length > 0) {
+    htmlParts.push(line(`${returned.length} task${returned.length > 1 ? 's' : ''} came back around — in the pool when you're ready.`))
   }
+  if (returningToday.length > 0) {
+    htmlParts.push(htmlSection('Returning today', returningToday.map(t => taskItem(t, t.title))))
+  }
+  if (poolHealth) htmlParts.push(line(escapeHtml(poolHealth)))
+  htmlParts.push(htmlSection('Coming up', comingUp.map(t => taskItem(t, `${t.title} — ${relDueLine(t)}`))))
   if (yesterday.length > 0 || streak > 0) {
     const bits = []
-    if (yesterday.length > 0) bits.push(`<strong>${yesterday.length}</strong> completed yesterday`)
-    if (streak > 0) bits.push(`day <strong>${streak}</strong> of your streak`)
-    htmlParts.push(`<div style="margin-top:4px;color:#0E6B36;font-size:14px;font-weight:500">${bits.join(' · ')}</div>`)
+    if (yesterday.length > 0) bits.push(`<strong>${yesterday.length}</strong> caught yesterday`)
+    if (streak > 0) bits.push(`day <strong>${streak}</strong> of your rally`)
+    htmlParts.push(`<div style="margin-top:14px;color:#0E6B36;font-size:14px;font-weight:500">${bits.join(' · ')}</div>`)
   }
-  if (bigRock) {
-    const rockUrl = deepLink(base, bigRock.id)
-    const rockTitle = rockUrl
-      ? `<a href="${rockUrl}" style="color:#0F4FB3;text-decoration:none;font-weight:600">${escapeHtml(bigRock.title)}</a>`
-      : `<strong>${escapeHtml(bigRock.title)}</strong>`
-    htmlParts.push(`<div style="margin-top:8px;font-size:14px;color:#111">🎯 <strong>Big rock today:</strong> ${rockTitle}</div>`)
+  if (growthText) {
+    htmlParts.push(`<p style="font-size:14px;color:#0E6B36;margin:12px 0 0 0;font-weight:500">☀️ Today: ${escapeHtml(growthText)}</p>`)
   }
-  htmlParts.push(htmlSection('Today', today.map(t => taskItem(t, `${relDueLine(t) || 'no date'}${hireSuffix(t)}`, crisis(t)))))
-  htmlParts.push(htmlSection('Coming up', comingUp.map(t => taskItem(t, relDueLine(t)))))
-  htmlParts.push(htmlSection('Carrying', carrying.map(t => taskItem(t, `${carryingDays(t)} days${hireSuffix(t)}`))))
-  htmlParts.push(htmlSection('Quick wins', quickWins.map(t => taskItem(t, t.size))))
   if (weatherSummary) {
     htmlParts.push(`<div style="margin-top:18px;font-size:13px;color:#111"><strong style="color:#111">Weather:</strong> ${escapeHtml(weatherSummary)}</div>`)
   }
   if (base) {
     htmlParts.push(`<div style="margin-top:24px"><a href="${base}" style="color:#0F4FB3;font-weight:600;text-decoration:none">Open Boomerang &rarr;</a></div>`)
   }
-  // Wrap in self-contained light card so the email client wrapper doesn't bleed through
   const htmlBody = `<div style="background:#ffffff;color:#111;padding:8px 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">${htmlParts.join('\n')}</div>`
-
-  // Subject line — summarize without alarmism
-  const subjectBits = []
-  if (today.length > 0) subjectBits.push(`${today.length} for today`)
-  if (yesterday.length > 0) subjectBits.push(`${yesterday.length} done yesterday`)
-  const subject = `Morning: ${subjectBits.length > 0 ? subjectBits.join(', ') : 'a quiet day'}`
-
-  return { hasContent: true, subject, textBody, htmlBody, today, comingUp, carrying, quickWins }
-}
-
-// Legacy counts-only digest, preserved for users who set digest_style='counts'.
-// All counts derive from nonSnoozed so the digest excludes items the user
-// has explicitly silenced.
-function buildCountsDigest(settings, nonSnoozed) {
-  if (nonSnoozed.length === 0) return { hasContent: false }
-  const overdueTasks = nonSnoozed.filter(t => {
-    if (!t.due_date) return false
-    const due = new Date(t.due_date + 'T23:59:59.999')
-    return Date.now() > due.getTime()
-  })
-  const todayStr = new Date().toISOString().split('T')[0]
-  const dueTodayTasks = nonSnoozed.filter(t => t.due_date === todayStr)
-  const staleDays = settings.staleness_days || 2
-  const staleTasks = nonSnoozed.filter(t => {
-    const elapsed = Date.now() - new Date(t.last_touched).getTime()
-    return elapsed > staleDays * 86400000
-  })
-
-  const parts = [`${nonSnoozed.length} open`]
-  if (dueTodayTasks.length > 0) parts.push(`${dueTodayTasks.length} due today`)
-  if (overdueTasks.length > 0) parts.push(`${overdueTasks.length} overdue`)
-  if (staleTasks.length > 0) parts.push(`${staleTasks.length} stale`)
-
-  let textBody = parts.join(' · ')
-  let htmlBody = `<p>You have <strong>${nonSnoozed.length}</strong> open tasks.</p>`
-  if (dueTodayTasks.length > 0) htmlBody += `<p><strong>${dueTodayTasks.length}</strong> due today</p>`
-  if (overdueTasks.length > 0) htmlBody += `<p><strong>${overdueTasks.length}</strong> overdue</p>`
-  if (staleTasks.length > 0) htmlBody += `<p><strong>${staleTasks.length}</strong> stale</p>`
-
-  const weatherSummary = buildWeatherSummary(getWeatherCache())
-  if (weatherSummary) {
-    textBody += `\n\nWeather: ${weatherSummary}`
-    htmlBody += `<p><strong>Weather:</strong> ${escapeHtml(weatherSummary)}</p>`
-  }
 
   return {
     hasContent: true,
-    subject: `Morning Digest: ${nonSnoozed.length} open tasks`,
+    date: todayYMD,
+    pushTitle,
+    pushBody,
+    // Email subject mirrors the push title with a hint of content.
+    subject: three.length > 0 ? `${pushTitle}: ${three.map(t => t.title).join(', ').slice(0, 80)}` : pushTitle,
     textBody,
     htmlBody,
+    sections: {
+      mode: threeMode,
+      three: three.map(t => ({
+        id: t.id,
+        title: t.title,
+        line: threeMode === 'committed' ? commitmentLine(t) : `${t.title}${relDueLine(t) ? ` — ${relDueLine(t)}` : ''}`,
+        first_step: t.first_step || null,
+        intention_when: t.intention_when || null,
+        intention_where: t.intention_where || null,
+        crisis: crisis(t),
+        done: stateOf(t) === 'done',
+      })),
+      invite: inviteLine,
+      ten_minutes: tenMinutes ? { id: tenMinutes.id, title: tenMinutes.title, first_step: tenMinutes.first_step } : null,
+      // Gentle returns: count in the push-less line; titles WITHOUT any
+      // per-task came-back counts in the expanded view (hard rule).
+      back_in_pool: { count: returned.length, tasks: returned.map(t => ({ id: t.id, title: t.title })) },
+      returning_today: returningToday.map(t => ({ id: t.id, title: t.title })),
+      pool_health: poolHealth,
+      coming_up: comingUp.map(t => ({ id: t.id, title: t.title, due: relDueLine(t) })),
+      recap: { yesterday: yesterday.length, streak },
+      growth: growthText,
+      weather: weatherSummary || null,
+    },
   }
 }
 

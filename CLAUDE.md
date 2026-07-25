@@ -177,11 +177,7 @@ Anti-pride guard, per the user verbatim: *"I am admittedly not handy. I should s
 - **Quokka:** rule 11 (push quotes not DIY steps; never validate non-trivial DIY plans; stage verdict flips when the user decides); `summarizeTask` exposes `diy_verdict`/`diy_first_move`; `update_task` accepts all four diy_* fields.
 - **Known limitations:** detection is keyword-based (a repair task phrased with none of the keywords slips through — tag-based detection or riding `inferSize` is the upgrade path); no cost-estimate lookup (Quokka `research_task` covers "what would a pro charge" on request); verdicts never auto-rerun (override or delete/recreate the task).
 
-**Nagging Boost:** Avoidance-prone types (confrontation, errand) get more frequent notifications.
-- Avoidance type: interval / 1.3 (30% more frequent)
-- High drain (level 3): additional / 1.2
-- Combined max: ~1.56x more frequent for ⚡⚡⚡ confrontation tasks
-- Implementation: `applyAvoidanceBoost()` in `src/hooks/useNotifications.js`
+**Nagging Boost (narrowed 2026-07-24):** the avoidance boost now applies ONLY to the Critical-tag cadence (`applyAvoidanceBoost()` duplicated in the three server engines) — the ambient loops it used to accelerate were deleted in the digest reshape, and `src/hooks/useNotifications.js` no longer exists.
 
 **What Now Capacity Filter:** Step 3 asks "What can you do right now?" with energy type options + "Anything" + skip link. Passed to `getWhatNow()` which instructs the AI to prefer matching tasks.
 
@@ -525,14 +521,14 @@ A drawer renders a small "🌤 Weather" disclosure button — collapsed by defau
 - When `weather_hidden` is true, opening the drawer reveals a **"Show weather on this card"** button to clear the flag.
 - The flag is stored in a `weather_hidden INTEGER` column on the tasks table (migration 015), syncing across devices.
 
-**Weather notifications:** Three event types, de-duped per event via `notification_throttle` (same table as other notifications):
+**Weather notifications (REMOVED 2026-07-24 — weather folds into the digest's weather line; `weather_notifications_enabled`/`weather_notif_*` inert; `detectWeatherEvents()` survives for future digest enrichment). Historical:**
 - `nice_day` — today is clear AND at least 2 of next 3 days are bad
 - `bad_weekend` — any upcoming weekend day within 7 days is rainy/snowy/stormy
 - `nice_window` — 2+ consecutive nice days coming after a bad day
 
 Each event id (e.g. `weather:bad_weekend:2026-04-19:rain`) gets an 18-hour dedup TTL. No daily cap — multiple events in a day all notify. Delivered via push and/or email when `weather_notifications_enabled` is true. Respects quiet hours.
 
-**Morning digest (push + email):** Now includes a weather summary line ("Today: ☀️ clear, 72°/48° · Tomorrow: 🌧️ rain, 55° · Sat: ⛈️ thunderstorm, 60°") when weather is configured.
+**Morning digest:** includes a weather summary line ("Today: ☀️ clear, 72°/48° · Tomorrow: 🌧️ rain, 55° · Sat: ⛈️ thunderstorm, 60°") when weather is configured.
 
 **Settings:**
 - `weather_enabled` — master toggle
@@ -547,16 +543,21 @@ Each event id (e.g. `weather:bad_weekend:2026-04-19:rain`) gets an 18-hour dedup
 - Forecast badges only render for `due_date` within the 7-day window
 - AI-based "outdoor" detection relies on energy type + keyword hints — a task titled "paint the deck" gets the nice-day boost only if the AI marked it `physical` or `errand`, or if the prompt notices the word
 
-### Notifications System
-- Configurable notification types: high priority (with 3-stage escalation), overdue, stale, nudges, size-based, pile-up warnings
-- All frequencies set in hours (supports fractional values, e.g. 0.25 = 15 min)
-- High priority escalation stages: before due (default 24h), on due date (default 1h), overdue (default 0.5h)
-- Quiet hours (DND window) with configurable start/end times
-- Notification history log — last 200 entries stored in localStorage
-- Throttle timestamps persist in localStorage across app reloads (prevents duplicate notifications)
-- Test notification button available in settings
-- **Avoidance boost**: confrontation/errand tasks get nagged ~30-56% more frequently
-- **Persisted read state (migration 036):** the Notifications center keys "unread" off a dedicated `notification_log.read_at` column, NOT the engagement-analytics `tapped_at`. The two were once conflated, which broke read state three ways (client-only `markAllRead` that never persisted; task-less rows could never be marked read; passive glances polluted tap/completion metrics). `db.js` `markNotifEntriesRead(ids)` + `markAllNotifsRead()`; `POST /api/notifications/log/read` (`{ ids }` or `{ all: true }`); `markNotifsRead()` in `src/api.js`. Read state rides `notification_log` (survives bulk wipes) so it syncs across devices. `POST /api/notifications/tap` still stamps `tapped_at` for real task taps (analytics) only.
+### Notifications System (RESHAPED 2026-07-24 — "The Great Alert Deletion")
+**One calm morning digest push, plus a small set of intentionally rare, high-value pings.** The ambient alert flood was DELETED (not disabled) per the digest-reshape spec + two locked scope decisions. Anything informational folds into the digest.
+
+**What survives (the complete list — any new background send must justify itself against this):**
+- **The morning digest** — THE one scheduled notification (see Morning Digest Pipeline below).
+- **Critical tag** (per-task opt-in): per-task loop at `notif_freq_crisis` (default 2h) + Pushover Emergency escalation + still-a-critical check-in. Rides the channel masters (the highpri toggle it used to ride is gone). Copy uses "due Nd ago", never the banned words.
+- **Escalation-ladder nudges** (per-task opt-in): tactic-aware, at each rung's own cadence. `*_notif_escalation` toggles (default ON, incl. Pushover now).
+- **Per-task Remind-me (`nag_allowed`)**: ONE gentle line per opted-in task per day ("…is on your list — when you're ready"), priority 0, rides channel masters. This replaces the deleted stale/nudge pools for exactly the tasks that asked.
+- **Event pings** (opt-in, event-driven, not nagging): package delivered/exception/signature-required, Quokka plan-ready.
+- **Test endpoints** (always live, incl. on muzzled dev).
+
+**Deleted (2026-07-24):** high-pri 3-stage escalation + its freq settings, generic due-status alerts, stale, nudges (+ AI nudge generation — `notifAi.js` removed), size-based, pile-up warnings (+ `pileup_exempt_labels` picker; `max_open_tasks`/`stale_warn_*` keys now inert), habit behind-pace pokes, weekly suggestion pings (the in-app Suggestions inbox remains), weather alerts (`weather_notifications_enabled`/`weather_notif_*` inert; digest weather line remains), email batch mode, counts-style digest (`digest_style` inert), adaptive throttling (`throttle_decisions` table orphaned in schema, all code/endpoints/UI removed), avoidance boost everywhere except the crisis cadence, and the entire legacy client-side `useNotifications.js` engine.
+
+Still true: quiet hours (DND window; crisis honors the per-task wake-me bypass), server-side `notification_throttle` table for the surviving pings' dedup, and:
+- **Persisted read state (migration 036):** the Notifications center keys "unread" off a dedicated `notification_log.read_at` column, NOT the engagement-analytics `tapped_at`. `db.js` `markNotifEntriesRead(ids)` + `markAllNotifsRead()`; `POST /api/notifications/log/read` (`{ ids }` or `{ all: true }`); `markNotifsRead()` in `src/api.js`. Read state rides `notification_log` (survives bulk wipes). `POST /api/notifications/tap` still stamps `tapped_at` for analytics.
 
 ### Email Notifications
 Server-side email notification engine (`emailNotifications.js`) that mirrors client-side push notification logic.
@@ -684,21 +685,28 @@ Server-side Pushover engine (`pushoverNotifications.js`) that bypasses iOS Safar
 
 Every notification deep-links to its task via `?task={id}`. The deep-link handler stamps `notification_log.tapped_at` so we can measure conversion. Task completion within 24h of a notification stamps `completed_after`. Both feed `GET /api/analytics/notifications` which the Analytics dashboard renders as a "Notification engagement" panel showing tap-rate and completion-rate per channel and per type.
 
-**Adaptive throttling.** `getEffectiveThrottleMultiplier(channel, type)` in `db.js` looks at the last 10 notifications for a `(channel, type)` combination. All ignored → step the throttle multiplier up by 1.5× (capped at 8×); any tap or completion → reset to 1×. Each change is logged in the `throttle_decisions` table. The Analytics panel surfaces unreviewed back-off decisions as 👍/👎 chips — 👎 reverts the back-off and sets a 7-day override that stops auto-tuning that combination. Migration 020 adds `tapped_at`/`completed_after`; migration 021 adds the `throttle_decisions` table.
+**Adaptive throttling (REMOVED 2026-07-24 — the flood it tuned is gone; `throttle_decisions` table orphaned in schema, endpoints + Analytics chips deleted). Historical:** `getEffectiveThrottleMultiplier(channel, type)` in `db.js` looks at the last 10 notifications for a `(channel, type)` combination. All ignored → step the throttle multiplier up by 1.5× (capped at 8×); any tap or completion → reset to 1×. Each change is logged in the `throttle_decisions` table. The Analytics panel surfaces unreviewed back-off decisions as 👍/👎 chips — 👎 reverts the back-off and sets a 7-day override that stops auto-tuning that combination. Migration 020 adds `tapped_at`/`completed_after`; migration 021 adds the `throttle_decisions` table.
 
 **Inline web-push actions.** Web push notifications render Snooze 1h and Done buttons directly on the notification (via service worker `actions:` array). The user can resolve a low-stakes ping without opening the app. Routes: `POST /api/notifications/action/snooze` and `/done`. North-Star aligned: closing the loop on a decision the user has already made — forcing app entry just to dismiss breeds avoidance.
 
 **Post-completion "Next up" toast.** The completion toast surfaces a tappable next-best-task suggestion when the user is in flow. Heuristic: high_priority +100, due-today/overdue +50, XS/S +20.
 
-### Curated Daily Digest
+### Morning Digest Pipeline (2026-07-24 reshape)
 
-`digestBuilder.js` is the shared digest builder used by all three transports. Sections in order: lead-in → yesterday recap + streak → Today (overdue rolled in here, gentle phrasing) → Coming up → Carrying ("carrying for N days", not "stale") → Quick wins → Weather. Tasks in the HTML version are tappable links via `public_app_url`. `digest_style: 'curated'` (default) vs `'counts'` (legacy plain summary). `pushover_digest_enabled` (default off) adds Pushover priority-0 delivery. `POST /api/digest/test` fires the digest immediately via every enabled channel for validation.
+`digestBuilder.js` (full rewrite, consumes the task model) + the pipeline in `server.js`. **The one scheduled notification of the day.**
+
+- **Content, in order (sections omitted when empty):** Today's three — committed tasks as commitment sentences from `intention_when`/`first_step` ("After you pour coffee — file the expense report (start: open the receipts folder)"); crisis tasks always lead with 🚨; fewer-than-three invite line with pool count (NEVER auto-commits); rotating ten-minutes nudge (daily rotation among committed-with-first-step — stands in for the spec's timer condition until a timer feature exists); aggregate gentle-return line (never itemized in the push; `sections.back_in_pool.tasks` lists titles WITHOUT counts for the expanded view — hard rule); shelve-snoozes landing today; Monday-only pool health + triage invite; then the retained fold-ins (Coming up, recap + rally, growth line, weather). **Fallback while pick-three has no UI:** nothing committed → top due-today tasks by crisis/impact, title "Today"; nothing at all → "Pick your three".
+- **Push shape:** title "Today's three" / "Today" / "Pick your three"; body = the three titles comma-joined, truncated ~150 chars.
+- **Pipeline** (`runDigestPipeline` in server.js): rollover → assemble → `sendDigestNow(digest)` (multi-channel, in pushoverNotifications.js) as ONE sequence — the digest always reflects post-rollover state. Minutely `digestTick` in `settings.user_timezone`: fires once per local day at/after `digest_time` (default 07:00); server-down recovery sends on boot if before local noon; past noon skips the day. `digest_sent_on` app_data marker; config-shaped channel skips mark the day (no minutely reassembly), transient failures retry until noon. Muzzled on dev like every background send; `POST /api/digest/test` stays live and re-triggers the full pipeline with `force` (never marks the day).
+- **Collapse — a re-send REPLACES, never stacks:** web push notification `tag: 'daily-digest'` (`boomerang-sw.js` passes `payload.tag` through — it silently didn't before this work, so ANY same-tag notification now replaces), APNs `apns-collapse-id` (new `collapseId` param on `sendApnsToAll`, wired to `payload.tag` for all pushes). Pushover has no replace mechanism (known limitation; priority 0, digest opt-in).
+- **`GET /api/digest/today`** — the assembled payload (`sections` shape) for the app's digest view and later the watch. Cached per (local day, data-version); any task write bumps the version and invalidates.
+- **Channel gating:** push digest default ON (`push_digest_enabled !== false` — it's the product's one scheduled notification); email/pushover digests stay explicit opt-in. All legs still require their channel master.
 
 ### Tag-based Quiet Hours Opt-in
 
 Default behavior in quiet hours is silence — even priority-1/priority-2 Pushover messages don't fire. Tasks tagged with the configured bypass label (default `wake-me`) are the exception and can wake the user. `quiet_hours_bypass_label` setting controls which label name. EditTaskModal has a "Wake me up for this" checkbox that toggles the label cleanly.
 
-### Pile-up Label Exemption (2026-07-11)
+### Pile-up Label Exemption (2026-07-11 — REMOVED 2026-07-24 with the pile-up warnings themselves; `pileup_exempt_labels` is inert. Historical:)
 
 **User request:** "If tasks are labeled for something else they shouldn't count in the pile up. Maybe that is configurable." — tasks kept on the list for reference/context (not active work) were inflating the "too many open tasks" pile-up count and warning. `settings.pileup_exempt_labels` (array of label ids, default `[]` — off until configured) lets the user pick any of their existing labels as exempt via a multi-select in Settings → Notifications, directly below "Pile-up thresholds" (`SettingsModal.jsx`'s `NotificationsPanel`, reuses the same `v2-form-label-grid`/`v2-form-label-pill` picker AddTaskModal's tag picker uses — first shipped mis-placed next to "Max open tasks" in the General tab, a different tab from the rest of the pile-up settings; corrected 2026-07-11 after a prod report). A matching `isPileupExempt(task, settings)` helper — duplicated per-file the same way `isStale()`/`isAvoidance()` already are, not centralized — filters the pile-up pool in all four places that compute it: `pushNotifications.js`, `emailNotifications.js`, `pushoverNotifications.js` (server-side push/email/pushover engines), and `src/hooks/useNotifications.js` (client-side browser push, which — noted as a pre-existing, separate gap — still uses its own older `ACTIVE_STATUSES` filter rather than `isNotifiable()`'s due-date-or-nag_allowed gate from the "quiet unless opted in" work above). Scoped narrowly to pile-up counting only, per the request — stale/nudge sampling and the digest are unaffected.
 
@@ -1324,7 +1332,7 @@ Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key item
 - **#14** — ~~Markdown import~~ **DONE**
 - **#15** — ~~Morning digest notification~~ **DONE**
 - **#16** — ~~AI-generated nudge messages for email~~ **DONE**
-- **#17** — ~~Notification grouping/batching~~ **DONE** (email batch mode)
+- **#17** — ~~Notification grouping/batching~~ DONE, then REMOVED 2026-07-24 (batch mode died with the flood — the digest IS the batch)
 - **#18** — ~~Trello multi-list sync UI~~ **DONE**
 - **Routine weekday scheduling** — **DONE** (`schedule_day_of_week` on routines, 2026-04-17)
 - **Routine manual spawn** — **DONE** (`spawnNow` bypasses schedule, 2026-04-17)

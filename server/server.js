@@ -9,7 +9,6 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   getAnalytics, getAnalyticsHistory, getData,
   upsertPackage, getPackage, getAllPackages, deletePackage, updatePackagePartial,
   markNotificationTapped, getNotificationAnalytics,
-  listThrottleDecisions, markThrottleDecisionFeedback,
   listNotifLog, clearNotifLog as clearServerNotifLog,
   markNotifEntriesRead, markAllNotifsRead,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
@@ -32,6 +31,7 @@ import {
 import { upsertPushSubscription, deletePushSubscription, getAllPushSubscriptions, deletePushSubscriptionById, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle, getAllTasks, mergeTasks } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling, getGmailAccessToken } from './gmailSync.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
+import { buildDigest } from './digestBuilder.js'
 import { startPatternDetection, runPatternScan } from './patternDetection.js'
 import { startTagSuggestions, runTagScan, listPendingTagSuggestions, dismissTagSuggestion } from './tagSuggestions.js'
 import { startGrowthAreaSync, listGrowthAreas, createGrowthArea, updateGrowthArea, deleteGrowthArea, ensureTodayGrowthArea, contextualGrowthAreas } from './growthAreas.js'
@@ -3320,10 +3320,116 @@ app.post('/api/pushover/link-mode', (req, res) => {
   res.json({ ok: true, open_native: openNative })
 })
 
+// --- The morning digest pipeline (2026-07-24 digest reshape) ---
+// ONE scheduled notification per day: rollover → assemble → send, a single
+// sequence so the digest always reflects post-rollover state. The assembled
+// digest is cached per (day, data-version) and served by GET /api/digest/today
+// — any task write bumps the version, which invalidates the cache.
+
+function runNightlyRollover(reason) {
+  try {
+    const tz = (getData('settings') || {}).user_timezone || DEFAULT_TIMEZONE
+    const todayYMD = ymdInTz(new Date(), tz)
+    const plan = rolloverPlan(getAllTasks(), { todayYMD, nowIso: new Date().toISOString() })
+    for (const step of plan) updateTaskPartial(step.id, step.updates)
+    if (plan.length > 0) {
+      const v = bumpVersion()
+      broadcast(v, null)
+      console.log(`[rollover] ${reason}: ${plan.length} task(s) came back around to the pool (tz=${tz}, day=${todayYMD})`)
+    }
+  } catch (e) {
+    console.error('[rollover] error:', e?.message)
+  }
+}
+
+let digestCache = null // { date, version, digest }
+
+function assembleDigest() {
+  const settings = getData('settings') || {}
+  const tz = settings.user_timezone || DEFAULT_TIMEZONE
+  const todayYMD = ymdInTz(new Date(), tz)
+  const version = getVersion()
+  if (digestCache && digestCache.date === todayYMD && digestCache.version === version) {
+    return digestCache.digest
+  }
+  const digest = buildDigest(settings)
+  digestCache = { date: todayYMD, version, digest }
+  return digest
+}
+
+// force=true (the manual test path) bypasses the schedule, the once-per-day
+// marker, and the before-noon rule — collapse keys make the re-send REPLACE
+// the existing banner, so re-triggering is always safe.
+async function runDigestPipeline({ force = false, reason = 'scheduled' } = {}) {
+  runNightlyRollover(`digest:${reason}`)
+  const digest = assembleDigest()
+  const settings = getData('settings') || {}
+  const tz = settings.user_timezone || DEFAULT_TIMEZONE
+  const todayYMD = ymdInTz(new Date(), tz)
+  const result = await sendDigestNow(digest)
+  if (result.success && !force) {
+    setData('digest_sent_on', { date: todayYMD, at: new Date().toISOString(), fired: result.fired })
+  }
+  if (result.success) {
+    console.log(`[digest] ${reason}: sent "${result.subject}" via ${result.fired.join(', ')}`)
+  }
+  return result
+}
+
+// Scheduler tick — minutely. Fires when the user-local clock passes the
+// digest time, at most once per local day. Missed-window handling: if the
+// server was down at digest time, the boot tick sends on recovery IF still
+// before local noon; a "morning digest" delivered mid-afternoon is noise,
+// so past noon the day is skipped (the marker is NOT set — tomorrow's
+// schedule is unaffected).
+async function digestTick(reason) {
+  try {
+    if (notifsMuzzled) return
+    const settings = getData('settings') || {}
+    const tz = settings.user_timezone || DEFAULT_TIMEZONE
+    const todayYMD = ymdInTz(new Date(), tz)
+    const sent = getData('digest_sent_on')
+    if (sent?.date === todayYMD) return
+    const digestTime = settings.digest_time || '07:00'
+    const [hh, mm] = digestTime.split(':').map(Number)
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(new Date())
+    const hour = Number(parts.find(x => x.type === 'hour')?.value ?? 0) % 24
+    const minute = Number(parts.find(x => x.type === 'minute')?.value ?? 0)
+    const nowMins = hour * 60 + minute
+    if (nowMins < hh * 60 + mm) return
+    if (hour >= 12) return // past noon — skip the day rather than send stale
+    const result = await runDigestPipeline({ reason })
+    if (!result.success) {
+      // Config-shaped skips (channel off, digest disabled, no credentials)
+      // won't fix themselves this morning — mark the day so the tick doesn't
+      // reassemble every minute. Transient failures (SMTP hiccup, send
+      // failed) leave the day open so the next tick retries until noon.
+      const configReasons = ['channel master off', 'disabled', 'credentials missing']
+      const allConfig = (result.skipped || []).length > 0
+        && result.skipped.every(sk => configReasons.includes(sk.reason))
+      if (allConfig) {
+        setData('digest_sent_on', { date: todayYMD, at: new Date().toISOString(), fired: [], skipped_config: true })
+      }
+    }
+  } catch (e) {
+    console.error('[digest] tick error:', e?.message)
+  }
+}
+
+// The assembled digest payload — the app's digest view and (later) the
+// watch render from this. Cached for the day, invalidated on any task write.
+app.get('/api/digest/today', (req, res) => {
+  try {
+    res.json(assembleDigest())
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // --- Daily digest test (sends via every enabled channel right now) ---
 app.post('/api/digest/test', async (req, res) => {
   try {
-    const result = await sendDigestNow()
+    const result = await runDigestPipeline({ force: true, reason: 'manual' })
     res.json(result)
   } catch (err) {
     console.error('[Digest] Test failed:', err.message)
@@ -3654,18 +3760,6 @@ app.post('/api/notifications/log/read', (req, res) => {
   }
   const marked = markNotifEntriesRead(ids)
   res.json({ ok: true, marked })
-})
-
-app.get('/api/analytics/throttle-decisions', (req, res) => {
-  const days = Math.min(90, Math.max(1, parseInt(req.query.days || '30', 10)))
-  res.json({ decisions: listThrottleDecisions(days) })
-})
-
-app.post('/api/analytics/throttle-decisions/:id/feedback', (req, res) => {
-  const { feedback } = req.body || {}
-  if (!['up', 'down'].includes(feedback)) return res.status(400).json({ error: 'feedback must be up|down' })
-  const ok = markThrottleDecisionFeedback(req.params.id, feedback)
-  res.json({ ok })
 })
 
 app.get('/api/analytics/notifications', (req, res) => {
@@ -4729,29 +4823,15 @@ initDb(dbPath).then(async () => {
       console.error('[spawn-dedupe] boot sweep failed:', e?.message)
     }
 
-    // Nightly rollover (task model 046): committed tasks the day rolled past
-    // come back around to the pool — committed_on cleared, boomerang_count
-    // incremented. Idempotent by construction (the mutation clears its own
-    // precondition), so it runs at boot and every 30 minutes; whichever tick
-    // first lands after local midnight does the day's work, and re-runs are
-    // no-ops. Data maintenance, not a notification — never muzzled.
-    const runNightlyRollover = (reason) => {
-      try {
-        const tz = userTimezone()
-        const todayYMD = ymdInTz(new Date(), tz)
-        const plan = rolloverPlan(getAllTasks(), { todayYMD, nowIso: new Date().toISOString() })
-        for (const step of plan) updateTaskPartial(step.id, step.updates)
-        if (plan.length > 0) {
-          const v = bumpVersion()
-          broadcast(v, null)
-          console.log(`[rollover] ${reason}: ${plan.length} task(s) came back around to the pool (tz=${tz}, day=${todayYMD})`)
-        }
-      } catch (e) {
-        console.error('[rollover] error:', e?.message)
-      }
-    }
+    // Nightly rollover + digest pipeline (module scope, above the routes).
+    // Rollover is data maintenance (never muzzled); the digest tick
+    // sequence-couples rollover → assembly → send so the digest always
+    // reflects post-rollover state. Digest sends are muzzled on dev
+    // instances like every background send; the manual test stays live.
     runNightlyRollover('boot')
     setInterval(() => runNightlyRollover('scheduled'), 30 * 60 * 1000)
+    digestTick('boot')
+    setInterval(() => digestTick('scheduled'), 60 * 1000)
 
     // Start notification loops (muzzled on dev instances — see notifsMuzzled)
     if (notifsMuzzled) {

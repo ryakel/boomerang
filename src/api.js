@@ -1404,22 +1404,6 @@ export async function getNotificationAnalytics(days = 30) {
   return res.json()
 }
 
-export async function getThrottleDecisions(days = 30) {
-  const res = await fetch(`/api/analytics/throttle-decisions?days=${days}`)
-  if (!res.ok) throw new Error(`throttle decisions failed: ${res.status}`)
-  return res.json()
-}
-
-export async function markThrottleFeedback(id, feedback) {
-  const res = await fetch(`/api/analytics/throttle-decisions/${encodeURIComponent(id)}/feedback`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ feedback }),
-  })
-  if (!res.ok) throw new Error(`feedback failed: ${res.status}`)
-  return res.json()
-}
-
 export async function testPushover({ userKey, appToken } = {}) {
   const res = await fetch('/api/pushover/test', {
     method: 'POST',
