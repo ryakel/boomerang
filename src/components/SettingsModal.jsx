@@ -248,22 +248,11 @@ const TABS = ['General', 'Tasks', 'Labels', 'Integrations', 'Notifications', 'Da
 
 // All Settings tabs now have v2 implementations.
 
-// Notification types (excluding high priority which has its own escalation
-// section) + their channel-specific setting key suffixes. Same scheme v1
-// uses: push_notif_<key>, email_notif_<key>, pushover_notif_<key>.
+// Per-type opt-in pings that survived the 2026-07-24 digest reshape.
+// Everything ambient (overdue/stale/nudge/size/pile-up/habit/suggestions)
+// was deleted — informational content folds into the morning digest.
 const NOTIF_TYPES = [
-  { key: 'overdue', label: 'Overdue', desc: 'Past-due tasks. Repeats until done or snoozed.', freqKey: 'notif_freq_overdue', freqDefault: 0.5 },
-  { key: 'stale', label: 'Stale', desc: 'Tasks untouched longer than the staleness threshold (set in General).', freqKey: 'notif_freq_stale', freqDefault: 0.5 },
-  { key: 'nudge', label: 'Nudges', desc: 'General "got a minute?" pokes when the list is sitting idle.', freqKey: 'notif_freq_nudge', freqDefault: 1 },
-  { key: 'size', label: 'Size-based', desc: 'Heads-up on L/XL tasks approaching their due date.', freqKey: 'notif_freq_size', freqDefault: 1 },
-  { key: 'pileup', label: 'Pile-up', desc: 'Warning when too many active tasks accumulate.', freqKey: 'notif_freq_pileup', freqDefault: 2 },
-  // Habit nudges are throttled per-routine (24h), not by global frequency —
-  // freqKey/freqDefault carried for matrix consistency but the dispatcher
-  // ignores them.
-  { key: 'habit_nudge', label: 'Habit nudges', desc: 'Behind-pace pokes for habit routines (e.g. "2× / week").', freqKey: 'notif_freq_habit_nudge', freqDefault: 24 },
-  // Activity Prompts PR 3: weekly suggestion summary. The frequency input is
-  // carried for matrix consistency but the dispatcher hard-codes weekly.
-  { key: 'routine_suggestion', label: 'Routine suggestions', desc: 'Weekly summary of pattern-detected routine candidates.', freqKey: 'notif_freq_routine_suggestion', freqDefault: 168 },
+  { key: 'escalation', label: 'Escalation ladder nudges', desc: 'Tactic-aware follow-up pings for tasks with an active contact ladder, at each rung\'s own cadence.' },
 ]
 
 const NOTIF_PACKAGE_TYPES = [
@@ -1826,18 +1815,6 @@ function NotificationsPanel({ settings, update }) {
     } catch { return 'unknown service' }
   }
 
-  // Pile-up exemption label picker, shown right after "Pile-up thresholds"
-  // below. loadLabels() is a cheap synchronous localStorage read, same
-  // pattern LabelsPanel uses.
-  const allLabels = loadLabels()
-  const pileupExemptLabels = Array.isArray(settings.pileup_exempt_labels) ? settings.pileup_exempt_labels : []
-  const togglePileupExempt = (id) => {
-    const next = pileupExemptLabels.includes(id)
-      ? pileupExemptLabels.filter(x => x !== id)
-      : [...pileupExemptLabels, id]
-    update('pileup_exempt_labels', next)
-  }
-
   // Channel master toggles. Pushover gates additionally on credentials being
   // present, but for the v2 panel we just toggle the boolean and show a hint.
   const masters = [
@@ -2147,7 +2124,7 @@ function NotificationsPanel({ settings, update }) {
 
       {/* Per-type × per-channel — card-per-type layout works at any width */}
       <div className="v2-settings-block">
-        <SectionHeader k="types" label="Notification types" hint="Each card toggles a notification type per channel. Frequency is the cooldown between repeats." />
+        <SectionHeader k="types" label="Event pings" hint="The morning digest is the one scheduled notification — these are the deliberate exceptions: event-driven package updates, Quokka plan-ready, and the per-task opt-ins (Critical mode below, escalation ladders, and the per-task Remind-me toggle)." />
         {!isCollapsed('types') && (() => {
           const offMasters = masters.filter(m => settings[m.key] !== true).map(m => m.label)
           return offMasters.length === 0 ? null : (
@@ -2167,6 +2144,7 @@ function NotificationsPanel({ settings, update }) {
                   <div className="v2-notif-card-label">{t.label}</div>
                   {t.desc && <div className="v2-notif-card-hint">{t.desc}</div>}
                 </div>
+                {t.freqKey && (
                 <div className="v2-notif-card-freq">
                   <input
                     className="v2-form-input v2-notif-card-freq-input"
@@ -2180,12 +2158,13 @@ function NotificationsPanel({ settings, update }) {
                   />
                   <span className="v2-notif-card-freq-unit">h</span>
                 </div>
+                )}
               </div>
               <div className="v2-notif-card-channels">
                 {[
                   { key: 'push', master: 'push_notifications_enabled', defaultOn: true },
                   { key: 'email', master: 'email_notifications_enabled', defaultOn: true },
-                  { key: 'pushover', master: 'pushover_notifications_enabled', defaultOn: false },
+                  { key: 'pushover', master: 'pushover_notifications_enabled', defaultOn: true },
                 ].map(c => (
                   <label key={c.key} className={`v2-notif-card-channel${settings[c.master] !== true ? ' v2-notif-card-channel-disabled' : ''}`}>
                     {/* Display is master-gated: a toggle must never LOOK on
@@ -2253,58 +2232,13 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
-      {/* High-priority escalation */}
-      <div className="v2-settings-block">
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">High-priority escalation</div>
-            <div className="v2-settings-row-hint">Three-stage cadence as a high-pri task approaches due and goes overdue. Values in hours.</div>
-          </div>
-          <Toggle
-            checked={settings.notif_highpri_escalate !== false}
-            onChange={e => update('notif_highpri_escalate', e.target.checked)}
-          />
-        </div>
-        {settings.notif_highpri_escalate !== false && (
-          <div className="v2-notif-stages-grid">
-            <label className="v2-notif-stage-cell">
-              <span className="v2-notif-stage-cell-label">Before due</span>
-              <input
-                className="v2-form-input v2-notif-stage-cell-input"
-                type="number" min="0.25" max="168" step="0.25"
-                value={settings.notif_freq_highpri_before ?? 24}
-                onChange={e => update('notif_freq_highpri_before', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-              />
-            </label>
-            <label className="v2-notif-stage-cell">
-              <span className="v2-notif-stage-cell-label">On due</span>
-              <input
-                className="v2-form-input v2-notif-stage-cell-input"
-                type="number" min="0.25" max="24" step="0.25"
-                value={settings.notif_freq_highpri_due ?? 1}
-                onChange={e => update('notif_freq_highpri_due', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-              />
-            </label>
-            <label className="v2-notif-stage-cell">
-              <span className="v2-notif-stage-cell-label">Overdue</span>
-              <input
-                className="v2-form-input v2-notif-stage-cell-input"
-                type="number" min="0.25" max="24" step="0.25"
-                value={settings.notif_freq_highpri_overdue ?? 0.5}
-                onChange={e => update('notif_freq_highpri_overdue', Math.max(0.25, parseFloat(e.target.value) || 0.25))}
-              />
-            </label>
-          </div>
-        )}
-      </div>
-
       {/* Critical mode — the critical tag's nag path (internal identifiers
           keep the original crisis_* names). One card for everything about
           critical behavior (cadence, staleness check-in, auto triage). The
           tag itself is applied per-task via EditTaskModal's Critical
           checkbox or by adding the label directly. */}
       <div className="v2-settings-block">
-        <SectionHeader k="crisis" label="Critical mode" hint='Tasks tagged with the critical label get the most aggressive nag path in the app: their own per-task pings on every enabled channel (rides the High priority toggles), a pinned 🚨 section, and an auto-drafted triage checklist. Pushover escalates to Emergency once a critical task is overdue or 24h old.' />
+        <SectionHeader k="crisis" label="Critical mode" hint='Tasks tagged with the critical label get the most aggressive nag path in the app: their own per-task pings on every enabled channel (rides the channel master toggles), a pinned 🚨 section, and an auto-drafted triage checklist. Pushover escalates to Emergency once a critical task is overdue or 24h old.' />
         {!isCollapsed('crisis') && (<>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
@@ -2353,67 +2287,6 @@ function NotificationsPanel({ settings, update }) {
           />
         </div>
         </>)}
-      </div>
-
-      {/* Pile-up — every knob for "too many open tasks" lives in one place:
-        * the limit itself (max_open_tasks — moved here from General, where it
-        * was stranded next to unrelated task-behavior fields with no link to
-        * the rest of this feature), the percentage-based warning, and the
-        * label exemption. Previously split across two tabs with zero
-        * cross-reference — reported in prod as "shit is everywhere." */}
-      <div className="v2-settings-block">
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <label className="v2-settings-row-label" htmlFor="v2-max-open">Max open tasks</label>
-            <div className="v2-settings-row-hint">Warns when you exceed this. 0 = no limit.</div>
-          </div>
-          <input
-            id="v2-max-open"
-            className="v2-form-input v2-settings-compact-input"
-            type="number"
-            min="0"
-            max="100"
-            value={settings.max_open_tasks ?? 10}
-            onChange={e => update('max_open_tasks', parseInt(e.target.value) || 0)}
-          />
-        </div>
-        <div className="v2-settings-row" style={{ paddingTop: 12, borderTop: '1px solid var(--v2-hairline)' }}>
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Pile-up thresholds</div>
-            <div className="v2-settings-row-hint">Fire a pile-up warning when this percentage of active tasks are older than N days.</div>
-          </div>
-        </div>
-        <div className="v2-integrations-row-compact" style={{ paddingBottom: 8 }}>
-          <input type="number" className="v2-form-input v2-settings-compact-input" min={0} max={100} value={settings.stale_warn_pct ?? 50} onChange={e => update('stale_warn_pct', parseInt(e.target.value, 10) || 0)} />
-          <span className="v2-integrations-hint">% older than</span>
-          <input type="number" className="v2-form-input v2-settings-compact-input" min={1} max={90} value={settings.stale_warn_days ?? 7} onChange={e => update('stale_warn_days', parseInt(e.target.value, 10) || 7)} />
-          <span className="v2-integrations-hint">days</span>
-        </div>
-        {allLabels.length > 0 && (
-          <div className="v2-settings-row" style={{ alignItems: 'flex-start', paddingTop: 12, borderTop: '1px solid var(--v2-hairline)' }}>
-            <div className="v2-settings-row-text">
-              <div className="v2-settings-row-label">Exempt from pile-up count</div>
-              <div className="v2-settings-row-hint">Tasks with any of these labels don't count toward the limit or its warning — useful for things you're deliberately tracking for reference, not actively working.</div>
-              <div className="v2-form-label-grid" style={{ marginTop: 8 }}>
-                {allLabels.map(lbl => {
-                  const active = pileupExemptLabels.includes(lbl.id)
-                  return (
-                    <button
-                      key={lbl.id}
-                      type="button"
-                      className={`v2-form-label-pill${active ? ' v2-form-label-pill-active' : ''}`}
-                      onClick={() => togglePileupExempt(lbl.id)}
-                      style={{ '--label-color': lbl.color }}
-                      title={lbl.name}
-                    >
-                      {lbl.name}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Quiet hours — section header is the toggle row, no redundant sub-toggle */}
@@ -2466,11 +2339,11 @@ function NotificationsPanel({ settings, update }) {
         )}
       </div>
 
-      {/* Daily digest — per-channel opt-in. sendDigestNow gates on these flags,
-          not on channel masters, so users with push/email/pushover enabled still
-          need to opt into the digest separately. */}
+      {/* The morning digest — THE one scheduled notification of the day
+          (2026-07-24 reshape). Assembled after the nightly rollover so it
+          reflects post-rollover state; re-sends replace rather than stack. */}
       <div className="v2-settings-block">
-        <SectionHeader k="digest" label="Daily digest" hint="Curated daily summary — yesterday recap + streak, today's focus, coming up, carrying, quick wins. Each channel must opt in separately." />
+        <SectionHeader k="digest" label="Morning digest" hint="The one scheduled notification of the day: today's three (commitment phrasing when intentions are set), a ten-minute nudge, gentle returns, snoozes landing today, Monday pool health, then weather + recap in the expanded view." />
         {!isCollapsed('digest') && (<>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
@@ -2478,7 +2351,7 @@ function NotificationsPanel({ settings, update }) {
             <div className="v2-settings-row-hint">Delivers via the Push channel — native banner on the iOS app, web push on subscribed browsers. Requires the Push master.</div>
           </div>
           <Toggle
-            checked={settings.push_notifications_enabled === true && settings.push_digest_enabled === true}
+            checked={settings.push_notifications_enabled === true && settings.push_digest_enabled !== false}
             onChange={e => update('push_digest_enabled', e.target.checked)}
             disabled={settings.push_notifications_enabled !== true}
           />
@@ -2508,18 +2381,9 @@ function NotificationsPanel({ settings, update }) {
         <div className="v2-settings-row" style={{ marginTop: 8 }}>
           <div className="v2-settings-row-text">
             <label className="v2-settings-row-label">Delivery time</label>
-            <div className="v2-settings-row-hint">Local time on the server. Default 07:00.</div>
+            <div className="v2-settings-row-hint">Your local morning (uses your timezone setting). If the server is down at this time, the digest sends on recovery before noon — after noon the day is skipped.</div>
           </div>
           <input type="time" className="v2-form-input v2-settings-time-input" value={settings.digest_time || '07:00'} onChange={e => update('digest_time', e.target.value)} />
-        </div>
-        <div className="v2-settings-row" style={{ marginTop: 8 }}>
-          <div className="v2-settings-row-text">
-            <label className="v2-settings-row-label">Digest style</label>
-          </div>
-          <select className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide" value={settings.digest_style || 'curated'} onChange={e => update('digest_style', e.target.value)}>
-            <option value="curated">Curated</option>
-            <option value="counts">Counts only</option>
-          </select>
         </div>
         </>)}
       </div>
@@ -2583,59 +2447,6 @@ function NotificationsPanel({ settings, update }) {
             placeholder="digest@yourdomain.com"
             value={settings.email_from_address || ''}
             onChange={e => update('email_from_address', e.target.value)}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Batch mode</div>
-            <div className="v2-settings-row-hint">Bundles eligible notifications into a single digest-style email instead of sending one per event. Reduces inbox noise; trades immediacy for calm.</div>
-          </div>
-          <Toggle
-            checked={!!settings.email_batch_mode}
-            onChange={e => update('email_batch_mode', e.target.checked)}
-            disabled={settings.email_notifications_enabled !== true}
-          />
-        </div>
-        </>)}
-      </div>
-
-      {/* Weather notifications — master + per-channel toggles. No Pushover
-        * row here (unlike every other notification type) because
-        * pushoverNotifications.js has no weather-event dispatch at all —
-        * adding a toggle with nothing behind it would just be another dead
-        * setting. Real feature work, not a settings-placement fix; tracked
-        * as a known gap rather than faked with a non-functional toggle. */}
-      <div className="v2-settings-block">
-        <SectionHeader k="weather" label="Weather notifications" hint="Alerts for nice-day windows, bad-weekend warnings, and consecutive-nice-day windows. Requires a weather location in Integrations." />
-        {!isCollapsed('weather') && (<>
-        <div className="v2-settings-row" style={{ marginTop: 8 }}>
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Enable weather notifications</div>
-          </div>
-          <Toggle
-            checked={!!settings.weather_enabled && settings.weather_notifications_enabled !== false}
-            onChange={e => update('weather_notifications_enabled', e.target.checked)}
-            disabled={!settings.weather_enabled}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Push</div>
-          </div>
-          <Toggle
-            checked={settings.weather_notifications_enabled !== false && settings.push_notifications_enabled === true && settings.weather_notif_push !== false}
-            onChange={e => update('weather_notif_push', e.target.checked)}
-            disabled={settings.weather_notifications_enabled === false || settings.push_notifications_enabled !== true}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Email</div>
-          </div>
-          <Toggle
-            checked={settings.weather_notifications_enabled !== false && settings.email_notifications_enabled === true && settings.weather_notif_email !== false}
-            onChange={e => update('weather_notif_email', e.target.checked)}
-            disabled={settings.weather_notifications_enabled === false || settings.email_notifications_enabled !== true}
           />
         </div>
         </>)}

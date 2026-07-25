@@ -10,8 +10,7 @@
  * the engine is a no-op.
  */
 
-import crypto from 'crypto'
-import { getData, setData, getNotifThrottle, setNotifThrottle, logNotifPush, logNotifEmail, getAllPushSubscriptions, deletePushSubscription } from './db.js'
+import { getData, setData } from './db.js'
 
 const CACHE_KEY = 'weather_cache'
 const FETCH_INTERVAL_MS = 30 * 60 * 1000 // 30 min
@@ -195,13 +194,6 @@ export async function refreshWeather({ force = false } = {}) {
     }
     const saved = saveWeatherCache(forecast, location)
 
-    // Evaluate notifications after every refresh (no-op if nothing meaningful)
-    try {
-      await evaluateWeatherNotifications(saved, settings)
-    } catch (err) {
-      console.error('[Weather] Notification evaluation failed:', err.message)
-    }
-
     return { ok: true, cached: false, cache: saved }
   } catch (err) {
     console.error('[Weather] Refresh failed:', err.message)
@@ -232,7 +224,7 @@ function shortDate(dateStr) {
  * Each event has a stable id used for throttle dedup so we don't renotify
  * for the same weekend rain twice.
  */
-function detectWeatherEvents(forecast) {
+export function detectWeatherEvents(forecast) {
   if (!forecast?.days?.length) return []
   const today = forecast.days[0]
   const next3 = forecast.days.slice(1, 4)
@@ -285,145 +277,10 @@ function detectWeatherEvents(forecast) {
   return events
 }
 
-function checkThrottle(key, freqMs) {
-  const last = getNotifThrottle(key)
-  if (!last) return true
-  return Date.now() - new Date(last).getTime() >= freqMs
-}
-
-function markThrottle(key) {
-  setNotifThrottle(key, new Date().toISOString())
-}
-
-function genId() {
-  return crypto.randomUUID()
-}
-
-function isInQuietHours(settings) {
-  if (!settings.quiet_hours_enabled) return false
-  const now = new Date()
-  const currentMins = now.getHours() * 60 + now.getMinutes()
-  const [startH, startM] = (settings.quiet_hours_start || '22:00').split(':').map(Number)
-  const [endH, endM] = (settings.quiet_hours_end || '08:00').split(':').map(Number)
-  const startMins = startH * 60 + startM
-  const endMins = endH * 60 + endM
-  if (startMins <= endMins) return currentMins >= startMins && currentMins < endMins
-  return currentMins >= startMins || currentMins < endMins
-}
-
-// Lazy-load push/email engines to avoid circular imports
-let pushModule = null
-let emailModule = null
-
-async function sendWeatherPush(title, body, eventId) {
-  if (!pushModule) pushModule = await import('./pushNotifications.js')
-  if (!pushModule.isConfigured || !pushModule.isConfigured()) {
-    // Fallback: directly use web-push via the exported helpers
-  }
-  // Use dynamic access — pushNotifications.js only exports high-level functions.
-  // Easiest: send via its public sendTestPush-like path. We'll replicate the
-  // sendPush loop here to keep this module decoupled.
-  const webpush = (await import('web-push')).default
-  const publicKey = pushModule.getVapidPublicKey?.()
-  if (!publicKey) return false
-  const subs = getAllPushSubscriptions()
-  if (subs.length === 0) return false
-  const payload = JSON.stringify({ title, body, tag: `weather:${eventId}` })
-  let sent = false
-  for (const sub of subs) {
-    const pushSub = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }
-    try {
-      await webpush.sendNotification(pushSub, payload)
-      sent = true
-    } catch (err) {
-      if (err.statusCode === 410 || err.statusCode === 404 || err.statusCode === 403) {
-        deletePushSubscription(sub.endpoint)
-      } else {
-        console.error(`[Weather] Push send failed (${err.statusCode || 'unknown'}):`, err.message)
-      }
-    }
-  }
-  return sent
-}
-
-async function sendWeatherEmail(subject, body) {
-  if (!emailModule) emailModule = await import('./emailNotifications.js')
-  // emailNotifications exports sendPackageEmail + sendTestEmail but sendEmail is internal.
-  // We'll use the transporter via Nodemailer directly through the public resetTransporter path.
-  // Simplest approach: create our own tiny SMTP send using env vars here.
-  const nodemailer = (await import('nodemailer')).default
-  const host = process.env.SMTP_HOST
-  const user = process.env.SMTP_USER
-  const pass = process.env.SMTP_PASS
-  if (!host || !user || !pass) return false
-  const settings = getData('settings') || {}
-  const to = process.env.NOTIFICATION_EMAIL || settings.email_address
-  if (!to) return false
-  const from = process.env.SMTP_FROM || user
-  const port = parseInt(process.env.SMTP_PORT || '587', 10)
-  const transport = nodemailer.createTransport({
-    host, port, secure: port === 465,
-    auth: { user, pass },
-    tls: { rejectUnauthorized: false },
-  })
-  const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#1a1a2e;font-family:-apple-system,BlinkMacSystemFont,sans-serif">
-    <div style="max-width:500px;margin:0 auto;padding:24px">
-      <div style="background:#16213e;border-radius:12px;padding:24px;color:#e0e0e0">
-        <div style="font-size:18px;font-weight:600;color:#fff;margin-bottom:16px">${subject}</div>
-        <div style="font-size:14px;color:#ccc;line-height:1.5">${body}</div>
-        <div style="margin-top:24px;padding-top:16px;border-top:1px solid #2a2a4a;font-size:12px;color:#666">Boomerang Task Manager · Weather</div>
-      </div>
-    </div></body></html>`
-  try {
-    await transport.sendMail({ from: `"Boomerang" <${from}>`, to, subject, text: body, html })
-    return true
-  } catch (err) {
-    console.error('[Weather] Email send failed:', err.message)
-    return false
-  }
-}
-
-async function evaluateWeatherNotifications(cache, settings) {
-  // Dev-instance muzzle — same check as server.js notifsMuzzled (duplicated
-  // per-file like isPileupExempt/isStale): the weather loop must keep running
-  // on dev (badges + What-Now need the cache) but never background-send.
-  const appVer = process.env.APP_VERSION || ''
-  if ((appVer === 'dev' || appVer.startsWith('dev-')) && process.env.DEV_NOTIFICATIONS !== '1') return
-  if (!settings.weather_notifications_enabled) return
-  if (isInQuietHours(settings)) return
-
-  const events = detectWeatherEvents(cache.forecast)
-  if (events.length === 0) return
-
-  const pushEnabled = settings.push_notifications_enabled && settings.weather_notif_push !== false
-  const emailEnabled = settings.email_notifications_enabled && settings.weather_notif_email !== false
-
-  // De-dup per event: once an event is notified we don't re-fire for ~18h.
-  // Different events on the same day are still allowed (e.g. nice_day + bad_weekend).
-  const WEATHER_EVENT_TTL_MS = 18 * 60 * 60 * 1000
-
-  for (const event of events) {
-    const throttleKey = `weather:${event.id}`
-    if (!checkThrottle(throttleKey, WEATHER_EVENT_TTL_MS)) continue
-
-    let delivered = false
-    if (pushEnabled) {
-      const sent = await sendWeatherPush(event.title, event.body, event.id)
-      if (sent) {
-        logNotifPush(genId(), `weather_${event.type}`, null, event.title, event.body)
-        delivered = true
-      }
-    }
-    if (emailEnabled) {
-      const sent = await sendWeatherEmail(event.title, event.body)
-      if (sent) {
-        logNotifEmail(genId(), `weather_${event.type}`, null, event.title, event.body)
-        delivered = true
-      }
-    }
-    if (delivered) markThrottle(throttleKey)
-  }
-}
+// Weather alert pushes (nice_day / bad_weekend / nice_window) were deleted
+// in the 2026-07-24 digest reshape — the forecast folds into the morning
+// digest's weather line instead (buildWeatherSummary below). The event
+// detector survives for any future digest "best days" enrichment.
 
 // --- Weather summary for digest / What Now / AI context ---
 

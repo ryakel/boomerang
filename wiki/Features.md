@@ -439,15 +439,16 @@ Uses [Open-Meteo](https://open-meteo.com) to suggest the right tasks for the wea
 - **Morning digest** — push and email digests include a weather summary line when configured.
 - **Respects quiet hours** — weather alerts are silenced during your DND window like other notifications.
 
-## Notifications
+## Notifications (reshaped 2026-07-24 — one calm morning digest)
 
-**Undated tasks are quiet by default.** A task with no due date won't trigger stale/nudge/pile-up notifications unless you turn on "Remind me about this without a due date" in the edit modal (same toggle Projects have always had) — otherwise it just sits in Anytime/Tasks without any pressure. This applies to the pile-up count too, so a big backlog of someday tasks won't push you over the "too many open tasks" limit. Tasks with a due date, and any task with an active Escalation Ladder, are unaffected — this only changes truly undated tasks.
+The alert flood is gone. Boomerang sends **one morning digest push** (your three commitments — with implementation-intention phrasing when set — a gentle line for tasks that came back around, snoozes returning today, and Monday pool health), plus a deliberately short list of rare, high-value pings:
 
-**Exempt labeled tasks from the pile-up count.** Settings → Notifications has a label picker (below "Pile-up thresholds") — tasks tagged with any label you pick there stop counting toward the "too many open tasks" limit and warning. Useful for tasks you're deliberately keeping around for reference or context rather than active work. Off by default (no labels picked = no effect).
+- **Critical tag** — the one loud thing: per-task pings every ~2h, Pushover Emergency once past due or 24h in critical.
+- **Escalation ladder nudges** — tactic-aware follow-ups at each rung's cadence.
+- **Per-task "Remind me"** — one gentle line per day for tasks you explicitly opted in.
+- **Event pings** — package delivered/exception/signature, Quokka plan-ready.
 
-![Settings → Notifications: pile-up thresholds and label exemption](images/settings-notifications.png)
-
-*Settings → Notifications: pile-up thresholds with the label-exemption picker directly below.*
+Everything else (stale warnings, generic due-date pokes, size/pile-up warnings, habit pace, weather alerts) folds into the digest or is simply gone. Re-sending the digest replaces the previous banner instead of stacking. Digest time is configurable (default 7:00 AM, your timezone); if the server was down at digest time it sends on recovery before noon, otherwise skips the day.
 
 ### Notification Center (in-app)
 

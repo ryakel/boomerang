@@ -9,9 +9,8 @@
 import webpush from 'web-push'
 import { readFileSync, existsSync } from 'fs'
 import crypto from 'crypto'
-import { queryTasks, getAllRoutines, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush, countPendingSuggestions, filterNotifiableTasks, escalationNudgeOverride, isCrisisTask } from './db.js'
-import { rewriteNotifBody, canRewriteThisTick } from './notifAi.js'
-import { isInQuietHours, getUserTimeParts } from './userTime.js'
+import { queryTasks, getData, setData, getAllPushSubscriptions, deletePushSubscription, getNotifThrottle, setNotifThrottle, logNotifPush, filterNotifiableTasks, escalationNudgeOverride, isCrisisTask } from './db.js'
+import { isInQuietHours } from './userTime.js'
 import { isApnsConfigured, sendApnsToAll, hasApnsTargets } from './apnsNotifications.js'
 
 // --- Environment (optional overrides) ---
@@ -96,6 +95,7 @@ async function sendPush(payload) {
         message: payload.body,
         url,
         threadId: payload.tag || 'boomerang',
+        collapseId: payload.tag || null,
       })
       nativeSent = result.sent || 0
     }
@@ -149,32 +149,7 @@ function getFreqMs(settings, key, fallbackHours) {
   return hours * 60 * 60 * 1000
 }
 
-// isInQuietHours / getUserTimeParts now imported from userTime.js
-
-function isOverdue(task) {
-  if (!task.due_date) return false
-  const [y, m, d] = task.due_date.split('-').map(Number)
-  const due = new Date(y, m - 1, d, 23, 59, 59, 999)
-  return Date.now() > due.getTime()
-}
-
-function isStale(task, staleDays) {
-  if (task.status === 'project') return false
-  if (task.snoozed_until && new Date(task.snoozed_until) > new Date()) return false
-  const elapsed = Date.now() - new Date(task.last_touched).getTime()
-  return elapsed > (task.staleness_days || staleDays || 2) * 86400000
-}
-
-// Tasks tagged with a user-configured "exempt" label (settings.pileup_
-// exempt_labels, an array of label ids picked in Settings) don't count
-// toward the pile-up limit or its warning — for things deliberately kept
-// on the list for reference/context rather than active work.
-function isPileupExempt(task, settings) {
-  const exempt = settings.pileup_exempt_labels
-  if (!Array.isArray(exempt) || exempt.length === 0) return false
-  if (!Array.isArray(task.tags)) return false
-  return task.tags.some(id => exempt.includes(id))
-}
+// isInQuietHours imported from userTime.js
 
 function applyAvoidanceBoost(freqMs, task) {
   if (!task.energy || !AVOIDANCE_ENERGY_TYPES.includes(task.energy)) return freqMs
@@ -197,7 +172,7 @@ function buildCrisisBody(task) {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const due = new Date(task.due_date + 'T00:00:00')
     const diffDays = Math.round((due - today) / 86400000)
-    if (diffDays < 0) bits.push(`${Math.abs(diffDays)}d overdue`)
+    if (diffDays < 0) bits.push(`due ${Math.abs(diffDays)}d ago`)
     else if (diffDays === 0) bits.push('due today')
   }
   // A hire-out Reality-check verdict overrides the first move — the nag
@@ -218,30 +193,6 @@ function buildCrisisBody(task) {
   return body
 }
 
-function getHighPriorityFreqMs(task, settings) {
-  const now = new Date()
-  if (!task.due_date) return getFreqMs(settings, 'notif_freq_highpri_before', 24)
-  const due = new Date(task.due_date + 'T00:00:00')
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-  const diffDays = Math.round((dueDay - today) / 86400000)
-  if (diffDays > 0) return getFreqMs(settings, 'notif_freq_highpri_before', 24)
-  if (diffDays === 0) return getFreqMs(settings, 'notif_freq_highpri_due', 1)
-  return getFreqMs(settings, 'notif_freq_highpri_overdue', 0.5)
-}
-
-function isInHighPriNotifWindow(task) {
-  const hour = new Date().getHours()
-  if (!task.due_date) return hour >= 8 && hour < 22
-  const now = new Date()
-  const due = new Date(task.due_date + 'T00:00:00')
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-  const diffDays = Math.round((dueDay - today) / 86400000)
-  if (diffDays >= 0) return hour >= 8 && hour < 22
-  return hour >= 6 && hour < 22
-}
-
 function checkThrottle(key, freqMs) {
   const last = getNotifThrottle(key)
   if (!last) return true
@@ -252,97 +203,23 @@ function markThrottle(key) {
   setNotifThrottle(key, new Date().toISOString())
 }
 
-// Habit-mode helpers. Mirror computeHabitStats in src/store.js but server-side
-// and inlined to avoid cross-importing a frontend module. Both must agree on
-// period bounds and behind-pace semantics or the user gets nudge / progress
-// drift between the card and the push.
-function habitPeriodBounds(period, weekStartsOn = 1, now = new Date()) {
-  const start = new Date(now)
-  start.setHours(0, 0, 0, 0)
-  if (period === 'week') {
-    const dow = start.getDay()
-    const diff = (dow - weekStartsOn + 7) % 7
-    start.setDate(start.getDate() - diff)
-    const end = new Date(start); end.setDate(end.getDate() + 7)
-    return { start, end, lengthDays: 7 }
-  }
-  start.setDate(1)
-  const end = new Date(start); end.setMonth(end.getMonth() + 1)
-  const lengthDays = Math.round((end.getTime() - start.getTime()) / 86400000)
-  return { start, end, lengthDays }
-}
-
-function countHabitCompletions(routineId, tasks, start, end) {
-  return tasks.filter(t => {
-    if (t.routine_id !== routineId) return false
-    if (!t.completed_at) return false
-    const c = new Date(t.completed_at).getTime()
-    return c >= start.getTime() && c < end.getTime()
-  }).length
-}
-
-function isHabitBehindPace(routine, tasks, weekStartsOn) {
-  const { start, lengthDays } = habitPeriodBounds(routine.target_period, weekStartsOn)
-  const completions = countHabitCompletions(routine.id, tasks, start, new Date())
-  const elapsedRatio = Math.min(1, (Date.now() - start.getTime()) / (lengthDays * 86400000))
-  const expected = elapsedRatio * routine.target_count
-  return {
-    completions,
-    target: routine.target_count,
-    elapsedRatio,
-    behind: completions < expected && elapsedRatio >= 0.3 && completions < routine.target_count,
-  }
-}
-
-function periodLabel(period) {
-  return period === 'week' ? 'this week' : 'this month'
-}
-
 function genId() {
   return crypto.randomUUID()
 }
 
-// --- Morning digest check ---
-
-async function checkPushDigest() {
-  if (!isConfigured()) return
-  const settings = getData('settings') || {}
-  if (!settings.push_notifications_enabled) return
-  if (!settings.push_digest_enabled) return
-
-  const digestTime = settings.digest_time || '07:00'
-  const [hh, mm] = digestTime.split(':').map(Number)
-  const userNow = getUserTimeParts(settings)
-  if (userNow.hours !== hh || userNow.minutes !== mm) return
-
-  if (!checkThrottle('push_digest', 23 * 60 * 60 * 1000)) return
-
-  // Native-only setups (APNs devices, zero web subscriptions) are valid —
-  // sendPush fans out to both legs, so only bail when NEITHER has targets.
-  const subscriptions = getAllPushSubscriptions()
-  if (subscriptions.length === 0 && !hasApnsTargets()) return
-
-  const { buildDigest } = await import('./digestBuilder.js')
-  const digest = buildDigest(settings)
-  if (!digest.hasContent) return
-
-  const sent = await sendPush({
-    title: digest.subject,
-    body: digest.textBody.slice(0, 500),
-    tag: 'digest',
-  })
-  if (sent) {
-    markThrottle('push_digest')
-    logNotifPush(genId(), 'digest', null, digest.subject, digest.textBody.slice(0, 500))
-  }
-}
-
 // --- Main notification check loop ---
+//
+// 2026-07-24 digest reshape ("The Great Alert Deletion"): the ambient flood
+// — high-priority escalation, generic due-status alerts, stale, nudges,
+// size-based, pile-up, habit pace, suggestion pings — is DELETED, not
+// disabled. Everything informational folds into the one morning digest
+// (see digestBuilder.js + the digest pipeline in server.js). What remains
+// here are the deliberate per-task opt-ins, the intentionally rare, loud
+// exceptions: the Critical tag, escalation ladders, and the per-task
+// "remind me" (nag_allowed) gentle daily line. Event-driven pings
+// (packages, Quokka plan-ready) live below as their own opt-in senders.
 
 async function runPushCheck() {
-  // Check digest before main notification loop
-  try { await checkPushDigest() } catch (err) { console.error('[Push] Digest check failed:', err.message) }
-
   try {
     if (!isConfigured()) return
 
@@ -361,16 +238,15 @@ async function runPushCheck() {
 
     const nonSnoozed = activeTasks.filter(t => !t.snoozed_until || new Date(t.snoozed_until) <= new Date())
 
-    // Crisis tag ("prio") — the most aggressive per-task loop in the app.
-    // Fires BEFORE high-priority, exempt from the hp per-tick cap, at its own
-    // notif_freq_crisis cadence (default 2h) regardless of due date, and is
-    // NEVER adaptively backed off (ignoring a crisis must not teach the app
-    // to nag less). Rides the highpri channel toggle — crisis IS high
-    // priority, dialed up. Crisis tasks are excluded from the hp/escalation
-    // loops and the stale/nudge/pile-up aggregate pools below (no double-nag).
-    // Web push stays silent during quiet hours via the engine-wide gate above.
+    // Crisis tag — the most aggressive per-task loop in the app, at its own
+    // notif_freq_crisis cadence (default 2h) regardless of due date. A
+    // deliberate per-task opt-in (the user explicitly declares an emergency),
+    // so it survives the digest reshape as the loudest of the rare pings.
+    // Rides the channel master only (the old highpri toggle died with the
+    // high-pri escalation ladder). Web push stays silent during quiet hours
+    // via the engine-wide gate above.
     const crisisIds = new Set()
-    if (settings.push_notif_highpri !== false) {
+    {
       const crisisTasks = nonSnoozed.filter(t => isCrisisTask(t, settings))
       for (const task of crisisTasks) {
         crisisIds.add(task.id)
@@ -405,52 +281,10 @@ async function runPushCheck() {
       }
     }
 
-    // High-priority notifications
-    if (settings.push_notif_highpri !== false) {
-      const highPriTasks = nonSnoozed.filter(t => t.high_priority && !crisisIds.has(t.id))
-      let hpCount = 0
-      for (const task of highPriTasks) {
-        if (hpCount >= 3) break
-        if (!isInHighPriNotifWindow(task)) continue
-
-        const freq = applyAvoidanceBoost(getHighPriorityFreqMs(task, settings), task)
-        if (!checkThrottle(`push_hp:${task.id}`, freq)) continue
-
-        const dueDate = task.due_date ? new Date(task.due_date + 'T00:00:00') : null
-        const today = new Date(); today.setHours(0, 0, 0, 0)
-        let body
-        if (dueDate) {
-          const diffDays = Math.round((dueDate - today) / 86400000)
-          if (diffDays < 0) body = `"${task.title}" is ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} overdue`
-          else if (diffDays === 0) body = `"${task.title}" is due today`
-          else if (diffDays === 1) body = `"${task.title}" is due tomorrow`
-          else body = `"${task.title}" is due in ${diffDays} days`
-        } else {
-          body = `"${task.title}" is marked high priority`
-        }
-        // Hire-out Reality-check framing: push the call, not the repair.
-        if (task.diy_verdict === 'hire') {
-          body += ` — you decided to hire this out${task.diy_first_move ? `. First move: ${task.diy_first_move}` : ''}`
-        }
-
-        // Tone-aware rewrite — at most one per tick
-        if (canRewriteThisTick('push')) {
-          body = await rewriteNotifBody(task, body)
-        }
-
-        const sent = await sendPush({ title: 'HIGH PRIORITY', body, tag: `hp:${task.id}`, data: { taskId: task.id } })
-        if (sent) {
-          markThrottle(`push_hp:${task.id}`)
-          logNotifPush(genId(), 'high_priority', task.id, 'HIGH PRIORITY', body)
-          hpCount++
-        }
-      }
-    }
-
     // Escalation ladder — tasks with an active contact-attempt ladder get
     // their own tactic-aware nudge (current rung's suggestion/script, or the
-    // prompted-advance copy) at the RUNG's own cadence, instead of generic
-    // stale/nudge copy. Excluded from the aggregate stale/nudge pools below.
+    // prompted-advance copy) at the RUNG's own cadence. A deliberate
+    // per-task opt-in; survives the digest reshape.
     const escalationActiveIds = new Set()
     if (settings.push_notif_escalation !== false) {
       // Crisis takes precedence — a crisis task with an active ladder already
@@ -473,172 +307,19 @@ async function runPushCheck() {
       }
     }
 
-    // Overdue tasks
-    if (settings.push_notif_overdue !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_overdue', 0.5)
-      if (checkThrottle('push_overdue', freq)) {
-        const overdueTasks = nonSnoozed.filter(isOverdue)
-        if (overdueTasks.length > 0) {
-          const body = `You have ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''}: ${overdueTasks.slice(0, 3).map(t => t.title).join(', ')}`
-          const sent = await sendPush({ title: 'Overdue Tasks', body, tag: 'overdue' })
-          if (sent) {
-            markThrottle('push_overdue')
-            logNotifPush(genId(), 'overdue', null, 'Overdue Tasks', body)
-          }
-        }
-      }
-    }
-
-    // Stale tasks
-    if (settings.push_notif_stale !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_stale', 0.5)
-      if (checkThrottle('push_stale', freq)) {
-        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
-        if (staleTasks.length > 0) {
-          const body = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
-          const sent = await sendPush({ title: 'Stale Tasks', body, tag: 'stale' })
-          if (sent) {
-            markThrottle('push_stale')
-            logNotifPush(genId(), 'stale', null, 'Stale Tasks', body)
-          }
-        }
-      }
-    }
-
-    // General nudge
-    if (settings.push_notif_nudge !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_nudge', 1)
-      if (checkThrottle('push_nudge', freq) && nonSnoozed.length > 0) {
-        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
-        let title, body
-        if (smallTasks.length > 0) {
-          const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
-          if (pick.diy_verdict === 'hire') {
-            // Hire-out Reality-check framing: the quick win IS the phone call.
-            title = 'Make the call'
-            body = `"${pick.title}" — you're hiring this out. ${pick.diy_first_move || 'First move: get 2 quotes.'}`
-          } else {
-            title = 'Quick win available'
-            body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
-          }
-        } else {
-          title = 'Boomerang'
-          body = `You have ${nonSnoozed.length} open tasks. Pick the easiest one and knock it out.`
-        }
-        const sent = await sendPush({ title, body, tag: 'nudge' })
-        if (sent) {
-          markThrottle('push_nudge')
-          logNotifPush(genId(), 'nudge', null, title, body)
-        }
-      }
-    }
-
-    // Habit-mode behind-pace nudge. One push per habit per 24h max, only when
-    // we're past the 30% mark of the period AND the user is below the linear
-    // pace. Push priority-0 only (per spec — habits are encouragement, not
-    // alarms). Inline actions Log it / Not today let the user resolve without
-    // opening the app.
-    if (settings.push_notif_habit_nudge !== false) {
-      const weekStartsOn = settings.week_starts_on ?? 1
-      const habitRoutines = getAllRoutines().filter(
-        r => !r.paused && r.spawn_mode === 'habit' && r.target_count && r.target_period
-      )
-      for (const routine of habitRoutines) {
-        const throttleKey = `push_habit:${routine.id}`
-        if (!checkThrottle(throttleKey, 24 * 60 * 60 * 1000)) continue
-        const { completions, target, behind } = isHabitBehindPace(routine, allTasks, weekStartsOn)
-        if (!behind) continue
-        const title = routine.title
-        const body = `${completions}/${target} ${periodLabel(routine.target_period)} — want to log one today?`
-        const sent = await sendPush({
-          title,
-          body,
-          tag: `habit:${routine.id}`,
-          data: { routineId: routine.id, habitAction: true },
-        })
-        if (sent) {
-          markThrottle(throttleKey)
-          logNotifPush(genId(), 'habit_nudge', null, title, body)
-        }
-      }
-    }
-
-    // Size-based reminders
-    if (settings.push_notif_size !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_size', 1)
-      if (checkThrottle('push_size', freq)) {
-        const sizeLeadDays = { XL: 3, L: 2, M: 1 }
-        const upcoming = nonSnoozed.filter(t => {
-          if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
-          const dueDate = new Date(t.due_date)
-          const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
-          return daysUntil > 0 && daysUntil <= sizeLeadDays[t.size]
-        })
-        if (upcoming.length > 0) {
-          const t = upcoming[0]
-          const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
-          const title = `${t.size} task due soon`
-          const body = `"${t.title}" is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's a ${t.size}, start planning`
-          const sent = await sendPush({ title, body, tag: `size:${t.id}`, data: { taskId: t.id } })
-          if (sent) {
-            markThrottle('push_size')
-            logNotifPush(genId(), 'size', t.id, title, body)
-          }
-        }
-      }
-    }
-
-    // Pile-up warning
-    if (settings.push_notif_pileup !== false) {
-      const freq = getFreqMs(settings, 'notif_freq_pileup', 2)
-      if (checkThrottle('push_pileup', freq)) {
-        let sent = false
-        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings) && !crisisIds.has(t.id))
-        if (settings.max_open_tasks && pileupPool.length > settings.max_open_tasks) {
-          const title = 'Too many open tasks'
-          const body = `You have ${pileupPool.length} open tasks (limit: ${settings.max_open_tasks}). Can you knock one out?`
-          sent = await sendPush({ title, body, tag: 'pileup' })
-          if (sent) logNotifPush(genId(), 'pileup', null, title, body)
-        }
-        if (!sent && settings.stale_warn_pct > 0) {
-          const oldTasks = pileupPool.filter(t => {
-            const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
-            return age > (settings.stale_warn_days || 7)
-          })
-          const pct = pileupPool.length > 0 ? Math.round(oldTasks.length / pileupPool.length * 100) : 0
-          if (pct >= settings.stale_warn_pct) {
-            const title = 'Tasks piling up'
-            const body = `${pct}% of your tasks have been open for ${settings.stale_warn_days || 7}+ days`
-            sent = await sendPush({ title, body, tag: 'pileup' })
-            if (sent) logNotifPush(genId(), 'pileup', null, title, body)
-          }
-        }
-        if (sent) markThrottle('push_pileup')
-      }
-    }
-
-    // Routine suggestions (Activity Prompts PR 3). One ping per week max
-    // when pending suggestions are waiting in the inbox. The actual scan
-    // runs Sunday 3am local; this notification rides alongside on the
-    // next dispatcher tick so the user sees the result of the scan.
-    if (settings.push_notif_routine_suggestion !== false) {
-      const freq = 7 * 24 * 60 * 60 * 1000 // weekly
-      if (checkThrottle('push_routine_suggestion', freq)) {
-        const pending = countPendingSuggestions()
-        if (pending > 0) {
-          const title = pending === 1 ? '1 routine suggestion waiting' : `${pending} routine suggestions waiting`
-          const body = 'Boomerang noticed patterns in your completed history. Tap to review.'
-          const sent = await sendPush({
-            title,
-            body,
-            tag: 'routine_suggestion',
-            data: { suggestionsView: true },
-          })
-          if (sent) {
-            markThrottle('push_routine_suggestion')
-            logNotifPush(genId(), 'routine_suggestion', null, title, body)
-          }
-        }
+    // Per-task "remind me" (nag_allowed) — the explicit opt-in toggle on a
+    // task ("Remind me about this without a due date" / project nag policy).
+    // ONE gentle line per opted-in task per day, forward-framed, priority
+    // normal. This replaces the deleted stale/nudge pools for exactly the
+    // tasks the user asked to be reminded about — nothing ambient.
+    for (const task of nonSnoozed) {
+      if (!task.nag_allowed || crisisIds.has(task.id) || escalationActiveIds.has(task.id)) continue
+      if (!checkThrottle(`push_remind:${task.id}`, 24 * 60 * 60 * 1000)) continue
+      const body = `"${task.title}" is on your list — when you're ready.`
+      const sent = await sendPush({ title: 'A gentle reminder', body, tag: `remind:${task.id}`, data: { taskId: task.id } })
+      if (sent) {
+        markThrottle(`push_remind:${task.id}`)
+        logNotifPush(genId(), 'remind', task.id, 'A gentle reminder', body)
       }
     }
   } catch (err) {
@@ -705,16 +386,19 @@ export async function sendPackagePush(pkg, eventType) {
 
 // --- Test push ---
 
-// Send a pre-built digest via web push (used by manual test endpoint).
+// Send a pre-built digest via push. Collapse key 'daily-digest' (web push
+// notification tag + APNs thread) means a re-send REPLACES the existing
+// banner — the pipeline can safely re-trigger without stacking.
 export async function sendDigestPush(digest) {
   if (!isConfigured() || !digest?.hasContent) return false
   const sent = await sendPush({
-    title: digest.subject,
-    body: digest.textBody.slice(0, 500),
-    tag: 'digest',
+    title: digest.pushTitle || digest.subject,
+    body: digest.pushBody || digest.textBody.slice(0, 150),
+    tag: 'daily-digest',
+    data: { url: '/', no_actions: true },
   })
   if (sent) {
-    logNotifPush(genId(), 'digest', null, digest.subject, digest.textBody.slice(0, 500))
+    logNotifPush(genId(), 'digest', null, digest.pushTitle || digest.subject, digest.pushBody || '')
   }
   return sent
 }
@@ -737,7 +421,7 @@ export async function sendTestPush() {
   })
   console.log(`[Push] Test result: ${sent ? 'delivered' : 'failed'}`)
 
-  return sent ? { success: true } : { success: false, error: 'Failed to deliver push notification' }
+  return sent ? { success: true } : { success: false, error: 'Could not deliver push notification' }
 }
 
 // --- Status ---

@@ -6,23 +6,23 @@
  * with full APNs entitlements, so messages reliably reach the device, and
  * priority-2 (Emergency) bypasses Do Not Disturb and silent mode.
  *
- * Priority mapping:
- *   0 — nudge / stale / size / pileup / high-priority Stage 1 (before due)
- *   1 — generic overdue / high-priority Stage 2 (on due day)
- *   2 — high-priority Stage 3 (overdue) / overdue + avoidance + high-priority
+ * Priority mapping (post-2026-07-24 digest reshape — only the deliberate
+ * per-task opt-ins remain):
+ *   0 — escalation-ladder nudges / nag_allowed gentle daily line / digest
+ *   1 — Critical tag (fresh)
+ *   2 — Critical tag Emergency (past due or >24h in crisis)
  *
- * Quiet hours: priority 0 honors quiet hours; priority 1 and 2 bypass it.
+ * Quiet hours: priority 0 honors quiet hours; Critical fires only for
+ * tasks carrying the wake-me bypass label.
  */
 
 import crypto from 'crypto'
 import {
   queryTasks, getData, getNotifThrottle, setNotifThrottle,
-  logNotifPush, getTask, updateTaskPartial,
-  getEffectiveThrottleMultiplier, countPendingSuggestions, filterNotifiableTasks,
+  logNotifPush, getTask, updateTaskPartial, filterNotifiableTasks,
   escalationNudgeOverride, isCrisisTask,
 } from './db.js'
-import { rewriteNotifBody, canRewriteThisTick, shouldRewrite } from './notifAi.js'
-import { isInQuietHours, getUserTimeParts } from './userTime.js'
+import { isInQuietHours } from './userTime.js'
 
 const PUSHOVER_API = 'https://api.pushover.net/1/messages.json'
 const PUSHOVER_RECEIPT_API = 'https://api.pushover.net/1/receipts'
@@ -240,34 +240,6 @@ function isOverdue(task) {
   return Date.now() > due.getTime()
 }
 
-function isStale(task, staleDays) {
-  if (task.status === 'project') return false
-  if (task.snoozed_until && new Date(task.snoozed_until) > new Date()) return false
-  const elapsed = Date.now() - new Date(task.last_touched).getTime()
-  return elapsed > (task.staleness_days || staleDays || 2) * 86400000
-}
-
-// Tasks tagged with a user-configured "exempt" label (settings.pileup_
-// exempt_labels, an array of label ids picked in Settings) don't count
-// toward the pile-up limit or its warning — for things deliberately kept
-// on the list for reference/context rather than active work.
-function isPileupExempt(task, settings) {
-  const exempt = settings.pileup_exempt_labels
-  if (!Array.isArray(exempt) || exempt.length === 0) return false
-  if (!Array.isArray(task.tags)) return false
-  return task.tags.some(id => exempt.includes(id))
-}
-
-function isAvoidance(task) {
-  return !!(task.energy && AVOIDANCE_ENERGY_TYPES.includes(task.energy))
-}
-
-// Tasks tagged with the configured bypass label (default 'wake-me') are
-// allowed to fire during quiet hours when at priority 1 or 2. Every other
-// task is silent during quiet hours regardless of priority.
-// Matches against tag ID (strings stored in task.tags) — the default label
-// has id='wake-me' so the default setting value matches. Users can change
-// the setting to any label id.
 function taskHasBypassLabel(task, settings) {
   const target = (settings.quiet_hours_bypass_label || 'wake-me').toLowerCase()
   if (!target) return false
@@ -279,7 +251,7 @@ function taskHasBypassLabel(task, settings) {
 }
 
 function applyAvoidanceBoost(freqMs, task) {
-  if (!isAvoidance(task)) return freqMs
+  if (!task.energy || !AVOIDANCE_ENERGY_TYPES.includes(task.energy)) return freqMs
   let boost = 1.3
   if (task.energy_level === 3) boost *= 1.2
   return Math.round(freqMs / boost)
@@ -298,7 +270,7 @@ function buildCrisisBody(task) {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const due = new Date(task.due_date + 'T00:00:00')
     const diffDays = Math.round((due - today) / 86400000)
-    if (diffDays < 0) bits.push(`${Math.abs(diffDays)}d overdue`)
+    if (diffDays < 0) bits.push(`due ${Math.abs(diffDays)}d ago`)
     else if (diffDays === 0) bits.push('due today')
   }
   // A hire-out Reality-check verdict overrides the first move — the nag
@@ -319,33 +291,6 @@ function buildCrisisBody(task) {
   return body
 }
 
-function getHighPriorityStage(task) {
-  if (!task.due_date) return 1
-  const now = new Date()
-  const due = new Date(task.due_date + 'T00:00:00')
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-  const diffDays = Math.round((dueDay - today) / 86400000)
-  if (diffDays > 0) return 1
-  if (diffDays === 0) return 2
-  return 3
-}
-
-function getHighPriorityFreqMs(task, settings) {
-  const stage = getHighPriorityStage(task)
-  if (stage === 1) return getFreqMs(settings, 'notif_freq_highpri_before', 24)
-  if (stage === 2) return getFreqMs(settings, 'notif_freq_highpri_due', 1)
-  return getFreqMs(settings, 'notif_freq_highpri_overdue', 0.5)
-}
-
-function isInHighPriNotifWindow(task) {
-  const hour = new Date().getHours()
-  if (!task.due_date) return hour >= 8 && hour < 22
-  const stage = getHighPriorityStage(task)
-  if (stage <= 2) return hour >= 8 && hour < 22
-  return hour >= 6 && hour < 22
-}
-
 function checkThrottle(key, freqMs) {
   const last = getNotifThrottle(key)
   if (!last) return true
@@ -355,11 +300,6 @@ function checkThrottle(key, freqMs) {
 // Apply the adaptive-throttle multiplier (consults notification_log).
 // A (channel, type) that's been ignored 10 times in a row backs off
 // progressively, capped at 8x. Tap or complete resets to 1x.
-function adaptiveFreq(type, baseFreqMs) {
-  const multiplier = getEffectiveThrottleMultiplier('pushover', type)
-  return Math.round(baseFreqMs * multiplier)
-}
-
 function markThrottle(key) {
   setNotifThrottle(key, new Date().toISOString())
 }
@@ -372,21 +312,6 @@ function priorityToSound(priority) {
   if (priority === 2) return 'persistent'
   if (priority === 1) return 'pushover'
   return undefined
-}
-
-function buildHighPriBody(task) {
-  // Hire-out Reality-check framing appended below: push the call, not the repair.
-  const hireSuffix = task.diy_verdict === 'hire'
-    ? ` — you decided to hire this out${task.diy_first_move ? `. First move: ${task.diy_first_move}` : ''}`
-    : ''
-  if (!task.due_date) return `"${task.title}" is marked high priority${hireSuffix}`
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const due = new Date(task.due_date + 'T00:00:00')
-  const diffDays = Math.round((due - today) / 86400000)
-  if (diffDays < 0) return `"${task.title}" — due ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} ago${hireSuffix}`
-  if (diffDays === 0) return `"${task.title}" is due today${hireSuffix}`
-  if (diffDays === 1) return `"${task.title}" is due tomorrow${hireSuffix}`
-  return `"${task.title}" is due in ${diffDays} days${hireSuffix}`
 }
 
 function truncatedTitle(prefix, title) {
@@ -421,7 +346,7 @@ async function runPushoverCheck() {
     // same per-task wake-me bypass gate as the high-pri loop (D1 — crisis
     // does not auto-bypass; the edit modal offers "also wake me").
     const crisisIds = new Set()
-    if (settings.pushover_notif_highpri !== false) {
+    {
       const crisisTasks = nonSnoozed.filter(t => isCrisisTask(t, settings))
       for (const task of crisisTasks) {
         crisisIds.add(task.id)
@@ -454,88 +379,6 @@ async function runPushoverCheck() {
       }
     }
 
-    // High-priority notifications (per-task)
-    if (settings.pushover_notif_highpri !== false) {
-      const highPriTasks = nonSnoozed.filter(t => t.high_priority && !crisisIds.has(t.id))
-      let hpCount = 0
-      for (const task of highPriTasks) {
-        if (hpCount >= 3) break
-        if (!isInHighPriNotifWindow(task)) continue
-
-        const stage = getHighPriorityStage(task)
-        let priority = stage === 1 ? 0 : stage === 2 ? 1 : 2
-        if (stage === 3 && isAvoidance(task)) priority = 2
-
-        // Quiet hours: priority 0 always silent; priority 1+2 only fire if
-        // the task is opted in via the bypass label.
-        if (inQuiet) {
-          if (priority === 0) continue
-          if (!taskHasBypassLabel(task, settings)) continue
-        }
-
-        const freq = adaptiveFreq('high_priority', applyAvoidanceBoost(getHighPriorityFreqMs(task, settings), task))
-        const throttleKey = `pushover_hp:${task.id}`
-        if (!checkThrottle(throttleKey, freq)) continue
-
-        const body = buildHighPriBody(task)
-        const url = buildDeepLink(settings, task.id)
-        // Tone-aware rewrite — at most one per tick, never on priority 2.
-        let finalBody = body
-        if (shouldRewrite({ priority }) && canRewriteThisTick('pushover')) {
-          finalBody = await rewriteNotifBody(task, body)
-        }
-        const result = await sendPushover({
-          userKey, appToken,
-          title: truncatedTitle('[BOOMERANG] ', task.title),
-          message: finalBody,
-          priority,
-          sound: priorityToSound(priority),
-          url,
-          urlTitle: url ? 'Open in Boomerang' : undefined,
-        })
-        if (result.ok) {
-          markThrottle(throttleKey)
-          logNotifPush(genId(), 'high_priority', task.id, '[BOOMERANG] ' + task.title, body, 'pushover')
-          if (priority === 2 && result.receipt) {
-            updateTaskPartial(task.id, { pushover_receipt: result.receipt })
-          }
-          hpCount++
-        }
-      }
-    }
-
-    // Generic overdue notification — priority 1
-    if (settings.pushover_notif_overdue !== false) {
-      const priority = 1
-      // Generic overdue (multi-task summary) doesn't have a single task to
-      // check the bypass label on. During quiet hours, suppress entirely;
-      // per-task wake-me opt-in is honored via the high-pri loop above.
-      if (!inQuiet) {
-        const freq = adaptiveFreq('overdue', getFreqMs(settings, 'notif_freq_overdue', 0.5))
-        if (checkThrottle('pushover_overdue', freq)) {
-          const overdueTasks = nonSnoozed.filter(isOverdue)
-          if (overdueTasks.length > 0) {
-            const body = `${overdueTasks.length} overdue: ${overdueTasks.slice(0, 3).map(t => t.title).join(', ')}`
-            // For multi-task overdue, deep link to the most overdue task.
-            const top = overdueTasks[0]
-            const url = buildDeepLink(settings, top?.id)
-            const result = await sendPushover({
-              userKey, appToken,
-              title: '[BOOMERANG] Overdue tasks',
-              message: body,
-              priority,
-              sound: priorityToSound(priority),
-              url, urlTitle: url ? 'Open in Boomerang' : undefined,
-            })
-            if (result.ok) {
-              markThrottle('pushover_overdue')
-              logNotifPush(genId(), 'overdue', top?.id || null, '[BOOMERANG] Overdue tasks', body, 'pushover')
-            }
-          }
-        }
-      }
-    }
-
     // Below: priority 0 categories — all suppressed during quiet hours.
     if (inQuiet) return
 
@@ -549,7 +392,7 @@ async function runPushoverCheck() {
         escalationActiveIds.add(task.id)
         const override = escalationNudgeOverride(task)
         if (!override) continue
-        const freq = adaptiveFreq('escalation', (override.cadenceDays || 1) * 24 * 60 * 60 * 1000)
+        const freq = (override.cadenceDays || 1) * 24 * 60 * 60 * 1000
         const throttleKey = `pushover_escalation:${task.id}`
         if (!checkThrottle(throttleKey, freq)) continue
         const title = task.escalation_stuck ? '[BOOMERANG] Out of moves — brainstorm?'
@@ -567,138 +410,22 @@ async function runPushoverCheck() {
       }
     }
 
-    // Stale
-    if (settings.pushover_notif_stale !== false) {
-      const freq = adaptiveFreq('stale', getFreqMs(settings, 'notif_freq_stale', 0.5))
-      if (checkThrottle('pushover_stale', freq)) {
-        const staleTasks = nonSnoozed.filter(t => isStale(t, settings.staleness_days) && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
-        if (staleTasks.length > 0) {
-          const body = `${staleTasks.length} task${staleTasks.length > 1 ? 's' : ''} haven't been touched in a while`
-          const result = await sendPushover({
-            userKey, appToken,
-            title: '[BOOMERANG] Stale tasks',
-            message: body,
-            priority: 0,
-          })
-          if (result.ok) {
-            markThrottle('pushover_stale')
-            logNotifPush(genId(), 'stale', null, '[BOOMERANG] Stale tasks', body, 'pushover')
-          }
-        }
-      }
-    }
-
-    // Nudge
-    if (settings.pushover_notif_nudge !== false) {
-      const freq = adaptiveFreq('nudge', getFreqMs(settings, 'notif_freq_nudge', 1))
-      if (checkThrottle('pushover_nudge', freq) && nonSnoozed.length > 0) {
-        const smallTasks = nonSnoozed.filter(t => (t.size === 'XS' || t.size === 'S') && !escalationActiveIds.has(t.id) && !crisisIds.has(t.id))
-        let title, body
-        if (smallTasks.length > 0) {
-          const pick = smallTasks[Math.floor(Math.random() * smallTasks.length)]
-          if (pick.diy_verdict === 'hire') {
-            // Hire-out Reality-check framing: the quick win IS the phone call.
-            title = '[BOOMERANG] Make the call'
-            body = `"${pick.title}" — you're hiring this out. ${pick.diy_first_move || 'First move: get 2 quotes.'}`
-          } else {
-            title = '[BOOMERANG] Quick win available'
-            body = `Got 5 min? Try: "${pick.title}" (${pick.size})`
-          }
-        } else {
-          title = '[BOOMERANG] Pick one'
-          body = `${nonSnoozed.length} open tasks. Pick the easiest one.`
-        }
-        const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
-        if (result.ok) {
-          markThrottle('pushover_nudge')
-          logNotifPush(genId(), 'nudge', null, title, body, 'pushover')
-        }
-      }
-    }
-
-    // Size-based
-    if (settings.pushover_notif_size !== false) {
-      const freq = adaptiveFreq('size', getFreqMs(settings, 'notif_freq_size', 1))
-      if (checkThrottle('pushover_size', freq)) {
-        const sizeLeadDays = { XL: 3, L: 2, M: 1 }
-        const upcoming = nonSnoozed.filter(t => {
-          if (!t.size || !t.due_date || !sizeLeadDays[t.size]) return false
-          const dueDate = new Date(t.due_date)
-          const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / 86400000)
-          return daysUntil > 0 && daysUntil <= sizeLeadDays[t.size]
-        })
-        if (upcoming.length > 0) {
-          const t = upcoming[0]
-          const daysLeft = Math.ceil((new Date(t.due_date).getTime() - Date.now()) / 86400000)
-          const title = truncatedTitle('[BOOMERANG] ', `${t.size} task due soon`)
-          const body = `"${t.title}" due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} — it's ${t.size}, start planning`
-          const url = buildDeepLink(settings, t.id)
-          const result = await sendPushover({
-            userKey, appToken, title, message: body, priority: 0,
-            url, urlTitle: url ? 'Open in Boomerang' : undefined,
-          })
-          if (result.ok) {
-            markThrottle('pushover_size')
-            logNotifPush(genId(), 'size', t.id, title, body, 'pushover')
-          }
-        }
-      }
-    }
-
-    // Pile-up
-    if (settings.pushover_notif_pileup !== false) {
-      const freq = adaptiveFreq('pileup', getFreqMs(settings, 'notif_freq_pileup', 2))
-      if (checkThrottle('pushover_pileup', freq)) {
-        let sent = false
-        const pileupPool = nonSnoozed.filter(t => !isPileupExempt(t, settings) && !crisisIds.has(t.id))
-        if (settings.max_open_tasks && pileupPool.length > settings.max_open_tasks) {
-          const title = '[BOOMERANG] Too many open tasks'
-          const body = `${pileupPool.length} open (limit: ${settings.max_open_tasks}). Knock one out?`
-          const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
-          if (result.ok) {
-            sent = true
-            logNotifPush(genId(), 'pileup', null, title, body, 'pushover')
-          }
-        }
-        if (!sent && settings.stale_warn_pct > 0) {
-          const oldTasks = pileupPool.filter(t => {
-            const age = (Date.now() - new Date(t.created_at).getTime()) / 86400000
-            return age > (settings.stale_warn_days || 7)
-          })
-          const pct = pileupPool.length > 0 ? Math.round(oldTasks.length / pileupPool.length * 100) : 0
-          if (pct >= settings.stale_warn_pct) {
-            const title = '[BOOMERANG] Tasks piling up'
-            const body = `${pct}% of your tasks have been open ${settings.stale_warn_days || 7}+ days`
-            const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
-            if (result.ok) {
-              sent = true
-              logNotifPush(genId(), 'pileup', null, title, body, 'pushover')
-            }
-          }
-        }
-        if (sent) markThrottle('pushover_pileup')
-      }
-    }
-
-    // Routine suggestions (Activity Prompts PR 3). Opt-in only — most users
-    // who set up Pushover want it for high-stakes alarms, not weekly
-    // soft-suggestion summaries. Matches the matrix's pushover defaultOn=false
-    // policy: only fires when the toggle is explicitly === true.
-    if (settings.pushover_notif_routine_suggestion === true) {
-      const freq = 7 * 24 * 60 * 60 * 1000
-      if (checkThrottle('pushover_routine_suggestion', freq)) {
-        const pending = countPendingSuggestions()
-        if (pending > 0) {
-          const title = '[BOOMERANG] Routine suggestions'
-          const body = pending === 1
-            ? '1 routine suggestion waiting in Boomerang'
-            : `${pending} routine suggestions waiting in Boomerang`
-          const result = await sendPushover({ userKey, appToken, title, message: body, priority: 0 })
-          if (result.ok) {
-            markThrottle('pushover_routine_suggestion')
-            logNotifPush(genId(), 'routine_suggestion', null, title, body, 'pushover')
-          }
-        }
+    // Per-task "remind me" (nag_allowed) — ONE gentle line per opted-in
+    // task per day, priority 0, forward-framed.
+    for (const task of nonSnoozed) {
+      if (!task.nag_allowed || crisisIds.has(task.id) || escalationActiveIds.has(task.id)) continue
+      if (!checkThrottle(`pushover_remind:${task.id}`, 24 * 60 * 60 * 1000)) continue
+      const body = `"${task.title}" is on your list — when you're ready.`
+      const url = buildDeepLink(settings, task.id)
+      const result = await sendPushover({
+        userKey, appToken,
+        title: truncatedTitle('[BOOMERANG] ', task.title),
+        message: body, priority: 0,
+        url, urlTitle: url ? 'Open in Boomerang' : undefined,
+      })
+      if (result.ok) {
+        markThrottle(`pushover_remind:${task.id}`)
+        logNotifPush(genId(), 'remind', task.id, '[BOOMERANG] ' + task.title, body, 'pushover')
       }
     }
   } catch (err) {
@@ -742,49 +469,16 @@ export async function sendPackagePushover(pkg, eventType) {
   }
 }
 
-// --- Daily digest ---
-
-async function checkPushoverDigest() {
+// Multi-channel digest dispatch — THE one scheduled send of the day. Called
+// by the digest pipeline in server.js (scheduled path passes the assembled
+// digest; the Settings "Send test digest" button re-triggers it manually —
+// collapse keys mean a re-send replaces the banner rather than stacking).
+export async function sendDigestNow(prebuilt = null) {
   const settings = getData('settings') || {}
-  if (!settings.pushover_notifications_enabled) return
-  if (!settings.pushover_digest_enabled) return
-  const { userKey, appToken } = getCredentials(settings)
-  if (!userKey || !appToken) return
-
-  const digestTime = settings.digest_time || '07:00'
-  const [hh, mm] = digestTime.split(':').map(Number)
-  const userNow = getUserTimeParts(settings)
-  if (userNow.hours !== hh || userNow.minutes !== mm) return
-
-  if (!checkThrottle('pushover_digest', 23 * 60 * 60 * 1000)) return
-
-  const { buildDigest } = await import('./digestBuilder.js')
-  const digest = buildDigest(settings)
-  if (!digest.hasContent) return
-
-  const url = buildDeepLink(settings, null)
-  const result = await sendPushover({
-    userKey, appToken,
-    title: `[BOOMERANG] ${digest.subject}`,
-    message: digest.textBody.slice(0, 1024),
-    priority: 0,
-    url,
-    urlTitle: url ? 'Open in Boomerang' : undefined,
-  })
-  if (result.ok) {
-    markThrottle('pushover_digest')
-    logNotifPush(genId(), 'digest', null, digest.subject, digest.textBody.slice(0, 500), 'pushover')
-  }
-}
-
-// Manual digest test — bypasses time-of-day and throttle checks. Dispatches
-// via every enabled channel. Used by Settings UI's "Test daily digest" button.
-export async function sendDigestNow() {
-  const settings = getData('settings') || {}
-  const { buildDigest } = await import('./digestBuilder.js')
-  const digest = buildDigest(settings)
-  if (!digest.hasContent) {
-    return { success: false, error: 'Nothing to surface — no overdue/today/carrying/quick-wins tasks and no recent completions.' }
+  let digest = prebuilt
+  if (!digest) {
+    const { buildDigest } = await import('./digestBuilder.js')
+    digest = buildDigest(settings)
   }
 
   const fired = []
@@ -810,7 +504,7 @@ export async function sendDigestNow() {
       const url = buildDeepLink(settings, null)
       const result = await sendPushover({
         userKey, appToken,
-        title: `[BOOMERANG] ${digest.subject}`,
+        title: `[BOOMERANG] ${digest.pushTitle || digest.subject}`,
         message: digest.textBody.slice(0, 1024),
         priority: 0,
         url, urlTitle: url ? 'Open in Boomerang' : undefined,
@@ -847,7 +541,7 @@ export async function sendDigestNow() {
 
   if (!masterOn.push) {
     skipped.push({ channel: 'push', reason: 'channel master off' })
-  } else if (settings.push_digest_enabled) {
+  } else if (settings.push_digest_enabled !== false) {
     try {
       const { sendDigestPush } = await import('./pushNotifications.js')
       const ok = await sendDigestPush(digest)
@@ -866,20 +560,17 @@ export async function sendDigestNow() {
       success: false,
       fired,
       skipped,
-      error: `No digest channel delivered. Enable at least one of push_digest, email_digest, or pushover_digest in Settings → Notifications → Daily digest. (${reasons})`,
+      error: `No digest channel delivered. Enable a notification channel and its digest in Settings → Notifications. (${reasons})`,
     }
   }
-  return { success: true, fired, skipped, subject: digest.subject }
+  return { success: true, fired, skipped, subject: digest.pushTitle || digest.subject }
 }
 
 // --- Lifecycle ---
 
 export function startPushoverNotifications() {
   if (loopTimer) return
-  loopTimer = setInterval(async () => {
-    try { await checkPushoverDigest() } catch (err) { console.error('[Pushover] Digest check failed:', err.message) }
-    runPushoverCheck()
-  }, 60 * 1000)
+  loopTimer = setInterval(runPushoverCheck, 60 * 1000)
   setTimeout(runPushoverCheck, 25000)
   console.log('Pushover notifications: lifecycle started (waiting for credentials)')
 }

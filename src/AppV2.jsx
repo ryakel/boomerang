@@ -43,7 +43,6 @@ import ConfirmDialog from './components/ConfirmDialog'
 import TicTacToe from './components/TicTacToe'
 import { useTasks } from './hooks/useTasks'
 import { useRoutines, enhanceSpawnedTasks } from './hooks/useRoutines'
-import { useNotifications } from './hooks/useNotifications'
 import { useServerSync } from './hooks/useServerSync'
 import { useExternalSync } from './hooks/useExternalSync'
 import { useSizeAutoInfer } from './hooks/useSizeAutoInfer'
@@ -234,7 +233,6 @@ export default function AppV2() {
   // Background work that must keep running even when v2 is the active shell:
   // notifications, AI inference, external (Trello/Notion) outbound sync,
   // package polling + delivery notifications.
-  useNotifications(tasks)
   useExternalSync(tasks, updateTask)
   useSizeAutoInfer(tasks, updateTask, labels)
   // Critical triage auto-breakdown — same background-net pattern as the
