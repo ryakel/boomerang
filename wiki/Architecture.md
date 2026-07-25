@@ -391,6 +391,13 @@ carries a valid `boom_session` cookie (human login) OR a valid `API_TOKEN` in
 | `POST` | `/api/tasks/:id/unshelve` | shelved → open |
 | `POST` | `/api/tasks/:id/let-go` | → archived, `outcome: "released"` |
 | `GET` | `/api/today` | Pick-three payload for the watch: committed + intentions + first steps, gentle-return count |
+| `POST` | `/api/auth/device/enroll` | Mint a per-device token pair (gated; bootstrap with the legacy API token) |
+| `POST` | `/api/auth/device/refresh` | Rotate the pair (open, self-authenticating, rate-limited; reuse → revoke + alert) |
+| `GET` | `/api/auth/devices` | Device registry for Settings (no secret material) |
+| `POST` | `/api/auth/device/revoke` | Revoke a device immediately |
+| `POST` | `/api/auth/device/delete` | Remove a revoked device row |
+| `POST` | `/api/auth/device/challenge` | App Attest challenge (Phase B scaffolding) |
+| `POST` | `/api/auth/device/attest` | 501 — Phase B verification lands with the native Swift step |
 | `GET` | `/api/digest/today` | The assembled morning-digest payload (cached per day + data-version) |
 | `POST` | `/api/digest/test` | Re-run the full digest pipeline now (rollover → assemble → send; replaces, never stacks) |
 | `GET` | `/api/notes` | List notes (pinned first, then most recently touched) |

@@ -18,7 +18,11 @@ Two credential types pass it:
   whole React app is gated by one boot check (`/api/auth/status`) that shows a
   login screen when needed.
 - **Machines** (the iOS Shortcut, a future native app) → a static `API_TOKEN`
-  sent as `Authorization: Bearer <token>` or `x-api-token: <token>`.
+  sent as `Authorization: Bearer <token>` or `x-api-token: <token>` — or, since
+  auth Phase A (2026-07-25), a **per-device rotating token pair** with
+  refresh-reuse theft detection and per-device revocation. The static token
+  remains the bootstrap/fallback credential. Full spec:
+  `wiki/Auth-Device-Tokens.md`.
 
 Generate both with `node scripts/auth-setup.js [password]`. Passwords are
 verified with `scrypt` + timing-safe compare; the API token with a timing-safe

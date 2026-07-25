@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getApiBase, getApiToken, setApiConfig } from '../apiConfig'
+import { clearDeviceTokens } from '../apiConfig'
 import './ConnectionSetup.css'
 
 // Phase 1.5 of the native app: the in-app replacement for the old
@@ -45,6 +46,27 @@ export default function ConnectionSetup({ onDone, onCancel }) {
       }
 
       setApiConfig({ base: url, token: tok })
+      // A new server/token means any old device identity is meaningless —
+      // drop it. Fresh enrollment happens after reload (see App.jsx), once
+      // the interceptor is installed against the new base.
+      clearDeviceTokens()
+      try {
+        if (status.authEnabled && tok) {
+          const enroll = await fetch(`${url}/api/auth/device/enroll`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-token': tok },
+            body: JSON.stringify({
+              name: /iPad/.test(navigator.userAgent) ? 'iPad (Boomerang app)' : 'iPhone (Boomerang app)',
+              platform: 'ios-native',
+            }),
+          })
+          if (enroll.ok) {
+            const pair = await enroll.json()
+            const { setDeviceTokens } = await import('../apiConfig')
+            setDeviceTokens(pair)
+          }
+        }
+      } catch { /* best-effort — the legacy token carries the session */ }
       onDone?.()
     } catch (err) {
       setError(`Can't reach ${url} — ${err?.message || 'network error'}. Check the URL (and that this device can see the server).`)

@@ -261,6 +261,84 @@ const NOTIF_PACKAGE_TYPES = [
   { key: 'package_signature', label: 'Signature required', desc: 'Carrier reports the package needs a signature on delivery.' },
 ]
 
+// Devices & security (auth Phase A) — the per-device token registry. Shows
+// honest state: with the auth gate off (or no devices enrolled) it says so
+// instead of rendering an empty list. This-device detection uses the locally
+// stored boom_device_id.
+function AuthDevicesBlock() {
+  const [devices, setDevices] = useState(null) // null = loading, [] = none
+  const [error, setError] = useState(null)
+  const [busyId, setBusyId] = useState(null)
+  let thisDeviceId = ''
+  try { thisDeviceId = localStorage.getItem('boom_device_id') || '' } catch { /* ignore */ }
+
+  const load = async () => {
+    try {
+      const api = await import('../api')
+      setDevices(await api.getAuthDevices())
+      setError(null)
+    } catch (e) {
+      setError(e?.message || 'Could not load devices')
+      setDevices([])
+    }
+  }
+  useEffect(() => { load() }, [])
+
+  const act = async (id, fn) => {
+    setBusyId(id)
+    try {
+      const api = await import('../api')
+      await fn(api)
+      await load()
+    } catch (e) {
+      setError(e?.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'
+
+  return (
+    <div className="v2-settings-block">
+      {error && <div className="v2-settings-row-hint" style={{ color: 'var(--v2-alert-high-pri)' }}>{error}</div>}
+      {devices === null ? (
+        <div className="v2-settings-row-hint">Loading…</div>
+      ) : devices.length === 0 ? (
+        <div className="v2-settings-row-hint">
+          No devices enrolled. The native app enrolls itself on the Connection screen when auth is on;
+          until then machines use the static API token. Spec: wiki → Auth-Device-Tokens.
+        </div>
+      ) : (
+        devices.map(d => (
+          <div key={d.device_id} className="v2-settings-row" style={{ alignItems: 'center' }}>
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">
+                {d.name}{d.device_id === thisDeviceId ? ' · this device' : ''}
+                {d.revoked_at ? ` · revoked (${d.revoked_reason || 'manual'})` : ''}
+              </div>
+              <div className="v2-settings-row-hint">
+                {d.platform} · enrolled {fmt(d.created_at)} · last seen {fmt(d.last_seen)} · {d.generation} rotation{d.generation === 1 ? '' : 's'}
+              </div>
+            </div>
+            {d.revoked_at ? (
+              <button className="v2-settings-btn" disabled={busyId === d.device_id}
+                onClick={() => act(d.device_id, api => api.deleteAuthDevice(d.device_id))}>
+                Remove
+              </button>
+            ) : (
+              <button className="v2-settings-btn v2-settings-btn-danger" disabled={busyId === d.device_id}
+                onClick={() => act(d.device_id, api => api.revokeAuthDevice(d.device_id))}>
+                Revoke
+              </button>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
 // Integrations panel — status summary + inline config for each
 // OAuth-heavy ones. Inline credential entry for simple key-only integrations
 // (Anthropic, 17track) since those are one-field forms.
@@ -3203,6 +3281,10 @@ export default function SettingsModal({
                 </div>
               </SettingsSection>
             )}
+
+            <SettingsSection label="Devices & security" hint="Per-device access tokens (auth Phase A). Revoking a device kills its tokens immediately; a superseded refresh token presented again auto-revokes + alerts.">
+              <AuthDevicesBlock />
+            </SettingsSection>
 
             <SettingsSection label="Backup" hint="Export / import everything as one JSON file.">
             <div className="v2-settings-block">

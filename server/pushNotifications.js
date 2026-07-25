@@ -354,6 +354,20 @@ export async function sendQuokkaPlanReadyPush({ title, body, url } = {}) {
   return sent
 }
 
+// Security alert (auth Phase A/B: refresh-reuse, attest failures) — the one
+// category the digest reshape explicitly allows to be loud. Ignores the
+// per-type toggle matrix on purpose: a possible credential theft must not be
+// silenceable by a mis-set toggle. Channel master still gates (an unconfigured
+// channel can't send anyway).
+export async function sendSecurityAlertPush({ title, body }) {
+  if (!isConfigured()) return false
+  const settings = getData('settings') || {}
+  if (!settings.push_notifications_enabled) return false
+  const sent = await sendPush({ title, body, tag: 'security', data: { no_actions: true } })
+  if (sent) logNotifPush(genId(), 'security', null, title, body)
+  return sent
+}
+
 export async function sendPackagePush(pkg, eventType) {
   if (!isConfigured()) return
   const settings = getData('settings') || {}
