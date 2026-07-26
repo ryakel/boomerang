@@ -413,11 +413,11 @@ could not be installed at this time".
 
 Xcode falls back to that wildcard whenever it cannot issue a watchOS profile,
 which is the case until the paired Watch is a **registered development device**.
-Fix is on the Mac, not in the repo: Developer Mode on the Watch (Settings →
-Privacy & Security), restart it, then pair it for development in Xcode (Window →
-Devices and Simulators, watch unlocked and on the charger). After that
-`-allowProvisioningUpdates` can mint the profile and the one-liners work
-headlessly again.
+That much was right. The conclusion drawn from it — "fix is on the Mac, not in
+the repo" — was wrong, and cost several rounds of Mac-side errands that changed
+nothing. Developer Mode was already on and the watch was already registered in
+the portal. The repo was what kept the registration from happening; see the
+stale-cache trap below.
 
 Read the profile straight out of any built bundle:
 
@@ -446,9 +446,50 @@ failing it never fails the run, since the phone app is already on by then and a
 watch-side refusal is not a build problem.
 
 `npm run ios:watch-register [config]` remains as a standalone escape hatch, and
-`scripts/find-watch.sh` holds the device-selection rules (physical only, via
-devicectl's `reality` field) so `ios-deploy.sh` and `watch-register.sh` cannot
-drift apart on which watch they mean.
+`scripts/find-watch.sh` holds the device-selection rules so `ios-deploy.sh` and
+`watch-register.sh` cannot drift apart on which watch they mean.
+
+### `devicectl list devices` lies about Developer Mode
+
+This is the root cause of everything above, and it took every other theory being
+disproven by measurement before it turned up. The two commands disagree about
+the same watch, at the same moment:
+
+```
+$ xcrun devicectl list devices          # cached record
+watchOS  physical  disabled   Ryan's Apple Watch  30B4B8C9-...
+
+$ xcrun devicectl device info details --device 30B4B8C9-...   # live query
+• Developer Mode Status: Enabled (1)
+```
+
+`find-watch.sh` filtered on the cached `deviceProperties.developerModeStatus`,
+so it returned an empty string. Everything downstream is guarded by
+`[ -n "$WATCH_ID" ]`, so the register-and-rebuild branch silently never ran, the
+watch was never used as a build destination, it never registered with the
+account, no watchOS profile was ever issued, and signing stayed on the iOS
+wildcard permanently. A green build, a passing `ValidateEmbeddedBinary`, and a
+watch that refuses to install — all from one stale boolean.
+
+**Never gate anything on the listing's copy of device state.** Enumerate with
+`list devices`, confirm with a live `device info details` per candidate. Reject
+only on an explicit live `Disabled`; a watch that gives no answer (asleep, off
+the network) is returned anyway so the caller fails with a real error from
+xcodebuild instead of vanishing.
+
+**Two ids per device, and they are not interchangeable.** devicectl reports
+`identifier` (a GUID, `30B4B8C9-…`) and `hardwareProperties.udid` (the real one,
+`00008310-001605683C40E01E`). devicectl accepts either; `xcodebuild -destination
+"id=…"` matches **only the UDID**, and `watch-register.sh` passes this script's
+output straight to xcodebuild. An earlier comment in `find-watch.sh` claimed
+watch UDIDs are plain UUIDs and the iPhone finder's hardware-UDID shape "does
+not transfer" — a real Apple Watch Ultra 3 reports the same `00008310-…` shape
+as the iPhone. Print the UDID.
+
+Also worth knowing when reading profiles by hand: Xcode 16+ moved them out of
+`~/Library/MobileDevice/Provisioning Profiles`. Prefer reading
+`embedded.mobileprovision` out of the built bundle, which is what the doctor
+does and what is actually signed.
 
 The two watch schemes exist for exactly this reason — without a scheme whose
 buildable is `BoomerangWatch.app`, nothing in the project can target the watch
