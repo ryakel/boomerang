@@ -62,6 +62,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 
 **Client & iOS**
 - Never call `localStorage.setItem` raw — use `safeSetItem()` in `src/store.js`. The `capacitor://` origin's quota is small and an unhandled overflow crashes the render with no recovery path.
+- Native code (extensions, intents, watch) reads credentials ONLY via BoomerangKit's `SharedCredentials` and must NEVER call `/api/auth/device/refresh` — the refresh token is single-use and the WebView owns rotation; a native refresh races the app and trips reuse detection on ourselves. Secrets on the native side live in the shared Keychain, never App Group `UserDefaults`.
 - Never run `npx cap add ios` (it would regenerate away the committed UIScene-lifecycle migration) — always `npx cap sync ios`. TypeScript stays pinned <6 (the Capacitor CLI's config loader breaks on 6+).
 - Version-mismatch reload is gated OFF in the native shell (`VERSION_CHECKS_ENABLED` in `useServerSync.js`); any future "stale client → reload" logic needs the same gate. Boot-blocking fetches carry `AbortSignal.timeout` + offline fail-open (the tailnet-host hang trap).
 - The App Group identifier and URL scheme flow through build settings → Info.plist/entitlements substitution — never hardcode them in Swift.

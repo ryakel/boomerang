@@ -4,7 +4,7 @@ import ConnectionSetup from './components/ConnectionSetup.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
 import Logo from './components/Logo.jsx'
-import { consumeConnectionSetupRequest, getApiBase, isNativeShell } from './apiConfig'
+import { consumeConnectionSetupRequest, getApiBase, isNativeShell, restoreNativeCredentials } from './apiConfig'
 import { logSystemError } from './store'
 
 // How long the boot auth probe may block the first paint. A fetch to an
@@ -77,6 +77,17 @@ export default function App() {
       setupGlobalErrorLogging()
       errorLoggingWired = true
     }
+  }, [])
+
+  // Native shell with no config: before stranding the user on the Connection
+  // screen, check whether the native Keychain / App Group still hold the
+  // credentials (they outlive the WebView's evictable localStorage) and
+  // restore them. Reload re-installs the interceptor with the restored config.
+  useEffect(() => {
+    if (!(isNativeShell() && !getApiBase())) return
+    restoreNativeCredentials().then((restored) => {
+      if (restored) window.location.reload()
+    })
   }, [])
 
   useEffect(() => {

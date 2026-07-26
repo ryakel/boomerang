@@ -21,6 +21,8 @@
 		5C0A220000000000000E0008 /* BoomerangIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A220000000000000E0007 /* BoomerangIntents.swift */; };
 		5C0A220000000000000E0010 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A220000000000000E0001 /* ShareViewController.swift */; };
 		5C0A220000000000000E0011 /* ShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5C0A220000000000000E0005 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5C0AB0000000000000000101 /* BoomerangKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5C0AB0000000000000000100 /* BoomerangKit */; };
+		5C0AB0000000000000000103 /* BoomerangKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5C0AB0000000000000000102 /* BoomerangKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +53,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+				5C0AB0000000000000000101 /* BoomerangKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,6 +61,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5C0AB0000000000000000103 /* BoomerangKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -151,6 +155,7 @@
 			name = App;
 			packageProductDependencies = (
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
+				5C0AB0000000000000000100 /* BoomerangKit */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
@@ -169,6 +174,9 @@
 			dependencies = (
 			);
 			name = ShareExtension;
+			packageProductDependencies = (
+				5C0AB0000000000000000102 /* BoomerangKit */,
+			);
 			productName = ShareExtension;
 			productReference = 5C0A220000000000000E0005 /* ShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -204,6 +212,7 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
+				5C0AB0000000000000000110 /* XCLocalSwiftPackageReference "BoomerangKit" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -768,6 +777,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "CapApp-SPM";
 		};
+		5C0AB0000000000000000110 /* XCLocalSwiftPackageReference "BoomerangKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = BoomerangKit;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -775,6 +788,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
+		};
+		5C0AB0000000000000000100 /* BoomerangKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5C0AB0000000000000000110 /* XCLocalSwiftPackageReference "BoomerangKit" */;
+			productName = BoomerangKit;
+		};
+		5C0AB0000000000000000102 /* BoomerangKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5C0AB0000000000000000110 /* XCLocalSwiftPackageReference "BoomerangKit" */;
+			productName = BoomerangKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

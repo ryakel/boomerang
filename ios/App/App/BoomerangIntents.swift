@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import BoomerangKit
 
 // Phase 3 — App Intents. In-app intents (iOS 16+) live inside the app binary:
 // no extension target needed. This exposes "Add Boomerang task" to Siri, the
@@ -35,7 +36,7 @@ enum CaptureQueue {
     // already a very bad day; drop the OLDEST beyond that (newest survive).
     private static let maxEntries = 50
 
-    private static var defaults: UserDefaults? { UserDefaults(suiteName: boomerangAppGroup) }
+    private static var defaults: UserDefaults? { BoomerangShared.defaults }
 
     private static func load() -> [QueuedCapture] {
         guard let data = defaults?.data(forKey: key) else { return [] }
@@ -94,15 +95,15 @@ enum CaptureAPI {
         let token: String
     }
 
-    // Connection config mirrored into the App Group by BoomerangNative /
-    // src/apiConfig.js. Nil until the user completes the Connection screen.
+    // Connection credentials via BoomerangKit: base from the App Group, token
+    // from the shared Keychain (device access token while fresh, legacy token
+    // as fallback — native never refreshes the pair, see SharedCredentials).
+    // Nil until the user completes the Connection screen.
     static func config() -> Config? {
-        guard let defaults = UserDefaults(suiteName: boomerangAppGroup),
-              let base = defaults.string(forKey: "boom_api_base"), !base.isEmpty,
-              let token = defaults.string(forKey: "boom_api_token"), !token.isEmpty else {
-            return nil
-        }
-        return Config(base: base.hasSuffix("/") ? String(base.dropLast()) : base, token: token)
+        let base = BoomerangShared.apiBase
+        let token = SharedCredentials.bestToken
+        guard !base.isEmpty, !token.isEmpty else { return nil }
+        return Config(base: base, token: token)
     }
 
     // POST /api/capture. Throws on network failure (queue material); returns

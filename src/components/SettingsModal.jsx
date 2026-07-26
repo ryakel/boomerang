@@ -265,6 +265,41 @@ const NOTIF_PACKAGE_TYPES = [
 // honest state: with the auth gate off (or no devices enrolled) it says so
 // instead of rendering an empty list. This-device detection uses the locally
 // stored boom_device_id.
+// Native-only: run the App Attest flow (Phase B native half, BoomerangKit).
+// With the server's verifier still an honest 501 stub, "server_pending" is the
+// good outcome — it proves the whole native side works on this device.
+function AppAttestCheck() {
+  const [result, setResult] = useState(null) // null | 'running' | {outcome, detail}
+  if (!isNativeShell()) return null
+
+  const run = async () => {
+    setResult('running')
+    try {
+      const { registerPlugin } = await import('@capacitor/core')
+      const res = await registerPlugin('BoomerangNative').runAppAttest()
+      setResult(res && res.outcome ? res : { outcome: 'failed', detail: 'No response from the native layer.' })
+    } catch (e) {
+      setResult({ outcome: 'failed', detail: e?.message || 'Native call unavailable (older app build?)' })
+    }
+  }
+
+  return (
+    <div className="v2-settings-row" style={{ alignItems: 'center' }}>
+      <div className="v2-settings-row-text">
+        <div className="v2-settings-row-label">App Attest</div>
+        <div className="v2-settings-row-hint">
+          {result === null && 'Hardware-backed device identity (Phase B). Run the check to test the native flow.'}
+          {result === 'running' && 'Running attestation…'}
+          {result && result !== 'running' && `${result.outcome}: ${result.detail}`}
+        </div>
+      </div>
+      <button className="v2-settings-btn" disabled={result === 'running'} onClick={run}>
+        {result && result !== 'running' ? 'Run again' : 'Run check'}
+      </button>
+    </div>
+  )
+}
+
 function AuthDevicesBlock() {
   const [devices, setDevices] = useState(null) // null = loading, [] = none
   const [error, setError] = useState(null)
@@ -335,6 +370,7 @@ function AuthDevicesBlock() {
           </div>
         ))
       )}
+      <AppAttestCheck />
     </div>
   )
 }

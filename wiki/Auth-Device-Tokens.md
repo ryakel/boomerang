@@ -1,7 +1,7 @@
 # Auth Phases A/B — Per-Device Tokens & Device Attestation
 
-**Status:** Phase A built (2026-07-25). Phase B specified; server scaffolding stubbed; native + verification work requires a Mac/device session.
-**Sequence context:** step 3 of: ~~task model~~ → ~~digest reshape~~ → **auth A/B** → shared Swift package → App Intents → watch UI.
+**Status:** Phase A built (2026-07-25, shipped v2.38.0). Phase B native half built (2026-07-26, BoomerangKit); server-side verification still an honest 501 stub pending an on-device test vector.
+**Sequence context:** step 3 of: ~~task model~~ → ~~digest reshape~~ → **auth A/B** → ~~shared Swift package~~ → App Intents → watch UI.
 
 ## Why
 
@@ -51,9 +51,19 @@ A revoked device's access and refresh tokens are dead; the device re-enrolls wit
 - New storage: `boom_device_id/access/refresh/expires` (alongside the legacy `boom_api_token`).
 - The fetch interceptor now reads credentials **per call** (the old one captured the token once at install — a rotated token would never be picked up). Prefers the device access token; proactively refreshes when <5 min from expiry; on a 401 does one single-flight refresh and retries once. If the refresh itself 401s (revoked/reused), device tokens are cleared and the legacy token takes over — or the Connection screen surfaces if there is none.
 - SSE gets the current access token per connection (reconnects pick up rotations).
-- `ConnectionSetup` auto-enrolls after a successful save (names the device from the platform); the App-Group mirror carries the device pair so Share Extension / App Intents / watch use the same identity.
+- `ConnectionSetup` auto-enrolls after a successful save (names the device from the platform).
 
-Settings → Data → **Devices & security**: the device registry with per-device Revoke and a this-device marker.
+Settings → Data → **Devices & security**: the device registry with per-device Revoke and a this-device marker (plus the native-only App Attest check, below).
+
+### Native storage — BoomerangKit (2026-07-26)
+
+`ios/App/BoomerangKit` is a local Swift package linked by the App and ShareExtension targets (and any future extension/watch target). It owns all native credential access:
+
+- **Base URL** → App Group `UserDefaults` (not a secret; unchanged location).
+- **Legacy `API_TOKEN`** → shared **Keychain** (`kSecAttrAccessGroup` = the App Group id, `AfterFirstUnlock`). First read migrates the token out of the plaintext App Group defaults where pre-BoomerangKit builds mirrored it, and scrubs the old copy.
+- **Device token pair** → shared Keychain, mirrored by the WebView (`BoomerangNative.setDeviceTokens`) on every enroll/rotate. The mirror also serves as **recovery**: if the WebView's evictable localStorage loses the config, boot restores it from native storage (`restoreNativeCredentials()` in `src/apiConfig.js`) instead of stranding the user on the Connection screen.
+
+**INVARIANT — native surfaces never refresh the pair.** The refresh token is single-use; the WebView owns rotation. If an extension refreshed concurrently, the app's stored token would become superseded and the app's next refresh would trip reuse detection *on ourselves* (auto-revoke + loud alert). `SharedCredentials.bestToken` therefore uses the mirrored access token only while it's fresh (60s slack) and falls back to the legacy token — it never calls `/api/auth/device/refresh`.
 
 ### Acceptance (verified live)
 
@@ -72,10 +82,12 @@ Settings → Data → **Devices & security**: the device registry with per-devic
 3. **Failure = loud.** A failed attestation or assertion fires the same security-alert path as refresh reuse.
 4. **Enforcement flag.** `AUTH_REQUIRE_ATTEST=1` makes enrollment refuse un-attested devices (default off — Shortcuts and the web can't attest; they stay on password/legacy-token paths).
 
-**Why not built now:** verification requires parsing Apple's CBOR attestation format and validating against Apple's cert chain — with no Apple device available there is no way to produce a single valid test vector, and *unverifiable security code is worse than absent security code*. The endpoints exist as honest 501 stubs (`/api/auth/device/challenge` issues real challenges so the native side can be developed against it; `/api/auth/device/attest` returns 501 with this doc referenced). Native side lands with the shared Swift package step, where the same Mac session can test both.
+**Native half (BUILT 2026-07-26, `BoomerangKit/AppAttestClient.swift`):** the full client flow is implemented — fetch challenge → `generateKey` (persisted in the shared Keychain, cleared if `attestKey` poisons it) → `attestKey` over `SHA256(challenge)` → POST `/api/auth/device/attest` with `{key_id, challenge, attestation, device_id}`. Run it from Settings → Data → Devices & security → **App Attest → Run check** (native shell only). Outcome mapping is honest: `server_pending` (HTTP 501) is today's expected good result — it proves the native side works end-to-end on real hardware and produces the test vector the server verifier needs; `verified` is reserved for an actual 2xx once Phase B server verification exists.
+
+**Why the server verifier is still not built:** verification requires parsing Apple's CBOR attestation format and validating against Apple's cert chain — until a real device has produced a valid test vector (see Run check above), *unverifiable security code is worse than absent security code*. `/api/auth/device/challenge` issues real challenges; `/api/auth/device/attest` returns 501 with this doc referenced.
 
 ## Known limitations
 
-- Access tokens live in WebView localStorage / App Group storage, not the iOS Keychain — same posture as the legacy token today; Keychain migration belongs to the shared-Swift-package step.
+- **Native-side secrets now live in the shared Keychain** (BoomerangKit). Inside the WebView, tokens still transit localStorage as the synchronous runtime cache — moving the WebView fully onto async Keychain reads is future work; the Keychain mirror already covers durability (storage eviction) and extension access.
 - One user — device identity is for revocation and theft detection, not multi-tenancy.
 - Refresh reuse detection covers the immediately-superseded token (the standard rotation scheme); a token stolen and used *before* the legitimate device ever refreshes is indistinguishable until the next rotation collides.
