@@ -215,11 +215,19 @@
   gap: 6px;
 }
 
+/* Even grid so wrapped rows fill the width instead of leaving an orphaned
+ * pill (prod report 2026-07-26: Rename/Refresh/Carrier site on one line,
+ * Delete alone and ragged on the next). */
 .v2-package-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
   align-items: center;
+}
+
+.v2-package-actions .v2-package-action {
+  width: 100%;
+  justify-content: center;
 }
 
 .v2-package-action {
@@ -273,6 +281,40 @@
 .v2-package-confirm-label {
   font: 500 12px/1 var(--v2-font-body);
   color: var(--v2-alert-overdue);
+  text-align: center;
+}
+
+/* Swipe-left-to-delete on the collapsed row — same mechanic as the Kept
+ * row/loop swipe (useSwipeActions), styled with v2 tokens since this
+ * component serves both shells. Body must be opaque to hide the button. */
+.v2-package-swipe { position: relative; overflow: hidden; }
+.v2-package-swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+}
+.v2-package-swipe-del {
+  width: 84px;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font: 700 11px/1 var(--v2-font-body);
+  background: var(--v2-alert-overdue);
+  color: #fff;
+  cursor: pointer;
+}
+.v2-package-swipe-body {
+  position: relative;
+  z-index: 1;
+  background: var(--v2-surface);
+  transition: transform 200ms ease;
+  will-change: transform;
+}
+.v2-package-row-expanded .v2-package-swipe-body {
+  background: transparent;
 }
 
 .v2-package-spin {
