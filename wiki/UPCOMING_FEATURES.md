@@ -1,5 +1,25 @@
 # Upcoming Features
 
+## Feature recs (researched 2026-07-25)
+
+Ten recommendations from a full-codebase research pass — detail, file references, and build sketches in `wiki/Feature-Recs-20260725.md`. Theme: light up dark-but-shipped infrastructure (the migration-046 pick-three layer, `location_json`, `timer`, `/api/today`, discarded GCal event data, unsurfaced analytics).
+
+Batch 1:
+1. **Pick Three commit ritual** — Today-view UI + Quokka tools for the dormant migration-046 layer (`/commit`, intentions, `first_step`); unlocks the digest's dead commitment sections
+2. **Calendar-aware capacity** — today/tomorrow GCal snapshot folded into digest, `/api/today` free-hours math, and What Now
+3. **Quokka vision capture** — photo/PDF → staged task plan via the existing `/api/messages` vision path + staged execution
+4. **Gmail-aware escalation ladders** — inbound "looks like they replied" detection + sent-mail attempt auto-logging
+5. **Geofenced errand recall** — native region monitoring delivering on the stored-but-dead `location_json` (local notifications)
+
+Batch 2:
+6. **Ten-minute focus timer** — makes the digest's ten-minutes nudge actionable; fills the `timer: null` placeholder in `todayPayload()`
+7. **Home/Lock Screen widgets** over `/api/today` — supersedes the "Widget support" line under Mobile Native below; the interactive-complete AppIntent builds the task-title AppEntity the Siri expansion is blocked on
+8. **Suggestions Inbox** — one triage surface for gmail-pending, pattern/tag suggestions, `spawn_mode: 'prompt'`, and voice-capture triage; persists the Gmail classifier's `reason`
+9. **Stuck-task radar** — weekly pass routing stuck tasks to existing interventions (shrink / ladder / shelve / reframe / hire); the concrete form of "pattern recognition" under Advanced AI below
+10. **Flight Log** — in-app week wrap over records/badges/escalation/session evidence + the Kept §13c achievements expansion
+
+Suggested spine: 1 → 6 → 7; 8 → 9 pair naturally; the rest are independent.
+
 ## Near-term
 
 ### Critical Tag + Impact — remaining follow-ups (core SHIPPED 2026-07-14)
