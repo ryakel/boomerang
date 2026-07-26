@@ -364,11 +364,22 @@ labels it "showing last synced" until a fresh fetch lands.
 
 **Icons** live in `BoomerangWatch/Assets.xcassets` as `AppIcon` / `AppIcon-Dev`
 (the dev configs select the latter, mirroring the phone app), generated from the
-phone artwork at 1024×1024. watchOS app icons must be **opaque** — the Dev
-source PNG carries an alpha channel, so it is flattened onto its own plate
-colour rather than copied straight across. A watch icon set declared with no
-`filename` builds fine and silently ships the grey placeholder crosshair, so
-verify on-device rather than trusting a green build (2026-07-26).
+phone artwork. Two traps, both hit on 2026-07-26:
+
+1. An icon set declared with **no `filename`** builds green and silently ships
+   the grey placeholder crosshair — and on watchOS a missing icon is also a
+   plausible cause of "App could not be installed at this time" (unlike iOS,
+   which tolerates it). A passing build proves nothing here; look on-device.
+2. The Xcode-15+ **single `1024x1024` "universal / platform: watchos" entry did
+   NOT produce an icon** on Xcode 26 / watchOS 26.5 — still the placeholder
+   after a clean rebuild. The set now provides **every size explicitly**
+   (`idiom: watch` with `role`/`subtype`: notificationCenter 24/27.5/33,
+   companionSettings 29@2x+29@3x, appLauncher 40/44/46/50/51/54, quickLook
+   86/98/108/117/129, plus `watch-marketing` 1024), so nothing depends on Xcode
+   generating sizes.
+
+watchOS app icons must also be **opaque** — the Dev source PNG carries an alpha
+channel, so it is flattened onto its own plate colour rather than copied across.
 
 **Rebuild note:** this adds a NEW target, so the first build is the one case
 where the one-liners may not be enough — see "First build of a new capability"
