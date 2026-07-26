@@ -427,6 +427,22 @@ security cms -D -i <bundle>/embedded.mobileprovision | plutil -p - | grep -A 4 P
 
 The doctor does this automatically now.
 
+**A watch that `devicectl` can see is not a registered device.** `xcrun devicectl
+list devices` showing `available (paired)` only means Developer Mode is on and
+the Mac can talk to it — Xcode registers a device with the *account* when it is
+used as a build destination, and that is what mints the watchOS profile. The
+Devices and Simulators window does this, but it moved in Xcode 26, so
+`npm run ios:watch-register [config]` (`scripts/watch-register.sh`) does it
+headlessly instead: finds the paired watch, builds the `Watch` / `Watch Dev`
+scheme against it with `-allowProvisioningUpdates`, then re-runs the doctor to
+confirm the profile came back covering watchOS. Run it once; after that the
+normal one-liners work.
+
+The two watch schemes exist for exactly this reason — without a scheme whose
+buildable is `BoomerangWatch.app`, nothing in the project can target the watch
+as a destination, so the device can never register and automatic signing is
+stuck on the iOS wildcard forever.
+
 ### Measure the bundle, not the build log
 
 Every one of the traps above ends in BUILD SUCCEEDED and collapses into one of

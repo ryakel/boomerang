@@ -16,7 +16,8 @@
     "ios": "sh scripts/ios-rebuild.sh",
     "ios:dev": "sh scripts/ios-deploy.sh 'App Dev'",
     "ios:prod": "sh scripts/ios-deploy.sh App",
-    "ios:watch-doctor": "sh scripts/watch-icon-doctor.sh"
+    "ios:watch-doctor": "sh scripts/watch-icon-doctor.sh",
+    "ios:watch-register": "sh scripts/watch-register.sh"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

@@ -102,16 +102,17 @@ if [ "$BUILT_ID" != "$BUNDLE_ID" ]; then
 fi
 echo "    built: $BUILT_ID ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP_PATH/Info.plist" 2>/dev/null))"
 
-# A watch app with no icon in its bundle is not a cosmetic problem: watchOS
-# refuses to install it ("App could not be installed at this time"). Say so
-# here rather than letting a green build imply the watch side is fine.
+# A green build says nothing about whether the watch app can actually install:
+# a missing icon or a profile that doesn't cover watchOS both end in "App could
+# not be installed at this time" on the wrist. The doctor prints which one it
+# is — don't restate a guess here, just point at it.
 WATCH_OK=1
 if ! sh scripts/watch-icon-doctor.sh "$CONFIG"; then
   WATCH_OK=0
   echo ""
-  echo "  !! The watch app in this build has no usable icon (see above)."
-  echo "  !! Installing anyway — the phone app is fine and the watch app may"
-  echo "  !! simply refuse to install on the watch."
+  echo "  !! The watch app in this build will not install — see the check above"
+  echo "  !! for which part failed."
+  echo "  !! Installing anyway; the phone app itself is unaffected."
   echo ""
 fi
 
@@ -123,6 +124,6 @@ xcrun devicectl device process launch --device "$UDID" "$BUNDLE_ID" || {
 
 echo "Done: $SCHEME is on the phone."
 if [ "$WATCH_OK" -ne 1 ]; then
-  echo "Watch icon check FAILED earlier in this run — scroll up, or re-run:"
+  echo "Watch app check FAILED earlier in this run — scroll up, or re-run:"
   echo "  npm run ios:watch-doctor $CONFIG"
 fi
