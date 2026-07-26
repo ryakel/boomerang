@@ -36,11 +36,21 @@ except Exception:
     devices = []
 for d in devices:
     hw = d.get('hardwareProperties', {})
-    # Physical watches only — a simulator here would register nothing useful.
-    if hw.get('platform') == 'watchOS' and hw.get('isProductionFused') is not False:
-        if (d.get('deviceProperties', {}).get('developerModeStatus') or '') != 'disabled':
-            print(hw.get('udid') or d.get('identifier') or '')
-            break
+    # 'reality' is the field behind devicectl's Reality column — physical vs
+    # simulated. Registering a simulated watch would accomplish nothing, and a
+    # watch simulator is a normal thing to have installed, so filter on it
+    # rather than on any UDID-shape heuristic (watch UDIDs are plain UUIDs, so
+    # the hardware-UDID regex the iPhone finder uses does not apply here).
+    if (hw.get('reality') or '').lower() != 'physical':
+        continue
+    if (hw.get('platform') or '').lower() != 'watchos':
+        continue
+    if (d.get('deviceProperties', {}).get('developerModeStatus') or '') == 'disabled':
+        continue
+    # devicectl accepts either as `-destination id=`; the identifier is what it
+    # prints in the table and is always present.
+    print(d.get('identifier') or hw.get('udid') or '')
+    break
 PYINNER
 )
 rm -f "$DEVJSON"
