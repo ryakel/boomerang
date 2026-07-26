@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import {
   deriveTaskState, rolloverPlan, todayPayload,
   validateFirstStep, validateLocation, ymdInTz,
-  DONE_ARCHIVE_DAYS, FIRST_STEP_MAX,
+  DONE_ARCHIVE_DAYS, FIRST_STEP_MAX, intentTaskRows,
 } from '../server/taskModel.js'
 
 const TZ = 'UTC'
@@ -167,4 +167,34 @@ test('ymdInTz buckets correctly across a timezone boundary', () => {
   // 2026-07-18T03:00Z is still 2026-07-17 in Chicago (UTC-5).
   assert.equal(ymdInTz('2026-07-18T03:00:00Z', 'America/Chicago'), '2026-07-17')
   assert.equal(ymdInTz('2026-07-18T03:00:00Z', 'UTC'), '2026-07-18')
+})
+
+// ---- intentTaskRows: the Siri / App Intents entity lookup ----
+
+const intentPool = () => [
+  mk({ id: 'a', title: 'Water the garden', committed_on: TODAY }),
+  mk({ id: 'b', title: 'Call the garden center' }),
+  mk({ id: 'c', title: 'Garden shed cleanout', snooze_indefinite: true, snoozed_until: '2099-12-31T00:00:00Z' }),
+  mk({ id: 'd', title: 'Old garden task', status: 'done', completed_at: NOW_ISO }),
+  mk({ id: 'e', title: 'Mow', committed_on: '2026-07-10' }), // boomeranged (stale commit)
+]
+
+test('intentTaskRows: substring match, committed-first ranking, done excluded', () => {
+  const rows = intentTaskRows(intentPool(), { q: 'garden', todayYMD: TODAY, nowMs: NOW_MS })
+  assert.deepEqual(rows.map(r => r.id), ['a', 'b', 'c']) // committed, open, shelved — done never matches
+  assert.equal(rows[0].state, 'committed')
+  assert.equal(rows[2].state, 'shelved')
+})
+
+test('intentTaskRows: ids resolution ignores the query and preserves rank order', () => {
+  const rows = intentTaskRows(intentPool(), { ids: ['e', 'b', 'd'], q: 'zzz', todayYMD: TODAY, nowMs: NOW_MS })
+  assert.deepEqual(rows.map(r => r.id), ['e', 'b']) // boomeranged before open; done id drops out
+})
+
+test('intentTaskRows: empty query returns the ranked suggestion list, capped', () => {
+  const many = Array.from({ length: 20 }, (_, i) => mk({ id: `x${i}`, title: `Task ${String(i).padStart(2, '0')}` }))
+  const rows = intentTaskRows(many, { todayYMD: TODAY, nowMs: NOW_MS })
+  assert.equal(rows.length, 12)
+  const all = intentTaskRows(intentPool(), { todayYMD: TODAY, nowMs: NOW_MS })
+  assert.deepEqual(all.map(r => r.id), ['a', 'e', 'b', 'c'])
 })

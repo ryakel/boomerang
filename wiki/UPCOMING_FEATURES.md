@@ -47,26 +47,22 @@
 - Native push notifications (background, even when app is closed)
 - Widget support (iOS/Android home screen widgets)
 
-## Siri / App Intents expansion (queued 2026-07-16)
+## Siri / App Intents expansion (queued 2026-07-16 — CORE SET SHIPPED 2026-07-26)
 
-v1 shipped one intent ("Add Boomerang task" — dictated title → /api/capture
-as of 2026-07-19, with capture_source provenance + an offline queue).
-The user wants a real action set. Candidates, roughly by value:
+Shipped (see `wiki/iOS-Native-App.md` → Phase 3): the dynamic
+`BoomerangTaskEntity` (server-side lookup `GET /api/intents/tasks`) plus
+**Complete a task**, **Commit to a task** (task-model verb; server relays the
+three-task-ceiling answer), **Snooze a task** (defaults to tomorrow 5am),
+and **Today summary** (reads `/api/today`) — alongside the original capture
+intent.
 
-- **Complete a task** — "mark X done in Boomerang" (needs a task-title
-  AppEntity query against /api — first dynamic-entity intent).
-- **What now?** — surface the What Now pick as a Siri answer/dialog.
+Still queued from the original candidate list:
+
+- **What now?** — surface the What Now pick as a Siri answer/dialog (needs the
+  scorer reachable server-side as one endpoint).
 - **Log a loop / habit** — "log IFR studying in Boomerang" (spawn-and-complete
   or logHabit path).
 - **Log an escalation attempt** — "log an attempt on the insurance call".
-- **Today summary** — "what's on Boomerang today" → counts + top items dialog
-  (read-only, great for CarPlay/HomePod).
-- **Snooze a task** — "snooze X until tomorrow".
-
-Notes: title-matching intents need an AppEntity with an EntityQuery hitting
-the API (App Group creds, same pattern as the add intent); phrases can then
-embed the entity (that's the AppEnum/AppEntity rule that free-text titles
-can't satisfy). Read-only intents (summary/what-now) are the easy wins.
 
 ## Voice capture Phase 2 (queued 2026-07-19 — SHIPPED same day)
 

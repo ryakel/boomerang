@@ -234,6 +234,33 @@ phrase list covers "Add a task to Boomerang", "Boomerang capture", etc. The
 HTTP-Shortcut recipe (`wiki/Capture-Shortcut.md`) remains as the fallback and
 the reference for the raw endpoint contract.
 
+**Expansion (2026-07-26) — the real action set.** Four new intents join the
+capture intent, all authenticated via BoomerangKit (`BoomerangAPI` — device
+access token first, legacy fallback, 10s timeouts, never refreshes the pair):
+
+- **`BoomerangTaskEntity`** — the first DYNAMIC entity. Siri resolves "which
+  task?" against `GET /api/intents/tasks` (`intentTaskRows` in
+  `server/taskModel.js`): title substring search, exact-ids resolution, and a
+  suggestion list; actionable states only (committed → boomeranged → open →
+  shelved, done/archived never match), capped at 12. Because the entity is
+  resolvable, task titles CAN appear in spoken phrases ("Mark ⟨task⟩ done in
+  Boomerang") — the free-text constraint above only applies to plain Strings.
+- **Complete** — `POST /api/tasks/:id/complete`; idempotent ("was already
+  done") and relays server refusals verbatim.
+- **Commit** — `POST /api/tasks/:id/commit`; the three-task ceiling 409
+  message is read aloud as-is ("Three tasks are already committed…").
+- **Snooze** — `POST /api/tasks/:id/shelve` with `snooze_until`; optional
+  date parameter, defaulting to tomorrow 05:00 local (lands before rollover +
+  digest, so the task is simply back in tomorrow's pool).
+- **Today** — reads `GET /api/today`; read-only summary of the committed
+  three (with first steps), gently-returned count, and pool size. Works from
+  CarPlay/HomePod.
+
+Server errors and unreachable-tailnet failures all resolve to spoken dialogs
+(no silent failures); the capture intent keeps its offline queue — the verb
+intents deliberately do NOT queue (acting on a stale task state later is
+worse than asking again).
+
 ## Phase 4 (DONE 2026-07-15 — 4a pipeline + 4b full coverage)
 
 **4a — the pipeline:** `apnsNotifications.js` (server, zero new deps: Node
