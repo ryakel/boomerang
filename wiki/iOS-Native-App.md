@@ -362,6 +362,14 @@ real content immediately), and the watch's `WatchStore` / `TodayView`. The
 watch caches the last payload in its own `UserDefaults` (task titles only) and
 labels it "showing last synced" until a fresh fetch lands.
 
+**Icons** live in `BoomerangWatch/Assets.xcassets` as `AppIcon` / `AppIcon-Dev`
+(the dev configs select the latter, mirroring the phone app), generated from the
+phone artwork at 1024×1024. watchOS app icons must be **opaque** — the Dev
+source PNG carries an alpha channel, so it is flattened onto its own plate
+colour rather than copied straight across. A watch icon set declared with no
+`filename` builds fine and silently ships the grey placeholder crosshair, so
+verify on-device rather than trusting a green build (2026-07-26).
+
 **Rebuild note:** this adds a NEW target, so the first build is the one case
 where the one-liners may not be enough — see "First build of a new capability"
 above. `buildImplicitDependencies` is on in both schemes, so `npm run ios:prod`

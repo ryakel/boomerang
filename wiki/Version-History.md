@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-26
 
+- fix(watch): real app icons for the watch app [S]
+  - Both watch apps installed fine but showed the grey placeholder crosshair on the phone's Watch app list: the `AppIcon` set shipped in the previous commit declared a 1024×1024 `watchos` entry with **no `filename`** — an empty icon set builds green and silently renders the placeholder, so a passing build proves nothing here.
+  - Generated `AppIcon` + `AppIcon-Dev` at 1024×1024 from the existing phone artwork; the watch's dev configurations select `AppIcon-Dev`, mirroring how the phone app distinguishes flavors. watchOS app icons must be **opaque** and the Dev source PNG carries an alpha channel, so it is flattened onto its own corner/plate colour instead of copied across (the prod PNG was already RGB).
+  - pbxproj re-validated after the config patch (103 definitions, zero dangling refs, balanced braces); gotcha recorded in `wiki/iOS-Native-App.md`.
+
 - feat(watch): Apple Watch app — Today view proxied through the phone [L]
   - Final step of the sequence (task model → digest → auth A/B → BoomerangKit → App Intents → **watch UI**). New `BoomerangWatch` target: single-target watchOS 10+ app embedded in the iPhone bundle, one screen — today's commitments with their first steps and a Done button, the gently-returned count, and pool size. No punishment language (a returned task is "came back around").
   - **The design decision that shaped everything: the watch never speaks HTTP.** There is no Tailscale client for watchOS, and traffic the watch tunnels through the paired iPhone does not carry the phone's VPN routes — so a watch app calling `tasks.kfam.in` directly could not reach the `100.x` address at all. Instead the watch sends a WatchConnectivity message, the phone calls the API through BoomerangKit, and replies. Two payoffs: **no credentials on the watch, ever** (App Groups/Keychains are per-device, so direct HTTP would have meant shipping a token over the air), and mutations reply with a **fresh `/api/today`** so the watch redraws from server truth instead of guessing.
