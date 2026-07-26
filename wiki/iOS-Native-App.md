@@ -396,12 +396,46 @@ phone artwork. Two traps, both hit on 2026-07-26:
 watchOS app icons must also be **opaque** — the Dev source PNG carries an alpha
 channel, so it is flattened onto its own plate colour rather than copied across.
 
+### The watch app must be signed *for watchOS*
+
+Separate failure, same symptom, and the one that actually blocked installing:
+automatic signing gave `BoomerangWatch.app` the **iOS wildcard** profile —
+
+```
+CodeSign .../Debug-watchos/BoomerangWatch.app
+    Provisioning Profile: "iOS Team Provisioning Profile: *"
+```
+
+whose `Platform` is `[iOS, xrOS, visionOS]` — **no watchOS**. The phone app got
+its own real profile, so `xcodebuild` succeeded, `ValidateEmbeddedBinary`
+passed, the phone installed fine, and only the watch refused, with a bare "App
+could not be installed at this time".
+
+Xcode falls back to that wildcard whenever it cannot issue a watchOS profile,
+which is the case until the paired Watch is a **registered development device**.
+Fix is on the Mac, not in the repo: Developer Mode on the Watch (Settings →
+Privacy & Security), restart it, then pair it for development in Xcode (Window →
+Devices and Simulators, watch unlocked and on the charger). After that
+`-allowProvisioningUpdates` can mint the profile and the one-liners work
+headlessly again.
+
+Read the profile straight out of any built bundle:
+
+```
+security cms -D -i <bundle>/embedded.mobileprovision | plutil -p - | grep -A 4 Platform
+```
+
+The doctor does this automatically now.
+
 ### Measure the bundle, not the build log
 
-Every one of the traps above ends in BUILD SUCCEEDED and an identical symptom,
-which is why three separate fixes were shipped off log-reading and screenshots.
+Every one of the traps above ends in BUILD SUCCEEDED and collapses into one of
+two on-wrist symptoms — placeholder crosshair, or "App could not be installed at
+this time" — which is why several fixes were shipped off log-reading and
+screenshots and every one of them was wrong.
 `npm run ios:watch-doctor [config]` (`scripts/watch-icon-doctor.sh`) inspects
-the built bundle instead: bundle id, companion id, `CFBundleIconName`,
+the built bundle instead: bundle id, companion id, the embedded provisioning
+profile's **name, platform list and device count**, `CFBundleIconName`,
 `Assets.car` presence and size, and — via `assetutil --info` — whether the named
 icon is genuinely compiled in. It checks both the standalone watch product and
 the copy embedded at `App.app/Watch/`, since the embed phase will happily ship a
