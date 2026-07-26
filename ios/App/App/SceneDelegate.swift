@@ -13,9 +13,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard (scene as? UIWindowScene) != nil else { return }
-        // Watch companion: the phone answers the watch's requests (the watch
-        // can't reach a tailnet-only server itself — Shared/WatchProtocol.swift).
-        WatchBridge.shared.activate()
+        // NB: WCSession activation is NOT here. It used to be, and that meant it
+        // only ever ran on a foreground launch — a watch-triggered background
+        // launch connects no scene, so the session stayed inactive and every
+        // watch request died with "Payload could not be delivered". It lives in
+        // AppDelegate.didFinishLaunchingWithOptions now; see the note there.
         // Cold-start deep links / universal links arrive here under the scene
         // lifecycle (AppDelegate's open-url methods are no longer called).
         if let url = connectionOptions.urlContexts.first?.url {
