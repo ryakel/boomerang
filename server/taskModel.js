@@ -191,3 +191,30 @@ export function validateLocation(value) {
     },
   }
 }
+
+// Task rows for Siri / App Intents entity queries (GET /api/intents/tasks) —
+// pure so it's unit-testable. Matches actionable tasks by title substring (or
+// exact ids), ranked so the task Siri most likely means comes first:
+// committed → boomeranged → open → shelved, then alphabetical. Done/archived
+// tasks never match — completing an already-done task only resolves through
+// a stale identifier, where /complete answers idempotently.
+const INTENT_STATE_RANK = { committed: 0, boomeranged: 1, open: 2, shelved: 3 }
+
+export function intentTaskRows(tasks, { q = '', ids = [], todayYMD, nowMs = Date.now(), limit = 12 } = {}) {
+  const query = String(q || '').trim().toLowerCase()
+  const idSet = new Set((ids || []).map(String))
+  const rows = []
+  for (const t of tasks || []) {
+    const state = deriveTaskState(t, { todayYMD, nowMs })
+    if (!(state in INTENT_STATE_RANK)) continue
+    if (idSet.size) {
+      if (!idSet.has(String(t.id))) continue
+    } else if (query && !String(t.title || '').toLowerCase().includes(query)) {
+      continue
+    }
+    rows.push({ id: t.id, title: t.title, state, first_step: t.first_step || null })
+  }
+  rows.sort((a, b) => (INTENT_STATE_RANK[a.state] - INTENT_STATE_RANK[b.state])
+    || String(a.title || '').localeCompare(String(b.title || '')))
+  return rows.slice(0, limit)
+}

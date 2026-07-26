@@ -1,5 +1,25 @@
 # Upcoming Features
 
+## Feature recs (researched 2026-07-25)
+
+Ten recommendations from a full-codebase research pass — detail, file references, and build sketches in `wiki/Feature-Recs-20260725.md`. Theme: light up dark-but-shipped infrastructure (the migration-046 pick-three layer, `location_json`, `timer`, `/api/today`, discarded GCal event data, unsurfaced analytics).
+
+Batch 1:
+1. **Pick Three commit ritual** — Today-view UI + Quokka tools for the dormant migration-046 layer (`/commit`, intentions, `first_step`); unlocks the digest's dead commitment sections
+2. **Calendar-aware capacity** — today/tomorrow GCal snapshot folded into digest, `/api/today` free-hours math, and What Now
+3. **Quokka vision capture** — photo/PDF → staged task plan via the existing `/api/messages` vision path + staged execution
+4. **Gmail-aware escalation ladders** — inbound "looks like they replied" detection + sent-mail attempt auto-logging
+5. **Geofenced errand recall** — native region monitoring delivering on the stored-but-dead `location_json` (local notifications)
+
+Batch 2:
+6. **Ten-minute focus timer** — makes the digest's ten-minutes nudge actionable; fills the `timer: null` placeholder in `todayPayload()`
+7. **Home/Lock Screen widgets** over `/api/today` — supersedes the "Widget support" line under Mobile Native below; the interactive-complete AppIntent builds the task-title AppEntity the Siri expansion is blocked on
+8. **Suggestions Inbox** — one triage surface for gmail-pending, pattern/tag suggestions, `spawn_mode: 'prompt'`, and voice-capture triage; persists the Gmail classifier's `reason`
+9. **Stuck-task radar** — weekly pass routing stuck tasks to existing interventions (shrink / ladder / shelve / reframe / hire); the concrete form of "pattern recognition" under Advanced AI below
+10. **Flight Log** — in-app week wrap over records/badges/escalation/session evidence + the Kept §13c achievements expansion
+
+Suggested spine: 1 → 6 → 7; 8 → 9 pair naturally; the rest are independent.
+
 ## Near-term
 
 ### Critical Tag + Impact — remaining follow-ups (core SHIPPED 2026-07-14)
@@ -47,26 +67,22 @@
 - Native push notifications (background, even when app is closed)
 - Widget support (iOS/Android home screen widgets)
 
-## Siri / App Intents expansion (queued 2026-07-16)
+## Siri / App Intents expansion (queued 2026-07-16 — CORE SET SHIPPED 2026-07-26)
 
-v1 shipped one intent ("Add Boomerang task" — dictated title → /api/capture
-as of 2026-07-19, with capture_source provenance + an offline queue).
-The user wants a real action set. Candidates, roughly by value:
+Shipped (see `wiki/iOS-Native-App.md` → Phase 3): the dynamic
+`BoomerangTaskEntity` (server-side lookup `GET /api/intents/tasks`) plus
+**Complete a task**, **Commit to a task** (task-model verb; server relays the
+three-task-ceiling answer), **Snooze a task** (defaults to tomorrow 5am),
+and **Today summary** (reads `/api/today`) — alongside the original capture
+intent.
 
-- **Complete a task** — "mark X done in Boomerang" (needs a task-title
-  AppEntity query against /api — first dynamic-entity intent).
-- **What now?** — surface the What Now pick as a Siri answer/dialog.
+Still queued from the original candidate list:
+
+- **What now?** — surface the What Now pick as a Siri answer/dialog (needs the
+  scorer reachable server-side as one endpoint).
 - **Log a loop / habit** — "log IFR studying in Boomerang" (spawn-and-complete
   or logHabit path).
 - **Log an escalation attempt** — "log an attempt on the insurance call".
-- **Today summary** — "what's on Boomerang today" → counts + top items dialog
-  (read-only, great for CarPlay/HomePod).
-- **Snooze a task** — "snooze X until tomorrow".
-
-Notes: title-matching intents need an AppEntity with an EntityQuery hitting
-the API (App Group creds, same pattern as the add intent); phrases can then
-embed the entity (that's the AppEnum/AppEntity rule that free-text titles
-can't satisfy). Read-only intents (summary/what-now) are the easy wins.
 
 ## Voice capture Phase 2 (queued 2026-07-19 — SHIPPED same day)
 

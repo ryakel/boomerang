@@ -67,7 +67,7 @@ import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
 import {
   deriveTaskState, rolloverPlan, todayPayload, validateFirstStep, validateLocation,
-  ymdInTz, isActiveStatus, COMMIT_CEILING, DEFAULT_TIMEZONE,
+  ymdInTz, isActiveStatus, COMMIT_CEILING, DEFAULT_TIMEZONE, intentTaskRows,
 } from './taskModel.js'
 
 // Register adviser tools once at module load
@@ -1011,6 +1011,18 @@ app.get('/api/today', (req, res) => {
   const todayYMD = ymdInTz(new Date(), tz)
   const tasks = getAllTasks().filter(t => !t.gmail_pending)
   res.json(todayPayload(tasks, { todayYMD, tz }))
+})
+
+// Entity lookup for Siri / App Intents (BoomerangIntents.swift): ?q= title
+// substring search, ?ids= exact resolution for previously-picked entities,
+// neither → the suggestion list. Actionable states only, ranked
+// committed-first (see intentTaskRows).
+app.get('/api/intents/tasks', (req, res) => {
+  const tz = userTimezone()
+  const todayYMD = ymdInTz(new Date(), tz)
+  const tasks = getAllTasks().filter(t => !t.gmail_pending)
+  const ids = String(req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean)
+  res.json({ tasks: intentTaskRows(tasks, { q: req.query.q, ids, todayYMD }) })
 })
 
 // --- Project endpoints ---
