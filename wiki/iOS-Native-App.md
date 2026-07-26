@@ -270,6 +270,39 @@ To go native-only on the phone: register the device (Settings → Notifications
 → Native iOS (APNs) → Enable on this device), then turn the Pushover master
 off when you're satisfied.
 
+## Phase 5 — BoomerangKit shared Swift package (2026-07-26)
+
+`ios/App/BoomerangKit/` — a local SPM package (same mechanism as `CapApp-SPM`)
+linked by **both** the App and ShareExtension targets, and by any future
+extension or watch target. It deliberately has **no Capacitor dependency** so
+extension targets can link it bare; the WebView bridge stays in
+`App/BoomerangNative.swift`.
+
+What it owns:
+- **`BoomerangShared`** — App Group resolution (still via the Info.plist
+  `BoomerangAppGroup` key ← `BOOMERANG_APP_GROUP` build setting, never
+  hardcoded) + the non-secret base URL in App Group defaults.
+- **`BoomKeychain` / `SharedCredentials`** — the shared **Keychain** store
+  (access group = the App Group id) for the legacy `API_TOKEN` (auto-migrated
+  out of the plaintext App Group defaults on first read) and the auth-Phase-A
+  device token pair (mirrored from the WebView). `bestToken` = fresh device
+  access token, else legacy token. **Native code never refreshes the pair** —
+  see the invariant in `wiki/Auth-Device-Tokens.md`.
+- **`AppAttestClient`** — the Phase B native half (challenge → generateKey →
+  attestKey → POST `/attest`), runnable from Settings → Data → Devices &
+  security → App Attest. `server_pending` (501) is today's expected good
+  outcome; details in `wiki/Auth-Device-Tokens.md`.
+
+The WebView additionally gained a **recovery path**: on boot with no config
+(localStorage evicted), it restores base/token/device-pair from native storage
+before falling back to the Connection screen (`restoreNativeCredentials()`).
+
+**Rebuild note:** this is a native-side change — it needs one ordinary rebuild
+of both schemes (`npm run ios:prod` / `ios:dev`). Xcode resolves the local
+package automatically; no new capability, so no interactive ⌘R needed. On
+first run after the rebuild, the legacy token silently migrates from App Group
+defaults into the Keychain.
+
 ---
 
 ## Notes

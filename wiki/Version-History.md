@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-26
+
+- feat(ios): BoomerangKit shared Swift package — Keychain credentials + App Attest native half [L]
+  - Step 4 of the task-model → digest-reshape → auth A/B → **shared Swift package** → App Intents → watch sequence. Native-side change: needs one ordinary Xcode rebuild of both schemes; no new capability.
+  - **`ios/App/BoomerangKit/`** — local SPM package linked by the App AND ShareExtension targets (hand-wired in `project.pbxproj`, same mechanism as `CapApp-SPM`). No Capacitor dependency, so extension targets link it bare; the WebView bridge stays in `BoomerangNative.swift`.
+  - **Secrets move to the shared Keychain** (`BoomKeychain`/`SharedCredentials`; access group = the App Group id, `AfterFirstUnlock`, entitlement-fallback for simulators): the legacy `API_TOKEN` auto-migrates out of the plaintext App Group `UserDefaults` on first read (old copy scrubbed), and the auth-Phase-A device pair is mirrored in by the WebView on every enroll/rotate (`BoomerangNative.setDeviceTokens`). Share Extension + App Intents now authenticate via `SharedCredentials.bestToken` — fresh device access token first, legacy token fallback.
+  - **Invariant established: native never refreshes the pair.** The refresh token is single-use and the WebView owns rotation — a concurrent native refresh would supersede the app's token and trip Phase A's reuse detection on ourselves (auto-revoke + loud alert). Recorded in CLAUDE.md + `wiki/Auth-Device-Tokens.md`.
+  - **App Attest native half** (`AppAttestClient`): challenge → `generateKey` (Keychain-persisted; cleared if `attestKey` poisons it) → `attestKey` over `SHA256(challenge)` → POST `/api/auth/device/attest`. Runnable from Settings → Data → Devices & security → App Attest → Run check (native shell only). Honest outcome mapping: `server_pending` (the server's deliberate 501) is today's expected good result and produces the test vector Phase B server verification needs; `verified` reserved for a real 2xx.
+  - **WebView recovery path:** on boot with no config (the `capacitor://` origin's evictable localStorage), `restoreNativeCredentials()` pulls base/token/device-pair back from native storage and reloads instead of stranding the user on the Connection screen.
+  - Verified: eslint clean, vite build green, full `npm test` 50/50 via pre-push. Swift compiles on the Mac rebuild (no toolchain in this environment) — flagged in the PR.
+
 ## 2026-07-25
 
 - feat(auth): Phase A — per-device rotating token pairs with theft detection [L]
