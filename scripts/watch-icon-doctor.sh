@@ -1,18 +1,19 @@
 #!/bin/sh
-# Report what the last build actually put in the watch app's bundle.
+# Report whether the last build produced an installable watch app.
 #
 #   npm run ios:watch-doctor            # inspect every config present in ios/build
 #   npm run ios:watch-doctor Debug-Dev  # just one
 #
-# Why this exists: a watchOS app icon can fail three different ways that all
-# leave `xcodebuild` reporting BUILD SUCCEEDED — an icon set with no matching
-# entries, an asset catalog Xcode decided was up to date and never recompiled,
-# or a bundle plist with no CFBundleIconName to look the icon up by. The
-# symptom for all three is identical (placeholder crosshair on the phone's
-# Watch app list, and sometimes a flat "App could not be installed at this
-# time", because watchOS refuses to install an app with no valid icon).
-# Reading the build log does not distinguish them. Reading the built bundle
-# does, so measure the bundle.
+# Why this exists: an embedded watch app can be broken several different ways
+# that all leave `xcodebuild` reporting BUILD SUCCEEDED with no warning — an
+# icon set with no matching entries, an asset catalog Xcode decided was up to
+# date and never recompiled, a bundle plist with no CFBundleIconName to look
+# the icon up by, or a code-signing profile that does not cover watchOS. On the
+# wrist they collapse into two indistinguishable symptoms: a placeholder
+# crosshair, and a bare "App could not be installed at this time". Reading the
+# build log does not separate them — every one of the above was chased from
+# logs and screenshots first, and every one of those attempts was wrong.
+# Reading the built bundle does separate them, so measure the bundle.
 set -e
 
 WANT="${1:-}"
@@ -44,6 +45,36 @@ inspect() {
   echo "    bundle id   $(plist_get "$BUNDLE" CFBundleIdentifier)"
   echo "    version     $(plist_get "$BUNDLE" CFBundleShortVersionString) ($(plist_get "$BUNDLE" CFBundleVersion))"
   echo "    companion   $(plist_get "$BUNDLE" WKCompanionAppBundleIdentifier)"
+
+  # Signing platform. An embedded watch app can be signed with an iOS profile
+  # and still build, sign, validate and embed without a single warning — the
+  # phone app installs, the watch app then fails on the wrist with a bare "App
+  # could not be installed at this time". Automatic signing falls back to the
+  # iOS wildcard profile whenever it cannot mint a watchOS one, which is what
+  # happens until the paired Watch is registered as a development device.
+  PROF="$BUNDLE/embedded.mobileprovision"
+  if [ -f "$PROF" ]; then
+    PROF_PLIST=$(security cms -D -i "$PROF" 2>/dev/null || true)
+    PROF_NAME=$(printf '%s' "$PROF_PLIST" | plutil -extract Name raw -o - - 2>/dev/null || true)
+    PLATFORMS=$(printf '%s' "$PROF_PLIST" | plutil -extract Platform json -o - - 2>/dev/null || true)
+    DEVICES=$(printf '%s' "$PROF_PLIST" | plutil -extract ProvisionedDevices json -o - - 2>/dev/null \
+      | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || true)
+    echo "    profile     ${PROF_NAME:-<unreadable>} (${DEVICES:-?} devices)"
+    if printf '%s' "$PLATFORMS" | grep -qi 'watchos'; then
+      echo "    platform    OK — profile covers watchOS ${PLATFORMS}"
+    else
+      echo "    platform    WRONG — profile does not cover watchOS: ${PLATFORMS:-<none>}"
+      echo "                The watch app is signed with a profile for another"
+      echo "                platform, so watchOS will refuse to install it."
+      echo "                Enable Developer Mode on the Watch, then pair it for"
+      echo "                development in Xcode (Window > Devices and Simulators)"
+      echo "                so automatic signing can issue a watchOS profile."
+      FAILED=1
+    fi
+  else
+    echo "    profile     none embedded — unsigned or ad-hoc; it will not install on a watch"
+    FAILED=1
+  fi
 
   ICON_NAME=$(plist_get "$BUNDLE" CFBundleIconName)
   if [ -n "$ICON_NAME" ]; then
@@ -105,8 +136,8 @@ if [ "$CHECKED" -eq 0 ]; then
 fi
 
 if [ "$FAILED" -ne 0 ]; then
-  echo "RESULT: the watch icon is NOT in the bundle. Details above."
+  echo "RESULT: this watch app will not install correctly. Details above."
   exit 1
 fi
 
-echo "RESULT: watch icons are present in every bundle checked."
+echo "RESULT: every watch bundle checked is signed for watchOS and has its icon."
