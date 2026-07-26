@@ -25,7 +25,10 @@
 #    (00008310-001605683C40E01E — same shape as the iPhone's). devicectl
 #    accepts either, but `xcodebuild -destination "id=…"` matches only the
 #    hardware UDID, and watch-register.sh passes our output straight to
-#    xcodebuild. Print the UDID.
+#    xcodebuild. Print the UDID — and read it from the LIVE query, because
+#    `list devices` does not populate hardwareProperties.udid for a watch at
+#    all (it does for the iPhone, which is what made this easy to miss). The
+#    live details response carries it as "• UDID: 00008310-…".
 #
 # Filtering on `reality` stays: a watch simulator is a normal thing to have
 # installed, and registering or installing to one accomplishes nothing while
@@ -49,14 +52,16 @@ for d in devices:
         continue
     if (hw.get('platform') or '').lower() != 'watchos':
         continue
-    udid = hw.get('udid') or d.get('identifier')
-    if not udid:
+    # Query key only. devicectl takes either id; `identifier` is the one the
+    # listing reliably has. The UDID we hand back comes from the live response.
+    ident = d.get('identifier') or hw.get('udid')
+    if not ident:
         continue
     tunnel = (d.get('connectionProperties', {}).get('tunnelState') or '').lower()
-    watches.append((0 if tunnel == 'connected' else 1, udid))
+    watches.append((0 if tunnel == 'connected' else 1, ident))
 watches.sort()
-for _, udid in watches:
-    print(udid)
+for _, ident in watches:
+    print(ident)
 PYINNER
 )
 rm -f "$DEVJSON"
@@ -67,11 +72,13 @@ rm -f "$DEVJSON"
 # seconds per device and is worth every one of them: it is the only reading of
 # developerModeStatus that reflects the wrist.
 FALLBACK=""
-for UDID in $CANDIDATES; do
-  DETAILS=$(xcrun devicectl device info details --device "$UDID" 2>/dev/null || true)
+for IDENT in $CANDIDATES; do
+  DETAILS=$(xcrun devicectl device info details --device "$IDENT" 2>/dev/null || true)
+  # "    • UDID: 00008310-001605683C40E01E" -> the last field of that line.
+  UDID=$(printf '%s\n' "$DETAILS" | awk '/UDID:/ { print $NF; exit }')
   case "$DETAILS" in
     *"Developer Mode Status: Enabled"*)
-      echo "$UDID"
+      echo "${UDID:-$IDENT}"
       exit 0
       ;;
     *"Developer Mode Status: Disabled"*)
@@ -80,8 +87,9 @@ for UDID in $CANDIDATES; do
       ;;
     *)
       # No live answer at all — asleep, off the network, or the query failed.
-      # That is not evidence against the watch, so keep it as a fallback.
-      [ -n "$FALLBACK" ] || FALLBACK="$UDID"
+      # That is not evidence against the watch, so keep it as a fallback. No
+      # live response means no UDID either, so the identifier is all we have.
+      [ -n "$FALLBACK" ] || FALLBACK="$IDENT"
       ;;
   esac
 done
