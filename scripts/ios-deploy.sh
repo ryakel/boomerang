@@ -69,6 +69,15 @@ fi
 echo "    device: $UDID"
 
 echo "==> 4/5 xcodebuild ($SCHEME / $CONFIG)…"
+# Drop the previous watch product first. Xcode tracks the asset catalog by its
+# outputs, and edits *inside* an .appiconset have repeatedly not invalidated
+# it — the build then reuses an old Assets.car and the watch app ships with no
+# icon (which watchOS treats as a hard install failure). Deleting the product
+# makes the outputs missing, so actool is forced to run again. Costs a couple
+# of seconds; the phone app's own incremental build is untouched.
+rm -rf ios/build/Build/Products/*-watchos/BoomerangWatch.app \
+       "ios/build/Build/Products/${CONFIG}-iphoneos/App.app/Watch" 2>/dev/null || true
+
 xcodebuild \
   -project ios/App/App.xcodeproj \
   -scheme "$SCHEME" \
@@ -93,6 +102,19 @@ if [ "$BUILT_ID" != "$BUNDLE_ID" ]; then
 fi
 echo "    built: $BUILT_ID ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP_PATH/Info.plist" 2>/dev/null))"
 
+# A watch app with no icon in its bundle is not a cosmetic problem: watchOS
+# refuses to install it ("App could not be installed at this time"). Say so
+# here rather than letting a green build imply the watch side is fine.
+WATCH_OK=1
+if ! sh scripts/watch-icon-doctor.sh "$CONFIG"; then
+  WATCH_OK=0
+  echo ""
+  echo "  !! The watch app in this build has no usable icon (see above)."
+  echo "  !! Installing anyway — the phone app is fine and the watch app may"
+  echo "  !! simply refuse to install on the watch."
+  echo ""
+fi
+
 echo "==> 5/5 Installing + launching on the phone…"
 xcrun devicectl device install app --device "$UDID" "$APP_PATH"
 xcrun devicectl device process launch --device "$UDID" "$BUNDLE_ID" || {
@@ -100,3 +122,7 @@ xcrun devicectl device process launch --device "$UDID" "$BUNDLE_ID" || {
 }
 
 echo "Done: $SCHEME is on the phone."
+if [ "$WATCH_OK" -ne 1 ]; then
+  echo "Watch icon check FAILED earlier in this run — scroll up, or re-run:"
+  echo "  npm run ios:watch-doctor $CONFIG"
+fi
