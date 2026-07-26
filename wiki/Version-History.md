@@ -6,10 +6,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-26
 
+- fix(watch): explicit multi-size watchOS icon set [S]
+  - The v2.42.1 fix used the Xcode-15+ **single** `1024x1024` "universal / platform: watchos" entry. Rebuilt from it on Xcode 26 / watchOS 26.5 and the icon was STILL the placeholder crosshair — so that format does not produce icons here, whatever the docs imply.
+  - Replaced with the full explicit matrix, 17 entries per flavor generated from the phone artwork so nothing depends on Xcode deriving sizes: `idiom: watch` with `role`/`subtype` — notificationCenter 24/27.5/33, companionSettings 29@2x + 29@3x, appLauncher 40/44/46/50/51/54, quickLook 86/98/108/117/129 — plus `watch-marketing` 1024. All PNGs verified square, correctly sized, and opaque (watchOS rejects alpha).
+  - Also ruled out along the way: `WATCHOS_DEPLOYMENT_TARGET` (watch is on 26.5, target 10.0), watch/phone version-key mismatch (both `1.0`/`1`), missing `CFBundleIconName` (the phone app doesn't have one either and its icon works), and a `.gitignore` swallowing the PNGs (verified present on `main`).
+
 - fix(watch): real app icons for the watch app [S]
   - Both watch apps installed fine but showed the grey placeholder crosshair on the phone's Watch app list: the `AppIcon` set shipped in the previous commit declared a 1024×1024 `watchos` entry with **no `filename`** — an empty icon set builds green and silently renders the placeholder, so a passing build proves nothing here.
   - Generated `AppIcon` + `AppIcon-Dev` at 1024×1024 from the existing phone artwork; the watch's dev configurations select `AppIcon-Dev`, mirroring how the phone app distinguishes flavors. watchOS app icons must be **opaque** and the Dev source PNG carries an alpha channel, so it is flattened onto its own corner/plate colour instead of copied across (the prod PNG was already RGB).
   - pbxproj re-validated after the config patch (103 definitions, zero dangling refs, balanced braces); gotcha recorded in `wiki/iOS-Native-App.md`.
+- fix(packages): even action-button grid + swipe-to-delete rows [S]
+  - Prod report (screenshot): the expanded package card's action pills (Rename / Refresh / Carrier site / Delete) wrapped raggedly — three on one line, Delete orphaned on the next. `.v2-package-actions` is now a `repeat(auto-fit, minmax(118px, 1fr))` grid with centered, full-width pills, so narrow screens get an even 2×2 and wide screens one row; the delete-confirm state rides the same grid.
+  - Swipe-left on a collapsed package row reveals a Delete action — same `useSwipeActions` gesture as task rows and loop cards, styled with v2 tokens since `PackagesModal` serves both shells. Disabled while the row is expanded (the detail panel wouldn't travel with the summary; expanded view keeps its Delete-with-confirm button), and the action strip only renders collapsed so it can't bleed through the expanded row's transparent body.
+  - Verified: eslint clean, vite build + smoke green, npm test 58/58.
 
 - feat(watch): Apple Watch app — Today view proxied through the phone [L]
   - Final step of the sequence (task model → digest → auth A/B → BoomerangKit → App Intents → **watch UI**). New `BoomerangWatch` target: single-target watchOS 10+ app embedded in the iPhone bundle, one screen — today's commitments with their first steps and a Done button, the gently-returned count, and pool size. No punishment language (a returned task is "came back around").

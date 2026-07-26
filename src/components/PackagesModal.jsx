@@ -4,6 +4,7 @@ import CarrierLogo from './CarrierLogo'
 import { detectCarrier, getTrackingUrl } from '../utils/carrierDetect'
 import { updatePackage } from '../api'
 import { loadSettings } from '../store'
+import { useSwipeActions } from '../hooks/useSwipeActions'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import './PackagesModal.css'
@@ -45,6 +46,10 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete, onEdit
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   const [savingRename, setSavingRename] = useState(false)
+  // Swipe-left-to-delete on the collapsed row (same gesture as task rows /
+  // loop cards). Disabled while expanded — the detail panel below wouldn't
+  // move with the summary, and the expanded view has its own Delete button.
+  const swipe = useSwipeActions({ openOffset: -84, disabled: expanded })
   // Link-only cards get no carrier ETA, so the user can set one by hand
   // (optimistic local copy — the server PATCH lands and syncs on the next
   // hydrate, but the card should reflect the pick instantly).
@@ -111,19 +116,38 @@ function PackageRow({ pkg, expanded, onToggleExpand, onRefresh, onDelete, onEdit
 
   return (
     <li className={`v2-package-row${expanded ? ' v2-package-row-expanded' : ''}`}>
-      <button className="v2-package-summary" onClick={onToggleExpand}>
-        <span className="v2-package-carrier"><CarrierLogo carrier={pkg.carrier} size={22} /></span>
-        <div className="v2-package-meta">
-          <div className="v2-package-label">{pkg.label || pkg.tracking_number}</div>
-          {pkg.label && (
-            <div className="v2-package-tracking">{pkg.tracking_number}</div>
-          )}
-          {summaryEta && (
-            <div className="v2-package-summary-eta">{summaryEta}</div>
-          )}
+      <div className="v2-package-swipe">
+        {!expanded && (
+          <div className="v2-package-swipe-actions">
+            <button
+              className="v2-package-swipe-del"
+              onClick={() => { swipe.close(); onDelete(pkg.id) }}
+            >
+              <Trash2 size={16} strokeWidth={2} />Delete
+            </button>
+          </div>
+        )}
+        <div
+          className="v2-package-swipe-body"
+          style={{ transform: swipe.x !== 0 ? `translateX(${swipe.x}px)` : undefined }}
+          {...swipe.handlers}
+          onClickCapture={(e) => { if (swipe.open || swipe.swiping) { e.stopPropagation(); swipe.close() } }}
+        >
+          <button className="v2-package-summary" onClick={onToggleExpand}>
+            <span className="v2-package-carrier"><CarrierLogo carrier={pkg.carrier} size={22} /></span>
+            <div className="v2-package-meta">
+              <div className="v2-package-label">{pkg.label || pkg.tracking_number}</div>
+              {pkg.label && (
+                <div className="v2-package-tracking">{pkg.tracking_number}</div>
+              )}
+              {summaryEta && (
+                <div className="v2-package-summary-eta">{summaryEta}</div>
+              )}
+            </div>
+            <span className={`v2-package-status v2-package-status-${meta.tone}`}>{meta.label}</span>
+          </button>
         </div>
-        <span className={`v2-package-status v2-package-status-${meta.tone}`}>{meta.label}</span>
-      </button>
+      </div>
       {expanded && (
         <div className="v2-package-detail">
           <div className="v2-package-detail-meta">
