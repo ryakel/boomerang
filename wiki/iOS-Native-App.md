@@ -356,11 +356,33 @@ BoomerangKit, and replies. Consequences:
 
 Pieces: `Shared/WatchProtocol.swift` (the message contract — ONE file compiled
 into *both* targets so the two sides can't drift), `App/WatchBridge.swift`
-(phone-side `WCSessionDelegate`; activated in `SceneDelegate`, which also
-pushes a snapshot as the application context on foreground so a wrist-raise has
-real content immediately), and the watch's `WatchStore` / `TodayView`. The
-watch caches the last payload in its own `UserDefaults` (task titles only) and
-labels it "showing last synced" until a fresh fetch lands.
+(phone-side `WCSessionDelegate`), and the watch's `WatchStore` / `TodayView`.
+`SceneDelegate` pushes a snapshot as the application context on foreground so a
+wrist-raise has real content immediately. The watch caches the last payload in
+its own `UserDefaults` (task titles only) and labels it "showing last synced"
+until a fresh fetch lands.
+
+**Activate `WCSession` in `AppDelegate.didFinishLaunchingWithOptions`, never in
+`SceneDelegate`.** When the watch calls `sendMessage`, iOS launches the phone
+app in the **background** to answer it — and a background launch connects no UI
+scene, so `scene(_:willConnectTo:)` never runs. Activation lived there
+originally, which meant the phone-side session was inactive for exactly the
+launches that existed to serve the watch. The message had nowhere to land and
+came back as `WCError.deliveryFailed`, rendered on the wrist as:
+
+> Payload could not be delivered.
+
+The tell that it is this and not a range/pairing problem: `WatchStore.send()`
+guards on `session.isReachable` first and would otherwise say "Phone not
+reachable". Reachable-but-undeliverable means the phone was there and not
+listening. The other tell is that it works fine while the phone app is open in
+the foreground — which is the one condition under which the whole proxy design
+is pointless.
+
+`didFinishLaunchingWithOptions` runs on every launch, background included.
+`WatchBridge.activate()` is idempotent so overlapping launch paths are safe, and
+`sessionDidDeactivate` clears the flag before re-activating so watch switching
+still re-registers the delegate.
 
 **Icons** live in `BoomerangWatch/Assets.xcassets` as `AppIcon` / `AppIcon-Dev`
 (the dev configs select the latter, mirroring the phone app), generated from the

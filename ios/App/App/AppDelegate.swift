@@ -7,7 +7,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Watch companion — activated HERE, deliberately not in SceneDelegate.
+        //
+        // When the watch calls sendMessage, iOS launches this app in the
+        // BACKGROUND to answer it. No UI scene connects on a background launch,
+        // so scene(_:willConnectTo:) never runs and WCSession would never
+        // activate. The watch's message then has nowhere to land and fails with
+        // WCError.deliveryFailed — surfaced on the wrist as "Payload could not
+        // be delivered", which reads like a watch bug and is not one. The watch
+        // app appears to work only while the phone app is already open, which is
+        // precisely the case the proxy exists to avoid.
+        //
+        // didFinishLaunchingWithOptions runs on every launch, background
+        // included, which is what WatchConnectivity needs. Activation is cheap
+        // and no-ops on a device with no paired watch.
+        WatchBridge.shared.activate()
         return true
     }
 
