@@ -8,6 +8,7 @@ import {
   enrollDevice, verifyDeviceAccessToken, refreshDeviceTokens,
   revokeDevice, listDevices, deleteDevice,
   issueAttestChallenge, consumeAttestChallenge,
+  recordAttestation, reportAttestFailure,
 } from '../server/deviceAuth.js'
 
 let store
@@ -91,7 +92,7 @@ test('registry view exposes no secret material', () => {
   for (const d of listDevices()) {
     assert.deepEqual(
       Object.keys(d).sort(),
-      ['created_at', 'device_id', 'generation', 'last_seen', 'name', 'platform', 'revoked_at', 'revoked_reason'],
+      ['attest_environment', 'attested_at', 'created_at', 'device_id', 'generation', 'last_seen', 'name', 'platform', 'revoked_at', 'revoked_reason'],
     )
   }
 })
@@ -101,4 +102,26 @@ test('attest challenges are single-use and expire', () => {
   assert.equal(consumeAttestChallenge(challenge), true)
   assert.equal(consumeAttestChallenge(challenge), false) // single-use
   assert.equal(consumeAttestChallenge('bogus'), false)
+})
+
+test('recordAttestation binds to the device; failure report fires the loud alert', () => {
+  const pair = enrollDevice({ name: 'iPhone', platform: 'ios-native' })
+  assert.equal(recordAttestation('nope', { key_id: 'k' }).ok, false)
+  const r = recordAttestation(pair.device_id, {
+    key_id: 'kid', public_key: '-----BEGIN PUBLIC KEY-----', counter: 0, environment: 'development',
+  })
+  assert.equal(r.ok, true)
+  const d = listDevices()[0]
+  assert.ok(d.attested_at)
+  assert.equal(d.attest_environment, 'development')
+  // Secrets/registry hygiene: the attest details beyond timestamp+env stay off the list view.
+  assert.equal(d.public_key, undefined)
+  assert.equal(alerts.length, 0) // storing a verified attestation is not an alert
+  reportAttestFailure(pair.device_id, 'nonce mismatch')
+  assert.equal(alerts.length, 1)
+  assert.equal(alerts[0].event, 'attest_failure')
+  assert.equal(alerts[0].device.name, 'iPhone')
+  // A revoked device cannot be attested.
+  revokeDevice(pair.device_id)
+  assert.equal(recordAttestation(pair.device_id, { key_id: 'kid' }).ok, false)
 })

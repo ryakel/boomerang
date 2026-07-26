@@ -193,6 +193,8 @@ export function listDevices() {
     generation: d.generation || 0,
     revoked_at: d.revoked_at || null,
     revoked_reason: d.revoked_reason || null,
+    attested_at: d.attest?.attested_at || null,
+    attest_environment: d.attest?.environment || null,
   })).sort((a, b) => String(b.last_seen || '').localeCompare(String(a.last_seen || '')))
 }
 
@@ -226,4 +228,33 @@ export function consumeAttestChallenge(challenge) {
   if (!exp || exp < Date.now()) return false
   challenges.delete(String(challenge))
   return true
+}
+
+// Bind a VERIFIED attestation to a device record (Phase B — the caller runs
+// verifyAttestation first; this function only stores). public_key + counter
+// are kept for future assertion checks (counter regression = cloned key).
+export function recordAttestation(deviceId, { key_id, public_key, counter, environment } = {}) {
+  const devices = loadDevices()
+  const device = devices[String(deviceId)]
+  if (!device) return { ok: false, error: 'Device not found' }
+  if (device.revoked_at) return { ok: false, error: 'Device is revoked' }
+  device.attest = {
+    key_id: String(key_id || ''),
+    public_key: String(public_key || ''),
+    counter: Number(counter) || 0,
+    environment: String(environment || ''),
+    attested_at: new Date().toISOString(),
+  }
+  saveDevices(devices)
+  console.log(`[deviceAuth] device ${deviceId} attested (${device.attest.environment})`)
+  return { ok: true }
+}
+
+// A FAILED attestation from an authenticated caller is the loud category —
+// either a broken client or someone probing with a forged attestation.
+export function reportAttestFailure(deviceId, reason) {
+  const devices = loadDevices()
+  const device = devices[String(deviceId)] || { name: 'unknown device', platform: 'unknown' }
+  console.warn(`[deviceAuth] attest REJECTED for device ${deviceId || '(none)'}: ${reason}`)
+  fireAlert('attest_failure', device)
 }
