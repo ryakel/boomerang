@@ -1,15 +1,16 @@
 import UIKit
 import Social
 import UniformTypeIdentifiers
+import BoomerangKit
 
-// "Add to Boomerang" Share Extension. Reads the API base + token from the App
-// Group container (written by the main app via BoomerangNative — see
-// BoomerangNative.swift / src/apiConfig.js), extracts the shared text or URL,
-// and POSTs it to /api/intake as a task. The compose sheet lets the user edit
-// the title before sending.
+// "Add to Boomerang" Share Extension. Reads credentials via BoomerangKit —
+// base URL from the App Group, token from the shared Keychain (device access
+// token while fresh, legacy token as fallback; the extension never refreshes
+// the pair — see SharedCredentials.swift). Extracts the shared text or URL and
+// POSTs it to /api/intake as a task. The compose sheet lets the user edit the
+// title before sending.
 class ShareViewController: SLComposeServiceViewController {
 
-    private let appGroup = (Bundle.main.object(forInfoDictionaryKey: "BoomerangAppGroup") as? String) ?? "group.ryakel.boomerang"
     private var sharedURL: String?
 
     override func viewDidLoad() {
@@ -25,9 +26,9 @@ class ShareViewController: SLComposeServiceViewController {
     }
 
     override func didSelectPost() {
-        guard let defaults = UserDefaults(suiteName: appGroup),
-              let base = defaults.string(forKey: "boom_api_base"), !base.isEmpty,
-              let token = defaults.string(forKey: "boom_api_token"), !token.isEmpty else {
+        let base = BoomerangShared.apiBase
+        let token = SharedCredentials.bestToken
+        guard !base.isEmpty, !token.isEmpty else {
             complete(error: "Open Boomerang and connect to your server first.")
             return
         }

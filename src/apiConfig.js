@@ -59,6 +59,7 @@ export function setDeviceTokens({ device_id, access_token, refresh_token, access
     localStorage.setItem(DEVICE_REFRESH_KEY, refresh_token || '')
     localStorage.setItem(DEVICE_EXPIRES_KEY, String(access_expires || 0))
   } catch { /* storage unavailable — ignore */ }
+  mirrorDeviceTokensToNative()
 }
 
 export function clearDeviceTokens() {
@@ -68,6 +69,51 @@ export function clearDeviceTokens() {
     localStorage.removeItem(DEVICE_REFRESH_KEY)
     localStorage.removeItem(DEVICE_EXPIRES_KEY)
   } catch { /* ignore */ }
+  if (isNativeShell()) {
+    try { BoomerangNative.clearDeviceTokens().catch(() => {}) } catch { /* ignore */ }
+  }
+}
+
+// Mirror the device pair into the native shared Keychain (BoomerangKit) so
+// the Share Extension / App Intents hold a live access token, and so the pair
+// survives WebView storage eviction (restoreNativeCredentials below). Only a
+// PRESENT pair is pushed — the native side ignores empty mirrors, and clears
+// go through clearDeviceTokens explicitly.
+export function mirrorDeviceTokensToNative() {
+  if (!isNativeShell()) return
+  const d = getDeviceTokens()
+  if (!d.access || !d.refresh) return
+  try {
+    BoomerangNative.setDeviceTokens({
+      device_id: d.deviceId,
+      access_token: d.access,
+      refresh_token: d.refresh,
+      access_expires: d.expires,
+    }).catch(() => { /* plugin absent — ignore */ })
+  } catch { /* proxy threw synchronously — ignore */ }
+}
+
+// Recovery path for the capacitor:// origin's fragile storage: when the
+// WebView's localStorage was evicted but the native Keychain / App Group still
+// hold credentials (they always outlive the WebView), pull them back and
+// report success so the caller can reload into a working app instead of
+// dropping the user on the Connection screen.
+export async function restoreNativeCredentials() {
+  if (!isNativeShell()) return false
+  if (getApiBase()) return false // nothing to restore — config is present
+  try {
+    const cfg = await BoomerangNative.getSharedConfig()
+    if (!cfg?.base) return false
+    setApiConfig({ base: cfg.base, token: cfg.token || '' })
+    try {
+      const pair = await BoomerangNative.getDeviceTokens()
+      if (pair?.present && pair.access_token && pair.refresh_token) {
+        setDeviceTokens(pair)
+      }
+    } catch { /* older native build without the method — legacy token carries it */ }
+    console.log('[apiConfig] restored connection config from native storage')
+    return true
+  } catch { return false }
 }
 
 // The credential to attach right now: a live device access token wins;
@@ -215,8 +261,10 @@ export function installApiInterceptor() {
 
   // Re-mirror on boot so a config set before this build shipped (i.e. before the
   // native bridge existed) reaches the App Group the first time the new binary
-  // runs. Cheap and idempotent.
+  // runs. Cheap and idempotent. Same for a device pair enrolled before the
+  // Keychain mirror existed — push it across once on boot.
   mirrorConfigToNative()
+  mirrorDeviceTokensToNative()
 
   const origFetch = window.fetch.bind(window)
   window.fetch = async (input, init = {}) => {

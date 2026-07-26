@@ -1,24 +1,23 @@
 import Foundation
 import Capacitor
+import BoomerangKit
 
-// Bridges the connection config (server base URL + API token) from the WebView's
-// JS/localStorage into a native App Group container, so Swift-side surfaces that
-// run OUTSIDE the WebView process — the Share Extension (Phase 2), App Intents
-// (Phase 3), native APNs registration (Phase 4) — can read the same credentials
+// Bridges connection credentials from the WebView's JS into native shared
+// storage, so Swift-side surfaces that run OUTSIDE the WebView process — the
+// Share Extension, App Intents, native APNs — can use the same credentials
 // without the user entering them twice.
 //
-// The WebView owns the source of truth (localStorage, set on the Connection
-// screen); src/apiConfig.js calls setSharedConfig() whenever it changes and once
-// on boot. This class only WRITES what JS hands it — it never invents config.
+// Storage split (BoomerangKit):
+//   - base URL            → App Group UserDefaults (not a secret)
+//   - legacy API token    → Keychain (migrated out of the plaintext defaults)
+//   - device token pair   → Keychain (auth Phase A; WebView mirrors on change)
 //
-// APP GROUP: the single shared identifier used by every native target. It must
-// match (1) the App Groups capability on the App target, (2) the same capability
-// on each extension target, and (3) the resolved value below. Created once in the Apple
-// Developer portal / Xcode "Signing & Capabilities → App Groups".
-// Resolved from Info.plist (BoomerangAppGroup <- the BOOMERANG_APP_GROUP build
-// setting), so the prod app uses group.ryakel.boomerang and the Dev app uses
-// group.ryakel.boomerang.dev without code changes.
-let boomerangAppGroup = (Bundle.main.object(forInfoDictionaryKey: "BoomerangAppGroup") as? String) ?? "group.ryakel.boomerang"
+// The WebView owns the source of truth AND the refresh dance — see the
+// invariant in SharedCredentials.swift: native code never rotates the pair.
+// This class only stores what JS hands it; it never invents config.
+//
+// The App Group identifier resolves from Info.plist (BoomerangAppGroup <- the
+// BOOMERANG_APP_GROUP build setting) inside BoomerangKit — never hardcoded.
 
 @objc(BoomerangNative)
 public class BoomerangNative: CAPPlugin, CAPBridgedPlugin {
@@ -26,30 +25,80 @@ public class BoomerangNative: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "BoomerangNative"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "setSharedConfig", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getSharedConfig", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "getSharedConfig", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setDeviceTokens", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getDeviceTokens", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clearDeviceTokens", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "runAppAttest", returnType: CAPPluginReturnPromise)
     ]
 
     @objc func setSharedConfig(_ call: CAPPluginCall) {
-        guard let defaults = UserDefaults(suiteName: boomerangAppGroup) else {
-            // App Group not provisioned yet (capability not added / free account):
-            // resolve quietly so the JS mirror is a harmless no-op, not an error.
-            call.resolve(["stored": false])
-            return
-        }
         if let base = call.getString("base") {
-            defaults.set(base, forKey: "boom_api_base")
+            BoomerangShared.setApiBase(base)
         }
         if let token = call.getString("token") {
-            defaults.set(token, forKey: "boom_api_token")
+            SharedCredentials.setLegacyToken(token)
         }
         call.resolve(["stored": true])
     }
 
     @objc func getSharedConfig(_ call: CAPPluginCall) {
-        let defaults = UserDefaults(suiteName: boomerangAppGroup)
         call.resolve([
-            "base": defaults?.string(forKey: "boom_api_base") ?? "",
-            "token": defaults?.string(forKey: "boom_api_token") ?? ""
+            "base": BoomerangShared.apiBase,
+            "token": SharedCredentials.legacyToken
         ])
+    }
+
+    // Mirror of the WebView's device pair (auth Phase A). JS calls this on
+    // every enroll/rotate so extensions always hold a live access token, and
+    // so the pair survives WebView storage eviction (getDeviceTokens is the
+    // recovery path on boot).
+    @objc func setDeviceTokens(_ call: CAPPluginCall) {
+        let pair = DevicePair(
+            device_id: call.getString("device_id") ?? "",
+            access_token: call.getString("access_token") ?? "",
+            refresh_token: call.getString("refresh_token") ?? "",
+            access_expires: call.getDouble("access_expires") ?? 0
+        )
+        guard !pair.access_token.isEmpty, !pair.refresh_token.isEmpty else {
+            // An empty mirror must never clobber a stored pair — explicit
+            // clears go through clearDeviceTokens.
+            call.resolve(["stored": false])
+            return
+        }
+        SharedCredentials.setDevicePair(pair)
+        call.resolve(["stored": true])
+    }
+
+    @objc func getDeviceTokens(_ call: CAPPluginCall) {
+        guard let pair = SharedCredentials.devicePair else {
+            call.resolve(["present": false])
+            return
+        }
+        call.resolve([
+            "present": true,
+            "device_id": pair.device_id,
+            "access_token": pair.access_token,
+            "refresh_token": pair.refresh_token,
+            "access_expires": pair.access_expires
+        ])
+    }
+
+    @objc func clearDeviceTokens(_ call: CAPPluginCall) {
+        SharedCredentials.clearDevicePair()
+        call.resolve(["cleared": true])
+    }
+
+    // Phase B native half: run the DCAppAttest flow against the server. With
+    // the server's verifier still a 501 stub, outcome "server_pending" is the
+    // success signal that the native side works end-to-end on this device.
+    @objc func runAppAttest(_ call: CAPPluginCall) {
+        Task {
+            let outcome = await AppAttestClient.run()
+            call.resolve([
+                "outcome": outcome.label,
+                "detail": outcome.detail
+            ])
+        }
     }
 }
