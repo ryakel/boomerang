@@ -384,6 +384,62 @@ is pointless.
 `sessionDidDeactivate` clears the flag before re-activating so watch switching
 still re-registers the delegate.
 
+### ⛔ OPEN (2026-07-26): the watch still can't reach the phone
+
+**Status: unresolved, paused mid-diagnosis.** Both flavors' watch apps install,
+launch and render on an Apple Watch Ultra 3 (watchOS 26.5). Every request from
+the watch fails with **"Payload could not be delivered."** — `WCError`
+`deliveryFailed`, surfaced verbatim by `WatchStore.send()`'s error handler. The
+activation fix above (`30600ce`) did **not** resolve it.
+
+**Verified correct, do not re-investigate:**
+
+- `Shared/WatchProtocol.swift` is compiled into *both* targets (two `PBXBuildFile`
+  entries, one file reference) — the message contract cannot have drifted.
+- `WatchBridge.swift` is in the App target's Sources phase.
+- Phone side implements `session(_:didReceiveMessage:replyHandler:)`, and every
+  path through `handle()` returns a dictionary, so the reply handler always fires.
+- The watch's `WKCompanionAppBundleIdentifier` resolves to the right flavor
+  (`ryakel.boomerang.app` / `…app.dev`), confirmed in the built bundles.
+- The failure is **not** range or pairing: `send()` guards on
+  `session.isReachable` first and would say "Phone not reachable" instead.
+  Reachable-but-undeliverable means the phone was there and not listening.
+
+**The decisive unanswered question** — it splits the problem in half and every
+next step depends on which way it goes:
+
+> With the Boomerang phone app open in the **foreground**, does Refresh on the
+> watch work?
+>
+> - **Works** → the phone side is sound and this really is specific to the
+>   background launch, meaning the `AppDelegate` activation is either not in the
+>   running binary or is insufficient on its own.
+> - **Fails** → the background-launch theory is wrong entirely and the fault is
+>   elsewhere. Do not keep building on it.
+
+**Unrun checks, in order:**
+
+1. Is iOS launching the app at all? Force-quit Boomerang, tap Refresh, then
+   `xcrun devicectl device info processes --device <iphone-udid> | grep -i boomerang`.
+   Absent = iOS is not launching it, which points at companion pairing rather
+   than session activation.
+2. Is it crashing on background launch? Phone → Settings → Privacy & Security →
+   Analytics & Improvements → Analytics Data, look for `Boomerang` entries. A
+   crash during background launch fails delivery exactly like this and no session
+   code will fix it.
+3. Wedged WatchConnectivity pairing state. This watch went through many
+   install/uninstall cycles in one day, which is known to wedge it. Rebooting
+   both devices is a legitimate reset here, not a shrug — but only after 1 and 2,
+   because it destroys the evidence.
+
+**Method note, earned twice in this session.** Two confident theories — "the
+paired watch isn't a registered development device" and "the profile must list
+watchOS in `Platform`" — were each argued from a plausible mechanism, never
+tested against reality, and both were wrong; the second was baked into a doctor
+check that then misdirected weeks of work. Measure before asserting, and when a
+single cheap observation would split the hypothesis space, get that observation
+first.
+
 **Icons** live in `BoomerangWatch/Assets.xcassets` as `AppIcon` / `AppIcon-Dev`
 (the dev configs select the latter, mirroring the phone app), generated from the
 phone artwork. Two traps, both hit on 2026-07-26:
@@ -418,7 +474,7 @@ phone artwork. Two traps, both hit on 2026-07-26:
 watchOS app icons must also be **opaque** — the Dev source PNG carries an alpha
 channel, so it is flattened onto its own plate colour rather than copied across.
 
-### The watch app must be signed *for watchOS*
+### The watch must be in the signing profile
 
 Separate failure, same symptom, and the one that actually blocked installing:
 automatic signing gave `BoomerangWatch.app` the **iOS wildcard** profile —
