@@ -330,6 +330,46 @@ package automatically; no new capability, so no interactive ⌘R needed. On
 first run after the rebuild, the legacy token silently migrates from App Group
 defaults into the Keychain.
 
+## Phase 6 — Apple Watch app (2026-07-26)
+
+`ios/App/BoomerangWatch/` — a single-target watchOS app (watchOS 10+, no
+separate WatchKit extension) embedded in the iPhone app's bundle, so it
+installs with the phone app and needs no separate distribution. One screen:
+**today's commitments**, each with its first step and a Done button, plus the
+gently-returned count and pool size.
+
+**⚠️ The watch never speaks HTTP — the phone proxies every request.** This is
+the central design decision, and it follows from the tailnet: there is no
+Tailscale client for watchOS, and traffic the watch tunnels through the paired
+iPhone does not carry the phone's VPN routes, so a watch app calling
+`tasks.kfam.in` directly could not reach the `100.x` address. Instead the watch
+sends a small message over **WatchConnectivity**, the phone calls the API via
+BoomerangKit, and replies. Consequences:
+
+- **No credentials on the watch, ever.** App Groups and Keychains are
+  per-device, so a direct-HTTP watch app would have needed its own copy of a
+  token shipped over the air. This design has nothing to steal.
+- The watch works only with the phone in range. That's the normal companion
+  tradeoff; the UI says "Phone not reachable" plainly instead of spinning.
+- Mutations reply with a **fresh `/api/today` payload**, so the watch redraws
+  from server truth rather than guessing locally.
+
+Pieces: `Shared/WatchProtocol.swift` (the message contract — ONE file compiled
+into *both* targets so the two sides can't drift), `App/WatchBridge.swift`
+(phone-side `WCSessionDelegate`; activated in `SceneDelegate`, which also
+pushes a snapshot as the application context on foreground so a wrist-raise has
+real content immediately), and the watch's `WatchStore` / `TodayView`. The
+watch caches the last payload in its own `UserDefaults` (task titles only) and
+labels it "showing last synced" until a fresh fetch lands.
+
+**Rebuild note:** this adds a NEW target, so the first build is the one case
+where the one-liners may not be enough — see "First build of a new capability"
+above. `buildImplicitDependencies` is on in both schemes, so `npm run ios:prod`
+/ `ios:dev` build and embed the watch app automatically; if automatic signing
+balks at the new `…watchkitapp` bundle id, run once interactively in Xcode
+(⌘R) to register it, then the one-liners work headlessly again. The watch app
+appears in the Watch app on the phone under Available Apps.
+
 ---
 
 ## Notes
