@@ -57,7 +57,9 @@ import { adoptKnowledgeDatabase,
 import { getAllKnowledgeItems, searchKnowledgeItems, getKnowledgeItem } from './db.js'
 import crypto from 'crypto'
 import { initDeviceAuth, onSecurityAlert, enrollDevice, refreshDeviceTokens,
-  listDevices, revokeDevice, deleteDevice, issueAttestChallenge } from './deviceAuth.js'
+  listDevices, revokeDevice, deleteDevice, issueAttestChallenge,
+  consumeAttestChallenge, recordAttestation, reportAttestFailure } from './deviceAuth.js'
+import { verifyAttestation } from './appAttest.js'
 import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
   setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
 import { normalizeCapture, createRateLimiter } from './capture.js'
@@ -270,7 +272,9 @@ onSecurityAlert(async (event, device) => {
   const title = titles[event] || 'Security alert'
   const body = event === 'refresh_reuse'
     ? `A superseded refresh token for "${device?.name || 'a device'}" (${device?.platform || 'unknown'}) was presented again — the device has been revoked. If this was you, re-enroll it from the Connection screen; if not, someone copied its credentials.`
-    : `Device "${device?.name || 'unknown'}" hit a ${event} event.`
+    : event === 'attest_failure'
+      ? `Device "${device?.name || 'unknown'}" (${device?.platform || 'unknown'}) presented an App Attest attestation that failed verification. If this wasn't you testing a build, someone may be probing with forged attestations. Details in the server log.`
+      : `Device "${device?.name || 'unknown'}" hit a ${event} event.`
   // The one loud category the digest reshape allows. Still dev-muzzled like
   // every background send; direct log line always lands regardless.
   if (notifsMuzzled) return
@@ -320,18 +324,55 @@ app.post('/api/auth/device/delete', (req, res) => {
   res.json(result)
 })
 
-// Phase B scaffolding: real challenges (so the native App Attest side can be
-// built against this server today), honest 501 on verification — implementing
-// attestation checks without a device to produce a single valid test vector
-// would be unverifiable security code. See wiki/Auth-Device-Tokens.md.
+// Phase B — App Attest (wiki/Auth-Device-Tokens.md). Real verification since
+// 2026-07-26: the native half (BoomerangKit/AppAttestClient.swift) proved the
+// flow on a real device, unblocking the server side. Chain pins the Apple App
+// Attestation Root CA (server/appleAppAttestRootCA.pem).
 app.post('/api/auth/device/challenge', (req, res) => {
   res.json(issueAttestChallenge())
 })
 
+// Allowed App IDs (teamId.bundleId). The team id is already public in the
+// committed pbxproj; override with APP_ATTEST_APP_IDS (comma-separated) if
+// the app is ever re-signed under a different team.
+const ATTEST_APP_IDS = (process.env.APP_ATTEST_APP_IDS || 'L7JZ99D6K5.ryakel.boomerang.app,L7JZ99D6K5.ryakel.boomerang.app.dev')
+  .split(',').map((s) => s.trim()).filter(Boolean)
+
 app.post('/api/auth/device/attest', (req, res) => {
-  res.status(501).json({
-    error: 'App Attest verification is not implemented yet — Phase B lands with the native Swift package step. See wiki/Auth-Device-Tokens.md.',
+  const { device_id, key_id, challenge, attestation } = req.body || {}
+  if (!device_id || !key_id || !challenge || !attestation) {
+    return res.status(400).json({ error: 'device_id, key_id, challenge and attestation are required' })
+  }
+  if (!consumeAttestChallenge(challenge)) {
+    // Not an alert: expired/reused challenges are an ordinary retry case
+    // (challenges live 5 minutes and are single-use).
+    return res.status(400).json({ error: 'Unknown or expired challenge — fetch a fresh one and retry' })
+  }
+  // The native side hashes the challenge string's UTF-8 bytes as the
+  // clientDataHash (AppAttestClient.swift) — mirror that exactly.
+  const clientDataHash = crypto.createHash('sha256').update(String(challenge), 'utf8').digest()
+  const result = verifyAttestation({
+    attestationB64: attestation,
+    keyIdB64: key_id,
+    clientDataHash,
+    appIds: ATTEST_APP_IDS,
   })
+  if (!result.ok) {
+    // Loud path: an authenticated caller presented an attestation that does
+    // not verify — broken client or forgery attempt. reportAttestFailure
+    // fires the security alert; the response carries the reason because the
+    // caller already holds valid credentials (nothing to hide from them).
+    reportAttestFailure(device_id, result.reason)
+    return res.status(400).json({ error: `Attestation rejected: ${result.reason}` })
+  }
+  const stored = recordAttestation(device_id, {
+    key_id,
+    public_key: result.publicKeyPem,
+    counter: result.counter,
+    environment: result.environment,
+  })
+  if (!stored.ok) return res.status(404).json(stored)
+  res.json({ verified: true, environment: result.environment })
 })
 
 // --- Quick intake (iOS Shortcut / share-sheet target). Authed by the gate via

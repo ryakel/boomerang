@@ -54,7 +54,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 - `isNotifiable()` in `server/db.js` is the single opt-in gate (`due_date || nag_allowed || active escalation`, plus crisis). Per-type channel toggles must never LOOK on when their channel master is off.
 
 **Auth**
-- Machine auth is per-device rotating token pairs (`server/deviceAuth.js`, spec `wiki/Auth-Device-Tokens.md`); the static `API_TOKEN` is the bootstrap/fallback only. Secrets are stored hashed; a superseded refresh token replayed = auto-revoke + security alert (the one loud notification category). `/api/auth/device/refresh` is an OPEN path by design (self-authenticating, rate-limited) — don't gate it. Never fake-implement App Attest verification (`/attest` stays 501 until it can be tested against a real device).
+- Machine auth is per-device rotating token pairs (`server/deviceAuth.js`, spec `wiki/Auth-Device-Tokens.md`); the static `API_TOKEN` is the bootstrap/fallback only. Secrets are stored hashed; a superseded refresh token replayed = auto-revoke + security alert (the one loud notification category). `/api/auth/device/refresh` is an OPEN path by design (self-authenticating, rate-limited) — don't gate it. App Attest verification is REAL (`server/appAttest.js`, pinned Apple root) — never weaken a check to make a client pass; a failed verification from an authenticated caller fires the loud `attest_failure` alert.
 - The client interceptor (`src/apiConfig.js`) reads credentials per call — never capture a token at install time; device tokens rotate hourly.
 
 **Notion**
