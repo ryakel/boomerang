@@ -391,6 +391,7 @@ carries a valid `boom_session` cookie (human login) OR a valid `API_TOKEN` in
 | `POST` | `/api/tasks/:id/unshelve` | shelved → open |
 | `POST` | `/api/tasks/:id/let-go` | → archived, `outcome: "released"` |
 | `GET` | `/api/today` | Pick-three payload for the watch: committed + intentions + first steps, gentle-return count |
+| `GET` | `/api/intents/tasks` | Siri/App-Intents entity lookup: `?q=` title search, `?ids=` resolution, neither → ranked suggestions (actionable states only, committed-first, cap 12) |
 | `POST` | `/api/auth/device/enroll` | Mint a per-device token pair (gated; bootstrap with the legacy API token) |
 | `POST` | `/api/auth/device/refresh` | Rotate the pair (open, self-authenticating, rate-limited; reuse → revoke + alert) |
 | `GET` | `/api/auth/devices` | Device registry for Settings (no secret material) |

@@ -170,6 +170,209 @@ struct AddBoomerangTaskIntent: AppIntent {
     }
 }
 
+// MARK: - Task entity (App Intents expansion, 2026-07-26)
+// The first DYNAMIC entity: Siri resolves "which task?" against the server's
+// GET /api/intents/tasks (title substring search / exact ids / suggestions),
+// authenticated via BoomerangKit. Actionable states only, committed-first —
+// the ranking lives server-side in taskModel.intentTaskRows.
+
+struct BoomerangTaskEntity: AppEntity, Identifiable {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Boomerang Task"
+    static var defaultQuery = BoomerangTaskQuery()
+
+    let id: String
+    let title: String
+    let state: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(title)", subtitle: "\(state)")
+    }
+}
+
+struct BoomerangTaskQuery: EntityStringQuery {
+    private func fetch(_ queryItems: String) async -> [BoomerangTaskEntity] {
+        guard BoomerangAPI.isConfigured else { return [] }
+        guard let (status, json) = try? await BoomerangAPI.getJSON("/api/intents/tasks" + queryItems),
+              status == 200, let rows = json["tasks"] as? [[String: Any]] else { return [] }
+        return rows.compactMap { row in
+            guard let id = row["id"] as? String, let title = row["title"] as? String else { return nil }
+            return BoomerangTaskEntity(id: id, title: title, state: (row["state"] as? String) ?? "open")
+        }
+    }
+
+    private func encoded(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+    }
+
+    func entities(for identifiers: [BoomerangTaskEntity.ID]) async throws -> [BoomerangTaskEntity] {
+        await fetch("?ids=" + identifiers.map(encoded).joined(separator: ","))
+    }
+
+    func entities(matching string: String) async throws -> [BoomerangTaskEntity] {
+        await fetch("?q=" + encoded(string))
+    }
+
+    func suggestedEntities() async throws -> [BoomerangTaskEntity] {
+        await fetch("")
+    }
+}
+
+// Shared dialog plumbing for the task-verb intents.
+private func serverError(_ json: [String: Any], fallback: String) -> String {
+    (json["error"] as? String) ?? fallback
+}
+
+private let notConnectedDialog = "Open Boomerang and connect to your server first."
+private let unreachableDialog = "Can't reach your server right now — try again when you're back on the VPN."
+
+// MARK: - Verb intents
+
+struct CompleteBoomerangTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Complete Boomerang task"
+    static var description = IntentDescription("Marks a task done in Boomerang.")
+
+    @Parameter(title: "Task", requestValueDialog: "Which task did you finish?")
+    var task: BoomerangTaskEntity
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Mark \(\.$task) done")
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard BoomerangAPI.isConfigured else { return .result(dialog: "\(notConnectedDialog)") }
+        do {
+            let (status, json) = try await BoomerangAPI.postJSON("/api/tasks/\(task.id)/complete")
+            switch status {
+            case 200...299:
+                if json["already_done"] as? Bool == true {
+                    return .result(dialog: "\(task.title) was already done.")
+                }
+                return .result(dialog: "Done — \(task.title) is off your plate.")
+            case 401, 403:
+                return .result(dialog: "Boomerang rejected the credentials — open the app to reconnect.")
+            default:
+                return .result(dialog: "\(serverError(json, fallback: "Boomerang said no (\(status))."))")
+            }
+        } catch {
+            return .result(dialog: "\(unreachableDialog)")
+        }
+    }
+}
+
+struct CommitToBoomerangTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Commit to Boomerang task"
+    static var description = IntentDescription("Adds a task to today's three in Boomerang. The three-task ceiling applies — Siri relays the server's answer if the plate is full.")
+
+    @Parameter(title: "Task", requestValueDialog: "Which task are you committing to?")
+    var task: BoomerangTaskEntity
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Commit to \(\.$task) today")
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard BoomerangAPI.isConfigured else { return .result(dialog: "\(notConnectedDialog)") }
+        do {
+            let (status, json) = try await BoomerangAPI.postJSON("/api/tasks/\(task.id)/commit")
+            switch status {
+            case 200...299:
+                if json["already_committed"] as? Bool == true {
+                    return .result(dialog: "\(task.title) is already on today's plate.")
+                }
+                return .result(dialog: "Committed — \(task.title) is on today's plate.")
+            case 401, 403:
+                return .result(dialog: "Boomerang rejected the credentials — open the app to reconnect.")
+            default:
+                // The 409 plate-full message reads well aloud as-is.
+                return .result(dialog: "\(serverError(json, fallback: "Boomerang said no (\(status))."))")
+            }
+        } catch {
+            return .result(dialog: "\(unreachableDialog)")
+        }
+    }
+}
+
+struct SnoozeBoomerangTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Snooze Boomerang task"
+    static var description = IntentDescription("Parks a task until later. Without a date it comes back tomorrow morning.")
+
+    @Parameter(title: "Task", requestValueDialog: "Which task should I snooze?")
+    var task: BoomerangTaskEntity
+
+    @Parameter(title: "Until")
+    var until: Date?
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Snooze \(\.$task)") {
+            \.$until
+        }
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard BoomerangAPI.isConfigured else { return .result(dialog: "\(notConnectedDialog)") }
+        // Default: tomorrow at 05:00 local — lands before the morning digest
+        // and rollover, so the task is simply back in tomorrow's pool.
+        let target = until ?? {
+            let cal = Calendar.current
+            let tomorrow = cal.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+            return cal.date(bySettingHour: 5, minute: 0, second: 0, of: tomorrow) ?? tomorrow
+        }()
+        let iso = ISO8601DateFormatter().string(from: target)
+        do {
+            let (status, json) = try await BoomerangAPI.postJSON("/api/tasks/\(task.id)/shelve", body: ["snooze_until": iso])
+            switch status {
+            case 200...299:
+                let day = target.formatted(date: .abbreviated, time: .omitted)
+                return .result(dialog: "Parked \(task.title) — it comes back \(day).")
+            case 401, 403:
+                return .result(dialog: "Boomerang rejected the credentials — open the app to reconnect.")
+            default:
+                return .result(dialog: "\(serverError(json, fallback: "Boomerang said no (\(status))."))")
+            }
+        } catch {
+            return .result(dialog: "\(unreachableDialog)")
+        }
+    }
+}
+
+struct BoomerangTodayIntent: AppIntent {
+    static var title: LocalizedStringResource = "Today in Boomerang"
+    static var description = IntentDescription("Reads today's committed tasks and what's waiting in the pool. Read-only — great for CarPlay and HomePod.")
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard BoomerangAPI.isConfigured else { return .result(dialog: "\(notConnectedDialog)") }
+        do {
+            let (status, json) = try await BoomerangAPI.getJSON("/api/today")
+            guard (200...299).contains(status) else {
+                return .result(dialog: "Boomerang said no (\(status)).")
+            }
+            let committed = (json["committed"] as? [[String: Any]]) ?? []
+            let openCount = (json["open_count"] as? Int) ?? 0
+            let returnedCount = (json["returned_count"] as? Int) ?? 0
+
+            var parts: [String] = []
+            if committed.isEmpty {
+                parts.append("Nothing committed yet today.")
+            } else {
+                let lines = committed.map { row -> String in
+                    let title = (row["title"] as? String) ?? "a task"
+                    if (row["done"] as? Bool) == true { return "\(title), done" }
+                    if let step = row["first_step"] as? String, !step.isEmpty { return "\(title) — next: \(step)" }
+                    return title
+                }
+                parts.append("\(committed.count) of 3 committed: \(lines.joined(separator: ". ")).")
+            }
+            if returnedCount > 0 {
+                parts.append("\(returnedCount) task\(returnedCount == 1 ? "" : "s") came back around today.")
+            }
+            parts.append("\(openCount) in the pool.")
+            return .result(dialog: "\(parts.joined(separator: " "))")
+        } catch {
+            return .result(dialog: "\(unreachableDialog)")
+        }
+    }
+}
+
 struct BoomerangShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -187,6 +390,44 @@ struct BoomerangShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Add task",
             systemImageName: "plus.circle.fill"
+        )
+        AppShortcut(
+            intent: CompleteBoomerangTaskIntent(),
+            phrases: [
+                "Mark \(\.$task) done in \(.applicationName)",
+                "Complete a task in \(.applicationName)",
+                "Mark a task done in \(.applicationName)"
+            ],
+            shortTitle: "Complete task",
+            systemImageName: "checkmark.circle.fill"
+        )
+        AppShortcut(
+            intent: CommitToBoomerangTaskIntent(),
+            phrases: [
+                "Commit to \(\.$task) in \(.applicationName)",
+                "Commit to a task in \(.applicationName)"
+            ],
+            shortTitle: "Commit",
+            systemImageName: "target"
+        )
+        AppShortcut(
+            intent: SnoozeBoomerangTaskIntent(),
+            phrases: [
+                "Snooze \(\.$task) in \(.applicationName)",
+                "Snooze a task in \(.applicationName)"
+            ],
+            shortTitle: "Snooze",
+            systemImageName: "moon.zzz.fill"
+        )
+        AppShortcut(
+            intent: BoomerangTodayIntent(),
+            phrases: [
+                "What's on \(.applicationName) today",
+                "What's on my plate in \(.applicationName)",
+                "\(.applicationName) today"
+            ],
+            shortTitle: "Today",
+            systemImageName: "sun.max.fill"
         )
     }
 }
