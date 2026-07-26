@@ -34,6 +34,9 @@ WATCH_ID=$(sh scripts/find-watch.sh) || {
   exit 1
 }
 echo "    watch: $WATCH_ID"
+# The doctor checks profile-device coverage against this watch specifically;
+# reuse what we already resolved rather than making it query again.
+export BOOMERANG_WATCH_UDID="$WATCH_ID"
 
 echo "==> Building scheme \"$SCHEME\" against the watch (registers it with your account)…"
 echo "    This can pause while Apple issues the profile; that is the point of the run."

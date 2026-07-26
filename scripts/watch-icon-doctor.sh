@@ -8,12 +8,17 @@
 # that all leave `xcodebuild` reporting BUILD SUCCEEDED with no warning — an
 # icon set with no matching entries, an asset catalog Xcode decided was up to
 # date and never recompiled, a bundle plist with no CFBundleIconName to look
-# the icon up by, or a code-signing profile that does not cover watchOS. On the
-# wrist they collapse into two indistinguishable symptoms: a placeholder
+# the icon up by, or a provisioning profile that does not list the watch. On
+# the wrist they collapse into two indistinguishable symptoms: a placeholder
 # crosshair, and a bare "App could not be installed at this time". Reading the
 # build log does not separate them — every one of the above was chased from
 # logs and screenshots first, and every one of those attempts was wrong.
 # Reading the built bundle does separate them, so measure the bundle.
+#
+# A caution this file earned the hard way: only assert things that have been
+# observed to matter. Its "profile must list watchOS in Platform" check was
+# invented from a plausible theory, was never once verified against an actual
+# install, and was wrong — see the note by the platform line below.
 set -e
 
 WANT="${1:-}"
@@ -60,24 +65,37 @@ inspect() {
     DEVICES=$(printf '%s' "$PROF_PLIST" | plutil -extract ProvisionedDevices json -o - - 2>/dev/null \
       | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || true)
     echo "    profile     ${PROF_NAME:-<unreadable>} (${DEVICES:-?} devices)"
-    if printf '%s' "$PLATFORMS" | grep -qi 'watchos'; then
-      echo "    platform    OK — profile covers watchOS ${PLATFORMS}"
+    echo "    platform    ${PLATFORMS:-<none>} (informational)"
+    # DELIBERATELY NOT ASSERTED. This used to fail whenever the profile's
+    # Platform array lacked "watchOS", on the theory that watchOS would refuse
+    # a profile for another platform. That theory was never verified and is
+    # wrong: a watch app embedded in an iOS companion is provisioned as part of
+    # the iOS app family, so ["iOS","xrOS","visionOS"] is CORRECT for it. The
+    # check condemned every build for weeks, and the bundle it was condemning
+    # installed on the wrist unchanged the moment the watch was added to the
+    # profile — same Platform array, same everything.
+    #
+    # Device coverage is what actually gates the install: watchOS refuses a
+    # development-signed app whose profile does not list that watch. That is
+    # cheap to test and is the real check.
+    WATCH_UDID="${BOOMERANG_WATCH_UDID:-}"
+    if [ -z "$WATCH_UDID" ]; then
+      WATCH_UDID=$(sh scripts/find-watch.sh 2>/dev/null || true)
+    fi
+    if [ -z "$WATCH_UDID" ]; then
+      echo "    devices     no watch visible — coverage not verifiable from here"
+    elif printf '%s' "$PROF_PLIST" | plutil -extract ProvisionedDevices json -o - - 2>/dev/null \
+         | grep -qi "$WATCH_UDID"; then
+      echo "    devices     OK — the watch is in this profile ($WATCH_UDID)"
     else
-      echo "    platform    WRONG — profile does not cover watchOS: ${PLATFORMS:-<none>}"
-      echo "                The watch app is signed with a profile for another"
-      echo "                platform, so watchOS will refuse to install it."
-      echo "                Automatic signing falls back to this wildcard until the"
-      echo "                watch has been used as a BUILD DESTINATION, which is what"
-      echo "                registers it with the account and mints a watchOS profile."
-      echo "                ios:prod / ios:dev do that themselves when they see a"
-      echo "                watch; npm run ios:watch-register is the manual path."
-      echo "                That build only works once the watch is REGISTERED as a"
-      echo "                watchOS device at developer.apple.com/account/resources/"
-      echo "                devices/list — xcodebuild will not add it for you, even"
-      echo "                with -allowProvisioningUpdates."
-      echo "                (Developer Mode being on is necessary, not sufficient —"
-      echo "                this said 'enable Developer Mode' for weeks while it was"
-      echo "                already on, and sent the diagnosis down the wrong road.)"
+      echo "    devices     MISSING — the watch is NOT in this profile"
+      echo "                ($WATCH_UDID), so watchOS will refuse the install."
+      echo "                Register it at developer.apple.com/account/resources/"
+      echo "                devices/list (type: Apple Watch), then re-sign with"
+      echo "                npm run ios:watch-register [config]. Note that"
+      echo "                -allowProvisioningUpdates will NOT register a device"
+      echo "                for you, and Developer Mode on the wrist is a"
+      echo "                separate thing that does not substitute for this."
       FAILED=1
     fi
   else
