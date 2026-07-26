@@ -8,6 +8,13 @@
 	<string>$(BOOMERANG_DISPLAY_NAME)</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<!-- GENERATE_INFOPLIST_FILE is NO for this target, so nothing injects the
+	     asset-catalog icon key for us: without it the system has no name to
+	     look up in Assets.car and falls back to the placeholder crosshair.
+	     The substitution keeps prod/dev on their own sets (AppIcon /
+	     AppIcon-Dev) from the one plist. -->
+	<key>CFBundleIconName</key>
+	<string>$(ASSETCATALOG_COMPILER_APPICON_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
