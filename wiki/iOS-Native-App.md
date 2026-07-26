@@ -431,12 +431,24 @@ The doctor does this automatically now.
 list devices` showing `available (paired)` only means Developer Mode is on and
 the Mac can talk to it — Xcode registers a device with the *account* when it is
 used as a build destination, and that is what mints the watchOS profile. The
-Devices and Simulators window does this, but it moved in Xcode 26, so
-`npm run ios:watch-register [config]` (`scripts/watch-register.sh`) does it
-headlessly instead: finds the paired watch, builds the `Watch` / `Watch Dev`
-scheme against it with `-allowProvisioningUpdates`, then re-runs the doctor to
-confirm the profile came back covering watchOS. Run it once; after that the
-normal one-liners work.
+Devices and Simulators window does this, but it moved in Xcode 26, so the
+registration is done headlessly by building the `Watch` / `Watch Dev` scheme
+against the watch with `-allowProvisioningUpdates`.
+
+**`ios-deploy.sh` handles the whole watch side itself** — there is no separate
+command to remember. Each run: builds the watch app (it is already a target
+dependency), checks the bundle, and if the check fails while a physical watch is
+visible, registers the watch, rebuilds once so the phone app embeds the
+re-signed watch app, re-checks, and finally installs the watch app on the watch
+directly. Registration is harmless when it was not the problem — it only builds
+a target that was going to build anyway. The watch install is best-effort:
+failing it never fails the run, since the phone app is already on by then and a
+watch-side refusal is not a build problem.
+
+`npm run ios:watch-register [config]` remains as a standalone escape hatch, and
+`scripts/find-watch.sh` holds the device-selection rules (physical only, via
+devicectl's `reality` field) so `ios-deploy.sh` and `watch-register.sh` cannot
+drift apart on which watch they mean.
 
 The two watch schemes exist for exactly this reason — without a scheme whose
 buildable is `BoomerangWatch.app`, nothing in the project can target the watch
