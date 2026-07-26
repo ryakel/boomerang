@@ -113,6 +113,10 @@ echo "    built: $BUILT_ID ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplay
 echo "==> 5/6 Checking the watch app…"
 WATCH_ID=$(sh scripts/find-watch.sh 2>/dev/null || true)
 WATCH_OK=1
+# Hand the doctor the watch we already resolved so it can check whether the
+# profile actually covers this watch, without repeating the live devicectl
+# query (a couple of seconds per candidate).
+export BOOMERANG_WATCH_UDID="$WATCH_ID"
 
 if ! sh scripts/watch-icon-doctor.sh "$CONFIG"; then
   WATCH_OK=0

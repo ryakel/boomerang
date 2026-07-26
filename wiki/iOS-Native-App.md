@@ -403,13 +403,21 @@ automatic signing gave `BoomerangWatch.app` the **iOS wildcard** profile —
 
 ```
 CodeSign .../Debug-watchos/BoomerangWatch.app
-    Provisioning Profile: "iOS Team Provisioning Profile: *"
+    Provisioning Profile: "iOS Team Provisioning Profile: *"    (1 devices)
 ```
 
-whose `Platform` is `[iOS, xrOS, visionOS]` — **no watchOS**. The phone app got
-its own real profile, so `xcodebuild` succeeded, `ValidateEmbeddedBinary`
-passed, the phone installed fine, and only the watch refused, with a bare "App
-could not be installed at this time".
+The phone app got its own real profile, so `xcodebuild` succeeded,
+`ValidateEmbeddedBinary` passed, the phone installed fine, and only the watch
+refused, with a bare "App could not be installed at this time".
+
+> **Retracted:** this section used to say the defect was that the profile's
+> `Platform` is `[iOS, xrOS, visionOS]` with **no watchOS**. That is not a
+> defect — a watch app embedded in an iOS companion is provisioned as part of
+> the iOS app family, and that array is correct for it. The real defect is the
+> `(1 devices)`: the wildcard covered only the phone. Once the watch was
+> registered and the profile carried 2 devices, the **same bundle with the same
+> `Platform` array installed on the wrist**. See "What actually gates a watch
+> install" below.
 
 Xcode falls back to that wildcard whenever it cannot issue a watchOS profile,
 which is the case until the paired Watch is a **registered development device**.
@@ -450,6 +458,46 @@ profile reported **1 devices**, the phone.
 Developer Mode on the wrist is necessary and not sufficient. Those are two
 independent facts, they fail identically, and conflating them cost this
 investigation several rounds.
+
+### What actually gates a watch install
+
+**Device coverage, not platform.** watchOS refuses a development-signed app
+whose embedded profile does not list that watch in `ProvisionedDevices`. That
+is the whole rule, and it is what the doctor now checks. Read it straight out
+of any bundle:
+
+```
+security cms -D -i <bundle>/embedded.mobileprovision \
+  | plutil -extract ProvisionedDevices json -o - -
+```
+
+The transition, same project, same Platform array, nothing else changed:
+
+```
+before registration:  iOS Team Provisioning Profile: *                        (1 devices)
+after  registration:  iOS Team Provisioning Profile: ...dev.watchkitapp       (2 devices)
+```
+
+and the "after" bundle installed:
+
+```
+$ xcrun devicectl device install app --device 00008310-... \
+    ios/build/Build/Products/Debug-Dev-iphoneos/App.app/Watch/BoomerangWatch.app
+App installed:
+• bundleID: ryakel.boomerang.app.dev.watchkitapp
+```
+
+(A first attempt returned `Failed to allocate RSD device
+(com.apple.mobiledevice error -402653181)` — a transient tunnel error, not a
+signing problem. Retry before investigating it.)
+
+**The doctor's old `platform WRONG` check was a fabrication** and is the reason
+this took as long as it did. It asserted watchOS had to appear in the profile's
+`Platform`, was never once tested against a real install, failed every build for
+weeks, and sent several rounds of work at satisfying a condition that did not
+exist. Every other check in that script came from a real observed failure. This
+one came from a guess. When adding a check, verify the thing it asserts actually
+breaks an install first.
 
 **`ios-deploy.sh` handles the whole watch side itself** — there is no separate
 command to remember. Each run: builds the watch app (it is already a target
