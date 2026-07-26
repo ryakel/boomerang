@@ -484,7 +484,20 @@ xcodebuild instead of vanishing.
 output straight to xcodebuild. An earlier comment in `find-watch.sh` claimed
 watch UDIDs are plain UUIDs and the iPhone finder's hardware-UDID shape "does
 not transfer" — a real Apple Watch Ultra 3 reports the same `00008310-…` shape
-as the iPhone. Print the UDID.
+as the iPhone.
+
+And the UDID is **not in the listing** for a watch — `list devices` populates
+`hardwareProperties.udid` for the iPhone but leaves it empty for the watch,
+which is exactly what makes "just read it from the JSON like the iPhone finder
+does" look correct and fail silently. It appears only in the live response:
+
+```
+$ xcrun devicectl device info details --device 30B4B8C9-...
+    • UDID: 00008310-001605683C40E01E
+```
+
+So `identifier` is the *query key* and the UDID is the *answer*: enumerate with
+the listing, query live, return what the live response says.
 
 Also worth knowing when reading profiles by hand: Xcode 16+ moved them out of
 `~/Library/MobileDevice/Provisioning Profiles`. Prefer reading

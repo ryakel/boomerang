@@ -66,9 +66,14 @@ inspect() {
       echo "    platform    WRONG — profile does not cover watchOS: ${PLATFORMS:-<none>}"
       echo "                The watch app is signed with a profile for another"
       echo "                platform, so watchOS will refuse to install it."
-      echo "                Enable Developer Mode on the Watch, then pair it for"
-      echo "                development in Xcode (Window > Devices and Simulators)"
-      echo "                so automatic signing can issue a watchOS profile."
+      echo "                Automatic signing falls back to this wildcard until the"
+      echo "                watch has been used as a BUILD DESTINATION, which is what"
+      echo "                registers it with the account and mints a watchOS profile."
+      echo "                ios:prod / ios:dev do that themselves when they see a"
+      echo "                watch; npm run ios:watch-register is the manual path."
+      echo "                (Developer Mode being on is necessary, not sufficient —"
+      echo "                this said 'enable Developer Mode' for weeks while it was"
+      echo "                already on, and sent the diagnosis down the wrong road.)"
       FAILED=1
     fi
   else
