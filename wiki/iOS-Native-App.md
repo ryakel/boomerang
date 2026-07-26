@@ -429,11 +429,27 @@ The doctor does this automatically now.
 
 **A watch that `devicectl` can see is not a registered device.** `xcrun devicectl
 list devices` showing `available (paired)` only means Developer Mode is on and
-the Mac can talk to it — Xcode registers a device with the *account* when it is
-used as a build destination, and that is what mints the watchOS profile. The
-Devices and Simulators window does this, but it moved in Xcode 26, so the
-registration is done headlessly by building the `Watch` / `Watch Dev` scheme
-against the watch with `-allowProvisioningUpdates`.
+the Mac can talk to it. Building the `Watch` / `Watch Dev` scheme against the
+watch is what makes Xcode *request* a watchOS profile for it — but that request
+fails unless the device is already registered:
+
+```
+error: Device "Ryan's Apple Watch" isn't registered in your developer account.
+       The device must be registered in order to be included in a provisioning
+       profile. (in target 'BoomerangWatch' from project 'App')
+```
+
+**`-allowProvisioningUpdates` does not register unknown devices.** It renews
+profiles and mints certificates; it will not add a device, and it fails with the
+message above instead. Register the UDID by hand at
+[developer.apple.com/account/resources/devices/list](https://developer.apple.com/account/resources/devices/list)
+under platform **watchOS** — a separate device class from iOS, so a watch filed
+under iOS does not count. The giveaway that this was outstanding: the wildcard
+profile reported **1 devices**, the phone.
+
+Developer Mode on the wrist is necessary and not sufficient. Those are two
+independent facts, they fail identically, and conflating them cost this
+investigation several rounds.
 
 **`ios-deploy.sh` handles the whole watch side itself** — there is no separate
 command to remember. Each run: builds the watch app (it is already a target
