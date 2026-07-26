@@ -68,24 +68,28 @@ PYINNER
 fi
 echo "    device: $UDID"
 
-echo "==> 4/5 xcodebuild ($SCHEME / $CONFIG)…"
-# Drop the previous watch product first. Xcode tracks the asset catalog by its
-# outputs, and edits *inside* an .appiconset have repeatedly not invalidated
-# it — the build then reuses an old Assets.car and the watch app ships with no
-# icon (which watchOS treats as a hard install failure). Deleting the product
-# makes the outputs missing, so actool is forced to run again. Costs a couple
-# of seconds; the phone app's own incremental build is untouched.
-rm -rf ios/build/Build/Products/*-watchos/BoomerangWatch.app \
-       "ios/build/Build/Products/${CONFIG}-iphoneos/App.app/Watch" 2>/dev/null || true
+echo "==> 4/6 xcodebuild ($SCHEME / $CONFIG)…"
+build_app() {
+  # Drop the previous watch product first. Xcode tracks the asset catalog by
+  # its outputs, and edits *inside* an .appiconset have repeatedly not
+  # invalidated it — the build then reuses an old Assets.car and the watch app
+  # ships with no icon (which watchOS treats as a hard install failure).
+  # Deleting the product makes the outputs missing, so actool is forced to run
+  # again. Costs a couple of seconds; the phone app's own incremental build is
+  # untouched.
+  rm -rf ios/build/Build/Products/*-watchos/BoomerangWatch.app \
+         "ios/build/Build/Products/${CONFIG}-iphoneos/App.app/Watch" 2>/dev/null || true
 
-xcodebuild \
-  -project ios/App/App.xcodeproj \
-  -scheme "$SCHEME" \
-  -configuration "$CONFIG" \
-  -destination "id=$UDID" \
-  -derivedDataPath ios/build \
-  -allowProvisioningUpdates \
-  build
+  xcodebuild \
+    -project ios/App/App.xcodeproj \
+    -scheme "$SCHEME" \
+    -configuration "$CONFIG" \
+    -destination "id=$UDID" \
+    -derivedDataPath ios/build \
+    -allowProvisioningUpdates \
+    build
+}
+build_app
 
 APP_PATH="ios/build/Build/Products/${CONFIG}-iphoneos/App.app"
 if [ ! -d "$APP_PATH" ]; then
@@ -106,24 +110,75 @@ echo "    built: $BUILT_ID ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplay
 # a missing icon or a profile that doesn't cover watchOS both end in "App could
 # not be installed at this time" on the wrist. The doctor prints which one it
 # is — don't restate a guess here, just point at it.
+echo "==> 5/6 Checking the watch app…"
+WATCH_ID=$(sh scripts/find-watch.sh 2>/dev/null || true)
 WATCH_OK=1
+
 if ! sh scripts/watch-icon-doctor.sh "$CONFIG"; then
   WATCH_OK=0
+  # The usual cause on a first run is that the watch has never been registered
+  # with the developer account, so automatic signing fell back to the iOS
+  # wildcard profile. Registering it means building a watch scheme against the
+  # watch — which we can just do, rather than making it a separate errand.
+  # Harmless if registration was not the problem: it only builds a target that
+  # was going to build anyway.
+  if [ -n "$WATCH_ID" ]; then
+    echo ""
+    echo "    Watch found ($WATCH_ID) — registering it and rebuilding once."
+    echo "    This can pause while Apple issues the profile."
+    REGLOG=$(mktemp)
+    if sh scripts/watch-register.sh "$CONFIG" >"$REGLOG" 2>&1; then
+      echo "    Registered. Rebuilding so the phone app embeds the re-signed watch app…"
+      build_app
+      if sh scripts/watch-icon-doctor.sh "$CONFIG"; then
+        WATCH_OK=1
+      fi
+    else
+      echo "    Registration did not succeed. Last 25 lines:"
+      tail -25 "$REGLOG" | sed 's/^/      /'
+      echo "      (full log: $REGLOG)"
+    fi
+    # NB: not `[ … ] && rm …` — under `set -e` a false test there would take
+    # the whole script down right before the install step.
+    if [ "$WATCH_OK" -eq 1 ]; then rm -f "$REGLOG"; fi
+  fi
+fi
+
+if [ "$WATCH_OK" -ne 1 ]; then
   echo ""
   echo "  !! The watch app in this build will not install — see the check above"
   echo "  !! for which part failed."
-  echo "  !! Installing anyway; the phone app itself is unaffected."
+  echo "  !! Continuing; the phone app itself is unaffected."
   echo ""
 fi
 
-echo "==> 5/5 Installing + launching on the phone…"
+echo "==> 6/6 Installing + launching on the phone…"
 xcrun devicectl device install app --device "$UDID" "$APP_PATH"
 xcrun devicectl device process launch --device "$UDID" "$BUNDLE_ID" || {
   echo "(Installed, but auto-launch failed — tap the icon; this can happen while the phone is locked.)"
 }
 
+# Push the watch app across too. Installing the phone app makes watchOS offer
+# the watch app in the Watch app's list, but it does not put it on the wrist —
+# best-effort direct install saves that round trip. Never fatal: the phone app
+# is already on and a failure here is a watch-side problem, not a build one.
+if [ "$WATCH_OK" -eq 1 ] && [ -n "$WATCH_ID" ]; then
+  WATCH_APP="$APP_PATH/Watch/BoomerangWatch.app"
+  if [ -d "$WATCH_APP" ]; then
+    echo "    Installing the watch app on $WATCH_ID…"
+    xcrun devicectl device install app --device "$WATCH_ID" "$WATCH_APP" || {
+      echo "    (Direct watch install failed — open the Watch app on the phone and"
+      echo "     install Boomerang from Available Apps. Keep the watch unlocked and"
+      echo "     on the charger.)"
+    }
+  fi
+fi
+
 echo "Done: $SCHEME is on the phone."
 if [ "$WATCH_OK" -ne 1 ]; then
   echo "Watch app check FAILED earlier in this run — scroll up, or re-run:"
   echo "  npm run ios:watch-doctor $CONFIG"
+elif [ -z "$WATCH_ID" ]; then
+  echo "No paired Apple Watch was visible, so the watch app was not installed."
+  echo "Enable Developer Mode on the watch and re-run to pick it up."
 fi
