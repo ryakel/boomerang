@@ -908,7 +908,7 @@
 		5C0AC0000000000000000052 /* Debug-Dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Dev";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				BOOMERANG_COMPANION_ID = ryakel.boomerang.app.dev;
 				BOOMERANG_DISPLAY_NAME = "Boomerang Dev";
@@ -936,7 +936,7 @@
 		5C0AC0000000000000000053 /* Release-Dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Dev";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				BOOMERANG_COMPANION_ID = ryakel.boomerang.app.dev;
 				BOOMERANG_DISPLAY_NAME = "Boomerang Dev";
