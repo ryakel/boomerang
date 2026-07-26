@@ -378,8 +378,40 @@ phone artwork. Two traps, both hit on 2026-07-26:
    86/98/108/117/129, plus `watch-marketing` 1024), so nothing depends on Xcode
    generating sizes.
 
+3. **`GENERATE_INFOPLIST_FILE = NO`** on this target, so nothing injected
+   `CFBundleIconName` for us. Asset-catalog icons are looked up *by name* at
+   runtime; with no name in the bundle plist there is nothing to look up and the
+   result is — again — the placeholder. The plist now carries
+   `CFBundleIconName = $(ASSETCATALOG_COMPILER_APPICON_NAME)`, which resolves
+   per-flavor from the one file. (Ruling this out earlier by "the phone app has
+   no `CFBundleIconName` either and its icon works" was wrong reasoning: the
+   phone target gets the key merged in from actool's generated plist, which only
+   helps a target whose asset catalog actually recompiled.)
+4. Edits *inside* an `.appiconset` have repeatedly failed to invalidate Xcode's
+   asset-catalog task — a rebuild reuses the old `Assets.car` and no
+   `CompileAssetCatalog` line appears in the log at all. `scripts/ios-deploy.sh`
+   now deletes the previous watch product before building, so the outputs are
+   missing and actool is forced to run.
+
 watchOS app icons must also be **opaque** — the Dev source PNG carries an alpha
 channel, so it is flattened onto its own plate colour rather than copied across.
+
+### Measure the bundle, not the build log
+
+Every one of the traps above ends in BUILD SUCCEEDED and an identical symptom,
+which is why three separate fixes were shipped off log-reading and screenshots.
+`npm run ios:watch-doctor [config]` (`scripts/watch-icon-doctor.sh`) inspects
+the built bundle instead: bundle id, companion id, `CFBundleIconName`,
+`Assets.car` presence and size, and — via `assetutil --info` — whether the named
+icon is genuinely compiled in. It checks both the standalone watch product and
+the copy embedded at `App.app/Watch/`, since the embed phase will happily ship a
+stale standalone product. `ios-deploy.sh` runs it after each build and warns
+loudly (non-fatally — the phone app is still worth installing) when the watch
+app has no usable icon.
+
+Note for future artwork work: watchOS masks app icons to a **circle**, so
+anything near the corners is clipped. The prod glyph clears the inscribed
+circle; the Dev badge's full-width banner does not, and its ends are cut.
 
 **Rebuild note:** this adds a NEW target, so the first build is the one case
 where the one-liners may not be enough — see "First build of a new capability"
