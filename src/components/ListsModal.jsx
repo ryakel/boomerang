@@ -205,7 +205,7 @@ function TrelloLinkPanel({ list, onLink, onUnlink, busy }) {
 // One list: its items, plus the add field
 // ---------------------------------------------------------------
 function ListDetail({ list: indexList, onBack, onEditList, onDeleteList }) {
-  const { list: fetchedList, items, loading, error, addItems, toggleItem, removeItem, syncNow, reload } = useListItems(indexList.id)
+  const { list: fetchedList, items, loading, error, addItems, toggleItem, removeItem, moveItem, syncNow, reload } = useListItems(indexList.id)
   // The index copy is only as fresh as the last hydrate; the items fetch
   // returns the list alongside them and reload() runs after every sync, so
   // sync state (last_synced_at, last_sync_error) must come from that one or a
@@ -213,6 +213,8 @@ function ListDetail({ list: indexList, onBack, onEditList, onDeleteList }) {
   const list = fetchedList ? { ...indexList, ...fetchedList } : indexList
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
+  const [itemDragId, setItemDragId] = useState(null)
+  const [itemDropId, setItemDropId] = useState(null)
   const [syncMsg, setSyncMsg] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
 
@@ -240,6 +242,26 @@ function ListDetail({ list: indexList, onBack, onEditList, onDeleteList }) {
     } catch (err) {
       setSyncMsg(err.message)
     } finally { setBusy(false) }
+  }
+
+  // A drag is the ONLY thing in this feature that reorders someone else's
+  // checklist, so it is deliberately explicit: drop on a row to land before
+  // it, or on the trailing target to go to the end. The server owns the
+  // resulting order — it computes the position and hands the items back, so
+  // the UI can never show an order Trello disagrees with.
+  const dropItem = async (beforeId) => {
+    const moved = itemDragId
+    setItemDragId(null); setItemDropId(null)
+    if (!moved || moved === beforeId) return
+    try {
+      const r = await moveItem(moved, beforeId)
+      // A held write is not an error, but it must not pass silently either:
+      // from in here a reorder that never reached Trello looks identical to
+      // one that did.
+      if (r?.heldWrites) setSyncMsg('Reordered here — not sent to Trello (this server is read-only)')
+    } catch (err) {
+      setSyncMsg(err.message)
+    }
   }
 
   const clearChecked = async () => {
@@ -321,9 +343,28 @@ function ListDetail({ list: indexList, onBack, onEditList, onDeleteList }) {
         <EmptyState icon={ShoppingCart} title="Nothing on this list" body="Add something above, or ask Quokka." />
       ) : (
         <>
+          {/* Only the still-to-get items are draggable. Reordering the "Got"
+              pile is busywork, and every drag here is a real write to a
+              checklist someone else reads. */}
           <ul className="v2-lists-items">
             {remaining.map(item => (
-              <li key={item.id} className="v2-lists-item">
+              <li
+                key={item.id}
+                className={`v2-lists-item${itemDragId === item.id ? ' v2-lists-dragging' : ''}${itemDropId === item.id ? ' v2-lists-dropinto' : ''}`}
+                onDragOver={remaining.length > 1 ? (e) => { e.preventDefault(); setItemDropId(item.id) } : undefined}
+                onDrop={remaining.length > 1 ? (e) => { e.preventDefault(); dropItem(item.id) } : undefined}
+              >
+                {remaining.length > 1 && (
+                  <span
+                    className="v2-lists-grip v2-lists-item-grip"
+                    draggable
+                    onDragStart={() => setItemDragId(item.id)}
+                    onDragEnd={() => { setItemDragId(null); setItemDropId(null) }}
+                    aria-hidden="true"
+                  >
+                    <GripVertical size={14} strokeWidth={2} />
+                  </span>
+                )}
                 <button className="v2-lists-check" onClick={() => toggleItem(item.id, true)} title="Got it">
                   <span className="v2-lists-box" />
                 </button>
@@ -333,6 +374,18 @@ function ListDetail({ list: indexList, onBack, onEditList, onDeleteList }) {
                 </button>
               </li>
             ))}
+            {/* A drop target past the last row. Without it there is no way to
+                drag something to the bottom — every other target means
+                "before this one". */}
+            {remaining.length > 1 && itemDragId && (
+              <li
+                className={`v2-lists-item-end${itemDropId === '__end__' ? ' v2-lists-dropinto' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); setItemDropId('__end__') }}
+                onDrop={(e) => { e.preventDefault(); dropItem(null) }}
+              >
+                Move to the end
+              </li>
+            )}
           </ul>
 
           {done.length > 0 && (

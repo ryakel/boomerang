@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import {
   fetchLists, createListApi, updateListApi, deleteListApi,
   fetchListItems, addListItemsApi, updateListItemApi, deleteListItemApi, syncListApi,
+  moveListItemApi,
   fetchListSources, createListSourceApi, expandListSourceApi, deleteListSourceApi,
 } from '../api'
 
@@ -164,6 +165,25 @@ export function useListItems(listId) {
     setItems(prev => prev.filter(i => i.id !== itemId))
   }, [listId])
 
+  // Drag one item to a new slot. UNLIKE every other ordering control in this
+  // feature, this one WRITES to Trello — `position` is what Trello orders by,
+  // so a reorder here rewrites the shape of a checklist someone else reads.
+  // That is why only a deliberate drag reaches it, and why the server is
+  // allowed the last word on the resulting order.
+  const moveItem = useCallback(async (itemId, beforeId) => {
+    try {
+      const data = await moveListItemApi(listId, itemId, beforeId)
+      if (data.items) setItems(data.items)
+      return data
+    } catch (err) {
+      // The local move survived even when the Trello push did not; take the
+      // server's items so the UI shows what actually happened, and let the
+      // caller surface the message.
+      if (err.items) setItems(err.items)
+      throw err
+    }
+  }, [listId])
+
   // Forced sync. Reloads afterwards because the merge may have pulled in
   // whatever the other person changed since the last poll.
   const syncNow = useCallback(async () => {
@@ -172,5 +192,5 @@ export function useListItems(listId) {
     return result
   }, [listId, reload])
 
-  return { list, items, loading, error, reload, addItems, toggleItem, renameItem, removeItem, syncNow }
+  return { list, items, loading, error, reload, addItems, toggleItem, renameItem, removeItem, moveItem, syncNow }
 }

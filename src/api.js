@@ -1765,6 +1765,27 @@ export async function syncListApi(id) {
   return data.result
 }
 
+// Move one item to sit immediately before another (null = the end). Returns
+// the list's items as the server now has them, so the client takes the
+// server's ordering rather than trusting its own optimistic guess.
+export async function moveListItemApi(listId, itemId, beforeId) {
+  const res = await fetch(`/api/lists/${listId}/items/${itemId}/move`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ before_id: beforeId ?? null }),
+  })
+  const data = await res.json().catch(() => ({}))
+  // 502 means the local move stuck but Trello refused it. The items are still
+  // returned and are still correct locally, so surface the message without
+  // throwing away the new order.
+  if (!res.ok) {
+    const err = new Error(data.error || `move failed: ${res.status}`)
+    err.items = data.items
+    throw err
+  }
+  return data
+}
+
 // --- link sources: sync a whole card or column, not one checklist ---
 //
 // A source is what you LINKED; the lists are what it expanded into. Keeping
