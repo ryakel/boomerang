@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- fix(lists): a held Trello write is visible in the app, not just the log [S]
+  - First live run against the real card. The pull half worked exactly as designed — the card was read, the checklist found, the groceries populated Boomerang. The push half did nothing, and the only evidence anywhere was one server log line: `[ListSync] read-only: 1 outbound change(s) held for "Groceries"`.
+  - That is the dev-server write gate behaving correctly, but **from inside the app a held push is indistinguishable from a broken one**. Reading a container log to find out why your groceries never reached Trello is not an acceptable answer, and a shared list that silently stops propagating is the worst failure this feature has — the other person keeps trusting a list that is no longer being updated.
+  - `applyPlan()` now returns `heldWrites`, `syncList()` folds it into the existing `warnings` → `last_sync_error` path ("N change(s) waiting — this server does not write to Trello (dev). Set DEV_LIST_SYNC_WRITES=1 to enable."), and the list detail view shows `last_sync_error` **passively** rather than only inside the settings panel or after a manual Sync press.
+  - Also fixed a staleness bug found while wiring that up: `ListDetail` was reading sync state from the index prop, which only refreshes on hydrate. It now merges in the copy returned by the items fetch, which `reload()` refreshes after every sync — otherwise a just-resolved (or just-appeared) sync error would not surface until the next round-trip.
+  - Note for whoever enables the flag: `DEV_LIST_SYNC_WRITES=1` is safe **only while prod does not have the lists feature**. Once it is promoted, two servers writing to the same family card is exactly the failure the gate exists to prevent.
+
 - feat(lists): link a card by pasting its URL [S]
   - The board picker walks `members/me/boards`, so **a card on a board you are not a member of never appears in it** — which is exactly the shape of a shared household list someone else owns and simply sent you a link to. Surfaced by the user pasting the real card URL: browsing would not have found it.
   - Added a paste field above the browse cascade (it is both faster and the only route that works in that case). Accepts a full `trello.com/c/<shortLink>` URL, a bare 8-char short link, or a 24-char card id. Trello honours the short link anywhere a card id goes, but the card is resolved through `GET /api/trello/cards/:id` and the **canonical 24-char id is what gets stored**, so the linkage doesn't depend on that equivalence holding.

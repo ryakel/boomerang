@@ -87,9 +87,12 @@ async function applyPlan(list, plan) {
 
   if (!writesAllowed) {
     // Read-only mode still merges inbound changes; it just never talks back.
+    // Returned rather than only logged: a held push is indistinguishable from a
+    // broken one from inside the app, and reading a server log to discover why
+    // your groceries never reached Trello is not an acceptable answer.
     const wouldWrite = plan.pushCreate.length + plan.pushUpdate.length + plan.pushDelete.length
     if (wouldWrite) console.log(`[ListSync] read-only: ${wouldWrite} outbound change(s) held for "${list.name}"`)
-    return
+    return { heldWrites: wouldWrite }
   }
 
   for (const item of plan.pushCreate) {
@@ -121,6 +124,8 @@ async function applyPlan(list, plan) {
       { method: 'DELETE' }, 'Trello delete item')
     purgeListItem(item.id) // confirmed gone on both sides
   }
+
+  return { heldWrites: 0 }
 }
 
 // ============================================================
@@ -154,12 +159,15 @@ export async function syncList(listId) {
   const localItems = getListItems(list.id, { includeDeleted: true })
 
   const plan = planMerge(localItems, remoteItems)
-  await applyPlan(list, plan)
+  const { heldWrites } = await applyPlan(list, plan)
 
   const changed = plan.pushCreate.length + plan.pushUpdate.length + plan.pushDelete.length
     + plan.localCreate.length + plan.localUpdate.length + plan.localPurge.length
 
   const warnings = []
+  if (heldWrites) {
+    warnings.push(`${heldWrites} change(s) waiting — this server does not write to Trello (dev). Set DEV_LIST_SYNC_WRITES=1 to enable.`)
+  }
   if (plan.skippedDeletes) {
     warnings.push(`${plan.skippedDeletes} item(s) missing from Trello — looked like a bad response, deletions skipped`)
   }
@@ -176,7 +184,7 @@ export async function syncList(listId) {
   })
 
   if (changed && onChange) { try { onChange(list.id) } catch { /* notifying is best-effort */ } }
-  return { list_id: list.id, changed, conflicts: plan.conflicts.length, skippedDeletes: plan.skippedDeletes, warnings }
+  return { list_id: list.id, changed, conflicts: plan.conflicts.length, skippedDeletes: plan.skippedDeletes, heldWrites, warnings }
 }
 
 export async function syncAllLists() {
