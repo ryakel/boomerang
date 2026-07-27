@@ -1,16 +1,41 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ShoppingCart, Plus, Trash2, ChevronRight, ArrowLeft, RefreshCw,
-  Link2, AlertTriangle, Check, X,
+  Link2, AlertTriangle, Check, X, GripVertical,
 } from 'lucide-react'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
+import { safeSetItem } from '../store'
 import { useListItems } from '../hooks/useLists'
 import {
   fetchTrelloBoards, fetchTrelloBoardLists, fetchTrelloListCards, fetchTrelloCardChecklists,
   fetchTrelloCard, parseTrelloCardRef,
 } from '../api'
 import './ListsModal.css'
+
+// Sort is a VIEW preference and never writes. This matters more than it looks:
+// `position` (items) and `sort_order` (lists) are ordering columns, and a sort
+// mode that "applied" itself by renumbering one of them would turn choosing a
+// dropdown into a data mutation — at item level that would push a full reorder
+// of someone else's Trello checklist every time the dropdown changed. Only a
+// drag writes, and only in Manual mode.
+//
+// Per-device by design: which order you like looking at is not something to
+// send through the settings blob (last-writer-wins, and it has eaten data
+// twice — see CLAUDE.md).
+const SORT_KEY = 'boom_lists_sort_v1'
+const SORT_MODES = [
+  { value: 'manual', label: 'Manual' },
+  { value: 'name', label: 'Name' },
+  { value: 'recent', label: 'Recent' },
+]
+
+function loadSortMode() {
+  try {
+    const v = localStorage.getItem(SORT_KEY)
+    return SORT_MODES.some(m => m.value === v) ? v : 'manual'
+  } catch { return 'manual' }
+}
 
 function fmtWhen(iso) {
   if (!iso) return 'never'
@@ -338,12 +363,51 @@ function ListDetail({ list: indexList, onBack, onEditList, onDeleteList }) {
 }
 
 // ---------------------------------------------------------------
-export default function ListsModal({ open, onClose, lists, loading, onAdd, onEdit, onDelete }) {
+export default function ListsModal({ open, onClose, lists, loading, onAdd, onEdit, onDelete, onReorder }) {
   const [openId, setOpenId] = useState(null)
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [sortMode, setSortMode] = useState(loadSortMode)
+  const [dragId, setDragId] = useState(null)
+  const [dropId, setDropId] = useState(null)
 
   const current = lists.find(l => l.id === openId) || null
+
+  const setSort = (mode) => {
+    setSortMode(mode)
+    safeSetItem(SORT_KEY, mode)
+  }
+
+  // The server already returns lists in `sort_order, name` order, so 'manual'
+  // is simply "don't re-sort". The other two are pure derivations of what is
+  // already in memory — nothing here mutates a list.
+  const sorted = useMemo(() => {
+    if (sortMode === 'name') {
+      return [...lists].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    }
+    if (sortMode === 'recent') {
+      // Newest first. A list that has never synced and has no items sorts last
+      // rather than first — an empty string would win a descending compare.
+      return [...lists].sort((a, b) => (b.last_activity_at || '').localeCompare(a.last_activity_at || ''))
+    }
+    return lists
+  }, [lists, sortMode])
+
+  const canDrag = sortMode === 'manual' && sorted.length > 1
+
+  // Drop BEFORE the row being hovered, except past the last row where there is
+  // no "before" left — matches the HTML5 drag idiom already used by the Kanban
+  // board rather than inventing a second one.
+  const handleDrop = async (targetId) => {
+    const from = sorted.findIndex(l => l.id === dragId)
+    const to = sorted.findIndex(l => l.id === targetId)
+    setDragId(null); setDropId(null)
+    if (from < 0 || to < 0 || from === to) return
+    const next = [...sorted]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    try { await onReorder(next.map(l => l.id)) } catch { /* hook reloads + logs */ }
+  }
 
   const create = async (e) => {
     e.preventDefault()
@@ -396,23 +460,63 @@ export default function ListsModal({ open, onClose, lists, loading, onAdd, onEdi
               body="Make one above, then link it to a Trello card to share it."
             />
           ) : (
-            <ul className="v2-lists-index-rows">
-              {lists.map(l => (
-                <li key={l.id}>
-                  <button className="v2-lists-index-row" onClick={() => setOpenId(l.id)}>
-                    <div className="v2-lists-index-main">
-                      <strong>{l.name}</strong>
-                      <span>
-                        {l.unchecked_count} to get
-                        {l.trello_card_id ? ` · synced ${fmtWhen(l.last_synced_at)}` : ' · not shared'}
-                      </span>
-                    </div>
-                    {l.last_sync_error && <AlertTriangle size={14} strokeWidth={2} className="v2-lists-index-warn" />}
-                    <ChevronRight size={16} strokeWidth={2} />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              {/* Only worth the room once there is something to order. */}
+              {lists.length > 1 && (
+                <div className="v2-lists-sort" role="radiogroup" aria-label="Sort lists">
+                  {SORT_MODES.map(m => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      className={`v2-lists-sort-btn${sortMode === m.value ? ' v2-lists-sort-btn-active' : ''}`}
+                      onClick={() => setSort(m.value)}
+                      aria-pressed={sortMode === m.value}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <ul className="v2-lists-index-rows">
+                {sorted.map(l => (
+                  <li
+                    key={l.id}
+                    className={`${dragId === l.id ? 'v2-lists-dragging' : ''}${dropId === l.id ? ' v2-lists-dropinto' : ''}`}
+                    onDragOver={canDrag ? (e) => { e.preventDefault(); setDropId(l.id) } : undefined}
+                    onDrop={canDrag ? (e) => { e.preventDefault(); handleDrop(l.id) } : undefined}
+                  >
+                    <button className="v2-lists-index-row" onClick={() => setOpenId(l.id)}>
+                      {canDrag && (
+                        // The handle is the only draggable element. Making the
+                        // whole row draggable would fight the tap that opens
+                        // the list — on touch especially, every press would be
+                        // a candidate drag.
+                        <span
+                          className="v2-lists-grip"
+                          draggable
+                          onDragStart={(e) => { e.stopPropagation(); setDragId(l.id) }}
+                          onDragEnd={() => { setDragId(null); setDropId(null) }}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+                          aria-hidden="true"
+                        >
+                          <GripVertical size={14} strokeWidth={2} />
+                        </span>
+                      )}
+                      <div className="v2-lists-index-main">
+                        <strong>{l.name}</strong>
+                        <span>
+                          {l.unchecked_count} to get
+                          {l.trello_card_id ? ` · synced ${fmtWhen(l.last_synced_at)}` : ' · not shared'}
+                        </span>
+                      </div>
+                      {l.last_sync_error && <AlertTriangle size={14} strokeWidth={2} className="v2-lists-index-warn" />}
+                      <ChevronRight size={16} strokeWidth={2} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </div>
       )}
