@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- feat(settings): the row/group/nav component family (rebuild PR1) [M]
+  - First of the seven PRs in `wiki/Settings-Design-Language.md` §9. **Nothing imports these yet** — zero behaviour change, zero risk, so the shape can be reviewed before any screen depends on it.
+  - `src/components/settings/`: `SettingsNav` (stack navigation replacing the six-tab strip), `SettingsPage`, `SettingsGroup`, `SettingRow` + the seven kind wrappers (`ToggleRow`, `ValueRow`, `SegmentRow`, `NavRow`, `ActionRow`, `StatusRow`, `SecretRow`), a canonical `Toggle`, and one `settings.css`.
+  - **The rule the whole family encodes: a row at rest shows its VALUE.** `NavRow`'s summary contract is explicit about it — the summary must be derivable synchronously from already-loaded state, and if it would need a fetch you pass nothing, because an empty trailing area is honest whereas prose about the destination is the exact failure being removed.
+  - **Hierarchy corrected in the CSS, not just in prose:** label `500 15px --v2-text`, description `400 12px --v2-text-meta` folded behind a per-row `ⓘ`, group caption demoted to `600 11px --v2-text-faint` and made non-interactive. The surface being replaced had the label at `600 11px` CAPS in `--v2-text-meta` with a `12px` description beneath it — the description literally outweighed its own label, and the caps treatment WAS the tappable control.
+  - Descriptions fold rather than vanish, honouring the standing 2026-07-17 request ("I want to click on each for a description — otherwise they should be minimized") instead of overruling it. The `ⓘ` stops propagation so reading about a toggle can never flip it.
+  - Dependent rows dim to 0.45 and go non-interactive rather than hiding, so the parent/child relationship stays legible. Groups never collapse. Chevrons are lucide and trailing only; leading `▸` glyphs are out.
+  - Zero new global tokens — every colour resolves through existing `--v2-*`/`--bm-*`; sizes are component constants, matching current practice. Page identity in `SettingsNav` is component state and is never persisted: the settings blob is last-writer-wins and UI chrome must not ride it.
+  - `Toggle` is copied rather than imported from `SettingsModal.jsx` so this PR touches nothing existing; the old copy is deleted in the teardown PR once every panel has converted. Verified by compiling each file directly with esbuild — ESLint alone would not have caught a break, since no bundle reaches this code yet.
+
 - docs(settings): a design language for the settings surface [M]
   - Per user: "we tried to condense and collapse settings and it made it fucking hard to read and use and it's inconsistent anyway." Design only — `wiki/Settings-Design-Language.md`, no JSX or CSS touched, so the direction can be vetoed before any code exists.
   - **The audit found worse than inconsistency: seven parallel collapse implementations** inside this one surface — `SettingsSection` (`SettingsModal.jsx:25`), a hand-rolled duplicate `SectionHeader` (:2005), `FormDisclosure`, `InfoHintRow`, the notification-history toggle, the integrations expander, and raw `<details>` in Labels — plus four row-title styles and four row paddings.
