@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- docs(lists): pin that the dev seed must not wipe lists [XS]
+  - Confirmed by reading `clearAllData()` rather than assuming: it deletes `app_data`, `tasks`, `routines` and `packages` only, so `lists`/`list_items` survive a reseed — the same carve-out that protects notes. This matters more than it looks: dev runs `SEED_DB=1`, so **every push to `dev` reseeds on restart**, and wiping lists there would drop the Trello linkage on every deploy. Recorded as an invariant because a future edit to `clearAllData()` could start destroying it silently, and the symptom — a shared list that quietly stops updating — is the one this feature most needs to avoid.
+
 - fix(lists): a held Trello write is visible in the app, not just the log [S]
   - First live run against the real card. The pull half worked exactly as designed — the card was read, the checklist found, the groceries populated Boomerang. The push half did nothing, and the only evidence anywhere was one server log line: `[ListSync] read-only: 1 outbound change(s) held for "Groceries"`.
   - That is the dev-server write gate behaving correctly, but **from inside the app a held push is indistinguishable from a broken one**. Reading a container log to find out why your groceries never reached Trello is not an acceptable answer, and a shared list that silently stops propagating is the worst failure this feature has — the other person keeps trusting a list that is no longer being updated.
