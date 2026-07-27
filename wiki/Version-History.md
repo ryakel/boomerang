@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- feat(lists): link a card by pasting its URL [S]
+  - The board picker walks `members/me/boards`, so **a card on a board you are not a member of never appears in it** — which is exactly the shape of a shared household list someone else owns and simply sent you a link to. Surfaced by the user pasting the real card URL: browsing would not have found it.
+  - Added a paste field above the browse cascade (it is both faster and the only route that works in that case). Accepts a full `trello.com/c/<shortLink>` URL, a bare 8-char short link, or a 24-char card id. Trello honours the short link anywhere a card id goes, but the card is resolved through `GET /api/trello/cards/:id` and the **canonical 24-char id is what gets stored**, so the linkage doesn't depend on that equivalence holding.
+  - The found card's name is echoed back before you pick a checklist — pasting an opaque id and getting silent success is how you end up syncing the wrong card.
+  - `parseTrelloCardRef()` lives in `api.js` next to the fetchers so the parsing rule has one home. The handler is named `findCard`, not `useLink`: a `use` prefix makes `react-hooks/rules-of-hooks` treat an ordinary async handler as a hook and fail the build.
+
 - feat(lists): Lists surface with in-app Trello card picker [M]
   - `ListsModal` (+ `useLists` / `useListItems`, API helpers, entry points in the mobile More surface and the desktop sidebar). Index → detail: each list shows what's left and when it last synced; the detail view is the shopping surface.
   - **Linking is configurable in the UI**, which was the requirement — board → list → card → checklist, cascading, each step loading only once its parent is picked. No card IDs to find, no leaving the app; `GET /api/trello/lists/:id/cards` (added in the API commit) is what makes the card rung possible. A card with no checklists says so plainly rather than offering an empty picker, since this syncs a checklist and not the card.

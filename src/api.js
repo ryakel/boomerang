@@ -1785,6 +1785,31 @@ export async function fetchTrelloListCards(listId) {
   return (await res.json()).filter(c => !c.closed)
 }
 
+// Resolve a card from a pasted URL or short link. Trello accepts the 8-char
+// shortLink anywhere a card id goes, but we resolve to the canonical 24-char
+// id before storing so the linkage doesn't depend on that staying true.
+//
+// This path exists because the board picker walks `members/me/boards` — a card
+// on someone else's board that they simply shared with you never appears
+// there, which is exactly the shape of a shared household list.
+export function parseTrelloCardRef(input) {
+  const s = String(input || '').trim()
+  if (!s) return null
+  const url = s.match(/trello\.com\/c\/([A-Za-z0-9]+)/)
+  if (url) return url[1]
+  if (/^[A-Za-z0-9]{8}$/.test(s) || /^[a-f0-9]{24}$/i.test(s)) return s
+  return null
+}
+
+export async function fetchTrelloCard(idOrShortLink) {
+  const res = await fetch(`/api/trello/cards/${idOrShortLink}`, { headers: getApiHeaders() })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || data.message || 'Could not find that card')
+  }
+  return res.json()
+}
+
 export async function fetchTrelloCardChecklists(cardId) {
   const res = await fetch(`/api/trello/cards/${cardId}/checklists`, { headers: getApiHeaders() })
   if (!res.ok) throw new Error((await res.json()).error || 'Could not load checklists')
