@@ -219,7 +219,8 @@ nullable `parent_id`.
 > require an explicit checklist choice or create one Boomerang list per
 > checklist on the card.
 
-**Link scope — sync a CARD or a COLUMN, not only a checklist.** The natural
+**Link scope — sync a CARD or a COLUMN, not only a checklist.** *Server side
+shipped 2026-07-27 (migration 048); UI still to come.* The natural
 consequence of the structure above, and it *dissolves* the `checklists[0]` bug
 rather than patching it: "which checklist?" stops being a question once the
 thing you link is the container.
@@ -267,6 +268,67 @@ Recommendation: build `card` scope, but implement it as a general
 `list_sources` mechanism so `column` is a row in a table rather than a rewrite.
 Keep `checklist` scope working — it is the right answer for linking one
 checklist on a card full of unrelated ones.
+
+##### As built (migration 048, server side)
+
+`list_sources` holds what was linked (`scope` = `card` | `column`,
+`trello_id`, cached `name`, `last_expanded_at`/`last_expand_error` mirroring
+the list-level sync stamps). `lists` gains `source_id`, `trello_column_id` /
+`trello_column_name` / `trello_card_name` (the breadcrumb), `shadow_name`
+(the 3-way name baseline) and `orphaned_at` (the container tombstone).
+
+`server/listExpand.js` is the planner, and it is **pure** — no db, no network,
+no clock, exactly like `listMerge.js`. `planExpansion(source, groups, existing)`
+returns `{create, rename, recontext, revive, orphan, conflicts,
+skippedOrphans}`. `trelloListSync.js` fetches, calls it, and applies. The split
+held: **link scope did not change one line of `listMerge.js`.**
+
+Rules the planner enforces, all pinned in `scripts/listExpand.test.mjs` (21):
+
+- **Expansion never deletes and never writes to Trello.** It creates, renames
+  and tombstones *Boomerang* rows only. Adding a checklist to someone's card is
+  a structural change to their board and is not a thing a background poll does
+  on its own — which is also why the applier needs no write permission at all.
+- **Names use the same 3-way rules as items.** She renamed it → take hers.
+  We renamed it → flagged as a conflict, never auto-pushed to her card.
+  Both → conflict. **Null shadow → the OTHER side wins**, identical to the
+  merge, because pushing an unproven local name would rewrite her checklist's
+  title.
+- **A vanished checklist is orphaned, never dropped**, and an orphan that
+  reappears is *revived* rather than duplicated. Orphans leave the sync set —
+  otherwise they error against a dead checklist id every minute.
+- **The container loss guard** mirrors the item one: losing >50% of a source's
+  lists at once (min 3) is a bad response, not intent.
+- **A source only touches lists it created.** Hand-linked lists are invisible
+  to expansion, so linking a card cannot swallow a list you pinned yourself.
+- **Empty names mean "didn't learn it", not "now blank".** The column-name
+  lookup is best-effort — losing a breadcrumb must not fail a sync — so ids
+  are authoritative and names are not. *This one was a real bug, caught by the
+  integration test on its first run:* treating `''` as authoritative made the
+  card/column labels blank on any transient error and reappear on the next
+  poll.
+
+`scripts/listExpandApply.test.mjs` (9) covers what a pure-planner test cannot —
+that the applier writes what the planner decided, against the real db and real
+migrations with Trello stubbed at `fetch`. It also pins that a remote rename
+moves the baseline (or it re-fires every poll) and that **items survive the
+whole orphan/revive cycle**.
+
+Unlinking a source deliberately **keeps every list it made** — the items are
+real data, and dropping them because a link was removed is a loss nobody asked
+for. The lists just become hand-owned (`source_id` cleared) and stop
+auto-discovering.
+
+The `checklists[0]` bug is fixed as predicted: an unpinned list adopts a
+checklist only when the card has exactly one candidate, and otherwise says
+*"that card has N checklists — pick one, or link the whole card."*
+
+Routes: `GET/POST /api/lists/sources`, `PATCH/DELETE /api/lists/sources/:id`,
+`POST /api/lists/sources/:id/expand`, `POST /api/lists/expand`. Linking expands
+immediately so the result is visible rather than waiting for the next poll.
+`syncAllLists()` expands before merging, so a checklist added on Trello becomes
+a list in the same round it is discovered; an expansion failure is recorded on
+its own source and never aborts the merge pass.
 
 **Sorting — name and recently-updated are VIEW state and must never write.**
 Only drag writes. This is the trap: the ordering columns (`position` on items,

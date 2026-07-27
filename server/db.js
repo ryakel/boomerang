@@ -1865,6 +1865,20 @@ function rowToList(row) {
     kind: row.kind,
     trello_card_id: row.trello_card_id || null,
     trello_checklist_id: row.trello_checklist_id || null,
+    // Which source materialized this list. NULL means a human made it, and
+    // expansion must leave it alone — see listExpand.js.
+    source_id: row.source_id || null,
+    // Trello's "list" is the board COLUMN; this codebase's "list" is a
+    // checklist. Never name a column field `trello_list_id`.
+    trello_column_id: row.trello_column_id || null,
+    trello_column_name: row.trello_column_name || null,
+    trello_card_name: row.trello_card_name || null,
+    // 3-way baseline for the list's own name, same role as the item-level
+    // shadows. Exposed for the sync engine; the API layer strips it.
+    shadow_name: row.shadow_name ?? null,
+    // Tombstone, not a delete — the checklist stopped appearing in its
+    // source's expansion.
+    orphaned_at: row.orphaned_at || null,
     sync_enabled: !!row.sync_enabled,
     last_synced_at: row.last_synced_at || null,
     last_sync_error: row.last_sync_error || null,
@@ -1896,12 +1910,20 @@ export function upsertList(list) {
   const now = new Date().toISOString()
   db.run(
     `INSERT INTO lists (id, name, kind, trello_card_id, trello_checklist_id,
+       source_id, trello_column_id, trello_column_name, trello_card_name,
+       shadow_name, orphaned_at,
        sync_enabled, last_synced_at, last_sync_error, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name=excluded.name, kind=excluded.kind,
        trello_card_id=excluded.trello_card_id,
        trello_checklist_id=excluded.trello_checklist_id,
+       source_id=excluded.source_id,
+       trello_column_id=excluded.trello_column_id,
+       trello_column_name=excluded.trello_column_name,
+       trello_card_name=excluded.trello_card_name,
+       shadow_name=excluded.shadow_name,
+       orphaned_at=excluded.orphaned_at,
        sync_enabled=excluded.sync_enabled,
        last_synced_at=excluded.last_synced_at,
        last_sync_error=excluded.last_sync_error,
@@ -1909,6 +1931,10 @@ export function upsertList(list) {
        updated_at=excluded.updated_at`,
     [list.id, list.name, list.kind || 'shopping',
      list.trello_card_id || null, list.trello_checklist_id || null,
+     list.source_id || null,
+     list.trello_column_id || null, list.trello_column_name || null,
+     list.trello_card_name || null,
+     list.shadow_name ?? null, list.orphaned_at || null,
      list.sync_enabled === false ? 0 : 1,
      list.last_synced_at || null, list.last_sync_error || null,
      list.sort_order ?? 0, list.created_at || now, list.updated_at || now],
@@ -1938,7 +1964,93 @@ export function getAllLists() {
 
 // Lists the sync loop should visit: linked to a card and not switched off.
 export function getSyncableLists() {
-  return getAllLists().filter(l => l.sync_enabled && l.trello_card_id)
+  // An orphaned list has lost its checklist on Trello. Still synced would mean
+  // pushing its items at a checklist id that no longer resolves, which just
+  // errors every minute; the row is kept (tombstone, never a delete) and the
+  // user decides what to do with it.
+  return getAllLists().filter(l => l.sync_enabled && l.trello_card_id && !l.orphaned_at)
+}
+
+// --- list sources (link scope: checklist | card | column) ---
+
+function rowToListSource(row) {
+  return {
+    id: row.id,
+    scope: row.scope,
+    trello_id: row.trello_id,
+    name: row.name || null,
+    trello_board_id: row.trello_board_id || null,
+    sync_enabled: !!row.sync_enabled,
+    last_expanded_at: row.last_expanded_at || null,
+    last_expand_error: row.last_expand_error || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+export function upsertListSource(src) {
+  const now = new Date().toISOString()
+  db.run(
+    `INSERT INTO list_sources (id, scope, trello_id, name, trello_board_id,
+       sync_enabled, last_expanded_at, last_expand_error, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       scope=excluded.scope, trello_id=excluded.trello_id, name=excluded.name,
+       trello_board_id=excluded.trello_board_id,
+       sync_enabled=excluded.sync_enabled,
+       last_expanded_at=excluded.last_expanded_at,
+       last_expand_error=excluded.last_expand_error,
+       updated_at=excluded.updated_at`,
+    [src.id, src.scope, src.trello_id, src.name || null, src.trello_board_id || null,
+     src.sync_enabled === false ? 0 : 1,
+     src.last_expanded_at || null, src.last_expand_error || null,
+     src.created_at || now, src.updated_at || now],
+  )
+  schedulePersist()
+}
+
+export function getListSource(id) {
+  const stmt = db.prepare('SELECT * FROM list_sources WHERE id = ?')
+  stmt.bind([id])
+  if (stmt.step()) {
+    const row = stmt.getAsObject()
+    stmt.free()
+    return rowToListSource(row)
+  }
+  stmt.free()
+  return null
+}
+
+export function getAllListSources() {
+  const results = []
+  const stmt = db.prepare('SELECT * FROM list_sources ORDER BY created_at ASC')
+  while (stmt.step()) results.push(rowToListSource(stmt.getAsObject()))
+  stmt.free()
+  return results
+}
+
+export function updateListSourcePartial(id, updates) {
+  const existing = getListSource(id)
+  if (!existing) return null
+  upsertListSource({ ...existing, ...updates, updated_at: new Date().toISOString() })
+  return getListSource(id)
+}
+
+// Every list this source materialized, INCLUDING orphaned ones — expansion
+// needs to see tombstones so a returning checklist is revived rather than
+// duplicated.
+export function getListsBySource(sourceId) {
+  return getAllLists().filter(l => l.source_id === sourceId)
+}
+
+// Unlinking a source deliberately does NOT delete the lists it made. Their
+// items are real data the user typed or that came from Trello; dropping them
+// because a link was removed would be a data loss the user never asked for.
+// The lists simply become hand-owned (source_id cleared).
+export function detachListSource(id) {
+  db.run('UPDATE lists SET source_id = NULL WHERE source_id = ?', [id])
+  db.run('DELETE FROM list_sources WHERE id = ?', [id])
+  schedulePersist()
 }
 
 export function updateListPartial(id, updates) {
