@@ -23,6 +23,7 @@ export default function KeptShell({
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenActivity, onOpenSuggestions, onOpenNotifications,
   onOpenNotes,
+  onOpenLists,
   pinnedNotes = [], onUnpinNote,
   onRefresh,
   syncStatus = 'synced', queueLength = 0,
@@ -50,6 +51,7 @@ export default function KeptShell({
         onOpenPackages={onOpenPackages}
         onOpenSettings={onOpenSettings}
         onOpenNotes={onOpenNotes}
+        onOpenLists={onOpenLists}
       />
     )
   } else {

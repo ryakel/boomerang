@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- feat(lists): Lists surface with in-app Trello card picker [M]
+  - `ListsModal` (+ `useLists` / `useListItems`, API helpers, entry points in the mobile More surface and the desktop sidebar). Index → detail: each list shows what's left and when it last synced; the detail view is the shopping surface.
+  - **Linking is configurable in the UI**, which was the requirement — board → list → card → checklist, cascading, each step loading only once its parent is picked. No card IDs to find, no leaving the app; `GET /api/trello/lists/:id/cards` (added in the API commit) is what makes the card rung possible. A card with no checklists says so plainly rather than offering an empty picker, since this syncs a checklist and not the card.
+  - **Unlinking only stops syncing** and says so in the UI — it must never read as "this will also clear the Trello card", because that card belongs to someone else. Deleting a Boomerang list is likewise local-only.
+  - **The add field takes commas and newlines** and posts one request with a `names[]` array, matching the voice path's shape: "milk, eggs, bread" is one action, and a pasted shopping list adds in one go rather than N round trips.
+  - Shopping ergonomics: the tick target is a 40px hit area over a 20px box because this gets used one-handed while walking, ticked items fall into a "Got" section with a Clear button, and the per-item remove control is always visible on touch (it only reveals on hover on pointer devices — `@media (hover: none)` would otherwise leave it unreachable).
+  - Optimistic tick-off with rollback on failure, since the server's answer is the same value just sent and a spinner between "grab the milk" and the box filling in would be felt. Sync errors and staleness surface in both the index and the detail bar rather than silently reading out an old list.
+  - `reloadLists()` joins `reloadNotes()` in `hydrateFromServer`, so a list changed on another device — or pulled in from Trello by the server's poll — appears on the next sync round-trip, the same freshness tier as everything else.
+
 - feat(lists): Quokka tools for shared lists [M]
   - Six tools in `server/adviserToolsLists.js`: `lists_index`, `list_read`, `list_add_items`, `list_check_items`, `list_remove_items`, `list_clear_checked`.
   - **Shaped for speech**, which is a different pressure than the REST API underneath: everything resolves by **name** (nobody says a UUID out loud, so "the grocery list" and "milk" have to be enough), every mutating tool takes an **array** of names because "milk, eggs and bread" is one utterance and should be one tool call rather than three, and an ambiguous match **asks rather than guessing** — naming the real candidates so Quokka can read them back. Picking the wrong item off a shared list is a silent wrong answer, and the entire premise of this feature is that nobody is watching Trello to catch it.

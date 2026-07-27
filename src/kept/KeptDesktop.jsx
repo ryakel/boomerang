@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Home, ListTodo, Repeat2, FolderKanban, BarChart3, Package, Settings,
-  Sparkles, Plus, Compass, Bell, StickyNote,
+  Sparkles, Plus, Compass, Bell, StickyNote, ShoppingCart,
 } from 'lucide-react'
 import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
@@ -25,7 +25,7 @@ export default function KeptDesktop({
   onThrow, onThrowNote, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenSuggestions,
-  onOpenNotes, pinnedNotes = [], onUnpinNote,
+  onOpenNotes, onOpenLists, pinnedNotes = [], onUnpinNote,
   onOpenNotifications, onStatusChange,
   syncStatus = 'synced', queueLength = 0,
 }) {
@@ -56,6 +56,7 @@ export default function KeptDesktop({
   const navReview = [
     { label: 'Notifications', icon: Bell, onClick: onOpenNotifications },
     { label: 'Notebook', icon: StickyNote, onClick: onOpenNotes },
+    { label: 'Lists', icon: ShoppingCart, onClick: onOpenLists },
     { label: 'Arcs', icon: FolderKanban, onClick: onOpenProjects },
     { label: 'Analytics', icon: BarChart3, onClick: onOpenAnalytics },
     { label: 'Packages', icon: Package, onClick: onOpenPackages },
