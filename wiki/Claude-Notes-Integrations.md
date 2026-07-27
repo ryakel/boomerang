@@ -162,21 +162,62 @@ Two follow-ups requested once prod lists were live and in daily use. Both are
 designed but not built; the notes below exist because each has one trap that
 is not obvious from the request.
 
-**Nesting — a group is a Trello CARD, a child list is a CHECKLIST on it.**
-The request ("Groceries, with sub-checklists Groceries, Trader Joe's and
-Costco") is already the exact shape Trello stores: a card holds *many*
-checklists, and `syncList` in `server/trelloListSync.js` already fetches
-`/cards/{id}/checklists` and pins one. So nesting is a UI and grouping change,
-**not a new sync concept** — no new write path to someone else's data, and no
-new merge rules. `trello_card_id` is already on every list row, so synced
-siblings are derivable by grouping on it; local-only lists have no card, so
-the general form is a nullable `parent_id` on `lists`, auto-populated from the
-shared card for linked ones.
+**Nesting — Trello already nests TWO levels above the items, and the real
+structure uses both.** Measured against the live board 2026-07-27 rather than
+assumed:
 
-> **Cap the depth at one level.** Trello has no nested checklists. A
-> grandchild could not round-trip, so it would become a Boomerang-only
-> structure that is simply *invisible* on her side — the failure mode this
-> whole feature exists to prevent.
+```
+Board  "Ongoing To Do"
+└── Column (Trello calls this a "list")  "Shopping"      ← grouping level 1
+    ├── Card  "2026 Groceries"                            ← grouping level 2
+    │   ├── Checklist "Grocery"        → Cheese bars, Baking soda, …
+    │   └── Checklist "Checklist 2"    → (a second checklist on one card)
+    ├── Card  "Costco"      └── Checklist → items
+    └── Card  "Trader Joe's" └── Checklist → items
+```
+
+So a **Boomerang list stays a Trello CHECKLIST** — that is where items live and
+nothing about the merge changes. Nesting comes from the two *real Trello
+containers* above it: the **card** and the **column**. Both round-trip
+natively, so neither grouping level is Boomerang-only and both stay visible on
+her side.
+
+> ⚠️ **An earlier version of this note said "cap the depth at one level,
+> because Trello has no nested checklists." That conclusion was wrong** — it
+> reasoned from checklists alone and never looked at the board. Checklists
+> indeed don't nest, but nesting doesn't have to come from them: card and
+> column are real containers, and the family's actual structure already uses
+> both. Look at the board before asserting what Trello can hold.
+
+Both sibling patterns are live and they sit at *different depths*, so the UI
+has to handle each:
+- **sibling cards in a column** — Costco / Trader Joe's / 2026 Groceries
+  under "Shopping"
+- **sibling checklists in a card** — the requested "Groceries has Target and
+  Walmart and HyVee in it"
+
+> 🔤 **Naming collision, and it is a live footgun.** Trello's "list" is the
+> board *column*; Boomerang's "list" is a Trello *checklist*. They are two
+> different objects one word apart, in a codebase that already has
+> `trello_list_id` free to be misread. Name the column field
+> `trello_column_id` in Boomerang code (mapping to Trello's `idList`) and
+> never reuse the bare word.
+
+Schema: `lists` already carries `trello_card_id` and `trello_checklist_id`.
+Add `trello_column_id` — `idList` is already on every card object Trello
+returns, so it needs capturing during sync, not a new API surface. Grouping is
+then fully derivable for synced lists (group by column, then by card); cache
+the column and card *names* alongside, refreshed each sync, so the UI can
+render `Shopping → 2026 Groceries → Grocery` without extra fetches.
+Local-only lists have no Trello parents, so they still need an explicit
+nullable `parent_id`.
+
+> **Related bug to fix with this:** `syncList` currently adopts
+> `checklists[0]` when no checklist is pinned. Multi-checklist cards were
+> treated as the exception; the live board shows they are normal. Silently
+> adopting the first of several is now actively wrong — linking should either
+> require an explicit checklist choice or create one Boomerang list per
+> checklist on the card.
 
 **Sorting — name and recently-updated are VIEW state and must never write.**
 Only drag writes. This is the trap: `position` is the field Trello orders by,
