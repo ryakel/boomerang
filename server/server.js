@@ -46,6 +46,7 @@ import {
 } from './adviserTools.js'
 import { registerTaskTools } from './adviserToolsTasks.js'
 import { registerGCalTools, registerNotionTools, registerTrelloTools } from './adviserToolsIntegrations.js'
+import { registerListTools } from './adviserToolsLists.js'
 import { registerMiscTools } from './adviserToolsMisc.js'
 import { registerKnowledgeTools } from './adviserToolsKnowledge.js'
 import * as notionMCP from './notionMCP.js'
@@ -80,6 +81,7 @@ registerTaskTools()
 registerGCalTools()
 registerNotionTools()
 registerTrelloTools()
+registerListTools()
 registerMiscTools()
 registerKnowledgeTools()
 
