@@ -21,8 +21,10 @@
 import {
   getSyncableLists, getList, updateListPartial,
   getListItems, upsertListItem, purgeListItem,
+  getAllListSources, updateListSourcePartial, getListsBySource, upsertList,
 } from './db.js'
 import { planMerge } from './listMerge.js'
+import { planExpansion, groupsFromCard, groupsFromColumn } from './listExpand.js'
 
 const TRELLO_BASE = 'https://api.trello.com/1'
 
@@ -129,6 +131,125 @@ async function applyPlan(list, plan) {
 }
 
 // ============================================================
+// Expansion — which lists should exist
+// ============================================================
+//
+// Runs BEFORE the merge each round. The decision of which checklists deserve a
+// Boomerang list is kept entirely out of listMerge.js: that module is the one
+// place someone else's items can be destroyed, it is pinned by 19 tests, and
+// link scope was added without editing a line of it. The planning half here is
+// likewise pure and lives in listExpand.js; this function is only plumbing.
+
+async function fetchGroups(source) {
+  if (source.scope === 'card') {
+    const [card, checklists] = await Promise.all([
+      trello(`/cards/${source.trello_id}?fields=name,idList`, {}, 'Trello card'),
+      trello(`/cards/${source.trello_id}/checklists`, {}, 'Trello checklists'),
+    ])
+    // The column's own name needs one more hop; failing to get it costs a
+    // breadcrumb, never a sync, so it degrades rather than throws.
+    let column = {}
+    if (card.idList) {
+      try { column = await trello(`/lists/${card.idList}?fields=name`, {}, 'Trello column') } catch { /* breadcrumb only */ }
+    }
+    return groupsFromCard(card, checklists, { id: card.idList, name: column.name || '' })
+  }
+
+  if (source.scope === 'column') {
+    const [column, cards] = await Promise.all([
+      trello(`/lists/${source.trello_id}?fields=name`, {}, 'Trello column'),
+      // `checklists=all` returns each card's checklists inline — one request
+      // for the whole column instead of one per card.
+      trello(`/lists/${source.trello_id}/cards?fields=name&checklists=all&checkItems=all`, {}, 'Trello column cards'),
+    ])
+    return groupsFromColumn({ id: source.trello_id, name: column.name || '' }, cards)
+  }
+
+  throw new Error(`Unknown link scope "${source.scope}"`)
+}
+
+export async function expandSource(sourceId) {
+  const source = typeof sourceId === 'string' ? getAllListSources().find(s => s.id === sourceId) : sourceId
+  if (!source) throw new Error('Source not found')
+  if (!creds.key || !creds.token) throw new Error('Trello not configured')
+
+  const groups = await fetchGroups(source)
+  const existing = getListsBySource(source.id)
+  const plan = planExpansion(source, groups, existing)
+  const now = () => new Date().toISOString()
+
+  // Expansion only ever writes LOCALLY. It creates, renames and tombstones
+  // Boomerang rows; it never creates or renames anything on Trello. Adding a
+  // checklist to someone's card is a structural change to their board and is
+  // not something a background poll should do on its own.
+  for (const c of plan.create) {
+    upsertList({
+      id: crypto.randomUUID(),
+      name: c.name || 'Untitled',
+      kind: 'shopping',
+      source_id: source.id,
+      trello_card_id: c.trello_card_id,
+      trello_checklist_id: c.trello_checklist_id,
+      trello_card_name: c.trello_card_name,
+      trello_column_id: c.trello_column_id,
+      trello_column_name: c.trello_column_name,
+      shadow_name: c.name || '',
+      sync_enabled: true,
+      sort_order: 0,
+      created_at: now(), updated_at: now(),
+    })
+  }
+
+  // A rename we accepted becomes the new agreed baseline; without moving the
+  // shadow the same rename would re-fire every poll.
+  for (const { list, name } of plan.rename) {
+    updateListPartial(list.id, { name, shadow_name: name })
+  }
+  for (const { list, patch } of plan.recontext) updateListPartial(list.id, patch)
+  for (const { list } of plan.revive) updateListPartial(list.id, { orphaned_at: null })
+  for (const { list } of plan.orphan) updateListPartial(list.id, { orphaned_at: now() })
+
+  const warnings = []
+  if (plan.skippedOrphans) {
+    warnings.push(`${plan.skippedOrphans} list(s) missing from Trello — looked like a bad response, kept`)
+  }
+  for (const c of plan.conflicts) {
+    warnings.push(`"${c.local}" was renamed here and is "${c.remote}" on Trello — kept yours`)
+  }
+
+  updateListSourcePartial(source.id, {
+    last_expanded_at: now(),
+    last_expand_error: warnings.length ? warnings.join('; ') : null,
+  })
+
+  return {
+    source_id: source.id,
+    created: plan.create.length,
+    renamed: plan.rename.length,
+    orphaned: plan.orphan.length,
+    revived: plan.revive.length,
+    conflicts: plan.conflicts.length,
+    skippedOrphans: plan.skippedOrphans,
+    warnings,
+  }
+}
+
+export async function expandAllSources() {
+  const results = []
+  for (const source of getAllListSources()) {
+    if (!source.sync_enabled) continue
+    try {
+      results.push(await expandSource(source))
+    } catch (err) {
+      console.log(`[ListSync] expand "${source.name || source.trello_id}" failed: ${err.message}`)
+      updateListSourcePartial(source.id, { last_expand_error: err.message })
+      results.push({ source_id: source.id, error: err.message })
+    }
+  }
+  return results
+}
+
+// ============================================================
 // One list, one round
 // ============================================================
 
@@ -142,14 +263,23 @@ export async function syncList(listId) {
   if (!Array.isArray(checklists) || !checklists.length) {
     throw new Error('That Trello card has no checklists')
   }
-  // Pin to a specific checklist when we know one; otherwise adopt the first and
-  // remember it, so a card that later grows a second checklist doesn't drift.
+  // Pin to the checklist we were told to use. Auto-adopting checklists[0] when
+  // none is pinned USED to happen here, on the assumption that multi-checklist
+  // cards were exceptional. The live board disproved that — "2026 Groceries"
+  // carries several — so adopting the first of many silently synced whichever
+  // one Trello happened to return first and ignored the rest. An unpinned list
+  // now adopts only when the card genuinely has exactly one candidate;
+  // otherwise it says so and the user (or a card-scope source) decides.
   let checklist = list.trello_checklist_id
     ? checklists.find(c => c.id === list.trello_checklist_id)
-    : checklists[0]
-  if (!checklist) throw new Error('The linked checklist no longer exists on that card')
+    : (checklists.length === 1 ? checklists[0] : null)
+  if (!checklist) {
+    throw new Error(list.trello_checklist_id
+      ? 'The linked checklist no longer exists on that card'
+      : `That card has ${checklists.length} checklists — pick one, or link the whole card`)
+  }
   if (!list.trello_checklist_id) {
-    updateListPartial(list.id, { trello_checklist_id: checklist.id })
+    updateListPartial(list.id, { trello_checklist_id: checklist.id, shadow_name: checklist.name || '' })
     list.trello_checklist_id = checklist.id
   }
 
@@ -188,6 +318,15 @@ export async function syncList(listId) {
 }
 
 export async function syncAllLists() {
+  // Expand first: a checklist or card added on the Trello side becomes a
+  // Boomerang list in the same round it is discovered, rather than waiting for
+  // the next one. This ordering is the whole reason link scope exists — before
+  // it, new containers were never seen at all.
+  //
+  // Expansion failures are logged onto their own source and never abort the
+  // merge; a broken source must not stop the lists that already work.
+  try { await expandAllSources() } catch (err) { console.log(`[ListSync] expand pass: ${err.message}`) }
+
   const lists = getSyncableLists()
   const results = []
   for (const list of lists) {
