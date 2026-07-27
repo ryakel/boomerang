@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- feat(lists): link a card or column from the UI, and group the index by card [M]
+  - The client half of migration 048. *Link a Trello card or column* on the Lists index opens a source panel: board → column, then either link the whole column or pick a card from it. Linked sources list with a re-check button, an unlink, and their last-checked time; an expansion error surfaces on the row.
+  - **Column scope is offered but never defaulted.** A new list inside a column-linked column means creating a CARD on her board, which shows up in her board view; card scope is the quieter choice, so that is the one presented per-card.
+  - **The index groups by CARD** — the level the structure is actually organised at ("2026 Groceries" holding Grocery/Target/HyVee, sibling to "Costco") — with the Trello column as a caption. A card holding exactly ONE checklist is flattened to a plain row, so the common case looks identical to before nesting existed.
+  - **Orphans get their own trailing "No longer on Trello" group** with a sentence saying the items are still there, rather than an inline badge. The decision (relink or delete) is a person's to make, and a badge among working lists is easy to miss — which is how a shared list quietly stops mattering.
+  - **Drag reorders within a card group only.** Dragging a list into another card's group would mean moving her checklist to a different card on Trello — a structural write expansion deliberately never makes. Refusing the cross-group drop is honest; doing it locally would silently diverge from Trello instead.
+  - Unlinking says what it does ("keeps the lists, with their items") right next to the button, since the server behaviour is deliberately non-obvious.
+  - Verified in a real browser (Playwright against a live server): 7 lists rendered as 3 groups — the 3-checklist card headed and grouped, the single-checklist cards flattened, the orphan in its own warned group — plus the source panel opening, all three sort modes cycling without loss, and a graceful "No Trello credentials configured" degrade. `useLists` loads lists and sources with `Promise.allSettled` so a sources failure cannot blank the lists.
+  - ESLint 0 errors, build ✓, `npm test` 110/110 + smoke.
+
 - feat(lists): link scope — sync a whole Trello card or column (server) [L]
   - Migration 048. Server side only; the UI to create a source is the follow-up, so nothing is user-reachable yet and `dev` is unaffected.
   - **Auto-discovery is the point.** Before this, a checklist or a store card added on the Trello side was never seen — "never open Trello again" quietly stopped being true and nothing said so. A `card` source materializes one list per checklist on it; a `column` source does that for every card in the column, so a new store card appears on its own.

@@ -219,8 +219,7 @@ nullable `parent_id`.
 > require an explicit checklist choice or create one Boomerang list per
 > checklist on the card.
 
-**Link scope — sync a CARD or a COLUMN, not only a checklist.** *Server side
-shipped 2026-07-27 (migration 048); UI still to come.* The natural
+**Link scope — sync a CARD or a COLUMN, not only a checklist.** *Shipped 2026-07-27 (migration 048).* The natural
 consequence of the structure above, and it *dissolves* the `checklists[0]` bug
 rather than patching it: "which checklist?" stops being a question once the
 thing you link is the container.
@@ -322,6 +321,21 @@ auto-discovering.
 The `checklists[0]` bug is fixed as predicted: an unpinned list adopts a
 checklist only when the card has exactly one candidate, and otherwise says
 *"that card has N checklists — pick one, or link the whole card."*
+
+**UI.** *Link a Trello card or column* on the Lists index opens the source
+panel: board -> column, then either link the whole column or pick a card. The
+index groups by CARD (the level the structure is organised at), showing the
+column as a caption; a card holding exactly ONE checklist is flattened to a
+plain row, so the common case looks identical to before nesting existed.
+Orphans get their own trailing "No longer on Trello" group with a sentence
+saying the items are still there — not an inline badge, because the decision
+(relink or delete) is a person's to make and a badge among working lists is
+easy to miss.
+
+> **Drag reorders WITHIN a card group only.** Dragging a list into another
+> card's group would mean moving her checklist to a different card on Trello —
+> a structural write expansion deliberately never makes. Refusing the
+> cross-group drop is honest; doing it locally would silently diverge instead.
 
 Routes: `GET/POST /api/lists/sources`, `PATCH/DELETE /api/lists/sources/:id`,
 `POST /api/lists/sources/:id/expand`, `POST /api/lists/expand`. Linking expands

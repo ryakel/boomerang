@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import {
   fetchLists, createListApi, updateListApi, deleteListApi,
   fetchListItems, addListItemsApi, updateListItemApi, deleteListItemApi, syncListApi,
+  fetchListSources, createListSourceApi, expandListSourceApi, deleteListSourceApi,
 } from '../api'
 
 // Lists — sets of items kept in bidirectional sync with a Trello checklist.
@@ -11,14 +12,21 @@ import {
 // and corrected on the next reload.
 export function useLists() {
   const [lists, setLists] = useState([])
+  // What was LINKED, as opposed to what it expanded into. Kept alongside the
+  // lists because the index groups by them and the settings surface manages
+  // them; a source with zero lists still has to be visible, or a link that
+  // expanded to nothing looks like it silently failed.
+  const [sources, setSources] = useState([])
   const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
     try {
-      setLists(await fetchLists())
-    } catch (err) {
-      console.error('[Lists] Load failed:', err)
-      // Keep current state — a flaky fetch shouldn't blank the lists.
+      // Settled, not all-or-nothing: sources failing must not blank the lists.
+      const [l, s] = await Promise.allSettled([fetchLists(), fetchListSources()])
+      if (l.status === 'fulfilled') setLists(l.value)
+      else console.error('[Lists] Load failed:', l.reason)
+      if (s.status === 'fulfilled') setSources(s.value)
+      else console.error('[Lists] Sources load failed:', s.reason)
     } finally {
       setLoading(false)
     }
@@ -65,7 +73,33 @@ export function useLists() {
     }
   }, [reload])
 
-  return { lists, loading, reload, addList, editList, removeList, reorderLists }
+  // Linking expands server-side immediately, so the new lists are already
+  // there by the time this resolves — reload rather than guess at them.
+  const addSource = useCallback(async (fields) => {
+    const data = await createListSourceApi(fields)
+    await reload()
+    return data
+  }, [reload])
+
+  const expandSource = useCallback(async (id) => {
+    const result = await expandListSourceApi(id)
+    await reload()
+    return result
+  }, [reload])
+
+  // Unlinking keeps the lists (server clears source_id). Reload rather than
+  // filtering locally, so the UI shows the surviving lists rather than
+  // implying they went with the source.
+  const removeSource = useCallback(async (id) => {
+    await deleteListSourceApi(id)
+    await reload()
+  }, [reload])
+
+  return {
+    lists, sources, loading, reload,
+    addList, editList, removeList, reorderLists,
+    addSource, expandSource, removeSource,
+  }
 }
 
 // Items for one open list. Separate hook so the index doesn't carry every
