@@ -328,3 +328,104 @@
 .v2-lists-dropinto .v2-lists-index-row {
   box-shadow: inset 0 2px 0 var(--v2-ember, var(--bm-ember, currentColor));
 }
+
+/* ── card groups + orphans ──────────────────────────────────────────── */
+
+.v2-lists-group + .v2-lists-group { margin-top: 18px; }
+
+/* Named after the Trello CARD, which is the level the structure is actually
+ * organised at — "2026 Groceries" holding Grocery/Target/Walmart, sibling to
+ * "Costco". The column rides along as a caption. */
+.v2-lists-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 2px 5px;
+}
+.v2-lists-group-name {
+  font: 600 11px/1 var(--v2-font-body);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--v2-text-faint);
+}
+.v2-lists-group-col {
+  font: 400 11px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  opacity: 0.75;
+}
+.v2-lists-group-head-warn .v2-lists-group-name { color: var(--bm-gold, #E8B04B); }
+
+/* Orphans get a sentence, not just a colour. "Your items are still here" is
+ * the thing a person needs to know, and it is not inferable from a badge. */
+.v2-lists-group-note {
+  margin: 0 2px 8px;
+  font: 400 12px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+/* ── link sources ───────────────────────────────────────────────────── */
+
+.v2-lists-sources-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  margin-bottom: 10px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 13px/1.3 var(--v2-font-body);
+  text-align: left;
+  cursor: pointer;
+}
+.v2-lists-sources-toggle:hover { color: var(--v2-text); }
+.v2-lists-sources-toggle span { flex: 1; }
+.v2-lists-chev-open { transform: rotate(90deg); }
+
+.v2-lists-sources { margin-bottom: 14px; }
+
+.v2-lists-source-rows { list-style: none; margin: 0 0 8px; padding: 0; }
+.v2-lists-source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+
+.v2-lists-link-picker { display: flex; flex-direction: column; gap: 8px; }
+.v2-lists-link-step { display: flex; flex-direction: column; gap: 8px; }
+
+/* Column scope is offered, never defaulted — a new list inside a
+ * column-linked column means creating a CARD on someone else's board. */
+.v2-lists-link-whole {
+  padding: 9px 12px;
+  border: 1px dashed var(--v2-hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 12.5px/1.3 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-lists-link-whole:hover { color: var(--v2-text); border-style: solid; }
+
+.v2-lists-card-rows { list-style: none; margin: 0; padding: 0; }
+.v2-lists-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text);
+  font: 400 13.5px/1.3 var(--v2-font-body);
+  text-align: left;
+  cursor: pointer;
+}
+.v2-lists-card-row:hover { color: var(--v2-ember, var(--bm-ember, currentColor)); }

@@ -1765,6 +1765,47 @@ export async function syncListApi(id) {
   return data.result
 }
 
+// --- link sources: sync a whole card or column, not one checklist ---
+//
+// A source is what you LINKED; the lists are what it expanded into. Keeping
+// the two separate in the API mirrors the server split (listExpand vs
+// listMerge) and is what makes auto-discovery possible: the server can
+// materialize a list for a checklist nobody has told it about yet.
+
+export async function fetchListSources() {
+  const res = await fetch('/api/lists/sources')
+  if (!res.ok) throw new Error(`sources fetch failed: ${res.status}`)
+  return (await res.json()).sources || []
+}
+
+export async function createListSourceApi({ scope, trello_id, name, trello_board_id }) {
+  const res = await fetch('/api/lists/sources', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scope, trello_id, name, trello_board_id }),
+  })
+  const data = await res.json()
+  // 409 means already linked — worth surfacing verbatim rather than as a
+  // generic failure, since the fix ("you already have this") is specific.
+  if (!res.ok) throw new Error(data.error || `link failed: ${res.status}`)
+  return data
+}
+
+export async function expandListSourceApi(id) {
+  const res = await fetch(`/api/lists/sources/${id}/expand`, { method: 'POST' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || `expand failed: ${res.status}`)
+  return data.result
+}
+
+// Unlinking keeps every list the source made — the server clears source_id
+// rather than deleting. Say so at the call site so nobody "helpfully" adds a
+// cascade later.
+export async function deleteListSourceApi(id) {
+  const res = await fetch(`/api/lists/sources/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error((await res.json()).error || `unlink failed: ${res.status}`)
+}
+
 // Trello discovery — board → list → card, so a card can be picked without
 // ever opening Trello. Credentials ride on the shared API headers.
 export async function fetchTrelloBoards() {

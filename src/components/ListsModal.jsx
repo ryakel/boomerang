@@ -363,13 +363,172 @@ function ListDetail({ list: indexList, onBack, onEditList, onDeleteList }) {
 }
 
 // ---------------------------------------------------------------
-export default function ListsModal({ open, onClose, lists, loading, onAdd, onEdit, onDelete, onReorder }) {
+// Link a whole CARD or COLUMN, rather than one checklist at a time.
+//
+// The reason this beats picking a checklist: auto-discovery. A checklist she
+// adds to the card — or, at column scope, a whole new store card — becomes a
+// list here on its own. Picking one checklist by hand can never do that, and
+// before this the addition was simply never seen.
+// ---------------------------------------------------------------
+function SourcesPanel({ sources, onAddSource, onExpand, onRemoveSource, busy, setBusy }) {
+  const [boards, setBoards] = useState(null)
+  const [boardId, setBoardId] = useState('')
+  const [cols, setCols] = useState(null)
+  const [colId, setColId] = useState('')
+  const [cards, setCards] = useState(null)
+  const [error, setError] = useState(null)
+  const [msg, setMsg] = useState(null)
+
+  const load = useCallback(async (fn, set) => {
+    setError(null)
+    try { set(await fn()) } catch (err) { setError(err.message); set([]) }
+  }, [])
+
+  useEffect(() => { if (boards === null) load(fetchTrelloBoards, setBoards) }, [boards, load])
+
+  const pickBoard = (id) => {
+    setBoardId(id); setCols(null); setColId(''); setCards(null)
+    if (id) load(() => fetchTrelloBoardLists(id), setCols)
+  }
+  const pickCol = (id) => {
+    setColId(id); setCards(null)
+    if (id) load(() => fetchTrelloListCards(id), setCards)
+  }
+
+  const link = async (scope, trelloId, name) => {
+    setBusy(true); setError(null); setMsg(null)
+    try {
+      const data = await onAddSource({ scope, trello_id: trelloId, name, trello_board_id: boardId || null })
+      const r = data?.result
+      setMsg(r ? `Linked — ${r.created} list${r.created === 1 ? '' : 's'} found` : 'Linked')
+    } catch (err) {
+      setError(err.message)
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="v2-lists-sources">
+      {sources.length > 0 && (
+        <ul className="v2-lists-source-rows">
+          {sources.map(s => (
+            <li key={s.id} className="v2-lists-source-row">
+              <div className="v2-lists-index-main">
+                <strong>{s.name || s.trello_id}</strong>
+                <span>
+                  {s.scope === 'column' ? 'Whole column' : 'Whole card'}
+                  {' · '}{s.list_count} list{s.list_count === 1 ? '' : 's'}
+                  {' · checked '}{fmtWhen(s.last_expanded_at)}
+                </span>
+              </div>
+              <button
+                className="v2-lists-icon-btn"
+                title="Check for new lists now"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true); setMsg(null); setError(null)
+                  try {
+                    const r = await onExpand(s.id)
+                    setMsg(r.created ? `${r.created} new list${r.created === 1 ? '' : 's'}` : 'Nothing new')
+                  } catch (err) { setError(err.message) } finally { setBusy(false) }
+                }}
+              >
+                <RefreshCw size={15} strokeWidth={2} />
+              </button>
+              <button
+                className="v2-lists-icon-btn"
+                title="Unlink (keeps the lists)"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true)
+                  try { await onRemoveSource(s.id) } finally { setBusy(false) }
+                }}
+              >
+                <X size={15} strokeWidth={2} />
+              </button>
+              {s.last_expand_error && (
+                <AlertTriangle size={14} strokeWidth={2} className="v2-lists-index-warn" title={s.last_expand_error} />
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {sources.length > 0 && (
+        <p className="v2-lists-link-note">
+          Unlinking only stops the auto-discovery. Every list stays, with its items.
+        </p>
+      )}
+
+      <div className="v2-lists-link-picker">
+        <select className="v2-form-input" value={boardId} onChange={e => pickBoard(e.target.value)} disabled={busy}>
+          <option value="">Board…</option>
+          {(boards || []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+
+        {boardId && (
+          <div className="v2-lists-link-step">
+            <select className="v2-form-input" value={colId} onChange={e => pickCol(e.target.value)} disabled={busy}>
+              <option value="">Column…</option>
+              {(cols || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            {colId && (
+              // Column scope is offered but not defaulted: a new list inside a
+              // column-linked column would mean creating a CARD on her board,
+              // which shows up in her board view. Card scope is the quieter
+              // choice, so it is the one presented per-card below.
+              <button
+                className="v2-lists-link-whole"
+                disabled={busy}
+                onClick={() => link('column', colId, (cols || []).find(c => c.id === colId)?.name)}
+              >
+                Link this whole column — every card in it
+              </button>
+            )}
+          </div>
+        )}
+
+        {colId && (
+          <ul className="v2-lists-card-rows">
+            {(cards || []).map(c => (
+              <li key={c.id}>
+                <button
+                  className="v2-lists-card-row"
+                  disabled={busy}
+                  onClick={() => link('card', c.id, c.name)}
+                >
+                  <Link2 size={14} strokeWidth={2} />
+                  <span>{c.name}</span>
+                </button>
+              </li>
+            ))}
+            {cards && !cards.length && <li className="v2-lists-loading">No cards in that column.</li>}
+          </ul>
+        )}
+      </div>
+
+      {msg && <div className="v2-lists-msg" onClick={() => setMsg(null)}>{msg}</div>}
+      {error && (
+        <div className="v2-lists-link-warn">
+          <AlertTriangle size={14} strokeWidth={2} /><span>{error}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------
+export default function ListsModal({
+  open, onClose, lists, sources = [], loading,
+  onAdd, onEdit, onDelete, onReorder, onAddSource, onExpandSource, onRemoveSource,
+}) {
   const [openId, setOpenId] = useState(null)
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
   const [sortMode, setSortMode] = useState(loadSortMode)
   const [dragId, setDragId] = useState(null)
   const [dropId, setDropId] = useState(null)
+  const [showSources, setShowSources] = useState(false)
+  const [sourceBusy, setSourceBusy] = useState(false)
 
   const current = lists.find(l => l.id === openId) || null
 
@@ -393,16 +552,63 @@ export default function ListsModal({ open, onClose, lists, loading, onAdd, onEdi
     return lists
   }, [lists, sortMode])
 
+  // Group by CARD — the level the structure is actually organised at ("2026
+  // Groceries" holding Grocery/Target/Walmart, sibling to "Costco"). The
+  // column name rides along as a caption when there is one.
+  //
+  // Orphans get their own trailing group rather than an inline badge: their
+  // checklist is gone from Trello, they still hold items, and the decision
+  // (delete, or relink) is one a person has to make. Mixed in among working
+  // lists they are easy to miss, which is how a list quietly stops mattering.
+  const groups = useMemo(() => {
+    const live = sorted.filter(l => !l.orphaned_at)
+    const orphans = sorted.filter(l => l.orphaned_at)
+    const byCard = new Map()
+    const loose = []
+
+    for (const l of live) {
+      if (!l.trello_card_id || !l.trello_card_name) { loose.push(l); continue }
+      if (!byCard.has(l.trello_card_id)) {
+        byCard.set(l.trello_card_id, {
+          key: l.trello_card_id,
+          cardName: l.trello_card_name,
+          columnName: l.trello_column_name || '',
+          lists: [],
+        })
+      }
+      byCard.get(l.trello_card_id).lists.push(l)
+    }
+
+    const out = [...byCard.values()]
+    // A card holding exactly one checklist is not a group worth a heading —
+    // it is just a list. Flattening those keeps the common case (one card,
+    // one checklist) looking exactly as it did before nesting existed.
+    const realGroups = out.filter(g => g.lists.length > 1)
+    const singletons = out.filter(g => g.lists.length === 1).flatMap(g => g.lists)
+
+    if (loose.length || singletons.length) {
+      realGroups.push({ key: '__loose__', cardName: '', columnName: '', lists: [...singletons, ...loose] })
+    }
+    if (orphans.length) {
+      realGroups.push({ key: '__orphans__', cardName: 'No longer on Trello', columnName: '', lists: orphans, orphaned: true })
+    }
+    return realGroups
+  }, [sorted])
+
   const canDrag = sortMode === 'manual' && sorted.length > 1
 
-  // Drop BEFORE the row being hovered, except past the last row where there is
-  // no "before" left — matches the HTML5 drag idiom already used by the Kanban
-  // board rather than inventing a second one.
+  // Drop BEFORE the row being hovered, and only WITHIN a group. Dragging a
+  // list into another card's group would mean moving her checklist to a
+  // different card on Trello — a structural write to someone else's board that
+  // expansion deliberately never makes. Refusing the cross-group drop is
+  // honest; doing it locally would silently diverge from Trello instead.
   const handleDrop = async (targetId) => {
     const from = sorted.findIndex(l => l.id === dragId)
     const to = sorted.findIndex(l => l.id === targetId)
     setDragId(null); setDropId(null)
     if (from < 0 || to < 0 || from === to) return
+    const g = (id) => groups.find(gr => gr.lists.some(l => l.id === id))?.key
+    if (g(dragId) !== g(targetId)) return
     const next = [...sorted]
     const [moved] = next.splice(from, 1)
     next.splice(to, 0, moved)
@@ -451,13 +657,38 @@ export default function ListsModal({ open, onClose, lists, loading, onAdd, onEdi
             </button>
           </form>
 
+          <button
+            className="v2-lists-sources-toggle"
+            onClick={() => setShowSources(s => !s)}
+            aria-expanded={showSources}
+          >
+            <Link2 size={14} strokeWidth={2} />
+            <span>
+              {sources.length
+                ? `Linked from Trello · ${sources.length}`
+                : 'Link a Trello card or column'}
+            </span>
+            <ChevronRight size={15} strokeWidth={2} className={showSources ? 'v2-lists-chev-open' : ''} />
+          </button>
+
+          {showSources && (
+            <SourcesPanel
+              sources={sources}
+              onAddSource={onAddSource}
+              onExpand={onExpandSource}
+              onRemoveSource={onRemoveSource}
+              busy={sourceBusy}
+              setBusy={setSourceBusy}
+            />
+          )}
+
           {loading && !lists.length ? (
             <p className="v2-lists-loading">Loading…</p>
           ) : !lists.length ? (
             <EmptyState
               icon={ShoppingCart}
               title="No lists yet"
-              body="Make one above, then link it to a Trello card to share it."
+              body="Make one above, or link a Trello card and every checklist on it becomes a list."
             />
           ) : (
             <>
@@ -478,44 +709,62 @@ export default function ListsModal({ open, onClose, lists, loading, onAdd, onEdi
                 </div>
               )}
 
-              <ul className="v2-lists-index-rows">
-                {sorted.map(l => (
-                  <li
-                    key={l.id}
-                    className={`${dragId === l.id ? 'v2-lists-dragging' : ''}${dropId === l.id ? ' v2-lists-dropinto' : ''}`}
-                    onDragOver={canDrag ? (e) => { e.preventDefault(); setDropId(l.id) } : undefined}
-                    onDrop={canDrag ? (e) => { e.preventDefault(); handleDrop(l.id) } : undefined}
-                  >
-                    <button className="v2-lists-index-row" onClick={() => setOpenId(l.id)}>
-                      {canDrag && (
-                        // The handle is the only draggable element. Making the
-                        // whole row draggable would fight the tap that opens
-                        // the list — on touch especially, every press would be
-                        // a candidate drag.
-                        <span
-                          className="v2-lists-grip"
-                          draggable
-                          onDragStart={(e) => { e.stopPropagation(); setDragId(l.id) }}
-                          onDragEnd={() => { setDragId(null); setDropId(null) }}
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
-                          aria-hidden="true"
-                        >
-                          <GripVertical size={14} strokeWidth={2} />
-                        </span>
-                      )}
-                      <div className="v2-lists-index-main">
-                        <strong>{l.name}</strong>
-                        <span>
-                          {l.unchecked_count} to get
-                          {l.trello_card_id ? ` · synced ${fmtWhen(l.last_synced_at)}` : ' · not shared'}
-                        </span>
-                      </div>
-                      {l.last_sync_error && <AlertTriangle size={14} strokeWidth={2} className="v2-lists-index-warn" />}
-                      <ChevronRight size={16} strokeWidth={2} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {groups.map(g => (
+                <section key={g.key} className="v2-lists-group">
+                  {g.cardName && (
+                    <div className={`v2-lists-group-head${g.orphaned ? ' v2-lists-group-head-warn' : ''}`}>
+                      <span className="v2-lists-group-name">{g.cardName}</span>
+                      {g.columnName && <span className="v2-lists-group-col">{g.columnName}</span>}
+                    </div>
+                  )}
+                  {g.orphaned && (
+                    <p className="v2-lists-group-note">
+                      The Trello checklist behind {g.lists.length === 1 ? 'this list' : 'these lists'} is gone.
+                      Nothing was deleted here — your items are still below.
+                    </p>
+                  )}
+                  <ul className="v2-lists-index-rows">
+                    {g.lists.map(l => (
+                      <li
+                        key={l.id}
+                        className={`${dragId === l.id ? 'v2-lists-dragging' : ''}${dropId === l.id ? ' v2-lists-dropinto' : ''}`}
+                        onDragOver={canDrag ? (e) => { e.preventDefault(); setDropId(l.id) } : undefined}
+                        onDrop={canDrag ? (e) => { e.preventDefault(); handleDrop(l.id) } : undefined}
+                      >
+                        <button className="v2-lists-index-row" onClick={() => setOpenId(l.id)}>
+                          {canDrag && (
+                            // The handle is the only draggable element. Making
+                            // the whole row draggable would fight the tap that
+                            // opens the list — on touch especially, every press
+                            // would be a candidate drag.
+                            <span
+                              className="v2-lists-grip"
+                              draggable
+                              onDragStart={(e) => { e.stopPropagation(); setDragId(l.id) }}
+                              onDragEnd={() => { setDragId(null); setDropId(null) }}
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+                              aria-hidden="true"
+                            >
+                              <GripVertical size={14} strokeWidth={2} />
+                            </span>
+                          )}
+                          <div className="v2-lists-index-main">
+                            <strong>{l.name}</strong>
+                            <span>
+                              {l.unchecked_count} to get
+                              {l.orphaned_at
+                                ? ' · not on Trello anymore'
+                                : l.trello_card_id ? ` · synced ${fmtWhen(l.last_synced_at)}` : ' · not shared'}
+                            </span>
+                          </div>
+                          {l.last_sync_error && <AlertTriangle size={14} strokeWidth={2} className="v2-lists-index-warn" />}
+                          <ChevronRight size={16} strokeWidth={2} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
             </>
           )}
         </div>
