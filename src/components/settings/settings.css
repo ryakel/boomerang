@@ -1,0 +1,210 @@
+/* Settings design language — wiki/Settings-Design-Language.md
+ *
+ * Every colour resolves through an existing --v2-* / --bm-* token; the sizes
+ * and spacings here are component constants, not new global tokens, matching
+ * current practice in this codebase.
+ *
+ * Rows are full-bleed inside the modal body's existing 24px padding. Kept is
+ * "plain hairline rows", not iOS inset cards, so there is no per-row
+ * horizontal padding and no card chrome. The one framed element in the whole
+ * surface is the danger card — that exception is the point. */
+
+/* ── navigation ─────────────────────────────────────────────────────── */
+
+.v2-set-nav {
+  animation: v2-set-slide-fwd var(--v2-dur-emphasis) var(--v2-ease-emphasis);
+}
+.v2-set-nav-back {
+  animation-name: v2-set-slide-back;
+}
+@keyframes v2-set-slide-fwd {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes v2-set-slide-back {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.v2-set-page-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.v2-set-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: flex-start;
+  /* 44px target without 44px of visible chrome: the padding is pulled back
+   * out with a negative margin so the control still optically aligns with
+   * the rows below it. */
+  min-height: 44px;
+  padding: 0 8px 0 4px;
+  margin: -10px 0 0 -6px;
+  border: 0;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 400 14px/1.3 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-set-back:hover { color: var(--v2-text); }
+.v2-set-page-title {
+  margin: 0;
+  font: 700 22px/1.15 var(--v2-font-display);
+  color: var(--v2-text);
+  letter-spacing: -0.01em;
+}
+
+/* ── groups ─────────────────────────────────────────────────────────── */
+
+.v2-set-group + .v2-set-group { margin-top: 28px; }
+
+/* The demoted caption. This treatment used to BE the row label — 600 11px
+ * caps, and brighter than it should have been. It is now non-interactive
+ * chrome and the faintest text on the page. */
+.v2-set-group-caption {
+  margin: 0 0 7px;
+  font: 600 11px/1 var(--v2-font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v2-text-faint);
+}
+
+/* ── the row ────────────────────────────────────────────────────────── */
+
+.v2-set-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text);
+  text-align: left;
+  font-family: var(--v2-font-body);
+}
+/* No divider after a group's last row, and never two hairlines adjacent —
+ * the old section+row stacking produced exactly that doubling. */
+.v2-set-group-rows > .v2-set-row:last-child { border-bottom: none; }
+
+.v2-set-row-pressable { cursor: pointer; }
+.v2-set-row-pressable:hover .v2-set-row-label { color: var(--v2-text); }
+.v2-set-row-pressable:focus-visible,
+.v2-set-row:focus-within {
+  outline: 2px solid var(--v2-ember, var(--bm-ember, currentColor));
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+/* Dependent rows dim rather than disappear, so the relationship between a
+ * parent toggle and its child stays visible instead of being a mystery. */
+.v2-set-row.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.v2-set-row-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* The loudest thing in the row. */
+.v2-set-row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font: 500 15px/1.3 var(--v2-font-body);
+  color: var(--v2-text);
+}
+
+.v2-set-row-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--v2-text-faint);
+  cursor: pointer;
+}
+.v2-set-row-info-btn:hover { color: var(--v2-text-meta); }
+
+/* Subordinate to the label in size, weight and colour — all three. The old
+ * surface had descriptions LARGER than the labels they belonged to. */
+.v2-set-row-desc {
+  font: 400 12px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  max-width: 52ch;
+}
+.v2-set-row-desc-always { line-height: 1.45; }
+
+.v2-set-row-value {
+  flex: 0 1 auto;
+  text-align: right;
+  font: 400 15px/1.3 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v2-set-row-chev {
+  flex: 0 0 auto;
+  color: var(--v2-text-faint);
+}
+
+/* The only sanctioned two-line row at rest: a segment that cannot fit
+ * beside its label. */
+.v2-set-row-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.v2-set-row-stacked .v2-settings-segment { align-self: stretch; }
+
+/* ── actions ────────────────────────────────────────────────────────── */
+
+.v2-set-row-actions {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.v2-set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── status ─────────────────────────────────────────────────────────── */
+
+.v2-set-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.v2-set-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--v2-text-faint);
+}
+.v2-set-dot-ok { background: var(--bm-f-eucalypt, #62B98B); }
+.v2-set-dot-warn { background: var(--bm-gold, #E8B04B); }
+.v2-set-dot-off { background: var(--v2-text-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-set-nav { animation: none; }
+}
