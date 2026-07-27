@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server, Info } from 'lucide-react'
 import { isNativeShell, getApiBase, requestConnectionSetup } from '../apiConfig'
 import {
@@ -9,6 +9,7 @@ import {
 import { restoreFromBackup } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import ModalShell from './ModalShell'
+import { SettingsNav, SettingsPage, SettingsGroup, NavRow } from './settings'
 import EmptyState from './EmptyState'
 import AutosaveIndicator from './AutosaveIndicator'
 import { applyTheme } from '../theme'
@@ -244,7 +245,11 @@ function LabelsPanel() {
 // same category as the Data tab's activity log / backup tools). Folded AI's
 // one real setting (custom instructions) in next to the task-behavior
 // thresholds it's most related to as "Tasks", and Logs into Data.
-const TABS = ['General', 'Tasks', 'Labels', 'Integrations', 'Notifications', 'Data']
+// The settings categories, in index order. Formerly the tab strip — which
+// overflowed on a phone ("Notifications" clipped to "Notifica" with nothing
+// hinting it scrolled) and, being pure chrome, told you nothing about your
+// setup. As index rows they each carry a live value summary instead.
+const CATEGORIES = ['General', 'Tasks', 'Labels', 'Integrations', 'Notifications', 'Data']
 
 // All Settings tabs now have v2 implementations.
 
@@ -2756,7 +2761,19 @@ export default function SettingsModal({
   onOpenEasterEgg,
   onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
 }) {
-  const [activeTab, setActiveTab] = useState('General')
+  // Page identity for the settings stack. 'index' is the root; any other
+  // value is a category page. Component state only — never persisted, because
+  // the settings blob is last-writer-wins and UI chrome must not ride it.
+  const [page, setPage] = useState('index')
+  // What the SERVER says is connected, for the Integrations index summary.
+  // Deliberately the same two sources IntegrationsPanel reads — env key flags
+  // and each integration's own status — so the summary can never disagree
+  // with the page it points at. A settings-only check would be wrong here:
+  // on this deployment the credentials come from env and the OAuth tokens
+  // live server-side, so the row would render blank on the exact machine the
+  // feature is built for. The panel keeps its own copy for now; the
+  // duplication collapses when that panel converts.
+  const [connStatus, setConnStatus] = useState(null)
   const [settings, setSettings] = useState(() => loadSettings())
   const [confirmDialog, setConfirmDialog] = useState(null)
   const flushDebounceRef = useRef(null)
@@ -2936,6 +2953,78 @@ export default function SettingsModal({
     URL.revokeObjectURL(url)
   }
 
+  // Index summaries. Every one is a VALUE — never prose about what lives
+  // inside. That is the whole reason the index beats the tab strip it
+  // replaces: the root screen answers "what's my setup?" at a glance instead
+  // of being pure navigation chrome.
+  //
+  // The one summary that can't come from local state is Integrations, so it
+  // resolves asynchronously (design language §2.4, as amended): empty while in
+  // flight, never a spinner, never a placeholder. Every failure is swallowed —
+  // a settings screen must open whether or not the server answers.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    Promise.all([
+      import('../api').then(m => m.getKeyStatus()).catch(() => ({})),
+      import('../api').then(m => m.notionStatus()).catch(() => null),
+      import('../api').then(m => m.trelloStatus()).catch(() => null),
+      import('../api').then(m => m.gcalStatus()).catch(() => null),
+      import('../api').then(m => m.gmailStatus()).catch(() => null),
+    ]).then(([keys, notion, trello, gcal, gmail]) => {
+      if (!cancelled) setConnStatus({ keys: keys || {}, notion, trello, gcal, gmail })
+    }).catch(() => { /* summary stays empty; never blocks the surface */ })
+    return () => { cancelled = true }
+  }, [open])
+
+  const summaries = useMemo(() => {
+    if (!open) return {}
+    const theme = settings.theme || 'light'
+    const family = theme.startsWith('kept') ? 'Kept' : 'Standard'
+    const mode = theme.endsWith('system') ? 'System' : theme.endsWith('dark') ? 'Dark' : 'Light'
+
+    const labelCount = loadLabels().length
+    const taskCount = loadTasks().length
+
+    // Mirrors IntegrationsPanel's own `connected` predicates, integration for
+    // integration. If one of those changes, this must change with it — a
+    // summary that disagrees with its destination is worse than no summary.
+    const c = connStatus
+    const connected = []
+    if (c?.notion?.connected || c?.notion?.mcpHealth?.connected) connected.push('Notion')
+    if (c?.trello?.connected) connected.push('Trello')
+    if (c?.gcal?.connected) connected.push('GCal')
+    if (c?.gmail?.connected) connected.push('Gmail')
+    if (c?.keys?.tracking || settings.tracking_api_key) connected.push('17track')
+    if (settings.weather_enabled && settings.weather_latitude) connected.push('Weather')
+
+    // `=== true`, matching NotificationsPanel's own gate — push_notifications_
+    // enabled has no store default, so it is undefined until first opted in.
+    const channels = []
+    if (settings.push_notifications_enabled === true) channels.push('Push')
+    if (settings.email_notifications_enabled === true) channels.push('Email')
+    if (settings.pushover_notifications_enabled === true) channels.push('Pushover')
+
+    const DOT = '\u00b7'
+    return {
+      General: `${family} ${DOT} ${mode}`,
+      Tasks: `Due +${settings.default_due_days ?? 7}d ${DOT} Stale ${settings.staleness_days ?? 7}d`,
+      Labels: labelCount ? `${labelCount} label${labelCount === 1 ? '' : 's'}` : 'None yet',
+      // Empty ONLY while the status fetch is in flight (or it failed). Once
+      // it resolves the row always shows a value, including "None" — the
+      // amended §2.4 rule allows a summary to arrive late, not to never
+      // arrive. Three names fit the row; a fourth would be eaten by the
+      // ellipsis, so the overflow surfaces as a count instead of vanishing.
+      Integrations: !connStatus
+        ? ''
+        : connected.length
+          ? connected.slice(0, 3).join(` ${DOT} `) + (connected.length > 3 ? ` +${connected.length - 3}` : '')
+          : 'None',
+      Notifications: channels.length ? channels.join(` ${DOT} `) : 'Off',
+      Data: `${taskCount} task${taskCount === 1 ? '' : 's'}`,
+    }
+  }, [open, settings, connStatus])
+
   return (
     <ModalShell
       open={open}
@@ -2944,21 +3033,25 @@ export default function SettingsModal({
       width="wide"
       headerSlot={<AutosaveIndicator saved={justSaved} />}
     >
-      <div className="v2-settings-tabs">
-        {TABS.map(tab => (
-          <button
-            key={tab}
-            className={`v2-settings-tab${activeTab === tab ? ' v2-settings-tab-active' : ''}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
+      <SettingsNav page={page}>
+      {page === 'index' ? (
+        <SettingsPage>
+          <SettingsGroup>
+            {CATEGORIES.map(tab => (
+              <NavRow
+                key={tab}
+                label={tab}
+                summary={summaries[tab]}
+                onPress={() => setPage(tab)}
+              />
+            ))}
+          </SettingsGroup>
+        </SettingsPage>
+      ) : (
+      <SettingsPage title={page} onBack={() => setPage('index')}>
       <div className="v2-settings-content">
 
-        {activeTab === 'General' && (
+        {page === 'General' && (
           <div className="v2-settings-form">
             <SettingsSection label="Appearance" hint="Theme family and light/dark mode.">
             {(() => {
@@ -3085,7 +3178,7 @@ export default function SettingsModal({
           </div>
         )}
 
-        {activeTab === 'Tasks' && (
+        {page === 'Tasks' && (
           <div className="v2-settings-form">
             <SettingsSection label="Task behavior" hint="Due-date defaults, staleness, reframe trigger, DIY reality check.">
             <div className="v2-settings-row">
@@ -3253,7 +3346,7 @@ export default function SettingsModal({
                 Which model runs each tier of AI work. <strong>Workhorse</strong> handles classification,
                 inference, polish, and scans; <strong>Quick</strong> handles one-liners and AI search.
                 Quokka and image/PDF analysis always use Anthropic. OpenAI models need a key under{' '}
-                <button type="button" className="v2-settings-inline-link" onClick={() => setActiveTab('Integrations')}>Settings → Integrations</button>.
+                <button type="button" className="v2-settings-inline-link" onClick={() => setPage('Integrations')}>Settings → Integrations</button>.
               </div>
               {[
                 { key: 'ai_model_workhorse', label: 'Workhorse model', def: AI_TIER_DEFAULTS.workhorse },
@@ -3296,14 +3389,14 @@ export default function SettingsModal({
             <div className="v2-settings-block">
               <div className="v2-form-label">API keys</div>
               <div className="v2-settings-row-hint">
-                Anthropic keys at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>, OpenAI keys at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">platform.openai.com</a> — both configured under <button type="button" className="v2-settings-inline-link" onClick={() => setActiveTab('Integrations')}>Settings → Integrations</button>.
+                Anthropic keys at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>, OpenAI keys at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">platform.openai.com</a> — both configured under <button type="button" className="v2-settings-inline-link" onClick={() => setPage('Integrations')}>Settings → Integrations</button>.
               </div>
             </div>
             </SettingsSection>
           </div>
         )}
 
-        {activeTab === 'Data' && (
+        {page === 'Data' && (
           <div className="v2-settings-form">
             {isNativeShell() && (
               <SettingsSection label="Server connection" hint="Which server this app talks to.">
@@ -3410,17 +3503,17 @@ export default function SettingsModal({
           </div>
         )}
 
-        {activeTab === 'Labels' && <LabelsPanel />}
+        {page === 'Labels' && <LabelsPanel />}
 
-        {activeTab === 'Notifications' && (
+        {page === 'Notifications' && (
           <NotificationsPanel settings={settings} update={update} />
         )}
 
-        {activeTab === 'Integrations' && (
+        {page === 'Integrations' && (
           <IntegrationsPanel
             settings={settings}
             update={update}
-            setActiveTab={setActiveTab}
+            setActiveTab={setPage}
             onTrelloSync={onTrelloSync}
             trelloSyncing={trelloSyncing}
             onNotionSync={onNotionSync}
@@ -3432,6 +3525,9 @@ export default function SettingsModal({
 
 
       </div>
+      </SettingsPage>
+      )}
+      </SettingsNav>
 
       {confirmDialog && (
         <div className="v2-settings-confirm-overlay" onClick={() => setConfirmDialog(null)}>

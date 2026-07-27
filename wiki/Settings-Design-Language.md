@@ -166,9 +166,22 @@ Shared anatomy for all kinds (the base `SettingRow`):
   (`"2 dates"`, `"Set"`, `"Connected"`, `"Kept · Dark"`); lucide
   `ChevronRight` 16px `--v2-text-faint` at the far right edge. The chevron is
   trailing, always — leading `▸` glyphs are banned.
-- **Summary rule:** must be derivable synchronously from already-loaded
-  state. If it would need a fetch, show nothing (empty trailing) rather than
-  prose about the destination.
+- **Summary rule:** a summary is a **value**, never prose about the
+  destination. Derive it from already-loaded state wherever possible.
+
+  *Amended 2026-07-27, on the owner's call.* The original rule said that a
+  summary needing a fetch should show nothing. Applied literally that left
+  **Integrations and Data permanently blank** — a third of the root screen
+  reduced to chrome, which destroys the one argument that chose an index over
+  tabs (§6: "its rows carry the value summaries"). It was also wrong about
+  this deployment: the server reports Notion, Trello and GCal as configured
+  **from env**, so a settings-only summary renders empty on the very machine
+  this is built for.
+
+  The rule now: a summary **may** resolve asynchronously, provided it resolves
+  to a value. Show nothing while it is in flight — never a spinner, never a
+  placeholder, and never prose. A transiently empty trailing area is fine; a
+  permanently empty one means the row has no business being a summary row.
 
 ### 2.5 Action row
 - **Use for:** a verb (Export, Import, Open activity log, Test push, Sync
