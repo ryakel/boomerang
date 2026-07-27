@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- feat(lists): Quokka tools for shared lists [M]
+  - Six tools in `server/adviserToolsLists.js`: `lists_index`, `list_read`, `list_add_items`, `list_check_items`, `list_remove_items`, `list_clear_checked`.
+  - **Shaped for speech**, which is a different pressure than the REST API underneath: everything resolves by **name** (nobody says a UUID out loud, so "the grocery list" and "milk" have to be enough), every mutating tool takes an **array** of names because "milk, eggs and bread" is one utterance and should be one tool call rather than three, and an ambiguous match **asks rather than guessing** — naming the real candidates so Quokka can read them back. Picking the wrong item off a shared list is a silent wrong answer, and the entire premise of this feature is that nobody is watching Trello to catch it.
+  - `list_add_items` reports items that were already on the list instead of silently no-ooping, so Quokka can say "milk was already on there" — on a shared grocery list a duplicate is a duplicate, not a second thing to buy.
+  - `list_remove_items` and `list_clear_checked` spell out "also removes it from Trello" in their staged-execution preview, because they are the only list actions that reach through into someone else's card. Their compensations clear the tombstone **in place** rather than re-creating the row: the original still carries its `trello_check_item_id` and shadow baseline, so re-creating would push a duplicate onto Trello instead of cancelling the delete.
+  - `list_read` surfaces `sync_error` and `last_synced_at` so Quokka can flag a stale list rather than confidently reading out items that stopped syncing on Tuesday.
+
 - feat(lists): bidirectional Trello checklist sync — schema, merge, API [L]
   - New feature: a **list** is a set of items kept in bidirectional sync with a checklist on a Trello card. Born of the shared grocery list — it lives on someone else's card, both people edit it, and the goal is never opening Trello again. Phase 1 (server) only; Quokka tools, UI and Siri follow.
   - **Not tasks, deliberately** (migration 047, `lists` + `list_items`). A grocery item has no due date, energy, impact, size or rollover, and forty of them would drown the task list. Their own tables also keep them out of the nightly rollover, the notification pools, analytics buckets and the `/api/data` wipe guard — the same carve-out reasoning as notes (044) and packages.
