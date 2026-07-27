@@ -1846,6 +1846,223 @@ export function deleteNote(id) {
   schedulePersist()
 }
 
+// ============================================================
+// Lists + list items (migration 047) — sets of items kept in bidirectional
+// sync with a Trello card's checklist. Not tasks, not part of the /api/data
+// blob; see the migration for why.
+//
+// The one rule that matters here: NOTHING in this file hard-deletes a
+// list_item that still has a trello_check_item_id. Deletion is a tombstone
+// (`deleted_at`) until the sync has confirmed the remote side is gone, and
+// only then may the row be purged. A hard delete looks exactly like an item
+// Trello has not sent yet, so the next poll would resurrect it.
+// ============================================================
+
+function rowToList(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    trello_card_id: row.trello_card_id || null,
+    trello_checklist_id: row.trello_checklist_id || null,
+    sync_enabled: !!row.sync_enabled,
+    last_synced_at: row.last_synced_at || null,
+    last_sync_error: row.last_sync_error || null,
+    sort_order: row.sort_order ?? 0,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+function rowToListItem(row) {
+  return {
+    id: row.id,
+    list_id: row.list_id,
+    name: row.name,
+    checked: !!row.checked,
+    position: row.position ?? 0,
+    trello_check_item_id: row.trello_check_item_id || null,
+    // shadow_* is sync bookkeeping, not user data. Exposed because the sync
+    // engine and its tests need it; the API layer strips it.
+    shadow_name: row.shadow_name ?? null,
+    shadow_checked: row.shadow_checked == null ? null : !!row.shadow_checked,
+    deleted_at: row.deleted_at || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+export function upsertList(list) {
+  const now = new Date().toISOString()
+  db.run(
+    `INSERT INTO lists (id, name, kind, trello_card_id, trello_checklist_id,
+       sync_enabled, last_synced_at, last_sync_error, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name=excluded.name, kind=excluded.kind,
+       trello_card_id=excluded.trello_card_id,
+       trello_checklist_id=excluded.trello_checklist_id,
+       sync_enabled=excluded.sync_enabled,
+       last_synced_at=excluded.last_synced_at,
+       last_sync_error=excluded.last_sync_error,
+       sort_order=excluded.sort_order,
+       updated_at=excluded.updated_at`,
+    [list.id, list.name, list.kind || 'shopping',
+     list.trello_card_id || null, list.trello_checklist_id || null,
+     list.sync_enabled === false ? 0 : 1,
+     list.last_synced_at || null, list.last_sync_error || null,
+     list.sort_order ?? 0, list.created_at || now, list.updated_at || now],
+  )
+  schedulePersist()
+}
+
+export function getList(id) {
+  const stmt = db.prepare('SELECT * FROM lists WHERE id = ?')
+  stmt.bind([id])
+  if (stmt.step()) {
+    const row = stmt.getAsObject()
+    stmt.free()
+    return rowToList(row)
+  }
+  stmt.free()
+  return null
+}
+
+export function getAllLists() {
+  const results = []
+  const stmt = db.prepare('SELECT * FROM lists ORDER BY sort_order ASC, name ASC')
+  while (stmt.step()) results.push(rowToList(stmt.getAsObject()))
+  stmt.free()
+  return results
+}
+
+// Lists the sync loop should visit: linked to a card and not switched off.
+export function getSyncableLists() {
+  return getAllLists().filter(l => l.sync_enabled && l.trello_card_id)
+}
+
+export function updateListPartial(id, updates) {
+  const existing = getList(id)
+  if (!existing) return null
+  upsertList({ ...existing, ...updates, updated_at: new Date().toISOString() })
+  return getList(id)
+}
+
+export function deleteList(id) {
+  // Items go with the list. This is the one legitimate hard delete: the list
+  // itself is gone, so there is nothing left for a poll to resurrect into.
+  db.run('DELETE FROM list_items WHERE list_id = ?', [id])
+  db.run('DELETE FROM lists WHERE id = ?', [id])
+  schedulePersist()
+}
+
+// --- items ---
+
+export function upsertListItem(item) {
+  const now = new Date().toISOString()
+  db.run(
+    `INSERT INTO list_items (id, list_id, name, checked, position, trello_check_item_id,
+       shadow_name, shadow_checked, deleted_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name=excluded.name, checked=excluded.checked, position=excluded.position,
+       trello_check_item_id=excluded.trello_check_item_id,
+       shadow_name=excluded.shadow_name, shadow_checked=excluded.shadow_checked,
+       deleted_at=excluded.deleted_at, updated_at=excluded.updated_at`,
+    [item.id, item.list_id, item.name, item.checked ? 1 : 0, item.position ?? 0,
+     item.trello_check_item_id || null,
+     item.shadow_name ?? null,
+     item.shadow_checked == null ? null : (item.shadow_checked ? 1 : 0),
+     item.deleted_at || null, item.created_at || now, item.updated_at || now],
+  )
+  schedulePersist()
+}
+
+export function getListItem(id) {
+  const stmt = db.prepare('SELECT * FROM list_items WHERE id = ?')
+  stmt.bind([id])
+  if (stmt.step()) {
+    const row = stmt.getAsObject()
+    stmt.free()
+    return rowToListItem(row)
+  }
+  stmt.free()
+  return null
+}
+
+// includeDeleted is for the sync engine only — every user-facing caller wants
+// the default, which hides tombstones.
+export function getListItems(listId, { includeDeleted = false } = {}) {
+  const results = []
+  const sql = includeDeleted
+    ? 'SELECT * FROM list_items WHERE list_id = ? ORDER BY position ASC, created_at ASC'
+    : 'SELECT * FROM list_items WHERE list_id = ? AND deleted_at IS NULL ORDER BY position ASC, created_at ASC'
+  const stmt = db.prepare(sql)
+  stmt.bind([listId])
+  while (stmt.step()) results.push(rowToListItem(stmt.getAsObject()))
+  stmt.free()
+  return results
+}
+
+export function findListItemByTrelloId(listId, trelloCheckItemId) {
+  const stmt = db.prepare('SELECT * FROM list_items WHERE list_id = ? AND trello_check_item_id = ?')
+  stmt.bind([listId, trelloCheckItemId])
+  if (stmt.step()) {
+    const row = stmt.getAsObject()
+    stmt.free()
+    return rowToListItem(row)
+  }
+  stmt.free()
+  return null
+}
+
+export function createListItem({ list_id, name, checked = false, position = null }) {
+  const now = new Date().toISOString()
+  // Append by default: one past the current maximum, so a voice-added item
+  // lands at the bottom rather than fighting for position 0.
+  let pos = position
+  if (pos == null) {
+    const existing = getListItems(list_id)
+    pos = existing.length ? Math.max(...existing.map(i => i.position ?? 0)) + 1 : 0
+  }
+  const item = {
+    id: crypto.randomUUID(),
+    list_id, name, checked, position: pos,
+    trello_check_item_id: null,
+    shadow_name: null, shadow_checked: null, // never synced yet
+    deleted_at: null, created_at: now, updated_at: now,
+  }
+  upsertListItem(item)
+  return getListItem(item.id)
+}
+
+export function updateListItemPartial(id, updates) {
+  const existing = getListItem(id)
+  if (!existing) return null
+  upsertListItem({ ...existing, ...updates, updated_at: new Date().toISOString() })
+  return getListItem(id)
+}
+
+// Soft delete. The sync pushes the removal to Trello and only then purges.
+// An item that never reached Trello has nothing to push, so it purges here.
+export function deleteListItem(id) {
+  const existing = getListItem(id)
+  if (!existing) return
+  if (!existing.trello_check_item_id) {
+    db.run('DELETE FROM list_items WHERE id = ?', [id])
+  } else {
+    db.run('UPDATE list_items SET deleted_at = ?, updated_at = ? WHERE id = ?',
+      [new Date().toISOString(), new Date().toISOString(), id])
+  }
+  schedulePersist()
+}
+
+// Hard delete, for the sync engine once the remote side is confirmed gone.
+export function purgeListItem(id) {
+  db.run('DELETE FROM list_items WHERE id = ?', [id])
+  schedulePersist()
+}
+
 // --- Gmail processed messages ---
 
 export function isGmailProcessed(messageId) {
