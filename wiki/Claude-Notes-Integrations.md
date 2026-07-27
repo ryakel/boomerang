@@ -219,6 +219,55 @@ nullable `parent_id`.
 > require an explicit checklist choice or create one Boomerang list per
 > checklist on the card.
 
+**Link scope — sync a CARD or a COLUMN, not only a checklist.** The natural
+consequence of the structure above, and it *dissolves* the `checklists[0]` bug
+rather than patching it: "which checklist?" stops being a question once the
+thing you link is the container.
+
+| Scope | You link | You get | Auto-discovers |
+|---|---|---|---|
+| `checklist` | one checklist | one list | nothing |
+| `card` | "2026 Groceries" | one list per checklist on it | new checklists |
+| `column` | "Shopping" | one list per checklist on every card in it | new checklists **and** new cards |
+
+The win is **auto-discovery, and it is the whole point of the feature.**
+Today, if she adds a checklist or a new store card, Boomerang never learns of
+it — "never open Trello again" quietly stops being true and nothing says so.
+Container-level linkage is what closes that hole.
+
+Architecture that keeps the trustworthy part trustworthy:
+
+> **Expansion is a SEPARATE concern from merge.** Add a `list_sources` table
+> (`scope`, `trello_id`, …) holding what was linked; a sync first *expands* a
+> source into the set of leaf checklists, then runs the existing merge per
+> leaf, unchanged. `server/listMerge.js` stays pure and stays pinned by its
+> 19 tests. All new complexity lands in the expansion step, where it can be
+> tested on its own.
+
+Container-level hazards, each the direct analogue of a rule already learned at
+item level:
+
+- **The wipe guard needs a sibling at container level.** The existing >50%
+  guard protects *items within* a checklist. A poll returning 0 checklists for
+  a card — or 0 cards for a column — is a bad response, not "she deleted
+  everything." Without this, one flaky Trello reply deletes every list.
+- **Creation is a heavier write the higher you go.** A new list inside a
+  card-linked card means creating a *checklist on her card*. Inside a
+  column-linked column it means creating a **card on her board**, which shows
+  up in her board view. Adding a check item is nearly invisible; adding a card
+  is not. Card scope is the safe default; column-scope creation deserves an
+  explicit opt-in.
+- **`lists` needs its own `shadow_name`.** Container names are hers too. With
+  only a two-way compare there is no way to tell "I renamed this list in
+  Boomerang" from "she renamed the checklist in Trello" — the exact ambiguity
+  `shadow_name`/`shadow_checked` exist to resolve at item level. The same
+  3-way baseline is needed one level up.
+
+Recommendation: build `card` scope, but implement it as a general
+`list_sources` mechanism so `column` is a row in a table rather than a rewrite.
+Keep `checklist` scope working — it is the right answer for linking one
+checklist on a card full of unrelated ones.
+
 **Sorting — name and recently-updated are VIEW state and must never write.**
 Only drag writes. This is the trap: `position` is the field Trello orders by,
 so a sort mode that "applied" itself by renumbering `position` would push a
