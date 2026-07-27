@@ -1,0 +1,276 @@
+/* Lists — shared lists synced with a Trello checklist. Same calm CRUD
+ * vocabulary as NotesModal/GrowthAreasModal. The list body is meant to be
+ * usable one-handed while standing in a shop, so rows are tall enough to hit
+ * without looking and the tick target is the whole left edge. */
+
+.v2-lists-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.v2-lists-add-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 14px/1.45 var(--v2-font-body);
+}
+.v2-lists-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-surface);
+  color: var(--v2-text);
+  cursor: pointer;
+}
+.v2-lists-add-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* --- index --- */
+
+.v2-lists-index-rows { list-style: none; margin: 0; padding: 0; }
+.v2-lists-index-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text);
+  text-align: left;
+  cursor: pointer;
+}
+.v2-lists-index-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.v2-lists-index-main strong { font: 500 14.5px/1.35 var(--v2-font-body); }
+.v2-lists-index-main span { font: 400 12.5px/1.4 var(--v2-font-body); color: var(--v2-text-meta); }
+.v2-lists-index-warn { color: var(--v2-warn, #c47f2c); flex: 0 0 auto; }
+
+/* --- detail --- */
+
+.v2-lists-detail-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.v2-lists-detail-title { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.v2-lists-detail-title strong { font: 500 15px/1.3 var(--v2-font-body); }
+.v2-lists-detail-title span { font: 400 12.5px/1.4 var(--v2-font-body); color: var(--v2-text-meta); }
+
+.v2-lists-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--v2-text-meta);
+  cursor: pointer;
+}
+.v2-lists-icon-btn:hover { background: var(--v2-surface); color: var(--v2-text); }
+.v2-lists-icon-btn:disabled { opacity: 0.45; cursor: default; }
+
+@keyframes v2-lists-spin { to { transform: rotate(360deg); } }
+.v2-lists-spin { animation: v2-lists-spin 1s linear infinite; }
+
+.v2-lists-msg {
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: var(--v2-surface);
+  color: var(--v2-text-meta);
+  font: 400 12.5px/1.45 var(--v2-font-body);
+  cursor: pointer;
+}
+
+.v2-lists-items { list-style: none; margin: 0; padding: 0; }
+.v2-lists-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+.v2-lists-item-name { flex: 1; font: 400 14.5px/1.4 var(--v2-font-body); color: var(--v2-text); }
+.v2-lists-item-done .v2-lists-item-name { color: var(--v2-text-meta); text-decoration: line-through; }
+.v2-lists-item-del { opacity: 0; }
+.v2-lists-item:hover .v2-lists-item-del { opacity: 1; }
+/* Touch has no hover, so the remove control must always be reachable. */
+@media (hover: none) { .v2-lists-item-del { opacity: 1; } }
+
+/* Generous tap target: this gets used while walking. */
+.v2-lists-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.v2-lists-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--v2-hairline-strong, var(--v2-hairline));
+  color: var(--v2-bg);
+}
+.v2-lists-box-checked {
+  background: var(--v2-accent, #7c6cf0);
+  border-color: var(--v2-accent, #7c6cf0);
+}
+
+.v2-lists-done-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 4px;
+  font: 500 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.v2-lists-clear {
+  border: 0;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 400 12px/1.4 var(--v2-font-body);
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.v2-lists-clear:hover { color: var(--v2-text); }
+
+/* --- settings / Trello link --- */
+
+.v2-lists-settings {
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-surface);
+}
+.v2-lists-link { display: flex; flex-direction: column; gap: 10px; }
+.v2-lists-link-intro,
+.v2-lists-link-note {
+  margin: 0;
+  font: 400 12.5px/1.45 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+.v2-lists-link-status,
+.v2-lists-link-warn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 12.5px/1.45 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+.v2-lists-link-warn { color: var(--v2-warn, #c47f2c); }
+.v2-lists-link-field { display: flex; flex-direction: column; gap: 4px; }
+.v2-lists-link-field span {
+  font: 500 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+.v2-lists-link-field select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 13.5px/1.4 var(--v2-font-body);
+}
+.v2-lists-link-checklists { display: flex; flex-direction: column; gap: 6px; }
+.v2-lists-link-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 13.5px/1.4 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-lists-link-choice:hover { border-color: var(--v2-accent, #7c6cf0); }
+.v2-lists-link-count { color: var(--v2-text-meta); font-size: 12px; }
+.v2-lists-link-unlink,
+.v2-lists-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text-meta);
+  font: 400 12.5px/1.4 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-lists-danger { margin-top: 12px; color: var(--v2-danger, #c4552c); }
+.v2-lists-danger:disabled,
+.v2-lists-link-unlink:disabled { opacity: 0.45; cursor: default; }
+
+.v2-lists-loading {
+  margin: 12px 0;
+  font: 400 13px/1.45 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+/* Paste-a-link: the only route to a card on a board you are not a member of,
+ * so it sits above the browse cascade rather than below it. */
+.v2-lists-link-paste { display: flex; gap: 6px; }
+.v2-lists-link-paste input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 13px/1.4 var(--v2-font-body);
+}
+.v2-lists-link-paste button {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 13px/1.4 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-lists-link-paste button:disabled { opacity: 0.45; cursor: default; }
+.v2-lists-link-or {
+  margin: 2px 0;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  text-align: center;
+}
+
+/* Sync trouble surfaced in the list body, not buried in settings. */
+.v2-lists-detail-warn {
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: var(--v2-surface);
+}

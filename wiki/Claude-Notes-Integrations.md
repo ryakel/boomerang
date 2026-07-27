@@ -120,6 +120,42 @@ Push tasks to Trello with native checklists and attachments, then keep them in s
 | `DELETE /api/trello/checklists/:id` | Delete a checklist |
 | `POST /api/trello/cards/:id/attachments` | Upload attachment to card |
 
+### Trello List Sync (Bidirectional, server-side — 2026-07-27)
+
+Separate system from the task↔card sync above, and don't confuse them. That one
+is **client-side and push-only** (`useExternalSync.js`, Boomerang → Trello) and
+therefore blind to anything that happens while the app is closed. This one is
+**server-side and bidirectional**: a Boomerang *list* (migration 047) mirrors a
+checklist on a Trello card that someone else also edits.
+
+- **Polling, not webhooks** — the server is tailnet-private and cannot receive
+  callbacks (same constraint as Shippo). `startListSyncPolling(60s)`, plus a
+  fire-and-forget kick after each local mutation.
+- **`server/listMerge.js` is a pure 3-way merge** and holds every rule about
+  who wins. Trello checkItems carry no per-item modification time, so a two-way
+  diff cannot tell your edit from hers and degrades into last-writer-wins. The
+  `shadow_*` columns are what the two sides last **agreed** on; each side is
+  compared to that baseline separately.
+- Fields resolve **independently** — a rename on her side plus a check-off on
+  yours is cooperation, not a conflict. Real collisions keep the Boomerang
+  value and are reported in `last_sync_error`.
+- **A null shadow uses the LOCAL value as baseline**, so an unproven difference
+  is pulled rather than pushed. When you can't prove who moved, the other side
+  wins — pushing unproven local state is the only direction that destroys
+  someone else's data.
+- **Never deletes on Trello from a merge.** Only an explicit Boomerang delete
+  (a tombstone) propagates. Soft deletes exist because a hard delete looks
+  exactly like an item Trello hasn't sent yet, and the next poll resurrects it.
+- **Wipe guard:** a poll missing >50% of previously-synced items (min 3) is
+  treated as a bad response, not a mass delete. Deletions are skipped for that
+  round; unrelated merges still apply.
+- **A dev-shaped server merges inbound but never writes back**
+  (`DEV_LIST_SYNC_WRITES=1` opts in). Two servers fighting over one real family
+  list would look exactly like a sync bug.
+
+Behaviour is pinned by `scripts/lists.test.mjs` (19 tests, in `npm test`).
+Change the merge, run those first.
+
 ### Google Calendar Sync (Bidirectional)
 Bidirectional sync between tasks and Google Calendar events. First integration to use OAuth 2.0.
 

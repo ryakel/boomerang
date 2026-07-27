@@ -39,6 +39,13 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 - Any new refetch/hydrate path must FLUSH pending local mutations before overwriting local state — never cancel the debounce. Any code path that cancels the per-record debounce timer must either push the pending changes itself or leave the push snapshots alone.
 - Deleting a task must not delete its completion-day evidence (`deleteTask()` stamps `settings.completion_days`).
 
+**Lists (Trello checklist sync)**
+- The merge lives in `server/listMerge.js` and is PURE — no db, no network. Every rule about whose edit survives is pinned in `scripts/lists.test.mjs`; change one, run those first. The `shadow_*` columns are the 3-way baseline (what both sides last agreed on); without them a two-way diff can't tell your edit from hers and silently eats one per poll.
+- This is someone else's data. A merge must NEVER delete on Trello — only an explicit Boomerang delete (tombstone) propagates. Never hard-delete a row that still holds a `trello_check_item_id`: a hard delete is indistinguishable from an item Trello hasn't sent yet, so the next poll resurrects it. A poll missing >50% of synced items is a bad response, not a mass delete.
+- When you can't prove which side moved (null shadow), the OTHER side wins — pushing unproven local state is the only direction that can destroy her data.
+- `clearAllData()` (the dev seed's reset) must NEVER be extended to `lists`/`list_items`. Dev runs `SEED_DB=1`, so every push to `dev` reseeds on restart — wiping lists there would drop the Trello linkage on every deploy and silently stop a list the other person is still relying on.
+- A dev-shaped server merges inbound but never writes back (`DEV_LIST_SYNC_WRITES=1` opts in); two servers fighting over one real family list looks exactly like a sync bug. Held writes must surface in the UI via `last_sync_error` — from inside the app a held push is indistinguishable from a broken one, and a shared list that silently stops propagating is this feature's worst failure. Any new reason a push is skipped needs the same treatment.
+
 **Server & deploys**
 - Server runtime modules live in `server/`; the Dockerfile copies the directory wholesale. Only a genuinely NEW top-level directory needs a Dockerfile `COPY`. Dev-only files (tests, previews, eslint/vite configs) stay out of the image.
 - A dev-shaped server (`APP_VERSION` = `dev`/`dev-*`) is notification-muzzled (`notifsMuzzled` in server.js) — any new background send path must check it. Test endpoints stay live.
@@ -81,6 +88,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 |---|---|
 | Feature systems — energy/impact tagging, critical tag, DIY check, routines/loops/stacks/sequences, projects, task model, notes, growth areas, escalation ladder | `wiki/Claude-Notes-Features.md`; user-facing behavior in `wiki/Features.md` |
 | Integrations — Notion, Trello, GCal, Gmail, packages/17track/Shippo, weather, knowledge base | `wiki/Claude-Notes-Integrations.md`, `wiki/Notion-Integration.md` |
+| Shared lists — the server-side bidirectional Trello checklist sync, distinct from the client-side task→card push | `wiki/Claude-Notes-Integrations.md` → Trello List Sync; merge rules in `server/listMerge.js` + `scripts/lists.test.mjs` |
 | Notifications — digest pipeline, the three engines, channels, what survived the reshape | `wiki/Claude-Notes-Notifications.md`, `wiki/Testing-Notification-Stack.md` |
 | Quokka adviser — architecture, tool registry, sessions/plans, health check | `wiki/Claude-Notes-Quokka.md` |
 | Platform — UI history (Kept), auth, iOS native app, security posture, data-durability detail, tech-debt ledger | `wiki/Claude-Notes-Platform.md`, `wiki/iOS-Native-App.md`, `wiki/Architecture.md`, `wiki/Security-Notes.md` |

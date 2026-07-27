@@ -162,6 +162,19 @@ A place to leave a thought without creating a task. Notes have **no task semanti
 - **Make it a task** — if a note turns out to be something you actually need to do, promote it: the first line becomes the task title, the rest becomes the task's notes, and the note is removed. The new task gets normal auto size/energy/tag inference.
 - **Quokka** — `list_notes` / `create_note` / `update_note` / `delete_note`; distinct from the Notion-backed Knowledge Base (notes are quick local jots, knowledge is durable reference).
 
+## Lists (shared, synced with Trello)
+
+A **list** is a set of items that stays in sync, both ways, with a checklist on a Trello card — built for the household grocery list that lives on someone else's card. The point is never opening Trello again: whatever they change there shows up here, and whatever you change here shows up there, within about a minute.
+
+Lists have **no task semantics** — no due date, energy, impact, size or rollover. They never appear in the task list, count toward pile-up warnings, or feed analytics.
+
+- **Lists surface** — More → Lists (mobile) or the sidebar (desktop). Each list shows how many items are left and when it last synced.
+- **Add by typing** — one field, commas or new lines. "milk, eggs, bread" adds three items; a pasted shopping list adds all of it.
+- **Tick things off** as you shop. The tap target is deliberately generous — this gets used one-handed while walking. Ticked items drop to a "Got" section with a **Clear** button for the tidy-up afterwards.
+- **Link it to Trello** from the list's own settings — either **paste the card's link** (`https://trello.com/c/…`) or browse board → list → card → checklist. Both are in-app; no card IDs to hunt down. Pasting is the one that works for a card on someone else's board that they just shared with you, since browsing only sees boards you're a member of. Unlinking only stops syncing — nothing is removed from the Trello card.
+- **Quokka** — `lists_index`, `list_read`, `list_add_items`, `list_check_items`, `list_remove_items`, `list_clear_checked`. Shaped for speaking out loud: "add milk, eggs and bread to the grocery list" is one request, everything is by name, and an ambiguous match asks instead of guessing.
+- **Conflicts are handled properly.** If they rename an item while you tick it off, both changes survive — those are different fields, not a fight. If you genuinely both change the same thing, your version wins and the list says so. Nothing is ever deleted from Trello except by you deleting it here.
+
 ## Projects
 
 `status: 'project'` tasks. Silent by default — no notifications, no stale pressure. Pin a project to today to surface it on the main list with a dedicated card.

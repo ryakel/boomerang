@@ -46,6 +46,7 @@ import {
 } from './adviserTools.js'
 import { registerTaskTools } from './adviserToolsTasks.js'
 import { registerGCalTools, registerNotionTools, registerTrelloTools } from './adviserToolsIntegrations.js'
+import { registerListTools } from './adviserToolsLists.js'
 import { registerMiscTools } from './adviserToolsMisc.js'
 import { registerKnowledgeTools } from './adviserToolsKnowledge.js'
 import * as notionMCP from './notionMCP.js'
@@ -55,6 +56,11 @@ import { adoptKnowledgeDatabase,
   startKnowledgeRefreshLoop, getKnowledgeStatus,
 } from './knowledgeSync.js'
 import { getAllKnowledgeItems, searchKnowledgeItems, getKnowledgeItem } from './db.js'
+import {
+  getAllLists, getList, upsertList, updateListPartial, deleteList,
+  getListItems, getListItem, createListItem, updateListItemPartial, deleteListItem,
+} from './db.js'
+import { initListSync, startListSyncPolling, syncList, syncAllLists } from './trelloListSync.js'
 import crypto from 'crypto'
 import { initDeviceAuth, onSecurityAlert, enrollDevice, refreshDeviceTokens,
   listDevices, revokeDevice, deleteDevice, issueAttestChallenge,
@@ -75,6 +81,7 @@ registerTaskTools()
 registerGCalTools()
 registerNotionTools()
 registerTrelloTools()
+registerListTools()
 registerMiscTools()
 registerKnowledgeTools()
 
@@ -1654,6 +1661,22 @@ app.get('/api/trello/boards/:id/lists', async (req, res) => {
     const data = await response.json()
     const lists = (data || []).filter(l => !l.closed)
     res.json(lists)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Cards in a list — the missing rung of the discovery ladder (boards and
+// lists existed, cards did not). Needed to pick the card a Boomerang list
+// syncs with without opening Trello, which is the whole point.
+app.get('/api/trello/lists/:id/cards', async (req, res) => {
+  const { key, token } = getTrelloAuth(req)
+  if (!key || !token) return res.status(400).json({ error: 'Trello not configured' })
+  try {
+    const response = await fetch(`${TRELLO_BASE}/lists/${req.params.id}/cards?fields=name,url,closed&key=${key}&token=${token}`)
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -3846,6 +3869,149 @@ app.delete('/api/notes/:id', (req, res) => {
   res.json({ ok: true })
 })
 
+// ============================================================
+// Lists (migration 047) — sets of items kept in bidirectional sync with a
+// checklist on a Trello card. Per-record endpoints, deliberately NOT part of
+// the bulk /api/data blob: a grocery list is not a task and must never ride
+// through rollover, notification pools or the task wipe guard.
+//
+// shadow_* is sync bookkeeping and never leaves the server.
+// ============================================================
+
+const publicItem = (i) => ({
+  id: i.id, list_id: i.list_id, name: i.name, checked: i.checked,
+  position: i.position, created_at: i.created_at, updated_at: i.updated_at,
+})
+
+// Mutations kick a sync so a change reaches the other person in seconds
+// rather than at the next poll. Fire-and-forget on purpose: the write already
+// succeeded locally, and a Trello hiccup must not fail the user's request.
+function kickSync(listId) {
+  const list = getList(listId)
+  if (!list?.trello_card_id || !list.sync_enabled) return
+  syncList(listId).catch(err => console.log(`[ListSync] kick failed: ${err.message}`))
+}
+
+app.get('/api/lists', (req, res) => {
+  const lists = getAllLists().map(l => {
+    const items = getListItems(l.id)
+    return { ...l, item_count: items.length, unchecked_count: items.filter(i => !i.checked).length }
+  })
+  res.json({ lists })
+})
+
+app.post('/api/lists', (req, res) => {
+  const name = (req.body?.name || '').trim()
+  if (!name) return res.status(400).json({ error: 'name required' })
+  const now = new Date().toISOString()
+  const list = {
+    id: crypto.randomUUID(),
+    name,
+    kind: req.body?.kind || 'shopping',
+    trello_card_id: req.body?.trello_card_id || null,
+    trello_checklist_id: req.body?.trello_checklist_id || null,
+    sync_enabled: req.body?.sync_enabled !== false,
+    sort_order: req.body?.sort_order ?? 0,
+    created_at: now, updated_at: now,
+  }
+  upsertList(list)
+  if (list.trello_card_id) kickSync(list.id)
+  res.json({ ok: true, list: getList(list.id) })
+})
+
+app.patch('/api/lists/:id', (req, res) => {
+  const updates = {}
+  for (const k of ['name', 'kind', 'trello_card_id', 'trello_checklist_id', 'sort_order']) {
+    if (req.body?.[k] !== undefined) updates[k] = req.body[k]
+  }
+  if (req.body?.sync_enabled !== undefined) updates.sync_enabled = !!req.body.sync_enabled
+  // Re-pointing at a different card invalidates every remote id we hold; the
+  // next sync would otherwise try to update check items on the old card.
+  if (updates.trello_card_id !== undefined) {
+    const current = getList(req.params.id)
+    if (current && current.trello_card_id !== updates.trello_card_id) {
+      updates.trello_checklist_id = req.body?.trello_checklist_id ?? null
+      for (const item of getListItems(req.params.id, { includeDeleted: true })) {
+        updateListItemPartial(item.id, { trello_check_item_id: null, shadow_name: null, shadow_checked: null })
+      }
+    }
+  }
+  const list = updateListPartial(req.params.id, updates)
+  if (!list) return res.status(404).json({ error: 'List not found' })
+  if (list.trello_card_id) kickSync(list.id)
+  res.json({ ok: true, list })
+})
+
+app.delete('/api/lists/:id', (req, res) => {
+  if (!getList(req.params.id)) return res.status(404).json({ error: 'List not found' })
+  // Local only. Deleting a Boomerang list must never take the shared Trello
+  // card's checklist with it — that card belongs to someone else.
+  deleteList(req.params.id)
+  res.json({ ok: true })
+})
+
+app.get('/api/lists/:id/items', (req, res) => {
+  const list = getList(req.params.id)
+  if (!list) return res.status(404).json({ error: 'List not found' })
+  res.json({ list, items: getListItems(list.id).map(publicItem) })
+})
+
+app.post('/api/lists/:id/items', (req, res) => {
+  const list = getList(req.params.id)
+  if (!list) return res.status(404).json({ error: 'List not found' })
+  // Accept one name or many: adding a whole shopping run by voice is the
+  // point, and one round trip per item is the wrong shape for that.
+  const raw = Array.isArray(req.body?.names) ? req.body.names : [req.body?.name]
+  const names = raw.map(n => (n || '').trim()).filter(Boolean)
+  if (!names.length) return res.status(400).json({ error: 'name or names required' })
+  const created = names.map(name => createListItem({ list_id: list.id, name }))
+  kickSync(list.id)
+  res.json({ ok: true, items: created.map(publicItem) })
+})
+
+app.patch('/api/lists/:listId/items/:itemId', (req, res) => {
+  const existing = getListItem(req.params.itemId)
+  if (!existing || existing.list_id !== req.params.listId || existing.deleted_at) {
+    return res.status(404).json({ error: 'Item not found' })
+  }
+  const updates = {}
+  if (typeof req.body?.name === 'string') {
+    const trimmed = req.body.name.trim()
+    if (!trimmed) return res.status(400).json({ error: 'name cannot be empty' })
+    updates.name = trimmed
+  }
+  if (req.body?.checked !== undefined) updates.checked = !!req.body.checked
+  if (req.body?.position !== undefined) updates.position = req.body.position
+  const item = updateListItemPartial(req.params.itemId, updates)
+  kickSync(req.params.listId)
+  res.json({ ok: true, item: publicItem(item) })
+})
+
+app.delete('/api/lists/:listId/items/:itemId', (req, res) => {
+  const existing = getListItem(req.params.itemId)
+  if (!existing || existing.list_id !== req.params.listId) {
+    return res.status(404).json({ error: 'Item not found' })
+  }
+  // Soft delete when it exists on Trello — the sync pushes the removal and
+  // only then purges. This is the one path that deletes anything remotely.
+  deleteListItem(req.params.itemId)
+  kickSync(req.params.listId)
+  res.json({ ok: true })
+})
+
+app.post('/api/lists/:id/sync', async (req, res) => {
+  if (!getList(req.params.id)) return res.status(404).json({ error: 'List not found' })
+  try {
+    res.json({ ok: true, result: await syncList(req.params.id) })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+app.post('/api/lists/sync', async (req, res) => {
+  res.json({ ok: true, results: await syncAllLists() })
+})
+
 app.post('/api/notifications/tap', (req, res) => {
   const { taskId, channel } = req.body || {}
   if (!taskId) return res.status(400).json({ error: 'Missing taskId' })
@@ -4990,6 +5156,23 @@ initDb(dbPath).then(async () => {
     const gmailTokens = getData(GMAIL_TOKENS_KEY)
     if (gmailTokens?.refresh_token) {
       startGmailPolling(5 * 60 * 1000)
+    }
+
+    // Trello list sync. Polling because the server is tailnet-private and
+    // cannot receive Trello webhooks (same constraint as Shippo).
+    //
+    // A dev-shaped server merges INBOUND changes but never writes back: the
+    // linked card is a real shared family list, and a staging box fighting
+    // production over it would corrupt someone else's data while looking like
+    // a sync bug. DEV_LIST_SYNC_WRITES=1 opts a dev box in deliberately.
+    initListSync({
+      key: envTrelloKey,
+      token: envTrelloToken,
+      allowWrites: !isDevEnv || process.env.DEV_LIST_SYNC_WRITES === '1',
+      onChanged: () => broadcast(bumpVersion()),
+    })
+    if (envTrelloKey && envTrelloToken) {
+      startListSyncPolling(60 * 1000)
     }
 
     // Normalize any existing USPS 420-prefix tracking numbers. (The old

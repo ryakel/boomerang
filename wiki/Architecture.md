@@ -16,6 +16,7 @@ Browser (React PWA)
                           ├── /api/trello/*      → Trello API proxy (boards, lists, cards, sync)
                           ├── /api/gcal/*        → Google Calendar API proxy (OAuth, events, calendars)
                           ��── /api/packages/*    → Package tracking (CRUD, polling, 17track v2.4 API)
+                          ├── /api/lists/*       → Shared lists (CRUD, items, forced Trello sync)
                           ├── /api/email/*       → Email notification status and test
                           ├── /api/push/*        → Web push notification status, subscribe, test
                           ├── /api/pushover/*    → Pushover notification status, test, test-emergency
@@ -182,6 +183,42 @@ CREATE TABLE notes (
 ```
 
 ```sql
+-- Lists + list items (migration 047) — a list mirrors a checklist on a Trello
+-- card, bidirectionally. NOT tasks: no due date, energy, impact, size or
+-- rollover, and deliberately outside the nightly rollover, the notification
+-- pools, analytics and the /api/data wipe guard (same carve-out as notes).
+CREATE TABLE lists (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'shopping',
+  trello_card_id TEXT, trello_checklist_id TEXT,  -- unlinked = local-only, never syncs
+  sync_enabled INTEGER NOT NULL DEFAULT 1,
+  last_synced_at TEXT, last_sync_error TEXT,      -- surfaced in the UI; an unattended
+  sort_order INTEGER NOT NULL DEFAULT 0,          -- sync that fails silently is the
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL   -- worst outcome here
+);
+
+CREATE TABLE list_items (
+  id TEXT PRIMARY KEY,
+  list_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  checked INTEGER NOT NULL DEFAULT 0,
+  position REAL NOT NULL DEFAULT 0,
+  trello_check_item_id TEXT,
+  -- 3-WAY MERGE BASELINE: what both sides last AGREED on. Comparing local and
+  -- remote to this separately is what distinguishes "I changed it" from "she
+  -- changed it"; a two-way diff cannot, and eats one edit per poll. NULL =
+  -- never synced (a local add still to be pushed).
+  shadow_name TEXT, shadow_checked INTEGER,
+  -- Tombstone. A hard delete is indistinguishable from an item Trello has not
+  -- sent yet, so the next poll would resurrect it.
+  deleted_at TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+-- Indexes on list_id, trello_check_item_id, lists(trello_card_id)
+```
+
+```sql
 -- Packages table (migration 009)
 CREATE TABLE packages (
   id TEXT PRIMARY KEY,
@@ -200,7 +237,7 @@ CREATE TABLE packages (
 -- Indexes on status, tracking_number, auto_cleanup_at
 ```
 
-Migrations are in `migrations/NNN_*.sql` (currently through 033) and run automatically on startup, tracked in the `_migrations` table.
+Migrations are in `migrations/NNN_*.sql` (currently through 047) and run automatically on startup, tracked in the `_migrations` table.
 
 `getNextDueDate` (`src/store.js`) computes the next occurrence from a **fixed grid**, not the last completion — so completing a routine early or late never shifts the series (drift fix, 2026-05-30). `completed_history` only marks which grid slot has been satisfied. Daily is special-cased; day-scale cadences (weekly, custom-days) walk a day grid from the creation anchor (weekly folds `schedule_day_of_week` into the origin). **Month-scale cadences (monthly/quarterly/annually/custom-months) walk a month grid and resolve each slot's day via `resolveMonthDay()`:** `schedule_day_of_month` (fixed day, "the 18th"), or `schedule_week_of_month` + `schedule_day_of_week` (ordinal weekday via `nthWeekdayOfMonth()`, "1st Monday"/"last Friday"), else the creation day-of-month. `formatScheduleAnchor()` renders the short card label.
 
@@ -234,6 +271,15 @@ Generated on task create/update (title or energy change), backfilled on load for
 4. Notion: title via properties API, content via block replacement (delete old, append new)
 5. GCal: creates/updates events with AI-inferred timing. Routine-spawned tasks create recurring events with RRULE based on routine cadence (`cadenceToRRule()`). Recurring event ID stored on routine (`gcal_recurring_event_id`) — subsequent spawns link to it.
 6. Failed syncs queued in `boom_external_sync_queue` (200 cap), replayed on `online` event
+
+**Two different Trello syncs — don't confuse them.** The above is *client-side
+and push-only* (task → card): it runs in the browser/app, so it sees nothing
+that happens while the app is closed, and it never pulls. **Lists**
+(migration 047) are a separate, *server-side and bidirectional* system:
+`server/trelloListSync.js` polls every 60s (webhooks are impossible — the
+server is tailnet-private, same constraint as Shippo) and merges through the
+pure 3-way merge in `server/listMerge.js`. They share only the Trello REST
+proxy. Detail in `wiki/Claude-Notes-Integrations.md` → Trello List Sync.
 
 ### Smart Recurrence Flow
 

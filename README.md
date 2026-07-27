@@ -20,7 +20,8 @@ Open `http://localhost:3001` and add your API keys in Settings.
 - **Checklists** — multiple named checklists per task with drag-and-drop reordering
 - **File attachments** — attach files to tasks, auto-included in AI research queries
 - **Notion integration** — pull sync from parent page, ongoing bidirectional sync for linked tasks
-- **Trello integration** — push tasks with native checklists and attachments, ongoing bidirectional sync
+- **Trello integration** — push tasks with native checklists and attachments, ongoing sync
+- **Shared lists** — a list (groceries, say) stays in sync both ways with a checklist on a Trello card, including one someone else owns and shared with you. Server-side polling, 3-way merge so concurrent edits from both people survive, and it never deletes anything on Trello except by your explicit delete. Add by typing, by voice through Quokka, or from the lists surface
 - **Google Calendar integration** — bidirectional sync with AI-inferred event times, OAuth 2.0
 - **Package tracking** — track packages with auto carrier detection, status-colored cards, delivery/exception notifications, signature-required auto-task creation
 - **Pushover integration** — reliable iOS notifications via the Pushover app's APNs entitlements, with priority-2 (Emergency) for the highest-stakes alarms (bypasses Do Not Disturb, repeats every 30s)

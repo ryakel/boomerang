@@ -1686,6 +1686,136 @@ export async function deleteNoteApi(id) {
   return res.json()
 }
 
+// --- Lists ---
+// Sets of items kept in bidirectional sync with a checklist on a Trello card.
+// Dedicated endpoints, deliberately not part of the bulk /api/data blob — a
+// grocery item is not a task and must never ride through rollover or the
+// notification pools.
+
+export async function fetchLists() {
+  const res = await fetch('/api/lists')
+  if (!res.ok) throw new Error(`lists fetch failed: ${res.status}`)
+  return (await res.json()).lists || []
+}
+
+export async function createListApi({ name, kind, trello_card_id }) {
+  const res = await fetch('/api/lists', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, kind, trello_card_id }),
+  })
+  if (!res.ok) throw new Error(`list create failed: ${res.status}`)
+  return (await res.json()).list
+}
+
+export async function updateListApi(id, updates) {
+  const res = await fetch(`/api/lists/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error(`list update failed: ${res.status}`)
+  return (await res.json()).list
+}
+
+export async function deleteListApi(id) {
+  const res = await fetch(`/api/lists/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`list delete failed: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchListItems(id) {
+  const res = await fetch(`/api/lists/${id}/items`)
+  if (!res.ok) throw new Error(`list items fetch failed: ${res.status}`)
+  return res.json() // { list, items }
+}
+
+// Takes an array on purpose: typing "milk, eggs, bread" into the add field is
+// one action and should be one request, matching the voice path's shape.
+export async function addListItemsApi(id, names) {
+  const res = await fetch(`/api/lists/${id}/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ names }),
+  })
+  if (!res.ok) throw new Error(`list add failed: ${res.status}`)
+  return (await res.json()).items || []
+}
+
+export async function updateListItemApi(listId, itemId, updates) {
+  const res = await fetch(`/api/lists/${listId}/items/${itemId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error(`list item update failed: ${res.status}`)
+  return (await res.json()).item
+}
+
+export async function deleteListItemApi(listId, itemId) {
+  const res = await fetch(`/api/lists/${listId}/items/${itemId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`list item delete failed: ${res.status}`)
+  return res.json()
+}
+
+export async function syncListApi(id) {
+  const res = await fetch(`/api/lists/${id}/sync`, { method: 'POST' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || `sync failed: ${res.status}`)
+  return data.result
+}
+
+// Trello discovery — board → list → card, so a card can be picked without
+// ever opening Trello. Credentials ride on the shared API headers.
+export async function fetchTrelloBoards() {
+  const res = await fetch('/api/trello/boards', { headers: getApiHeaders() })
+  if (!res.ok) throw new Error((await res.json()).error || 'Could not load boards')
+  return (await res.json()).filter(b => !b.closed)
+}
+
+export async function fetchTrelloBoardLists(boardId) {
+  const res = await fetch(`/api/trello/boards/${boardId}/lists`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error((await res.json()).error || 'Could not load lists')
+  return (await res.json()).filter(l => !l.closed)
+}
+
+export async function fetchTrelloListCards(listId) {
+  const res = await fetch(`/api/trello/lists/${listId}/cards`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error((await res.json()).error || 'Could not load cards')
+  return (await res.json()).filter(c => !c.closed)
+}
+
+// Resolve a card from a pasted URL or short link. Trello accepts the 8-char
+// shortLink anywhere a card id goes, but we resolve to the canonical 24-char
+// id before storing so the linkage doesn't depend on that staying true.
+//
+// This path exists because the board picker walks `members/me/boards` — a card
+// on someone else's board that they simply shared with you never appears
+// there, which is exactly the shape of a shared household list.
+export function parseTrelloCardRef(input) {
+  const s = String(input || '').trim()
+  if (!s) return null
+  const url = s.match(/trello\.com\/c\/([A-Za-z0-9]+)/)
+  if (url) return url[1]
+  if (/^[A-Za-z0-9]{8}$/.test(s) || /^[a-f0-9]{24}$/i.test(s)) return s
+  return null
+}
+
+export async function fetchTrelloCard(idOrShortLink) {
+  const res = await fetch(`/api/trello/cards/${idOrShortLink}`, { headers: getApiHeaders() })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || data.message || 'Could not find that card')
+  }
+  return res.json()
+}
+
+export async function fetchTrelloCardChecklists(cardId) {
+  const res = await fetch(`/api/trello/cards/${cardId}/checklists`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error((await res.json()).error || 'Could not load checklists')
+  return res.json()
+}
+
 // --- AI Adviser ---
 
 // Opens a streaming SSE connection to the adviser. Calls `onEvent(event, data)` for each
