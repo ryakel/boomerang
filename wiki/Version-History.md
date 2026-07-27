@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- docs(settings): sync NavRow's summary rule with the amended spec [XS]
+  - `NavRow`'s doc comment still carried the original §2.4 rule ("if it would need a fetch, pass nothing"), which the PR2 commit below amended. A code comment that contradicts the spec it cites is worse than no comment — the next person adding a summary would follow the wrong one.
+
 - feat(settings): drill-down index replaces the tab strip (rebuild PR2) [M]
   - Second of the seven PRs in `wiki/Settings-Design-Language.md` §9, and the riskiest — it ships alone so it can be judged in isolation on `boomerang-dev`. Every panel's contents are byte-identical; only how you reach them changed.
   - `SettingsModal.jsx`: `activeTab` → `page` (`'index'` or a category), the six-button `v2-settings-tabs` strip → a `SettingsNav` + `SettingsPage` + `SettingsGroup` of `NavRow`s. Sub-pages get the back affordance and title from `SettingsPage`. `TABS` → `CATEGORIES` — same six, same order.

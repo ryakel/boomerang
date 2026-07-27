@@ -160,10 +160,17 @@ export function SegmentRow({ label, value, options, onChange, info, stacked, dis
 // ---------------------------------------------------------------------------
 // §2.4 Navigation — drills into a sub-page.
 //
-// SUMMARY RULE: the summary must be derivable synchronously from state that
-// is already loaded. If it would need a fetch, pass nothing — an empty
-// trailing area is honest, whereas prose about the destination is the exact
-// failure this whole redesign exists to remove.
+// SUMMARY RULE: a summary is a VALUE, never prose about the destination —
+// prose is the exact failure this whole redesign exists to remove. Derive it
+// from already-loaded state wherever possible.
+//
+// It MAY resolve asynchronously, provided it resolves to a value: pass an
+// empty summary while the fetch is in flight and nothing renders, which is
+// honest. Never a spinner, never a placeholder. A summary that is
+// PERMANENTLY empty means the row should not be a summary row at all.
+// (§2.4 as amended 2026-07-27 — the original "if it would need a fetch, show
+// nothing" left Integrations and Data blank forever, which defeats the whole
+// argument for an index over tabs.)
 // ---------------------------------------------------------------------------
 export function NavRow({ label, summary, onPress, info, disabled }) {
   return (
