@@ -266,3 +266,11 @@
   color: var(--v2-text-meta);
   text-align: center;
 }
+
+/* Sync trouble surfaced in the list body, not buried in settings. */
+.v2-lists-detail-warn {
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: var(--v2-surface);
+}

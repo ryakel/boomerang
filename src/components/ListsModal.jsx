@@ -179,8 +179,13 @@ function TrelloLinkPanel({ list, onLink, onUnlink, busy }) {
 // ---------------------------------------------------------------
 // One list: its items, plus the add field
 // ---------------------------------------------------------------
-function ListDetail({ list, onBack, onEditList, onDeleteList }) {
-  const { items, loading, error, addItems, toggleItem, removeItem, syncNow, reload } = useListItems(list.id)
+function ListDetail({ list: indexList, onBack, onEditList, onDeleteList }) {
+  const { list: fetchedList, items, loading, error, addItems, toggleItem, removeItem, syncNow, reload } = useListItems(indexList.id)
+  // The index copy is only as fresh as the last hydrate; the items fetch
+  // returns the list alongside them and reload() runs after every sync, so
+  // sync state (last_synced_at, last_sync_error) must come from that one or a
+  // just-resolved error would not appear until the next round-trip.
+  const list = fetchedList ? { ...indexList, ...fetchedList } : indexList
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [syncMsg, setSyncMsg] = useState(null)
@@ -238,6 +243,17 @@ function ListDetail({ list, onBack, onEditList, onDeleteList }) {
       </div>
 
       {syncMsg && <div className="v2-lists-msg" onClick={() => setSyncMsg(null)}>{syncMsg}</div>}
+
+      {/* Passive sync trouble, shown without having to open settings or press
+          Sync. A list that silently stops reaching Trello looks identical to
+          one that is working, which is the worst possible failure for a list
+          someone else is relying on. */}
+      {!syncMsg && list.last_sync_error && (
+        <div className="v2-lists-link-warn v2-lists-detail-warn">
+          <AlertTriangle size={14} strokeWidth={2} />
+          <span>{list.last_sync_error}</span>
+        </div>
+      )}
 
       <form className="v2-lists-add" onSubmit={submit}>
         <input
