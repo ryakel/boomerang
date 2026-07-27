@@ -3895,7 +3895,21 @@ function kickSync(listId) {
 app.get('/api/lists', (req, res) => {
   const lists = getAllLists().map(l => {
     const items = getListItems(l.id)
-    return { ...l, item_count: items.length, unchecked_count: items.filter(i => !i.checked).length }
+    // `last_activity_at` is DERIVED, not stored. `lists.updated_at` only moves
+    // when the list row itself changes (rename, link, sync stamp) — adding milk
+    // never touches it, so sorting by it would rank a list by when it was last
+    // renamed. What "recently updated" means to a person is "when did anything
+    // in here last change", which includes items the sync pulled in from her.
+    // Derived rather than a new column so no existing semantics shift, and no
+    // extra query: the counts above already walk these rows.
+    let last = l.updated_at || ''
+    for (const i of items) if (i.updated_at > last) last = i.updated_at
+    return {
+      ...l,
+      item_count: items.length,
+      unchecked_count: items.filter(i => !i.checked).length,
+      last_activity_at: last || null,
+    }
   })
   res.json({ lists })
 })

@@ -274,3 +274,57 @@
   border-radius: 8px;
   background: var(--v2-surface);
 }
+
+/* ── sort + manual reorder ──────────────────────────────────────────── */
+
+/* Segmented control, matching the settings segment vocabulary rather than
+ * inventing a third one. Sort is view state only — none of these three
+ * buttons writes anything; see the comment on SORT_KEY in ListsModal.jsx. */
+.v2-lists-sort {
+  display: flex;
+  gap: 2px;
+  margin: 0 0 10px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--v2-surface-sunken, rgba(127, 127, 127, 0.09));
+}
+.v2-lists-sort-btn {
+  flex: 1;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 12.5px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-lists-sort-btn:hover { color: var(--v2-text); }
+.v2-lists-sort-btn-active {
+  background: var(--v2-surface, rgba(127, 127, 127, 0.16));
+  color: var(--v2-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* The handle is the only draggable target. A whole-row drag would compete
+ * with the tap that opens the list — on touch every press becomes a
+ * candidate drag, and the list stops opening reliably. */
+.v2-lists-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  margin-left: -4px;
+  color: var(--v2-text-faint);
+  cursor: grab;
+  touch-action: none;
+}
+.v2-lists-grip:active { cursor: grabbing; }
+
+.v2-lists-dragging { opacity: 0.4; }
+/* The insertion point, drawn as an edge rather than a moving gap so rows
+ * don't jump around under the cursor mid-drag. */
+.v2-lists-dropinto .v2-lists-index-row {
+  box-shadow: inset 0 2px 0 var(--v2-ember, var(--bm-ember, currentColor));
+}

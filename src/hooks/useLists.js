@@ -43,7 +43,29 @@ export function useLists() {
     setLists(prev => prev.filter(l => l.id !== id))
   }, [])
 
-  return { lists, loading, reload, addList, editList, removeList }
+  // Manual order, after a drag. `sort_order` is a BOOMERANG-ONLY column — the
+  // sync engine never pushes list order anywhere, so reordering lists writes
+  // nothing to Trello and cannot disturb a list someone else is relying on.
+  // (Reordering ITEMS is the opposite: `position` is what Trello orders by.
+  // That is a separate, riskier piece — see wiki/Claude-Notes-Integrations.md.)
+  const reorderLists = useCallback(async (orderedIds) => {
+    const index = new Map(orderedIds.map((id, i) => [id, i]))
+    // Optimistic — a drag that visibly snaps back while the server thinks
+    // about it feels broken even when it succeeds.
+    setLists(prev => [...prev].sort((a, b) => (index.get(a.id) ?? 0) - (index.get(b.id) ?? 0))
+      .map(l => ({ ...l, sort_order: index.get(l.id) ?? l.sort_order })))
+    try {
+      // Only the rows that actually moved. N is small (one row per list), and
+      // skipping unchanged ones keeps a nudge of one list from rewriting all.
+      await Promise.all(orderedIds.map((id, i) => updateListApi(id, { sort_order: i })))
+    } catch (err) {
+      console.error('[Lists] Reorder failed:', err)
+      await reload() // server is the source of truth; take its answer back
+      throw err
+    }
+  }, [reload])
+
+  return { lists, loading, reload, addList, editList, removeList, reorderLists }
 }
 
 // Items for one open list. Separate hook so the index doesn't carry every

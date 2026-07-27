@@ -269,24 +269,41 @@ Keep `checklist` scope working — it is the right answer for linking one
 checklist on a card full of unrelated ones.
 
 **Sorting — name and recently-updated are VIEW state and must never write.**
-Only drag writes. This is the trap: `position` is the field Trello orders by,
-so a sort mode that "applied" itself by renumbering `position` would push a
-full reorder of her checklist to Trello *every time the sort dropdown
-changed*. Sort preference belongs in local view state; `position` stays the
-one drag-owned column. (`position` is REAL precisely so a drag can insert
-between two neighbours without renumbering the rest.)
+Only drag writes. This is the trap: the ordering columns (`position` on items,
+`sort_order` on lists) are what a sort mode would be tempted to "apply" itself
+into — and at item level `position` is what *Trello* orders by, so renumbering
+it would push a full reorder of her checklist **every time the sort dropdown
+changed**. Sort preference belongs in local view state. (`position` is REAL
+precisely so a drag can insert between two neighbours without renumbering the
+rest.)
 
-Drag itself IS a new write path to her data — `PUT /checkItems/{id}` with a
-new `pos`. It does not delete, so the never-delete-from-a-merge rule holds,
-but it needs the same treatment as every other write: gated by
-`DEV_LIST_SYNC_WRITES` on a dev-shaped server, and surfaced through
-`last_sync_error` when held, or a held reorder is indistinguishable from a
-broken one.
+**Shipped 2026-07-27 — LIST-level sorting only.** Manual / Name / Recent in the
+lists index, mode persisted per-device in `boom_lists_sort_v1` via
+`safeSetItem` (deliberately *not* the settings blob — that is
+last-writer-wins and has eaten data twice, and which order you like looking at
+is not worth that risk). Drag reorders lists by writing `sort_order`.
 
-Open question to settle before building: whether "sort them" means the lists
-themselves or the items within a list. The phrasing and "recently updated"
-both point at lists (a per-item update time is not a thing anyone sorts a
-grocery list by), but drag and name clearly want to apply to items too.
+> **List reorder is Trello-free.** `sort_order` is a Boomerang-only column —
+> the sync engine never pushes list order anywhere — so dragging lists writes
+> nothing to Trello and cannot disturb a list someone else relies on. This is
+> what made list-level sorting the safe half to ship first.
+
+`last_activity_at` (what Recent sorts by) is **derived in the `GET /api/lists`
+route, not stored**. `lists.updated_at` only moves when the list *row* changes
+— a rename, a link, a sync stamp — so adding milk never touches it and sorting
+by it would rank lists by when they were last renamed. Measured, not assumed:
+adding an item left `updated_at` at `…25.262Z` while `last_activity_at` moved
+to `…26.687Z`. Derived rather than a new column so no existing semantics
+shift, and it costs nothing — the route already walks those rows for the
+counts. It also means *her* edits arriving via sync float a list, which is the
+behaviour you actually want.
+
+**Still to do — ITEM-level ordering, the risky half.** Drag on items IS a new
+write path to her data (`PUT /checkItems/{id}` with a new `pos`). It does not
+delete, so the never-delete-from-a-merge rule holds, but it needs the same
+treatment as every other write: gated by `DEV_LIST_SYNC_WRITES` on a
+dev-shaped server, and surfaced through `last_sync_error` when held, or a held
+reorder is indistinguishable from a broken one.
 
 ### Google Calendar Sync (Bidirectional)
 Bidirectional sync between tasks and Google Calendar events. First integration to use OAuth 2.0.
