@@ -105,8 +105,22 @@ before(async () => {
   await waitForHealth()
 })
 
-after(() => {
-  if (serverProc) serverProc.kill()
+after(async () => {
+  // Wait for the server to actually exit before removing its directory.
+  // kill() only delivers the signal, and the server FLUSHES ITS DATABASE on
+  // SIGTERM (plus writes a .bak snapshot) — so it keeps writing into dbDir
+  // after the call returns. Removing immediately races those writes and fails
+  // with `ENOTEMPTY: directory not empty` roughly one run in ten, even though
+  // rmSync is already recursive+force: a file reappears mid-removal. That
+  // surfaced as a random "1 test failed" with no failing assertion, and blocked
+  // the pre-push hook twice before anyone caught it in the act.
+  if (serverProc) {
+    const exited = new Promise(resolve => serverProc.once('exit', resolve))
+    serverProc.kill()
+    // Bounded, so a server that refuses to die can't hang the suite.
+    const timer = new Promise(resolve => setTimeout(resolve, 5000).unref?.())
+    await Promise.race([exited, timer])
+  }
   if (dbDir) rmSync(dbDir, { recursive: true, force: true })
 })
 

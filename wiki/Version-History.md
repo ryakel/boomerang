@@ -6,6 +6,21 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- test(capture): fix the flaky teardown that failed ~1 run in 10 [S]
+  - Caught in the act after it blocked the pre-push hook twice and produced a phantom "81 tests / 1 fail" with no failing assertion — the extra count was node:test reporting a **hook** failure as a test: `not ok 17 - scripts/capture.test.mjs / failureType: 'hookFailed' / ENOTEMPTY: directory not empty, rmdir '/tmp/boom-capture-test-…'`.
+  - Cause: `after()` called `serverProc.kill()` and immediately `rmSync(dbDir, {recursive: true, force: true})`. `kill()` only *delivers* the signal, and the server **flushes its database on SIGTERM** (plus writes a `.bak` snapshot) — so it keeps writing into that directory after the call returns. A file reappearing mid-removal defeats even recursive+force, which is why the existing flags did not help.
+  - Now waits for the process's `exit` event before removing, with a bounded 5s race so a server that refuses to die cannot hang the suite.
+  - Verified by rerunning `capture.test.mjs` **37 times: 0 failures**. Against the observed ~10% rate that is roughly a 2% chance of passing by luck, which is the standard this needed — a flake "fixed" on three green runs is not fixed.
+  - Not related to the lists work; it was pre-existing and simply surfaced because this session pushed often.
+
+- docs(lists): finish the docs sweep for shared lists [S]
+  - Audit of every doc surface the feature touches, rather than the commit-by-commit updates made so far. Four real gaps found:
+  - **`wiki/Architecture.md`** had no `lists`/`list_items` schema, no `/api/lists/*` in the route tree, and its migration counter still read "currently through 033" (stale well before this feature — now 047). Added the full schema with the `shadow_*` and `deleted_at` reasoning inline, since a future reader editing those columns needs to know what they are for.
+  - **The two Trello syncs are now explicitly distinguished** in Architecture's External Sync section. `useExternalSync` is client-side and push-only (task → card) and therefore blind while the app is closed; lists are server-side and bidirectional via `trelloListSync.js` + `listMerge.js`. They share only the REST proxy. Conflating them is the single easiest mistake to make in this codebase now, so it is called out where someone would hit it.
+  - **`README.md`** gained a Shared lists bullet, and its Trello bullet no longer claims "ongoing bidirectional sync" — that was describing the push-only task sync and was never true of it.
+  - **`.env.example`** now documents `DEV_LIST_SYNC_WRITES`, including the rule that it is safe only when dev is the sole writer and must be turned back off before promoting. An env var that can cause two servers to fight over someone else's data should not live only in a commit message.
+  - `CLAUDE.md`'s "where the detail lives" index gained a Shared lists row pointing at both the wiki page and the merge rules + tests.
+
 - docs(lists): pin that the dev seed must not wipe lists [XS]
   - Confirmed by reading `clearAllData()` rather than assuming: it deletes `app_data`, `tasks`, `routines` and `packages` only, so `lists`/`list_items` survive a reseed — the same carve-out that protects notes. This matters more than it looks: dev runs `SEED_DB=1`, so **every push to `dev` reseeds on restart**, and wiping lists there would drop the Trello linkage on every deploy. Recorded as an invariant because a future edit to `clearAllData()` could start destroying it silently, and the symptom — a shared list that quietly stops updating — is the one this feature most needs to avoid.
 

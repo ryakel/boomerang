@@ -88,6 +88,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 |---|---|
 | Feature systems — energy/impact tagging, critical tag, DIY check, routines/loops/stacks/sequences, projects, task model, notes, growth areas, escalation ladder | `wiki/Claude-Notes-Features.md`; user-facing behavior in `wiki/Features.md` |
 | Integrations — Notion, Trello, GCal, Gmail, packages/17track/Shippo, weather, knowledge base | `wiki/Claude-Notes-Integrations.md`, `wiki/Notion-Integration.md` |
+| Shared lists — the server-side bidirectional Trello checklist sync, distinct from the client-side task→card push | `wiki/Claude-Notes-Integrations.md` → Trello List Sync; merge rules in `server/listMerge.js` + `scripts/lists.test.mjs` |
 | Notifications — digest pipeline, the three engines, channels, what survived the reshape | `wiki/Claude-Notes-Notifications.md`, `wiki/Testing-Notification-Stack.md` |
 | Quokka adviser — architecture, tool registry, sessions/plans, health check | `wiki/Claude-Notes-Quokka.md` |
 | Platform — UI history (Kept), auth, iOS native app, security posture, data-durability detail, tech-debt ledger | `wiki/Claude-Notes-Platform.md`, `wiki/iOS-Native-App.md`, `wiki/Architecture.md`, `wiki/Security-Notes.md` |
