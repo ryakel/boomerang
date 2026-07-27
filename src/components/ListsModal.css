@@ -235,3 +235,34 @@
   font: 400 13px/1.45 var(--v2-font-body);
   color: var(--v2-text-meta);
 }
+
+/* Paste-a-link: the only route to a card on a board you are not a member of,
+ * so it sits above the browse cascade rather than below it. */
+.v2-lists-link-paste { display: flex; gap: 6px; }
+.v2-lists-link-paste input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 13px/1.4 var(--v2-font-body);
+}
+.v2-lists-link-paste button {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--v2-hairline);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 13px/1.4 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-lists-link-paste button:disabled { opacity: 0.45; cursor: default; }
+.v2-lists-link-or {
+  margin: 2px 0;
+  font: 400 12px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  text-align: center;
+}

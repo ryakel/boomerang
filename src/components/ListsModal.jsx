@@ -8,6 +8,7 @@ import EmptyState from './EmptyState'
 import { useListItems } from '../hooks/useLists'
 import {
   fetchTrelloBoards, fetchTrelloBoardLists, fetchTrelloListCards, fetchTrelloCardChecklists,
+  fetchTrelloCard, parseTrelloCardRef,
 } from '../api'
 import './ListsModal.css'
 
@@ -36,6 +37,8 @@ function TrelloLinkPanel({ list, onLink, onUnlink, busy }) {
   const [cardId, setCardId] = useState('')
   const [checklists, setChecklists] = useState(null)
   const [error, setError] = useState(null)
+  const [paste, setPaste] = useState('')
+  const [pastedName, setPastedName] = useState(null)
 
   const load = useCallback(async (fn, set) => {
     setError(null)
@@ -53,7 +56,7 @@ function TrelloLinkPanel({ list, onLink, onUnlink, busy }) {
     if (id) load(() => fetchTrelloListCards(id), setCards)
   }
   const pickCard = (id) => {
-    setCardId(id); setChecklists(null)
+    setCardId(id); setChecklists(null); setPastedName(null)
     if (id) load(() => fetchTrelloCardChecklists(id), setChecklists)
   }
 
@@ -80,10 +83,44 @@ function TrelloLinkPanel({ list, onLink, onUnlink, busy }) {
     )
   }
 
+  const findCard = async () => {
+    const ref = parseTrelloCardRef(paste)
+    if (!ref) { setError("That doesn't look like a Trello card link."); return }
+    setError(null)
+    try {
+      const card = await fetchTrelloCard(ref)
+      setCardId(card.id) // canonical id, not the short link
+      setChecklists(await fetchTrelloCardChecklists(card.id))
+      setPastedName(card.name)
+    } catch (err) {
+      setError(err.message)
+      setChecklists(null)
+    }
+  }
+
   return (
     <div className="v2-lists-link">
       <p className="v2-lists-link-intro">Pick the Trello card whose checklist this list should mirror.</p>
       {error && <div className="v2-lists-link-warn"><AlertTriangle size={14} strokeWidth={2} /><span>{error}</span></div>}
+
+      {/* Paste-a-link first: it is both faster and the ONLY route to a card on
+          a board you are not a member of — which is the normal shape of a list
+          someone else owns and shared with you. */}
+      <label className="v2-lists-link-field">
+        <span>Paste a card link</span>
+        <div className="v2-lists-link-paste">
+          <input
+            value={paste}
+            onChange={e => setPaste(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); findCard() } }}
+            placeholder="https://trello.com/c/…"
+          />
+          <button type="button" onClick={findCard} disabled={!paste.trim()}>Find</button>
+        </div>
+      </label>
+      {pastedName && <p className="v2-lists-link-note">Found: <strong>{pastedName}</strong></p>}
+
+      <p className="v2-lists-link-or">or browse your boards</p>
 
       <label className="v2-lists-link-field">
         <span>Board</span>
