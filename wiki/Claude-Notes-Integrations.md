@@ -156,6 +156,48 @@ checklist on a Trello card that someone else also edits.
 Behaviour is pinned by `scripts/lists.test.mjs` (19 tests, in `npm test`).
 Change the merge, run those first.
 
+#### Planned: ordering and nesting (requested 2026-07-27)
+
+Two follow-ups requested once prod lists were live and in daily use. Both are
+designed but not built; the notes below exist because each has one trap that
+is not obvious from the request.
+
+**Nesting — a group is a Trello CARD, a child list is a CHECKLIST on it.**
+The request ("Groceries, with sub-checklists Groceries, Trader Joe's and
+Costco") is already the exact shape Trello stores: a card holds *many*
+checklists, and `syncList` in `server/trelloListSync.js` already fetches
+`/cards/{id}/checklists` and pins one. So nesting is a UI and grouping change,
+**not a new sync concept** — no new write path to someone else's data, and no
+new merge rules. `trello_card_id` is already on every list row, so synced
+siblings are derivable by grouping on it; local-only lists have no card, so
+the general form is a nullable `parent_id` on `lists`, auto-populated from the
+shared card for linked ones.
+
+> **Cap the depth at one level.** Trello has no nested checklists. A
+> grandchild could not round-trip, so it would become a Boomerang-only
+> structure that is simply *invisible* on her side — the failure mode this
+> whole feature exists to prevent.
+
+**Sorting — name and recently-updated are VIEW state and must never write.**
+Only drag writes. This is the trap: `position` is the field Trello orders by,
+so a sort mode that "applied" itself by renumbering `position` would push a
+full reorder of her checklist to Trello *every time the sort dropdown
+changed*. Sort preference belongs in local view state; `position` stays the
+one drag-owned column. (`position` is REAL precisely so a drag can insert
+between two neighbours without renumbering the rest.)
+
+Drag itself IS a new write path to her data — `PUT /checkItems/{id}` with a
+new `pos`. It does not delete, so the never-delete-from-a-merge rule holds,
+but it needs the same treatment as every other write: gated by
+`DEV_LIST_SYNC_WRITES` on a dev-shaped server, and surfaced through
+`last_sync_error` when held, or a held reorder is indistinguishable from a
+broken one.
+
+Open question to settle before building: whether "sort them" means the lists
+themselves or the items within a list. The phrasing and "recently updated"
+both point at lists (a per-item update time is not a thing anyone sorts a
+grocery list by), but drag and name clearly want to apply to items too.
+
 ### Google Calendar Sync (Bidirectional)
 Bidirectional sync between tasks and Google Calendar events. First integration to use OAuth 2.0.
 

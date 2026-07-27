@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-27
 
+- docs(lists): record the requested ordering + nesting follow-ups [XS]
+  - Requested once prod lists were live and in daily use: sort by name / recently updated / drag, and nested lists ("Groceries" with sub-checklists Groceries, Trader Joe's, Costco). Designed, not built — the notes exist because each has one trap invisible from the request itself.
+  - **Nesting is nearly free, because it is already Trello's own shape.** A Trello card holds MANY checklists, and `syncList` already fetches `/cards/{id}/checklists` and pins one. So a group is a CARD and a child list is a CHECKLIST on it: a UI/grouping change, not a new sync concept — no new write path to someone else's data and no new merge rules. `trello_card_id` is already on every row so synced siblings group for free; a nullable `parent_id` covers local-only lists.
+  - **Depth caps at one level.** Trello has no nested checklists, so a grandchild could not round-trip and would become a Boomerang-only structure that is simply invisible on her side — precisely the failure this feature exists to prevent.
+  - **The sorting trap: name and recently-updated are VIEW state and must never write.** `position` is what Trello orders by, so a sort mode that "applied" itself by renumbering positions would push a full reorder of her checklist to Trello every time the dropdown changed. Sort preference stays in local view state; `position` stays the one drag-owned column (it is REAL precisely so a drag inserts between neighbours without renumbering).
+  - Drag itself IS a new write path (`PUT /checkItems/{id}` with a new `pos`). Not a delete, so the never-delete-from-a-merge rule holds — but it needs the standard treatment: gated by `DEV_LIST_SYNC_WRITES` on a dev-shaped server and surfaced via `last_sync_error` when held, since a held reorder is otherwise indistinguishable from a broken one.
+  - One question left open rather than guessed: whether "sort them" means the lists or the items within a list.
+
 - docs(settings): sync NavRow's summary rule with the amended spec [XS]
   - `NavRow`'s doc comment still carried the original §2.4 rule ("if it would need a fetch, pass nothing"), which the PR2 commit below amended. A code comment that contradicts the spec it cites is worse than no comment — the next person adding a summary would follow the wrong one.
 
