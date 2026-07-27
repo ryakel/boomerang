@@ -61,7 +61,7 @@ import {
   getAllListSources, getListSource, upsertListSource, updateListSourcePartial, detachListSource,
   getListItems, getListItem, createListItem, updateListItemPartial, deleteListItem,
 } from './db.js'
-import { initListSync, startListSyncPolling, syncList, syncAllLists, expandSource, expandAllSources } from './trelloListSync.js'
+import { initListSync, startListSyncPolling, syncList, syncAllLists, expandSource, expandAllSources, moveListItem } from './trelloListSync.js'
 import crypto from 'crypto'
 import { initDeviceAuth, onSecurityAlert, enrollDevice, refreshDeviceTokens,
   listDevices, revokeDevice, deleteDevice, issueAttestChallenge,
@@ -4013,6 +4013,26 @@ app.patch('/api/lists/:listId/items/:itemId', (req, res) => {
   const item = updateListItemPartial(req.params.itemId, updates)
   kickSync(req.params.listId)
   res.json({ ok: true, item: publicItem(item) })
+})
+
+// Move ONE item, expressed the way the gesture actually happens: put this
+// item immediately before that one (null = the end). Deliberately not a
+// "here is the whole new order" endpoint — that shape invites renumbering
+// every row, and every renumbered row is a write to someone else's checklist.
+app.post('/api/lists/:listId/items/:itemId/move', async (req, res) => {
+  const existing = getListItem(req.params.itemId)
+  if (!existing || existing.list_id !== req.params.listId || existing.deleted_at) {
+    return res.status(404).json({ error: 'Item not found' })
+  }
+  try {
+    const result = await moveListItem(req.params.listId, req.params.itemId, req.body?.before_id ?? null)
+    res.json({ ok: true, ...result, items: getListItems(req.params.listId).map(publicItem) })
+  } catch (err) {
+    // The local move already happened; only the Trello push failed. Say so on
+    // the list rather than only in a log, and hand back the current truth.
+    updateListPartial(req.params.listId, { last_sync_error: `Reorder not sent to Trello: ${err.message}` })
+    res.status(502).json({ error: err.message, items: getListItems(req.params.listId).map(publicItem) })
+  }
 })
 
 app.delete('/api/lists/:listId/items/:itemId', (req, res) => {

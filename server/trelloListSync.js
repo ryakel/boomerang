@@ -20,11 +20,12 @@
 
 import {
   getSyncableLists, getList, updateListPartial,
-  getListItems, upsertListItem, purgeListItem,
+  getListItems, upsertListItem, purgeListItem, updateListItemPartial,
   getAllListSources, updateListSourcePartial, getListsBySource, upsertList,
 } from './db.js'
 import { planMerge } from './listMerge.js'
 import { planExpansion, groupsFromCard, groupsFromColumn } from './listExpand.js'
+import { planMove } from './listOrder.js'
 
 const TRELLO_BASE = 'https://api.trello.com/1'
 
@@ -128,6 +129,63 @@ async function applyPlan(list, plan) {
   }
 
   return { heldWrites: 0 }
+}
+
+// ============================================================
+// Moving one item — the only ordering write we make
+// ============================================================
+//
+// Item order is the ONE place a Boomerang view choice can rewrite the shape of
+// someone else's checklist, so it is deliberately the narrowest possible path:
+//
+//   - Only an explicit drag ever calls this. Sorting by name or recency is
+//     local view state and never touches `position` (see ListsModal.jsx).
+//   - Order is never reconciled by the merge. `planMerge` does not look at
+//     position and is not being taught to: a background poll that "fixes" the
+//     order would be indistinguishable from her reordering it herself, and
+//     we would fight her every minute.
+//   - One drag is one write. `planMove` slots between neighbours rather than
+//     renumbering, and returns null for a no-op so an accidental tap costs
+//     nothing.
+//
+// Held writes surface exactly like every other push: a reorder that silently
+// did nothing is the failure mode this whole feature is built to avoid.
+export async function moveListItem(listId, itemId, beforeId = null) {
+  const list = getList(listId)
+  if (!list) throw new Error('List not found')
+
+  const items = getListItems(listId)
+  const plan = planMove(items, itemId, beforeId)
+  if (!plan) return { moved: false, heldWrites: 0 }
+
+  // Local first, always. A renumber is free and never leaves Trello because
+  // relative order is what both sides actually agree on — only the dragged
+  // item's new slot is worth a request.
+  for (const r of plan.renumber) {
+    if (r.id !== itemId) updateListItemPartial(r.id, { position: r.position })
+  }
+  const moved = updateListItemPartial(itemId, { position: plan.position })
+
+  // Nothing to push for a list that was never linked, or an item Trello has
+  // not seen yet — its position rides along when it is first created.
+  if (!list.trello_card_id || !moved?.trello_check_item_id) {
+    return { moved: true, heldWrites: 0 }
+  }
+
+  if (!writesAllowed) {
+    const msg = '1 reorder waiting — this server does not write to Trello (dev). Set DEV_LIST_SYNC_WRITES=1 to enable.'
+    console.log(`[ListSync] read-only: reorder held for "${list.name}"`)
+    updateListPartial(listId, { last_sync_error: msg })
+    return { moved: true, heldWrites: 1 }
+  }
+
+  await trello(`/cards/${list.trello_card_id}/checkItem/${moved.trello_check_item_id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pos: plan.position }),
+  }, 'Trello move item')
+
+  return { moved: true, heldWrites: 0 }
 }
 
 // ============================================================

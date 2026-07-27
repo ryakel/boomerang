@@ -374,12 +374,40 @@ shift, and it costs nothing — the route already walks those rows for the
 counts. It also means *her* edits arriving via sync float a list, which is the
 behaviour you actually want.
 
-**Still to do — ITEM-level ordering, the risky half.** Drag on items IS a new
-write path to her data (`PUT /checkItems/{id}` with a new `pos`). It does not
-delete, so the never-delete-from-a-merge rule holds, but it needs the same
-treatment as every other write: gated by `DEV_LIST_SYNC_WRITES` on a
-dev-shaped server, and surfaced through `last_sync_error` when held, or a held
-reorder is indistinguishable from a broken one.
+**Shipped 2026-07-27 — ITEM-level drag, the risky half.** This is the ONE path
+in the whole feature where a Boomerang gesture rewrites the order of a
+checklist someone else reads, so it is deliberately the narrowest one
+available:
+
+- **Only an explicit drag reaches it.** Name/Recent stay pure view state.
+- **Order is never reconciled by the merge, and `planMerge` is not being
+  taught to.** A background poll that "fixed" the order would be
+  indistinguishable from her reordering it herself, and we would fight her
+  every minute. Position is pulled on create and pushed only on drag.
+- **One drag is ONE write.** `server/listOrder.js` (`planMove`, pure, 15
+  tests) slots between neighbours rather than renumbering, and returns null
+  for a no-op so an accidental tap costs nothing. When the neighbours leave no
+  representable gap — everything at 0, the normal state for a list built
+  locally before it ever synced — the whole list renumbers **locally** and
+  still only the dragged item is pushed.
+- **Held writes surface on the list** via `last_sync_error`, gated by
+  `DEV_LIST_SYNC_WRITES` like every other push. A reorder that silently did
+  nothing is the exact failure this feature exists to avoid.
+- The API shape is `POST /api/lists/:listId/items/:itemId/move` with
+  `{before_id}` — "put this one before that one", the gesture as it actually
+  happens. Deliberately **not** a "here is the whole new order" endpoint: that
+  shape invites renumbering every row, and every renumbered row is a write to
+  someone else's checklist. A Trello failure returns 502 with the items
+  intact — the local move stuck, only the push failed, and the list says so.
+- UI: grip on the unchecked items only (reordering the Got pile is busywork),
+  plus a "Move to the end" drop target that appears during a drag, because
+  every row target means "before this one" and the last slot would otherwise
+  be unreachable.
+
+Pinned by `scripts/listOrder.test.mjs` (15, the arithmetic) and
+`scripts/listMove.test.mjs` (9, the applier against the real db with Trello
+stubbed at `fetch` — including that a colliding-position renumber stays local
+and still costs exactly one Trello write).
 
 ### Google Calendar Sync (Bidirectional)
 Bidirectional sync between tasks and Google Calendar events. First integration to use OAuth 2.0.
