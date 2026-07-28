@@ -54,6 +54,11 @@ All settings are accessible via the gear icon in the header, organized into six 
 - **Impact dates** — a list of upcoming events (label, date, lead days, linked task label) that make related work rank higher as they approach (Impact sort, Today ordering). E.g. "Christmas · 12-25 · 21 days lead · label `xmas`" boosts every `xmas`-tagged task through December. Stored as `impact_dates`; Quokka can edit the list too.
 - **AI custom instructions** — free-text field that shapes all AI output (Polish, What Now, Reframe, smart nudges, Quokka tone, size/energy/impact inference). Import from `.md`/`.txt`, export to `.md`, clear button when set. The Anthropic API key itself is configured in Integrations (see below); this tab just links there.
 
+### Lists
+
+- **Voice default** (`default_list_id`, default empty = always ask) — which list a voice capture lands in when you don't name one ("add milk to Boomerang"). Set it in **More → Lists**, next to the list index, because that is where you can see the lists you are choosing between. Empty means Siri asks.
+  - Naming a list explicitly ALWAYS wins over the default. The matching rules are pure and live in `server/listMatch.js`: exact name beats prefix beats substring beats card name, and a tie is **asked about, never guessed** — these lists are shared with someone else, so filing into the wrong one is worse than an extra Siri turn. Orphaned lists are never a target.
+
 ### API Keys (Integrations tab)
 
 ![Settings → Integrations](images/settings-integrations.png)

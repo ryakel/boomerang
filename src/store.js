@@ -24,6 +24,10 @@ export const DEFAULT_SETTINGS = {
   quiet_hours_start: '22:00',
   quiet_hours_end: '08:00',
   default_due_days: 7,
+  // Where a voice capture lands when you don't name a list ("add milk to
+  // Boomerang"). Empty means always ask — see server/listMatch.js, which
+  // refuses to guess between lists rather than filing into the wrong one.
+  default_list_id: '',
   max_open_tasks: 10,
   pileup_exempt_labels: [],
   stale_warn_days: 7,
