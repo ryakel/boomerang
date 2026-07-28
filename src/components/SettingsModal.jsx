@@ -26,26 +26,6 @@ import { MODEL_CATALOG as AI_MODEL_CATALOG, TIER_DEFAULTS as AI_TIER_DEFAULTS } 
 // collapsed (2026-07-17: "Settings should start minimized across the
 // board"). Deliberately NOT persisted: retained open-state is exactly how
 // the pages got long and messy.
-function SettingsSection({ label, hint, children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <div className="v2-settings-section">
-      <button
-        type="button"
-        className={`v2-settings-section-header${open ? '' : ' v2-settings-section-header-collapsed'}`}
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-      >
-        <span className="v2-settings-section-chev" aria-hidden="true">{open ? '\u25be' : '\u25b8'}</span>
-        <span className="v2-settings-section-header-text">
-          <span className="v2-form-label">{label}</span>
-          {hint && <span className="v2-settings-row-hint">{hint}</span>}
-        </span>
-      </button>
-      {open && children}
-    </div>
-  )
-}
 
 function Toggle({ checked, onChange, disabled }) {
   return (
@@ -264,6 +244,8 @@ const CATEGORIES = ['General', 'Tasks', 'Labels', 'Integrations', 'Notifications
 const PAGE_TITLES = {
   'Tasks/impact': 'Impact dates',
   'Tasks/instructions': 'Custom instructions',
+  'Data/devices': 'Devices',
+  'Data/logs': 'Server logs',
 }
 
 // All Settings tabs now have v2 implementations.
@@ -2986,8 +2968,12 @@ export default function SettingsModal({
       import('../api').then(m => m.trelloStatus()).catch(() => null),
       import('../api').then(m => m.gcalStatus()).catch(() => null),
       import('../api').then(m => m.gmailStatus()).catch(() => null),
-    ]).then(([keys, notion, trello, gcal, gmail]) => {
-      if (!cancelled) setConnStatus({ keys: keys || {}, notion, trello, gcal, gmail })
+      // Device count feeds the Data page's Devices row. Fetched here with the
+      // rest rather than lifted out of AuthDevicesBlock, so that component
+      // stays self-contained and the row still gets a real value.
+      import('../api').then(m => m.getAuthDevices()).catch(() => null),
+    ]).then(([keys, notion, trello, gcal, gmail, devices]) => {
+      if (!cancelled) setConnStatus({ keys: keys || {}, notion, trello, gcal, gmail, devices })
     }).catch(() => { /* summary stays empty; never blocks the surface */ })
     return () => { cancelled = true }
   }, [open])
@@ -3397,27 +3383,46 @@ export default function SettingsModal({
 
         {page === 'Data' && (
           <div className="v2-settings-form">
-            {isNativeShell() && (
-              <SettingsSection label="Server connection" hint="Which server this app talks to.">
-                <div className="v2-settings-block">
-                  <div className="v2-settings-row-hint">
-                    This app talks to <strong>{getApiBase() || 'no server yet'}</strong>. Changing the server or API token reloads the app.
-                  </div>
-                  <button className="v2-settings-btn" onClick={requestConnectionSetup}>
-                    <Server size={13} strokeWidth={1.75} /> Change server…
-                  </button>
-                </div>
-              </SettingsSection>
-            )}
+            <SettingsGroup>
+              {isNativeShell() && (
+                <SettingRow
+                  label="Server"
+                  info="Changing the server or API token reloads the app."
+                  value={getApiBase() || 'not set'}
+                  trailing={
+                    <button className="v2-settings-btn" onClick={requestConnectionSetup}>
+                      <Server size={13} strokeWidth={1.75} /> Change…
+                    </button>
+                  }
+                />
+              )}
+              <NavRow
+                label="Devices"
+                summary={connStatus?.devices
+                  ? `${connStatus.devices.length} device${connStatus.devices.length === 1 ? '' : 's'}`
+                  : ''}
+                onPress={() => setPage('Data/devices')}
+                info="Per-device access tokens. Revoking a device kills its tokens immediately; a superseded refresh token presented again auto-revokes and alerts."
+              />
+              <NavRow
+                label="Server logs"
+                onPress={() => setPage('Data/logs')}
+                info="Live tail of the running server — Google, push, email, DB and SSE lines, plus errors."
+              />
+              <SettingRow
+                label="Activity log"
+                info="Audit trail of edits, completions and deletes. Deleted tasks can be restored from snapshots in the log."
+                onPress={onShowActivityLog ? () => { onClose?.(); onShowActivityLog() } : undefined}
+                disabled={!onShowActivityLog}
+                trailing={<ChevronRight size={16} strokeWidth={2} className="v2-set-row-chev" />}
+              />
+            </SettingsGroup>
 
-            <SettingsSection label="Devices & security" hint="Per-device access tokens (auth Phase A). Revoking a device kills its tokens immediately; a superseded refresh token presented again auto-revokes + alerts.">
-              <AuthDevicesBlock />
-            </SettingsSection>
-
-            <SettingsSection label="Backup" hint="Export / import everything as one JSON file.">
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">Export tasks, routines, settings, and labels as a single JSON file. Importing replaces the current state and reloads.</div>
-              <div className="v2-settings-actions">
+            <SettingsGroup caption="Import & export">
+              <ActionRow
+                label="Backup"
+                info="Tasks, routines, settings and labels as one JSON file. Importing REPLACES the current state and reloads."
+              >
                 <button className="v2-settings-btn" onClick={handleExportData}>
                   <Download size={13} strokeWidth={1.75} /> Export
                 </button>
@@ -3425,61 +3430,45 @@ export default function SettingsModal({
                 <button className="v2-settings-btn" onClick={() => dataImportRef.current?.click()}>
                   <Upload size={13} strokeWidth={1.75} /> Import
                 </button>
-              </div>
-            </div>
-
-            </SettingsSection>
-
-            <SettingsSection label="Activity" hint="Audit trail of edits, completions, and deletes.">
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">Deleted tasks can be restored from snapshots in the log.</div>
-              <button
-                className="v2-settings-btn"
-                onClick={() => { onClose?.(); onShowActivityLog?.() }}
-                disabled={!onShowActivityLog}
-              >
-                <FileText size={13} strokeWidth={1.75} /> Open activity log
-              </button>
-            </div>
-
-            </SettingsSection>
-
-            <SettingsSection label="Server logs" hint="Live tail of the server process.">
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">Google/Push/Email/DB/SSE lines and errors from the running server.</div>
-              <ServerLogsPanel />
-            </div>
-
-            </SettingsSection>
-
-            <SettingsSection label="Markdown import" hint="Parse a pasted markdown list into tasks.">
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">Paste a markdown list or checklist and have it parsed into tasks. Rarely used; lives here so it doesn't crowd the main menu.</div>
-              <button
-                className="v2-settings-btn"
-                onClick={() => { onClose?.(); onShowMarkdownImport?.() }}
-                disabled={!onShowMarkdownImport}
-              >
-                <Upload size={13} strokeWidth={1.75} /> Import from markdown
-              </button>
-            </div>
-
-            </SettingsSection>
+              </ActionRow>
+              {/* No description: the button says what it does. The old copy
+                  ("rarely used; lives here so it doesn't crowd the main menu")
+                  was meta-commentary about the UI's own layout, which is
+                  exactly the kind of prose §1.5 says has to be earned. */}
+              <ActionRow label="Markdown">
+                <button
+                  className="v2-settings-btn"
+                  onClick={() => { onClose?.(); onShowMarkdownImport?.() }}
+                  disabled={!onShowMarkdownImport}
+                >
+                  <Upload size={13} strokeWidth={1.75} /> Import from markdown
+                </button>
+              </ActionRow>
+            </SettingsGroup>
 
             {isDev && (
-              <SettingsSection label="Developer · dev only" hint="Reseed this dev database.">
-              <div className="v2-settings-block">
-                <div className="v2-settings-row-hint">Wipe this dev database and reload fresh seed data (tasks rebased to today, ~250 days of routine history). Only shown on the dev build; the server blocks it everywhere else.</div>
-                <button className="v2-settings-btn" onClick={handleReseed} disabled={reseeding}>
-                  <RefreshCw size={13} strokeWidth={1.75} /> {reseeding ? 'Reseeding…' : 'Reseed dev database'}
-                </button>
-              </div>
-              </SettingsSection>
+              <SettingsGroup caption="Developer · dev only">
+                <ActionRow info="Wipe this dev database and reload fresh seed data. Only shown on the dev build; the server blocks it everywhere else.">
+                  <button className="v2-settings-btn" onClick={handleReseed} disabled={reseeding}>
+                    <RefreshCw size={13} strokeWidth={1.75} /> {reseeding ? 'Reseeding…' : 'Reseed dev database'}
+                  </button>
+                </ActionRow>
+              </SettingsGroup>
             )}
 
-            <SettingsSection label="Danger zone" hint="These wipe data. No undo other than restoring from a backup.">
-            <div className="v2-settings-danger">
-              <div className="v2-settings-danger-actions">
+            {/* The ONE framed element in the whole surface, and last on the
+                page. That exception is the point (§4): everything else is a
+                plain hairline row, so the frame means "this one is different".
+                Never collapsed — hiding a wipe button behind a disclosure is
+                how you tap it by accident. Its description is persistent
+                rather than behind an ⓘ, because "no undo" is not something to
+                make someone go looking for. */}
+            <div className="v2-set-danger">
+              <h3 className="v2-set-danger-caption">Danger zone</h3>
+              <p className="v2-set-danger-note">
+                These wipe data. There is no undo other than restoring from a backup.
+              </p>
+              <div className="v2-set-danger-actions">
                 <button
                   className="v2-settings-btn v2-settings-btn-danger v2-settings-btn-block"
                   onClick={onClearCompleted}
@@ -3498,7 +3487,25 @@ export default function SettingsModal({
                 </button>
               </div>
             </div>
-            </SettingsSection>
+          </div>
+        )}
+
+        {page === 'Data/devices' && (
+          <div className="v2-settings-form">
+            <p className="v2-set-page-intro">
+              Per-device access tokens. Revoking a device kills its tokens immediately;
+              a superseded refresh token presented again auto-revokes and raises a security alert.
+            </p>
+            <AuthDevicesBlock />
+          </div>
+        )}
+
+        {page === 'Data/logs' && (
+          <div className="v2-settings-form">
+            <p className="v2-set-page-intro">
+              Live tail of the running server — Google, push, email, DB and SSE lines, plus errors.
+            </p>
+            <ServerLogsPanel />
           </div>
         )}
 

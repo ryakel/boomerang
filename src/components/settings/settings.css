@@ -275,3 +275,41 @@
   text-transform: uppercase;
   color: var(--v2-text-faint);
 }
+
+/* ── the danger card ────────────────────────────────────────────────── */
+
+/* The ONE framed element in the whole settings surface. Everything else is a
+ * plain hairline row, which is exactly what makes the frame mean something:
+ * "this one is different." It is always last on its page and NEVER collapses —
+ * hiding a wipe button behind a disclosure is how you tap it by accident.
+ *
+ * Re-tokened to --bm-danger, which is already the app-wide destructive colour
+ * (ConnectionSetup, LoginScreen). It previously used a hardcoded rgba(232,68,58)
+ * that matched nothing else and drifted from the palette on its own. */
+.v2-set-danger {
+  margin-top: 28px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--bm-danger, #c0392b) 28%, transparent);
+  background: color-mix(in srgb, var(--bm-danger, #c0392b) 5%, transparent);
+}
+.v2-set-danger-caption {
+  margin: 0 0 6px;
+  font: 600 11px/1 var(--v2-font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bm-danger, #c0392b);
+}
+/* Persistent, not behind an ⓘ — "no undo" is not something to make someone go
+ * looking for (§1.5's one sanctioned exception). */
+.v2-set-danger-note {
+  margin: 0 0 12px;
+  font: 400 12px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  max-width: 52ch;
+}
+.v2-set-danger-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

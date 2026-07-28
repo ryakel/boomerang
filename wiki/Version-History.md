@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-28
 
+- feat(settings): Data converted, danger card re-tokened, SettingsSection deleted (rebuild PR4) [M]
+  - Fourth of the seven PRs in `wiki/Settings-Design-Language.md` §9. Data becomes flat rows plus two sub-pages: **Devices** (`0 devices ›`) and **Server logs** — both previously collapsed sections whose contents are long enough to deserve their own page.
+  - **The danger card is the ONE framed element in the whole surface, and that exception is the point.** Everything else is a plain hairline row, which is exactly what makes a frame mean "this one is different". It sits last, **never collapses** — hiding a wipe button behind a disclosure is how you tap it by accident — and its "no undo" note is **persistent rather than behind an ⓘ**, §1.5's one sanctioned exception.
+  - **Re-tokened to `--bm-danger`**, already the app-wide destructive colour (ConnectionSetup, LoginScreen). It had been a hardcoded `rgba(232, 68, 58, …)` matching nothing else, free to drift from the palette on its own.
+  - **`SettingsSection` deleted** — 20 lines. PR3's conversion left it referenced only by Data; converting Data left it referenced by nothing at all. The plan had this in PR7, but carrying a dead component through two more PRs serves nobody, and the teardown still has plenty to do (the local `SectionHeader`, tab CSS, dead classes). **Zero `SettingsSection` references remain in `src/`.**
+  - The Devices row's summary is a real count, fetched alongside the integration statuses rather than lifted out of `AuthDevicesBlock` — that component stays self-contained and the row still gets a value.
+  - Cut one description as unearned: Markdown import's "rarely used; it lives here so it doesn't crowd the main menu" was meta-commentary about the UI's own layout, and the button already says what it does.
+  - Verified in a browser: Data renders **0 old `SettingsSection`s**, the danger card present and confirmed **last child** with its note visible, `0 devices` on the Devices row, and both sub-pages titling correctly with a "‹ Data" back affordance. No page errors. ESLint 0 errors, build ✓, 134/134 + smoke, audit clean.
+
 - feat(settings): General + Tasks converted to the design language (rebuild PR3) [L]
   - Third of the seven PRs in `wiki/Settings-Design-Language.md` §9, and the one the spec calls the proof artifact — the first pages that actually *look* like the language rather than merely living inside its navigation.
   - **General: 7 rows, 3 groups, nothing collapsed** (Appearance / Home screen / About), exactly as §8 specifies. Every value visible in one glance where before it was three collapsed strips over two-thirds dead space, zero values shown, and 3 taps to see anything. The theme marketing copy ("warm Smoke/Linen canvases, arcs not grids") is **deleted rather than folded** — you can see both themes by tapping them, so prose describing them is pure cost. "Open strip by default" is a dependent row: it dims to 45% while its parent toggle is off instead of vanishing, so the relationship stays visible.
