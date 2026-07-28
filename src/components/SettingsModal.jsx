@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server, Info } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
+import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server } from 'lucide-react'
 import { isNativeShell, getApiBase, requestConnectionSetup } from '../apiConfig'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
@@ -9,7 +9,10 @@ import {
 import { restoreFromBackup } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import ModalShell from './ModalShell'
-import { SettingsNav, SettingsPage, SettingsGroup, NavRow } from './settings'
+import {
+  SettingsNav, SettingsPage, SettingsGroup,
+  SettingRow, ToggleRow, SegmentRow, ValueRow, NavRow, ActionRow, StatusRow,
+} from './settings'
 import EmptyState from './EmptyState'
 import AutosaveIndicator from './AutosaveIndicator'
 import { applyTheme } from '../theme'
@@ -40,31 +43,6 @@ function SettingsSection({ label, hint, children, defaultOpen = false }) {
         </span>
       </button>
       {open && children}
-    </div>
-  )
-}
-
-// Row whose explanatory hint stays hidden until the label is tapped
-// (2026-07-17: "Build numbers — I want to click on each for a description —
-// otherwise they should be minimized"). The control/value stays visible;
-// only the paragraph folds.
-function InfoHintRow({ label, hint, children }) {
-  const [show, setShow] = useState(false)
-  return (
-    <div className="v2-settings-row">
-      <div className="v2-settings-row-text">
-        <button
-          type="button"
-          className="v2-settings-info-label"
-          onClick={() => setShow(s => !s)}
-          aria-expanded={show}
-        >
-          <span className="v2-settings-row-label">{label}</span>
-          <Info size={13} strokeWidth={1.75} className="v2-settings-info-icon" aria-hidden="true" />
-        </button>
-        {show && <div className="v2-settings-row-hint">{hint}</div>}
-      </div>
-      {children}
     </div>
   )
 }
@@ -245,11 +223,48 @@ function LabelsPanel() {
 // same category as the Data tab's activity log / backup tools). Folded AI's
 // one real setting (custom instructions) in next to the task-behavior
 // thresholds it's most related to as "Tasks", and Logs into Data.
+// A labelled number with its unit. Composed from SettingRow rather than being
+// a new row kind: the unit is what makes the number legible ("3 snoozes" needs
+// no hint at all), and putting it beside the input is cheaper than a sentence
+// underneath. Composition, not a parallel implementation — the thing §7 exists
+// to prevent.
+function NumberRow({ label, info, unit, value, onChange, min, max, disabled }) {
+  return (
+    <SettingRow
+      label={label}
+      info={info}
+      disabled={disabled}
+      trailing={
+        <span className="v2-set-number">
+          <input
+            className="v2-form-input v2-settings-compact-input"
+            type="number"
+            min={min}
+            max={max}
+            aria-label={label}
+            value={value}
+            onChange={e => onChange(parseInt(e.target.value, 10))}
+          />
+          {unit && <span className="v2-set-number-unit">{unit}</span>}
+        </span>
+      }
+    />
+  )
+}
+
 // The settings categories, in index order. Formerly the tab strip — which
 // overflowed on a phone ("Notifications" clipped to "Notifica" with nothing
 // hinting it scrolled) and, being pure chrome, told you nothing about your
 // setup. As index rows they each carry a live value summary instead.
 const CATEGORIES = ['General', 'Tasks', 'Labels', 'Integrations', 'Notifications', 'Data']
+
+// Sub-page titles. Page ids are paths ('Tasks/impact'), so a category page's
+// title is just its own name; only the leaves below need naming. Capped at one
+// level of sub-page — §6's rule that anything deeper wants splitting instead.
+const PAGE_TITLES = {
+  'Tasks/impact': 'Impact dates',
+  'Tasks/instructions': 'Custom instructions',
+}
 
 // All Settings tabs now have v2 implementations.
 
@@ -3048,12 +3063,16 @@ export default function SettingsModal({
           </SettingsGroup>
         </SettingsPage>
       ) : (
-      <SettingsPage title={page} onBack={() => setPage('index')}>
+      <SettingsPage
+        title={PAGE_TITLES[page] || page}
+        backLabel={page.includes('/') ? page.split('/')[0] : 'Settings'}
+        onBack={() => setPage(page.includes('/') ? page.split('/')[0] : 'index')}
+      >
       <div className="v2-settings-content">
 
         {page === 'General' && (
           <div className="v2-settings-form">
-            <SettingsSection label="Appearance" hint="Theme family and light/dark mode.">
+            <SettingsGroup caption="Appearance">
             {(() => {
               const currentTheme = settings.theme || 'light'
               const family = currentTheme.startsWith('kept') ? 'kept' : 'standard'
@@ -3067,255 +3086,291 @@ export default function SettingsModal({
               }
               return (
                 <>
-                  <div className="v2-settings-row v2-settings-row-stacked">
-                    <div className="v2-settings-row-text">
-                      <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm hairline UI. Kept is the Boomerang language — warm Smoke/Linen canvases with ember + gold, arcs not grids.</div>
-                    </div>
-                    <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
-                      {[
-                        { value: 'standard', label: 'Standard' },
-                        { value: 'kept', label: 'Kept' },
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          role="radio"
-                          aria-checked={family === opt.value}
-                          className={`v2-settings-segment-btn${family === opt.value ? ' v2-settings-segment-btn-active' : ''}`}
-                          onClick={() => setTheme(opt.value, mode)}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="v2-settings-row v2-settings-row-stacked">
-                    <div className="v2-settings-row-text">
-                      <div className="v2-settings-row-label">Mode</div>
-                      <div className="v2-settings-row-hint">Light, dark, or follow your device's setting. Applies to whichever family is active.</div>
-                    </div>
-                    <div className="v2-settings-segment" role="radiogroup" aria-label="Theme mode">
-                      {[
-                        { value: 'light', label: 'Light' },
-                        { value: 'dark', label: 'Dark' },
-                        { value: 'system', label: 'System' },
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          role="radio"
-                          aria-checked={mode === opt.value}
-                          className={`v2-settings-segment-btn${mode === opt.value ? ' v2-settings-segment-btn-active' : ''}`}
-                          onClick={() => setTheme(family, opt.value)}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {/* The marketing copy that used to sit under this label
+                      ("warm Smoke/Linen canvases with ember + gold, arcs not
+                      grids") is deleted rather than folded: you can see both
+                      themes by tapping them, so prose describing them is
+                      pure cost. */}
+                  <SegmentRow
+                    label="Theme"
+                    value={family}
+                    options={[
+                      { value: 'standard', label: 'Standard' },
+                      { value: 'kept', label: 'Kept' },
+                    ]}
+                    onChange={v => setTheme(v, mode)}
+                  />
+                  <SegmentRow
+                    label="Mode"
+                    value={mode}
+                    options={[
+                      { value: 'light', label: 'Light' },
+                      { value: 'dark', label: 'Dark' },
+                      { value: 'system', label: 'System' },
+                    ]}
+                    onChange={v => setTheme(family, v)}
+                    stacked
+                  />
                 </>
               )
             })()}
-            </SettingsSection>
+            </SettingsGroup>
 
-            <SettingsSection label="Home screen" hint="7-day strip and daily goal.">
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Show 7-day strip (light/dark)</div>
-                <div className="v2-settings-row-hint">Calendar row above the task list with activity intensity per day. Tap the date in the home stats line to show/hide.</div>
-              </div>
-              <Toggle checked={settings.show_week_strip} onChange={e => update('show_week_strip', e.target.checked)} />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Open 7-day strip by default</div>
-                <div className="v2-settings-row-hint">Show the strip expanded when the app loads. Tap the date in the home stats line any time to hide it or re-open it.</div>
-              </div>
-              <Toggle checked={settings.week_strip_always_open} onChange={e => update('week_strip_always_open', e.target.checked)} />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-daily-goal">Daily task goal</label>
-                <div className="v2-settings-row-hint">Used by the progress bar + activity intensity on the 7-day strip.</div>
-              </div>
-              <input
-                id="v2-daily-goal"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="1"
-                max="50"
-                value={settings.daily_task_goal ?? 3}
-                onChange={e => update('daily_task_goal', parseInt(e.target.value) || 1)}
+            <SettingsGroup caption="Home screen">
+              <ToggleRow
+                label="Show 7-day strip"
+                checked={settings.show_week_strip}
+                onChange={e => update('show_week_strip', e.target.checked)}
+                info="Calendar row above the task list with activity intensity per day. Tap the date in the home stats line to show or hide it."
               />
-            </div>
+              {/* Dependent rows DIM rather than disappear, so the relationship
+                  between the parent toggle and this one stays visible instead
+                  of being a mystery. */}
+              <ToggleRow
+                label="Open strip by default"
+                checked={settings.week_strip_always_open}
+                onChange={e => update('week_strip_always_open', e.target.checked)}
+                disabled={!settings.show_week_strip}
+                info="Show the strip expanded when the app loads. Tap the date in the home stats line any time to hide or re-open it."
+              />
+              <SettingRow
+                label="Daily task goal"
+                info="Used by the progress bar and the activity intensity on the 7-day strip."
+                trailing={
+                  <input
+                    className="v2-form-input v2-settings-compact-input"
+                    type="number"
+                    min="1"
+                    max="50"
+                    aria-label="Daily task goal"
+                    value={settings.daily_task_goal ?? 3}
+                    onChange={e => update('daily_task_goal', parseInt(e.target.value) || 1)}
+                  />
+                }
+              />
+            </SettingsGroup>
 
-            </SettingsSection>
-
-            <SettingsSection label="Build & version" hint="What this client and the server are running.">
-            <InfoHintRow
-              label="App build"
-              hint="The bundle this client is running (in the native app: what Xcode installed; on the web: what the server served)."
-            >
-              <code
-                className="v2-settings-build"
-                onClick={handleBuildTap}
-                role="button"
-                tabIndex={-1}
-              >{__APP_VERSION__}</code>
-            </InfoHintRow>
-
-            <InfoHintRow
-              label="Server version"
-              hint="Live from the connected server's /api/health — what's actually deployed there right now. These two are DIFFERENT builds in the native app; they only match on the web."
-            >
-              <code className="v2-settings-build">{serverVersion || '…'}</code>
-            </InfoHintRow>
-            </SettingsSection>
+            <SettingsGroup caption="About">
+              {/* These two genuinely differ in the native shell, which is why
+                  the explanation earns its ⓘ rather than being deleted. */}
+              <StatusRow
+                label="App build"
+                info="The bundle this client is running — in the native app, what Xcode installed; on the web, what the server served."
+                value={
+                  <code
+                    className="v2-settings-build"
+                    onClick={handleBuildTap}
+                    role="button"
+                    tabIndex={-1}
+                  >{__APP_VERSION__}</code>
+                }
+              />
+              <StatusRow
+                label="Server version"
+                info="Live from the connected server's /api/health — what is actually deployed there right now. In the native app these two are DIFFERENT builds; they only match on the web."
+                value={<code className="v2-settings-build">{serverVersion || '…'}</code>}
+              />
+            </SettingsGroup>
           </div>
         )}
 
         {page === 'Tasks' && (
           <div className="v2-settings-form">
-            <SettingsSection label="Task behavior" hint="Due-date defaults, staleness, reframe trigger, DIY reality check.">
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-default-due-days">Default due date</label>
-                <div className="v2-settings-row-hint">Days from now. 0 = no default; tasks ship without a due date unless you pick one.</div>
-              </div>
-              <input
-                id="v2-default-due-days"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="0"
-                max="90"
+            <SettingsGroup caption="Behavior">
+              <NumberRow
+                label="Default due date"
+                info="Days from now. 0 means no default — tasks ship without a due date unless you pick one."
+                unit="days"
+                min={0} max={90}
                 value={settings.default_due_days ?? 7}
-                onChange={e => update('default_due_days', parseInt(e.target.value) || 0)}
+                onChange={v => update('default_due_days', v || 0)}
               />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-staleness-days">Staleness threshold</label>
-                <div className="v2-settings-row-hint">Days of inactivity before a task counts as stale — drives the Stale section on the task list AND the Stale notification type (Settings → Notifications).</div>
-              </div>
-              <input
-                id="v2-staleness-days"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="1"
-                max="30"
+              <NumberRow
+                label="Staleness threshold"
+                info="Days of inactivity before a task counts as stale. Drives the Stale section on the task list AND the Stale notification type."
+                unit="days"
+                min={1} max={30}
                 value={settings.staleness_days ?? 7}
-                onChange={e => update('staleness_days', parseInt(e.target.value) || 1)}
+                onChange={v => update('staleness_days', v || 1)}
               />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-reframe-threshold">Reframe trigger</label>
-                <div className="v2-settings-row-hint">Snooze count after which tapping Snooze opens the Reframe modal instead.</div>
-              </div>
-              <input
-                id="v2-reframe-threshold"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="1"
-                max="20"
+              {/* No hint: "snoozes" already says what the number counts. */}
+              <NumberRow
+                label="Reframe after"
+                unit="snoozes"
+                min={1} max={20}
                 value={settings.reframe_threshold ?? 3}
-                onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
+                onChange={v => update('reframe_threshold', v || 1)}
               />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">DIY reality check</div>
-                <div className="v2-settings-row-hint">Repair/construction-shaped tasks get an automatic, blunt "DIY or hire it out?" verdict — hire-out by default. A hire verdict switches that task's reminders to push the call instead of the repair. Override per-task in the edit modal.</div>
-              </div>
-              <Toggle
+              <ToggleRow
+                label="DIY reality check"
                 checked={settings.diy_reality_check !== false}
                 onChange={e => update('diy_reality_check', e.target.checked)}
+                info="Repair and construction-shaped tasks get a blunt “DIY or hire it out?” verdict — hire-out by default. A hire verdict switches that task's reminders to push the call instead of the repair. Override per task in the edit modal."
               />
-            </div>
+            </SettingsGroup>
 
-            </SettingsSection>
+            <SettingsGroup caption="Impact dates">
+              <NavRow
+                label="Impact dates"
+                summary={(settings.impact_dates || []).length
+                  ? `${(settings.impact_dates || []).length} date${(settings.impact_dates || []).length === 1 ? '' : 's'}`
+                  : 'None'}
+                onPress={() => setPage('Tasks/impact')}
+                info="Events that make related work more urgent as they approach — a holiday, a visit, a trip."
+              />
+            </SettingsGroup>
 
-            <SettingsSection label="Impact dates" hint="Events that make related work more urgent as they approach.">
+            <SettingsGroup caption="AI">
+              {/* The summary is Set/Off, never the prose. A row at rest shows
+                  its VALUE — the instructions themselves live on the page. */}
+              <NavRow
+                label="Custom instructions"
+                summary={settings.custom_instructions?.trim() ? 'Set' : 'Off'}
+                onPress={() => setPage('Tasks/instructions')}
+              />
+              {[
+                { key: 'ai_model_workhorse', label: 'Workhorse model', def: AI_TIER_DEFAULTS.workhorse,
+                  info: 'Classification, inference, polish and scans. OpenAI models need a key under Settings → Integrations.' },
+                { key: 'ai_model_quick', label: 'Quick model', def: AI_TIER_DEFAULTS.quick,
+                  info: 'One-liners and AI search. Quokka and image/PDF analysis always use Anthropic.' },
+              ].map(({ key, label, def, info }) => {
+                const known = AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def))
+                return (
+                  <Fragment key={key}>
+                    <ValueRow
+                      label={label}
+                      info={info}
+                      trailing={
+                        <select
+                          className="v2-form-input v2-settings-inline-select"
+                          aria-label={label}
+                          value={known ? (settings[key] || def) : '__custom'}
+                          onChange={e => update(key, e.target.value === '__custom' ? `anthropic:${settings[key] || def}` : e.target.value)}
+                        >
+                          <optgroup label="Anthropic">
+                            {AI_MODEL_CATALOG.filter(m => m.provider === 'anthropic').map(m => (
+                              <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="OpenAI">
+                            {AI_MODEL_CATALOG.filter(m => m.provider === 'openai').map(m => (
+                              <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
+                            ))}
+                          </optgroup>
+                          <option value="__custom">Custom…</option>
+                        </select>
+                      }
+                    />
+                    {!known && (
+                      <SettingRow
+                        label="Custom model id"
+                        trailing={
+                          <input
+                            type="text"
+                            className="v2-form-input"
+                            aria-label={`${label} custom id`}
+                            placeholder="provider:model-id"
+                            value={settings[key] || ''}
+                            onChange={e => update(key, e.target.value)}
+                          />
+                        }
+                      />
+                    )}
+                  </Fragment>
+                )
+              })}
+            </SettingsGroup>
+          </div>
+        )}
 
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">
-                Events that make related work more urgent as they approach — a holiday, a visit, a trip. Tasks sharing the event's label rank higher in Impact sort / Today ordering during the lead-up. Quokka can edit these too ("add an impact date for Christmas").
-              </div>
+        {/* Sub-page: one row per event instead of five inputs crammed into a
+            wrapping flexbox. */}
+        {page === 'Tasks/impact' && (
+          <div className="v2-settings-form">
+            <p className="v2-set-page-intro">
+              Events that make related work more urgent as they approach. Tasks sharing an
+              event's label rank higher in Impact sort and Today ordering during the lead-up.
+              Quokka can edit these too — “add an impact date for Christmas”.
+            </p>
+            <SettingsGroup>
               {(settings.impact_dates || []).map(ev => (
-                <div key={ev.id} className="v2-settings-row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input
-                    className="v2-form-input"
-                    style={{ flex: '1 1 120px' }}
-                    type="text"
-                    placeholder="Label (e.g. Christmas)"
-                    value={ev.label || ''}
-                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, label: e.target.value } : x))}
-                  />
-                  <input
-                    className="v2-form-input"
-                    style={{ width: 140 }}
-                    type="date"
-                    value={ev.date || ''}
-                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, date: e.target.value } : x))}
-                  />
-                  <input
-                    className="v2-form-input v2-settings-compact-input"
-                    type="number" min="1" max="90"
-                    title="Lead days — how far out the boost starts ramping"
-                    value={ev.lead_days ?? 14}
-                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, lead_days: parseInt(e.target.value, 10) || 14 } : x))}
-                  />
-                  <select
-                    className="v2-form-input"
-                    style={{ width: 130 }}
-                    value={ev.tag || ''}
-                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, tag: e.target.value || null } : x))}
-                  >
-                    <option value="">No label</option>
-                    {loadLabels().map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                  </select>
-                  <button
-                    className="v2-settings-btn v2-settings-btn-danger"
-                    onClick={() => update('impact_dates', (settings.impact_dates || []).filter(x => x.id !== ev.id))}
-                  >
-                    Remove
-                  </button>
+                <div key={ev.id} className="v2-set-impact">
+                  <div className="v2-set-impact-top">
+                    <input
+                      className="v2-form-input"
+                      type="text"
+                      aria-label="Event name"
+                      placeholder="Christmas"
+                      value={ev.label || ''}
+                      onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, label: e.target.value } : x))}
+                    />
+                    <button
+                      className="v2-settings-btn v2-settings-btn-danger"
+                      onClick={() => update('impact_dates', (settings.impact_dates || []).filter(x => x.id !== ev.id))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="v2-set-impact-fields">
+                    <label>
+                      <span>Date</span>
+                      <input
+                        className="v2-form-input"
+                        type="date"
+                        value={ev.date || ''}
+                        onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, date: e.target.value } : x))}
+                      />
+                    </label>
+                    <label>
+                      <span>Lead days</span>
+                      <input
+                        className="v2-form-input"
+                        type="number" min="1" max="90"
+                        value={ev.lead_days ?? 14}
+                        onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, lead_days: parseInt(e.target.value, 10) || 14 } : x))}
+                      />
+                    </label>
+                    <label>
+                      <span>Label</span>
+                      <select
+                        className="v2-form-input"
+                        value={ev.tag || ''}
+                        onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, tag: e.target.value || null } : x))}
+                      >
+                        <option value="">No label</option>
+                        {loadLabels().map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </select>
+                    </label>
+                  </div>
                 </div>
               ))}
-              <div className="v2-settings-actions">
+              <ActionRow>
                 <button
                   className="v2-settings-btn"
                   onClick={() => update('impact_dates', [...(settings.impact_dates || []), { id: uuid(), label: '', date: '', lead_days: 14, tag: null }])}
                 >
-                  + Add impact date
+                  <Plus size={13} strokeWidth={1.75} /> Add impact date
                 </button>
-              </div>
-            </div>
+              </ActionRow>
+            </SettingsGroup>
+          </div>
+        )}
 
-            </SettingsSection>
-
-            <SettingsSection label="AI tone" hint="Custom instructions shaping every AI feature.">
-
-            <div className="v2-settings-block">
-              <label className="v2-form-label" htmlFor="v2-ci">Custom instructions</label>
-              <div className="v2-settings-row-hint">
-                How should the AI talk to you? Shapes every AI feature — task reframes, polish, "what now?" suggestions, Quokka tone, notification rewrites.
-              </div>
-              <textarea
-                id="v2-ci"
-                className="v2-form-textarea v2-settings-ci-textarea"
-                placeholder="e.g. Keep it casual and short. Don't sugarcoat. Phone calls are confrontation-level for me."
-                value={settings.custom_instructions || ''}
-                onChange={e => update('custom_instructions', e.target.value)}
-              />
-              <div className="v2-settings-actions">
+        {page === 'Tasks/instructions' && (
+          <div className="v2-settings-form">
+            <p className="v2-set-page-intro">
+              How should the AI talk to you? Shapes every AI feature — task reframes, polish,
+              “what now?” suggestions, Quokka's tone, notification rewrites.
+            </p>
+            <textarea
+              className="v2-form-textarea v2-settings-ci-textarea"
+              aria-label="Custom instructions"
+              placeholder="e.g. Keep it casual and short. Don't sugarcoat. Phone calls are confrontation-level for me."
+              value={settings.custom_instructions || ''}
+              onChange={e => update('custom_instructions', e.target.value)}
+            />
+            <SettingsGroup>
+              <ActionRow>
                 <input ref={ciFileRef} type="file" accept=".md,.txt,.markdown" onChange={handleCIUpload} hidden />
                 <button className="v2-settings-btn" onClick={() => ciFileRef.current?.click()}>
                   <Upload size={13} strokeWidth={1.75} /> Import
@@ -3335,64 +3390,8 @@ export default function SettingsModal({
                     Clear
                   </button>
                 )}
-              </div>
-            </div>
-            </SettingsSection>
-
-            <SettingsSection label="AI models & keys" hint="Which provider/model runs each tier of AI work.">
-
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">
-                Which model runs each tier of AI work. <strong>Workhorse</strong> handles classification,
-                inference, polish, and scans; <strong>Quick</strong> handles one-liners and AI search.
-                Quokka and image/PDF analysis always use Anthropic. OpenAI models need a key under{' '}
-                <button type="button" className="v2-settings-inline-link" onClick={() => setPage('Integrations')}>Settings → Integrations</button>.
-              </div>
-              {[
-                { key: 'ai_model_workhorse', label: 'Workhorse model', def: AI_TIER_DEFAULTS.workhorse },
-                { key: 'ai_model_quick', label: 'Quick model', def: AI_TIER_DEFAULTS.quick },
-              ].map(({ key, label, def }) => (
-                <div key={key} style={{ marginTop: 10 }}>
-                  <label className="v2-form-label" htmlFor={`v2-${key}`}>{label}</label>
-                  <select
-                    id={`v2-${key}`}
-                    className="v2-form-input"
-                    value={AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def)) ? (settings[key] || def) : '__custom'}
-                    onChange={e => update(key, e.target.value === '__custom' ? `anthropic:${settings[key] || def}` : e.target.value)}
-                  >
-                    <optgroup label="Anthropic">
-                      {AI_MODEL_CATALOG.filter(m => m.provider === 'anthropic').map(m => (
-                        <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="OpenAI">
-                      {AI_MODEL_CATALOG.filter(m => m.provider === 'openai').map(m => (
-                        <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
-                      ))}
-                    </optgroup>
-                    <option value="__custom">Custom…</option>
-                  </select>
-                  {!AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def)) && (
-                    <input
-                      type="text"
-                      className="v2-form-input"
-                      style={{ marginTop: 6 }}
-                      placeholder="provider:model-id, e.g. openai:gpt-5.2"
-                      value={settings[key] || ''}
-                      onChange={e => update(key, e.target.value)}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="v2-settings-block">
-              <div className="v2-form-label">API keys</div>
-              <div className="v2-settings-row-hint">
-                Anthropic keys at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>, OpenAI keys at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">platform.openai.com</a> — both configured under <button type="button" className="v2-settings-inline-link" onClick={() => setPage('Integrations')}>Settings → Integrations</button>.
-              </div>
-            </div>
-            </SettingsSection>
+              </ActionRow>
+            </SettingsGroup>
           </div>
         )}
 

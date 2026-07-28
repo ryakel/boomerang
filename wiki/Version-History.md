@@ -4,6 +4,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-28
+
+- feat(settings): General + Tasks converted to the design language (rebuild PR3) [L]
+  - Third of the seven PRs in `wiki/Settings-Design-Language.md` §9, and the one the spec calls the proof artifact — the first pages that actually *look* like the language rather than merely living inside its navigation.
+  - **General: 7 rows, 3 groups, nothing collapsed** (Appearance / Home screen / About), exactly as §8 specifies. Every value visible in one glance where before it was three collapsed strips over two-thirds dead space, zero values shown, and 3 taps to see anything. The theme marketing copy ("warm Smoke/Linen canvases, arcs not grids") is **deleted rather than folded** — you can see both themes by tapping them, so prose describing them is pure cost. "Open strip by default" is a dependent row: it dims to 45% while its parent toggle is off instead of vanishing, so the relationship stays visible.
+  - **Tasks: 8 rows, 3 groups, two sub-pages** (Behavior / Impact dates / AI). Numeric rows carry their unit beside the input — "3 snoozes" needs no hint at all, which deletes a line of prose per row. The two `NavRow` summaries are values, never prose: `None`/`2 dates` and `Set`/`Off`.
+  - **Sub-pages, and the nav grew real depth to hold them.** Page ids are now paths (`Tasks/impact`), and `SettingsNav`'s depth function counts segments so going back from a sub-page animates backwards rather than forwards. Capped at one level below a category, per §6.
+  - **Impact dates was the worst offender and got the biggest fix:** five inputs crammed into a wrapping flexbox, none labelled, the date and lead-day boxes visually identical. Now one block per event with labelled DATE / LEAD DAYS / LABEL fields. Custom instructions gets a full-height textarea with its Import/Export/Clear actions in an `ActionRow`, and the standalone "API keys" prose block is deleted — that cross-reference now rides behind the ⓘ on the model rows where it is actually relevant.
+  - **`InfoHintRow` deleted** (25 lines), along with the now-dead `Info` icon import. Its job — a description that folds behind a tap, honouring the standing 2026-07-17 request — is the base `SettingRow`'s `info` prop, so the parallel implementation had no reason to survive. `NumberRow` is *composed from* `SettingRow` rather than being a new kind, which is the distinction §7 exists to enforce.
+  - Verified in a real browser end to end: General renders 3 groups / 7 rows / 5 ⓘ / **0 old `SettingsSection`s**; the Impact-dates sub-page titles correctly with a "‹ Tasks" back affordance; adding an event renders 3 labelled fields; and on the way back the Tasks row's summary reads **"1 date"** — the live proof that a `NavRow` summary is a real value tracking state, not decoration. No page errors.
+  - Remaining `SettingsSection` uses are all on Data, which is PR4's scope. ESLint 0 errors, build ✓, `npm test` 134/134 + smoke, `npm audit` clean.
+
 ## 2026-07-27
 
 - feat(lists): drag items into order, and push that order to Trello [M]
