@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-28
 
+- feat(settings): Notifications flattened into sub-pages; the last collapse machinery deleted (rebuild PR5) [L]
+  - Fifth of the seven PRs in `wiki/Settings-Design-Language.md` §9, and the largest single pocket of the problem: **seven collapsed sections on one screen, every one folded by default**, which is how a settings page ends up telling you nothing.
+  - They are **pages now**. Main Notifications is the three channel masters as `ToggleRow`s, quiet hours, and seven `NavRow`s that each say what they are set to: `Morning digest · On`, `Critical mode · Off`, `Deep links · Not set`, `Email deliverability · Not set`, plus Event pings, Test channels and History. Verified in a browser: **0 old section headers, 0 `▸` glyphs**, all seven sub-pages titling and returning correctly, no page errors.
+  - **`openSections`, `isCollapsed`, `toggleCollapsed` and the local `SectionHeader` are gone** — the biggest of the seven parallel collapse implementations the audit found. With `SettingsSection` already deleted in PR4, the collapse machinery this rebuild exists to remove is now entirely out of `SettingsModal.jsx`.
+  - **Quiet hours converted from a framed card to plain rows.** It had been a second framed element, which would have quietly made PR4's "the danger card is the ONE frame in the surface" claim false. Its three dependent rows now dim rather than vanish.
+  - **The per-type × per-channel grid is deliberately still a grid, on its own page.** §9 said "flatten the cards into grouped ToggleRows", and I did not: rows are one-dimensional and this data is two — five types against three channels — so flattening means five captions and fifteen toggle rows to say what a grid says at a glance. Moving it to its own page removes the reason it was a problem (length on the main screen) without pretending a matrix is a list. **Flagged rather than done quietly** — worth revisiting if the grid reads badly on a narrow phone.
+  - History loses its own collapse toggle: on a dedicated page it is simply open.
+  - ESLint 0 errors, build ✓, `npm test` 134/134 + smoke, `npm audit` clean.
+
 - feat(settings): Data converted, danger card re-tokened, SettingsSection deleted (rebuild PR4) [M]
   - Fourth of the seven PRs in `wiki/Settings-Design-Language.md` §9. Data becomes flat rows plus two sub-pages: **Devices** (`0 devices ›`) and **Server logs** — both previously collapsed sections whose contents are long enough to deserve their own page.
   - **The danger card is the ONE framed element in the whole surface, and that exception is the point.** Everything else is a plain hairline row, which is exactly what makes a frame mean "this one is different". It sits last, **never collapses** — hiding a wipe button behind a disclosure is how you tap it by accident — and its "no undo" note is **persistent rather than behind an ⓘ**, §1.5's one sanctioned exception.
