@@ -79,9 +79,12 @@ function LabelsPanel() {
 
   return (
     <div className="v2-settings-form">
-      <div className="v2-settings-block">
-        <div className="v2-form-label">Existing labels</div>
-        <div className="v2-settings-row-hint">Tap a name to rename. Color swatches show the picker. Use the arrows to reorder.</div>
+      {/* Plain groups, not framed cards — the danger zone stays the ONE framed
+          element in settings. The colour <details> below stay: they are a
+          picker popover, not a hidden section, so they are not part of the
+          collapse family this rebuild is removing. */}
+      <SettingsGroup caption="Existing labels">
+        <p className="v2-set-page-intro">Tap a name to rename. Colour swatches open the picker. Use the arrows to reorder.</p>
         {labels.length === 0 ? (
           <div className="v2-labels-empty">No labels yet. Add one below.</div>
         ) : (
@@ -155,10 +158,9 @@ function LabelsPanel() {
             ))}
           </ul>
         )}
-      </div>
+      </SettingsGroup>
 
-      <div className="v2-settings-block">
-        <div className="v2-form-label">Add a label</div>
+      <SettingsGroup caption="Add a label">
         <div className="v2-labels-add">
           <details className="v2-labels-color">
             <summary className="v2-labels-swatch" style={{ background: newColor }} aria-label="Pick color" />
@@ -189,7 +191,7 @@ function LabelsPanel() {
             <Plus size={13} strokeWidth={2} /> Add
           </button>
         </div>
-      </div>
+      </SettingsGroup>
     </div>
   )
 }
@@ -253,6 +255,20 @@ const PAGE_TITLES = {
   'Notifications/email': 'Email deliverability',
   'Notifications/test': 'Test channels',
   'Notifications/history': 'History',
+  // One per integration. Duplicated from IntegrationsPanel's own list rather
+  // than derived, because the page title has to resolve before that component
+  // mounts — a page whose header says "Integrations/gcal" for a frame is worse
+  // than a small, stable map.
+  'Integrations/anthropic': 'Anthropic',
+  'Integrations/openai': 'OpenAI',
+  'Integrations/notion': 'Notion',
+  'Integrations/trello': 'Trello',
+  'Integrations/gcal': 'Google Calendar',
+  'Integrations/gmail': 'Gmail',
+  'Integrations/tracking': '17track',
+  'Integrations/shippo': 'Shippo',
+  'Integrations/weather': 'Weather',
+  'Integrations/pushover': 'Pushover',
 }
 
 // All Settings tabs now have v2 implementations.
@@ -584,7 +600,7 @@ function OpenAIKeyBlock({ settings, update }) {
 }
 
 function IntegrationsPanel({
-  settings, update, setActiveTab,
+  settings, update, setActiveTab, page, setPage,
   onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
 }) {
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
@@ -1132,15 +1148,14 @@ function IntegrationsPanel({
     },
   ]
 
-  // Per-integration collapse state — SESSION-LOCAL, every integration
-  // starts folded on each Settings visit (2026-07-17). The old
-  // persisted-in-settings map meant whatever you once expanded stayed
-  // expanded forever, and the page crept back to a wall of config.
-  const [openIntegrations, setOpenIntegrations] = useState({})
-  const isIntCollapsed = (key) => !openIntegrations[key]
-  const toggleIntCollapsed = (key) => {
-    setOpenIntegrations(s => ({ ...s, [key]: !s[key] }))
-  }
+  // Sub-page routing. Every integration used to be a name-toggle expander in
+  // one long list — a whole parallel collapse implementation of its own, and
+  // the reason this page was a wall of config. Each integration is a page now,
+  // which also finally gives its nested sub-settings a legal home under the
+  // one-level rule (a config block inside an expander inside a page was two
+  // levels of hiding).
+  const sub = page?.startsWith('Integrations/') ? page.slice('Integrations/'.length) : ''
+  const isMain = !sub
 
   const runPushoverTest = async (emergency) => {
     const setter = emergency ? setPushoverEmer : setPushoverTest
@@ -1165,31 +1180,37 @@ function IntegrationsPanel({
 
   return (
     <div className="v2-settings-form">
-      <div className="v2-settings-block">
-        <div className="v2-form-label">Status</div>
-        <div className="v2-settings-row-hint">
-          Connect, configure, and disconnect every integration inline. Tokens persist
-          across reloads — you only connect once.
-        </div>
+      {/* Plain rows, not a framed card — the danger zone stays the ONE framed
+          element in settings. */}
+      <SettingsGroup>
         <ul className="v2-integrations-list">
           {integrations.map(int => (
-            <li key={int.key} className="v2-integrations-row">
-              <span className={`v2-integrations-dot v2-integrations-dot-${int.connected === 'warn' ? 'warn' : int.connected ? 'connected' : 'unconfigured'}`} />
-              <div className="v2-integrations-meta">
-                <button
-                  type="button"
-                  className="v2-integrations-name v2-integrations-name-toggle"
-                  onClick={() => toggleIntCollapsed(int.key)}
-                  aria-expanded={!isIntCollapsed(int.key)}
-                >
-                  <span className="v2-settings-section-chev" aria-hidden="true">
-                    {isIntCollapsed(int.key) ? '▸' : '▾'}
-                  </span>
-                  {int.label}
-                </button>
-                {int.sub && <div className="v2-integrations-sub">{int.sub}</div>}
-                <div className="v2-integrations-hint">{int.hint}</div>
-                {!isIntCollapsed(int.key) && (<>
+            <Fragment key={int.key}>
+              {isMain && (
+                // The WHOLE ROW is the target (§2), not a small trailing
+                // control. The old row made only the integration's NAME
+                // pressable — it was the expander toggle — which is exactly
+                // how the hierarchy ended up inverted, with the label doing
+                // the work and looking like chrome.
+                <SettingRow
+                  label={int.label}
+                  info={int.hint}
+                  onPress={() => setPage(`Integrations/${int.key}`)}
+                  trailing={
+                    <span className="v2-set-status">
+                      <span
+                        className={`v2-set-dot v2-set-dot-${int.connected === 'warn' ? 'warn' : int.connected ? 'ok' : 'off'}`}
+                        aria-hidden="true"
+                      />
+                      <span className="v2-set-row-value">
+                        {int.sub || (int.connected === 'warn' ? 'Needs attention' : int.connected ? 'Connected' : 'Not set')}
+                      </span>
+                      <ChevronRight size={16} strokeWidth={2} className="v2-set-row-chev" />
+                    </span>
+                  }
+                />
+              )}
+              {sub === int.key && (<>
                 {int.inline === 'api-key' && (
                   <div className="v2-integrations-inline">
                     {int.envFlag ? (
@@ -1798,8 +1819,6 @@ function IntegrationsPanel({
                 {int.syncResult && (
                   <div className="v2-integrations-sync-result">{int.syncResult}</div>
                 )}
-                </>)}
-              </div>
               <div className="v2-integrations-row-actions">
                 {int.sync && (
                   <button
@@ -1822,10 +1841,11 @@ function IntegrationsPanel({
                   </button>
                 )}
               </div>
-            </li>
+              </>)}
+            </Fragment>
           ))}
         </ul>
-      </div>
+      </SettingsGroup>
 
       {emergencyConfirm && (
         <div className="v2-settings-confirm-overlay" onClick={() => setEmergencyConfirm(false)}>
@@ -3525,11 +3545,13 @@ export default function SettingsModal({
           <NotificationsPanel settings={settings} update={update} page={page} setPage={setPage} />
         )}
 
-        {page === 'Integrations' && (
+        {page.startsWith('Integrations') && (
           <IntegrationsPanel
             settings={settings}
             update={update}
             setActiveTab={setPage}
+            page={page}
+            setPage={setPage}
             onTrelloSync={onTrelloSync}
             trelloSyncing={trelloSyncing}
             onNotionSync={onNotionSync}

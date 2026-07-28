@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-28
 
+- feat(settings): Integrations become per-integration pages; Labels re-cut (rebuild PR6) [L]
+  - Sixth of the seven PRs in `wiki/Settings-Design-Language.md` §9. Ten integrations were a single list of **name-toggle expanders** — a whole parallel collapse implementation of its own, and the reason this page was a wall of config. Each is a page now: dot + name + `Connected` / `Not set` / `Needs attention` + chevron.
+  - It also fixes a **one-level-rule violation** nobody had named: a config block inside an expander inside a page was two levels of hiding. Per-integration pages give those nested sub-settings a legal home.
+  - **The whole row is the tap target now, not the name.** The old row made only the integration's NAME pressable — it *was* the expander toggle — which is exactly how the hierarchy ended up inverted, with the label doing the work while looking like chrome. Caught by the browser test: clicking the label found nothing clickable, because only a small trailing control was live.
+  - **Two more framed cards removed** (the integrations list, both Labels blocks), so the danger zone genuinely remains the ONE framed element in the surface. That is now three PRs running where a second frame had quietly crept in — worth noting as the failure mode for this kind of rule: not argued down, just diluted by exceptions nobody flags.
+  - **The colour `<details>` in Labels deliberately stay.** They are a picker popover, not a hidden section, so they are not part of the collapse family this rebuild is removing. Called out rather than silently skipped.
+  - Verified in a browser: **0 name-toggle expanders, 0 `▸` glyphs**, ten rows with live status dots, and six sampled integrations each titling and returning correctly. No page errors. ESLint 0 errors, build ✓, `npm test` 134/134 + smoke, `npm audit` clean.
+
 - feat(settings): Notifications flattened into sub-pages; the last collapse machinery deleted (rebuild PR5) [L]
   - Fifth of the seven PRs in `wiki/Settings-Design-Language.md` §9, and the largest single pocket of the problem: **seven collapsed sections on one screen, every one folded by default**, which is how a settings page ends up telling you nothing.
   - They are **pages now**. Main Notifications is the three channel masters as `ToggleRow`s, quiet hours, and seven `NavRow`s that each say what they are set to: `Morning digest · On`, `Critical mode · Off`, `Deep links · Not set`, `Email deliverability · Not set`, plus Event pings, Test channels and History. Verified in a browser: **0 old section headers, 0 `▸` glyphs**, all seven sub-pages titling and returning correctly, no page errors.
