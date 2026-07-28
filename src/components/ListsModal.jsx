@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
-import { safeSetItem } from '../store'
+import { safeSetItem, loadSettings, saveSettings } from '../store'
 import { useListItems } from '../hooks/useLists'
 import {
   fetchTrelloBoards, fetchTrelloBoardLists, fetchTrelloListCards, fetchTrelloCardChecklists,
@@ -582,6 +582,15 @@ export default function ListsModal({
   const [dropId, setDropId] = useState(null)
   const [showSources, setShowSources] = useState(false)
   const [sourceBusy, setSourceBusy] = useState(false)
+  const [defaultListId, setDefaultListId] = useState(() => loadSettings().default_list_id || '')
+
+  // Read-modify-write against the CURRENT settings rather than a captured
+  // copy: this modal can sit open while other surfaces write, and merging
+  // into a stale snapshot is how the settings blob loses keys.
+  const setDefaultList = (id) => {
+    setDefaultListId(id)
+    saveSettings({ ...loadSettings(), default_list_id: id })
+  }
 
   const current = lists.find(l => l.id === openId) || null
 
@@ -709,6 +718,27 @@ export default function ListsModal({
               <Plus size={16} strokeWidth={2} />
             </button>
           </form>
+
+          {/* Which list a voice capture lands in when you don't name one.
+              Lives HERE rather than in Settings because this is where you can
+              see the lists you're choosing between. Empty means always ask —
+              the matcher refuses to guess between lists rather than filing
+              into the wrong one (server/listMatch.js). */}
+          {lists.length > 1 && (
+            <label className="v2-lists-default">
+              <span>Voice default</span>
+              <select
+                className="v2-form-input"
+                value={defaultListId}
+                onChange={e => setDefaultList(e.target.value)}
+              >
+                <option value="">Always ask</option>
+                {lists.filter(l => !l.orphaned_at).map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <button
             className="v2-lists-sources-toggle"

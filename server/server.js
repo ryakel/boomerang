@@ -62,6 +62,7 @@ import {
   getListItems, getListItem, createListItem, updateListItemPartial, deleteListItem,
 } from './db.js'
 import { initListSync, startListSyncPolling, syncList, syncAllLists, expandSource, expandAllSources, moveListItem } from './trelloListSync.js'
+import { matchList } from './listMatch.js'
 import crypto from 'crypto'
 import { initDeviceAuth, onSecurityAlert, enrollDevice, refreshDeviceTokens,
   listDevices, revokeDevice, deleteDevice, issueAttestChallenge,
@@ -1031,6 +1032,31 @@ app.get('/api/intents/tasks', (req, res) => {
   const tasks = getAllTasks().filter(t => !t.gmail_pending)
   const ids = String(req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean)
   res.json({ tasks: intentTaskRows(tasks, { q: req.query.q, ids, todayYMD }) })
+})
+
+// Siri list resolution. Mirrors /api/intents/tasks: the client says a name,
+// the server answers with either ONE list or the candidates to ask about.
+//
+// The matching itself is pure and lives in listMatch.js — this route only
+// supplies the data and the default-list setting. Deliberately does NOT
+// mutate: resolving a name must be safe to call speculatively, and the actual
+// add goes through the normal POST /api/lists/:id/items path so it gets the
+// same sync kick and the same Trello guarantees as a typed one.
+app.get('/api/intents/lists', (req, res) => {
+  const lists = getAllLists().map(l => ({
+    id: l.id,
+    name: l.name,
+    trello_card_name: l.trello_card_name,
+    orphaned_at: l.orphaned_at,
+  }))
+  const settings = getData('settings') || {}
+  const result = matchList(req.query.q || '', lists, { defaultListId: settings.default_list_id || null })
+  const strip = (l) => ({ id: l.id, name: l.name, card: l.trello_card_name || null })
+  res.json({
+    match: result.match ? strip(result.match) : null,
+    candidates: result.candidates.map(strip),
+    reason: result.reason,
+  })
 })
 
 // --- Project endpoints ---
