@@ -25,6 +25,16 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 
 **7-day strip (Standard theme):** Shows activity intensity per day (soft dots) with today's exact `count/goal` inline above the task list. Opt-in via Settings → General → Home screen; `week_strip_always_open` keeps it permanently visible. Kept has its own equivalent visualizations (Day Arc, Flight Trail) built into its Today view rather than this strip.
 
+## Settings
+
+Reached from More → Settings. It opens on an **index of six categories, each showing what it's set to** — `General · Kept · Dark`, `Tasks · Due +7d · Stale 7d`, `Integrations · Notion · Trello · GCal`, `Notifications · Push · Pushover`. Tap one to go to its page; anything long enough to deserve it has its own sub-page underneath (Impact dates, Custom instructions, Devices, Server logs, the notification groups, and one page per integration).
+
+- **Nothing collapses.** Every value on a page is visible without tapping. Pages are kept short by navigation instead — this replaced a surface with seven different collapse implementations, all folded by default, where you had to open everything to learn anything.
+- **Descriptions fold behind a small ⓘ** next to the label, so an explanation is there when you want it and out of the way when you don't. Tapping ⓘ never changes the setting.
+- **A setting that depends on another dims rather than disappears**, so the relationship stays visible.
+- **The danger zone is the only framed box in the whole surface** — that's what makes the frame mean something. It's always last, never collapsed, and its "no undo" warning stays on screen.
+- Sort order in Lists and the settings you pick are per-device where they're just a view preference.
+
 ## Task Management
 
 - **Quick add** — type and hit Enter from the bottom bar to instantly create a task

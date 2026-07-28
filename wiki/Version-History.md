@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-28
 
+- chore(settings): teardown — delete the dead chrome, close out the rebuild (PR7) [M]
+  - Last of the seven PRs in `wiki/Settings-Design-Language.md` §9. **180 lines of dead CSS removed** from `SettingsModal.css` (24 rules) plus the Kept theme's tab reskin: the tab strip, `SettingsSection`, the section headers and `▸` chevrons, the tap-for-description rows, the integration name-toggle, the notification-history toggle, the old danger card and the quiet-hours grid.
+  - **Grep-verified clean:** no `v2-settings-tab`, `v2-settings-section`, `SettingsSection` or `InfoHintRow` reference remains anywhere in `src/` — JSX, JS or CSS.
+  - Two mistakes caught before shipping, both from a regex-based sweep being too blunt. It ate a **grouped rule where only one of three selectors was dead** (`.v2-form-input` and `.v2-settings-compact-input` are live, and this rule was the later override that actually wins — Kept form fields would have silently changed colour); and it **collapsed every blank line and some comments across both files**, turning a deletion into an unreviewable whole-file reformat. Redone line-based: the diff is now **pure deletion, zero added lines**, with formatting byte-identical everywhere else.
+  - `wiki/Features.md` gains a **Settings** section describing the surface as a user meets it: an index that shows what each category is set to, nothing collapsing, descriptions behind ⓘ, dependent settings dimming rather than disappearing, and the danger zone as the only framed box.
+  - **The rebuild is done.** Across PR1–PR7: seven parallel collapse implementations deleted, the inverted hierarchy corrected in CSS rather than prose, and a surface where you had to open everything to learn anything replaced by one that answers "what's my setup?" on the first screen.
+  - ESLint 0 errors, build ✓, `npm test` 134/134 + smoke, `npm audit` clean.
+
 - feat(settings): Integrations become per-integration pages; Labels re-cut (rebuild PR6) [L]
   - Sixth of the seven PRs in `wiki/Settings-Design-Language.md` §9. Ten integrations were a single list of **name-toggle expanders** — a whole parallel collapse implementation of its own, and the reason this page was a wall of config. Each is a page now: dot + name + `Connected` / `Not set` / `Needs attention` + chevron.
   - It also fixes a **one-level-rule violation** nobody had named: a config block inside an expander inside a page was two levels of hiding. Per-integration pages give those nested sub-settings a legal home.

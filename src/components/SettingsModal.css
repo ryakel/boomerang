@@ -1,37 +1,3 @@
-.v2-settings-tabs {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--v2-hairline);
-}
-
-.v2-settings-tab {
-  padding: 8px 14px;
-  border-radius: var(--v2-radius-pill);
-  background: transparent;
-  color: var(--v2-text-meta);
-  border: 1px solid transparent;
-  font: 600 12px/1 var(--v2-font-body);
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: background var(--v2-dur-quick) var(--v2-ease-standard),
-              color var(--v2-dur-quick) var(--v2-ease-standard),
-              border-color var(--v2-dur-quick) var(--v2-ease-standard);
-}
-
-.v2-settings-tab:hover {
-  background: rgba(var(--v2-text-rgb), 0.04);
-  color: var(--v2-text);
-}
-
-.v2-settings-tab-active {
-  background: var(--v2-text);
-  color: var(--v2-bg);
-  border-color: var(--v2-text);
-}
-
 .v2-settings-content {
   min-height: 200px;
 }
@@ -282,18 +248,6 @@
   text-align: left;
 }
 
-/* Quiet hours START/END time inputs sit side-by-side without spanning the row. */
-.v2-settings-quiet-times {
-  display: flex;
-  gap: 12px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-.v2-settings-quiet-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 .v2-settings-time-input {
   width: 110px;
   padding: 8px 10px;
@@ -361,26 +315,6 @@
 .v2-settings-ci-textarea {
   min-height: 140px;
 }
-
-.v2-settings-danger {
-  margin-top: 24px;
-  padding: 18px;
-  border-radius: 12px;
-  background: rgba(232, 68, 58, 0.04);
-  border: 1px solid rgba(232, 68, 58, 0.18);
-}
-
-.v2-settings-danger .v2-form-label {
-  color: var(--v2-alert-overdue);
-}
-
-.v2-settings-danger-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 14px;
-}
-
 .v2-settings-btn-block {
   width: 100%;
   justify-content: center;
@@ -712,49 +646,6 @@
   gap: 10px;
 }
 
-/* Collapsible section header for the Notifications panel. The whole row
- * is a button — click anywhere on the header to fold/unfold. Chevron
- * rotates 90° via JSX (▾ open, ▸ collapsed) rather than CSS transform
- * so it works without a redraw flash. */
-.v2-settings-section-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  width: 100%;
-  background: transparent;
-  border: none;
-  padding: 0;
-  margin: 0 0 8px;
-  cursor: pointer;
-  text-align: left;
-  color: inherit;
-}
-
-.v2-settings-section-chev {
-  flex: 0 0 auto;
-  color: var(--v2-text-meta);
-  font-size: 14px;
-  line-height: 1.2;
-  margin-top: 2px;
-  transition: color var(--v2-dur-quick) var(--v2-ease-standard);
-}
-
-.v2-settings-section-header:hover .v2-settings-section-chev {
-  color: var(--v2-text);
-}
-
-.v2-settings-section-header-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.v2-settings-section-header-collapsed {
-  margin-bottom: 0;
-}
-
 .v2-notif-card-head {
   display: flex;
   align-items: flex-start;
@@ -903,27 +794,6 @@
   flex-wrap: wrap;
 }
 
-/* Notification history collapsible */
-.v2-notif-history-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--v2-text);
-}
-.v2-notif-history-toggle .v2-form-label {
-  margin-bottom: 0;
-}
-.v2-notif-history-chev {
-  font: 600 16px/1 var(--v2-font-body);
-  color: var(--v2-text-meta);
-  width: 20px;
-  text-align: center;
-}
 .v2-notif-history {
   margin-top: 12px;
   display: flex;
@@ -1042,23 +912,6 @@
   color: var(--v2-text);
   margin-bottom: 2px;
 }
-
-.v2-integrations-name-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
-}
-
-.v2-integrations-name-toggle:hover .v2-settings-section-chev {
-  color: var(--v2-text);
-}
-
 .v2-integrations-sub {
   font: 500 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--v2-text-meta);
@@ -1288,38 +1141,5 @@
 }
 .v2-integrations-status-line {
   font: 500 13px/1.4 var(--v2-font-body);
-  color: var(--v2-text);
-}
-
-/* Collapsible section wrapper (2026-07-17 start-minimized pass). Headers
-   reuse the existing .v2-settings-section-header treatment. */
-.v2-settings-section {
-  border-bottom: 1px solid var(--v2-hairline);
-  padding-bottom: 4px;
-}
-.v2-settings-section:last-child {
-  border-bottom: none;
-}
-
-/* Tap-for-description rows (build/version). Label + info glyph is the tap
-   target; the hint paragraph only renders while expanded. */
-.v2-settings-info-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  text-align: left;
-  color: inherit;
-  font: inherit;
-}
-.v2-settings-info-icon {
-  color: var(--v2-text-meta);
-  flex-shrink: 0;
-}
-.v2-settings-info-label[aria-expanded="true"] .v2-settings-info-icon {
   color: var(--v2-text);
 }

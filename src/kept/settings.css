@@ -6,31 +6,6 @@
  * "card per type, green toggles" treatment.
  * ════════════════════════════════════════════════════════════════════════ */
 
-/* ── Tabs → underline style, single scrollable row ───────────────────────── */
-[data-theme^="kept"] .v2-settings-tabs {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  gap: 2px;
-  border-bottom-color: var(--wb-hairline);
-  scrollbar-width: none;
-}
-[data-theme^="kept"] .v2-settings-tabs::-webkit-scrollbar { display: none; }
-[data-theme^="kept"] .v2-settings-tab {
-  flex: 0 0 auto;
-  border: none;
-  border-radius: 0;
-  border-bottom: 2px solid transparent;
-  padding: 8px 12px 10px;
-  font-weight: 700;
-}
-[data-theme^="kept"] .v2-settings-tab-active,
-[data-theme^="kept"] .v2-settings-tab.v2-settings-tab-active {
-  background: transparent;
-  color: var(--wb-text);
-  border: none;
-  border-bottom: 2px solid var(--wb-action-complete);
-}
-
 /* ── Blocks → grouped navy cards ─────────────────────────────────────────── */
 [data-theme^="kept"] .v2-settings-block {
   background: var(--wb-card);
@@ -107,8 +82,7 @@
 /* Inputs → INSET on the page bg, identical to the edit modals (was --wb-card-2,
  * which made settings fields read differently from the loop/task editors). */
 [data-theme^="kept"] .v2-form-input,
-[data-theme^="kept"] .v2-settings-compact-input,
-[data-theme^="kept"] .v2-settings-quiet-field input {
+[data-theme^="kept"] .v2-settings-compact-input {
   background: var(--bm-bg);
   border-color: var(--bm-hairline);
 }
