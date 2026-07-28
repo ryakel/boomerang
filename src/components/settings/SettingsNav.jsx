@@ -21,7 +21,11 @@ import './settings.css'
 export default function SettingsNav({ page, children }) {
   const [dir, setDir] = useState('forward')
   const prev = useRef(page)
-  const depth = (id) => (id === 'index' ? 0 : 1)
+  // Page ids are paths: 'index', 'Tasks', 'Tasks/impact'. Depth drives which
+  // way the slide runs, so going BACK from a sub-page animates back rather
+  // than forward. Two levels below the index is the cap (§6) — anything
+  // deeper means the page needs splitting, not another level.
+  const depth = (id) => (id === 'index' ? 0 : String(id).split('/').length)
 
   useEffect(() => {
     if (prev.current !== page) {

@@ -208,3 +208,70 @@
 @media (prefers-reduced-motion: reduce) {
   .v2-set-nav { animation: none; }
 }
+
+/* ── composed bits used by converted pages ──────────────────────────── */
+
+/* A number with its unit beside it. The unit is what makes the value
+ * legible — "3 snoozes" needs no hint underneath, which is one fewer line
+ * of prose than the row it replaces. */
+.v2-set-number {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.v2-set-number-unit {
+  font: 400 12.5px/1 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+/* A select sitting in a row's trailing slot. Capped so a long model name
+ * truncates rather than shoving the label out of the row. */
+.v2-settings-inline-select {
+  max-width: 190px;
+  padding: 5px 8px;
+  font-size: 13px;
+}
+
+/* Page-level intro prose. Rare and deliberate: it belongs to the PAGE, not to
+ * a row, and only earns its place where the page's whole subject needs
+ * explaining once (impact dates, custom instructions) instead of a sentence
+ * repeated under every row. */
+.v2-set-page-intro {
+  margin: -4px 0 18px;
+  font: 400 13px/1.55 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  max-width: 56ch;
+}
+
+/* One impact date as a block of labelled fields, replacing the five inputs
+ * that used to be crammed into a wrapping flexbox where nothing was labelled
+ * and the date and lead-day boxes looked identical. */
+.v2-set-impact {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+.v2-set-impact-top {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.v2-set-impact-top .v2-form-input { flex: 1; }
+.v2-set-impact-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.v2-set-impact-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 110px;
+}
+.v2-set-impact-fields label > span {
+  font: 500 11px/1 var(--v2-font-body);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--v2-text-faint);
+}
