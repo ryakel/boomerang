@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-29
+
+- fix(ios): the deploy script picked the Apple Watch as the build destination [S]
+  - `npm run ios:prod` and `ios:dev` both died at step 4 with `Unable to find a destination matching the provided destination specifier … { platform:watchOS, id:00008310-001605683C40E01E, name:Ryan's Apple Watch, error: watchOS platform doesn't match App.app's supported platforms }`. Step 3 had printed that UDID as "your iPhone".
+  - **Direct fallout of getting the watch registered the day before.** The device picker in `scripts/ios-deploy.sh` filtered candidates by the UDID's *shape* — `00008120-XXXXXXXXXXXXXXXX` — with no platform filter at all, then ranked by tunnel state. That worked only because there was exactly one device it could match: while the watch was half-paired the listing carried no `hardwareProperties.udid` for it. Registration gave it one, in the same shape as an iPhone's, with its tunnel connected — so it sorted first and won.
+  - Fixed by filtering on `hardwareProperties.platform == 'ios'` **and** `reality == 'physical'`, which is what `scripts/find-watch.sh` has always done — the one place these fields were ever checked against real devicectl output, rather than assumed. The simulator note that justified the shape check is kept where it still applies (`reality`), since an `identifier`-GUID fallback once staged an install into CoreSimulator and failed with EBADARCH.
+  - The old comment claimed UDIDs "look like `00008120-…`" as though the prefix identified an iPhone. It identifies nothing; the comment is replaced with the incident and the xcodebuild error, so the next person doesn't re-derive it. CLAUDE.md gains the invariant (**filter device pickers on `platform`, never on UDID shape**) and its stale claim that the listing omits `hardwareProperties.udid` for watches is corrected — that was true of a half-paired watch only.
+  - **The same bug is on `main`**, which is the branch builds run from; the file is otherwise identical there.
+  - Shell-only change: `sh -n` clean, `npm test` 151/151, `npm audit` clean.
+
 ## 2026-07-28
 
 - feat(lists): Siri and the share sheet can add to a list [L]
