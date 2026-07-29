@@ -17,6 +17,7 @@ Browser (React PWA)
                           ├── /api/gcal/*        → Google Calendar API proxy (OAuth, events, calendars)
                           ��── /api/packages/*    → Package tracking (CRUD, polling, 17track v2.4 API)
                           ├── /api/lists/*       → Shared lists (CRUD, items, forced Trello sync)
+                          │                        + /sources/* — link a whole card or column
                           ├── /api/email/*       → Email notification status and test
                           ├── /api/push/*        → Web push notification status, subscribe, test
                           ├── /api/pushover/*    → Pushover notification status, test, test-emergency
@@ -195,7 +196,33 @@ CREATE TABLE lists (
   sync_enabled INTEGER NOT NULL DEFAULT 1,
   last_synced_at TEXT, last_sync_error TEXT,      -- surfaced in the UI; an unattended
   sort_order INTEGER NOT NULL DEFAULT 0,          -- sync that fails silently is the
+  -- Link scope (048). source_id = which list_sources row materialized this
+  -- list; NULL means a human made it and expansion must leave it alone.
+  -- COLUMN, never "list": Trello's "list" is the board column, this codebase's
+  -- "list" is a checklist. shadow_name is the 3-way baseline for the list's
+  -- OWN name (same role as the item shadows below). orphaned_at is a
+  -- container tombstone — the checklist stopped appearing, which is
+  -- indistinguishable from Trello not returning it, so the row is kept.
+  source_id TEXT,
+  trello_column_id TEXT, trello_column_name TEXT, trello_card_name TEXT,
+  shadow_name TEXT, orphaned_at TEXT,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL   -- worst outcome here
+);
+
+-- Link sources (migration 048) — what was linked, as opposed to what it
+-- expanded into. Linking a CARD yields one list per checklist on it; linking a
+-- COLUMN yields one per checklist on every card in it, so a new store card is
+-- discovered on its own. Expansion (which checklists exist) is deliberately
+-- separate from merge (what the items say): server/listExpand.js is pure and
+-- listMerge.js was not touched to add any of this.
+CREATE TABLE list_sources (
+  id TEXT PRIMARY KEY,
+  scope TEXT NOT NULL,                            -- 'checklist' | 'card' | 'column'
+  trello_id TEXT NOT NULL,
+  name TEXT, trello_board_id TEXT,
+  sync_enabled INTEGER NOT NULL DEFAULT 1,
+  last_expanded_at TEXT, last_expand_error TEXT,  -- mirrors the list-level stamps
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 
 CREATE TABLE list_items (
@@ -215,7 +242,8 @@ CREATE TABLE list_items (
   deleted_at TEXT,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
--- Indexes on list_id, trello_check_item_id, lists(trello_card_id)
+-- Indexes on list_id, trello_check_item_id, lists(trello_card_id),
+-- lists(source_id), lists(trello_column_id), list_sources(trello_id)
 ```
 
 ```sql
@@ -237,7 +265,7 @@ CREATE TABLE packages (
 -- Indexes on status, tracking_number, auto_cleanup_at
 ```
 
-Migrations are in `migrations/NNN_*.sql` (currently through 047) and run automatically on startup, tracked in the `_migrations` table.
+Migrations are in `migrations/NNN_*.sql` (currently through 048) and run automatically on startup, tracked in the `_migrations` table.
 
 `getNextDueDate` (`src/store.js`) computes the next occurrence from a **fixed grid**, not the last completion — so completing a routine early or late never shifts the series (drift fix, 2026-05-30). `completed_history` only marks which grid slot has been satisfied. Daily is special-cased; day-scale cadences (weekly, custom-days) walk a day grid from the creation anchor (weekly folds `schedule_day_of_week` into the origin). **Month-scale cadences (monthly/quarterly/annually/custom-months) walk a month grid and resolve each slot's day via `resolveMonthDay()`:** `schedule_day_of_month` (fixed day, "the 18th"), or `schedule_week_of_month` + `schedule_day_of_week` (ordinal weekday via `nthWeekdayOfMonth()`, "1st Monday"/"last Friday"), else the creation day-of-month. `formatScheduleAnchor()` renders the short card label.
 

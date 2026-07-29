@@ -240,6 +240,8 @@ Wrapping the existing web app in a Capacitor shell to add native surfaces (Share
 
 Tracked in [GitHub Issues](https://github.com/ryakel/boomerang/issues). Key items:
 
+- **⛔ OPEN — watch app can't reach the phone (2026-07-26).** Both flavors install and launch on the wrist; every WatchConnectivity request fails with `WCError.deliveryFailed` ("Payload could not be delivered"). Paused mid-diagnosis. Full state, what's already verified correct, and the one unanswered question that splits the problem are in `wiki/iOS-Native-App.md` → "⛔ OPEN: the watch still can't reach the phone". **Read that before touching the watch bridge** — two confident theories were already disproven the expensive way.
+
 - **#3** — ~~Prop drilling~~ **DONE** — TaskActionsContext eliminates callback prop drilling on TaskCard
 - **#4** — ~~Desktop UI Phase 3 — side drawer~~ **DONE**
 - **#5** — ~~Desktop UI Phase 4 — keyboard shortcuts~~ **DONE**

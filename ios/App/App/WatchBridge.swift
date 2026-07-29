@@ -19,8 +19,15 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         WCSession.isSupported() ? WCSession.default : nil
     }
 
+    // Called from AppDelegate.didFinishLaunchingWithOptions so it also runs on
+    // the background launch iOS performs to answer a watch message. Idempotent:
+    // launch paths can overlap and re-activating an active session is pointless.
+    private var activated = false
+
     func activate() {
         guard let session else { return } // iPad / simulator without a paired watch
+        guard !activated else { return }
+        activated = true
         session.delegate = self
         session.activate()
     }
@@ -97,6 +104,7 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     func sessionDidBecomeInactive(_ session: WCSession) {}
 
     func sessionDidDeactivate(_ session: WCSession) {
-        WCSession.default.activate()
+        activated = false
+        activate()
     }
 }

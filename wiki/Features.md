@@ -25,6 +25,16 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 
 **7-day strip (Standard theme):** Shows activity intensity per day (soft dots) with today's exact `count/goal` inline above the task list. Opt-in via Settings → General → Home screen; `week_strip_always_open` keeps it permanently visible. Kept has its own equivalent visualizations (Day Arc, Flight Trail) built into its Today view rather than this strip.
 
+## Settings
+
+Reached from More → Settings. It opens on an **index of six categories, each showing what it's set to** — `General · Kept · Dark`, `Tasks · Due +7d · Stale 7d`, `Integrations · Notion · Trello · GCal`, `Notifications · Push · Pushover`. Tap one to go to its page; anything long enough to deserve it has its own sub-page underneath (Impact dates, Custom instructions, Devices, Server logs, the notification groups, and one page per integration).
+
+- **Nothing collapses.** Every value on a page is visible without tapping. Pages are kept short by navigation instead — this replaced a surface with seven different collapse implementations, all folded by default, where you had to open everything to learn anything.
+- **Descriptions fold behind a small ⓘ** next to the label, so an explanation is there when you want it and out of the way when you don't. Tapping ⓘ never changes the setting.
+- **A setting that depends on another dims rather than disappears**, so the relationship stays visible.
+- **The danger zone is the only framed box in the whole surface** — that's what makes the frame mean something. It's always last, never collapsed, and its "no undo" warning stays on screen.
+- Sort order in Lists and the settings you pick are per-device where they're just a view preference.
+
 ## Task Management
 
 - **Quick add** — type and hit Enter from the bottom bar to instantly create a task
@@ -172,6 +182,14 @@ Lists have **no task semantics** — no due date, energy, impact, size or rollov
 - **Add by typing** — one field, commas or new lines. "milk, eggs, bread" adds three items; a pasted shopping list adds all of it.
 - **Tick things off** as you shop. The tap target is deliberately generous — this gets used one-handed while walking. Ticked items drop to a "Got" section with a **Clear** button for the tidy-up afterwards.
 - **Link it to Trello** from the list's own settings — either **paste the card's link** (`https://trello.com/c/…`) or browse board → list → card → checklist. Both are in-app; no card IDs to hunt down. Pasting is the one that works for a card on someone else's board that they just shared with you, since browsing only sees boards you're a member of. Unlinking only stops syncing — nothing is removed from the Trello card.
+- **Or link a whole card — and get every checklist on it.** *Link a Trello card or column* on the Lists screen. Link the **card** and each checklist on it becomes its own list; link the **column** and that happens for every card in it. The payoff is that it keeps up on its own: a checklist she adds to the card — or a whole new store card, at column scope — turns up here by itself. Picking one checklist by hand can never do that, so an addition on her side used to be invisible.
+- **Lists are grouped by the card they came from.** A card holding several checklists (say *2026 Groceries* with Grocery, Target and HyVee) gets a heading with its Trello column beside it; a card with just one checklist is shown as a plain row, so the simple case looks exactly as it always did.
+- **If a checklist disappears from Trello**, its list moves to a **No longer on Trello** group and says so — nothing is deleted, and the items are all still there. You decide whether to relink it or bin it.
+- **Unlinking a card or column keeps every list it made**, items and all. It only stops the automatic discovery.
+- **Drag items into the order you shop in.** Grab the handle on an item and drop it where you want; a "Move to the end" target appears while you drag. This is the one control here that **changes the order on Trello too**, so she sees the same sequence you do. Only the still-to-get items are draggable — reordering the Got pile isn't worth the tap. If the reorder can't reach Trello, the list says so rather than pretending it worked.
+- **Order the lists how you like** — a Manual / Name / Recent control appears once you have more than one list. **Recent** ranks by when anything in a list last changed, including items pulled in from Trello, so the list she just added to floats to the top. **Manual** lets you drag lists into your own order by the handle on the left; the handle is the only draggable part, so a normal tap still opens the list. Sorting is per-device and, apart from a drag, writes nothing — changing the sort never touches Trello.
+- **Add by voice** — "add milk, eggs and bread to the grocery list" is one Siri request. It resolves the list by name and **asks when the name is ambiguous** rather than guessing — "2026 groceries" names a card holding three checklists, so it asks which. Set a **Voice default** on the Lists screen and you can drop the list name entirely. Unlike task capture there's no offline queue: a list item is only useful in the shop, and a silent replay hours later would re-add things already bought — so it tells you it couldn't send.
+- **Share into a list** — the iOS share sheet's "Add to" row lets you send the thing you're sharing to a list instead of your task list. It **asks every time** and has no remembered default, because a share that silently files somewhere you didn't look is worse than one extra tap.
 - **Quokka** — `lists_index`, `list_read`, `list_add_items`, `list_check_items`, `list_remove_items`, `list_clear_checked`. Shaped for speaking out loud: "add milk, eggs and bread to the grocery list" is one request, everything is by name, and an ambiguous match asks instead of guessing.
 - **Conflicts are handled properly.** If they rename an item while you tick it off, both changes survive — those are different fields, not a fight. If you genuinely both change the same thing, your version wins and the list says so. Nothing is ever deleted from Trello except by you deleting it here.
 

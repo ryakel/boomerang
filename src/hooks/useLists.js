@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from 'react'
 import {
   fetchLists, createListApi, updateListApi, deleteListApi,
   fetchListItems, addListItemsApi, updateListItemApi, deleteListItemApi, syncListApi,
+  moveListItemApi,
+  fetchListSources, createListSourceApi, expandListSourceApi, deleteListSourceApi,
 } from '../api'
 
 // Lists — sets of items kept in bidirectional sync with a Trello checklist.
@@ -11,14 +13,21 @@ import {
 // and corrected on the next reload.
 export function useLists() {
   const [lists, setLists] = useState([])
+  // What was LINKED, as opposed to what it expanded into. Kept alongside the
+  // lists because the index groups by them and the settings surface manages
+  // them; a source with zero lists still has to be visible, or a link that
+  // expanded to nothing looks like it silently failed.
+  const [sources, setSources] = useState([])
   const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
     try {
-      setLists(await fetchLists())
-    } catch (err) {
-      console.error('[Lists] Load failed:', err)
-      // Keep current state — a flaky fetch shouldn't blank the lists.
+      // Settled, not all-or-nothing: sources failing must not blank the lists.
+      const [l, s] = await Promise.allSettled([fetchLists(), fetchListSources()])
+      if (l.status === 'fulfilled') setLists(l.value)
+      else console.error('[Lists] Load failed:', l.reason)
+      if (s.status === 'fulfilled') setSources(s.value)
+      else console.error('[Lists] Sources load failed:', s.reason)
     } finally {
       setLoading(false)
     }
@@ -43,7 +52,55 @@ export function useLists() {
     setLists(prev => prev.filter(l => l.id !== id))
   }, [])
 
-  return { lists, loading, reload, addList, editList, removeList }
+  // Manual order, after a drag. `sort_order` is a BOOMERANG-ONLY column — the
+  // sync engine never pushes list order anywhere, so reordering lists writes
+  // nothing to Trello and cannot disturb a list someone else is relying on.
+  // (Reordering ITEMS is the opposite: `position` is what Trello orders by.
+  // That is a separate, riskier piece — see wiki/Claude-Notes-Integrations.md.)
+  const reorderLists = useCallback(async (orderedIds) => {
+    const index = new Map(orderedIds.map((id, i) => [id, i]))
+    // Optimistic — a drag that visibly snaps back while the server thinks
+    // about it feels broken even when it succeeds.
+    setLists(prev => [...prev].sort((a, b) => (index.get(a.id) ?? 0) - (index.get(b.id) ?? 0))
+      .map(l => ({ ...l, sort_order: index.get(l.id) ?? l.sort_order })))
+    try {
+      // Only the rows that actually moved. N is small (one row per list), and
+      // skipping unchanged ones keeps a nudge of one list from rewriting all.
+      await Promise.all(orderedIds.map((id, i) => updateListApi(id, { sort_order: i })))
+    } catch (err) {
+      console.error('[Lists] Reorder failed:', err)
+      await reload() // server is the source of truth; take its answer back
+      throw err
+    }
+  }, [reload])
+
+  // Linking expands server-side immediately, so the new lists are already
+  // there by the time this resolves — reload rather than guess at them.
+  const addSource = useCallback(async (fields) => {
+    const data = await createListSourceApi(fields)
+    await reload()
+    return data
+  }, [reload])
+
+  const expandSource = useCallback(async (id) => {
+    const result = await expandListSourceApi(id)
+    await reload()
+    return result
+  }, [reload])
+
+  // Unlinking keeps the lists (server clears source_id). Reload rather than
+  // filtering locally, so the UI shows the surviving lists rather than
+  // implying they went with the source.
+  const removeSource = useCallback(async (id) => {
+    await deleteListSourceApi(id)
+    await reload()
+  }, [reload])
+
+  return {
+    lists, sources, loading, reload,
+    addList, editList, removeList, reorderLists,
+    addSource, expandSource, removeSource,
+  }
 }
 
 // Items for one open list. Separate hook so the index doesn't carry every
@@ -108,6 +165,25 @@ export function useListItems(listId) {
     setItems(prev => prev.filter(i => i.id !== itemId))
   }, [listId])
 
+  // Drag one item to a new slot. UNLIKE every other ordering control in this
+  // feature, this one WRITES to Trello — `position` is what Trello orders by,
+  // so a reorder here rewrites the shape of a checklist someone else reads.
+  // That is why only a deliberate drag reaches it, and why the server is
+  // allowed the last word on the resulting order.
+  const moveItem = useCallback(async (itemId, beforeId) => {
+    try {
+      const data = await moveListItemApi(listId, itemId, beforeId)
+      if (data.items) setItems(data.items)
+      return data
+    } catch (err) {
+      // The local move survived even when the Trello push did not; take the
+      // server's items so the UI shows what actually happened, and let the
+      // caller surface the message.
+      if (err.items) setItems(err.items)
+      throw err
+    }
+  }, [listId])
+
   // Forced sync. Reloads afterwards because the merge may have pulled in
   // whatever the other person changed since the last poll.
   const syncNow = useCallback(async () => {
@@ -116,5 +192,5 @@ export function useListItems(listId) {
     return result
   }, [listId, reload])
 
-  return { list, items, loading, error, reload, addItems, toggleItem, renameItem, removeItem, syncNow }
+  return { list, items, loading, error, reload, addItems, toggleItem, renameItem, removeItem, moveItem, syncNow }
 }

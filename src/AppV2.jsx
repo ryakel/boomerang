@@ -289,7 +289,11 @@ export default function AppV2() {
   // Notes — free-floating, no task semantics. Server-backed via dedicated
   // endpoints; reload() rides hydrateFromServer so cross-device edits land.
   const { notes, loading: notesLoading, reload: reloadNotes, addNote, editNote, removeNote } = useNotes()
-  const { lists, loading: listsLoading, reload: reloadLists, addList, editList, removeList } = useLists()
+  const {
+    lists, sources: listSources, loading: listsLoading, reload: reloadLists,
+    addList, editList, removeList, reorderLists,
+    addSource: addListSource, expandSource: expandListSource, removeSource: removeListSource,
+  } = useLists()
   const pinnedNotes = useMemo(() => notes.filter(n => n.pinned), [notes])
   // Trello status push lives at this level so handleComplete / status-change
   // / handleUncomplete can fire it for any task with a linked Trello card.
@@ -1803,6 +1807,11 @@ export default function AppV2() {
         onAdd={addList}
         onEdit={editList}
         onDelete={removeList}
+        onReorder={reorderLists}
+        sources={listSources}
+        onAddSource={addListSource}
+        onExpandSource={expandListSource}
+        onRemoveSource={removeListSource}
       />
 
       <NotesModal

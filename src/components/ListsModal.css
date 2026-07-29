@@ -274,3 +274,207 @@
   border-radius: 8px;
   background: var(--v2-surface);
 }
+
+/* ── sort + manual reorder ──────────────────────────────────────────── */
+
+/* Segmented control, matching the settings segment vocabulary rather than
+ * inventing a third one. Sort is view state only — none of these three
+ * buttons writes anything; see the comment on SORT_KEY in ListsModal.jsx. */
+.v2-lists-sort {
+  display: flex;
+  gap: 2px;
+  margin: 0 0 10px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--v2-surface-sunken, rgba(127, 127, 127, 0.09));
+}
+.v2-lists-sort-btn {
+  flex: 1;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 12.5px/1 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-lists-sort-btn:hover { color: var(--v2-text); }
+.v2-lists-sort-btn-active {
+  background: var(--v2-surface, rgba(127, 127, 127, 0.16));
+  color: var(--v2-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* The handle is the only draggable target. A whole-row drag would compete
+ * with the tap that opens the list — on touch every press becomes a
+ * candidate drag, and the list stops opening reliably. */
+.v2-lists-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  margin-left: -4px;
+  color: var(--v2-text-faint);
+  cursor: grab;
+  touch-action: none;
+}
+.v2-lists-grip:active { cursor: grabbing; }
+
+.v2-lists-dragging { opacity: 0.4; }
+/* The insertion point, drawn as an edge rather than a moving gap so rows
+ * don't jump around under the cursor mid-drag. */
+.v2-lists-dropinto .v2-lists-index-row {
+  box-shadow: inset 0 2px 0 var(--v2-ember, var(--bm-ember, currentColor));
+}
+
+/* ── card groups + orphans ──────────────────────────────────────────── */
+
+.v2-lists-group + .v2-lists-group { margin-top: 18px; }
+
+/* Named after the Trello CARD, which is the level the structure is actually
+ * organised at — "2026 Groceries" holding Grocery/Target/Walmart, sibling to
+ * "Costco". The column rides along as a caption. */
+.v2-lists-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 2px 5px;
+}
+.v2-lists-group-name {
+  font: 600 11px/1 var(--v2-font-body);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--v2-text-faint);
+}
+.v2-lists-group-col {
+  font: 400 11px/1 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  opacity: 0.75;
+}
+.v2-lists-group-head-warn .v2-lists-group-name { color: var(--bm-gold, #E8B04B); }
+
+/* Orphans get a sentence, not just a colour. "Your items are still here" is
+ * the thing a person needs to know, and it is not inferable from a badge. */
+.v2-lists-group-note {
+  margin: 0 2px 8px;
+  font: 400 12px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+/* ── link sources ───────────────────────────────────────────────────── */
+
+.v2-lists-sources-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  margin-bottom: 10px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 13px/1.3 var(--v2-font-body);
+  text-align: left;
+  cursor: pointer;
+}
+.v2-lists-sources-toggle:hover { color: var(--v2-text); }
+.v2-lists-sources-toggle span { flex: 1; }
+.v2-lists-chev-open { transform: rotate(90deg); }
+
+.v2-lists-sources { margin-bottom: 14px; }
+
+.v2-lists-source-rows { list-style: none; margin: 0 0 8px; padding: 0; }
+.v2-lists-source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--v2-hairline);
+}
+
+.v2-lists-link-picker { display: flex; flex-direction: column; gap: 8px; }
+.v2-lists-link-step { display: flex; flex-direction: column; gap: 8px; }
+
+/* Column scope is offered, never defaulted — a new list inside a
+ * column-linked column means creating a CARD on someone else's board. */
+.v2-lists-link-whole {
+  padding: 9px 12px;
+  border: 1px dashed var(--v2-hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--v2-text-meta);
+  font: 500 12.5px/1.3 var(--v2-font-body);
+  cursor: pointer;
+}
+.v2-lists-link-whole:hover { color: var(--v2-text); border-style: solid; }
+
+.v2-lists-card-rows { list-style: none; margin: 0; padding: 0; }
+.v2-lists-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--v2-hairline);
+  background: transparent;
+  color: var(--v2-text);
+  font: 400 13.5px/1.3 var(--v2-font-body);
+  text-align: left;
+  cursor: pointer;
+}
+.v2-lists-card-row:hover { color: var(--v2-ember, var(--bm-ember, currentColor)); }
+
+/* ── item reorder ───────────────────────────────────────────────────── */
+
+/* Sits left of the checkbox and is the only draggable part of the row — the
+ * tap target for "got it" has to stay a tap, especially one-handed in a shop.
+ * Only the still-to-get items get one; reordering the Got pile is busywork,
+ * and every drag here writes to a checklist someone else reads. */
+.v2-lists-item-grip {
+  margin-left: -6px;
+  margin-right: -2px;
+}
+
+/* The only way to reach the bottom of the list — every row target means
+ * "before this one", so without it the last slot is unreachable. Appears
+ * only while a drag is in flight. */
+.v2-lists-item-end {
+  margin-top: 2px;
+  padding: 9px 4px;
+  border: 1px dashed var(--v2-hairline);
+  border-radius: 8px;
+  color: var(--v2-text-faint);
+  font: 400 12px/1.3 var(--v2-font-body);
+  text-align: center;
+  list-style: none;
+}
+.v2-lists-item.v2-lists-dropinto {
+  box-shadow: inset 0 2px 0 var(--v2-ember, var(--bm-ember, currentColor));
+}
+.v2-lists-item-end.v2-lists-dropinto {
+  border-style: solid;
+  border-color: var(--v2-ember, var(--bm-ember, currentColor));
+  color: var(--v2-text);
+}
+
+/* Voice default picker. Only appears once there is more than one list —
+ * with a single list there is nothing to disambiguate. */
+.v2-lists-default {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+.v2-lists-default > span {
+  font: 500 12.5px/1.3 var(--v2-font-body);
+  color: var(--v2-text-meta);
+  flex: 0 0 auto;
+}
+.v2-lists-default select { flex: 1; }

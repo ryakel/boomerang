@@ -156,6 +156,259 @@ checklist on a Trello card that someone else also edits.
 Behaviour is pinned by `scripts/lists.test.mjs` (19 tests, in `npm test`).
 Change the merge, run those first.
 
+#### Planned: ordering and nesting (requested 2026-07-27)
+
+Two follow-ups requested once prod lists were live and in daily use. Both are
+designed but not built; the notes below exist because each has one trap that
+is not obvious from the request.
+
+**Nesting — Trello already nests TWO levels above the items, and the real
+structure uses both.** Measured against the live board 2026-07-27 rather than
+assumed:
+
+```
+Board  "Ongoing To Do"
+└── Column (Trello calls this a "list")  "Shopping"      ← grouping level 1
+    ├── Card  "2026 Groceries"                            ← grouping level 2
+    │   ├── Checklist "Grocery"        → Cheese bars, Baking soda, …
+    │   └── Checklist "Checklist 2"    → (a second checklist on one card)
+    ├── Card  "Costco"      └── Checklist → items
+    └── Card  "Trader Joe's" └── Checklist → items
+```
+
+So a **Boomerang list stays a Trello CHECKLIST** — that is where items live and
+nothing about the merge changes. Nesting comes from the two *real Trello
+containers* above it: the **card** and the **column**. Both round-trip
+natively, so neither grouping level is Boomerang-only and both stay visible on
+her side.
+
+> ⚠️ **An earlier version of this note said "cap the depth at one level,
+> because Trello has no nested checklists." That conclusion was wrong** — it
+> reasoned from checklists alone and never looked at the board. Checklists
+> indeed don't nest, but nesting doesn't have to come from them: card and
+> column are real containers, and the family's actual structure already uses
+> both. Look at the board before asserting what Trello can hold.
+
+Both sibling patterns are live and they sit at *different depths*, so the UI
+has to handle each:
+- **sibling cards in a column** — Costco / Trader Joe's / 2026 Groceries
+  under "Shopping"
+- **sibling checklists in a card** — the requested "Groceries has Target and
+  Walmart and HyVee in it"
+
+> 🔤 **Naming collision, and it is a live footgun.** Trello's "list" is the
+> board *column*; Boomerang's "list" is a Trello *checklist*. They are two
+> different objects one word apart, in a codebase that already has
+> `trello_list_id` free to be misread. Name the column field
+> `trello_column_id` in Boomerang code (mapping to Trello's `idList`) and
+> never reuse the bare word.
+
+Schema: `lists` already carries `trello_card_id` and `trello_checklist_id`.
+Add `trello_column_id` — `idList` is already on every card object Trello
+returns, so it needs capturing during sync, not a new API surface. Grouping is
+then fully derivable for synced lists (group by column, then by card); cache
+the column and card *names* alongside, refreshed each sync, so the UI can
+render `Shopping → 2026 Groceries → Grocery` without extra fetches.
+Local-only lists have no Trello parents, so they still need an explicit
+nullable `parent_id`.
+
+> **Related bug to fix with this:** `syncList` currently adopts
+> `checklists[0]` when no checklist is pinned. Multi-checklist cards were
+> treated as the exception; the live board shows they are normal. Silently
+> adopting the first of several is now actively wrong — linking should either
+> require an explicit checklist choice or create one Boomerang list per
+> checklist on the card.
+
+**Link scope — sync a CARD or a COLUMN, not only a checklist.** *Shipped 2026-07-27 (migration 048).* The natural
+consequence of the structure above, and it *dissolves* the `checklists[0]` bug
+rather than patching it: "which checklist?" stops being a question once the
+thing you link is the container.
+
+| Scope | You link | You get | Auto-discovers |
+|---|---|---|---|
+| `checklist` | one checklist | one list | nothing |
+| `card` | "2026 Groceries" | one list per checklist on it | new checklists |
+| `column` | "Shopping" | one list per checklist on every card in it | new checklists **and** new cards |
+
+The win is **auto-discovery, and it is the whole point of the feature.**
+Today, if she adds a checklist or a new store card, Boomerang never learns of
+it — "never open Trello again" quietly stops being true and nothing says so.
+Container-level linkage is what closes that hole.
+
+Architecture that keeps the trustworthy part trustworthy:
+
+> **Expansion is a SEPARATE concern from merge.** Add a `list_sources` table
+> (`scope`, `trello_id`, …) holding what was linked; a sync first *expands* a
+> source into the set of leaf checklists, then runs the existing merge per
+> leaf, unchanged. `server/listMerge.js` stays pure and stays pinned by its
+> 19 tests. All new complexity lands in the expansion step, where it can be
+> tested on its own.
+
+Container-level hazards, each the direct analogue of a rule already learned at
+item level:
+
+- **The wipe guard needs a sibling at container level.** The existing >50%
+  guard protects *items within* a checklist. A poll returning 0 checklists for
+  a card — or 0 cards for a column — is a bad response, not "she deleted
+  everything." Without this, one flaky Trello reply deletes every list.
+- **Creation is a heavier write the higher you go.** A new list inside a
+  card-linked card means creating a *checklist on her card*. Inside a
+  column-linked column it means creating a **card on her board**, which shows
+  up in her board view. Adding a check item is nearly invisible; adding a card
+  is not. Card scope is the safe default; column-scope creation deserves an
+  explicit opt-in.
+- **`lists` needs its own `shadow_name`.** Container names are hers too. With
+  only a two-way compare there is no way to tell "I renamed this list in
+  Boomerang" from "she renamed the checklist in Trello" — the exact ambiguity
+  `shadow_name`/`shadow_checked` exist to resolve at item level. The same
+  3-way baseline is needed one level up.
+
+Recommendation: build `card` scope, but implement it as a general
+`list_sources` mechanism so `column` is a row in a table rather than a rewrite.
+Keep `checklist` scope working — it is the right answer for linking one
+checklist on a card full of unrelated ones.
+
+##### As built (migration 048, server side)
+
+`list_sources` holds what was linked (`scope` = `card` | `column`,
+`trello_id`, cached `name`, `last_expanded_at`/`last_expand_error` mirroring
+the list-level sync stamps). `lists` gains `source_id`, `trello_column_id` /
+`trello_column_name` / `trello_card_name` (the breadcrumb), `shadow_name`
+(the 3-way name baseline) and `orphaned_at` (the container tombstone).
+
+`server/listExpand.js` is the planner, and it is **pure** — no db, no network,
+no clock, exactly like `listMerge.js`. `planExpansion(source, groups, existing)`
+returns `{create, rename, recontext, revive, orphan, conflicts,
+skippedOrphans}`. `trelloListSync.js` fetches, calls it, and applies. The split
+held: **link scope did not change one line of `listMerge.js`.**
+
+Rules the planner enforces, all pinned in `scripts/listExpand.test.mjs` (21):
+
+- **Expansion never deletes and never writes to Trello.** It creates, renames
+  and tombstones *Boomerang* rows only. Adding a checklist to someone's card is
+  a structural change to their board and is not a thing a background poll does
+  on its own — which is also why the applier needs no write permission at all.
+- **Names use the same 3-way rules as items.** She renamed it → take hers.
+  We renamed it → flagged as a conflict, never auto-pushed to her card.
+  Both → conflict. **Null shadow → the OTHER side wins**, identical to the
+  merge, because pushing an unproven local name would rewrite her checklist's
+  title.
+- **A vanished checklist is orphaned, never dropped**, and an orphan that
+  reappears is *revived* rather than duplicated. Orphans leave the sync set —
+  otherwise they error against a dead checklist id every minute.
+- **The container loss guard** mirrors the item one: losing >50% of a source's
+  lists at once (min 3) is a bad response, not intent.
+- **A source only touches lists it created.** Hand-linked lists are invisible
+  to expansion, so linking a card cannot swallow a list you pinned yourself.
+- **Empty names mean "didn't learn it", not "now blank".** The column-name
+  lookup is best-effort — losing a breadcrumb must not fail a sync — so ids
+  are authoritative and names are not. *This one was a real bug, caught by the
+  integration test on its first run:* treating `''` as authoritative made the
+  card/column labels blank on any transient error and reappear on the next
+  poll.
+
+`scripts/listExpandApply.test.mjs` (9) covers what a pure-planner test cannot —
+that the applier writes what the planner decided, against the real db and real
+migrations with Trello stubbed at `fetch`. It also pins that a remote rename
+moves the baseline (or it re-fires every poll) and that **items survive the
+whole orphan/revive cycle**.
+
+Unlinking a source deliberately **keeps every list it made** — the items are
+real data, and dropping them because a link was removed is a loss nobody asked
+for. The lists just become hand-owned (`source_id` cleared) and stop
+auto-discovering.
+
+The `checklists[0]` bug is fixed as predicted: an unpinned list adopts a
+checklist only when the card has exactly one candidate, and otherwise says
+*"that card has N checklists — pick one, or link the whole card."*
+
+**UI.** *Link a Trello card or column* on the Lists index opens the source
+panel: board -> column, then either link the whole column or pick a card. The
+index groups by CARD (the level the structure is organised at), showing the
+column as a caption; a card holding exactly ONE checklist is flattened to a
+plain row, so the common case looks identical to before nesting existed.
+Orphans get their own trailing "No longer on Trello" group with a sentence
+saying the items are still there — not an inline badge, because the decision
+(relink or delete) is a person's to make and a badge among working lists is
+easy to miss.
+
+> **Drag reorders WITHIN a card group only.** Dragging a list into another
+> card's group would mean moving her checklist to a different card on Trello —
+> a structural write expansion deliberately never makes. Refusing the
+> cross-group drop is honest; doing it locally would silently diverge instead.
+
+Routes: `GET/POST /api/lists/sources`, `PATCH/DELETE /api/lists/sources/:id`,
+`POST /api/lists/sources/:id/expand`, `POST /api/lists/expand`. Linking expands
+immediately so the result is visible rather than waiting for the next poll.
+`syncAllLists()` expands before merging, so a checklist added on Trello becomes
+a list in the same round it is discovered; an expansion failure is recorded on
+its own source and never aborts the merge pass.
+
+**Sorting — name and recently-updated are VIEW state and must never write.**
+Only drag writes. This is the trap: the ordering columns (`position` on items,
+`sort_order` on lists) are what a sort mode would be tempted to "apply" itself
+into — and at item level `position` is what *Trello* orders by, so renumbering
+it would push a full reorder of her checklist **every time the sort dropdown
+changed**. Sort preference belongs in local view state. (`position` is REAL
+precisely so a drag can insert between two neighbours without renumbering the
+rest.)
+
+**Shipped 2026-07-27 — LIST-level sorting only.** Manual / Name / Recent in the
+lists index, mode persisted per-device in `boom_lists_sort_v1` via
+`safeSetItem` (deliberately *not* the settings blob — that is
+last-writer-wins and has eaten data twice, and which order you like looking at
+is not worth that risk). Drag reorders lists by writing `sort_order`.
+
+> **List reorder is Trello-free.** `sort_order` is a Boomerang-only column —
+> the sync engine never pushes list order anywhere — so dragging lists writes
+> nothing to Trello and cannot disturb a list someone else relies on. This is
+> what made list-level sorting the safe half to ship first.
+
+`last_activity_at` (what Recent sorts by) is **derived in the `GET /api/lists`
+route, not stored**. `lists.updated_at` only moves when the list *row* changes
+— a rename, a link, a sync stamp — so adding milk never touches it and sorting
+by it would rank lists by when they were last renamed. Measured, not assumed:
+adding an item left `updated_at` at `…25.262Z` while `last_activity_at` moved
+to `…26.687Z`. Derived rather than a new column so no existing semantics
+shift, and it costs nothing — the route already walks those rows for the
+counts. It also means *her* edits arriving via sync float a list, which is the
+behaviour you actually want.
+
+**Shipped 2026-07-27 — ITEM-level drag, the risky half.** This is the ONE path
+in the whole feature where a Boomerang gesture rewrites the order of a
+checklist someone else reads, so it is deliberately the narrowest one
+available:
+
+- **Only an explicit drag reaches it.** Name/Recent stay pure view state.
+- **Order is never reconciled by the merge, and `planMerge` is not being
+  taught to.** A background poll that "fixed" the order would be
+  indistinguishable from her reordering it herself, and we would fight her
+  every minute. Position is pulled on create and pushed only on drag.
+- **One drag is ONE write.** `server/listOrder.js` (`planMove`, pure, 15
+  tests) slots between neighbours rather than renumbering, and returns null
+  for a no-op so an accidental tap costs nothing. When the neighbours leave no
+  representable gap — everything at 0, the normal state for a list built
+  locally before it ever synced — the whole list renumbers **locally** and
+  still only the dragged item is pushed.
+- **Held writes surface on the list** via `last_sync_error`, gated by
+  `DEV_LIST_SYNC_WRITES` like every other push. A reorder that silently did
+  nothing is the exact failure this feature exists to avoid.
+- The API shape is `POST /api/lists/:listId/items/:itemId/move` with
+  `{before_id}` — "put this one before that one", the gesture as it actually
+  happens. Deliberately **not** a "here is the whole new order" endpoint: that
+  shape invites renumbering every row, and every renumbered row is a write to
+  someone else's checklist. A Trello failure returns 502 with the items
+  intact — the local move stuck, only the push failed, and the list says so.
+- UI: grip on the unchecked items only (reordering the Got pile is busywork),
+  plus a "Move to the end" drop target that appears during a drag, because
+  every row target means "before this one" and the last slot would otherwise
+  be unreachable.
+
+Pinned by `scripts/listOrder.test.mjs` (15, the arithmetic) and
+`scripts/listMove.test.mjs` (9, the applier against the real db with Trello
+stubbed at `fetch` — including that a colliding-position renumber stays local
+and still costs exactly one Trello write).
+
 ### Google Calendar Sync (Bidirectional)
 Bidirectional sync between tasks and Google Calendar events. First integration to use OAuth 2.0.
 

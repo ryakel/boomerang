@@ -356,11 +356,89 @@ BoomerangKit, and replies. Consequences:
 
 Pieces: `Shared/WatchProtocol.swift` (the message contract — ONE file compiled
 into *both* targets so the two sides can't drift), `App/WatchBridge.swift`
-(phone-side `WCSessionDelegate`; activated in `SceneDelegate`, which also
-pushes a snapshot as the application context on foreground so a wrist-raise has
-real content immediately), and the watch's `WatchStore` / `TodayView`. The
-watch caches the last payload in its own `UserDefaults` (task titles only) and
-labels it "showing last synced" until a fresh fetch lands.
+(phone-side `WCSessionDelegate`), and the watch's `WatchStore` / `TodayView`.
+`SceneDelegate` pushes a snapshot as the application context on foreground so a
+wrist-raise has real content immediately. The watch caches the last payload in
+its own `UserDefaults` (task titles only) and labels it "showing last synced"
+until a fresh fetch lands.
+
+**Activate `WCSession` in `AppDelegate.didFinishLaunchingWithOptions`, never in
+`SceneDelegate`.** When the watch calls `sendMessage`, iOS launches the phone
+app in the **background** to answer it — and a background launch connects no UI
+scene, so `scene(_:willConnectTo:)` never runs. Activation lived there
+originally, which meant the phone-side session was inactive for exactly the
+launches that existed to serve the watch. The message had nowhere to land and
+came back as `WCError.deliveryFailed`, rendered on the wrist as:
+
+> Payload could not be delivered.
+
+The tell that it is this and not a range/pairing problem: `WatchStore.send()`
+guards on `session.isReachable` first and would otherwise say "Phone not
+reachable". Reachable-but-undeliverable means the phone was there and not
+listening. The other tell is that it works fine while the phone app is open in
+the foreground — which is the one condition under which the whole proxy design
+is pointless.
+
+`didFinishLaunchingWithOptions` runs on every launch, background included.
+`WatchBridge.activate()` is idempotent so overlapping launch paths are safe, and
+`sessionDidDeactivate` clears the flag before re-activating so watch switching
+still re-registers the delegate.
+
+### ⛔ OPEN (2026-07-26): the watch still can't reach the phone
+
+**Status: unresolved, paused mid-diagnosis.** Both flavors' watch apps install,
+launch and render on an Apple Watch Ultra 3 (watchOS 26.5). Every request from
+the watch fails with **"Payload could not be delivered."** — `WCError`
+`deliveryFailed`, surfaced verbatim by `WatchStore.send()`'s error handler. The
+activation fix above (`30600ce`) did **not** resolve it.
+
+**Verified correct, do not re-investigate:**
+
+- `Shared/WatchProtocol.swift` is compiled into *both* targets (two `PBXBuildFile`
+  entries, one file reference) — the message contract cannot have drifted.
+- `WatchBridge.swift` is in the App target's Sources phase.
+- Phone side implements `session(_:didReceiveMessage:replyHandler:)`, and every
+  path through `handle()` returns a dictionary, so the reply handler always fires.
+- The watch's `WKCompanionAppBundleIdentifier` resolves to the right flavor
+  (`ryakel.boomerang.app` / `…app.dev`), confirmed in the built bundles.
+- The failure is **not** range or pairing: `send()` guards on
+  `session.isReachable` first and would say "Phone not reachable" instead.
+  Reachable-but-undeliverable means the phone was there and not listening.
+
+**The decisive unanswered question** — it splits the problem in half and every
+next step depends on which way it goes:
+
+> With the Boomerang phone app open in the **foreground**, does Refresh on the
+> watch work?
+>
+> - **Works** → the phone side is sound and this really is specific to the
+>   background launch, meaning the `AppDelegate` activation is either not in the
+>   running binary or is insufficient on its own.
+> - **Fails** → the background-launch theory is wrong entirely and the fault is
+>   elsewhere. Do not keep building on it.
+
+**Unrun checks, in order:**
+
+1. Is iOS launching the app at all? Force-quit Boomerang, tap Refresh, then
+   `xcrun devicectl device info processes --device <iphone-udid> | grep -i boomerang`.
+   Absent = iOS is not launching it, which points at companion pairing rather
+   than session activation.
+2. Is it crashing on background launch? Phone → Settings → Privacy & Security →
+   Analytics & Improvements → Analytics Data, look for `Boomerang` entries. A
+   crash during background launch fails delivery exactly like this and no session
+   code will fix it.
+3. Wedged WatchConnectivity pairing state. This watch went through many
+   install/uninstall cycles in one day, which is known to wedge it. Rebooting
+   both devices is a legitimate reset here, not a shrug — but only after 1 and 2,
+   because it destroys the evidence.
+
+**Method note, earned twice in this session.** Two confident theories — "the
+paired watch isn't a registered development device" and "the profile must list
+watchOS in `Platform`" — were each argued from a plausible mechanism, never
+tested against reality, and both were wrong; the second was baked into a doctor
+check that then misdirected weeks of work. Measure before asserting, and when a
+single cheap observation would split the hypothesis space, get that observation
+first.
 
 **Icons** live in `BoomerangWatch/Assets.xcassets` as `AppIcon` / `AppIcon-Dev`
 (the dev configs select the latter, mirroring the phone app), generated from the
@@ -396,28 +474,36 @@ phone artwork. Two traps, both hit on 2026-07-26:
 watchOS app icons must also be **opaque** — the Dev source PNG carries an alpha
 channel, so it is flattened onto its own plate colour rather than copied across.
 
-### The watch app must be signed *for watchOS*
+### The watch must be in the signing profile
 
 Separate failure, same symptom, and the one that actually blocked installing:
 automatic signing gave `BoomerangWatch.app` the **iOS wildcard** profile —
 
 ```
 CodeSign .../Debug-watchos/BoomerangWatch.app
-    Provisioning Profile: "iOS Team Provisioning Profile: *"
+    Provisioning Profile: "iOS Team Provisioning Profile: *"    (1 devices)
 ```
 
-whose `Platform` is `[iOS, xrOS, visionOS]` — **no watchOS**. The phone app got
-its own real profile, so `xcodebuild` succeeded, `ValidateEmbeddedBinary`
-passed, the phone installed fine, and only the watch refused, with a bare "App
-could not be installed at this time".
+The phone app got its own real profile, so `xcodebuild` succeeded,
+`ValidateEmbeddedBinary` passed, the phone installed fine, and only the watch
+refused, with a bare "App could not be installed at this time".
+
+> **Retracted:** this section used to say the defect was that the profile's
+> `Platform` is `[iOS, xrOS, visionOS]` with **no watchOS**. That is not a
+> defect — a watch app embedded in an iOS companion is provisioned as part of
+> the iOS app family, and that array is correct for it. The real defect is the
+> `(1 devices)`: the wildcard covered only the phone. Once the watch was
+> registered and the profile carried 2 devices, the **same bundle with the same
+> `Platform` array installed on the wrist**. See "What actually gates a watch
+> install" below.
 
 Xcode falls back to that wildcard whenever it cannot issue a watchOS profile,
 which is the case until the paired Watch is a **registered development device**.
-Fix is on the Mac, not in the repo: Developer Mode on the Watch (Settings →
-Privacy & Security), restart it, then pair it for development in Xcode (Window →
-Devices and Simulators, watch unlocked and on the charger). After that
-`-allowProvisioningUpdates` can mint the profile and the one-liners work
-headlessly again.
+That much was right. The conclusion drawn from it — "fix is on the Mac, not in
+the repo" — was wrong, and cost several rounds of Mac-side errands that changed
+nothing. Developer Mode was already on and the watch was already registered in
+the portal. The repo was what kept the registration from happening; see the
+stale-cache trap below.
 
 Read the profile straight out of any built bundle:
 
@@ -429,11 +515,67 @@ The doctor does this automatically now.
 
 **A watch that `devicectl` can see is not a registered device.** `xcrun devicectl
 list devices` showing `available (paired)` only means Developer Mode is on and
-the Mac can talk to it — Xcode registers a device with the *account* when it is
-used as a build destination, and that is what mints the watchOS profile. The
-Devices and Simulators window does this, but it moved in Xcode 26, so the
-registration is done headlessly by building the `Watch` / `Watch Dev` scheme
-against the watch with `-allowProvisioningUpdates`.
+the Mac can talk to it. Building the `Watch` / `Watch Dev` scheme against the
+watch is what makes Xcode *request* a watchOS profile for it — but that request
+fails unless the device is already registered:
+
+```
+error: Device "Ryan's Apple Watch" isn't registered in your developer account.
+       The device must be registered in order to be included in a provisioning
+       profile. (in target 'BoomerangWatch' from project 'App')
+```
+
+**`-allowProvisioningUpdates` does not register unknown devices.** It renews
+profiles and mints certificates; it will not add a device, and it fails with the
+message above instead. Register the UDID by hand at
+[developer.apple.com/account/resources/devices/list](https://developer.apple.com/account/resources/devices/list)
+under platform **watchOS** — a separate device class from iOS, so a watch filed
+under iOS does not count. The giveaway that this was outstanding: the wildcard
+profile reported **1 devices**, the phone.
+
+Developer Mode on the wrist is necessary and not sufficient. Those are two
+independent facts, they fail identically, and conflating them cost this
+investigation several rounds.
+
+### What actually gates a watch install
+
+**Device coverage, not platform.** watchOS refuses a development-signed app
+whose embedded profile does not list that watch in `ProvisionedDevices`. That
+is the whole rule, and it is what the doctor now checks. Read it straight out
+of any bundle:
+
+```
+security cms -D -i <bundle>/embedded.mobileprovision \
+  | plutil -extract ProvisionedDevices json -o - -
+```
+
+The transition, same project, same Platform array, nothing else changed:
+
+```
+before registration:  iOS Team Provisioning Profile: *                        (1 devices)
+after  registration:  iOS Team Provisioning Profile: ...dev.watchkitapp       (2 devices)
+```
+
+and the "after" bundle installed:
+
+```
+$ xcrun devicectl device install app --device 00008310-... \
+    ios/build/Build/Products/Debug-Dev-iphoneos/App.app/Watch/BoomerangWatch.app
+App installed:
+• bundleID: ryakel.boomerang.app.dev.watchkitapp
+```
+
+(A first attempt returned `Failed to allocate RSD device
+(com.apple.mobiledevice error -402653181)` — a transient tunnel error, not a
+signing problem. Retry before investigating it.)
+
+**The doctor's old `platform WRONG` check was a fabrication** and is the reason
+this took as long as it did. It asserted watchOS had to appear in the profile's
+`Platform`, was never once tested against a real install, failed every build for
+weeks, and sent several rounds of work at satisfying a condition that did not
+exist. Every other check in that script came from a real observed failure. This
+one came from a guess. When adding a check, verify the thing it asserts actually
+breaks an install first.
 
 **`ios-deploy.sh` handles the whole watch side itself** — there is no separate
 command to remember. Each run: builds the watch app (it is already a target
@@ -446,9 +588,63 @@ failing it never fails the run, since the phone app is already on by then and a
 watch-side refusal is not a build problem.
 
 `npm run ios:watch-register [config]` remains as a standalone escape hatch, and
-`scripts/find-watch.sh` holds the device-selection rules (physical only, via
-devicectl's `reality` field) so `ios-deploy.sh` and `watch-register.sh` cannot
-drift apart on which watch they mean.
+`scripts/find-watch.sh` holds the device-selection rules so `ios-deploy.sh` and
+`watch-register.sh` cannot drift apart on which watch they mean.
+
+### `devicectl list devices` lies about Developer Mode
+
+This is the root cause of everything above, and it took every other theory being
+disproven by measurement before it turned up. The two commands disagree about
+the same watch, at the same moment:
+
+```
+$ xcrun devicectl list devices          # cached record
+watchOS  physical  disabled   Ryan's Apple Watch  30B4B8C9-...
+
+$ xcrun devicectl device info details --device 30B4B8C9-...   # live query
+• Developer Mode Status: Enabled (1)
+```
+
+`find-watch.sh` filtered on the cached `deviceProperties.developerModeStatus`,
+so it returned an empty string. Everything downstream is guarded by
+`[ -n "$WATCH_ID" ]`, so the register-and-rebuild branch silently never ran, the
+watch was never used as a build destination, it never registered with the
+account, no watchOS profile was ever issued, and signing stayed on the iOS
+wildcard permanently. A green build, a passing `ValidateEmbeddedBinary`, and a
+watch that refuses to install — all from one stale boolean.
+
+**Never gate anything on the listing's copy of device state.** Enumerate with
+`list devices`, confirm with a live `device info details` per candidate. Reject
+only on an explicit live `Disabled`; a watch that gives no answer (asleep, off
+the network) is returned anyway so the caller fails with a real error from
+xcodebuild instead of vanishing.
+
+**Two ids per device, and they are not interchangeable.** devicectl reports
+`identifier` (a GUID, `30B4B8C9-…`) and `hardwareProperties.udid` (the real one,
+`00008310-001605683C40E01E`). devicectl accepts either; `xcodebuild -destination
+"id=…"` matches **only the UDID**, and `watch-register.sh` passes this script's
+output straight to xcodebuild. An earlier comment in `find-watch.sh` claimed
+watch UDIDs are plain UUIDs and the iPhone finder's hardware-UDID shape "does
+not transfer" — a real Apple Watch Ultra 3 reports the same `00008310-…` shape
+as the iPhone.
+
+And the UDID is **not in the listing** for a watch — `list devices` populates
+`hardwareProperties.udid` for the iPhone but leaves it empty for the watch,
+which is exactly what makes "just read it from the JSON like the iPhone finder
+does" look correct and fail silently. It appears only in the live response:
+
+```
+$ xcrun devicectl device info details --device 30B4B8C9-...
+    • UDID: 00008310-001605683C40E01E
+```
+
+So `identifier` is the *query key* and the UDID is the *answer*: enumerate with
+the listing, query live, return what the live response says.
+
+Also worth knowing when reading profiles by hand: Xcode 16+ moved them out of
+`~/Library/MobileDevice/Provisioning Profiles`. Prefer reading
+`embedded.mobileprovision` out of the built bundle, which is what the doctor
+does and what is actually signed.
 
 The two watch schemes exist for exactly this reason — without a scheme whose
 buildable is `BoomerangWatch.app`, nothing in the project can target the watch

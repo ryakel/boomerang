@@ -373,6 +373,130 @@ struct BoomerangTodayIntent: AppIntent {
     }
 }
 
+// MARK: - Lists (2026-07-28)
+// A list entity resolved server-side by /api/intents/lists, which returns
+// EITHER one match or the candidates to ask about. The matching rules are pure
+// and live in server/listMatch.js — deliberately not reimplemented here, so
+// voice and the web UI can never disagree about which list "the grocery list"
+// means.
+//
+// Ambiguity is ASKED about, never guessed (owner's call, 2026-07-28). These
+// lists are shared with someone else; filing groceries into the wrong store's
+// list is worse than one extra Siri turn.
+
+struct BoomerangListEntity: AppEntity, Identifiable {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Boomerang List"
+    static var defaultQuery = BoomerangListQuery()
+
+    let id: String
+    let name: String
+    let card: String?
+
+    var displayRepresentation: DisplayRepresentation {
+        card.map { DisplayRepresentation(title: "\(name)", subtitle: "\($0)") }
+            ?? DisplayRepresentation(title: "\(name)")
+    }
+}
+
+struct BoomerangListQuery: EntityStringQuery {
+    private func encoded(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+    }
+
+    // The server answers with `match` (unambiguous) or `candidates` (ask). For
+    // an EntityStringQuery both collapse to "what should Siri offer": one
+    // element resolves silently, several make it ask.
+    private func fetch(_ query: String) async -> [BoomerangListEntity] {
+        guard BoomerangAPI.isConfigured else { return [] }
+        guard let (status, json) = try? await BoomerangAPI.getJSON("/api/intents/lists?q=" + encoded(query)),
+              status == 200 else { return [] }
+        let rows: [[String: Any]]
+        if let match = json["match"] as? [String: Any] {
+            rows = [match]
+        } else {
+            rows = (json["candidates"] as? [[String: Any]]) ?? []
+        }
+        return rows.compactMap { row in
+            guard let id = row["id"] as? String, let name = row["name"] as? String else { return nil }
+            return BoomerangListEntity(id: id, name: name, card: row["card"] as? String)
+        }
+    }
+
+    func entities(for identifiers: [BoomerangListEntity.ID]) async throws -> [BoomerangListEntity] {
+        // Ids are resolved by name lookup against the same endpoint; the set is
+        // small (a handful of lists), so a filter is cheaper than a new route.
+        let all = await fetch("")
+        let wanted = Set(identifiers)
+        return all.filter { wanted.contains($0.id) }
+    }
+
+    func entities(matching string: String) async throws -> [BoomerangListEntity] {
+        await fetch(string)
+    }
+
+    // Empty query returns the default list when one is set, otherwise every
+    // list — which is exactly the menu Siri should offer.
+    func suggestedEntities() async throws -> [BoomerangListEntity] {
+        await fetch("")
+    }
+}
+
+struct AddToBoomerangListIntent: AppIntent {
+    static var title: LocalizedStringResource = "Add to a Boomerang list"
+    static var description = IntentDescription("Adds items to one of your shared lists. Say several at once — \"milk, eggs and bread\".")
+
+    @Parameter(title: "List", requestValueDialog: "Which list?")
+    var list: BoomerangListEntity
+
+    @Parameter(title: "Items", requestValueDialog: "What should I add?")
+    var items: String
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Add \(\.$items) to \(\.$list)")
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let text = items.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            return .result(dialog: "I didn't catch that — try again.")
+        }
+        guard BoomerangAPI.isConfigured else {
+            return .result(dialog: .init(stringLiteral: notConnectedDialog))
+        }
+
+        // "milk, eggs and bread" is ONE thing a person says and three items.
+        // Split here rather than server-side so the spoken dialog can report
+        // the real count back.
+        let names = text
+            .replacingOccurrences(of: " and ", with: ",")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !names.isEmpty else {
+            return .result(dialog: "I didn't catch that — try again.")
+        }
+
+        do {
+            let (status, json) = try await BoomerangAPI.postJSON(
+                "/api/lists/\(list.id)/items", body: ["names": names])
+            switch status {
+            case 200...299:
+                let what = names.count == 1 ? names[0] : "\(names.count) items"
+                return .result(dialog: "Added \(what) to \(list.name).")
+            case 404:
+                return .result(dialog: "\(list.name) isn't there any more — open Boomerang and check your lists.")
+            default:
+                return .result(dialog: .init(stringLiteral: serverError(json, fallback: "Boomerang said no (\(status)).")))
+            }
+        } catch {
+            // NOT queued offline, unlike task capture. A list item is only
+            // useful in the shop, and a silent replay hours later would add
+            // things the other person may have already bought.
+            return .result(dialog: "Can't reach your server — nothing was added, so try again when you're back on the VPN.")
+        }
+    }
+}
+
 struct BoomerangShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -418,6 +542,16 @@ struct BoomerangShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Snooze",
             systemImageName: "moon.zzz.fill"
+        )
+        AppShortcut(
+            intent: AddToBoomerangListIntent(),
+            phrases: [
+                "Add to \(\.$list) in \(.applicationName)",
+                "Add something to a \(.applicationName) list",
+                "Put it on a \(.applicationName) list"
+            ],
+            shortTitle: "Add to list",
+            systemImageName: "cart.fill.badge.plus"
         )
         AppShortcut(
             intent: BoomerangTodayIntent(),

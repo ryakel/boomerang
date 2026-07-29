@@ -58,9 +58,11 @@ import { adoptKnowledgeDatabase,
 import { getAllKnowledgeItems, searchKnowledgeItems, getKnowledgeItem } from './db.js'
 import {
   getAllLists, getList, upsertList, updateListPartial, deleteList,
+  getAllListSources, getListSource, upsertListSource, updateListSourcePartial, detachListSource,
   getListItems, getListItem, createListItem, updateListItemPartial, deleteListItem,
 } from './db.js'
-import { initListSync, startListSyncPolling, syncList, syncAllLists } from './trelloListSync.js'
+import { initListSync, startListSyncPolling, syncList, syncAllLists, expandSource, expandAllSources, moveListItem } from './trelloListSync.js'
+import { matchList } from './listMatch.js'
 import crypto from 'crypto'
 import { initDeviceAuth, onSecurityAlert, enrollDevice, refreshDeviceTokens,
   listDevices, revokeDevice, deleteDevice, issueAttestChallenge,
@@ -1030,6 +1032,31 @@ app.get('/api/intents/tasks', (req, res) => {
   const tasks = getAllTasks().filter(t => !t.gmail_pending)
   const ids = String(req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean)
   res.json({ tasks: intentTaskRows(tasks, { q: req.query.q, ids, todayYMD }) })
+})
+
+// Siri list resolution. Mirrors /api/intents/tasks: the client says a name,
+// the server answers with either ONE list or the candidates to ask about.
+//
+// The matching itself is pure and lives in listMatch.js — this route only
+// supplies the data and the default-list setting. Deliberately does NOT
+// mutate: resolving a name must be safe to call speculatively, and the actual
+// add goes through the normal POST /api/lists/:id/items path so it gets the
+// same sync kick and the same Trello guarantees as a typed one.
+app.get('/api/intents/lists', (req, res) => {
+  const lists = getAllLists().map(l => ({
+    id: l.id,
+    name: l.name,
+    trello_card_name: l.trello_card_name,
+    orphaned_at: l.orphaned_at,
+  }))
+  const settings = getData('settings') || {}
+  const result = matchList(req.query.q || '', lists, { defaultListId: settings.default_list_id || null })
+  const strip = (l) => ({ id: l.id, name: l.name, card: l.trello_card_name || null })
+  res.json({
+    match: result.match ? strip(result.match) : null,
+    candidates: result.candidates.map(strip),
+    reason: result.reason,
+  })
 })
 
 // --- Project endpoints ---
@@ -3883,6 +3910,15 @@ const publicItem = (i) => ({
   position: i.position, created_at: i.created_at, updated_at: i.updated_at,
 })
 
+// Same treatment one level up: `shadow_name` is the 3-way merge baseline, not
+// user data, and it has no business leaving the server. Everything else the
+// client legitimately renders — including the card/column breadcrumb and the
+// orphan tombstone, which the UI has to show.
+const publicList = (l) => {
+  const { shadow_name, ...rest } = l // eslint-disable-line no-unused-vars
+  return rest
+}
+
 // Mutations kick a sync so a change reaches the other person in seconds
 // rather than at the next poll. Fire-and-forget on purpose: the write already
 // succeeded locally, and a Trello hiccup must not fail the user's request.
@@ -3895,7 +3931,21 @@ function kickSync(listId) {
 app.get('/api/lists', (req, res) => {
   const lists = getAllLists().map(l => {
     const items = getListItems(l.id)
-    return { ...l, item_count: items.length, unchecked_count: items.filter(i => !i.checked).length }
+    // `last_activity_at` is DERIVED, not stored. `lists.updated_at` only moves
+    // when the list row itself changes (rename, link, sync stamp) — adding milk
+    // never touches it, so sorting by it would rank a list by when it was last
+    // renamed. What "recently updated" means to a person is "when did anything
+    // in here last change", which includes items the sync pulled in from her.
+    // Derived rather than a new column so no existing semantics shift, and no
+    // extra query: the counts above already walk these rows.
+    let last = l.updated_at || ''
+    for (const i of items) if (i.updated_at > last) last = i.updated_at
+    return {
+      ...publicList(l),
+      item_count: items.length,
+      unchecked_count: items.filter(i => !i.checked).length,
+      last_activity_at: last || null,
+    }
   })
   res.json({ lists })
 })
@@ -3916,7 +3966,7 @@ app.post('/api/lists', (req, res) => {
   }
   upsertList(list)
   if (list.trello_card_id) kickSync(list.id)
-  res.json({ ok: true, list: getList(list.id) })
+  res.json({ ok: true, list: publicList(getList(list.id)) })
 })
 
 app.patch('/api/lists/:id', (req, res) => {
@@ -3931,6 +3981,10 @@ app.patch('/api/lists/:id', (req, res) => {
     const current = getList(req.params.id)
     if (current && current.trello_card_id !== updates.trello_card_id) {
       updates.trello_checklist_id = req.body?.trello_checklist_id ?? null
+      // The name baseline belonged to the OLD checklist. Carrying it over
+      // would make the next expansion compare against a name the new
+      // checklist never agreed to and "resolve" a conflict that never existed.
+      updates.shadow_name = null
       for (const item of getListItems(req.params.id, { includeDeleted: true })) {
         updateListItemPartial(item.id, { trello_check_item_id: null, shadow_name: null, shadow_checked: null })
       }
@@ -3939,7 +3993,7 @@ app.patch('/api/lists/:id', (req, res) => {
   const list = updateListPartial(req.params.id, updates)
   if (!list) return res.status(404).json({ error: 'List not found' })
   if (list.trello_card_id) kickSync(list.id)
-  res.json({ ok: true, list })
+  res.json({ ok: true, list: publicList(list) })
 })
 
 app.delete('/api/lists/:id', (req, res) => {
@@ -3953,7 +4007,7 @@ app.delete('/api/lists/:id', (req, res) => {
 app.get('/api/lists/:id/items', (req, res) => {
   const list = getList(req.params.id)
   if (!list) return res.status(404).json({ error: 'List not found' })
-  res.json({ list, items: getListItems(list.id).map(publicItem) })
+  res.json({ list: publicList(list), items: getListItems(list.id).map(publicItem) })
 })
 
 app.post('/api/lists/:id/items', (req, res) => {
@@ -3987,6 +4041,26 @@ app.patch('/api/lists/:listId/items/:itemId', (req, res) => {
   res.json({ ok: true, item: publicItem(item) })
 })
 
+// Move ONE item, expressed the way the gesture actually happens: put this
+// item immediately before that one (null = the end). Deliberately not a
+// "here is the whole new order" endpoint — that shape invites renumbering
+// every row, and every renumbered row is a write to someone else's checklist.
+app.post('/api/lists/:listId/items/:itemId/move', async (req, res) => {
+  const existing = getListItem(req.params.itemId)
+  if (!existing || existing.list_id !== req.params.listId || existing.deleted_at) {
+    return res.status(404).json({ error: 'Item not found' })
+  }
+  try {
+    const result = await moveListItem(req.params.listId, req.params.itemId, req.body?.before_id ?? null)
+    res.json({ ok: true, ...result, items: getListItems(req.params.listId).map(publicItem) })
+  } catch (err) {
+    // The local move already happened; only the Trello push failed. Say so on
+    // the list rather than only in a log, and hand back the current truth.
+    updateListPartial(req.params.listId, { last_sync_error: `Reorder not sent to Trello: ${err.message}` })
+    res.status(502).json({ error: err.message, items: getListItems(req.params.listId).map(publicItem) })
+  }
+})
+
 app.delete('/api/lists/:listId/items/:itemId', (req, res) => {
   const existing = getListItem(req.params.itemId)
   if (!existing || existing.list_id !== req.params.listId) {
@@ -4010,6 +4084,82 @@ app.post('/api/lists/:id/sync', async (req, res) => {
 
 app.post('/api/lists/sync', async (req, res) => {
   res.json({ ok: true, results: await syncAllLists() })
+})
+
+// --- link sources: sync a whole card or column, not one checklist ---
+
+app.get('/api/lists/sources', (req, res) => {
+  const sources = getAllListSources().map(s => ({
+    ...s,
+    list_count: getAllLists().filter(l => l.source_id === s.id && !l.orphaned_at).length,
+  }))
+  res.json({ sources })
+})
+
+app.post('/api/lists/sources', async (req, res) => {
+  const scope = req.body?.scope
+  const trelloId = (req.body?.trello_id || '').trim()
+  if (!['card', 'column'].includes(scope)) {
+    return res.status(400).json({ error: 'scope must be "card" or "column"' })
+  }
+  if (!trelloId) return res.status(400).json({ error: 'trello_id required' })
+
+  // One source per Trello container. Linking the same card twice would
+  // materialize a competing set of lists for the same checklists, and both
+  // would then fight over the same items.
+  const dupe = getAllListSources().find(s => s.trello_id === trelloId)
+  if (dupe) return res.status(409).json({ error: 'That card or column is already linked', source: dupe })
+
+  const now = new Date().toISOString()
+  const source = {
+    id: crypto.randomUUID(),
+    scope,
+    trello_id: trelloId,
+    name: (req.body?.name || '').trim() || null,
+    trello_board_id: req.body?.trello_board_id || null,
+    sync_enabled: true,
+    created_at: now, updated_at: now,
+  }
+  upsertListSource(source)
+
+  // Expand immediately so linking shows its result rather than leaving the
+  // user staring at nothing until the next poll.
+  try {
+    const result = await expandSource(source.id)
+    res.json({ ok: true, source: getListSource(source.id), result })
+  } catch (err) {
+    updateListSourcePartial(source.id, { last_expand_error: err.message })
+    res.status(400).json({ error: err.message, source: getListSource(source.id) })
+  }
+})
+
+app.post('/api/lists/sources/:id/expand', async (req, res) => {
+  if (!getListSource(req.params.id)) return res.status(404).json({ error: 'Source not found' })
+  try {
+    res.json({ ok: true, result: await expandSource(req.params.id) })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+app.patch('/api/lists/sources/:id', (req, res) => {
+  if (!getListSource(req.params.id)) return res.status(404).json({ error: 'Source not found' })
+  const updates = {}
+  for (const k of ['name', 'sync_enabled']) if (req.body?.[k] !== undefined) updates[k] = req.body[k]
+  res.json({ ok: true, source: updateListSourcePartial(req.params.id, updates) })
+})
+
+// Unlinking keeps every list the source made — their items are real data, and
+// dropping them because a link was removed is a loss nobody asked for. The
+// lists just become hand-owned and stop auto-discovering.
+app.delete('/api/lists/sources/:id', (req, res) => {
+  if (!getListSource(req.params.id)) return res.status(404).json({ error: 'Source not found' })
+  detachListSource(req.params.id)
+  res.json({ ok: true })
+})
+
+app.post('/api/lists/expand', async (req, res) => {
+  res.json({ ok: true, results: await expandAllSources() })
 })
 
 app.post('/api/notifications/tap', (req, res) => {

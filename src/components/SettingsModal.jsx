@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server, Info } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
+import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server } from 'lucide-react'
 import { isNativeShell, getApiBase, requestConnectionSetup } from '../apiConfig'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
@@ -9,6 +9,10 @@ import {
 import { restoreFromBackup } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import ModalShell from './ModalShell'
+import {
+  SettingsNav, SettingsPage, SettingsGroup,
+  SettingRow, ToggleRow, SegmentRow, ValueRow, NavRow, ActionRow, StatusRow,
+} from './settings'
 import EmptyState from './EmptyState'
 import AutosaveIndicator from './AutosaveIndicator'
 import { applyTheme } from '../theme'
@@ -22,51 +26,6 @@ import { MODEL_CATALOG as AI_MODEL_CATALOG, TIER_DEFAULTS as AI_TIER_DEFAULTS } 
 // collapsed (2026-07-17: "Settings should start minimized across the
 // board"). Deliberately NOT persisted: retained open-state is exactly how
 // the pages got long and messy.
-function SettingsSection({ label, hint, children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <div className="v2-settings-section">
-      <button
-        type="button"
-        className={`v2-settings-section-header${open ? '' : ' v2-settings-section-header-collapsed'}`}
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-      >
-        <span className="v2-settings-section-chev" aria-hidden="true">{open ? '\u25be' : '\u25b8'}</span>
-        <span className="v2-settings-section-header-text">
-          <span className="v2-form-label">{label}</span>
-          {hint && <span className="v2-settings-row-hint">{hint}</span>}
-        </span>
-      </button>
-      {open && children}
-    </div>
-  )
-}
-
-// Row whose explanatory hint stays hidden until the label is tapped
-// (2026-07-17: "Build numbers — I want to click on each for a description —
-// otherwise they should be minimized"). The control/value stays visible;
-// only the paragraph folds.
-function InfoHintRow({ label, hint, children }) {
-  const [show, setShow] = useState(false)
-  return (
-    <div className="v2-settings-row">
-      <div className="v2-settings-row-text">
-        <button
-          type="button"
-          className="v2-settings-info-label"
-          onClick={() => setShow(s => !s)}
-          aria-expanded={show}
-        >
-          <span className="v2-settings-row-label">{label}</span>
-          <Info size={13} strokeWidth={1.75} className="v2-settings-info-icon" aria-hidden="true" />
-        </button>
-        {show && <div className="v2-settings-row-hint">{hint}</div>}
-      </div>
-      {children}
-    </div>
-  )
-}
 
 function Toggle({ checked, onChange, disabled }) {
   return (
@@ -120,9 +79,12 @@ function LabelsPanel() {
 
   return (
     <div className="v2-settings-form">
-      <div className="v2-settings-block">
-        <div className="v2-form-label">Existing labels</div>
-        <div className="v2-settings-row-hint">Tap a name to rename. Color swatches show the picker. Use the arrows to reorder.</div>
+      {/* Plain groups, not framed cards — the danger zone stays the ONE framed
+          element in settings. The colour <details> below stay: they are a
+          picker popover, not a hidden section, so they are not part of the
+          collapse family this rebuild is removing. */}
+      <SettingsGroup caption="Existing labels">
+        <p className="v2-set-page-intro">Tap a name to rename. Colour swatches open the picker. Use the arrows to reorder.</p>
         {labels.length === 0 ? (
           <div className="v2-labels-empty">No labels yet. Add one below.</div>
         ) : (
@@ -196,10 +158,9 @@ function LabelsPanel() {
             ))}
           </ul>
         )}
-      </div>
+      </SettingsGroup>
 
-      <div className="v2-settings-block">
-        <div className="v2-form-label">Add a label</div>
+      <SettingsGroup caption="Add a label">
         <div className="v2-labels-add">
           <details className="v2-labels-color">
             <summary className="v2-labels-swatch" style={{ background: newColor }} aria-label="Pick color" />
@@ -230,7 +191,7 @@ function LabelsPanel() {
             <Plus size={13} strokeWidth={2} /> Add
           </button>
         </div>
-      </div>
+      </SettingsGroup>
     </div>
   )
 }
@@ -244,7 +205,71 @@ function LabelsPanel() {
 // same category as the Data tab's activity log / backup tools). Folded AI's
 // one real setting (custom instructions) in next to the task-behavior
 // thresholds it's most related to as "Tasks", and Logs into Data.
-const TABS = ['General', 'Tasks', 'Labels', 'Integrations', 'Notifications', 'Data']
+// A labelled number with its unit. Composed from SettingRow rather than being
+// a new row kind: the unit is what makes the number legible ("3 snoozes" needs
+// no hint at all), and putting it beside the input is cheaper than a sentence
+// underneath. Composition, not a parallel implementation — the thing §7 exists
+// to prevent.
+function NumberRow({ label, info, unit, value, onChange, min, max, disabled }) {
+  return (
+    <SettingRow
+      label={label}
+      info={info}
+      disabled={disabled}
+      trailing={
+        <span className="v2-set-number">
+          <input
+            className="v2-form-input v2-settings-compact-input"
+            type="number"
+            min={min}
+            max={max}
+            aria-label={label}
+            value={value}
+            onChange={e => onChange(parseInt(e.target.value, 10))}
+          />
+          {unit && <span className="v2-set-number-unit">{unit}</span>}
+        </span>
+      }
+    />
+  )
+}
+
+// The settings categories, in index order. Formerly the tab strip — which
+// overflowed on a phone ("Notifications" clipped to "Notifica" with nothing
+// hinting it scrolled) and, being pure chrome, told you nothing about your
+// setup. As index rows they each carry a live value summary instead.
+const CATEGORIES = ['General', 'Tasks', 'Labels', 'Integrations', 'Notifications', 'Data']
+
+// Sub-page titles. Page ids are paths ('Tasks/impact'), so a category page's
+// title is just its own name; only the leaves below need naming. Capped at one
+// level of sub-page — §6's rule that anything deeper wants splitting instead.
+const PAGE_TITLES = {
+  'Tasks/impact': 'Impact dates',
+  'Tasks/instructions': 'Custom instructions',
+  'Data/devices': 'Devices',
+  'Data/logs': 'Server logs',
+  'Notifications/types': 'Event pings',
+  'Notifications/digest': 'Morning digest',
+  'Notifications/crisis': 'Critical mode',
+  'Notifications/links': 'Deep links',
+  'Notifications/email': 'Email deliverability',
+  'Notifications/test': 'Test channels',
+  'Notifications/history': 'History',
+  // One per integration. Duplicated from IntegrationsPanel's own list rather
+  // than derived, because the page title has to resolve before that component
+  // mounts — a page whose header says "Integrations/gcal" for a frame is worse
+  // than a small, stable map.
+  'Integrations/anthropic': 'Anthropic',
+  'Integrations/openai': 'OpenAI',
+  'Integrations/notion': 'Notion',
+  'Integrations/trello': 'Trello',
+  'Integrations/gcal': 'Google Calendar',
+  'Integrations/gmail': 'Gmail',
+  'Integrations/tracking': '17track',
+  'Integrations/shippo': 'Shippo',
+  'Integrations/weather': 'Weather',
+  'Integrations/pushover': 'Pushover',
+}
 
 // All Settings tabs now have v2 implementations.
 
@@ -575,7 +600,7 @@ function OpenAIKeyBlock({ settings, update }) {
 }
 
 function IntegrationsPanel({
-  settings, update, setActiveTab,
+  settings, update, setActiveTab, page, setPage,
   onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
 }) {
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
@@ -1123,15 +1148,14 @@ function IntegrationsPanel({
     },
   ]
 
-  // Per-integration collapse state — SESSION-LOCAL, every integration
-  // starts folded on each Settings visit (2026-07-17). The old
-  // persisted-in-settings map meant whatever you once expanded stayed
-  // expanded forever, and the page crept back to a wall of config.
-  const [openIntegrations, setOpenIntegrations] = useState({})
-  const isIntCollapsed = (key) => !openIntegrations[key]
-  const toggleIntCollapsed = (key) => {
-    setOpenIntegrations(s => ({ ...s, [key]: !s[key] }))
-  }
+  // Sub-page routing. Every integration used to be a name-toggle expander in
+  // one long list — a whole parallel collapse implementation of its own, and
+  // the reason this page was a wall of config. Each integration is a page now,
+  // which also finally gives its nested sub-settings a legal home under the
+  // one-level rule (a config block inside an expander inside a page was two
+  // levels of hiding).
+  const sub = page?.startsWith('Integrations/') ? page.slice('Integrations/'.length) : ''
+  const isMain = !sub
 
   const runPushoverTest = async (emergency) => {
     const setter = emergency ? setPushoverEmer : setPushoverTest
@@ -1156,31 +1180,37 @@ function IntegrationsPanel({
 
   return (
     <div className="v2-settings-form">
-      <div className="v2-settings-block">
-        <div className="v2-form-label">Status</div>
-        <div className="v2-settings-row-hint">
-          Connect, configure, and disconnect every integration inline. Tokens persist
-          across reloads — you only connect once.
-        </div>
+      {/* Plain rows, not a framed card — the danger zone stays the ONE framed
+          element in settings. */}
+      <SettingsGroup>
         <ul className="v2-integrations-list">
           {integrations.map(int => (
-            <li key={int.key} className="v2-integrations-row">
-              <span className={`v2-integrations-dot v2-integrations-dot-${int.connected === 'warn' ? 'warn' : int.connected ? 'connected' : 'unconfigured'}`} />
-              <div className="v2-integrations-meta">
-                <button
-                  type="button"
-                  className="v2-integrations-name v2-integrations-name-toggle"
-                  onClick={() => toggleIntCollapsed(int.key)}
-                  aria-expanded={!isIntCollapsed(int.key)}
-                >
-                  <span className="v2-settings-section-chev" aria-hidden="true">
-                    {isIntCollapsed(int.key) ? '▸' : '▾'}
-                  </span>
-                  {int.label}
-                </button>
-                {int.sub && <div className="v2-integrations-sub">{int.sub}</div>}
-                <div className="v2-integrations-hint">{int.hint}</div>
-                {!isIntCollapsed(int.key) && (<>
+            <Fragment key={int.key}>
+              {isMain && (
+                // The WHOLE ROW is the target (§2), not a small trailing
+                // control. The old row made only the integration's NAME
+                // pressable — it was the expander toggle — which is exactly
+                // how the hierarchy ended up inverted, with the label doing
+                // the work and looking like chrome.
+                <SettingRow
+                  label={int.label}
+                  info={int.hint}
+                  onPress={() => setPage(`Integrations/${int.key}`)}
+                  trailing={
+                    <span className="v2-set-status">
+                      <span
+                        className={`v2-set-dot v2-set-dot-${int.connected === 'warn' ? 'warn' : int.connected ? 'ok' : 'off'}`}
+                        aria-hidden="true"
+                      />
+                      <span className="v2-set-row-value">
+                        {int.sub || (int.connected === 'warn' ? 'Needs attention' : int.connected ? 'Connected' : 'Not set')}
+                      </span>
+                      <ChevronRight size={16} strokeWidth={2} className="v2-set-row-chev" />
+                    </span>
+                  }
+                />
+              )}
+              {sub === int.key && (<>
                 {int.inline === 'api-key' && (
                   <div className="v2-integrations-inline">
                     {int.envFlag ? (
@@ -1789,8 +1819,6 @@ function IntegrationsPanel({
                 {int.syncResult && (
                   <div className="v2-integrations-sync-result">{int.syncResult}</div>
                 )}
-                </>)}
-              </div>
               <div className="v2-integrations-row-actions">
                 {int.sync && (
                   <button
@@ -1813,10 +1841,11 @@ function IntegrationsPanel({
                   </button>
                 )}
               </div>
-            </li>
+              </>)}
+            </Fragment>
           ))}
         </ul>
-      </div>
+      </SettingsGroup>
 
       {emergencyConfirm && (
         <div className="v2-settings-confirm-overlay" onClick={() => setEmergencyConfirm(false)}>
@@ -1842,7 +1871,7 @@ function IntegrationsPanel({
   )
 }
 
-function NotificationsPanel({ settings, update }) {
+function NotificationsPanel({ settings, update, page, setPage }) {
   // Pushover link mode is server-side state with its own endpoint (NOT part of
   // the synced settings blob — the blob's last-writer-wins semantics let other
   // devices revert it; see /api/pushover/link-mode in server.js). null = not
@@ -1994,33 +2023,17 @@ function NotificationsPanel({ settings, update }) {
     if (historyOpen && history === null) loadHistory()
   }, [historyOpen, history])
 
-  // Per-section collapse state — SESSION-LOCAL, every section starts
-  // folded on each Settings visit (2026-07-17; was persisted-in-settings
-  // with an all-expanded default, which is how the page got so long).
-  const [openSections, setOpenSections] = useState({})
-  const isCollapsed = (key) => !openSections[key]
-  const toggleCollapsed = (key) => {
-    setOpenSections(s => ({ ...s, [key]: !s[key] }))
-  }
-  const SectionHeader = ({ k, label, hint }) => (
-    <button
-      type="button"
-      className={`v2-settings-section-header${isCollapsed(k) ? ' v2-settings-section-header-collapsed' : ''}`}
-      onClick={() => toggleCollapsed(k)}
-      aria-expanded={!isCollapsed(k)}
-    >
-      <span className="v2-settings-section-chev" aria-hidden="true">
-        {isCollapsed(k) ? '▸' : '▾'}
-      </span>
-      <span className="v2-settings-section-header-text">
-        <span className="v2-form-label">{label}</span>
-        {hint && <span className="v2-settings-row-hint">{hint}</span>}
-      </span>
-    </button>
-  )
-
+  // Sub-page routing. The seven collapsed sections that used to live on this
+  // one screen — all folded by default, which is how a settings page ends up
+  // telling you nothing — are pages now. `openSections`, `isCollapsed`,
+  // `toggleCollapsed` and the local `SectionHeader` are gone with them: that
+  // was the largest of the seven parallel collapse implementations this
+  // rebuild exists to delete.
+  const sub = page?.startsWith('Notifications/') ? page.slice('Notifications/'.length) : ''
+  const isMain = !sub
   return (
     <div className="v2-settings-form">
+      {isMain && (<>
       {/* Dev-instance muzzle banner — this server never background-sends. */}
       {notifsMuzzled && (
         <div className="v2-settings-block" style={{ borderLeft: '3px solid var(--v2-accent, #F26640)' }}>
@@ -2035,22 +2048,16 @@ function NotificationsPanel({ settings, update }) {
         </div>
       )}
 
-      {/* Channel masters */}
-      <div className="v2-settings-block">
-        <SectionHeader k="channels" label="Channels" hint="Master toggle per delivery channel. Each channel still respects its per-type settings below." />
-        {!isCollapsed('channels') && (<>
+      <SettingsGroup caption="Channels">
 
         {masters.map(m => (
-          <div key={m.key} className="v2-settings-row">
-            <div className="v2-settings-row-text">
-              <div className="v2-settings-row-label">{m.label}</div>
-              <div className="v2-settings-row-hint">{m.hint}</div>
-            </div>
-            <Toggle
-              checked={settings[m.key] === true}
-              onChange={e => update(m.key, e.target.checked)}
-            />
-          </div>
+          <ToggleRow
+            key={m.key}
+            label={m.label}
+            info={m.hint}
+            checked={settings[m.key] === true}
+            onChange={e => update(m.key, e.target.checked)}
+          />
         ))}
 
         {/* Per-device subscribe — only relevant when Web push is enabled. */}
@@ -2190,56 +2197,18 @@ function NotificationsPanel({ settings, update }) {
             />
           </div>
         )}
-        </>)}
-      </div>
+      </SettingsGroup>
 
-      {/* Public app URL — genuinely cross-channel infra (web push, Pushover,
-        * and the daily digest all use it for tappable deep links), but used
-        * to be buried inside the Pushover integration block labeled as if it
-        * were Pushover-specific. */}
-      <div className="v2-settings-block">
-        <SectionHeader k="delivery" label="Deep links" hint="Where notification taps land — the public URL used by web push, Pushover, email, and the digest, plus native-app link routing." />
-        {!isCollapsed('delivery') && (<>
-        <div className="v2-settings-row-text">
-          <label className="v2-form-label" htmlFor="v2-public-app-url">Public app URL</label>
-          <div className="v2-settings-row-hint">When set, notifications and the daily digest include a tappable link back to the relevant task — used by web push, Pushover, and email.</div>
-        </div>
-        <input
-          id="v2-public-app-url"
-          type="text"
-          className="v2-form-input"
-          placeholder="https://boomerang.example.com"
-          value={settings.public_app_url || ''}
-          onChange={e => update('public_app_url', e.target.value)}
-        />
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Open Pushover links in the iOS app</div>
-            <div className="v2-settings-row-hint">Pushover links open the native Boomerang app (boomerang:// deep link) instead of the web app in Safari. Stored on the server directly — this one can't be reverted by other devices syncing.</div>
-          </div>
-          <Toggle
-            checked={pushoverOpenNative === true}
-            disabled={pushoverOpenNative === null}
-            onChange={e => {
-              const next = e.target.checked
-              setPushoverOpenNative(next)
-              fetch('/api/pushover/link-mode', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ open_native: next }),
-              }).then(r => r.ok ? r.json() : null)
-                .then(d => { if (d) setPushoverOpenNative(!!d.open_native) })
-                .catch(() => setPushoverOpenNative(v => !v)) // revert optimistic state on failure
-            }}
-          />
-        </div>
-        </>)}
-      </div>
+      </>)}
 
-      {/* Per-type × per-channel — card-per-type layout works at any width */}
-      <div className="v2-settings-block">
-        <SectionHeader k="types" label="Event pings" hint="The morning digest is the one scheduled notification — these are the deliberate exceptions: event-driven package updates, Quokka plan-ready, and the per-task opt-ins (Critical mode below, escalation ladders, and the per-task Remind-me toggle)." />
-        {!isCollapsed('types') && (() => {
+      {sub === 'types' && (<>
+      <p className="v2-set-page-intro">
+        The morning digest is the one scheduled notification. These are the deliberate
+        exceptions: event-driven package updates, Quokka plan-ready, and the per-task
+        opt-ins — Critical mode, escalation ladders, and the per-task Remind-me toggle.
+      </p>
+      <SettingsGroup>
+        {(() => {
           const offMasters = masters.filter(m => settings[m.key] !== true).map(m => m.label)
           return offMasters.length === 0 ? null : (
             <div className="v2-settings-row-hint" style={{ marginBottom: 10 }}>
@@ -2249,7 +2218,6 @@ function NotificationsPanel({ settings, update }) {
             </div>
           )
         })()}
-        {!isCollapsed('types') && (
         <div className="v2-notif-cards">
           {NOTIF_TYPES.map(t => (
             <div key={t.key} className="v2-notif-card">
@@ -2343,17 +2311,160 @@ function NotificationsPanel({ settings, update }) {
             </div>
           </div>
         </div>
-        )}
-      </div>
+      </SettingsGroup>
+      </>)}
 
-      {/* Critical mode — the critical tag's nag path (internal identifiers
-          keep the original crisis_* names). One card for everything about
-          critical behavior (cadence, staleness check-in, auto triage). The
-          tag itself is applied per-task via EditTaskModal's Critical
-          checkbox or by adding the label directly. */}
-      <div className="v2-settings-block">
-        <SectionHeader k="crisis" label="Critical mode" hint='Tasks tagged with the critical label get the most aggressive nag path in the app: their own per-task pings on every enabled channel (rides the channel master toggles), a pinned 🚨 section, and an auto-drafted triage checklist. Pushover escalates to Emergency once a critical task is overdue or 24h old.' />
-        {!isCollapsed('crisis') && (<>
+      {isMain && (<>
+      {/* Plain rows, not a framed card. The danger zone is meant to be the ONE
+          framed element in settings — a second frame here would have quietly
+          made that claim false. Dependent rows dim rather than vanish. */}
+      <SettingsGroup caption="Quiet hours">
+        <ToggleRow
+          label="Quiet hours"
+          info="Suppress most notifications during this window. Tasks tagged with the bypass label still wake you."
+          checked={!!settings.quiet_hours_enabled}
+          onChange={e => update('quiet_hours_enabled', e.target.checked)}
+        />
+        <SettingRow
+          label="From"
+          disabled={!settings.quiet_hours_enabled}
+          trailing={
+            <input
+              type="time"
+              className="v2-form-input v2-settings-time-input"
+              aria-label="Quiet hours start"
+              value={settings.quiet_hours_start || '22:00'}
+              onChange={e => update('quiet_hours_start', e.target.value)}
+            />
+          }
+        />
+        <SettingRow
+          label="Until"
+          disabled={!settings.quiet_hours_enabled}
+          trailing={
+            <input
+              type="time"
+              className="v2-form-input v2-settings-time-input"
+              aria-label="Quiet hours end"
+              value={settings.quiet_hours_end || '08:00'}
+              onChange={e => update('quiet_hours_end', e.target.value)}
+            />
+          }
+        />
+        <SettingRow
+          label="Bypass label"
+          info="Tasks with this tag wake you even during quiet hours."
+          disabled={!settings.quiet_hours_enabled}
+          trailing={
+            <input
+              className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
+              type="text"
+              aria-label="Bypass label"
+              value={settings.quiet_hours_bypass_label || 'wake-me'}
+              onChange={e => update('quiet_hours_bypass_label', e.target.value)}
+            />
+          }
+        />
+      </SettingsGroup>
+
+      {/* Everything below used to be a collapsed section on this same page —
+          seven of them, all folded by default, which is how a settings screen
+          ends up telling you nothing. They are pages now: the row says what
+          it is set to, and you go there only when you mean to. */}
+      <SettingsGroup caption="More">
+        {/* A per-type x per-channel MATRIX, deliberately still a grid rather
+            than rows. Rows are one-dimensional and this data is two — five
+            types against three channels — so flattening it would mean five
+            captions and fifteen toggle rows to say what a grid says in one
+            glance. On its own page the length is no longer the problem it was
+            when it sat collapsed on the main screen. Flagged as a call worth
+            revisiting if the grid reads badly on a narrow phone. */}
+        <NavRow
+          label="Event pings"
+          onPress={() => setPage('Notifications/types')}
+          info="Per-type, per-channel switches for the deliberate exceptions to the digest."
+        />
+        <NavRow
+          label="Morning digest"
+          summary={settings.push_digest_enabled !== false || settings.email_digest_enabled === true ? 'On' : 'Off'}
+          onPress={() => setPage('Notifications/digest')}
+          info="The one scheduled notification of the day: today's three, a ten-minute nudge, gentle returns, snoozes landing today, Monday pool health, then weather and recap in the expanded view."
+        />
+        <NavRow
+          label="Critical mode"
+          summary={settings.crisis_enabled === true ? 'On' : 'Off'}
+          onPress={() => setPage('Notifications/crisis')}
+          info="Tasks tagged critical get the most aggressive nag path in the app, plus a pinned section and an auto-drafted triage checklist. Pushover escalates to Emergency once a critical task is overdue or 24h old."
+        />
+        <NavRow
+          label="Deep links"
+          summary={settings.public_app_url ? 'Set' : 'Not set'}
+          onPress={() => setPage('Notifications/links')}
+          info="Where notification taps land — the public URL used by web push, Pushover, email and the digest, plus native-app link routing."
+        />
+        <NavRow
+          label="Email deliverability"
+          summary={settings.email_address ? 'Set' : 'Not set'}
+          onPress={() => setPage('Notifications/email')}
+          info="Recipient, From header overrides for SPF/DKIM/DMARC, and batch mode."
+        />
+        <NavRow
+          label="Test channels"
+          onPress={() => setPage('Notifications/test')}
+          info="Send a one-off notification through each channel to verify it works. Test buttons obey the channel masters and Pushover credentials."
+        />
+        <NavRow
+          label="History"
+          summary={history ? `${history.length} entr${history.length === 1 ? 'y' : 'ies'}` : ''}
+          onPress={() => { setHistoryOpen(true); setPage('Notifications/history') }}
+        />
+      </SettingsGroup>
+      </>)}
+
+      {sub === 'digest' && (<>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Push digest</div>
+            <div className="v2-settings-row-hint">Delivers via the Push channel — native banner on the iOS app, web push on subscribed browsers. Requires the Push master.</div>
+          </div>
+          <Toggle
+            checked={settings.push_notifications_enabled === true && settings.push_digest_enabled !== false}
+            onChange={e => update('push_digest_enabled', e.target.checked)}
+            disabled={settings.push_notifications_enabled !== true}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Email digest</div>
+            <div className="v2-settings-row-hint">Requires Email to be enabled with a recipient address.</div>
+          </div>
+          <Toggle
+            checked={settings.email_notifications_enabled === true && settings.email_digest_enabled === true}
+            onChange={e => update('email_digest_enabled', e.target.checked)}
+            disabled={settings.email_notifications_enabled !== true}
+          />
+        </div>
+        <div className="v2-settings-row">
+          <div className="v2-settings-row-text">
+            <div className="v2-settings-row-label">Pushover digest</div>
+            <div className="v2-settings-row-hint">Delivers as a single priority-0 Pushover message each morning.</div>
+          </div>
+          <Toggle
+            checked={settings.pushover_notifications_enabled === true && settings.pushover_digest_enabled === true}
+            onChange={e => update('pushover_digest_enabled', e.target.checked)}
+            disabled={settings.pushover_notifications_enabled !== true}
+          />
+        </div>
+        <div className="v2-settings-row" style={{ marginTop: 8 }}>
+          <div className="v2-settings-row-text">
+            <label className="v2-settings-row-label">Delivery time</label>
+            <div className="v2-settings-row-hint">Your local morning (uses your timezone setting). If the server is down at this time, the digest sends on recovery before noon — after noon the day is skipped.</div>
+          </div>
+          <input type="time" className="v2-form-input v2-settings-time-input" value={settings.digest_time || '07:00'} onChange={e => update('digest_time', e.target.value)} />
+        </div>
+      </>)}
+
+      {sub === 'crisis' && (<>
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
             <label className="v2-settings-row-label">Critical label</label>
@@ -2400,138 +2511,45 @@ function NotificationsPanel({ settings, update }) {
             onChange={e => update('crisis_auto_breakdown', e.target.checked)}
           />
         </div>
-        </>)}
-      </div>
+      </>)}
 
-      {/* Quiet hours — section header is the toggle row, no redundant sub-toggle */}
-      <div className="v2-settings-block">
+      {sub === 'links' && (<>
+        <div className="v2-settings-row-text">
+          <label className="v2-form-label" htmlFor="v2-public-app-url">Public app URL</label>
+          <div className="v2-settings-row-hint">When set, notifications and the daily digest include a tappable link back to the relevant task — used by web push, Pushover, and email.</div>
+        </div>
+        <input
+          id="v2-public-app-url"
+          type="text"
+          className="v2-form-input"
+          placeholder="https://boomerang.example.com"
+          value={settings.public_app_url || ''}
+          onChange={e => update('public_app_url', e.target.value)}
+        />
         <div className="v2-settings-row">
           <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Quiet hours</div>
-            <div className="v2-settings-row-hint">Suppress most notifications during this window. Tasks tagged with the bypass label still wake you.</div>
+            <div className="v2-settings-row-label">Open Pushover links in the iOS app</div>
+            <div className="v2-settings-row-hint">Pushover links open the native Boomerang app (boomerang:// deep link) instead of the web app in Safari. Stored on the server directly — this one can't be reverted by other devices syncing.</div>
           </div>
           <Toggle
-            checked={!!settings.quiet_hours_enabled}
-            onChange={e => update('quiet_hours_enabled', e.target.checked)}
+            checked={pushoverOpenNative === true}
+            disabled={pushoverOpenNative === null}
+            onChange={e => {
+              const next = e.target.checked
+              setPushoverOpenNative(next)
+              fetch('/api/pushover/link-mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ open_native: next }),
+              }).then(r => r.ok ? r.json() : null)
+                .then(d => { if (d) setPushoverOpenNative(!!d.open_native) })
+                .catch(() => setPushoverOpenNative(v => !v)) // revert optimistic state on failure
+            }}
           />
         </div>
-        {settings.quiet_hours_enabled && (
-          <div className="v2-settings-quiet-times">
-            <div className="v2-settings-quiet-field">
-              <label className="v2-form-label">Start</label>
-              <input
-                type="time"
-                className="v2-form-input v2-settings-time-input"
-                value={settings.quiet_hours_start || '22:00'}
-                onChange={e => update('quiet_hours_start', e.target.value)}
-              />
-            </div>
-            <div className="v2-settings-quiet-field">
-              <label className="v2-form-label">End</label>
-              <input
-                type="time"
-                className="v2-form-input v2-settings-time-input"
-                value={settings.quiet_hours_end || '08:00'}
-                onChange={e => update('quiet_hours_end', e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-        {settings.quiet_hours_enabled && (
-          <div className="v2-settings-row" style={{ marginTop: 12 }}>
-            <div className="v2-settings-row-text">
-              <label className="v2-settings-row-label">Bypass label</label>
-              <div className="v2-settings-row-hint">Tasks with this tag wake you even during quiet hours.</div>
-            </div>
-            <input
-              className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
-              type="text"
-              value={settings.quiet_hours_bypass_label || 'wake-me'}
-              onChange={e => update('quiet_hours_bypass_label', e.target.value)}
-            />
-          </div>
-        )}
-      </div>
+      </>)}
 
-      {/* The morning digest — THE one scheduled notification of the day
-          (2026-07-24 reshape). Assembled after the nightly rollover so it
-          reflects post-rollover state; re-sends replace rather than stack. */}
-      <div className="v2-settings-block">
-        <SectionHeader k="digest" label="Morning digest" hint="The one scheduled notification of the day: today's three (commitment phrasing when intentions are set), a ten-minute nudge, gentle returns, snoozes landing today, Monday pool health, then weather + recap in the expanded view." />
-        {!isCollapsed('digest') && (<>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Push digest</div>
-            <div className="v2-settings-row-hint">Delivers via the Push channel — native banner on the iOS app, web push on subscribed browsers. Requires the Push master.</div>
-          </div>
-          <Toggle
-            checked={settings.push_notifications_enabled === true && settings.push_digest_enabled !== false}
-            onChange={e => update('push_digest_enabled', e.target.checked)}
-            disabled={settings.push_notifications_enabled !== true}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Email digest</div>
-            <div className="v2-settings-row-hint">Requires Email to be enabled with a recipient address.</div>
-          </div>
-          <Toggle
-            checked={settings.email_notifications_enabled === true && settings.email_digest_enabled === true}
-            onChange={e => update('email_digest_enabled', e.target.checked)}
-            disabled={settings.email_notifications_enabled !== true}
-          />
-        </div>
-        <div className="v2-settings-row">
-          <div className="v2-settings-row-text">
-            <div className="v2-settings-row-label">Pushover digest</div>
-            <div className="v2-settings-row-hint">Delivers as a single priority-0 Pushover message each morning.</div>
-          </div>
-          <Toggle
-            checked={settings.pushover_notifications_enabled === true && settings.pushover_digest_enabled === true}
-            onChange={e => update('pushover_digest_enabled', e.target.checked)}
-            disabled={settings.pushover_notifications_enabled !== true}
-          />
-        </div>
-        <div className="v2-settings-row" style={{ marginTop: 8 }}>
-          <div className="v2-settings-row-text">
-            <label className="v2-settings-row-label">Delivery time</label>
-            <div className="v2-settings-row-hint">Your local morning (uses your timezone setting). If the server is down at this time, the digest sends on recovery before noon — after noon the day is skipped.</div>
-          </div>
-          <input type="time" className="v2-form-input v2-settings-time-input" value={settings.digest_time || '07:00'} onChange={e => update('digest_time', e.target.value)} />
-        </div>
-        </>)}
-      </div>
-
-      {emergencyConfirm && (
-        <div className="v2-settings-confirm-overlay" onClick={() => setEmergencyConfirm(false)}>
-          <div className="v2-settings-confirm" onClick={e => e.stopPropagation()}>
-            <div className="v2-settings-confirm-title">Trigger Emergency alarm?</div>
-            <div className="v2-settings-confirm-message">
-              This fires a Pushover priority-2 alarm that repeats every 30 seconds and bypasses Do Not Disturb. Auto-cancels after about 90 seconds.
-            </div>
-            <div className="v2-settings-confirm-actions">
-              <button className="v2-settings-btn" onClick={() => setEmergencyConfirm(false)}>Cancel</button>
-              <button
-                className="v2-settings-btn v2-settings-btn-danger"
-                onClick={() => {
-                  setEmergencyConfirm(false)
-                  runTest('emergency', () => import('../api').then(m => m.testPushoverEmergency({
-                    userKey: settings.pushover_user_key,
-                    appToken: settings.pushover_app_token,
-                  })))
-                }}
-              >
-                Trigger
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Email deliverability — recipient + From override + batch mode */}
-      <div className="v2-settings-block">
-        <SectionHeader k="email_deliv" label="Email deliverability" hint="Recipient, From header overrides (SPF/DKIM/DMARC), and batch mode." />
-        {!isCollapsed('email_deliv') && (<>
+      {sub === 'email' && (<>
         <div className="v2-settings-row" style={{ marginTop: 8 }}>
           <div className="v2-settings-row-text">
             <div className="v2-settings-row-label">Recipient email</div>
@@ -2563,13 +2581,9 @@ function NotificationsPanel({ settings, update }) {
             onChange={e => update('email_from_address', e.target.value)}
           />
         </div>
-        </>)}
-      </div>
+      </>)}
 
-      {/* Test channels — fire a one-off notification per channel to verify config */}
-      <div className="v2-settings-block">
-        <SectionHeader k="test" label="Test channels" hint="Send a one-off test notification through each channel to verify it's working. Test buttons obey channel master toggles + Pushover credentials." />
-        {!isCollapsed('test') && (<>
+      {sub === 'test' && (<>
         <div className="v2-notif-tests">
           {[
             { key: 'push', label: 'Test push', enabled: settings.push_notifications_enabled === true,
@@ -2616,20 +2630,11 @@ function NotificationsPanel({ settings, update }) {
             )}
           </div>
         </div>
-        </>)}
-      </div>
+      </>)}
 
-      {/* Notification history — collapsible to keep the panel calm by default */}
+      {sub === 'history' && (<>
       <div className="v2-settings-block">
-        <button
-          className="v2-notif-history-toggle"
-          onClick={() => setHistoryOpen(o => !o)}
-          aria-expanded={historyOpen}
-        >
-          <span className="v2-form-label">Notification history</span>
-          <span className="v2-notif-history-chev">{historyOpen ? '−' : '+'}</span>
-        </button>
-        {historyOpen && (
+        {(
           <div className="v2-notif-history">
             <div className="v2-notif-history-toolbar">
               <button className="v2-settings-btn" onClick={loadHistory} disabled={historyLoading}>
@@ -2662,10 +2667,37 @@ function NotificationsPanel({ settings, update }) {
           </div>
         )}
       </div>
+      </>)}
 
+      {emergencyConfirm && (
+        <div className="v2-settings-confirm-overlay" onClick={() => setEmergencyConfirm(false)}>
+          <div className="v2-settings-confirm" onClick={e => e.stopPropagation()}>
+            <div className="v2-settings-confirm-title">Trigger Emergency alarm?</div>
+            <div className="v2-settings-confirm-message">
+              This fires a Pushover priority-2 alarm that repeats every 30 seconds and bypasses Do Not Disturb. Auto-cancels after about 90 seconds.
+            </div>
+            <div className="v2-settings-confirm-actions">
+              <button className="v2-settings-btn" onClick={() => setEmergencyConfirm(false)}>Cancel</button>
+              <button
+                className="v2-settings-btn v2-settings-btn-danger"
+                onClick={() => {
+                  setEmergencyConfirm(false)
+                  runTest('emergency', () => import('../api').then(m => m.testPushoverEmergency({
+                    userKey: settings.pushover_user_key,
+                    appToken: settings.pushover_app_token,
+                  })))
+                }}
+              >
+                Trigger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
 
 // v2 server-logs panel — same data as v1, redrawn with v2 tokens.
 function ServerLogsPanel() {
@@ -2756,7 +2788,19 @@ export default function SettingsModal({
   onOpenEasterEgg,
   onTrelloSync, trelloSyncing, onNotionSync, notionSyncing, onGCalSync, gcalSyncing,
 }) {
-  const [activeTab, setActiveTab] = useState('General')
+  // Page identity for the settings stack. 'index' is the root; any other
+  // value is a category page. Component state only — never persisted, because
+  // the settings blob is last-writer-wins and UI chrome must not ride it.
+  const [page, setPage] = useState('index')
+  // What the SERVER says is connected, for the Integrations index summary.
+  // Deliberately the same two sources IntegrationsPanel reads — env key flags
+  // and each integration's own status — so the summary can never disagree
+  // with the page it points at. A settings-only check would be wrong here:
+  // on this deployment the credentials come from env and the OAuth tokens
+  // live server-side, so the row would render blank on the exact machine the
+  // feature is built for. The panel keeps its own copy for now; the
+  // duplication collapses when that panel converts.
+  const [connStatus, setConnStatus] = useState(null)
   const [settings, setSettings] = useState(() => loadSettings())
   const [confirmDialog, setConfirmDialog] = useState(null)
   const flushDebounceRef = useRef(null)
@@ -2936,6 +2980,82 @@ export default function SettingsModal({
     URL.revokeObjectURL(url)
   }
 
+  // Index summaries. Every one is a VALUE — never prose about what lives
+  // inside. That is the whole reason the index beats the tab strip it
+  // replaces: the root screen answers "what's my setup?" at a glance instead
+  // of being pure navigation chrome.
+  //
+  // The one summary that can't come from local state is Integrations, so it
+  // resolves asynchronously (design language §2.4, as amended): empty while in
+  // flight, never a spinner, never a placeholder. Every failure is swallowed —
+  // a settings screen must open whether or not the server answers.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    Promise.all([
+      import('../api').then(m => m.getKeyStatus()).catch(() => ({})),
+      import('../api').then(m => m.notionStatus()).catch(() => null),
+      import('../api').then(m => m.trelloStatus()).catch(() => null),
+      import('../api').then(m => m.gcalStatus()).catch(() => null),
+      import('../api').then(m => m.gmailStatus()).catch(() => null),
+      // Device count feeds the Data page's Devices row. Fetched here with the
+      // rest rather than lifted out of AuthDevicesBlock, so that component
+      // stays self-contained and the row still gets a real value.
+      import('../api').then(m => m.getAuthDevices()).catch(() => null),
+    ]).then(([keys, notion, trello, gcal, gmail, devices]) => {
+      if (!cancelled) setConnStatus({ keys: keys || {}, notion, trello, gcal, gmail, devices })
+    }).catch(() => { /* summary stays empty; never blocks the surface */ })
+    return () => { cancelled = true }
+  }, [open])
+
+  const summaries = useMemo(() => {
+    if (!open) return {}
+    const theme = settings.theme || 'light'
+    const family = theme.startsWith('kept') ? 'Kept' : 'Standard'
+    const mode = theme.endsWith('system') ? 'System' : theme.endsWith('dark') ? 'Dark' : 'Light'
+
+    const labelCount = loadLabels().length
+    const taskCount = loadTasks().length
+
+    // Mirrors IntegrationsPanel's own `connected` predicates, integration for
+    // integration. If one of those changes, this must change with it — a
+    // summary that disagrees with its destination is worse than no summary.
+    const c = connStatus
+    const connected = []
+    if (c?.notion?.connected || c?.notion?.mcpHealth?.connected) connected.push('Notion')
+    if (c?.trello?.connected) connected.push('Trello')
+    if (c?.gcal?.connected) connected.push('GCal')
+    if (c?.gmail?.connected) connected.push('Gmail')
+    if (c?.keys?.tracking || settings.tracking_api_key) connected.push('17track')
+    if (settings.weather_enabled && settings.weather_latitude) connected.push('Weather')
+
+    // `=== true`, matching NotificationsPanel's own gate — push_notifications_
+    // enabled has no store default, so it is undefined until first opted in.
+    const channels = []
+    if (settings.push_notifications_enabled === true) channels.push('Push')
+    if (settings.email_notifications_enabled === true) channels.push('Email')
+    if (settings.pushover_notifications_enabled === true) channels.push('Pushover')
+
+    const DOT = '\u00b7'
+    return {
+      General: `${family} ${DOT} ${mode}`,
+      Tasks: `Due +${settings.default_due_days ?? 7}d ${DOT} Stale ${settings.staleness_days ?? 7}d`,
+      Labels: labelCount ? `${labelCount} label${labelCount === 1 ? '' : 's'}` : 'None yet',
+      // Empty ONLY while the status fetch is in flight (or it failed). Once
+      // it resolves the row always shows a value, including "None" — the
+      // amended §2.4 rule allows a summary to arrive late, not to never
+      // arrive. Three names fit the row; a fourth would be eaten by the
+      // ellipsis, so the overflow surfaces as a count instead of vanishing.
+      Integrations: !connStatus
+        ? ''
+        : connected.length
+          ? connected.slice(0, 3).join(` ${DOT} `) + (connected.length > 3 ? ` +${connected.length - 3}` : '')
+          : 'None',
+      Notifications: channels.length ? channels.join(` ${DOT} `) : 'Off',
+      Data: `${taskCount} task${taskCount === 1 ? '' : 's'}`,
+    }
+  }, [open, settings, connStatus])
+
   return (
     <ModalShell
       open={open}
@@ -2944,23 +3064,31 @@ export default function SettingsModal({
       width="wide"
       headerSlot={<AutosaveIndicator saved={justSaved} />}
     >
-      <div className="v2-settings-tabs">
-        {TABS.map(tab => (
-          <button
-            key={tab}
-            className={`v2-settings-tab${activeTab === tab ? ' v2-settings-tab-active' : ''}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
+      <SettingsNav page={page}>
+      {page === 'index' ? (
+        <SettingsPage>
+          <SettingsGroup>
+            {CATEGORIES.map(tab => (
+              <NavRow
+                key={tab}
+                label={tab}
+                summary={summaries[tab]}
+                onPress={() => setPage(tab)}
+              />
+            ))}
+          </SettingsGroup>
+        </SettingsPage>
+      ) : (
+      <SettingsPage
+        title={PAGE_TITLES[page] || page}
+        backLabel={page.includes('/') ? page.split('/')[0] : 'Settings'}
+        onBack={() => setPage(page.includes('/') ? page.split('/')[0] : 'index')}
+      >
       <div className="v2-settings-content">
 
-        {activeTab === 'General' && (
+        {page === 'General' && (
           <div className="v2-settings-form">
-            <SettingsSection label="Appearance" hint="Theme family and light/dark mode.">
+            <SettingsGroup caption="Appearance">
             {(() => {
               const currentTheme = settings.theme || 'light'
               const family = currentTheme.startsWith('kept') ? 'kept' : 'standard'
@@ -2974,255 +3102,291 @@ export default function SettingsModal({
               }
               return (
                 <>
-                  <div className="v2-settings-row v2-settings-row-stacked">
-                    <div className="v2-settings-row-text">
-                      <div className="v2-settings-row-label">Theme</div>
-                      <div className="v2-settings-row-hint">Standard is the calm hairline UI. Kept is the Boomerang language — warm Smoke/Linen canvases with ember + gold, arcs not grids.</div>
-                    </div>
-                    <div className="v2-settings-segment" role="radiogroup" aria-label="Theme family">
-                      {[
-                        { value: 'standard', label: 'Standard' },
-                        { value: 'kept', label: 'Kept' },
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          role="radio"
-                          aria-checked={family === opt.value}
-                          className={`v2-settings-segment-btn${family === opt.value ? ' v2-settings-segment-btn-active' : ''}`}
-                          onClick={() => setTheme(opt.value, mode)}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="v2-settings-row v2-settings-row-stacked">
-                    <div className="v2-settings-row-text">
-                      <div className="v2-settings-row-label">Mode</div>
-                      <div className="v2-settings-row-hint">Light, dark, or follow your device's setting. Applies to whichever family is active.</div>
-                    </div>
-                    <div className="v2-settings-segment" role="radiogroup" aria-label="Theme mode">
-                      {[
-                        { value: 'light', label: 'Light' },
-                        { value: 'dark', label: 'Dark' },
-                        { value: 'system', label: 'System' },
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          role="radio"
-                          aria-checked={mode === opt.value}
-                          className={`v2-settings-segment-btn${mode === opt.value ? ' v2-settings-segment-btn-active' : ''}`}
-                          onClick={() => setTheme(family, opt.value)}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {/* The marketing copy that used to sit under this label
+                      ("warm Smoke/Linen canvases with ember + gold, arcs not
+                      grids") is deleted rather than folded: you can see both
+                      themes by tapping them, so prose describing them is
+                      pure cost. */}
+                  <SegmentRow
+                    label="Theme"
+                    value={family}
+                    options={[
+                      { value: 'standard', label: 'Standard' },
+                      { value: 'kept', label: 'Kept' },
+                    ]}
+                    onChange={v => setTheme(v, mode)}
+                  />
+                  <SegmentRow
+                    label="Mode"
+                    value={mode}
+                    options={[
+                      { value: 'light', label: 'Light' },
+                      { value: 'dark', label: 'Dark' },
+                      { value: 'system', label: 'System' },
+                    ]}
+                    onChange={v => setTheme(family, v)}
+                    stacked
+                  />
                 </>
               )
             })()}
-            </SettingsSection>
+            </SettingsGroup>
 
-            <SettingsSection label="Home screen" hint="7-day strip and daily goal.">
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Show 7-day strip (light/dark)</div>
-                <div className="v2-settings-row-hint">Calendar row above the task list with activity intensity per day. Tap the date in the home stats line to show/hide.</div>
-              </div>
-              <Toggle checked={settings.show_week_strip} onChange={e => update('show_week_strip', e.target.checked)} />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">Open 7-day strip by default</div>
-                <div className="v2-settings-row-hint">Show the strip expanded when the app loads. Tap the date in the home stats line any time to hide it or re-open it.</div>
-              </div>
-              <Toggle checked={settings.week_strip_always_open} onChange={e => update('week_strip_always_open', e.target.checked)} />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-daily-goal">Daily task goal</label>
-                <div className="v2-settings-row-hint">Used by the progress bar + activity intensity on the 7-day strip.</div>
-              </div>
-              <input
-                id="v2-daily-goal"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="1"
-                max="50"
-                value={settings.daily_task_goal ?? 3}
-                onChange={e => update('daily_task_goal', parseInt(e.target.value) || 1)}
+            <SettingsGroup caption="Home screen">
+              <ToggleRow
+                label="Show 7-day strip"
+                checked={settings.show_week_strip}
+                onChange={e => update('show_week_strip', e.target.checked)}
+                info="Calendar row above the task list with activity intensity per day. Tap the date in the home stats line to show or hide it."
               />
-            </div>
+              {/* Dependent rows DIM rather than disappear, so the relationship
+                  between the parent toggle and this one stays visible instead
+                  of being a mystery. */}
+              <ToggleRow
+                label="Open strip by default"
+                checked={settings.week_strip_always_open}
+                onChange={e => update('week_strip_always_open', e.target.checked)}
+                disabled={!settings.show_week_strip}
+                info="Show the strip expanded when the app loads. Tap the date in the home stats line any time to hide or re-open it."
+              />
+              <SettingRow
+                label="Daily task goal"
+                info="Used by the progress bar and the activity intensity on the 7-day strip."
+                trailing={
+                  <input
+                    className="v2-form-input v2-settings-compact-input"
+                    type="number"
+                    min="1"
+                    max="50"
+                    aria-label="Daily task goal"
+                    value={settings.daily_task_goal ?? 3}
+                    onChange={e => update('daily_task_goal', parseInt(e.target.value) || 1)}
+                  />
+                }
+              />
+            </SettingsGroup>
 
-            </SettingsSection>
-
-            <SettingsSection label="Build & version" hint="What this client and the server are running.">
-            <InfoHintRow
-              label="App build"
-              hint="The bundle this client is running (in the native app: what Xcode installed; on the web: what the server served)."
-            >
-              <code
-                className="v2-settings-build"
-                onClick={handleBuildTap}
-                role="button"
-                tabIndex={-1}
-              >{__APP_VERSION__}</code>
-            </InfoHintRow>
-
-            <InfoHintRow
-              label="Server version"
-              hint="Live from the connected server's /api/health — what's actually deployed there right now. These two are DIFFERENT builds in the native app; they only match on the web."
-            >
-              <code className="v2-settings-build">{serverVersion || '…'}</code>
-            </InfoHintRow>
-            </SettingsSection>
+            <SettingsGroup caption="About">
+              {/* These two genuinely differ in the native shell, which is why
+                  the explanation earns its ⓘ rather than being deleted. */}
+              <StatusRow
+                label="App build"
+                info="The bundle this client is running — in the native app, what Xcode installed; on the web, what the server served."
+                value={
+                  <code
+                    className="v2-settings-build"
+                    onClick={handleBuildTap}
+                    role="button"
+                    tabIndex={-1}
+                  >{__APP_VERSION__}</code>
+                }
+              />
+              <StatusRow
+                label="Server version"
+                info="Live from the connected server's /api/health — what is actually deployed there right now. In the native app these two are DIFFERENT builds; they only match on the web."
+                value={<code className="v2-settings-build">{serverVersion || '…'}</code>}
+              />
+            </SettingsGroup>
           </div>
         )}
 
-        {activeTab === 'Tasks' && (
+        {page === 'Tasks' && (
           <div className="v2-settings-form">
-            <SettingsSection label="Task behavior" hint="Due-date defaults, staleness, reframe trigger, DIY reality check.">
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-default-due-days">Default due date</label>
-                <div className="v2-settings-row-hint">Days from now. 0 = no default; tasks ship without a due date unless you pick one.</div>
-              </div>
-              <input
-                id="v2-default-due-days"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="0"
-                max="90"
+            <SettingsGroup caption="Behavior">
+              <NumberRow
+                label="Default due date"
+                info="Days from now. 0 means no default — tasks ship without a due date unless you pick one."
+                unit="days"
+                min={0} max={90}
                 value={settings.default_due_days ?? 7}
-                onChange={e => update('default_due_days', parseInt(e.target.value) || 0)}
+                onChange={v => update('default_due_days', v || 0)}
               />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-staleness-days">Staleness threshold</label>
-                <div className="v2-settings-row-hint">Days of inactivity before a task counts as stale — drives the Stale section on the task list AND the Stale notification type (Settings → Notifications).</div>
-              </div>
-              <input
-                id="v2-staleness-days"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="1"
-                max="30"
+              <NumberRow
+                label="Staleness threshold"
+                info="Days of inactivity before a task counts as stale. Drives the Stale section on the task list AND the Stale notification type."
+                unit="days"
+                min={1} max={30}
                 value={settings.staleness_days ?? 7}
-                onChange={e => update('staleness_days', parseInt(e.target.value) || 1)}
+                onChange={v => update('staleness_days', v || 1)}
               />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <label className="v2-settings-row-label" htmlFor="v2-reframe-threshold">Reframe trigger</label>
-                <div className="v2-settings-row-hint">Snooze count after which tapping Snooze opens the Reframe modal instead.</div>
-              </div>
-              <input
-                id="v2-reframe-threshold"
-                className="v2-form-input v2-settings-compact-input"
-                type="number"
-                min="1"
-                max="20"
+              {/* No hint: "snoozes" already says what the number counts. */}
+              <NumberRow
+                label="Reframe after"
+                unit="snoozes"
+                min={1} max={20}
                 value={settings.reframe_threshold ?? 3}
-                onChange={e => update('reframe_threshold', parseInt(e.target.value) || 1)}
+                onChange={v => update('reframe_threshold', v || 1)}
               />
-            </div>
-
-            <div className="v2-settings-row">
-              <div className="v2-settings-row-text">
-                <div className="v2-settings-row-label">DIY reality check</div>
-                <div className="v2-settings-row-hint">Repair/construction-shaped tasks get an automatic, blunt "DIY or hire it out?" verdict — hire-out by default. A hire verdict switches that task's reminders to push the call instead of the repair. Override per-task in the edit modal.</div>
-              </div>
-              <Toggle
+              <ToggleRow
+                label="DIY reality check"
                 checked={settings.diy_reality_check !== false}
                 onChange={e => update('diy_reality_check', e.target.checked)}
+                info="Repair and construction-shaped tasks get a blunt “DIY or hire it out?” verdict — hire-out by default. A hire verdict switches that task's reminders to push the call instead of the repair. Override per task in the edit modal."
               />
-            </div>
+            </SettingsGroup>
 
-            </SettingsSection>
+            <SettingsGroup caption="Impact dates">
+              <NavRow
+                label="Impact dates"
+                summary={(settings.impact_dates || []).length
+                  ? `${(settings.impact_dates || []).length} date${(settings.impact_dates || []).length === 1 ? '' : 's'}`
+                  : 'None'}
+                onPress={() => setPage('Tasks/impact')}
+                info="Events that make related work more urgent as they approach — a holiday, a visit, a trip."
+              />
+            </SettingsGroup>
 
-            <SettingsSection label="Impact dates" hint="Events that make related work more urgent as they approach.">
+            <SettingsGroup caption="AI">
+              {/* The summary is Set/Off, never the prose. A row at rest shows
+                  its VALUE — the instructions themselves live on the page. */}
+              <NavRow
+                label="Custom instructions"
+                summary={settings.custom_instructions?.trim() ? 'Set' : 'Off'}
+                onPress={() => setPage('Tasks/instructions')}
+              />
+              {[
+                { key: 'ai_model_workhorse', label: 'Workhorse model', def: AI_TIER_DEFAULTS.workhorse,
+                  info: 'Classification, inference, polish and scans. OpenAI models need a key under Settings → Integrations.' },
+                { key: 'ai_model_quick', label: 'Quick model', def: AI_TIER_DEFAULTS.quick,
+                  info: 'One-liners and AI search. Quokka and image/PDF analysis always use Anthropic.' },
+              ].map(({ key, label, def, info }) => {
+                const known = AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def))
+                return (
+                  <Fragment key={key}>
+                    <ValueRow
+                      label={label}
+                      info={info}
+                      trailing={
+                        <select
+                          className="v2-form-input v2-settings-inline-select"
+                          aria-label={label}
+                          value={known ? (settings[key] || def) : '__custom'}
+                          onChange={e => update(key, e.target.value === '__custom' ? `anthropic:${settings[key] || def}` : e.target.value)}
+                        >
+                          <optgroup label="Anthropic">
+                            {AI_MODEL_CATALOG.filter(m => m.provider === 'anthropic').map(m => (
+                              <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="OpenAI">
+                            {AI_MODEL_CATALOG.filter(m => m.provider === 'openai').map(m => (
+                              <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
+                            ))}
+                          </optgroup>
+                          <option value="__custom">Custom…</option>
+                        </select>
+                      }
+                    />
+                    {!known && (
+                      <SettingRow
+                        label="Custom model id"
+                        trailing={
+                          <input
+                            type="text"
+                            className="v2-form-input"
+                            aria-label={`${label} custom id`}
+                            placeholder="provider:model-id"
+                            value={settings[key] || ''}
+                            onChange={e => update(key, e.target.value)}
+                          />
+                        }
+                      />
+                    )}
+                  </Fragment>
+                )
+              })}
+            </SettingsGroup>
+          </div>
+        )}
 
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">
-                Events that make related work more urgent as they approach — a holiday, a visit, a trip. Tasks sharing the event's label rank higher in Impact sort / Today ordering during the lead-up. Quokka can edit these too ("add an impact date for Christmas").
-              </div>
+        {/* Sub-page: one row per event instead of five inputs crammed into a
+            wrapping flexbox. */}
+        {page === 'Tasks/impact' && (
+          <div className="v2-settings-form">
+            <p className="v2-set-page-intro">
+              Events that make related work more urgent as they approach. Tasks sharing an
+              event's label rank higher in Impact sort and Today ordering during the lead-up.
+              Quokka can edit these too — “add an impact date for Christmas”.
+            </p>
+            <SettingsGroup>
               {(settings.impact_dates || []).map(ev => (
-                <div key={ev.id} className="v2-settings-row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input
-                    className="v2-form-input"
-                    style={{ flex: '1 1 120px' }}
-                    type="text"
-                    placeholder="Label (e.g. Christmas)"
-                    value={ev.label || ''}
-                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, label: e.target.value } : x))}
-                  />
-                  <input
-                    className="v2-form-input"
-                    style={{ width: 140 }}
-                    type="date"
-                    value={ev.date || ''}
-                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, date: e.target.value } : x))}
-                  />
-                  <input
-                    className="v2-form-input v2-settings-compact-input"
-                    type="number" min="1" max="90"
-                    title="Lead days — how far out the boost starts ramping"
-                    value={ev.lead_days ?? 14}
-                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, lead_days: parseInt(e.target.value, 10) || 14 } : x))}
-                  />
-                  <select
-                    className="v2-form-input"
-                    style={{ width: 130 }}
-                    value={ev.tag || ''}
-                    onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, tag: e.target.value || null } : x))}
-                  >
-                    <option value="">No label</option>
-                    {loadLabels().map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                  </select>
-                  <button
-                    className="v2-settings-btn v2-settings-btn-danger"
-                    onClick={() => update('impact_dates', (settings.impact_dates || []).filter(x => x.id !== ev.id))}
-                  >
-                    Remove
-                  </button>
+                <div key={ev.id} className="v2-set-impact">
+                  <div className="v2-set-impact-top">
+                    <input
+                      className="v2-form-input"
+                      type="text"
+                      aria-label="Event name"
+                      placeholder="Christmas"
+                      value={ev.label || ''}
+                      onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, label: e.target.value } : x))}
+                    />
+                    <button
+                      className="v2-settings-btn v2-settings-btn-danger"
+                      onClick={() => update('impact_dates', (settings.impact_dates || []).filter(x => x.id !== ev.id))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="v2-set-impact-fields">
+                    <label>
+                      <span>Date</span>
+                      <input
+                        className="v2-form-input"
+                        type="date"
+                        value={ev.date || ''}
+                        onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, date: e.target.value } : x))}
+                      />
+                    </label>
+                    <label>
+                      <span>Lead days</span>
+                      <input
+                        className="v2-form-input"
+                        type="number" min="1" max="90"
+                        value={ev.lead_days ?? 14}
+                        onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, lead_days: parseInt(e.target.value, 10) || 14 } : x))}
+                      />
+                    </label>
+                    <label>
+                      <span>Label</span>
+                      <select
+                        className="v2-form-input"
+                        value={ev.tag || ''}
+                        onChange={e => update('impact_dates', (settings.impact_dates || []).map(x => x.id === ev.id ? { ...x, tag: e.target.value || null } : x))}
+                      >
+                        <option value="">No label</option>
+                        {loadLabels().map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </select>
+                    </label>
+                  </div>
                 </div>
               ))}
-              <div className="v2-settings-actions">
+              <ActionRow>
                 <button
                   className="v2-settings-btn"
                   onClick={() => update('impact_dates', [...(settings.impact_dates || []), { id: uuid(), label: '', date: '', lead_days: 14, tag: null }])}
                 >
-                  + Add impact date
+                  <Plus size={13} strokeWidth={1.75} /> Add impact date
                 </button>
-              </div>
-            </div>
+              </ActionRow>
+            </SettingsGroup>
+          </div>
+        )}
 
-            </SettingsSection>
-
-            <SettingsSection label="AI tone" hint="Custom instructions shaping every AI feature.">
-
-            <div className="v2-settings-block">
-              <label className="v2-form-label" htmlFor="v2-ci">Custom instructions</label>
-              <div className="v2-settings-row-hint">
-                How should the AI talk to you? Shapes every AI feature — task reframes, polish, "what now?" suggestions, Quokka tone, notification rewrites.
-              </div>
-              <textarea
-                id="v2-ci"
-                className="v2-form-textarea v2-settings-ci-textarea"
-                placeholder="e.g. Keep it casual and short. Don't sugarcoat. Phone calls are confrontation-level for me."
-                value={settings.custom_instructions || ''}
-                onChange={e => update('custom_instructions', e.target.value)}
-              />
-              <div className="v2-settings-actions">
+        {page === 'Tasks/instructions' && (
+          <div className="v2-settings-form">
+            <p className="v2-set-page-intro">
+              How should the AI talk to you? Shapes every AI feature — task reframes, polish,
+              “what now?” suggestions, Quokka's tone, notification rewrites.
+            </p>
+            <textarea
+              className="v2-form-textarea v2-settings-ci-textarea"
+              aria-label="Custom instructions"
+              placeholder="e.g. Keep it casual and short. Don't sugarcoat. Phone calls are confrontation-level for me."
+              value={settings.custom_instructions || ''}
+              onChange={e => update('custom_instructions', e.target.value)}
+            />
+            <SettingsGroup>
+              <ActionRow>
                 <input ref={ciFileRef} type="file" accept=".md,.txt,.markdown" onChange={handleCIUpload} hidden />
                 <button className="v2-settings-btn" onClick={() => ciFileRef.current?.click()}>
                   <Upload size={13} strokeWidth={1.75} /> Import
@@ -3242,90 +3406,53 @@ export default function SettingsModal({
                     Clear
                   </button>
                 )}
-              </div>
-            </div>
-            </SettingsSection>
-
-            <SettingsSection label="AI models & keys" hint="Which provider/model runs each tier of AI work.">
-
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">
-                Which model runs each tier of AI work. <strong>Workhorse</strong> handles classification,
-                inference, polish, and scans; <strong>Quick</strong> handles one-liners and AI search.
-                Quokka and image/PDF analysis always use Anthropic. OpenAI models need a key under{' '}
-                <button type="button" className="v2-settings-inline-link" onClick={() => setActiveTab('Integrations')}>Settings → Integrations</button>.
-              </div>
-              {[
-                { key: 'ai_model_workhorse', label: 'Workhorse model', def: AI_TIER_DEFAULTS.workhorse },
-                { key: 'ai_model_quick', label: 'Quick model', def: AI_TIER_DEFAULTS.quick },
-              ].map(({ key, label, def }) => (
-                <div key={key} style={{ marginTop: 10 }}>
-                  <label className="v2-form-label" htmlFor={`v2-${key}`}>{label}</label>
-                  <select
-                    id={`v2-${key}`}
-                    className="v2-form-input"
-                    value={AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def)) ? (settings[key] || def) : '__custom'}
-                    onChange={e => update(key, e.target.value === '__custom' ? `anthropic:${settings[key] || def}` : e.target.value)}
-                  >
-                    <optgroup label="Anthropic">
-                      {AI_MODEL_CATALOG.filter(m => m.provider === 'anthropic').map(m => (
-                        <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="OpenAI">
-                      {AI_MODEL_CATALOG.filter(m => m.provider === 'openai').map(m => (
-                        <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
-                      ))}
-                    </optgroup>
-                    <option value="__custom">Custom…</option>
-                  </select>
-                  {!AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def)) && (
-                    <input
-                      type="text"
-                      className="v2-form-input"
-                      style={{ marginTop: 6 }}
-                      placeholder="provider:model-id, e.g. openai:gpt-5.2"
-                      value={settings[key] || ''}
-                      onChange={e => update(key, e.target.value)}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="v2-settings-block">
-              <div className="v2-form-label">API keys</div>
-              <div className="v2-settings-row-hint">
-                Anthropic keys at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>, OpenAI keys at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">platform.openai.com</a> — both configured under <button type="button" className="v2-settings-inline-link" onClick={() => setActiveTab('Integrations')}>Settings → Integrations</button>.
-              </div>
-            </div>
-            </SettingsSection>
+              </ActionRow>
+            </SettingsGroup>
           </div>
         )}
 
-        {activeTab === 'Data' && (
+        {page === 'Data' && (
           <div className="v2-settings-form">
-            {isNativeShell() && (
-              <SettingsSection label="Server connection" hint="Which server this app talks to.">
-                <div className="v2-settings-block">
-                  <div className="v2-settings-row-hint">
-                    This app talks to <strong>{getApiBase() || 'no server yet'}</strong>. Changing the server or API token reloads the app.
-                  </div>
-                  <button className="v2-settings-btn" onClick={requestConnectionSetup}>
-                    <Server size={13} strokeWidth={1.75} /> Change server…
-                  </button>
-                </div>
-              </SettingsSection>
-            )}
+            <SettingsGroup>
+              {isNativeShell() && (
+                <SettingRow
+                  label="Server"
+                  info="Changing the server or API token reloads the app."
+                  value={getApiBase() || 'not set'}
+                  trailing={
+                    <button className="v2-settings-btn" onClick={requestConnectionSetup}>
+                      <Server size={13} strokeWidth={1.75} /> Change…
+                    </button>
+                  }
+                />
+              )}
+              <NavRow
+                label="Devices"
+                summary={connStatus?.devices
+                  ? `${connStatus.devices.length} device${connStatus.devices.length === 1 ? '' : 's'}`
+                  : ''}
+                onPress={() => setPage('Data/devices')}
+                info="Per-device access tokens. Revoking a device kills its tokens immediately; a superseded refresh token presented again auto-revokes and alerts."
+              />
+              <NavRow
+                label="Server logs"
+                onPress={() => setPage('Data/logs')}
+                info="Live tail of the running server — Google, push, email, DB and SSE lines, plus errors."
+              />
+              <SettingRow
+                label="Activity log"
+                info="Audit trail of edits, completions and deletes. Deleted tasks can be restored from snapshots in the log."
+                onPress={onShowActivityLog ? () => { onClose?.(); onShowActivityLog() } : undefined}
+                disabled={!onShowActivityLog}
+                trailing={<ChevronRight size={16} strokeWidth={2} className="v2-set-row-chev" />}
+              />
+            </SettingsGroup>
 
-            <SettingsSection label="Devices & security" hint="Per-device access tokens (auth Phase A). Revoking a device kills its tokens immediately; a superseded refresh token presented again auto-revokes + alerts.">
-              <AuthDevicesBlock />
-            </SettingsSection>
-
-            <SettingsSection label="Backup" hint="Export / import everything as one JSON file.">
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">Export tasks, routines, settings, and labels as a single JSON file. Importing replaces the current state and reloads.</div>
-              <div className="v2-settings-actions">
+            <SettingsGroup caption="Import & export">
+              <ActionRow
+                label="Backup"
+                info="Tasks, routines, settings and labels as one JSON file. Importing REPLACES the current state and reloads."
+              >
                 <button className="v2-settings-btn" onClick={handleExportData}>
                   <Download size={13} strokeWidth={1.75} /> Export
                 </button>
@@ -3333,61 +3460,45 @@ export default function SettingsModal({
                 <button className="v2-settings-btn" onClick={() => dataImportRef.current?.click()}>
                   <Upload size={13} strokeWidth={1.75} /> Import
                 </button>
-              </div>
-            </div>
-
-            </SettingsSection>
-
-            <SettingsSection label="Activity" hint="Audit trail of edits, completions, and deletes.">
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">Deleted tasks can be restored from snapshots in the log.</div>
-              <button
-                className="v2-settings-btn"
-                onClick={() => { onClose?.(); onShowActivityLog?.() }}
-                disabled={!onShowActivityLog}
-              >
-                <FileText size={13} strokeWidth={1.75} /> Open activity log
-              </button>
-            </div>
-
-            </SettingsSection>
-
-            <SettingsSection label="Server logs" hint="Live tail of the server process.">
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">Google/Push/Email/DB/SSE lines and errors from the running server.</div>
-              <ServerLogsPanel />
-            </div>
-
-            </SettingsSection>
-
-            <SettingsSection label="Markdown import" hint="Parse a pasted markdown list into tasks.">
-            <div className="v2-settings-block">
-              <div className="v2-settings-row-hint">Paste a markdown list or checklist and have it parsed into tasks. Rarely used; lives here so it doesn't crowd the main menu.</div>
-              <button
-                className="v2-settings-btn"
-                onClick={() => { onClose?.(); onShowMarkdownImport?.() }}
-                disabled={!onShowMarkdownImport}
-              >
-                <Upload size={13} strokeWidth={1.75} /> Import from markdown
-              </button>
-            </div>
-
-            </SettingsSection>
+              </ActionRow>
+              {/* No description: the button says what it does. The old copy
+                  ("rarely used; lives here so it doesn't crowd the main menu")
+                  was meta-commentary about the UI's own layout, which is
+                  exactly the kind of prose §1.5 says has to be earned. */}
+              <ActionRow label="Markdown">
+                <button
+                  className="v2-settings-btn"
+                  onClick={() => { onClose?.(); onShowMarkdownImport?.() }}
+                  disabled={!onShowMarkdownImport}
+                >
+                  <Upload size={13} strokeWidth={1.75} /> Import from markdown
+                </button>
+              </ActionRow>
+            </SettingsGroup>
 
             {isDev && (
-              <SettingsSection label="Developer · dev only" hint="Reseed this dev database.">
-              <div className="v2-settings-block">
-                <div className="v2-settings-row-hint">Wipe this dev database and reload fresh seed data (tasks rebased to today, ~250 days of routine history). Only shown on the dev build; the server blocks it everywhere else.</div>
-                <button className="v2-settings-btn" onClick={handleReseed} disabled={reseeding}>
-                  <RefreshCw size={13} strokeWidth={1.75} /> {reseeding ? 'Reseeding…' : 'Reseed dev database'}
-                </button>
-              </div>
-              </SettingsSection>
+              <SettingsGroup caption="Developer · dev only">
+                <ActionRow info="Wipe this dev database and reload fresh seed data. Only shown on the dev build; the server blocks it everywhere else.">
+                  <button className="v2-settings-btn" onClick={handleReseed} disabled={reseeding}>
+                    <RefreshCw size={13} strokeWidth={1.75} /> {reseeding ? 'Reseeding…' : 'Reseed dev database'}
+                  </button>
+                </ActionRow>
+              </SettingsGroup>
             )}
 
-            <SettingsSection label="Danger zone" hint="These wipe data. No undo other than restoring from a backup.">
-            <div className="v2-settings-danger">
-              <div className="v2-settings-danger-actions">
+            {/* The ONE framed element in the whole surface, and last on the
+                page. That exception is the point (§4): everything else is a
+                plain hairline row, so the frame means "this one is different".
+                Never collapsed — hiding a wipe button behind a disclosure is
+                how you tap it by accident. Its description is persistent
+                rather than behind an ⓘ, because "no undo" is not something to
+                make someone go looking for. */}
+            <div className="v2-set-danger">
+              <h3 className="v2-set-danger-caption">Danger zone</h3>
+              <p className="v2-set-danger-note">
+                These wipe data. There is no undo other than restoring from a backup.
+              </p>
+              <div className="v2-set-danger-actions">
                 <button
                   className="v2-settings-btn v2-settings-btn-danger v2-settings-btn-block"
                   onClick={onClearCompleted}
@@ -3406,21 +3517,41 @@ export default function SettingsModal({
                 </button>
               </div>
             </div>
-            </SettingsSection>
           </div>
         )}
 
-        {activeTab === 'Labels' && <LabelsPanel />}
-
-        {activeTab === 'Notifications' && (
-          <NotificationsPanel settings={settings} update={update} />
+        {page === 'Data/devices' && (
+          <div className="v2-settings-form">
+            <p className="v2-set-page-intro">
+              Per-device access tokens. Revoking a device kills its tokens immediately;
+              a superseded refresh token presented again auto-revokes and raises a security alert.
+            </p>
+            <AuthDevicesBlock />
+          </div>
         )}
 
-        {activeTab === 'Integrations' && (
+        {page === 'Data/logs' && (
+          <div className="v2-settings-form">
+            <p className="v2-set-page-intro">
+              Live tail of the running server — Google, push, email, DB and SSE lines, plus errors.
+            </p>
+            <ServerLogsPanel />
+          </div>
+        )}
+
+        {page === 'Labels' && <LabelsPanel />}
+
+        {page.startsWith('Notifications') && (
+          <NotificationsPanel settings={settings} update={update} page={page} setPage={setPage} />
+        )}
+
+        {page.startsWith('Integrations') && (
           <IntegrationsPanel
             settings={settings}
             update={update}
-            setActiveTab={setActiveTab}
+            setActiveTab={setPage}
+            page={page}
+            setPage={setPage}
             onTrelloSync={onTrelloSync}
             trelloSyncing={trelloSyncing}
             onNotionSync={onNotionSync}
@@ -3432,6 +3563,9 @@ export default function SettingsModal({
 
 
       </div>
+      </SettingsPage>
+      )}
+      </SettingsNav>
 
       {confirmDialog && (
         <div className="v2-settings-confirm-overlay" onClick={() => setConfirmDialog(null)}>
