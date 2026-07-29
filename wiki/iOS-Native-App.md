@@ -716,11 +716,36 @@ appears in the Watch app on the phone under Available Apps.
 
 ---
 
-## Phase 7 — location-triggered tasks (📋 REQUESTED 2026-07-29)
+## Phase 7 — context awareness (📋 REQUESTED 2026-07-29)
+
+**Two independent features.** They arrived in the same conversation and got
+conflated once already; keep them apart. They share almost nothing — different
+triggers, different data, different failure modes, and only one of them needs
+location at all.
+
+| | 7a — Arrival reminders | 7b — Away window |
+|---|---|---|
+| Question | "what should I do now that I'm here?" | "am I able to do home tasks at all this week?" |
+| Trigger | crossing a geofence | a calendar event |
+| Needs geolocation | **yes, unavoidably** | **no** |
+| Needs a `places` table | yes | no |
+| Platform | iOS-only | works everywhere |
+| Acts | fires a local notification | proposes a vacation window |
+
+The only thing they genuinely share is a definition of *home* — 7a as a region
+to monitor, 7b as a point to measure "far from" against. Worth defining once.
+
+---
+
+### 7a — Arrival-triggered task reminders (needs geolocation)
 
 **The ask.** "I have a task I need to do first thing when I get home. When I get
 home, the app should detect that and notify me." The pattern exists in Reminders
 and Things.
+
+**Geolocation is genuinely required here** and there is no substitute. A calendar
+cannot tell you that you just walked in the door. This is the case that justifies
+the Always permission.
 
 **Only the native shell can do this.** There is no usable web equivalent — the
 PWA cannot monitor regions in the background. So this is an iOS-only capability
@@ -779,7 +804,9 @@ Nearest existing relatives are the `inside` / `outside` context tags and
 manual way. Worth deciding whether places supersede or complement those before
 building both.
 
-### Away mode — the dangerous half (📋 REQUESTED 2026-07-29)
+---
+
+### 7b — Away window / extending vacation mode (no geolocation)
 
 **The ask, in the owner's framing.** "I already have a vacation rule. The issue
 is remembering to set it. If I travel for a couple of days before I've
@@ -865,11 +892,15 @@ Design notes:
 - **Provenance still binds.** If it moves dates, stamp the original and the
   reason on the task, same as everywhere else.
 
-**Geolocation is deprioritised, possibly permanently.** Calendar covers planned
-absence, which is nearly all of it; retroactive repair covers the unplanned rest
-more cheaply and with no permission at all. Between them there is very little
-unique value left for a geofence, and it carries by far the most risk. Everything
-below applies only if an automatic *location* layer is ever revisited.
+**Scope note, because this was conflated once already.** Geolocation is
+unnecessary *for 7b specifically* — calendar covers planned absence, which is
+nearly all of it, and retroactive repair covers the unplanned rest more cheaply
+and with no permission at all. That says nothing about **7a**, which still wants
+geofencing and has no alternative: a calendar cannot tell you that you just got
+home. The two features are independent and 7a is not deprioritised by this.
+
+If an automatic *location* trigger for 7b is ever revisited on top of the
+calendar, the hazards below are what it has to answer for.
 
 #### The failure that matters
 
