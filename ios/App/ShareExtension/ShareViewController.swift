@@ -22,6 +22,9 @@ class ShareViewController: SLComposeServiceViewController {
     private var destinationListID: String?
     private var destinationListName: String = "Task"
     private var lists: [(id: String, name: String)] = []
+    // Why the list fetch failed, if it did. nil AND an empty `lists` genuinely
+    // means "no lists yet" — the two must stay distinguishable.
+    private var listsError: String?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -33,30 +36,57 @@ class ShareViewController: SLComposeServiceViewController {
 
     // Fetched rather than cached: a list added on another device should be a
     // valid destination the first time you share, not after the next app open.
+    //
+    // Every failure here is REPORTED, never swallowed. This originally bailed
+    // with a bare `return` on a missing base URL, a missing token, a malformed
+    // URL, a non-200, or unparseable JSON — and all five rendered identically
+    // to "you have no lists": a picker containing only Task. That is precisely
+    // the failure the sync engine's `last_sync_error` exists to prevent. From
+    // inside the app, unreachable is indistinguishable from empty, so it has
+    // to say which.
+    //
+    // Goes through BoomerangAPI rather than a hand-rolled URLSession call so it
+    // inherits the 10s timeout — a share sheet that sits there for URLSession's
+    // 60s default while the tailnet host is unreachable reads as a hang.
     private func loadLists() {
-        let base = BoomerangShared.apiBase
-        let token = SharedCredentials.bestToken
-        guard !base.isEmpty, !token.isEmpty else { return }
-        let trimmed = base.hasSuffix("/") ? String(base.dropLast()) : base
-        guard let url = URL(string: trimmed + "/api/lists") else { return }
-        var req = URLRequest(url: url)
-        req.setValue(token, forHTTPHeaderField: "x-api-token")
-        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
-            guard let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let rows = json["lists"] as? [[String: Any]] else { return }
-            let parsed: [(id: String, name: String)] = rows.compactMap { row in
-                // An orphaned list has lost its Trello checklist — offering it
-                // as a destination would write into a container that is gone.
-                guard row["orphaned_at"] == nil || row["orphaned_at"] is NSNull else { return nil }
-                guard let id = row["id"] as? String, let name = row["name"] as? String else { return nil }
-                return (id: id, name: name)
+        guard BoomerangAPI.isConfigured else {
+            listsError = "Open Boomerang and connect to your server first."
+            return
+        }
+        Task {
+            var parsed: [(id: String, name: String)] = []
+            var failure: String?
+            do {
+                let (status, json) = try await BoomerangAPI.getJSON("/api/lists")
+                if status != 200 {
+                    failure = "Boomerang returned \(status) when loading lists."
+                } else if let rows = json["lists"] as? [[String: Any]] {
+                    // Explicit signature: tuple-returning compactMap with
+                    // several `return nil` guards is exactly where inference
+                    // gets fragile, and this file compiles on a machine I
+                    // cannot reach.
+                    parsed = rows.compactMap { (row: [String: Any]) -> (id: String, name: String)? in
+                        // An orphaned list has lost its Trello checklist —
+                        // offering it as a destination would write into a
+                        // container that is gone.
+                        guard row["orphaned_at"] == nil || row["orphaned_at"] is NSNull else { return nil }
+                        guard let id = row["id"] as? String, let name = row["name"] as? String else { return nil }
+                        return (id: id, name: name)
+                    }
+                } else {
+                    failure = "Boomerang sent a response this build didn't understand."
+                }
+            } catch {
+                failure = "Couldn't reach Boomerang: \(error.localizedDescription)"
             }
-            DispatchQueue.main.async {
-                self?.lists = parsed
+            let loaded = parsed
+            let err = failure
+            DispatchQueue.main.async { [weak self] in
+                self?.lists = loaded
+                self?.listsError = err
                 self?.reloadConfigurationItems()
             }
-        }.resume()
+        }
     }
 
     override func isContentValid() -> Bool {
@@ -94,7 +124,10 @@ class ShareViewController: SLComposeServiceViewController {
     }
 
     private func presentDestinationPicker() {
-        let sheet = UIAlertController(title: "Add to", message: nil, preferredStyle: .actionSheet)
+        // When the fetch failed, this sheet is the only place it can be said —
+        // and it says it here rather than nowhere, next to the destinations
+        // that are missing because of it.
+        let sheet = UIAlertController(title: "Add to", message: listsError, preferredStyle: .actionSheet)
         sheet.addAction(UIAlertAction(title: "Task", style: .default) { [weak self] _ in
             self?.destinationListID = nil
             self?.destinationListName = "Task"
@@ -105,6 +138,12 @@ class ShareViewController: SLComposeServiceViewController {
                 self?.destinationListID = list.id
                 self?.destinationListName = list.name
                 self?.reloadConfigurationItems()
+            })
+        }
+        if listsError != nil {
+            sheet.addAction(UIAlertAction(title: "Try again", style: .default) { [weak self] _ in
+                self?.listsError = nil
+                self?.loadLists()
             })
         }
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
