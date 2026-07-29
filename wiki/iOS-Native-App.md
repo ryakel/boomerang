@@ -779,6 +779,84 @@ Nearest existing relatives are the `inside` / `outside` context tags and
 manual way. Worth deciding whether places supersede or complement those before
 building both.
 
+### Away mode — the dangerous half (📋 REQUESTED 2026-07-29)
+
+**The ask.** Detect being away from home and stop home tasks from nagging —
+"if I leave the state, anything that is a home task should shut up while I'm
+gone." Possibly also defer them by moving due dates. The owner flagged this as
+needing more design because it could be trouble; that instinct is correct, and
+this section exists to say exactly *which* trouble.
+
+#### The failure that matters
+
+**A false "away" silences your life, and silence is unfalsifiable.** If
+detection misfires — phone off, Always authorization downgraded to When In Use,
+reduced accuracy granted, a region event simply not delivered (which iOS does) —
+the app goes quiet about everything home-shaped, and from the inside that is
+**indistinguishable from having nothing due**. You would not notice for days.
+
+This is the same failure shape as `last_sync_error` and the share-sheet list
+fetch: an absent signal must never be silently rendered as a negative state.
+Whatever ships, the digest has to *say* "12 home tasks suppressed — you're
+away", never just show a short list. A suppression you can't see is a bug that
+looks like a quiet week.
+
+The inverse matters too: **exit and entry are not equally reliable.** If
+returning home fails to clear the state, you stay muted at home, which is the
+same catastrophe with a different trigger.
+
+#### Never auto-change due dates for this
+
+Suppression is reversible and leaves the data untouched. Rewriting due dates is
+destructive: it mutates recorded intent on a *guess about your location*, and
+per the data-durability invariant the original is gone unless provenance is
+stamped at the moment of the change. A misfire that silently rewrites forty
+dates is not recoverable by turning the feature off.
+
+If bulk deferral is wanted, it belongs as an **explicit action on return** —
+"you were away 6 days; move 12 overdue home tasks to this week?" — where a human
+confirms once and the change is attributable. Location proposes; it never
+disposes.
+
+#### The design that defuses it: a mode, not a location rule
+
+Do **not** wire geofences directly to notification suppression. Make the
+primitive an explicit, server-side, platform-neutral **mode** (`away`), and let
+location be one thing that can *propose* it:
+
+- The mode is visible, manually settable, and manually clearable. A failed
+  geofence then degrades to "set it yourself" rather than "the feature is
+  broken."
+- It generalises beyond location — travel, a sick day, a hospital stay all want
+  the same suppression without a coordinate anywhere near them.
+- It gives the whole feature an off switch that doesn't require revoking a
+  location permission.
+- The web app keeps working, since the mode isn't iOS-only even though one of
+  its triggers is.
+
+Automatic entry should **suggest, not act**: "Looks like you're away — mute home
+tasks?" One confirmation converts a risky inference into a cheap, attributable
+decision. For an ADHD tool this matters more than usual — the product only works
+if it is trusted, and an app that silently reshuffles your commitments based on
+a guess spends that trust faster than it earns it.
+
+#### Scale, which the naive version gets wrong
+
+A home-radius geofence reports "not at home" the moment you leave for milk.
+That is not *away*. Distinguishing "out for an hour" from "out of state for a
+week" needs distance **and** duration thresholds, and those are exactly the
+knobs that will be wrong for the first several months. Another argument for
+suggest-then-confirm over silent action.
+
+#### What it must not break
+
+- `isNotifiable()` remains the single opt-in gate. Away mode is a *further*
+  suppression on top, never a second parallel gate.
+- The escalation ladder must pause rather than continue accruing while
+  suppressed, or you come home to a fully escalated backlog for tasks you had
+  no way to do.
+- Crisis-class notifications must ignore the mode entirely.
+
 ## Notes
 
 - **No Dockerfile / server-build impact.** `apiConfig.js` ships in the Vite
