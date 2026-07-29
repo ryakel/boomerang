@@ -716,6 +716,69 @@ appears in the Watch app on the phone under Available Apps.
 
 ---
 
+## Phase 7 — location-triggered tasks (📋 REQUESTED 2026-07-29)
+
+**The ask.** "I have a task I need to do first thing when I get home. When I get
+home, the app should detect that and notify me." The pattern exists in Reminders
+and Things.
+
+**Only the native shell can do this.** There is no usable web equivalent — the
+PWA cannot monitor regions in the background. So this is an iOS-only capability
+in a product whose feature set has otherwise stayed platform-neutral, and it
+needs **Always** location authorization, which is the heaviest permission the app
+would ask for. Worth being deliberate about: it is a real privacy ask for a
+convenience feature.
+
+### The constraint that shapes the whole design
+
+iOS caps an app at **20 monitored regions**. Attaching a geofence per *task*
+hits that wall immediately and then needs a prioritisation scheme nobody can
+reason about — "why didn't it remind me?" becomes unanswerable.
+
+So don't geofence tasks. **Geofence places.** A small `places` table (Home,
+Work, the hardware store) with lat/lon/radius; tasks reference a place. You then
+monitor ~5 regions regardless of how many tasks exist, and on entry the app asks
+"what's waiting at this place?" That collapses the cap problem entirely and
+matches how the request is actually phrased — "when I get home", not "when I get
+to this one specific coordinate for this one task".
+
+It also makes the common edit sane: move house once, not across forty tasks.
+
+### Decisions to settle before code
+
+- **Arrival is not an event, it is a routine.** You get home most days, often
+  several times. A naive fire-on-entry means the same nudge every single
+  evening until the task is done — which is precisely the alert fatigue the
+  2026-07-24 Great Alert Deletion existed to end. Needs at minimum
+  once-per-arrival-per-day, and probably "only when the task is actually live"
+  (due, committed, or explicitly flagged for that place).
+- **This is a LOCAL notification, not a server send.** iOS fires it on-device
+  via `UNLocationNotificationTrigger` or the region-enter delegate — it never
+  touches `pushNotifications.js`, so `notifsMuzzled` and the digest pipeline do
+  not apply. That is a genuine architectural exception to "every send goes
+  through the stack" and should be called out rather than discovered later.
+  The *spirit* of the one-digest rule still binds: this has to earn its ping.
+- **Quiet hours still apply**, and the app has to enforce them itself, because
+  the OS won't.
+- **Who owns the geofence set?** The server holds the truth; the phone syncs
+  down the active regions. A task completed on the laptop must stop firing on
+  the phone, which means the sync is part of the feature, not an afterthought.
+- **Precise vs coarse.** iOS lets the user grant reduced accuracy. Home-sized
+  geofences need precise location; the feature has to degrade honestly rather
+  than silently never firing.
+
+### Where it touches what exists
+
+There is currently **no places concept anywhere** — the only coordinates in the
+system are `weather_latitude` / `weather_longitude`, a single pair in settings.
+So this is greenfield: new table, new native code, new permission flow, and a
+new sync path. Not a small feature.
+
+Nearest existing relatives are the `inside` / `outside` context tags and
+`energy: 'errand'`, which already express "where does this happen" in a coarse,
+manual way. Worth deciding whether places supersede or complement those before
+building both.
+
 ## Notes
 
 - **No Dockerfile / server-build impact.** `apiConfig.js` ships in the Vite
