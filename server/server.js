@@ -16,7 +16,8 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   getAllNotes, getNote, upsertNote, updateNotePartial, deleteNote,
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
-  dismissEscalationAdvancePrompt, resolveEscalation } from './db.js'
+  dismissEscalationAdvancePrompt, resolveEscalation,
+  getVacationWindow, setVacationWindow } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail, sendSecurityAlertEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush, sendSecurityAlertPush } from './pushNotifications.js'
@@ -71,6 +72,7 @@ import { verifyAttestation } from './appAttest.js'
 import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
   setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
 import { normalizeCapture, createRateLimiter } from './capture.js'
+import { isAway, isExpired, windowDays } from './vacationWindow.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
 import {
@@ -3494,6 +3496,44 @@ app.post('/api/apns/unregister', (req, res) => {
 
 app.post('/api/apns/test', async (req, res) => {
   res.json(await sendApnsTest())
+})
+
+// --- The away window (2026-07-29) ---
+// Stored OUTSIDE the bulk settings blob, own app_data key, same carve-out
+// reasoning as pushover link mode above — and here it matters more, because the
+// failure is invisible: `vacation_mode: false` ships in the client defaults, so
+// an unhydrated client pushes an explicit `false` and switches the window off
+// mid-trip, resuming every notification it was set to silence. Only these
+// endpoints write it. See server/vacationWindow.js.
+app.get('/api/vacation', (req, res) => {
+  const w = getVacationWindow()
+  const today = ymdInTz(new Date(), (getData('settings') || {}).timezone)
+  res.json({
+    ...w,
+    today,
+    // Derived, not stored, so a client can never disagree with the server about
+    // whether it is currently suppressing.
+    away_now: isAway(w, today),
+    expired: isExpired(w, today),
+    days: windowDays(w, { todayYMD: today }).length,
+  })
+})
+
+app.post('/api/vacation', (req, res) => {
+  const body = req.body || {}
+  const w = setVacationWindow({
+    active: !!body.active,
+    started_at: body.started_at ?? null,
+    ends_at: body.ends_at ?? null,
+    note: body.note ?? '',
+  })
+  const today = ymdInTz(new Date(), (getData('settings') || {}).timezone)
+  const away = isAway(w, today)
+  // Logged because a window that suppresses is the kind of state you want a
+  // record of having set — "why did nothing nag me last week" has to be
+  // answerable from the logs.
+  console.log(`[Vacation] window ${w.active ? 'ON' : 'OFF'} ${w.started_at || '(no start)'}→${w.ends_at || '(open)'} away_now=${away}`)
+  res.json({ ...w, today, away_now: away, expired: isExpired(w, today) })
 })
 
 app.post('/api/pushover/link-mode', (req, res) => {
