@@ -205,6 +205,41 @@ will be added in that PR.
 Swift **App Intents** exposing "Add Boomerang task" to Siri, the Shortcuts app,
 Spotlight, the Action button, and Back Tap.
 
+### ⚠️ Voice is gated behind a prompt that tapping never reveals (2026-07-29)
+
+App Shortcuts show up in the **Shortcuts app and run correctly when tapped**
+long before Siri will match any of their phrases **by voice**. iOS gates voice
+invocation behind a one-time, per-app prompt — *"Turn on 'Boomerang' shortcuts
+with Siri?"* — and until it is accepted every spoken phrase falls through to
+Apple's own apps. "Add milk to the grocery list" answers with Reminders'
+*"I didn't find a 'Grocery' list. Do you want to create one?"*, which reads
+exactly like a phrase-matching or registration bug in our code.
+
+It is not. Nothing in the app can detect or trigger this; only the user can
+accept it.
+
+Things that look like the cause and are not:
+
+- **Settings → Siri → Apps → Boomerang.** Its three switches — Learn from this
+  App, Show on Home Screen, Suggest App — are about suggestions and learning.
+  There is **no "Use with Ask Siri" toggle**, so finding all three already on
+  proves nothing about voice.
+- **Credentials, App Group, keychain, entitlements, tailnet reachability.** A
+  *tapped* shortcut returning "Caught it" is a real HTTP 2xx against a gated
+  route, which proves the whole chain end to end. If tapping works, stop
+  looking at the plumbing.
+- **The `\(.applicationName)` rule.** Real, but a separate constraint. Even the
+  correct phrasing does nothing while the prompt is unanswered.
+
+A fresh install appears to reset this, and dev builds reinstall on every
+deploy — so expect to meet it again rather than treating a recurrence as a
+regression.
+
+The diagnosis that actually works: **has the prompt been accepted?** Ask before
+inspecting anything else. On 2026-07-29 this cost an evening spent verifying
+signed entitlements, App Group parity, keychain access groups, ATS posture and
+the orphan filter, all of which were healthy the whole time.
+
 **Upgraded to the real voice-capture path (2026-07-19):** the intent now POSTs
 to **`/api/capture`** with `source: "siri"` (instead of `/api/intake`) — so
 native captures carry `capture_source` provenance and get the server-side

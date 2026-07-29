@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-29
 
+- docs(ios): Siri voice is gated behind a prompt that tapping never reveals [XS]
+  - **Siri voice capture now works on device** — "add a task to Boomerang" → *"Caught it — Change fan blade arms is on your list"*, and the task lands auto-tagged. The cause of it not working was never in our code: iOS gates voice invocation of App Shortcuts behind a one-time per-app prompt, *"Turn on 'Boomerang' shortcuts with Siri?"*. Until accepted, every spoken phrase falls through to Reminders while the same shortcuts **run fine when tapped in the Shortcuts app**.
+  - That asymmetry is the trap, and it is expensive: the tapped path working looks like proof the integration is healthy, so the investigation goes hunting for what makes the *other* surface different. On 2026-07-29 that meant verifying signed entitlements on both targets, App Group parity across all four build configs, the keychain access-group scheme, ATS posture, `/api/capture`'s auth gating and the orphan filter — every one of which came back healthy, because none of them was ever wrong.
+  - **Settings → Siri → Apps → Boomerang is not the gate** and does not expose one. Its three switches (Learn from this App, Show on Home Screen, Suggest App) are suggestions and learning; there is no "Use with Ask Siri" toggle, so finding them all on says nothing.
+  - The diagnostic rule, recorded in CLAUDE.md and `wiki/iOS-Native-App.md`: **ask whether the prompt was accepted before inspecting anything.** A tapped shortcut returning "Caught it" is a real 2xx against a gated route — it already proves credentials, App Group, keychain and tailnet reachability end to end. A fresh install resets the prompt, and dev builds reinstall on every deploy, so a recurrence is not a regression.
+  - Docs only — no code changed.
+
 - fix(ios): the share sheet's list fetch failed silently [S]
   - First real-device run of the Share Extension: the "Add to" picker offered only **Task**, no lists. `loadLists()` bailed with a bare `return` on **five** distinct failures — empty base URL, empty token, malformed URL, non-200, unparseable JSON — and every one of them drew exactly the same picker as "you have no lists yet". Unreachable was indistinguishable from empty, which is the failure `last_sync_error` exists to prevent one layer down.
   - Now reports. The action sheet carries the reason (`Boomerang returned 401 when loading lists.`, `Couldn't reach Boomerang: …`) next to the destinations that are missing because of it, plus a **Try again** action. A nil error with an empty list still means genuinely no lists — the two states stay separable.
