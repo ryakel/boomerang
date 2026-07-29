@@ -220,6 +220,36 @@ plus all three live lists.
 actually on screen.** And note this is a *layout* answer, not a data one — no
 amount of checking the fetch would ever have found it.
 
+**⚠️ OWED FIX — scroll the row into view on open.** Not-a-bug is not the same as
+shipped: a feature you have to remember a workaround for is not discoverable, and
+nobody remembers "scroll the share sheet" three months later (owner, 2026-07-29).
+
+The agreed fix is to **auto-scroll rather than change behaviour** — keep the
+keyboard, keep the focus, just bring the row into view. `SLComposeServiceViewController`
+exposes no scroll view, so this means walking the view hierarchy in
+`viewDidAppear` for the enclosing `UIScrollView` and scrolling the configuration
+row visible. Public properties only, no private selectors; App Store review is
+not a factor for a sideloaded build.
+
+Two constraints on whoever implements it:
+
+- **Guard the walk.** If Apple reshuffles the hierarchy the traversal finds
+  nothing, and the failure mode must be *exactly today's behaviour* (scroll
+  manually) — never a broken or blank sheet. Do not force an offset onto a view
+  you did not positively identify.
+- **It cannot be verified without a device.** There is no Mac in the dev
+  environment, so the scroll either works on the next rebuild or silently
+  no-ops. Check it on-device and say which.
+
+Rejected alternatives, recorded so they are not re-litigated: dismissing the
+keyboard on appear (costs a tap on every share where you *do* edit the title),
+putting the destination in the sheet title (leaves the row unreachable, only
+labels it), and presenting the picker before the compose view (interrupts before
+you can see what you are sharing).
+
+**Bundle this into the next Share-Extension-touching change** rather than
+shipping it as its own errand — the owner's call.
+
 Swift **App Intents** exposing "Add Boomerang task" to Siri, the Shortcuts app,
 Spotlight, the Action button, and Back Tap.
 
