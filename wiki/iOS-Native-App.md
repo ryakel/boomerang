@@ -781,11 +781,95 @@ building both.
 
 ### Away mode — the dangerous half (📋 REQUESTED 2026-07-29)
 
-**The ask.** Detect being away from home and stop home tasks from nagging —
-"if I leave the state, anything that is a home task should shut up while I'm
-gone." Possibly also defer them by moving due dates. The owner flagged this as
-needing more design because it could be trouble; that instinct is correct, and
-this section exists to say exactly *which* trouble.
+**The ask, in the owner's framing.** "I already have a vacation rule. The issue
+is remembering to set it. If I travel for a couple of days before I've
+remembered, I've created an obligation where I have to go back and fix a bunch
+of dates because I wasn't engaged to go poke at the app."
+
+**The real problem is the cleanup, not the toggle** — and that reframing kills
+the obvious feature.
+
+#### What `vacation_mode` actually does today (measured, not assumed)
+
+**It freezes the streak. That is all.** `server/db.js:1332` is its only
+consumer; `src/store.js:917` mirrors it client-side. It does not suppress a
+single notification and it never touches a due date.
+
+`rolloverPlan()` in `server/taskModel.js` doesn't touch `due_date` either — it
+un-commits committed tasks and increments `boomerang_count`. Nothing anywhere in
+the system moves a due date automatically.
+
+**So auto-setting vacation mode would not have prevented the date cleanup.**
+The stated pain is unaddressed by anything currently shipped, and the feature
+that looks like the fix isn't one. Building geofence-driven auto-enable first
+would have solved a problem the owner does not have.
+
+#### What actually removes the obligation
+
+The valuable half is **retroactive repair over a window**, not detection:
+
+> You were away Tue–Fri. 12 tasks came due in that window and are now overdue.
+> Move them to this week?
+
+One action instead of date surgery. And critically, it works *after the fact* —
+which is the only kind of help that lands, because by definition the user wasn't
+engaged with the app during the window.
+
+**`vacation_mode` already has the window.** `vacation_started` and
+`vacation_end` exist; they just only feed the streak calculation. Teaching that
+existing window to (a) suppress while active and (b) offer bulk repair on exit
+is the smallest change that solves the stated problem — and it can be set
+**retroactively**, which is exactly the case that hurts.
+
+#### Detect the window from the CALENDAR, not from location (owner, 2026-07-29)
+
+> "What if instead of using geolocation for this specific part, we just use a
+> calendar integration? I'm going to have them on my calendar that I'm going to
+> be traveling, and you have AI — so it seems logical you could say, hey, you're
+> in Wisconsin this week, probably can't be doing the tasks at home."
+
+This is better than geofencing on every axis that matters, and it should be the
+plan of record.
+
+**It is ahead of time, which geofencing structurally cannot be.** A geofence
+fires when you are *already gone* — by then the tasks have already come due and
+the obligation the owner is trying to avoid has already been created. A calendar
+event is known days in advance, so the window can be proposed **before
+departure** and the mess never happens. Detection-on-arrival was always solving
+the problem too late.
+
+**It is stated intent, not inference.** "Wisconsin, Mar 3–7" is the owner
+saying so. A geofence guesses from coordinates, which is what made the false-away
+failure mode so dangerous. Provenance is clean by construction.
+
+**It works when the phone doesn't** — dead battery, location denied, reduced
+accuracy, a region event iOS never delivered. None of those matter here.
+
+**It is nearly all existing parts.** `GET /api/gcal/events` already lists events
+in a time range; OAuth with auto-refresh is done; the AI gateway is in place with
+direct precedent for reading calendar data (`inferEventTime()`);
+`weather_latitude` / `weather_longitude` already give a home reference to measure
+"far from" against; and `vacation_mode` already carries the window. Compare with
+the geofence path: new table, new native code, an Always permission, the
+20-region cap, and iOS-only.
+
+Design notes:
+
+- **Pre-filter before spending a token.** Do not run AI over every event. Cheap
+  structural filter first — multi-day or all-day events, carrying a location,
+  within the next N days — then classify only those. "Lunch with Ben in Madison"
+  must never trip this; a one-hour event is not travel.
+- **Suggest, never act.** In the morning digest: *"You're in Wisconsin Tue–Fri.
+  6 home tasks come due then — shift them to Saturday?"* One tap. It rides the
+  existing digest rather than minting a notification, per the one-digest rule.
+- **Provenance still binds.** If it moves dates, stamp the original and the
+  reason on the task, same as everywhere else.
+
+**Geolocation is deprioritised, possibly permanently.** Calendar covers planned
+absence, which is nearly all of it; retroactive repair covers the unplanned rest
+more cheaply and with no permission at all. Between them there is very little
+unique value left for a geofence, and it carries by far the most risk. Everything
+below applies only if an automatic *location* layer is ever revisited.
 
 #### The failure that matters
 
@@ -818,27 +902,24 @@ If bulk deferral is wanted, it belongs as an **explicit action on return** —
 confirms once and the change is attributable. Location proposes; it never
 disposes.
 
-#### The design that defuses it: a mode, not a location rule
+#### Extend the existing mode; never wire geofences to suppression
 
-Do **not** wire geofences directly to notification suppression. Make the
-primitive an explicit, server-side, platform-neutral **mode** (`away`), and let
-location be one thing that can *propose* it:
+The mode already exists, so the rule is simply that location *proposes* the
+window and never acts on it directly:
 
-- The mode is visible, manually settable, and manually clearable. A failed
-  geofence then degrades to "set it yourself" rather than "the feature is
-  broken."
-- It generalises beyond location — travel, a sick day, a hospital stay all want
-  the same suppression without a coordinate anywhere near them.
-- It gives the whole feature an off switch that doesn't require revoking a
-  location permission.
+- `vacation_mode` stays visible, manually settable and clearable, and settable
+  **for a past window**. A failed geofence then degrades to "set it yourself
+  afterwards" — which is the existing workflow, only cheaper.
+- It already generalises beyond location: travel, a sick day, a hospital stay
+  all want the same treatment with no coordinate anywhere near them.
 - The web app keeps working, since the mode isn't iOS-only even though one of
-  its triggers is.
+  its triggers would be.
 
-Automatic entry should **suggest, not act**: "Looks like you're away — mute home
-tasks?" One confirmation converts a risky inference into a cheap, attributable
-decision. For an ADHD tool this matters more than usual — the product only works
-if it is trusted, and an app that silently reshuffles your commitments based on
-a guess spends that trust faster than it earns it.
+Automatic entry should **suggest, not act**: "Looks like you're away — start
+vacation mode?" One confirmation converts a risky inference into a cheap,
+attributable decision. For an ADHD tool this matters more than usual — the
+product only works if it is trusted, and an app that silently reshuffles your
+commitments based on a guess spends that trust faster than it earns it.
 
 #### Scale, which the naive version gets wrong
 
