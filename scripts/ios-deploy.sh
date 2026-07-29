@@ -43,12 +43,37 @@ try:
     devices = json.load(open(sys.argv[1])).get('result', {}).get('devices', [])
 except Exception:
     devices = []
-# PHYSICAL devices only: hardware UDIDs look like 00008120-XXXXXXXXXXXXXXXX.
-# Simulators carry standard UUIDs — an earlier fallback to d['identifier']
-# happily picked one and devicectl staged the install into CoreSimulator
-# (EBADARCH: device build, simulator target). Never fall back past this.
+# PHYSICAL iOS devices only.
+#
+# The platform filter is NOT optional, and its absence broke this script the
+# day the Apple Watch was finally paired and registered (2026-07-28). While the
+# watch was half-paired the listing gave it no `hardwareProperties.udid`, so
+# the shape check below rejected it and "any physical device" happened to mean
+# the phone. Once registered it carried a udid like anything else — and a watch
+# UDID has the SAME 00008310-XXXXXXXXXXXXXXXX shape as an iPhone's, so the
+# regex matched both. The watch's tunnel was connected, so it sorted first and
+# won. xcodebuild then refused the destination outright:
+#
+#   Unable to find a destination matching the provided destination specifier
+#   { platform:watchOS, ..., name:Ryan's Apple Watch, error: watchOS platform
+#     doesn't match App.app's supported platforms }
+#
+# The old comment here asserted UDIDs "look like 00008120-…" as if the prefix
+# identified an iPhone. It does not identify anything. Filter on the field that
+# actually says what the device is — the same one find-watch.sh uses, which is
+# the one place this was ever verified against real output.
 HW = re.compile(r'^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}$')
-phys = [d for d in devices if HW.match(d.get('hardwareProperties', {}).get('udid') or '')]
+def is_iphone(d):
+    hw = d.get('hardwareProperties', {})
+    if not HW.match(hw.get('udid') or ''):
+        return False
+    # Simulators carry standard UUIDs — an earlier fallback to d['identifier']
+    # happily picked one and devicectl staged the install into CoreSimulator
+    # (EBADARCH: device build, simulator target). Never fall back past this.
+    if (hw.get('reality') or '').lower() != 'physical':
+        return False
+    return (hw.get('platform') or '').lower() == 'ios'
+phys = [d for d in devices if is_iphone(d)]
 def key(d):
     tunnel = (d.get('connectionProperties', {}).get('tunnelState') or '').lower()
     return 0 if tunnel == 'connected' else 1
