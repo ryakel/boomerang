@@ -200,7 +200,25 @@ A native Swift **Share Extension** target so "share a Message/email/page →
 main app via an **App Group** (so they're entered once). Source + Xcode wiring
 will be added in that PR.
 
-## Phase 3 — App Intents
+### The "Add to" row is below the fold, and that is not a bug (2026-07-29)
+
+`SLComposeServiceViewController` renders `configurationItems()` in a table
+**below** the text view, and it focuses the text view on appear. So the keyboard
+comes up immediately and pushes the "Add to" row out of sight — **you have to
+scroll the sheet down to see it.** Reminders and Things behave identically; there
+is no clean API to suppress the initial focus.
+
+This burned a full evening on 2026-07-29. The report was "the share sheet didn't
+show my lists", which was *literally true* — the row itself was invisible — but
+it was read as "I tapped the row and only saw Task", which sent the
+investigation into signed entitlements, App Group parity across all four build
+configurations, keychain access groups, ATS posture and the orphan filter. All
+healthy. Verified working afterwards: scroll down → `Add to → Task` → tap → Task
+plus all three live lists.
+
+**Before diagnosing an empty or missing destination picker, confirm the row was
+actually on screen.** And note this is a *layout* answer, not a data one — no
+amount of checking the fetch would ever have found it.
 
 Swift **App Intents** exposing "Add Boomerang task" to Siri, the Shortcuts app,
 Spotlight, the Action button, and Back Tap.

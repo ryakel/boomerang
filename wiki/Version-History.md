@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-29
 
+- docs(ios): the share sheet's "Add to" row is below the fold, not broken [XS]
+  - **Verified working on device: `Add to → Task` → tap → Task plus all three live lists (Costco, Groceries, Trader Joes).** There was never a bug.
+  - `SLComposeServiceViewController` renders `configurationItems()` in a table **below** the text view and focuses that text view on appear, so the keyboard immediately pushes the row out of sight. You scroll the sheet to reach it. Reminders and Things behave identically and there is no clean API to suppress the initial focus.
+  - **The report was literally true and I misread it.** "The share sheet didn't show my lists" meant the row was invisible; I read it as "I tapped the row and only saw Task", which sent the investigation into signed entitlements on both binaries, App Group parity across all four target × configuration combinations, keychain access groups, ATS posture, `/api/capture`'s auth gating and the orphan filter. Every one came back healthy because none of them was ever wrong. It was a layout answer, and no amount of checking the fetch would have found it.
+  - The robustness work it prompted (#888/#889) still stands on its own: `loadLists()` really did bail silently on five distinct failures, and a 60s `URLSession` default inside a share sheet really does read as a hang. It just wasn't the cause of anything observed.
+  - Recorded under Phase 2 in `wiki/iOS-Native-App.md`: before diagnosing an empty destination picker, confirm the row was on screen. Docs only.
+
 - docs(ios): Siri voice is gated behind a prompt that tapping never reveals [XS]
   - **Siri voice capture now works on device** — "add a task to Boomerang" → *"Caught it — Change fan blade arms is on your list"*, and the task lands auto-tagged. The cause of it not working was never in our code: iOS gates voice invocation of App Shortcuts behind a one-time per-app prompt, *"Turn on 'Boomerang' shortcuts with Siri?"*. Until accepted, every spoken phrase falls through to Reminders while the same shortcuts **run fine when tapped in the Shortcuts app**.
   - That asymmetry is the trap, and it is expensive: the tapped path working looks like proof the integration is healthy, so the investigation goes hunting for what makes the *other* surface different. On 2026-07-29 that meant verifying signed entitlements on both targets, App Group parity across all four build configs, the keychain access-group scheme, ATS posture, `/api/capture`'s auth gating and the orphan filter — every one of which came back healthy, because none of them was ever wrong.
