@@ -540,6 +540,63 @@ Track packages with auto carrier detection, adaptive server-side polling, and de
 - UPS sometimes lacks ETA data from 17track (InfoReceived status has no estimated_delivery_date)
 - Gmail auto-extraction is implemented (see Gmail Integration section) but not webhook-based
 
+#### 📋 REQUESTED (2026-07-29): packages as due-date drivers
+
+**The workflow.** "Change fan blade arms" was due yesterday and couldn't be
+done, because the arms were still in transit. The due date had to be moved by
+hand. If the package were linked to the task, the date could follow the parcel.
+
+**This is the inverse of `signature_task_id`.** That column points at a task the
+*package created* and which the package *completes* on delivery. This points at
+a task that already existed and which the package *gates*. Different direction,
+different lifecycle — it should not reuse that column.
+
+A repair commonly waits on more than one part, so the link wants to be a table
+(`task_id`, `package_id`, `role`) rather than a column, with `role`
+distinguishing `blocks` from the existing `signature` relationship. A task is
+ready when **every** package blocking it has been delivered.
+
+**Behavioural decisions worth settling before any code:**
+
+- **Push out, never pull in.** If the ETA slips past the due date, move the due
+  date. If the package arrives early, leave the date alone — early arrival is
+  not evidence you wanted to do the job sooner. The asymmetry is what makes the
+  feature safe to turn on.
+- **A blocked task must not nag or escalate.** It isn't being avoided; the parts
+  aren't there. Whatever this becomes has to be visible to `isNotifiable()` and
+  to the escalation ladder, or the ADHD-tax feature actively punishes you for a
+  carrier's delay.
+- **No new notification.** Delivery already pushes/emails, and the product is one
+  morning digest plus intentionally rare pings. "Your parts arrived, X is
+  unblocked" belongs folded into the existing delivery ping or the digest — not
+  minted as another send. See the `add-notification-type` skill.
+- **An undelivered package must not block a task forever.** Lost parcels, wrong
+  tracking numbers and Amazon TBA ids that never resolve all need an escape
+  hatch that doesn't require understanding the link to escape.
+
+**The durability trap, and it is a real one.** Packages **self-delete** —
+`auto_cleanup_at` removes delivered rows after `package_retention_days`
+(default 3). So a task whose due date was moved by a package will, within days,
+be joined to nothing. If the reason for the date lives only in the package row,
+the task ends up with a mysterious date and no way to tell whether you set it or
+the system did — and no way to undo it.
+
+Per the data-durability invariant in CLAUDE.md, the provenance has to be
+**stamped onto the task at the moment the date moves** (original date, that the
+move was automatic, which tracking number caused it), not derived by joining to
+a row that is scheduled to disappear. Ask the standard question before shipping:
+*what happens to this when its rows are deleted?* The only acceptable answer is
+"nothing."
+
+**Where it would hook in:** `applyTrackingResult()` in `server.js` — the single
+place status transitions, ETA, signature tasks and delivered cleanup already
+happen. ETA changes drive the date; the existing `newStatus === 'delivered'`
+branch drives the unblock. Do not add a second tracking-side code path.
+
+**Open question for the owner:** when the ETA is Thursday, should the task come
+due Thursday, or the day after? Delivery time of day is unknown and often
+evening, so same-day may just recreate the problem one day later.
+
 ### Weather Awareness (Open-Meteo)
 Free forecast integration that nudges the right tasks for the weather.
 

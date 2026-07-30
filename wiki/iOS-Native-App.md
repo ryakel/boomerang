@@ -200,10 +200,111 @@ A native Swift **Share Extension** target so "share a Message/email/page →
 main app via an **App Group** (so they're entered once). Source + Xcode wiring
 will be added in that PR.
 
+### The "Add to" row WAS below the fold, and that was never a bug (2026-07-29)
+
+Historic — the rewrite below removed the cause. Kept for the diagnostic lesson,
+which cost an evening and is easy to repeat.
+
+`SLComposeServiceViewController` rendered `configurationItems()` in a table
+**below** the text view, and focused the text view on appear. So the keyboard
+came up immediately and pushed the "Add to" row out of sight — **you had to
+scroll the sheet down to see it.** Reminders and Things still behave that way;
+there is no clean API to suppress the initial focus.
+
+This burned a full evening on 2026-07-29. The report was "the share sheet didn't
+show my lists", which was *literally true* — the row itself was invisible — but
+it was read as "I tapped the row and only saw Task", which sent the
+investigation into signed entitlements, App Group parity across all four build
+configurations, keychain access groups, ATS posture and the orphan filter. All
+healthy. Verified working afterwards, by scrolling: `Add to → Task` → tap → Task
+plus all three live lists. Nothing was ever broken.
+
+**Before diagnosing an empty or missing destination picker, confirm the row was
+actually on screen.** And note this is a *layout* answer, not a data one — no
+amount of checking the fetch would ever have found it.
+
+**FIXED 2026-07-29 — by leaving the template, not working around it.**
+Not-a-bug is not the same as shipped: a feature you have to remember a
+workaround for is not discoverable, and nobody remembers "scroll the share
+sheet" three months later (owner).
+
+The first plan was to auto-scroll — walk the view hierarchy in `viewDidAppear`
+for the enclosing `UIScrollView` and bring the row into view. **Rejected, and
+correctly:** it works around a constraint we were free to drop. The row is only
+below the fold because we chose Apple's template, and that template offers no
+ordering hook and no reposition API, so no amount of cleverness moves it — the
+layout is simply not ours to arrange.
+
+`ShareViewController` is now a plain `UIViewController` owning its own layout:
+header (Cancel / title / Add), then the **destination row directly beneath it,
+above the text**, then the text view and the shared-URL preview. Nothing to
+scroll, nothing to discover. The keyboard still focuses the text on appear — the
+row is above it, so it no longer matters — and the card lifts clear of the
+keyboard via `keyboardWillChangeFrame`.
+
+What the template gave us, and what replaced it:
+
+| Template | Now |
+|---|---|
+| `contentText` | a `UITextView` with a placeholder label |
+| `isContentValid()` | `refreshValidity()` from `textViewDidChange` |
+| standard chrome | a card with an explicit header stack |
+| config-items table | one destination button, whole row tappable |
+
+Folded in while there: the two near-identical POST paths (`/api/intake` and
+`/api/lists/:id/items`) collapsed into one `send(path:…)`. The copies had already
+drifted — only one trimmed a trailing slash — and nothing was gained by having
+two. Both now carry the 10s timeout.
+
+**The whole row is the tap target**, not just the label: a real `UIButton` with a
+non-interactive stack on top. Same mistake settings PR6 had to fix, and evidently
+an easy one to make twice.
+
+**Unverified.** No Mac and no Swift toolchain in this environment, so it is
+written and reviewed but never compiled. Reviewed against the compiler's
+known-fragile spots: `NSError` has no two-argument initialiser in Swift, and
+`UITextView.text` is `String!` so it is unwrapped through `currentText`
+everywhere rather than trusted. Expect to fix something on the first build.
+
 ## Phase 3 — App Intents
 
 Swift **App Intents** exposing "Add Boomerang task" to Siri, the Shortcuts app,
 Spotlight, the Action button, and Back Tap.
+
+### ⚠️ Voice is gated behind a prompt that tapping never reveals (2026-07-29)
+
+App Shortcuts show up in the **Shortcuts app and run correctly when tapped**
+long before Siri will match any of their phrases **by voice**. iOS gates voice
+invocation behind a one-time, per-app prompt — *"Turn on 'Boomerang' shortcuts
+with Siri?"* — and until it is accepted every spoken phrase falls through to
+Apple's own apps. "Add milk to the grocery list" answers with Reminders'
+*"I didn't find a 'Grocery' list. Do you want to create one?"*, which reads
+exactly like a phrase-matching or registration bug in our code.
+
+It is not. Nothing in the app can detect or trigger this; only the user can
+accept it.
+
+Things that look like the cause and are not:
+
+- **Settings → Siri → Apps → Boomerang.** Its three switches — Learn from this
+  App, Show on Home Screen, Suggest App — are about suggestions and learning.
+  There is **no "Use with Ask Siri" toggle**, so finding all three already on
+  proves nothing about voice.
+- **Credentials, App Group, keychain, entitlements, tailnet reachability.** A
+  *tapped* shortcut returning "Caught it" is a real HTTP 2xx against a gated
+  route, which proves the whole chain end to end. If tapping works, stop
+  looking at the plumbing.
+- **The `\(.applicationName)` rule.** Real, but a separate constraint. Even the
+  correct phrasing does nothing while the prompt is unanswered.
+
+A fresh install appears to reset this, and dev builds reinstall on every
+deploy — so expect to meet it again rather than treating a recurrence as a
+regression.
+
+The diagnosis that actually works: **has the prompt been accepted?** Ask before
+inspecting anything else. On 2026-07-29 this cost an evening spent verifying
+signed entitlements, App Group parity, keychain access groups, ATS posture and
+the orphan filter, all of which were healthy the whole time.
 
 **Upgraded to the real voice-capture path (2026-07-19):** the intent now POSTs
 to **`/api/capture`** with `source: "siri"` (instead of `/api/intake`) — so
@@ -680,6 +781,259 @@ balks at the new `…watchkitapp` bundle id, run once interactively in Xcode
 appears in the Watch app on the phone under Available Apps.
 
 ---
+
+## Phase 7 — context awareness (📋 REQUESTED 2026-07-29)
+
+**Two independent features.** They arrived in the same conversation and got
+conflated once already; keep them apart. They share almost nothing — different
+triggers, different data, different failure modes, and only one of them needs
+location at all.
+
+| | 7a — Arrival reminders | 7b — Away window |
+|---|---|---|
+| Question | "what should I do now that I'm here?" | "am I able to do home tasks at all this week?" |
+| Trigger | crossing a geofence | a calendar event |
+| Needs geolocation | **yes, unavoidably** | **no** |
+| Needs a `places` table | yes | no |
+| Platform | iOS-only | works everywhere |
+| Acts | fires a local notification | proposes a vacation window |
+
+The only thing they genuinely share is a definition of *home* — 7a as a region
+to monitor, 7b as a point to measure "far from" against. Worth defining once.
+
+---
+
+### 7a — Arrival-triggered task reminders (needs geolocation)
+
+**The ask.** "I have a task I need to do first thing when I get home. When I get
+home, the app should detect that and notify me." The pattern exists in Reminders
+and Things.
+
+**Geolocation is genuinely required here** and there is no substitute. A calendar
+cannot tell you that you just walked in the door. This is the case that justifies
+the Always permission.
+
+**Only the native shell can do this.** There is no usable web equivalent — the
+PWA cannot monitor regions in the background. So this is an iOS-only capability
+in a product whose feature set has otherwise stayed platform-neutral, and it
+needs **Always** location authorization, which is the heaviest permission the app
+would ask for. Worth being deliberate about: it is a real privacy ask for a
+convenience feature.
+
+### The constraint that shapes the whole design
+
+iOS caps an app at **20 monitored regions**. Attaching a geofence per *task*
+hits that wall immediately and then needs a prioritisation scheme nobody can
+reason about — "why didn't it remind me?" becomes unanswerable.
+
+So don't geofence tasks. **Geofence places.** A small `places` table (Home,
+Work, the hardware store) with lat/lon/radius; tasks reference a place. You then
+monitor ~5 regions regardless of how many tasks exist, and on entry the app asks
+"what's waiting at this place?" That collapses the cap problem entirely and
+matches how the request is actually phrased — "when I get home", not "when I get
+to this one specific coordinate for this one task".
+
+It also makes the common edit sane: move house once, not across forty tasks.
+
+### Decisions to settle before code
+
+- **Arrival is not an event, it is a routine.** You get home most days, often
+  several times. A naive fire-on-entry means the same nudge every single
+  evening until the task is done — which is precisely the alert fatigue the
+  2026-07-24 Great Alert Deletion existed to end. Needs at minimum
+  once-per-arrival-per-day, and probably "only when the task is actually live"
+  (due, committed, or explicitly flagged for that place).
+- **This is a LOCAL notification, not a server send.** iOS fires it on-device
+  via `UNLocationNotificationTrigger` or the region-enter delegate — it never
+  touches `pushNotifications.js`, so `notifsMuzzled` and the digest pipeline do
+  not apply. That is a genuine architectural exception to "every send goes
+  through the stack" and should be called out rather than discovered later.
+  The *spirit* of the one-digest rule still binds: this has to earn its ping.
+- **Quiet hours still apply**, and the app has to enforce them itself, because
+  the OS won't.
+- **Who owns the geofence set?** The server holds the truth; the phone syncs
+  down the active regions. A task completed on the laptop must stop firing on
+  the phone, which means the sync is part of the feature, not an afterthought.
+- **Precise vs coarse.** iOS lets the user grant reduced accuracy. Home-sized
+  geofences need precise location; the feature has to degrade honestly rather
+  than silently never firing.
+
+### Where it touches what exists
+
+There is currently **no places concept anywhere** — the only coordinates in the
+system are `weather_latitude` / `weather_longitude`, a single pair in settings.
+So this is greenfield: new table, new native code, new permission flow, and a
+new sync path. Not a small feature.
+
+Nearest existing relatives are the `inside` / `outside` context tags and
+`energy: 'errand'`, which already express "where does this happen" in a coarse,
+manual way. Worth deciding whether places supersede or complement those before
+building both.
+
+---
+
+### 7b — Away window / extending vacation mode (no geolocation)
+
+**The ask, in the owner's framing.** "I already have a vacation rule. The issue
+is remembering to set it. If I travel for a couple of days before I've
+remembered, I've created an obligation where I have to go back and fix a bunch
+of dates because I wasn't engaged to go poke at the app."
+
+**The real problem is the cleanup, not the toggle** — and that reframing kills
+the obvious feature.
+
+#### What `vacation_mode` actually does today (measured, not assumed)
+
+**It freezes the streak. That is all.** `server/db.js:1332` is its only
+consumer; `src/store.js:917` mirrors it client-side. It does not suppress a
+single notification and it never touches a due date.
+
+`rolloverPlan()` in `server/taskModel.js` doesn't touch `due_date` either — it
+un-commits committed tasks and increments `boomerang_count`. Nothing anywhere in
+the system moves a due date automatically.
+
+**So auto-setting vacation mode would not have prevented the date cleanup.**
+The stated pain is unaddressed by anything currently shipped, and the feature
+that looks like the fix isn't one. Building geofence-driven auto-enable first
+would have solved a problem the owner does not have.
+
+#### What actually removes the obligation
+
+The valuable half is **retroactive repair over a window**, not detection:
+
+> You were away Tue–Fri. 12 tasks came due in that window and are now overdue.
+> Move them to this week?
+
+One action instead of date surgery. And critically, it works *after the fact* —
+which is the only kind of help that lands, because by definition the user wasn't
+engaged with the app during the window.
+
+**`vacation_mode` already has the window.** `vacation_started` and
+`vacation_end` exist; they just only feed the streak calculation. Teaching that
+existing window to (a) suppress while active and (b) offer bulk repair on exit
+is the smallest change that solves the stated problem — and it can be set
+**retroactively**, which is exactly the case that hurts.
+
+#### Detect the window from the CALENDAR, not from location (owner, 2026-07-29)
+
+> "What if instead of using geolocation for this specific part, we just use a
+> calendar integration? I'm going to have them on my calendar that I'm going to
+> be traveling, and you have AI — so it seems logical you could say, hey, you're
+> in Wisconsin this week, probably can't be doing the tasks at home."
+
+This is better than geofencing on every axis that matters, and it should be the
+plan of record.
+
+**It is ahead of time, which geofencing structurally cannot be.** A geofence
+fires when you are *already gone* — by then the tasks have already come due and
+the obligation the owner is trying to avoid has already been created. A calendar
+event is known days in advance, so the window can be proposed **before
+departure** and the mess never happens. Detection-on-arrival was always solving
+the problem too late.
+
+**It is stated intent, not inference.** "Wisconsin, Mar 3–7" is the owner
+saying so. A geofence guesses from coordinates, which is what made the false-away
+failure mode so dangerous. Provenance is clean by construction.
+
+**It works when the phone doesn't** — dead battery, location denied, reduced
+accuracy, a region event iOS never delivered. None of those matter here.
+
+**It is nearly all existing parts.** `GET /api/gcal/events` already lists events
+in a time range; OAuth with auto-refresh is done; the AI gateway is in place with
+direct precedent for reading calendar data (`inferEventTime()`);
+`weather_latitude` / `weather_longitude` already give a home reference to measure
+"far from" against; and `vacation_mode` already carries the window. Compare with
+the geofence path: new table, new native code, an Always permission, the
+20-region cap, and iOS-only.
+
+Design notes:
+
+- **Pre-filter before spending a token.** Do not run AI over every event. Cheap
+  structural filter first — multi-day or all-day events, carrying a location,
+  within the next N days — then classify only those. "Lunch with Ben in Madison"
+  must never trip this; a one-hour event is not travel.
+- **Suggest, never act.** In the morning digest: *"You're in Wisconsin Tue–Fri.
+  6 home tasks come due then — shift them to Saturday?"* One tap. It rides the
+  existing digest rather than minting a notification, per the one-digest rule.
+- **Provenance still binds.** If it moves dates, stamp the original and the
+  reason on the task, same as everywhere else.
+
+**Scope note, because this was conflated once already.** Geolocation is
+unnecessary *for 7b specifically* — calendar covers planned absence, which is
+nearly all of it, and retroactive repair covers the unplanned rest more cheaply
+and with no permission at all. That says nothing about **7a**, which still wants
+geofencing and has no alternative: a calendar cannot tell you that you just got
+home. The two features are independent and 7a is not deprioritised by this.
+
+If an automatic *location* trigger for 7b is ever revisited on top of the
+calendar, the hazards below are what it has to answer for.
+
+#### The failure that matters
+
+**A false "away" silences your life, and silence is unfalsifiable.** If
+detection misfires — phone off, Always authorization downgraded to When In Use,
+reduced accuracy granted, a region event simply not delivered (which iOS does) —
+the app goes quiet about everything home-shaped, and from the inside that is
+**indistinguishable from having nothing due**. You would not notice for days.
+
+This is the same failure shape as `last_sync_error` and the share-sheet list
+fetch: an absent signal must never be silently rendered as a negative state.
+Whatever ships, the digest has to *say* "12 home tasks suppressed — you're
+away", never just show a short list. A suppression you can't see is a bug that
+looks like a quiet week.
+
+The inverse matters too: **exit and entry are not equally reliable.** If
+returning home fails to clear the state, you stay muted at home, which is the
+same catastrophe with a different trigger.
+
+#### Never auto-change due dates for this
+
+Suppression is reversible and leaves the data untouched. Rewriting due dates is
+destructive: it mutates recorded intent on a *guess about your location*, and
+per the data-durability invariant the original is gone unless provenance is
+stamped at the moment of the change. A misfire that silently rewrites forty
+dates is not recoverable by turning the feature off.
+
+If bulk deferral is wanted, it belongs as an **explicit action on return** —
+"you were away 6 days; move 12 overdue home tasks to this week?" — where a human
+confirms once and the change is attributable. Location proposes; it never
+disposes.
+
+#### Extend the existing mode; never wire geofences to suppression
+
+The mode already exists, so the rule is simply that location *proposes* the
+window and never acts on it directly:
+
+- `vacation_mode` stays visible, manually settable and clearable, and settable
+  **for a past window**. A failed geofence then degrades to "set it yourself
+  afterwards" — which is the existing workflow, only cheaper.
+- It already generalises beyond location: travel, a sick day, a hospital stay
+  all want the same treatment with no coordinate anywhere near them.
+- The web app keeps working, since the mode isn't iOS-only even though one of
+  its triggers would be.
+
+Automatic entry should **suggest, not act**: "Looks like you're away — start
+vacation mode?" One confirmation converts a risky inference into a cheap,
+attributable decision. For an ADHD tool this matters more than usual — the
+product only works if it is trusted, and an app that silently reshuffles your
+commitments based on a guess spends that trust faster than it earns it.
+
+#### Scale, which the naive version gets wrong
+
+A home-radius geofence reports "not at home" the moment you leave for milk.
+That is not *away*. Distinguishing "out for an hour" from "out of state for a
+week" needs distance **and** duration thresholds, and those are exactly the
+knobs that will be wrong for the first several months. Another argument for
+suggest-then-confirm over silent action.
+
+#### What it must not break
+
+- `isNotifiable()` remains the single opt-in gate. Away mode is a *further*
+  suppression on top, never a second parallel gate.
+- The escalation ladder must pause rather than continue accruing while
+  suppressed, or you come home to a fully escalated backlog for tasks you had
+  no way to do.
+- Crisis-class notifications must ignore the mode entirely.
 
 ## Notes
 

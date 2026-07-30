@@ -4,6 +4,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { estimateAiCost } from './aiModels.js'
+import { normalizeWindow, isAway } from './vacationWindow.js'
+import { ymdInTz } from './taskModel.js'
 
 let db
 let dbPath
@@ -1174,6 +1176,29 @@ export function escalationNudgeOverride(task) {
 //     want reminders on it anyway.)
 //   - projects qualify only when they have a due date (escalation rules
 //     apply normally) OR the user opted them into nags via nag_allowed
+// The away window, from its app_data carve-out. NOT from the settings blob —
+// `vacation_mode: false` ships in the client defaults, so every unhydrated
+// client would push an explicit `false` and switch the window off mid-trip (the
+// `pushover_open_native` failure; see vacationWindow.js). The legacy blob keys
+// are read ONCE as a fallback so anything the old inert plumbing held survives,
+// but nothing writes back to them.
+export function getVacationWindow() {
+  const stored = getData('vacation_window')
+  if (stored) return normalizeWindow(stored)
+  const s = getData('settings') || {}
+  return normalizeWindow({
+    active: !!s.vacation_mode,
+    started_at: s.vacation_started ? String(s.vacation_started).slice(0, 10) : null,
+    ends_at: s.vacation_end ? String(s.vacation_end).slice(0, 10) : null,
+  })
+}
+
+export function setVacationWindow(next) {
+  const w = normalizeWindow(next)
+  setData('vacation_window', { ...w, updated_at: new Date().toISOString() })
+  return w
+}
+
 export function isNotifiable(task, settings = null) {
   if (!task) return false
   if (task.gmail_pending) return false
@@ -1185,7 +1210,16 @@ export function isNotifiable(task, settings = null) {
     // active escalation ladder — an UNDATED crisis task must still nag
     // (nobody sets a due date mid-crisis; the washing-machine case).
     const s = settings || getData('settings') || {}
-    return !!(task.due_date || task.nag_allowed || task.escalation_current_rung != null || isCrisisTask(task, s))
+    const opted = !!(task.due_date || task.nag_allowed || task.escalation_current_rung != null || isCrisisTask(task, s))
+    if (!opted) return false
+    // Away window: a FURTHER suppression on top of the opt-in gate, never a
+    // second parallel gate — this stays the single place that answers "may this
+    // task nag". Crisis is exempt: the washing machine does not care that you
+    // are in Wisconsin.
+    if (isAway(getVacationWindow(), ymdInTz(new Date(), s.timezone)) && !isCrisisTask(task, s)) {
+      return false
+    }
+    return true
   }
   return false
 }
@@ -1329,12 +1363,12 @@ export function getAnalytics(settings = {}) {
     }
   }
 
-  if (settings.vacation_mode) {
-    if (settings.vacation_end && new Date() >= new Date(settings.vacation_end)) {
-      // Vacation expired — use calculated streak
-    } else {
-      streak = settings.streak_current || 0
-    }
+  // Vacation freezes the streak at its stored value. Reads the app_data
+  // carve-out rather than the settings blob (see vacationWindow.js for why the
+  // blob cannot hold this), with the legacy blob keys as a read-only fallback so
+  // any value the old inert plumbing managed to keep still counts.
+  if (isAway(getVacationWindow(), ymdInTz(new Date(), settings.timezone))) {
+    streak = settings.streak_current || 0
   }
 
   return { tasksToday, pointsToday, bestTasks, bestPoints, longestStreak, streak }
