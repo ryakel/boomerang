@@ -250,6 +250,7 @@ const PAGE_TITLES = {
   'Data/logs': 'Server logs',
   'Notifications/types': 'Event pings',
   'Notifications/digest': 'Morning digest',
+  'Notifications/vacation': 'Away mode',
   'Notifications/crisis': 'Critical mode',
   'Notifications/links': 'Deep links',
   'Notifications/email': 'Email deliverability',
@@ -1886,6 +1887,60 @@ function NotificationsPanel({ settings, update, page, setPage }) {
     return () => { alive = false }
   }, [])
 
+  // The away window — also server-side with its own endpoint, same carve-out
+  // reasoning and for a sharper reason: a reverted window resumes every
+  // notification it was set to silence, while you are away and not looking.
+  // null = not loaded (controls disabled until it lands, so a slow fetch can
+  // never look like "off").
+  const [vacation, setVacation] = useState(null)
+  const [vacationErr, setVacationErr] = useState('')
+  const loadVacation = useCallback(() => {
+    fetch('/api/vacation')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(d => { setVacation(d); setVacationErr('') })
+      // Distinguish "failed" from "off" — an unreachable server must not render
+      // as a window that isn't running.
+      .catch(e => setVacationErr(e.message || 'Could not load'))
+  }, [])
+  useEffect(() => { loadVacation() }, [loadVacation])
+
+  // What the row says at rest. Never a bare "On": a window that is suppressing
+  // has to name its dates, because "why did nothing nag me last week" must be
+  // answerable from the settings index without opening anything.
+  const vacationSummary = (() => {
+    if (vacationErr) return 'Unavailable'
+    if (!vacation) return ''
+    if (!vacation.active) return 'Off'
+    const fmt = (ymd) => {
+      if (!ymd) return null
+      // Parse as a local date — `new Date('2026-07-27')` is UTC midnight and
+      // renders as the 26th west of Greenwich.
+      const [y, m, d] = ymd.split('-').map(Number)
+      return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    }
+    const from = fmt(vacation.started_at)
+    const to = fmt(vacation.ends_at)
+    if (vacation.expired) return `Ended ${to}`
+    if (from && to) return `${from} – ${to}`
+    if (from) return `Since ${from}`
+    return 'On, open-ended'
+  })()
+
+  const saveVacation = useCallback((next) => {
+    // Optimistic, but the server's derived away_now/expired always win on the
+    // response — the client must never be the authority on whether it is
+    // currently suppressing.
+    setVacation(v => ({ ...(v || {}), ...next }))
+    fetch('/api/vacation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(next),
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(d => { setVacation(d); setVacationErr('') })
+      .catch(e => { setVacationErr(e.message || 'Could not save'); loadVacation() })
+  }, [loadVacation])
+
   // Native iOS push (APNs) — Phase 4. Only rendered in the native shell.
   // Status comes from the server; enabling runs the full permission →
   // APNs-register → server-register chain via src/nativePush.js.
@@ -2390,6 +2445,16 @@ function NotificationsPanel({ settings, update, page, setPage }) {
           onPress={() => setPage('Notifications/digest')}
           info="The one scheduled notification of the day: today's three, a ten-minute nudge, gentle returns, snoozes landing today, Monday pool health, then weather and recap in the expanded view."
         />
+        {/* Sits directly under the digest because it is the thing that silences
+            it. Its summary states the suppression rather than reading "On" —
+            invisible muting is this feature's whole hazard, so the row has to
+            say what it is doing without being opened. */}
+        <NavRow
+          label="Away mode"
+          summary={vacationSummary}
+          onPress={() => setPage('Notifications/vacation')}
+          info="Stops due dates and nags while you're away, and freezes the streak. Critical tasks still get through. Can be set for dates that have already passed."
+        />
         <NavRow
           label="Critical mode"
           summary={settings.crisis_enabled === true ? 'On' : 'Off'}
@@ -2462,6 +2527,110 @@ function NotificationsPanel({ settings, update, page, setPage }) {
           </div>
           <input type="time" className="v2-form-input v2-settings-time-input" value={settings.digest_time || '07:00'} onChange={e => update('digest_time', e.target.value)} />
         </div>
+      </>)}
+
+      {sub === 'vacation' && (<>
+        {/* persistentInfo rather than folded ⓘ: this row silences the app, and
+            §1.5 reserves always-visible descriptions for exactly that. */}
+        <SettingsGroup>
+          <SettingRow
+            as="label"
+            label="Away"
+            persistentInfo={
+              vacation?.away_now
+                ? 'Suppressing now. Due dates and nags are held; critical tasks still get through; the streak is frozen.'
+                : 'Holds due dates and nags while the window is open, freezes the streak, and lets critical tasks through.'
+            }
+            trailing={
+              <Toggle
+                checked={!!vacation?.active}
+                // Disabled until the fetch lands, so a slow or failed load can
+                // never present itself as a window that is switched off.
+                disabled={!vacation && !vacationErr}
+                onChange={e => saveVacation({
+                  active: e.target.checked,
+                  started_at: vacation?.started_at || null,
+                  ends_at: vacation?.ends_at || null,
+                  note: vacation?.note || '',
+                })}
+              />
+            }
+          />
+          {vacationErr && (
+            <StatusRow label="Away window" value={`Unavailable — ${vacationErr}`} mono={false} dot="warn" />
+          )}
+          {vacation?.away_now && (
+            <StatusRow
+              label="Suppressing"
+              mono={false}
+              dot="ok"
+              value={vacation.days ? `${vacation.days} day${vacation.days === 1 ? '' : 's'}` : 'today'}
+            />
+          )}
+          {vacation?.expired && (
+            <StatusRow label="Window ended" value="Switch Away off, or extend it" mono={false} dot="warn" />
+          )}
+        </SettingsGroup>
+
+        <SettingsGroup caption="The trip">
+          <div className="v2-settings-row">
+            <div className="v2-settings-row-text">
+              <label className="v2-settings-row-label">First day away</label>
+              <div className="v2-settings-row-hint">Both days are included. A date in the past is fine — set it after you get back and the window still covers the trip.</div>
+            </div>
+            <input
+              className="v2-form-input v2-settings-compact-input"
+              type="date"
+              value={vacation?.started_at || ''}
+              disabled={!vacation}
+              onChange={e => saveVacation({
+                active: vacation?.active ?? true,
+                started_at: e.target.value || null,
+                ends_at: vacation?.ends_at || null,
+                note: vacation?.note || '',
+              })}
+            />
+          </div>
+          <div className="v2-settings-row">
+            <div className="v2-settings-row-text">
+              <label className="v2-settings-row-label">Last day away</label>
+              <div className="v2-settings-row-hint">Leave empty for open-ended — nothing expires it but you.</div>
+            </div>
+            <input
+              className="v2-form-input v2-settings-compact-input"
+              type="date"
+              value={vacation?.ends_at || ''}
+              disabled={!vacation}
+              min={vacation?.started_at || undefined}
+              onChange={e => saveVacation({
+                active: vacation?.active ?? true,
+                started_at: vacation?.started_at || null,
+                ends_at: e.target.value || null,
+                note: vacation?.note || '',
+              })}
+            />
+          </div>
+          <div className="v2-settings-row">
+            <div className="v2-settings-row-text">
+              <label className="v2-settings-row-label">Where</label>
+              <div className="v2-settings-row-hint">Just a note to yourself. Never interpreted.</div>
+            </div>
+            <input
+              className="v2-form-input v2-settings-compact-input v2-settings-compact-input-wide"
+              type="text"
+              placeholder="Wisconsin"
+              value={vacation?.note || ''}
+              disabled={!vacation}
+              onChange={e => setVacation(v => ({ ...(v || {}), note: e.target.value }))}
+              onBlur={e => saveVacation({
+                active: vacation?.active ?? false,
+                started_at: vacation?.started_at || null,
+                ends_at: vacation?.ends_at || null,
+                note: e.target.value,
+              })}
+            />
+          </div>
+        </SettingsGroup>
       </>)}
 
       {sub === 'crisis' && (<>
