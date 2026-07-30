@@ -220,35 +220,50 @@ plus all three live lists.
 actually on screen.** And note this is a *layout* answer, not a data one — no
 amount of checking the fetch would ever have found it.
 
-**⚠️ OWED FIX — scroll the row into view on open.** Not-a-bug is not the same as
-shipped: a feature you have to remember a workaround for is not discoverable, and
-nobody remembers "scroll the share sheet" three months later (owner, 2026-07-29).
+**FIXED 2026-07-29 — by leaving the template, not working around it.**
+Not-a-bug is not the same as shipped: a feature you have to remember a
+workaround for is not discoverable, and nobody remembers "scroll the share
+sheet" three months later (owner).
 
-The agreed fix is to **auto-scroll rather than change behaviour** — keep the
-keyboard, keep the focus, just bring the row into view. `SLComposeServiceViewController`
-exposes no scroll view, so this means walking the view hierarchy in
-`viewDidAppear` for the enclosing `UIScrollView` and scrolling the configuration
-row visible. Public properties only, no private selectors; App Store review is
-not a factor for a sideloaded build.
+The first plan was to auto-scroll — walk the view hierarchy in `viewDidAppear`
+for the enclosing `UIScrollView` and bring the row into view. **Rejected, and
+correctly:** it works around a constraint we were free to drop. The row is only
+below the fold because we chose Apple's template, and that template offers no
+ordering hook and no reposition API, so no amount of cleverness moves it — the
+layout is simply not ours to arrange.
 
-Two constraints on whoever implements it:
+`ShareViewController` is now a plain `UIViewController` owning its own layout:
+header (Cancel / title / Add), then the **destination row directly beneath it,
+above the text**, then the text view and the shared-URL preview. Nothing to
+scroll, nothing to discover. The keyboard still focuses the text on appear — the
+row is above it, so it no longer matters — and the card lifts clear of the
+keyboard via `keyboardWillChangeFrame`.
 
-- **Guard the walk.** If Apple reshuffles the hierarchy the traversal finds
-  nothing, and the failure mode must be *exactly today's behaviour* (scroll
-  manually) — never a broken or blank sheet. Do not force an offset onto a view
-  you did not positively identify.
-- **It cannot be verified without a device.** There is no Mac in the dev
-  environment, so the scroll either works on the next rebuild or silently
-  no-ops. Check it on-device and say which.
+What the template gave us, and what replaced it:
 
-Rejected alternatives, recorded so they are not re-litigated: dismissing the
-keyboard on appear (costs a tap on every share where you *do* edit the title),
-putting the destination in the sheet title (leaves the row unreachable, only
-labels it), and presenting the picker before the compose view (interrupts before
-you can see what you are sharing).
+| Template | Now |
+|---|---|
+| `contentText` | a `UITextView` with a placeholder label |
+| `isContentValid()` | `refreshValidity()` from `textViewDidChange` |
+| standard chrome | a card with an explicit header stack |
+| config-items table | one destination button, whole row tappable |
 
-**Bundle this into the next Share-Extension-touching change** rather than
-shipping it as its own errand — the owner's call.
+Folded in while there: the two near-identical POST paths (`/api/intake` and
+`/api/lists/:id/items`) collapsed into one `send(path:…)`. The copies had already
+drifted — only one trimmed a trailing slash — and nothing was gained by having
+two. Both now carry the 10s timeout.
+
+**The whole row is the tap target**, not just the label: a real `UIButton` with a
+non-interactive stack on top. Same mistake settings PR6 had to fix, and evidently
+an easy one to make twice.
+
+**Unverified.** No Mac and no Swift toolchain in this environment, so it is
+written and reviewed but never compiled. Reviewed against the compiler's
+known-fragile spots: `NSError` has no two-argument initialiser in Swift, and
+`UITextView.text` is `String!` so it is unwrapped through `currentText`
+everywhere rather than trusted. Expect to fix something on the first build.
+
+## Phase 3 — App Intents
 
 Swift **App Intents** exposing "Add Boomerang task" to Siri, the Shortcuts app,
 Spotlight, the Action button, and Back Tap.
