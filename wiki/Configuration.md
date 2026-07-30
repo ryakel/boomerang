@@ -89,6 +89,19 @@ All settings are accessible via the gear icon in the header, organized into six 
 - Check frequency: 15m, 30m, 1h, 2h (default: 30m)
 - Toggles for: overdue tasks, stale tasks, general nudges
 - **Pile-up** — one card holds everything for "too many open tasks": the `max_open_tasks` limit, the percentage/day-age warning threshold, and the label-exemption picker (previously split across General and Notifications with no cross-reference; consolidated 2026-07-11). See the Features page's Notifications section for the full "Exempt labeled tasks" description.
+- **Away mode** (`Notifications → Away mode`, 2026-07-29) — holds due-date and nag
+  notifications while you're away, freezes the streak, and lets critical tasks
+  through. Set a first and last day (both inclusive), or leave the end empty for
+  open-ended. **A start date in the past is accepted** — set it after you get
+  back and the window still covers the trip, which is the case that actually
+  happens. The row's summary on the Notifications page always states the dates
+  (`Jul 27 – Jul 31`) rather than a bare "On": invisible suppression is this
+  feature's whole hazard, so it has to be readable without opening anything.
+  Stored in its own `app_data` key (`vacation_window`) with dedicated
+  `GET`/`POST /api/vacation` endpoints — **not** in the synced settings blob,
+  because a stale client would push `vacation_mode: false` and switch it off
+  mid-trip. The legacy blob keys (`vacation_mode`, `vacation_started`,
+  `vacation_end`) are read once as a fallback and never written.
 - **Critical mode** — one card for the critical tag's behavior: the critical label name (`crisis_label`, default `critical` — internal setting keys keep the original crisis_* names), the per-task nag cadence (`notif_freq_crisis`, default 2h, fractional ok), the "Still critical?" check-in window (`crisis_stale_days`, default 7, 0 = never), and the auto triage checklist toggle (`crisis_auto_breakdown`, default on). Critical pings ride the per-channel High-priority toggles rather than adding new ones. See the Features page's Critical section.
 
 ### Pushover (reliable iOS notifications)
@@ -127,8 +140,12 @@ Digest emails to your inbox (not spam) require sender authentication. The defaul
 ### Activity Rings and Goals
 - **Daily task goal** — number of tasks to complete per day for the Tasks ring (default: configurable)
 - **Daily points goal** — point target per day for the Points ring (default: configurable)
-- **Vacation mode** — freeze your streak with a duration picker (3, 5, 7 days, or custom). Auto-expires when the end date passes.
-- **Free day** — pause streak for a single day without entering vacation mode
+- **Free day** — pause streak for a single day without entering Away mode
+- **Away mode** — see Notifications below. (This entry used to describe a vacation
+  duration picker under Rings and Goals. That control was lost in an earlier UI
+  rewrite and the doc kept advertising it for months while nothing could set it —
+  rebuilt 2026-07-29 as Away mode, and it now suppresses notifications as well as
+  freezing the streak.)
 
 ### Danger Zone
 - **Clear completed tasks** — removes all done tasks
