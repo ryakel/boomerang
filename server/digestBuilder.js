@@ -230,12 +230,18 @@ export function buildDigest(settings, { now = new Date() } = {}) {
 
   // --- Push notification shape ---
   const hireSuffix = t => t.diy_verdict === 'hire' ? ' · hire it out' : ''
+  // Whose task is this? An assigned task can still legitimately appear — the
+  // owner explicitly committed it, or it's crisis-tagged — and when it does it
+  // must SAY whose it is. Reported 2026-07-31: "it just lists a few of his
+  // tasks. Doesn't even say for Camden. Just Do Math, Practice Guitar." A bare
+  // title reads as an instruction to the reader, and the reader is not the assignee.
+  const forSuffix = t => (t.assignee ? ` · for ${t.assignee}` : '')
   const pushTitle = threeMode === 'committed' ? "Today's three"
     : threeMode === 'today' ? 'Today'
     : 'Pick your three'
   let pushBody
   if (three.length > 0) {
-    pushBody = three.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title}`).join(', ')
+    pushBody = three.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title}${forSuffix(t)}`).join(', ')
     if (pushBody.length > PUSH_BODY_MAX) pushBody = pushBody.slice(0, PUSH_BODY_MAX - 1) + '…'
   } else {
     // An "empty" day with supervised chores on deck isn't quite quiet — say
@@ -263,7 +269,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
   if (awayLine) textParts.push(awayLine)
   const threeHeading = threeMode === 'committed' ? "Today's three" : 'Today'
   if (three.length > 0) {
-    const lines = three.map(t => `• ${crisis(t) ? '🚨 ' : ''}${threeMode === 'committed' ? commitmentLine(t) : `${t.title} (${relDueLine(t) || 'no date'})`}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`)
+    const lines = three.map(t => `• ${crisis(t) ? '🚨 ' : ''}${threeMode === 'committed' ? commitmentLine(t) : `${t.title} (${relDueLine(t) || 'no date'})`}${forSuffix(t)}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`)
     textParts.push(`${threeHeading}:\n${lines.join('\n')}`)
   }
   if (inviteLine) textParts.push(inviteLine)
@@ -272,7 +278,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     textParts.push(`${returned.length} task${returned.length > 1 ? 's' : ''} came back around — in the pool when you're ready.`)
   }
   if (returningToday.length > 0) {
-    textParts.push(`Returning today: ${returningToday.map(t => t.title).join(', ')}`)
+    textParts.push(`Returning today: ${returningToday.map(t => `${t.title}${forSuffix(t)}`).join(', ')}`)
   }
   if (assignedLines.length) textParts.push(assignedLines.join('\n'))
   if (poolHealth) textParts.push(poolHealth)
@@ -309,14 +315,14 @@ export function buildDigest(settings, { now = new Date() } = {}) {
 
   const htmlParts = []
   htmlParts.push(htmlSection(threeHeading, three.map(t =>
-    taskItem(t, `${threeMode === 'committed' ? commitmentLine(t) : `${t.title} — ${relDueLine(t) || 'no date'}`}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`, crisis(t)))))
+    taskItem(t, `${threeMode === 'committed' ? commitmentLine(t) : `${t.title} — ${relDueLine(t) || 'no date'}`}${forSuffix(t)}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`, crisis(t)))))
   if (inviteLine) htmlParts.push(line(escapeHtml(inviteLine)))
   if (tenMinutes) htmlParts.push(line(`Ten minutes on <strong>${escapeHtml(tenMinutes.title)}</strong>? That's all.`))
   if (returned.length > 0) {
     htmlParts.push(line(`${returned.length} task${returned.length > 1 ? 's' : ''} came back around — in the pool when you're ready.`))
   }
   if (returningToday.length > 0) {
-    htmlParts.push(htmlSection('Returning today', returningToday.map(t => taskItem(t, t.title))))
+    htmlParts.push(htmlSection('Returning today', returningToday.map(t => taskItem(t, `${t.title}${forSuffix(t)}`))))
   }
   if (poolHealth) htmlParts.push(line(escapeHtml(poolHealth)))
   htmlParts.push(htmlSection('Coming up', comingUp.map(t => taskItem(t, `${t.title} — ${relDueLine(t)}`))))
@@ -343,7 +349,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     pushTitle,
     pushBody,
     // Email subject mirrors the push title with a hint of content.
-    subject: three.length > 0 ? `${pushTitle}: ${three.map(t => t.title).join(', ').slice(0, 80)}` : pushTitle,
+    subject: three.length > 0 ? `${pushTitle}: ${three.map(t => `${t.title}${forSuffix(t)}`).join(', ').slice(0, 80)}` : pushTitle,
     textBody,
     htmlBody,
     sections: {
@@ -351,6 +357,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
       three: three.map(t => ({
         id: t.id,
         title: t.title,
+        assignee: t.assignee || null,
         line: threeMode === 'committed' ? commitmentLine(t) : `${t.title}${relDueLine(t) ? ` — ${relDueLine(t)}` : ''}`,
         first_step: t.first_step || null,
         intention_when: t.intention_when || null,
