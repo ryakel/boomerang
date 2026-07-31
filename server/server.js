@@ -17,7 +17,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
   dismissEscalationAdvancePrompt, resolveEscalation,
-  getVacationWindow, setVacationWindow } from './db.js'
+  getVacationWindow, setVacationWindow, isCrisisTask } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail, sendSecurityAlertEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush, sendSecurityAlertPush } from './pushNotifications.js'
@@ -73,6 +73,7 @@ import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
   setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
 import { normalizeCapture, createRateLimiter } from './capture.js'
 import { isAway, isExpired, windowDays } from './vacationWindow.js'
+import { repairPlan } from './vacationRepair.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
 import {
@@ -3534,6 +3535,65 @@ app.post('/api/vacation', (req, res) => {
   // answerable from the logs.
   console.log(`[Vacation] window ${w.active ? 'ON' : 'OFF'} ${w.started_at || '(no start)'}→${w.ends_at || '(open)'} away_now=${away}`)
   res.json({ ...w, today, away_now: away, expired: isExpired(w, today) })
+})
+
+// The bulk repair — one action instead of hand-editing every task that came
+// due mid-trip. GET previews (never mutates, safe to call on page open); POST
+// applies through updateTaskPartial so every write gets the normal path.
+//
+// Crisis tasks are excluded from both: they were never suppressed, so they were
+// never invisible — repair only covers what suppression hid. Preview and apply
+// share buildRepairPlan so they can never disagree about the candidate set.
+function buildRepairPlan(targetYMD) {
+  const settings = getData('settings') || {}
+  const w = getVacationWindow()
+  const today = ymdInTz(new Date(), settings.timezone)
+  const plan = repairPlan(getAllTasks(), w, {
+    todayYMD: today,
+    targetYMD: targetYMD || today,
+    isExcluded: t => isCrisisTask(t, settings),
+  })
+  return { plan, window: w, today }
+}
+
+app.get('/api/vacation/repair', (req, res) => {
+  const { plan, window: w, today } = buildRepairPlan(req.query.target || null)
+  const byId = new Map(getAllTasks().map(t => [t.id, t]))
+  res.json({
+    window: { started_at: w.started_at, ends_at: w.ends_at, active: w.active },
+    today,
+    count: plan.length,
+    candidates: plan.map(p => ({
+      id: p.id, from: p.from, to: p.to,
+      title: byId.get(p.id)?.title || '',
+    })),
+  })
+})
+
+app.post('/api/vacation/repair', (req, res) => {
+  const { plan, window: w } = buildRepairPlan(req.body?.target || null)
+  const now = new Date().toISOString()
+  // Human-readable and self-contained: the window row this describes will be
+  // replaced by the next trip, so the reason must not need a join to mean
+  // anything. (The data-durability rule — same as the streak anchor.)
+  const reason = `away ${w.started_at || '?'}–${w.ends_at || 'open'}`
+  for (const p of plan) {
+    const existing = getTask(p.id)
+    if (!existing) continue
+    updateTaskPartial(p.id, {
+      due_date: p.to,
+      // First pre-shift date wins and is never overwritten: the value worth
+      // keeping is what the human last chose, not the previous repair's output.
+      due_date_original: existing.due_date_original || p.from,
+      due_shifted_at: now,
+      due_shifted_reason: reason,
+      last_touched: now,
+    })
+  }
+  if (plan.length) {
+    console.log(`[Vacation] repair moved ${plan.length} task(s) → ${plan[0].to} (${reason})`)
+  }
+  res.json({ moved: plan.length, target: plan[0]?.to || null })
 })
 
 app.post('/api/pushover/link-mode', (req, res) => {

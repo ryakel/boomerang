@@ -28,7 +28,8 @@
  *      weather — the retained informational fold-ins, expanded view only.
  */
 
-import { queryTasks, getAnalytics, filterNotifiableTasks, isCrisisTask } from './db.js'
+import { queryTasks, getAnalytics, filterNotifiableTasks, isCrisisTask, isNotifiable, getVacationWindow } from './db.js'
+import { isAway } from './vacationWindow.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { getTodayGrowthAreaCached } from './growthAreas.js'
 import { deriveTaskState, ymdInTz, DEFAULT_TIMEZONE } from './taskModel.js'
@@ -208,7 +209,22 @@ export function buildDigest(settings, { now = new Date() } = {}) {
   }
 
   // --- Expanded text version (SMS gateway, Pushover, in-app fallback) ---
+  // --- Away statement (leads the expanded view while suppressing) ---
+  // The away window's failure mode is silence you can't see: a digest that just
+  // got shorter is indistinguishable from a quiet week. So while it suppresses,
+  // the digest SAYS so, with the count it is holding. `ignoreAway` shows what
+  // WOULD have notified; the difference is what the window is hiding.
+  const awayWindow = getVacationWindow()
+  const awayNow = isAway(awayWindow, todayYMD)
+  const awayHeld = awayNow
+    ? allTasks.filter(t => isNotifiable(t, settings, { ignoreAway: true }) && !isNotifiable(t, settings)).length
+    : 0
+  const awayLine = awayNow
+    ? `🏝️ Away${awayWindow.ends_at ? ` until ${awayWindow.ends_at}` : ''} — ${awayHeld === 0 ? 'nothing being held' : `holding ${awayHeld} task${awayHeld === 1 ? '' : 's'} until you're back`}. Critical still gets through.`
+    : null
+
   const textParts = []
+  if (awayLine) textParts.push(awayLine)
   const threeHeading = threeMode === 'committed' ? "Today's three" : 'Today'
   if (three.length > 0) {
     const lines = three.map(t => `• ${crisis(t) ? '🚨 ' : ''}${threeMode === 'committed' ? commitmentLine(t) : `${t.title} (${relDueLine(t) || 'no date'})`}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`)
