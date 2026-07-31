@@ -119,6 +119,11 @@ export function buildDigest(settings, { now = new Date() } = {}) {
   const crisis = t => isCrisisTask(t, settings)
   const stateOf = t => deriveTaskState(t, { todayYMD, nowMs: now.getTime() })
 
+  // Supervised chores (assignee set) never headline the owner's digest, and
+  // never count toward the owner's pool (`own` below). Full rationale sits on
+  // the fallback-three block.
+  const own = t => !t.assignee
+
   // --- 1. Today's three ---
   const committed = allTasks
     .filter(t => t.committed_on === todayYMD)
@@ -127,15 +132,27 @@ export function buildDigest(settings, { now = new Date() } = {}) {
       return s === 'committed' || (s === 'done' && ymdInTz(t.completed_at || 0, tz) === todayYMD)
     })
   const committedOpen = committed.filter(t => stateOf(t) === 'committed')
-  const openPool = allTasks.filter(t => stateOf(t) === 'open')
+  // The pool is what the OWNER picks their three from — supervised chores are
+  // not candidates, so they don't inflate "N in the pool" either.
+  const openPool = allTasks.filter(t => own(t) && stateOf(t) === 'open')
 
   // Fallback while the pick-three UI is still landing: with nothing
   // committed, lead with today's due tasks (crisis first) so the digest
   // keeps its morning-brief value.
+  // Supervised chores (assignee set) never HEADLINE the owner's digest. The
+  // 2026-07-31 bug: a daily loop assigned to the owner's son spawned due-today
+  // tasks every morning, and the fallback below selects due-today sorted by
+  // impact — which assignee-carrying tasks reliably win, because the impact
+  // rubric treats "for someone you're responsible to" as a strong 3. Net
+  // effect: the kid's chores were the only thing the digest ever led with.
+  // They fold into an aggregate line instead (below); an assigned task the
+  // owner EXPLICITLY committed stays in Today's three, because that was a
+  // human choice, and a crisis-tagged one still leads like any crisis.
   let threeMode = 'committed'
   let three = committed
   if (committed.length === 0) {
     three = nonMuted
+      .filter(t => own(t) || crisis(t))
       .filter(t => isDueTodayOrEarlier(t) || crisis(t))
       .sort((a, b) => (crisis(b) ? 1 : 0) - (crisis(a) ? 1 : 0) || ((b.impact ?? 2) - (a.impact ?? 2)))
       .slice(0, 3)
@@ -160,8 +177,23 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     return null
   })()
 
+  // --- On deck for <assignee> (aggregate, expanded view + empty-day push) ---
+  // The chores stay VISIBLE — the owner supervises them — they just read as
+  // one line per person instead of occupying the owner's own top three.
+  const assignedDue = nonMuted.filter(t => t.assignee && isDueTodayOrEarlier(t) && !crisis(t))
+  const byAssignee = new Map()
+  for (const t of assignedDue) {
+    const k = t.assignee
+    byAssignee.set(k, (byAssignee.get(k) || 0) + 1)
+  }
+  const assignedLines = [...byAssignee.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([who, n]) => `On deck for ${who}: ${n} task${n === 1 ? '' : 's'}.`)
+
   // --- 2. Ten-minutes nudge (rotate daily among committed-with-first-step) ---
-  const nudgeCandidates = committedOpen.filter(t => t.first_step)
+  // `own` again: "Ten minutes on <the kid's handwriting>?" is addressed to the
+  // wrong person.
+  const nudgeCandidates = committedOpen.filter(t => own(t) && t.first_step)
   const tenMinutes = nudgeCandidates.length > 0
     ? nudgeCandidates[dayOfYear(now) % nudgeCandidates.length]
     : null
@@ -184,6 +216,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
 
   // --- Retained informational fold-ins (expanded view only) ---
   const comingUp = nonMuted
+    .filter(own)
     .filter(t => isInWindow(t, 3) && !three.some(x => x.id === t.id))
     .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
     .slice(0, 3)
@@ -205,7 +238,10 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     pushBody = three.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title}`).join(', ')
     if (pushBody.length > PUSH_BODY_MAX) pushBody = pushBody.slice(0, PUSH_BODY_MAX - 1) + '…'
   } else {
-    pushBody = inviteLine || 'A quiet day — nothing scheduled.'
+    // An "empty" day with supervised chores on deck isn't quite quiet — say
+    // so in one clause rather than pretending nothing exists.
+    pushBody = inviteLine
+      || (assignedLines.length ? assignedLines.join(' ') : 'A quiet day — nothing scheduled.')
   }
 
   // --- Expanded text version (SMS gateway, Pushover, in-app fallback) ---
@@ -238,6 +274,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
   if (returningToday.length > 0) {
     textParts.push(`Returning today: ${returningToday.map(t => t.title).join(', ')}`)
   }
+  if (assignedLines.length) textParts.push(assignedLines.join('\n'))
   if (poolHealth) textParts.push(poolHealth)
   if (comingUp.length > 0) {
     textParts.push(`Coming up:\n${comingUp.map(t => `• ${t.title} (${relDueLine(t)})`).join('\n')}`)
