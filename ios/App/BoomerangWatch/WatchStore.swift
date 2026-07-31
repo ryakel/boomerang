@@ -69,6 +69,12 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
         let session = WCSession.default
+        // The first render's onAppear can race activation: activationState is
+        // still .notActivated when TodayView fires its refresh, and a send in
+        // that window dies with sessionNotActivated. activationDidComplete
+        // already re-issues a refresh, so the correct move is to drop this one
+        // quietly, not to error.
+        guard session.activationState == .activated else { return }
         guard session.isReachable else {
             apply {
                 self.busyTaskId = nil
