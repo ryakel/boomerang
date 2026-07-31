@@ -119,6 +119,11 @@ export function buildDigest(settings, { now = new Date() } = {}) {
   const crisis = t => isCrisisTask(t, settings)
   const stateOf = t => deriveTaskState(t, { todayYMD, nowMs: now.getTime() })
 
+  // Supervised chores (assignee set) never headline the owner's digest, and
+  // never count toward the owner's pool (`own` below). Full rationale sits on
+  // the fallback-three block.
+  const own = t => !t.assignee
+
   // --- 1. Today's three ---
   const committed = allTasks
     .filter(t => t.committed_on === todayYMD)
@@ -127,15 +132,27 @@ export function buildDigest(settings, { now = new Date() } = {}) {
       return s === 'committed' || (s === 'done' && ymdInTz(t.completed_at || 0, tz) === todayYMD)
     })
   const committedOpen = committed.filter(t => stateOf(t) === 'committed')
-  const openPool = allTasks.filter(t => stateOf(t) === 'open')
+  // The pool is what the OWNER picks their three from — supervised chores are
+  // not candidates, so they don't inflate "N in the pool" either.
+  const openPool = allTasks.filter(t => own(t) && stateOf(t) === 'open')
 
   // Fallback while the pick-three UI is still landing: with nothing
   // committed, lead with today's due tasks (crisis first) so the digest
   // keeps its morning-brief value.
+  // Supervised chores (assignee set) never HEADLINE the owner's digest. The
+  // 2026-07-31 bug: a daily loop assigned to the owner's son spawned due-today
+  // tasks every morning, and the fallback below selects due-today sorted by
+  // impact — which assignee-carrying tasks reliably win, because the impact
+  // rubric treats "for someone you're responsible to" as a strong 3. Net
+  // effect: the kid's chores were the only thing the digest ever led with.
+  // They fold into an aggregate line instead (below); an assigned task the
+  // owner EXPLICITLY committed stays in Today's three, because that was a
+  // human choice, and a crisis-tagged one still leads like any crisis.
   let threeMode = 'committed'
   let three = committed
   if (committed.length === 0) {
     three = nonMuted
+      .filter(t => own(t) || crisis(t))
       .filter(t => isDueTodayOrEarlier(t) || crisis(t))
       .sort((a, b) => (crisis(b) ? 1 : 0) - (crisis(a) ? 1 : 0) || ((b.impact ?? 2) - (a.impact ?? 2)))
       .slice(0, 3)
@@ -160,8 +177,23 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     return null
   })()
 
+  // --- On deck for <assignee> (aggregate, expanded view + empty-day push) ---
+  // The chores stay VISIBLE — the owner supervises them — they just read as
+  // one line per person instead of occupying the owner's own top three.
+  const assignedDue = nonMuted.filter(t => t.assignee && isDueTodayOrEarlier(t) && !crisis(t))
+  const byAssignee = new Map()
+  for (const t of assignedDue) {
+    const k = t.assignee
+    byAssignee.set(k, (byAssignee.get(k) || 0) + 1)
+  }
+  const assignedLines = [...byAssignee.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([who, n]) => `On deck for ${who}: ${n} task${n === 1 ? '' : 's'}.`)
+
   // --- 2. Ten-minutes nudge (rotate daily among committed-with-first-step) ---
-  const nudgeCandidates = committedOpen.filter(t => t.first_step)
+  // `own` again: "Ten minutes on <the kid's handwriting>?" is addressed to the
+  // wrong person.
+  const nudgeCandidates = committedOpen.filter(t => own(t) && t.first_step)
   const tenMinutes = nudgeCandidates.length > 0
     ? nudgeCandidates[dayOfYear(now) % nudgeCandidates.length]
     : null
@@ -184,6 +216,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
 
   // --- Retained informational fold-ins (expanded view only) ---
   const comingUp = nonMuted
+    .filter(own)
     .filter(t => isInWindow(t, 3) && !three.some(x => x.id === t.id))
     .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
     .slice(0, 3)
@@ -197,15 +230,24 @@ export function buildDigest(settings, { now = new Date() } = {}) {
 
   // --- Push notification shape ---
   const hireSuffix = t => t.diy_verdict === 'hire' ? ' · hire it out' : ''
+  // Whose task is this? An assigned task can still legitimately appear — the
+  // owner explicitly committed it, or it's crisis-tagged — and when it does it
+  // must SAY whose it is. Reported 2026-07-31: "it just lists a few of his
+  // tasks. Doesn't even say for Camden. Just Do Math, Practice Guitar." A bare
+  // title reads as an instruction to the reader, and the reader is not the assignee.
+  const forSuffix = t => (t.assignee ? ` · for ${t.assignee}` : '')
   const pushTitle = threeMode === 'committed' ? "Today's three"
     : threeMode === 'today' ? 'Today'
     : 'Pick your three'
   let pushBody
   if (three.length > 0) {
-    pushBody = three.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title}`).join(', ')
+    pushBody = three.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title}${forSuffix(t)}`).join(', ')
     if (pushBody.length > PUSH_BODY_MAX) pushBody = pushBody.slice(0, PUSH_BODY_MAX - 1) + '…'
   } else {
-    pushBody = inviteLine || 'A quiet day — nothing scheduled.'
+    // An "empty" day with supervised chores on deck isn't quite quiet — say
+    // so in one clause rather than pretending nothing exists.
+    pushBody = inviteLine
+      || (assignedLines.length ? assignedLines.join(' ') : 'A quiet day — nothing scheduled.')
   }
 
   // --- Expanded text version (SMS gateway, Pushover, in-app fallback) ---
@@ -227,7 +269,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
   if (awayLine) textParts.push(awayLine)
   const threeHeading = threeMode === 'committed' ? "Today's three" : 'Today'
   if (three.length > 0) {
-    const lines = three.map(t => `• ${crisis(t) ? '🚨 ' : ''}${threeMode === 'committed' ? commitmentLine(t) : `${t.title} (${relDueLine(t) || 'no date'})`}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`)
+    const lines = three.map(t => `• ${crisis(t) ? '🚨 ' : ''}${threeMode === 'committed' ? commitmentLine(t) : `${t.title} (${relDueLine(t) || 'no date'})`}${forSuffix(t)}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`)
     textParts.push(`${threeHeading}:\n${lines.join('\n')}`)
   }
   if (inviteLine) textParts.push(inviteLine)
@@ -236,8 +278,9 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     textParts.push(`${returned.length} task${returned.length > 1 ? 's' : ''} came back around — in the pool when you're ready.`)
   }
   if (returningToday.length > 0) {
-    textParts.push(`Returning today: ${returningToday.map(t => t.title).join(', ')}`)
+    textParts.push(`Returning today: ${returningToday.map(t => `${t.title}${forSuffix(t)}`).join(', ')}`)
   }
+  if (assignedLines.length) textParts.push(assignedLines.join('\n'))
   if (poolHealth) textParts.push(poolHealth)
   if (comingUp.length > 0) {
     textParts.push(`Coming up:\n${comingUp.map(t => `• ${t.title} (${relDueLine(t)})`).join('\n')}`)
@@ -272,14 +315,14 @@ export function buildDigest(settings, { now = new Date() } = {}) {
 
   const htmlParts = []
   htmlParts.push(htmlSection(threeHeading, three.map(t =>
-    taskItem(t, `${threeMode === 'committed' ? commitmentLine(t) : `${t.title} — ${relDueLine(t) || 'no date'}`}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`, crisis(t)))))
+    taskItem(t, `${threeMode === 'committed' ? commitmentLine(t) : `${t.title} — ${relDueLine(t) || 'no date'}`}${forSuffix(t)}${hireSuffix(t)}${stateOf(t) === 'done' ? ' ✓' : ''}`, crisis(t)))))
   if (inviteLine) htmlParts.push(line(escapeHtml(inviteLine)))
   if (tenMinutes) htmlParts.push(line(`Ten minutes on <strong>${escapeHtml(tenMinutes.title)}</strong>? That's all.`))
   if (returned.length > 0) {
     htmlParts.push(line(`${returned.length} task${returned.length > 1 ? 's' : ''} came back around — in the pool when you're ready.`))
   }
   if (returningToday.length > 0) {
-    htmlParts.push(htmlSection('Returning today', returningToday.map(t => taskItem(t, t.title))))
+    htmlParts.push(htmlSection('Returning today', returningToday.map(t => taskItem(t, `${t.title}${forSuffix(t)}`))))
   }
   if (poolHealth) htmlParts.push(line(escapeHtml(poolHealth)))
   htmlParts.push(htmlSection('Coming up', comingUp.map(t => taskItem(t, `${t.title} — ${relDueLine(t)}`))))
@@ -306,7 +349,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     pushTitle,
     pushBody,
     // Email subject mirrors the push title with a hint of content.
-    subject: three.length > 0 ? `${pushTitle}: ${three.map(t => t.title).join(', ').slice(0, 80)}` : pushTitle,
+    subject: three.length > 0 ? `${pushTitle}: ${three.map(t => `${t.title}${forSuffix(t)}`).join(', ').slice(0, 80)}` : pushTitle,
     textBody,
     htmlBody,
     sections: {
@@ -314,6 +357,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
       three: three.map(t => ({
         id: t.id,
         title: t.title,
+        assignee: t.assignee || null,
         line: threeMode === 'committed' ? commitmentLine(t) : `${t.title}${relDueLine(t) ? ` — ${relDueLine(t)}` : ''}`,
         first_step: t.first_step || null,
         intention_when: t.intention_when || null,

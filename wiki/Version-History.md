@@ -4,6 +4,21 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-31
+
+- fix(kept): form hints uncrammed — the base theme's negative margin met the Kept cards [XS]
+  - Reported with three screenshots: "some cramping of text — a fairly consistent pattern." One cause: `.v2-form-section-hint` carries `margin-top: -4px` from the base theme, where hints tuck up under an input on a flat page. The Kept restyle later turned every `.v2-form-section` and `.v2-form-row` into a rounded card — and inside a card that negative margin crams the hint against the control above it, while a hint that is a *sibling after* a row card ends up floating in the gutter jammed against the card border (the At time / Last done captions).
+  - Kept-scoped fix in `src/kept/forms.css`: hints between cards get `margin: 6px 14px 0` (clear the card, align with its padding); hints inside a card get `margin: 6px 0 0`. Base themes untouched.
+  - Verified in a Kept-light browser at phone size: both structural cases measured at a clean 6px gap, screenshots taken. The floating back pill overlapping a scrolled section header (visible in one screenshot) is a separate chrome behavior, not addressed here.
+
+## 2026-07-31
+
+- fix(digest): supervised chores no longer headline the owner's digest [S]
+  - The reported bug: "my loop for my son's work is the only thing ever showing up in the morning nudge." The mechanism was three design decisions interlocking, none wrong alone: (1) the digest fires post-rollover when nothing is committed, so it falls back to *tasks due today or earlier*; (2) a daily loop spawns due-today tasks **every** morning, so they always qualify while the owner's tasks only qualify when actually due; (3) the fallback sorts by impact, and the impact rubric treats `assignee` presence as a strong 3 ("affects people you're responsible to") — so being *for Camden* actively outranked the owner's own impact-2 work. Nothing in the digest ever looked at `assignee`.
+  - Now: assigned tasks never enter the fallback three, the ten-minutes nudge ("Ten minutes on <the kid's handwriting>?" is addressed to the wrong person), Coming up, or the pool count — the pool is what the OWNER picks from. They fold into one aggregate line per person instead: **"On deck for Camden: 5 tasks."** in the expanded view, and as the push body when the owner has nothing of their own due (a day with supervised chores isn't a "quiet day"). Two deliberate exceptions: an assigned task the owner **explicitly committed** stays in Today's three (that was a human choice), and a crisis-tagged one still leads like any crisis.
+  - **Follow-up the same day, from a sharper report:** *"it just lists a few of his tasks. Doesn't even say for Camden. Just Do Math, Practice Guitar."* Removing them from the three fixes the monopoly but not the attribution — and an assigned task can still legitimately appear (explicitly committed, or crisis-tagged), where a bare title reads as an instruction to a reader who is not the assignee. Every title render now carries `· for <name>`: push body, subject, the text and HTML three, and Returning today. `sections.three[]` gains an `assignee` field so clients can render it their own way rather than parsing a string. Verified: a committed Camden task pushes as `Do Math · for Camden`; a crisis one as `🚨 ER paperwork · for Camden`.
+  - Verified live against the exact reproduction — five due-today impact-3 tasks assigned to Camden plus two of the owner's own: before-shape confirmed (impact sort guarantees the monopoly), after: push leads with the owner's tasks, Camden collapses to one line, pool count owner-only, and the empty-own-day push reads "On deck for Camden: 5 tasks." ESLint 0, `npm test` 191/191 + smoke.
+
 ## 2026-07-30
 
 - fix(watch): scrub NSNull from every WatchConnectivity payload [M]
