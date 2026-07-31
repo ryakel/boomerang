@@ -284,6 +284,9 @@ function taskToRow(task) {
     boomerang_count: task.boomerang_count || 0,
     last_boomeranged_at: task.last_boomeranged_at || null,
     released_at: task.released_at || null,
+    due_date_original: task.due_date_original || null,
+    due_shifted_at: task.due_shifted_at || null,
+    due_shifted_reason: task.due_shifted_reason || null,
   }
 }
 
@@ -361,6 +364,9 @@ function rowToTask(row) {
     boomerang_count: row.boomerang_count || 0,
     last_boomeranged_at: row.last_boomeranged_at || null,
     released_at: row.released_at || null,
+    due_date_original: row.due_date_original || null,
+    due_shifted_at: row.due_shifted_at || null,
+    due_shifted_reason: row.due_shifted_reason || null,
   }
 }
 
@@ -392,8 +398,9 @@ const UPSERT_TASK_SQL = `
     crisis_since, crisis_triage_done, impact, impact_inferred,
     diy_assessed, diy_verdict, diy_reason, diy_first_move, capture_source,
     intention_when, intention_where, first_step, location_json,
-    committed_on, boomerang_count, last_boomeranged_at, released_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    committed_on, boomerang_count, last_boomeranged_at, released_at,
+    due_date_original, due_shifted_at, due_shifted_reason)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -444,7 +451,10 @@ const UPSERT_TASK_SQL = `
     committed_on=excluded.committed_on,
     boomerang_count=excluded.boomerang_count,
     last_boomeranged_at=excluded.last_boomeranged_at,
-    released_at=excluded.released_at`
+    released_at=excluded.released_at,
+    due_date_original=excluded.due_date_original,
+    due_shifted_at=excluded.due_shifted_at,
+    due_shifted_reason=excluded.due_shifted_reason`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -467,6 +477,7 @@ function runUpsertTask(task) {
     r.capture_source,
     r.intention_when, r.intention_where, r.first_step, r.location_json,
     r.committed_on, r.boomerang_count, r.last_boomeranged_at, r.released_at,
+    r.due_date_original, r.due_shifted_at, r.due_shifted_reason,
   ])
 }
 
@@ -1199,7 +1210,11 @@ export function setVacationWindow(next) {
   return w
 }
 
-export function isNotifiable(task, settings = null) {
+// `ignoreAway` exists for exactly one caller: the digest counting how many
+// tasks the away window is holding, so it can SAY so. Silence you cannot see
+// is this feature's failure mode — a suppression the digest doesn't state is
+// indistinguishable from a quiet week.
+export function isNotifiable(task, settings = null, { ignoreAway = false } = {}) {
   if (!task) return false
   if (task.gmail_pending) return false
   if (task.snooze_indefinite) return false
@@ -1216,7 +1231,9 @@ export function isNotifiable(task, settings = null) {
     // second parallel gate — this stays the single place that answers "may this
     // task nag". Crisis is exempt: the washing machine does not care that you
     // are in Wisconsin.
-    if (isAway(getVacationWindow(), ymdInTz(new Date(), s.timezone)) && !isCrisisTask(task, s)) {
+    if (!ignoreAway
+        && isAway(getVacationWindow(), ymdInTz(new Date(), s.timezone))
+        && !isCrisisTask(task, s)) {
       return false
     }
     return true

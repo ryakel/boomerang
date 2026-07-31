@@ -1926,6 +1926,33 @@ function NotificationsPanel({ settings, update, page, setPage }) {
     return 'On, open-ended'
   })()
 
+  // The repair preview — which tasks came due inside the window. Refetched
+  // whenever the window changes, because the candidate set is derived from it.
+  // null = not loaded; the offer only renders once there is something to offer.
+  const [repair, setRepair] = useState(null)
+  const [repairBusy, setRepairBusy] = useState(false)
+  const [repairDone, setRepairDone] = useState(null)
+  const loadRepair = useCallback(() => {
+    fetch('/api/vacation/repair')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setRepair(d))
+      .catch(() => setRepair(null))
+  }, [])
+  useEffect(() => { if (page === 'Notifications/vacation') loadRepair() }, [page, loadRepair])
+
+  const applyRepair = useCallback(() => {
+    setRepairBusy(true)
+    fetch('/api/vacation/repair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(d => {
+        setRepairDone(d)
+        loadRepair()
+        // The tasks changed server-side; the next sync pull picks them up.
+      })
+      .catch(() => setRepairDone(null))
+      .finally(() => setRepairBusy(false))
+  }, [loadRepair])
+
   const saveVacation = useCallback((next) => {
     // Optimistic, but the server's derived away_now/expired always win on the
     // response — the client must never be the authority on whether it is
@@ -1937,9 +1964,9 @@ function NotificationsPanel({ settings, update, page, setPage }) {
       body: JSON.stringify(next),
     })
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then(d => { setVacation(d); setVacationErr('') })
+      .then(d => { setVacation(d); setVacationErr(''); loadRepair() })
       .catch(e => { setVacationErr(e.message || 'Could not save'); loadVacation() })
-  }, [loadVacation])
+  }, [loadVacation, loadRepair])
 
   // Native iOS push (APNs) — Phase 4. Only rendered in the native shell.
   // Status comes from the server; enabling runs the full permission →
@@ -2571,6 +2598,35 @@ function NotificationsPanel({ settings, update, page, setPage }) {
             <StatusRow label="Window ended" value="Switch Away off, or extend it" mono={false} dot="warn" />
           )}
         </SettingsGroup>
+
+        {/* The repair — the half that removes the date surgery. Renders only
+            when there is something to move, and states exactly what it will do
+            before doing it. Provenance is stamped server-side, so any moved
+            date can always answer "did I set this or did the system?". */}
+        {(repair?.count > 0 || repairDone) && (
+          <SettingsGroup caption="While you were away">
+            {repair?.count > 0 && (<>
+              <SettingRow
+                label={`${repair.count} task${repair.count === 1 ? '' : 's'} came due`}
+                persistentInfo={`${repair.candidates.slice(0, 4).map(c => c.title).join(', ')}${repair.count > 4 ? '…' : ''}`}
+                value={`${repair.window?.started_at || ''} – ${repair.window?.ends_at || 'now'}`}
+              />
+              <ActionRow info="Moves their due dates to today, keeping the original date on each task. Tasks you already rescheduled by hand are left alone, and critical tasks were never held.">
+                <button
+                  type="button"
+                  className="v2-settings-btn"
+                  disabled={repairBusy}
+                  onClick={applyRepair}
+                >
+                  {repairBusy ? 'Moving…' : 'Move to today'}
+                </button>
+              </ActionRow>
+            </>)}
+            {repairDone && repair?.count === 0 && (
+              <StatusRow label="Repaired" value={`${repairDone.moved} moved to today`} mono={false} dot="ok" />
+            )}
+          </SettingsGroup>
+        )}
 
         <SettingsGroup caption="The trip">
           <div className="v2-settings-row">

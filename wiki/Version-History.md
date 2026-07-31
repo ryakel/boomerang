@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-07-30
+
+- feat(vacation): the bulk date repair — one action instead of date surgery [L]
+  - The owner's actual pain, now closed: "if I travel for a couple of days before I've remembered to set it, I have to go back and fix a bunch of dates." The Away page now shows **"While you were away — N tasks came due"** with one button, **Move to today**. Suppression (v2.47.0) stopped the nagging; this removes the surgery.
+  - **Migration 049** — `due_date_original`, `due_shifted_at`, `due_shifted_reason` on tasks. Provenance is stamped ON THE TASK at the moment the date moves, per the CLAUDE.md durability rule: the away window that justified the move is replaced by the next trip, so provenance derived by joining to it is provenance scheduled to vanish. The reason string is self-contained (`away 2026-07-27–2026-07-29`). `due_date_original` keeps the FIRST pre-shift date and is never overwritten by later shifts — the value worth preserving is what the human last chose. All three columns ride `taskToRow`/`rowToTask`/the upsert SQL, so they round-trip client pushes like every other column.
+  - **`server/vacationRepair.js` is pure** (the pattern of `rolloverPlan`): a plan of `{id, from, to}`, applied by the server through `updateTaskPartial`. **Forward only, strictly** — a due on or after the target never moves, which makes the plan idempotent (the button will be tapped twice) and keeps a window whose stored dates reach past today from touching tasks that haven't actually gone overdue. A manual reschedule between preview and apply drops the task from the plan — the repair never fights the human. **Crisis tasks are excluded**: they were never suppressed, so they were never invisible; repair only covers what suppression hid. 17 tests, weighted toward what must NOT move.
+  - `GET /api/vacation/repair` previews without mutating; `POST` applies. Both share one plan builder so they cannot disagree about the candidate set.
+  - **The digest now STATES the suppression** — the design requirement from the away-mode hazard note, previously unmet: while away it leads with `🏝️ Away until <date> — holding N tasks until you're back. Critical still gets through.` Implemented via an `ignoreAway` escape hatch on `isNotifiable()` used by exactly one caller (the digest's count of what it WOULD have sent); the single-gate rule stands.
+  - **Verified live end to end:** preview listed exactly the two qualifying tasks (crisis, pre-trip and done tasks excluded); apply moved 2 and stamped provenance; second preview and apply were 0; the digest carried the away line with the held count while the window covered today; and the browser test clicked "Move to today" on the Away page and the candidates emptied server-side with provenance stamped. ESLint 0, build ✓, `npm test` 191/191 + smoke, `npm audit` clean.
+
 ## 2026-07-29
 
 - docs(ios): mark the superseded auto-scroll plan as reversed [XS]
