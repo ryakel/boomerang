@@ -487,7 +487,50 @@ still re-registers the delegate.
 
 ### ⛔ OPEN (2026-07-26): the watch still can't reach the phone
 
-**Status: unresolved, paused mid-diagnosis.** Both flavors' watch apps install,
+**➜ 2026-07-30: a prime suspect found by code audit, fix shipped, awaiting
+on-device verification.** Every data-bearing reply the phone ever sent embedded
+the raw `/api/today` JSON — and `todayPayload()` in `server/taskModel.js` emits
+`timer: null` **unconditionally**, plus per-task nulls (`first_step`,
+`intention_*`, `due_date`, `size`, `energy`, `impact`). `JSONSerialization`
+turns JSON `null` into `NSNull`, and a WatchConnectivity dictionary may contain
+**only property-list types — `NSNull` is not one**. Nothing sanitized it. So
+**100% of today/complete/commit replies were invalid**, which matches "every
+request fails" with no dependence on foreground/background, launch, pairing or
+signing — the very avenues the original investigation exhausted and found
+healthy (they were). The string-only replies (not-configured, server-refusal,
+unknown-op) were the only valid ones this bridge could produce.
+
+The same defect poisoned the wrist-raise fallback: `pushTodaySnapshot()`'s
+`updateApplicationContext` call was wrapped in `try?`, so the identical
+rejection was swallowed silently there.
+
+**Shipped (unverified — no Mac here):** `plistSafe()` in `WatchBridge.swift`
+recursively drops `NSNull` at the single choke point (`fetchToday()`), which
+covers both reply sites and the context push. Behavior-preserving: the watch
+reads every affected field with `as?` optionals, and an absent key decodes the
+same as a null one. The `try?` is now a logged `do/catch`, breadcrumb `NSLog`s
+cover activation state / pairing / message receipt (a background launch used to
+leave literally no trace), and `WatchStore.send()` now drops a pre-activation
+send quietly instead of racing `onAppear` against activation.
+
+**The discriminating test, before anything else on-device** (cheaper than the
+ladder below, and run it BEFORE any reboot — a reboot destroys the evidence):
+make the phone reply with a **string-only** dictionary by turning the VPN off
+on the phone, then tap Refresh on the watch.
+- Watch shows *"Can't reach the server — check the VPN on your phone."* → the
+  transport works end to end; the payload was the whole problem; this fix is
+  the fix.
+- Watch still shows *"Payload could not be delivered."* → the transport itself
+  is broken and the launch/pairing ladder below is the right path after all.
+
+**Honest caveat:** whether iOS surfaces an invalid *reply* dictionary to the
+sender as `deliveryFailed` specifically (vs `payloadUnsupportedTypes`, or an
+`NSInvalidArgumentException` killing the background-launched phone process —
+which the watch would then also see as `deliveryFailed`) is not provable from
+this repo. If it was the exception path, the phone's **Analytics Data** will
+hold crash logs from 2026-07-26 — worth one look while testing.
+
+**Status: fix shipped, unresolved until the wrist says so.** Both flavors' watch apps install,
 launch and render on an Apple Watch Ultra 3 (watchOS 26.5). Every request from
 the watch fails with **"Payload could not be delivered."** — `WCError`
 `deliveryFailed`, surfaced verbatim by `WatchStore.send()`'s error handler. The
