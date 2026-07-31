@@ -113,6 +113,24 @@
 }
 [data-theme^="kept"] .v2-form-section-compact { margin-top: 10px; }
 
+/* Hints under the base theme tuck UP into the control above them
+ * (margin-top: -4px in RoutinesModal.css) — right for a flat page, wrong once
+ * sections became cards: inside a card the negative margin crams the text
+ * against the input, and a hint that is a SIBLING after a .v2-form-row card
+ * ends up floating in the gutter jammed against the card border (the At time /
+ * Last done captions). Reported 2026-07-31 as "cramping of text, a fairly
+ * consistent pattern" — three screenshots, one cause. */
+[data-theme^="kept"] .v2-form-section-hint {
+  /* Sibling-after-a-card case: clear the card and align with its padding. */
+  margin: 6px 14px 0;
+  line-height: 1.45;
+}
+[data-theme^="kept"] .v2-form-section .v2-form-section-hint,
+[data-theme^="kept"] .v2-form-row .v2-form-section-hint {
+  /* Inside a card the padding already provides the side alignment. */
+  margin: 6px 0 0;
+}
+
 /* Section label → quiet card eyebrow. */
 [data-theme^="kept"] .v2-form-label { color: var(--bm-text-meta); font-weight: 700; }
 
