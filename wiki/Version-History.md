@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-07-31
 
+- fix(kept): form hints uncrammed — the base theme's negative margin met the Kept cards [XS]
+  - Reported with three screenshots: "some cramping of text — a fairly consistent pattern." One cause: `.v2-form-section-hint` carries `margin-top: -4px` from the base theme, where hints tuck up under an input on a flat page. The Kept restyle later turned every `.v2-form-section` and `.v2-form-row` into a rounded card — and inside a card that negative margin crams the hint against the control above it, while a hint that is a *sibling after* a row card ends up floating in the gutter jammed against the card border (the At time / Last done captions).
+  - Kept-scoped fix in `src/kept/forms.css`: hints between cards get `margin: 6px 14px 0` (clear the card, align with its padding); hints inside a card get `margin: 6px 0 0`. Base themes untouched.
+  - Verified in a Kept-light browser at phone size: both structural cases measured at a clean 6px gap, screenshots taken. The floating back pill overlapping a scrolled section header (visible in one screenshot) is a separate chrome behavior, not addressed here.
+
 ## 2026-07-31
 
 - fix(digest): supervised chores no longer headline the owner's digest [S]
