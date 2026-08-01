@@ -8,7 +8,7 @@
     "build": "vite build",
     "start": "node server/server.js",
     "lint": "eslint .",
-    "test": "node --test scripts/dates.test.mjs scripts/cycles.test.mjs scripts/impact.test.mjs scripts/capture.test.mjs scripts/taskmodel.test.mjs scripts/deviceauth.test.mjs scripts/appattest.test.mjs scripts/lists.test.mjs scripts/listExpand.test.mjs scripts/listExpandApply.test.mjs scripts/listOrder.test.mjs scripts/listMove.test.mjs scripts/listMatch.test.mjs scripts/vacationWindow.test.mjs scripts/vacationRepair.test.mjs scripts/aiModelDiscovery.test.mjs scripts/reminderMerge.test.mjs && sh scripts/smoke-test.sh",
+    "test": "node --test scripts/dates.test.mjs scripts/cycles.test.mjs scripts/impact.test.mjs scripts/capture.test.mjs scripts/taskmodel.test.mjs scripts/deviceauth.test.mjs scripts/appattest.test.mjs scripts/lists.test.mjs scripts/listExpand.test.mjs scripts/listExpandApply.test.mjs scripts/listOrder.test.mjs scripts/listMove.test.mjs scripts/listMatch.test.mjs scripts/vacationWindow.test.mjs scripts/vacationRepair.test.mjs scripts/aiModelDiscovery.test.mjs scripts/reminderMerge.test.mjs scripts/routineRemind.test.mjs && sh scripts/smoke-test.sh",
     "prepare": "git config core.hooksPath .githooks || true",
     "preview": "vite preview",
     "cap:sync": "cap sync ios",

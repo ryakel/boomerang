@@ -1,0 +1,21 @@
+-- Loops that ring (2026-08-01).
+--
+-- Routines already carry trigger_time (migration 033) — a time of day that
+-- parks the spawned task until its clock time. What they could not do is make
+-- a noise, so a nightly "make him shut the TV off at 7:30" had to live either
+-- in Apple Reminders (outside Boomerang entirely) or in Loops (where it looked
+-- like every other task and never announced itself).
+--
+-- This is the missing step and it is deliberately ONE step: a spawned task
+-- inherits remind_at = its due day at trigger_time, and the existing per-task
+-- Apple Reminders sync pushes that occurrence like any other reminder. Apple
+-- never sees a recurrence rule — Boomerang owns recurrence, Apple owns alarms,
+-- and each night is a separate concrete reminder. That avoids EKRecurrenceRule
+-- entirely, where completing a repeating reminder advances it under the same
+-- identifier and the merge would flip the task done and undone.
+--
+-- OPT-IN, defaulting to 0. Routines with a trigger_time already exist (the
+-- 13:00 "IFR Studying – PM"); switching them all to alarms because the
+-- capability arrived would be exactly the ambient flood the 2026-07-24 Great
+-- Alert Deletion removed. A loop rings because it was asked to.
+ALTER TABLE routines ADD COLUMN remind INTEGER DEFAULT 0;
