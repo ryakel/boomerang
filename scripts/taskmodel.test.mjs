@@ -137,6 +137,94 @@ test('today payload: committed with intentions, gentle-return count, no shame ma
   assert.equal(p.timer, null)
 })
 
+// ---- todayPayload: the due-today fallback (2026-08-01) ----
+//
+// The watch renders `committed` and cannot tell why a row is there, so these
+// tests are really about the wrist. The ones that matter most are the refusals:
+// a fallback must never overwrite a real choice, and must never put someone
+// else's chores on the owner's watch.
+
+const YEST = '2026-07-17'
+const TOMO = '2026-07-19'
+
+test('nothing committed: falls back to what is actually due', () => {
+  const p = todayPayload([
+    mk({ id: 'a', title: 'Due today', due_date: TODAY }),
+    mk({ id: 'b', title: 'Overdue', due_date: YEST }),
+  ], ctx)
+  assert.equal(p.mode, 'today')
+  assert.equal(p.committed_count, 2)
+})
+
+test('a committed set is NEVER padded — one choice stays one', () => {
+  // Padding would overwrite a decision with a guess.
+  const p = todayPayload([
+    mk({ id: 'a', title: 'Chosen', committed_on: TODAY }),
+    mk({ id: 'b', title: 'Also due', due_date: TODAY }),
+  ], ctx)
+  assert.equal(p.mode, 'committed')
+  assert.deepEqual(p.committed.map(t => t.id), ['a'])
+})
+
+test('future-dated and undated work stays off the wrist', () => {
+  const p = todayPayload([
+    mk({ id: 'a', title: 'Later', due_date: TOMO }),
+    mk({ id: 'b', title: 'Someday' }),
+  ], ctx)
+  assert.equal(p.mode, 'empty')
+  assert.equal(p.committed_count, 0)
+})
+
+test('snoozed tasks are not resurrected by the fallback', () => {
+  const p = todayPayload([
+    mk({ id: 'a', title: 'Sleeping', due_date: YEST, snoozed_until: '2026-07-20T00:00:00Z' }),
+  ], ctx)
+  assert.equal(p.committed_count, 0)
+})
+
+test("supervised chores never reach the owner's watch", () => {
+  const p = todayPayload([
+    mk({ id: 'kid', title: 'Handwriting', due_date: TODAY, impact: 3, assignee: 'Camden' }),
+    mk({ id: 'mine', title: 'Email Ben', due_date: TODAY, impact: 2 }),
+  ], { ...ctx, isExcluded: t => !!t.assignee })
+  assert.deepEqual(p.committed.map(t => t.id), ['mine'])
+})
+
+test('crisis leads, then impact, then the oldest due date', () => {
+  const p = todayPayload([
+    mk({ id: 'low', title: 'Low', due_date: TODAY, impact: 1 }),
+    mk({ id: 'old', title: 'Old', due_date: YEST, impact: 2 }),
+    mk({ id: 'new', title: 'New', due_date: TODAY, impact: 2 }),
+    mk({ id: 'fire', title: 'Fire', due_date: TODAY, impact: 1, tags: ['critical'] }),
+  ], { ...ctx, isCrisis: t => (t.tags || []).includes('critical') })
+  assert.deepEqual(p.committed.map(t => t.id), ['fire', 'old', 'new'])
+})
+
+test('the fallback is capped, and the cap is honoured', () => {
+  const many = Array.from({ length: 9 }, (_, i) => mk({ id: `t${i}`, due_date: TODAY }))
+  assert.equal(todayPayload(many, ctx).committed_count, 3)
+  assert.equal(todayPayload(many, { ...ctx, fallbackLimit: 5 }).committed_count, 5)
+  assert.equal(todayPayload(many, { ...ctx, fallbackLimit: 0 }).committed_count, 0)
+})
+
+test('fallback rows are shaped exactly like committed ones', () => {
+  // The watch must not be able to tell them apart.
+  const [fb] = todayPayload([mk({ id: 'a', due_date: TODAY, first_step: 'open it' })], ctx).committed
+  const [cm] = todayPayload([mk({ id: 'a', committed_on: TODAY, first_step: 'open it' })], ctx).committed
+  assert.deepEqual(Object.keys(fb).sort(), Object.keys(cm).sort())
+  assert.equal(fb.first_step, 'open it')
+  assert.equal(fb.done, false)
+})
+
+test('open_count still counts the pool, fallback or not', () => {
+  const p = todayPayload([
+    mk({ id: 'a', due_date: TODAY }),
+    mk({ id: 'b', title: 'Pool' }),
+  ], ctx)
+  assert.equal(p.open_count, 2)
+  assert.equal(p.committed_count, 1)
+})
+
 // ---- validation ----
 
 test(`first_step accepts up to ${FIRST_STEP_MAX} chars, rejects beyond with a friendly message`, () => {
