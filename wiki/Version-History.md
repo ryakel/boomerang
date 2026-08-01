@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-01
+
+- docs(watch): the phone↔watch failure is CONFIRMED FIXED on device [XS]
+  - Open since 2026-07-26, closed today by two photographs. **VPN on** → the wrist rendered real server data (`23 in the pool`), a number that can only come from a successful `/api/today` fetch delivered over WatchConnectivity. **VPN off** → the wrist rendered *"Can't reach the server — check the VPN on your phone."*, the literal string from `handle()`'s catch block, which requires iOS to have background-launched the phone, received the message, run the handler and delivered the reply.
+  - The second case is the diagnostic one: a **string-only** reply always worked, a reply containing `NSNull` never did. `todayPayload()` emits `timer: null` unconditionally, `JSONSerialization` turns it into `NSNull`, and a WatchConnectivity dictionary may contain only property-list types — so 100% of data replies were silently dropped. Theory proved by the shipped `plistSafe()` scrub.
+  - **Everything the original investigation checked was healthy the whole time** — launch, pairing, signing, entitlements, App Groups, companion bundle id. The error read like a transport failure, so the payload was never examined; it was the only thing wrong. Recorded as a CLAUDE.md invariant, with the string-only-reply test as the standing diagnostic.
+  - The wrist also kept the previous `23 in the pool` beneath the error rather than blanking — failed stayed distinguishable from empty, on the surface where that matters most.
+  - **Surfaced by the fix, not a bug:** the watch now says *"Nothing committed yet — pick up to three on your phone."* It is correct and unactionable, because `committed_on` has no writer in the web app. A working watch now points straight at the pick-three gap.
+  - Docs only — no code changed.
+
 ## 2026-07-31
 
 - fix(kept): form hints uncrammed — the base theme's negative margin met the Kept cards [XS]

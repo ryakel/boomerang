@@ -485,7 +485,7 @@ is pointless.
 `sessionDidDeactivate` clears the flag before re-activating so watch switching
 still re-registers the delegate.
 
-### ⛔ OPEN (2026-07-26): the watch still can't reach the phone
+### ✅ RESOLVED 2026-08-01 (opened 2026-07-26): the watch couldn't reach the phone
 
 **➜ 2026-07-30: a prime suspect found by code audit, fix shipped, awaiting
 on-device verification.** Every data-bearing reply the phone ever sent embedded
@@ -530,7 +530,32 @@ which the watch would then also see as `deliveryFailed`) is not provable from
 this repo. If it was the exception path, the phone's **Analytics Data** will
 hold crash logs from 2026-07-26 — worth one look while testing.
 
-**Status: fix shipped, unresolved until the wrist says so.** Both flavors' watch apps install,
+**Status: CONFIRMED FIXED on device, both directions.**
+
+- **VPN on** → the wrist rendered real server data (`23 in the pool`). That number
+  can only come from a successful `/api/today` fetch delivered over
+  WatchConnectivity — the exact round trip that failed for a week.
+- **VPN off** → the wrist rendered *"Can't reach the server — check the VPN on
+  your phone."*, the literal string from `handle()`'s catch block. For it to
+  arrive, iOS launched the phone in the background, the message was received,
+  the catch built a reply and WC delivered it.
+
+The second case is the one that matters diagnostically: a **string-only** reply
+always worked, a reply containing `NSNull` never did. That is the theory, proved.
+It also kept the previous `23 in the pool` visible beneath the error rather than
+blanking — failed stayed distinguishable from empty on the one surface where
+that matters most.
+
+**Everything the original investigation checked was healthy the whole time** —
+launch, pairing, signing, entitlements, App Groups, `WKCompanionAppBundleIdentifier`.
+That is why none of it ever helped. The error read like a transport failure, so
+nobody looked at the payload; the one thing never examined was the only thing
+wrong.
+
+**Remaining, and NOT a bug:** the wrist now says *"Nothing committed yet — pick
+up to three on your phone."* It is correct and it is unactionable, because
+`committed_on` has no writer in the web app (see Phase 3 / the digest notes).
+The watch is working and pointing straight at the pick-three gap. Both flavors' watch apps install,
 launch and render on an Apple Watch Ultra 3 (watchOS 26.5). Every request from
 the watch fails with **"Payload could not be delivered."** — `WCError`
 `deliveryFailed`, surfaced verbatim by `WatchStore.send()`'s error handler. The
