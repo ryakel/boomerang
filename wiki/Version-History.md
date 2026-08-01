@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-08-01
 
+- feat(reminders): reminders are visible as reminders — Today, the row, and a lens in More [M]
+  - Three gaps the sync left behind, all from *"will those be separated in the today/tasks areas?"*. They were not, at all.
+  - **A reminder with no due date sat in Anytime.** `TodayView` bucketed purely on `due_date`, so *"remind me at 6:30pm tonight"* landed in the one section that means "no particular time" — for the one kind of task that has one. Per the decision that a reminder with no date IS today, `remind_at` now decides the day when no due date does, and Anytime stops claiming them (a future-dated reminder waits like any other future task rather than sitting in Anytime).
+  - **A reminder was indistinguishable from any other row.** Rows now carry a `⏰` badge showing the moment — clock time when it's today (`11:30 PM`), date and time otherwise. That badge is what makes a reminder recognisable wherever it appears, which matters more than any dedicated surface.
+  - **New Reminders lens in More** — everything carrying a `remind_at`, grouped by how soon rather than by day, because the question it answers is "what is about to go off". **Passed** leads: the moment is gone and the task is still open, which is the state most worth seeing. It is a LENS, not a container — nothing lives only here, rows open the ordinary task editor, and the ✕ clears the reminder while keeping the task. Earns a row despite the 2026-07-19 "More is really fucking full" pruning precisely because a reminder is otherwise invisible as one.
+  - Verified in a browser at 402×874 against a seeded server: a reminder set for later today with **no due date** appears in **Today** with `⏰ 11:30 PM` and is absent from Anytime; the More row opens the lens; the lens groups it under "Later today". `ModalShell` already renders the title, so the view's own `<h1>` was removed — it printed "Reminders" twice down the page.
+  - Not yet built, and next: the **Remind** option on the Throw sheet, and the convert-to-Loop rule (absorb the reminder if it falls inside the loop's first cycle window, otherwise keep it standalone, with a just-in-time nudge when the chosen start would exclude it).
+
+
 - fix(reminders): the reminder field was in an editor the phone never opens [S]
   - Reported as *"I don't see a place to enter reminders"*, with the integration granted and synced. Correct report: the field existed, in `EditTaskModal`. **Tapping a task in Kept opens `QuickEditTask`**, a different component — the full editor is only reached via "More options", so on the phone the control was effectively unreachable. Shipping a sync with no way to set the thing it syncs.
   - `QuickEditTask` gains a **Remind** chip beside Due, with a `datetime-local` picker and a Clear action. The chip shows the time at rest (`Aug 9, 6:30 PM`) rather than "Set", per the chip rule that a control displays its VALUE.

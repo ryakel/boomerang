@@ -24,6 +24,7 @@ export default function KeptShell({
   onOpenProjects, onOpenActivity, onOpenSuggestions, onOpenNotifications,
   onOpenNotes,
   onOpenLists,
+  onOpenReminders,
   pinnedNotes = [], onUnpinNote,
   onRefresh,
   syncStatus = 'synced', queueLength = 0,
@@ -52,6 +53,7 @@ export default function KeptShell({
         onOpenSettings={onOpenSettings}
         onOpenNotes={onOpenNotes}
         onOpenLists={onOpenLists}
+        onOpenReminders={onOpenReminders}
       />
     )
   } else {

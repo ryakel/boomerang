@@ -30,6 +30,18 @@ export default function TodayView({
   pinnedNotes = [], onOpenNotes, onUnpinNote,
 }) {
   const todayKey = localYMD()
+  // A reminder badge has to read as a MOMENT, so it shows the clock time —
+  // "6:30 PM" today, "Aug 9, 6:30 PM" on another day. Without it a reminder is
+  // indistinguishable from any other row, which is the whole complaint.
+  const remindLabel = (iso) => {
+    if (!iso) return null
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return null
+    const sameDay = localYMD(d) === localYMD()
+    return d.toLocaleString(undefined, sameDay
+      ? { hour: 'numeric', minute: '2-digit' }
+      : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  }
   const [collapsed, toggleSection] = useCollapsedSections()
   const [showBreakdown, setShowBreakdown] = useState(false)
   // Breakdown day selection lives here so the hero arc + counts follow it
@@ -112,7 +124,12 @@ export default function TodayView({
     // Undo covers regret; Caught keeps the record). No done strikethroughs.
     if (!ACTIVE.includes(t.status)) return false
     if (isSnoozed(t)) return false
-    return t.due_date ? String(t.due_date).slice(0, 10) <= todayKey : false
+    // A reminder is a moment, so it decides the day when no due date does.
+    // Without this an alarm set for 6:30pm tonight sat in Anytime — the one
+    // bucket that means "no particular time", for the one kind of task that
+    // has one.
+    if (t.due_date) return String(t.due_date).slice(0, 10) <= todayKey
+    return t.remind_at ? localYMD(new Date(t.remind_at)) <= todayKey : false
   }).sort((a, b) => impactRank(b, impactCtx) - impactRank(a, impactCtx)), [tasks, todayKey, stackRoutineIds, crisisIds, impactCtx])
 
   // Undated active tasks — the main page must show them (v2's Up next did).
@@ -120,6 +137,9 @@ export default function TodayView({
   // "anytime", and anytime includes today.
   const anytimeTasks = useMemo(() => tasks.filter(t => {
     if (t.parent_id || t.gmail_pending || t.due_date) return false
+    // A reminder due today or earlier is claimed by Today above; one set for a
+    // future day waits like any future-dated task rather than sitting here.
+    if (t.remind_at) return false
     if (crisisIds.has(t.id)) return false
     if (t.routine_id && stackRoutineIds.has(t.routine_id)) return false
     if (!ACTIVE.includes(t.status)) return false
@@ -463,6 +483,7 @@ export default function TodayView({
                       {t.high_priority && <span className="bm-tag-hi">high</span>}
                       {statusTag && <span className="bm-tag-status">{statusTag}</span>}
                       {overdue && <span className="bm-due-over">overdue</span>}
+                      {t.remind_at && <span className="bm-tag-status">⏰ {remindLabel(t.remind_at)}</span>}
                       {stale && <span className="bm-tag-stale">{ageDays}d on list</span>}
                       {weatherDay && <WeatherBadge day={weatherDay} />}
                       <ImpactDots task={t} onCycle={onCycleImpact} />
