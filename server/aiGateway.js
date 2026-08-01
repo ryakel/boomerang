@@ -19,7 +19,7 @@ export function getOpenAIKeyFromEnvOrSettings() {
   return settingsBlob().openai_api_key || process.env.OPENAI_API_KEY || null
 }
 
-function getAnthropicKeyFromEnvOrSettings() {
+export function getAnthropicKeyFromEnvOrSettings() {
   return settingsBlob().anthropic_api_key || process.env.ANTHROPIC_API_KEY || null
 }
 

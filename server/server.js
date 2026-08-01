@@ -76,6 +76,7 @@ import { isAway, isExpired, windowDays } from './vacationWindow.js'
 import { repairPlan } from './vacationRepair.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
+import { fetchLiveModels, mergeCatalog } from './aiModelDiscovery.js'
 import {
   deriveTaskState, rolloverPlan, todayPayload, validateFirstStep, validateLocation,
   ymdInTz, isActiveStatus, COMMIT_CEILING, DEFAULT_TIMEZONE, intentTaskRows,
@@ -3506,6 +3507,40 @@ app.post('/api/apns/unregister', (req, res) => {
 
 app.post('/api/apns/test', async (req, res) => {
   res.json(await sendApnsTest())
+})
+
+// --- Model discovery for the tier pickers (2026-08-01) ---
+// The picker used to render the hand-maintained MODEL_CATALOG bundled into the
+// client, so a new model was invisible until someone edited the array and
+// shipped. This asks the configured providers instead. Cached because it runs
+// on a settings page open; ?refresh=1 forces a re-ask.
+const MODEL_CACHE_KEY = 'ai_model_catalog'
+const MODEL_CACHE_TTL_MS = 6 * 60 * 60 * 1000
+
+app.get('/api/ai/models', async (req, res) => {
+  const cached = getData(MODEL_CACHE_KEY)
+  const age = cached?.fetched_at ? Date.now() - Date.parse(cached.fetched_at) : Infinity
+  if (cached?.models?.length && age < MODEL_CACHE_TTL_MS && req.query.refresh !== '1') {
+    return res.json({ ...cached, cached: true })
+  }
+  try {
+    const { models, sources } = await fetchLiveModels()
+    const payload = { models, sources, fetched_at: new Date().toISOString() }
+    setData(MODEL_CACHE_KEY, payload)
+    res.json({ ...payload, cached: false })
+  } catch (err) {
+    // Never leave the picker empty: a discovery failure falls back to the
+    // static catalog, flagged so the UI can say the list may be stale rather
+    // than presenting it as current.
+    console.warn(`[aiModels] discovery failed entirely: ${err.message}`)
+    res.json({
+      models: mergeCatalog([]),
+      sources: { error: { status: 'error', detail: err.message } },
+      fetched_at: cached?.fetched_at || null,
+      cached: false,
+      fallback: true,
+    })
+  }
 })
 
 // --- The away window (2026-07-29) ---
