@@ -29,6 +29,7 @@ import QuickEditTask from './kept/QuickEditTask'
 import SuggestionsModal from './components/SuggestionsModal'
 import GrowthAreasModal from './components/GrowthAreasModal'
 import NotesModal from './components/NotesModal'
+import RemindersView from './kept/RemindersView'
 import ListsModal from './components/ListsModal'
 import PackagesModal from './components/PackagesModal'
 import AdviserModal from './components/AdviserModal'
@@ -133,6 +134,7 @@ export default function AppV2() {
   const [showGrowthAreas, setShowGrowthAreas] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [showLists, setShowLists] = useState(false)
+  const [showReminders, setShowReminders] = useState(false)
   // 7-day strip visibility — single source of truth. Date tap toggles
   // it in all themes. Two settings can seed the initial state on load:
   //   - week_strip_always_open: explicit "open by default" toggle
@@ -646,6 +648,7 @@ export default function AppV2() {
   if (showGrowthAreas) activeModals.push('growthAreas')
   if (showNotes) activeModals.push('notes')
   if (showLists) activeModals.push('lists')
+  if (showReminders) activeModals.push('reminders')
   if (spacesHubOpen) activeModals.push('spaces')
   if (systemMenuOpen) activeModals.push('systemMenu')
   if (searchOpen) activeModals.push('search')
@@ -667,6 +670,7 @@ export default function AppV2() {
     if (showAnalytics) { setShowAnalytics(false); return }
     if (showSuggestions) { setShowSuggestions(false); return }
     if (showGrowthAreas) { setShowGrowthAreas(false); return }
+    if (showReminders) { setShowReminders(false); return }
     if (showLists) { setShowLists(false); return }
     if (showNotes) { setShowNotes(false); return }
     if (spacesHubOpen) { setSpacesHubOpen(false); setActiveTab('today'); return }
@@ -1494,6 +1498,7 @@ export default function AppV2() {
           onOpenSuggestions={() => setShowSuggestions(true)}
           onOpenNotes={() => setShowNotes(true)}
           onOpenLists={() => setShowLists(true)}
+          onOpenReminders={() => setShowReminders(true)}
           onThrowNote={({ body }) => addNote({ body }).catch(() => {})}
           pinnedNotes={pinnedNotes}
           onUnpinNote={(n) => editNote(n.id, { pinned: false }).catch(() => {})}
@@ -1555,6 +1560,7 @@ export default function AppV2() {
           onOpenSuggestions={() => setShowSuggestions(true)}
           onOpenNotes={() => setShowNotes(true)}
           onOpenLists={() => setShowLists(true)}
+          onOpenReminders={() => setShowReminders(true)}
           onThrowNote={({ body }) => addNote({ body }).catch(() => {})}
           pinnedNotes={pinnedNotes}
           onUnpinNote={(n) => editNote(n.id, { pinned: false }).catch(() => {})}
@@ -1808,6 +1814,20 @@ export default function AppV2() {
         open={showGrowthAreas}
         onClose={() => setShowGrowthAreas(false)}
       />
+
+      {/* A LENS over tasks that carry a time — nothing lives only here, so the
+          rows open the ordinary task editor rather than duplicating actions. */}
+      <ModalShell
+        open={showReminders}
+        onClose={() => setShowReminders(false)}
+        title="Reminders"
+      >
+        <RemindersView
+          tasks={tasks}
+          onOpenTask={(t) => { setShowReminders(false); setEditTarget(t) }}
+          onClearReminder={(t) => updateTask(t.id, { remind_at: null, last_touched: new Date().toISOString() })}
+        />
+      </ModalShell>
 
       <ListsModal
         open={showLists}
