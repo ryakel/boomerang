@@ -15,6 +15,24 @@ function triggerSnooze(dueDateYMD, triggerTime) {
   return dt.getTime() > Date.now() ? dt.toISOString() : null
 }
 
+// The alarm a spawned task inherits from its loop. Same clock time as the
+// snooze, different job: the snooze decides when it SURFACES in the app, this
+// decides when the phone makes a noise. Opt-in per routine (`remind`), because
+// trigger_time predates this and silently converting every existing one into
+// an alarm is the ambient flood the 2026-07-24 reshape deleted.
+//
+// Unlike triggerSnooze this does NOT drop a past time: a 7:30pm reminder
+// spawned at 7:45pm should still be pushed to Apple, where a past-dated alarm
+// simply shows as overdue rather than vanishing.
+function triggerRemindAt(dueDateYMD, triggerTime, remind) {
+  if (!remind || !triggerTime) return null
+  const [hh, mm] = String(triggerTime).split(':').map(Number)
+  const dt = new Date(`${dueDateYMD}T00:00:00`)
+  if (Number.isNaN(dt.getTime())) return null
+  dt.setHours(hh || 0, mm || 0, 0, 0)
+  return dt.toISOString()
+}
+
 // Spawn one independent task per stack member for a single cycle (due day).
 // All members of a cycle share its due_date — that (routine_id, due_date) pair
 // IS the cycle key used for grouped display, the same-day re-spawn guard, and
@@ -50,9 +68,10 @@ export function useRoutines() {
     saveRoutines(routines)
   }, [routines])
 
-  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days', triggerTime = null, scheduleDayOfMonth = null, scheduleWeekOfMonth = null, members = [], assignee = null) => {
+  const addRoutine = useCallback((title, cadence, customDays, tags, notes, highPriority = false, endDate = null, scheduleDayOfWeek = null, followUps = [], autoRoll = false, spawnMode = 'auto', targetCount = null, targetPeriod = null, customUnit = 'days', triggerTime = null, scheduleDayOfMonth = null, scheduleWeekOfMonth = null, members = [], assignee = null, remind = false) => {
     const routine = createRoutine(title, cadence, customDays, tags, notes, customUnit)
     if (highPriority) routine.high_priority = true
+    if (remind) routine.remind = true
     if (endDate) routine.end_date = endDate
     if (scheduleDayOfWeek != null) routine.schedule_day_of_week = scheduleDayOfWeek
     if (scheduleDayOfMonth != null) routine.schedule_day_of_month = scheduleDayOfMonth
@@ -279,6 +298,9 @@ export function useRoutines() {
               due_date: today,
               last_touched: new Date().toISOString(),
               snoozed_until: desiredSnooze,
+              // Re-anchor the alarm too. A rolled instance keeping yesterday's
+              // remind_at would sit permanently overdue in Apple Reminders.
+              remind_at: triggerRemindAt(today, routine.trigger_time, routine.remind),
             },
           })
           return
@@ -322,6 +344,7 @@ export function useRoutines() {
         task.follow_ups = routine.follow_ups
       }
       task.snoozed_until = triggerSnooze(dueYMD, routine.trigger_time)
+      task.remind_at = triggerRemindAt(dueYMD, routine.trigger_time, routine.remind)
       spawned.push(task)
     })
     return { spawned, rolled }
