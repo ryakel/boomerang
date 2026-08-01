@@ -4,6 +4,7 @@ import { App as CapacitorApp } from '@capacitor/app'
 import { isNativeShell } from './apiConfig'
 import { wireNativePushTapHandler, refreshNativePushRegistration } from './nativePush'
 import { syncReminders } from './remindersSync'
+import { refreshLocalReminders } from './localReminders'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import BottomTabs from './components/BottomTabs'
@@ -492,6 +493,19 @@ export default function AppV2() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routines])
+
+  // Keep the DEVICE's local notification schedule in step with tasks + loops.
+  //
+  // Local notifications already handed to iOS keep firing with the app closed
+  // and the phone offline, so this refresh exists only to reflect EDITS — the
+  // alarms themselves never depend on it running. Debounced because the task
+  // list churns during a sync and re-scheduling on every intermediate state
+  // would cancel-and-re-add dozens of times for one settled result.
+  useEffect(() => {
+    if (!isNativeShell()) return
+    const t = setTimeout(() => { refreshLocalReminders(tasks, routines) }, 1500)
+    return () => clearTimeout(t)
+  }, [tasks, routines])
 
   // Filter + sort. activeFilter = 'all' | 'routines' | <label-id>; sortBy
   // persists via settings.sort_by. Routines is a header pill that opens the
