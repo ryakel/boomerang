@@ -43,6 +43,9 @@ export default function EditTaskModal({
     notes: task.notes || '',
     tags: task.tags || [],
     dueDate: task.due_date || '',
+    // ISO in the store, datetime-local in the input. Slicing to minutes drops
+    // the zone marker, which is what <input type="datetime-local"> expects.
+    remindAt: task.remind_at ? String(task.remind_at).slice(0, 16) : '',
     size: task.size || null,
     energy: task.energy || null,
     energyLevel: task.energyLevel || null,
@@ -331,6 +334,7 @@ export default function EditTaskModal({
     notes: form.notes,
     tags: form.selectedTags,
     due_date: form.dueDate || null,
+    remind_at: form.remindAt ? new Date(form.remindAt).toISOString() : null,
     size: form.size,
     energy: form.energy,
     energyLevel: form.energyLevel,
@@ -359,7 +363,7 @@ export default function EditTaskModal({
     // when not-done would re-stamp a stale value on every save.
     ...(currentStatus === 'done' && completedAtIso ? { completed_at: completedAtIso } : {}),
   }), [
-    form.title, form.notes, form.selectedTags, form.dueDate,
+    form.title, form.notes, form.selectedTags, form.dueDate, form.remindAt,
     form.size, form.energy, form.energyLevel,
     form.highPriority, form.lowPriority,
     form.attachments, form.notionResult,
@@ -756,6 +760,27 @@ export default function EditTaskModal({
               </button>
             )}
           </div>
+          {/* Deliberately its own control rather than a time on the due date:
+              a due date says which DAY something belongs to, a reminder says
+              interrupt me at this MOMENT. Most tasks want the first and would
+              be made worse by being forced to pick the second. */}
+          <label className="v2-form-label" style={{ marginTop: 10 }}>Remind me</label>
+          <input
+            type="datetime-local"
+            className="v2-form-input"
+            aria-label="Reminder time"
+            value={form.remindAt}
+            onChange={e => form.setRemindAt(e.target.value)}
+          />
+          {form.remindAt && (
+            <button
+              className="v2-form-ai-pill v2-form-ai-pill-inline"
+              style={{ marginTop: 6 }}
+              onClick={() => form.setRemindAt('')}
+            >
+              Clear reminder
+            </button>
+          )}
         </div>
         <div className="v2-form-field">
           <label className="v2-form-label">Priority</label>

@@ -3,6 +3,7 @@ import { ListChecks } from 'lucide-react'
 import { App as CapacitorApp } from '@capacitor/app'
 import { isNativeShell } from './apiConfig'
 import { wireNativePushTapHandler, refreshNativePushRegistration } from './nativePush'
+import { syncReminders } from './remindersSync'
 import Header from './components/Header'
 import ModalShell from './components/ModalShell'
 import BottomTabs from './components/BottomTabs'
@@ -409,7 +410,16 @@ export default function AppV2() {
     // Keep the device's APNs registration fresh (tokens can rotate) — only
     // acts when permission is already granted, so it never prompts.
     refreshNativePushRegistration()
-    return () => { listener?.remove?.(); unwirePush() }
+    // Apple Reminders two-way sync. EventKit is device-local, so this can only
+    // run while the app is in the foreground — on launch and on every
+    // resume, which is also when a reminder captured by Siri since the last
+    // look should appear. A no-op without granted access, so it never prompts.
+    syncReminders()
+    const onResume = CapacitorApp.addListener('resume', () => { syncReminders() })
+    return () => {
+      listener?.remove?.(); unwirePush()
+      onResume?.then?.((l) => l.remove?.()).catch?.(() => {})
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

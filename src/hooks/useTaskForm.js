@@ -19,6 +19,11 @@ export function useTaskForm(initial = {}) {
   const [notes, setNotes] = useState(initial.notes || '')
   const [selectedTags, setSelectedTags] = useState(initial.tags || [])
   const [dueDate, setDueDate] = useState(initial.dueDate || '')
+  // A reminder is a MOMENT ("interrupt me at 3pm"); a due date is a DAY
+  // ("this belongs to Tuesday"). Kept separate because a task can want either,
+  // both, or neither, and collapsing them would force a time onto everything
+  // that has a date. Stored as a datetime-local string; the server keeps ISO.
+  const [remindAt, setRemindAt] = useState(initial.remindAt || '')
   const [size, setSize] = useState(initial.size || null)
   // Tracks whether size is "settled" — true after user pick or AI inference.
   // Autosave includes this so the background auto-sizer hook won't override.
@@ -243,6 +248,7 @@ export function useTaskForm(initial = {}) {
     notes: notes.trim(),
     tags: selectedTags,
     dueDate: dueDate || null,
+    remindAt: remindAt || null,
     size: size || null,
     size_inferred: sizeInferred,
     energy: energy || null,
@@ -259,6 +265,7 @@ export function useTaskForm(initial = {}) {
     notes, setNotes,
     selectedTags, setSelectedTags, toggleTag,
     dueDate, setDueDate,
+    remindAt, setRemindAt,
     size, setSize: markSizeSet,
     sizeInferred, setSizeInferred,
     energy, setEnergy,
