@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-08-01
 
+- fix(reminders): the reminder field was in an editor the phone never opens [S]
+  - Reported as *"I don't see a place to enter reminders"*, with the integration granted and synced. Correct report: the field existed, in `EditTaskModal`. **Tapping a task in Kept opens `QuickEditTask`**, a different component — the full editor is only reached via "More options", so on the phone the control was effectively unreachable. Shipping a sync with no way to set the thing it syncs.
+  - `QuickEditTask` gains a **Remind** chip beside Due, with a `datetime-local` picker and a Clear action. The chip shows the time at rest (`Aug 9, 6:30 PM`) rather than "Set", per the chip rule that a control displays its VALUE.
+  - **The bug behind the bug:** `QuickEditTask` autosaves off a `useMemo` payload, and its dependency array did not list `form.remindAt`. Setting a reminder never recomputed the payload, so it never saved — the field would have rendered perfectly and silently discarded every value. Caught by driving the real UI and then reading the server, not by looking at the component.
+  - Two smaller defects from the same report's screenshots: the sub-page header read **"Integrations/reminders"** because `PAGE_TITLES` had no entry (the map is deliberately duplicated from the integrations list so a title resolves before that component mounts — a new integration has to be added in both); and the row read **"Not set"** while granted and actively syncing, because the state was component-local and reset on every remount. Access now persists per-DEVICE via `safeSetItem` — syncing that fact to other devices would be a lie, since the grant is on this phone.
+  - Verified by driving the real UI at 402×874: chip renders beside Due, picker opens, label reads back, and the value lands on the server (`remind_at: 2026-08-09T18:30:00.000Z`) and then appears in the sync plan as a CREATE for Apple Reminders.
+
+
 - fix(reminders): Apple Reminders belongs in Integrations, not Notifications [XS]
   - It was first put next to the APNs block, which was the wrong read of what it is. Reminders is a **two-way data sync with an external system** — the same shape as Trello, Notion and Google Calendar, all of which live under Integrations. iOS owning the alarm is a *consequence* of the integration, not a reason to file it as a notification channel; filed there it also implied Boomerang gains a send path, which is exactly what this design avoids.
   - Now a first-class entry in the integrations descriptor list rather than a bespoke block, so it inherits the row treatment, the connected dot, the sub-page routing and the whole-row target every other integration already has. Sits with the other bidirectional syncs.
