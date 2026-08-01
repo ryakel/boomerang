@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-08-01
 
+- feat(reminders): the local-notification schedule planner [S]
+  - First half of moving reminders off Apple's alarms and into Boomerang's own, **local** notifications — handed to iOS ahead of time and fired by the device, so they ring with no network, no VPN, no server, in airplane mode. The server owns the schedule; the device caches it and rings from the cache. Staleness is bounded by the last successful sync, which is honest: what it got is correct, it just may not know about something added since.
+  - `src/reminderSchedule.js` is PURE and clock-injected, because the interesting part is not the scheduling call — it is deciding **what makes the cut**. iOS caps PENDING local notifications at **64 per app**, and that budget has to be spent well. 21 tests.
+  - **A daily loop costs ONE slot, not thirty.** iOS repeating calendar triggers fire indefinitely, so a nightly 19:30 alarm is a single pending request. That is what makes the offline horizon effectively unbounded — the cap limits how many DISTINCT reminders exist, not how many days are covered. Weekly loops carry a weekday, converted from the app's 0=Sunday to Apple's 1=Sunday (off by one here fires on the wrong day every week, silently, which is why it has its own test).
+  - **A recurring loop is never dropped to make room for a one-off.** Loops are placed first and one-offs fill the remainder nearest-first; a nightly pill alarm losing its slot to a reminder next Tuesday is exactly backwards. Overflow is **returned**, not swallowed.
+  - **The double-alarm trap**: a loop instance carries `remind_at` for the same moment its loop already repeats on, so scheduling both would announce it twice. Tasks belonging to a ringing loop are excluded; tasks from a non-ringing loop still get their own.
+  - A moment already past is not scheduled — iOS discards a past trigger silently, and counting it would report a schedule the device does not hold. Ids are stable (`loop:<id>` / `task:<id>`) so re-planning replaces rather than stacking a second copy of the same alarm on every app open.
+  - **No stable Capacitor 8 release of `@capacitor/local-notifications` exists** — only nightlies — so the native half will be hand-rolled Swift rather than putting a nightly build into an app that cannot be debugged away from a Mac.
+  - Inert until the native plugin and wiring land; nothing calls it yet.
+
+
 - feat(loops): a loop can ring — recurring reminders without a recurrence rule [M]
   - The gap that made the whole feature feel stuck: *"I have a nightly task to remind me to make my son shut the TV off at 7:30. I could use Apple Reminders and not put it in Boomerang, which is counterintuitive, or put it in Loops and never get notified."* Exactly right, and the fix turned out to be one step rather than a subsystem.
   - **Routines already carry `trigger_time`** (migration 033) — a time of day that parks the spawned task until its clock hour. What they could not do is make a noise. Now a spawned task inherits **`remind_at` = its due day at `trigger_time`**, and the per-task Apple Reminders sync pushes that occurrence like any other reminder. Boomerang still sends nothing.
