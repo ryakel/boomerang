@@ -43,6 +43,8 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
     // energy_level column on read); the snake_case fallback covers raw rows.
     energy: task.energy, energyLevel: task.energyLevel ?? task.energy_level,
     highPriority: task.high_priority, lowPriority: task.low_priority,
+    // ISO in the store, datetime-local in the input.
+    remindAt: task.remind_at ? String(task.remind_at).slice(0, 16) : '',
   })
   const [status, setStatus] = useState(task.status)
   const [checklists, setChecklists] = useState(Array.isArray(task.checklists) ? task.checklists : [])
@@ -80,6 +82,7 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
     notes: form.notes,
     tags: form.selectedTags,
     due_date: form.dueDate || null,
+    remind_at: form.remindAt ? new Date(form.remindAt).toISOString() : null,
     size: form.size,
     energy: form.energy,
     energyLevel: form.energyLevel,
@@ -87,7 +90,7 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
     low_priority: form.lowPriority,
     size_inferred: !!form.size,
     checklists,
-  }), [form.title, form.notes, form.selectedTags, form.dueDate, form.size,
+  }), [form.title, form.notes, form.selectedTags, form.dueDate, form.remindAt, form.size,
     form.energy, form.energyLevel, form.highPriority, form.lowPriority, checklists])
 
   const lastSavedJson = useRef(null)
@@ -150,6 +153,12 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
   // ── chip value labels ───────────────────────────────────────────────────────
   const energyMeta = ENERGY.find(e => e.id === form.energy)
   const priorityLabel = form.highPriority ? 'High' : form.lowPriority ? 'Low' : 'Normal'
+  // Chips show a VALUE at rest, so this reads back the time rather than "Set".
+  const remindLabel = form.remindAt
+    ? new Date(form.remindAt).toLocaleString(undefined, {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    })
+    : 'None'
   const tagChips = form.selectedTags.map(id => labelById[id]).filter(Boolean)
 
   const chip = (id, label, value, tone) => (
@@ -248,6 +257,7 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
       <div className="wb-edit-chips">
         {chip('status', 'Status', STATUSES.find(s => s.id === status)?.label || status, status === 'done' ? 'done' : null)}
         {chip('due', 'Due', form.dueDate || 'No date')}
+        {chip('remind', 'Remind', remindLabel)}
         {chip('priority', 'Priority', priorityLabel, form.highPriority ? 'high' : null)}
         {chip('energy', 'Energy', energyMeta ? `${energyMeta.label}${form.energyLevel ? ' ' + '⚡'.repeat(form.energyLevel) : ''}` : 'None')}
         {chip('size', 'Size', form.size || 'Auto')}
@@ -265,6 +275,24 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
       {openChip === 'due' && (
         <div className="wb-edit-picker wb-edit-picker-block">
           <DateField value={form.dueDate} onChange={form.setDueDate} />
+        </div>
+      )}
+      {openChip === 'remind' && (
+        <div className="wb-edit-picker wb-edit-picker-block">
+          {/* A reminder is a MOMENT; the Due chip above is a DAY. Apple
+              Reminders rings it — Boomerang never sends for this. */}
+          <input
+            type="datetime-local"
+            className="wb-edit-date"
+            aria-label="Reminder time"
+            value={form.remindAt || ''}
+            onChange={e => form.setRemindAt(e.target.value)}
+          />
+          {form.remindAt && (
+            <button className="wb-edit-opt" style={{ marginTop: 8 }} onClick={() => form.setRemindAt('')}>
+              Clear reminder
+            </button>
+          )}
         </div>
       )}
       {openChip === 'priority' && (
