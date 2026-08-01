@@ -123,6 +123,15 @@
   gap: 2px;
   font: 500 15px/1.3 var(--v2-font-body);
   color: var(--v2-text);
+  /* A flex item's floor is its MIN-CONTENT width — the longest single word —
+   * and a label that hits that floor does not shrink further, it OVERFLOWS,
+   * painting on top of whatever trailing control shares the row. Two live
+   * cases: "Theme" over its segmented control, and "Away window" over a long
+   * status value. min-width lets the box shrink; overflow-wrap lets the text
+   * come with it, so the worst case is a broken word rather than an
+   * unreadable overlap. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .v2-set-row-info-btn {

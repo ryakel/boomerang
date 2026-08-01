@@ -204,11 +204,16 @@ export function ActionRow({ children, info, label }) {
 // §2.7 Status — a read-only fact. No chevron: there is nothing to open.
 // `dot` uses the existing integration-status vocabulary.
 // ---------------------------------------------------------------------------
-export function StatusRow({ label, value, mono = true, dot, info }) {
+// `detail` is for the failure case: the trailing value is nowrap + ellipsis, so
+// a diagnostic sentence put there gets cut mid-word ("…did not match the e…")
+// and the one row explaining what went wrong becomes the one row you can't
+// read. Keep the value a short state word and let the sentence wrap below.
+export function StatusRow({ label, value, mono = true, dot, info, detail }) {
   return (
     <SettingRow
       label={label}
       info={info}
+      persistentInfo={detail}
       trailing={
         <span className="v2-set-status">
           {dot && <span className={`v2-set-dot v2-set-dot-${dot}`} aria-hidden="true" />}
