@@ -607,6 +607,38 @@ function IntegrationsPanel({
 }) {
   const [envKeys, setEnvKeys] = useState({ anthropic: false, notion: false, trello: false, tracking: false })
   const [statuses, setStatuses] = useState({})
+  // Apple Reminders. An integration, not a notification channel: it is a
+  // two-way data sync with an external system, the same shape as Trello and
+  // GCal. iOS owning the alarm is a consequence of the integration, not the
+  // reason it lives somewhere else.
+  const [remindersBusy, setRemindersBusy] = useState(false)
+  const [remindersMsg, setRemindersMsg] = useState('')
+  const [remindersGranted, setRemindersGranted] = useState(false)
+  const handleRemindersAccess = async () => {
+    setRemindersBusy(true); setRemindersMsg('')
+    const res = await requestRemindersAccess()
+    // Granting access alone changes nothing visible, so sync immediately —
+    // otherwise the button appears to do nothing at all.
+    if (res.ok) {
+      setRemindersGranted(true)
+      const s2 = await syncReminders({ silent: false })
+      setRemindersMsg(s2.ok
+        ? `Access granted. Synced${s2.imported ? ` — ${s2.imported} brought in` : ''}.`
+        : `Access granted, but the sync failed: ${s2.error}`)
+    } else {
+      setRemindersMsg(res.error)
+    }
+    setRemindersBusy(false)
+  }
+  const handleRemindersSync = async () => {
+    setRemindersBusy(true); setRemindersMsg('')
+    const res = await syncReminders({ silent: false })
+    if (res.ok) setRemindersGranted(true)
+    setRemindersMsg(res.ok
+      ? `Synced — ${res.imported} brought in, ${res.linked} newly linked${res.unlinked ? `, ${res.unlinked} unlinked` : ''}.${res.held?.length ? ` ${res.held.length} item(s) held; see the console.` : ''}`
+      : (res.error || 'Sync failed.'))
+    setRemindersBusy(false)
+  }
   const [pushoverTest, setPushoverTest] = useState({ status: null, error: null })
   const [pushoverEmer, setPushoverEmer] = useState({ status: null, error: null })
   const [emergencyConfirm, setEmergencyConfirm] = useState(false)
@@ -1109,6 +1141,17 @@ function IntegrationsPanel({
       inline: statuses.gcal?.connected ? 'gcal-config' : 'gcal-connect',
     },
     {
+      key: 'reminders',
+      label: 'Apple Reminders',
+      hint: 'Tasks with a reminder time sync to a Boomerang list and iOS rings the alarm. Anything you add there, including with Siri, comes back as a task.',
+      // Only ever offered in the native shell — EventKit does not exist in a
+      // browser, and a row that can never connect is worse than no row.
+      nativeOnly: true,
+      connected: remindersGranted,
+      sub: remindersGranted ? 'Syncing' : null,
+      inline: 'reminders',
+    },
+    {
       key: 'gmail',
       label: 'Gmail',
       hint: 'AI-extracted tasks + tracking numbers from your inbox. Manual approval per item.',
@@ -1186,7 +1229,7 @@ function IntegrationsPanel({
           element in settings. */}
       <SettingsGroup>
         <ul className="v2-integrations-list">
-          {integrations.map(int => (
+          {integrations.filter(int => !int.nativeOnly || isNativeShell()).map(int => (
             <Fragment key={int.key}>
               {isMain && (
                 // The WHOLE ROW is the target (§2), not a small trailing
@@ -1228,6 +1271,31 @@ function IntegrationsPanel({
                         onChange={e => update(int.keyName, e.target.value)}
                       />
                     )}
+                  </div>
+                )}
+                {int.inline === 'reminders' && (
+                  <div className="v2-integrations-inline">
+                    <div className="v2-integrations-hint">
+                      Set a reminder time on any task and it appears in a <strong>Boomerang</strong> list
+                      in Apple Reminders, with a real alarm — so it reaches your Lock Screen, watch and
+                      CarPlay without Boomerang sending a notification. The sync runs on launch and
+                      whenever you reopen the app.
+                    </div>
+                    <div className="v2-integrations-hint" style={{ marginTop: 6 }}>
+                      Needs <strong>Full Access</strong> to Reminders. iOS also offers a write-only
+                      permission, which cannot read the list and so cannot sync anything back.
+                    </div>
+                    {remindersMsg && (
+                      <div className="v2-integrations-hint" style={{ marginTop: 8 }}>{remindersMsg}</div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      <button className="v2-settings-btn" onClick={handleRemindersAccess} disabled={remindersBusy}>
+                        {remindersBusy ? 'Working…' : 'Allow access'}
+                      </button>
+                      <button className="v2-settings-btn" onClick={handleRemindersSync} disabled={remindersBusy}>
+                        Sync now
+                      </button>
+                    </div>
                   </div>
                 )}
                 {int.inline === 'anthropic' && (
@@ -1878,31 +1946,6 @@ function NotificationsPanel({ settings, update, page, setPage }) {
   // the synced settings blob — the blob's last-writer-wins semantics let other
   // devices revert it; see /api/pushover/link-mode in server.js). null = not
   // loaded yet (toggle disabled until the fetch lands).
-  const [remindersBusy, setRemindersBusy] = useState(false)
-  const [remindersMsg, setRemindersMsg] = useState('')
-  const handleRemindersAccess = async () => {
-    setRemindersBusy(true); setRemindersMsg('')
-    const res = await requestRemindersAccess()
-    // Granting access alone changes nothing visible, so sync immediately —
-    // otherwise the button appears to do nothing at all.
-    if (res.ok) {
-      const s2 = await syncReminders({ silent: false })
-      setRemindersMsg(s2.ok
-        ? `Access granted. Synced${s2.imported ? ` — ${s2.imported} brought in` : ''}.`
-        : `Access granted, but the sync failed: ${s2.error}`)
-    } else {
-      setRemindersMsg(res.error)
-    }
-    setRemindersBusy(false)
-  }
-  const handleRemindersSync = async () => {
-    setRemindersBusy(true); setRemindersMsg('')
-    const res = await syncReminders({ silent: false })
-    setRemindersMsg(res.ok
-      ? `Synced — ${res.imported} brought in, ${res.linked} newly linked${res.unlinked ? `, ${res.unlinked} unlinked` : ''}.${res.held?.length ? ` ${res.held.length} item(s) held; see the console.` : ''}`
-      : (res.error || 'Sync failed.'))
-    setRemindersBusy(false)
-  }
   const [pushoverOpenNative, setPushoverOpenNative] = useState(null)
   useEffect(() => {
     let alive = true
@@ -2288,33 +2331,6 @@ function NotificationsPanel({ settings, update, page, setPage }) {
             </div>
           </div>
         )}
-        {/* Apple Reminders — deliberately NOT a Boomerang send path. iOS owns
-          * the alarm, which is what lets a per-task reminder exist at all
-          * without reopening the alert flood the 2026-07-24 reshape deleted.
-          * The same list doubles as the Siri capture inbox. */}
-        {isNativeShell() && (
-          <div className="v2-settings-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
-            <div className="v2-settings-row-text">
-              <div className="v2-settings-row-label">Apple Reminders</div>
-              <div className="v2-settings-row-hint">
-                Tasks you give a reminder time sync to a <strong>Boomerang</strong> list in Apple
-                Reminders, and iOS rings the alarm — so it reaches your Lock Screen, watch and CarPlay
-                without Boomerang sending anything. Anything you add to that list, including with
-                &ldquo;Hey Siri, remind me to&hellip;&rdquo;, comes back as a task.
-                {remindersMsg && ` ${remindersMsg}`}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="v2-settings-btn" onClick={handleRemindersAccess} disabled={remindersBusy}>
-                {remindersBusy ? 'Working…' : 'Allow access'}
-              </button>
-              <button className="v2-settings-btn" onClick={handleRemindersSync} disabled={remindersBusy}>
-                Sync now
-              </button>
-            </div>
-          </div>
-        )}
-
         {apnsStatus?.configured && apnsStatus?.devices > 0 && (
           <div className="v2-settings-row">
             <div className="v2-settings-row-text">

@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-08-01
 
+- fix(reminders): Apple Reminders belongs in Integrations, not Notifications [XS]
+  - It was first put next to the APNs block, which was the wrong read of what it is. Reminders is a **two-way data sync with an external system** — the same shape as Trello, Notion and Google Calendar, all of which live under Integrations. iOS owning the alarm is a *consequence* of the integration, not a reason to file it as a notification channel; filed there it also implied Boomerang gains a send path, which is exactly what this design avoids.
+  - Now a first-class entry in the integrations descriptor list rather than a bespoke block, so it inherits the row treatment, the connected dot, the sub-page routing and the whole-row target every other integration already has. Sits with the other bidirectional syncs.
+  - Marked `nativeOnly` and filtered out in a browser: EventKit does not exist there, and a row that can never connect is worse than no row. Verified in a browser — the Integrations page renders with all ten existing rows, Apple Reminders correctly absent, zero page errors.
+
+
 - fix(reminders): three defects found reviewing the uncompiled EventKit plugin [S]
   - The Swift had never been through a compiler, so it got a line-by-line pass against the real Capacitor and EventKit APIs instead of being shipped on faith. Three genuine defects, one of which would not have failed the build.
   - **Would not compile:** `"remindAt": Self.iso(...) ?? NSNull()` inside a `[String: Any]` literal. `String?` and `NSNull` have no common type for `??` to infer. Bound to an explicit `Any` first. JSON needs a real null there rather than an omitted key — an absent key and a cleared reminder time mean different things to the merge.
