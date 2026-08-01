@@ -247,6 +247,29 @@ export function apiUrl(path) {
   return base + (path.startsWith('/') ? path : `/${path}`)
 }
 
+// Read a JSON body, failing LEGIBLY.
+//
+// When an /api call is answered with HTML — an SPA fallback, a proxy error
+// page, a login redirect — the body parses as nothing and the JSON parser's
+// own message is what reaches the user. WebKit's is "The string did not match
+// the expected pattern.", which says nothing about what went wrong; on
+// 2026-08-01 that string was the entire visible symptom of an endpoint the
+// server did not have. Anything reading an /api body should come through here
+// so a transport problem reads as one.
+export async function readJson(res, what = 'The server') {
+  const text = await res.text()
+  let data = null
+  let parsed = false
+  try { data = JSON.parse(text); parsed = true } catch { /* not JSON — handled below */ }
+
+  if (!res.ok) throw new Error((parsed && data?.error) || `HTTP ${res.status}`)
+  if (parsed) return data
+
+  throw new Error(/^\s*<(!doctype|html)/i.test(text)
+    ? `${what} sent a web page, not data — it may not have this endpoint.`
+    : `${what} sent an unreadable response.`)
+}
+
 // Install fetch + EventSource shims that rewrite relative /api URLs to the
 // configured base and inject the token. INERT when nothing is configured (the
 // web build) — it installs nothing, so there is zero overhead or risk for the

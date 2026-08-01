@@ -5315,6 +5315,20 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const distPath = path.join(__dirname, '..', 'dist')
 
+// An /api request that reaches here matched no route above. It must NEVER fall
+// through to the SPA handler: index.html answered with 200 is indistinguishable
+// from a real response until JSON.parse fails, and the parser's message is what
+// then reaches the user. On WebKit that message is "The string did not match the
+// expected pattern." — which is how a missing endpoint presented itself in the
+// iOS app on 2026-08-01, as Away mode reading "Unavailable — The string did not
+// match the e…". A client older or newer than its server should say so plainly,
+// so this returns an honest JSON 404 for every method.
+app.use('/api', (req, res) => {
+  const route = `${req.method} ${req.originalUrl.split('?')[0]}`
+  console.warn(`[404] no such endpoint: ${route}`)
+  res.status(404).json({ error: `No such endpoint: ${route}` })
+})
+
 if (existsSync(distPath)) {
   app.use(express.static(distPath))
   app.get('{*path}', (req, res) => {
