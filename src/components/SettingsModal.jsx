@@ -3081,6 +3081,22 @@ export default function SettingsModal({
     return () => { alive = false }
   }, [open])
 
+  // The tier pickers used to render the catalog COMPILED INTO this bundle, so
+  // a newly released model was invisible until someone edited the array and
+  // shipped a build. /api/ai/models asks the configured providers instead.
+  // The bundled catalog stays the initial value and the fallback: a failed
+  // discovery must leave a usable picker, not an empty one.
+  const [modelCatalog, setModelCatalog] = useState(AI_MODEL_CATALOG)
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    fetch('/api/ai/models')
+      .then(r => readJson(r, 'The server'))
+      .then(d => { if (alive && d?.models?.length) setModelCatalog(d.models) })
+      .catch(() => { /* bundled catalog stands — never an empty picker */ })
+    return () => { alive = false }
+  }, [open])
+
   const handleReseed = () => {
     setConfirmDialog({
       title: 'Reseed dev database',
@@ -3483,7 +3499,7 @@ export default function SettingsModal({
                 { key: 'ai_model_quick', label: 'Quick model', def: AI_TIER_DEFAULTS.quick,
                   info: 'One-liners and AI search. Quokka and image/PDF analysis always use Anthropic.' },
               ].map(({ key, label, def, info }) => {
-                const known = AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def))
+                const known = modelCatalog.some(m => m.id === (settings[key] || def))
                 return (
                   <Fragment key={key}>
                     <ValueRow
@@ -3496,16 +3512,20 @@ export default function SettingsModal({
                           value={known ? (settings[key] || def) : '__custom'}
                           onChange={e => update(key, e.target.value === '__custom' ? `anthropic:${settings[key] || def}` : e.target.value)}
                         >
-                          <optgroup label="Anthropic">
-                            {AI_MODEL_CATALOG.filter(m => m.provider === 'anthropic').map(m => (
-                              <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="OpenAI">
-                            {AI_MODEL_CATALOG.filter(m => m.provider === 'openai').map(m => (
-                              <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
-                            ))}
-                          </optgroup>
+                          {[
+                            ['anthropic', 'Anthropic'],
+                            ['openai', 'OpenAI'],
+                          ].map(([prov, provLabel]) => {
+                            const rows = modelCatalog.filter(m => m.provider === prov)
+                            if (!rows.length) return null
+                            return (
+                              <optgroup key={prov} label={provLabel}>
+                                {rows.map(m => (
+                                  <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
+                                ))}
+                              </optgroup>
+                            )
+                          })}
                           <option value="__custom">Custom…</option>
                         </select>
                       }
