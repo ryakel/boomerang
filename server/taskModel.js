@@ -109,8 +109,40 @@ export function rolloverPlan(tasks, { todayYMD, nowIso }) {
 // one pass over the task list (sql.js is in-process, so this is a single
 // round trip by construction). `timer` is a forward-shape placeholder for
 // the watch client; no timer feature exists yet.
-export function todayPayload(tasks, { todayYMD, nowMs = Date.now(), tz } = {}) {
+// One row shape for both the committed and the fallback paths — they must be
+// indistinguishable to the watch, which renders whatever it is given.
+function row(t, doneToday, state) {
+  return {
+    id: t.id,
+    title: t.title,
+    state: doneToday ? 'done' : state,
+    first_step: t.first_step || null,
+    intention_when: t.intention_when || null,
+    intention_where: t.intention_where || null,
+    due_date: t.due_date || null,
+    size: t.size || null,
+    energy: t.energy || null,
+    energy_level: t.energyLevel ?? t.energy_level ?? null,
+    impact: t.impact ?? null,
+    boomerang_count: t.boomerang_count || 0,
+    done: !!doneToday,
+  }
+}
+
+export function todayPayload(tasks, {
+  todayYMD, nowMs = Date.now(), tz,
+  // Fallback controls. The watch renders `committed` and does not care WHY a
+  // row is there — so when nothing has been committed we fill from what's
+  // actually due, exactly as the digest already does. Without this the wrist
+  // reads "Nothing committed yet — pick up to three on your phone" forever,
+  // because `committed_on` has no writer in the web app (2026-08-01): the one
+  // surface that can commit is the watch itself, and Siri.
+  fallbackLimit = 3,
+  isCrisis = null,        // optional predicate; crisis leads, as everywhere else
+  isExcluded = null,      // supervised chores — the owner's wrist is not their list
+} = {}) {
   const committed = []
+  const candidates = []
   let returnedCount = 0
   let openCount = 0
   for (const t of tasks || []) {
@@ -118,21 +150,7 @@ export function todayPayload(tasks, { todayYMD, nowMs = Date.now(), tz } = {}) {
     const doneToday = (t.status === 'done' || t.status === 'completed')
       && t.completed_at && ymdInTz(t.completed_at, tz) === todayYMD
     if (t.committed_on === todayYMD && (state === 'committed' || doneToday)) {
-      committed.push({
-        id: t.id,
-        title: t.title,
-        state: doneToday ? 'done' : state,
-        first_step: t.first_step || null,
-        intention_when: t.intention_when || null,
-        intention_where: t.intention_where || null,
-        due_date: t.due_date || null,
-        size: t.size || null,
-        energy: t.energy || null,
-        energy_level: t.energyLevel ?? t.energy_level ?? null,
-        impact: t.impact ?? null,
-        boomerang_count: t.boomerang_count || 0,
-        done: !!doneToday,
-      })
+      committed.push(row(t, doneToday, state))
       continue
     }
     if (state === 'open') {
@@ -141,10 +159,37 @@ export function todayPayload(tasks, { todayYMD, nowMs = Date.now(), tz } = {}) {
       if (t.last_boomeranged_at && ymdInTz(t.last_boomeranged_at, tz) === todayYMD) {
         returnedCount++
       }
+      // Fallback pool: due today or already past, the owner's own, not snoozed.
+      // Collected on the same pass rather than a second loop.
+      const due = t.due_date ? String(t.due_date).slice(0, 10) : null
+      const snoozed = t.snoozed_until && new Date(t.snoozed_until).getTime() > nowMs
+      if (due && due <= todayYMD && !snoozed && !(isExcluded && isExcluded(t))) {
+        candidates.push(t)
+      }
     }
   }
+
+  // Only when nothing was chosen. A committed set of one means you picked one,
+  // and padding it would overwrite a decision with a guess.
+  let mode = committed.length > 0 ? 'committed' : 'empty'
+  if (committed.length === 0 && fallbackLimit > 0 && candidates.length > 0) {
+    const crisis = (t) => (isCrisis ? (isCrisis(t) ? 1 : 0) : 0)
+    candidates.sort((a, b) =>
+      crisis(b) - crisis(a)
+      || (b.impact ?? 2) - (a.impact ?? 2)
+      || String(a.due_date || '').localeCompare(String(b.due_date || '')))
+    for (const t of candidates.slice(0, fallbackLimit)) {
+      committed.push(row(t, false, deriveTaskState(t, { todayYMD, nowMs })))
+    }
+    mode = 'today'
+  }
+
   return {
     date: todayYMD,
+    // `mode` lets a future watch build label a fallback list ("Due today")
+    // instead of implying you chose these. Unknown keys are ignored by the
+    // current build, so this is safe to add without a rebuild.
+    mode,
     committed,
     committed_count: committed.length,
     returned_count: returnedCount,

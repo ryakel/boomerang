@@ -1022,7 +1022,16 @@ app.get('/api/today', (req, res) => {
   const tz = userTimezone()
   const todayYMD = ymdInTz(new Date(), tz)
   const tasks = getAllTasks().filter(t => !t.gmail_pending)
-  res.json(todayPayload(tasks, { todayYMD, tz }))
+  // Crisis leads and supervised chores are excluded, matching the digest —
+  // the wrist and the morning notification must not disagree about what today
+  // is. Both predicates need settings, so they're passed in rather than read
+  // inside the pure module.
+  const s = getData('settings') || {}
+  res.json(todayPayload(tasks, {
+    todayYMD, tz,
+    isCrisis: t => isCrisisTask(t, s),
+    isExcluded: t => !!t.assignee,
+  }))
 })
 
 // Entity lookup for Siri / App Intents (BoomerangIntents.swift): ?q= title
