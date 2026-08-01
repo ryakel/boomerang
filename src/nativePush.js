@@ -9,7 +9,7 @@
 // shared deep-link applier — the payload's custom `url` field carries the
 // same '/?task=<id>' shape web push and Pushover use.
 import { PushNotifications } from '@capacitor/push-notifications'
-import { isNativeShell } from './apiConfig'
+import { isNativeShell, readJson } from './apiConfig'
 
 export async function enableNativePush() {
   if (!isNativeShell()) return { ok: false, error: 'Native push only works in the iOS app.' }
@@ -34,8 +34,17 @@ export async function enableNativePush() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
     })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data.ok) return { ok: false, error: data.error || `Server rejected the token (${res.status}).` }
+    // readJson so an /api call answered with HTML says so. Swallowing the parse
+    // failure into {} made a missing/unreachable endpoint read as "Server
+    // rejected the token (200)" — a sentence that blames a healthy token and
+    // names a success status.
+    let data
+    try {
+      data = await readJson(res, 'The server')
+    } catch (err) {
+      return { ok: false, error: err?.message || `Server rejected the token (${res.status}).` }
+    }
+    if (!data.ok) return { ok: false, error: data.error || `Server rejected the token (${res.status}).` }
     // Remember this device's token so the Settings UI can ask the server
     // "is THIS device registered?" instead of showing a stateless button.
     try { localStorage.setItem('boom_apns_token', token) } catch { /* quota — state check degrades */ }

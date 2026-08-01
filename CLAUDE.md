@@ -55,6 +55,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 **AI calls**
 - Never read `content[0].text` from a Claude response — use `claudeText()` from `aiModels.js` (Sonnet 5+ may lead with a thinking block). Cheap utility calls spread `...NO_THINKING`. Never send `temperature`/`top_p`/`top_k` to Sonnet 5+ (400s).
 - Model ids and tier routing live only in `aiModels.js` / `server/aiGateway.js` (`resolveTierModel`). Gate AI features on `aiConfigured(tier)`, never on an Anthropic key directly (OpenAI-only setups must keep working). New AI calls go through `aiComplete({tier, …, feature})` so usage lands in the `ai_usage` table.
+- The picker's model list is DISCOVERED (`server/aiModelDiscovery.js` → `GET /api/ai/models`), but `MODEL_CATALOG` stays the source of truth for labels and pricing, and discovery never touches routing. A discovered model with no catalog entry is offered unpriced — `estimateAiCost` returns null, so the usage dashboard shows no cost rather than a wrong one; never invent a price to fill the gap. Discovery must always degrade to the catalog: a provider outage or a filtered response must never empty the picker or drop a model the user already selected.
 
 **Notifications**
 - The product is ONE morning digest plus a short list of intentionally rare pings (the 2026-07-24 "Great Alert Deletion"). Any new background send must justify itself against that surviving list. Load the `add-notification-type` skill before touching this area.

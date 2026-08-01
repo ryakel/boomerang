@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server } from 'lucide-react'
-import { isNativeShell, getApiBase, requestConnectionSetup } from '../apiConfig'
+import { isNativeShell, getApiBase, requestConnectionSetup, readJson } from '../apiConfig'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
   loadRoutines, saveRoutines, loadLabels, saveLabels,
@@ -1896,7 +1896,7 @@ function NotificationsPanel({ settings, update, page, setPage }) {
   const [vacationErr, setVacationErr] = useState('')
   const loadVacation = useCallback(() => {
     fetch('/api/vacation')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(r => readJson(r, 'The server'))
       .then(d => { setVacation(d); setVacationErr('') })
       // Distinguish "failed" from "off" — an unreachable server must not render
       // as a window that isn't running.
@@ -2584,7 +2584,7 @@ function NotificationsPanel({ settings, update, page, setPage }) {
             }
           />
           {vacationErr && (
-            <StatusRow label="Away window" value={`Unavailable — ${vacationErr}`} mono={false} dot="warn" />
+            <StatusRow label="Away window" value="Unavailable" mono={false} dot="warn" detail={vacationErr} />
           )}
           {vacation?.away_now && (
             <StatusRow
@@ -3068,13 +3068,32 @@ export default function SettingsModal({
     if (!open) return
     let alive = true
     fetch('/api/health')
-      .then(r => r.ok ? r.json() : null)
+      .then(r => readJson(r, 'The server'))
       .then(d => {
         if (!alive || !d) return
         setIsDev(!!d.isDev)
         setServerVersion(d.appVersion || 'unknown')
       })
-      .catch(() => {})
+      // A swallowed failure left this row on its '…' placeholder forever, so
+      // "can't reach the server" and "still loading" rendered identically —
+      // on the one row whose entire job is to tell you what you're talking to.
+      .catch(() => { if (alive) setServerVersion('unreachable') })
+    return () => { alive = false }
+  }, [open])
+
+  // The tier pickers used to render the catalog COMPILED INTO this bundle, so
+  // a newly released model was invisible until someone edited the array and
+  // shipped a build. /api/ai/models asks the configured providers instead.
+  // The bundled catalog stays the initial value and the fallback: a failed
+  // discovery must leave a usable picker, not an empty one.
+  const [modelCatalog, setModelCatalog] = useState(AI_MODEL_CATALOG)
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    fetch('/api/ai/models')
+      .then(r => readJson(r, 'The server'))
+      .then(d => { if (alive && d?.models?.length) setModelCatalog(d.models) })
+      .catch(() => { /* bundled catalog stands — never an empty picker */ })
     return () => { alive = false }
   }, [open])
 
@@ -3332,6 +3351,10 @@ export default function SettingsModal({
                       grids") is deleted rather than folded: you can see both
                       themes by tapping them, so prose describing them is
                       pure cost. */}
+                  {/* Stacked for the same reason Mode is: the segment is
+                      width:100% up to 320px, which leaves nothing for a label
+                      beside it at phone width — §2.3's "when the options can't
+                      fit beside the label". Inline, it overlapped. */}
                   <SegmentRow
                     label="Theme"
                     value={family}
@@ -3340,6 +3363,7 @@ export default function SettingsModal({
                       { value: 'kept', label: 'Kept' },
                     ]}
                     onChange={v => setTheme(v, mode)}
+                    stacked
                   />
                   <SegmentRow
                     label="Mode"
@@ -3475,7 +3499,7 @@ export default function SettingsModal({
                 { key: 'ai_model_quick', label: 'Quick model', def: AI_TIER_DEFAULTS.quick,
                   info: 'One-liners and AI search. Quokka and image/PDF analysis always use Anthropic.' },
               ].map(({ key, label, def, info }) => {
-                const known = AI_MODEL_CATALOG.some(m => m.id === (settings[key] || def))
+                const known = modelCatalog.some(m => m.id === (settings[key] || def))
                 return (
                   <Fragment key={key}>
                     <ValueRow
@@ -3488,16 +3512,20 @@ export default function SettingsModal({
                           value={known ? (settings[key] || def) : '__custom'}
                           onChange={e => update(key, e.target.value === '__custom' ? `anthropic:${settings[key] || def}` : e.target.value)}
                         >
-                          <optgroup label="Anthropic">
-                            {AI_MODEL_CATALOG.filter(m => m.provider === 'anthropic').map(m => (
-                              <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="OpenAI">
-                            {AI_MODEL_CATALOG.filter(m => m.provider === 'openai').map(m => (
-                              <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
-                            ))}
-                          </optgroup>
+                          {[
+                            ['anthropic', 'Anthropic'],
+                            ['openai', 'OpenAI'],
+                          ].map(([prov, provLabel]) => {
+                            const rows = modelCatalog.filter(m => m.provider === prov)
+                            if (!rows.length) return null
+                            return (
+                              <optgroup key={prov} label={provLabel}>
+                                {rows.map(m => (
+                                  <option key={m.id} value={m.id}>{m.label}{m.id === def ? ' (default)' : ''}</option>
+                                ))}
+                              </optgroup>
+                            )
+                          })}
                           <option value="__custom">Custom…</option>
                         </select>
                       }

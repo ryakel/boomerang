@@ -76,6 +76,7 @@ import { isAway, isExpired, windowDays } from './vacationWindow.js'
 import { repairPlan } from './vacationRepair.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
+import { fetchLiveModels, mergeCatalog } from './aiModelDiscovery.js'
 import {
   deriveTaskState, rolloverPlan, todayPayload, validateFirstStep, validateLocation,
   ymdInTz, isActiveStatus, COMMIT_CEILING, DEFAULT_TIMEZONE, intentTaskRows,
@@ -3508,6 +3509,40 @@ app.post('/api/apns/test', async (req, res) => {
   res.json(await sendApnsTest())
 })
 
+// --- Model discovery for the tier pickers (2026-08-01) ---
+// The picker used to render the hand-maintained MODEL_CATALOG bundled into the
+// client, so a new model was invisible until someone edited the array and
+// shipped. This asks the configured providers instead. Cached because it runs
+// on a settings page open; ?refresh=1 forces a re-ask.
+const MODEL_CACHE_KEY = 'ai_model_catalog'
+const MODEL_CACHE_TTL_MS = 6 * 60 * 60 * 1000
+
+app.get('/api/ai/models', async (req, res) => {
+  const cached = getData(MODEL_CACHE_KEY)
+  const age = cached?.fetched_at ? Date.now() - Date.parse(cached.fetched_at) : Infinity
+  if (cached?.models?.length && age < MODEL_CACHE_TTL_MS && req.query.refresh !== '1') {
+    return res.json({ ...cached, cached: true })
+  }
+  try {
+    const { models, sources } = await fetchLiveModels()
+    const payload = { models, sources, fetched_at: new Date().toISOString() }
+    setData(MODEL_CACHE_KEY, payload)
+    res.json({ ...payload, cached: false })
+  } catch (err) {
+    // Never leave the picker empty: a discovery failure falls back to the
+    // static catalog, flagged so the UI can say the list may be stale rather
+    // than presenting it as current.
+    console.warn(`[aiModels] discovery failed entirely: ${err.message}`)
+    res.json({
+      models: mergeCatalog([]),
+      sources: { error: { status: 'error', detail: err.message } },
+      fetched_at: cached?.fetched_at || null,
+      cached: false,
+      fallback: true,
+    })
+  }
+})
+
 // --- The away window (2026-07-29) ---
 // Stored OUTSIDE the bulk settings blob, own app_data key, same carve-out
 // reasoning as pushover link mode above — and here it matters more, because the
@@ -5314,6 +5349,20 @@ app.post('/api/dev/seed', async (req, res) => {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const distPath = path.join(__dirname, '..', 'dist')
+
+// An /api request that reaches here matched no route above. It must NEVER fall
+// through to the SPA handler: index.html answered with 200 is indistinguishable
+// from a real response until JSON.parse fails, and the parser's message is what
+// then reaches the user. On WebKit that message is "The string did not match the
+// expected pattern." — which is how a missing endpoint presented itself in the
+// iOS app on 2026-08-01, as Away mode reading "Unavailable — The string did not
+// match the e…". A client older or newer than its server should say so plainly,
+// so this returns an honest JSON 404 for every method.
+app.use('/api', (req, res) => {
+  const route = `${req.method} ${req.originalUrl.split('?')[0]}`
+  console.warn(`[404] no such endpoint: ${route}`)
+  res.status(404).json({ error: `No such endpoint: ${route}` })
+})
 
 if (existsSync(distPath)) {
   app.use(express.static(distPath))

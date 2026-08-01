@@ -1,5 +1,14 @@
 # Upcoming Features
 
+## Parked 2026-08-01 — next pickup
+
+Four items identified during the watch-connectivity / away-mode session, with verified current state, the decision each one blocks on, and its failure mode: `wiki/Parked-20260801.md`. Two overlap the 2026-07-25 recs below (rec 1 and rec 5) — the parked page carries what's since been verified in the tree.
+
+1. **Pin to today** — `committed_on` has no writer in the web app; the server verbs (`/commit`, `/uncommit`) are merged and tested and Siri already calls them. **S, ready to build**, only the row-affordance placement to decide. Minimal slice of rec 1.
+2. **Packages drive due dates** — a task blocked on a delivery. `packages.eta`/`delivered_at` exist and `signature_task_id` is a working task-link precedent; needs a general link, poll-path logic, and the migration-049 provenance columns. M.
+3. **Arrival reminders / geofencing** — deliver on the stored-but-dead `location_json`; local notifications, requires a Mac build session. Same feature as rec 5.
+4. **Calendar-based away detection** — infer the travel window from GCal. The away mechanism shipped 2026-08-01; only the inference is missing. **Propose, never auto-apply** — it gates both notification suppression and bulk date shifting.
+
 ## Feature recs (researched 2026-07-25)
 
 Ten recommendations from a full-codebase research pass — detail, file references, and build sketches in `wiki/Feature-Recs-20260725.md`. Theme: light up dark-but-shipped infrastructure (the migration-046 pick-three layer, `location_json`, `timer`, `/api/today`, discarded GCal event data, unsurfaced analytics).
