@@ -4,7 +4,7 @@ import { isNativeShell, getApiBase, requestConnectionSetup, readJson } from '../
 import { requestRemindersAccess, syncReminders } from '../remindersSync'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
-  loadRoutines, saveRoutines, loadLabels, saveLabels,
+  loadRoutines, saveRoutines, safeSetItem, loadLabels, saveLabels,
   LABEL_COLORS, uuid, localYMD,
 } from '../store'
 import { restoreFromBackup } from '../api'
@@ -266,6 +266,7 @@ const PAGE_TITLES = {
   'Integrations/notion': 'Notion',
   'Integrations/trello': 'Trello',
   'Integrations/gcal': 'Google Calendar',
+  'Integrations/reminders': 'Apple Reminders',
   'Integrations/gmail': 'Gmail',
   'Integrations/tracking': '17track',
   'Integrations/shippo': 'Shippo',
@@ -613,14 +614,24 @@ function IntegrationsPanel({
   // reason it lives somewhere else.
   const [remindersBusy, setRemindersBusy] = useState(false)
   const [remindersMsg, setRemindersMsg] = useState('')
-  const [remindersGranted, setRemindersGranted] = useState(false)
+  // Per-DEVICE, so localStorage rather than the settings blob: Reminders
+  // access is granted on this phone, and syncing that fact to other devices
+  // would be a lie. Component state alone reset on every remount, so a granted
+  // and actively syncing integration reported "Not set".
+  const [remindersGranted, setRemindersGranted] = useState(() => {
+    try { return localStorage.getItem('boom_reminders_ok') === '1' } catch { return false }
+  })
+  const markRemindersOk = () => {
+    setRemindersGranted(true)
+    safeSetItem('boom_reminders_ok', '1')
+  }
   const handleRemindersAccess = async () => {
     setRemindersBusy(true); setRemindersMsg('')
     const res = await requestRemindersAccess()
     // Granting access alone changes nothing visible, so sync immediately —
     // otherwise the button appears to do nothing at all.
     if (res.ok) {
-      setRemindersGranted(true)
+      markRemindersOk()
       const s2 = await syncReminders({ silent: false })
       setRemindersMsg(s2.ok
         ? `Access granted. Synced${s2.imported ? ` — ${s2.imported} brought in` : ''}.`
@@ -633,7 +644,7 @@ function IntegrationsPanel({
   const handleRemindersSync = async () => {
     setRemindersBusy(true); setRemindersMsg('')
     const res = await syncReminders({ silent: false })
-    if (res.ok) setRemindersGranted(true)
+    if (res.ok) markRemindersOk()
     setRemindersMsg(res.ok
       ? `Synced — ${res.imported} brought in, ${res.linked} newly linked${res.unlinked ? `, ${res.unlinked} unlinked` : ''}.${res.held?.length ? ` ${res.held.length} item(s) held; see the console.` : ''}`
       : (res.error || 'Sync failed.'))
