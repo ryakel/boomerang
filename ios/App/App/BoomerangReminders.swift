@@ -80,7 +80,15 @@ public class BoomerangReminders: CAPPlugin, CAPBridgedPlugin {
         let created = EKCalendar(for: .reminder, eventStore: store)
         created.title = Self.listName
         created.source = source
-        try? store.saveCalendar(created, commit: true)
+        // Returning the calendar after a FAILED save would hand the caller an
+        // unsaved object, and every write against it would fail with something
+        // unrelated to the actual cause.
+        do {
+            try store.saveCalendar(created, commit: true)
+        } catch {
+            NSLog("[Boomerang] could not create the Reminders list: \(error.localizedDescription)")
+            return nil
+        }
         return created
     }
 
@@ -107,11 +115,18 @@ public class BoomerangReminders: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             let items: [[String: Any]] = reminders.map { r in
-                [
+                // `remindAt` is bound to an explicit Any before it goes in.
+                // `String? ?? NSNull()` has no common type for Swift to infer
+                // and does not compile inside a dictionary literal; JSON needs
+                // a real null here, not an omitted key, because an absent key
+                // and a cleared reminder time mean different things to the
+                // merge.
+                let remindAt: Any = Self.iso(from: r.dueDateComponents) ?? NSNull()
+                return [
                     "id": r.calendarItemIdentifier,
                     "title": r.title ?? "",
                     "notes": r.notes ?? "",
-                    "remindAt": Self.iso(from: r.dueDateComponents) ?? NSNull(),
+                    "remindAt": remindAt,
                     "completed": r.isCompleted
                 ]
             }
@@ -141,11 +156,20 @@ public class BoomerangReminders: CAPPlugin, CAPBridgedPlugin {
         for item in items {
             let existingId = item["remindersId"] as? String
             let reminder: EKReminder
+            // `isNew` tracks whether a reminder was actually CREATED, which is
+            // not the same as "no id was supplied". A stored id that no longer
+            // resolves (deleted on the device, iCloud not yet populated) also
+            // lands here — and reporting the link only when existingId was nil
+            // would leave the server holding a dead id while the reminder it
+            // just created is orphaned. The next sync then unlinks the task AND
+            // imports the orphan as a second one.
+            var isNew = false
             if let existingId, let found = store.calendarItem(withIdentifier: existingId) as? EKReminder {
                 reminder = found
             } else {
                 reminder = EKReminder(eventStore: store)
                 reminder.calendar = calendar
+                isNew = true
             }
 
             if let title = item["title"] as? String { reminder.title = title }
@@ -169,7 +193,7 @@ public class BoomerangReminders: CAPPlugin, CAPBridgedPlugin {
 
             do {
                 try store.save(reminder, commit: false)
-                if existingId == nil, let taskId = item["taskId"] as? String {
+                if isNew, let taskId = item["taskId"] as? String {
                     links.append(["taskId": taskId, "remindersId": reminder.calendarItemIdentifier])
                 }
             } catch {
