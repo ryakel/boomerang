@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'rea
 import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server } from 'lucide-react'
 import { isNativeShell, getApiBase, requestConnectionSetup, readJson } from '../apiConfig'
 import { requestRemindersAccess, syncReminders } from '../remindersSync'
+import { requestLocalReminderPermission, refreshLocalReminders, pendingLocalReminders } from '../localReminders'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
   loadRoutines, saveRoutines, safeSetItem, loadLabels, saveLabels,
@@ -1957,6 +1958,29 @@ function NotificationsPanel({ settings, update, page, setPage }) {
   // the synced settings blob — the blob's last-writer-wins semantics let other
   // devices revert it; see /api/pushover/link-mode in server.js). null = not
   // loaded yet (toggle disabled until the fetch lands).
+  // Local reminders. Unlike the Apple Reminders INTEGRATION (Settings →
+  // Integrations), this is a Boomerang delivery surface — the device itself
+  // rings — so it belongs with the other channels.
+  const [localBusy, setLocalBusy] = useState(false)
+  const [localMsg, setLocalMsg] = useState('')
+  const [localPending, setLocalPending] = useState(null)
+  useEffect(() => {
+    if (!isNativeShell()) return
+    let alive = true
+    pendingLocalReminders().then(r => { if (alive) setLocalPending(r?.count ?? 0) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  const handleLocalEnable = async () => {
+    setLocalBusy(true); setLocalMsg('')
+    const res = await requestLocalReminderPermission()
+    if (!res.ok) { setLocalMsg(res.error); setLocalBusy(false); return }
+    const r = await refreshLocalReminders(loadTasks(), loadRoutines(), { force: true })
+    setLocalMsg(r.ok
+      ? `Scheduled — ${r.repeating} repeating, ${r.once} one-off${r.dropped ? `, ${r.dropped} past the 64 iOS allows` : ''}.`
+      : (r.error || 'Could not schedule.'))
+    if (r.ok) setLocalPending(r.pending ?? null)
+    setLocalBusy(false)
+  }
   const [pushoverOpenNative, setPushoverOpenNative] = useState(null)
   useEffect(() => {
     let alive = true
@@ -2342,6 +2366,27 @@ function NotificationsPanel({ settings, update, page, setPage }) {
             </div>
           </div>
         )}
+        {isNativeShell() && (
+          <div className="v2-settings-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">Reminder alarms (on this device)</div>
+              <div className="v2-settings-row-hint">
+                Tasks with a reminder time, and loops set to remind, are scheduled as local
+                alarms on this phone. They ring with <strong>no network, no VPN and no server</strong> —
+                the phone fires them itself. iOS allows 64 pending at once; a repeating loop
+                costs one of those no matter how far ahead it runs.
+                {localPending != null && ` Currently ${localPending} scheduled.`}
+                {localMsg && ` ${localMsg}`}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="v2-settings-btn" onClick={handleLocalEnable} disabled={localBusy}>
+                {localBusy ? 'Working…' : 'Enable + refresh'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {apnsStatus?.configured && apnsStatus?.devices > 0 && (
           <div className="v2-settings-row">
             <div className="v2-settings-row-text">
