@@ -23,6 +23,7 @@ class BoomerangViewController: CAPBridgeViewController {
     // on a fully-connected phone (2026-07-16).
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(BoomerangNative())
+        bridge?.registerPluginInstance(BoomerangReminders())
     }
 
     override func viewDidLoad() {

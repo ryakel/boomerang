@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import { Trash2, Download, Upload, RefreshCw, Copy, FileText, ArrowUp, ArrowDown, Plus, ChevronRight, Server } from 'lucide-react'
 import { isNativeShell, getApiBase, requestConnectionSetup, readJson } from '../apiConfig'
+import { requestRemindersAccess, syncReminders } from '../remindersSync'
 import {
   loadSettings, saveSettings, loadTasks, saveTasks,
   loadRoutines, saveRoutines, loadLabels, saveLabels,
@@ -1877,6 +1878,31 @@ function NotificationsPanel({ settings, update, page, setPage }) {
   // the synced settings blob — the blob's last-writer-wins semantics let other
   // devices revert it; see /api/pushover/link-mode in server.js). null = not
   // loaded yet (toggle disabled until the fetch lands).
+  const [remindersBusy, setRemindersBusy] = useState(false)
+  const [remindersMsg, setRemindersMsg] = useState('')
+  const handleRemindersAccess = async () => {
+    setRemindersBusy(true); setRemindersMsg('')
+    const res = await requestRemindersAccess()
+    // Granting access alone changes nothing visible, so sync immediately —
+    // otherwise the button appears to do nothing at all.
+    if (res.ok) {
+      const s2 = await syncReminders({ silent: false })
+      setRemindersMsg(s2.ok
+        ? `Access granted. Synced${s2.imported ? ` — ${s2.imported} brought in` : ''}.`
+        : `Access granted, but the sync failed: ${s2.error}`)
+    } else {
+      setRemindersMsg(res.error)
+    }
+    setRemindersBusy(false)
+  }
+  const handleRemindersSync = async () => {
+    setRemindersBusy(true); setRemindersMsg('')
+    const res = await syncReminders({ silent: false })
+    setRemindersMsg(res.ok
+      ? `Synced — ${res.imported} brought in, ${res.linked} newly linked${res.unlinked ? `, ${res.unlinked} unlinked` : ''}.${res.held?.length ? ` ${res.held.length} item(s) held; see the console.` : ''}`
+      : (res.error || 'Sync failed.'))
+    setRemindersBusy(false)
+  }
   const [pushoverOpenNative, setPushoverOpenNative] = useState(null)
   useEffect(() => {
     let alive = true
@@ -2262,6 +2288,33 @@ function NotificationsPanel({ settings, update, page, setPage }) {
             </div>
           </div>
         )}
+        {/* Apple Reminders — deliberately NOT a Boomerang send path. iOS owns
+          * the alarm, which is what lets a per-task reminder exist at all
+          * without reopening the alert flood the 2026-07-24 reshape deleted.
+          * The same list doubles as the Siri capture inbox. */}
+        {isNativeShell() && (
+          <div className="v2-settings-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
+            <div className="v2-settings-row-text">
+              <div className="v2-settings-row-label">Apple Reminders</div>
+              <div className="v2-settings-row-hint">
+                Tasks you give a reminder time sync to a <strong>Boomerang</strong> list in Apple
+                Reminders, and iOS rings the alarm — so it reaches your Lock Screen, watch and CarPlay
+                without Boomerang sending anything. Anything you add to that list, including with
+                &ldquo;Hey Siri, remind me to&hellip;&rdquo;, comes back as a task.
+                {remindersMsg && ` ${remindersMsg}`}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="v2-settings-btn" onClick={handleRemindersAccess} disabled={remindersBusy}>
+                {remindersBusy ? 'Working…' : 'Allow access'}
+              </button>
+              <button className="v2-settings-btn" onClick={handleRemindersSync} disabled={remindersBusy}>
+                Sync now
+              </button>
+            </div>
+          </div>
+        )}
+
         {apnsStatus?.configured && apnsStatus?.devices > 0 && (
           <div className="v2-settings-row">
             <div className="v2-settings-row-text">

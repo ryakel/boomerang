@@ -287,6 +287,8 @@ function taskToRow(task) {
     due_date_original: task.due_date_original || null,
     due_shifted_at: task.due_shifted_at || null,
     due_shifted_reason: task.due_shifted_reason || null,
+    remind_at: task.remind_at || null,
+    reminders_id: task.reminders_id || null,
   }
 }
 
@@ -367,6 +369,8 @@ function rowToTask(row) {
     due_date_original: row.due_date_original || null,
     due_shifted_at: row.due_shifted_at || null,
     due_shifted_reason: row.due_shifted_reason || null,
+    remind_at: row.remind_at || null,
+    reminders_id: row.reminders_id || null,
   }
 }
 
@@ -399,8 +403,9 @@ const UPSERT_TASK_SQL = `
     diy_assessed, diy_verdict, diy_reason, diy_first_move, capture_source,
     intention_when, intention_where, first_step, location_json,
     committed_on, boomerang_count, last_boomeranged_at, released_at,
-    due_date_original, due_shifted_at, due_shifted_reason)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    due_date_original, due_shifted_at, due_shifted_reason,
+    remind_at, reminders_id)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -454,7 +459,9 @@ const UPSERT_TASK_SQL = `
     released_at=excluded.released_at,
     due_date_original=excluded.due_date_original,
     due_shifted_at=excluded.due_shifted_at,
-    due_shifted_reason=excluded.due_shifted_reason`
+    due_shifted_reason=excluded.due_shifted_reason,
+    remind_at=excluded.remind_at,
+    reminders_id=excluded.reminders_id`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -478,6 +485,7 @@ function runUpsertTask(task) {
     r.intention_when, r.intention_where, r.first_step, r.location_json,
     r.committed_on, r.boomerang_count, r.last_boomeranged_at, r.released_at,
     r.due_date_original, r.due_shifted_at, r.due_shifted_reason,
+    r.remind_at, r.reminders_id,
   ])
 }
 
@@ -2782,3 +2790,34 @@ export function replaceKnowledgeIndex(items) {
   schedulePersist()
 }
 
+
+// --- Apple Reminders link (2026-08-01) -------------------------------------
+// The shadow rows are the 3-way baseline: what Boomerang and Reminders last
+// AGREED on. server/reminderMerge.js holds every rule about who wins; these
+// helpers only read and write. See migration 050.
+
+export function getReminderShadows() {
+  return db.exec('SELECT * FROM reminder_shadows')[0]?.values.map(v => ({
+    task_id: v[0], reminders_id: v[1], title: v[2], notes: v[3],
+    remind_at: v[4], completed: v[5], synced_at: v[6],
+  })) || []
+}
+
+export function setReminderShadow(s) {
+  db.run(
+    `INSERT INTO reminder_shadows (task_id, reminders_id, title, notes, remind_at, completed, synced_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(task_id) DO UPDATE SET
+       reminders_id=excluded.reminders_id, title=excluded.title, notes=excluded.notes,
+       remind_at=excluded.remind_at, completed=excluded.completed, synced_at=excluded.synced_at`,
+    [s.task_id, s.reminders_id, s.title ?? null, s.notes ?? null,
+      s.remind_at ?? null, s.completed ? 1 : 0, new Date().toISOString()],
+  )
+}
+
+// Dropping the LINK, never the task — a swipe in Apple's Reminders must not be
+// able to delete work that lives here.
+export function clearReminderLink(taskId) {
+  db.run('DELETE FROM reminder_shadows WHERE task_id = ?', [taskId])
+  db.run('UPDATE tasks SET reminders_id = NULL WHERE id = ?', [taskId])
+}
