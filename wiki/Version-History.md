@@ -6,6 +6,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-08-01
 
+- feat(loops): a loop can ring — recurring reminders without a recurrence rule [M]
+  - The gap that made the whole feature feel stuck: *"I have a nightly task to remind me to make my son shut the TV off at 7:30. I could use Apple Reminders and not put it in Boomerang, which is counterintuitive, or put it in Loops and never get notified."* Exactly right, and the fix turned out to be one step rather than a subsystem.
+  - **Routines already carry `trigger_time`** (migration 033) — a time of day that parks the spawned task until its clock hour. What they could not do is make a noise. Now a spawned task inherits **`remind_at` = its due day at `trigger_time`**, and the per-task Apple Reminders sync pushes that occurrence like any other reminder. Boomerang still sends nothing.
+  - **Apple never sees a recurrence rule.** Boomerang owns recurrence via Loops; Apple owns alarms and only ever holds concrete one-off reminders, one per night. That sidesteps `EKRecurrenceRule` entirely — where completing a repeating reminder advances it under the same identifier, and the merge would read that as completed-then-not and flip the task done and undone.
+  - **Opt-in, defaulting off** (`routines.remind`, migration 051). Timed loops already exist (the 13:00 "IFR Studying – PM"); converting all of them to alarms because the capability arrived is precisely the ambient flood the 2026-07-24 reshape deleted. A loop rings because it was asked to, via a checkbox that only appears once a time is set.
+  - The **roll path re-anchors the alarm too**. An auto-rolled instance keeping yesterday's `remind_at` would sit permanently overdue in Apple Reminders.
+  - Unlike the surface-at snooze, a past trigger time still produces an alarm: a 7:30pm reminder spawned at 7:45pm should reach Apple and read as overdue, not silently never exist. 7 tests pin the rules — opted-out loops stay silent, `00:00` is a real time rather than a falsy one, the alarm lands on the SPAWN day rather than today, and a malformed day yields no alarm rather than an Invalid Date.
+  - Verified against a live server: migration applied, and a daily loop with `trigger_time 19:30` + `remind: true` round-trips through `/api/routines`. `npm test` 253/253 + smoke, eslint 0 errors, `npm audit` 0.
+
+
 - feat(reminders): reminders are visible as reminders — Today, the row, and a lens in More [M]
   - Three gaps the sync left behind, all from *"will those be separated in the today/tasks areas?"*. They were not, at all.
   - **A reminder with no due date sat in Anytime.** `TodayView` bucketed purely on `due_date`, so *"remind me at 6:30pm tonight"* landed in the one section that means "no particular time" — for the one kind of task that has one. Per the decision that a reminder with no date IS today, `remind_at` now decides the day when no due date does, and Anytime stops claiming them (a future-dated reminder waits like any other future task rather than sitting in Anytime).

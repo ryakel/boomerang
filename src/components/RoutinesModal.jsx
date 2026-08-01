@@ -372,6 +372,11 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
   // Optional 'HH:MM' surface-at time. '' = any time. Spawned tasks are snoozed
   // until this clock time on their due day (don't show or nag before it).
   const [triggerTime, setTriggerTime] = useState(initial?.trigger_time || '')
+  // Opt-in alarm. trigger_time long predates this, so it stays off by default —
+  // turning every existing timed loop into a ringing one is exactly the flood
+  // the 2026-07-24 reshape removed. Boomerang still sends nothing: the spawned
+  // task inherits remind_at and Apple Reminders rings it.
+  const [remind, setRemind] = useState(!!initial?.remind)
   const [selectedTags, setSelectedTags] = useState(initial?.tags || [])
   const [notes, setNotes] = useState(initial?.notes || '')
   // Who this loop is actually for — e.g. a kid's chore the user supervises
@@ -526,6 +531,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
     scheduleDayOfMonth: outDayOfMonth,
     scheduleWeekOfMonth: outWeekOfMonth,
     triggerTime: triggerTime || null,
+    remind: !!triggerTime && remind,
     completedHistory: resolveCompletedHistory(),
     followUps: followUpsArray,
     members: cleanMembers(),
@@ -786,6 +792,23 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
           <div className="v2-form-section-hint">
             Don't show or nag before this time. Leave blank for any time.
           </div>
+          {triggerTime && (
+            <>
+              <label className="v2-form-check">
+                <input
+                  type="checkbox"
+                  checked={remind}
+                  onChange={e => setRemind(e.target.checked)}
+                />
+                <span>Remind me at this time</span>
+              </label>
+              <div className="v2-form-section-hint">
+                Each spawned task gets an alarm at {triggerTime}, delivered by Apple
+                Reminders — Boomerang itself still sends nothing. Needs the Reminders
+                integration connected.
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -1110,6 +1133,7 @@ export default function RoutinesModal({
         schedule_day_of_month: data.scheduleDayOfMonth,
         schedule_week_of_month: data.scheduleWeekOfMonth,
         trigger_time: data.triggerTime,
+        remind: data.remind,
         follow_ups: data.followUps,
         members: data.members,
         auto_roll: data.autoRoll,
@@ -1133,7 +1157,7 @@ export default function RoutinesModal({
         data.spawnMode, data.targetCount, data.targetPeriod,
         data.customUnit, data.triggerTime,
         data.scheduleDayOfMonth, data.scheduleWeekOfMonth,
-        data.members, data.assignee,
+        data.members, data.assignee, data.remind,
       )
     }
     setEditing(null)

@@ -1507,6 +1507,7 @@ function routineToRow(routine) {
     schedule_day_of_month: routine.schedule_day_of_month ?? null,
     schedule_week_of_month: routine.schedule_week_of_month ?? null,
     trigger_time: routine.trigger_time || null,
+    remind: routine.remind ? 1 : 0,
     auto_roll: routine.auto_roll ? 1 : 0,
     spawn_mode: routine.spawn_mode || 'auto',
     target_count: routine.target_count ?? null,
@@ -1541,6 +1542,7 @@ function rowToRoutine(row) {
     schedule_day_of_month: row.schedule_day_of_month ?? null,
     schedule_week_of_month: row.schedule_week_of_month ?? null,
     trigger_time: row.trigger_time || null,
+    remind: !!row.remind,
     auto_roll: !!row.auto_roll,
     spawn_mode: row.spawn_mode || 'auto',
     target_count: row.target_count ?? null,
@@ -1561,10 +1563,10 @@ const UPSERT_ROUTINE_SQL = `
   INSERT INTO routines (id, title, cadence, custom_days, custom_unit, notes, high_priority,
     energy, energy_level, notion_page_id, notion_url, created_at, paused,
     tags_json, completed_history_json, end_date, schedule_day_of_week,
-    schedule_day_of_month, schedule_week_of_month, trigger_time, auto_roll,
+    schedule_day_of_month, schedule_week_of_month, trigger_time, auto_roll, remind,
     spawn_mode, target_count, target_period, follow_ups_json, members_json, skipped_days_json,
     assignee, impact)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
     custom_unit=excluded.custom_unit,
@@ -1576,6 +1578,7 @@ const UPSERT_ROUTINE_SQL = `
     schedule_day_of_month=excluded.schedule_day_of_month,
     schedule_week_of_month=excluded.schedule_week_of_month,
     trigger_time=excluded.trigger_time,
+    remind=excluded.remind,
     auto_roll=excluded.auto_roll, spawn_mode=excluded.spawn_mode,
     target_count=excluded.target_count, target_period=excluded.target_period,
     follow_ups_json=excluded.follow_ups_json, members_json=excluded.members_json,
@@ -1589,7 +1592,7 @@ function runUpsertRoutine(routine) {
     r.energy, r.energy_level, r.notion_page_id, r.notion_url, r.created_at, r.paused,
     r.tags_json, r.completed_history_json, r.end_date, r.schedule_day_of_week,
     r.schedule_day_of_month, r.schedule_week_of_month,
-    r.trigger_time, r.auto_roll, r.spawn_mode, r.target_count, r.target_period,
+    r.trigger_time, r.auto_roll, r.remind, r.spawn_mode, r.target_count, r.target_period,
     r.follow_ups_json, r.members_json, r.skipped_days_json, r.assignee, r.impact,
   ])
 }
