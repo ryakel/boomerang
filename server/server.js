@@ -17,7 +17,8 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
   dismissEscalationAdvancePrompt, resolveEscalation,
-  getVacationWindow, setVacationWindow, isCrisisTask } from './db.js'
+  getVacationWindow, setVacationWindow, isCrisisTask,
+  getReminderShadows, setReminderShadow, clearReminderLink } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail, sendSecurityAlertEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush, sendSecurityAlertPush } from './pushNotifications.js'
@@ -77,6 +78,7 @@ import { repairPlan } from './vacationRepair.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
 import { fetchLiveModels, mergeCatalog } from './aiModelDiscovery.js'
+import { planReminderSync } from './reminderMerge.js'
 import {
   deriveTaskState, rolloverPlan, todayPayload, validateFirstStep, validateLocation,
   ymdInTz, isActiveStatus, COMMIT_CEILING, DEFAULT_TIMEZONE, intentTaskRows,
@@ -3507,6 +3509,88 @@ app.post('/api/apns/unregister', (req, res) => {
 
 app.post('/api/apns/test', async (req, res) => {
   res.json(await sendApnsTest())
+})
+
+// --- Apple Reminders two-way sync (2026-08-01) ---
+// EventKit is device-local, so the READING and WRITING must happen inside the
+// app — but the DECIDING does not, and doesn't here. The phone posts what it
+// sees, the server merges (server/reminderMerge.js, pure and tested), and the
+// phone writes back exactly what it's told. Same shape as the watch: keep the
+// intelligence central so a second device can never merge differently.
+app.post('/api/reminders/sync', (req, res) => {
+  const incoming = Array.isArray(req.body?.items) ? req.body.items : []
+  const tasks = getAllTasks()
+  const shadows = getReminderShadows()
+  const nowISO = new Date().toISOString()
+
+  const plan = planReminderSync(tasks, incoming, shadows, { nowISO })
+
+  // Apply the Boomerang side. The remote side is returned for the phone to
+  // write, because only the phone can touch EventKit.
+  const byId = new Map(tasks.map(t => [t.id, t]))
+  for (const { taskId, fields } of plan.toLocal) {
+    const t = byId.get(taskId)
+    if (t) upsertTask({ ...t, ...fields, last_touched: nowISO })
+  }
+
+  for (const c of plan.toCreateLocal) {
+    // The voice-capture path. capture_source marks where it came from so the
+    // eventual triage surface can tell a spoken capture from a typed one.
+    upsertTask({
+      id: crypto.randomUUID(),
+      title: c.title,
+      notes: c.notes || '',
+      status: 'not_started',
+      remind_at: c.remindAt || null,
+      reminders_id: c.remindersId,
+      capture_source: 'reminders',
+      created_at: nowISO,
+      last_touched: nowISO,
+    })
+  }
+
+  for (const taskId of plan.toUnlink) clearReminderLink(taskId)
+  for (const s of plan.shadows) setReminderShadow(s)
+
+  if (plan.held.length) {
+    for (const h of plan.held) console.log(`[reminders] held (${h.reason}): ${h.detail}`)
+  }
+
+  const version = bumpVersion()
+  broadcast(version, req.body?._clientId || null)
+  res.json({
+    toWrite: plan.toRemote,
+    applied: plan.toLocal.length + plan.toCreateLocal.length,
+    imported: plan.toCreateLocal.length,
+    unlinked: plan.toUnlink.length,
+    held: plan.held,
+    version,
+  })
+})
+
+// The phone reports back the ids EventKit assigned to newly-created reminders,
+// which is the only moment the link can be established.
+app.post('/api/reminders/link', (req, res) => {
+  const links = Array.isArray(req.body?.links) ? req.body.links : []
+  let linked = 0
+  for (const { taskId, remindersId } of links) {
+    if (!taskId || !remindersId) continue
+    const t = getTask(taskId)
+    if (!t) continue
+    upsertTask({ ...t, reminders_id: String(remindersId) })
+    setReminderShadow({
+      task_id: taskId,
+      reminders_id: String(remindersId),
+      title: t.title,
+      notes: t.notes || '',
+      remind_at: t.remind_at || null,
+      completed: false,
+    })
+    linked += 1
+  }
+  const version = bumpVersion()
+  broadcast(version, req.body?._clientId || null)
+  res.json({ linked, version })
 })
 
 // --- Model discovery for the tier pickers (2026-08-01) ---
