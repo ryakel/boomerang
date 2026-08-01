@@ -4,6 +4,23 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-01
+
+- feat(watch): show what's due when nothing has been committed [S]
+  - With the transport fixed, the wrist immediately showed its real blocker: *"Nothing committed yet — pick up to three on your phone."* Correct, and unactionable — **`committed_on` has no writer in the web app**, so the only surfaces that can commit are Siri and the watch itself. The watch worked and had nothing to display.
+  - **Fixed server-side, with no Xcode rebuild.** The watch renders `payload.committed` and cannot tell why a row is there, so `todayPayload()` now falls back to what is actually due — the same fallback the digest has always had. A server deploy alone puts tasks on the wrist.
+  - Rules match the digest so the wrist and the morning notification can't disagree: due today or earlier, crisis first then impact then oldest due date, capped at 3, **supervised chores excluded** (the owner's watch is not Camden's list), snoozed and future-dated left out.
+  - **A committed set is never padded.** One choice stays one — padding would overwrite a decision with a guess. `mode` (`committed` | `today` | `empty`) rides the payload so a future watch build can label a fallback list without implying you picked it; the current build ignores unknown keys, which is why this needed no rebuild.
+  - Fallback rows are identical in shape to committed ones — the watch must not be able to tell them apart. 9 new tests, weighted toward the refusals. Verified live on `/api/today`: nothing committed → 3 due tasks with the overdue one leading and Camden absent despite impact 3; after committing one → exactly that one, `mode: committed`.
+
+- docs(watch): the phone↔watch failure is CONFIRMED FIXED on device [XS]
+  - Open since 2026-07-26, closed today by two photographs. **VPN on** → the wrist rendered real server data (`23 in the pool`), a number that can only come from a successful `/api/today` fetch delivered over WatchConnectivity. **VPN off** → the wrist rendered *"Can't reach the server — check the VPN on your phone."*, the literal string from `handle()`'s catch block, which requires iOS to have background-launched the phone, received the message, run the handler and delivered the reply.
+  - The second case is the diagnostic one: a **string-only** reply always worked, a reply containing `NSNull` never did. `todayPayload()` emits `timer: null` unconditionally, `JSONSerialization` turns it into `NSNull`, and a WatchConnectivity dictionary may contain only property-list types — so 100% of data replies were silently dropped. Theory proved by the shipped `plistSafe()` scrub.
+  - **Everything the original investigation checked was healthy the whole time** — launch, pairing, signing, entitlements, App Groups, companion bundle id. The error read like a transport failure, so the payload was never examined; it was the only thing wrong. Recorded as a CLAUDE.md invariant, with the string-only-reply test as the standing diagnostic.
+  - The wrist also kept the previous `23 in the pool` beneath the error rather than blanking — failed stayed distinguishable from empty, on the surface where that matters most.
+  - **Surfaced by the fix, not a bug:** the watch now says *"Nothing committed yet — pick up to three on your phone."* It is correct and unactionable, because `committed_on` has no writer in the web app. A working watch now points straight at the pick-three gap.
+  - Docs only — no code changed.
+
 ## 2026-07-31
 
 - fix(kept): form hints uncrammed — the base theme's negative margin met the Kept cards [XS]
