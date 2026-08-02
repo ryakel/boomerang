@@ -8,7 +8,7 @@ Boomerang is built around the idea that dismissal is never free. Every "not now"
 
 <img src="images/kept-mobile-today.png" alt="Kept mobile Today view" width="390">
 
-*Today: Day Arc hero, "What now?" prompt, dated tasks, and today's loops.*
+*Today: Day Arc hero, "What now?" prompt, dated tasks, and today's loops. Every screenshot in this wiki is captured from a fictional [demo dataset](Screenshots).*
 
 ## Quick Start
 
@@ -30,6 +30,7 @@ Open `http://localhost:3001` and start adding tasks. API keys are optional — a
 **Getting started**
 - [Getting Started](Getting-Started) — setup, configuration, first run
 - [Features](Features) — what Boomerang does
+- [Screenshots](Screenshots) — the full gallery, mobile and desktop, light and dark
 - [Configuration](Configuration) — environment variables, API keys, settings
 - [Docker](Docker) — container setup, volumes, healthcheck, multi-arch
 - [Development](Development) — local dev setup, project structure
@@ -53,7 +54,7 @@ Open `http://localhost:3001` and start adding tasks. API keys are optional — a
 - [Activity Prompts Testing](Activity-Prompts-Testing) — manual test checklist for auto-roll/habit-mode/pattern-detection
 - [Testing Notification Stack](Testing-Notification-Stack) — end-to-end test sequence for the notification stack
 - [Local Verification Harness](Local-Verification-Harness) — running + screenshotting the app headlessly inside a session
-- [Screenshot Shot List](Screenshot-Shot-List) — capture instructions/checklist for documentation screenshots
+- [Screenshot Shot List](Screenshot-Shot-List) — superseded by the scripted capture in [Screenshots](Screenshots); kept for the framing conventions
 
 **Operations & reference**
 - [Security Notes](Security-Notes) — credential storage, threat model, what's protective and what isn't

@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-08-02
 
+- docs(screenshots): a demo dataset, and every published image re-shot from it [M]
+  - Asked for web + PWA screenshots of a **demo** app — *"NOT WITH MY DATA"* — for the README and the wiki.
+  - **The existing wiki images were the problem, not just a gap.** They were captured from `scripts/seed-data.json`, and that seed is modelled on the real user's life: "Sweep garage", "Find cleaning person", "IFR Studying" appear in both the seed and the user's own screenshots of their live app. Those titles have been on the public wiki since 2026-07-26. All 20 are replaced in place, so every page that embeds them updates without an edit.
+  - `scripts/make-demo-data.mjs` → `scripts/demo-data.json`: 30 tasks, 9 loops, 10 labels, deliberately fictional and shaped to fill every surface a reader meets — two genuinely overdue, a today list carrying reminders, one task waiting on someone else, a project with subtasks, a long undated tail, and enough completions today that the points arc isn't at zero. Dates are emitted relative to *now*, so a regenerated file is always current.
+  - `SEED_FILE` env override on the seeder (dev-gated like the rest of the seed path) points it at a different dataset without touching the dev seed.
+  - `seed_adherence` per dataset: 0.93 for the demo, 0.8 for dev. At 0.8 every loop card rendered a red **"5 to fix"** chip — accurate for a dev DB, and a wall of failure as a showcase. At 0.93 the trails read as habits being kept while the "to fix" affordance still appears doing its job.
+  - `scripts/capture-screenshots.mjs` drives all 24 shots (mobile @3x, desktop @2x, light and dark) with the filenames the docs already reference. Steps that depend on an integration fail **softly** — one skipped shot beats losing the other twenty. Selectors were read off the live DOM rather than guessed; three rounds of "reasonable-looking" guesses had silently skipped exactly the six files that would have kept stale data.
+  - The **Quokka** panel is now *not* published: its opening state renders AI-suggested starter prompts, so with no API key it is three empty skeleton rows — a screenshot of a loading state. Better absent than broken.
+  - Quantised to a 256-colour palette before committing: **6.3 MB → 2.4 MB**, visually lossless on flat UI, and it matters because every re-shot image is a permanent new blob in git history.
+  - New `wiki/Screenshots.md` gallery + reproduction steps; README gains a screenshots section; `Screenshot-Shot-List.md` marked superseded by the script.
+  - `npm test` 286/286 + smoke, eslint 0 errors, every image reference in README and wiki verified to resolve. Docs + dev scripts only — no runtime change, **no rebuild**.
 - fix(throw): the sheet stops bouncing when you tap a chip [S]
   - Reported as *"New task shows up with the bar like half way up the screen. Click on reminders or tasks and it drops. If at any point I click in the text box it shoots it again."*
   - **Not a regression** — the same dead band is visible in the first Throw-sheet screenshot of the session, before any reminder work. Two separate long-standing defects that the new mode toggle made obvious by giving the sheet three buttons people tap while typing.
