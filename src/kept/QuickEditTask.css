@@ -131,6 +131,20 @@
 }
 .wb-edit-empty { color: var(--wb-text-meta); font-size: 13px; }
 
+/* The absorption nudge — a quiet sentence at the decision point, not an alert.
+ * It answers "what happens to my reminder?" before the conversion, which is
+ * the only moment the answer is still actionable. */
+.wb-edit-nudge {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--wb-surface-2, rgba(127, 127, 127, 0.09));
+  color: var(--wb-text-meta);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.wb-edit-repeat-n { max-width: 78px; flex: 0 0 auto; }
+
 /* ── Footer ────────────────────────────────────────────────────────────────── */
 .wb-edit-footer {
   display: flex;

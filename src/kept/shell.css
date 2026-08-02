@@ -317,6 +317,30 @@
 .bm-throw-actions { display: flex; gap: 9px; }
 .bm-throw-actions .bm-btn-fill { flex: 1 1 auto; }
 
+/* Remind sits on its own row under the day chips — a different axis (moment,
+   not day), and the picker it reveals needs the full width. */
+.bm-throw-remind { margin-bottom: 12px; }
+.bm-throw-remind .bm-pick { display: inline-flex; align-items: center; gap: 7px; }
+.bm-throw-remind-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  border: 1px solid var(--bm-hairline-strong);
+  border-radius: 12px;
+  background: var(--bm-bg);
+  color: var(--bm-text);
+  font: 500 15px/1.4 var(--v2-font-body);
+  padding: 11px 14px;
+}
+.bm-throw-remind-input:focus { outline: none; border-color: var(--bm-ember); }
+
+.bm-reminders-new {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%;
+  margin-bottom: 14px;
+}
+
 @keyframes bm-fade { from { opacity: 0 } to { opacity: 1 } }
 @keyframes bm-rise { from { transform: translateY(100%) } to { transform: translateY(0) } }
 

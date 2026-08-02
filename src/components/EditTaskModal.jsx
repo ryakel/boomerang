@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Sparkles, Trash2, FolderKanban, Archive, Plus, X as XIcon, Search, Paperclip, FileText, Sun, ChevronDown, ChevronRight, RotateCw, BookOpen } from 'lucide-react'
-import { loadLabels, loadSettings, ENERGY_TYPES, STATUS_META, uuid, localYMD } from '../store'
+import { loadLabels, loadSettings, ENERGY_TYPES, STATUS_META, uuid, localYMD, getNextDueDate } from '../store'
+import { planLoopAbsorption } from '../loopAbsorb'
 import { useTaskForm } from '../hooks/useTaskForm'
 import { researchTask } from '../api'
 import WeatherSection, { resolveWeatherVisibility } from './WeatherSection'
@@ -483,6 +484,31 @@ export default function EditTaskModal({
     onStatusChange(task.id, newStatus)
   }
 
+  // Reminder absorption, identical to the quick editor's (src/loopAbsorb.js) —
+  // the rule belongs to the CONVERSION, not to one of the two editors that can
+  // perform it. Splitting it would mean converting from here silently produced
+  // a loop that never rings while converting from there produced one that does.
+  const loopAbsorb = useMemo(() => {
+    if (task.routine_id) return null
+    const draft = {
+      cadence,
+      custom_days: cadence === 'custom' ? Math.max(1, Number(customDays) || 1) : null,
+      custom_unit: customUnit,
+      schedule_day_of_week: null,
+      created_at: new Date().toISOString(),
+      completed_history: [],
+    }
+    let firstSpawn
+    try { firstSpawn = getNextDueDate(draft) } catch { firstSpawn = null }
+    return planLoopAbsorption({
+      remindAt: form.remindAt || null,
+      firstSpawn,
+      cadence,
+      customDays: cadence === 'custom' ? customDays : null,
+      customUnit,
+    })
+  }, [task.routine_id, cadence, customDays, customUnit, form.remindAt])
+
   const handleConvertToRoutine = () => {
     if (!form.title.trim()) return
     onConvertToRoutine(task.id, {
@@ -492,6 +518,9 @@ export default function EditTaskModal({
       customUnit: cadence === 'custom' ? customUnit : undefined,
       tags: form.selectedTags,
       notes: form.notes,
+      triggerTime: loopAbsorb?.absorb ? loopAbsorb.triggerTime : null,
+      remind: !!loopAbsorb?.absorb,
+      clearTaskRemind: !!loopAbsorb?.clearTaskRemind,
     })
   }
 
@@ -1410,6 +1439,9 @@ export default function EditTaskModal({
             <button className="v2-edit-routine-confirm" onClick={handleConvertToRoutine}>Convert</button>
             <button className="v2-edit-routine-cancel" onClick={() => setMakeRecurring(false)}>Cancel</button>
           </div>
+          {/* Just-in-time: what becomes of this task's reminder, said before
+              the Convert button is pressed rather than discovered after. */}
+          {loopAbsorb?.nudge && <div className="v2-edit-routine-nudge">{loopAbsorb.nudge}</div>}
         </div>
       )}
 
