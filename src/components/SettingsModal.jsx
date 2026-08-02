@@ -2366,25 +2366,28 @@ function NotificationsPanel({ settings, update, page, setPage }) {
             </div>
           </div>
         )}
+        {/* A row shows its VALUE at rest and folds the explanation behind the ⓘ
+          * (§1.5). The first cut of this printed four lines of prose at every
+          * reader forever, which is the exact pattern the settings redesign
+          * existed to delete. The value here is the count iOS actually holds. */}
         {isNativeShell() && (
-          <div className="v2-settings-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
-            <div className="v2-settings-row-text">
-              <div className="v2-settings-row-label">Reminder alarms (on this device)</div>
-              <div className="v2-settings-row-hint">
+          <SettingRow
+            label="Reminder alarms"
+            value={localMsg || (localPending == null ? '' : `${localPending} scheduled`)}
+            info={
+              <>
                 Tasks with a reminder time, and loops set to remind, are scheduled as local
-                alarms on this phone. They ring with <strong>no network, no VPN and no server</strong> —
+                alarms on this phone — they ring with no network, no VPN and no server, because
                 the phone fires them itself. iOS allows 64 pending at once; a repeating loop
-                costs one of those no matter how far ahead it runs.
-                {localPending != null && ` Currently ${localPending} scheduled.`}
-                {localMsg && ` ${localMsg}`}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+                costs one of those however far ahead it runs.
+              </>
+            }
+            trailing={
               <button className="v2-settings-btn" onClick={handleLocalEnable} disabled={localBusy}>
                 {localBusy ? 'Working…' : 'Enable + refresh'}
               </button>
-            </div>
-          </div>
+            }
+          />
         )}
 
         {apnsStatus?.configured && apnsStatus?.devices > 0 && (
