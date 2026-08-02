@@ -113,9 +113,9 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
       created_at: new Date().toISOString(),
       completed_history: [],
     }
-    let firstSpawn = null
     // getNextDueDate owns the cadence grid; a throw here must not take the
     // editor down with it — the conversion is still valid without a nudge.
+    let firstSpawn
     try { firstSpawn = getNextDueDate(draft) } catch { firstSpawn = null }
     return planLoopAbsorption({
       remindAt: form.remindAt || null,

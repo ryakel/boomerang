@@ -186,6 +186,8 @@ When the task carries a reminder, the loop **absorbs** it if the loop's first cy
 
 You're told which of those is about to happen **before** you convert — a quiet line under the cadence picker that updates as you change the cadence. Rule lives in `src/loopAbsorb.js`, pinned by `scripts/loopAbsorb.test.mjs`.
 
+One knock-on worth knowing: absorbing sets the loop's **trigger time**, and a loop with a trigger time surfaces its task *at* that time rather than first thing in the morning. For a reminder-shaped loop that's the point — "interrupt me at 10:43" shouldn't also clutter breakfast — but it does mean the task won't be sitting in Today before then.
+
 ## Notes
 
 A place to leave a thought without creating a task. Notes have **no task semantics** — no due date, no status, no points, no nagging, and they never count toward pile-up warnings or analytics.
