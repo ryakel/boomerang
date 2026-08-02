@@ -182,7 +182,16 @@ public class BoomerangReminders: CAPPlugin, CAPBridgedPlugin {
             if let remindAt = item["remindAt"] as? String, let date = Self.date(from: remindAt) {
                 reminder.dueDateComponents = Calendar.current.dateComponents(
                     [.year, .month, .day, .hour, .minute], from: date)
-                reminder.addAlarm(EKAlarm(absoluteDate: date))
+                // WHO RINGS. Once the app schedules its own local
+                // notifications, this mirror must NOT also carry an alarm or
+                // the same moment fires twice. The reminder keeps its due date
+                // — still visible in Apple's app, still tickable, completion
+                // still syncs back — it just stops being a second bell.
+                // Absent flag means true, so an older client keeps the alarm.
+                let wantsAlarm = (item["alarm"] as? Bool) ?? true
+                if wantsAlarm {
+                    reminder.addAlarm(EKAlarm(absoluteDate: date))
+                }
             } else {
                 reminder.dueDateComponents = nil
             }

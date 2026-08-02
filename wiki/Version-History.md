@@ -15,6 +15,23 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - **Server-side, not localStorage.** "I deleted this" has to survive a reinstall and a second device; a per-device dismissal would resurrect everything the first time the app is opened somewhere new. Un-burying is supported (`DELETE`), so a tombstone is not a life sentence.
   - Card archiving on Trello delete is kept — it keeps Trello tidy — but it is explicitly no longer what *prevents* re-import.
   - Verified against a live server: burial, filtering by source, idempotent re-add (no duplicate rows), and un-bury. `npm test` 274/274 + smoke, eslint 0 errors. Web + server only — **no rebuild**.
+- fix(reminders): one moment, one bell — the Apple mirror stops ringing when the device does [S]
+  - With both halves live, a task with a reminder time would have fired **twice**: once from the local notification iOS schedules, once from the `EKAlarm` written into the Boomerang list. Two bells for one moment is the exact failure the whole design exists to avoid, and it would have arrived the first time both were switched on.
+  - Once this device schedules its own local notifications, the mirrored reminder gets its due date but **no alarm**. It stays fully useful — visible in Apple's app, tickable, completion still syncs back — it just stops being a second bell. Apple settles into the input/mirror role rather than the ringer.
+  - The flag defaults to **true when absent**, so an older client that doesn't send it keeps the alarm and nothing goes quiet during a partial rollout.
+  - Tracked per-DEVICE (`safeSetItem`), because ringing is a property of the phone that has permission, not of the account. A second device without local notifications keeps getting its alarm from Apple.
+
+
+- feat(reminders): local notifications — reminders that ring with no server, no VPN, no network [L]
+  - The second half of the planner. `BoomerangLocalNotifs.swift` hands iOS the schedule ahead of time and the **device** fires it: airplane mode, dead tailnet, server off — it still rings. That is the property the whole redesign was for, after the realisation that a 7:30pm reminder cannot depend on a laptop-shaped server at home being reachable from abroad.
+  - **The plugin decides nothing.** Which loops repeat, what fills the remaining slots, what gets dropped — all of that is `src/reminderSchedule.js`, pure and tested. Swift only schedules what it is handed, the same dumb-pipe split as the watch bridge and the EventKit plugin, and for the same reason: a decision made on-device cannot be tested and can differ between phones.
+  - **Replace, never append.** `schedule()` cancels everything under the `boomerang:` prefix and re-adds. Ids are stable, so refreshing on every app open replaces in place — appending would fire the same alarm twice, then three times, then once per launch since install. The prefix scoping matters as much: an unprefixed sweep would delete APNs banners and anything a future feature schedules.
+  - **The count comes from iOS, not from us.** After scheduling, `getPendingNotificationRequests` is re-read and *that* number is reported. What we think we added and what the system holds are different things, and only one of them will ring.
+  - **Refusing loudly beats scheduling into the void**: without authorization every `add()` silently no-ops, so `schedule()` rejects instead of reporting a schedule the device does not hold. Same reasoning as the EventKit read that rejects rather than resolving empty.
+  - JS numbers cross the Capacitor bridge as `Int`, `NSNumber` or `Double` depending on the value — `as? Int` alone silently fails on a Double and the alarm loses its hour. Coerced through one helper.
+  - Wiring: a **debounced** (1.5s) refresh on tasks/routines change, because the task list churns during a sync and re-scheduling on every intermediate state would cancel-and-re-add dozens of times for one settled result. Overlapping refreshes are refused — the loser's adds can land after the winner's cancel and vanish.
+  - Settings → Notifications gains an "on this device" row (the alarm is a Boomerang delivery surface, unlike the Apple Reminders *integration*), reporting what iOS actually holds and **saying how many were dropped past the 64-slot cap** — an alarm that never rings and never explains itself is this feature's worst failure.
+  - Verified in a browser: no page errors, Notifications renders, and the row is correctly absent off-device. `npm test` 274/274 + smoke. **The Swift is uncompiled** — no Mac here — so it has had the same line-by-line review the EventKit plugin got, and needs an Xcode rebuild.
 
 
 - feat(reminders): the local-notification schedule planner [S]

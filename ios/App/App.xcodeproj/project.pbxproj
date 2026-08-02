@@ -19,6 +19,7 @@
 		5C0A11D2E00000000000B004 /* BoomerangViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A11D2E00000000000B003 /* BoomerangViewController.swift */; };
 		5C0A11D2E00000000000B006 /* BoomerangNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A11D2E00000000000B005 /* BoomerangNative.swift */; };
 		5C0A11D2E00000000000B106 /* BoomerangReminders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A11D2E00000000000B105 /* BoomerangReminders.swift */; };
+		5C0A11D2E00000000000B206 /* BoomerangLocalNotifs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A11D2E00000000000B205 /* BoomerangLocalNotifs.swift */; };
 		5C0A220000000000000E0008 /* BoomerangIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A220000000000000E0007 /* BoomerangIntents.swift */; };
 		5C0A220000000000000E0010 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A220000000000000E0001 /* ShareViewController.swift */; };
 		5C0A220000000000000E0011 /* ShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5C0A220000000000000E0005 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -48,6 +49,7 @@
 		5C0A11D2E00000000000B003 /* BoomerangViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoomerangViewController.swift; sourceTree = "<group>"; };
 		5C0A11D2E00000000000B005 /* BoomerangNative.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoomerangNative.swift; sourceTree = "<group>"; };
 		5C0A11D2E00000000000B105 /* BoomerangReminders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoomerangReminders.swift; sourceTree = "<group>"; };
+		5C0A11D2E00000000000B205 /* BoomerangLocalNotifs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoomerangLocalNotifs.swift; sourceTree = "<group>"; };
 		5C0A220000000000000E0007 /* BoomerangIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoomerangIntents.swift; sourceTree = "<group>"; };
 		5C0A220000000000000E0001 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		5C0A220000000000000E0002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -144,6 +146,7 @@
 				5C0A11D2E00000000000B003 /* BoomerangViewController.swift */,
 				5C0A11D2E00000000000B005 /* BoomerangNative.swift */,
 				5C0A11D2E00000000000B105 /* BoomerangReminders.swift */,
+				5C0A11D2E00000000000B205 /* BoomerangLocalNotifs.swift */,
 				5C0A220000000000000E0007 /* BoomerangIntents.swift */,
 				5C0AC0000000000000000007 /* WatchBridge.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -376,6 +379,7 @@
 				5C0A11D2E00000000000B004 /* BoomerangViewController.swift in Sources */,
 				5C0A11D2E00000000000B006 /* BoomerangNative.swift in Sources */,
 				5C0A11D2E00000000000B106 /* BoomerangReminders.swift in Sources */,
+				5C0A11D2E00000000000B206 /* BoomerangLocalNotifs.swift in Sources */,
 				5C0A220000000000000E0008 /* BoomerangIntents.swift in Sources */,
 				5C0AC0000000000000000010 /* WatchBridge.swift in Sources */,
 				5C0AC0000000000000000011 /* WatchProtocol.swift in Sources */,
