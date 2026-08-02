@@ -264,6 +264,12 @@
   box-shadow: var(--bm-shadow-pop);
   animation: bm-rise 240ms cubic-bezier(0.3, 1.2, 0.4, 1);
 }
+/* Lifted above the keyboard: the home indicator is behind the keyboard, so the
+ * safe-area reservation in the padding above is no longer protecting anything
+ * — it just paints a band of dead sheet-coloured space between the action
+ * button and the keyboard, which reads as the sheet floating mid-screen rather
+ * than resting on top of it. */
+.bm-sheet.is-lifted { padding-bottom: 14px; }
 .bm-sheet-handle {
   display: flex; justify-content: center;
   padding: 10px 0 6px;

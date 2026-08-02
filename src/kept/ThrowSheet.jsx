@@ -41,6 +41,8 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
   const [dateId, setDateId] = useState('none')
   const [mode, setMode] = useState('task')
   const [remindAt, setRemindAt] = useState('')
+  // True while the keyboard is up and the sheet is translated above it.
+  const [lifted, setLifted] = useState(false)
   const inputRef = useRef(null)
   const sheetRef = useRef(null)
   // The keyboard-occlusion offset below (px, <= 0) — kept in a ref rather
@@ -73,6 +75,12 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
       const occluded = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
       kbOffsetRef.current = occluded > 0 ? -occluded : 0
       applyExtraOffset(0)
+      // The sheet reserves home-indicator space in its bottom padding. Once
+      // the keyboard covers the home indicator that reservation is just a band
+      // of dead sheet-coloured space between the action button and the
+      // keyboard — which is what made the sheet read as floating in the middle
+      // of the screen rather than sitting on top of the keyboard.
+      setLifted(occluded > 0)
     }
     update()
     vv.addEventListener('resize', update)
@@ -80,6 +88,7 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
     return () => {
       kbOffsetRef.current = 0
       applyExtraOffset(0)
+      setLifted(false)
       vv.removeEventListener('resize', update)
       vv.removeEventListener('scroll', update)
     }
@@ -132,6 +141,14 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
     if (m === 'reminder' && !remindAt) setRemindAt(localDateTimeValue(nextHalfHour()))
   }
 
+  // Tapping a chip must not blur the title input. A blur closes the keyboard,
+  // which drops the sheet; the next tap in the text box reopens it and the
+  // sheet jumps back up. That up-down churn is the bug — reported as "click on
+  // reminders or tasks and it drops. If at any point I click in the text box it
+  // shoots it again." preventDefault on mousedown suppresses the focus
+  // transfer while leaving the click itself intact.
+  const keepFocus = (e) => e.preventDefault()
+
   const HEADINGS = { task: 'Throw a task', reminder: 'Set a reminder', note: 'Leave a note' }
   const PLACEHOLDERS = {
     task: 'What needs doing?',
@@ -142,16 +159,20 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
 
   return (
     <div className="bm-sheet-backdrop" onClick={closeAndBlur}>
-      <div className="bm-sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
+      <div
+        className={`bm-sheet${lifted ? ' is-lifted' : ''}`}
+        ref={sheetRef}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="bm-sheet-handle" {...handleProps}>
           <div className="bm-grabber" />
         </div>
         <div className="bm-throw-mode-row">
           <h3 className="bm-sheet-title">{HEADINGS[mode]}</h3>
           <div className="bm-throw-mode">
-            <button className={`bm-pick${mode === 'task' ? ' is-on' : ''}`} onClick={() => pickMode('task')}>Task</button>
-            <button className={`bm-pick${mode === 'reminder' ? ' is-on' : ''}`} onClick={() => pickMode('reminder')}>Reminder</button>
-            <button className={`bm-pick${mode === 'note' ? ' is-on' : ''}`} onClick={() => pickMode('note')}>Note</button>
+            <button className={`bm-pick${mode === 'task' ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => pickMode('task')}>Task</button>
+            <button className={`bm-pick${mode === 'reminder' ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => pickMode('reminder')}>Reminder</button>
+            <button className={`bm-pick${mode === 'note' ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => pickMode('note')}>Note</button>
           </div>
         </div>
         <input
@@ -166,7 +187,7 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
         {mode === 'task' && (
           <div className="bm-chip-row">
             {DATES.map(d => (
-              <button key={d.id} className={`bm-pick${dateId === d.id ? ' is-on' : ''}`} onClick={() => setDateId(d.id)}>{d.label}</button>
+              <button key={d.id} className={`bm-pick${dateId === d.id ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => setDateId(d.id)}>{d.label}</button>
             ))}
           </div>
         )}
