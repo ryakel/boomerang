@@ -33,6 +33,27 @@ export function localYMD(d = new Date()) {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
 }
 
+// → 'YYYY-MM-DDTHH:MM' local, the value shape <input type="datetime-local">
+//   requires. NOT toISOString().slice(0,16) — that is UTC, and it would seed
+//   every picker hours off wherever the user isn't on UTC.
+export function localDateTimeValue(d = new Date()) {
+  const x = d instanceof Date ? d : new Date(d)
+  if (Number.isNaN(x.getTime())) return ''
+  const p = (n) => String(n).padStart(2, '0')
+  return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}T${p(x.getHours())}:${p(x.getMinutes())}`
+}
+
+// A sane default moment for a reminder picker: the next :00 or :30 at least
+// five minutes out. Seeding "now" would hand back a moment that is already
+// gone by the time the sheet is dismissed, and iOS silently discards a local
+// notification scheduled in the past.
+export function nextHalfHour(from = new Date()) {
+  const x = new Date(from.getTime() + 5 * 60 * 1000)
+  x.setSeconds(0, 0)
+  x.setMinutes(x.getMinutes() <= 30 ? 30 : 60)
+  return x
+}
+
 // → new Date offset by n days (local-calendar aware via setDate).
 export function addDays(d, n) {
   const x = parseLocalDate(d)
