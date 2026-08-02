@@ -16,6 +16,8 @@ Directions worth weighing when this is picked up, roughly cheapest first:
 
 Whatever wins has to keep the property the current sheet does have: capture never blocks on a decision the user hasn't already made.
 
+**Known and deliberately not fixed (2026-08-02): the top edge moves between modes.** The sheet is bottom-anchored, and each mode's second row is a different height — day chips, a date-and-time picker, nothing — so switching modes changes the sheet's height and therefore where its top edge sits. Noted, not fixed: pinning it would mean giving every mode the tallest mode's row, which pays for the variance with permanent dead space in the two cheaper modes. A redesign that drops the in-place toggle (directions 2 and 3 above) removes the problem rather than padding around it.
+
 ## Parked 2026-08-01 — next pickup
 
 Four items identified during the watch-connectivity / away-mode session, with verified current state, the decision each one blocks on, and its failure mode: `wiki/Parked-20260801.md`. Two overlap the 2026-07-25 recs below (rec 1 and rec 5) — the parked page carries what's since been verified in the tree.
