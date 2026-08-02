@@ -2824,3 +2824,39 @@ export function clearReminderLink(taskId) {
   db.run('DELETE FROM reminder_shadows WHERE task_id = ?', [taskId])
   db.run('UPDATE tasks SET reminders_id = NULL WHERE id = ?', [taskId])
 }
+
+// --- Remote tombstones (2026-08-01) ----------------------------------------
+// "I deleted this on purpose, stop re-importing it." See migration 052.
+// Every sync-in path must consult these BEFORE creating a task, or a deleted
+// item returns on the next poll forever.
+
+export function getRemoteTombstones(source = null) {
+  const sql = source
+    ? 'SELECT source, remote_id, title, deleted_at FROM remote_tombstones WHERE source = ?'
+    : 'SELECT source, remote_id, title, deleted_at FROM remote_tombstones'
+  const res = source ? db.exec(sql, [source]) : db.exec(sql)
+  return res[0]?.values.map(v => ({
+    source: v[0], remote_id: v[1], title: v[2], deleted_at: v[3],
+  })) || []
+}
+
+export function addRemoteTombstone({ source, remote_id, title = null }) {
+  if (!source || !remote_id) return false
+  db.run(
+    `INSERT INTO remote_tombstones (source, remote_id, title, deleted_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(source, remote_id) DO UPDATE SET deleted_at=excluded.deleted_at`,
+    [String(source), String(remote_id), title, new Date().toISOString()],
+  )
+  return true
+}
+
+// Deliberate un-delete: re-linking a remote item you actually do want back.
+// Without this a tombstone would be permanent and the only escape would be
+// editing the database by hand.
+export function removeRemoteTombstone({ source, remote_id }) {
+  if (!source || !remote_id) return false
+  db.run('DELETE FROM remote_tombstones WHERE source = ? AND remote_id = ?',
+    [String(source), String(remote_id)])
+  return true
+}

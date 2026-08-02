@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask } from '../store'
+import { fetchTombstones } from '../api'
 import { trelloSyncAllLists, trelloUpdateCard, trelloBoardLists, inferTrelloListMapping, aiDedupTrelloCards } from '../api'
 import { deduplicateImports, remoteLog } from '../syncDedup'
 
@@ -177,7 +178,12 @@ export function useTrelloSync(tasks, setTasks, changeStatus) {
     const tasksToAdd = []
     const tasksToUpdate = []
 
+    // Cards whose task was deleted on purpose. Archiving the card on delete is
+    // best-effort and its rejection was swallowed, so it could never be the
+    // thing that prevented re-import — this is.
+    const buriedCards = new Set((await fetchTombstones('trello').catch(() => [])).map(t => t.remote_id))
     for (const { card, status } of newCards) {
+      if (buriedCards.has(card.id)) continue
       const matchedTaskId = matchMap.get(card.id)
       if (matchedTaskId) {
         // Auto-link existing task
