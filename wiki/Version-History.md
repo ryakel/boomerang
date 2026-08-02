@@ -4,6 +4,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-02
+
+- style(settings): the alarms row shows a value, not a paragraph [XS]
+  - Caught on device: *"you done forgot that we tuck away description text unless it's asked for."* Correct — the new Reminder-alarms row printed four lines of prose at every reader forever, which is precisely the pattern the settings redesign existed to delete (§1.5: descriptions are optional, subordinate, and folded behind an ⓘ).
+  - Rebuilt as a `SettingRow`: **value at rest** (the pending count iOS actually holds, or the last result), explanation behind the ⓘ, button trailing. Matches the Push / Email / Quiet-hours rows beside it instead of being a prose exception like the APNs block.
+  - Unrelated but confirmed in the same screenshot: the local-notification plugin **compiles and runs** — the row rendered on a real build. `0 repeating, 0 one-off` is correct rather than a failure: `routines.remind` is opt-in and defaults off, and no task had a future reminder time yet.
+
 ## 2026-08-01
 
 - fix(sync): deleting an imported task stops resurrecting it [M]
