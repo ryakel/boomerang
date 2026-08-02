@@ -14,6 +14,7 @@
 
 import { registerPlugin } from '@capacitor/core'
 import { isNativeShell, readJson } from './apiConfig'
+import { localRemindersOwnAlarms } from './localReminders'
 
 const Reminders = registerPlugin('BoomerangReminders')
 
@@ -68,7 +69,12 @@ export async function syncReminders({ silent = true } = {}) {
     // 3. write, then report the new ids home
     let linked = 0
     if (plan.toWrite?.length) {
-      const written = await Reminders.write({ items: plan.toWrite })
+      // Who rings? If this device schedules its own local notifications, the
+      // mirrored reminder gets a due date but NO alarm — otherwise the same
+      // moment fires twice, which is precisely the alert fatigue this whole
+      // design exists to avoid.
+      const alarm = !localRemindersOwnAlarms()
+      const written = await Reminders.write({ items: plan.toWrite.map(i => ({ ...i, alarm })) })
       if (written?.links?.length) {
         const linkRes = await fetch('/api/reminders/link', {
           method: 'POST',

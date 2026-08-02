@@ -15,6 +15,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - **Server-side, not localStorage.** "I deleted this" has to survive a reinstall and a second device; a per-device dismissal would resurrect everything the first time the app is opened somewhere new. Un-burying is supported (`DELETE`), so a tombstone is not a life sentence.
   - Card archiving on Trello delete is kept — it keeps Trello tidy — but it is explicitly no longer what *prevents* re-import.
   - Verified against a live server: burial, filtering by source, idempotent re-add (no duplicate rows), and un-bury. `npm test` 274/274 + smoke, eslint 0 errors. Web + server only — **no rebuild**.
+- fix(reminders): one moment, one bell — the Apple mirror stops ringing when the device does [S]
+  - With both halves live, a task with a reminder time would have fired **twice**: once from the local notification iOS schedules, once from the `EKAlarm` written into the Boomerang list. Two bells for one moment is the exact failure the whole design exists to avoid, and it would have arrived the first time both were switched on.
+  - Once this device schedules its own local notifications, the mirrored reminder gets its due date but **no alarm**. It stays fully useful — visible in Apple's app, tickable, completion still syncs back — it just stops being a second bell. Apple settles into the input/mirror role rather than the ringer.
+  - The flag defaults to **true when absent**, so an older client that doesn't send it keeps the alarm and nothing goes quiet during a partial rollout.
+  - Tracked per-DEVICE (`safeSetItem`), because ringing is a property of the phone that has permission, not of the account. A second device without local notifications keeps getting its alarm from Apple.
+
+
 - feat(reminders): local notifications — reminders that ring with no server, no VPN, no network [L]
   - The second half of the planner. `BoomerangLocalNotifs.swift` hands iOS the schedule ahead of time and the **device** fires it: airplane mode, dead tailnet, server off — it still rings. That is the property the whole redesign was for, after the realisation that a 7:30pm reminder cannot depend on a laptop-shaped server at home being reachable from abroad.
   - **The plugin decides nothing.** Which loops repeat, what fills the remaining slots, what gets dropped — all of that is `src/reminderSchedule.js`, pure and tested. Swift only schedules what it is handed, the same dumb-pipe split as the watch bridge and the EventKit plugin, and for the same reason: a decision made on-device cannot be tested and can differ between phones.

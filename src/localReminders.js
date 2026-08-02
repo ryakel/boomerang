@@ -13,6 +13,7 @@
 
 import { registerPlugin } from '@capacitor/core'
 import { isNativeShell } from './apiConfig'
+import { safeSetItem } from './store'
 import { planLocalReminders } from './reminderSchedule'
 
 const Notifs = registerPlugin('BoomerangLocalNotifs')
@@ -33,6 +34,10 @@ export async function requestLocalReminderPermission() {
           || 'Notification permission denied. Enable it in iOS Settings → Boomerang → Notifications.',
       }
     }
+    // Recorded per-DEVICE: this phone now rings for itself, so the Apple
+    // Reminders mirror must stop attaching its own alarm or every reminder
+    // fires twice. See localRemindersOwnAlarms().
+    safeSetItem('boom_local_notifs_ok', '1')
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err?.message || 'Could not ask for notification permission.' }
@@ -103,4 +108,15 @@ function counts(plan) {
     // avoid — a reminder that never rings and never explains itself.
     dropped: plan.dropped.length,
   }
+}
+
+// Does THIS DEVICE ring for itself?
+//
+// When it does, the reminder written into Apple Reminders must carry no alarm,
+// or the same moment fires twice — once from iOS's local notification and once
+// from the EKAlarm. The mirror stays useful (visible in Apple's app, tickable,
+// syncs completion back); it just stops being a second bell.
+export function localRemindersOwnAlarms() {
+  if (!isNativeShell()) return false
+  try { return localStorage.getItem('boom_local_notifs_ok') === '1' } catch { return false }
 }
