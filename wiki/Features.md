@@ -178,6 +178,14 @@ A **due date is a day**; a **reminder is a moment**. Any task can carry one, and
 
 **Loops can ring too.** A recurring loop set to remind (Loop editor → *Remind*) schedules one repeating alarm on the phone rather than one per occurrence — which is what makes an offline stretch survivable: a daily loop costs a single slot no matter how far out it runs.
 
+### Turning a reminder into a loop
+
+Both editors can convert a task into a loop — the quick editor's **Repeats** chip (pick a cadence, tap *Make it a loop*) and the full editor's **Make recurring**. Either way it converts in place from what's already on screen: title, notes, tags and the reminder all come along, no retyping.
+
+When the task carries a reminder, the loop **absorbs** it if the loop's first cycle already covers that moment — the loop takes the reminder's time of day as its trigger and rings at it every cycle from then on. If the reminder falls *outside* the first cycle (most often: it's sooner than the loop's first spawn), it stays a standalone one-off and you get that one, then the loop takes over. A reminder whose time has already passed is absorbed and cleared, since there's nothing left to fire.
+
+You're told which of those is about to happen **before** you convert — a quiet line under the cadence picker that updates as you change the cadence. Rule lives in `src/loopAbsorb.js`, pinned by `scripts/loopAbsorb.test.mjs`.
+
 ## Notes
 
 A place to leave a thought without creating a task. Notes have **no task semantics** — no due date, no status, no points, no nagging, and they never count toward pile-up warnings or analytics.
