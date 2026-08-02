@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { AlarmClock, X } from 'lucide-react'
+import { AlarmClock, Plus, X } from 'lucide-react'
 import { localYMD } from '../dates'
 import './shell.css'
 
@@ -24,7 +24,7 @@ const fmt = (iso, withDay) => {
 
 const ACTIVE = ['not_started', 'doing', 'waiting']
 
-export default function RemindersView({ tasks = [], onOpenTask, onClearReminder }) {
+export default function RemindersView({ tasks = [], onOpenTask, onClearReminder, onNewReminder }) {
   const groups = useMemo(() => {
     const now = Date.now()
     const today = localYMD()
@@ -74,10 +74,19 @@ export default function RemindersView({ tasks = [], onOpenTask, onClearReminder 
   // repeating it inside the body printed the word twice down the page.
   return (
     <div className="bm-surface">
+      {onNewReminder && (
+        // A lens over tasks still needs a way to MAKE one. Without this the
+        // surface that exists to answer "what is about to go off" was the one
+        // place in the app you could not set something off.
+        <button className="bm-btn bm-btn-fill bm-reminders-new" onClick={onNewReminder}>
+          <Plus size={15} strokeWidth={2.2} /> New reminder
+        </button>
+      )}
+
       {total === 0 && (
         <p className="bm-empty">
-          Nothing set. Open a task and use the <strong>Remind</strong> chip to give it a time —
-          it rings through Apple Reminders.
+          Nothing set. Throw a task and tap <strong>Remind</strong>, or open any task and use its
+          Remind chip to give it a time.
         </p>
       )}
 

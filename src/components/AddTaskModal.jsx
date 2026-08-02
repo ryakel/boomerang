@@ -19,7 +19,14 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
   // opened, so `initial` only ever needs to be read once here — no reset
   // logic required. `initialDraft` seeds a title/date handed off from
   // ThrowSheet's "More options" (previously dropped on the floor).
-  const form = useTaskForm({ title: initialDraft?.title || '', dueDate: initialDraft?.dueDate || getDefaultDueDate() })
+  const form = useTaskForm({
+    title: initialDraft?.title || '',
+    dueDate: initialDraft?.dueDate || getDefaultDueDate(),
+    // A reminder can arrive from the Throw sheet's "More options" handoff, or
+    // from the Reminders lens's "New reminder" button, which opens this modal
+    // pre-armed. Both are datetime-local strings already.
+    remindAt: initialDraft?.remindAt || '',
+  })
   const titleRef = useRef(null)
 
   useEffect(() => {
@@ -120,6 +127,29 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
             {priorityLabel}
           </button>
         </div>
+      </div>
+
+      {/* A reminder is a MOMENT ("interrupt me at 3pm"); Due above is a DAY.
+          Optional here — most tasks want a day and nothing more — but a task
+          created with one rings without a second trip through the editor. */}
+      <div className="v2-form-section">
+        <label className="v2-form-label">Remind</label>
+        <input
+          type="datetime-local"
+          className="v2-form-input"
+          aria-label="Reminder time"
+          value={form.remindAt}
+          onChange={e => form.setRemindAt(e.target.value)}
+        />
+        {form.remindAt && (
+          <button
+            className="v2-form-ai-pill v2-form-ai-pill-inline"
+            style={{ marginTop: 6 }}
+            onClick={() => form.setRemindAt('')}
+          >
+            Clear reminder
+          </button>
+        )}
       </div>
 
       <div className="v2-form-section">

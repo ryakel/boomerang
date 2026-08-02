@@ -162,6 +162,22 @@ Context-aware preset options that show the exact date and time (e.g., "Tomorrow 
 
 The task schema and API now support implementation intentions (`intention_when`/`intention_where` — "after I pour coffee", "at my desk"), shrink-it first steps (`first_step`, capped at 140 characters so it stays genuinely small), stored locations for future point-of-performance reminders, and a **pick-three commitment model**: commit up to three tasks per day (`POST /api/tasks/:id/commit`), and any commitment the day rolls past simply *comes back around* — returned to the pool overnight with no red badges, no "days late" anywhere. Shelving ("park this, no timer, no guilt") and letting go ("release it" — kept for history, never framed as failure) are first-class actions. `GET /api/today` serves the whole pick-three picture in one round trip, shaped for a small screen. No visible UI yet — this is the foundation step; existing screens are unchanged.
 
+## Reminders
+
+A **due date is a day**; a **reminder is a moment**. Any task can carry one, and a task with a reminder time actually rings — from a local notification on the phone (no server, no VPN, no network needed) and, if the Apple Reminders integration is on, as a mirrored reminder in Apple's app.
+
+**Three ways to set one:**
+
+- **Throw sheet → Remind** — tap *Remind* and a date-and-time picker slides in underneath, pre-filled with the next half hour. This is the fast path: capture and reminder in one gesture, no second trip through an editor.
+- **New task modal → Remind** — the full add form has the same field, so a reminder can be part of a task from the moment it exists.
+- **Any existing task** — open it and use the **Remind** chip (quick editor) or the Remind field (full editor).
+
+**A reminder with no due date is today.** Today reads the reminder time as the day when there's no due date, so a task thrown with just a time shows up where you'd expect without also having to pick "Today".
+
+**Reminders** in the More menu is a **lens**, not a container — it lists every task carrying a time, grouped by *Passed* (the moment came and went and the task is still open), *Later today*, and *Upcoming*. Nothing lives only here; the same tasks sit in Today and Tasks alongside everything else. **New reminder** at the top opens the add form pre-armed, and the ✕ on a row clears the time while keeping the task.
+
+**Loops can ring too.** A recurring loop set to remind (Loop editor → *Remind*) schedules one repeating alarm on the phone rather than one per occurrence — which is what makes an offline stretch survivable: a daily loop costs a single slot no matter how far out it runs.
+
 ## Notes
 
 A place to leave a thought without creating a task. Notes have **no task semantics** — no due date, no status, no points, no nagging, and they never count toward pile-up warnings or analytics.

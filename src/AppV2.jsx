@@ -65,6 +65,7 @@ import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss, mergeTasks as apiMergeTasks, addTombstones, remoteLinksOf } from './api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS, isCrisisTask } from './store'
+import { localDateTimeValue, nextHalfHour } from './dates'
 import { computeRecords, calculateTaskPoints } from './scoring'
 import { applyTheme, watchSystemTheme } from './theme'
 import './AppV2.css'
@@ -1505,7 +1506,7 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate }) => scrollTaskIntoView(handleAddTask({ title, dueDate }))}
+          onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
@@ -1567,7 +1568,7 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate }) => scrollTaskIntoView(handleAddTask({ title, dueDate }))}
+          onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
@@ -1851,6 +1852,10 @@ export default function AppV2() {
           tasks={tasks}
           onOpenTask={(t) => { setShowReminders(false); setEditTarget(t) }}
           onClearReminder={(t) => updateTask(t.id, { remind_at: null, last_touched: new Date().toISOString() })}
+          onNewReminder={() => {
+            setShowReminders(false)
+            openAddModal({ remindAt: localDateTimeValue(nextHalfHour()) })
+          }}
         />
       </ModalShell>
 

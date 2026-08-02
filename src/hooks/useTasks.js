@@ -43,7 +43,7 @@ export function useTasks() {
     return () => clearInterval(interval)
   }, [])
 
-  const addTask = useCallback(({ title, tags = [], dueDate = null, notes = '', notion = null, size = null, size_inferred = false, attachments = [], highPriority = false, lowPriority = false, energy = null, energyLevel = null } = {}) => {
+  const addTask = useCallback(({ title, tags = [], dueDate = null, notes = '', notion = null, size = null, size_inferred = false, attachments = [], highPriority = false, lowPriority = false, energy = null, energyLevel = null, remindAt = null } = {}) => {
     remoteLog('addTask:', title)
     const task = createTask(title, tags, dueDate, notes)
     if (notion) {
@@ -63,6 +63,15 @@ export function useTasks() {
     if (attachments.length > 0) task.attachments = attachments
     if (highPriority) task.high_priority = true
     if (lowPriority) task.low_priority = true
+    // A reminder set at CREATE time. This was the missing half of the feature:
+    // both editors could add one to an existing task, but every creation path
+    // (Throw sheet, full add modal, Quokka) fed through here and this key was
+    // not in the signature above, so the value was destructured away in
+    // silence. A task could be born with a due date but never with a moment.
+    if (remindAt) {
+      const at = new Date(remindAt)
+      if (!Number.isNaN(at.getTime())) task.remind_at = at.toISOString()
+    }
     logActivity('created', task)
     setTasks(prev => [task, ...prev])
     return task.id

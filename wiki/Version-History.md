@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-08-02
 
+- feat(reminders): set a reminder while capturing, not after [M]
+  - Reported bluntly: *"Why in the motherfuck can I not create a fucking reminder…"* — with a screenshot of the Throw sheet offering Task | Note and Today / Tomorrow / Weekend / No date, and nowhere to put a time.
+  - **Every creation path in the app fed through `addTask()` in `useTasks.js`, whose destructured signature had no `remindAt` key.** Both editors could add a reminder to a task that already existed, but a task could never be *born* with one — the value was destructured away in silence on the way in. So the only way to make a reminder was create → find the task → reopen it → Remind chip, four steps for the thing the user described as *"the way I anticipate adding things quickly anyway."*
+  - `addTask()` now takes `remindAt`. The full add modal (`AddTaskModal`) gained the Remind field it never had — `useTaskForm` was already returning `remindAt` from `getFormData()`, so that half was wired to nothing.
+  - **Throw sheet → Remind**, built to the description given: tapping it reveals a date-and-time picker *underneath*, seeded with the next half hour (`nextHalfHour()` — never "now", which iOS silently discards as a past trigger). Its own row below the day chips, because a day and a moment are different axes. "More options" carries the reminder across to the full editor rather than dropping it, the same handoff bug the title/date already had fixed.
+  - The **Reminders** lens gained **New reminder** — a surface that exists to answer "what is about to go off" was the one place in the app you could not set something off.
+  - `localDateTimeValue()` in `dates.js` formats for `<input type="datetime-local">` from LOCAL parts. `toISOString().slice(0,16)` is the obvious-looking version and is UTC — it would seed every picker hours off for anyone not on UTC.
+  - No new rule needed for "a reminder with no date is today": Today already reads `remind_at` as the day when there's no due date, so the "No date" chip staying lit is correct.
+  - Verified end-to-end against a live server with Playwright, not by reading the diff: chip → picker → throw → **`remind_at: 2026-08-09T19:30:00.000Z` on the server**, plus the lens button opening the add modal pre-armed. Web only — **no rebuild** (reaches the phone over OTA).
 - style(settings): the alarms row shows a value, not a paragraph [XS]
   - Caught on device: *"you done forgot that we tuck away description text unless it's asked for."* Correct — the new Reminder-alarms row printed four lines of prose at every reader forever, which is precisely the pattern the settings redesign existed to delete (§1.5: descriptions are optional, subordinate, and folded behind an ⓘ).
   - Rebuilt as a `SettingRow`: **value at rest** (the pending count iOS actually holds, or the last result), explanation behind the ⓘ, button trailing. Matches the Push / Email / Quiet-hours rows beside it instead of being a prose exception like the APNs block.
