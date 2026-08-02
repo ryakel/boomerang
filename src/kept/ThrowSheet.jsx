@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlarmClock, SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import { localYMD, addDays, localDateTimeValue, nextHalfHour } from '../dates'
 import useSheetSwipeDown from '../hooks/useSheetSwipeDown'
 import './shell.css'
@@ -22,22 +22,20 @@ function resolve(id) {
   return null
 }
 
-// The Throw sheet — quick capture (spec §6). Title + smart date chips; "More
-// options" hands off to the full AddTaskModal with nothing lost. A Task|Note
-// mode toggle (2026-07-18) makes jotting a note as fast as adding a task —
-// note mode drops the date chips (notes have no dates) and routes to
-// onThrowNote instead.
+// The Throw sheet — quick capture (spec §6). Title + a mode-specific second
+// row; "More options" hands off to the full AddTaskModal with nothing lost.
 //
-// Remind (2026-08-02) sits on its own row BELOW the date chips because it is a
-// different axis: the chips pick a DAY, a reminder picks a MOMENT. Tapping it
-// reveals the picker inline rather than opening anything, which is the only
-// reason it belongs in quick capture at all — this is where reminders actually
-// get made, and until now the sheet could not make one, so every reminder cost
-// a create-then-reopen round trip through the task editor.
+// THREE MODES, one control: Task | Reminder | Note (2026-08-02). Each swaps the
+// row under the title for the only thing that mode needs — day chips for a
+// task, a date-and-time picker for a reminder, nothing for a note. They are
+// alternatives to each other, which is exactly what the toggle at the top
+// already says, so a reminder is picked the same way a note is rather than
+// hidden behind an extra chip in an extra row at the bottom.
 //
-// A reminder with no date lands on Today: TodayView reads remind_at as the day
-// when there is no due date, so the "No date" chip staying lit is correct and
-// nothing here needs to force a due date to make it show up.
+// A reminder is still an ordinary task carrying remind_at — the mode picks the
+// SHAPE of the capture, not a different kind of record. And a reminder with no
+// due date lands on Today: TodayView reads remind_at as the day when there is
+// no due date, so nothing here needs to set one.
 export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMoreOptions }) {
   const [title, setTitle] = useState('')
   const [dateId, setDateId] = useState('none')
@@ -104,7 +102,11 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
     if (mode === 'note') {
       onThrowNote?.({ body: t })
     } else {
-      onThrow?.({ title: t, dueDate: resolve(dateId), remindAt: remindAt || null })
+      onThrow?.({
+        title: t,
+        dueDate: mode === 'reminder' ? null : resolve(dateId),
+        remindAt: mode === 'reminder' ? (remindAt || null) : null,
+      })
     }
     setTitle(''); setDateId('none'); setRemindAt('')
     closeAndBlur()
@@ -115,12 +117,28 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
     // Hand the reminder over too — a value typed here and then silently
     // dropped on the way to the full editor is the same class of bug as the
     // title/date handoff this callback exists to fix.
-    onMoreOptions?.({ title: title.trim(), dueDate: resolve(dateId), remindAt: remindAt || null })
+    onMoreOptions?.({
+      title: title.trim(),
+      dueDate: mode === 'reminder' ? null : resolve(dateId),
+      remindAt: mode === 'reminder' ? (remindAt || null) : null,
+    })
   }
 
-  const toggleRemind = () => {
-    setRemindAt(prev => (prev ? '' : localDateTimeValue(nextHalfHour())))
+  // Switching INTO reminder mode seeds the picker, so the common case is one
+  // tap and done. Seeding on mount instead would mean every task capture
+  // carried a time it never asked for.
+  const pickMode = (m) => {
+    setMode(m)
+    if (m === 'reminder' && !remindAt) setRemindAt(localDateTimeValue(nextHalfHour()))
   }
+
+  const HEADINGS = { task: 'Throw a task', reminder: 'Set a reminder', note: 'Leave a note' }
+  const PLACEHOLDERS = {
+    task: 'What needs doing?',
+    reminder: 'What should I remind you about?',
+    note: 'What do you want to remember?',
+  }
+  const ACTIONS = { task: 'Throw it', reminder: 'Set it', note: 'Leave it' }
 
   return (
     <div className="bm-sheet-backdrop" onClick={closeAndBlur}>
@@ -129,16 +147,17 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
           <div className="bm-grabber" />
         </div>
         <div className="bm-throw-mode-row">
-          <h3 className="bm-sheet-title">{mode === 'note' ? 'Leave a note' : 'Throw a task'}</h3>
+          <h3 className="bm-sheet-title">{HEADINGS[mode]}</h3>
           <div className="bm-throw-mode">
-            <button className={`bm-pick${mode === 'task' ? ' is-on' : ''}`} onClick={() => setMode('task')}>Task</button>
-            <button className={`bm-pick${mode === 'note' ? ' is-on' : ''}`} onClick={() => setMode('note')}>Note</button>
+            <button className={`bm-pick${mode === 'task' ? ' is-on' : ''}`} onClick={() => pickMode('task')}>Task</button>
+            <button className={`bm-pick${mode === 'reminder' ? ' is-on' : ''}`} onClick={() => pickMode('reminder')}>Reminder</button>
+            <button className={`bm-pick${mode === 'note' ? ' is-on' : ''}`} onClick={() => pickMode('note')}>Note</button>
           </div>
         </div>
         <input
           ref={inputRef}
           className="bm-throw-input"
-          placeholder={mode === 'note' ? 'What do you want to remember?' : 'What needs doing?'}
+          placeholder={PLACEHOLDERS[mode]}
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') send() }}
@@ -151,31 +170,24 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
             ))}
           </div>
         )}
-        {mode === 'task' && (
-          <div className="bm-throw-remind">
-            <button
-              className={`bm-pick${remindAt ? ' is-on' : ''}`}
-              onClick={toggleRemind}
-              aria-pressed={!!remindAt}
-            >
-              <AlarmClock size={13} strokeWidth={2} /> Remind
-            </button>
-            {remindAt && (
-              <input
-                type="datetime-local"
-                className="bm-throw-remind-input"
-                aria-label="Reminder time"
-                value={remindAt}
-                onChange={e => setRemindAt(e.target.value)}
-              />
-            )}
-          </div>
+        {mode === 'reminder' && (
+          // The row a reminder needs, in the slot the day chips occupy for a
+          // task — same position, same rhythm, no extra row.
+          <input
+            type="datetime-local"
+            className="bm-throw-when"
+            aria-label="Reminder time"
+            value={remindAt}
+            onChange={e => setRemindAt(e.target.value)}
+          />
         )}
         <div className="bm-throw-actions">
           <button className="bm-btn bm-btn-fill" onClick={send} disabled={!title.trim()}>
-            {mode === 'note' ? 'Leave it' : 'Throw it'}
+            {ACTIONS[mode]}
           </button>
-          {mode === 'task' && (
+          {/* A reminder is still a task, so the full editor is just as valid a
+              destination for one as it is for a plain capture. */}
+          {mode !== 'note' && (
             <button className="bm-btn bm-btn-ghost" onClick={openMoreOptions} aria-label="More options">
               <SlidersHorizontal size={15} strokeWidth={2} />
             </button>

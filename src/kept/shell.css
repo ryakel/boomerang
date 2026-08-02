@@ -317,23 +317,22 @@
 .bm-throw-actions { display: flex; gap: 9px; }
 .bm-throw-actions .bm-btn-fill { flex: 1 1 auto; }
 
-/* Remind sits on its own row under the day chips — a different axis (moment,
-   not day), and the picker it reveals needs the full width. */
-.bm-throw-remind { margin-bottom: 12px; }
-.bm-throw-remind .bm-pick { display: inline-flex; align-items: center; gap: 7px; }
-.bm-throw-remind-input {
+/* Reminder mode's second row. Occupies the same slot as the day chips and
+   carries the same 10px bottom margin, so switching modes doesn't shift the
+   sheet's height or the gap above the action button. */
+.bm-throw-when {
   display: block;
   width: 100%;
   box-sizing: border-box;
-  margin-top: 8px;
+  margin-bottom: 10px;
   border: 1px solid var(--bm-hairline-strong);
-  border-radius: 12px;
+  border-radius: 11px;
   background: var(--bm-bg);
   color: var(--bm-text);
-  font: 500 15px/1.4 var(--v2-font-body);
-  padding: 11px 14px;
+  font: 600 13px/1.4 var(--v2-font-body);
+  padding: 9px 14px;
 }
-.bm-throw-remind-input:focus { outline: none; border-color: var(--bm-ember); }
+.bm-throw-when:focus { outline: none; border-color: var(--bm-ember); }
 
 .bm-reminders-new {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
@@ -762,14 +761,23 @@
 }
 .bm-note-sticky-unpin:hover { background: var(--bm-card-2); color: var(--bm-text); }
 
-/* Throw sheet Task|Note mode toggle */
+/* Throw sheet Task|Reminder|Note mode toggle */
 .bm-throw-mode-row {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px;
   margin-bottom: 12px;
+  /* Last resort at large accessibility text sizes: drop the toggle to its own
+   * line rather than let the title hit its min-content floor and OVERFLOW on
+   * top of the chips (the theme/away-window bug, same shape). */
+  flex-wrap: wrap;
 }
-.bm-throw-mode-row .bm-sheet-title { margin: 0; }
+/* The heading is a label for the toggle, not a competitor: it must not wrap to
+ * two lines and shove the sheet taller while a third of the row sits empty. */
+.bm-throw-mode-row .bm-sheet-title { margin: 0; white-space: nowrap; }
 .bm-throw-mode { display: flex; gap: 6px; flex: 0 0 auto; }
+/* Compact scale for the three mode chips — a secondary control, and three of
+ * them at the full chip size cannot share a 390px row with the heading. */
+.bm-throw-mode .bm-pick { padding: 6px 11px; font-size: 12px; }
 
 /* --- Crisis tag ("prio") — the one deliberately loud surface in Kept.
  * See wiki/Crisis-Tag-And-Impact-Ranking.md. --- */

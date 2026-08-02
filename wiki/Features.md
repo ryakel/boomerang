@@ -168,7 +168,7 @@ A **due date is a day**; a **reminder is a moment**. Any task can carry one, and
 
 **Three ways to set one:**
 
-- **Throw sheet → Remind** — tap *Remind* and a date-and-time picker slides in underneath, pre-filled with the next half hour. This is the fast path: capture and reminder in one gesture, no second trip through an editor.
+- **Throw sheet → Reminder** — the sheet's mode toggle is **Task · Reminder · Note**. Pick *Reminder* and the row under the title becomes a date-and-time picker (pre-filled with the next half hour) instead of the day chips. This is the fast path: capture and reminder in one gesture, no second trip through an editor.
 - **New task modal → Remind** — the full add form has the same field, so a reminder can be part of a task from the moment it exists.
 - **Any existing task** — open it and use the **Remind** chip (quick editor) or the Remind field (full editor).
 
