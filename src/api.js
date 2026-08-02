@@ -1,4 +1,5 @@
 import { loadSettings, localYMD } from './store'
+import { readJson } from './apiConfig'
 import { SONNET_MODEL, claudeText, NO_THINKING } from '../server/aiModels.js'
 
 const PROXY_URL = '/api/messages'
@@ -2091,4 +2092,40 @@ export async function mergeTasks(survivorId, duplicateId) {
     throw new Error(data.error || `Merge failed (${res.status})`)
   }
   return res.json()
+}
+
+// --- Remote tombstones -----------------------------------------------------
+// "I deleted this on purpose, stop re-importing it." Every sync-in path reads
+// these before creating a task. Server-side rather than localStorage because
+// the intent has to survive a reinstall and a second device — a per-device
+// dismissal resurrects everything the first time you open Boomerang elsewhere.
+
+export async function fetchTombstones(source = null) {
+  const q = source ? `?source=${encodeURIComponent(source)}` : ''
+  const res = await fetch(`/api/tombstones${q}`)
+  const data = await readJson(res, 'The server')
+  return data?.tombstones || []
+}
+
+export async function addTombstones(items) {
+  const list = (Array.isArray(items) ? items : [items]).filter(i => i?.source && i?.remote_id)
+  if (!list.length) return { added: 0 }
+  const res = await fetch('/api/tombstones', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: list }),
+  })
+  return readJson(res, 'The server')
+}
+
+// Every remote link a task can carry. Deleting the task tombstones ALL of
+// them — a task imported from Notion and later pushed to Trello would
+// otherwise come back through whichever side wasn't recorded.
+export function remoteLinksOf(task) {
+  if (!task) return []
+  const out = []
+  if (task.notion_page_id) out.push({ source: 'notion', remote_id: task.notion_page_id, title: task.title })
+  if (task.trello_card_id) out.push({ source: 'trello', remote_id: task.trello_card_id, title: task.title })
+  if (task.gcal_event_id) out.push({ source: 'gcal', remote_id: task.gcal_event_id, title: task.title })
+  return out
 }

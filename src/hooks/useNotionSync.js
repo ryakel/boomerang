@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask, safeSetItem } from '../store'
+import { fetchTombstones } from '../api'
 import { notionGetChildPages, notionQueryDatabase, notionGetBlocks, analyzeNotionPage, aiDedupNotionPages } from '../api'
 import { deduplicateImports, remoteLog } from '../syncDedup'
 
@@ -106,8 +107,12 @@ export function useNotionSync(tasks, setTasks) {
     }
 
     // Create tasks for truly new rows (using title directly, no AI analysis needed)
-    const newPages = unlinkedPages.filter(p => !matchMap.has(p.id))
-    remoteLog(`[NotionDbSync] ${newPages.length} new rows to import`)
+    // Rows the user deleted on purpose. This pull has no last_edited guard, so
+    // without the tombstone check a deleted task is re-created on EVERY sync —
+    // the "why do these keep coming back" bug.
+    const buried = new Set((await fetchTombstones('notion').catch(() => [])).map(t => t.remote_id))
+    const newPages = unlinkedPages.filter(p => !matchMap.has(p.id) && !buried.has(p.id))
+    remoteLog(`[NotionDbSync] ${newPages.length} new rows to import (${buried.size} tombstoned)`)
 
     const newTasks = []
     for (const page of newPages) {
@@ -139,6 +144,7 @@ export function useNotionSync(tasks, setTasks) {
     const currentTasks = tasksRef.current
     const linkedPageIds = new Set(currentTasks.filter(t => t.notion_page_id).map(t => t.notion_page_id))
     const pageCache = loadPageCache()
+    const buriedPages = new Set((await fetchTombstones('notion').catch(() => [])).map(t => t.remote_id))
 
     // 2. Separate linked vs unlinked pages
     const unlinkedPages = pages.filter(p => !linkedPageIds.has(p.id))
@@ -185,6 +191,9 @@ export function useNotionSync(tasks, setTasks) {
     const newRoutineSuggestions = []
     for (const page of newPages) {
       // Skip if page hasn't changed since last analysis
+      // A page the user deleted on purpose. Checked BEFORE the last_edited
+      // guard, because editing the page in Notion would otherwise resurrect it.
+      if (buriedPages.has(page.id)) continue
       if (pageCache[page.id] && pageCache[page.id] === page.last_edited) {
         remoteLog(`[NotionSync] skipping unchanged page: "${page.title}"`)
         continue

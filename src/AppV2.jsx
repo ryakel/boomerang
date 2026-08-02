@@ -62,7 +62,7 @@ import { useTrelloSync } from './hooks/useTrelloSync'
 import { useNotionSync } from './hooks/useNotionSync'
 import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
-import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss, mergeTasks as apiMergeTasks } from './api'
+import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss, mergeTasks as apiMergeTasks, addTombstones, remoteLinksOf } from './api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS, isCrisisTask } from './store'
 import { computeRecords, calculateTaskPoints } from './scoring'
 import { applyTheme, watchSystemTheme } from './theme'
@@ -1009,7 +1009,18 @@ export default function AppV2() {
   const handleDelete = useCallback((id) => {
     const task = tasks.find(t => t.id === id)
     const proceed = () => {
+      // Tombstone EVERY remote link before deleting. Without this the next
+      // sync sees a remote item with no matching task and re-creates it —
+      // which is why three Notion-linked tasks kept reappearing in Anytime.
+      // Fire-and-forget is fine: the tombstone is server-side and idempotent,
+      // and a failure here means the task returns once and gets tombstoned on
+      // the next delete rather than anything being lost.
+      const links = remoteLinksOf(task)
+      if (links.length) addTombstones(links).catch(() => {})
       if (task?.trello_card_id) {
+        // Archiving the card is still worth doing (it keeps Trello tidy), but
+        // it is no longer what PREVENTS re-import — the tombstone is. That
+        // swallowed rejection used to be the whole bug.
         trelloUpdateCard(task.trello_card_id, { closed: true }).catch(() => {})
       }
       deleteTask(id)

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask } from '../store'
+import { fetchTombstones } from '../api'
 import { gcalListEvents, aiDedupGCalEvents } from '../api'
 import { deduplicateImports, remoteLog } from '../syncDedup'
 
@@ -106,8 +107,13 @@ export function useGCalSync(tasks, setTasks) {
 
     remoteLog(`[GCalSync] ${eventsToImport.length} new events to create as tasks (${seenRecurring.size} recurring series collapsed)`)
 
+    // Events whose task was deleted on purpose — same hole as Notion and
+    // Trello: without this the next pull re-creates them, forever.
+    const buriedEvents = new Set((await fetchTombstones('gcal').catch(() => [])).map(t => t.remote_id))
+
     const newTasks = []
     for (const event of eventsToImport) {
+      if (buriedEvents.has(event.id)) continue
       // Extract date from event start
       const dueDate = event.start?.date || (event.start?.dateTime ? event.start.dateTime.split('T')[0] : null)
 
