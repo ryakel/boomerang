@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-08-01
 
+- fix(sync): deleting an imported task stops resurrecting it [M]
+  - Reported as *"why are these continuing to come back??"* — three Notion-linked tasks that reappeared in Anytime after every delete.
+  - **Every sync-in path created a task for any remote item with no matching local task, and none recorded a deliberate delete.** Notion is the sharpest case: the database-row pull (`useNotionSync.js`) had no guard whatsoever, so a deleted task came back on EVERY sync, and unlike Trello a Notion delete archives nothing upstream — the row survives, so return was guaranteed. The page-based pull at least skipped an unchanged `last_edited`, which is why only the DB-row items kept reappearing.
+  - The Trello path *looked* protected — `handleDelete` archives the card so "the next inbound sync doesn't re-import the task" — but the call ends in `.catch(() => {})`. One failed request (VPN down, token expired, rate limit) and the delete proceeded, the card stayed open, and the task returned silently. Best-effort cleanup was doing load-bearing work.
+  - This is the same trap already pinned in CLAUDE.md for LIST items ("a hard delete is indistinguishable from an item Trello hasn't sent yet, so the next poll resurrects it"). It was never applied to tasks.
+  - New `remote_tombstones` table (migration 052), generic over `notion` / `trello` / `gcal` rather than one table per integration — all three had the identical hole and a fourth should inherit the protection instead of rediscovering the bug. `GET/POST/DELETE /api/tombstones`; deleting a task now buries **every** remote link it carries, since a task imported from Notion and later pushed to Trello would otherwise return through whichever side went unrecorded.
+  - **Server-side, not localStorage.** "I deleted this" has to survive a reinstall and a second device; a per-device dismissal would resurrect everything the first time the app is opened somewhere new. Un-burying is supported (`DELETE`), so a tombstone is not a life sentence.
+  - Card archiving on Trello delete is kept — it keeps Trello tidy — but it is explicitly no longer what *prevents* re-import.
+  - Verified against a live server: burial, filtering by source, idempotent re-add (no duplicate rows), and un-bury. `npm test` 274/274 + smoke, eslint 0 errors. Web + server only — **no rebuild**.
+
+
 - feat(reminders): the local-notification schedule planner [S]
   - First half of moving reminders off Apple's alarms and into Boomerang's own, **local** notifications — handed to iOS ahead of time and fired by the device, so they ring with no network, no VPN, no server, in airplane mode. The server owns the schedule; the device caches it and rings from the cache. Staleness is bounded by the last successful sync, which is honest: what it got is correct, it just may not know about something added since.
   - `src/reminderSchedule.js` is PURE and clock-injected, because the interesting part is not the scheduling call — it is deciding **what makes the cut**. iOS caps PENDING local notifications at **64 per app**, and that budget has to be spent well. 21 tests.

@@ -18,7 +18,8 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
   dismissEscalationAdvancePrompt, resolveEscalation,
   getVacationWindow, setVacationWindow, isCrisisTask,
-  getReminderShadows, setReminderShadow, clearReminderLink } from './db.js'
+  getReminderShadows, setReminderShadow, clearReminderLink,
+  getRemoteTombstones, addRemoteTombstone, removeRemoteTombstone } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail, sendSecurityAlertEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush, sendSecurityAlertPush } from './pushNotifications.js'
@@ -3509,6 +3510,30 @@ app.post('/api/apns/unregister', (req, res) => {
 
 app.post('/api/apns/test', async (req, res) => {
   res.json(await sendApnsTest())
+})
+
+// --- Remote tombstones (2026-08-01) ---
+// "I deleted this on purpose." Every sync-in path reads these before creating
+// a task; without them a deleted Notion row / Trello card / GCal event comes
+// straight back on the next poll, forever. See migration 052.
+app.get('/api/tombstones', (req, res) => {
+  res.json({ tombstones: getRemoteTombstones(req.query.source || null) })
+})
+
+app.post('/api/tombstones', (req, res) => {
+  const items = Array.isArray(req.body?.items) ? req.body.items : [req.body || {}]
+  let added = 0
+  for (const it of items) {
+    if (addRemoteTombstone({ source: it.source, remote_id: it.remote_id, title: it.title })) added += 1
+  }
+  res.json({ added })
+})
+
+app.delete('/api/tombstones', (req, res) => {
+  const { source, remote_id } = req.query
+  if (!source || !remote_id) return res.status(400).json({ error: 'source and remote_id are required' })
+  removeRemoteTombstone({ source, remote_id })
+  res.json({ ok: true })
 })
 
 // --- Apple Reminders two-way sync (2026-08-01) ---
