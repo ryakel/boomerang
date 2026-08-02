@@ -1,5 +1,13 @@
 # Screenshot Shot List (for a separate capture-capable agent)
 
+> **Superseded 2026-08-02.** Capture is now scripted end to end —
+> `scripts/make-demo-data.mjs` + `scripts/capture-screenshots.mjs`, documented
+> in `wiki/Screenshots.md`. Every image in `wiki/images/` was re-shot from the
+> fictional demo dataset, because the set below was captured from the dev seed,
+> which is modelled on the real user's life and had put real task titles on a
+> public wiki. Kept for the conventions (viewports, framing rules) and for the
+> record; run the script rather than working through this list by hand.
+
 This session's sandbox can reach the dev server over plain HTTP (`curl` works) but
 Chromium/Playwright cannot navigate to `localhost` here, so screenshots have to be
 captured by a different agent/environment that can actually drive a browser. This

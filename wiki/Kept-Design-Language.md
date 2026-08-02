@@ -24,10 +24,12 @@ back), **catch** (complete), **kept** (your history — everything you caught).
 
 ---
 
-## 0 · Reference screenshots (shipped UI, captured 2026-07-11)
+## 0 · Reference screenshots (shipped UI, re-captured 2026-08-02)
 
-Real captures of the shipped Kept UI (light mode, seeded dev data) — the
-living counterpart to the `kept-preview.html` / `kept-desktop.html` prototypes.
+Real captures of the shipped Kept UI (light mode) — the living counterpart to
+the `kept-preview.html` / `kept-desktop.html` prototypes. Every one is shot
+from the fictional demo dataset, never the dev seed; see `wiki/Screenshots.md`
+for the reproduction steps and why the distinction matters.
 
 **Mobile (390×844):**
 
@@ -53,9 +55,13 @@ living counterpart to the `kept-preview.html` / `kept-desktop.html` prototypes.
 |---|---|
 | ![Desktop Board](images/kept-desktop-tasks-board.png) | ![Desktop Loops](images/kept-desktop-loops.png) |
 
-| Throw (⌘K) | Quokka |
-|---|---|
-| ![Desktop Throw](images/kept-desktop-throw.png) | ![Desktop Quokka](images/kept-desktop-quokka.png) |
+| Throw (⌘K) |
+|---|
+| ![Desktop Throw](images/kept-desktop-throw.png) |
+
+<!-- The Quokka panel is not shown: its opening state renders AI-generated
+     starter prompts, so on a capture box with no API key it is three empty
+     skeleton rows — a screenshot of a loading state rather than of the UI. -->
 
 ---
 
