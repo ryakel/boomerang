@@ -920,7 +920,19 @@ export default function AppV2() {
     return logProjectSession(projectId)
   }, [logProjectSession])
 
-  const handleConvertToRoutine = useCallback((taskId, { title, cadence, customDays, customUnit, tags, notes }) => {
+  // Task → Loop. ONE handler for both editors: the quick editor's "Repeats"
+  // chip and the full editor's Convert row hand over the same shape, including
+  // the reminder absorption each of them computed with src/loopAbsorb.js. Two
+  // handlers would mean the rule could drift between the two ways to do the
+  // same thing, and the drift would be invisible until a loop failed to ring.
+  //
+  // trigger_time/remind are applied with updateRoutine rather than threaded
+  // through addRoutine's 20 positional arguments — a miscount there lands a
+  // clock string in `members` and nothing complains until a spawn goes wrong.
+  const handleConvertToRoutine = useCallback((taskId, {
+    title, cadence, customDays, customUnit, tags, notes,
+    triggerTime = null, remind = false, clearTaskRemind = false,
+  }) => {
     // addRoutine signature: (title, cadence, customDays, tags, notes, highPriority,
     //   endDate, scheduleDayOfWeek, followUps, autoRoll, spawnMode, targetCount,
     //   targetPeriod, customUnit). Pass undefined for the middle args we don't
@@ -930,9 +942,22 @@ export default function AppV2() {
       undefined, undefined, undefined, undefined, undefined,
       undefined, undefined, undefined, customUnit
     )
-    updateTask(taskId, { routine_id: routine.id, last_touched: new Date().toISOString() })
+    if (triggerTime || remind) {
+      updateRoutine(routine.id, {
+        ...(triggerTime ? { trigger_time: triggerTime } : {}),
+        ...(remind ? { remind: true } : {}),
+      })
+    }
+    updateTask(taskId, {
+      routine_id: routine.id,
+      last_touched: new Date().toISOString(),
+      // Only a reminder that has already fired is dropped. A pending one is
+      // kept deliberately: the converted task blocks the loop's first spawn,
+      // so nothing else would carry that ring.
+      ...(clearTaskRemind ? { remind_at: null } : {}),
+    })
     setEditTarget(null)
-  }, [addRoutine, updateTask])
+  }, [addRoutine, updateRoutine, updateTask])
 
   // Wrapper around updateTask used by EditTaskModal. When the user backdates
   // a routine-spawned task's completed_at, sync the matching entry in the
@@ -1640,6 +1665,7 @@ export default function AppV2() {
           onDelete={(id) => { handleDelete(id); setEditTarget(null) }}
           onStatusChange={handleStatusChange}
           onOpenFull={() => setEditFull(true)}
+          onConvertToLoop={handleConvertToRoutine}
         />
       )}
 

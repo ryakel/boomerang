@@ -7,9 +7,22 @@ import ModalShell from '../components/ModalShell'
 import AutosaveIndicator from '../components/AutosaveIndicator'
 import DateField from '../components/DateField'
 import { useTaskForm } from '../hooks/useTaskForm'
-import { loadLabels, uuid } from '../store'
+import { loadLabels, uuid, getNextDueDate } from '../store'
+import { planLoopAbsorption } from '../loopAbsorb'
 import { researchTask } from '../api'
 import './QuickEditTask.css'
+
+// Cadences offered inline. Deliberately the common ones — anything more exotic
+// (ordinal weeks, day-of-month rules, stacks, follow-ups) is a full-editor job,
+// and this chip's whole purpose is to not need one.
+const CADENCES = [
+  { id: 'daily', label: 'Daily' },
+  { id: 'weekly', label: 'Weekly' },
+  { id: 'monthly', label: 'Monthly' },
+  { id: 'quarterly', label: 'Quarterly' },
+  { id: 'annually', label: 'Yearly' },
+  { id: 'custom', label: 'Every N' },
+]
 
 const STATUSES = [
   { id: 'not_started', label: 'Not started' },
@@ -35,7 +48,7 @@ const DRAIN = [{ v: 1, label: 'Low' }, { v: 2, label: 'Medium' }, { v: 3, label:
 // segmented pills. Reuses useTaskForm + the same partial-save contract as
 // EditTaskModal (updateTask merges, so the advanced fields it doesn't manage
 // are preserved). Heavy/rare config lives behind "More options" → full editor.
-export default function WallabyEditTask({ task, onSave, onClose, onDelete, onStatusChange, onOpenFull }) {
+export default function WallabyEditTask({ task, onSave, onClose, onDelete, onStatusChange, onOpenFull, onConvertToLoop }) {
   const form = useTaskForm({
     title: task.title, notes: task.notes, tags: task.tags || [],
     dueDate: task.due_date || '', size: task.size, size_inferred: task.size_inferred,
@@ -75,6 +88,43 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
   }
   const labels = useMemo(() => loadLabels(), [])
   const labelById = useMemo(() => Object.fromEntries(labels.map(l => [l.id, l])), [labels])
+
+  // ── Repeats → convert to a Loop ─────────────────────────────────────────────
+  // Requested as "click recurrence in the quick edit as a checkbox and then
+  // have it copy what has already been entered". So it converts IN PLACE from
+  // what's on screen — title, notes, tags, and (via the absorption rule below)
+  // the reminder — rather than bouncing to the full editor to retype it.
+  const [cadence, setCadence] = useState('daily')
+  const [customDays, setCustomDays] = useState('3')
+  const [customUnit, setCustomUnit] = useState('days')
+  const alreadyLoop = !!task.routine_id
+
+  // What happens to this task's reminder once a loop exists. Computed live so
+  // the nudge below updates as the cadence changes — it is a just-in-time
+  // heads-up at the decision point, not a notification and not a surprise
+  // discovered afterwards.
+  const absorb = useMemo(() => {
+    if (alreadyLoop || !onConvertToLoop) return null
+    const draft = {
+      cadence,
+      custom_days: cadence === 'custom' ? Math.max(1, Number(customDays) || 1) : null,
+      custom_unit: customUnit,
+      schedule_day_of_week: null,
+      created_at: new Date().toISOString(),
+      completed_history: [],
+    }
+    let firstSpawn = null
+    // getNextDueDate owns the cadence grid; a throw here must not take the
+    // editor down with it — the conversion is still valid without a nudge.
+    try { firstSpawn = getNextDueDate(draft) } catch { firstSpawn = null }
+    return planLoopAbsorption({
+      remindAt: form.remindAt || null,
+      firstSpawn,
+      cadence,
+      customDays: cadence === 'custom' ? customDays : null,
+      customUnit,
+    })
+  }, [alreadyLoop, onConvertToLoop, cadence, customDays, customUnit, form.remindAt])
 
   // ── autosave (mirrors EditTaskModal; subset of fields — partial merge) ──────
   const savePayload = useMemo(() => ({
@@ -122,6 +172,25 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
     }
   }
   const handleClose = () => { flushSave(); onClose?.() }
+
+  // Convert in place from what is on screen. flushSave first, or an edit made
+  // in the last half-second is lost to the conversion's unmount.
+  const convertToLoop = () => {
+    flushSave()
+    onConvertToLoop?.(task.id, {
+      title: form.title.trim() || task.title,
+      notes: form.notes,
+      tags: form.selectedTags,
+      cadence,
+      customDays: cadence === 'custom' ? Math.max(1, Number(customDays) || 1) : null,
+      customUnit,
+      // Absorption: the loop inherits the reminder's time of day, and the
+      // pending one-off is cleared only when it has already fired.
+      triggerTime: absorb?.absorb ? absorb.triggerTime : null,
+      remind: !!absorb?.absorb,
+      clearTaskRemind: !!absorb?.clearTaskRemind,
+    })
+  }
 
   // ── status (separate path — handles completion / chain-breaks / trello) ─────
   const pickStatus = (s) => {
@@ -258,6 +327,7 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
         {chip('status', 'Status', STATUSES.find(s => s.id === status)?.label || status, status === 'done' ? 'done' : null)}
         {chip('due', 'Due', form.dueDate || 'No date')}
         {chip('remind', 'Remind', remindLabel)}
+        {onConvertToLoop && chip('repeats', 'Repeats', alreadyLoop ? 'Loop' : 'No')}
         {chip('priority', 'Priority', priorityLabel, form.highPriority ? 'high' : null)}
         {chip('energy', 'Energy', energyMeta ? `${energyMeta.label}${form.energyLevel ? ' ' + '⚡'.repeat(form.energyLevel) : ''}` : 'None')}
         {chip('size', 'Size', form.size || 'Auto')}
@@ -292,6 +362,49 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
             <button className="wb-edit-opt" style={{ marginTop: 8 }} onClick={() => form.setRemindAt('')}>
               Clear reminder
             </button>
+          )}
+        </div>
+      )}
+      {openChip === 'repeats' && (
+        <div className="wb-edit-picker wb-edit-picker-block">
+          {alreadyLoop ? (
+            <span className="wb-edit-empty">
+              This one already belongs to a loop. Change its cadence from the Loops tab.
+            </span>
+          ) : (
+            <>
+              <div className="wb-edit-picker-row">
+                {CADENCES.map(c => (
+                  <button
+                    key={c.id}
+                    className={`wb-edit-opt${cadence === c.id ? ' is-active' : ''}`}
+                    onClick={() => setCadence(c.id)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              {cadence === 'custom' && (
+                <div className="wb-edit-picker-row">
+                  <input
+                    className="wb-edit-sub-input wb-edit-repeat-n"
+                    type="number"
+                    min="1"
+                    value={customDays}
+                    onChange={e => setCustomDays(e.target.value)}
+                    aria-label="Repeat every N"
+                  />
+                  <button className={`wb-edit-opt${customUnit === 'days' ? ' is-active' : ''}`} onClick={() => setCustomUnit('days')}>days</button>
+                  <button className={`wb-edit-opt${customUnit === 'months' ? ' is-active' : ''}`} onClick={() => setCustomUnit('months')}>months</button>
+                </div>
+              )}
+              {/* The just-in-time nudge: what happens to the reminder, said
+                  BEFORE the conversion, while it can still be changed. */}
+              {absorb?.nudge && <div className="wb-edit-nudge">{absorb.nudge}</div>}
+              <button className="wb-edit-opt wb-edit-opt-auto" style={{ marginTop: 8 }} onClick={convertToLoop}>
+                Make it a loop
+              </button>
+            </>
           )}
         </div>
       )}
