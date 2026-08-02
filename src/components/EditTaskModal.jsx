@@ -498,7 +498,7 @@ export default function EditTaskModal({
       created_at: new Date().toISOString(),
       completed_history: [],
     }
-    let firstSpawn = null
+    let firstSpawn
     try { firstSpawn = getNextDueDate(draft) } catch { firstSpawn = null }
     return planLoopAbsorption({
       remindAt: form.remindAt || null,
