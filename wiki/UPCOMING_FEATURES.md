@@ -1,5 +1,21 @@
 # Upcoming Features
 
+## Parked 2026-08-02 — re-envision capture (the Throw sheet)
+
+Raised with Trello's `+` popover as the reference ("Create a board / Create a card / Browse Templates"), and explicitly **not a today problem**. No decision made; recorded so the reasoning isn't re-derived from scratch.
+
+**The structural difference.** Trello picks the **noun first**, then shows a form scoped to it — the choice is transient chrome that disappears once made. The Throw sheet does the opposite: it shows a form and mutates it in place via a Task | Reminder | Note toggle, so the choice is **permanent chrome on every capture**, including the overwhelmingly common case (a task) where it's never touched. Adding modes made the sheet more capable and slightly worse at its main job.
+
+**The stated constraint.** The bottom sheet itself isn't loved — *"I'm not a huge fan of the shelf but I don't have a better plan"* — so a redesign is open to replacing the surface, not just rearranging it.
+
+Directions worth weighing when this is picked up, roughly cheapest first:
+
+1. **Demote the toggle.** Task stays the silent default; Reminder/Note become a small secondary affordance rather than a full row. Keeps the sheet, removes the tax on the common case. XS–S.
+2. **Noun-first, Trello-style.** The Throw button opens a short menu (Task / Reminder / Note / …), then the form for that noun with no toggle at all. Costs one extra tap for a plain task unless the menu is skippable by long-press. S–M.
+3. **Infer the noun from the text.** One field, no chooser: "remind me at 7:30" parses to a reminder, everything else is a task. Best case is zero decisions; risk is the parse being wrong in a capture flow where the user has already looked away. M, and needs a visible, correctable result.
+
+Whatever wins has to keep the property the current sheet does have: capture never blocks on a decision the user hasn't already made.
+
 ## Parked 2026-08-01 — next pickup
 
 Four items identified during the watch-connectivity / away-mode session, with verified current state, the decision each one blocks on, and its failure mode: `wiki/Parked-20260801.md`. Two overlap the 2026-07-25 recs below (rec 1 and rec 5) — the parked page carries what's since been verified in the tree.
