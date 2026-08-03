@@ -236,26 +236,15 @@ export function buildDigest(settings, { now = new Date() } = {}) {
   // tasks. Doesn't even say for Camden. Just Do Math, Practice Guitar." A bare
   // title reads as an instruction to the reader, and the reader is not the assignee.
   const forSuffix = t => (t.assignee ? ` · for ${t.assignee}` : '')
-  const pushTitle = threeMode === 'committed' ? "Today's three"
-    : threeMode === 'today' ? 'Today'
-    : 'Pick your three'
-  let pushBody
-  if (three.length > 0) {
-    pushBody = three.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title}${forSuffix(t)}`).join(', ')
-    if (pushBody.length > PUSH_BODY_MAX) pushBody = pushBody.slice(0, PUSH_BODY_MAX - 1) + '…'
-  } else {
-    // An "empty" day with supervised chores on deck isn't quite quiet — say
-    // so in one clause rather than pretending nothing exists.
-    pushBody = inviteLine
-      || (assignedLines.length ? assignedLines.join(' ') : 'A quiet day — nothing scheduled.')
-  }
-
-  // --- Expanded text version (SMS gateway, Pushover, in-app fallback) ---
   // --- Away statement (leads the expanded view while suppressing) ---
   // The away window's failure mode is silence you can't see: a digest that just
   // got shorter is indistinguishable from a quiet week. So while it suppresses,
   // the digest SAYS so, with the count it is holding. `ignoreAway` shows what
   // WOULD have notified; the difference is what the window is hiding.
+  //
+  // Computed BEFORE the push copy because the push is the only part most days
+  // are ever read from — an away statement that appears solely in the expanded
+  // body is a statement the user never sees.
   const awayWindow = getVacationWindow()
   const awayNow = isAway(awayWindow, todayYMD)
   const awayHeld = awayNow
@@ -265,6 +254,32 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     ? `🏝️ Away${awayWindow.ends_at ? ` until ${awayWindow.ends_at}` : ''} — ${awayHeld === 0 ? 'nothing being held' : `holding ${awayHeld} task${awayHeld === 1 ? '' : 's'} until you're back`}. Critical still gets through.`
     : null
 
+  // A banner title has to say what this IS. "Today" said nothing — every
+  // notification this app sends is about today — and left the body carrying a
+  // bare task title, which reads as an instruction rather than a brief.
+  // Reported 2026-08-02: "this notification sucks."
+  const pushTitle = awayNow && three.length === 0 ? '🏝️ Away'
+    : threeMode === 'committed' ? "Today's three"
+    : threeMode === 'today' ? `${three.length} due today`
+    : 'Nothing due today'
+  let pushBody
+  if (three.length > 0) {
+    pushBody = three.map(t => `${crisis(t) ? '🚨 ' : ''}${t.title}${forSuffix(t)}`).join(', ')
+    if (pushBody.length > PUSH_BODY_MAX) pushBody = pushBody.slice(0, PUSH_BODY_MAX - 1) + '…'
+  } else if (awayNow) {
+    // "A quiet day — nothing scheduled" while the window is holding six tasks
+    // is the app lying to the one person it exists to keep honest.
+    pushBody = awayHeld === 0
+      ? `Nothing being held${awayWindow.ends_at ? ` — back ${awayWindow.ends_at}` : ''}. Critical still gets through.`
+      : `Holding ${awayHeld} task${awayHeld === 1 ? '' : 's'} until you're back. Critical still gets through.`
+  } else {
+    // An "empty" day with supervised chores on deck isn't quite quiet — say
+    // so in one clause rather than pretending nothing exists.
+    pushBody = inviteLine
+      || (assignedLines.length ? assignedLines.join(' ') : 'A quiet day — nothing scheduled.')
+  }
+
+  // --- Expanded text version (SMS gateway, Pushover, in-app fallback) ---
   const textParts = []
   if (awayLine) textParts.push(awayLine)
   const threeHeading = threeMode === 'committed' ? "Today's three" : 'Today'

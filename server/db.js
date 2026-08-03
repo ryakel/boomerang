@@ -1240,7 +1240,7 @@ export function isNotifiable(task, settings = null, { ignoreAway = false } = {})
     // task nag". Crisis is exempt: the washing machine does not care that you
     // are in Wisconsin.
     if (!ignoreAway
-        && isAway(getVacationWindow(), ymdInTz(new Date(), s.timezone))
+        && isAway(getVacationWindow(), ymdInTz(new Date(), s.user_timezone))
         && !isCrisisTask(task, s)) {
       return false
     }
@@ -1392,7 +1392,7 @@ export function getAnalytics(settings = {}) {
   // carve-out rather than the settings blob (see vacationWindow.js for why the
   // blob cannot hold this), with the legacy blob keys as a read-only fallback so
   // any value the old inert plumbing managed to keep still counts.
-  if (isAway(getVacationWindow(), ymdInTz(new Date(), settings.timezone))) {
+  if (isAway(getVacationWindow(), ymdInTz(new Date(), settings.user_timezone))) {
     streak = settings.streak_current || 0
   }
 
