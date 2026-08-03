@@ -3661,7 +3661,7 @@ app.get('/api/ai/models', async (req, res) => {
 // endpoints write it. See server/vacationWindow.js.
 app.get('/api/vacation', (req, res) => {
   const w = getVacationWindow()
-  const today = ymdInTz(new Date(), (getData('settings') || {}).timezone)
+  const today = ymdInTz(new Date(), (getData('settings') || {}).user_timezone)
   res.json({
     ...w,
     today,
@@ -3681,7 +3681,7 @@ app.post('/api/vacation', (req, res) => {
     ends_at: body.ends_at ?? null,
     note: body.note ?? '',
   })
-  const today = ymdInTz(new Date(), (getData('settings') || {}).timezone)
+  const today = ymdInTz(new Date(), (getData('settings') || {}).user_timezone)
   const away = isAway(w, today)
   // Logged because a window that suppresses is the kind of state you want a
   // record of having set — "why did nothing nag me last week" has to be
@@ -3700,7 +3700,7 @@ app.post('/api/vacation', (req, res) => {
 function buildRepairPlan(targetYMD) {
   const settings = getData('settings') || {}
   const w = getVacationWindow()
-  const today = ymdInTz(new Date(), settings.timezone)
+  const today = ymdInTz(new Date(), settings.user_timezone)
   const plan = repairPlan(getAllTasks(), w, {
     todayYMD: today,
     targetYMD: targetYMD || today,
@@ -3778,18 +3778,28 @@ function runNightlyRollover(reason) {
   }
 }
 
-let digestCache = null // { date, version, digest }
+let digestCache = null // { date, version, away, digest }
 
 function assembleDigest() {
   const settings = getData('settings') || {}
   const tz = settings.user_timezone || DEFAULT_TIMEZONE
   const todayYMD = ymdInTz(new Date(), tz)
   const version = getVersion()
-  if (digestCache && digestCache.date === todayYMD && digestCache.version === version) {
+  // The away window lives in the `vacation_window` app_data carve-out and does
+  // NOT bump the task version — nothing about switching it on looks like a task
+  // mutation. Keying the cache on {date, version} alone therefore served a
+  // digest built BEFORE the window was switched on for the rest of the day, so
+  // the morning push led with the tasks away exists to hold. That is what
+  // "away mode doesn't work" looked like from the outside (2026-08-02): the
+  // suppression was correct and the cache was stale.
+  const w = getVacationWindow()
+  const awayKey = `${w.active ? 1 : 0}:${w.started_at || ''}:${w.ends_at || ''}`
+  if (digestCache && digestCache.date === todayYMD && digestCache.version === version
+      && digestCache.away === awayKey) {
     return digestCache.digest
   }
   const digest = buildDigest(settings)
-  digestCache = { date: todayYMD, version, digest }
+  digestCache = { date: todayYMD, version, away: awayKey, digest }
   return digest
 }
 

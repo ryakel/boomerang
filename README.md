@@ -2,6 +2,31 @@
 
 A personal ADHD task manager that won't let things disappear. Tasks always come back.
 
+## Screenshots
+
+Captured from a demo dataset (`scripts/demo-data.json`) — every task, loop and label below is fictional.
+
+|  |  |  |
+|:--:|:--:|:--:|
+| <img src="wiki/images/kept-mobile-today.png" width="250" alt="Today: a points arc, the day's list, overdue and reminder badges"> | <img src="wiki/images/kept-mobile-loops.png" width="250" alt="Loops: recurring tasks with completion trails and streaks"> | <img src="wiki/images/kept-mobile-throw-reminder.png" width="250" alt="Quick capture in reminder mode, with a date and time picker"> |
+| **Today** — one arc, one list, no dashboard | **Loops** — a trail per habit, not a guilt counter | **Throw** — task, reminder or note in one gesture |
+| <img src="wiki/images/kept-mobile-edit-task.png" width="250" alt="Quick task editor with chips for status, due date, reminder, repeats, priority, energy, size and tags"> | <img src="wiki/images/kept-mobile-reminders.png" width="250" alt="Reminders grouped into passed, later today and upcoming"> | <img src="wiki/images/kept-mobile-tasks-sheet.png" width="250" alt="Long-press action sheet offering today, tomorrow, next week, no date, edit and delete"> |
+| **Quick edit** — everything behind chips | **Reminders** — a lens, not a second inbox | **Long press** — reschedule without opening anything |
+
+### On a bigger screen
+
+The same app; the phone layout expands into three columns rather than becoming a different product.
+
+<img src="wiki/images/kept-desktop-tasks-list.png" width="900" alt="Desktop: sidebar, grouped task list with inline subtasks, and a Today rail">
+
+### Dark
+
+| | |
+|:--:|:--:|
+| <img src="wiki/images/kept-mobile-today-dark.png" width="250" alt="Today view in dark mode"> | <img src="wiki/images/kept-mobile-loops-dark.png" width="250" alt="Loops view in dark mode"> |
+
+More in [the wiki gallery](wiki/Screenshots.md).
+
 ## Quick Start
 
 ```bash

@@ -9,10 +9,18 @@ import { readFileSync, existsSync } from 'fs'
 import { clearAllData, setData, upsertTask, upsertRoutine, bumpVersion, flushNow } from './db.js'
 
 function loadSeedData() {
-  const p = new URL('../scripts/seed-data.json', import.meta.url).pathname
+  // SEED_FILE points the seeder at a different dataset. The one that exists
+  // today is scripts/demo-data.json — deliberately fictional, used to capture
+  // the README/wiki screenshots, because the default seed is modelled on the
+  // real user's life and those images are published and permanent.
+  const override = process.env.SEED_FILE
+  const p = override
+    ? (override.startsWith('/') ? override : new URL(`../${override}`, import.meta.url).pathname)
+    : new URL('../scripts/seed-data.json', import.meta.url).pathname
   if (!existsSync(p)) {
     throw new Error(`[Seed] Static seed data not found at ${p}`)
   }
+  if (override) console.log(`[Seed] Using override dataset: ${p}`)
   return JSON.parse(readFileSync(p, 'utf-8'))
 }
 
@@ -71,7 +79,11 @@ function makeSeedCurrent(data) {
       continue
     }
     const days = step === 1 ? 250 : step * 30   // ~250d daily, ~30 cycles otherwise
-    const adherence = 0.8
+    // How often a cycle was caught. The dev seed wants a messy 0.8 (that is
+    // what the "to fix" affordances exist for); the demo dataset behind the
+    // published screenshots sets it higher, so the trails read as a habit
+    // being kept rather than a wall of red.
+    const adherence = typeof data.seed_adherence === 'number' ? data.seed_adherence : 0.8
     const hist = []
     for (let d = days; d >= 0; d -= step) {
       // Always log the last couple of cadence slots for a live streak.
