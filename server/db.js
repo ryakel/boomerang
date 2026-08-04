@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { estimateAiCost } from './aiModels.js'
 import { normalizeWindow, isAway } from './vacationWindow.js'
+import { walkStreak, dayKey } from './streakWalk.js'
 import { ymdInTz } from './taskModel.js'
 
 let db
@@ -1373,32 +1374,13 @@ export function getAnalytics(settings = {}) {
   // not a week of work.
   const freeDays = new Set(settings.free_days || [])
   const awayDays = new Set(settings.away_days || [])
-  const iso = (dt) => {
-    const p = n => String(n).padStart(2, '0')
-    return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`
-  }
-  const kept = (dt) => !!byDay[dt.toDateString()] || freeDays.has(iso(dt))
-  const paused = (dt) => awayDays.has(iso(dt))
-
-  let streak = 0
-  const d = new Date()
-  let guard = 3650
-  // Step over any away days sitting between now and the last real activity,
-  // then allow the usual one-day grace before declaring the streak broken.
-  while (!kept(d) && paused(d) && guard-- > 0) d.setDate(d.getDate() - 1)
-  if (!kept(d)) {
-    d.setDate(d.getDate() - 1)
-    while (!kept(d) && paused(d) && guard-- > 0) d.setDate(d.getDate() - 1)
-  }
-  while (guard-- > 0) {
-    if (!kept(d)) {
-      if (!paused(d)) break
-      d.setDate(d.getDate() - 1)
-      continue
-    }
-    streak++
-    d.setDate(d.getDate() - 1)
-  }
+  // The SAME walk the client uses (server/streakWalk.js) rather than a second
+  // hand-written copy of the rule — see that file for why.
+  const streak = walkStreak({
+    todayMs: Date.now(),
+    isKept: (d) => !!byDay[d.toDateString()] || freeDays.has(dayKey(d)),
+    isPaused: (d) => awayDays.has(dayKey(d)),
+  })
 
   // Away used to FREEZE the streak at `settings.streak_current` here. Nothing
   // has ever written that key, so the freeze pinned the number to 0 for the

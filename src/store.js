@@ -1,4 +1,5 @@
 import { localYMD, parseLocalDate } from './dates'
+import { walkStreak, dayKey } from '../server/streakWalk.js'
 // crypto.randomUUID is unavailable over plain HTTP (non-secure context)
 export const uuid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -1012,43 +1013,15 @@ export function computeStreak(tasks, settings) {
     completionDates.has(d.toDateString()) || !!easterEggWins[localYMD(d)] || provenanceDays.has(localYMD(d))
   )
 
-  const isAwayDay = (d) => awayDays.has(localYMD(d))
-
-  let streak = 0
-  const d = new Date()
-  // Today special: if nothing done today and not a no-fault day, peek at
-  // yesterday before declaring the streak broken. An away day is never the
-  // thing that breaks it — step over it and keep looking.
-  let peek = 0
-  while (!hasCompletionOn(d) && !isNoFaultDay(d) && isAwayDay(d) && peek++ < 3650) {
-    d.setDate(d.getDate() - 1)
-  }
-  if (!hasCompletionOn(d) && !isNoFaultDay(d)) {
-    d.setDate(d.getDate() - 1)
-    while (!hasCompletionOn(d) && !isNoFaultDay(d) && isAwayDay(d) && peek++ < 3650) {
-      d.setDate(d.getDate() - 1)
-    }
-    if (!hasCompletionOn(d) && !isNoFaultDay(d)) return 0
-  }
-
-  // Hard iteration cap as a defense-in-depth in case the floor logic
-  // ever misbehaves. 3650 = ~10 years; well beyond any realistic streak.
-  let guard = 3650
-  while (guard-- > 0) {
-    if (floor && d < floor) break
-    // A day you were away is skipped, not counted: the streak is paused, so
-    // the walk continues past it without incrementing. A day you were away AND
-    // completed something still counts — being abroad doesn't erase the work.
-    if (!hasCompletionOn(d) && !isNoFaultDay(d)) {
-      if (!isAwayDay(d)) break
-      d.setDate(d.getDate() - 1)
-      continue
-    }
-    streak++
-    d.setDate(d.getDate() - 1)
-  }
-
-  return streak
+  // ONE implementation of the walk, shared with the server's analytics streak
+  // (server/streakWalk.js). Two hand-mirrored copies is how the away window came
+  // to be honoured in one place and not the other.
+  return walkStreak({
+    todayMs: Date.now(),
+    isKept: (d) => hasCompletionOn(d) || isNoFaultDay(d),
+    isPaused: (d) => awayDays.has(dayKey(d)),
+    floorMs: floor ? floor.getTime() : null,
+  })
 }
 
 // Per-routine streak — counts consecutive cadence cycles completed without
