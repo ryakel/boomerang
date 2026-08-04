@@ -34,6 +34,7 @@ When prod breaks, suspect freshly-shipped code first: read the error and stack t
 Each of these encodes a real incident or trap. Full context in the linked wiki pages.
 
 **Data durability**
+- When a piece of state moves to a new home, every consumer moves with it — grep for the OLD key before calling the migration done. The away window moved to its `vacation_window` carve-out on 2026-07-29; the notification gate followed and `computeStreak()`'s guard was left pointing at the abandoned `settings.vacation_mode`, so away suppressed nags and silently let a trip end a 100-day streak (2026-08-03). Away days are now STAMPED into `settings.away_days` (`server/awayDays.js`) rather than derived, so closing the window on the way home can't un-protect them.
 - Never derive a user-visible earned value (streak, records, lifetime totals) solely from live task rows — persist provenance metadata at observation time (the `settings.streak_anchor` pattern). Before shipping any stat, ask "what happens to this number when its rows are deleted?"; the only acceptable answer is "nothing."
 - The bulk settings sync is whole-blob last-writer-wins. Keys that must survive across devices need a server-side merge guard (`mergeDurableStreakSettings()` / `preserveAbsentSettings()` in `server/server.js`); booleans that must never revert get their own `app_data` carve-out with dedicated endpoints instead of riding the blob. Load the `add-setting` skill before adding any setting.
 - `PUT/POST /api/data` rejects payloads that would empty the tasks table or shrink it >50% (the 2026-05-07 wipe guard). Per-record `/api/tasks` mutations are the supported path for legitimate bulk deletes.
@@ -60,6 +61,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 
 **Notifications**
 - The product is ONE morning digest plus a short list of intentionally rare pings (the 2026-07-24 "Great Alert Deletion"). Any new background send must justify itself against that surviving list. Load the `add-notification-type` skill before touching this area.
+- **Away has THREE surfaces, not one.** `isNotifiable()` gates server sends; the device schedules its own local notifications (`src/reminderSchedule.js`) and writes `EKAlarm`s into Apple Reminders, and both ring with no server — which is exactly why the server-side gate cannot reach them. All three consult the away window; the device pair do it via `settings.away_days` (the same stamp the streak uses). Any new alarm path that fires from the device needs the same check (2026-08-04: alerts kept arriving mid-trip with the window correctly set).
 - `isNotifiable()` in `server/db.js` is the single opt-in gate (`due_date || nag_allowed || active escalation`, plus crisis). Per-type channel toggles must never LOOK on when their channel master is off.
 
 **Auth**

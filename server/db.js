@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { estimateAiCost } from './aiModels.js'
 import { normalizeWindow, isAway } from './vacationWindow.js'
+import { walkStreak, dayKey } from './streakWalk.js'
 import { ymdInTz } from './taskModel.js'
 
 let db
@@ -1364,37 +1365,29 @@ export function getAnalytics(settings = {}) {
   }
   if (dates.length > 0 && current > longestStreak) longestStreak = current
 
-  // Current streak (consecutive days working backward from today)
+  // Current streak (consecutive days working backward from today).
+  //
+  // Mirrors computeStreak() in src/store.js, including the away rule: a day the
+  // away window covered (server/awayDays.js) is SKIPPED — it neither breaks the
+  // streak nor adds to it, so a trip leaves the number exactly where it was.
+  // Free days still COUNT as kept; away days do not, because a week abroad is
+  // not a week of work.
   const freeDays = new Set(settings.free_days || [])
-  let streak = 0
-  const d = new Date()
-  const todayDate = d.toDateString()
-  const todayISO = d.toISOString().split('T')[0]
-  if (!byDay[todayDate] && !freeDays.has(todayISO)) {
-    d.setDate(d.getDate() - 1)
-    if (!byDay[d.toDateString()] && !freeDays.has(d.toISOString().split('T')[0])) {
-      // No completions today or yesterday — streak is 0
-      streak = 0
-    } else {
-      while (byDay[d.toDateString()] || freeDays.has(d.toISOString().split('T')[0])) {
-        streak++
-        d.setDate(d.getDate() - 1)
-      }
-    }
-  } else {
-    while (byDay[d.toDateString()] || freeDays.has(d.toISOString().split('T')[0])) {
-      streak++
-      d.setDate(d.getDate() - 1)
-    }
-  }
+  const awayDays = new Set(settings.away_days || [])
+  // The SAME walk the client uses (server/streakWalk.js) rather than a second
+  // hand-written copy of the rule — see that file for why.
+  const streak = walkStreak({
+    todayMs: Date.now(),
+    isKept: (d) => !!byDay[d.toDateString()] || freeDays.has(dayKey(d)),
+    isPaused: (d) => awayDays.has(dayKey(d)),
+  })
 
-  // Vacation freezes the streak at its stored value. Reads the app_data
-  // carve-out rather than the settings blob (see vacationWindow.js for why the
-  // blob cannot hold this), with the legacy blob keys as a read-only fallback so
-  // any value the old inert plumbing managed to keep still counts.
-  if (isAway(getVacationWindow(), ymdInTz(new Date(), settings.user_timezone))) {
-    streak = settings.streak_current || 0
-  }
+  // Away used to FREEZE the streak at `settings.streak_current` here. Nothing
+  // has ever written that key, so the freeze pinned the number to 0 for the
+  // whole trip while masking the real problem — the walk above ended the streak
+  // at the first day away. The walk now pauses over those days instead, which
+  // is the freeze done properly: it survives the window being switched off,
+  // and a day you did work abroad still counts.
 
   return { tasksToday, pointsToday, bestTasks, bestPoints, longestStreak, streak }
 }

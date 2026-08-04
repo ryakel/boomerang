@@ -186,3 +186,71 @@ test('empty everything is a valid empty plan', () => {
 test('called with no arguments at all it still returns a plan', () => {
   assert.deepEqual(planLocalReminders().schedule, [])
 })
+
+// ── Away ───────────────────────────────────────────────────────────────────
+// These alarms are scheduled ON THE DEVICE so they ring with no server — which
+// is exactly why the server's away window never reached them, and why alerts
+// kept arriving mid-trip with the window correctly set (2026-08-04).
+
+const p = (n) => String(n).padStart(2, '0')
+const ymdOf = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
+
+test('a one-off whose moment falls on an away day is held, not scheduled', () => {
+  const now = new Date(2026, 7, 4, 9, 0).getTime()
+  const fire = new Date(2026, 7, 5, 19, 30)
+  const plan = planLocalReminders({
+    tasks: [{ id: 't1', title: 'Caulk around windows', status: 'not_started', remind_at: fire.toISOString() }],
+    now,
+    awayDays: [ymdOf(now), ymdOf(fire.getTime())],
+  })
+  assert.equal(plan.schedule.length, 0)
+  assert.equal(plan.heldByAway.length, 1)
+  assert.equal(plan.heldByAway[0].title, 'Caulk around windows')
+})
+
+test('a crisis-tagged reminder still rings while away', () => {
+  const now = new Date(2026, 7, 4, 9, 0).getTime()
+  const fire = new Date(2026, 7, 5, 19, 30)
+  const plan = planLocalReminders({
+    tasks: [{ id: 't1', title: 'Burst pipe', status: 'not_started', remind_at: fire.toISOString(), tags: ['critical'] }],
+    now,
+    awayDays: [ymdOf(now), ymdOf(fire.getTime())],
+  })
+  assert.equal(plan.schedule.length, 1)
+  assert.equal(plan.heldByAway.length, 0)
+})
+
+test('a reminder landing AFTER the window still rings', () => {
+  const now = new Date(2026, 7, 4, 9, 0).getTime()
+  const fire = new Date(2026, 7, 20, 19, 30)   // long after the trip
+  const plan = planLocalReminders({
+    tasks: [{ id: 't1', title: 'Later', status: 'not_started', remind_at: fire.toISOString() }],
+    now,
+    awayDays: [ymdOf(now)],
+  })
+  assert.equal(plan.schedule.length, 1)
+  assert.equal(plan.heldByAway.length, 0)
+})
+
+test('a ringing loop is held for the whole trip, because a repeating trigger has no per-day check', () => {
+  const now = new Date(2026, 7, 4, 9, 0).getTime()
+  const plan = planLocalReminders({
+    routines: [{ id: 'r1', title: 'Take vitamins', remind: true, trigger_time: '08:00', cadence: 'daily' }],
+    now,
+    awayDays: [ymdOf(now)],
+  })
+  assert.equal(plan.repeating, 0)
+  assert.equal(plan.heldByAway.length, 1)
+  assert.equal(plan.heldByAway[0].kind, 'loop')
+})
+
+test('with no away days nothing is held — the rule is opt-in, not a new default', () => {
+  const now = new Date(2026, 7, 4, 9, 0).getTime()
+  const plan = planLocalReminders({
+    tasks: [{ id: 't1', title: 'Normal', status: 'not_started', remind_at: new Date(2026, 7, 5, 19, 30).toISOString() }],
+    routines: [{ id: 'r1', title: 'Vitamins', remind: true, trigger_time: '08:00', cadence: 'daily' }],
+    now,
+  })
+  assert.equal(plan.schedule.length, 2)
+  assert.equal(plan.heldByAway.length, 0)
+})

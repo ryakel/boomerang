@@ -1,4 +1,5 @@
 import { localYMD, parseLocalDate } from './dates'
+import { walkStreak, dayKey } from '../server/streakWalk.js'
 // crypto.randomUUID is unavailable over plain HTTP (non-secure context)
 export const uuid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -68,6 +69,11 @@ export const DEFAULT_SETTINGS = {
   week_strip_always_open: false,
   vacation_mode: false,
   vacation_started: null,
+  // Days an away window covered, stamped server-side (server/awayDays.js).
+  // Declared here so a hydrated client always sends the key back; the server
+  // also union-merges it (mergeDurableStreakSettings) so a stale bundle cannot
+  // drop protected days.
+  away_days: [],
   trello_api_key: '',
   trello_secret: '',
   trello_board_id: '',
@@ -923,7 +929,26 @@ export function computeStreak(tasks, settings) {
     }
   }
 
+  // `vacation_mode` above is LEGACY and nothing writes it any more. The away
+  // window moved to its own app_data carve-out on 2026-07-29 (the settings blob
+  // is last-writer-wins and any stale client pushed `false`) — and the streak
+  // guard was left behind pointing at the abandoned flag, so a trip protected
+  // notifications and silently ended the streak instead. Cost a 100-day streak
+  // on 2026-08-03.
+  //
+  // The days the window covered are STAMPED server-side into `away_days`
+  // (server/awayDays.js) and PAUSE the walk below. Stamped rather than derived
+  // so coming home — switching the window off — cannot retroactively
+  // un-protect the trip.
   const freeDays = new Set(settings.free_days || [])
+  // Away days PAUSE the streak: they neither break it nor build it. The walk
+  // steps straight over them, so a week away leaves the number exactly where it
+  // was — 100 in, 100 out.
+  //
+  // Not the same as a free day, which COUNTS as kept. Treating a trip as seven
+  // kept days would hand out a streak nobody worked for, and the streak's only
+  // job is to be worth something. "This should be actually paused" — correct.
+  const awayDays = new Set(settings.away_days || [])
   const easterEggWins = settings.easter_egg_wins || {}
   // Durable provenance for completion days whose task rows were deleted —
   // stamped server-side by deleteTask (see db.js). Without this, deleting
@@ -988,25 +1013,15 @@ export function computeStreak(tasks, settings) {
     completionDates.has(d.toDateString()) || !!easterEggWins[localYMD(d)] || provenanceDays.has(localYMD(d))
   )
 
-  let streak = 0
-  const d = new Date()
-  // Today special: if nothing done today and not a no-fault day, peek at
-  // yesterday before declaring the streak broken.
-  if (!hasCompletionOn(d) && !isNoFaultDay(d)) {
-    d.setDate(d.getDate() - 1)
-    if (!hasCompletionOn(d) && !isNoFaultDay(d)) return 0
-  }
-
-  // Hard iteration cap as a defense-in-depth in case the floor logic
-  // ever misbehaves. 3650 = ~10 years; well beyond any realistic streak.
-  let guard = 3650
-  while ((hasCompletionOn(d) || isNoFaultDay(d)) && guard-- > 0) {
-    if (floor && d < floor) break
-    streak++
-    d.setDate(d.getDate() - 1)
-  }
-
-  return streak
+  // ONE implementation of the walk, shared with the server's analytics streak
+  // (server/streakWalk.js). Two hand-mirrored copies is how the away window came
+  // to be honoured in one place and not the other.
+  return walkStreak({
+    todayMs: Date.now(),
+    isKept: (d) => hasCompletionOn(d) || isNoFaultDay(d),
+    isPaused: (d) => awayDays.has(dayKey(d)),
+    floorMs: floor ? floor.getTime() : null,
+  })
 }
 
 // Per-routine streak — counts consecutive cadence cycles completed without

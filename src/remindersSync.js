@@ -14,6 +14,7 @@
 
 import { registerPlugin } from '@capacitor/core'
 import { isNativeShell, readJson } from './apiConfig'
+import { loadSettings } from './store'
 import { localRemindersOwnAlarms } from './localReminders'
 
 const Reminders = registerPlugin('BoomerangReminders')
@@ -73,7 +74,16 @@ export async function syncReminders({ silent = true } = {}) {
       // mirrored reminder gets a due date but NO alarm — otherwise the same
       // moment fires twice, which is precisely the alert fatigue this whole
       // design exists to avoid.
-      const alarm = !localRemindersOwnAlarms()
+      // ...and away silences it outright. The mirror writes an EKAlarm into
+      // Apple's list, which iOS then fires on its own — a second device-side
+      // path the server's away window could never reach. Same rule as the
+      // local notifications: quiet while away, crisis excepted (crisis tasks
+      // never reach here suppressed, because the server's plan already applies
+      // isNotifiable).
+      const away = new Set(loadSettings()?.away_days || [])
+      const p = (n) => String(n).padStart(2, '0')
+      const today = (() => { const d = new Date(); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` })()
+      const alarm = !localRemindersOwnAlarms() && !away.has(today)
       const written = await Reminders.write({ items: plan.toWrite.map(i => ({ ...i, alarm })) })
       if (written?.links?.length) {
         const linkRes = await fetch('/api/reminders/link', {

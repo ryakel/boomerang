@@ -13,7 +13,7 @@
 
 import { registerPlugin } from '@capacitor/core'
 import { isNativeShell } from './apiConfig'
-import { safeSetItem } from './store'
+import { safeSetItem, loadSettings } from './store'
 import { planLocalReminders } from './reminderSchedule'
 
 const Notifs = registerPlugin('BoomerangLocalNotifs')
@@ -51,13 +51,21 @@ export async function requestLocalReminderPermission() {
  * "Refresh" always does something observable rather than appearing broken when
  * the plan happens to be identical.
  */
-export async function refreshLocalReminders(tasks = [], routines = [], { force = false } = {}) {
+export async function refreshLocalReminders(tasks = [], routines = [], { force = false, settings = null } = {}) {
   if (!isNativeShell()) return { ok: false, skipped: 'not-native' }
   // Overlapping runs would both cancel-then-add against the same list; the
   // loser's adds can land after the winner's cancel and vanish.
   if (refreshing) return { ok: false, skipped: 'already-running' }
 
-  const plan = planLocalReminders({ tasks, routines })
+  // Away reaches the device through the day list the server stamps for the
+  // streak — one durable fact driving both, rather than a second channel that
+  // can disagree with the first.
+  const s = settings || loadSettings() || {}
+  const plan = planLocalReminders({
+    tasks, routines,
+    awayDays: s.away_days || [],
+    crisisLabel: s.crisis_label || 'critical',
+  })
   const json = JSON.stringify(plan.schedule)
   if (!force && json === lastPlanJson) {
     return { ok: true, unchanged: true, ...counts(plan) }
@@ -107,6 +115,9 @@ function counts(plan) {
     // past the 64-slot cap is the failure mode this whole design exists to
     // avoid — a reminder that never rings and never explains itself.
     dropped: plan.dropped.length,
+    // Same rule for away: an alarm that goes quiet has to be countable, or a
+    // held trip is indistinguishable from a broken scheduler.
+    heldByAway: (plan.heldByAway || []).length,
   }
 }
 

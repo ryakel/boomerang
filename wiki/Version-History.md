@@ -4,6 +4,27 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-03
+
+- fix(away): the alarms that were still firing mid-trip are device alarms [M]
+  - *"I'm still getting alerts in away mode too. Got one this morning"* — with the window correctly set to Aug 2–7 and today Aug 4. The server's away suppression was working; the alerts weren't coming from the server.
+  - **Local notifications and the Apple Reminders mirror both fire from the phone, and neither had ever heard of the away window.** The whole point of the local-notification design (2026-08-01) is that it rings with no server, no VPN and no network — which is precisely why the server-side gate could never reach it. Same for the `EKAlarm` written into Apple's list: iOS fires that on its own. Three notification paths, one gate, two of them out of its reach. That gap arrived with the feature and nothing tested it against a live window.
+  - `planLocalReminders()` now takes `awayDays` and holds any non-crisis alarm whose moment lands on an away day. A **ringing loop is held for the whole trip** rather than per-occurrence: a repeating calendar trigger fires forever once set and has no per-day check, so the only honest options are "on" and "off". It's rebuilt on return by the normal re-plan.
+  - The mirror writes `alarm: false` while away, so Apple's copy stays visible and tickable but silent — the same demotion already used when this device owns its own alarms.
+  - **The window reaches the device via `away_days`** — the day list the server already stamps for the streak — rather than new plumbing. One durable fact drives both, so they cannot disagree, and it works offline because it's already in the synced settings blob.
+  - Held alarms are **counted** (`heldByAway`), same rule as the 64-slot `dropped` count: an alarm that goes quiet must be countable, or a held trip is indistinguishable from a broken scheduler.
+  - Crisis still rings. 5 new tests. `npm test` 302/302 + smoke, eslint 0 errors. **Needs an iOS rebuild** to reach the phone: the scheduling code is in the web bundle, so OTA delivers it, but the alarms already sitting in iOS's queue are only rewritten when the app next re-plans.
+- fix(streak): a trip stops ending your streak, and the days are stamped [M]
+  - *"I'm irate. You completely fucked my 100 day streak with your shit show of a away mode."* A 100-day streak went to zero over a week away.
+  - **The away window has never protected the streak.** `computeStreak()` guards on `settings.vacation_mode` — the legacy settings-blob boolean the away redesign (2026-07-29) deliberately ABANDONED, because the blob is last-writer-wins and any stale client pushes `false`. When the window moved to its own `app_data` carve-out the notification gate moved with it and the streak guard was left behind pointing at a flag nothing writes any more. `vacationWindow.js`'s own header names the two things the window exists to prevent — resumed nagging and a broken streak — and it was only ever doing the first.
+  - The streak walks backwards and stops at the first day with no completion that wasn't no-fault. A week away is exactly seven of those in a row, so the trip itself ended it. Nothing to do with the digest-cache fix shipped hours earlier — that one was real, and the report that away was "fixed" was true only of notifications.
+  - **The days are STAMPED, not derived** (`server/awayDays.js`, pure, 11 tests). `settings.away_days` gets every local day the window has covered, written on boot, every 30 minutes, before each digest, and the instant the window changes. Derived-only protection would un-protect the whole trip the moment the window was switched off on getting home — the CLAUDE.md durability rule, which says a user-visible earned value must never depend solely on live state.
+  - **Away PAUSES the streak; it does not feed it.** First cut treated away days as free days, which COUNT as kept — so a week abroad would have handed out seven days nobody worked for and come home at 107. *"This shit should be actually paused."* Correct: the walk now steps over an away day without incrementing, so 100 days in is 100 days out. A day you were away and still completed something counts normally — being abroad doesn't erase the work. Both walks (client `computeStreak`, server analytics) implement the same rule.
+  - `away_days` joins `completion_days`/`free_days` in the whole-blob union guard, so a stale bundle cannot drop protected days.
+  - **The server's streak freeze is gone.** It pinned the number to `settings.streak_current`, a key nothing has ever written — so away froze the server-side streak at 0 and masked the real problem. With away days no-fault, the walk carries straight through a trip, and the number keeps counting UP if you complete something while abroad.
+  - **Nothing was lost.** The streak is recomputed from completion history every time, so stamping the days repairs the number by itself — no restore, no manual edit. Setting the window with a backdated `started_at` backfills immediately (verified: a 6-day backdate stamped 7 days on the POST).
+  - Verified against the real `computeStreak`: 100 days of completions plus 7 days away with nothing done → **0** unprotected, **107** with the days stamped. `npm test` 297/297 + smoke, eslint 0 errors. Server + web — **no rebuild**.
+
 ## 2026-08-02
 
 - docs(screenshots): a demo dataset, and every published image re-shot from it [M]
