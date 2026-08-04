@@ -61,6 +61,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 
 **Notifications**
 - The product is ONE morning digest plus a short list of intentionally rare pings (the 2026-07-24 "Great Alert Deletion"). Any new background send must justify itself against that surviving list. Load the `add-notification-type` skill before touching this area.
+- **Away has THREE surfaces, not one.** `isNotifiable()` gates server sends; the device schedules its own local notifications (`src/reminderSchedule.js`) and writes `EKAlarm`s into Apple Reminders, and both ring with no server — which is exactly why the server-side gate cannot reach them. All three consult the away window; the device pair do it via `settings.away_days` (the same stamp the streak uses). Any new alarm path that fires from the device needs the same check (2026-08-04: alerts kept arriving mid-trip with the window correctly set).
 - `isNotifiable()` in `server/db.js` is the single opt-in gate (`due_date || nag_allowed || active escalation`, plus crisis). Per-type channel toggles must never LOOK on when their channel master is off.
 
 **Auth**
