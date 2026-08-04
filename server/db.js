@@ -1365,7 +1365,9 @@ export function getAnalytics(settings = {}) {
   if (dates.length > 0 && current > longestStreak) longestStreak = current
 
   // Current streak (consecutive days working backward from today)
-  const freeDays = new Set(settings.free_days || [])
+  // Away days are stamped no-fault days (server/awayDays.js) — a trip must not
+  // end the streak, which is the whole point of the window.
+  const freeDays = new Set([...(settings.free_days || []), ...(settings.away_days || [])])
   let streak = 0
   const d = new Date()
   const todayDate = d.toDateString()
@@ -1388,13 +1390,14 @@ export function getAnalytics(settings = {}) {
     }
   }
 
-  // Vacation freezes the streak at its stored value. Reads the app_data
-  // carve-out rather than the settings blob (see vacationWindow.js for why the
-  // blob cannot hold this), with the legacy blob keys as a read-only fallback so
-  // any value the old inert plumbing managed to keep still counts.
-  if (isAway(getVacationWindow(), ymdInTz(new Date(), settings.user_timezone))) {
-    streak = settings.streak_current || 0
-  }
+  // Away used to FREEZE the streak at `settings.streak_current` here. Nothing
+  // has ever written that key, so the freeze pinned the number to 0 for the
+  // whole trip — and it was masking the real problem: away days weren't
+  // no-fault, so the walk above ended the streak at the first day away. They
+  // are now (`away_days`, stamped in server/server.js), so the walk carries
+  // straight through a trip and no freeze is needed. Removing it also means the
+  // number keeps counting UP if you complete something while away, which is
+  // what actually happens on a working day abroad.
 
   return { tasksToday, pointsToday, bestTasks, bestPoints, longestStreak, streak }
 }

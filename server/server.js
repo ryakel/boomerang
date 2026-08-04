@@ -75,6 +75,7 @@ import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
   setSessionCookie, clearSessionCookie, isAuthEnabled, isAuthenticated } from './auth.js'
 import { normalizeCapture, createRateLimiter } from './capture.js'
 import { isAway, isExpired, windowDays } from './vacationWindow.js'
+import { awayDaysElapsed, mergeAwayDays } from './awayDays.js'
 import { repairPlan } from './vacationRepair.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
@@ -608,7 +609,7 @@ function mergeDurableStreakSettings(prevSettings, nextSettings) {
     nextSettings.streak_anchor = prevAnchor
     console.log(`[SYNC] streak_anchor guard: kept ${prevAnchor} (incoming blob had ${nextAnchor || 'none'})`)
   }
-  for (const key of ['completion_days', 'free_days']) {
+  for (const key of ['completion_days', 'free_days', 'away_days']) {
     const prev = Array.isArray(prevSettings?.[key]) ? prevSettings[key] : []
     if (prev.length === 0) continue
     const next = Array.isArray(nextSettings[key]) ? nextSettings[key] : []
@@ -3687,7 +3688,11 @@ app.post('/api/vacation', (req, res) => {
   // record of having set — "why did nothing nag me last week" has to be
   // answerable from the logs.
   console.log(`[Vacation] window ${w.active ? 'ON' : 'OFF'} ${w.started_at || '(no start)'}→${w.ends_at || '(open)'} away_now=${away}`)
-  res.json({ ...w, today, away_now: away, expired: isExpired(w, today) })
+  // Protect the days immediately. Waiting for the next scheduled pass would
+  // leave the first day of a trip unstamped for up to half an hour, and the
+  // first day is the one most likely to have nothing completed on it.
+  const stamped = stampAwayDays('window-changed')
+  res.json({ ...w, today, away_now: away, expired: isExpired(w, today), protected_days_added: stamped })
 })
 
 // The bulk repair — one action instead of hand-editing every task that came
@@ -3762,7 +3767,36 @@ app.post('/api/pushover/link-mode', (req, res) => {
 // digest is cached per (day, data-version) and served by GET /api/digest/today
 // — any task write bumps the version, which invalidates the cache.
 
+// Stamp every day the away window has covered so far into settings.away_days,
+// so the streak survives the trip AND survives the window being switched off
+// when the user gets home. Derived-only protection would un-protect the days
+// the moment the window closed — see server/awayDays.js for the full incident.
+//
+// Runs on boot, every 30 minutes, before each digest, and the instant the
+// window is changed: the first stamp of a trip must not wait for a scheduler.
+function stampAwayDays(reason) {
+  try {
+    const settings = getData('settings') || {}
+    const tz = settings.user_timezone || DEFAULT_TIMEZONE
+    const todayYMD = ymdInTz(new Date(), tz)
+    const days = awayDaysElapsed(getVacationWindow(), todayYMD)
+    const merged = mergeAwayDays(settings.away_days, days)
+    if (!merged) return 0
+    const added = merged.length - (Array.isArray(settings.away_days) ? settings.away_days.length : 0)
+    setData('settings', { ...settings, away_days: merged })
+    // The streak is client-computed from the settings blob, so a stamp nobody
+    // is told about doesn't reach the number until the next natural sync.
+    broadcast(bumpVersion(), null)
+    console.log(`[away] ${reason}: stamped ${added} protected day(s), ${merged.length} total`)
+    return added
+  } catch (e) {
+    console.error('[away] stamp error:', e?.message)
+    return 0
+  }
+}
+
 function runNightlyRollover(reason) {
+  stampAwayDays(reason)
   try {
     const tz = (getData('settings') || {}).user_timezone || DEFAULT_TIMEZONE
     const todayYMD = ymdInTz(new Date(), tz)

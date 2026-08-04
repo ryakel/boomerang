@@ -4,6 +4,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-03
+
+- fix(streak): a trip stops ending your streak, and the days are stamped [M]
+  - *"I'm irate. You completely fucked my 100 day streak with your shit show of a away mode."* A 100-day streak went to zero over a week away.
+  - **The away window has never protected the streak.** `computeStreak()` guards on `settings.vacation_mode` — the legacy settings-blob boolean the away redesign (2026-07-29) deliberately ABANDONED, because the blob is last-writer-wins and any stale client pushes `false`. When the window moved to its own `app_data` carve-out the notification gate moved with it and the streak guard was left behind pointing at a flag nothing writes any more. `vacationWindow.js`'s own header names the two things the window exists to prevent — resumed nagging and a broken streak — and it was only ever doing the first.
+  - The streak walks backwards and stops at the first day with no completion that wasn't no-fault. A week away is exactly seven of those in a row, so the trip itself ended it. Nothing to do with the digest-cache fix shipped hours earlier — that one was real, and the report that away was "fixed" was true only of notifications.
+  - **The days are STAMPED, not derived** (`server/awayDays.js`, pure, 11 tests). `settings.away_days` gets every local day the window has covered, written on boot, every 30 minutes, before each digest, and the instant the window changes. Derived-only protection would un-protect the whole trip the moment the window was switched off on getting home — the CLAUDE.md durability rule, which says a user-visible earned value must never depend solely on live state.
+  - `away_days` joins `completion_days`/`free_days` in the whole-blob union guard, so a stale bundle cannot drop protected days.
+  - **The server's streak freeze is gone.** It pinned the number to `settings.streak_current`, a key nothing has ever written — so away froze the server-side streak at 0 and masked the real problem. With away days no-fault, the walk carries straight through a trip, and the number keeps counting UP if you complete something while abroad.
+  - **Nothing was lost.** The streak is recomputed from completion history every time, so stamping the days repairs the number by itself — no restore, no manual edit. Setting the window with a backdated `started_at` backfills immediately (verified: a 6-day backdate stamped 7 days on the POST).
+  - Verified against the real `computeStreak`: 100 days of completions plus 7 days away with nothing done → **0** unprotected, **107** with the days stamped. `npm test` 297/297 + smoke, eslint 0 errors. Server + web — **no rebuild**.
+
 ## 2026-08-02
 
 - docs(screenshots): a demo dataset, and every published image re-shot from it [M]

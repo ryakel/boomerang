@@ -68,6 +68,11 @@ export const DEFAULT_SETTINGS = {
   week_strip_always_open: false,
   vacation_mode: false,
   vacation_started: null,
+  // Days an away window covered, stamped server-side (server/awayDays.js).
+  // Declared here so a hydrated client always sends the key back; the server
+  // also union-merges it (mergeDurableStreakSettings) so a stale bundle cannot
+  // drop protected days.
+  away_days: [],
   trello_api_key: '',
   trello_secret: '',
   trello_board_id: '',
@@ -923,7 +928,18 @@ export function computeStreak(tasks, settings) {
     }
   }
 
-  const freeDays = new Set(settings.free_days || [])
+  // `vacation_mode` above is LEGACY and nothing writes it any more. The away
+  // window moved to its own app_data carve-out on 2026-07-29 (the settings blob
+  // is last-writer-wins and any stale client pushed `false`) — and the streak
+  // guard was left behind pointing at the abandoned flag, so a trip protected
+  // notifications and silently ended the streak instead. Cost a 100-day streak
+  // on 2026-08-03.
+  //
+  // The days the window covered are STAMPED server-side into `away_days`
+  // (server/awayDays.js) and treated as no-fault here, exactly like free days.
+  // Stamped rather than derived so coming home — switching the window off —
+  // cannot retroactively un-protect the trip.
+  const freeDays = new Set([...(settings.free_days || []), ...(settings.away_days || [])])
   const easterEggWins = settings.easter_egg_wins || {}
   // Durable provenance for completion days whose task rows were deleted —
   // stamped server-side by deleteTask (see db.js). Without this, deleting
