@@ -19,6 +19,24 @@ export const IOS_PENDING_CAP = 64
 
 const ACTIVE = new Set(['not_started', 'doing', 'waiting'])
 
+// Is this task on the critical path? Matches the server's isCrisisTask rule
+// (tag id, case-insensitive) — crisis is the one thing away never silences.
+function isCrisis(task, crisisLabel) {
+  const target = String(crisisLabel || 'critical').toLowerCase()
+  if (!target || !Array.isArray(task?.tags)) return false
+  return task.tags.some(t => {
+    const v = typeof t === 'string' ? t : (t?.id || t?.name || '')
+    return String(v).toLowerCase() === target
+  })
+}
+
+// 'YYYY-MM-DD' local, matching the day keys the server stamps into away_days.
+function ymdLocal(ms) {
+  const d = new Date(ms)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 // A cadence that iOS can express as ONE repeating calendar trigger. Those cost
 // a single slot and fire forever, which is what makes the offline horizon
 // effectively unbounded — 30 nights of a daily loop is 1 slot, not 30.
@@ -59,9 +77,26 @@ function parseClock(triggerTime) {
  * re-scheduling is idempotent: the device replaces by id rather than stacking
  * a second copy of the same alarm every time the app opens.
  */
-export function planLocalReminders({ tasks = [], routines = [], now = Date.now() } = {}) {
+export function planLocalReminders({
+  tasks = [], routines = [], now = Date.now(),
+  awayDays = [], crisisLabel = 'critical',
+} = {}) {
   const repeating = []
   const once = []
+  // AWAY. These alarms are scheduled ON THE DEVICE precisely so they ring with
+  // no server, no VPN, no network — which is exactly why the server's away
+  // window could never reach them. Reported 2026-08-04, mid-trip, window set
+  // Aug 2–7: "I'm still getting alerts in away mode too."
+  //
+  // The window arrives as the day list the server already stamps for the streak
+  // (settings.away_days) rather than as new plumbing, so one durable fact
+  // drives both. Day-level is the right granularity: the window is a statement
+  // about days, and these are alarms scheduled days ahead.
+  const away = new Set(awayDays || [])
+  const heldByAway = []
+  // A repeating trigger fires forever once set, so a loop cannot be "held for
+  // the trip" — it is dropped for the duration and rebuilt on return.
+  const awayCoversAllOf = (fireMs) => away.has(ymdLocal(fireMs))
 
   // --- Loops that ring -----------------------------------------------------
   // These come FIRST and are never dropped by the cap: a recurring alarm is
@@ -75,6 +110,13 @@ export function planLocalReminders({ tasks = [], routines = [], now = Date.now()
     if (!clock) continue
     const shape = repeatShape(r)
     if (!shape) continue // enumerated below via its spawned tasks instead
+    // A loop that repeats through a trip would ring every day of it. There is
+    // no per-occurrence check on a repeating trigger, so if today is an away
+    // day the loop is held entirely and re-scheduled when the window ends.
+    if (away.has(ymdLocal(now))) {
+      heldByAway.push({ id: `loop:${r.id}`, title: String(r.title || 'Reminder'), kind: 'loop' })
+      continue
+    }
     ringingRoutineIds.add(String(r.id))
     repeating.push({
       id: `loop:${r.id}`,
@@ -101,6 +143,12 @@ export function planLocalReminders({ tasks = [], routines = [], now = Date.now()
     // discards a past trigger, and pretending otherwise would report a count
     // that does not match what the device holds.
     if (at <= now) continue
+    // Crisis still gets through — the washing machine does not care that you
+    // are in Wisconsin (the rule isNotifiable already applies server-side).
+    if (awayCoversAllOf(at) && !isCrisis(t, crisisLabel)) {
+      heldByAway.push({ id: `task:${t.id}`, title: String(t.title || 'Reminder'), kind: 'task' })
+      continue
+    }
     const d = new Date(at)
     once.push({
       id: `task:${t.id}`,
@@ -131,6 +179,7 @@ export function planLocalReminders({ tasks = [], routines = [], now = Date.now()
   return {
     schedule,
     dropped,          // reported, never silent — see localReminders.js
+    heldByAway,       // ditto: an alarm that goes quiet must be countable
     repeating: repeating.length,
     once: keptOnce.length,
   }
