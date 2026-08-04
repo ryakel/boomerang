@@ -1364,40 +1364,48 @@ export function getAnalytics(settings = {}) {
   }
   if (dates.length > 0 && current > longestStreak) longestStreak = current
 
-  // Current streak (consecutive days working backward from today)
-  // Away days are stamped no-fault days (server/awayDays.js) — a trip must not
-  // end the streak, which is the whole point of the window.
-  const freeDays = new Set([...(settings.free_days || []), ...(settings.away_days || [])])
+  // Current streak (consecutive days working backward from today).
+  //
+  // Mirrors computeStreak() in src/store.js, including the away rule: a day the
+  // away window covered (server/awayDays.js) is SKIPPED — it neither breaks the
+  // streak nor adds to it, so a trip leaves the number exactly where it was.
+  // Free days still COUNT as kept; away days do not, because a week abroad is
+  // not a week of work.
+  const freeDays = new Set(settings.free_days || [])
+  const awayDays = new Set(settings.away_days || [])
+  const iso = (dt) => {
+    const p = n => String(n).padStart(2, '0')
+    return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`
+  }
+  const kept = (dt) => !!byDay[dt.toDateString()] || freeDays.has(iso(dt))
+  const paused = (dt) => awayDays.has(iso(dt))
+
   let streak = 0
   const d = new Date()
-  const todayDate = d.toDateString()
-  const todayISO = d.toISOString().split('T')[0]
-  if (!byDay[todayDate] && !freeDays.has(todayISO)) {
+  let guard = 3650
+  // Step over any away days sitting between now and the last real activity,
+  // then allow the usual one-day grace before declaring the streak broken.
+  while (!kept(d) && paused(d) && guard-- > 0) d.setDate(d.getDate() - 1)
+  if (!kept(d)) {
     d.setDate(d.getDate() - 1)
-    if (!byDay[d.toDateString()] && !freeDays.has(d.toISOString().split('T')[0])) {
-      // No completions today or yesterday — streak is 0
-      streak = 0
-    } else {
-      while (byDay[d.toDateString()] || freeDays.has(d.toISOString().split('T')[0])) {
-        streak++
-        d.setDate(d.getDate() - 1)
-      }
-    }
-  } else {
-    while (byDay[d.toDateString()] || freeDays.has(d.toISOString().split('T')[0])) {
-      streak++
+    while (!kept(d) && paused(d) && guard-- > 0) d.setDate(d.getDate() - 1)
+  }
+  while (guard-- > 0) {
+    if (!kept(d)) {
+      if (!paused(d)) break
       d.setDate(d.getDate() - 1)
+      continue
     }
+    streak++
+    d.setDate(d.getDate() - 1)
   }
 
   // Away used to FREEZE the streak at `settings.streak_current` here. Nothing
   // has ever written that key, so the freeze pinned the number to 0 for the
-  // whole trip — and it was masking the real problem: away days weren't
-  // no-fault, so the walk above ended the streak at the first day away. They
-  // are now (`away_days`, stamped in server/server.js), so the walk carries
-  // straight through a trip and no freeze is needed. Removing it also means the
-  // number keeps counting UP if you complete something while away, which is
-  // what actually happens on a working day abroad.
+  // whole trip while masking the real problem — the walk above ended the streak
+  // at the first day away. The walk now pauses over those days instead, which
+  // is the freeze done properly: it survives the window being switched off,
+  // and a day you did work abroad still counts.
 
   return { tasksToday, pointsToday, bestTasks, bestPoints, longestStreak, streak }
 }

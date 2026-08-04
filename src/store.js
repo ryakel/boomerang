@@ -936,10 +936,18 @@ export function computeStreak(tasks, settings) {
   // on 2026-08-03.
   //
   // The days the window covered are STAMPED server-side into `away_days`
-  // (server/awayDays.js) and treated as no-fault here, exactly like free days.
-  // Stamped rather than derived so coming home — switching the window off —
-  // cannot retroactively un-protect the trip.
-  const freeDays = new Set([...(settings.free_days || []), ...(settings.away_days || [])])
+  // (server/awayDays.js) and PAUSE the walk below. Stamped rather than derived
+  // so coming home — switching the window off — cannot retroactively
+  // un-protect the trip.
+  const freeDays = new Set(settings.free_days || [])
+  // Away days PAUSE the streak: they neither break it nor build it. The walk
+  // steps straight over them, so a week away leaves the number exactly where it
+  // was — 100 in, 100 out.
+  //
+  // Not the same as a free day, which COUNTS as kept. Treating a trip as seven
+  // kept days would hand out a streak nobody worked for, and the streak's only
+  // job is to be worth something. "This should be actually paused" — correct.
+  const awayDays = new Set(settings.away_days || [])
   const easterEggWins = settings.easter_egg_wins || {}
   // Durable provenance for completion days whose task rows were deleted —
   // stamped server-side by deleteTask (see db.js). Without this, deleting
@@ -1004,20 +1012,38 @@ export function computeStreak(tasks, settings) {
     completionDates.has(d.toDateString()) || !!easterEggWins[localYMD(d)] || provenanceDays.has(localYMD(d))
   )
 
+  const isAwayDay = (d) => awayDays.has(localYMD(d))
+
   let streak = 0
   const d = new Date()
   // Today special: if nothing done today and not a no-fault day, peek at
-  // yesterday before declaring the streak broken.
+  // yesterday before declaring the streak broken. An away day is never the
+  // thing that breaks it — step over it and keep looking.
+  let peek = 0
+  while (!hasCompletionOn(d) && !isNoFaultDay(d) && isAwayDay(d) && peek++ < 3650) {
+    d.setDate(d.getDate() - 1)
+  }
   if (!hasCompletionOn(d) && !isNoFaultDay(d)) {
     d.setDate(d.getDate() - 1)
+    while (!hasCompletionOn(d) && !isNoFaultDay(d) && isAwayDay(d) && peek++ < 3650) {
+      d.setDate(d.getDate() - 1)
+    }
     if (!hasCompletionOn(d) && !isNoFaultDay(d)) return 0
   }
 
   // Hard iteration cap as a defense-in-depth in case the floor logic
   // ever misbehaves. 3650 = ~10 years; well beyond any realistic streak.
   let guard = 3650
-  while ((hasCompletionOn(d) || isNoFaultDay(d)) && guard-- > 0) {
+  while (guard-- > 0) {
     if (floor && d < floor) break
+    // A day you were away is skipped, not counted: the streak is paused, so
+    // the walk continues past it without incrementing. A day you were away AND
+    // completed something still counts — being abroad doesn't erase the work.
+    if (!hasCompletionOn(d) && !isNoFaultDay(d)) {
+      if (!isAwayDay(d)) break
+      d.setDate(d.getDate() - 1)
+      continue
+    }
     streak++
     d.setDate(d.getDate() - 1)
   }
