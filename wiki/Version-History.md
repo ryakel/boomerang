@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-04
+
+- fix(digest): away sends nothing [S]
+  - *"You do remember you were notifying me of shit while I was on vacation mode right?"* Yes — and the fix earlier the same day made the away digest **say the right thing** instead of asking whether it should fire at all. Same failure as the rest of this incident, one layer up.
+  - **The digest send path never had an away check.** `digestTick` gates on the clock, the once-a-day marker and dev-muzzling; `runDigestPipeline` gated on nothing. So every morning of a trip fired a 7am push. The away statement work went into the digest's *copy*, which made the push politer and no less of a push.
+  - Scheduled digests are now held while the window is active. The digest is still **built**, and still leads with the away line, so opening the app says what is being held — that is what "silence you cannot see" actually asks for: a suppression the user can SEE **when they look**. It never asked for a daily notification during their holiday. Crisis keeps its own path and is unaffected.
+  - The day is marked when held, or the minutely tick reassembles the digest until noon.
+  - **`POST /api/digest/test` accepts `{"force": false}`** to run the pipeline exactly as the scheduler does. Added because the recurring failure in this whole incident is verifying a path that isn't the one that fires: the Test button forces past every gate, so it can never show you what the 7am run will do. Now it can.
+  - Verified both ways with the window active: scheduled → `held: "away"`, fired nothing; forced → past the gate to the channels. `npm test` 316/316 + smoke, eslint 0 errors. Server only — **no rebuild**.
+
 ## 2026-08-03
 
 - fix(away): the alarms that were still firing mid-trip are device alarms [M]
