@@ -16,6 +16,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - The expiry banner says "moves to the archive" now. A warning about losing something you aren't losing is how a user learns to ignore banners.
   - Rules live in `server/chatArchive.js` — pure, no db, clock injected — with 16 tests in `scripts/chatArchive.test.mjs` pinning the one that matters: an expired chat comes back **archived with its messages intact**, never absent. New endpoints `POST /api/adviser/chats/:id/archive` and `/unarchive`; `GET /api/adviser/chats` now returns `{ chats, archived, activeId }`.
   - Verified end to end against a live server with a 31-day-old chat: sweep archived it, log line fired, contents readable, active id cleared, activate restored it on a fresh 30-day clock, and star/unstar on an archived chat left it filed with no phantom countdown. `npm test` 332/332 + smoke, eslint 0 errors. Web only — **no iOS rebuild** (OTA).
+- chore(deps): clear all five audit advisories [XS]
+  - `npm audit` → **0 vulnerabilities**, down from 5 (4 high, 1 moderate). All five were transitive with non-breaking fixes, so this is `npm audit fix` — lockfile only, no `package.json` change, no `--force`.
+  - `brace-expansion` 5.0.8 → 5.0.9 (DoS bypassing the CVE-2026-14257 mitigation), `fast-uri` 3.1.4 → 3.1.5 (host confusion via backslash authority introducer), `hono` 4.12.31 → 4.13.1 (four: CORS ReDoS, `memo()` cross-request SSR retention, Proxy Helper `Connection` header leak, Language Middleware complexity DoS), `ip-address` 10.2.0 → 10.4.0 (three SSRF / trust-boundary bypasses), `nanoid` 3.3.16 → 3.3.18 (infinite loop on zero size).
+  - `hono` and `ip-address` both sit under `@modelcontextprotocol/sdk` (the Notion MCP client), so the SDK's client + streamableHTTP entrypoints were imported directly to confirm the bumps didn't break the transport.
+  - **The TypeScript-<6 pin held** — verified by actually loading `capacitor.config.ts` through `npx cap ls` rather than by reading the version number (TS 5.9.3, Capacitor CLI 8.4.2, 3 iOS plugins listed).
+  - Also reconciled a stale `node_modules`: eslint was installed at 9.39.5 against a `^10.8.0` range in `package.json` and now matches.
+  - `npm test` 316/316 + smoke, eslint 0 errors, build clean.
 
 ## 2026-08-04
 
