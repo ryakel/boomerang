@@ -3846,6 +3846,25 @@ async function runDigestPipeline({ force = false, reason = 'scheduled' } = {}) {
   const settings = getData('settings') || {}
   const tz = settings.user_timezone || DEFAULT_TIMEZONE
   const todayYMD = ymdInTz(new Date(), tz)
+
+  // AWAY SENDS NOTHING. The digest send path never had an away check — it
+  // gated on the clock, the once-a-day marker and dev-muzzling — so every
+  // morning of a trip fired a 7am push. Reported 2026-08-04, from the trip:
+  // "you do remember you were notifying me of shit while I was on vacation
+  // mode right?"
+  //
+  // The digest is still BUILT, and still leads with the away statement, so
+  // opening the app says what is being held. That is what the "silence you
+  // cannot see" rule actually asks for — a suppression the user can SEE when
+  // they look. It never asked for a daily push to their holiday. An explicit
+  // test send (force) still goes: the user pressed the button.
+  if (!force && isAway(getVacationWindow(), todayYMD)) {
+    // Mark the day, or the minutely tick reassembles the digest until noon.
+    setData('digest_sent_on', { date: todayYMD, at: new Date().toISOString(), fired: [], held: 'away' })
+    console.log(`[digest] ${reason}: held — away (${digest.sections?.away || 'window active'})`)
+    return { success: false, held: 'away', skipped: ['away'], fired: [] }
+  }
+
   const result = await sendDigestNow(digest)
   if (result.success && !force) {
     setData('digest_sent_on', { date: todayYMD, at: new Date().toISOString(), fired: result.fired })
@@ -3907,9 +3926,16 @@ app.get('/api/digest/today', (req, res) => {
 })
 
 // --- Daily digest test (sends via every enabled channel right now) ---
+// `force` defaults true (the Test button: send it now regardless of schedule,
+// once-a-day marker, or away). Pass `{"force": false}` to run the pipeline
+// EXACTLY as the 7am scheduler does — the only way to observe the scheduled
+// path's gates without waiting for morning. Added 2026-08-04 after shipping an
+// away fix verified against the forced path while the scheduled one, which is
+// the one that actually pushes, kept firing through a holiday.
 app.post('/api/digest/test', async (req, res) => {
   try {
-    const result = await runDigestPipeline({ force: true, reason: 'manual' })
+    const force = req.body?.force !== false
+    const result = await runDigestPipeline({ force, reason: force ? 'manual' : 'manual-as-scheduled' })
     res.json(result)
   } catch (err) {
     console.error('[Digest] Test failed:', err.message)
