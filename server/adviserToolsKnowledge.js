@@ -131,7 +131,7 @@ export function registerKnowledgeTools() {
   // --- CREATE ---
   registerTool({
     name: 'create_knowledge',
-    description: 'Create a new knowledge item in the user\'s Notion knowledge base. ALWAYS call search_knowledge first with the proposed title (or key keywords) — if any matches return, ASK the user whether to append/update an existing item before staging a new one.',
+    description: 'Create a new knowledge item in the user\'s Notion knowledge base — the destination for anything the user wants to LOOK UP later: "make a KB about X", "add to my knowledge base", "remember that…", where something is kept, how something is done, a decision, a person, a recipe or procedure. This is the correct tool for those even though they are not action items; do not route them to create_task. ALWAYS call search_knowledge first with the proposed title (or key keywords) — if any matches return, ASK the user whether to append/update an existing item before staging a new one.',
     schema: {
       type: 'object',
       properties: {
