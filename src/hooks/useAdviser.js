@@ -5,6 +5,7 @@ import {
   adviserCreateChat, adviserUpdateChat, adviserDeleteChat,
 
   adviserActivateChat, adviserStarChat, adviserUnstarChat,
+  adviserArchiveChat, adviserUnarchiveChat,
 } from '../api'
 
 const POLL_INTERVAL_MS = 1500
@@ -22,8 +23,9 @@ function quokkaLog(...args) {
 
 // Quokka now runs as multiple independent chats (replaces the old single-thread model).
 // Each chat has its own messages, sessionId, starred state, createdAt, updatedAt, and an
-// expiresAt timestamp (null when starred). Non-starred chats expire 30 days after last
-// activity; unstarring a chat starts a 7-day grace period.
+// expiresAt timestamp (null when starred). A non-starred chat idle for 30 days is ARCHIVED
+// (2026-08-09) — moved to the Archive section, never deleted; unstarring starts a 7-day
+// grace before that happens. Opening an archived chat restores it with a fresh 30 days.
 //
 // Status semantics:
 //   'idle' | 'streaming' | 'awaiting_confirm' | 'committing' | 'committed' | 'error' | 'queued'
@@ -36,7 +38,8 @@ function quokkaLog(...args) {
 // after the current turn completes / plan is committed.
 
 export function useAdviser() {
-  const [chats, setChats] = useState([]) // summaries only: {id,title,starred,createdAt,updatedAt,expiresAt,messageCount,isActive}
+  const [chats, setChats] = useState([]) // live summaries: {id,title,starred,archived,createdAt,updatedAt,expiresAt,messageCount,isActive}
+  const [archivedChats, setArchivedChats] = useState([]) // same shape, archived:true — kept out of `chats` so counts mean "live"
   const [activeId, setActiveId] = useState(null)
   const [messages, setMessages] = useState([])
   const [sessionId, _setSessionId] = useState(null)
@@ -59,10 +62,11 @@ export function useAdviser() {
   const saveTimerRef = useRef(null)
 
   const refreshChatList = useCallback(async () => {
-    const { chats, activeId } = await adviserListChats()
+    const { chats, archived, activeId } = await adviserListChats()
     setChats(chats)
+    setArchivedChats(archived)
     setActiveId(activeId)
-    return { chats, activeId }
+    return { chats, archived, activeId }
   }, [])
 
   // Hydrate: fetch list + active chat's full contents. If the active
@@ -463,7 +467,7 @@ export function useAdviser() {
   }, [sessionId])
 
   // "New chat" — create a fresh chat and switch to it. The current chat stays put in the
-  // list (it'll naturally expire in 30 days unless the user starred it).
+  // list (it'll archive itself after 30 days idle unless the user starred it).
   const newChat = useCallback(async () => {
     if (streamRef.current) { streamRef.current.abort(); streamRef.current = null }
     if (sessionId) { await adviserAbort(sessionId) }
@@ -520,6 +524,26 @@ export function useAdviser() {
     await refreshChatList()
   }, [refreshChatList])
 
+  // Filing a chat by hand. The server clears the active id when the archived
+  // chat was the open one, so drop the local view with it — otherwise the pane
+  // keeps rendering a conversation that's no longer in the list.
+  const archiveChat = useCallback(async (id) => {
+    await adviserArchiveChat(id)
+    if (id === activeId) {
+      setActiveId(null)
+      setMessages([])
+      setSessionId(null)
+      setStatus('idle')
+      pendingAssistantRef.current = null
+    }
+    await refreshChatList()
+  }, [activeId, refreshChatList, setSessionId])
+
+  const unarchiveChat = useCallback(async (id) => {
+    await adviserUnarchiveChat(id)
+    await refreshChatList()
+  }, [refreshChatList])
+
   // Convenience: the active chat summary (for UI banners)
   const activeChat = chats.find(c => c.id === activeId) || null
 
@@ -532,8 +556,9 @@ export function useAdviser() {
     // is waiting, etc.
     runnerState, queueLength,
     // Multi-chat surface
-    chats, activeId, activeChat,
+    chats, archivedChats, activeId, activeChat,
     newChat, switchChat, deleteChat, starChat, unstarChat,
+    archiveChat, unarchiveChat,
     refreshChatList,
   }
 }

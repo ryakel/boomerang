@@ -76,6 +76,10 @@ import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
 import { normalizeCapture, createRateLimiter } from './capture.js'
 import { isAway, isExpired, windowDays } from './vacationWindow.js'
 import { awayDaysElapsed, mergeAwayDays } from './awayDays.js'
+import {
+  planChatSweep, archiveChat, restoreChat, isArchived,
+  CHAT_TTL_MS, UNSTAR_GRACE_MS,
+} from './chatArchive.js'
 import { repairPlan } from './vacationRepair.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
@@ -5196,20 +5200,22 @@ app.get('/api/adviser/tools', (_req, res) => {
 // conversation is stored server-side in app_data so it survives tab freezes,
 // app switches, and device restarts. Single-user self-hosted app = one CURRENT
 // thread plus a rolling archive of past threads accessible via the history UI.
-// --- Quokka chats: multi-thread storage with 30-day rolling TTL + star-to-keep ---
+// --- Quokka chats: multi-thread storage with a 30-day rolling TTL → archive ---
 //
-// Each chat is an independent, switchable conversation. Non-starred chats expire 30 days
-// after last activity; starring clears the expiry; unstarring starts a 7-day grace period
-// so the user sees a warning banner and can re-star before deletion. A sweep runs on every
-// list request.
+// Each chat is an independent, switchable conversation. A chat untouched for 30 days is
+// ARCHIVED, not deleted (2026-08-09) — it drops out of the main list into the Archive
+// section and keeps every message. Starring clears the clock entirely; unstarring starts a
+// 7-day grace so the banner has time to be seen. Reopening an archived chat restores it
+// with a fresh 30 days. The sweep runs on every list request and never deletes.
+//
+// The lifecycle rules and the archive cap live in server/chatArchive.js (pure, tested in
+// scripts/chatArchive.test.mjs) — this file only does storage and HTTP.
 //
 // Replaces the older single-thread + rolling-archive model (`adviser_thread`/`adviser_archive`).
 // Legacy data is migrated in-place on first access.
 
 const CHATS_KEY = 'adviser_chats'
 const ACTIVE_CHAT_KEY = 'adviser_active_chat_id'
-const CHAT_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days rolling from last activity
-const UNSTAR_GRACE_MS = 7 * 24 * 60 * 60 * 1000 // 7-day grace after unstar
 const MAX_MESSAGES_PER_CHAT = 40 // same as old single-thread cap
 
 function titleForChat(messages) {
@@ -5238,6 +5244,8 @@ function migrateLegacyChatsIfNeeded() {
       messages: legacyThread.messages,
       sessionId: null, // server-side session long gone by now
       starred: true, // star the pre-upgrade thread so the user can't lose it to TTL
+      archived: false,
+      archivedAt: null,
       createdAt: legacyThread.createdAt || legacyThread.updatedAt || now,
       updatedAt: legacyThread.updatedAt || now,
       expiresAt: null,
@@ -5251,6 +5259,8 @@ function migrateLegacyChatsIfNeeded() {
       messages: entry.messages,
       sessionId: null,
       starred: false,
+      archived: false,
+      archivedAt: null,
       createdAt: entry.createdAt || entry.archivedAt || now,
       updatedAt: entry.archivedAt || entry.createdAt || now,
       expiresAt: now + CHAT_TTL_MS, // fresh 30d clock on migrated archives
@@ -5264,23 +5274,31 @@ function migrateLegacyChatsIfNeeded() {
   setData('adviser_archive', null)
 }
 
-function sweepExpiredChats() {
+// Runs on every list request. Archives what's due, evicts past the cap, and
+// leaves the blob alone when nothing moved. Deletes nothing on its own.
+function sweepChats() {
   const chats = getData(CHATS_KEY) || []
-  const now = Date.now()
-  const alive = chats.filter(c => c.starred || c.expiresAt == null || now < c.expiresAt)
-  if (alive.length !== chats.length) {
-    setData(CHATS_KEY, alive)
-    const activeId = getData(ACTIVE_CHAT_KEY)
-    if (activeId && !alive.find(c => c.id === activeId)) {
-      setData(ACTIVE_CHAT_KEY, null)
-    }
+  const { chats: next, archived, evicted, changed } = planChatSweep({ chats, now: Date.now() })
+  if (!changed) return next
+  setData(CHATS_KEY, next)
+  if (archived.length) console.log(`[Quokka] Archived ${archived.length} chat(s) idle past 30 days: ${archived.join(', ')}`)
+  // Eviction is the ONE path that destroys a conversation without the user
+  // asking. Never let it happen quietly.
+  if (evicted.length) console.log(`[Quokka] Archive over cap — dropped ${evicted.length} oldest chat(s): ${evicted.join(', ')}`)
+  const activeId = getData(ACTIVE_CHAT_KEY)
+  // The active chat is never archived (activating restores), but it can be
+  // evicted out from under us, and it can archive if it sat untouched while
+  // still flagged active.
+  if (activeId && !next.find(c => c?.id === activeId && !isArchived(c))) {
+    setData(ACTIVE_CHAT_KEY, null)
   }
-  return alive
+  return next
 }
 
+// Every chat, live and archived. Callers that serve the main list filter.
 function loadChats() {
   migrateLegacyChatsIfNeeded()
-  return sweepExpiredChats()
+  return sweepChats()
 }
 
 // --- Weekly cross-task pattern review ---
@@ -5340,6 +5358,8 @@ async function runWeeklyPatternReview() {
       messages: [seededMessage],
       sessionId: null,
       starred: false,
+      archived: false,
+      archivedAt: null,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       expiresAt: Date.now() + CHAT_TTL_MS,
@@ -5392,6 +5412,8 @@ function chatSummary(c, activeId) {
     id: c.id,
     title: c.title,
     starred: !!c.starred,
+    archived: !!c.archived,
+    archivedAt: c.archivedAt ?? null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     expiresAt: c.expiresAt ?? null,
@@ -5400,19 +5422,29 @@ function chatSummary(c, activeId) {
   }
 }
 
-// Touch a chat: bump updatedAt and roll the 30-day TTL forward (unless starred).
+// Touch a chat: bump updatedAt, roll the 30-day TTL forward (unless starred),
+// and pull it back out of the archive. A message arriving in an archived chat
+// means the conversation resumed — it belongs in the live list again.
 function touchChat(chat) {
-  chat.updatedAt = Date.now()
-  if (!chat.starred) chat.expiresAt = Date.now() + CHAT_TTL_MS
+  const now = Date.now()
+  const next = isArchived(chat) ? restoreChat(chat, now, CHAT_TTL_MS) : chat
+  next.updatedAt = now
+  if (!next.starred) next.expiresAt = now + CHAT_TTL_MS
+  return next
 }
 
 app.get('/api/adviser/chats', (_req, res) => {
   const chats = loadChats()
   const activeId = getData(ACTIVE_CHAT_KEY)
-  // Newest activity first.
-  const sorted = [...chats].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+  // Newest activity first in both sections; the archive goes by when it was
+  // archived, since "last spoke" is by definition ancient for all of them.
+  const live = chats.filter(c => c && !isArchived(c))
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+  const archived = chats.filter(c => c && isArchived(c))
+    .sort((a, b) => (b.archivedAt || b.updatedAt || 0) - (a.archivedAt || a.updatedAt || 0))
   res.json({
-    chats: sorted.map(c => chatSummary(c, activeId)),
+    chats: live.map(c => chatSummary(c, activeId)),
+    archived: archived.map(c => chatSummary(c, activeId)),
     activeId: activeId || null,
   })
 })
@@ -5442,6 +5474,8 @@ app.post('/api/adviser/chats', (_req, res) => {
     messages: [],
     sessionId: null,
     starred: false,
+    archived: false,
+    archivedAt: null,
     createdAt: now,
     updatedAt: now,
     expiresAt: now + CHAT_TTL_MS,
@@ -5456,7 +5490,7 @@ app.patch('/api/adviser/chats/:id', (req, res) => {
   const chats = loadChats()
   const idx = chats.findIndex(c => c.id === req.params.id)
   if (idx === -1) return res.status(404).json({ error: 'Chat not found' })
-  const chat = chats[idx]
+  let chat = chats[idx]
   const { messages, sessionId, title } = req.body || {}
   if (Array.isArray(messages)) chat.messages = messages.slice(-MAX_MESSAGES_PER_CHAT)
   if (sessionId !== undefined) chat.sessionId = sessionId || null
@@ -5466,7 +5500,7 @@ app.patch('/api/adviser/chats/:id', (req, res) => {
     // Auto-title from first user message once we have one
     chat.title = titleForChat(messages)
   }
-  touchChat(chat)
+  chat = touchChat(chat)
   chats[idx] = chat
   setData(CHATS_KEY, chats)
   res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
@@ -5480,12 +5514,46 @@ app.delete('/api/adviser/chats/:id', (req, res) => {
   res.json({ ok: true })
 })
 
+// Activating an archived chat RESTORES it. Opening a conversation to carry on
+// with it is resuming it, and the invariant the rest of the code leans on is
+// that the active chat is never archived (see chatArchive.js).
 app.post('/api/adviser/chats/:id/activate', (req, res) => {
   const chats = loadChats()
-  const chat = chats.find(c => c.id === req.params.id)
-  if (!chat) return res.status(404).json({ error: 'Chat not found' })
+  const idx = chats.findIndex(c => c.id === req.params.id)
+  if (idx === -1) return res.status(404).json({ error: 'Chat not found' })
+  let chat = chats[idx]
+  let restored = false
+  if (isArchived(chat)) {
+    chat = restoreChat(chat, Date.now(), CHAT_TTL_MS)
+    chats[idx] = chat
+    setData(CHATS_KEY, chats)
+    restored = true
+  }
   setData(ACTIVE_CHAT_KEY, chat.id)
-  res.json({ ok: true, activeId: chat.id })
+  res.json({ ok: true, activeId: chat.id, restored })
+})
+
+app.post('/api/adviser/chats/:id/archive', (req, res) => {
+  const chats = loadChats()
+  const idx = chats.findIndex(c => c.id === req.params.id)
+  if (idx === -1) return res.status(404).json({ error: 'Chat not found' })
+  const chat = archiveChat(chats[idx], Date.now())
+  chats[idx] = chat
+  setData(CHATS_KEY, chats)
+  // Filing the chat you're looking at means you're done with it — don't leave
+  // it selected, or the main list shows nothing while an archived chat is open.
+  if (getData(ACTIVE_CHAT_KEY) === chat.id) setData(ACTIVE_CHAT_KEY, null)
+  res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
+})
+
+app.post('/api/adviser/chats/:id/unarchive', (req, res) => {
+  const chats = loadChats()
+  const idx = chats.findIndex(c => c.id === req.params.id)
+  if (idx === -1) return res.status(404).json({ error: 'Chat not found' })
+  const chat = restoreChat(chats[idx], Date.now(), CHAT_TTL_MS)
+  chats[idx] = chat
+  setData(CHATS_KEY, chats)
+  res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
 })
 
 app.post('/api/adviser/chats/:id/star', (req, res) => {
@@ -5503,7 +5571,9 @@ app.post('/api/adviser/chats/:id/unstar', (req, res) => {
   const chat = chats.find(c => c.id === req.params.id)
   if (!chat) return res.status(404).json({ error: 'Chat not found' })
   chat.starred = false
-  chat.expiresAt = Date.now() + UNSTAR_GRACE_MS
+  // An archived chat has no clock to restart — it's already filed. Setting one
+  // would show it "expiring" in a section nothing expires out of.
+  chat.expiresAt = isArchived(chat) ? null : Date.now() + UNSTAR_GRACE_MS
   setData(CHATS_KEY, chats)
   res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
 })

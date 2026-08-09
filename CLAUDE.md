@@ -40,6 +40,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 - `PUT/POST /api/data` rejects payloads that would empty the tasks table or shrink it >50% (the 2026-05-07 wipe guard). Per-record `/api/tasks` mutations are the supported path for legitimate bulk deletes.
 - Any new refetch/hydrate path must FLUSH pending local mutations before overwriting local state — never cancel the debounce. Any code path that cancels the per-record debounce timer must either push the pending changes itself or leave the push snapshots alone.
 - Deleting a task must not delete its completion-day evidence (`deleteTask()` stamps `settings.completion_days`).
+- No background sweep deletes user content. Quokka's 30-day chat TTL archives instead (`server/chatArchive.js`) — a transcript outlives the tasks it produced, and "you should have starred it" is not a recovery path. The archive's 200-chat cap is the one exception and it logs every eviction; starred chats are exempt from it.
 
 **Lists (Trello checklist sync)**
 - The merge lives in `server/listMerge.js` and is PURE — no db, no network. Every rule about whose edit survives is pinned in `scripts/lists.test.mjs`; change one, run those first. The `shadow_*` columns are the 3-way baseline (what both sides last agreed on); without them a two-way diff can't tell your edit from hers and silently eats one per poll.

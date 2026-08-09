@@ -4,6 +4,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-09
+
+- feat(quokka): chats archive after 30 days instead of being deleted [M]
+  - Quokka's chat list has an **Archive** section. A chat you haven't touched in 30 days moves into it automatically; nothing on that path deletes any more.
+  - **What it used to do:** the 30-day TTL was a delete. A conversation untouched for a month was gone, with a warning only in the last 7 days and no way back. Quokka chats are the reasoning behind half the tasks in the app — the transcript outlives the task it produced — and this is exactly the shape CLAUDE.md's durability rule warns about: a user-visible thing destroyed by a background sweep whose only recovery was "you should have starred it."
+  - **The lifecycle**, now: live → (30 days idle) → archived → (open it) → live again with a fresh 30 days. Starring stops the clock entirely; unstarring starts the same 7-day grace, which now ends in the archive rather than a deletion. Explicit Delete is unchanged and still the only way a user throws a chat away.
+  - **Activating an archived chat restores it.** Opening a conversation to carry on with it *is* resuming it, and it keeps the invariant the rest of the code leans on: the active chat is never archived. There's also a manual archive button on every row, for filing something you're done with before the timer gets to it.
+  - **Search spans the archive**, and the section force-opens on a query that matches inside it — finding a conversation from three months ago is most of what an archive is for, so it can't sit behind a collapse. The match count calls out how many hits are archived.
+  - **The archive is capped at 200 chats**, oldest-first, because it lives in one `app_data` JSON blob that is read and rewritten on every list request and cannot grow forever. Eviction is the one path that destroys a conversation without being asked, so it is **logged** every time, and **starred chats are exempt and don't count toward the cap** — star means "never lose this", and that has to hold in the archive too.
+  - The expiry banner says "moves to the archive" now. A warning about losing something you aren't losing is how a user learns to ignore banners.
+  - Rules live in `server/chatArchive.js` — pure, no db, clock injected — with 16 tests in `scripts/chatArchive.test.mjs` pinning the one that matters: an expired chat comes back **archived with its messages intact**, never absent. New endpoints `POST /api/adviser/chats/:id/archive` and `/unarchive`; `GET /api/adviser/chats` now returns `{ chats, archived, activeId }`.
+  - Verified end to end against a live server with a 31-day-old chat: sweep archived it, log line fired, contents readable, active id cleared, activate restored it on a fresh 30-day clock, and star/unstar on an archived chat left it filed with no phantom countdown. `npm test` 332/332 + smoke, eslint 0 errors. Web only — **no iOS rebuild** (OTA).
+
 ## 2026-08-04
 
 - fix(digest): away sends nothing [S]
