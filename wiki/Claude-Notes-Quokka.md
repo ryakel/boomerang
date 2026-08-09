@@ -20,6 +20,8 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - `adviserToolsIntegrations.js` — 12 GCal + Notion + Trello tools
 - `adviserToolsMisc.js` — Gmail + packages + weather + settings + analytics + growth-area + notes tools (incl. `check_integrations`, the live cross-integration health probe)
 - `adviserToolsKnowledge.js` — 9 knowledge-base tools (search, get, refresh, list, create, update, delete, link/unlink to tasks)
+  - **Surface routing (2026-08-09).** Registering the tools is not enough — the system prompt has to say what they're FOR. It didn't (its capability line omitted knowledge, notes and lists entirely), so "make a KB about X" came out as a task: reference material dumped onto Today where it nags and eventually gets deleted. The prompt now carries a **WHERE THINGS GO** rule naming all four capture surfaces (task = do it, note = quick jot, list = shared checklist, knowledge = look it up later) and a hard **never-substitute** rule: if the asked-for surface is unavailable, say so and stage NOTHING. The old "skip its tools rather than failing" line had quietly licensed the opposite, and the KB rides on Notion. `create_task`'s and `create_knowledge`'s own descriptions repeat the routing, because the choice is made next to the tool, not next to the prompt.
+  - **Knowledge base is its own line in the prompt's Integration status**, separate from Notion — `notion_knowledge_db_id` is a distinct readiness fact (same reason the health check splits Notion MCP from REST). Without it Quokka couldn't explain a KB failure, which is half of why it improvised one.
 - `adviserToolsLists.js` — 6 shared-list tools (`lists_index`, `list_read`, `list_add_items`, `list_check_items`, `list_remove_items`, `list_clear_checked`). Shaped for SPEECH rather than for the REST API beneath them: everything resolves by **name** (nobody says a UUID out loud), every mutating tool takes an **array** of names because "milk, eggs and bread" is one utterance and should be one call, and an ambiguous match **asks instead of guessing** — picking the wrong item off a shared list is a silent wrong answer and nobody is watching Trello to catch it. `list_add_items` reports items that were already there rather than silently no-oping. `list_remove_items` / `list_clear_checked` say "also removes it from Trello" in their preview, because they are the only list actions that reach into someone else's card; their compensations clear the tombstone in place rather than re-creating the row, since a fresh row would push a duplicate to Trello instead of cancelling the delete.
 - **Total:** 86 tools (live count from the registry — this number drifts as features land; trust `GET /api/adviser/tools` over any doc); diagnostic list at `GET /api/adviser/tools`
 
@@ -66,28 +68,40 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Mobile: entered via header sparkle icon next to Packages
 - Desktop: same icon + click-to-open
 
-**Multi-chat model (2026-04-23):** Every topic is its own chat. Storage lives server-side in `app_data.adviser_chats` (an array of `{id, title, messages, sessionId, starred, createdAt, updatedAt, expiresAt}`) + `app_data.adviser_active_chat_id` (which chat Quokka is currently reading/writing). iOS aggressively evicts PWA localStorage, so nothing sits there.
+**Multi-chat model (2026-04-23):** Every topic is its own chat. Storage lives server-side in `app_data.adviser_chats` (an array of `{id, title, messages, sessionId, starred, archived, archivedAt, createdAt, updatedAt, expiresAt}`) + `app_data.adviser_active_chat_id` (which chat Quokka is currently reading/writing). iOS aggressively evicts PWA localStorage, so nothing sits there.
 
-**Lifetimes:**
-- On create or message activity, non-starred chats get `expiresAt = now + 30 days` (rolling from last activity).
-- Star → `expiresAt = null` (permanent).
-- Unstar → `expiresAt = now + 7 days` and an orange banner appears in the chat: "This chat will be deleted in N days. Star to keep."
-- Sweep runs on every `GET /api/adviser/chats` — deletes anything past its `expiresAt`. If the active chat got swept, `adviser_active_chat_id` is cleared.
+**Lifecycle — the sweep archives, it does not delete (2026-08-09).** Until then the 30-day TTL was a *delete*: a conversation untouched for a month was gone, warned about only in its last 7 days, recoverable only if you'd starred it in advance. Quokka transcripts are the reasoning behind half the tasks in the app and outlive the tasks they produced — destroying them on a timer is precisely the durability failure CLAUDE.md exists to prevent. The rules now live in `server/chatArchive.js` (PURE — no db, no network, clock injected; 16 tests in `scripts/chatArchive.test.mjs`).
 
-**Migration from the old single-thread model:** one-shot on first access. Old `adviser_thread` → active chat, pre-starred (can't silently lose your in-flight conversation across the upgrade). Old `adviser_archive` entries → peer chats with fresh 30d TTL clocks. Legacy keys are zeroed out so it only runs once.
+```
+live, unstarred   --- expiresAt passes ---> archived
+live, starred     --- no clock at all ----> stays live
+starred -> unstar --- 7-day grace --------> archived
+archived          --- activate / new msg -> live, fresh 30d
+any               --- explicit Delete ----> gone
+```
+
+- On create or message activity, non-starred chats get `expiresAt = now + 30 days` (rolling from last activity). Star → `expiresAt = null`. Unstar → `now + 7 days` and an orange banner: "This chat moves to the archive in N days."
+- **Archiving sets `archived: true`, stamps `archivedAt`, and clears `expiresAt`** — archived is terminal until the user comes back to it, not another countdown.
+- **INVARIANT: the active chat is never archived.** Activating an archived chat restores it, and `touchChat()` un-archives on any inbound message. Without that the list has to render a chat that's in neither section and the expiry banner has nothing coherent to say.
+- Sweep runs on every `GET /api/adviser/chats`, skips the write entirely when nothing moved (`changed === false`) rather than churning the blob once a poll, and logs every id it archives.
+- **`MAX_ARCHIVED_CHATS = 200`, oldest-first.** The whole thing is ONE `app_data` JSON blob read and rewritten on every list request, so the archive cannot grow without bound. Eviction is the only path that destroys a conversation unasked, so it's logged loudly — and **starred chats are exempt and don't count toward the cap**, because star means "never lose this" and you're allowed to star something and still file it away.
+
+**Migration from the old single-thread model:** one-shot on first access. Old `adviser_thread` → active chat, pre-starred (can't silently lose your in-flight conversation across the upgrade). Old `adviser_archive` entries → peer chats with fresh 30d TTL clocks. Legacy keys are zeroed out so it only runs once. (Unrelated to the 2026-08-09 archive section, which is a live feature rather than a dead storage key.)
 
 **Endpoints:**
-- `GET /api/adviser/chats` — list summaries + active id; runs the expiry sweep
+- `GET /api/adviser/chats` — `{ chats, archived, activeId }`, two sorted lists (live by `updatedAt`, archive by `archivedAt`); runs the sweep
 - `GET /api/adviser/chats/active` — full content of the active chat
-- `GET /api/adviser/chats/:id` — full content by id
+- `GET /api/adviser/chats/:id` — full content by id; works for archived chats too
 - `POST /api/adviser/chats` — create empty chat, auto-activate
-- `PATCH /api/adviser/chats/:id` — update messages / title / sessionId; bumps `updatedAt` + rolls the 30d TTL (unless starred)
+- `PATCH /api/adviser/chats/:id` — update messages / title / sessionId; bumps `updatedAt`, rolls the 30d TTL (unless starred), and un-archives
 - `DELETE /api/adviser/chats/:id` — delete; clears active id if removed
-- `POST /api/adviser/chats/:id/activate` — switch active
+- `POST /api/adviser/chats/:id/activate` — switch active; **restores** an archived chat, reports `restored: true`
+- `POST /api/adviser/chats/:id/archive` — file it now; clears active id if it was the open one
+- `POST /api/adviser/chats/:id/unarchive` — back to the live list on a fresh 30d clock
 - `POST /api/adviser/chats/:id/star` — permanent
-- `POST /api/adviser/chats/:id/unstar` — 7d grace period
+- `POST /api/adviser/chats/:id/unstar` — 7d grace (no-op on an archived chat: nothing to count down to)
 
-**Client:** `useAdviser` hydrates on mount by fetching list + active chat body, persists on every change (400ms debounce) to the active chat, exposes `newChat` / `switchChat` / `deleteChat` / `starChat` / `unstarChat`. `Adviser.jsx` header has `+` (new chat) and History icons. The History panel shows all chats with star + delete controls, active indicator, and "expires in Nd" meta for chats within the 7-day window.
+**Client:** `useAdviser` hydrates on mount by fetching list + active chat body, persists on every change (400ms debounce) to the active chat, exposes `newChat` / `switchChat` / `deleteChat` / `starChat` / `unstarChat` / `archiveChat` / `unarchiveChat`, and keeps `archivedChats` separate from `chats` so the header count means "live". `AdviserModal.jsx` header has `+` (new chat) and History icons. The History panel lists live chats, then a collapsed **Archive (N)** section; rows carry star, archive/unarchive and delete. Search covers both lists and force-opens the archive when the query matches inside it — a hit you can't see is a search that looks broken.
 
 **Parked (future):**
 - Attachment upload: no way to give Quokka a PDF/image and ask it to generate tasks from it. The existing `extractAttachmentText()` in src/api.js handles task-attachment text extraction; wiring a Quokka-facing "analyze this upload and stage tasks" tool is left as a future enhancement.

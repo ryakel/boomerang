@@ -76,6 +76,10 @@ import { initAuth, authGate, login, destroySession, sessionTokenFromReq,
 import { normalizeCapture, createRateLimiter } from './capture.js'
 import { isAway, isExpired, windowDays } from './vacationWindow.js'
 import { awayDaysElapsed, mergeAwayDays } from './awayDays.js'
+import {
+  planChatSweep, archiveChat, restoreChat, isArchived,
+  CHAT_TTL_MS, UNSTAR_GRACE_MS,
+} from './chatArchive.js'
 import { repairPlan } from './vacationRepair.js'
 import { SONNET_MODEL, HAIKU_MODEL, claudeText } from './aiModels.js'
 import { aiComplete, probeOpenAI, getOpenAIKeyFromEnvOrSettings } from './aiGateway.js'
@@ -4817,13 +4821,18 @@ function adviserSystemPrompt() {
   const notionConnected = !!(getData('notion_mcp_tokens')?.access_token || envNotionToken)
   const trelloConnected = !!(envTrelloKey && envTrelloToken)
   const trackingConnected = !!getTrackingApiKey()
+  // The knowledge base is a SEPARATE readiness fact from Notion being
+  // connected — same reason the health check reports MCP and REST as two
+  // lines. Without it in the prompt Quokka can't tell the user why a "make a
+  // KB" request can't be honored, and improvises something else instead.
+  const knowledgeConfigured = !!getData('notion_knowledge_db_id')
   const growthAreas = contextualGrowthAreas()
   const growthAreasNote = growthAreas.length > 0
     ? `\n\nThe user is also working on these personal growth areas (standing self-improvement reminders, not tasks): ${growthAreas.map(a => `"${a.title}"${a.energy_affinity ? ` (${a.energy_affinity})` : ''}`).join(', ')}. When the conversation naturally touches on one of these (e.g. they're dreading a confrontation-flavored task and one of these areas relates to that), you may weave in a brief, warm, coaching-flavored line — but only when it's genuinely relevant to what they said. Never bring these up unprompted or force them into unrelated replies.`
     : ''
   return `You are Quokka, the cheerful AI adviser for Boomerang — an ADHD task manager PWA. Today is ${today} (${dayOfWeek}). You are named after the quokka (a small, smiley Australian marsupial that looks like it's always having a good day); lean into a warm, upbeat, down-to-earth tone without being cloying. The very occasional Aussie flavor ("no worries", "on ya") is fine but don't overdo it.${growthAreasNote}
 
-The user will describe something they want done ("I've rescheduled my FAA exam to May 12 — adjust everything"). Your tools mirror every capability of the app: tasks, routines, Google Calendar, Notion, Trello, Gmail, packages, weather, settings. Web search is available for anything your training data would be stale on.
+The user will describe something they want done ("I've rescheduled my FAA exam to May 12 — adjust everything"). Your tools mirror every capability of the app: tasks, notes, the knowledge base, lists, routines, Google Calendar, Notion, Trello, Gmail, packages, weather, settings. Web search is available for anything your training data would be stale on.
 
 How execution works: ALL mutation tools are STAGED, never executed — the user reviews and approves the plan separately in the UI. Stage the complete multi-step plan, then close with a brief handoff note ("Found 3 tasks tied to your FAA exam. I'll push them to May 12, update the study routine anchor, and move the GCal event."). Don't ask for confirmation inside your message — the UI handles that.
 
@@ -4831,7 +4840,9 @@ Ground rules:
 - If the user signals more context is coming ("wait", "hold on", "details next"), acknowledge in one line and stage nothing until they've finished briefing you. Read-only orientation calls are fine.
 - Search/list first; never guess or invent IDs. Staged create responses include the real \`id\` the record will have after commit — chain from that.
 - Emit independent tool calls in parallel in a single turn. Bulk operations (20 task updates) go out as one batch, not 20 serial turns — the user's mobile connection may drop during a long serial loop.
-- If an integration below is NOT connected, note it in your handoff and skip its tools rather than failing.
+- WHERE THINGS GO. Four surfaces hold what the user tells you and they are NOT interchangeable. A **task** is something to DO — it lands on Today and can nag. A **note** is a quick local jot. A **list** is a shared checklist (groceries, packing). A **knowledge item** is durable reference the user will look UP later — where something is kept, how something is done, a decision, a person, a recipe or procedure — and lives in the Notion knowledge base via \`create_knowledge\`. "Make a KB", "add this to my knowledge base", "remember that…", "here's how I do X" = \`create_knowledge\`. None of that is an action item, so none of it is \`create_task\`. When the surface is genuinely ambiguous, ask — don't pick.
+- NEVER substitute a different surface for the one the user named. If the knowledge base isn't set up, or Notion isn't connected, say exactly that and stage NOTHING — do not capture it as a task or a note "so it isn't lost". Filing to the wrong surface looks like success and isn't: the user walks away believing it's in their knowledge base while it's actually sitting on their to-do list, where it will nag them and eventually get deleted.
+- If an integration below is NOT connected, note it in your handoff and skip its tools rather than failing. Skipping means doing nothing and saying so — never reroute the work to whatever tool happens to be available.
 - The critical tag (the label in settings.crisis_label, default "critical") triggers relentless multi-channel alarms — apply it only when the user explicitly declares an emergency, never by inference.
 - DIY-or-hire: the user has told the app "I am admittedly not handy. My pride pushes me to fix things myself when I shouldn't." Repair-shaped tasks carry a \`diy_verdict\` that defaults to hire-out — honor it in your advice: push the call/quotes rather than DIY steps (beyond trivial stop-the-bleeding mitigation), unless the user explicitly overrules ("no, I'm doing the fence myself" → stage the diy_verdict update).
 - \`settings.impact_dates\` (editable setting: [{id, label, date, lead_days, tag}]) lists upcoming events that boost tasks sharing the event's tag — the user may ask you to add one ("the in-laws visit Aug 2, make garage tasks urgent").
@@ -4840,6 +4851,7 @@ Integration status:
 - Google Calendar: ${gcalConnected ? 'connected' : 'NOT connected'}
 - Gmail: ${gmailConnected ? 'connected' : 'NOT connected'}
 - Notion: ${notionConnected ? 'connected' : 'NOT connected'}
+- Knowledge base: ${knowledgeConfigured ? 'set up — `create_knowledge` works' : 'NOT set up. Tell the user to run Settings → Integrations → Notion → "Set up Knowledge Base"; do not file their knowledge somewhere else in the meantime.'}
 - Trello: ${trelloConnected ? 'connected' : 'NOT connected'}
 - Package tracking: ${trackingConnected ? 'connected' : 'NOT connected'}`
 }
@@ -5196,20 +5208,22 @@ app.get('/api/adviser/tools', (_req, res) => {
 // conversation is stored server-side in app_data so it survives tab freezes,
 // app switches, and device restarts. Single-user self-hosted app = one CURRENT
 // thread plus a rolling archive of past threads accessible via the history UI.
-// --- Quokka chats: multi-thread storage with 30-day rolling TTL + star-to-keep ---
+// --- Quokka chats: multi-thread storage with a 30-day rolling TTL → archive ---
 //
-// Each chat is an independent, switchable conversation. Non-starred chats expire 30 days
-// after last activity; starring clears the expiry; unstarring starts a 7-day grace period
-// so the user sees a warning banner and can re-star before deletion. A sweep runs on every
-// list request.
+// Each chat is an independent, switchable conversation. A chat untouched for 30 days is
+// ARCHIVED, not deleted (2026-08-09) — it drops out of the main list into the Archive
+// section and keeps every message. Starring clears the clock entirely; unstarring starts a
+// 7-day grace so the banner has time to be seen. Reopening an archived chat restores it
+// with a fresh 30 days. The sweep runs on every list request and never deletes.
+//
+// The lifecycle rules and the archive cap live in server/chatArchive.js (pure, tested in
+// scripts/chatArchive.test.mjs) — this file only does storage and HTTP.
 //
 // Replaces the older single-thread + rolling-archive model (`adviser_thread`/`adviser_archive`).
 // Legacy data is migrated in-place on first access.
 
 const CHATS_KEY = 'adviser_chats'
 const ACTIVE_CHAT_KEY = 'adviser_active_chat_id'
-const CHAT_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days rolling from last activity
-const UNSTAR_GRACE_MS = 7 * 24 * 60 * 60 * 1000 // 7-day grace after unstar
 const MAX_MESSAGES_PER_CHAT = 40 // same as old single-thread cap
 
 function titleForChat(messages) {
@@ -5238,6 +5252,8 @@ function migrateLegacyChatsIfNeeded() {
       messages: legacyThread.messages,
       sessionId: null, // server-side session long gone by now
       starred: true, // star the pre-upgrade thread so the user can't lose it to TTL
+      archived: false,
+      archivedAt: null,
       createdAt: legacyThread.createdAt || legacyThread.updatedAt || now,
       updatedAt: legacyThread.updatedAt || now,
       expiresAt: null,
@@ -5251,6 +5267,8 @@ function migrateLegacyChatsIfNeeded() {
       messages: entry.messages,
       sessionId: null,
       starred: false,
+      archived: false,
+      archivedAt: null,
       createdAt: entry.createdAt || entry.archivedAt || now,
       updatedAt: entry.archivedAt || entry.createdAt || now,
       expiresAt: now + CHAT_TTL_MS, // fresh 30d clock on migrated archives
@@ -5264,23 +5282,31 @@ function migrateLegacyChatsIfNeeded() {
   setData('adviser_archive', null)
 }
 
-function sweepExpiredChats() {
+// Runs on every list request. Archives what's due, evicts past the cap, and
+// leaves the blob alone when nothing moved. Deletes nothing on its own.
+function sweepChats() {
   const chats = getData(CHATS_KEY) || []
-  const now = Date.now()
-  const alive = chats.filter(c => c.starred || c.expiresAt == null || now < c.expiresAt)
-  if (alive.length !== chats.length) {
-    setData(CHATS_KEY, alive)
-    const activeId = getData(ACTIVE_CHAT_KEY)
-    if (activeId && !alive.find(c => c.id === activeId)) {
-      setData(ACTIVE_CHAT_KEY, null)
-    }
+  const { chats: next, archived, evicted, changed } = planChatSweep({ chats, now: Date.now() })
+  if (!changed) return next
+  setData(CHATS_KEY, next)
+  if (archived.length) console.log(`[Quokka] Archived ${archived.length} chat(s) idle past 30 days: ${archived.join(', ')}`)
+  // Eviction is the ONE path that destroys a conversation without the user
+  // asking. Never let it happen quietly.
+  if (evicted.length) console.log(`[Quokka] Archive over cap — dropped ${evicted.length} oldest chat(s): ${evicted.join(', ')}`)
+  const activeId = getData(ACTIVE_CHAT_KEY)
+  // The active chat is never archived (activating restores), but it can be
+  // evicted out from under us, and it can archive if it sat untouched while
+  // still flagged active.
+  if (activeId && !next.find(c => c?.id === activeId && !isArchived(c))) {
+    setData(ACTIVE_CHAT_KEY, null)
   }
-  return alive
+  return next
 }
 
+// Every chat, live and archived. Callers that serve the main list filter.
 function loadChats() {
   migrateLegacyChatsIfNeeded()
-  return sweepExpiredChats()
+  return sweepChats()
 }
 
 // --- Weekly cross-task pattern review ---
@@ -5340,6 +5366,8 @@ async function runWeeklyPatternReview() {
       messages: [seededMessage],
       sessionId: null,
       starred: false,
+      archived: false,
+      archivedAt: null,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       expiresAt: Date.now() + CHAT_TTL_MS,
@@ -5392,6 +5420,8 @@ function chatSummary(c, activeId) {
     id: c.id,
     title: c.title,
     starred: !!c.starred,
+    archived: !!c.archived,
+    archivedAt: c.archivedAt ?? null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     expiresAt: c.expiresAt ?? null,
@@ -5400,19 +5430,29 @@ function chatSummary(c, activeId) {
   }
 }
 
-// Touch a chat: bump updatedAt and roll the 30-day TTL forward (unless starred).
+// Touch a chat: bump updatedAt, roll the 30-day TTL forward (unless starred),
+// and pull it back out of the archive. A message arriving in an archived chat
+// means the conversation resumed — it belongs in the live list again.
 function touchChat(chat) {
-  chat.updatedAt = Date.now()
-  if (!chat.starred) chat.expiresAt = Date.now() + CHAT_TTL_MS
+  const now = Date.now()
+  const next = isArchived(chat) ? restoreChat(chat, now, CHAT_TTL_MS) : chat
+  next.updatedAt = now
+  if (!next.starred) next.expiresAt = now + CHAT_TTL_MS
+  return next
 }
 
 app.get('/api/adviser/chats', (_req, res) => {
   const chats = loadChats()
   const activeId = getData(ACTIVE_CHAT_KEY)
-  // Newest activity first.
-  const sorted = [...chats].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+  // Newest activity first in both sections; the archive goes by when it was
+  // archived, since "last spoke" is by definition ancient for all of them.
+  const live = chats.filter(c => c && !isArchived(c))
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+  const archived = chats.filter(c => c && isArchived(c))
+    .sort((a, b) => (b.archivedAt || b.updatedAt || 0) - (a.archivedAt || a.updatedAt || 0))
   res.json({
-    chats: sorted.map(c => chatSummary(c, activeId)),
+    chats: live.map(c => chatSummary(c, activeId)),
+    archived: archived.map(c => chatSummary(c, activeId)),
     activeId: activeId || null,
   })
 })
@@ -5442,6 +5482,8 @@ app.post('/api/adviser/chats', (_req, res) => {
     messages: [],
     sessionId: null,
     starred: false,
+    archived: false,
+    archivedAt: null,
     createdAt: now,
     updatedAt: now,
     expiresAt: now + CHAT_TTL_MS,
@@ -5456,7 +5498,7 @@ app.patch('/api/adviser/chats/:id', (req, res) => {
   const chats = loadChats()
   const idx = chats.findIndex(c => c.id === req.params.id)
   if (idx === -1) return res.status(404).json({ error: 'Chat not found' })
-  const chat = chats[idx]
+  let chat = chats[idx]
   const { messages, sessionId, title } = req.body || {}
   if (Array.isArray(messages)) chat.messages = messages.slice(-MAX_MESSAGES_PER_CHAT)
   if (sessionId !== undefined) chat.sessionId = sessionId || null
@@ -5466,7 +5508,7 @@ app.patch('/api/adviser/chats/:id', (req, res) => {
     // Auto-title from first user message once we have one
     chat.title = titleForChat(messages)
   }
-  touchChat(chat)
+  chat = touchChat(chat)
   chats[idx] = chat
   setData(CHATS_KEY, chats)
   res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
@@ -5480,12 +5522,46 @@ app.delete('/api/adviser/chats/:id', (req, res) => {
   res.json({ ok: true })
 })
 
+// Activating an archived chat RESTORES it. Opening a conversation to carry on
+// with it is resuming it, and the invariant the rest of the code leans on is
+// that the active chat is never archived (see chatArchive.js).
 app.post('/api/adviser/chats/:id/activate', (req, res) => {
   const chats = loadChats()
-  const chat = chats.find(c => c.id === req.params.id)
-  if (!chat) return res.status(404).json({ error: 'Chat not found' })
+  const idx = chats.findIndex(c => c.id === req.params.id)
+  if (idx === -1) return res.status(404).json({ error: 'Chat not found' })
+  let chat = chats[idx]
+  let restored = false
+  if (isArchived(chat)) {
+    chat = restoreChat(chat, Date.now(), CHAT_TTL_MS)
+    chats[idx] = chat
+    setData(CHATS_KEY, chats)
+    restored = true
+  }
   setData(ACTIVE_CHAT_KEY, chat.id)
-  res.json({ ok: true, activeId: chat.id })
+  res.json({ ok: true, activeId: chat.id, restored })
+})
+
+app.post('/api/adviser/chats/:id/archive', (req, res) => {
+  const chats = loadChats()
+  const idx = chats.findIndex(c => c.id === req.params.id)
+  if (idx === -1) return res.status(404).json({ error: 'Chat not found' })
+  const chat = archiveChat(chats[idx], Date.now())
+  chats[idx] = chat
+  setData(CHATS_KEY, chats)
+  // Filing the chat you're looking at means you're done with it — don't leave
+  // it selected, or the main list shows nothing while an archived chat is open.
+  if (getData(ACTIVE_CHAT_KEY) === chat.id) setData(ACTIVE_CHAT_KEY, null)
+  res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
+})
+
+app.post('/api/adviser/chats/:id/unarchive', (req, res) => {
+  const chats = loadChats()
+  const idx = chats.findIndex(c => c.id === req.params.id)
+  if (idx === -1) return res.status(404).json({ error: 'Chat not found' })
+  const chat = restoreChat(chats[idx], Date.now(), CHAT_TTL_MS)
+  chats[idx] = chat
+  setData(CHATS_KEY, chats)
+  res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
 })
 
 app.post('/api/adviser/chats/:id/star', (req, res) => {
@@ -5503,7 +5579,9 @@ app.post('/api/adviser/chats/:id/unstar', (req, res) => {
   const chat = chats.find(c => c.id === req.params.id)
   if (!chat) return res.status(404).json({ error: 'Chat not found' })
   chat.starred = false
-  chat.expiresAt = Date.now() + UNSTAR_GRACE_MS
+  // An archived chat has no clock to restart — it's already filed. Setting one
+  // would show it "expiring" in a section nothing expires out of.
+  chat.expiresAt = isArchived(chat) ? null : Date.now() + UNSTAR_GRACE_MS
   setData(CHATS_KEY, chats)
   res.json({ chat: chatSummary(chat, getData(ACTIVE_CHAT_KEY)) })
 })

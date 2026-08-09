@@ -40,6 +40,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 - `PUT/POST /api/data` rejects payloads that would empty the tasks table or shrink it >50% (the 2026-05-07 wipe guard). Per-record `/api/tasks` mutations are the supported path for legitimate bulk deletes.
 - Any new refetch/hydrate path must FLUSH pending local mutations before overwriting local state — never cancel the debounce. Any code path that cancels the per-record debounce timer must either push the pending changes itself or leave the push snapshots alone.
 - Deleting a task must not delete its completion-day evidence (`deleteTask()` stamps `settings.completion_days`).
+- No background sweep deletes user content. Quokka's 30-day chat TTL archives instead (`server/chatArchive.js`) — a transcript outlives the tasks it produced, and "you should have starred it" is not a recovery path. The archive's 200-chat cap is the one exception and it logs every eviction; starred chats are exempt from it.
 
 **Lists (Trello checklist sync)**
 - The merge lives in `server/listMerge.js` and is PURE — no db, no network. Every rule about whose edit survives is pinned in `scripts/lists.test.mjs`; change one, run those first. The `shadow_*` columns are the 3-way baseline (what both sides last agreed on); without them a two-way diff can't tell your edit from hers and silently eats one per poll.
@@ -89,6 +90,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 - Version-mismatch reload is gated OFF in the native shell (`VERSION_CHECKS_ENABLED` in `useServerSync.js`); any future "stale client → reload" logic needs the same gate. Boot-blocking fetches carry `AbortSignal.timeout` + offline fail-open (the tailnet-host hang trap).
 - The App Group identifier and URL scheme flow through build settings → Info.plist/entitlements substitution — never hardcode them in Swift.
 - Quokka secret blocklist (`adviserToolsMisc.js`): every new secret-shaped setting joins it (write-blocked + read-redacted).
+- Registering a Quokka tool doesn't make it reachable — the system prompt has to name the capability. Ten `*_knowledge` tools were live for months while "make a KB" produced tasks, because the prompt's capability line never mentioned the knowledge base (2026-08-09). Quokka must also never file to a DIFFERENT surface when the asked-for one is unavailable: wrong-surface looks like success. Any new capture surface joins the prompt's WHERE THINGS GO rule and, if it has its own readiness state, the Integration status block.
 - Theme migration shims (`terminal*`/`wallaby*` → kept, in `store.js` + the index.html pre-paint script) stay until prod data can't contain old values.
 
 **Releases**
