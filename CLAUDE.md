@@ -90,6 +90,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 - Version-mismatch reload is gated OFF in the native shell (`VERSION_CHECKS_ENABLED` in `useServerSync.js`); any future "stale client → reload" logic needs the same gate. Boot-blocking fetches carry `AbortSignal.timeout` + offline fail-open (the tailnet-host hang trap).
 - The App Group identifier and URL scheme flow through build settings → Info.plist/entitlements substitution — never hardcode them in Swift.
 - Quokka secret blocklist (`adviserToolsMisc.js`): every new secret-shaped setting joins it (write-blocked + read-redacted).
+- Registering a Quokka tool doesn't make it reachable — the system prompt has to name the capability. Ten `*_knowledge` tools were live for months while "make a KB" produced tasks, because the prompt's capability line never mentioned the knowledge base (2026-08-09). Quokka must also never file to a DIFFERENT surface when the asked-for one is unavailable: wrong-surface looks like success. Any new capture surface joins the prompt's WHERE THINGS GO rule and, if it has its own readiness state, the Integration status block.
 - Theme migration shims (`terminal*`/`wallaby*` → kept, in `store.js` + the index.html pre-paint script) stay until prod data can't contain old values.
 
 **Releases**
