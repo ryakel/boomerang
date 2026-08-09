@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Sparkles, Send, StopCircle, CheckCircle2, XCircle, Loader2,
   History, Trash2, Plus, Star, AlertCircle, Search,
+  Archive, ArchiveRestore, ChevronRight, ChevronDown,
 } from 'lucide-react'
 import { renderMarkdown } from '../utils/renderMarkdown'
 import { useMobilePages } from '../hooks/useMobilePages'
@@ -94,22 +95,90 @@ function ExpiryBanner({ chat, onStar }) {
   return (
     <div className="v2-adviser-expiry">
       <AlertCircle size={14} />
-      <span>This chat will be deleted in {days <= 0 ? 'less than a day' : `${days} day${days !== 1 ? 's' : ''}`}.</span>
-      <button className="v2-adviser-link" onClick={onStar}>star to keep</button>
+      {/* Archived, not deleted (2026-08-09) — say so, or a warning about losing
+          something you aren't losing trains the user to ignore the banner. */}
+      <span>This chat moves to the archive in {days <= 0 ? 'less than a day' : `${days} day${days !== 1 ? 's' : ''}`}.</span>
+      <button className="v2-adviser-link" onClick={onStar}>star to keep it here</button>
     </div>
   )
 }
 
-function ChatList({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew, onBack }) {
+function relativeDay(ts) {
+  if (ts == null) return null
+  const days = Math.max(0, Math.round((Date.now() - ts) / DAY_MS))
+  if (days === 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 30) return `${days}d ago`
+  const months = Math.round(days / 30)
+  return months < 12 ? `${months}mo ago` : `${Math.round(days / 365)}y ago`
+}
+
+function ChatRow({ chat: c, active, onSwitch, onDelete, onStar, onUnstar, onArchive, onUnarchive }) {
+  const days = daysUntil(c.expiresAt)
+  const expiring = !c.starred && !c.archived && days != null && days <= 7
+  return (
+    <li className={`v2-adviser-chat-item${active ? ' v2-adviser-chat-item-active' : ''}`}>
+      <button className="v2-adviser-chat-row" onClick={() => onSwitch(c.id)}>
+        <div className="v2-adviser-chat-title">
+          {active && <span className="v2-adviser-chat-active-dot">●</span>}
+          {c.title || 'Untitled chat'}
+        </div>
+        <div className="v2-adviser-chat-meta">
+          {new Date(c.updatedAt).toLocaleString()} · {c.messageCount} msg{c.messageCount !== 1 ? 's' : ''}
+          {c.starred && <span className="v2-adviser-chat-star"> · ⭐ starred</span>}
+          {c.archived && c.archivedAt && <span> · filed {relativeDay(c.archivedAt)}</span>}
+          {expiring && (
+            <span className="v2-adviser-chat-expiring">
+              {' · '}archives in {days <= 0 ? '<1' : days}d
+            </span>
+          )}
+        </div>
+      </button>
+      <button
+        className="v2-adviser-chat-icon-btn"
+        onClick={() => c.starred ? onUnstar(c.id) : onStar(c.id)}
+        title={c.starred ? 'Unstar (7-day grace)' : 'Star to keep'}
+        aria-label={c.starred ? 'Unstar' : 'Star'}
+      >
+        <Star size={14} fill={c.starred ? 'currentColor' : 'none'} />
+      </button>
+      <button
+        className="v2-adviser-chat-icon-btn"
+        onClick={() => c.archived ? onUnarchive(c.id) : onArchive(c.id)}
+        title={c.archived ? 'Bring back to chats' : 'Archive'}
+        aria-label={c.archived ? 'Unarchive' : 'Archive'}
+      >
+        {c.archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+      </button>
+      <button
+        className="v2-adviser-chat-icon-btn v2-adviser-chat-icon-btn-danger"
+        onClick={() => onDelete(c.id)}
+        title="Delete"
+        aria-label="Delete"
+      >
+        <Trash2 size={14} />
+      </button>
+    </li>
+  )
+}
+
+function ChatList({
+  chats, archived, activeId,
+  onSwitch, onDelete, onStar, onUnstar, onArchive, onUnarchive, onNew, onBack,
+}) {
   // Search: titles match instantly; on a 2+ char query the full message
   // bodies are fetched once (lazily, cached) so content matches too — the
   // chat count is personal-app small, so fetch-all is fine.
   const [query, setQuery] = useState('')
   const [bodies, setBodies] = useState({})
   const [searchingBodies, setSearchingBodies] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  // Search spans the archive — finding a conversation from three months ago is
+  // most of what the archive is FOR, so it can't be hidden behind the collapse.
+  const searchable = useMemo(() => [...chats, ...archived], [chats, archived])
   useEffect(() => {
     if (query.trim().length < 2) return
-    const missing = chats.filter(c => bodies[c.id] === undefined)
+    const missing = searchable.filter(c => bodies[c.id] === undefined)
     if (missing.length === 0) return
     let alive = true
     setSearchingBodies(true)
@@ -126,12 +195,16 @@ function ChatList({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew
     })()
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, chats])
+  }, [query, searchable])
   const q = query.trim().toLowerCase()
-  const shown = q.length === 0 ? chats : chats.filter(c =>
-    (c.title || '').toLowerCase().includes(q)
-    || (q.length >= 2 && (bodies[c.id] || '').includes(q)),
-  )
+  const matches = (c) => (c.title || '').toLowerCase().includes(q)
+    || (q.length >= 2 && (bodies[c.id] || '').includes(q))
+  const shown = q.length === 0 ? chats : chats.filter(matches)
+  const shownArchived = q.length === 0 ? archived : archived.filter(matches)
+  // A hit you can't see is a search that looks broken. Force the section open
+  // whenever the query matches something inside it.
+  const showArchive = archiveOpen || (q.length > 0 && shownArchived.length > 0)
+  const rowProps = { onSwitch, onDelete, onStar, onUnstar, onArchive, onUnarchive }
   return (
     <div className="v2-adviser-history">
       <div className="v2-adviser-history-bar">
@@ -150,57 +223,57 @@ function ChatList({ chats, activeId, onSwitch, onDelete, onStar, onUnstar, onNew
       </div>
       {q.length >= 2 && (
         <div style={{ fontSize: 11.5, color: 'var(--v2-text-meta, #8a8378)', margin: '-4px 2px 8px' }}>
-          {searchingBodies ? 'Searching message contents…' : `${shown.length} match${shown.length !== 1 ? 'es' : ''}`}
+          {searchingBodies
+            ? 'Searching message contents…'
+            : `${shown.length + shownArchived.length} match${shown.length + shownArchived.length !== 1 ? 'es' : ''}${shownArchived.length ? ` (${shownArchived.length} archived)` : ''}`}
         </div>
       )}
-      {chats.length === 0 ? (
+      {chats.length === 0 && archived.length === 0 ? (
         <EmptyState
           title="No chats yet"
           body="Start a conversation and it'll appear here."
         />
       ) : (
-        <ul className="v2-adviser-chat-list">
-          {shown.map(c => {
-            const days = daysUntil(c.expiresAt)
-            const expiring = !c.starred && days != null && days <= 7
-            const active = c.id === activeId
-            return (
-              <li key={c.id} className={`v2-adviser-chat-item${active ? ' v2-adviser-chat-item-active' : ''}`}>
-                <button className="v2-adviser-chat-row" onClick={() => onSwitch(c.id)}>
-                  <div className="v2-adviser-chat-title">
-                    {active && <span className="v2-adviser-chat-active-dot">●</span>}
-                    {c.title || 'Untitled chat'}
+        <>
+          {chats.length > 0 && (
+            <ul className="v2-adviser-chat-list">
+              {shown.map(c => (
+                <ChatRow key={c.id} chat={c} active={c.id === activeId} {...rowProps} />
+              ))}
+            </ul>
+          )}
+          {archived.length > 0 && (
+            <div className="v2-adviser-archive">
+              <button
+                className="v2-adviser-archive-head"
+                onClick={() => setArchiveOpen(o => !o)}
+                aria-expanded={showArchive}
+              >
+                {showArchive ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <Archive size={13} />
+                <span>Archive</span>
+                <span className="v2-adviser-archive-count">{archived.length}</span>
+              </button>
+              {showArchive && (
+                <>
+                  <div className="v2-adviser-archive-note">
+                    Chats you haven&apos;t touched in 30 days land here. Nothing is deleted —
+                    open one to pick it back up.
                   </div>
-                  <div className="v2-adviser-chat-meta">
-                    {new Date(c.updatedAt).toLocaleString()} · {c.messageCount} msg{c.messageCount !== 1 ? 's' : ''}
-                    {c.starred && <span className="v2-adviser-chat-star"> · ⭐ starred</span>}
-                    {expiring && (
-                      <span className="v2-adviser-chat-expiring">
-                        {' · '}expires in {days <= 0 ? '<1' : days}d
-                      </span>
-                    )}
-                  </div>
-                </button>
-                <button
-                  className="v2-adviser-chat-icon-btn"
-                  onClick={() => c.starred ? onUnstar(c.id) : onStar(c.id)}
-                  title={c.starred ? 'Unstar (7-day grace)' : 'Star to keep'}
-                  aria-label={c.starred ? 'Unstar' : 'Star'}
-                >
-                  <Star size={14} fill={c.starred ? 'currentColor' : 'none'} />
-                </button>
-                <button
-                  className="v2-adviser-chat-icon-btn v2-adviser-chat-icon-btn-danger"
-                  onClick={() => onDelete(c.id)}
-                  title="Delete"
-                  aria-label="Delete"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+                  {shownArchived.length === 0 ? (
+                    <div className="v2-adviser-archive-note">No archived chats match.</div>
+                  ) : (
+                    <ul className="v2-adviser-chat-list">
+                      {shownArchived.map(c => (
+                        <ChatRow key={c.id} chat={c} active={false} {...rowProps} />
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -217,8 +290,9 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
     messages, status, lastError,
     send, commit, abort,
     runnerState, queueLength,
-    chats, activeId, activeChat,
+    chats, archivedChats, activeId, activeChat,
     newChat, switchChat, deleteChat, starChat, unstarChat,
+    archiveChat, unarchiveChat,
   } = adviser
   const [input, setInput] = useState('')
   const [showHistory, setShowHistory] = useState(false)
@@ -349,11 +423,14 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
       {showHistory ? (
         <ChatList
           chats={chats}
+          archived={archivedChats}
           activeId={activeId}
           onSwitch={handleSwitch}
           onDelete={deleteChat}
           onStar={starChat}
           onUnstar={unstarChat}
+          onArchive={archiveChat}
+          onUnarchive={unarchiveChat}
           onNew={handleNewChat}
           onBack={() => setShowHistory(false)}
         />

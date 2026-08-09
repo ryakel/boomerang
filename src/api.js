@@ -1973,15 +1973,19 @@ export async function adviserAbort(sessionId) {
   }).catch(() => {})
 }
 
-// Chats: multi-thread Quokka conversations with 30-day rolling TTL + star-to-keep.
+// Chats: multi-thread Quokka conversations. A chat idle 30 days is archived
+// (not deleted) and shows up under Archive; starring stops the clock.
 // Storage is server-side (app_data) — iOS evicts PWA localStorage too aggressively.
 
 export async function adviserListChats() {
   try {
     const res = await fetch('/api/adviser/chats')
-    if (!res.ok) return { chats: [], activeId: null }
-    return res.json()
-  } catch { return { chats: [], activeId: null } }
+    if (!res.ok) return { chats: [], archived: [], activeId: null }
+    const data = await res.json()
+    // `archived` arrived 2026-08-09; a client running ahead of the server must
+    // not render `undefined.length`.
+    return { chats: data.chats || [], archived: data.archived || [], activeId: data.activeId ?? null }
+  } catch { return { chats: [], archived: [], activeId: null } }
 }
 
 export async function adviserGetActiveChat() {
@@ -2033,6 +2037,18 @@ export async function adviserStarChat(id) {
 export async function adviserUnstarChat(id) {
   const res = await fetch(`/api/adviser/chats/${encodeURIComponent(id)}/unstar`, { method: 'POST' })
   if (!res.ok) throw new Error(`Unstar failed: ${res.status}`)
+  return res.json()
+}
+
+export async function adviserArchiveChat(id) {
+  const res = await fetch(`/api/adviser/chats/${encodeURIComponent(id)}/archive`, { method: 'POST' })
+  if (!res.ok) throw new Error(`Archive failed: ${res.status}`)
+  return res.json()
+}
+
+export async function adviserUnarchiveChat(id) {
+  const res = await fetch(`/api/adviser/chats/${encodeURIComponent(id)}/unarchive`, { method: 'POST' })
+  if (!res.ok) throw new Error(`Unarchive failed: ${res.status}`)
   return res.json()
 }
 

@@ -529,6 +529,56 @@
   color: var(--v2-alert-overdue);
 }
 
+/* Archive section (2026-08-09). Chats idle 30 days move here instead of being
+ * deleted. Collapsed by default and visually recessed — it's a drawer you open
+ * on purpose, not a second list competing with the live one. */
+/* No border-top: the live list already ends on a hairline, and stacking a
+ * second one four pixels below it reads as a rendering bug. */
+.v2-adviser-archive {
+  margin-top: 6px;
+}
+
+.v2-adviser-archive-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 2px;
+  background: transparent;
+  border: none;
+  color: var(--v2-text-meta);
+  font: 600 12px/1 var(--v2-font-body);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border-radius: var(--v2-radius-sm, 6px);
+  transition: color var(--v2-dur-quick) var(--v2-ease-standard);
+}
+
+.v2-adviser-archive-head:hover { color: var(--v2-text); }
+
+.v2-adviser-archive-count {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 0 6px;
+  height: 18px;
+  border-radius: var(--v2-radius-pill);
+  background: rgba(var(--v2-text-rgb), 0.07);
+  color: var(--v2-text-meta);
+  font: 600 11px/18px var(--v2-font-body);
+  text-align: center;
+}
+
+.v2-adviser-archive-note {
+  font: 400 11.5px/1.45 var(--v2-font-body);
+  color: var(--v2-text-faint);
+  padding: 2px 2px 10px;
+}
+
+/* Archived rows read one step back from live ones; the title comes back to
+ * full strength on hover so scanning the archive doesn't require squinting. */
+.v2-adviser-archive .v2-adviser-chat-row { opacity: 0.72; }
+.v2-adviser-archive .v2-adviser-chat-item:hover .v2-adviser-chat-row { opacity: 1; }
+
 /* One-row history bar (2026-07-17): Back · search · New. */
 .v2-adviser-history-search {
   flex: 1 1 auto;
