@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-11
+
+- fix(notion): every page-property update has been failing validation [M]
+  - Reported from Quokka: `notion-update-page error: command: Invalid option: expected one of "update_properties"|…, properties.Name: Invalid input`.
+  - **Two mistakes in one call, both in `notionMCPProxy.updatePage()`.** The hosted tool requires a `command` field — it sent none. And property values must be FLAT "SQLite values" (`string | number | string[] | null`) — it sent Notion REST property OBJECTS (`{title:[{text:{content}}]}`, `{select:{name}}`, `{multi_select:[…]}`).
+  - **The create path learned this in May; the update path never did.** `createPageInDatabase()` has flattened properties since the 2026-05-24 refactor, comment and all. `updatePage()` sat a few functions below it still building REST objects. So this broke **every** property write in the app — Quokka's `notion_update_page`, `updateKnowledgeItem` (renaming or retagging any knowledge item), and the `PATCH /api/notion/pages/:id` title sync.
+  - The two REST-object builders are **deleted**, not left unused — they were a loaded gun for the next caller. Both paths now build arguments in `server/notionProps.js` (pure, 11 tests) so they cannot drift a third time.
+  - **Archive was broken too, and silently.** `archivePage()` sent `{archived: true}` to a tool with no such parameter — and because the schema permits unknown keys, it was accepted and ignored rather than rejected. There is no MCP archive operation at all (`notion-update-page` has no command for it; `notion-move-pages` only reparents), so archive/restore now go over REST (`setPageArchived`) and throw a clear error without `NOTION_INTEGRATION_TOKEN` instead of quietly leaving the page in Notion.
+  - **Two adjacent lies fixed while in here.** A content-only update would have failed for the mirror-image reason (`properties` is required *by* `update_properties`), so `buildUpdatePageArgs` returns null and skips the call entirely. And `updatePage` had been destructuring `content` away into nothing while Quokka's tool reported `updated: ["title","content"]` — content is now actually applied, and the tool reports what LANDED, naming the skip when block writes are unavailable.
+  - Schemas were read off the LIVE hosted tools at mcp.notion.com rather than inferred, per the `notion-dev` rule. `npm test` 343/343 + smoke, eslint 0 errors. Server only — **no rebuild**.
+
 ## 2026-08-09
 
 - feat(quokka): chats archive after 30 days instead of being deleted [M]

@@ -9,6 +9,7 @@
 // See CLAUDE.md "Notion MCP Rules" — never guess params.
 
 import * as notionMCP from './notionMCP.js'
+import { buildUpdatePageArgs, toPlainProperties } from './notionProps.js'
 
 const NOTION_BASE = 'https://api.notion.com/v1'
 
@@ -199,12 +200,9 @@ export async function createPage({ parentId, title, content }) {
 }
 
 export async function createPageInDatabase({ databaseId, properties, content }) {
-  // Properties must be plain SQLite values (string | number | null).
-  // Convert Notion API objects back to plain values if needed.
-  let propsObj = properties
-  if (typeof properties === 'string') propsObj = textToPlainProperties(properties)
-  else if (typeof properties === 'object') propsObj = flattenToPlainValues(properties)
-  const page = { properties: propsObj }
+  // Properties must be plain SQLite values (string | number | string[] | null)
+  // — same shape notion-update-page wants, one shared converter.
+  const page = { properties: toPlainProperties(properties) || {} }
   if (content) page.content = content
   const args = {
     parent: { database_id: databaseId, type: 'database_id' },
@@ -218,64 +216,61 @@ export async function updateDataSource({ dataSourceId, statements }) {
   return await callMCP('notion-update-data-source', { data_source_id: dataSourceId, statements })
 }
 
-// Text/simple-map → Notion property objects. RESTORED 2026-07-16: these two
-// existed until the 2026-05-24 create-pages schema refactor rewrote this file
-// and dropped the definitions while keeping the call sites — every string-
-// properties updatePage() (knowledgeSync property updates, the PATCH
-// /api/notion/pages title sync) has thrown ReferenceError since, swallowed by
-// callers' catch blocks. Surfaced by the server-wide lint expansion (no-undef).
-function textToNotionProperties(text) {
-  const props = {}
-  for (const line of text.split('\n')) {
-    const idx = line.indexOf(':')
-    if (idx < 0) continue
-    const key = line.slice(0, idx).trim()
-    const val = line.slice(idx + 1).trim()
-    if (!key || !val) continue
-    if (key === 'Name' || key === 'Title') {
-      props[key] = { title: [{ text: { content: val } }] }
-    } else if (['Type', 'Status', 'Confidence'].includes(key)) {
-      props[key] = { select: { name: val } }
-    } else if (key === 'Tags') {
-      props[key] = { multi_select: val.split(',').map(s => ({ name: s.trim() })).filter(s => s.name) }
-    } else {
-      props[key] = { rich_text: [{ text: { content: val } }] }
-    }
+// `notion-update-page` takes a REQUIRED `command` and FLAT property values
+// (string | number | string[] | null) — the same "SQLite values" shape
+// createPageInDatabase() has used since 2026-05-24. This function never got
+// the memo: it kept building Notion REST property OBJECTS
+// ({title:[{text:{content}}]}, {select:{name}}, {multi_select:[…]}) and sent
+// no `command` at all, so every property update failed validation with
+//   command: Invalid option: expected one of "update_properties"|…,
+//   properties.Name: Invalid input
+// (reported from Quokka, 2026-08-11). That hit all four callers: Quokka's
+// notion_update_page tool, knowledgeSync's updateKnowledgeItem, the PATCH
+// /api/notion/pages title sync, and archive/restore.
+//
+// The two REST-object builders that used to live here are GONE rather than
+// unused — leaving them would be a loaded gun for the next caller. Create and
+// update now share one flattening path, so they cannot drift apart again.
+
+export async function updatePage({ pageId, properties, content }) {
+  // Arg shape (including the required `command`) lives in notionProps.js,
+  // shared with the create path so the two cannot drift apart again. null
+  // means "nothing to update" — see buildUpdatePageArgs.
+  const args = buildUpdatePageArgs({ pageId, properties })
+  let raw = ''
+  let propsUpdated = false
+  if (args) {
+    raw = await callMCP('notion-update-page', args)
+    propsUpdated = true
   }
-  return props
+  // Content is a separate operation (REST block replace). updatePage used to
+  // destructure `content` away into nothing while its Quokka caller reported
+  // "updated: content" — apply it, and report what actually happened.
+  let contentUpdated = false
+  if (content !== undefined) contentUpdated = await updatePageContent(pageId, content || '')
+  return { id: pageId, url: extractUrlFromText(raw), raw, propsUpdated, contentUpdated }
 }
 
-function simpleMapToNotionProperties(map) {
-  const props = {}
-  for (const [key, val] of Object.entries(map)) {
-    if (val === undefined || val === null) continue
-    if (key === 'Name' || key === 'Title') {
-      props[key] = { title: [{ text: { content: String(val) } }] }
-    } else if (['Type', 'Status', 'Confidence'].includes(key)) {
-      props[key] = { select: { name: String(val) } }
-    } else if (key === 'Tags' && Array.isArray(val)) {
-      props[key] = { multi_select: val.map(s => ({ name: String(s) })) }
-    } else if (typeof val === 'string') {
-      props[key] = { rich_text: [{ text: { content: val } }] }
-    }
+// Archiving is REST-only. `notion-update-page` has no archive command and
+// `notion-move-pages` only reparents, so there is no MCP path — and because
+// the tool's schema allows unknown keys, the old `archived: true` argument was
+// accepted and silently ignored rather than rejected. Fail loudly instead: a
+// delete that quietly leaves the page in Notion is worse than one that says it
+// couldn't.
+export async function setPageArchived(pageId, archived) {
+  const headers = restHeaders()
+  if (!headers) {
+    throw new Error('Archiving a Notion page needs NOTION_INTEGRATION_TOKEN — the MCP tool set has no archive operation.')
   }
-  return props
+  const data = await restJson(`${NOTION_BASE}/pages/${pageId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ archived }),
+  }, 'archivePage')
+  return { id: pageId, url: data?.url || null, archived }
 }
 
-export async function updatePage({ pageId, properties, archived }) {
-  const args = { page_id: pageId }
-  if (properties) {
-    if (typeof properties === 'string') args.properties = textToNotionProperties(properties)
-    else if (properties.Name?.title || properties.title?.title) args.properties = properties
-    else args.properties = simpleMapToNotionProperties(properties)
-  }
-  if (archived !== undefined) args.archived = archived
-  const raw = await callMCP('notion-update-page', args)
-  return { id: pageId, url: extractUrlFromText(raw), raw }
-}
-
-export async function archivePage(pageId) { return updatePage({ pageId, archived: true }) }
-export async function restorePage(pageId) { return updatePage({ pageId, archived: false }) }
+export async function archivePage(pageId) { return setPageArchived(pageId, true) }
+export async function restorePage(pageId) { return setPageArchived(pageId, false) }
 
 export async function createDatabase({ parentPageId, title, schema }) {
   const raw = await callMCP('notion-create-database', { parent: { page_id: parentPageId }, title, schema })
@@ -387,11 +382,15 @@ export async function getDatabase(databaseId) {
   return { id: databaseId, archived: json?.archived || false, url: json?.url || extractUrlFromText(raw), raw }
 }
 
+// Returns whether the content was actually written. Block operations are
+// REST-only, so without a token this is a no-op — and a no-op the caller has
+// to be able to see, or Quokka cheerfully reports "content updated" over a
+// page it never touched.
 export async function updatePageContent(pageId, markdownContent) {
   const headers = restHeaders()
   if (!headers) {
     console.warn('[Notion] updatePageContent skipped — no REST token for block operations')
-    return
+    return false
   }
   console.log(`[Notion:REST] update content for page ${pageId}`)
   const existing = await restJson(`${NOTION_BASE}/blocks/${pageId}/children?page_size=100`, {}, 'fetch blocks')
@@ -404,38 +403,14 @@ export async function updatePageContent(pageId, markdownContent) {
       method: 'PATCH', body: JSON.stringify({ children }),
     }, 'append blocks')
   }
+  return true
 }
 
 // ============================================================
 // Helpers
 // ============================================================
 
-function textToPlainProperties(text) {
-  const props = {}
-  for (const line of text.split('\n')) {
-    const idx = line.indexOf(':')
-    if (idx < 0) continue
-    const key = line.slice(0, idx).trim()
-    const val = line.slice(idx + 1).trim()
-    if (!key || !val) continue
-    props[key] = val
-  }
-  return props
-}
 
-function flattenToPlainValues(map) {
-  const props = {}
-  for (const [key, val] of Object.entries(map)) {
-    if (val === undefined || val === null) continue
-    if (typeof val === 'string' || typeof val === 'number') { props[key] = val; continue }
-    if (val?.title?.[0]?.text?.content) { props[key] = val.title[0].text.content; continue }
-    if (val?.select?.name) { props[key] = val.select.name; continue }
-    if (val?.multi_select) { props[key] = val.multi_select.map(s => s.name).join(', '); continue }
-    if (val?.rich_text?.[0]?.text?.content) { props[key] = val.rich_text[0].text.content; continue }
-    props[key] = String(val)
-  }
-  return props
-}
 
 function markdownToBlocks(text) {
   if (!text) return []
