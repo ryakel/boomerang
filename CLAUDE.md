@@ -71,6 +71,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 
 **Notion**
 - Never write Notion MCP code without the actual OpenAPI spec, and remember the MCP OAuth token does NOT work as a REST bearer token — they are two independent auth paths. Load the `notion-dev` skill before touching Notion code.
+- Page CONTENT goes through MCP `notion-update-page` `command: "replace_content"` — Notion's own markdown parser. Never hand-roll the markdown→blocks conversion as the primary path; the REST converter (`server/notionMarkdown.js`) is the MCP-less fallback only, and the five-block-type version it replaced rendered `###`/`>`/`---`/`**bold**` as literal characters for months (2026-08-16). A page fetched back with `\*\*escapes\*\*` means blocks hold literal text — that's Notion round-tripping, not an escaper in our code.
 - Notion MCP page args live in ONE place (`server/notionProps.js`): `notion-update-page` needs a REQUIRED `command` and FLAT property values (`string|number|string[]|null`), never REST property objects — same shape `notion-create-pages` takes. The create path was converted in May 2026 and the update path wasn't, so every property update in the app failed validation for three months (2026-08-11). The tool schema allows UNKNOWN KEYS, so a stale argument like `archived: true` is accepted and silently ignored rather than rejected — there is no MCP archive operation at all; archiving is REST-only.
 
 **Client & iOS**

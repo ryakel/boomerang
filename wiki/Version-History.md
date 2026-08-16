@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-16
+
+- fix(notion): page content is parsed by Notion, not by our five-case converter [M]
+  - *"Quokka is not rendering entirely valid Notion markdown."* A page came out with literal `### Details`, `> Goal:`, `---` and `**bold**` sitting on screen as characters. The report was exactly right: every one of those is valid Notion-flavored Markdown per `notion://docs/enhanced-markdown-spec`.
+  - **`markdownToBlocks()` handled five cases** — blank, `# `, `## `, `- [ ] `, `- ` — and dropped every other line into a paragraph holding ONE PLAIN `rich_text` run. No heading 3+, no quote, no divider, no numbered list, and no inline parsing at all, so bold/italic/code/links stayed as punctuation.
+  - **The red herring:** fetching the page back returns `\*\*balance tubes\*\*`, which looks like something in our pipeline escaping the input. Nothing in the codebase escapes anything. Those backslashes are Notion faithfully round-tripping text that a block genuinely holds as literal — the symptom of the bad write, not its cause. Worth remembering, because chasing the escaper is a dead end.
+  - **Content now goes through MCP** `notion-update-page` with `command: "replace_content"`, handing the markdown to Notion's own parser — the reference implementation, covering tables, callouts, toggles, columns and mentions as well as everything above. Our converter could only ever lag it. `allow_deleting_content` is deliberately left unset so content that would drop a child page fails loudly instead of deleting it.
+  - The REST path survives as the MCP-less fallback and was rewritten to earn its place: headings 1–3 (4+ clamped, since REST has no `heading_4`), quotes, dividers, numbered lists, fenced code with language, and a real inline parser for `**bold**` / `*italic*` / `~~strike~~` / `` `code` `` / `[links](url)`, matched in reading order with bold winning over italic and code spans kept literal. Pure, in `server/notionMarkdown.js`, 16 tests.
+  - Schema and syntax were read off the live hosted tool and the live spec resource, not remembered (the `notion-dev` rule). `npm test` 359/359 + smoke, eslint 0 errors. Server only — **no rebuild**.
+
 ## 2026-08-11
 
 - fix(notion): every page-property update has been failing validation [M]
