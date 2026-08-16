@@ -19,8 +19,8 @@ Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks 
 | **Get child pages** | REST first, MCP fallback | `getChildPages()` calls `getBlockChildren()` (see below) and filters for `child_page` blocks; only falls back to text-extraction from MCP's markdown when no token is configured. |
 | **Create page** | MCP `notion-create-pages` | Maps to `POST /v1/pages`. Properties are Notion API objects, children are string array. |
 | **Create page in DB** | MCP `notion-create-pages` | Same tool, parent is `{ database_id }` instead of `{ page_id }`. |
-| **Update page props** | MCP `notion-update-page` | Maps to `PATCH /v1/pages/{id}`. Properties + archived only — NO children/content support. |
-| **Archive/restore** | MCP `notion-update-page` | `{ page_id, archived: true/false }` |
+| **Update page props** | MCP `notion-update-page` | REQUIRES `command: "update_properties"`; property values are FLAT SQLite values (`string\|number\|string[]\|null`), NOT REST objects. Args built in `server/notionProps.js`, shared with the create path. NO children/content support. |
+| **Archive/restore** | **REST only** | `PATCH /v1/pages/{id}` `{archived}` via `setPageArchived()`. The MCP tool set has NO archive operation — and since `notion-update-page`'s schema allows unknown keys, the old `archived: true` argument was accepted and silently ignored (2026-08-11). |
 | **Query database** | REST first, MCP fallback | `queryDatabase()` uses `POST /v1/databases/{id}/query` (paginated, full properties) when a REST token is configured — this is the primary path, not a limitation-driven fallback. Only degrades to MCP `notion-fetch` (schema-only, no filter/sort) when no token is set. |
 | **Get database** | REST first, MCP fallback | `getDatabase()` — REST returns clean JSON with the `archived` flag; MCP fallback only when no token configured. |
 | **Get block content** | REST first, MCP fallback | `getBlockChildren()` — REST returns paginated structured blocks with `rich_text` arrays → clean plaintext conversion. MCP `notion-fetch` fallback returns enhanced markdown, not structured blocks, when no token is set. |

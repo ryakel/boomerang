@@ -12,7 +12,7 @@ This page is the single source of truth for how Boomerang talks to Notion. **Upd
 
 | Path | Auth mechanism | What it covers |
 |---|---|---|
-| **MCP** | OAuth 2.0 + PKCE + DCR to `mcp.notion.com/mcp` | Search, create/update pages, create database, archive |
+| **MCP** | OAuth 2.0 + PKCE + DCR to `mcp.notion.com/mcp` | Search, create/update pages, create database |
 | **REST** | `NOTION_INTEGRATION_TOKEN` env var | Database queries, block reads, content updates, file uploads |
 
 **The MCP OAuth token does NOT work as a REST `Authorization: Bearer` token.** MCP tokens work for MCP protocol calls to `mcp.notion.com` but get 401 from `api.notion.com`. This was learned the hard way on 2026-05-23 after multiple failed deploys assumed they were interchangeable.
@@ -29,8 +29,8 @@ This page is the single source of truth for how Boomerang talks to Notion. **Upd
 | **Create database** | MCP `notion-create-database` | Custom tool accepts SQL DDL — much cleaner than raw API property schema objects. |
 | **Create page** | MCP `notion-create-pages` | Maps to `POST /v1/pages`. Properties are Notion API objects, children are string array. |
 | **Create page in DB** | MCP `notion-create-pages` | Same tool, parent is `{ database_id }` instead of `{ page_id }`. |
-| **Update page props** | MCP `notion-update-page` | Maps to `PATCH /v1/pages/{id}`. Properties + archived only — NO children/content. |
-| **Archive/restore** | MCP `notion-update-page` | `{ page_id, archived: true/false }` |
+| **Update page props** | MCP `notion-update-page` | REQUIRES `command: "update_properties"`; property values are FLAT SQLite values, not REST objects. Args built by `server/notionProps.js`. NO children/content. |
+| **Archive/restore** | **REST only** | `PATCH /v1/pages/{id}` `{archived}`. The MCP tool set has NO archive operation — `notion-update-page` has no such command and `notion-move-pages` only reparents. |
 | **Get page** | REST first, MCP fallback | REST returns structured JSON properties. MCP `notion-fetch` is fallback if no REST token. |
 | **Get child pages** | REST first, MCP fallback | REST `GET /v1/blocks/{id}/children` gives structured block objects with `child_page` type. |
 | **Get block content** | REST first, MCP fallback | REST returns structured blocks with `rich_text` arrays → clean plaintext conversion. |
@@ -52,7 +52,7 @@ Derived from the OpenAPI spec at `@notionhq/notion-mcp-server/scripts/notion-ope
 | `notion-search` | `POST /v1/search` | No | `{ query }` param |
 | `notion-fetch` | multiple GETs | **Yes** | Bundles page/block/database fetches via `id` param (UUID string) |
 | `notion-create-pages` | `POST /v1/pages` | No | `{ parent, properties, children? }` — properties are Notion API objects |
-| `notion-update-page` | `PATCH /v1/pages/{id}` | No | `{ page_id, properties?, archived? }` — NO children support |
+| `notion-update-page` | `PATCH /v1/pages/{id}` | No | `{ page_id, command, properties? }` — `command` REQUIRED, flat property values, NO children, NO archive |
 | `notion-create-database` | `POST /v1/data_sources` | **Yes** | Accepts `{ parent, title, schema }` where schema is SQL DDL |
 | `notion-update-data-source` | `PATCH /v1/data_sources/{id}` | No | |
 | `notion-move-pages` | `POST /v1/pages/{id}/move` | No | |
@@ -122,16 +122,30 @@ npm pack @notionhq/notion-mcp-server && tar xzf notionhq-notion-mcp-server-*.tgz
 }
 ```
 
-### `patch-page` (notion-update-page)
+### `notion-update-page`
 ```json
 {
-  "page_id": "uuid",          // path param, required
-  "properties": { /* ... */ }, // optional
-  "archived": true/false,     // optional
-  "in_trash": true/false       // optional
+  "page_id": "uuid",                 // required
+  "command": "update_properties",    // REQUIRED — one of update_properties |
+                                     // update_content | replace_content |
+                                     // insert_content | apply_template |
+                                     // update_verification
+  "properties": {                    // required FOR update_properties
+    "Name": "plain string",          // FLAT SQLite values only:
+    "Count": 3,                      //   string | number | string[] | null
+    "Tags": ["a", "b"]
+  }
 }
 ```
-**Does NOT support `children` — content updates require block-level REST calls.**
+**Property values are NOT Notion REST objects.** `{"Name": {"title":[{"text":{"content":"x"}}]}}`
+is rejected with `properties.Name: Invalid input`, and omitting `command` is rejected with
+`command: Invalid option`. Both failed together for ~3 months until 2026-08-11 — see
+`server/notionProps.js`, which builds the args for the create and update paths alike so they
+cannot drift apart again.
+
+**No `children`** — content updates require block-level REST calls.
+**No `archived` / `in_trash`** — the schema allows unknown keys, so the old `archived: true`
+argument was accepted and silently ignored. Archiving is REST-only (`setPageArchived`).
 
 ### `create-a-data-source` (notion-create-database)
 The hosted MCP server wraps this as a custom tool accepting SQL DDL:

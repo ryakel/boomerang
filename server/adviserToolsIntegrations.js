@@ -278,9 +278,19 @@ export function registerNotionTools() {
     execute: async (args) => {
       ensure(notionProxy.isConnected(), 'Notion not connected')
       const props = args.title ? `Name: ${args.title}` : undefined
-      await notionProxy.updatePage({ pageId: args.page_id, properties: props, content: args.content })
+      const res = await notionProxy.updatePage({ pageId: args.page_id, properties: props, content: args.content })
+      // Report what LANDED, not what was asked for. Block writes are REST-only,
+      // so on an MCP-only setup the content half silently no-ops — saying
+      // "updated: content" over a page we never touched is the same
+      // looks-like-success failure as filing to the wrong surface.
+      const updated = []
+      if (res.propsUpdated) updated.push('title')
+      if (res.contentUpdated) updated.push('content')
+      const skipped = args.content !== undefined && !res.contentUpdated
+        ? 'content not written — block edits need NOTION_INTEGRATION_TOKEN'
+        : undefined
       return {
-        result: { page_id: args.page_id, updated: ['title', 'content'].filter(k => args[k]) },
+        result: { page_id: args.page_id, updated, ...(skipped ? { skipped } : {}) },
         compensation: async () => {
           console.warn(`[Adviser] Rollback of Notion page ${args.page_id} is best-effort via MCP`)
         },
