@@ -10,6 +10,7 @@
 
 import * as notionMCP from './notionMCP.js'
 import { buildUpdatePageArgs, toPlainProperties } from './notionProps.js'
+import { markdownToBlocks } from './notionMarkdown.js'
 
 const NOTION_BASE = 'https://api.notion.com/v1'
 
@@ -382,17 +383,40 @@ export async function getDatabase(databaseId) {
   return { id: databaseId, archived: json?.archived || false, url: json?.url || extractUrlFromText(raw), raw }
 }
 
-// Returns whether the content was actually written. Block operations are
-// REST-only, so without a token this is a no-op — and a no-op the caller has
-// to be able to see, or Quokka cheerfully reports "content updated" over a
-// page it never touched.
+// Replace a page's content with markdown.
+//
+// PRIMARY PATH IS MCP. `notion-update-page` with `command: "replace_content"`
+// hands the markdown to Notion's own parser — the reference implementation of
+// Notion-flavored Markdown. Our REST converter only ever knew five block types
+// and no inline formatting, so a page written through it showed literal `###`,
+// `> `, `---` and `**bold**` (2026-08-16). Notion's parser handles all of that
+// plus tables, callouts, toggles and mentions, and it cannot drift from the
+// spec because it IS the spec.
+//
+// `allow_deleting_content` is deliberately NOT set: if the new content omits a
+// child page or database, the call fails with a list of what would be lost
+// rather than quietly deleting it.
+//
+// Falls back to the REST delete-blocks + append-blocks path when MCP isn't
+// connected. Returns whether the content was actually written — block writes
+// need one transport or the other, and a no-op the caller can't see is how
+// Quokka ends up reporting "content updated" over a page it never touched.
 export async function updatePageContent(pageId, markdownContent) {
+  if (notionMCP.getStatus().connected) {
+    await callMCP('notion-update-page', {
+      page_id: pageId,
+      command: 'replace_content',
+      new_str: markdownContent || '',
+    })
+    return true
+  }
+
   const headers = restHeaders()
   if (!headers) {
-    console.warn('[Notion] updatePageContent skipped — no REST token for block operations')
+    console.warn('[Notion] updatePageContent skipped — no MCP connection and no REST token')
     return false
   }
-  console.log(`[Notion:REST] update content for page ${pageId}`)
+  console.log(`[Notion:REST] update content for page ${pageId} (MCP unavailable — limited block support)`)
   const existing = await restJson(`${NOTION_BASE}/blocks/${pageId}/children?page_size=100`, {}, 'fetch blocks')
   for (const b of existing.results || []) {
     await fetch(`${NOTION_BASE}/blocks/${b.id}`, { method: 'DELETE', headers }).catch(() => {})
@@ -412,17 +436,3 @@ export async function updatePageContent(pageId, markdownContent) {
 
 
 
-function markdownToBlocks(text) {
-  if (!text) return []
-  return text.split('\n').map(line => {
-    if (!line.trim()) return { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }
-    if (line.startsWith('# ')) return { object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: line.slice(2) } }] } }
-    if (line.startsWith('## ')) return { object: 'block', type: 'heading_2', heading_2: { rich_text: [{ type: 'text', text: { content: line.slice(3) } }] } }
-    if (line.match(/^- \[[ x]\] /)) {
-      const checked = line[3] === 'x'
-      return { object: 'block', type: 'to_do', to_do: { rich_text: [{ type: 'text', text: { content: line.slice(6) } }], checked } }
-    }
-    if (line.startsWith('- ')) return { object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: [{ type: 'text', text: { content: line.slice(2) } }] } }
-    return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: line } }] } }
-  })
-}

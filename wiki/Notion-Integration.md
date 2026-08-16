@@ -36,7 +36,7 @@ This page is the single source of truth for how Boomerang talks to Notion. **Upd
 | **Get block content** | REST first, MCP fallback | REST returns structured blocks with `rich_text` arrays → clean plaintext conversion. |
 | **Query database** | REST first, MCP fallback | REST `POST /v1/databases/{id}/query` returns paginated rows with full properties. No MCP query tool with filter/sort exists. |
 | **Get database** | REST first, MCP fallback | REST returns clean JSON with `archived` flag. |
-| **Update page content** | **REST only** | MCP `patch-page` doesn't take children. REST uses delete-blocks + append-blocks pattern. |
+| **Update page content** | **MCP first**, REST fallback | `notion-update-page` `command: "replace_content"`, markdown in `new_str` — Notion's own parser, so the full enhanced-markdown spec works. REST fallback (delete-blocks + append-blocks via `server/notionMarkdown.js`) only when MCP is disconnected; it covers common blocks + inline annotations but not tables/callouts/toggles. `allow_deleting_content` deliberately unset so a child page that would be dropped fails loudly. |
 | **File uploads** | **REST only** | `POST /v1/file_uploads` + send. No MCP equivalent exists in the 14 available tools. |
 | **Append blocks** | **REST only** | `PATCH /v1/blocks/{id}/children`. Used for file attachments. |
 | **Connection status** | MCP `getStatus()` | No network call — checks `clientConnected` flag in memory. |
