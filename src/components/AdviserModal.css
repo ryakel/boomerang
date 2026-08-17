@@ -46,8 +46,10 @@
 
 .v2-adviser-expiry {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
+  min-width: 0;
   padding: 10px 14px;
   border-radius: 10px;
   background: rgba(242, 161, 0, 0.10);
@@ -74,8 +76,16 @@
 .v2-adviser-messages {
   flex: 1 1 auto;
   min-height: 200px;
+  min-width: 0;
   max-height: 60dvh;
   overflow-y: auto;
+  /* Chat NEVER scrolls sideways. A single wide child (a JSON tool error, a
+   * pasted URL) turns `overflow-y: auto` into a two-axis scroller — CSS
+   * computes overflow-x: auto from it — and one stray horizontal swipe then
+   * leaves every bubble clipped mid-word with no visible scrollbar saying
+   * why. The wrapping rules below are what keep this from hiding anything. */
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
   padding-right: 4px;
   display: flex;
   flex-direction: column;
@@ -83,15 +93,29 @@
   margin-bottom: 14px;
 }
 
-/* Desktop drawer mode: ModalShell is rendered with flexBody=true, so the
- * messages container can fill all remaining vertical space instead of
- * being capped at 60dvh. The min-height stays so empty chats don't
- * collapse to nothing; the cap lifts. Mobile still uses the 60dvh cap so
- * the keyboard doesn't crush the messages list. */
-@media (min-width: 768px) {
-  .v2-modal-body-flex .v2-adviser-messages {
-    max-height: none;
-  }
+/* flexBody mode: ModalShell puts the body in a flex column, so the messages
+ * container fills all remaining vertical space instead of being capped at
+ * 60dvh. The min-height stays so empty chats don't collapse to nothing.
+ *
+ * NOT gated to desktop. It used to be, and on mobile that left header +
+ * toolbar + 60dvh + composer taller than the page — so the whole modal
+ * became a second scroller nested around the message list, and scrolling it
+ * slid the title up under the fixed back arrow. The composer is pinned by
+ * `position: sticky; bottom: 0` either way, so the cap was never what kept
+ * it clear of the keyboard. */
+.v2-modal-body-flex .v2-adviser-messages {
+  max-height: none;
+}
+
+/* The chat-history panel replaces the message list inside the same flex
+ * body, so it needs its own scroll for the same reason — without this the
+ * body's `overflow: hidden` clips the list at the fold and long histories
+ * are simply unreachable. */
+.v2-modal-body-flex .v2-adviser-history {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .v2-adviser-empty {
@@ -135,6 +159,7 @@
 
 .v2-adviser-msg {
   display: flex;
+  min-width: 0;
 }
 
 .v2-adviser-msg-user {
@@ -160,11 +185,16 @@
 
 .v2-adviser-msg-assistant .v2-adviser-msg-content {
   max-width: 100%;
+  min-width: 0;
   padding: 12px 14px;
   border-radius: 4px 16px 16px 16px;
   background: rgba(var(--v2-text-rgb), 0.04);
   color: var(--v2-text);
   font: 400 14px/1.5 var(--v2-font-body);
+  /* User bubbles have always broken long words; assistant bubbles never did,
+   * and Quokka is the side that emits URLs, page ids and part numbers. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .v2-adviser-msg-markdown p { margin: 0 0 8px; }
@@ -172,11 +202,14 @@
 .v2-adviser-msg-markdown ul,
 .v2-adviser-msg-markdown ol { margin: 4px 0 8px 18px; padding: 0; }
 .v2-adviser-msg-markdown li { margin-bottom: 2px; }
+.v2-adviser-msg-markdown a { overflow-wrap: anywhere; }
 .v2-adviser-msg-markdown code {
   background: rgba(var(--v2-text-rgb), 0.08);
   padding: 1px 5px;
   border-radius: 4px;
   font-size: 0.9em;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .v2-adviser-tool-log {
@@ -187,13 +220,22 @@
   border-radius: 10px;
   background: rgba(var(--v2-text-rgb), 0.03);
   border: 1px solid var(--v2-hairline);
+  align-self: stretch;
+  min-width: 0;
+  max-width: 100%;
 }
 
+/* Tool steps carry raw upstream error strings — a Notion validation failure
+ * arrives as a full JSON body. On a nowrap flex row with the default
+ * `min-width: auto`, one of those sets the whole chat's width to the length
+ * of the blob. Wrap the row and let the message itself break. */
 .v2-adviser-tool-step {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  font: 500 11px/1 var(--v2-font-body);
+  gap: 4px 8px;
+  min-width: 0;
+  font: 500 11px/1.35 var(--v2-font-body);
   color: var(--v2-text-meta);
 }
 
@@ -206,8 +248,19 @@
   text-transform: capitalize;
 }
 
+/* The error text itself: breakable, and capped at three lines so a 2 KB
+ * upstream payload can't push the composer off the bottom of the page.
+ * The full string stays in the DOM and in the `title` tooltip. */
 .v2-adviser-tool-error-msg {
   color: var(--v2-alert-overdue);
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .v2-adviser-tool-staged-dot {
@@ -220,6 +273,9 @@
   border-radius: 10px;
   background: rgba(255, 98, 64, 0.06);
   border: 1px dashed var(--v2-accent);
+  align-self: stretch;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .v2-adviser-plan-committed {
@@ -243,13 +299,20 @@
   color: #5DBC9B;
 }
 
+/* Step previews quote user-supplied titles ("Update Notion page 'Window
+ * lifters — balance tubes …'"), so they have to break like any other
+ * untrusted string. */
 .v2-adviser-plan-step {
   display: flex;
   gap: 8px;
+  min-width: 0;
   font: 400 13px/1.45 var(--v2-font-body);
   color: var(--v2-text);
   padding: 2px 0;
+  overflow-wrap: anywhere;
 }
+
+.v2-adviser-plan-step > span:last-child { min-width: 0; }
 
 .v2-adviser-plan-bullet {
   color: var(--v2-accent);
@@ -258,9 +321,11 @@
 
 .v2-adviser-status {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  font: 400 13px/1 var(--v2-font-body);
+  gap: 4px 8px;
+  min-width: 0;
+  font: 400 13px/1.35 var(--v2-font-body);
   color: var(--v2-text-meta);
   padding: 8px 12px;
 }
@@ -276,12 +341,16 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  min-width: 0;
   padding: 10px 14px;
   border-radius: 10px;
   background: rgba(232, 68, 58, 0.08);
   color: var(--v2-alert-overdue);
   font: 400 13px/1.45 var(--v2-font-body);
+  overflow-wrap: anywhere;
 }
+
+.v2-adviser-error > span { min-width: 0; }
 
 .v2-adviser-spin {
   animation: v2-spin 0.8s linear infinite;
@@ -332,8 +401,10 @@
 
 .v2-adviser-committed-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
+  min-width: 0;
   padding: 10px 14px;
   border-radius: 10px;
   background: rgba(93, 188, 155, 0.10);
@@ -462,6 +533,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
   border-bottom: 1px solid var(--v2-hairline);
 }
 
@@ -471,12 +543,14 @@
 
 .v2-adviser-chat-row {
   flex: 1;
+  min-width: 0;
   text-align: left;
   background: transparent;
   border: none;
   cursor: pointer;
   padding: 12px 4px;
   color: var(--v2-text);
+  overflow-wrap: anywhere;
 }
 
 .v2-adviser-chat-row:hover {
@@ -578,6 +652,17 @@
  * full strength on hover so scanning the archive doesn't require squinting. */
 .v2-adviser-archive .v2-adviser-chat-row { opacity: 0.72; }
 .v2-adviser-archive .v2-adviser-chat-item:hover .v2-adviser-chat-row { opacity: 1; }
+
+.v2-adviser-chat-title { min-width: 0; overflow-wrap: anywhere; }
+
+/* Now that the rows above wrap, their leading icons must not be the thing
+ * that gives — a squashed 14px lucide glyph reads as a rendering fault. */
+.v2-adviser-expiry > svg,
+.v2-adviser-status > svg,
+.v2-adviser-error > svg,
+.v2-adviser-committed-bar > svg,
+.v2-adviser-tool-step > svg,
+.v2-adviser-tool-step > .v2-adviser-tool-staged-dot { flex: 0 0 auto; }
 
 /* One-row history bar (2026-07-17): Back · search · New. */
 .v2-adviser-history-search {

@@ -55,7 +55,13 @@ function MessageBubble({ message }) {
               <ToolStepIcon status={e.status} />
               <span className="v2-adviser-tool-name">{formatToolName(e.name)}</span>
               {e.status === 'error' && e.result?.error && (
-                <span className="v2-adviser-tool-error">{e.result.error}</span>
+                // `-msg` (not the bare `-error`, which is also this row's
+                // status modifier) so the clamp targets the text and not
+                // the row. Upstream errors arrive as whole JSON bodies;
+                // the full string stays reachable via the tooltip.
+                <span className="v2-adviser-tool-error-msg" title={String(e.result.error)}>
+                  {e.result.error}
+                </span>
               )}
             </div>
           ))}
