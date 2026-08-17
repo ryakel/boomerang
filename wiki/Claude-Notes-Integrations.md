@@ -65,8 +65,38 @@ Everywhere REST is the primary path, it's gated behind `NOTION_INTEGRATION_TOKEN
 1. Fetch child pages of configured parent (`notion_sync_parent_id`)
 2. Match against existing tasks via `notion_page_id`
 3. For unlinked pages: exact title match → AI dedup (`aiDedupNotionPages`)
-4. For truly new pages: fetch content → `analyzeNotionPage()` → create task(s)
+4. For truly new pages: fetch content → `analyzeNotionPage()` → propose task(s)
 5. One Notion page can produce multiple tasks (e.g., "furnace filter" → "buy filters" + "change filter")
+
+**The analyzer PROPOSES, it does not create** (2026-08-17). Tasks that come out
+of `analyzeNotionPage()` are stamped `gmail_pending: true` and land in Today's
+**Review** section behind Keep / Dismiss. This is not cosmetic:
+
+- `syncNotion()` runs on mount **and on every `visibilitychange` → visible**, and
+  the only thing standing between a page and the analyzer is a
+  `last_edited_time` cache. So *editing a page in Notion is the trigger* — and
+  the person editing it is frequently Quokka, on the user's instruction to write
+  reference material. Before this change, rewriting one page and switching back
+  to the app silently manufactured up to five live, tagged, nagging tasks that
+  were indistinguishable from hand-written ones.
+- **Knowledge-base pages are excluded outright.** The knowledge database is
+  created *under `notion_sync_parent_id`* (see Knowledge Base below), so KB
+  content sits inside the analyzer's blast radius by construction. A knowledge
+  item is reference by definition — mining it for action items is the same
+  wrong-surface failure as the 2026-08-09 "make a KB" bug, arriving from the
+  opposite direction. The exclusion set comes from `knowledgeListStrict()`,
+  which **throws** rather than returning `[]`: a soft-empty index would switch
+  the exclusion off without a word, so an unreachable index skips the whole
+  analysis pass instead.
+- **Dismiss tombstones the page** (`handleDismissPending` in `AppV2.jsx`). The
+  old handler called `deleteTask` bare, so a rejected proposal came straight
+  back the next time its source page changed — the same "why do these keep
+  coming back" bug the row importer already learned.
+
+Note the flag's name is historical: `gmail_pending` is the generic
+proposal-awaiting-review flag (it gates notifications, the digest, What Now,
+the auto-sizer and every main list), not a Gmail-only marker. The Review row
+reads provenance off the task rather than hardcoding "from Gmail".
 
 **Ongoing Sync** (`src/hooks/useExternalSync.js`):
 - Watches tasks with `notion_page_id` for changes to title, notes, or checklists

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask, safeSetItem } from '../store'
-import { fetchTombstones } from '../api'
+import { fetchTombstones, knowledgeListStrict } from '../api'
 import { notionGetChildPages, notionQueryDatabase, notionGetBlocks, analyzeNotionPage, aiDedupNotionPages } from '../api'
 import { deduplicateImports, remoteLog } from '../syncDedup'
 
@@ -14,6 +14,18 @@ function loadPageCache() {
 
 function savePageCache(cache) {
   safeSetItem(NOTION_PAGE_CACHE_KEY, JSON.stringify(cache))
+}
+
+// Page ids that are knowledge-base items. A knowledge item is reference
+// material BY DEFINITION — the whole point of the surface (CLAUDE.md: "a
+// knowledge item is durable reference the user will look UP later"), so
+// running the actionable-task extractor over one is always wrong, however
+// many imperative sentences its body happens to contain. Best-effort: an
+// unreachable index must not silently turn the exclusion off, so a failed
+// lookup aborts the analysis pass rather than mining everything.
+async function knowledgePageIds() {
+  const items = await knowledgeListStrict({ limit: 500 })
+  return new Set(items.map(k => k.notion_page_id).filter(Boolean))
 }
 
 // Track dismissed routine suggestions to avoid re-suggesting
@@ -183,9 +195,20 @@ export function useNotionSync(tasks, setTasks) {
       remoteLog(`[NotionSync] linked ${linkUpdates.length} existing tasks to Notion pages`)
     }
 
-    // 5. Analyze truly new pages — fetch content and create tasks
+    // 5. Analyze truly new pages — fetch content and propose tasks
     const newPages = unlinkedPages.filter(p => !matchMap.has(p.id))
     remoteLog(`[NotionSync] ${newPages.length} new pages to analyze`)
+
+    // Knowledge-base pages are reference, never a task source. Fetched with
+    // the strict list so an unreachable index ABORTS the analysis pass — a
+    // silently-empty exclusion set would mine the whole knowledge base.
+    let knowledgeIds
+    try {
+      knowledgeIds = await knowledgePageIds()
+    } catch (err) {
+      remoteLog('[NotionSync] knowledge index unavailable, skipping page analysis:', err.message)
+      return
+    }
 
     const newTasks = []
     const newRoutineSuggestions = []
@@ -194,6 +217,11 @@ export function useNotionSync(tasks, setTasks) {
       // A page the user deleted on purpose. Checked BEFORE the last_edited
       // guard, because editing the page in Notion would otherwise resurrect it.
       if (buriedPages.has(page.id)) continue
+      if (knowledgeIds.has(page.id)) {
+        remoteLog(`[NotionSync] knowledge item, not a task source: "${page.title}"`)
+        pageCache[page.id] = page.last_edited
+        continue
+      }
       if (pageCache[page.id] && pageCache[page.id] === page.last_edited) {
         remoteLog(`[NotionSync] skipping unchanged page: "${page.title}"`)
         continue
@@ -240,6 +268,15 @@ export function useNotionSync(tasks, setTasks) {
           )
           task.notion_page_id = page.id
           task.notion_url = page.url
+          // AI-extracted tasks land as PROPOSALS, in the Review section,
+          // never straight into Today. Editing a Notion page is not asking
+          // for tasks: this pull runs on mount and on every return to the
+          // app, so a page rewritten in Notion (or by Quokka) silently
+          // manufactured up to five live tasks — tagged, nagging, and
+          // indistinguishable from ones the user wrote. Pending keeps them
+          // out of Today/Anytime, the digest, notifications, What Now and
+          // the auto-sizer until the user says Keep.
+          task.gmail_pending = true
           if (taskData.size) task.size = taskData.size
           if (taskData.energy) task.energy = taskData.energy
           if (taskData.energyLevel) task.energyLevel = taskData.energyLevel
@@ -261,7 +298,7 @@ export function useNotionSync(tasks, setTasks) {
 
     if (newTasks.length > 0) {
       setTasks(prev => [...newTasks, ...prev])
-      remoteLog(`[NotionSync] created ${newTasks.length} new tasks from Notion pages`)
+      remoteLog(`[NotionSync] proposed ${newTasks.length} task(s) from Notion pages (pending review)`)
     }
   }, [setTasks])
 

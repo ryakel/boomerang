@@ -1068,6 +1068,20 @@ export default function AppV2() {
     gateOnChainBreak(task, 'Deleting', 'Stop chain & delete', proceed)
   }, [tasks, deleteTask, gateOnChainBreak])
 
+  // Dismissing an imported suggestion is a delete with an opinion — "not
+  // this one, and don't ask again". Without the tombstone the source (a
+  // Notion page, a Gmail thread) re-proposes it the next time it changes,
+  // which is the "why do these keep coming back" bug the pull loops already
+  // learned once. `handleDelete` can't be reused here: it gates on chain
+  // breaks and a pending proposal has no chain.
+  const handleDismissPending = useCallback(async (task) => {
+    if (!task) return
+    const links = remoteLinksOf(task)
+    if (links.length) addTombstones(links).catch(() => {})
+    deleteTask(task.id)
+    try { await gmailDismiss(task.id) } catch { /* refetch reverts */ }
+  }, [deleteTask])
+
   const handleRestore = useCallback((snapshot) => {
     setTasks(prev => [snapshot, ...prev])
     setShowActivityLog(false)
@@ -1514,10 +1528,7 @@ export default function AppV2() {
             updateTask(t.id, { gmail_pending: false })
             try { await gmailApprove(t.id) } catch { /* refetch reverts */ }
           }}
-          onGmailDismiss={async (t) => {
-            deleteTask(t.id)
-            try { await gmailDismiss(t.id) } catch { /* refetch reverts */ }
-          }}
+          onGmailDismiss={handleDismissPending}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
@@ -1576,10 +1587,7 @@ export default function AppV2() {
             updateTask(t.id, { gmail_pending: false })
             try { await gmailApprove(t.id) } catch { /* refetch reverts */ }
           }}
-          onGmailDismiss={async (t) => {
-            deleteTask(t.id)
-            try { await gmailDismiss(t.id) } catch { /* refetch reverts */ }
-          }}
+          onGmailDismiss={handleDismissPending}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>

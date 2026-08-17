@@ -779,6 +779,23 @@ export async function knowledgeList({ q = '', type = null, limit = 50 } = {}) {
   return res.json()
 }
 
+// Strict variant of knowledgeList: THROWS instead of degrading to an empty
+// list. Callers that use the index as an EXCLUSION need to tell "nothing is
+// a knowledge item" apart from "I couldn't reach the index" — a soft empty
+// silently switches the exclusion off, which is the same failure shape as a
+// device-discovery helper returning "" and disabling every branch guarded
+// on it.
+export async function knowledgeListStrict({ q = '', type = null, limit = 50 } = {}) {
+  const params = new URLSearchParams()
+  if (q) params.set('q', q)
+  if (type) params.set('type', type)
+  params.set('limit', String(limit))
+  const res = await fetch(`/api/knowledge?${params}`, { headers: getApiHeaders() })
+  if (!res.ok) throw new Error(`Knowledge index unavailable (${res.status})`)
+  const data = await res.json()
+  return data?.items || []
+}
+
 export async function knowledgeGet(notionPageId) {
   const res = await fetch(`/api/knowledge/${notionPageId}`, { headers: getApiHeaders() })
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Not found')
