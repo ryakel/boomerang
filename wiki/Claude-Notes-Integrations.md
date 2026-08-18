@@ -68,63 +68,65 @@ Everywhere REST is the primary path, it's gated behind `NOTION_INTEGRATION_TOKEN
 4. For truly new pages: fetch content → `analyzeNotionPage()` → propose task(s)
 5. One Notion page can produce multiple tasks (e.g., "furnace filter" → "buy filters" + "change filter")
 
-**The analyzer PROPOSES, it does not create** (2026-08-17). Tasks that come out
-of `analyzeNotionPage()` are stamped `gmail_pending: true` and land in Today's
-**Review** section behind Keep / Dismiss. This is not cosmetic:
+**The analyzer does not read pages Boomerang wrote, and proposes rather than
+creates for the rest** (2026-08-17). Three guards, in the order that matters:
 
-- `syncNotion()` runs on mount **and on every `visibilitychange` → visible**, and
-  the only thing standing between a page and the analyzer is a
-  `last_edited_time` cache. So *editing a page in Notion is the trigger* — and
-  the person editing it is frequently Quokka, on the user's instruction to write
-  reference material. Before this change, rewriting one page and switching back
-  to the app silently manufactured up to five live, tagged, nagging tasks that
-  were indistinguishable from hand-written ones.
-- **Knowledge-base pages are excluded outright.** The knowledge database is
-  created *under `notion_sync_parent_id`* (see Knowledge Base below), so KB
-  content sits inside the analyzer's blast radius by construction. A knowledge
-  item is reference by definition — mining it for action items is the same
-  wrong-surface failure as the 2026-08-09 "make a KB" bug, arriving from the
-  opposite direction. The exclusion set comes from `knowledgeListStrict()`,
-  which **throws** rather than returning `[]`: a soft-empty index would switch
-  the exclusion off without a word, so an unreachable index skips the whole
-  analysis pass instead.
-- **Dismiss tombstones the page** (`handleDismissPending` in `AppV2.jsx`). The
-  old handler called `deleteTask` bare, so a rejected proposal came straight
-  back the next time its source page changed — the same "why do these keep
-  coming back" bug the row importer already learned.
+1. **Provenance — we do not mine our own output.** Every path that creates or
+   rewrites a Notion page calls `markNotionPageAuthored()` (Quokka's
+   `notion_create_page` / `notion_update_page`, `create_knowledge` /
+   `update_knowledge`, and the REST `POST /api/notion/pages` /
+   `PATCH /api/notion/pages/:id` the client uses). An app-authored page is
+   **never** a task source: no tasks, no proposals, nothing.
+
+   This is deliberately keyed on provenance and **not** on shape. The obvious
+   alternative — skip anything in `knowledge_index` — protects only formal
+   knowledge-*database* rows, and would therefore quietly require that every
+   piece of reference material be filed as one in order to be safe from the
+   extractor. Knowledge that is bigger than one line and needs a whole page has
+   to be exactly as protected, and it is: Quokka wrote it, so it is ours, so we
+   don't read it back. (The incident page proves the point — `get_knowledge`
+   reported `Knowledge item not found` for it, so an index-membership guard
+   would have missed the very page that caused the bug.) `knowledge_index`
+   membership is still checked, purely as backfill for knowledge pages created
+   before the stamp shipped.
+
+2. **One look per page, ever.** `notion_page_ledger.analyzed_at` is set the
+   first time the extractor considers a page and is never cleared. An *edit* to
+   a page that has already been seen is someone maintaining their notes, not a
+   request for tasks — treating it as one is what let a single Quokka session
+   trigger three separate rounds of mining. The row is written whether or not
+   extraction succeeded: retrying a failing page on every app-open is a request
+   loop, not a repair.
+
+   **The ledger is server-side, and that is the point.** It replaces
+   `boom_notion_page_cache` in localStorage — which iOS evicts on a PWA, the
+   same eviction that forced Quokka's chats server-side. An evicted cache made
+   every page under the sync parent look brand new, so the whole parent got
+   re-mined at up to five tasks each with Quokka nowhere near it. Shipping an
+   empty ledger would cause that flood by itself, so the first pull after
+   upgrade **baselines** every existing page as already-seen without reading a
+   word of it (`NOTION_LEDGER_BASELINE_KEY`); pages created afterwards import
+   normally.
+
+3. **Hand-written pages produce PROPOSALS.** What survives the two guards above
+   is a page the *user* wrote in Notion. Its extracted tasks are stamped
+   `gmail_pending: true` and land in Today's **Review** section behind
+   Keep / Dismiss — out of Today/Anytime, notifications, the digest, What Now
+   and the auto-sizer until Keep. Even on a page you wrote yourself, what the
+   extractor returns is an AI guess about prose. **Dismiss tombstones the
+   source** (`handleDismissPending` in `AppV2.jsx`); the old handler called
+   `deleteTask` bare, so a rejected proposal came back the next time its page
+   changed.
+
+The decision itself is pure and tested — `partitionPagesForAnalysis()` in
+`src/notionMining.js`, 10 tests in `scripts/notionMining.test.mjs`. It is pure
+because getting it wrong doesn't throw: it quietly fills someone's Today with
+work they never asked for.
 
 Note the flag's name is historical: `gmail_pending` is the generic
 proposal-awaiting-review flag (it gates notifications, the digest, What Now,
 the auto-sizer and every main list), not a Gmail-only marker. The Review row
 reads provenance off the task rather than hardcoding "from Gmail".
-
-**Ongoing Sync** (`src/hooks/useExternalSync.js`):
-- Watches tasks with `notion_page_id` for changes to title, notes, or checklists
-- 5-second per-task debounce before syncing
-- Title updates via Notion properties API
-- Content sync: deletes old blocks, appends new ones (full replacement)
-- Checklists rendered as markdown to_do blocks
-- Failed syncs queued in `boom_external_sync_queue` for offline replay
-
-**Dedup Logic:**
-- Pass 1: exact title match (case-insensitive)
-- Pass 2: AI dedup with confidence threshold (≥0.85 = auto-link)
-- Only analyzes new or changed pages (tracks `last_edited_time` in localStorage cache)
-
-**Settings:**
-- `notion_sync_parent_id` — parent page whose children become tasks
-- `notion_sync_parent_title` — display name
-- `notion_last_sync` — timestamp of last sync
-- Configured in Settings → Integrations → Notion (when connected)
-
-**Rate Limiting:** 400ms delay between Notion API calls to respect ~3 req/sec limit.
-
-**Known Limitations:**
-- Deeply nested sub-pages (children of children) are not followed — only direct children
-- Database sync is wired into Settings UI with database ID/URL input (#8 — DONE)
-- Routine auto-suggestion from recurring patterns is implemented (#9 — DONE)
-- Page content is truncated to 4000 chars for AI analysis
-- Ongoing sync is Boomerang → Notion only (Notion → Boomerang requires pull sync)
 
 ### Trello Sync (Push + Ongoing)
 Push tasks to Trello with native checklists and attachments, then keep them in sync.

@@ -6,7 +6,7 @@
 import { registerTool } from './adviserTools.js'
 import {
   searchKnowledgeItems, getKnowledgeItem, getAllKnowledgeItems,
-  getTask, updateTaskPartial,
+  getTask, updateTaskPartial, markNotionPageAuthored,
 } from './db.js'
 import {
   createKnowledgeItem, updateKnowledgeItem, archiveKnowledgeItem,
@@ -162,6 +162,12 @@ export function registerKnowledgeTools() {
         confidence: args.confidence,
         relatedTaskIds: args.related_task_ids || [],
       })
+      // A knowledge item is reference by definition, so its page is never a
+      // task source — and the stamp, not knowledge_index membership, is what
+      // enforces it. Index membership would only protect formal rows, which
+      // would quietly demand that every piece of reference material be filed
+      // as one to be safe (migration 053).
+      markNotionPageAuthored(created.id, args.title)
       return {
         result: { notion_page_id: created.id, url: created.url, item: summarizeItem(created.item) },
         compensation: async () => {
@@ -206,6 +212,7 @@ export function registerKnowledgeTools() {
         confidence: args.confidence,
         relatedTaskIds: args.related_task_ids,
       })
+      markNotionPageAuthored(args.notion_page_id, args.title || args.title_hint || null)
       return {
         result: { notion_page_id: args.notion_page_id, updated: Object.keys(args).filter(k => !['notion_page_id', 'title_hint'].includes(k)) },
         compensation: async () => {

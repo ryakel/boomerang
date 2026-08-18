@@ -779,6 +779,30 @@ export async function knowledgeList({ q = '', type = null, limit = 50 } = {}) {
   return res.json()
 }
 
+// --- Notion page ledger -----------------------------------------------
+// Which pages the task extractor may read. Server-side on purpose: the guard
+// this replaces was a localStorage cache, and iOS evicts those on a PWA — an
+// evicted guard silently re-arms the extractor over the whole sync parent.
+// STRICT (throws): "I couldn't reach the ledger" must not read as "nothing is
+// protected", which is the failure mode that would re-create the bug.
+export async function notionPageLedger() {
+  const res = await fetch('/api/notion/page-ledger', { headers: getApiHeaders() })
+  if (!res.ok) throw new Error(`Notion page ledger unavailable (${res.status})`)
+  const data = await res.json()
+  return { authored: data?.authored || [], analyzed: data?.analyzed || [] }
+}
+
+export async function notionMarkPagesAnalyzed(pageIds, titles = {}) {
+  if (!pageIds?.length) return { marked: 0 }
+  const res = await fetch('/api/notion/page-ledger/analyzed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getApiHeaders() },
+    body: JSON.stringify({ pageIds, titles }),
+  })
+  if (!res.ok) throw new Error(`Could not record analyzed pages (${res.status})`)
+  return res.json()
+}
+
 // Strict variant of knowledgeList: THROWS instead of degrading to an empty
 // list. Callers that use the index as an EXCLUSION need to tell "nothing is
 // a knowledge item" apart from "I couldn't reach the index" — a soft empty

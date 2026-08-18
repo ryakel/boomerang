@@ -19,7 +19,8 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   dismissEscalationAdvancePrompt, resolveEscalation,
   getVacationWindow, setVacationWindow, isCrisisTask,
   getReminderShadows, setReminderShadow, clearReminderLink,
-  getRemoteTombstones, addRemoteTombstone, removeRemoteTombstone } from './db.js'
+  getRemoteTombstones, addRemoteTombstone, removeRemoteTombstone,
+  markNotionPageAuthored, markNotionPagesAnalyzed, getNotionPageLedger } from './db.js'
 import { seedDatabase } from './seed.js'
 import { startEmailNotifications, sendTestEmail, getEmailStatus, resetTransporter, sendPackageEmail, verifyEmail, sendSecurityAlertEmail } from './emailNotifications.js'
 import { startPushNotifications, sendTestPush, getPushStatus, getVapidPublicKey, sendPackagePush, sendQuokkaPlanReadyPush, sendSecurityAlertPush } from './pushNotifications.js'
@@ -1457,6 +1458,8 @@ app.post('/api/notion/pages', async (req, res) => {
     const parentId = parentPageId || (getData('settings') || {}).notion_sync_parent_id
     if (!parentId) return res.status(400).json({ error: 'No parent page specified and no sync parent configured.' })
     const result = await notionProxy.createPage({ parentId, title, content })
+    // We wrote this page, so we never mine it for tasks (migration 053).
+    markNotionPageAuthored(result?.id, title)
     res.json(result)
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -1468,6 +1471,7 @@ app.patch('/api/notion/pages/:id', async (req, res) => {
   try {
     if (title) await notionProxy.updatePage({ pageId: req.params.id, properties: `Name: ${title}` })
     if (content) await notionProxy.updatePageContent(req.params.id, content)
+    markNotionPageAuthored(req.params.id, title || null)
     res.json({ ok: true })
   } catch (err) {
     console.error(`[NotionSync] PATCH page ERROR:`, err.message)
@@ -3539,6 +3543,23 @@ app.delete('/api/tombstones', (req, res) => {
   if (!source || !remote_id) return res.status(400).json({ error: 'source and remote_id are required' })
   removeRemoteTombstone({ source, remote_id })
   res.json({ ok: true })
+})
+
+// --- Notion page ledger (2026-08-17) ---
+// Which Notion pages the task extractor is allowed to look at. Two facts:
+// pages Boomerang AUTHORED (never a task source — we do not mine our own
+// output) and pages already ANALYZED (one look per page, ever). Both live
+// here rather than in localStorage because the localStorage version was the
+// bug: iOS evicts it on a PWA and the whole sync parent gets re-mined. See
+// migration 053.
+app.get('/api/notion/page-ledger', (req, res) => {
+  res.json(getNotionPageLedger())
+})
+
+app.post('/api/notion/page-ledger/analyzed', (req, res) => {
+  const pageIds = Array.isArray(req.body?.pageIds) ? req.body.pageIds : []
+  const titles = req.body?.titles && typeof req.body.titles === 'object' ? req.body.titles : {}
+  res.json({ marked: markNotionPagesAnalyzed(pageIds, titles) })
 })
 
 // --- Apple Reminders two-way sync (2026-08-01) ---

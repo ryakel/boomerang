@@ -1,28 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask, safeSetItem } from '../store'
-import { fetchTombstones, knowledgeListStrict } from '../api'
+import { fetchTombstones, knowledgeListStrict, notionPageLedger, notionMarkPagesAnalyzed } from '../api'
 import { notionGetChildPages, notionQueryDatabase, notionGetBlocks, analyzeNotionPage, aiDedupNotionPages } from '../api'
 import { deduplicateImports, remoteLog } from '../syncDedup'
+import { partitionPagesForAnalysis, summarizeSkips } from '../notionMining'
 
-// Track last_edited_time per page to avoid re-analyzing unchanged pages
-const NOTION_PAGE_CACHE_KEY = 'boom_notion_page_cache'
+// Marks that this install has drawn its baseline (see baselineLedger below).
+// Local on purpose — it only guards the one-time upgrade pass, and the thing
+// it writes (the analyzed set) is server-side and durable.
+const NOTION_LEDGER_BASELINE_KEY = 'boom_notion_ledger_baselined'
 
-function loadPageCache() {
-  try { return JSON.parse(localStorage.getItem(NOTION_PAGE_CACHE_KEY) || '{}') }
-  catch { return {} }
-}
-
-function savePageCache(cache) {
-  safeSetItem(NOTION_PAGE_CACHE_KEY, JSON.stringify(cache))
-}
-
-// Page ids that are knowledge-base items. A knowledge item is reference
-// material BY DEFINITION — the whole point of the surface (CLAUDE.md: "a
-// knowledge item is durable reference the user will look UP later"), so
-// running the actionable-task extractor over one is always wrong, however
-// many imperative sentences its body happens to contain. Best-effort: an
-// unreachable index must not silently turn the exclusion off, so a failed
-// lookup aborts the analysis pass rather than mining everything.
+// Page ids that are knowledge-base items. Backfill only: `create_knowledge`
+// now stamps its pages as Boomerang-authored, so this set exists to cover
+// knowledge pages created before that stamp shipped. It is NOT the primary
+// guard, and deliberately so — keying protection off knowledge_index
+// membership would only ever protect formal knowledge-database rows, which
+// quietly demands that every piece of reference material be filed as one.
+// Reference that is too big for a single row and needs a whole page has to be
+// just as safe, and provenance is what makes it so.
+//
+// Strict: an unreachable index must not read as an empty exclusion set.
 async function knowledgePageIds() {
   const items = await knowledgeListStrict({ limit: 500 })
   return new Set(items.map(k => k.notion_page_id).filter(Boolean))
@@ -155,7 +152,6 @@ export function useNotionSync(tasks, setTasks) {
 
     const currentTasks = tasksRef.current
     const linkedPageIds = new Set(currentTasks.filter(t => t.notion_page_id).map(t => t.notion_page_id))
-    const pageCache = loadPageCache()
     const buriedPages = new Set((await fetchTombstones('notion').catch(() => [])).map(t => t.remote_id))
 
     // 2. Separate linked vs unlinked pages
@@ -195,38 +191,55 @@ export function useNotionSync(tasks, setTasks) {
       remoteLog(`[NotionSync] linked ${linkUpdates.length} existing tasks to Notion pages`)
     }
 
-    // 5. Analyze truly new pages — fetch content and propose tasks
+    // 5. Analyze pages the extractor is allowed to read.
     const newPages = unlinkedPages.filter(p => !matchMap.has(p.id))
-    remoteLog(`[NotionSync] ${newPages.length} new pages to analyze`)
 
-    // Knowledge-base pages are reference, never a task source. Fetched with
-    // the strict list so an unreachable index ABORTS the analysis pass — a
-    // silently-empty exclusion set would mine the whole knowledge base.
-    let knowledgeIds
+    // Both exclusion sets are STRICT: an unreachable ledger or index must not
+    // read as "nothing is protected". A guard that silently switches itself
+    // off is worse than no guard, because it looks like it is working.
+    let ledger, knowledgeIds
     try {
-      knowledgeIds = await knowledgePageIds()
+      ;[ledger, knowledgeIds] = await Promise.all([notionPageLedger(), knowledgePageIds()])
     } catch (err) {
-      remoteLog('[NotionSync] knowledge index unavailable, skipping page analysis:', err.message)
+      remoteLog('[NotionSync] page ledger unavailable, skipping analysis entirely:', err.message)
+      return
+    }
+    const authored = new Set(ledger.authored)
+    const analyzed = new Set(ledger.analyzed)
+
+    // One-time baseline. Shipping an empty ledger would make every page that
+    // already exists look brand new, and the first sync after the upgrade
+    // would mine the entire sync parent — the exact flood this is here to
+    // stop. So the first run records what is already there as "seen" without
+    // reading a word of it. Pages created after this point still import.
+    if (analyzed.size === 0 && !localStorage.getItem(NOTION_LEDGER_BASELINE_KEY)) {
+      const ids = pages.map(p => p.id)
+      const titles = Object.fromEntries(pages.map(p => [p.id, p.title || '']))
+      try {
+        await notionMarkPagesAnalyzed(ids, titles)
+        safeSetItem(NOTION_LEDGER_BASELINE_KEY, new Date().toISOString())
+        remoteLog(`[NotionSync] baselined ${ids.length} existing page(s) as already-seen; analyzing none this pass`)
+      } catch (err) {
+        remoteLog('[NotionSync] baseline failed, skipping analysis:', err.message)
+      }
       return
     }
 
+    const { analyze, skipped } = partitionPagesForAnalysis(newPages, {
+      authored, analyzed, knowledge: knowledgeIds, buried: buriedPages,
+    })
+    remoteLog(`[NotionSync] ${analyze.length} page(s) to analyze; skipped ${skipped.length}`, JSON.stringify(summarizeSkips(skipped)))
+
     const newTasks = []
     const newRoutineSuggestions = []
-    for (const page of newPages) {
-      // Skip if page hasn't changed since last analysis
-      // A page the user deleted on purpose. Checked BEFORE the last_edited
-      // guard, because editing the page in Notion would otherwise resurrect it.
-      if (buriedPages.has(page.id)) continue
-      if (knowledgeIds.has(page.id)) {
-        remoteLog(`[NotionSync] knowledge item, not a task source: "${page.title}"`)
-        pageCache[page.id] = page.last_edited
-        continue
-      }
-      if (pageCache[page.id] && pageCache[page.id] === page.last_edited) {
-        remoteLog(`[NotionSync] skipping unchanged page: "${page.title}"`)
-        continue
-      }
+    // Recorded whether or not extraction succeeds: a page gets ONE look. If it
+    // errored, retrying it on every app-open is a request loop, not a repair.
+    const consideredIds = []
+    const consideredTitles = {}
 
+    for (const page of analyze) {
+      consideredIds.push(page.id)
+      consideredTitles[page.id] = page.title || ''
       try {
         // Rate limit: small delay between Notion API calls (3 req/sec limit)
         await new Promise(r => setTimeout(r, 400))
@@ -234,12 +247,11 @@ export function useNotionSync(tasks, setTasks) {
         const { plainText } = await notionGetBlocks(page.id)
         if (!plainText || plainText.trim().length === 0) {
           remoteLog(`[NotionSync] empty page, skipping: "${page.title}"`)
-          pageCache[page.id] = page.last_edited
           continue
         }
 
         const analysis = await analyzeNotionPage(page.title, plainText)
-        remoteLog(`[NotionSync] analyzed "${page.title}": ${analysis.tasks.length} tasks found`)
+        remoteLog(`[NotionSync] analyzed "${page.title}": ${analysis.tasks.length} task(s) proposed`)
 
         for (const taskData of analysis.tasks) {
           // If AI detected a recurring pattern, suggest a routine instead
@@ -268,37 +280,38 @@ export function useNotionSync(tasks, setTasks) {
           )
           task.notion_page_id = page.id
           task.notion_url = page.url
-          // AI-extracted tasks land as PROPOSALS, in the Review section,
-          // never straight into Today. Editing a Notion page is not asking
-          // for tasks: this pull runs on mount and on every return to the
-          // app, so a page rewritten in Notion (or by Quokka) silently
-          // manufactured up to five live tasks — tagged, nagging, and
-          // indistinguishable from ones the user wrote. Pending keeps them
-          // out of Today/Anytime, the digest, notifications, What Now and
-          // the auto-sizer until the user says Keep.
+          // What comes out of the extractor is a GUESS about a page someone
+          // wrote in prose, so it lands in Review (Keep / Dismiss) rather than
+          // in Today — out of Today/Anytime, the digest, notifications, What
+          // Now and the auto-sizer until the user says Keep. Pages Boomerang
+          // itself wrote never reach this loop at all; they are excluded above
+          // by provenance, and produce no tasks and no proposals.
           task.gmail_pending = true
           if (taskData.size) task.size = taskData.size
           if (taskData.energy) task.energy = taskData.energy
           if (taskData.energyLevel) task.energyLevel = taskData.energyLevel
           newTasks.push(task)
         }
-
-        // Update cache so we don't re-analyze this page next sync
-        pageCache[page.id] = page.last_edited
       } catch (err) {
         remoteLog(`[NotionSync] failed to analyze "${page.title}":`, err.message)
       }
+    }
+
+    if (consideredIds.length > 0) {
+      // Record BEFORE surfacing the proposals. If this write fails the pages
+      // stay unrecorded and get re-analyzed later, which is the safe direction
+      // only because the tasks below are proposals rather than live rows.
+      try { await notionMarkPagesAnalyzed(consideredIds, consideredTitles) }
+      catch (err) { remoteLog('[NotionSync] could not record analyzed pages:', err.message) }
     }
 
     if (newRoutineSuggestions.length > 0) {
       setRoutineSuggestions(prev => [...prev, ...newRoutineSuggestions])
     }
 
-    savePageCache(pageCache)
-
     if (newTasks.length > 0) {
       setTasks(prev => [...newTasks, ...prev])
-      remoteLog(`[NotionSync] proposed ${newTasks.length} task(s) from Notion pages (pending review)`)
+      remoteLog(`[NotionSync] ${newTasks.length} task(s) proposed from Notion pages (pending review)`)
     }
   }, [setTasks])
 
