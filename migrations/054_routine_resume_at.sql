@@ -1,0 +1,25 @@
+-- "Push this loop out" — the date a loop resumes, independent of its history.
+--
+-- WHY THIS COLUMN EXISTS (2026-08-16)
+--
+-- There was no honest way to move a loop's schedule. The only lever, the Loops
+-- detail page's "Skip cycle" button — labelled "advance the schedule without
+-- spawning a task" — advanced it by appending NOW to completed_history. That is
+-- a completion stamp: indistinguishable from doing the thing. It inflated the
+-- rally, the total, the trail and the streak's evidence, all to express "not
+-- this time". Every use quietly lied about the user's history.
+--
+-- It also left a real need unmet. Coming home from a trip, the answer for a
+-- loop is usually neither "I did it" nor "I missed it" but "start again next
+-- week" — kick the cadence out so the loop doesn't fire the moment you land and
+-- doesn't count the gap against you. Nothing expressed that.
+--
+-- `resume_at` is a floor on the next due date: 'YYYY-MM-DD' local, or NULL for
+-- "no floor" (the normal case). getNextDueDate() never returns a date before
+-- it. It records a scheduling decision, NOT evidence of work — which is exactly
+-- the distinction completed_history was being used to fake.
+--
+-- Deliberately a floor rather than a rewritten anchor: the cadence grid stays
+-- where it is (see cycleWindows' fixed-grid philosophy), so pushing a loop out
+-- delays the next occurrence without silently re-phasing every future cycle.
+ALTER TABLE routines ADD COLUMN resume_at TEXT;

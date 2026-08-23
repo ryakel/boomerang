@@ -1508,6 +1508,7 @@ function routineToRow(routine) {
     follow_ups_json: JSON.stringify(routine.follow_ups || []),
     members_json: JSON.stringify(routine.members || []),
     skipped_days_json: JSON.stringify(routine.skipped_days || []),
+    resume_at: routine.resume_at || null,
     assignee: routine.assignee || null,
     impact: routine.impact ?? null,
   }
@@ -1543,6 +1544,7 @@ function rowToRoutine(row) {
     follow_ups: safeJsonParse(row.follow_ups_json, []),
     members: safeJsonParse(row.members_json, []),
     skipped_days: safeJsonParse(row.skipped_days_json, []),
+    resume_at: row.resume_at || null,
     assignee: row.assignee || null,
     impact: row.impact ?? null,
   }
@@ -1558,8 +1560,8 @@ const UPSERT_ROUTINE_SQL = `
     tags_json, completed_history_json, end_date, schedule_day_of_week,
     schedule_day_of_month, schedule_week_of_month, trigger_time, auto_roll, remind,
     spawn_mode, target_count, target_period, follow_ups_json, members_json, skipped_days_json,
-    assignee, impact)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    resume_at, assignee, impact)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, cadence=excluded.cadence, custom_days=excluded.custom_days,
     custom_unit=excluded.custom_unit,
@@ -1576,6 +1578,7 @@ const UPSERT_ROUTINE_SQL = `
     target_count=excluded.target_count, target_period=excluded.target_period,
     follow_ups_json=excluded.follow_ups_json, members_json=excluded.members_json,
     skipped_days_json=excluded.skipped_days_json,
+    resume_at=excluded.resume_at,
     assignee=excluded.assignee, impact=excluded.impact`
 
 function runUpsertRoutine(routine) {
@@ -1586,7 +1589,7 @@ function runUpsertRoutine(routine) {
     r.tags_json, r.completed_history_json, r.end_date, r.schedule_day_of_week,
     r.schedule_day_of_month, r.schedule_week_of_month,
     r.trigger_time, r.auto_roll, r.remind, r.spawn_mode, r.target_count, r.target_period,
-    r.follow_ups_json, r.members_json, r.skipped_days_json, r.assignee, r.impact,
+    r.follow_ups_json, r.members_json, r.skipped_days_json, r.resume_at, r.assignee, r.impact,
   ])
 }
 
@@ -2842,6 +2845,64 @@ export function addRemoteTombstone({ source, remote_id, title = null }) {
     [String(source), String(remote_id), title, new Date().toISOString()],
   )
   return true
+}
+
+// --- Notion page ledger (2026-08-17) -----------------------------------
+//
+// Two durable facts per Notion page, both of which stop the task extractor
+// (see migrations/053). Durable on the SERVER on purpose: the guard this
+// replaces lived in localStorage, which iOS evicts on a PWA, and an evicted
+// guard re-arms the extractor over every page under the sync parent.
+
+// "Boomerang wrote this page." Called from every path that creates or
+// rewrites Notion page content — Quokka's notion_create_page /
+// notion_update_page, the knowledge tools, and the REST page routes the
+// client uses. If we wrote it, we do not mine it for tasks: a page we
+// authored is our own output, not an independent statement of what the user
+// needs to do.
+export function markNotionPageAuthored(pageId, title = null) {
+  if (!pageId) return false
+  const now = new Date().toISOString()
+  db.run(
+    `INSERT INTO notion_page_ledger (page_id, authored_by, authored_at, title)
+     VALUES (?, 'app', ?, ?)
+     ON CONFLICT(page_id) DO UPDATE SET
+       authored_by='app',
+       authored_at=excluded.authored_at,
+       title=COALESCE(excluded.title, notion_page_ledger.title)`,
+    [String(pageId), now, title],
+  )
+  return true
+}
+
+// "The extractor has looked at this page." Set once, never cleared by an
+// edit — a page gets exactly one look, when it first appears.
+export function markNotionPagesAnalyzed(pageIds = [], titles = {}) {
+  const ids = (Array.isArray(pageIds) ? pageIds : []).filter(Boolean)
+  if (ids.length === 0) return 0
+  const now = new Date().toISOString()
+  for (const id of ids) {
+    db.run(
+      `INSERT INTO notion_page_ledger (page_id, analyzed_at, title)
+       VALUES (?, ?, ?)
+       ON CONFLICT(page_id) DO UPDATE SET
+         analyzed_at=COALESCE(notion_page_ledger.analyzed_at, excluded.analyzed_at),
+         title=COALESCE(notion_page_ledger.title, excluded.title)`,
+      [String(id), now, titles[id] || null],
+    )
+  }
+  return ids.length
+}
+
+export function getNotionPageLedger() {
+  const res = db.exec('SELECT page_id, authored_by, analyzed_at FROM notion_page_ledger')
+  const authored = []
+  const analyzed = []
+  for (const v of res[0]?.values || []) {
+    if (v[1] === 'app') authored.push(v[0])
+    if (v[2]) analyzed.push(v[0])
+  }
+  return { authored, analyzed }
 }
 
 // Deliberate un-delete: re-linking a remote item you actually do want back.

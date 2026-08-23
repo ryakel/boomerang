@@ -7,6 +7,7 @@
 
 import { registerTool } from './adviserTools.js'
 import * as notionProxy from './notionMCPProxy.js'
+import { markNotionPageAuthored } from './db.js'
 
 const GCAL_BASE = 'https://www.googleapis.com/calendar/v3'
 const TRELLO_BASE = 'https://api.trello.com/1'
@@ -252,6 +253,11 @@ export function registerNotionTools() {
         title: args.title,
         content: args.content || '',
       })
+      // Boomerang wrote this page, so the Notion pull's task extractor must
+      // never read it back and invent tasks out of it. Provenance, not shape:
+      // this holds whether the page is a formal knowledge-database row or a
+      // plain reference page too long to be one line (migration 053).
+      markNotionPageAuthored(result.id, args.title)
       return {
         result: { page_id: result.id, url: result.url },
         compensation: async () => {
@@ -289,6 +295,11 @@ export function registerNotionTools() {
       const skipped = args.content !== undefined && !res.contentUpdated
         ? 'content not written — block edits need NOTION_INTEGRATION_TOKEN'
         : undefined
+      // Rewriting a page makes it ours too. This is the exact path that fired
+      // the incident: Quokka rewrote a reference page because it was asked to,
+      // the pull saw last_edited move, and the extractor turned the prose it
+      // had just written into five live tasks.
+      if (updated.length > 0) markNotionPageAuthored(args.page_id, args.title || args.title_hint || null)
       return {
         result: { page_id: args.page_id, updated, ...(skipped ? { skipped } : {}) },
         compensation: async () => {

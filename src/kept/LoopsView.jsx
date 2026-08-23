@@ -7,7 +7,7 @@ import LoopDetail from './LoopDetail'
 import LoopSwipe from './LoopSwipe'
 import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
-import { isRoutineEnded } from '../store'
+import { isRoutineEnded, loadSettings } from '../store'
 import { routineFeathers } from './feathers'
 import './shell.css'
 
@@ -19,7 +19,7 @@ const RANGES = [
 
 // Kept "Loops" — one card per loop carrying its Flight Trail / Month Dots /
 // Density Ribbon (spec §6). Edit routes to the existing routine editor.
-export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay, onOpenSuggestions }) {
+export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay, onPushLoopOut, onOpenSuggestions }) {
   const [range, setRange] = useState('trail')
   // Tapping a card opens the loop DETAIL (K4) — stats + month calendar —
   // not the editor. Edit is a deliberate button on the detail page.
@@ -48,6 +48,11 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
     }))
   }, [routines])
 
+  // Days the away window covered. The same stamped `settings.away_days` the
+  // streak and the device alarms read — a cycle you were away for must not
+  // read as missed or break the rally (2026-08-11).
+  const awayDays = useMemo(() => new Set(loadSettings()?.away_days || []), [])
+
   const loops = useMemo(() => {
     const feathers = routineFeathers(routines)
     return routines.filter(r => !r.paused && !isRoutineEnded(r)).map(r => {
@@ -56,7 +61,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
       const wins = isHabit ? habitWindows(r, 60) : cycleWindows(r, 60)
       // Rally in the loop's own cycles (consecutive weeks/months/etc caught),
       // not calendar days — day-streaks read as 1 forever on non-dailies.
-      const { rally } = cycleRally(wins, isHabit ? r.target_count : 1)
+      const { rally } = cycleRally(wins, isHabit ? r.target_count : 1, awayDays)
       // Spawn is blocked while an instance is still active on the list (mirrors
       // the spawn guard in AppV2.handleSpawnLoop) — greys the swipe action.
       const hasActive = tasks.some(t =>
@@ -64,11 +69,15 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
       )
       // Days needing attention (unrecorded completions + missed cycles) drive
       // the card's "N to fix" badge; the breakdown lives on the detail page.
-      const gaps = loopGaps(r, tasks)
+      const gaps = loopGaps(r, tasks, 12, awayDays)
       const gapCount = gaps.unrecorded.length + gaps.missed.length
-      return { r, color: feathers[r.id], byDay, rally, hasActive, gapCount, total: r.completed_history?.length || 0 }
+      return { r, color: feathers[r.id], byDay, rally, hasActive, gaps, gapCount, total: r.completed_history?.length || 0 }
     })
-  }, [routines, tasks])
+  }, [routines, tasks, awayDays])
+
+  // Missed cycles pooled across every loop — drives the one-tap cleanup above.
+  const missedLoops = useMemo(() => loops.filter(l => l.gaps?.missed?.length > 0), [loops])
+  const totalMissed = useMemo(() => missedLoops.reduce((n, l) => n + l.gaps.missed.length, 0), [missedLoops])
 
   if (detailId) {
     const sel = loops.find(l => l.r.id === detailId)
@@ -80,12 +89,14 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
           color={sel.color}
           spawnBlocked={sel.hasActive}
           tasks={tasks}
+          awayDays={awayDays}
           onBack={() => setDetailId(null)}
           onEdit={(r) => { setDetailId(null); onEditLoop?.(r) }}
           onSpawnNow={onSpawnNow}
           onSkipCycle={onSkipCycle}
           onMarkLoopDay={onMarkLoopDay}
           onSkipLoopDay={onSkipLoopDay}
+          onPushLoopOut={onPushLoopOut}
         />
       )
     }
@@ -108,6 +119,23 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
             onClick={() => setRange(m.id)}>{m.label}</button>
         ))}
       </div>
+      {/* Cross-loop bulk skip. A trip or a rough fortnight leaves missed cycles
+          scattered over MANY loops, and clearing them one loop at a time (then
+          one day at a time inside it) is how "I have no way to fix these"
+          happens. Missed only — bulk-crediting days you didn't do would be a
+          lie, and those stay per-day on the loop's own page. */}
+      {totalMissed > 1 && (
+        <button
+          className="bm-btn bm-loops-fixall"
+          onClick={() => {
+            const n = totalMissed
+            if (!window.confirm(`Skip ${n} missed cycles across ${missedLoops.length} loop${missedLoops.length === 1 ? '' : 's'}? They'll stop asking; nothing gets credited.`)) return
+            for (const l of missedLoops) {
+              for (const g of l.gaps.missed) onSkipLoopDay?.(l.r.id, g.day)
+            }
+          }}
+        >Skip {totalMissed} missed cycles across {missedLoops.length} loops</button>
+      )}
       {loops.length === 0 && <p className="bm-empty">No loops yet — things that come back around live here.</p>}
       {loops.map(({ r, color, byDay, rally, total, hasActive, gapCount }) => {
         const isHabit = r.spawn_mode === 'habit' && r.target_count
@@ -160,6 +188,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
               const periodWord = r.target_period === 'month' ? 'month' : 'week'
               return (
                 <CycleChips
+                  awayDays={awayDays}
                   windows={wins}
                   target={r.target_count}
                   caption={`this ${periodWord} ${cur?.hits ?? 0}/${r.target_count} · target met ${met} of last ${past.length} ${periodWord}${past.length === 1 ? '' : 's'}`}
@@ -167,13 +196,17 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
               )
             }
             const wins = cycleWindows(r, 12)
-            const past = wins.filter(w => !w.current)
+            // Cycles spent away are out of the denominator: with the trail now
+            // bridging a trip, "caught 9 of last 15" beside an unbroken line
+            // would be the words calling a holiday six failures.
+            const past = wins.filter(w => !w.current && !(w.hits === 0 && awayDays.has(w.key)))
             const caught = past.filter(w => w.caught).length
             const cur = wins[wins.length - 1]
             const unit = cycleUnitLabel(r, past.length === 1)
             const nowWord = r.cadence === 'daily' ? 'today' : 'this one'
             return (
               <CycleChips
+                awayDays={awayDays}
                 windows={wins}
                 caption={past.length > 0
                   ? `caught ${caught} of last ${past.length} ${unit}${cur?.caught ? ` · ${nowWord} ✓` : ''}`

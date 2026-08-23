@@ -19,6 +19,72 @@ function windowOf(start, end, today, stamps) {
   }
 }
 
+// --- Away windows ------------------------------------------------------
+//
+// A cycle you were away for is neither missed nor kept — the same rule the
+// streak settled on (2026-08-03, "this shit should be actually paused").
+//
+// The away window has protected notifications, then the streak, then the
+// device's own alarms. Loops were the consumer nobody wired up: a week away
+// produced a `missed` gap for every daily cycle in it and reset every rally
+// to zero, and nothing in the repair path could clear them — `reconcile_loops`
+// only stamps days that a FINISHED task already proves, and there is no
+// finished task for a day you were on holiday. Hence "a bunch of loops broke
+// because of my vacation and I seem to have no way to fix them."
+//
+// `awayDays` is the same stamped `settings.away_days` list the streak and the
+// device alarms read, so all four surfaces agree by construction.
+//
+// PAUSED means the cycle's DUE DAY was an away day. One cycle, one day, checked
+// straight against the away list — "it should match the days away, full stop."
+//
+// The two rules this replaces both failed a real requirement (user, 2026-08-11:
+// "no misses because it didn't overlap and no month long gaps"):
+//
+//   every-elapsed-day-away  — a weekly cycle due mid-trip stayed MISSED because
+//                             the tail of its window ran past the trip. A miss
+//                             manufactured by the window not lining up with the
+//                             holiday, which is not a thing the user did wrong.
+//   any-day-of-window-away  — one day away excused a monthly loop's whole month.
+//
+// The due day is the window START, which is already the day the UI labels the
+// gap with and the day "Mark done" stamps — so what gets excused is exactly the
+// day you'd otherwise be asked to answer for. A monthly loop due on the 15th is
+// excused only if you were away on the 15th.
+export function isWindowPaused(w, awayDays) {
+  if (!w || !awayDays || awayDays.size === 0) return false
+  return awayDays.has(w.key ?? localYMD(w.start))
+}
+
+const toDaySet = (awayDays) => (
+  awayDays instanceof Set ? awayDays : new Set(Array.isArray(awayDays) ? awayDays : [])
+)
+
+/**
+ * Which away windows the trail should BRIDGE — drawn as a connector running
+ * through the break rather than a row of hollow "missed" squares.
+ *
+ * Only bridged when the loop actually came back: there must be a caught window
+ * LATER in the series. A trip you never resumed after isn't a continuous loop
+ * with a gap in it, it's a loop that stopped, and a pretty connector over that
+ * would be the chart telling a nicer story than the truth.
+ *
+ * Returns a Set of window keys.
+ */
+export function bridgedAwayKeys(windows = [], awayDays = null) {
+  const away = toDaySet(awayDays)
+  if (away.size === 0) return new Set()
+  const out = new Set()
+  let caughtAfter = false
+  // Backwards, so "is there a completion later" is just a running flag.
+  for (let i = windows.length - 1; i >= 0; i--) {
+    const w = windows[i]
+    if (w.hits > 0) { caughtAfter = true; continue }
+    if (caughtAfter && isWindowPaused(w, away)) out.add(w.key)
+  }
+  return out
+}
+
 export function cycleWindows(routine, count = 12) {
   const cadence = routine.cadence || 'weekly'
   const stamps = (routine.completed_history || [])
@@ -160,8 +226,9 @@ function ymdDayLabel(ymd) {
   return `${GAP_MONTHS[m - 1]} ${d}`
 }
 
-export function loopGaps(routine, tasks = [], count = 12) {
-  if (!routine || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [] }
+export function loopGaps(routine, tasks = [], count = 12, awayDays = null) {
+  if (!routine || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [], away: [] }
+  const away = toDaySet(awayDays)
   const skipped = new Set(Array.isArray(routine.skipped_days) ? routine.skipped_days : [])
   const histDays = new Set((routine.completed_history || []).map(ts => localYMD(new Date(ts))))
 
@@ -197,13 +264,14 @@ export function loopGaps(routine, tasks = [], count = 12) {
       unrecorded.push({ key: c.due, day: c.due, iso: new Date(c.lastIso).toISOString(), label: ymdDayLabel(c.due), taskId: null })
     }
     unrecorded.sort((a, b) => b.day.localeCompare(a.day))
-    return { unrecorded, missed: [] }
+    return { unrecorded, missed: [], away: [] }
   }
 
   const doneTasks = tasks.filter(t => t.routine_id === routine.id && t.status === 'done')
   const wins = cycleWindows(routine, count)
   const unrecorded = []
   const missed = []
+  const away_ = []
   for (const w of wins) {
     if (w.current || w.caught) continue
     const task = doneTasks.find(t => {
@@ -219,10 +287,20 @@ export function loopGaps(routine, tasks = [], count = 12) {
       unrecorded.push({ key: w.key, day, iso: new Date(iso).toISOString(), label: gapLabel(routine, w), taskId: task.id })
     } else {
       if (skipped.has(w.key)) continue
+      // A cycle you were away for was never yours to MISS — but it isn't
+      // nothing either. It goes in its own bucket so the loop can offer to
+      // reschedule ("push it out") rather than silently swallowing the gap.
+      // It stays out of `missed`, so the rally protection and the "N to fix"
+      // badge are unaffected.
+      if (isWindowPaused(w, away)) {
+        away_.push({ key: w.key, day: w.key, iso: `${w.key}T12:00:00.000Z`, label: gapLabel(routine, w) })
+        continue
+      }
       missed.push({ key: w.key, day: w.key, iso: `${w.key}T12:00:00.000Z`, label: gapLabel(routine, w) })
     }
   }
-  return { unrecorded, missed }
+  away_.sort((a, b) => b.day.localeCompare(a.day))
+  return { unrecorded, missed, away: away_ }
 }
 
 export function cycleUnitLabel(routine, singular = false) {
@@ -246,17 +324,24 @@ export function cycleUnitLabel(routine, singular = false) {
 // Consecutive-cycle rally + best, from a window series (oldest -> newest).
 // The CURRENT window only extends the rally when already caught — an
 // in-flight cycle you haven't hit yet doesn't break anything.
-export function cycleRally(windows, target = 1) {
+export function cycleRally(windows, target = 1, awayDays = null) {
+  const away = toDaySet(awayDays)
+  // A cycle spent away neither breaks the rally nor extends it — step over it,
+  // exactly as the streak walk steps over an away day.
+  const paused = (w) => w.hits < target && isWindowPaused(w, away)
   const closed = windows.filter(w => !w.current)
   const cur = windows[windows.length - 1]
   let rally = cur && cur.current && cur.hits >= target ? 1 : 0
   for (let i = closed.length - 1; i >= 0; i--) {
     if (closed[i].hits >= target) rally++
+    else if (paused(closed[i])) continue
     else break
   }
   let best = 0, run = 0
   for (const w of closed) {
-    if (w.hits >= target) { run++; best = Math.max(best, run) } else run = 0
+    if (w.hits >= target) { run++; best = Math.max(best, run) }
+    else if (paused(w)) continue
+    else run = 0
   }
   if (cur && cur.current && cur.hits >= target) best = Math.max(best, rally)
   return { rally, best }
