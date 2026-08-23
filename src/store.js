@@ -1,3 +1,4 @@
+import { applyResumeFloor } from './resumeFloor.js'
 import { localYMD, parseLocalDate } from './dates'
 import { walkStreak, dayKey } from '../server/streakWalk.js'
 // crypto.randomUUID is unavailable over plain HTTP (non-secure context)
@@ -446,6 +447,9 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
     skipped_days: [],    // loop-reconcile: days the user acknowledged as
                          // "didn't do it, move on" so they stop showing as
                          // needing attention (array of 'YYYY-MM-DD').
+    resume_at: null,     // 'YYYY-MM-DD' floor on the next due date ("push this
+                         // loop out"). Cleared by any completion — a stale
+                         // floor would hold the loop back forever.
   }
 }
 
@@ -539,7 +543,26 @@ function addCadenceInterval(date, routine, mult) {
 //     180 days" means 180 days after you last did it, not a grid pinned to the
 //     creation date.
 // Daily is special-cased: it fires every calendar day.
+
 export function getNextDueDate(routine) {
+  // `resume_at` is a floor, not a rewritten anchor — see src/resumeFloor.js.
+  return applyResumeFloor(computeNextDueDate(routine), routine?.resume_at)
+}
+
+/**
+ * The `resume_at` value for "skip this cycle / push it out one" — the grid slot
+ * AFTER the one currently due, as a local 'YYYY-MM-DD'.
+ *
+ * Reads through getNextDueDate, so repeated pushes compound (each one moves the
+ * floor a further cycle) rather than all resolving to the same date.
+ */
+export function pushOutOneCycle(routine) {
+  const next = getNextDueDate(routine)
+  if (!next) return null
+  return localYMD(addCadenceInterval(next, routine, 1))
+}
+
+function computeNextDueDate(routine) {
   const now = new Date()
 
   // Daily fires every calendar day — just gate on whether today's instance is

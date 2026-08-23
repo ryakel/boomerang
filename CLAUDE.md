@@ -53,6 +53,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 **Server & deploys**
 - Server runtime modules live in `server/`; the Dockerfile copies the directory wholesale. Only a genuinely NEW top-level directory needs a Dockerfile `COPY`. Dev-only files (tests, previews, eslint/vite configs) stay out of the image.
 - A dev-shaped server (`APP_VERSION` = `dev`/`dev-*`) is notification-muzzled (`notifsMuzzled` in server.js) — any new background send path must check it. Test endpoints stay live.
+- A loop has THREE levers and they are not interchangeable: a `completed_history` stamp is EVIDENCE OF WORK (credits the cycle, extends the rally, moves the schedule), `skipped_days` acknowledges a day without crediting it, and `resume_at` (migration 054) is a FLOOR on the next due date that moves the schedule and nothing else. "Skip cycle" faked the third with the first for months, quietly inflating rallies and trails. Never express a deferral with a completion stamp; a past floor is ignored and completing clears it.
 - Routine spawn dedup lives on the `POST /api/tasks` route, NOT inside `upsertTask` — Quokka's rollback compensation restores through `upsertTask` and must never be silently dropped.
 - Server logs auto-prefix ISO timestamps — don't add manual ones.
 
