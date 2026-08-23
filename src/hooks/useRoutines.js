@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, createTask, localYMD } from '../store'
+import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, pushOutOneCycle, createTask, localYMD } from '../store'
 import { suggestRoutineDueDate } from '../api'
 
 // Compute an ISO snooze instant for a due-day ('YYYY-MM-DD') + trigger time
@@ -105,6 +105,9 @@ export function useRoutines() {
       r.id === id ? {
         ...r,
         completed_history: [...r.completed_history, new Date().toISOString()],
+        // Doing the thing retires any "push it out" floor. Leaving it would
+        // hold the loop back long after the reason for pushing it had passed.
+        resume_at: null,
       } : r
     ))
   }, [])
@@ -145,16 +148,19 @@ export function useRoutines() {
   }, [])
 
   // Advance a routine past its current cycle without spawning a task.
-  // Stamps completed_history with today so getNextDueDate() rolls forward by
-  // one cadence interval. Use case: vacation, illness, anything that should
-  // skip this occurrence. The "Nx completed" counter on the card includes
-  // skips — close enough for a personal app, no separate skip log needed.
+  //
+  // This used to append `new Date()` to completed_history. That DID roll the
+  // schedule forward — getNextDueDate reads the last stamp — but a completion
+  // stamp is evidence of work: it credited the cycle, extended the rally, added
+  // to the "Nx completed" total and filled in the trail. Every "not this time"
+  // quietly became "I did it", and the button's own label said "advance the
+  // schedule WITHOUT spawning a task". Nothing expressed a moved schedule until
+  // `resume_at` (migration 054), so this faked one.
+  //
+  // Now it sets the floor and touches no history. Repeated skips compound.
   const skipCycle = useCallback((routineId) => {
     setRoutines(prev => prev.map(r =>
-      r.id === routineId ? {
-        ...r,
-        completed_history: [...r.completed_history, new Date().toISOString()],
-      } : r
+      r.id === routineId ? { ...r, resume_at: pushOutOneCycle(r) } : r
     ))
   }, [])
 

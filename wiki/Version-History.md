@@ -4,6 +4,19 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-08-23
+
+- feat(loops): a loop can be pushed out without faking a completion [M]
+  - Adds `resume_at` (migration 054) — the third loop lever — and repoints "Skip cycle" at it.
+  - **"Skip cycle" was stamping completions.** The button on a loop's detail page, labelled *"advance the schedule without spawning a task"*, appended `new Date()` to `completed_history`. That did roll the schedule forward, because `getNextDueDate` reads the last stamp — but a completion stamp is EVIDENCE OF WORK. It credited the cycle, extended the rally, grew the "Nx completed" total and filled in the trail. Every "not this time" went into the record as "I did it."
+  - **There was no way to say "the schedule moved."** A loop had two levers: a `completed_history` stamp (credits *and* moves the schedule) and a `skipped_days` entry (no credit, no schedule change). Neither expresses a deferral, so the schedule-moving one got used as a stand-in and paid for it in false history.
+  - `resume_at` is a **floor** on the next due date, not a rewritten anchor: the cadence grid stays where it is (matching `cycleWindows`' fixed-grid philosophy), so pushing a loop out delays the next occurrence without silently re-phasing every cycle after it. A floor in the PAST is ignored — otherwise every loop still carrying an old push would be dragged backwards to a stale date. Completing a loop clears the floor, since a stale one would hold it back forever.
+  - Repeated pushes compound (`pushOutOneCycle` reads through `getNextDueDate`), so two taps move two cycles rather than both resolving to the same date.
+  - **No historical cleanup** — past fake completions stay as they are, per the call made when this was scoped. Only behaviour from here changes.
+  - Floor logic is pure in `src/resumeFloor.js` with 8 tests. It lives outside `store.js` because `store.js` uses extensionless imports that Vite resolves and Node cannot, which is why nothing had ever unit-tested it.
+  - Groundwork for the "while you were away" prompt: "push it out" needs a lever that doesn't lie. `npm test` 388/388 + smoke, eslint 0 errors, `npm audit` clean. Web only — **no rebuild** (OTA).
+
+
 ## 2026-08-17
 
 - fix(notion): Boomerang stops mining its own Notion pages for tasks [L]
