@@ -386,6 +386,15 @@ export function useRoutines() {
     }))
   }, [])
 
+  // "Push it out" — move a loop's next due date on by one cycle and record
+  // nothing else. Same lever as skipCycle; separate name because the away
+  // prompt reads as rescheduling, not skipping.
+  const pushLoopOut = useCallback((routineId) => {
+    setRoutines(prev => prev.map(r =>
+      r.id === routineId ? { ...r, resume_at: pushOutOneCycle(r) } : r
+    ))
+  }, [])
+
   // Acknowledge a day as "didn't do it, move on" — record it in skipped_days so
   // it stops surfacing as needing attention, WITHOUT crediting a completion
   // (the trail stays honestly uncaught). Used by "Skip" on the same list.
@@ -426,6 +435,7 @@ export function useRoutines() {
     spawnNow,
     logHabit,
     skipCycle,
+    pushLoopOut,
     markRoutineDayDone,
     skipRoutineDay,
     hydrateRoutines,

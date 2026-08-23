@@ -19,7 +19,7 @@ const RANGES = [
 
 // Kept "Loops" — one card per loop carrying its Flight Trail / Month Dots /
 // Density Ribbon (spec §6). Edit routes to the existing routine editor.
-export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay, onOpenSuggestions }) {
+export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay, onPushLoopOut, onOpenSuggestions }) {
   const [range, setRange] = useState('trail')
   // Tapping a card opens the loop DETAIL (K4) — stats + month calendar —
   // not the editor. Edit is a deliberate button on the detail page.
@@ -96,6 +96,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
           onSkipCycle={onSkipCycle}
           onMarkLoopDay={onMarkLoopDay}
           onSkipLoopDay={onSkipLoopDay}
+          onPushLoopOut={onPushLoopOut}
         />
       )
     }
@@ -187,6 +188,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
               const periodWord = r.target_period === 'month' ? 'month' : 'week'
               return (
                 <CycleChips
+                  awayDays={awayDays}
                   windows={wins}
                   target={r.target_count}
                   caption={`this ${periodWord} ${cur?.hits ?? 0}/${r.target_count} · target met ${met} of last ${past.length} ${periodWord}${past.length === 1 ? '' : 's'}`}
@@ -194,13 +196,17 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
               )
             }
             const wins = cycleWindows(r, 12)
-            const past = wins.filter(w => !w.current)
+            // Cycles spent away are out of the denominator: with the trail now
+            // bridging a trip, "caught 9 of last 15" beside an unbroken line
+            // would be the words calling a holiday six failures.
+            const past = wins.filter(w => !w.current && !(w.hits === 0 && awayDays.has(w.key)))
             const caught = past.filter(w => w.caught).length
             const cur = wins[wins.length - 1]
             const unit = cycleUnitLabel(r, past.length === 1)
             const nowWord = r.cadence === 'daily' ? 'today' : 'this one'
             return (
               <CycleChips
+                awayDays={awayDays}
                 windows={wins}
                 caption={past.length > 0
                   ? `caught ${caught} of last ${past.length} ${unit}${cur?.caught ? ` · ${nowWord} ✓` : ''}`

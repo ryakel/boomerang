@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cycleWindows, loopGaps, cycleRally, isWindowPaused } from '../src/kept/cycles.js'
+import { cycleWindows, loopGaps, cycleRally, isWindowPaused, bridgedAwayKeys } from '../src/kept/cycles.js'
 
 // Regression for: Quokka creates a weekly routine today with
 // schedule_day_of_week set to a weekday that already passed this calendar
@@ -171,4 +171,61 @@ test('an away cycle does not inflate best, either', () => {
   // 4 caught cycles, then away, then nothing done since coming home. Best is
   // the 4 real ones — the trip adds nothing.
   assert.equal(cycleRally(wins, 1, new Set(spanAgo(8, 3))).best, 4)
+})
+
+
+// --- The away bucket + the trail bridge (2026-08-23) ------------------
+//
+// Away cycles used to be dropped from loopGaps entirely: protected, but
+// invisible, so a trip left no trace and no way to say "start again next
+// week". They now come back in their own `away` bucket, which drives the
+// "While you were away" prompt. They stay OUT of `missed`, so the rally
+// protection and the "N to fix" badge are unchanged.
+
+test('away cycles come back in their own bucket, not as missed', () => {
+  const away = new Set(spanAgo(8, 3))
+  const gaps = loopGaps(dailyLoop(), [], 12, away)
+  assert.equal(gaps.missed.filter(g => away.has(g.day)).length, 0, 'never blamed as missed')
+  assert.deepEqual(gaps.away.map(g => g.day).sort(), [...away].sort(), 'all surfaced for rescheduling')
+})
+
+test('the away bucket is empty when nothing was away', () => {
+  assert.deepEqual(loopGaps(dailyLoop(), [], 12, null).away, [])
+})
+
+test('habit loops and stacks report an away bucket rather than undefined', () => {
+  // The UI does `gaps.away.length` — a missing key would throw on those paths.
+  assert.deepEqual(loopGaps({ id: 'h', spawn_mode: 'habit' }, [], 12, new Set(spanAgo(8, 3))).away, [])
+})
+
+test('the trail bridges an away run that the loop came back from', () => {
+  // Caught 12..9 days ago, away 8..3, caught 2..0 — the break is bridged.
+  const routine = {
+    id: 'r', cadence: 'daily', created_at: daysAgo(12).toISOString(),
+    completed_history: [...spanAgo(12, 9), ...spanAgo(2, 0)].map(d => `${d}T12:00:00.000Z`),
+  }
+  const wins = cycleWindows(routine, 60)
+  const bridged = bridgedAwayKeys(wins, new Set(spanAgo(8, 3)))
+  assert.deepEqual([...bridged].sort(), spanAgo(8, 3).sort())
+})
+
+test('a trip the loop never came back from is NOT bridged', () => {
+  // Nothing completed since the trip: that is a loop that stopped, and a
+  // connector over it would be the chart telling a nicer story than the truth.
+  const routine = {
+    id: 'r', cadence: 'daily', created_at: daysAgo(12).toISOString(),
+    completed_history: spanAgo(12, 9).map(d => `${d}T12:00:00.000Z`),
+  }
+  const bridged = bridgedAwayKeys(cycleWindows(routine, 60), new Set(spanAgo(8, 3)))
+  assert.equal(bridged.size, 0)
+})
+
+test('a caught cycle is never bridged, and no away days means no bridging', () => {
+  const routine = {
+    id: 'r', cadence: 'daily', created_at: daysAgo(12).toISOString(),
+    completed_history: spanAgo(12, 0).map(d => `${d}T12:00:00.000Z`),
+  }
+  const wins = cycleWindows(routine, 60)
+  assert.equal(bridgedAwayKeys(wins, new Set(spanAgo(8, 3))).size, 0, 'days that were worked stay solid')
+  assert.equal(bridgedAwayKeys(wins, null).size, 0)
 })
