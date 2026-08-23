@@ -19,6 +19,47 @@ function windowOf(start, end, today, stamps) {
   }
 }
 
+// --- Away windows ------------------------------------------------------
+//
+// A cycle you were away for is neither missed nor kept — the same rule the
+// streak settled on (2026-08-03, "this shit should be actually paused").
+//
+// The away window has protected notifications, then the streak, then the
+// device's own alarms. Loops were the consumer nobody wired up: a week away
+// produced a `missed` gap for every daily cycle in it and reset every rally
+// to zero, and nothing in the repair path could clear them — `reconcile_loops`
+// only stamps days that a FINISHED task already proves, and there is no
+// finished task for a day you were on holiday. Hence "a bunch of loops broke
+// because of my vacation and I seem to have no way to fix them."
+//
+// `awayDays` is the same stamped `settings.away_days` list the streak and the
+// device alarms read, so all four surfaces agree by construction.
+//
+// PAUSED means the cycle's DUE DAY was an away day. One cycle, one day, checked
+// straight against the away list — "it should match the days away, full stop."
+//
+// The two rules this replaces both failed a real requirement (user, 2026-08-11:
+// "no misses because it didn't overlap and no month long gaps"):
+//
+//   every-elapsed-day-away  — a weekly cycle due mid-trip stayed MISSED because
+//                             the tail of its window ran past the trip. A miss
+//                             manufactured by the window not lining up with the
+//                             holiday, which is not a thing the user did wrong.
+//   any-day-of-window-away  — one day away excused a monthly loop's whole month.
+//
+// The due day is the window START, which is already the day the UI labels the
+// gap with and the day "Mark done" stamps — so what gets excused is exactly the
+// day you'd otherwise be asked to answer for. A monthly loop due on the 15th is
+// excused only if you were away on the 15th.
+export function isWindowPaused(w, awayDays) {
+  if (!w || !awayDays || awayDays.size === 0) return false
+  return awayDays.has(w.key ?? localYMD(w.start))
+}
+
+const toDaySet = (awayDays) => (
+  awayDays instanceof Set ? awayDays : new Set(Array.isArray(awayDays) ? awayDays : [])
+)
+
 export function cycleWindows(routine, count = 12) {
   const cadence = routine.cadence || 'weekly'
   const stamps = (routine.completed_history || [])
@@ -160,8 +201,9 @@ function ymdDayLabel(ymd) {
   return `${GAP_MONTHS[m - 1]} ${d}`
 }
 
-export function loopGaps(routine, tasks = [], count = 12) {
+export function loopGaps(routine, tasks = [], count = 12, awayDays = null) {
   if (!routine || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [] }
+  const away = toDaySet(awayDays)
   const skipped = new Set(Array.isArray(routine.skipped_days) ? routine.skipped_days : [])
   const histDays = new Set((routine.completed_history || []).map(ts => localYMD(new Date(ts))))
 
@@ -219,6 +261,8 @@ export function loopGaps(routine, tasks = [], count = 12) {
       unrecorded.push({ key: w.key, day, iso: new Date(iso).toISOString(), label: gapLabel(routine, w), taskId: task.id })
     } else {
       if (skipped.has(w.key)) continue
+      // A cycle you were away for was never yours to miss.
+      if (isWindowPaused(w, away)) continue
       missed.push({ key: w.key, day: w.key, iso: `${w.key}T12:00:00.000Z`, label: gapLabel(routine, w) })
     }
   }
@@ -246,17 +290,24 @@ export function cycleUnitLabel(routine, singular = false) {
 // Consecutive-cycle rally + best, from a window series (oldest -> newest).
 // The CURRENT window only extends the rally when already caught — an
 // in-flight cycle you haven't hit yet doesn't break anything.
-export function cycleRally(windows, target = 1) {
+export function cycleRally(windows, target = 1, awayDays = null) {
+  const away = toDaySet(awayDays)
+  // A cycle spent away neither breaks the rally nor extends it — step over it,
+  // exactly as the streak walk steps over an away day.
+  const paused = (w) => w.hits < target && isWindowPaused(w, away)
   const closed = windows.filter(w => !w.current)
   const cur = windows[windows.length - 1]
   let rally = cur && cur.current && cur.hits >= target ? 1 : 0
   for (let i = closed.length - 1; i >= 0; i--) {
     if (closed[i].hits >= target) rally++
+    else if (paused(closed[i])) continue
     else break
   }
   let best = 0, run = 0
   for (const w of closed) {
-    if (w.hits >= target) { run++; best = Math.max(best, run) } else run = 0
+    if (w.hits >= target) { run++; best = Math.max(best, run) }
+    else if (paused(w)) continue
+    else run = 0
   }
   if (cur && cur.current && cur.hits >= target) best = Math.max(best, rally)
   return { rally, best }

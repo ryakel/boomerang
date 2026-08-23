@@ -10,7 +10,7 @@ import './shell.css'
 // Loop detail (K4): tapping a loop card lands HERE — rally / best / total
 // stat cards, the cycle-chip trail, and a steppable month calendar — instead
 // of dumping straight into the editor. Edit is a deliberate button.
-export default function LoopDetail({ routine, color, spawnBlocked = false, tasks = [], onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay }) {
+export default function LoopDetail({ routine, color, spawnBlocked = false, tasks = [], awayDays = null, onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay }) {
   const [monthRef, setMonthRef] = useState(() => new Date())
   const [spawned, setSpawned] = useState(false)
   const [skipped, setSkipped] = useState(false)
@@ -19,7 +19,7 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
   // cycles, each fixable per-day (Mark done / Skip). Recomputed live so a row
   // disappears the instant it's resolved. (Hooks run before the null guard
   // below — rules-of-hooks; the helper no-ops for a null routine.)
-  const gaps = useMemo(() => loopGaps(routine, tasks), [routine, tasks])
+  const gaps = useMemo(() => loopGaps(routine, tasks, 12, awayDays), [routine, tasks, awayDays])
   const gapItems = useMemo(() => [
     ...gaps.unrecorded.map(g => ({ ...g, kind: 'unrecorded' })),
     ...gaps.missed.map(g => ({ ...g, kind: 'missed' })),
@@ -41,7 +41,7 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
   // a weekly loop's rally is consecutive weeks caught. Deep window set so
   // best isn't artificially capped by the visible chip count.
   const deepWins = isHabit ? habitWindows(routine, 60) : cycleWindows(routine, 60)
-  const { rally, best } = cycleRally(deepWins, isHabit ? routine.target_count : 1)
+  const { rally, best } = cycleRally(deepWins, isHabit ? routine.target_count : 1, awayDays)
   const wins = deepWins.slice(-16)
   const past = wins.filter(w => !w.current)
   const target = isHabit ? routine.target_count : 1
@@ -154,6 +154,20 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
           <p className="bm-loop-fix-hint">
             Mark a day done to credit the cycle, or skip it to move on without crediting.
           </p>
+          {/* Bulk skip. A trip or a bad fortnight can put a dozen rows here,
+              and clearing them one tap at a time is how "I have no way to fix
+              these" happens. Only offered for MISSED days — bulk-crediting
+              days you didn't do isn't a shortcut, it's a lie. */}
+          {gapItems.filter(g => g.kind === 'missed').length > 1 && (
+            <button
+              className="bm-loop-fix-btn bm-loop-fix-skip bm-loop-fix-skipall"
+              onClick={() => {
+                const days = gapItems.filter(g => g.kind === 'missed')
+                if (!window.confirm(`Skip all ${days.length} missed cycles? They'll stop asking; nothing gets credited.`)) return
+                for (const g of days) onSkipLoopDay?.(routine.id, g.day)
+              }}
+            >Skip all {gapItems.filter(g => g.kind === 'missed').length} missed</button>
+          )}
           <ul className="bm-loop-fix-list">
             {gapItems.map(g => (
               <li key={`${g.kind}-${g.key}`} className="bm-loop-fix-row">
