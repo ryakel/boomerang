@@ -21,6 +21,12 @@
   min-height: 60dvh;
   max-height: 92dvh;
   overflow-y: auto;
+  /* `overflow-y: auto` alone computes overflow-x to `auto` too, so any
+   * single wide descendant silently turns the whole modal into a sideways
+   * scroller. Nothing in a modal is meant to scroll horizontally; the ones
+   * that are (wide tables, boards) carry their own scroll container, which
+   * this does not affect. */
+  overflow-x: hidden;
   border-radius: var(--v2-radius-modal) var(--v2-radius-modal) 0 0;
   position: relative;
   animation: v2-modal-in var(--v2-dur-emphasis) var(--v2-ease-emphasis);

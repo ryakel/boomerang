@@ -401,7 +401,11 @@ export default function TodayView({
                 <span className="bm-review-icon"><Inbox size={14} strokeWidth={2} /></span>
                 <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
                   <span className="bm-row-title">{t.title}</span>
-                  <span className="bm-row-meta"><span>from Gmail</span></span>
+                  {/* Gmail is no longer the only thing that proposes tasks —
+                    * the Notion pull's page analyzer files here too. A row
+                    * that lies about where a suggestion came from is a row
+                    * you can't judge. */}
+                  <span className="bm-row-meta"><span>from {t.gmail_message_id ? 'Gmail' : t.notion_page_id ? 'Notion' : 'an import'}</span></span>
                 </button>
                 <button className="bm-btn bm-btn-tonal bm-review-keep" onClick={() => onGmailKeep?.(t)}>
                   <Check size={13} strokeWidth={2.6} /> Keep

@@ -68,6 +68,39 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 - Mobile: entered via header sparkle icon next to Packages
 - Desktop: same icon + click-to-open
 
+**Chat layout — the two rules that keep the page framed (2026-08-17):**
+
+1. **The chat never scrolls sideways, and the way you guarantee that is to make
+   the content wrap, not to hide the overflow.** `overflow-y: auto` computes
+   `overflow-x` to `auto` as well, so a *single* wide descendant turns
+   `.v2-modal` and `.v2-adviser-messages` into two-axis scrollers with no
+   visible scrollbar to explain it — one stray horizontal swipe then leaves
+   every bubble clipped mid-word and the title dragged out from under the
+   header. The two things that actually blow the width: raw upstream errors in
+   the tool log (a Notion validation failure arrives as a whole JSON body, on a
+   `nowrap` flex row whose default `min-width: auto` refuses to shrink below
+   it), and assistant bubbles, which — unlike user bubbles — never had
+   `overflow-wrap`, while being the side that emits URLs and page ids. Both are
+   fixed at the source (wrap + `min-width: 0` + a 3-line clamp on error text,
+   full string in `title`); `overflow-x: hidden` is the backstop, not the fix.
+   **Anything new added to a chat row needs `min-width: 0`.**
+2. **On mobile the page must not be a second scroller wrapped around the
+   message list.** The `flexBody` rules in `ModalShell.css` were gated to
+   `min-width: 768px`, so on phones the body kept `padding: 24px` and the
+   message list kept its `max-height: 60dvh` — header + toolbar + 60dvh +
+   composer overflow the viewport, so `.v2-modal` scrolled *as well*, and
+   scrolling it slid the title up under the `position: fixed` back arrow. The
+   Kept mobile block now mirrors the flex layout (`src/kept/modals.css`) and the
+   60dvh cap lifts whenever `.v2-modal-body-flex` is present. The old cap was
+   commented as keyboard protection; it never was — the composer is pinned by
+   `position: sticky; bottom: 0`, which lands in the same place with or without
+   an outer scroller. One consequence to respect: the footer punches through
+   the body padding with negative margins, and now that the body CLIPS, that
+   bottom margin has to cancel the body's bottom padding exactly (it differs
+   between the full-page case and the Quokka-tab case). Same reason the history
+   panel needed its own `overflow-y: auto` — inside a clipped flex body it was
+   simply cut off at the fold.
+
 **Multi-chat model (2026-04-23):** Every topic is its own chat. Storage lives server-side in `app_data.adviser_chats` (an array of `{id, title, messages, sessionId, starred, archived, archivedAt, createdAt, updatedAt, expiresAt}`) + `app_data.adviser_active_chat_id` (which chat Quokka is currently reading/writing). iOS aggressively evicts PWA localStorage, so nothing sits there.
 
 **Lifecycle — the sweep archives, it does not delete (2026-08-09).** Until then the 30-day TTL was a *delete*: a conversation untouched for a month was gone, warned about only in its last 7 days, recoverable only if you'd starred it in advance. Quokka transcripts are the reasoning behind half the tasks in the app and outlive the tasks they produced — destroying them on a timer is precisely the durability failure CLAUDE.md exists to prevent. The rules now live in `server/chatArchive.js` (PURE — no db, no network, clock injected; 16 tests in `scripts/chatArchive.test.mjs`).

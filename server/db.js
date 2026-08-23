@@ -2844,6 +2844,64 @@ export function addRemoteTombstone({ source, remote_id, title = null }) {
   return true
 }
 
+// --- Notion page ledger (2026-08-17) -----------------------------------
+//
+// Two durable facts per Notion page, both of which stop the task extractor
+// (see migrations/053). Durable on the SERVER on purpose: the guard this
+// replaces lived in localStorage, which iOS evicts on a PWA, and an evicted
+// guard re-arms the extractor over every page under the sync parent.
+
+// "Boomerang wrote this page." Called from every path that creates or
+// rewrites Notion page content — Quokka's notion_create_page /
+// notion_update_page, the knowledge tools, and the REST page routes the
+// client uses. If we wrote it, we do not mine it for tasks: a page we
+// authored is our own output, not an independent statement of what the user
+// needs to do.
+export function markNotionPageAuthored(pageId, title = null) {
+  if (!pageId) return false
+  const now = new Date().toISOString()
+  db.run(
+    `INSERT INTO notion_page_ledger (page_id, authored_by, authored_at, title)
+     VALUES (?, 'app', ?, ?)
+     ON CONFLICT(page_id) DO UPDATE SET
+       authored_by='app',
+       authored_at=excluded.authored_at,
+       title=COALESCE(excluded.title, notion_page_ledger.title)`,
+    [String(pageId), now, title],
+  )
+  return true
+}
+
+// "The extractor has looked at this page." Set once, never cleared by an
+// edit — a page gets exactly one look, when it first appears.
+export function markNotionPagesAnalyzed(pageIds = [], titles = {}) {
+  const ids = (Array.isArray(pageIds) ? pageIds : []).filter(Boolean)
+  if (ids.length === 0) return 0
+  const now = new Date().toISOString()
+  for (const id of ids) {
+    db.run(
+      `INSERT INTO notion_page_ledger (page_id, analyzed_at, title)
+       VALUES (?, ?, ?)
+       ON CONFLICT(page_id) DO UPDATE SET
+         analyzed_at=COALESCE(notion_page_ledger.analyzed_at, excluded.analyzed_at),
+         title=COALESCE(notion_page_ledger.title, excluded.title)`,
+      [String(id), now, titles[id] || null],
+    )
+  }
+  return ids.length
+}
+
+export function getNotionPageLedger() {
+  const res = db.exec('SELECT page_id, authored_by, analyzed_at FROM notion_page_ledger')
+  const authored = []
+  const analyzed = []
+  for (const v of res[0]?.values || []) {
+    if (v[1] === 'app') authored.push(v[0])
+    if (v[2]) analyzed.push(v[0])
+  }
+  return { authored, analyzed }
+}
+
 // Deliberate un-delete: re-linking a remote item you actually do want back.
 // Without this a tombstone would be permanent and the only escape would be
 // editing the database by hand.

@@ -92,6 +92,40 @@
   /* Give the body bottom safe-area room so the last controls clear the home bar. */
   [data-theme^="kept"] .v2-modal-body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 
+  /* flexBody pages (Quokka is the only one) size their body to the page
+   * instead of scrolling it. Without this the modal was a SECOND scroller
+   * wrapped around the message list's own: header + toolbar + the 60dvh
+   * message cap + the composer overflow the page, so scrolling the outer
+   * one dragged the title up underneath the fixed back arrow while the
+   * inner list sat still. The same rules ship on desktop (ModalShell.css)
+   * and were never mirrored here. */
+  [data-theme^="kept"] .v2-modal-flex {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  [data-theme^="kept"] .v2-modal-flex .v2-modal-header { flex: 0 0 auto; }
+  [data-theme^="kept"] .v2-modal-body-flex {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;    /* let the scrolling child size itself */
+    overflow: hidden; /* the message list / history panel scroll, not this */
+  }
+  /* The composer footer punches through the body padding with negative
+   * margins so its surface spans the full page width. Now that the body
+   * clips, that bottom margin has to cancel the body's bottom padding
+   * EXACTLY or the composer gets shaved — and the two differ between the
+   * full-page case (24px + notch) and the Quokka-tab case (16px). */
+  [data-theme^="kept"] .v2-modal-body-flex .v2-adviser-footer {
+    margin-bottom: calc(-24px - env(safe-area-inset-bottom));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  [data-theme^="kept"] .bm-shell .v2-modal-body-flex .v2-adviser-footer {
+    margin-bottom: -16px;
+    padding-bottom: 16px;
+  }
+
   /* ── Case 2: Quokka surface (inside the shell) → keep header + nav ───────── */
   [data-theme^="kept"] .bm-shell .v2-modal-overlay {
     top: calc(52px + env(safe-area-inset-top));       /* below the WallabyHeader */
