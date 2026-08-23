@@ -235,7 +235,7 @@ export default function AppV2() {
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
-    completeRoutine, uncompleteRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, markRoutineDayDone, skipRoutineDay, hydrateRoutines,
+    completeRoutine, uncompleteRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, pushLoopOut, markRoutineDayDone, skipRoutineDay, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -1550,6 +1550,7 @@ export default function AppV2() {
           onSkipCycle={skipCycle}
           onMarkLoopDay={markRoutineDayDone}
           onSkipLoopDay={skipRoutineDay}
+          onPushLoopOut={pushLoopOut}
           onOpenQuokka={() => setShowAdviser(true)}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPackages={() => setShowPackages(true)}
@@ -1609,6 +1610,7 @@ export default function AppV2() {
           onSkipCycle={skipCycle}
           onMarkLoopDay={markRoutineDayDone}
           onSkipLoopDay={skipRoutineDay}
+          onPushLoopOut={pushLoopOut}
           onOpenQuokka={() => setShowAdviser(true)}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPackages={() => setShowPackages(true)}

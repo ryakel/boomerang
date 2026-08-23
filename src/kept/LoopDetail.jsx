@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2, Plus, FastForward, Check, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2, Plus, FastForward, Check, AlertCircle, Plane } from 'lucide-react'
 import MonthDots from './MonthDots'
 import CycleChips from './CycleChips'
 import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
@@ -10,7 +10,7 @@ import './shell.css'
 // Loop detail (K4): tapping a loop card lands HERE — rally / best / total
 // stat cards, the cycle-chip trail, and a steppable month calendar — instead
 // of dumping straight into the editor. Edit is a deliberate button.
-export default function LoopDetail({ routine, color, spawnBlocked = false, tasks = [], awayDays = null, onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay }) {
+export default function LoopDetail({ routine, color, spawnBlocked = false, tasks = [], awayDays = null, onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay, onPushLoopOut }) {
   const [monthRef, setMonthRef] = useState(() => new Date())
   const [spawned, setSpawned] = useState(false)
   const [skipped, setSkipped] = useState(false)
@@ -24,6 +24,11 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
     ...gaps.unrecorded.map(g => ({ ...g, kind: 'unrecorded' })),
     ...gaps.missed.map(g => ({ ...g, kind: 'missed' })),
   ].sort((a, b) => b.day.localeCompare(a.day)), [gaps])
+  // Cycles that fell while the user was away. Already protected — they don't
+  // count as missed and don't break the rally — so this is an OFFER to
+  // reschedule, not a list of failures. Kept out of "Needs attention" so a
+  // trip never reads as a backlog.
+  const awayItems = gaps.away || []
 
   if (!routine) return null
 
@@ -43,7 +48,10 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
   const deepWins = isHabit ? habitWindows(routine, 60) : cycleWindows(routine, 60)
   const { rally, best } = cycleRally(deepWins, isHabit ? routine.target_count : 1, awayDays)
   const wins = deepWins.slice(-16)
-  const past = wins.filter(w => !w.current)
+  // Away cycles are out of the denominator — see LoopsView. The trail bridges
+  // them, so counting them as unmet would have the caption contradict the chart.
+  const awaySet = awayDays instanceof Set ? awayDays : new Set(awayDays || [])
+  const past = wins.filter(w => !w.current && !(w.hits === 0 && awaySet.has(w.key)))
   const target = isHabit ? routine.target_count : 1
   const met = past.filter(w => w.hits >= target).length
   const unit = isHabit
@@ -141,6 +149,51 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
         </div>
       )}
 
+      {/* While you were away — cycles whose due day fell inside an away window.
+          These are already protected (not counted missed, rally untouched), so
+          this is an offer to RESCHEDULE, not a backlog. Actions are loop-level
+          because a six-day trip is one decision, not six. */}
+      {!isHabit && awayItems.length > 0 && (
+        <div className="bm-card bm-loop-away">
+          <div className="bm-card-title">
+            <span className="bm-loop-away-icon"><Plane size={15} strokeWidth={2.2} /></span>
+            While you were away
+            <span className="bm-loop-fix-count">{awayItems.length}</span>
+          </div>
+          <p className="bm-loop-fix-hint">
+            {awayItems.length} {cycleUnitLabel(routine, awayItems.length === 1)} fell during a trip
+            ({awayItems[awayItems.length - 1].label} – {awayItems[0].label}). They aren&apos;t counted
+            against you and your rally is intact — pick up where you left off, or push the schedule out.
+          </p>
+          <div className="bm-loop-away-acts">
+            <button
+              className="bm-loop-fix-btn bm-loop-fix-done"
+              onClick={() => onPushLoopOut?.(routine.id)}
+            >Push it out one {cycleUnitLabel(routine, true)}</button>
+            <button
+              className="bm-loop-fix-btn bm-loop-fix-skip"
+              onClick={() => { for (const g of awayItems) onSkipLoopDay?.(routine.id, g.day) }}
+            >Pick it up as normal</button>
+          </div>
+          <ul className="bm-loop-fix-list">
+            {awayItems.map(g => (
+              <li key={`away-${g.key}`} className="bm-loop-fix-row">
+                <span className="bm-loop-fix-day">
+                  <span className="bm-loop-fix-date">{g.label}</span>
+                  <span className="bm-loop-fix-tag bm-loop-fix-tag-away">away</span>
+                </span>
+                <span className="bm-loop-fix-acts">
+                  <button
+                    className="bm-loop-fix-btn bm-loop-fix-done"
+                    onClick={() => onMarkLoopDay?.(routine.id, g.day, g.iso)}
+                  ><Check size={13} strokeWidth={2.6} /> Did it</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Needs attention — days the loop never recorded (you finished the task)
           and cycles you were due but missed. Mark done credits the cycle; Skip
           acknowledges it without crediting. Each row vanishes when resolved. */}
@@ -196,6 +249,7 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
       <div className="bm-card">
         <div className="bm-card-title">Recent cycles</div>
         <CycleChips
+          awayDays={awayDays}
           windows={wins}
           target={target}
           caption={past.length > 0

@@ -60,6 +60,31 @@ const toDaySet = (awayDays) => (
   awayDays instanceof Set ? awayDays : new Set(Array.isArray(awayDays) ? awayDays : [])
 )
 
+/**
+ * Which away windows the trail should BRIDGE — drawn as a connector running
+ * through the break rather than a row of hollow "missed" squares.
+ *
+ * Only bridged when the loop actually came back: there must be a caught window
+ * LATER in the series. A trip you never resumed after isn't a continuous loop
+ * with a gap in it, it's a loop that stopped, and a pretty connector over that
+ * would be the chart telling a nicer story than the truth.
+ *
+ * Returns a Set of window keys.
+ */
+export function bridgedAwayKeys(windows = [], awayDays = null) {
+  const away = toDaySet(awayDays)
+  if (away.size === 0) return new Set()
+  const out = new Set()
+  let caughtAfter = false
+  // Backwards, so "is there a completion later" is just a running flag.
+  for (let i = windows.length - 1; i >= 0; i--) {
+    const w = windows[i]
+    if (w.hits > 0) { caughtAfter = true; continue }
+    if (caughtAfter && isWindowPaused(w, away)) out.add(w.key)
+  }
+  return out
+}
+
 export function cycleWindows(routine, count = 12) {
   const cadence = routine.cadence || 'weekly'
   const stamps = (routine.completed_history || [])
@@ -202,7 +227,7 @@ function ymdDayLabel(ymd) {
 }
 
 export function loopGaps(routine, tasks = [], count = 12, awayDays = null) {
-  if (!routine || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [] }
+  if (!routine || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [], away: [] }
   const away = toDaySet(awayDays)
   const skipped = new Set(Array.isArray(routine.skipped_days) ? routine.skipped_days : [])
   const histDays = new Set((routine.completed_history || []).map(ts => localYMD(new Date(ts))))
@@ -239,13 +264,14 @@ export function loopGaps(routine, tasks = [], count = 12, awayDays = null) {
       unrecorded.push({ key: c.due, day: c.due, iso: new Date(c.lastIso).toISOString(), label: ymdDayLabel(c.due), taskId: null })
     }
     unrecorded.sort((a, b) => b.day.localeCompare(a.day))
-    return { unrecorded, missed: [] }
+    return { unrecorded, missed: [], away: [] }
   }
 
   const doneTasks = tasks.filter(t => t.routine_id === routine.id && t.status === 'done')
   const wins = cycleWindows(routine, count)
   const unrecorded = []
   const missed = []
+  const away_ = []
   for (const w of wins) {
     if (w.current || w.caught) continue
     const task = doneTasks.find(t => {
@@ -261,12 +287,20 @@ export function loopGaps(routine, tasks = [], count = 12, awayDays = null) {
       unrecorded.push({ key: w.key, day, iso: new Date(iso).toISOString(), label: gapLabel(routine, w), taskId: task.id })
     } else {
       if (skipped.has(w.key)) continue
-      // A cycle you were away for was never yours to miss.
-      if (isWindowPaused(w, away)) continue
+      // A cycle you were away for was never yours to MISS — but it isn't
+      // nothing either. It goes in its own bucket so the loop can offer to
+      // reschedule ("push it out") rather than silently swallowing the gap.
+      // It stays out of `missed`, so the rally protection and the "N to fix"
+      // badge are unaffected.
+      if (isWindowPaused(w, away)) {
+        away_.push({ key: w.key, day: w.key, iso: `${w.key}T12:00:00.000Z`, label: gapLabel(routine, w) })
+        continue
+      }
       missed.push({ key: w.key, day: w.key, iso: `${w.key}T12:00:00.000Z`, label: gapLabel(routine, w) })
     }
   }
-  return { unrecorded, missed }
+  away_.sort((a, b) => b.day.localeCompare(a.day))
+  return { unrecorded, missed, away: away_ }
 }
 
 export function cycleUnitLabel(routine, singular = false) {
