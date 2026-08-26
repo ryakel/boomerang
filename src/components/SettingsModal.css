@@ -1159,3 +1159,28 @@
 .v2-integrations-rule .v2-form-label {
   margin-top: 2px;
 }
+
+/* A calendar-rule condition group: alternatives that are ORed together. The
+   box is the whole explanation of the grouping — inside it any one condition
+   is enough, and every box has to match. */
+.v2-rule-group {
+  border: 1px dashed var(--v2-hairline);
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.v2-rule-join {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--v2-text-meta);
+  padding: 4px 2px;
+}
+
+.v2-rule-join-or {
+  padding-left: 6px;
+}

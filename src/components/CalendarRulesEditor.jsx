@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Toggle from './Toggle'
-import { gcalListRules, gcalSaveRule, gcalDeleteRule, gcalPreviewRule, gcalApplyRule } from '../api'
+import { gcalListRules, gcalSaveRule, gcalDeleteRule, gcalPreviewRule, gcalApplyRule, gcalListCalendars } from '../api'
+// The same grouping the server matches with — imported rather than reimplemented
+// so the sentence shown here can never drift from the one being evaluated.
+import { groupConditions } from '../../server/calendarRules.js'
 
 // "When an event like this shows up, make me this task."
 //
@@ -31,7 +34,8 @@ const SIZES = ['XS', 'S', 'M', 'L', 'XL']
 const emptyRule = () => ({
   name: '',
   enabled: true,
-  conditions: [{ field: 'title', op: 'contains', value: '' }],
+  calendar_id: null,
+  conditions: [{ field: 'title', op: 'contains', value: '', group: 0 }],
   template: { title: '', notes: '', due_offset_days: 0, tags: [], size: null, high_priority: false, nag_allowed: false },
   suppress_event_import: false,
   future_only: false,
@@ -43,6 +47,15 @@ function describeCondition(c) {
   if (c.field === 'timing') return `${field} is ${c.value === 'all_day' ? 'all-day' : 'timed'}`
   const op = OPS.find(o => o.value === c.op)?.label || c.op
   return `${field} ${op} "${c.value}"`
+}
+
+// "(Title contains "N5274S" or Title contains "N12345") and Location contains …"
+// Parenthesised only where a group holds more than one, so a plain all-ANDed
+// rule reads exactly as it always did.
+function describeConditions(conditions) {
+  return groupConditions(conditions)
+    .map(g => (g.length === 1 ? describeCondition(g[0]) : `(${g.map(describeCondition).join(' or ')})`))
+    .join(' and ')
 }
 
 function describeDue(offset) {
@@ -62,6 +75,7 @@ export default function CalendarRulesEditor() {
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [calendars, setCalendars] = useState([])
 
   const reload = useCallback(async () => {
     try {
@@ -79,15 +93,67 @@ export default function CalendarRulesEditor() {
 
   useEffect(() => { reload() }, [reload])
 
+  // For the per-rule calendar override. Failing quietly is fine here: the
+  // select falls back to "the calendar in Settings", which is the default
+  // anyway.
+  useEffect(() => {
+    let cancelled = false
+    gcalListCalendars()
+      .then(cals => { if (!cancelled) setCalendars(Array.isArray(cals) ? cals : []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  // Conditions laid out as the matcher sees them: OR within a group, AND
+  // across groups. A condition with no group index is its own group — that is
+  // what keeps a rule saved before groups existed meaning what it meant.
+  const groups = useMemo(() => {
+    if (!draft) return []
+    const map = new Map()
+    draft.conditions.forEach((c, i) => {
+      const g = c.group ?? `solo-${i}`
+      if (!map.has(g)) map.set(g, [])
+      map.get(g).push({ c, i })
+    })
+    return [...map.entries()]
+  }, [draft])
+
   const editDraft = (patch) => setDraft(d => ({ ...d, ...patch }))
   const editTemplate = (patch) => setDraft(d => ({ ...d, template: { ...d.template, ...patch } }))
   const editCondition = (i, patch) => setDraft(d => ({
     ...d,
     conditions: d.conditions.map((c, idx) => (idx === i ? { ...c, ...patch } : c)),
   }))
+  const newCondition = (group) => ({ field: 'title', op: 'contains', value: '', group })
+  // Another alternative inside an existing group (an "or").
+  const addAlternative = (group) => setDraft(d => ({
+    ...d,
+    conditions: [...d.conditions, newCondition(group)],
+  }))
+  // A new group (an "and"). Numbered past every group in play, including the
+  // solo keys a legacy rule produces; normalizeRule renumbers densely on save.
+  const addGroup = () => setDraft(d => {
+    const used = d.conditions.map(c => (typeof c.group === 'number' ? c.group : -1))
+    return { ...d, conditions: [...d.conditions, newCondition(Math.max(-1, ...used) + 1)] }
+  })
+  const removeCondition = (i) => setDraft(d => ({
+    ...d,
+    conditions: d.conditions.filter((_, idx) => idx !== i),
+  }))
 
   const openNew = () => { setDraft(emptyRule()); setPreview(null); setError(null); setNotice(null) }
-  const openEdit = (rule) => { setDraft(JSON.parse(JSON.stringify(rule))); setPreview(null); setError(null); setNotice(null) }
+  const openEdit = (rule) => {
+    const copy = JSON.parse(JSON.stringify(rule))
+    // Stamp explicit group indices on the way in. A rule saved before groups
+    // existed has ungrouped conditions, each its own group — and if the editor
+    // had to carry that, "+ or" on one of them would create a second group
+    // rather than joining it, silently ANDing what the user just asked to OR.
+    // Normalising here means every draft condition has a real group number.
+    copy.conditions = groupConditions(copy.conditions)
+      .flatMap((g, gi) => g.map(c => ({ ...c, group: gi })))
+    setDraft(copy)
+    setPreview(null); setError(null); setNotice(null)
+  }
   const closeDraft = () => { setDraft(null); setPreview(null); setError(null) }
 
   const handleTest = async () => {
@@ -183,7 +249,7 @@ export default function CalendarRulesEditor() {
             <Toggle checked={rule.enabled} onChange={e => toggleEnabled(rule, e.target.checked)} />
           </div>
           <div className="v2-integrations-hint">
-            {rule.conditions.map(describeCondition).join(' and ')} → “{rule.template.title}”, {describeDue(rule.template.due_offset_days)}
+            {describeConditions(rule.conditions)} → “{rule.template.title}”, {describeDue(rule.template.due_offset_days)}
             {rule.future_only ? ' · upcoming events only' : ''}
             {rule.on_repeat === 'update' ? ' · reuses one task' : ''}
             {rule.suppress_event_import ? ' · event not imported' : ''}
@@ -214,44 +280,73 @@ export default function CalendarRulesEditor() {
             onChange={e => editDraft({ name: e.target.value })}
           />
 
+          <label className="v2-form-label">Calendar</label>
+          <select
+            className="v2-form-input"
+            value={draft.calendar_id || ''}
+            onChange={e => editDraft({ calendar_id: e.target.value || null })}
+          >
+            <option value="">Use the calendar set in Settings</option>
+            {calendars.map(c => (
+              <option key={c.id} value={c.id}>{c.summary}{c.primary ? ' (Primary)' : ''}</option>
+            ))}
+          </select>
+
           <label className="v2-form-label">When an event…</label>
-          {draft.conditions.map((c, i) => (
-            <div key={i} className="v2-integrations-row-compact">
-              <select className="v2-form-input v2-settings-compact-input" value={c.field} onChange={e => {
-                const field = e.target.value
-                // Timing is the one field with its own vocabulary; swapping to
-                // it with a stale op/value would only fail at save time.
-                editCondition(i, field === 'timing'
-                  ? { field, op: 'is', value: 'timed' }
-                  : { field, op: c.op === 'is' ? 'contains' : c.op, value: c.field === 'timing' ? '' : c.value })
-              }}>
-                {FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-              </select>
-              {c.field === 'timing' ? (
-                <select className="v2-form-input" value={c.value} onChange={e => editCondition(i, { value: e.target.value })}>
-                  <option value="timed">is timed</option>
-                  <option value="all_day">is all-day</option>
-                </select>
-              ) : (
-                <>
-                  <select className="v2-form-input v2-settings-compact-input" value={c.op} onChange={e => editCondition(i, { op: e.target.value })}>
-                    {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                  <input
-                    className="v2-form-input"
-                    placeholder={c.op === 'matches' ? 'N\\d{4}[A-Z]' : 'e.g. N5274S'}
-                    value={c.value}
-                    onChange={e => editCondition(i, { value: e.target.value })}
-                  />
-                </>
-              )}
-              {draft.conditions.length > 1 && (
-                <button type="button" className="v2-settings-btn" onClick={() => editDraft({ conditions: draft.conditions.filter((_, idx) => idx !== i) })}>−</button>
-              )}
+          <div className="v2-integrations-hint">
+            Conditions inside a box are <strong>or</strong> — any one is enough. Every box must
+            match.
+          </div>
+          {groups.map(([gid, rows], gi) => (
+            <div key={gid}>
+              {gi > 0 && <div className="v2-rule-join">and</div>}
+              <div className="v2-rule-group">
+                {rows.map(({ c, i }, ri) => (
+                  <div key={i}>
+                    {ri > 0 && <div className="v2-rule-join v2-rule-join-or">or</div>}
+                    <div className="v2-integrations-row-compact">
+                      <select className="v2-form-input v2-settings-compact-input" value={c.field} onChange={e => {
+                        const field = e.target.value
+                        // Timing is the one field with its own vocabulary; swapping to
+                        // it with a stale op/value would only fail at save time.
+                        editCondition(i, field === 'timing'
+                          ? { field, op: 'is', value: 'timed' }
+                          : { field, op: c.op === 'is' ? 'contains' : c.op, value: c.field === 'timing' ? '' : c.value })
+                      }}>
+                        {FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                      </select>
+                      {c.field === 'timing' ? (
+                        <select className="v2-form-input" value={c.value} onChange={e => editCondition(i, { value: e.target.value })}>
+                          <option value="timed">is timed</option>
+                          <option value="all_day">is all-day</option>
+                        </select>
+                      ) : (
+                        <>
+                          <select className="v2-form-input v2-settings-compact-input" value={c.op} onChange={e => editCondition(i, { op: e.target.value })}>
+                            {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                          <input
+                            className="v2-form-input"
+                            placeholder={c.op === 'matches' ? 'N\\d{4}[A-Z]' : 'e.g. N5274S'}
+                            value={c.value}
+                            onChange={e => editCondition(i, { value: e.target.value })}
+                          />
+                        </>
+                      )}
+                      {draft.conditions.length > 1 && (
+                        <button type="button" className="v2-settings-btn" onClick={() => removeCondition(i)}>−</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <button type="button" className="v2-settings-btn" onClick={() => addAlternative(gid)}>
+                  + or
+                </button>
+              </div>
             </div>
           ))}
-          <button type="button" className="v2-settings-btn" onClick={() => editDraft({ conditions: [...draft.conditions, { field: 'title', op: 'contains', value: '' }] })}>
-            Add condition
+          <button type="button" className="v2-settings-btn" onClick={addGroup}>
+            + and
           </button>
 
           <label className="v2-form-label">…create this task</label>
@@ -328,7 +423,10 @@ export default function CalendarRulesEditor() {
 
           {preview && (
             <div className="v2-integrations-hint">
-              Scanned {preview.scanned} event{preview.scanned === 1 ? '' : 's'} in the next {preview.window_days} days · {preview.matches.length} match{preview.matches.length === 1 ? '' : 'es'}
+              Scanned {preview.scanned} event{preview.scanned === 1 ? '' : 's'} on{' '}
+              <strong>{preview.calendar_id || 'the configured calendar'}</strong> in the next{' '}
+              {preview.window_days} days · {preview.matches.length} match{preview.matches.length === 1 ? '' : 'es'}
+              {preview.scanned === 0 && <div>Nothing on that calendar at all — check you’ve picked the right one.</div>}
               {preview.matches.some(m => m.withheld_as_past) && (
                 <div>{preview.matches.filter(m => m.withheld_as_past).length} already under way — skipped by “only events that haven’t started yet”</div>
               )}
