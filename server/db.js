@@ -2932,11 +2932,12 @@ function ruleRowToRule(v) {
     created_at: v[7],
     updated_at: v[8],
     last_fired_at: v[9] || null,
+    future_only: !!v[10],
   }
 }
 
 const RULE_COLUMNS = `id, name, enabled, calendar_id, conditions_json, template_json,
-  suppress_event_import, created_at, updated_at, last_fired_at`
+  suppress_event_import, created_at, updated_at, last_fired_at, future_only`
 
 export function listGCalRules() {
   const res = db.exec(`SELECT ${RULE_COLUMNS} FROM gcal_rules ORDER BY created_at`)
@@ -2954,17 +2955,19 @@ export function upsertGCalRule(rule) {
   const now = new Date().toISOString()
   db.run(
     `INSERT INTO gcal_rules (${RULE_COLUMNS})
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name=excluded.name, enabled=excluded.enabled, calendar_id=excluded.calendar_id,
        conditions_json=excluded.conditions_json, template_json=excluded.template_json,
        suppress_event_import=excluded.suppress_event_import,
+       future_only=excluded.future_only,
        updated_at=excluded.updated_at`,
     [
       String(rule.id), rule.name, rule.enabled ? 1 : 0, rule.calendar_id || null,
       JSON.stringify(rule.conditions || []), JSON.stringify(rule.template || {}),
       rule.suppress_event_import ? 1 : 0,
       rule.created_at || now, now, rule.last_fired_at || null,
+      rule.future_only ? 1 : 0,
     ],
   )
   schedulePersist()

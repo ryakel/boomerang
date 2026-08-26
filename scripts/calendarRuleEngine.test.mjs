@@ -10,6 +10,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { normalizeRule } from '../server/calendarRules.js'
+import { ymdInTz, DEFAULT_TIMEZONE } from '../server/taskModel.js'
 
 const dir = mkdtempSync(join(tmpdir(), 'boom-calrules-'))
 let db, engine
@@ -176,4 +177,86 @@ test('suppression is answered from the rules, not the fire ledger — it holds b
 
 test('a rule that does not suppress leaves the event importable', () => {
   assert.deepEqual(engine.suppressedEventIds([{ ...flight('evt-x'), summary: 'Dentist' }]), [])
+})
+
+// --- only events that haven't started yet ----------------------------------
+//
+// Relative to the real clock, because the engine reads it: a rule with
+// future_only on has to make the same call the poller would make right now.
+
+const hoursFromNow = (h) => new Date(Date.now() + h * 3600_000).toISOString()
+
+const timedFlight = (id, hours) => ({
+  id,
+  summary: 'Ryan Kelch in N5274S with Marty Kemp',
+  location: "Hap's Air Service, Ames, IA",
+  description: '',
+  status: 'confirmed',
+  start: { dateTime: hoursFromNow(hours) },
+  end: { dateTime: hoursFromNow(hours + 2) },
+})
+
+const titled = (title) => rulesTasks().filter(t => t.title === title)
+
+test('a future_only rule does not fire on an event already under way', async () => {
+  const rule = saveRule({ future_only: true, template: { title: 'Future-only budget', due_offset_days: 1 } })
+  // Under way: started an hour ago, ends in an hour. The Calendar API still
+  // returns it, because timeMin filters on the event's END.
+  calendar = [timedFlight('evt-underway', -1)]
+  await engine.baselineRule(db.getGCalRule(rule.id))
+  assert.equal(db.countGCalRuleBaselined(rule.id), 0, 'nothing reserved that can never fire')
+  await engine.runCalendarRules('manual')
+  assert.equal(titled('Future-only budget').length, 0)
+})
+
+test('the same rule fires as soon as the event is one that has not started', async () => {
+  calendar = [timedFlight('evt-underway', -1), timedFlight('evt-upcoming', 48)]
+  await engine.runCalendarRules('manual')
+  assert.equal(titled('Future-only budget').length, 1, 'the upcoming one, and only the upcoming one')
+})
+
+test('an all-day event covering today does not fire; tomorrow’s does', async () => {
+  const rule = saveRule({ future_only: true, template: { title: 'All-day budget', due_offset_days: 0 } })
+  // In the SAME timezone the engine judges all-day events by, or this test
+  // would pass or fail depending on what time of day it ran.
+  const ymd = (d) => ymdInTz(new Date(Date.now() + d * 86400_000), DEFAULT_TIMEZONE)
+  calendar = [
+    { ...timedFlight('evt-allday-today', 0), start: { date: ymd(0) }, end: { date: ymd(1) } },
+    { ...timedFlight('evt-allday-later', 0), start: { date: ymd(3) }, end: { date: ymd(4) } },
+  ]
+  await engine.runCalendarRules('manual')
+  assert.equal(titled('All-day budget').length, 1)
+  assert.equal(db.getGCalRuleFires(rule.id).has('evt-allday-today'), false, 'today’s is left unrecorded, not baselined')
+})
+
+// THE regression. Suppression must not follow the future check: an event that
+// stopped being suppressed the moment it started would drop the flight a rule
+// exists to REPLACE into the task list halfway through the flight.
+test('a future_only rule STILL suppresses an event already under way', () => {
+  saveRule({
+    future_only: true,
+    suppress_event_import: true,
+    template: { title: 'Suppressing budget', due_offset_days: 1 },
+  })
+  const underway = timedFlight('evt-supp-underway', -1)
+  assert.deepEqual(engine.suppressedEventIds([underway]), ['evt-supp-underway'],
+    'the rule will not fire on it, but it still owns it')
+})
+
+test('turning future_only on for an existing rule withholds its already-baselined past events', async () => {
+  const rule = saveRule({ template: { title: 'Retro budget', due_offset_days: 0 } })
+  calendar = [timedFlight('evt-retro-past', -3), timedFlight('evt-retro-future', 72)]
+  await engine.baselineRule(db.getGCalRule(rule.id))
+  assert.equal(db.countGCalRuleBaselined(rule.id), 2, 'baselined both while future_only was off')
+
+  db.upsertGCalRule({ ...db.getGCalRule(rule.id), future_only: true })
+  const { created } = await engine.applyRuleToExisting(rule.id)
+  assert.equal(created, 1, 'apply honours the option too, not just the poll')
+  assert.equal(titled('Retro budget').length, 1)
+})
+
+test('future_only survives a round-trip through the database', () => {
+  const rule = saveRule({ future_only: true, template: { title: 'Round trip', due_offset_days: 0 } })
+  assert.equal(db.getGCalRule(rule.id).future_only, true)
+  assert.equal(db.listGCalRules().find(r => r.id === rule.id).future_only, true)
 })

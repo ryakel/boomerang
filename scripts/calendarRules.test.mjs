@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   matchEvent, renderTemplate, buildTaskFromRule, normalizeRule,
-  eventDate, eventTime, shiftDate, rulesMatching,
+  eventDate, eventTime, shiftDate, rulesMatching, eventIsUpcoming,
 } from '../server/calendarRules.js'
 
 // The event from the screenshot that started this feature.
@@ -230,4 +230,53 @@ test('rulesMatching returns every matching rule with its own captures', () => {
   assert.deepEqual(hits.map(h => h.rule.id), ['a', 'b'])
   assert.deepEqual(hits[0].captures, ['5274S'])
   assert.deepEqual(hits[1].captures, [])
+})
+
+// --- has it started yet? ---------------------------------------------------
+//
+// The clock is an argument, never read inside the module — the whole point of
+// this file is that these answers don't depend on when it runs.
+
+const CLOCK = { now: '2026-08-25T15:00:00Z', todayYmd: '2026-08-25' }
+
+test('a timed event that has not started yet is upcoming', () => {
+  assert.equal(eventIsUpcoming(flight({ start: { dateTime: '2026-08-26T09:00:00-05:00' } }), CLOCK), true)
+})
+
+test('a timed event already under way is not upcoming', () => {
+  // The flight runs 09:00–11:00 local and it is 10:00. The Calendar API still
+  // returns it, because timeMin filters on the event's END — which is exactly
+  // the case this option exists for.
+  assert.equal(eventIsUpcoming(flight(), CLOCK), false)
+})
+
+test('an all-day event covering today is happening now, not in the future', () => {
+  assert.equal(eventIsUpcoming(flight({ start: { date: '2026-08-25' } }), CLOCK), false)
+  assert.equal(eventIsUpcoming(flight({ start: { date: '2026-08-26' } }), CLOCK), true)
+  assert.equal(eventIsUpcoming(flight({ start: { date: '2026-08-24' } }), CLOCK), false)
+})
+
+test('an unreadable start is treated as upcoming rather than silently withheld', () => {
+  // Withholding on a value we failed to parse would drop a task with no trace.
+  assert.equal(eventIsUpcoming(flight({ start: { dateTime: 'not-a-date' } }), CLOCK), true)
+  assert.equal(eventIsUpcoming(flight({ start: {} }), CLOCK), true)
+  assert.equal(eventIsUpcoming(flight({ start: { date: '2026-08-25' } }), { now: CLOCK.now, todayYmd: null }), true)
+})
+
+test('future_only is off unless asked for — existing rules are unaffected', () => {
+  const r = normalizeRule({
+    name: 'x',
+    conditions: [{ field: 'title', op: 'contains', value: 'a' }],
+    template: { title: 'y' },
+  })
+  assert.equal(r.future_only, false)
+  assert.equal(normalizeRule({ ...r, future_only: true }).future_only, true)
+})
+
+test('matchEvent still has no clock — an event under way matches exactly as it did', () => {
+  // Load-bearing: the suppression query is built on matchEvent, so if this
+  // started depending on the time, a suppressed flight would reappear in the
+  // task list the moment it took off.
+  const r = rule({ future_only: true })
+  assert.equal(matchEvent(r, flight()).matched, true)
 })

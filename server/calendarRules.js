@@ -63,6 +63,31 @@ export function shiftDate(ymd, days) {
   return `${out.getUTCFullYear()}-${pad(out.getUTCMonth() + 1)}-${pad(out.getUTCDate())}`
 }
 
+// Has this event not started yet, as of `now`?
+//
+// Deliberately NOT part of matchEvent(). Matching is clock-free because the
+// suppression query is built on it, and an event that stopped matching the
+// moment it started would stop being suppressed then too — putting the flight a
+// rule exists to REPLACE into the task list halfway through the flight. Only
+// the paths that actually create or reserve a task ask this question.
+//
+// A timed event carries its own UTC offset in `start.dateTime`, so it compares
+// exactly. An all-day event is a bare date with no instant to compare, so it is
+// judged against the user's today: an all-day event covering today is happening
+// now, not in the future.
+export function eventIsUpcoming(event, { now, todayYmd }) {
+  if (isAllDay(event)) {
+    const date = eventDate(event)
+    if (!date || !todayYmd) return true // can't tell — don't silently withhold
+    return date > todayYmd
+  }
+  const dt = event?.start?.dateTime
+  if (!dt) return true
+  const start = new Date(dt)
+  if (Number.isNaN(start.getTime())) return true
+  return start.getTime() > new Date(now).getTime()
+}
+
 function fieldValue(event, field) {
   switch (field) {
     case 'title': return event?.summary || ''
@@ -256,6 +281,7 @@ export function normalizeRule(input) {
       nag_allowed: !!t.nag_allowed,
     },
     suppress_event_import: !!src.suppress_event_import,
+    future_only: !!src.future_only,
   }
 }
 

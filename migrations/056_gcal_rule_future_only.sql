@@ -1,0 +1,19 @@
+-- Calendar rules: fire only on events that haven't happened yet (2026-08-26).
+--
+-- The rule window's timeMin is "now", and the Calendar API filters that against
+-- an event's END. So a flight running 09:00-11:00 is still returned at 10:00,
+-- an all-day event is returned at 11pm on the day it covers, and a flight added
+-- to the calendar retroactively -- logging one that already happened -- fires
+-- its follow-up task as though it were upcoming.
+--
+-- Sometimes that is exactly right: "log the flight hours" is MORE relevant once
+-- the flight has happened. So this is opt-in per rule, and off leaves the
+-- behaviour that shipped in migration 055 untouched.
+--
+-- It gates FIRING, not MATCHING, and that distinction is load-bearing.
+-- matchEvent() is pure and has no clock, and the suppression query is built on
+-- it. Folding "is it future" into matching would un-suppress an event the
+-- moment it started -- putting the flight a rule was written to REPLACE into
+-- the task list halfway through the flight. So matching stays clock-free and
+-- only the three paths that create or reserve a task consult the clock.
+ALTER TABLE gcal_rules ADD COLUMN future_only INTEGER NOT NULL DEFAULT 0;
