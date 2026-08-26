@@ -384,3 +384,48 @@ test('on_repeat survives a round-trip through the database', () => {
   assert.equal(db.getGCalRule(rule.id).on_repeat, 'update')
   assert.equal(db.listGCalRules().find(r => r.id === rule.id).on_repeat, 'update')
 })
+
+// --- what the counts actually mean -----------------------------------------
+//
+// Reported as: with "reuse the one task" on, applying to eight events said
+// "created 8 tasks" after making one. Events handled, tasks created and events
+// folded into an existing task are three different numbers.
+
+test('stack mode: every event handled is a task created', async () => {
+  const rule = saveRule({ template: { title: 'Counted stack', due_offset_days: 0 } })
+  calendar = [timedFlight('evt-count-s1', 24), timedFlight('evt-count-s2', 48)]
+  await engine.baselineRule(db.getGCalRule(rule.id))
+  const r = await engine.applyRuleToExisting(rule.id)
+  assert.deepEqual({ handled: r.handled, created: r.created, absorbed: r.absorbed }, { handled: 2, created: 1 + 1, absorbed: 0 })
+  assert.equal(titled('Counted stack').length, 2)
+})
+
+test('update mode: many events handled, ONE task created, the rest folded', async () => {
+  const rule = saveRule({ on_repeat: 'update', template: { title: 'Counted reuse', due_offset_days: 0 } })
+  calendar = [
+    timedFlight('evt-count-u1', 24),
+    timedFlight('evt-count-u2', 48),
+    timedFlight('evt-count-u3', 72),
+  ]
+  await engine.baselineRule(db.getGCalRule(rule.id))
+  const r = await engine.applyRuleToExisting(rule.id)
+
+  assert.equal(r.handled, 3, 'three events were dealt with')
+  assert.equal(r.created, 1, 'but only one task exists')
+  assert.equal(r.absorbed, 2, 'and two were folded into it')
+  assert.equal(titled('Counted reuse').length, 1, 'the count matches reality')
+})
+
+test('the poll keeps the same three numbers consistent', async () => {
+  saveRule({ on_repeat: 'update', template: { title: 'Counted poll', due_offset_days: 0 } })
+  calendar = [timedFlight('evt-count-p1', 24), timedFlight('evt-count-p2', 48)]
+  const r = await engine.runCalendarRules('manual')
+
+  // The poll runs EVERY enabled rule, and this database has accumulated a
+  // pile of them, so the absolute totals belong to the whole run. What must
+  // hold regardless is the arithmetic that was wrong before: every event
+  // handled either created a task or was folded into one.
+  assert.equal(r.handled, r.created + r.absorbed)
+  assert.ok(r.absorbed >= 1, 'the two events for this rule cannot both have created a task')
+  assert.equal(titled('Counted poll').length, 1, 'two events, one task')
+})
