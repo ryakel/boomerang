@@ -6,7 +6,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs'
-import { clearAllData, setData, upsertTask, upsertRoutine, bumpVersion, flushNow } from './db.js'
+import { clearAllData, setData, upsertTask, upsertRoutine, bumpVersion, flushNow, clearGCalRuleFires } from './db.js'
 
 function loadSeedData() {
   // SEED_FILE points the seeder at a different dataset. The one that exists
@@ -119,6 +119,13 @@ export async function seedDatabase() {
   makeSeedCurrent(data)
 
   clearAllData()
+  // The reseed just deleted every task a calendar rule had created, so its
+  // fire ledger now points at nothing. Clearing it lets those tasks come back
+  // on the next poll — without this, a rule looks permanently dead on dev,
+  // which is the one server where anyone tests it. Deliberately here rather
+  // than inside clearAllData(): this reset is hard-gated to dev, and the rules
+  // themselves (like lists) are never touched.
+  clearGCalRuleFires()
   for (const task of data.tasks) upsertTask(task)
   for (const routine of data.routines) upsertRoutine(routine)
   setData('settings', data.settings)

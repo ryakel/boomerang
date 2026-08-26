@@ -1127,6 +1127,74 @@ export async function gcalListEvents(timeMin, timeMax, calendarId) {
   return res.json()
 }
 
+// --- Calendar event rules ---
+// "When an event like this shows up, make me this task." The rules live on the
+// server and fire there; these are the editor's hands.
+
+export async function gcalListRules() {
+  const res = await fetch('/api/gcal/rules', { headers: getApiHeaders() })
+  if (!res.ok) throw new Error('Failed to load calendar rules')
+  return res.json()
+}
+
+// Create or update. The server validates and reports a readable reason — pass
+// it straight to the user rather than a generic failure.
+export async function gcalSaveRule(rule) {
+  const res = await fetch('/api/gcal/rules', {
+    method: 'POST',
+    headers: { ...getApiHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(rule),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error || 'Failed to save calendar rule')
+  return body
+}
+
+export async function gcalDeleteRule(id) {
+  const res = await fetch(`/api/gcal/rules/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: getApiHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to delete calendar rule')
+  return res.json()
+}
+
+export async function gcalPreviewRule(rule) {
+  const res = await fetch('/api/gcal/rules/preview', {
+    method: 'POST',
+    headers: { ...getApiHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(rule),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error || 'Failed to test calendar rule')
+  return body
+}
+
+export async function gcalApplyRule(id) {
+  const res = await fetch(`/api/gcal/rules/${encodeURIComponent(id)}/apply`, {
+    method: 'POST',
+    headers: getApiHeaders(),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error || 'Failed to apply calendar rule')
+  return body
+}
+
+// Which of these events a suppressing rule has claimed, so the pull sync
+// doesn't also import them as tasks of themselves. Asked per pull rather than
+// cached: the answer depends on the current rules, and a stale copy would
+// import the very event a rule was written to replace.
+export async function gcalSuppressedEventIds(events) {
+  const res = await fetch('/api/gcal/rules/suppressed', {
+    method: 'POST',
+    headers: { ...getApiHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ events }),
+  })
+  if (!res.ok) throw new Error('Failed to check calendar rule suppression')
+  const body = await res.json()
+  return Array.isArray(body.suppressed) ? body.suppressed : []
+}
+
 // --- Gmail API ---
 
 export async function gmailGetAuthUrl() {

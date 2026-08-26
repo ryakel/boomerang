@@ -496,10 +496,49 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 - `gcal_event_buffer` — add 15-min buffer on either side of timed events (default: false)
 - `gcal_pull_enabled` — pull calendar events as tasks
 
+**Event Rules** (`server/calendarRules.js` pure, `server/calendarRuleEngine.js` impure, migration 055):
+
+Distinct from pull sync, and the distinction is the point. Pull sync turns an event into a task OF ITSELF; a rule creates work the event IMPLIES but does not contain — a flight means the budget spreadsheet needs updating, and that task is nowhere on the calendar.
+
+A rule is conditions (ANDed) plus a task template:
+
+| Piece | Values |
+|---|---|
+| Condition fields | `title`, `location`, `description`, `attendees`, `organizer`, `timing` |
+| Condition ops | `contains`, `not_contains`, `equals`, `matches` (regex, case-insensitive), `is` (timing only) |
+| Template | `title`, `notes`, `due_offset_days`, `tags`, `size`, `high_priority`, `nag_allowed` |
+| Placeholders | `{{event.title}}`, `{{event.date}}`, `{{event.time}}`, `{{event.location}}`, `{{event.description}}`, `{{match.N}}` |
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/gcal/rules` | List rules, each with its baselined count |
+| `POST /api/gcal/rules` | Create or update — **baselines**, never backfills |
+| `DELETE /api/gcal/rules/:id` | Delete rule and its fire ledger |
+| `POST /api/gcal/rules/preview` | The tester: what would this rule do, marking nothing |
+| `POST /api/gcal/rules/:id/apply` | Create tasks for the events the baseline is holding |
+| `POST /api/gcal/rules/run` | Manual poll |
+| `POST /api/gcal/rules/suppressed` | Which of these events a suppressing rule claims |
+
+Server poll every 15 minutes, 30-day window (same horizon as pull sync so both see the same calendar). Not muzzled on dev — it writes to its own database rather than sending anything, and dev is the only surface where it can be tested against a real calendar.
+
+**The five things that will bite whoever changes this:**
+
+1. **A rule-created task must never carry `gcal_event_id`.** That column means "this task owns that event": push sync deletes the event on completion and the dedupe path deletes it outright. A budget task inheriting it would delete the real flight. The source-event link lives in the fire ledger, where nothing acts on it. `calendarRuleEngine.test.mjs` asserts the field is null.
+2. **The fire ledger keys on the event INSTANCE id, not `recurringEventId`.** Pull sync collapses a series deliberately (one task per meeting); rules want the opposite — a weekly flight is a weekly budget update.
+3. **Saving baselines, it never backfills** — `task_id IS NULL` in `gcal_rule_fires` means "matched at save time, deliberately created nothing". Without this a slightly-too-broad rule empties a month of calendar into Today on the first poll, and getting a new rule slightly wrong is the normal case. If the calendar can't be read while baselining, the rule saves **disabled** with the reason: baselining zero events on a failed fetch hands the next poll everything.
+4. **Suppression is a QUERY over the rules, not a ledger lookup.** The poller and the client pull run on different clocks — open the app a minute before the poll and a ledger answer says "not suppressed" and imports the flight anyway. Asked of the rules, the answer is identical whichever runs first. A failed suppression check **skips that pull entirely** rather than importing everything (`useGCalSync.js`), for the same reason the Notion exclusion sets load strictly.
+5. **Matching is deterministic, permanently.** Rules run against every event on every poll, so an AI condition would bill per event forever and make "why did this fire?" unanswerable. AI belongs at authoring time — it writes rules, it never evaluates them. A user-authored regex is capped at 200 chars against a 2000-char haystack (it runs inside the poll loop), validated at save time, and fails closed at match time if it somehow doesn't compile: firing on everything because a regex broke is worse than not firing.
+
+Rule-created tasks go **straight to the list**, not through Review — the user authored the rule and its exact title, so this is a routine spawn, not the mining the Review flow exists to contain.
+
+The dev reseed clears the fire ledger (explicitly in `seed.js`, never inside `clearAllData()`): a reseed wipes the tasks a rule created, and leaving the fires behind makes the rule look permanently dead on the one server where it gets tested. The rules themselves are never cleared.
+
 **Known Limitations:**
 - OAuth requires user to create a Google Cloud project (no centralized consent screen)
 - Redirect URI must match exactly (localhost:3001 prod, localhost:3002 dev)
 - Pull sync only looks 30 days ahead
+- Rules fire when an event enters the 30-day window, which can be weeks before the event; the derived task's due date is what governs when it surfaces. A per-rule "only fire within N days of the event" lead time is a follow-up.
+- A triggering event that is cancelled or moved after its task exists leaves that task alone — open question, deliberately not a silent delete
 - Recurring event support: routine-spawned tasks create recurring events with RRULE (#10 — DONE)
 - AI time inference requires Anthropic API key; falls back to defaults without it
 
