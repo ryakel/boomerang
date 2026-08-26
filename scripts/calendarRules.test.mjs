@@ -393,3 +393,97 @@ test('evaluateCondition is the single per-condition judgement', () => {
   assert.equal(evaluateCondition({ field: 'title', op: 'contains', value: 'N5274S' }, flight()).matched, true)
   assert.equal(evaluateCondition({ field: 'title', op: 'nonsense', value: 'x' }, flight()).matched, false)
 })
+
+// --- a real event, verbatim from the Calendar API --------------------------
+//
+// The Sep 1 booking, copied field-for-field out of a live
+// GET /calendars/rkelch@gmail.com/events response (2026-08-26) rather than
+// retyped. It exists because a rule reading `Title contains N5274S` reported
+// "scanned 5 events - 0 matches" while nine events like this one sat in the
+// window: the matcher was never the problem, the calendar being read was. This
+// fixture is what makes that claim checkable instead of asserted.
+//
+// Note the description: FlightCircle writes a raw HTML anchor, not text. Worth
+// knowing before anyone writes a rule that matches on description.
+const realFlight = () => ({
+  id: '6642f81778030c02a7cc027a12b8de8b85b068b4',
+  summary: 'Ryan Kelch in N5274S with Marty Kemp',
+  location: "Hap's Air Service 2508 Airport Dr, Ames, IA, 50010",
+  description: "<a href='https://www.flightcircle.com/v1/#/schedule?action=edit&id=52e72b758cca5b30d379f4b630ee63b0d33fb1b5'>Tap here to update your reservation</a>",
+  status: 'confirmed',
+  start: { dateTime: '2026-09-01T09:00:00-05:00', timeZone: 'America/Chicago' },
+  end: { dateTime: '2026-09-01T11:00:00-05:00', timeZone: 'America/Chicago' },
+  organizer: { email: 'rkelch@gmail.com', displayName: '' },
+  attendees: [],
+  recurringEventId: null,
+  calendarId: 'rkelch@gmail.com',
+})
+
+test("the reported rule — Title contains N5274S — matches the real event", () => {
+  const r = normalizeRule({
+    name: 'Update Flight Budget',
+    conditions: [{ field: 'title', op: 'contains', value: 'N5274S' }],
+    template: { title: 'Update flight budget sheet with actuals', due_offset_days: 1 },
+  })
+  assert.equal(matchEvent({ ...r, enabled: true }, realFlight()).matched, true)
+})
+
+test('and produces the task that was configured, due the day after the flight', () => {
+  const r = normalizeRule({
+    name: 'Update Flight Budget',
+    conditions: [{ field: 'title', op: 'contains', value: 'N5274S' }],
+    template: {
+      title: 'Update flight budget sheet with actuals',
+      notes: 'http://drive.google.com/something',
+      due_offset_days: 1,
+      size: 'S',
+      high_priority: true,
+    },
+  })
+  const { captures } = matchEvent({ ...r, enabled: true }, realFlight())
+  const task = buildTaskFromRule(r, realFlight(), { id: 't1', now: '2026-08-26T12:00:00Z', captures })
+  assert.equal(task.title, 'Update flight budget sheet with actuals')
+  assert.equal(task.due_date, '2026-09-02', 'the flight is Sep 1; +1 day')
+  assert.equal(task.size, 'S')
+  assert.equal(task.high_priority, true)
+  assert.equal(task.gcal_event_id, undefined, 'still never owns the calendar event')
+})
+
+test('it is upcoming, so a future_only rule fires on it', () => {
+  assert.equal(eventIsUpcoming(realFlight(), { now: '2026-08-26T12:00:00Z', todayYmd: '2026-08-26' }), true)
+})
+
+test('the tail number can be captured out of the real title', () => {
+  const r = rule({ conditions: [{ field: 'title', op: 'matches', value: 'N(\\d{4}[A-Z])' }] })
+  const m = matchEvent(r, realFlight())
+  assert.deepEqual(m.captures, ['5274S'])
+  assert.equal(renderTemplate('Log {{match.1}} — {{event.date}}', realFlight(), m.captures), 'Log 5274S — 2026-09-01')
+})
+
+test('an OR group over two tail numbers matches it, and location narrows it', () => {
+  const r = normalizeRule({
+    name: 'Either aircraft, at Haps',
+    conditions: [
+      { field: 'title', op: 'contains', value: 'N5274S', group: 0 },
+      { field: 'title', op: 'contains', value: 'N12345', group: 0 },
+      { field: 'location', op: 'contains', value: "Hap's Air Service", group: 1 },
+    ],
+    template: { title: 'Update budget', due_offset_days: 1 },
+  })
+  assert.equal(matchEvent({ ...r, enabled: true }, realFlight()).matched, true)
+  assert.equal(
+    matchEvent({ ...r, enabled: true }, { ...realFlight(), location: 'Des Moines Flying Service' }).matched,
+    false,
+    'the location group still has to match',
+  )
+})
+
+test("a rule pinned to a DIFFERENT calendar does not match it — the reported failure, reproduced", () => {
+  // What the user was actually hitting: right conditions, wrong calendar.
+  const r = rule({
+    calendar_id: 'ryan@kelch.dev',
+    conditions: [{ field: 'title', op: 'contains', value: 'N5274S' }],
+  })
+  assert.equal(matchEvent(r, realFlight()).matched, false)
+  assert.equal(matchEvent({ ...r, calendar_id: 'rkelch@gmail.com' }, realFlight()).matched, true)
+})
