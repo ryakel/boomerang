@@ -2933,11 +2933,12 @@ function ruleRowToRule(v) {
     updated_at: v[8],
     last_fired_at: v[9] || null,
     future_only: !!v[10],
+    on_repeat: v[11] || 'stack',
   }
 }
 
 const RULE_COLUMNS = `id, name, enabled, calendar_id, conditions_json, template_json,
-  suppress_event_import, created_at, updated_at, last_fired_at, future_only`
+  suppress_event_import, created_at, updated_at, last_fired_at, future_only, on_repeat`
 
 export function listGCalRules() {
   const res = db.exec(`SELECT ${RULE_COLUMNS} FROM gcal_rules ORDER BY created_at`)
@@ -2955,19 +2956,19 @@ export function upsertGCalRule(rule) {
   const now = new Date().toISOString()
   db.run(
     `INSERT INTO gcal_rules (${RULE_COLUMNS})
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name=excluded.name, enabled=excluded.enabled, calendar_id=excluded.calendar_id,
        conditions_json=excluded.conditions_json, template_json=excluded.template_json,
        suppress_event_import=excluded.suppress_event_import,
-       future_only=excluded.future_only,
+       future_only=excluded.future_only, on_repeat=excluded.on_repeat,
        updated_at=excluded.updated_at`,
     [
       String(rule.id), rule.name, rule.enabled ? 1 : 0, rule.calendar_id || null,
       JSON.stringify(rule.conditions || []), JSON.stringify(rule.template || {}),
       rule.suppress_event_import ? 1 : 0,
       rule.created_at || now, now, rule.last_fired_at || null,
-      rule.future_only ? 1 : 0,
+      rule.future_only ? 1 : 0, rule.on_repeat || 'stack',
     ],
   )
   schedulePersist()
@@ -3015,6 +3016,30 @@ export function markGCalRuleFired(ruleId, eventId, taskId = null, eventTitle = n
 export function countGCalRuleBaselined(ruleId) {
   const res = db.exec('SELECT COUNT(*) FROM gcal_rule_fires WHERE rule_id = ? AND task_id IS NULL', [String(ruleId)])
   return res[0]?.values?.[0]?.[0] || 0
+}
+
+// The task this rule made that is still open, most recent first — what a
+// repeat firing reuses when the rule is set to 'update'.
+//
+// A done/cancelled task is deliberately invisible here: if last month's budget
+// update is finished, the next flight gets a FRESH task rather than reopening
+// history. Same status predicate as findActiveSpawnTwin, so "still live" means
+// one thing across the app. A deleted task drops out via the join, so deleting
+// the shared task doesn't permanently disable the rule — the next firing just
+// starts a new one.
+export function findLiveGCalRuleTask(ruleId) {
+  if (!ruleId) return null
+  const stmt = db.prepare(
+    `SELECT f.task_id AS id FROM gcal_rule_fires f
+     JOIN tasks t ON t.id = f.task_id
+     WHERE f.rule_id = ? AND t.status NOT IN ('done', 'completed', 'cancelled')
+     ORDER BY f.fired_at DESC
+     LIMIT 1`,
+  )
+  stmt.bind([String(ruleId)])
+  const id = stmt.step() ? stmt.getAsObject().id : null
+  stmt.free()
+  return id || null
 }
 
 // Dev-seed only, called explicitly from seed.js rather than folded into

@@ -1,0 +1,28 @@
+-- Calendar rules: what a repeat firing does (2026-08-26).
+--
+-- Rules fire per event INSTANCE, deliberately -- a weekly flight is a weekly
+-- budget update (migration 055). But for work that is the SAME work every time,
+-- that produces four identical "Update the flight budget spreadsheet" cards by
+-- the end of the month, three of which are noise.
+--
+--   'stack'  (default) a new task per event -- the behaviour that shipped
+--   'update' reuse the task this rule already made, if one is still open
+--
+-- What 'update' touches is deliberately almost nothing: the due date, and one
+-- appended line of notes saying which event moved it. Title, status, the notes
+-- the user wrote, subtasks and everything else survive, because a background
+-- sweep rewriting the user's own words is the Notion-analyzer mistake wearing a
+-- different hat. It also does NOT touch last_touched: the user has not touched
+-- this task, and letting a rule refresh that would hide a task going stale
+-- behind a date the machine kept moving.
+--
+-- The due date can only be pulled EARLIER, never pushed out. Taking the newest
+-- event's date would walk the task to the far edge of the 30-day window every
+-- time a new flight appeared, so it would never come due and never surface --
+-- a silent deferral, which this codebase already refuses to express anywhere
+-- else (see resume_at, migration 054). The task is due for the SOONEST event it
+-- covers.
+--
+-- A completed task never blocks: if last month's budget update is done, the
+-- next flight gets a fresh task rather than reopening history.
+ALTER TABLE gcal_rules ADD COLUMN on_repeat TEXT NOT NULL DEFAULT 'stack';

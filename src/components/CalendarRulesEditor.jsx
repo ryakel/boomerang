@@ -35,6 +35,7 @@ const emptyRule = () => ({
   template: { title: '', notes: '', due_offset_days: 0, tags: [], size: null, high_priority: false, nag_allowed: false },
   suppress_event_import: false,
   future_only: false,
+  on_repeat: 'stack',
 })
 
 function describeCondition(c) {
@@ -184,6 +185,7 @@ export default function CalendarRulesEditor() {
           <div className="v2-integrations-hint">
             {rule.conditions.map(describeCondition).join(' and ')} → “{rule.template.title}”, {describeDue(rule.template.due_offset_days)}
             {rule.future_only ? ' · upcoming events only' : ''}
+            {rule.on_repeat === 'update' ? ' · reuses one task' : ''}
             {rule.suppress_event_import ? ' · event not imported' : ''}
           </div>
           <div className="v2-integrations-actions">
@@ -299,6 +301,20 @@ export default function CalendarRulesEditor() {
             <span>Allow reminders to nag</span>
             <Toggle checked={draft.template.nag_allowed} onChange={e => editTemplate({ nag_allowed: e.target.checked })} />
           </div>
+          <div className="v2-integrations-toggle-row">
+            <span>Reuse the one task instead of adding another</span>
+            <Toggle
+              checked={draft.on_repeat === 'update'}
+              onChange={e => editDraft({ on_repeat: e.target.checked ? 'update' : 'stack' })}
+            />
+          </div>
+          {draft.on_repeat === 'update' && (
+            <div className="v2-integrations-hint">
+              A repeat rolls the existing task’s due date to the soonest event it covers and notes
+              which one — your title, notes and progress are left alone. Once you finish it, the next
+              event starts a fresh task.
+            </div>
+          )}
           <div className="v2-integrations-toggle-row">
             <span>Only events that haven’t started yet</span>
             <Toggle checked={draft.future_only} onChange={e => editDraft({ future_only: e.target.checked })} />

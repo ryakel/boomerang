@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { normalizeRule } from '../server/calendarRules.js'
+import { normalizeRule, shiftDate } from '../server/calendarRules.js'
 import { ymdInTz, DEFAULT_TIMEZONE } from '../server/taskModel.js'
 
 const dir = mkdtempSync(join(tmpdir(), 'boom-calrules-'))
@@ -198,6 +198,10 @@ const timedFlight = (id, hours) => ({
 
 const titled = (title) => rulesTasks().filter(t => t.title === title)
 
+// The due date a +1-day rule produces for an event `hours` from now, read the
+// way the engine reads it: the event's own date, then shifted.
+const dueFor = (hours) => shiftDate(hoursFromNow(hours).split('T')[0], 1)
+
 test('a future_only rule does not fire on an event already under way', async () => {
   const rule = saveRule({ future_only: true, template: { title: 'Future-only budget', due_offset_days: 1 } })
   // Under way: started an hour ago, ends in an hour. The Calendar API still
@@ -259,4 +263,124 @@ test('future_only survives a round-trip through the database', () => {
   const rule = saveRule({ future_only: true, template: { title: 'Round trip', due_offset_days: 0 } })
   assert.equal(db.getGCalRule(rule.id).future_only, true)
   assert.equal(db.listGCalRules().find(r => r.id === rule.id).future_only, true)
+})
+
+// --- stack vs update -------------------------------------------------------
+
+test('stack (the default) gives every event its own task', async () => {
+  const rule = saveRule({ template: { title: 'Stacked budget', due_offset_days: 1 } })
+  calendar = [timedFlight('evt-stack-1', 24), timedFlight('evt-stack-2', 192)]
+  await engine.applyRuleToExisting(rule.id) // nothing baselined yet
+  await engine.runCalendarRules('manual')
+  assert.equal(titled('Stacked budget').length, 2)
+})
+
+test('update folds the second event into the first task instead of adding a card', async () => {
+  const rule = saveRule({ on_repeat: 'update', template: { title: 'One budget task', due_offset_days: 1 } })
+  calendar = [timedFlight('evt-upd-1', 24)]
+  await engine.runCalendarRules('manual')
+  assert.equal(titled('One budget task').length, 1)
+  const first = titled('One budget task')[0]
+
+  calendar = [...calendar, timedFlight('evt-upd-2', 192)]
+  await engine.runCalendarRules('manual')
+  const tasks = titled('One budget task')
+  assert.equal(tasks.length, 1, 'still one card')
+  assert.equal(tasks[0].id, first.id, 'the same card')
+  assert.equal(db.getGCalRuleFires(rule.id).get('evt-upd-2'), first.id,
+    'the ledger records the second event as handled, by that task')
+})
+
+test('a later event does not push the due date out', () => {
+  // evt-upd-1 is a day out, evt-upd-2 eight days out, +1 day offset on each. The
+  // task must still be due for the SOONER one — otherwise every new flight walks
+  // it to the far edge of the window and it never comes due at all.
+  const task = titled('One budget task')[0]
+  assert.equal(task.due_date, dueFor(24), `due ${task.due_date} drifted off the nearer event`)
+})
+
+test('a SOONER event pulls the due date in, and stamps why', async () => {
+  saveRule({ on_repeat: 'update', template: { title: 'Pulled-in budget', due_offset_days: 1 } })
+  calendar = [timedFlight('evt-pull-far', 192)]
+  await engine.runCalendarRules('manual')
+  const task = titled('Pulled-in budget')[0]
+  assert.equal(task.due_date, dueFor(192))
+
+  calendar = [...calendar, timedFlight('evt-pull-near', 24)]
+  await engine.runCalendarRules('manual')
+
+  const after = db.getTask(task.id)
+  assert.equal(after.due_date, dueFor(24), 'pulled in to the nearer flight')
+  // Provenance on the row: "did I set this date or did the system?" has to stay
+  // answerable without the rule that moved it.
+  assert.match(after.due_shifted_reason, /calendar rule "Flight rule/)
+  assert.equal(after.due_date_original, dueFor(192), 'the pre-shift date is preserved')
+  assert.ok(after.due_shifted_at)
+})
+
+test('update leaves the title, status and the user’s own notes alone', async () => {
+  saveRule({ on_repeat: 'update', template: { title: 'Editable budget', due_offset_days: 1 } })
+  calendar = [timedFlight('evt-edit-1', 24)]
+  await engine.runCalendarRules('manual')
+  const created = titled('Editable budget')[0]
+
+  // The user renames it, starts it, and writes their own notes.
+  db.updateTaskPartial(created.id, {
+    title: 'Budget spreadsheet — Q3 tab',
+    status: 'doing',
+    notes: 'Ask Marty for the Hobbs reading first',
+  })
+
+  calendar = [...calendar, timedFlight('evt-edit-2', 192)]
+  await engine.runCalendarRules('manual')
+
+  const after = db.getTask(created.id)
+  assert.equal(after.title, 'Budget spreadsheet — Q3 tab', 'the rule does not rewrite the user’s title')
+  assert.equal(after.status, 'doing', 'and does not reset progress')
+  assert.match(after.notes, /Ask Marty for the Hobbs reading first/, 'the user’s notes survive')
+  assert.match(after.notes, /Also covers:/, 'with the absorbed event appended, so the date move is explicable')
+})
+
+test('update does NOT refresh last_touched — a rule must not hide a task going stale', async () => {
+  saveRule({ on_repeat: 'update', template: { title: 'Stale-proof budget', due_offset_days: 1 } })
+  calendar = [timedFlight('evt-stale-1', 24)]
+  await engine.runCalendarRules('manual')
+  const created = titled('Stale-proof budget')[0]
+  db.updateTaskPartial(created.id, { last_touched: '2026-01-01T00:00:00Z' })
+
+  calendar = [...calendar, timedFlight('evt-stale-2', 192)]
+  await engine.runCalendarRules('manual')
+  assert.equal(db.getTask(created.id).last_touched, '2026-01-01T00:00:00Z')
+})
+
+test('once the task is done, the next event starts a fresh one rather than reopening it', async () => {
+  saveRule({ on_repeat: 'update', template: { title: 'Recurring budget', due_offset_days: 1 } })
+  calendar = [timedFlight('evt-done-1', 24)]
+  await engine.runCalendarRules('manual')
+  const first = titled('Recurring budget')[0]
+  db.updateTaskPartial(first.id, { status: 'done', completed_at: new Date().toISOString() })
+
+  calendar = [...calendar, timedFlight('evt-done-2', 192)]
+  await engine.runCalendarRules('manual')
+  const live = db.getAllTasks().filter(t => t.title === 'Recurring budget' && t.status !== 'done')
+  assert.equal(live.length, 1, 'a new task, not a resurrected one')
+  assert.equal(db.getTask(first.id).status, 'done', 'the finished one stays finished')
+})
+
+test('deleting the shared task does not disable the rule', async () => {
+  saveRule({ on_repeat: 'update', template: { title: 'Deletable budget', due_offset_days: 1 } })
+  calendar = [timedFlight('evt-del-1', 24)]
+  await engine.runCalendarRules('manual')
+  const created = titled('Deletable budget')[0]
+  db.deleteTask(created.id)
+
+  calendar = [...calendar, timedFlight('evt-del-2', 192)]
+  await engine.runCalendarRules('manual')
+  assert.equal(titled('Deletable budget').length, 1, 'the next event starts a new one')
+})
+
+test('on_repeat survives a round-trip through the database', () => {
+  const rule = saveRule({ on_repeat: 'update', template: { title: 'Round trip repeat', due_offset_days: 0 } })
+  assert.equal(db.getGCalRule(rule.id).on_repeat, 'update')
+  assert.equal(db.listGCalRules().find(r => r.id === rule.id).on_repeat, 'update')
 })
