@@ -206,9 +206,15 @@ export default function CalendarRulesEditor() {
   const handleApply = async (rule) => {
     setBusy(true); setError(null)
     try {
-      const { created } = await gcalApplyRule(rule.id)
+      const { handled, created, absorbed } = await gcalApplyRule(rule.id)
       await reload()
-      setNotice(`Created ${created} task${created === 1 ? '' : 's'} from events already on your calendar.`)
+      // Say what was MADE, not how many events were walked. With "reuse the one
+      // task" on, eight events produce one task, and reporting eight reads as
+      // seven tasks having gone missing.
+      const events = `${handled} event${handled === 1 ? '' : 's'}`
+      setNotice(absorbed
+        ? `${events} handled — ${created} task${created === 1 ? '' : 's'} created, ${absorbed} folded into it.`
+        : `${events} handled — ${created} task${created === 1 ? '' : 's'} created.`)
     } catch (err) {
       setError(err.message)
     } finally {

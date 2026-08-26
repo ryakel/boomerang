@@ -168,7 +168,9 @@ export async function runCalendarRules(reason = 'scheduled') {
   try {
     const byCalendar = await fetchCalendars(rules, windowRange())
     const clock = readClock()
+    let handled = 0
     let created = 0
+    let absorbed = 0
 
     for (const rule of rules) {
       const events = byCalendar.get(calendarFor(rule))
@@ -183,21 +185,23 @@ export async function runCalendarRules(reason = 'scheduled') {
         // past event can never become fireable, and an event MOVED into the
         // future should fire when it gets there.
         if (!firesOn(rule, event, clock)) continue
-        const { task, absorbed } = realizeTask(rule, event, captures, clock)
-        markGCalRuleFired(rule.id, event.id, task.id, event.summary || null)
-        created++
-        console.log(`[CalRules] "${rule.name}" fired on "${event.summary}" → ${absorbed ? 'folded into' : 'created'} "${task.title}"${task.due_date ? ` (due ${task.due_date})` : ''}`)
+        const result = realizeTask(rule, event, captures, clock)
+        markGCalRuleFired(rule.id, event.id, result.task.id, event.summary || null)
+        handled++
+        if (result.absorbed) absorbed++
+        else created++
+        console.log(`[CalRules] "${rule.name}" fired on "${event.summary}" → ${result.absorbed ? 'folded into' : 'created'} "${result.task.title}"${result.task.due_date ? ` (due ${result.task.due_date})` : ''}`)
       }
     }
 
-    if (created > 0) {
+    if (handled > 0) {
       const version = bumpVersion()
       deps.broadcast?.(version, null)
     }
-    if (created > 0 || reason === 'manual') {
-      console.log(`[CalRules] ${reason} run: ${created} task(s) created from ${rules.length} rule(s)`)
+    if (handled > 0 || reason === 'manual') {
+      console.log(`[CalRules] ${reason} run: ${created} task(s) created${absorbed ? `, ${absorbed} folded into an existing task` : ''} from ${rules.length} rule(s)`)
     }
-    return { created, rules: rules.length }
+    return { handled, created, absorbed, rules: rules.length }
   } finally {
     running = false
   }
@@ -309,22 +313,30 @@ export async function applyRuleToExisting(ruleId) {
   const fires = getGCalRuleFires(rule.id)
 
   const clock = readClock()
+  // Events handled, tasks CREATED and events FOLDED into an existing task are
+  // three different numbers, and they only coincide when on_repeat is 'stack'.
+  // Counting events and calling them tasks told the user "created 8 tasks"
+  // after making one, which reads as seven tasks having gone missing.
+  let handled = 0
   let created = 0
+  let absorbed = 0
   for (const event of events || []) {
     if (!fires.has(event.id) || fires.get(event.id) != null) continue
     const { matched, captures } = matchEvent(rule, event)
     if (!matched) continue
     if (!firesOn(rule, event, clock)) continue
-    const { task } = realizeTask(rule, event, captures, clock)
-    markGCalRuleFired(rule.id, event.id, task.id, event.summary || null)
-    created++
+    const result = realizeTask(rule, event, captures, clock)
+    markGCalRuleFired(rule.id, event.id, result.task.id, event.summary || null)
+    handled++
+    if (result.absorbed) absorbed++
+    else created++
   }
-  if (created > 0) {
+  if (handled > 0) {
     const version = bumpVersion()
     deps.broadcast?.(version, null)
-    console.log(`[CalRules] "${rule.name}" applied to ${created} existing event(s)`)
+    console.log(`[CalRules] "${rule.name}" applied to ${handled} existing event(s): ${created} task(s) created${absorbed ? `, ${absorbed} folded into an existing task` : ''}`)
   }
-  return { created }
+  return { handled, created, absorbed }
 }
 
 // --- suppression -----------------------------------------------------------

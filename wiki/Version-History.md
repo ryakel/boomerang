@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-08-26
 
+- fix(gcal): apply-to-existing counted events and called them tasks [S]
+  - With **"reuse the one task"** on, applying a rule to eight already-baselined flights reported *"Created 8 tasks"* after creating **one** — the other seven were folded into it. Reads as seven tasks having gone missing.
+  - Both `applyRuleToExisting` and the poll incremented a single `created` counter once per **event**, whatever `realizeTask` actually did. `realizeTask` has always returned `absorbed`; the counter just ignored it. The data was never wrong — only the number reported.
+  - Three numbers now, because they only coincide when `on_repeat` is `stack`: **`handled`** (events dealt with), **`created`** (tasks that now exist), **`absorbed`** (events folded into an existing task). The editor says *"3 events handled — 1 task created, 2 folded into it"*, and the server log line matches.
+  - 3 new tests. The poll one asserts `handled === created + absorbed` rather than absolute totals: the poll runs every enabled rule, so in a database that has accumulated rules the totals belong to the whole run, not to the rule under test. Written the naive way first, where it failed at 26 ≠ 1 — the invariant is what actually holds.
+  - `npm test` 478/478 + smoke, eslint 0 errors, `npm audit` 0 vulnerabilities. Web only — **no rebuild** (OTA), no migration.
+
 - fix(gcal): the calendar picker was showing one calendar while every sync read another [M]
   - *"Connected, but it doesn't seem to be picking up events."* A rule matching `Title contains N5274S` tested as **"Scanned 5 events in the next 30 days · 0 matches"** — against a calendar holding **nine** events titled exactly `Ryan Kelch in N5274S with Marty Kemp` in that window.
   - **The rule was fine. The picker was lying.** `SettingsModal`'s calendar `<select>` rendered its `Primary` option only *while the calendar list was empty*. Once the list loaded there was no option carrying that value, so a stored `gcal_calendar_id` of `'primary'` — i.e. never explicitly chosen — matched nothing and the browser fell back to displaying the FIRST calendar. No `onChange` ever fired, so nothing was written: the control showed `rkelch@gmail.com` while the server resolved `'primary'` against whichever account Boomerang is authenticated as. Measured: that account's calendars hold 29 / 0 / 0 / 1 events in the window; Boomerang scanned 5, so it was reading none of them.
