@@ -78,7 +78,12 @@ async function fetchCalendars(rules, range) {
     const cal = calendarFor(rule)
     if (byCalendar.has(cal)) continue
     try {
-      byCalendar.set(cal, await deps.listEvents(cal, range.timeMin, range.timeMax))
+      const events = await deps.listEvents(cal, range.timeMin, range.timeMax)
+      byCalendar.set(cal, events)
+      // Which calendar, and how many came back. A rule that matches nothing
+      // because it is pointed at the wrong calendar is otherwise
+      // indistinguishable from a rule whose conditions are wrong.
+      console.log(`[CalRules] read ${events.length} event(s) from ${cal}`)
     } catch (err) {
       console.error(`[CalRules] could not read calendar ${cal}: ${err.message}`)
     }
@@ -276,7 +281,17 @@ export async function previewRule(rule) {
       task: { title: task.title, due_date: task.due_date, notes: task.notes },
     })
   }
-  return { window_days: WINDOW_DAYS, scanned: (events || []).length, matches }
+  // calendar_id is reported so the tester can SAY which calendar it read.
+  // Without it, "scanned 5 events · 0 matches" cannot distinguish a wrong
+  // condition from a wrong calendar, which is the failure that actually
+  // happens (2026-08-26: a Settings picker displaying one calendar while the
+  // stored value said 'primary').
+  return {
+    window_days: WINDOW_DAYS,
+    calendar_id: calendarFor(rule),
+    scanned: (events || []).length,
+    matches,
+  }
 }
 
 // --- applying to what is already on the calendar ---------------------------

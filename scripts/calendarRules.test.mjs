@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   matchEvent, renderTemplate, buildTaskFromRule, normalizeRule,
   eventDate, eventTime, shiftDate, rulesMatching, eventIsUpcoming, soonestDueDate,
+  groupConditions, evaluateCondition,
 } from '../server/calendarRules.js'
 
 // The event from the screenshot that started this feature.
@@ -306,4 +307,89 @@ test('on_repeat defaults to stack and only accepts known modes', () => {
   assert.equal(normalizeRule(base).on_repeat, 'stack')
   assert.equal(normalizeRule({ ...base, on_repeat: 'update' }).on_repeat, 'update')
   assert.equal(normalizeRule({ ...base, on_repeat: 'nonsense' }).on_repeat, 'stack', 'an unknown mode falls back, never throws mid-poll')
+})
+
+// --- condition groups: or inside, and across ------------------------------
+
+const twoTails = () => rule({
+  conditions: [
+    { field: 'title', op: 'contains', value: 'N5274S', group: 0 },
+    { field: 'title', op: 'contains', value: 'N12345', group: 0 },
+    { field: 'location', op: 'contains', value: "Hap's", group: 1 },
+  ],
+})
+
+test('either alternative in a group satisfies it', () => {
+  assert.equal(matchEvent(twoTails(), flight()).matched, true)
+  assert.equal(matchEvent(twoTails(), flight({ summary: 'Ryan Kelch in N12345' })).matched, true)
+})
+
+test('but every group still has to match', () => {
+  assert.equal(matchEvent(twoTails(), flight({ location: 'Des Moines' })).matched, false)
+  assert.equal(matchEvent(twoTails(), flight({ summary: 'Ryan Kelch in N99999' })).matched, false)
+})
+
+test('a rule saved BEFORE groups existed keeps meaning all-ANDed', () => {
+  // The compatibility that makes this safe to ship without a data migration:
+  // no group index means "its own group", so two ungrouped conditions are
+  // ANDed exactly as they always were — never silently loosened into an OR.
+  const legacy = rule({
+    conditions: [
+      { field: 'title', op: 'contains', value: 'N5274S' },
+      { field: 'location', op: 'contains', value: 'Des Moines' },
+    ],
+  })
+  assert.equal(matchEvent(legacy, flight()).matched, false, 'still ANDed, so the wrong location misses')
+  assert.equal(groupConditions(legacy.conditions).length, 2, 'two groups of one, not one group of two')
+})
+
+test('captures come only from the alternatives that actually matched', () => {
+  const r = rule({
+    conditions: [
+      { field: 'title', op: 'matches', value: 'N(1\\d{4})', group: 0 },
+      { field: 'title', op: 'matches', value: 'N(5\\d{3}[A-Z])', group: 0 },
+    ],
+  })
+  const m = matchEvent(r, flight())
+  assert.equal(m.matched, true)
+  assert.deepEqual(m.captures, ['5274S'], 'the branch that missed contributes nothing')
+  assert.equal(renderTemplate('Log {{match.1}} hours', flight(), m.captures), 'Log 5274S hours')
+})
+
+test('normalizing renumbers groups densely, in first-appearance order', () => {
+  const r = normalizeRule({
+    name: 'x',
+    conditions: [
+      { field: 'title', op: 'contains', value: 'a', group: 5 },
+      { field: 'location', op: 'contains', value: 'b', group: 9 },
+      { field: 'title', op: 'contains', value: 'c', group: 5 },
+    ],
+    template: { title: 'y' },
+  })
+  assert.deepEqual(r.conditions.map(c => c.group), [0, 1, 0])
+})
+
+test('ungrouped conditions are stamped as separate groups on save', () => {
+  const r = normalizeRule({
+    name: 'x',
+    conditions: [
+      { field: 'title', op: 'contains', value: 'a' },
+      { field: 'location', op: 'contains', value: 'b' },
+    ],
+    template: { title: 'y' },
+  })
+  assert.deepEqual(r.conditions.map(c => c.group), [0, 1], 'preserved as ANDed, now explicitly')
+})
+
+test('a nonsense group index is rejected rather than silently bucketed', () => {
+  assert.throws(() => normalizeRule({
+    name: 'x',
+    conditions: [{ field: 'title', op: 'contains', value: 'a', group: 'first' }],
+    template: { title: 'y' },
+  }), /whole number/)
+})
+
+test('evaluateCondition is the single per-condition judgement', () => {
+  assert.equal(evaluateCondition({ field: 'title', op: 'contains', value: 'N5274S' }, flight()).matched, true)
+  assert.equal(evaluateCondition({ field: 'title', op: 'nonsense', value: 'x' }, flight()).matched, false)
 })

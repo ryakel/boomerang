@@ -1698,10 +1698,26 @@ function IntegrationsPanel({
                     </div>
                     {gcalBulkDeleteResult && <div className="v2-integrations-hint">{gcalBulkDeleteResult}</div>}
                     <label className="v2-form-label">Calendar</label>
+                    {/* The "Primary" option is ALWAYS rendered, and that is the
+                        whole point (2026-08-26). It used to appear only when
+                        the calendar list was empty — so once the list loaded,
+                        a stored value of 'primary' matched no option at all and
+                        the browser fell back to displaying the FIRST calendar.
+                        No onChange ever fired, so nothing was written: the
+                        picker showed one calendar while every sync read
+                        another, indefinitely. Any select whose value can be a
+                        sentinel needs an option for that sentinel. */}
                     <select className="v2-form-input" value={settings.gcal_calendar_id || 'primary'} onChange={e => update('gcal_calendar_id', e.target.value)}>
-                      {gcalCalendars.length === 0 && <option value="primary">Primary</option>}
+                      <option value="primary">
+                        Primary{gcalCalendars.find(c => c.primary) ? ` — ${gcalCalendars.find(c => c.primary).summary}` : ''}
+                      </option>
                       {gcalCalendars.map(c => <option key={c.id} value={c.id}>{c.summary}{c.primary ? ' (Primary)' : ''}</option>)}
                     </select>
+                    <div className="v2-integrations-hint">
+                      Pick the calendar by name rather than leaving it on Primary — Primary resolves to
+                      whichever account Boomerang is connected as, which may not be the one holding the
+                      events you want.
+                    </div>
                     <div className="v2-integrations-toggle-row">
                       <span>Push tasks as calendar events</span>
                       <Toggle checked={settings.gcal_sync_enabled} onChange={e => update('gcal_sync_enabled', e.target.checked)} />
