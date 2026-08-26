@@ -34,6 +34,7 @@ const emptyRule = () => ({
   conditions: [{ field: 'title', op: 'contains', value: '' }],
   template: { title: '', notes: '', due_offset_days: 0, tags: [], size: null, high_priority: false, nag_allowed: false },
   suppress_event_import: false,
+  future_only: false,
 })
 
 function describeCondition(c) {
@@ -182,6 +183,7 @@ export default function CalendarRulesEditor() {
           </div>
           <div className="v2-integrations-hint">
             {rule.conditions.map(describeCondition).join(' and ')} → “{rule.template.title}”, {describeDue(rule.template.due_offset_days)}
+            {rule.future_only ? ' · upcoming events only' : ''}
             {rule.suppress_event_import ? ' · event not imported' : ''}
           </div>
           <div className="v2-integrations-actions">
@@ -298,6 +300,10 @@ export default function CalendarRulesEditor() {
             <Toggle checked={draft.template.nag_allowed} onChange={e => editTemplate({ nag_allowed: e.target.checked })} />
           </div>
           <div className="v2-integrations-toggle-row">
+            <span>Only events that haven’t started yet</span>
+            <Toggle checked={draft.future_only} onChange={e => editDraft({ future_only: e.target.checked })} />
+          </div>
+          <div className="v2-integrations-toggle-row">
             <span>Don’t also import the event as its own task</span>
             <Toggle checked={draft.suppress_event_import} onChange={e => editDraft({ suppress_event_import: e.target.checked })} />
           </div>
@@ -307,10 +313,13 @@ export default function CalendarRulesEditor() {
           {preview && (
             <div className="v2-integrations-hint">
               Scanned {preview.scanned} event{preview.scanned === 1 ? '' : 's'} in the next {preview.window_days} days · {preview.matches.length} match{preview.matches.length === 1 ? '' : 'es'}
+              {preview.matches.some(m => m.withheld_as_past) && (
+                <div>{preview.matches.filter(m => m.withheld_as_past).length} already under way — skipped by “only events that haven’t started yet”</div>
+              )}
               {preview.matches.slice(0, 10).map(m => (
                 <div key={m.event_id}>
                   · {m.event_title} → “{m.task.title}”{m.task.due_date ? ` (due ${m.task.due_date})` : ''}
-                  {m.already_fired ? ' — already handled' : ''}
+                  {m.withheld_as_past ? ' — already under way, skipped' : m.already_fired ? ' — already handled' : ''}
                 </div>
               ))}
               {preview.matches.length > 10 && <div>· …and {preview.matches.length - 10} more</div>}
