@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   matchEvent, renderTemplate, buildTaskFromRule, normalizeRule,
-  eventDate, eventTime, shiftDate, rulesMatching, eventIsUpcoming,
+  eventDate, eventTime, shiftDate, rulesMatching, eventIsUpcoming, soonestDueDate,
 } from '../server/calendarRules.js'
 
 // The event from the screenshot that started this feature.
@@ -279,4 +279,31 @@ test('matchEvent still has no clock — an event under way matches exactly as it
   // task list the moment it took off.
   const r = rule({ future_only: true })
   assert.equal(matchEvent(r, flight()).matched, true)
+})
+
+// --- what a repeat firing does ---------------------------------------------
+
+test('a repeat pulls the due date EARLIER but never pushes it out', () => {
+  // The failure this prevents: taking the newest event's date walks the task to
+  // the far edge of the 30-day window every time a flight appears, so it never
+  // comes due and never surfaces — a deferral nobody asked for.
+  assert.equal(soonestDueDate('2026-09-18', '2026-09-11'), '2026-09-11')
+  assert.equal(soonestDueDate('2026-09-11', '2026-09-18'), '2026-09-11', 'the later event does not push it out')
+})
+
+test('an already-overdue task stays overdue — you still owe it', () => {
+  assert.equal(soonestDueDate('2026-08-01', '2026-09-11'), '2026-08-01')
+})
+
+test('a task with no due date takes the new one, and no new date changes nothing', () => {
+  assert.equal(soonestDueDate(null, '2026-09-11'), '2026-09-11')
+  assert.equal(soonestDueDate('2026-09-11', null), '2026-09-11')
+  assert.equal(soonestDueDate(null, null), null)
+})
+
+test('on_repeat defaults to stack and only accepts known modes', () => {
+  const base = { name: 'x', conditions: [{ field: 'title', op: 'contains', value: 'a' }], template: { title: 'y' } }
+  assert.equal(normalizeRule(base).on_repeat, 'stack')
+  assert.equal(normalizeRule({ ...base, on_repeat: 'update' }).on_repeat, 'update')
+  assert.equal(normalizeRule({ ...base, on_repeat: 'nonsense' }).on_repeat, 'stack', 'an unknown mode falls back, never throws mid-poll')
 })

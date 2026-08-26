@@ -19,6 +19,8 @@ export const CONDITION_FIELDS = ['title', 'location', 'description', 'attendees'
 export const CONDITION_OPS = ['contains', 'not_contains', 'equals', 'matches', 'is']
 export const TIMING_VALUES = ['all_day', 'timed']
 export const TEMPLATE_SIZES = ['XS', 'S', 'M', 'L', 'XL']
+// What a second firing does when this rule's last task is still open.
+export const REPEAT_MODES = ['stack', 'update']
 
 // A user-authored regex runs inside the poll loop, so a pathological pattern
 // would hang the server rather than one request. Bounding both the pattern and
@@ -282,7 +284,25 @@ export function normalizeRule(input) {
     },
     suppress_event_import: !!src.suppress_event_import,
     future_only: !!src.future_only,
+    on_repeat: REPEAT_MODES.includes(src.on_repeat) ? src.on_repeat : 'stack',
   }
+}
+
+// The due date a task should carry once it covers one more event.
+//
+// Only ever EARLIER. Taking the newest event's date would walk the task to the
+// far edge of the 30-day window every time a new flight appeared — so it would
+// never come due, never surface, and the "collapse the repeats" option would
+// quietly become "never see this task again". A silent deferral is something
+// this codebase refuses to express anywhere else (resume_at is a floor, and a
+// deferral is never written as a completion), and it isn't going to start here.
+//
+// So: the task is due for the SOONEST event it covers. An already-overdue task
+// stays overdue — you still owe it.
+export function soonestDueDate(existingDue, candidateDue) {
+  if (!candidateDue) return existingDue || null
+  if (!existingDue) return candidateDue
+  return candidateDue < existingDue ? candidateDue : existingDue
 }
 
 // Every enabled rule that matches, in rule order. Used by the preview, the

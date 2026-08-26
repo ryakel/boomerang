@@ -7,9 +7,12 @@
 
 import {
   listGCalRules, getGCalRule, getGCalRuleFires, markGCalRuleFired,
+  findLiveGCalRuleTask, getTask, updateTaskPartial,
   upsertTask, bumpVersion, getData,
 } from './db.js'
-import { matchEvent, buildTaskFromRule, eventIsUpcoming } from './calendarRules.js'
+import {
+  matchEvent, buildTaskFromRule, eventIsUpcoming, eventDate, soonestDueDate,
+} from './calendarRules.js'
 import { ymdInTz, DEFAULT_TIMEZONE } from './taskModel.js'
 
 // Same horizon the pull sync uses, so a rule and an import see the same
@@ -83,14 +86,67 @@ async function fetchCalendars(rules, range) {
   return byCalendar
 }
 
-function createTaskFor(rule, event, captures) {
+function createTaskFor(rule, event, captures, clock) {
   const task = buildTaskFromRule(rule, event, {
     id: newTaskId(),
-    now: new Date().toISOString(),
+    now: clock.now,
     captures,
   })
   upsertTask(task)
   return task
+}
+
+// Fold this event into the task the rule already made, instead of adding a
+// second identical card. Returns the task, or null if there was nothing live to
+// fold into (deleted, done, or the rule has never fired) — the caller then
+// creates one as normal.
+//
+// What this deliberately does NOT do: re-render the title, re-render the notes,
+// reset the status, or touch anything the user changed. A rule rewriting the
+// words its own user typed is the Notion-analyzer mistake in a different
+// costume. It moves the due date and appends one line saying why.
+function absorbIntoTask(rule, event, captures, clock) {
+  const taskId = findLiveGCalRuleTask(rule.id)
+  if (!taskId) return null
+  const existing = getTask(taskId)
+  if (!existing) return null
+
+  const fresh = buildTaskFromRule(rule, event, { id: taskId, now: clock.now, captures })
+  const patch = {}
+
+  // Earlier only — see soonestDueDate. A task that walked to the far edge of
+  // the window every time a new flight appeared would never come due.
+  const due = soonestDueDate(existing.due_date, fresh.due_date)
+  if (due && due !== existing.due_date) {
+    patch.due_date = due
+    // Provenance, stamped on the row: "did I set this date or did the system?"
+    // has to stay answerable from the task alone, because the rule that moved
+    // it can be edited or deleted (migration 049's rule). The first pre-shift
+    // date wins and is never overwritten — what the human last chose.
+    patch.due_date_original = existing.due_date_original || existing.due_date
+    patch.due_shifted_at = clock.now
+    patch.due_shifted_reason = `calendar rule "${rule.name}"`
+  }
+
+  const when = eventDate(event)
+  const line = `Also covers: ${event.summary || 'a calendar event'}${when ? ` (${when})` : ''}`
+  patch.notes = existing.notes ? `${existing.notes}\n${line}` : line
+
+  // last_touched is left ALONE on purpose. The user hasn't touched this task —
+  // the machine has. Refreshing it would let a rule hold a task permanently
+  // "fresh" while it sat ignored for months, hiding exactly the staleness the
+  // app exists to surface.
+  updateTaskPartial(taskId, patch)
+  return { ...existing, ...patch, id: taskId }
+}
+
+// One task per firing, whichever way the rule is set.
+function realizeTask(rule, event, captures, clock) {
+  if (rule.on_repeat === 'update') {
+    const absorbed = absorbIntoTask(rule, event, captures, clock)
+    if (absorbed) return { task: absorbed, absorbed: true }
+  }
+  return { task: createTaskFor(rule, event, captures, clock), absorbed: false }
 }
 
 // --- the poll --------------------------------------------------------------
@@ -122,10 +178,10 @@ export async function runCalendarRules(reason = 'scheduled') {
         // past event can never become fireable, and an event MOVED into the
         // future should fire when it gets there.
         if (!firesOn(rule, event, clock)) continue
-        const task = createTaskFor(rule, event, captures)
+        const { task, absorbed } = realizeTask(rule, event, captures, clock)
         markGCalRuleFired(rule.id, event.id, task.id, event.summary || null)
         created++
-        console.log(`[CalRules] "${rule.name}" fired on "${event.summary}" → "${task.title}"${task.due_date ? ` (due ${task.due_date})` : ''}`)
+        console.log(`[CalRules] "${rule.name}" fired on "${event.summary}" → ${absorbed ? 'folded into' : 'created'} "${task.title}"${task.due_date ? ` (due ${task.due_date})` : ''}`)
       }
     }
 
@@ -244,7 +300,7 @@ export async function applyRuleToExisting(ruleId) {
     const { matched, captures } = matchEvent(rule, event)
     if (!matched) continue
     if (!firesOn(rule, event, clock)) continue
-    const task = createTaskFor(rule, event, captures)
+    const { task } = realizeTask(rule, event, captures, clock)
     markGCalRuleFired(rule.id, event.id, task.id, event.summary || null)
     created++
   }
