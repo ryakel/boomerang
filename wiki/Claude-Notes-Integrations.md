@@ -506,6 +506,7 @@ A rule is conditions (ANDed) plus a task template:
 |---|---|
 | Condition fields | `title`, `location`, `description`, `attendees`, `organizer`, `timing` |
 | Condition ops | `contains`, `not_contains`, `equals`, `matches` (regex, case-insensitive), `is` (timing only) |
+| Condition grouping | each condition carries a `group` int — **OR within a group, AND across groups**; no group = its own group (the pre-groups all-ANDed meaning, so no migration) |
 | Template | `title`, `notes`, `due_offset_days`, `tags`, `size`, `high_priority`, `nag_allowed` |
 | Rule flags | `enabled`, `suppress_event_import`, `future_only`, `on_repeat` (`stack` \| `update`) |
 | Placeholders | `{{event.title}}`, `{{event.date}}`, `{{event.time}}`, `{{event.location}}`, `{{event.description}}`, `{{match.N}}` |

@@ -117,9 +117,54 @@ export function compilePattern(pattern) {
   }
 }
 
+// One condition against one event. { matched, captures }.
+export function evaluateCondition(c, event) {
+  const miss = { matched: false, captures: [] }
+  const haystack = fieldValue(event, c?.field).slice(0, MAX_HAYSTACK_LENGTH)
+  const needle = typeof c?.value === 'string' ? c.value : ''
+  switch (c?.op) {
+    case 'contains':
+      return haystack.toLowerCase().includes(needle.toLowerCase()) ? { matched: true, captures: [] } : miss
+    case 'not_contains':
+      return haystack.toLowerCase().includes(needle.toLowerCase()) ? miss : { matched: true, captures: [] }
+    case 'equals':
+    case 'is':
+      return haystack.trim().toLowerCase() === needle.trim().toLowerCase() ? { matched: true, captures: [] } : miss
+    case 'matches': {
+      const re = compilePattern(needle)
+      // An unparseable pattern fails closed. Firing on everything because a
+      // regex didn't compile is the one outcome worse than not firing.
+      if (!re) return miss
+      const m = haystack.match(re)
+      if (!m) return miss
+      return { matched: true, captures: m.slice(1).map(g => g ?? '') }
+    }
+    default:
+      return miss
+  }
+}
+
+// Conditions grouped for evaluation: OR within a group, AND across groups.
+//
+// A condition carries a `group` index. One with NO group is its own group,
+// which is what makes every rule saved before groups existed keep meaning
+// exactly what it meant — all conditions ANDed. That backward compatibility is
+// why this is a stored index rather than a nesting change: the conditions blob
+// needs no migration and an old rule cannot silently loosen into an OR.
+export function groupConditions(conditions) {
+  const groups = new Map()
+  ;(conditions || []).forEach((c, i) => {
+    const key = c?.group == null ? `solo-${i}` : `g-${c.group}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(c)
+  })
+  return [...groups.values()]
+}
+
 // { matched, captures } — captures are the regex groups of every `matches`
-// condition, in condition order, so {{match.1}} is the first group of the
-// first regex condition.
+// condition that actually MATCHED, in group order then within-group order, so
+// {{match.1}} is the first group of the first matching regex condition. A
+// branch of an OR that didn't match contributes nothing.
 export function matchEvent(rule, event) {
   const miss = { matched: false, captures: [] }
   if (!rule || rule.enabled === false) return miss
@@ -136,33 +181,16 @@ export function matchEvent(rule, event) {
   if (conditions.length === 0) return miss
 
   const captures = []
-  for (const c of conditions) {
-    const haystack = fieldValue(event, c?.field).slice(0, MAX_HAYSTACK_LENGTH)
-    const needle = typeof c?.value === 'string' ? c.value : ''
-    switch (c?.op) {
-      case 'contains':
-        if (!haystack.toLowerCase().includes(needle.toLowerCase())) return miss
-        break
-      case 'not_contains':
-        if (haystack.toLowerCase().includes(needle.toLowerCase())) return miss
-        break
-      case 'equals':
-      case 'is':
-        if (haystack.trim().toLowerCase() !== needle.trim().toLowerCase()) return miss
-        break
-      case 'matches': {
-        const re = compilePattern(needle)
-        // An unparseable pattern fails closed. Firing on everything because a
-        // regex didn't compile is the one outcome worse than not firing.
-        if (!re) return miss
-        const m = haystack.match(re)
-        if (!m) return miss
-        captures.push(...m.slice(1).map(g => g ?? ''))
-        break
-      }
-      default:
-        return miss
+  for (const group of groupConditions(conditions)) {
+    let groupMatched = false
+    for (const c of group) {
+      const r = evaluateCondition(c, event)
+      if (!r.matched) continue
+      groupMatched = true
+      captures.push(...r.captures)
     }
+    // Every group must match; within a group, any one will do.
+    if (!groupMatched) return miss
   }
   return { matched: true, captures }
 }
@@ -231,10 +259,21 @@ export function normalizeRule(input) {
   const rawConditions = Array.isArray(src.conditions) ? src.conditions : []
   if (rawConditions.length === 0) throw new Error('Rule needs at least one condition — a rule with none matches every event on the calendar')
 
+  // Group indices are renumbered densely in first-appearance order, so what
+  // gets stored always reads 0,1,2… however the editor numbered them. A
+  // condition with no group is its own group — the pre-groups meaning.
+  const groupIds = new Map()
+  let nextGroup = 0
+
   const conditions = rawConditions.map((c, i) => {
     const field = String(c?.field || '').trim()
     const op = String(c?.op || '').trim()
     const value = String(c?.value ?? '').trim()
+    if (c?.group != null && (!Number.isInteger(Number(c.group)) || Number(c.group) < 0)) {
+      throw new Error(`Condition ${i + 1}: group must be a whole number`)
+    }
+    const groupKey = c?.group == null ? `solo-${i}` : `g-${Number(c.group)}`
+    if (!groupIds.has(groupKey)) groupIds.set(groupKey, nextGroup++)
     if (!CONDITION_FIELDS.includes(field)) throw new Error(`Condition ${i + 1}: unknown field "${field}"`)
     if (!CONDITION_OPS.includes(op)) throw new Error(`Condition ${i + 1}: unknown operator "${op}"`)
     if (field === 'timing') {
@@ -248,7 +287,7 @@ export function normalizeRule(input) {
       if (value.length > MAX_PATTERN_LENGTH) throw new Error(`Condition ${i + 1}: pattern is too long (max ${MAX_PATTERN_LENGTH})`)
       if (!compilePattern(value)) throw new Error(`Condition ${i + 1}: "${value}" is not a valid regular expression`)
     }
-    return { field, op, value }
+    return { field, op, value, group: groupIds.get(groupKey) }
   })
 
   const t = src.template || {}
