@@ -440,6 +440,13 @@ carries a valid `boom_session` cookie (human login) OR a valid `API_TOKEN` in
 | `DELETE` | `/api/gcal/events/:eventId` | Delete a Google Calendar event |
 | `POST` | `/api/gcal/events/bulk-delete` | Delete all Boomerang-managed events from calendar |
 | `GET` | `/api/gcal/events` | List events in a time range (for pull sync) |
+| `GET` | `/api/gcal/rules` | List calendar event rules |
+| `POST` | `/api/gcal/rules` | Create or update a rule (baselines matching events, never backfills) |
+| `DELETE` | `/api/gcal/rules/:id` | Delete a rule and its fire ledger |
+| `POST` | `/api/gcal/rules/preview` | Test a rule — what it would create, marking nothing |
+| `POST` | `/api/gcal/rules/:id/apply` | Create tasks for the events the baseline is holding |
+| `POST` | `/api/gcal/rules/run` | Run the rule poll now |
+| `POST` | `/api/gcal/rules/suppressed` | Which of these events a suppressing rule claims |
 | `GET` | `/api/tasks` | Get tasks (with optional filters) |
 | `POST` | `/api/tasks` | Create a task |
 | `PATCH` | `/api/tasks/:id` | Update a task |

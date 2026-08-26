@@ -2914,3 +2914,140 @@ export function removeRemoteTombstone({ source, remote_id }) {
     [String(source), String(remote_id)])
   return true
 }
+
+// --- Calendar event rules (2026-08-26) -------------------------------------
+// "When an event like this shows up, make me this task." See migration 055 for
+// why the fire ledger is here rather than on the client, and what a NULL
+// task_id means. Matching itself is pure and lives in calendarRules.js.
+
+function ruleRowToRule(v) {
+  return {
+    id: v[0],
+    name: v[1],
+    enabled: !!v[2],
+    calendar_id: v[3] || null,
+    conditions: safeJsonParse(v[4], []),
+    template: safeJsonParse(v[5], {}),
+    suppress_event_import: !!v[6],
+    created_at: v[7],
+    updated_at: v[8],
+    last_fired_at: v[9] || null,
+    future_only: !!v[10],
+    on_repeat: v[11] || 'stack',
+  }
+}
+
+const RULE_COLUMNS = `id, name, enabled, calendar_id, conditions_json, template_json,
+  suppress_event_import, created_at, updated_at, last_fired_at, future_only, on_repeat`
+
+export function listGCalRules() {
+  const res = db.exec(`SELECT ${RULE_COLUMNS} FROM gcal_rules ORDER BY created_at`)
+  return res[0]?.values.map(ruleRowToRule) || []
+}
+
+export function getGCalRule(id) {
+  if (!id) return null
+  const res = db.exec(`SELECT ${RULE_COLUMNS} FROM gcal_rules WHERE id = ?`, [String(id)])
+  const v = res[0]?.values?.[0]
+  return v ? ruleRowToRule(v) : null
+}
+
+export function upsertGCalRule(rule) {
+  const now = new Date().toISOString()
+  db.run(
+    `INSERT INTO gcal_rules (${RULE_COLUMNS})
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name=excluded.name, enabled=excluded.enabled, calendar_id=excluded.calendar_id,
+       conditions_json=excluded.conditions_json, template_json=excluded.template_json,
+       suppress_event_import=excluded.suppress_event_import,
+       future_only=excluded.future_only, on_repeat=excluded.on_repeat,
+       updated_at=excluded.updated_at`,
+    [
+      String(rule.id), rule.name, rule.enabled ? 1 : 0, rule.calendar_id || null,
+      JSON.stringify(rule.conditions || []), JSON.stringify(rule.template || {}),
+      rule.suppress_event_import ? 1 : 0,
+      rule.created_at || now, now, rule.last_fired_at || null,
+      rule.future_only ? 1 : 0, rule.on_repeat || 'stack',
+    ],
+  )
+  schedulePersist()
+  return getGCalRule(rule.id)
+}
+
+// Deleting a rule takes its ledger with it. Keeping the fires would mean that
+// re-creating the same rule silently skipped every event it had already seen,
+// which reads as "the rule is broken".
+export function deleteGCalRule(id) {
+  if (!id) return false
+  db.run('DELETE FROM gcal_rule_fires WHERE rule_id = ?', [String(id)])
+  db.run('DELETE FROM gcal_rules WHERE id = ?', [String(id)])
+  schedulePersist()
+  return true
+}
+
+// eventId -> task_id (null when the event was baselined at save time and no
+// task was created). A Map, because the caller asks "have you seen this one?"
+// once per event per poll.
+export function getGCalRuleFires(ruleId) {
+  const res = db.exec('SELECT event_id, task_id FROM gcal_rule_fires WHERE rule_id = ?', [String(ruleId)])
+  const out = new Map()
+  for (const v of res[0]?.values || []) out.set(v[0], v[1] || null)
+  return out
+}
+
+export function markGCalRuleFired(ruleId, eventId, taskId = null, eventTitle = null) {
+  if (!ruleId || !eventId) return false
+  db.run(
+    `INSERT INTO gcal_rule_fires (rule_id, event_id, fired_at, task_id, event_title)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(rule_id, event_id) DO UPDATE SET
+       task_id=COALESCE(excluded.task_id, gcal_rule_fires.task_id),
+       event_title=COALESCE(excluded.event_title, gcal_rule_fires.event_title)`,
+    [String(ruleId), String(eventId), new Date().toISOString(), taskId, eventTitle],
+  )
+  if (taskId) db.run('UPDATE gcal_rules SET last_fired_at = ? WHERE id = ?', [new Date().toISOString(), String(ruleId)])
+  schedulePersist()
+  return true
+}
+
+// How many events this rule is holding baselined — the count behind "apply to
+// the 12 events already on your calendar".
+export function countGCalRuleBaselined(ruleId) {
+  const res = db.exec('SELECT COUNT(*) FROM gcal_rule_fires WHERE rule_id = ? AND task_id IS NULL', [String(ruleId)])
+  return res[0]?.values?.[0]?.[0] || 0
+}
+
+// The task this rule made that is still open, most recent first — what a
+// repeat firing reuses when the rule is set to 'update'.
+//
+// A done/cancelled task is deliberately invisible here: if last month's budget
+// update is finished, the next flight gets a FRESH task rather than reopening
+// history. Same status predicate as findActiveSpawnTwin, so "still live" means
+// one thing across the app. A deleted task drops out via the join, so deleting
+// the shared task doesn't permanently disable the rule — the next firing just
+// starts a new one.
+export function findLiveGCalRuleTask(ruleId) {
+  if (!ruleId) return null
+  const stmt = db.prepare(
+    `SELECT f.task_id AS id FROM gcal_rule_fires f
+     JOIN tasks t ON t.id = f.task_id
+     WHERE f.rule_id = ? AND t.status NOT IN ('done', 'completed', 'cancelled')
+     ORDER BY f.fired_at DESC
+     LIMIT 1`,
+  )
+  stmt.bind([String(ruleId)])
+  const id = stmt.step() ? stmt.getAsObject().id : null
+  stmt.free()
+  return id || null
+}
+
+// Dev-seed only, called explicitly from seed.js rather than folded into
+// clearAllData(): a reseed wipes the tasks a rule created, and leaving the
+// fires behind would mean they never come back and the rule looks dead on the
+// one server where this feature gets tested.
+export function clearGCalRuleFires() {
+  db.run('DELETE FROM gcal_rule_fires')
+  schedulePersist()
+  return true
+}

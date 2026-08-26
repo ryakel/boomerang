@@ -33,7 +33,13 @@ import {
   sendDigestNow,
 } from './pushoverNotifications.js'
 import { upsertPushSubscription, deletePushSubscription, getAllPushSubscriptions, deletePushSubscriptionById, getGmailProcessedCount, clearGmailProcessed, getNotifThrottle, setNotifThrottle, getAllTasks, mergeTasks } from './db.js'
+import { listGCalRules, getGCalRule, upsertGCalRule, deleteGCalRule, countGCalRuleBaselined } from './db.js'
 import { initGmailSync, syncGmail, startGmailPolling, getGmailAccessToken } from './gmailSync.js'
+import { normalizeRule } from './calendarRules.js'
+import {
+  initCalendarRules, startCalendarRulePolling, runCalendarRules,
+  baselineRule, previewRule, applyRuleToExisting, suppressedEventIds,
+} from './calendarRuleEngine.js'
 import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, getWeatherStatus, clearWeatherCache } from './weatherSync.js'
 import { buildDigest } from './digestBuilder.js'
 import { startPatternDetection, runPatternScan } from './patternDetection.js'
@@ -2328,40 +2334,140 @@ app.post('/api/gcal/events/bulk-delete', async (req, res) => {
   }
 })
 
+// One place that reads events off a calendar, shared by the pull-sync route
+// and the rule engine so both see the same fields. THROWS on failure rather
+// than returning [] — an empty list is a real answer ("nothing scheduled") and
+// a caller that can't tell it from a failed fetch will draw exactly the wrong
+// conclusion from it.
+async function fetchGCalEvents(calendarId, timeMin, timeMax) {
+  const accessToken = await getGCalAccessToken()
+  if (!accessToken) throw new Error('Not connected to Google Calendar')
+
+  const calId = encodeURIComponent(calendarId || 'primary')
+  const params = new URLSearchParams({
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: '250',
+  })
+  if (timeMin) params.set('timeMin', timeMin)
+  if (timeMax) params.set('timeMax', timeMax)
+
+  const response = await fetch(`${GCAL_BASE}/calendars/${calId}/events?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data?.error?.message || `Calendar API returned ${response.status}`)
+
+  // location / attendees / organizer / status are here for the rule matcher
+  // (calendarRules.js reads them by name); the pull sync ignores what it
+  // doesn't use.
+  return (data.items || []).map(e => ({
+    id: e.id,
+    summary: e.summary || '',
+    description: e.description || '',
+    location: e.location || '',
+    status: e.status || 'confirmed',
+    start: e.start,
+    end: e.end,
+    htmlLink: e.htmlLink,
+    recurringEventId: e.recurringEventId || null,
+    calendarId: calendarId || 'primary',
+    organizer: e.organizer ? { email: e.organizer.email || '', displayName: e.organizer.displayName || '' } : null,
+    attendees: (e.attendees || []).map(a => ({ email: a.email || '', displayName: a.displayName || '' })),
+  }))
+}
+
 app.get('/api/gcal/events', async (req, res) => {
   try {
-    const accessToken = await getGCalAccessToken()
-    if (!accessToken) return res.status(401).json({ error: 'Not connected to Google Calendar' })
-
-    const calendarId = req.query.calendarId || 'primary'
-    const calId = encodeURIComponent(calendarId)
-    const params = new URLSearchParams({
-      singleEvents: 'true',
-      orderBy: 'startTime',
-      maxResults: '250',
-    })
-    if (req.query.timeMin) params.set('timeMin', req.query.timeMin)
-    if (req.query.timeMax) params.set('timeMax', req.query.timeMax)
-
-    const response = await fetch(`${GCAL_BASE}/calendars/${calId}/events?${params}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    const data = await response.json()
-    if (!response.ok) return res.status(response.status).json(data)
-
-    const events = (data.items || []).map(e => ({
-      id: e.id,
-      summary: e.summary || '',
-      description: e.description || '',
-      start: e.start,
-      end: e.end,
-      htmlLink: e.htmlLink,
-      recurringEventId: e.recurringEventId || null,
-    }))
+    const events = await fetchGCalEvents(req.query.calendarId, req.query.timeMin, req.query.timeMax)
     res.json(events)
+  } catch (err) {
+    const notConnected = /Not connected/.test(err.message)
+    res.status(notConnected ? 401 : 500).json({ error: err.message })
+  }
+})
+
+// --- Calendar event rules ---
+// "When an event like this shows up, make me this task." Distinct from the
+// pull sync above, which turns an event into a task of ITSELF: a rule creates
+// work the event implies but does not contain. See migrations/055.
+
+app.get('/api/gcal/rules', (req, res) => {
+  const rules = listGCalRules().map(r => ({ ...r, baselined: countGCalRuleBaselined(r.id) }))
+  res.json(rules)
+})
+
+// Create or update. A saved rule BASELINES rather than backfills: every event
+// it matches today is stamped as already-seen and no task is created. Applying
+// to those is the separate, explicit /apply below.
+app.post('/api/gcal/rules', async (req, res) => {
+  let rule
+  try {
+    rule = normalizeRule(req.body)
+  } catch (err) {
+    return res.status(400).json({ error: err.message })
+  }
+  const existing = rule.id ? getGCalRule(rule.id) : null
+  rule.id = rule.id || `gcalrule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  rule.created_at = existing?.created_at || new Date().toISOString()
+
+  const saved = upsertGCalRule(rule)
+  let baselined
+  try {
+    baselined = await baselineRule(saved)
+  } catch (err) {
+    // The rule is saved but its baseline is unknown, which is the one state
+    // that can flood the list on the next poll. Disable it and say why rather
+    // than leaving a live rule with no idea what it has already seen.
+    upsertGCalRule({ ...saved, enabled: false })
+    return res.status(502).json({
+      error: `Rule saved but disabled: could not read the calendar to baseline it (${err.message}). Re-enable it once the calendar is reachable.`,
+      rule: { ...saved, enabled: false },
+    })
+  }
+  res.json({ rule: saved, baselined })
+})
+
+app.delete('/api/gcal/rules/:id', (req, res) => {
+  deleteGCalRule(req.params.id)
+  res.json({ ok: true })
+})
+
+// The tester: what would this rule do, without doing any of it.
+app.post('/api/gcal/rules/preview', async (req, res) => {
+  try {
+    const rule = normalizeRule(req.body)
+    rule.id = req.body?.id || null
+    res.json(await previewRule(rule))
+  } catch (err) {
+    res.status(/valid|needs|must|unknown|only/i.test(err.message) ? 400 : 502).json({ error: err.message })
+  }
+})
+
+// Fire on the events the baseline is holding — "yes, also do the 12 already on
+// my calendar".
+app.post('/api/gcal/rules/:id/apply', async (req, res) => {
+  try {
+    res.json(await applyRuleToExisting(req.params.id))
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
+})
+
+app.post('/api/gcal/rules/run', async (req, res) => {
+  try {
+    res.json(await runCalendarRules('manual'))
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Which of these events a suppressing rule claims, so the pull sync leaves
+// them alone. A query over the rules rather than a ledger lookup on purpose —
+// see suppressedEventIds() for why that is the only race-free shape.
+app.post('/api/gcal/rules/suppressed', (req, res) => {
+  const events = Array.isArray(req.body?.events) ? req.body.events : []
+  res.json({ suppressed: suppressedEventIds(events) })
 })
 
 // --- Gmail Integration ---
@@ -5743,6 +5849,21 @@ initDb(dbPath).then(async () => {
     if (gmailTokens?.refresh_token) {
       startGmailPolling(5 * 60 * 1000)
     }
+
+    // Calendar event rules. Polls whether or not any rule exists — the tick
+    // bails in a few microseconds when there is nothing enabled, which is what
+    // lets a rule saved at runtime start working without a restart.
+    //
+    // Deliberately NOT muzzled on a dev server: this creates tasks in its own
+    // database rather than sending anything, dev is the only surface where the
+    // feature can be tested against a real calendar, and two servers polling
+    // one calendar keep entirely separate fire ledgers.
+    initCalendarRules({
+      listEvents: fetchGCalEvents,
+      isConnected: () => !!getData(GCAL_TOKENS_KEY)?.refresh_token,
+      broadcast,
+    })
+    startCalendarRulePolling(15 * 60 * 1000)
 
     // Trello list sync. Polling because the server is tailnet-private and
     // cannot receive Trello webhooks (same constraint as Shippo).
