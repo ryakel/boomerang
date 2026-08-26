@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings, saveSettings, createTask } from '../store'
 import { fetchTombstones } from '../api'
-import { gcalListEvents, aiDedupGCalEvents } from '../api'
+import { gcalListEvents, aiDedupGCalEvents, gcalSuppressedEventIds } from '../api'
 import { deduplicateImports, remoteLog } from '../syncDedup'
 
 export function useGCalSync(tasks, setTasks) {
@@ -57,11 +57,36 @@ export function useGCalSync(tasks, setTasks) {
       return
     }
 
+    // Events a calendar RULE has claimed. A rule that turns "flight" into
+    // "update the flight budget spreadsheet" can also say the flight itself
+    // isn't wanted in the list, and this is where that takes effect.
+    //
+    // A failed check SKIPS this whole pull rather than importing everything:
+    // the exclusion set arriving empty is indistinguishable from an exclusion
+    // that isn't running, and the cost of getting it wrong is importing the
+    // exact events a rule exists to replace. The next visibilitychange retries
+    // in seconds — the same posture the Notion exclusion sets take.
+    let suppressed
+    try {
+      suppressed = new Set(await gcalSuppressedEventIds(candidateEvents))
+    } catch (err) {
+      remoteLog(`[GCalSync] rule suppression check failed (${err.message}) — skipping this pull rather than importing events a rule may own`)
+      return
+    }
+    const importable = candidateEvents.filter(e => !suppressed.has(e.id))
+    if (suppressed.size > 0) {
+      remoteLog(`[GCalSync] ${suppressed.size} event(s) suppressed by a calendar rule`)
+    }
+    if (importable.length === 0) {
+      remoteLog('[GCalSync] no new events to import')
+      return
+    }
+
     // Dedup: exact title match, then AI (checks ALL active tasks, not just gcal-linked)
     const activeTasks = currentTasks.filter(t => t.status !== 'done')
-    remoteLog(`[GCalSync] DEDUP: checking ${candidateEvents.length} events against ${activeTasks.length} active tasks`)
+    remoteLog(`[GCalSync] DEDUP: checking ${importable.length} events against ${activeTasks.length} active tasks`)
     const matchMap = await deduplicateImports({
-      items: candidateEvents,
+      items: importable,
       localTasks: activeTasks,
       getTitle: e => e.summary,
       getId: e => e.id,
@@ -73,7 +98,7 @@ export function useGCalSync(tasks, setTasks) {
     // Link matched events to existing tasks
     const linkUpdates = []
     for (const [eventId, taskId] of matchMap) {
-      const event = candidateEvents.find(e => e.id === eventId)
+      const event = importable.find(e => e.id === eventId)
       const task = activeTasks.find(t => t.id === taskId)
       remoteLog(`[GCalSync] ⚠️ DEDUP MATCH: "${event?.summary}" → existing task "${task?.title}" (${taskId.slice(0, 8)})`)
       linkUpdates.push({ taskId, eventId })
@@ -89,7 +114,7 @@ export function useGCalSync(tasks, setTasks) {
     }
 
     // Create new tasks for unmatched events
-    const newEvents = candidateEvents.filter(e => !matchMap.has(e.id))
+    const newEvents = importable.filter(e => !matchMap.has(e.id))
 
     // Group recurring event instances — only import the first instance per series
     const seenRecurring = new Set()

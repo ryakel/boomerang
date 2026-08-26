@@ -1143,3 +1143,19 @@
   font: 500 13px/1.4 var(--v2-font-body);
   color: var(--v2-text);
 }
+
+/* One calendar event rule — the saved row and the draft editor share it, so a
+   rule being edited sits in the same box it will occupy once saved. */
+.v2-integrations-rule {
+  border: 1px solid var(--v2-hairline);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.v2-integrations-rule .v2-form-label {
+  margin-top: 2px;
+}

@@ -16,27 +16,17 @@ import {
   SettingRow, ToggleRow, SegmentRow, ValueRow, NavRow, ActionRow, StatusRow,
 } from './settings'
 import EmptyState from './EmptyState'
+import Toggle from './Toggle'
+import CalendarRulesEditor from './CalendarRulesEditor'
 import AutosaveIndicator from './AutosaveIndicator'
 import { applyTheme } from '../theme'
 import './SettingsModal.css'
 import { MODEL_CATALOG as AI_MODEL_CATALOG, TIER_DEFAULTS as AI_TIER_DEFAULTS } from '../../server/aiModels.js'
 
-// Shared toggle switch — was locally defined inside NotificationsPanel and
-// hand-copied at ~10 other call sites across IntegrationsPanel/General. One
-// definition so a future visual tweak doesn't need a find-and-replace.
 // Collapsible settings section — session-local state that ALWAYS starts
 // collapsed (2026-07-17: "Settings should start minimized across the
 // board"). Deliberately NOT persisted: retained open-state is exactly how
 // the pages got long and messy.
-
-function Toggle({ checked, onChange, disabled }) {
-  return (
-    <label className={`v2-settings-toggle${disabled ? ' v2-settings-toggle-disabled' : ''}`}>
-      <input type="checkbox" checked={!!checked} onChange={onChange} disabled={disabled} />
-      <span className="v2-settings-toggle-track"><span className="v2-settings-toggle-thumb" /></span>
-    </label>
-  )
-}
 
 // Labels tab — extracted so SettingsModal stays readable.
 function LabelsPanel() {
@@ -1761,6 +1751,10 @@ function IntegrationsPanel({
                         {settings.gcal_last_sync && <div className="v2-integrations-hint">Last sync: {new Date(settings.gcal_last_sync).toLocaleString()}</div>}
                       </div>
                     )}
+                    <div className="v2-integrations-toggle-row" style={{ marginTop: 8 }}>
+                      <span>Event rules</span>
+                    </div>
+                    <CalendarRulesEditor />
                   </div>
                 )}
                 {int.inline === 'gmail-config' && (
