@@ -2719,6 +2719,90 @@ export function getNotificationAnalytics(days = 30) {
 }
 
 // ============================================================
+// --- Activity log (migration 058) ---
+//
+// Was localStorage-only, and QUOTA_EVICT_KEYS[0] — the first key thrown away
+// when any other write hit the quota, which in a 1500-task database is
+// constantly. The recovery log was being discarded exactly when storage
+// pressure made "sync ate my change" most likely to be asked, and it was
+// per-device besides. See migrations/058_activity_log.sql for the full
+// reasoning; the client keeps a local copy purely as a render buffer.
+
+// Hard ceiling on retained rows. Generous compared with the old 500-entry
+// localStorage cap because the constraint that forced that number (a small
+// origin quota on a phone) does not apply here.
+const MAX_ACTIVITY_ROWS = 5000
+
+// Newest first. `limit` is capped so a client can't ask for the whole table.
+export function listActivity({ limit = 500 } = {}) {
+  const n = Math.min(Math.max(Number(limit) || 500, 1), MAX_ACTIVITY_ROWS)
+  const results = []
+  const stmt = db.prepare(
+    `SELECT id, action, task_id, task_title, task_snapshot, timestamp
+     FROM activity_log ORDER BY timestamp DESC LIMIT ?`,
+  )
+  stmt.bind([n])
+  while (stmt.step()) {
+    const row = stmt.getAsObject()
+    let snapshot
+    try { snapshot = row.task_snapshot ? JSON.parse(row.task_snapshot) : null }
+    catch { snapshot = null }
+    results.push({
+      id: row.id,
+      action: row.action,
+      task_id: row.task_id || null,
+      task_title: row.task_title || null,
+      task_snapshot: snapshot,
+      timestamp: row.timestamp,
+    })
+  }
+  stmt.free()
+  return results
+}
+
+// Append a batch. INSERT OR IGNORE on the client-generated uuid makes a
+// replayed batch idempotent — the client ships entries best-effort and retries,
+// and a retry must not double the log.
+export function appendActivity(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return 0
+  let written = 0
+  for (const e of entries) {
+    if (!e?.id || !e.action) continue
+    let snapshot
+    try { snapshot = e.task_snapshot ? JSON.stringify(e.task_snapshot) : null }
+    catch { snapshot = null }
+    db.run(
+      `INSERT OR IGNORE INTO activity_log
+       (id, action, task_id, task_title, task_snapshot, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        String(e.id),
+        String(e.action),
+        e.task_id ? String(e.task_id) : null,
+        e.task_title ? String(e.task_title) : null,
+        snapshot,
+        e.timestamp || new Date().toISOString(),
+      ],
+    )
+    written++
+  }
+  // Prune oldest beyond the ceiling. Cheap: only runs when the table is over.
+  db.run(
+    `DELETE FROM activity_log WHERE id NOT IN (
+       SELECT id FROM activity_log ORDER BY timestamp DESC LIMIT ?
+     )`,
+    [MAX_ACTIVITY_ROWS],
+  )
+  schedulePersist()
+  return written
+}
+
+export function clearActivity() {
+  db.run('DELETE FROM activity_log')
+  schedulePersist()
+  return true
+}
+
 // AI usage tracking (migration 043) — one row per AI call, logged at the
 // gateway/proxy choke points. Cost estimated at insert time from the
 // aiModels.js pricing table (snapshot; NULL for unpriced models). NEVER
