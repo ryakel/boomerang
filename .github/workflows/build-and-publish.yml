@@ -169,11 +169,28 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
-      # The Tailscale OAuth connect occasionally fails transiently. Retry once
-      # before giving up so a blip doesn't red-fail an otherwise-good build
-      # (the image is already pushed to GHCR by this point).
+      # `tailscale up` RETURNING is not the same as the tailnet being usable.
+      # Two releases in a row (2026-08-27 #979, 2026-08-31 #983) died here with
+      # `curl: (6) Could not resolve host` while the connect step above reported
+      # outcome=success — so the retry below, which only fired when the connect
+      # itself failed, never engaged for the failure that actually happens. The
+      # webhook host is tailnet-only (it does not resolve on public DNS), so
+      # until the tailnet resolver is installed the name is simply NXDOMAIN and
+      # curl's own --retry burns its whole budget on a name that cannot resolve
+      # yet. Probe for real reachability, and let THAT failure trigger the
+      # reconnect too.
+      - name: Check tailnet reachability
+        id: tailnet_check
+        if: github.ref == 'refs/heads/main' && steps.tailscale.outcome == 'success'
+        continue-on-error: true
+        env:
+          WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        run: bash .github/scripts/await-tailnet-dns.sh
+
+      # Retry the connect when EITHER the connect failed or the tailnet came up
+      # unusable. A fresh `tailscale up` is what cleared it by hand on #983.
       - name: Connect to Tailscale (retry)
-        if: github.ref == 'refs/heads/main' && steps.tailscale.outcome != 'success'
+        if: github.ref == 'refs/heads/main' && (steps.tailscale.outcome != 'success' || steps.tailnet_check.outcome != 'success')
         continue-on-error: true
         id: tailscale_retry
         uses: tailscale/github-action@v2
@@ -182,11 +199,19 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
+      - name: Check tailnet reachability (retry)
+        id: tailnet_check_retry
+        if: github.ref == 'refs/heads/main' && steps.tailscale_retry.outcome == 'success'
+        continue-on-error: true
+        env:
+          WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        run: bash .github/scripts/await-tailnet-dns.sh
+
       - name: Trigger Portainer redeploy
         if: github.ref == 'refs/heads/main'
         run: |
-          if [ "${{ steps.tailscale.outcome }}" != "success" ] && [ "${{ steps.tailscale_retry.outcome }}" != "success" ]; then
-            echo "::error::Tailscale failed on both attempts (transient retry exhausted). Portainer auto-deploy skipped — the image IS in GHCR (:latest), the container just didn't auto-update. Re-run this job, or pull the image manually in Portainer."
+          if [ "${{ steps.tailnet_check.outcome }}" != "success" ] && [ "${{ steps.tailnet_check_retry.outcome }}" != "success" ]; then
+            echo "::error::The tailnet never became usable on either attempt — the Portainer host did not resolve within the probe window. Portainer auto-deploy skipped; the image IS in GHCR (:latest and the version tag), the container just did not auto-update. Re-run this job, or pull the image manually in Portainer."
             exit 1
           fi
           echo "Triggering Portainer webhook..."
@@ -200,7 +225,7 @@ jobs:
           fi
 
       - name: Verify deploy
-        if: github.ref == 'refs/heads/main' && (steps.tailscale.outcome == 'success' || steps.tailscale_retry.outcome == 'success')
+        if: github.ref == 'refs/heads/main' && (steps.tailnet_check.outcome == 'success' || steps.tailnet_check_retry.outcome == 'success')
         env:
           HEALTH_URL: ${{ secrets.HEALTH_CHECK_URL }}
           EXPECTED: ${{ steps.tag_version.outputs.new_tag }}
