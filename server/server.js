@@ -13,6 +13,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   markNotifEntriesRead, markAllNotifsRead,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
   findActiveSpawnTwin, dedupeSpawnedTasks, findImportTwin, dedupeImportedTasks,
+  listActivity, appendActivity, clearActivity,
   logAiUsage, getAiUsageSummary,
   getAllNotes, getNote, upsertNote, updateNotePartial, deleteNote,
   PROJECT_CONSTANTS,
@@ -857,6 +858,38 @@ app.post('/api/tasks', (req, res) => {
   const newVersion = bumpVersion()
   broadcast(newVersion, req.body._clientId || null)
   res.json({ task: getTask(task.id), version: newVersion })
+})
+
+// --- Activity log (migration 058) ---
+//
+// The log used to live only in localStorage, where it was the FIRST key
+// evicted under quota pressure — so the record you open when sync appears to
+// have eaten a change was the first thing thrown away, and it never crossed
+// devices. These endpoints make it durable; the client still keeps a local
+// copy to render from instantly.
+//
+// Deliberately NOT muzzled or dev-gated: this writes to its own database and
+// sends nothing.
+app.get('/api/activity', (req, res) => {
+  res.json(listActivity({ limit: req.query.limit }))
+})
+
+// Batch append. The client ships entries best-effort and retries on failure,
+// so this is idempotent on the client-generated entry id.
+app.post('/api/activity', (req, res) => {
+  const entries = Array.isArray(req.body?.entries) ? req.body.entries : null
+  if (!entries) return res.status(400).json({ error: 'entries must be an array' })
+  if (entries.length > 500) return res.status(413).json({ error: 'too many entries in one batch' })
+  const written = appendActivity(entries)
+  // No version bump and no broadcast: the activity log is not task state, and
+  // waking every client for it would recreate the storm class this release is
+  // fixing.
+  res.json({ ok: true, written })
+})
+
+app.delete('/api/activity', (req, res) => {
+  clearActivity()
+  res.json({ ok: true })
 })
 
 // Manual duplicate-spawn sweep (?dryRun=1 to preview). Same logic as the

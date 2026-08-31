@@ -1090,8 +1090,86 @@ function cadenceIntervalMs(cadence, customDays, customUnit = 'days') {
   }
 }
 
-// Activity log — tracks task lifecycle events for recovery
-const MAX_ACTIVITY_LOG = 500
+// Activity log — tracks task lifecycle events for recovery.
+//
+// The DURABLE copy lives on the server (migration 058). What is kept here is a
+// render buffer so the modal opens instantly and so entries survive a moment
+// offline; it stays in QUOTA_EVICT_KEYS on purpose, because a convenience
+// cache is exactly what it now is. Before the server side existed this local
+// copy WAS the log, and being first in the eviction ladder meant the record you
+// open when sync appears to have eaten a change was the first thing discarded —
+// in a 1500-task database, constantly, and silently (2026-08-31 prod report:
+// "activity logs are completely empty").
+//
+// The local cap stays small for the same quota reason; the server keeps far
+// more (MAX_ACTIVITY_ROWS in server/db.js).
+const MAX_ACTIVITY_LOG = 200
+
+// Entries waiting to be shipped to the server. logActivity MUST stay
+// synchronous — it is called from inside setTasks updaters in useTasks.js —
+// so the network write is deferred to a microtask-batched flush instead.
+let _activityQueue = []
+let _activityFlushTimer = null
+let _activityFlushFailures = 0
+
+function flushActivityQueue() {
+  _activityFlushTimer = null
+  if (_activityQueue.length === 0) return
+  const batch = _activityQueue.splice(0, 500)
+  fetch('/api/activity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entries: batch }),
+  })
+    .then(res => {
+      if (!res.ok) throw new Error(String(res.status))
+      _activityFlushFailures = 0
+    })
+    .catch(() => {
+      // Put them back and retry on the next append. Entries carry a
+      // client-generated uuid and the server inserts OR IGNORE, so a
+      // double-send is a no-op rather than a duplicate row. Bounded so a long
+      // offline stretch can't grow this without limit.
+      _activityFlushFailures++
+      if (_activityFlushFailures <= 10) {
+        _activityQueue = [...batch, ..._activityQueue].slice(0, 1000)
+      }
+    })
+}
+
+function queueActivity(entry) {
+  _activityQueue.push(entry)
+  if (_activityFlushTimer) return
+  // Coalesce the bursts — completing a stack writes several entries in one tick.
+  _activityFlushTimer = setTimeout(flushActivityQueue, 1000)
+}
+
+// Server copy, newest first. Falls back to the local buffer when the server is
+// unreachable — an empty render must mean "nothing happened", never "the fetch
+// failed", which is the same distinction the Share Extension's picker and the
+// Notion exclusion sets are built around.
+export async function fetchActivityLog() {
+  try {
+    const res = await fetch('/api/activity')
+    if (!res.ok) throw new Error(String(res.status))
+    const remote = await res.json()
+    if (!Array.isArray(remote)) throw new Error('bad payload')
+    return remote
+  } catch {
+    return loadActivityLog()
+  }
+}
+
+export async function clearActivityLogEverywhere() {
+  saveActivityLog([])
+  _activityQueue = []
+  try {
+    await fetch('/api/activity', { method: 'DELETE' })
+    return true
+  } catch {
+    return false
+  }
+}
 
 export function loadActivityLog() {
   try {
@@ -1134,6 +1212,7 @@ export function logActivity(action, task) {
   // Keep log bounded
   if (log.length > MAX_ACTIVITY_LOG) log.length = MAX_ACTIVITY_LOG
   saveActivityLog(log)
+  queueActivity(log[0])
 }
 
 export function logSystemError(message, detail) {
@@ -1148,6 +1227,7 @@ export function logSystemError(message, detail) {
   })
   if (log.length > MAX_ACTIVITY_LOG) log.length = MAX_ACTIVITY_LOG
   saveActivityLog(log)
+  queueActivity(log[0])
 }
 
 const NOTIF_LOG_KEY = 'boom_notif_log_v1'
