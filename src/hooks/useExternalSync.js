@@ -89,6 +89,12 @@ function userFacingSnapshot(task) {
 
 export function useExternalSync(tasks, onUpdateTask) {
   const prevTasks = useRef(null)
+  // Live view of task state, for re-reading a row at FIRE time. Every push
+  // below is scheduled behind a debounce or a stagger and then runs with the
+  // snapshot it captured seconds earlier — see the create guard in
+  // syncTaskToGCal for why that matters once a second client is awake.
+  const tasksRef = useRef(tasks)
+  tasksRef.current = tasks
   const debounceTimers = useRef({}) // per-task timers
   const hydratedIds = useRef(new Set()) // track tasks we've already hydrated
   const onUpdateTaskRef = useRef(onUpdateTask)
@@ -427,6 +433,28 @@ export function useExternalSync(tasks, onUpdateTask) {
         }
       }
     } else if (task.due_date && syncStatuses.includes(task.status)) {
+      // Creating an event is the one irreversible thing this function does, and
+      // every caller reaches it holding a snapshot up to several seconds old (a
+      // 5s debounce, or the initial push's stagger). With a desktop and a phone
+      // both awake that window is long enough for the OTHER client to have
+      // created the event already and pushed the link back: this client's stale
+      // copy still reads `gcal_event_id: null`, so it creates a second event
+      // and overwrites the link — orphaning the first one on the calendar with
+      // nothing pointing at it (2026-08-31). Re-read the row before committing.
+      const live = (tasksRef.current || []).find(t => t.id === task.id)
+      if (!live) {
+        log(`skipping GCal create for "${task.title}" — task no longer exists`)
+        return
+      }
+      if (live.gcal_event_id) {
+        log(`skipping GCal create for "${task.title}" — already linked to ${live.gcal_event_id}`)
+        return
+      }
+      if (!live.due_date || !syncStatuses.includes(live.status)) {
+        log(`skipping GCal create for "${task.title}" — no longer eligible (status=${live.status}, due=${live.due_date || 'none'})`)
+        return
+      }
+
       // Create new calendar event
       let event
       if (settings.gcal_use_timed_events) {

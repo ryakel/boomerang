@@ -12,7 +12,9 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   listNotifLog, clearNotifLog as clearServerNotifLog,
   markNotifEntriesRead, markAllNotifsRead,
   getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
-  findActiveSpawnTwin, dedupeSpawnedTasks, logAiUsage, getAiUsageSummary,
+  findActiveSpawnTwin, dedupeSpawnedTasks, findImportTwin, dedupeImportedTasks,
+  listActivity, appendActivity, clearActivity,
+  logAiUsage, getAiUsageSummary,
   getAllNotes, getNote, upsertNote, updateNotePartial, deleteNote,
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
@@ -824,19 +826,32 @@ app.post('/api/tasks', (req, res) => {
   if (!task.id) return res.status(400).json({ error: 'Task must have an id' })
   const invalid = applyTaskModelValidation(task)
   if (invalid) return res.status(422).json({ error: invalid })
-  // Duplicate-spawn guard: only on genuine CREATEs (an existing id is a
-  // client re-push of a known record). The guard lives on this route — not
-  // inside upsertTask — because Quokka's LIFO compensation restores captured
+  // Duplicate guards: only on genuine CREATEs (an existing id is a client
+  // re-push of a known record). Both live on this route — not inside
+  // upsertTask — because Quokka's LIFO compensation restores captured
   // pre-state through upsertTask, and a rollback must never be silently
-  // dropped. See findActiveSpawnTwin in db.js for the key + rationale.
-  if (task.routine_id && !getTask(task.id)) {
-    const twinId = findActiveSpawnTwin(task)
-    if (twinId) {
-      console.log(`[spawn-dedupe] dropped duplicate routine spawn "${task.title}" (${String(task.id).slice(0, 8)}) — active twin ${twinId.slice(0, 8)} same routine + due date`)
-      // No insert → no version bump, no broadcast. Return the surviving twin
-      // so the client has a valid record + version; its phantom local copy
-      // is replaced on its next hydrate (the deduped flag triggers one).
-      return res.json({ task: getTask(twinId), version: getVersion(), deduped: true })
+  // dropped. See findActiveSpawnTwin / findImportTwin in db.js for the keys
+  // + rationale. Anything else that derives tasks from a source both clients
+  // can see needs its own twin check HERE, for the same reason.
+  if (!getTask(task.id)) {
+    if (task.routine_id) {
+      const twinId = findActiveSpawnTwin(task)
+      if (twinId) {
+        console.log(`[spawn-dedupe] dropped duplicate routine spawn "${task.title}" (${String(task.id).slice(0, 8)}) — active twin ${twinId.slice(0, 8)} same routine + due date`)
+        // No insert → no version bump, no broadcast. Return the surviving twin
+        // so the client has a valid record + version; its phantom local copy
+        // is replaced on its next hydrate (the deduped flag triggers one).
+        return res.json({ task: getTask(twinId), version: getVersion(), deduped: true })
+      }
+    }
+    // Same guard, same response contract, for an item pulled in from Google
+    // Calendar / Notion / Trello. Every one of those pulls runs per-client on
+    // mount and on visibilitychange and mints its own uuid, so a desktop and a
+    // phone awake together each import the same remote item once.
+    const importTwinId = findImportTwin(task)
+    if (importTwinId) {
+      console.log(`[import-dedupe] dropped duplicate import "${task.title}" (${String(task.id).slice(0, 8)}) — existing twin ${importTwinId.slice(0, 8)} carries the same remote id`)
+      return res.json({ task: getTask(importTwinId), version: getVersion(), deduped: true })
     }
   }
   upsertTask(task)
@@ -845,11 +860,55 @@ app.post('/api/tasks', (req, res) => {
   res.json({ task: getTask(task.id), version: newVersion })
 })
 
+// --- Activity log (migration 058) ---
+//
+// The log used to live only in localStorage, where it was the FIRST key
+// evicted under quota pressure — so the record you open when sync appears to
+// have eaten a change was the first thing thrown away, and it never crossed
+// devices. These endpoints make it durable; the client still keeps a local
+// copy to render from instantly.
+//
+// Deliberately NOT muzzled or dev-gated: this writes to its own database and
+// sends nothing.
+app.get('/api/activity', (req, res) => {
+  res.json(listActivity({ limit: req.query.limit }))
+})
+
+// Batch append. The client ships entries best-effort and retries on failure,
+// so this is idempotent on the client-generated entry id.
+app.post('/api/activity', (req, res) => {
+  const entries = Array.isArray(req.body?.entries) ? req.body.entries : null
+  if (!entries) return res.status(400).json({ error: 'entries must be an array' })
+  if (entries.length > 500) return res.status(413).json({ error: 'too many entries in one batch' })
+  const written = appendActivity(entries)
+  // No version bump and no broadcast: the activity log is not task state, and
+  // waking every client for it would recreate the storm class this release is
+  // fixing.
+  res.json({ ok: true, written })
+})
+
+app.delete('/api/activity', (req, res) => {
+  clearActivity()
+  res.json({ ok: true })
+})
+
 // Manual duplicate-spawn sweep (?dryRun=1 to preview). Same logic as the
 // boot sweep; broadcasts so connected clients refetch.
 app.post('/api/tasks/dedupe-spawns', (req, res) => {
   const dryRun = req.query.dryRun === '1' || req.body?.dryRun === true
   const result = dedupeSpawnedTasks({ dryRun })
+  if (!dryRun && result.removed > 0) {
+    const newVersion = bumpVersion()
+    broadcast(newVersion, null)
+  }
+  res.json(result)
+})
+
+// Manual imported-duplicate sweep (?dryRun=1 to preview). Sibling of
+// dedupe-spawns, for Calendar/Notion/Trello copies rather than loop spawns.
+app.post('/api/tasks/dedupe-imports', (req, res) => {
+  const dryRun = req.query.dryRun === '1' || req.body?.dryRun === true
+  const result = dedupeImportedTasks({ dryRun })
   if (!dryRun && result.removed > 0) {
     const newVersion = bumpVersion()
     broadcast(newVersion, null)
@@ -5802,6 +5861,14 @@ initDb(dbPath).then(async () => {
       if (dedupe.removed > 0) bumpVersion()
     } catch (e) {
       console.error('[spawn-dedupe] boot sweep failed:', e?.message)
+    }
+
+    // Same sweep for Calendar/Notion/Trello copies left by the pre-guard era.
+    try {
+      const dedupe = dedupeImportedTasks({})
+      if (dedupe.removed > 0) bumpVersion()
+    } catch (e) {
+      console.error('[import-dedupe] boot sweep failed:', e?.message)
     }
 
     // Nightly rollover + digest pipeline (module scope, above the routes).

@@ -3,7 +3,7 @@ import {
   History, Search, Sparkles, X, Plus, Check, RotateCcw, Trash2,
   ArrowRightLeft, Pencil, Clock3, FastForward, Flag, AlertTriangle,
 } from 'lucide-react'
-import { loadActivityLog, saveActivityLog, uuid, localYMD } from '../store'
+import { loadActivityLog, fetchActivityLog, clearActivityLogEverywhere, uuid, localYMD } from '../store'
 import { aiSearchActivity } from '../api'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
@@ -79,13 +79,21 @@ export default function ActivityLog({ open, onRestore, onClose }) {
   const searchRef = useRef(null)
   const debounceRef = useRef(null)
 
+  // Render the local buffer immediately, then replace it with server truth.
+  // The durable log lives on the server (migration 058) precisely because the
+  // local copy is evictable — reading only localStorage is what made this
+  // modal render empty.
   useEffect(() => {
-    if (open) {
-      setLog(loadActivityLog())
-      setSearchQuery('')
-      setAiMatchedIds(null)
-      setIsAI(false)
-    }
+    if (!open) return
+    setLog(loadActivityLog())
+    setSearchQuery('')
+    setAiMatchedIds(null)
+    setIsAI(false)
+    let cancelled = false
+    fetchActivityLog().then(entries => {
+      if (!cancelled) setLog(entries)
+    })
+    return () => { cancelled = true }
   }, [open])
 
   const baseFiltered = filter === 'deleted'
@@ -154,7 +162,9 @@ export default function ActivityLog({ open, onRestore, onClose }) {
 
   const handleClearLog = () => {
     if (window.confirm('Clear all activity history?')) {
-      saveActivityLog([])
+      // Clears both copies — clearing only the local one would look like it
+      // worked and then repopulate from the server on the next open.
+      clearActivityLogEverywhere()
       setLog([])
     }
   }
