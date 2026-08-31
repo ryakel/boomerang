@@ -8,6 +8,7 @@ import { logProjectSession as apiLogProjectSession,
   resolveEscalation as apiResolveEscalation,
 } from '../api'
 import { computeProjectSessionPoints, PROJECT_SESSION_CAP } from '../scoring'
+import { sameJson } from '../utils/sameJson'
 
 // Activity-log noise filter. updateTask is called from many paths
 // (user form saves, AI auto-sizing, sync writebacks, GCal id assignment,
@@ -221,12 +222,24 @@ export function useTasks() {
     })
   }, [])
 
+  // A hydrate that carries nothing new must not write state. Every SSE echo
+  // from another device runs this, and a fresh array reference re-runs every
+  // effect keyed on `tasks` — including the reminder rescheduler and, via
+  // hydrateRoutines' twin, the routine spawn pass. With a desktop open and a
+  // phone in hand that churn is constant, and each re-run is another chance
+  // for two clients to race the same create (2026-08-31).
   const hydrateTasks = useCallback((data) => {
     if (Array.isArray(data)) {
       const done = data.filter(t => t.status === 'done').length
       const open = data.filter(t => t.status === 'open').length
-      remoteLog('hydrateTasks:', data.length, `tasks (${open} open, ${done} done)`)
-      setTasks(data)
+      setTasks(prev => {
+        if (sameJson(prev, data)) {
+          remoteLog('hydrateTasks:', data.length, 'tasks — identical to local state, no write')
+          return prev
+        }
+        remoteLog('hydrateTasks:', data.length, `tasks (${open} open, ${done} done)`)
+        return data
+      })
     }
   }, [])
 

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, pushOutOneCycle, createTask, localYMD } from '../store'
 import { suggestRoutineDueDate } from '../api'
+import { sameJson } from '../utils/sameJson'
 
 // Compute an ISO snooze instant for a due-day ('YYYY-MM-DD') + trigger time
 // ('HH:MM', browser-local). Returns null when no trigger time is set or the
@@ -414,11 +415,17 @@ export function useRoutines() {
     // re-stamp bug that inflated lifetime counts). Identical timestamps are
     // never legitimate — even habit double-logs differ by milliseconds — so
     // collapsing them is safe and corrects an inflated count on next load.
-    setRoutines(data.map(r => {
+    const healed = data.map(r => {
       const h = Array.isArray(r.completed_history) ? r.completed_history : []
       const deduped = Array.from(new Set(h))
       return deduped.length === h.length ? r : { ...r, completed_history: deduped }
-    }))
+    })
+    // Keep the SAME array when the server sent us what we already have. A new
+    // reference re-runs the spawn pass in AppV2 (its effect is keyed on
+    // `routines`), and that effect runs `spawnDueTasks` — so every SSE echo
+    // from another device used to re-enter the one code path in the app that
+    // manufactures tasks. Nothing about a no-op hydrate should cost that.
+    setRoutines(prev => (sameJson(prev, healed) ? prev : healed))
   }, [])
 
   return {

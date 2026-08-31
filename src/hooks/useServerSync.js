@@ -80,6 +80,18 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const prevTasks = useRef(null)
   const prevRoutines = useRef(null)
 
+  // Single-flight hydration. SSE-update, visibility-change, pull-refresh and
+  // the spawn-dedupe rehydrate all call fetchAndHydrate, and with two clients
+  // awake they overlap constantly. Un-serialized, an OLDER response can land
+  // last and overwrite both local state and the prevTasks push baseline with
+  // stale server data — which the next diff then pushes back as real changes,
+  // bumping the version, broadcasting, and making the other client hydrate.
+  // That is the "double syncing" loop. inFlight holds the running hydrate;
+  // queuedHydrate collapses everything asked for while it runs into exactly
+  // one follow-up, so the last write always reflects the newest read.
+  const inFlight = useRef(null)
+  const queuedHydrate = useRef(null)
+
   // Late-bound ref to fetchAndHydrate so pushChanges (defined earlier) can
   // trigger a rehydrate when the server dedupes a routine spawn — the local
   // phantom copy has to be replaced by server truth. Direct use would be a
@@ -323,7 +335,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   }, [clientId])
 
   // Fetch server data and hydrate local state
-  const fetchAndHydrate = useCallback((reason) => {
+  const runHydrate = useCallback((reason) => {
     // CRITICAL: flush any pending local mutations BEFORE pulling server state.
     // A debounced completion/edit lives only in local state until it pushes; if
     // a refetch (another device's SSE update, or this app simply regaining
@@ -389,6 +401,31 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       })
     })
   }, [onHydrate, pushBulkState, pushChanges])
+
+  // Public entry point — serializes runHydrate (see inFlight above). A hydrate
+  // requested while one is running does NOT start a second fetch; it reserves
+  // the single follow-up slot, so N overlapping triggers cost at most two
+  // round-trips and can never apply out of order.
+  const fetchAndHydrate = useCallback((reason) => {
+    function start(r) {
+      const run = runHydrate(r).finally(() => {
+        inFlight.current = null
+        const next = queuedHydrate.current
+        if (next) {
+          queuedHydrate.current = null
+          start(next)
+        }
+      })
+      inFlight.current = run
+      return run
+    }
+    if (inFlight.current) {
+      remoteLog(`${reason}: hydrate already in flight — coalescing`)
+      queuedHydrate.current = reason
+      return inFlight.current
+    }
+    return start(reason)
+  }, [runHydrate])
 
   // Keep the late-bound ref current (see declaration above).
   useEffect(() => { hydrateRef.current = fetchAndHydrate }, [fetchAndHydrate])
