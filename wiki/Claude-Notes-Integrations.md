@@ -2,6 +2,26 @@
 
 > Moved out of `CLAUDE.md` (2026-07-25) in the context-engineering restructure: `CLAUDE.md` now holds only invariants and gotchas, and deep implementation notes live here, loaded on demand. Content below is preserved from the former CLAUDE.md "Development Notes" and stays maintained — update it the same way CLAUDE.md used to be updated.
 
+### Cross-client import duplication (2026-08-31) — read this before touching ANY pull
+
+Every inbound pull below shares one architecture and therefore one failure mode. `useGCalSync`, `useNotionSync` (both the database-row pull and the page-proposal pull) and `useTrelloSync` all run **client-side**, on mount and on every `visibilitychange`; each mints a fresh uuid per item it decides is new; and each decides that against **its own hydrated task list** alone. Two clients awake — the reported shape was "app open on a desktop, checking in on my phone" — pull the same remote item inside the same window, neither has pushed yet, both conclude it's new, and `POST /api/tasks` inserted both. Routine spawns had had a server-side twin guard since 2026-07; nothing else did.
+
+**`findImportTwin(task)` in `server/db.js`**, checked on `POST /api/tasks` for genuine CREATEs only, alongside `findActiveSpawnTwin`. Same contract: no insert, no version bump, no broadcast, and `{ task: <twin>, version, deduped: true }` — a response `pushChanges` in `useServerSync.js` already answers with a rehydrate, so the losing client's phantom copy is replaced by server truth. On the route rather than inside `upsertTask`, for the same reason as the spawn guard: Quokka's LIFO compensation restores captured pre-state through `upsertTask`.
+
+Differences from the spawn guard, both deliberate:
+
+- **A terminal twin BLOCKS.** The pulls' own rule is "block reimport for an item linked to ANY task, including done" (`useGCalSync`), and re-creating a task for an event you already finished is the "why do these keep coming back" bug — not a legitimate second task, the way a manual "Spawn now" after today's completion is.
+- **`notion_page_id` is not an identity on its own.** A routine stamps its `notion_page_id` onto *every task it spawns*, and one hand-written page legitimately proposes several tasks in a single pull. Keying on the page id alone would let a loop spawn once and never again. Its key is **(page id + title)**, and it applies only to tasks carrying no `routine_id` — on both sides of the comparison. `gcal_event_id` and `trello_card_id` are genuinely 1:1 (`gcal_event_id` literally means "this task OWNS that event").
+
+**`dedupeImportedTasks({dryRun})`** clears copies that predate the guard — every server boot, and `POST /api/tasks/dedupe-imports` (`?dryRun=1` previews). Survivor rules match the spawn sweep: user-touched status over `not_started`, then oldest `created_at`. It groups **only active tasks** — a live copy next to a done one is not a duplicate to sweep, because deleting the done copy destroys the completion and deleting the live one drops work. It deletes through `deleteTask` (completion-day provenance stamped, Pushover receipts cancelled) and does **not** tombstone the remote id, so a legitimate future import of the same item still works.
+
+Two related defects fixed in the same pass:
+
+- **Duplicate calendar events.** `syncTaskToGCal`'s create branch is reached from a 5s debounce or the initial-push stagger, holding a snapshot that old — long enough for the other client to have created the event and pushed the link back. This client's stale copy still read `gcal_event_id: null`, so it created a second event and overwrote the link, orphaning the first on the calendar with nothing pointing at it. The branch now re-reads the live row (`tasksRef`) and bails if the task is gone, already linked, or no longer eligible. **Any remote side-effect scheduled behind a debounce or stagger needs the same re-read.**
+- **A recurring GCal series never looked linked.** The imported task is stamped with the SERIES id (`recurringEventId`), but Google hands the pull one row per INSTANCE and the "already linked" filter tested only `e.id`. Every pull re-considered the whole series, with just the fuzzy title match preventing a second copy — and that misses the moment the task is renamed or completed. Both ids are tested now.
+
+Pinned by `scripts/importDedupe.test.mjs` (13 tests, real db). **Any new inbound path that turns a remote item into a task needs its own twin check here** — the client-side "is it already here?" test is structurally incapable of seeing another client's un-pushed work.
+
 ### Notion Sync (Pull + Ongoing)
 Pulls actionable tasks from Notion pages into Boomerang, and keeps linked tasks in sync.
 

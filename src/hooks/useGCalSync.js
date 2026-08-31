@@ -39,13 +39,20 @@ export function useGCalSync(tasks, setTasks) {
     const currentTasks = tasksRef.current
     // Block reimport for events linked to ANY task (including done)
     const linkedEventIds = new Set(currentTasks.filter(t => t.gcal_event_id).map(t => t.gcal_event_id))
+    // An imported recurring event is stamped with its SERIES id
+    // (`recurringEventId`), but Google hands this pull one row per INSTANCE,
+    // each with its own `e.id`. Checking only `e.id` meant a series never
+    // looked linked: every pull re-considered all of it and the only thing
+    // standing between the user and a second copy was the fuzzy title match
+    // below — which misses the moment the task is renamed or completed. Test
+    // both ids (2026-08-31).
 
     // Filter events
     const titleFilter = (s.gcal_pull_filter || '').trim().toLowerCase()
     remoteLog(`[GCalSync] title filter: "${titleFilter || '(none)'}"`)
     let filteredByLinked = 0, filteredByBoomerang = 0, filteredByTitle = 0
     const candidateEvents = events.filter(e => {
-      if (linkedEventIds.has(e.id)) { filteredByLinked++; return false }
+      if (linkedEventIds.has(e.id) || (e.recurringEventId && linkedEventIds.has(e.recurringEventId))) { filteredByLinked++; return false }
       if (e.description && e.description.includes('Managed by Boomerang')) { filteredByBoomerang++; return false }
       if (titleFilter && !(e.summary || '').toLowerCase().includes(titleFilter)) { filteredByTitle++; return false }
       return true

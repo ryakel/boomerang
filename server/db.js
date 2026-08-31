@@ -766,6 +766,108 @@ export function dedupeSpawnedTasks({ dryRun = false } = {}) {
   return { removed: removed.length, details: removed, dryRun }
 }
 
+// --- Imported-item duplicate guard (2026-08-31) ---
+//
+// The routine-spawn guard above has a sibling problem it never covered.
+// EVERY inbound pull — Google Calendar (`useGCalSync`), Notion database rows
+// and Notion page proposals (`useNotionSync`), Trello cards
+// (`useTrelloSync`) — runs CLIENT-SIDE, on mount and on every
+// `visibilitychange`, and mints a fresh uuid for each item it decides is new.
+// Its "is this already here?" check reads only that client's own hydrated
+// task list. So a desktop left open and a phone picked up pull the same
+// remote item inside the same window, neither has pushed yet, both decide
+// it's new, and `POST /api/tasks` inserted both — the same shape as the
+// 2026-07-17 loop duplicates, one integration over.
+//
+// The remote id is the identity, so the guard keys on it. Unlike the spawn
+// guard, a TERMINAL twin still blocks: the pulls' own rule is "block reimport
+// for an item linked to ANY task, including done" (useGCalSync), and
+// re-creating a task for an event you already finished is precisely the
+// "why do these keep coming back" bug.
+//
+// `notion_page_id` is deliberately NOT treated as 1:1 and neither is a task
+// that carries one alongside a `routine_id`:
+//   - a routine stamps its own `notion_page_id` onto every task it spawns,
+//     so a page id is shared by an unbounded number of legitimate tasks;
+//   - one hand-written page legitimately proposes SEVERAL tasks in one pull.
+// Its key is therefore (page id + title) and applies only to non-routine
+// tasks. `gcal_event_id` and `trello_card_id` are genuinely 1:1 — the former
+// means "this task OWNS that event" (push sync deletes the event when the
+// task completes), the latter is the card link the Trello pull maintains.
+function importIdentity(task) {
+  if (!task) return null
+  const gcal = task.gcal_event_id
+  if (gcal) return { column: 'gcal_event_id', value: String(gcal), byTitle: false }
+  const trello = task.trello_card_id
+  if (trello) return { column: 'trello_card_id', value: String(trello), byTitle: false }
+  const notion = task.notion_page_id
+  // A routine-spawned task inherits the routine's page id — never an identity.
+  if (notion && !task.routine_id && task.title) {
+    return { column: 'notion_page_id', value: String(notion), byTitle: true }
+  }
+  return null
+}
+
+// Returns the id of an existing task that IS the same imported item, or null.
+// Same contract as findActiveSpawnTwin: called only on a genuine CREATE from
+// the POST /api/tasks route, never from upsertTask.
+export function findImportTwin(task) {
+  const key = importIdentity(task)
+  if (!key) return null
+  const clauses = [`${key.column} = ?`, 'id != ?']
+  const binds = [key.value, task.id || '']
+  if (key.byTitle) {
+    clauses.push('title = ?')
+    binds.push(task.title)
+    // Only compare against other non-routine tasks, for the same reason the
+    // incoming one has to be non-routine: a loop's spawns share its page id.
+    clauses.push(`(routine_id IS NULL OR routine_id = '')`)
+  }
+  const stmt = db.prepare(`SELECT id FROM tasks WHERE ${clauses.join(' AND ')} LIMIT 1`)
+  stmt.bind(binds)
+  const twinId = stmt.step() ? stmt.getAsObject().id : null
+  stmt.free()
+  return twinId
+}
+
+// Cleanup for imported duplicates that predate the guard — the sibling of
+// dedupeSpawnedTasks, with the same survivor rules. Only ACTIVE tasks are
+// grouped: a done copy is history and deleting it would destroy the
+// completion, so a live copy next to a finished one is left alone (the guard
+// stops the live one from being re-created anyway). Runs at server boot and
+// via POST /api/tasks/dedupe-imports.
+export function dedupeImportedTasks({ dryRun = false } = {}) {
+  const active = getAllTasks().filter(t =>
+    !['done', 'completed', 'cancelled'].includes(t.status))
+  const groups = new Map()
+  for (const t of active) {
+    const key = importIdentity(t)
+    if (!key) continue
+    const groupKey = `${key.column}|${key.value}${key.byTitle ? `|${t.title}` : ''}`
+    if (!groups.has(groupKey)) groups.set(groupKey, [])
+    groups.get(groupKey).push(t)
+  }
+  const removed = []
+  for (const [key, tasks] of groups) {
+    if (tasks.length < 2) continue
+    const score = (t) => (t.status !== 'not_started' ? 2 : 0) + ((t.checklists?.length || t.notes) ? 1 : 0)
+    const sorted = [...tasks].sort((a, b) =>
+      score(b) - score(a) || new Date(a.created_at) - new Date(b.created_at))
+    for (const extra of sorted.slice(1)) {
+      removed.push({ id: extra.id, title: extra.title, key })
+      // deleteTask, not a raw DELETE: it stamps completion-day provenance and
+      // cancels any outstanding Pushover receipt. It does NOT tombstone the
+      // remote id, so a legitimate future import of the same item still works.
+      if (!dryRun) deleteTask(extra.id)
+    }
+  }
+  if (removed.length > 0) {
+    console.log(`[import-dedupe] ${dryRun ? 'would remove' : 'removed'} ${removed.length} duplicate import(s):`,
+      removed.map(r => `"${r.title}" (${r.key})`).join(', '))
+  }
+  return { removed: removed.length, details: removed, dryRun }
+}
+
 export function getTask(id) {
   const stmt = db.prepare('SELECT * FROM tasks WHERE id = ?')
   stmt.bind([id])
