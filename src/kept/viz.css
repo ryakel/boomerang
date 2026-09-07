@@ -32,3 +32,9 @@
 }
 .bm-dayarc-goal { font-size: 14px; color: var(--bm-text-meta); }
 .bm-dayarc-cap { font-size: 10.5px; color: var(--bm-text-meta); margin-top: 2px; }
+
+/* Editable Month Dots (loop detail): finger-sized hit targets over the art,
+ * so logging a day the app never recorded is a tap on the day itself. */
+.bm-month.is-editable svg { touch-action: manipulation; }
+.bm-month-hit { cursor: pointer; }
+.bm-month-hit:focus-visible { outline: 2px solid var(--bm-gold); outline-offset: -2px; }
