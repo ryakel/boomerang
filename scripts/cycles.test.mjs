@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cycleWindows, loopGaps, cycleRally, isWindowPaused, bridgedAwayKeys } from '../src/kept/cycles.js'
+import { cycleWindows, loopGaps, cycleRally, isWindowPaused, bridgedAwayKeys, stampLoopDay, unstampLoopDay } from '../src/kept/cycles.js'
+import { localYMD as localDay } from '../src/dates.js'
 
 // Regression for: Quokka creates a weekly routine today with
 // schedule_day_of_week set to a weekday that already passed this calendar
@@ -228,4 +229,111 @@ test('a caught cycle is never bridged, and no away days means no bridging', () =
   const wins = cycleWindows(routine, 60)
   assert.equal(bridgedAwayKeys(wins, new Set(spanAgo(8, 3))).size, 0, 'days that were worked stay solid')
   assert.equal(bridgedAwayKeys(wins, null).size, 0)
+})
+
+// --- Retroactive day logging (stampLoopDay / unstampLoopDay) ------------
+//
+// "We did the bedtime routine on Friday, it's Monday and I can't get back to
+// fix it." The gap list could not offer that day — the loop is a stack, and
+// stacks never report a missed cycle and only report an unrecorded one when
+// every member task of the cycle is done. These are the rules for the manual
+// route that replaces it.
+
+const ymdAgo = (n) => ymd(daysAgo(n))
+
+test('stamping a past day credits it, and stamping again is a no-op on the same object', () => {
+  const day = ymdAgo(3)
+  const routine = { id: 'r', cadence: 'daily', created_at: daysAgo(30).toISOString(), completed_history: [] }
+  const once = stampLoopDay(routine, day)
+  assert.equal(once.completed_history.length, 1)
+  assert.equal(localDay(once.completed_history[0]), day)
+  // Same reference on a repeat: callers map over React state with this, and a
+  // fresh object for a no-op re-renders every consumer of the loop.
+  assert.equal(stampLoopDay(once, day), once)
+  assert.equal(stampLoopDay(once, day).completed_history.length, 1)
+})
+
+test('a stack cycle the gap list cannot see is still fixable by hand', () => {
+  // Half the members ticked: loopGaps reports nothing (not all done ⇒ not
+  // "unrecorded", and stacks never report "missed"), so the manual stamp is
+  // the ONLY way to record the cycle.
+  const day = ymdAgo(3)
+  const routine = {
+    id: 'bedtime', cadence: 'daily', created_at: daysAgo(30).toISOString(),
+    members: [{ id: 'm1', title: 'teeth' }, { id: 'm2', title: 'story' }],
+    completed_history: [],
+  }
+  const tasks = [
+    { id: 't1', routine_id: 'bedtime', due_date: day, status: 'done', completed_at: `${day}T20:00:00.000Z` },
+    { id: 't2', routine_id: 'bedtime', due_date: day, status: 'todo' },
+  ]
+  const gaps = loopGaps(routine, tasks)
+  assert.deepEqual(gaps.unrecorded, [])
+  assert.deepEqual(gaps.missed, [])
+
+  const fixed = stampLoopDay(routine, day)
+  const win = cycleWindows(fixed, 30).find(w => w.key === day)
+  assert.equal(win.caught, true, 'the cycle now reads as caught')
+})
+
+test('marking a day done clears an earlier skip of that day', () => {
+  // A day cannot be both skipped and credited. Left behind, the skip would keep
+  // the day out of the gap list for the wrong reason — so un-logging a mistaken
+  // stamp would not bring the day back to be answered for.
+  const day = ymdAgo(4)
+  const routine = {
+    id: 'r', cadence: 'daily', created_at: daysAgo(30).toISOString(),
+    completed_history: [], skipped_days: [day, ymdAgo(5)],
+  }
+  const fixed = stampLoopDay(routine, day)
+  assert.deepEqual(fixed.skipped_days, [ymdAgo(5)])
+  // Idempotent on the skip too: a routine already credited but still carrying
+  // the stale skip gets it cleaned up rather than left half-fixed.
+  const stale = { ...routine, completed_history: [`${day}T12:00:00.000Z`] }
+  assert.deepEqual(stampLoopDay(stale, day).skipped_days, [ymdAgo(5)])
+})
+
+test('a real completion time is kept only when it lands on the same local day', () => {
+  const day = ymdAgo(2)
+  const routine = { id: 'r', cadence: 'daily', created_at: daysAgo(30).toISOString(), completed_history: [] }
+  const sameDay = `${day}T18:30:00.000Z`
+  assert.equal(stampLoopDay(routine, day, sameDay).completed_history[0], sameDay)
+  // A stamp that buckets to a DIFFERENT local day would never satisfy the
+  // idempotency check, so the gap would re-stamp on every click forever.
+  const drifted = `${ymdAgo(1)}T18:30:00.000Z`
+  assert.equal(stampLoopDay(routine, day, drifted).completed_history[0], `${day}T12:00:00.000Z`)
+})
+
+test('stamping self-heals exact-duplicate history entries', () => {
+  const dup = `${ymdAgo(6)}T12:00:00.000Z`
+  const routine = {
+    id: 'r', cadence: 'daily', created_at: daysAgo(30).toISOString(),
+    completed_history: [dup, dup, dup],
+  }
+  assert.deepEqual(stampLoopDay(routine, ymdAgo(6)).completed_history, [dup])
+  assert.equal(stampLoopDay(routine, ymdAgo(1)).completed_history.length, 2)
+})
+
+test('un-stamping removes the most recent entry for that day only', () => {
+  const day = ymdAgo(2)
+  const other = ymdAgo(1)
+  const routine = {
+    id: 'r', cadence: 'daily', created_at: daysAgo(30).toISOString(),
+    completed_history: [`${day}T08:00:00.000Z`, `${day}T20:00:00.000Z`, `${other}T09:00:00.000Z`],
+  }
+  const once = unstampLoopDay(routine, day)
+  assert.deepEqual(once.completed_history, [`${day}T08:00:00.000Z`, `${other}T09:00:00.000Z`])
+  const twice = unstampLoopDay(once, day)
+  assert.deepEqual(twice.completed_history, [`${other}T09:00:00.000Z`])
+  // Nothing to remove: same object back, and the day is NOT re-skipped —
+  // "that didn't happen" is a question the loop should be free to ask again.
+  assert.equal(unstampLoopDay(twice, day), twice)
+  assert.equal(twice.skipped_days, undefined)
+})
+
+test('stamp/unstamp round-trips leave the history exactly as it was', () => {
+  const day = ymdAgo(3)
+  const history = [`${ymdAgo(9)}T12:00:00.000Z`, `${ymdAgo(1)}T12:00:00.000Z`]
+  const routine = { id: 'r', cadence: 'daily', created_at: daysAgo(30).toISOString(), completed_history: history }
+  assert.deepEqual(unstampLoopDay(stampLoopDay(routine, day), day).completed_history, history)
 })
