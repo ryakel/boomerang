@@ -19,7 +19,7 @@ export default function KeptShell({
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
   onCycleImpact,
-  onThrow, onThrowNote, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay,
+  onThrow, onThrowNote, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenActivity, onOpenSuggestions, onOpenNotifications,
   onOpenNotes,
@@ -34,7 +34,7 @@ export default function KeptShell({
 
   let surface
   if (tab === 'loops') {
-    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onSkipLoopDay={onSkipLoopDay} onOpenSuggestions={onOpenSuggestions} />
+    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onUnmarkLoopDay={onUnmarkLoopDay} onSkipLoopDay={onSkipLoopDay} onPushLoopOut={onPushLoopOut} onOpenSuggestions={onOpenSuggestions} />
   } else if (tab === 'tasks') {
     surface = (
       <TasksViewKept

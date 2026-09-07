@@ -852,3 +852,13 @@
 /* DIY-or-hire Reality check chip — a 'hire' verdict marks the task so the
  * eye stops arguing with the plan. */
 .bm-tag-hire { font-size: 11px; font-weight: 650; color: var(--bm-gold); }
+
+/* "Log a past day" — the manual route into completed_history, under the loop
+ * detail's month calendar. Deliberately NOT in "Needs attention": nothing here
+ * is a failure, it's a correction. */
+.bm-loop-log { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bm-hairline); }
+.bm-loop-log .bm-loop-fix-hint { margin: 0 0 8px; }
+.bm-loop-log-row { display: flex; align-items: center; gap: 8px; }
+.bm-loop-log-date { flex: 1 1 auto; min-width: 0; }
+.bm-loop-log-row .bm-loop-fix-btn { flex: 0 0 auto; }
+.bm-loop-fix-btn:disabled { opacity: 0.5; cursor: default; }

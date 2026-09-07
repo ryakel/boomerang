@@ -19,7 +19,7 @@ const RANGES = [
 
 // Kept "Loops" — one card per loop carrying its Flight Trail / Month Dots /
 // Density Ribbon (spec §6). Edit routes to the existing routine editor.
-export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay, onPushLoopOut, onOpenSuggestions }) {
+export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onOpenSuggestions }) {
   const [range, setRange] = useState('trail')
   // Tapping a card opens the loop DETAIL (K4) — stats + month calendar —
   // not the editor. Edit is a deliberate button on the detail page.
@@ -95,6 +95,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
           onSpawnNow={onSpawnNow}
           onSkipCycle={onSkipCycle}
           onMarkLoopDay={onMarkLoopDay}
+          onUnmarkLoopDay={onUnmarkLoopDay}
           onSkipLoopDay={onSkipLoopDay}
           onPushLoopOut={onPushLoopOut}
         />

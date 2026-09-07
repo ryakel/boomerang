@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, pushOutOneCycle, createTask, localYMD } from '../store'
 import { suggestRoutineDueDate } from '../api'
+import { stampLoopDay, unstampLoopDay } from '../kept/cycles'
 import { sameJson } from '../utils/sameJson'
 
 // Compute an ISO snooze instant for a due-day ('YYYY-MM-DD') + trigger time
@@ -206,18 +207,7 @@ export function useRoutines() {
   // one at a time.
   const uncompleteRoutine = useCallback((id, ymd) => {
     if (!ymd) return
-    setRoutines(prev => prev.map(r => {
-      if (r.id !== id) return r
-      const hist = Array.isArray(r.completed_history) ? r.completed_history : []
-      let idx = -1
-      for (let i = hist.length - 1; i >= 0; i--) {
-        if (localYMD(new Date(hist[i])) === ymd) { idx = i; break }
-      }
-      if (idx === -1) return r
-      const next = [...hist]
-      next.splice(idx, 1)
-      return { ...r, completed_history: next }
-    }))
+    setRoutines(prev => prev.map(r => (r.id === id ? unstampLoopDay(r, ymd) : r)))
   }, [])
 
   // Spawn a one-off task from a routine right now, bypassing the schedule.
@@ -360,31 +350,24 @@ export function useRoutines() {
   // Loop-reconcile review actions (per-day Mark done / Skip). Both key off a
   // local 'YYYY-MM-DD' day so they're stable regardless of clock time.
 
-  // Credit a specific local DAY (`ymd`) as a completion. No-op if that day is
-  // already recorded. Used by "Mark done" on the loop's needs-attention list.
-  //
-  // The stamp MUST bucket to `ymd` in local time, or the idempotency check
-  // below — and loopGaps' gap-resolution, which keys on the cycle day — won't
-  // see it: you'd re-stamp on every click, inflating the lifetime count while
-  // the gap never clears. (Bug: stacks pass the cycle's due_date as `ymd` but
-  // a member's `completed_at` as `iso`; a late-night completion buckets to the
-  // next local day, so the real-time stamp landed on the wrong day forever.)
-  // Use the real completion time only when it lands on the same local day;
-  // otherwise noon-of-ymd. Also self-heal any exact-duplicate stamps a prior
-  // re-stamp piled up (identical timestamps are never legitimate).
+  // Credit a specific local DAY (`ymd`) as a completion, idempotently. Used by
+  // "Mark done" on the loop's needs-attention list, by the loop-detail
+  // calendar (tap a day) and by its date field — the three ways a day the app
+  // never recorded gets put right. The stamping rules (local-day bucketing,
+  // duplicate self-heal, clearing a prior skip) live in stampLoopDay so
+  // scripts/cycles.test.mjs can pin them.
   const markRoutineDayDone = useCallback((routineId, ymd, iso) => {
     if (!ymd) return
-    setRoutines(prev => prev.map(r => {
-      if (r.id !== routineId) return r
-      const raw = Array.isArray(r.completed_history) ? r.completed_history : []
-      const hist = Array.from(new Set(raw)) // drop exact-duplicate timestamps
-      const already = hist.some(ts => localYMD(new Date(ts)) === ymd)
-      if (already) {
-        return hist.length === raw.length ? r : { ...r, completed_history: hist.sort() }
-      }
-      const stamp = (iso && localYMD(new Date(iso)) === ymd) ? iso : `${ymd}T12:00:00.000Z`
-      return { ...r, completed_history: [...hist, stamp].sort() }
-    }))
+    setRoutines(prev => prev.map(r => (r.id === routineId ? stampLoopDay(r, ymd, iso) : r)))
+  }, [])
+
+  // Undo twin: take one completion back off a day. A manual log is a typed
+  // date and a tapped calendar cell, so the wrong day is one slip away — and
+  // without this the only way back would be the "Last done" field, which
+  // REPLACES the newest entry rather than removing the one you meant.
+  const unmarkRoutineDayDone = useCallback((routineId, ymd) => {
+    if (!ymd) return
+    setRoutines(prev => prev.map(r => (r.id === routineId ? unstampLoopDay(r, ymd) : r)))
   }, [])
 
   // "Push it out" — move a loop's next due date on by one cycle and record
@@ -444,6 +427,7 @@ export function useRoutines() {
     skipCycle,
     pushLoopOut,
     markRoutineDayDone,
+    unmarkRoutineDayDone,
     skipRoutineDay,
     hydrateRoutines,
   }

@@ -1,19 +1,24 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2, Plus, FastForward, Check, AlertCircle, Plane } from 'lucide-react'
+import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2, Plus, FastForward, Check, AlertCircle, Plane, Undo2 } from 'lucide-react'
 import MonthDots from './MonthDots'
 import CycleChips from './CycleChips'
 import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
 import { formatCadence, formatScheduleAnchor } from '../store'
+import { localYMD } from '../dates'
 import './shell.css'
 
 // Loop detail (K4): tapping a loop card lands HERE — rally / best / total
 // stat cards, the cycle-chip trail, and a steppable month calendar — instead
 // of dumping straight into the editor. Edit is a deliberate button.
-export default function LoopDetail({ routine, color, spawnBlocked = false, tasks = [], awayDays = null, onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onSkipLoopDay, onPushLoopOut }) {
+export default function LoopDetail({ routine, color, spawnBlocked = false, tasks = [], awayDays = null, onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut }) {
   const [monthRef, setMonthRef] = useState(() => new Date())
   const [spawned, setSpawned] = useState(false)
   const [skipped, setSkipped] = useState(false)
+  // The day the "log a past day" field points at. Seeded to today; the field
+  // and the calendar below it edit the same thing from opposite ends (type a
+  // date, or step back and tap it).
+  const [logDay, setLogDay] = useState(() => localYMD(new Date()))
 
   // Days needing attention (plan follow-up): unrecorded completions + missed
   // cycles, each fixable per-day (Mark done / Skip). Recomputed live so a row
@@ -40,6 +45,21 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
 
   const byDay = historyByDay(routine.completed_history)
   const total = routine.completed_history?.length || 0
+
+  // Retroactive logging. The needs-attention list can only offer days the app
+  // can INFER, and whole loop shapes fall outside that — a stack never reports
+  // a missed cycle, a habit loop reports no gaps at all, and a plain loop only
+  // looks back a dozen cycles. This is the direct route for "we did it on
+  // Friday and by Monday there was nowhere to say so": any day from the loop's
+  // first to today, logged or un-logged, whatever kind of loop it is.
+  const todayYMD = localYMD(new Date())
+  const createdYMD = routine.created_at ? localYMD(new Date(routine.created_at)) : null
+  const logDayLogged = (byDay[logDay] || 0) > 0
+  const toggleLoopDay = (ymd) => {
+    if (!ymd || ymd > todayYMD || (createdYMD && ymd < createdYMD)) return
+    if ((byDay[ymd] || 0) > 0) onUnmarkLoopDay?.(routine.id, ymd)
+    else onMarkLoopDay?.(routine.id, ymd, null)
+  }
   const isHabit = routine.spawn_mode === 'habit' && routine.target_count
 
   // Rally/best are measured in the loop's own CYCLES, not calendar days —
@@ -268,7 +288,42 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
             <ChevronRight size={14} strokeWidth={2.2} />
           </button>
         </div>
-        <MonthDots monthRef={monthRef} valueByDay={byDay} color={color} />
+        <MonthDots
+          monthRef={monthRef}
+          valueByDay={byDay}
+          color={color}
+          onToggleDay={toggleLoopDay}
+          maxDay={todayYMD}
+          minDay={createdYMD}
+        />
+        {/* Log a past day. Step back as many months as you like and tap, or
+            type the date — same action either way. Removing is the same tap
+            again, so a mis-tap costs nothing. */}
+        <div className="bm-loop-log">
+          <p className="bm-loop-fix-hint">
+            Did it but the app never recorded it? Tap any past day above, or pick it here.
+          </p>
+          <div className="bm-loop-log-row">
+            <input
+              type="date"
+              className="v2-form-input bm-loop-log-date"
+              value={logDay}
+              max={todayYMD}
+              {...(createdYMD ? { min: createdYMD } : {})}
+              onChange={(e) => setLogDay(e.target.value)}
+              aria-label="Day to log"
+            />
+            <button
+              className={`bm-loop-fix-btn ${logDayLogged ? 'bm-loop-fix-skip' : 'bm-loop-fix-done'}`}
+              disabled={!logDay || logDay > todayYMD || (createdYMD && logDay < createdYMD)}
+              onClick={() => toggleLoopDay(logDay)}
+            >
+              {logDayLogged
+                ? <><Undo2 size={13} strokeWidth={2.4} /> Remove</>
+                : <><Check size={13} strokeWidth={2.6} /> Mark done</>}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

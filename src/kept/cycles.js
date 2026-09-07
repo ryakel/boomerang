@@ -346,3 +346,70 @@ export function cycleRally(windows, target = 1, awayDays = null) {
   if (cur && cur.current && cur.hits >= target) best = Math.max(best, rally)
   return { rally, best }
 }
+
+// --- Retroactive day logging -------------------------------------------
+//
+// completed_history IS the loop's record of work — rally, trail, cadence and
+// the gap list are all derived from it — so every "this got done on <day>"
+// entry point ends here: the gap list's Mark done, the loop-detail calendar,
+// and the date field beside it. Pure so the rules can be pinned in
+// scripts/cycles.test.mjs; the hook only owns the setState.
+//
+// Why a manual path exists at all: loopGaps() can only offer days it can
+// INFER, and three loop shapes fall outside that. A stack never reports a
+// missed cycle and only reports an unrecorded one when every member task of
+// the cycle is done, so a cycle whose tasks were never spawned or were only
+// half ticked is invisible forever. A habit loop has no single closeable
+// cycle and returns no gaps at all. A plain loop only looks back `count`
+// cycles. "We did the bedtime routine on Friday and by Monday there was no
+// way to say so" (2026-09-07) was all three of those holes wearing one coat.
+//
+// The stamp MUST bucket to `ymd` in LOCAL time, or the idempotency check
+// below — and loopGaps' gap-resolution, which keys on the cycle day — won't
+// see it: you'd re-stamp on every click, inflating the lifetime count while
+// the gap never clears. (Bug: stacks pass the cycle's due_date as `ymd` but a
+// member's `completed_at` as `iso`; a late-night completion buckets to the
+// next local day, so the real-time stamp landed on the wrong day forever.)
+// Use the real completion time only when it lands on the same local day;
+// otherwise noon-of-ymd. Also self-heals any exact-duplicate stamps a prior
+// re-stamp piled up (identical timestamps are never legitimate).
+//
+// Returns the SAME routine object when nothing changed — callers map over
+// state with it, and a fresh reference for a no-op re-renders every consumer.
+export function stampLoopDay(routine, ymd, iso = null) {
+  if (!routine || !ymd) return routine
+  const raw = Array.isArray(routine.completed_history) ? routine.completed_history : []
+  const hist = Array.from(new Set(raw)) // drop exact-duplicate timestamps
+  const already = hist.some(ts => localYMD(new Date(ts)) === ymd)
+  // A day can't be both skipped and credited. Doing the thing supersedes the
+  // acknowledgement that you didn't — and left behind, the skip would keep the
+  // day out of the gap list for the wrong reason, so un-logging a mistaken
+  // stamp wouldn't bring the day back to be answered for.
+  const skipped = Array.isArray(routine.skipped_days) ? routine.skipped_days : []
+  const unskipped = skipped.includes(ymd) ? { skipped_days: skipped.filter(d => d !== ymd) } : null
+  if (already) {
+    const healed = hist.length !== raw.length ? { completed_history: hist.sort() } : null
+    if (!healed && !unskipped) return routine
+    return { ...routine, ...healed, ...unskipped }
+  }
+  const stamp = (iso && localYMD(new Date(iso)) === ymd) ? iso : `${ymd}T12:00:00.000Z`
+  return { ...routine, ...unskipped, completed_history: [...hist, stamp].sort() }
+}
+
+// Take one completion back off a local day — the undo twin of stampLoopDay,
+// and the same removal the task-side un-complete performs. Removes the MOST
+// RECENT match only, so a habit's "2 workouts today" drops one at a time. The
+// day is NOT re-added to skipped_days: removing a stamp says "that didn't
+// happen", which is a question the loop should be free to ask again.
+export function unstampLoopDay(routine, ymd) {
+  if (!routine || !ymd) return routine
+  const hist = Array.isArray(routine.completed_history) ? routine.completed_history : []
+  let idx = -1
+  for (let i = hist.length - 1; i >= 0; i--) {
+    if (localYMD(new Date(hist[i])) === ymd) { idx = i; break }
+  }
+  if (idx === -1) return routine
+  const next = hist.slice()
+  next.splice(idx, 1)
+  return { ...routine, completed_history: next }
+}
