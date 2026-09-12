@@ -4,6 +4,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-09-12
+
+- fix(loops): a loop sent to backlog or cancelled stopped spawning forever [M]
+  - User: *"I'm not seeing some loop tasks show up on the today page. Notice weekly cleaning is missing here"* — the Loops section listed Weekly Cleaning as due and unchecked while no task for it existed anywhere on Today.
+  - **`spawnDueTasks` had two guards and only one of them was right.** The auto_roll path used a proper terminal set; the legacy (non-auto-roll, non-stack) path blocked on anything that wasn't literally `done`: `existingTasks.some(t => t.routine_id === routine.id && t.status !== 'done')`.
+  - `backlog`, `cancelled` and `project` are **first-class, user-reachable statuses** — the Backlog tab, the row swipe, the status menu — and **nothing ever clears `routine_id`** when a task moves into one. So a routine task swiped to Backlog became at once *invisible* on Today (which renders only `not_started`/`doing`/`waiting`/`in_progress`) and a *permanent* block on its loop: `!== 'done'` stays true forever. The card kept rendering "due, not done" — `dueToday` consults only the cadence engine — while no task could ever be created for it again. One swipe silently killed a weekly loop. Every other consumer already treated these three as terminal (`store.js`, `AppV2`, `TodayView`, `kept/cycles.js`); this guard was the last one that didn't, and its own comment flagged it as deferred scope from an earlier PR.
+  - **Releasing the guard alone would have been worse.** `computeNextDueDate` returns the slot after the LAST COMPLETION and never advances with the calendar, so an uncompleted cycle stays pinned at the same stale due date — backlog the task and an identical one respawns on the very next pass. The schedule has to move too, and the lever already exists: `resume_at` (migration 054), the same floor Skip and Push-it-out set. A deferral now sets that floor and **nothing else** — never a `completed_history` stamp, which would credit the cycle, extend the rally and fill in the trail for work that didn't happen. `skipped_days` is deliberately left alone so the cycle stays honestly uncaught and the gap list can still offer Mark done / Skip.
+  - **One interval off the due slot is not a future date for a loop that has fallen behind**, and `applyResumeFloor` ignores a past floor by design — so the defer would have been a silent no-op and the task would have bounced straight back. `deferOneCycle` steps off whichever is LATER, the due slot or today. The explicit Skip/Push buttons keep `pushOutOneCycle` (a person can press them again; an automatic defer would just churn).
+  - New pure module **`src/loopSpawnStatus.js`** (`TERMINAL_STATUSES`, `DEFERRED_STATUSES`, `blocksSpawn`, `acceptsDeferral`, `deferFloorBase`) so the rules are testable — `store.js` isn't importable under `node --test`. `deferLoopCycle` no-ops for **stacks** (guarded per `(routine_id, due_date)` already, so one backlogged member must not push the whole cycle out from under its siblings) and for **habit** loops (no cadence to move).
+  - Already-stuck loops self-heal on the next spawn pass: one overdue task appears, and completing it re-syncs the cadence clock.
+  - 14 new tests in `scripts/loopSpawnStatus.test.mjs`. `npm test` 521/521 + smoke; eslint 0 errors / 18 warnings, byte-identical to `dev`; `npm audit` 9 pre-existing transitive advisories (4 moderate, 5 high — sharp/libheif and dev tooling), unchanged by this commit, no dependencies added. **Web-only — OTA, no rebuild, no migration.**
+
 ## 2026-09-07
 
 - feat(loops): log a loop day retroactively, however far back [M]

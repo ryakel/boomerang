@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from 'react'
-import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, pushOutOneCycle, createTask, localYMD } from '../store'
+import { loadRoutines, saveRoutines, createRoutine, isRoutineDue, getNextDueDate, pushOutOneCycle, deferOneCycle, createTask, localYMD } from '../store'
 import { suggestRoutineDueDate } from '../api'
 import { stampLoopDay, unstampLoopDay } from '../kept/cycles'
 import { sameJson } from '../utils/sameJson'
+import { TERMINAL_STATUSES, acceptsDeferral } from '../loopSpawnStatus'
 
 // Compute an ISO snooze instant for a due-day ('YYYY-MM-DD') + trigger time
 // ('HH:MM', browser-local). Returns null when no trigger time is set or the
@@ -166,6 +167,30 @@ export function useRoutines() {
     ))
   }, [])
 
+  // The same floor, moved by a TASK-side deferral: the user sent this cycle's
+  // spawned task to backlog/cancelled/project. That is "not this time", which
+  // is exactly what `resume_at` exists to say — never a completed_history
+  // stamp, which would credit the cycle, extend the rally and fill in the
+  // trail for work that wasn't done.
+  //
+  // Without this, releasing the spawn guard for those statuses (see
+  // TERMINAL_STATUSES) would respawn the same cycle on the next pass, because
+  // the cadence grid only advances past a slot a COMPLETION satisfied. With
+  // it, the loop comes back next cycle instead of immediately.
+  //
+  // Deliberately NOT stamping `skipped_days`: the cycle stays honestly
+  // uncaught, so the loop's gap list can still offer Mark done / Skip for it.
+  const deferLoopCycle = useCallback((routineId) => {
+    if (!routineId) return
+    setRoutines(prev => prev.map(r => {
+      if (r.id !== routineId) return r
+      if (!acceptsDeferral(r)) return r
+      const floor = deferOneCycle(r)
+      // Same reference when nothing moved — a fresh one re-runs the spawn pass.
+      return floor && floor !== r.resume_at ? { ...r, resume_at: floor } : r
+    }))
+  }, [])
+
   // Habit-mode "+ Log it": spawn a task and immediately mark it done. The
   // returned task lands on the list with status='done' and counts toward the
   // current period total. Use case: "I just did a workout, log it." The
@@ -252,12 +277,6 @@ export function useRoutines() {
   const spawnDueTasks = useCallback((existingTasks) => {
     const spawned = []
     const rolled = []
-    // Statuses we treat as terminal for auto_roll's purposes — these instances
-    // should NOT block a new spawn nor get rolled forward. backlog/project are
-    // user-driven defers, cancelled is explicit abandonment. (The legacy
-    // non-auto-roll path uses a looser `!== 'done'` check — preserved below
-    // to avoid scope-creeping a behavior change into PR 1.)
-    const TERMINAL_FOR_ROLL = new Set(['done', 'completed', 'cancelled', 'backlog', 'project'])
     const today = localYMD()
 
     routines.forEach(routine => {
@@ -270,7 +289,7 @@ export function useRoutines() {
         // If none, fall through to a normal spawn. (Stacks don't auto-roll —
         // they spawn a fresh set each cycle, see the stack guard below.)
         const activeInstance = existingTasks.find(
-          t => t.routine_id === routine.id && !TERMINAL_FOR_ROLL.has(t.status),
+          t => t.routine_id === routine.id && !TERMINAL_STATUSES.has(t.status),
         )
         if (activeInstance) {
           // Re-anchor the snooze to TODAY's trigger time: today@trigger if it's
@@ -303,13 +322,13 @@ export function useRoutines() {
           return
         }
       } else if (!isStack) {
-        // Legacy path: skip spawn if any non-done instance exists, preserving
-        // the original behavior for every routine that hasn't opted into
-        // auto-roll. (A separate cleanup PR could revisit whether
-        // backlog/project instances should block routine spawning, but that's
-        // a behavior change outside PR 1's scope.)
+        // Legacy path: skip spawn while a LIVE instance exists. Terminal ones
+        // (done, and the three deferral statuses) release the loop — see
+        // TERMINAL_STATUSES for the bug this closes. A deferral also moved the
+        // schedule on via deferLoopCycle, so the release can't respawn the same
+        // cycle immediately.
         const hasActive = existingTasks.some(
-          t => t.routine_id === routine.id && t.status !== 'done',
+          t => t.routine_id === routine.id && !TERMINAL_STATUSES.has(t.status),
         )
         if (hasActive) return
       }
@@ -423,6 +442,7 @@ export function useRoutines() {
     updateRoutineNotion,
     spawnDueTasks,
     spawnNow,
+    deferLoopCycle,
     logHabit,
     skipCycle,
     pushLoopOut,

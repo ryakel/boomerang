@@ -1,4 +1,5 @@
 import { applyResumeFloor } from './resumeFloor.js'
+import { deferFloorBase } from './loopSpawnStatus.js'
 import { localYMD, parseLocalDate } from './dates'
 import { walkStreak, dayKey } from '../server/streakWalk.js'
 // crypto.randomUUID is unavailable over plain HTTP (non-secure context)
@@ -560,6 +561,17 @@ export function pushOutOneCycle(routine) {
   const next = getNextDueDate(routine)
   if (!next) return null
   return localYMD(addCadenceInterval(next, routine, 1))
+}
+
+/**
+ * The `resume_at` floor for a TASK-SIDE deferral — the loop's spawned task was
+ * sent to backlog / cancelled / project, which closes the cycle without doing
+ * it. Always lands in the FUTURE; see deferFloorBase for why one interval off
+ * the raw due slot is not enough for a loop that has fallen behind.
+ */
+export function deferOneCycle(routine, now = new Date()) {
+  const base = deferFloorBase(getNextDueDate(routine), startOfDay(now))
+  return localYMD(addCadenceInterval(base, routine, 1))
 }
 
 function computeNextDueDate(routine) {
