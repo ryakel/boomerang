@@ -16,6 +16,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
   - Already-stuck loops self-heal on the next spawn pass: one overdue task appears, and completing it re-syncs the cadence clock.
   - 14 new tests in `scripts/loopSpawnStatus.test.mjs`. `npm test` 521/521 + smoke; eslint 0 errors / 18 warnings, byte-identical to `dev`; `npm audit` 9 pre-existing transitive advisories (4 moderate, 5 high — sharp/libheif and dev tooling), unchanged by this commit, no dependencies added. **Web-only — OTA, no rebuild, no migration.**
 
+- fix(packages): delivered packages never auto-cleared [S]
+  - User: *"Also packages aren't auto clearing. I have shit in here from 25 days ago"* — against a 3-day default retention (`settings.package_retention_days ?? 3`).
+  - **The retention sweep was the last block of `pollActivePackages()`, behind four early returns.** The third is `getAllPackages('active')` — `WHERE status NOT IN ('delivered','expired')` — returning empty. So the exact state the sweep exists to clean, *every package delivered and nothing left in transit*, was the state that guaranteed it never ran. A deadlock by construction.
+  - The fourth return made it worse even with an active package: `pollDue()` gates on `poll_interval_minutes` (default 120) against a 5-minute tick, so cleanup fired on at most ~1 tick in 24, and only while something was mid-flight. A missing tracking credential or an exhausted 17track quota disabled it outright.
+  - Sweep hoisted into its own `cleanupDeliveredPackages()`, run by a new `packageTick()` **before** polling and independent of every one of those guards. Deleting expired *local* rows needs no API key, no quota and no poll window. It bumps the version and broadcasts on its own when it removes anything, so connected clients drop the cards.
+  - **The generalizable rule: housekeeping must never sit behind a fetch's early returns.** A sweep that only runs when there is something to fetch is a sweep that stops exactly when the backlog it clears is largest.
+  - Rows already delivered carry `auto_cleanup_at`, so they clear on the first tick after deploy — no backfill. Not unit-tested: the predicate was never wrong, the call site was, and a test of the predicate would have caught nothing. **Server-only — restart required, no migration.**
+
 ## 2026-09-07
 
 - feat(loops): log a loop day retroactively, however far back [M]

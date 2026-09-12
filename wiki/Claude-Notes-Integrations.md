@@ -671,6 +671,22 @@ ready when **every** package blocking it has been delivered.
   tracking numbers and Amazon TBA ids that never resolve all need an escape
   hatch that doesn't require understanding the link to escape.
 
+**The sweep must not ride the poller (2026-09-12).** `auto_cleanup_at` only
+matters if something actually reads it, and for a long time nothing did: the
+retention sweep was the final block of `pollActivePackages()`, behind four early
+returns. The third is `getAllPackages('active')` — `WHERE status NOT IN
+('delivered','expired')` — coming back empty, which is *precisely* the state the
+sweep exists to clean (everything delivered, nothing in transit). The fourth
+gated it on `pollDue()`, so even mid-flight it fired on roughly 1 tick in 24; a
+missing 17track/Shippo credential or an exhausted quota disabled it outright.
+Reported with 25-day-old delivered rows against a 3-day retention. It now lives
+in `cleanupDeliveredPackages()`, called by `packageTick()` **before** polling and
+gated on nothing — deleting expired LOCAL rows needs no credential, no quota and
+no poll window — and bumps the version + broadcasts on its own when it removes
+anything. **General rule, in CLAUDE.md: housekeeping never sits behind a fetch's
+early returns.** A sweep that only runs when there is something to fetch stops
+exactly when the backlog it clears is largest.
+
 **The durability trap, and it is a real one.** Packages **self-delete** —
 `auto_cleanup_at` removes delivered rows after `package_retention_days`
 (default 3). So a task whose due date was moved by a package will, within days,

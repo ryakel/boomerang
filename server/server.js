@@ -3164,20 +3164,48 @@ async function pollActivePackages() {
     await new Promise(r => setTimeout(r, 300))
   }
 
-  // Auto-cleanup delivered packages past retention
-  const allPkgs = getAllPackages()
-  for (const pkg of allPkgs) {
-    if (pkg.auto_cleanup_at && new Date(pkg.auto_cleanup_at) <= now) {
-      console.log(`[Packages] Auto-cleaning ${pkg.label || pkg.tracking_number}`)
-      deletePackage(pkg.id)
-      anyUpdated = true
-    }
-  }
-
   if (anyUpdated) {
     const newVersion = bumpVersion()
     broadcast(newVersion, 'server-package-poll')
   }
+}
+
+// Retention sweep for delivered packages (`auto_cleanup_at`, stamped on the
+// delivered transition from `settings.package_retention_days`, default 3).
+//
+// This MUST NOT live inside pollActivePackages. It used to, as the last block
+// of that function, behind four early returns — and the third of them is
+// `getAllPackages('active')` (`WHERE status NOT IN ('delivered','expired')`)
+// returning empty. So the exact state the sweep exists to clean — every
+// package delivered, nothing left in transit — was the state that guaranteed
+// it never ran, and delivered cards piled up indefinitely (reported 2026-09-12
+// with 25-day-old rows against a 3-day retention). The fourth return gated it
+// on `pollDue()` too, so even with an active package the sweep only fired on
+// the ~1 tick in 24 where something was actually poll-due.
+//
+// Deleting expired LOCAL rows needs no tracking credential, no 17track quota
+// and no poll window, so it runs unconditionally on the tick. Any future
+// package housekeeping belongs here, not behind the poller's guards.
+function cleanupDeliveredPackages() {
+  const now = new Date()
+  let removed = 0
+  for (const pkg of getAllPackages()) {
+    if (!pkg.auto_cleanup_at) continue
+    if (new Date(pkg.auto_cleanup_at) > now) continue
+    console.log(`[Packages] Auto-cleaning ${pkg.label || pkg.tracking_number}`)
+    deletePackage(pkg.id)
+    removed++
+  }
+  if (removed > 0) broadcast(bumpVersion(), 'server-package-cleanup')
+  return removed
+}
+
+// One package tick: sweep first (never gated), then poll.
+function packageTick() {
+  try { cleanupDeliveredPackages() } catch (err) {
+    console.error('[Packages] Cleanup failed:', err.message)
+  }
+  return pollActivePackages()
 }
 
 // Package CRUD endpoints
@@ -5965,10 +5993,12 @@ initDb(dbPath).then(async () => {
     }
     if (normalized > 0) console.log(`[Packages] Normalized ${normalized} USPS tracking number(s)`)
 
-    // Start package polling loop (every 5 minutes)
-    setInterval(pollActivePackages, 5 * 60 * 1000)
+    // Start package polling loop (every 5 minutes). packageTick runs the
+    // retention sweep before polling so cleanup is never gated on there being
+    // something to poll.
+    setInterval(packageTick, 5 * 60 * 1000)
     // Run once after a short delay to catch up on any pending polls
-    setTimeout(pollActivePackages, 10000)
+    setTimeout(packageTick, 10000)
   })
 }).catch(err => {
   console.error('Failed to initialize database:', err)
